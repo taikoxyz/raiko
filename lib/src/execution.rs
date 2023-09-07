@@ -13,14 +13,16 @@
 // limitations under the License.
 
 use core::fmt::Debug;
-use std::mem::take;
+use std::{mem::take, str::FromStr};
 
 use anyhow::{anyhow, bail, Context, Result};
 #[cfg(not(target_os = "zkvm"))]
 use log::{debug, info};
 use revm::{
     primitives::{
-        Account, Address, BlockEnv, CfgEnv, ResultAndState, SpecId, TransactTo, TxEnv, U256,
+        Account, Address, BlockEnv, CfgEnv, ResultAndState,
+        SpecId::{self, SHANGHAI},
+        TransactTo, TxEnv, TxType, B160, U256,
     },
     Database, DatabaseCommit, EVM,
 };
@@ -59,7 +61,7 @@ impl TxExecStrategy for EthTxExecStrategy {
             .as_mut()
             .expect("Header is not initialized");
         // Compute the spec id
-        let spec_id = block_builder.chain_spec.spec_id(header.number);
+        let spec_id = SHANGHAI;
         if !SpecId::enabled(spec_id, MIN_SPEC_ID) {
             bail!(
                 "Invalid protocol version: expected >= {:?}, got {:?}",
@@ -103,6 +105,8 @@ impl TxExecStrategy for EthTxExecStrategy {
             basefee: header.base_fee_per_gas,
             gas_limit: block_builder.input.gas_limit,
         };
+        evm.env.taiko.l2_address =
+            B160::from_str("0x1000777700000000000000000000000000000001").unwrap();
 
         evm.database(block_builder.db.take().unwrap());
 
@@ -140,7 +144,7 @@ impl TxExecStrategy for EthTxExecStrategy {
 
             // process the transaction
             let tx_from = to_revm_b160(tx_from);
-            fill_tx_env(&mut evm.env.tx, &tx, tx_from);
+            fill_tx_env(tx_no, &mut evm.env.tx, &tx, tx_from);
             let ResultAndState { result, state } = evm
                 .transact()
                 .map_err(|evm_err| anyhow!("Error at transaction {}: {:?}", tx_no, evm_err))?;
@@ -262,9 +266,11 @@ impl TxExecStrategy for EthTxExecStrategy {
     }
 }
 
-fn fill_tx_env(tx_env: &mut TxEnv, tx: &Transaction, caller: Address) {
+fn fill_tx_env(idx: usize, tx_env: &mut TxEnv, tx: &Transaction, caller: Address) {
+    tx_env.index = idx;
     match &tx.essence {
         TxEssence::Legacy(tx) => {
+            tx_env.tx_type = TxType::Legacy;
             tx_env.caller = caller;
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price;
@@ -281,6 +287,7 @@ fn fill_tx_env(tx_env: &mut TxEnv, tx: &Transaction, caller: Address) {
             tx_env.access_list.clear();
         }
         TxEssence::Eip2930(tx) => {
+            tx_env.tx_type = TxType::Eip2930;
             tx_env.caller = caller;
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price;
@@ -297,6 +304,7 @@ fn fill_tx_env(tx_env: &mut TxEnv, tx: &Transaction, caller: Address) {
             tx_env.access_list = tx.access_list.clone().into();
         }
         TxEssence::Eip1559(tx) => {
+            tx_env.tx_type = TxType::Eip1559;
             tx_env.caller = caller;
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.max_fee_per_gas;
