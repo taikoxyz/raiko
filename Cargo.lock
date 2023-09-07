@@ -2737,7 +2737,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "3.3.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#918a31fa11bd2e97a05874866e674f987a66e50f"
+source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#47a3249902e720ec755bdcd4f7fbcdb1f2819f5e"
 dependencies = [
  "auto_impl",
  "revm-interpreter",
@@ -2749,7 +2749,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "1.1.2"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#918a31fa11bd2e97a05874866e674f987a66e50f"
+source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#47a3249902e720ec755bdcd4f7fbcdb1f2819f5e"
 dependencies = [
  "derive_more",
  "enumn",
@@ -2761,7 +2761,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "2.0.3"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#918a31fa11bd2e97a05874866e674f987a66e50f"
+source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#47a3249902e720ec755bdcd4f7fbcdb1f2819f5e"
 dependencies = [
  "k256",
  "num",
@@ -2776,7 +2776,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "1.1.2"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#918a31fa11bd2e97a05874866e674f987a66e50f"
+source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#47a3249902e720ec755bdcd4f7fbcdb1f2819f5e"
 dependencies = [
  "auto_impl",
  "bitvec",
