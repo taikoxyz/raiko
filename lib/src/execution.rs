@@ -20,9 +20,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use log::{debug, info};
 use revm::{
     primitives::{
-        Account, Address, BlockEnv, CfgEnv, ResultAndState,
-        SpecId::{self, SHANGHAI},
-        TransactTo, TxEnv, TxType, B160, U256,
+        Account, Address, BlockEnv, CfgEnv, ResultAndState, SpecId, TransactTo, TxEnv, TxType,
+        B160, U256,
     },
     Database, DatabaseCommit, EVM,
 };
@@ -61,7 +60,7 @@ impl TxExecStrategy for EthTxExecStrategy {
             .as_mut()
             .expect("Header is not initialized");
         // Compute the spec id
-        let spec_id = SHANGHAI;
+        let spec_id = block_builder.chain_spec.spec_id(header.number);
         if !SpecId::enabled(spec_id, MIN_SPEC_ID) {
             bail!(
                 "Invalid protocol version: expected >= {:?}, got {:?}",
