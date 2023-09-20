@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::fmt::Debug;
-use std::{mem::take, str::FromStr};
+use std::{fmt::Debug, mem::take, str::FromStr};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Context};
 #[cfg(not(target_os = "zkvm"))]
-use log::{debug, info};
+use log::debug;
 use revm::{
     primitives::{
         Account, Address, BlockEnv, CfgEnv, ResultAndState, SpecId, TransactTo, TxEnv, TxType,
@@ -28,7 +27,10 @@ use revm::{
 use zeth_primitives::{
     receipt::Receipt,
     revm::{to_revm_b160, to_revm_b256},
-    transaction::{Transaction, TransactionKind, TxEssence},
+    transactions::{
+        ethereum::{EthereumTxEssence, TransactionKind},
+        TxEssence,
+    },
     trie::MptNode,
     Bloom, RlpBytes,
 };
@@ -37,20 +39,16 @@ use crate::{
     block_builder::BlockBuilder,
     consts,
     consts::{GWEI_TO_WEI, MIN_SPEC_ID},
+    execution::TxExecStrategy,
     guest_mem_forget,
 };
 
-pub trait TxExecStrategy {
-    fn execute_transactions<D>(block_builder: BlockBuilder<D>) -> Result<BlockBuilder<D>>
-    where
-        D: Database + DatabaseCommit,
-        <D as Database>::Error: Debug;
-}
-
 pub struct EthTxExecStrategy {}
 
-impl TxExecStrategy for EthTxExecStrategy {
-    fn execute_transactions<D>(mut block_builder: BlockBuilder<D>) -> Result<BlockBuilder<D>>
+impl TxExecStrategy<EthereumTxEssence> for EthTxExecStrategy {
+    fn execute_transactions<D>(
+        mut block_builder: BlockBuilder<D, EthereumTxEssence>,
+    ) -> anyhow::Result<BlockBuilder<D, EthereumTxEssence>>
     where
         D: Database + DatabaseCommit,
         <D as Database>::Error: Debug,
@@ -72,6 +70,7 @@ impl TxExecStrategy for EthTxExecStrategy {
         #[cfg(not(target_os = "zkvm"))]
         {
             use chrono::{TimeZone, Utc};
+            use log::info;
             let dt = Utc
                 .timestamp_opt(block_builder.input.timestamp.try_into().unwrap(), 0)
                 .unwrap();
@@ -130,20 +129,20 @@ impl TxExecStrategy for EthTxExecStrategy {
             {
                 let tx_hash = tx.hash();
                 debug!("Tx no. {} (hash: {})", tx_no, tx_hash);
-                debug!("  Type: {}", tx.tx_type());
+                debug!("  Type: {}", tx.essence.tx_type());
                 debug!("  Fr: {:?}", tx_from);
-                debug!("  To: {:?}", tx.to().unwrap_or_default());
+                debug!("  To: {:?}", tx.essence.to().unwrap_or_default());
             }
 
             // verify transaction gas
             let block_available_gas = block_builder.input.gas_limit - cumulative_gas_used;
-            if block_available_gas < tx.gas_limit() {
+            if block_available_gas < tx.essence.gas_limit() {
                 bail!("Error at transaction {}: gas exceeds block limit", tx_no);
             }
 
             // process the transaction
             let tx_from = to_revm_b160(tx_from);
-            fill_tx_env(tx_no, &mut evm.env.tx, &tx, tx_from);
+            fill_eth_tx_env(&mut evm.env.tx, &tx.essence, tx_from);
             let ResultAndState { result, state } = evm
                 .transact()
                 .map_err(|evm_err| anyhow!("Error at transaction {}: {:?}", tx_no, evm_err))?;
@@ -156,7 +155,7 @@ impl TxExecStrategy for EthTxExecStrategy {
 
             // create the receipt from the EVM result
             let receipt = Receipt::new(
-                tx.tx_type(),
+                tx.essence.tx_type(),
                 result.is_success(),
                 cumulative_gas_used,
                 result.logs().into_iter().map(|log| log.into()).collect(),
@@ -225,22 +224,8 @@ impl TxExecStrategy for EthTxExecStrategy {
                 debug!("  Recipient: {:?}", withdrawal.address);
                 debug!("  Value: {}", amount_wei);
             }
-            // Read account from database
-            let withdrawal_address = to_revm_b160(withdrawal.address);
-            let mut withdrawal_account: Account = db
-                .basic(withdrawal_address)
-                .map_err(|db_err| anyhow!("Error at withdrawal {}: {:?}", i, db_err))?
-                .unwrap_or_default()
-                .into();
             // Credit withdrawal amount
-            withdrawal_account.info.balance = withdrawal_account
-                .info
-                .balance
-                .checked_add(amount_wei)
-                .unwrap();
-            withdrawal_account.is_touched = true;
-            // Commit changes to database
-            db.commit([(withdrawal_address, withdrawal_account)].into());
+            increase_account_balance(&mut db, to_revm_b160(withdrawal.address), amount_wei)?;
             // Add withdrawal to trie
             withdrawals_trie
                 .insert_rlp(&i.to_rlp(), withdrawal)
@@ -265,11 +250,9 @@ impl TxExecStrategy for EthTxExecStrategy {
     }
 }
 
-fn fill_tx_env(idx: usize, tx_env: &mut TxEnv, tx: &Transaction, caller: Address) {
-    tx_env.index = idx;
-    match &tx.essence {
-        TxEssence::Legacy(tx) => {
-            tx_env.tx_type = TxType::Legacy;
+pub fn fill_eth_tx_env(tx_env: &mut TxEnv, essence: &EthereumTxEssence, caller: Address) {
+    match essence {
+        EthereumTxEssence::Legacy(tx) => {
             tx_env.caller = caller;
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price;
@@ -285,8 +268,7 @@ fn fill_tx_env(idx: usize, tx_env: &mut TxEnv, tx: &Transaction, caller: Address
             tx_env.nonce = Some(tx.nonce);
             tx_env.access_list.clear();
         }
-        TxEssence::Eip2930(tx) => {
-            tx_env.tx_type = TxType::Eip2930;
+        EthereumTxEssence::Eip2930(tx) => {
             tx_env.caller = caller;
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price;
@@ -302,8 +284,7 @@ fn fill_tx_env(idx: usize, tx_env: &mut TxEnv, tx: &Transaction, caller: Address
             tx_env.nonce = Some(tx.nonce);
             tx_env.access_list = tx.access_list.clone().into();
         }
-        TxEssence::Eip1559(tx) => {
-            tx_env.tx_type = TxType::Eip1559;
+        EthereumTxEssence::Eip1559(tx) => {
             tx_env.caller = caller;
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.max_fee_per_gas;
@@ -320,4 +301,32 @@ fn fill_tx_env(idx: usize, tx_env: &mut TxEnv, tx: &Transaction, caller: Address
             tx_env.access_list = tx.access_list.clone().into();
         }
     };
+}
+
+pub fn increase_account_balance<D>(
+    db: &mut D,
+    address: B160,
+    amount_wei: U256,
+) -> anyhow::Result<()>
+where
+    D: Database + DatabaseCommit,
+    <D as Database>::Error: Debug,
+{
+    // Read account from database
+    let mut account: Account = db
+        .basic(address)
+        .map_err(|db_err| {
+            anyhow!(
+                "Error increasing account balance for {}: {:?}",
+                address,
+                db_err
+            )
+        })?
+        .unwrap_or_default()
+        .into();
+    // Credit withdrawal amount
+    account.info.balance = account.info.balance.checked_add(amount_wei).unwrap();
+    account.is_touched = true;
+    // Commit changes to database
+    Ok(db.commit([(address, account)].into()))
 }

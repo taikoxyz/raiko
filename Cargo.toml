@@ -27,6 +27,6 @@ revm-precompile = { git = "https://github.com/johntaiko/revm", branch = "feat/ta
 
 
 [workspace.dependencies]
-bonsai-sdk = "0.3"
-risc0-build = "0.17"
-risc0-zkvm = { version = "0.17", default-features = false }
+bonsai-sdk = "0.4"
+risc0-build = "0.18"
+risc0-zkvm = { version = "0.18", default-features = false }

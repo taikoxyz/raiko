@@ -60,6 +60,18 @@ pub static ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     },
 });
 
+/// The optimism mainnet specification.
+pub static OP_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
+    chain_id: 10,
+    hard_forks: BTreeMap::from([(SpecId::MERGE, ForkCondition::Block(0))]),
+    eip_1559_constants: Eip1559Constants {
+        base_fee_change_denominator: uint!(50_U256),
+        base_fee_max_increase_denominator: uint!(10_U256),
+        base_fee_max_decrease_denominator: uint!(50_U256),
+        elasticity_multiplier: uint!(6_U256),
+    },
+});
+
 /// The condition at which a fork is activated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ForkCondition {
@@ -142,16 +154,20 @@ impl ChainSpec {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum Network {
+    /// The Ethereum Mainnet
     #[default]
     Ethereum,
+    /// The Optimism Mainnet
+    Optimism,
 }
 
 impl FromStr for Network {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.to_lowercase().as_str() {
             "ethereum" => Ok(Network::Ethereum),
+            "optimism" => Ok(Network::Optimism),
             _ => bail!("Unknown network"),
         }
     }
@@ -161,6 +177,7 @@ impl ToString for Network {
     fn to_string(&self) -> String {
         match self {
             Network::Ethereum => String::from("ethereum"),
+            Network::Optimism => String::from("optimism"),
         }
     }
 }
