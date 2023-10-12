@@ -19,8 +19,7 @@ use anyhow::{anyhow, bail, Context};
 use log::debug;
 use revm::{
     primitives::{
-        Account, Address, BlockEnv, CfgEnv, ResultAndState, SpecId, TransactTo, TxEnv, TxType,
-        B160, U256,
+        Account, Address, BlockEnv, CfgEnv, ResultAndState, SpecId, TransactTo, TxEnv, B160, U256,
     },
     Database, DatabaseCommit, EVM,
 };
