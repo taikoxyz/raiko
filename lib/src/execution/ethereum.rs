@@ -18,9 +18,7 @@ use anyhow::{anyhow, bail, Context};
 #[cfg(not(target_os = "zkvm"))]
 use log::debug;
 use revm::{
-    primitives::{
-        Account, Address, BlockEnv, CfgEnv, ResultAndState, SpecId, TransactTo, TxEnv, B160, U256,
-    },
+    primitives::{Account, Address, ResultAndState, SpecId, TransactTo, TxEnv, U256},
     Database, DatabaseCommit, EVM,
 };
 use zeth_primitives::{
@@ -88,7 +86,7 @@ impl TxExecStrategy<EthereumTxEssence> for EthTxExecStrategy {
         let mut evm = EVM::new();
 
         evm.env.taiko.l2_address =
-            B160::from_str("0x1000777700000000000000000000000000000001").unwrap();
+            Address::from_str("0x1000777700000000000000000000000000000001").unwrap();
         // set the EVM configuration
         evm.env.cfg.chain_id = block_builder.chain_spec.chain_id();
         evm.env.cfg.spec_id = spec_id;

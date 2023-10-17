@@ -18,13 +18,8 @@ opt-level = 3
 
 [patch.crates-io]
 # use optimized risc0 circuit
-crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.2-risc0" }
-k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.1-risc0" }
-sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2/v0.10.6-risc0" }
 revm = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
 revm-primitives = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
-revm-interpreter = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
-revm-precompile = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
 
 
 [workspace.dependencies]
@@ -32,9 +27,10 @@ bonsai-sdk = "0.4"
 hashbrown = { version = "0.14", features = ["inline-more"] }
 risc0-build = "0.18"
 risc0-zkvm = { version = "0.18", default-features = false }
-revm = { version = "3.5", default-features = false, features = [
+revm = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko", default-features = false, features = [
   "std",
   "serde",
+  "taiko",
   "optional_no_base_fee",
   "optional_balance_check",
 ] }
