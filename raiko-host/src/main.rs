@@ -55,7 +55,8 @@ struct Args {
     local_exec: Option<usize>,
 
     #[clap(short, long, require_equals = true)]
-    protocol_instance: Option<String>,
+    /// protocol instance json format
+    protocol_instance: String,
 }
 
 fn cache_file_path(cache_path: &String, network: &str, block_no: u64, ext: &str) -> String {
@@ -83,7 +84,8 @@ where
         .map(|dir| cache_file_path(dir, "taiko", args.block_no, "json.gz"));
 
     // TODO
-    let pi = ProtocolInstance::default();
+    let pi = serde_json::from_str(args.protocol_instance.as_str())
+        .expect("Could not parse protocol instance");
 
     let init_spec = chain_spec.clone();
     let init = tokio::task::spawn_blocking(move || {
