@@ -211,11 +211,42 @@ pub enum VerifyError {
         first_delta: Option<String>,
         indices: usize,
     },
+    Anchor(AnchorError),
+    BlockFieldMismatch,
+}
+
+#[derive(Debug)]
+pub enum AnchorError {
     AnchorTypeMisMatch {
         tx_type: u8,
     },
+    AnchorFromMisMatch {
+        expected: Address,
+        got: Option<Address>,
+    },
+    AnchorToMisMatch {
+        expected: Address,
+        got: Option<Address>,
+    },
+    AnchorValueMisMatch {
+        expected: U256,
+        got: U256,
+    },
+    AnchorGasLimitMisMatch {
+        expected: U256,
+        got: U256,
+    },
+    AnchorGasPriceMisMatch {
+        expected: U256,
+        got: U256,
+    },
     AnchorCallDataMismatch,
-    BlockFieldMismatch,
+}
+
+impl From<AnchorError> for VerifyError {
+    fn from(e: AnchorError) -> Self {
+        VerifyError::Anchor(e)
+    }
 }
 
 pub fn verify_state(

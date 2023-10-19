@@ -1,33 +1,113 @@
-use crate::host::VerifyError;
+use crate::host::{AnchorError, VerifyError};
+use once_cell::sync::Lazy;
+use std::str::FromStr;
 use zeth_primitives::{
     block::Header,
     taiko::protocol_instance::ProtocolInstance,
-    transactions::{ethereum::EthereumTxEssence, Transaction, TxEssence},
-    B256, U256, U64,
+    transactions::{
+        ethereum::{EthereumTxEssence, TransactionKind},
+        Transaction, TxEssence,
+    },
+    Address, B256, U256, U64,
 };
 
-// function anchor(
-//   bytes32 l1BlockHash,
-//   bytes32 l1SignalRoot,
-//   uint64 l1Height,
-//   uint32 parentGasUsed
-// )
-
+const ANCHOR_SELECTOR: u32 = 0xda69d3db;
+const ANCHOR_GAS_LIMIT: u64 = 180_000;
 const CALL_START: usize = 4;
 const EACH_PARAM_LEN: usize = 32;
-const ANCHOR_GAS_LIMIT: u64 = 180_000;
+
+static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
+    Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
+        .expect("invalid golden touch account")
+});
+
+pub static TREASURY: Lazy<Address> = Lazy::new(|| {
+    Address::from_str("0xdf09A0afD09a63fb04ab3573922437e1e637dE8b")
+        .expect("invalid treasury account")
+});
+
+pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
+    Address::from_str("0x1000777700000000000000000000000000000001")
+        .expect("invalid l2 contract address")
+});
 
 #[allow(clippy::result_large_err)]
 pub fn verify_anchor(
+    block: &Header,
     anchor: &Transaction<EthereumTxEssence>,
     protocol_instance: &ProtocolInstance,
 ) -> Result<(), VerifyError> {
     if let EthereumTxEssence::Eip1559(ref tx) = anchor.essence {
+        // verify transaction
+        // verify the transaction signature
+        match anchor.recover_from() {
+            Ok(from) => {
+                if from != *GOLDEN_TOUCH_ACCOUNT {
+                    return Err(AnchorError::AnchorFromMisMatch {
+                        expected: *L2_CONTRACT,
+                        got: Some(from),
+                    }
+                    .into());
+                }
+            }
+            Err(_) => {
+                return Err(AnchorError::AnchorToMisMatch {
+                    expected: *L2_CONTRACT,
+                    got: None,
+                }
+                .into())
+            }
+        }
+
+        match tx.to {
+            TransactionKind::Call(to) => {
+                if to != *L2_CONTRACT {
+                    return Err(AnchorError::AnchorToMisMatch {
+                        expected: *L2_CONTRACT,
+                        got: Some(to),
+                    }
+                    .into());
+                }
+            }
+            _ => {
+                return Err(AnchorError::AnchorToMisMatch {
+                    expected: *L2_CONTRACT,
+                    got: None,
+                }
+                .into())
+            }
+        }
+        if tx.value != U256::ZERO {
+            return Err(AnchorError::AnchorValueMisMatch {
+                expected: U256::ZERO,
+                got: tx.value,
+            }
+            .into());
+        }
+        if tx.gas_limit != U256::from(ANCHOR_GAS_LIMIT) {
+            return Err(AnchorError::AnchorGasLimitMisMatch {
+                expected: U256::from(ANCHOR_GAS_LIMIT),
+                got: tx.gas_limit,
+            }
+            .into());
+        }
+        if tx.max_fee_per_gas != block.base_fee_per_gas {
+            return Err(AnchorError::AnchorGasPriceMisMatch {
+                expected: U256::from(ANCHOR_GAS_LIMIT),
+                got: tx.gas_limit,
+            }
+            .into());
+        }
+        // verify calldata
+        let selector = u32::from_be_bytes(tx.data[..CALL_START].try_into().unwrap());
+        if selector != ANCHOR_SELECTOR {
+            return Err(AnchorError::AnchorCallDataMismatch.into());
+        }
         let mut start = CALL_START;
         let mut end = start + EACH_PARAM_LEN;
         let l1_block_hash = B256::from(&tx.data[start..end].try_into().unwrap());
         if l1_block_hash != protocol_instance.blockMetadata.l1Hash {
-            return Err(VerifyError::AnchorCallDataMismatch);
+            return Err(AnchorError::AnchorCallDataMismatch.into());
         }
         start = end;
         end += EACH_PARAM_LEN;
@@ -38,7 +118,7 @@ pub fn verify_anchor(
         let l1_height =
             U256::from_be_bytes::<EACH_PARAM_LEN>(tx.data[start..end].try_into().unwrap());
         if U64::from(l1_height) != U64::from(protocol_instance.blockMetadata.l1Height) {
-            return Err(VerifyError::AnchorCallDataMismatch);
+            return Err(AnchorError::AnchorCallDataMismatch.into());
         }
         start = end;
         end += EACH_PARAM_LEN;
@@ -46,9 +126,10 @@ pub fn verify_anchor(
             U256::from_be_bytes::<EACH_PARAM_LEN>(tx.data[start..end].try_into().unwrap());
         Ok(())
     } else {
-        Err(VerifyError::AnchorTypeMisMatch {
+        Err(AnchorError::AnchorTypeMisMatch {
             tx_type: anchor.essence.tx_type(),
-        })
+        }
+        .into())
     }
 }
 

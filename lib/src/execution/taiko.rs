@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{fmt::Debug, mem::take, str::FromStr};
+use std::{fmt::Debug, mem::take};
 
 use anyhow::{anyhow, bail, Context};
 #[cfg(not(target_os = "zkvm"))]
@@ -88,8 +88,6 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
         // initialize the EVM
         let mut evm = EVM::new();
 
-        evm.env.taiko.l2_address =
-            Address::from_str("0x1000777700000000000000000000000000000001").unwrap();
         // set the EVM configuration
         evm.env.cfg.chain_id = block_builder.chain_spec.chain_id();
         evm.env.cfg.spec_id = spec_id;
@@ -119,7 +117,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
         {
             #[cfg(feature = "taiko")]
             if tx_no == 0 {
-                if let Err(e) = verify_anchor(&tx, &block_builder.input.protocol_instance) {
+                if let Err(e) = verify_anchor(header, &tx, &block_builder.input.protocol_instance) {
                     bail!(
                         "Error at transaction {}: verify anchor failed {:?}",
                         tx_no,
