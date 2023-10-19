@@ -39,9 +39,9 @@ use crate::{
     guest_mem_forget,
 };
 
-pub struct EthTxExecStrategy {}
+pub struct TaikoTxExecStrategy {}
 
-impl TxExecStrategy<EthereumTxEssence> for EthTxExecStrategy {
+impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
     fn execute_transactions<D>(
         mut block_builder: BlockBuilder<D, EthereumTxEssence>,
     ) -> anyhow::Result<BlockBuilder<D, EthereumTxEssence>>
