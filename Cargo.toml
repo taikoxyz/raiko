@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["guests", "host", "lib", "primitives", "testing/ef-tests"]
+members = ["lib", "primitives", "raiko-guest"]
 
 # Always optimize; building and running the guest takes much longer without optimization.
 [profile.dev]
@@ -28,9 +28,9 @@ hashbrown = { version = "0.14", features = ["inline-more"] }
 risc0-build = "0.18"
 risc0-zkvm = { version = "0.18", default-features = false }
 revm = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko", default-features = false, features = [
-  "std",
-  "serde",
-  "taiko",
-  "optional_no_base_fee",
-  "optional_balance_check",
+    "std",
+    "serde",
+    "taiko",
+    "optional_no_base_fee",
+    "optional_balance_check",
 ] }

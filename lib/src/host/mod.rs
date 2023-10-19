@@ -33,6 +33,9 @@ use zeth_primitives::{
     Address, B256, U256,
 };
 
+#[cfg(feature = "taiko")]
+use zeth_primitives::taiko::ProtocolInstance;
+
 use crate::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
     consts::ChainSpec,
@@ -58,6 +61,8 @@ pub struct Init<E: TxEssence> {
     pub fini_withdrawals: Vec<Withdrawal>,
     pub fini_proofs: HashMap<Address, EIP1186ProofResponse>,
     pub ancestor_headers: Vec<Header>,
+    #[cfg(feature = "taiko")]
+    pub protocol_instance: ProtocolInstance,
 }
 
 pub fn get_initial_data<N: NetworkStrategyBundle>(
@@ -65,6 +70,7 @@ pub fn get_initial_data<N: NetworkStrategyBundle>(
     cache_path: Option<String>,
     rpc_url: Option<String>,
     block_no: u64,
+    #[cfg(feature = "taiko")] protocol_instance: ProtocolInstance,
 ) -> Result<Init<N::TxEssence>>
 where
     N::TxEssence: TryFrom<EthersTransaction>,
@@ -122,6 +128,8 @@ where
         contracts: vec![],
         parent_header: init_block.clone().try_into()?,
         ancestor_headers: vec![],
+        #[cfg(feature = "taiko")]
+        protocol_instance: protocol_instance.clone(),
     };
 
     // Create the block builder, run the transactions and extract the DB
@@ -170,6 +178,8 @@ where
         fini_withdrawals: withdrawals,
         fini_proofs,
         ancestor_headers,
+        #[cfg(feature = "taiko")]
+        protocol_instance,
     })
 }
 
@@ -469,6 +479,8 @@ impl<E: TxEssence> From<Init<E>> for Input<E> {
             parent_storage: storage.into_iter().collect(),
             contracts: contracts.into_values().collect(),
             ancestor_headers: value.ancestor_headers,
+            #[cfg(feature = "taiko")]
+            protocol_instance: value.protocol_instance,
         }
     }
 }

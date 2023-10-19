@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{fmt::Debug, mem::take};
+use std::{fmt::Debug, mem::take, str::FromStr};
 
 use anyhow::{anyhow, bail, Context};
 #[cfg(not(target_os = "zkvm"))]
 use log::debug;
 use revm::{
-    primitives::{Account, Address, ResultAndState, SpecId, TransactTo, TxEnv},
+    primitives::{Account, Address, ResultAndState, SpecId, TransactTo, TxEnv, U256},
     Database, DatabaseCommit, EVM,
 };
-use ruint::aliases::U256;
 use zeth_primitives::{
     receipt::Receipt,
     transactions::{
@@ -86,6 +85,8 @@ impl TxExecStrategy<EthereumTxEssence> for EthTxExecStrategy {
         // initialize the EVM
         let mut evm = EVM::new();
 
+        evm.env.taiko.l2_address =
+            Address::from_str("0x1000777700000000000000000000000000000001").unwrap();
         // set the EVM configuration
         evm.env.cfg.chain_id = block_builder.chain_spec.chain_id();
         evm.env.cfg.spec_id = spec_id;

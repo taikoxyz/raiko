@@ -24,6 +24,9 @@ use zeth_primitives::{
     Address, Bytes, B256, U256,
 };
 
+#[cfg(feature = "taiko")]
+use zeth_primitives::taiko::ProtocolInstance;
+
 /// External block input.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Input<E: TxEssence> {
@@ -51,6 +54,9 @@ pub struct Input<E: TxEssence> {
     pub contracts: Vec<Bytes>,
     /// List of at most 256 previous block headers
     pub ancestor_headers: Vec<Header>,
+
+    #[cfg(feature = "taiko")]
+    pub protocol_instance: ProtocolInstance,
 }
 
 pub type StorageEntry = (MptNode, Vec<U256>);
