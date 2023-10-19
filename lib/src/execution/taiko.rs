@@ -39,6 +39,9 @@ use crate::{
     guest_mem_forget,
 };
 
+#[cfg(feature = "taiko")]
+use crate::taiko::verify_anchor;
+
 pub struct TaikoTxExecStrategy {}
 
 impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
@@ -114,6 +117,16 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             .into_iter()
             .enumerate()
         {
+            #[cfg(feature = "taiko")]
+            if tx_no == 0 {
+                if let Err(e) = verify_anchor(&tx, &block_builder.input.protocol_instance) {
+                    bail!(
+                        "Error at transaction {}: verify anchor failed {:?}",
+                        tx_no,
+                        e
+                    );
+                }
+            }
             // verify the transaction signature
             let tx_from = tx
                 .recover_from()

@@ -25,6 +25,8 @@ pub mod initialization;
 pub mod input;
 pub mod mem_db;
 pub mod preparation;
+#[cfg(feature = "taiko")]
+pub mod taiko;
 
 pub use zeth_primitives::transactions::ethereum::EthereumTxEssence;
 

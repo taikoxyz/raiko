@@ -4068,6 +4068,7 @@ dependencies = [
  "ethers-core",
  "hex-literal",
  "k256",
+ "once_cell",
  "revm-primitives",
  "rlp",
  "serde",

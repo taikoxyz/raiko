@@ -211,6 +211,11 @@ pub enum VerifyError {
         first_delta: Option<String>,
         indices: usize,
     },
+    AnchorTypeMisMatch {
+        tx_type: u8,
+    },
+    AnchorCallDataMismatch,
+    BlockFieldMismatch,
 }
 
 pub fn verify_state(

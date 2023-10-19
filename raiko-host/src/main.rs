@@ -14,24 +14,22 @@
 
 extern crate core;
 
-use std::{fmt::Debug, time::Instant};
+use std::fmt::Debug;
 
 use anyhow::{bail, Result};
-use bonsai_sdk::alpha as bonsai_sdk;
 use clap::Parser;
 use ethers_core::types::Transaction as EthersTransaction;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use tempfile::tempdir;
 use zeth_lib::{
     block_builder::{BlockBuilder, NetworkStrategyBundle, TaikoStrategyBundle},
     consts::{ChainSpec, TAIKO_MAINNET_CHAIN_SPEC},
     finalization::DebugBuildFromMemDbStrategy,
     initialization::MemDbInitStrategy,
     input::Input,
+    taiko::verify_block,
 };
 use zeth_primitives::taiko::ProtocolInstance;
-use zeth_primitives::BlockHash;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -83,14 +81,20 @@ where
         .as_ref()
         .map(|dir| cache_file_path(dir, "taiko", args.block_no, "json.gz"));
 
-    // TODO
-    let pi = serde_json::from_str(args.protocol_instance.as_str())
+    let protocol_instance: ProtocolInstance = serde_json::from_str(args.protocol_instance.as_str())
         .expect("Could not parse protocol instance");
 
     let init_spec = chain_spec.clone();
+    let _protocol_instance = protocol_instance.clone();
     let init = tokio::task::spawn_blocking(move || {
-        zeth_lib::host::get_initial_data::<N>(init_spec, rpc_cache, args.rpc_url, args.block_no, pi)
-            .expect("Could not init")
+        zeth_lib::host::get_initial_data::<N>(
+            init_spec,
+            rpc_cache,
+            args.rpc_url,
+            args.block_no,
+            _protocol_instance,
+        )
+        .expect("Could not init")
     })
     .await?;
 
@@ -144,6 +148,11 @@ where
                     _ => error!("  Error: {:?}", error),
                 }
             }
+        }
+
+        // verify taiko protocol
+        if let Err(e) = verify_block(&validated_header, &protocol_instance) {
+            bail!("Taiko protocol verification failed: {:?}", e);
         }
 
         let errors_len = errors.len();

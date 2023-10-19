@@ -1,10 +1,21 @@
-use std::iter;
+use std::{iter, str::FromStr};
 
 use crate::keccak;
 use alloy_sol_types::{sol, SolValue};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use alloy_primitives::{B256, U160, U256};
+use alloy_primitives::{Address, B256, U160, U256};
+
+pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
+    Address::from_str("0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982")
+        .expect("invalid l1 signal root service")
+});
+
+pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
+    Address::from_str("0x1000777700000000000000000000000000000007")
+        .expect("invalid l2 signal service")
+});
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -32,6 +43,9 @@ sol! {
 }
 
 impl BlockMetadata {
+    pub fn withdraws_root(&self) -> B256 {
+        keccak::keccak(self.depositsProcessed.abi_encode()).into()
+    }
     // FIXME
     pub fn hash(&self) -> B256 {
         // let field0 = U256::from(self.id) << 192
@@ -83,7 +97,7 @@ impl BlockMetadata {
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
     struct BlockEvidence {
-        bytes32 metaHash;
+        BlockMetadata blockMetadata;
         bytes32 parentHash; // constrain: l2 parent hash
         bytes32 blockHash; // constrain: l2 block hash
         bytes32 signalRoot; // constrain: ??l2 service account storage root??
