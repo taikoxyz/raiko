@@ -199,3 +199,16 @@ impl NetworkStrategyBundle for OptimismStrategyBundle {
 }
 
 pub type OptimismBlockBuilder<'a> = ConfiguredBlockBuilder<'a, OptimismStrategyBundle>;
+
+pub struct TaikoStrategyBundle {}
+
+impl NetworkStrategyBundle for TaikoStrategyBundle {
+    type Database = MemDb;
+    type TxEssence = EthereumTxEssence;
+    type DbInitStrategy = MemDbInitStrategy;
+    type HeaderPrepStrategy = EthHeaderPrepStrategy;
+    type TxExecStrategy = EthTxExecStrategy;
+    type BlockBuildStrategy = BuildFromMemDbStrategy;
+}
+
+pub type TaikoBlockBuilder<'a> = ConfiguredBlockBuilder<'a, TaikoStrategyBundle>;

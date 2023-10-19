@@ -54,7 +54,7 @@ pub struct Input<E: TxEssence> {
     pub contracts: Vec<Bytes>,
     /// List of at most 256 previous block headers
     pub ancestor_headers: Vec<Header>,
-
+    /// Taiko protocol public input
     #[cfg(feature = "taiko")]
     pub protocol_instance: ProtocolInstance,
 }
@@ -82,6 +82,8 @@ mod tests {
             parent_storage: Default::default(),
             contracts: vec![],
             ancestor_headers: vec![],
+            #[cfg(feature = "taiko")]
+            protocol_instance: Default::default(),
         };
         let _: Input<EthereumTxEssence> =
             bincode::deserialize(&bincode::serialize(&input).unwrap()).unwrap();

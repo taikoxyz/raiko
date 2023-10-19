@@ -1,5 +1,5 @@
 [package]
-name = "zeth"
+name = "raiko-host"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,7 +10,7 @@ bonsai-sdk = { workspace = true }
 bytemuck = "1.13"
 clap = { version = "4.0", features = ["derive"] }
 env_logger = "0.10"
-ethers-core = { version = "2.0", features = ["optimism"] }
+ethers-core = { version = "2.0" }
 hex = "0.4.3"
 log = "0.4"
 revm = { workspace = true }
@@ -18,9 +18,8 @@ risc0-zkvm = { workspace = true, features = ["prove", "profiler"] }
 serde = "1.0"
 tempfile = "3.6"
 tokio = { version = "1.23", features = ["full"] }
-zeth-guests = { path = "../guests" }
-zeth-lib = { path = "../lib" }
-zeth-primitives = { path = "../primitives" }
+zeth-lib = { path = "../lib", features = ["taiko"] }
+zeth-primitives = { path = "../primitives", features = ["taiko"] }
 
 [dev-dependencies]
 assert_cmd = "2.0"
