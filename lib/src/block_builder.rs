@@ -30,7 +30,7 @@ use crate::{
 };
 
 #[cfg(feature = "taiko")]
-use crate::execution::taiko::TaikoTxExecStrategy;
+use crate::{execution::taiko::TaikoTxExecStrategy, preparation::TaikoHeaderPrepStrategy};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder<'a, D, E: TxEssence> {
@@ -211,7 +211,7 @@ impl NetworkStrategyBundle for TaikoStrategyBundle {
     type Database = MemDb;
     type TxEssence = EthereumTxEssence;
     type DbInitStrategy = MemDbInitStrategy;
-    type HeaderPrepStrategy = EthHeaderPrepStrategy;
+    type HeaderPrepStrategy = TaikoHeaderPrepStrategy;
     type TxExecStrategy = TaikoTxExecStrategy;
     type BlockBuildStrategy = BuildFromMemDbStrategy;
 }

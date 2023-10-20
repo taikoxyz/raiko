@@ -164,41 +164,7 @@ where
             );
         }
 
-        if validated_header.base_fee_per_gas != init.fini_block.base_fee_per_gas {
-            error!(
-                "Base fee mismatch {} (expected {})",
-                validated_header.base_fee_per_gas, init.fini_block.base_fee_per_gas
-            );
-        }
-
-        if validated_header.state_root != init.fini_block.state_root {
-            error!(
-                "State root mismatch {} (expected {})",
-                validated_header.state_root, init.fini_block.state_root
-            );
-        }
-
-        if validated_header.transactions_root != init.fini_block.transactions_root {
-            error!(
-                "Transactions root mismatch {} (expected {})",
-                validated_header.transactions_root, init.fini_block.transactions_root
-            );
-        }
-
-        if validated_header.receipts_root != init.fini_block.receipts_root {
-            error!(
-                "Receipts root mismatch {} (expected {})",
-                validated_header.receipts_root, init.fini_block.receipts_root
-            );
-        }
-
-        if validated_header.withdrawals_root != init.fini_block.withdrawals_root {
-            error!(
-                "Withdrawals root mismatch {:?} (expected {:?})",
-                validated_header.withdrawals_root, init.fini_block.withdrawals_root
-            );
-        }
-
+        // verify between raiko block and geth block
         let found_hash = validated_header.hash();
         let expected_hash = init.fini_block.hash();
         if found_hash.as_slice() != expected_hash.as_slice() {
@@ -211,6 +177,7 @@ where
         }
 
         info!("Final block hash derived successfully. {}", found_hash)
+        // TODO: SGX signature
     }
 
     Ok(())

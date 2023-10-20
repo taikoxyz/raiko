@@ -12,7 +12,7 @@ use zeth_primitives::{
 };
 
 const ANCHOR_SELECTOR: u32 = 0xda69d3db;
-const ANCHOR_GAS_LIMIT: u64 = 180_000;
+const ANCHOR_GAS_LIMIT: u64 = 180_000; // TODO: read l1 contract to get this value
 const CALL_START: usize = 4;
 const EACH_PARAM_LEN: usize = 32;
 
@@ -111,6 +111,7 @@ pub fn verify_anchor(
         }
         start = end;
         end += EACH_PARAM_LEN;
+        // TODO: l1 signal root verify
         let _l1_signal_hash = B256::from(&tx.data[start..end].try_into().unwrap());
 
         start = end;
@@ -122,6 +123,7 @@ pub fn verify_anchor(
         }
         start = end;
         end += EACH_PARAM_LEN;
+        // TODO: Get the l2 block parent gas used
         let _parent_gas_used =
             U256::from_be_bytes::<EACH_PARAM_LEN>(tx.data[start..end].try_into().unwrap());
         Ok(())

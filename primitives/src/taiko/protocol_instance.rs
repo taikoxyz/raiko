@@ -44,6 +44,7 @@ sol! {
 
 impl BlockMetadata {
     pub fn withdraws_root(&self) -> B256 {
+        // FIXME: mpt root
         keccak::keccak(self.depositsProcessed.abi_encode()).into()
     }
     // FIXME
@@ -101,13 +102,8 @@ sol! {
         bytes32 parentHash; // constrain: l2 parent hash
         bytes32 blockHash; // constrain: l2 block hash
         bytes32 signalRoot; // constrain: ??l2 service account storage root??
-        // l2 signal service account verify? constant?
-        // 0x1000777700000000000000000000000000000007
-        // https://github.com/taikoxyz/taiko-mono/blob/contestable-zkrollup/packages/protocol/contracts/common/AddressManager.sol
         bytes32 graffiti; // constrain: l2 block's graffiti
     }
 }
 
 pub type ProtocolInstance = BlockEvidence;
-
-// l1 signal root: a5-testnet 0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982

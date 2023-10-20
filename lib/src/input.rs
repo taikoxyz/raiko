@@ -57,6 +57,9 @@ pub struct Input<E: TxEssence> {
     /// Taiko protocol public input
     #[cfg(feature = "taiko")]
     pub protocol_instance: ProtocolInstance,
+    /// Base fee paid by all transactions in the block.
+    #[cfg(feature = "taiko")]
+    pub base_fee_per_gas: U256,
 }
 
 pub type StorageEntry = (MptNode, Vec<U256>);

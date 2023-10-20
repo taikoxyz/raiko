@@ -151,6 +151,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
                 .transact()
                 .map_err(|evm_err| anyhow!("Error at transaction {}: {:?}", tx_no, evm_err))?;
 
+            // TODO: check the revert of anchor transaction
             let gas_used = result.gas_used().try_into().unwrap();
             cumulative_gas_used = cumulative_gas_used.checked_add(gas_used).unwrap();
 

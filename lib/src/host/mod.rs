@@ -130,6 +130,12 @@ where
         ancestor_headers: vec![],
         #[cfg(feature = "taiko")]
         protocol_instance: protocol_instance.clone(),
+        #[cfg(feature = "taiko")]
+        base_fee_per_gas: from_ethers_u256(
+            fini_block
+                .base_fee_per_gas
+                .context("base_fee_per_gas missing")?,
+        ),
     };
 
     // Create the block builder, run the transactions and extract the DB
@@ -517,6 +523,8 @@ impl<E: TxEssence> From<Init<E>> for Input<E> {
             ancestor_headers: value.ancestor_headers,
             #[cfg(feature = "taiko")]
             protocol_instance: value.protocol_instance,
+            #[cfg(feature = "taiko")]
+            base_fee_per_gas: value.fini_block.base_fee_per_gas,
         }
     }
 }
