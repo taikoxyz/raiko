@@ -27,10 +27,4 @@ bonsai-sdk = "0.4"
 hashbrown = { version = "0.14", features = ["inline-more"] }
 risc0-build = "0.18"
 risc0-zkvm = { version = "0.18", default-features = false }
-revm = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko", default-features = false, features = [
-    "std",
-    "serde",
-    "taiko",
-    "optional_no_base_fee",
-    "optional_balance_check",
-] }
+revm = { version = "3.5", default-features = false, features = ["std", "serde", "optional_no_base_fee", "optional_balance_check"] }

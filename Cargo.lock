@@ -1366,15 +1366,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gramine"
-version = "0.1.0"
-dependencies = [
- "k256",
- "risc0-zkvm",
- "zeth-lib",
-]
-
-[[package]]
 name = "group"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2383,6 +2374,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
+name = "raiko-guest"
+version = "0.1.0"
+dependencies = [
+ "k256",
+ "risc0-zkvm",
+ "zeth-lib",
+]
+
+[[package]]
 name = "raiko-host"
 version = "0.1.0"
 dependencies = [
@@ -2544,7 +2544,6 @@ version = "3.5.0"
 source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#0e7d7792b85a9ea1312ce1e5e8db41acf83bcf0c"
 dependencies = [
  "auto_impl",
- "once_cell",
  "revm-interpreter",
  "revm-precompile",
  "serde",

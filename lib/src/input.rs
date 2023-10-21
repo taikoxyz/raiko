@@ -87,6 +87,8 @@ mod tests {
             ancestor_headers: vec![],
             #[cfg(feature = "taiko")]
             protocol_instance: Default::default(),
+            #[cfg(feature = "taiko")]
+            base_fee_per_gas: Default::default(),
         };
         let _: Input<EthereumTxEssence> =
             bincode::deserialize(&bincode::serialize(&input).unwrap()).unwrap();

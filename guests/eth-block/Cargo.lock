@@ -1961,7 +1961,8 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "3.5.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#daf73eea96a71565dc3627359e99eb15f0dc3e29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68f4ca8ae0345104523b4af1a8a7ea97cfa1865cdb7a7c25d23c1a18d9b48598"
 dependencies = [
  "auto_impl",
  "revm-interpreter",
@@ -1973,22 +1974,24 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "1.3.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#daf73eea96a71565dc3627359e99eb15f0dc3e29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f959cafdf64a7f89b014fa73dc2325001cf654b3d9400260b212d19a2ebe3da0"
 dependencies = [
- "revm-primitives 1.3.0 (git+https://github.com/johntaiko/revm?branch=feat/taiko)",
+ "revm-primitives",
  "serde",
 ]
 
 [[package]]
 name = "revm-precompile"
 version = "2.2.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#daf73eea96a71565dc3627359e99eb15f0dc3e29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d360a88223d85709d2e95d4609eb1e19c649c47e28954bfabae5e92bb37e83e"
 dependencies = [
  "c-kzg",
  "k256",
  "num",
  "once_cell",
- "revm-primitives 1.3.0 (git+https://github.com/johntaiko/revm?branch=feat/taiko)",
+ "revm-primitives",
  "ripemd",
  "secp256k1",
  "sha2",
@@ -2006,26 +2009,10 @@ dependencies = [
  "auto_impl",
  "bitflags 2.4.0",
  "bitvec",
- "enumn",
- "hashbrown 0.14.0",
- "hex",
-]
-
-[[package]]
-name = "revm-primitives"
-version = "1.3.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#daf73eea96a71565dc3627359e99eb15f0dc3e29"
-dependencies = [
- "alloy-primitives",
- "alloy-rlp",
- "auto_impl",
- "bitflags 2.4.0",
- "bitvec",
  "c-kzg",
  "enumn",
  "hashbrown 0.14.0",
  "hex",
- "once_cell",
  "serde",
 ]
 
@@ -3342,7 +3329,7 @@ dependencies = [
  "bytes",
  "ethers-core",
  "k256",
- "revm-primitives 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "revm-primitives",
  "rlp",
  "serde",
  "sha3",
