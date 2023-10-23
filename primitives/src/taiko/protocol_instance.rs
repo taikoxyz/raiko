@@ -8,7 +8,7 @@ use std::{iter, str::FromStr};
 
 pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982")
-        .expect("invalid l1 signal root service")
+        .expect("invalid l1 signal service")
 });
 
 pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
