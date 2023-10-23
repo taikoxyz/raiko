@@ -1,11 +1,10 @@
-use std::{iter, str::FromStr};
-
 use crate::keccak;
+use alloy_dyn_abi::DynSolValue;
+use alloy_primitives::{Address, B256, U160, U256};
 use alloy_sol_types::{sol, SolValue};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-
-use alloy_primitives::{Address, B256, U160, U256};
+use std::{iter, str::FromStr};
 
 pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982")
@@ -100,6 +99,47 @@ sol! {
         bytes32 blockHash; // constrain: l2 block hash
         bytes32 signalRoot; // constrain: ??l2 service account storage root??
         bytes32 graffiti; // constrain: l2 block's graffiti
+    }
+}
+
+pub enum EvidenceType {
+    SGX {
+        prover: Address,
+        new_pubkey: Address,
+    },
+    ZK,
+}
+
+impl BlockEvidence {
+    // keccak256(
+    //     abi.encode(
+    //         evidence.metaHash,
+    //         evidence.parentHash,
+    //         evidence.blockHash,
+    //         evidence.signalRoot,
+    //         evidence.graffiti,
+    //         assignedProver,
+    //         newPubKey
+    //     )
+    // );
+    pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
+        match evidence_type {
+            EvidenceType::SGX { prover, new_pubkey } => {
+                use DynSolValue::*;
+                let input = Tuple(vec![
+                    FixedBytes(self.blockMetadata.hash(), 32),
+                    FixedBytes(self.parentHash, 32),
+                    FixedBytes(self.blockHash, 32),
+                    FixedBytes(self.signalRoot, 32),
+                    FixedBytes(self.graffiti, 32),
+                    Address(prover),
+                    Address(new_pubkey),
+                ])
+                .abi_encode();
+                keccak::keccak(input).into()
+            }
+            EvidenceType::ZK => todo!(),
+        }
     }
 }
 

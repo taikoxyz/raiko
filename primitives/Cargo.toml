@@ -10,6 +10,7 @@ alloy-primitives = { version = "0.4", default-features = false, features = [
   "std",
 ] }
 alloy-sol-types = { version = "0.4", optional = true }
+alloy-dyn-abi = { version = "0.4", optional = true }
 alloy-rlp = { version = "0.3", default-features = false }
 alloy-rlp-derive = { version = "0.3", default-features = false }
 anyhow = "1.0"
@@ -34,4 +35,9 @@ serde_json = "1.0"
 [features]
 ethers = ["dep:ethers-core"]
 revm = ["dep:revm-primitives"]
-taiko = ["revm-primitives/taiko", "dep:alloy-sol-types", "dep:once_cell"]
+taiko = [
+  "revm-primitives/taiko",
+  "dep:alloy-sol-types",
+  "dep:alloy-dyn-abi",
+  "dep:once_cell",
+]
