@@ -103,11 +103,13 @@ sol! {
 }
 
 pub enum EvidenceType {
-    SGX {
+    Sgx {
         prover: Address,
-        new_pubkey: Address,
+        new_pubkey: Address, // the evidence signature public key
     },
-    ZK,
+    PseZk {
+        prover: Address,
+    },
 }
 
 impl BlockEvidence {
@@ -123,23 +125,29 @@ impl BlockEvidence {
     //     )
     // );
     pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
-        match evidence_type {
-            EvidenceType::SGX { prover, new_pubkey } => {
-                use DynSolValue::*;
-                let input = Tuple(vec![
-                    FixedBytes(self.blockMetadata.hash(), 32),
-                    FixedBytes(self.parentHash, 32),
-                    FixedBytes(self.blockHash, 32),
-                    FixedBytes(self.signalRoot, 32),
-                    FixedBytes(self.graffiti, 32),
-                    Address(prover),
-                    Address(new_pubkey),
-                ])
-                .abi_encode();
-                keccak::keccak(input).into()
-            }
-            EvidenceType::ZK => todo!(),
-        }
+        use DynSolValue::*;
+        let input = match evidence_type {
+            EvidenceType::Sgx { prover, new_pubkey } => Tuple(vec![
+                FixedBytes(self.blockMetadata.hash(), 32),
+                FixedBytes(self.parentHash, 32),
+                FixedBytes(self.blockHash, 32),
+                FixedBytes(self.signalRoot, 32),
+                FixedBytes(self.graffiti, 32),
+                Address(prover),
+                Address(new_pubkey),
+            ])
+            .abi_encode(),
+            EvidenceType::PseZk { prover } => Tuple(vec![
+                FixedBytes(self.blockMetadata.hash(), 32),
+                FixedBytes(self.parentHash, 32),
+                FixedBytes(self.blockHash, 32),
+                FixedBytes(self.signalRoot, 32),
+                FixedBytes(self.graffiti, 32),
+                Address(prover),
+            ])
+            .abi_encode(),
+        };
+        keccak::keccak(input).into()
     }
 }
 
