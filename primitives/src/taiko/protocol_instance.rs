@@ -47,53 +47,50 @@ impl BlockMetadata {
         // FIXME: mpt root
         keccak::keccak(self.depositsProcessed.abi_encode()).into()
     }
-    // FIXME
-    pub fn hash(&self) -> B256 {
-        // let field0 = U256::from(self.id) << 192
-        //     | U256::from(self.timestamp) << 128
-        //     | U256::from(self.l1Height) << 64;
-        // let field1 = self.l1Hash;
-        // let field2 = self.mixHash;
-        // let field3 = keccak::keccak(self.depositsProcessed.abi_encode());
-        // let field4 = self.txListHash;
-        // let proposer: U160 = self.proposer.into();
-        // let field5 = U256::from(self.txListByteStart) << 232
-        //     | U256::from(self.txListByteEnd) << 208
-        //     | U256::from(self.gasLimit) << 176
-        //     | U256::from(proposer) << 16;
 
-        // let input: Vec<u8> = iter::empty()
-        //     .chain(field0.to_be_bytes_vec())
-        //     .chain(field1)
-        //     .chain(field2)
-        //     .chain(field3)
-        //     .chain(field4)
-        //     .chain(field5.to_be_bytes_vec())
-        //     .collect();
-        // keccak::keccak(input).into()
-        todo!()
+    // function hashMetadata(TaikoData.BlockMetadata memory meta)
+    //         internal
+    //         pure
+    //         returns (bytes32 hash)
+    //     {
+    //         uint256[7] memory inputs;
+    //         inputs[0] = uint256(meta.l1Hash);
+    //         inputs[1] = uint256(meta.difficulty);
+    //         inputs[2] = uint256(meta.txListHash);
+    //         inputs[3] = uint256(meta.extraData);
+    //         inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+    //             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
+    //         inputs[5] = uint256(uint160(meta.coinbase));
+    //         inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+
+    //         assembly {
+    //             hash := keccak256(inputs, 224 /*mul(7, 32)*/ )
+    //         }
+    //     }
+    pub fn hash(&self) -> B256 {
+        let field0 = self.l1Hash;
+        let field1 = self.difficulty;
+        let field2 = self.txListHash;
+        let field3 = self.extraData;
+        let field4 = U256::from(self.id)
+            | U256::from(self.timestamp) << 64
+            | U256::from(self.l1Height) << 128
+            | U256::from(self.gasLimit) << 192;
+        let coinbase: U160 = self.coinbase.into();
+        let field5 = U256::from(coinbase);
+        let field6 = keccak::keccak(self.depositsProcessed.abi_encode());
+        let input: Vec<u8> = iter::empty()
+            .chain(field0)
+            .chain(field1)
+            .chain(field2)
+            .chain(field3)
+            .chain(field4.to_be_bytes_vec())
+            .chain(field5.to_be_bytes_vec())
+            .chain(field6)
+            .collect();
+        keccak::keccak(input).into()
     }
 }
-
-// function hashMetadata(TaikoData.BlockMetadata memory meta)
-//         internal
-//         pure
-//         returns (bytes32 hash)
-//     {
-//         uint256[7] memory inputs;
-//         inputs[0] = uint256(meta.l1Hash);
-//         inputs[1] = uint256(meta.difficulty);
-//         inputs[2] = uint256(meta.txListHash);
-//         inputs[3] = uint256(meta.extraData);
-//         inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
-//             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-//         inputs[5] = uint256(uint160(meta.coinbase));
-//         inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
-
-//         assembly {
-//             hash := keccak256(inputs, 224 /*mul(7, 32)*/ )
-//         }
-//     }
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
