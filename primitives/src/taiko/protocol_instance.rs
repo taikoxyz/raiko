@@ -126,27 +126,22 @@ impl BlockEvidence {
     // );
     pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
         use DynSolValue::*;
-        let input = match evidence_type {
-            EvidenceType::Sgx { prover, new_pubkey } => Tuple(vec![
-                FixedBytes(self.blockMetadata.hash(), 32),
-                FixedBytes(self.parentHash, 32),
-                FixedBytes(self.blockHash, 32),
-                FixedBytes(self.signalRoot, 32),
-                FixedBytes(self.graffiti, 32),
-                Address(prover),
-                Address(new_pubkey),
-            ])
-            .abi_encode(),
-            EvidenceType::PseZk { prover } => Tuple(vec![
-                FixedBytes(self.blockMetadata.hash(), 32),
-                FixedBytes(self.parentHash, 32),
-                FixedBytes(self.blockHash, 32),
-                FixedBytes(self.signalRoot, 32),
-                FixedBytes(self.graffiti, 32),
-                Address(prover),
-            ])
-            .abi_encode(),
+        let mut abi_encode_tuple = vec![
+            FixedBytes(self.blockMetadata.hash(), 32),
+            FixedBytes(self.parentHash, 32),
+            FixedBytes(self.blockHash, 32),
+            FixedBytes(self.signalRoot, 32),
+            FixedBytes(self.graffiti, 32),
+        ];
+        match evidence_type {
+            EvidenceType::Sgx { prover, new_pubkey } => {
+                abi_encode_tuple.extend(vec![Address(prover), Address(new_pubkey)]);
+            }
+            EvidenceType::PseZk { prover } => {
+                abi_encode_tuple.push(Address(prover));
+            }
         };
+        let input: Vec<u8> = Tuple(abi_encode_tuple).abi_encode();
         keccak::keccak(input).into()
     }
 }
