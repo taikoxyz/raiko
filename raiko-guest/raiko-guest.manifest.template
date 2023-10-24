@@ -1,17 +1,17 @@
-# Copy to eth-block/target/debug and run:
-#   gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ eth-block.manifest.template eth-block.manifest
-#   gramine-sgx-sign --manifest eth-block.manifest --output eth-block.manifest.sgx
-#   gramine-sgx ./eth-block
+# Copy to target/debug and run:
+#   gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
+#   gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
+#   gramine-sgx ./raiko-guest
 
 loader.entrypoint = "file:{{ gramine.libos }}"
-libos.entrypoint = "/eth-block"
+libos.entrypoint = "/raiko-guest"
 loader.log_level = "{{ log_level }}"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
 loader.env.RUST_LOG = "info"
 
 fs.mounts = [
   { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
-  { path = "/eth-block", uri = "file:eth-block" },
+  { path = "/raiko-guest", uri = "file:raiko-guest" },
   { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/tmp", uri = "file:/tmp" },
@@ -20,11 +20,11 @@ sys.insecure__allow_eventfd = true
 loader.insecure__use_cmdline_argv = true
 
 sgx.debug = false
-sgx.edmm_enable = {{ 'true' if env.get('EDMM', '0') == '1' else 'false' }}
+sgx.edmm_enable = true
 
 sgx.trusted_files = [
   "file:{{ gramine.libos }}",
-  "file:eth-block",
+  "file:raiko-guest",
   "file:{{ gramine.runtimedir() }}/",
   "file:{{ arch_libdir }}/libgcc_s.so.1",
   "file:{{ arch_libdir }}/libssl.so.3",
