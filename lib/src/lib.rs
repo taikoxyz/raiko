@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[macro_use]
+#[doc(hidden)]
+pub mod macros;
+
 extern crate core;
 
 #[cfg(not(target_os = "zkvm"))]
@@ -25,8 +29,10 @@ pub mod initialization;
 pub mod input;
 pub mod mem_db;
 pub mod preparation;
-#[cfg(feature = "taiko")]
-pub mod taiko;
+
+cfg_taiko! {
+    pub mod taiko;
+}
 
 pub use zeth_primitives::transactions::ethereum::EthereumTxEssence;
 
