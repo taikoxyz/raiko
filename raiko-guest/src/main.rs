@@ -68,7 +68,7 @@ pub async fn main() -> Result<()> {
     let block_no =
         u64::from_str(&String::from(path.file_prefix().unwrap().to_str().unwrap())).unwrap();
 
-    eprintln!("Reading input file {} (block no: {})", path_str, block_no);
+    println!("Reading input file {} (block no: {})", path_str, block_no);
 
     // parse file's content to Init struct
 
@@ -109,8 +109,8 @@ pub async fn main() -> Result<()> {
     let message = Message::from_hashed_data::<sha256::Hash>(output_hash_str.as_bytes());
     let sig = secp.sign_ecdsa(&message, &secret_key);
     // eprintln!("Private key: {}", secret_key.);
-    eprintln!("Public key: 0x{}", public_key);
-    eprintln!("Signature: 0x{}", sig);
+    println!("Public key: 0x{}", public_key);
+    println!("Signature: 0x{}", sig);
     assert!(secp.verify_ecdsa(&message, &sig, &public_key).is_ok());
 
     // SGX/gramine-specific code
@@ -145,6 +145,7 @@ pub async fn main() -> Result<()> {
                     "Extracted SGX quote with size = {} and the following fields:",
                     quote.len()
                 );
+                println!("Quote: {}", hex::encode(&quote));
                 println!(
                     "  ATTRIBUTES.FLAGS: {}  [ Debug bit: {} ]",
                     hex::encode(&quote[96..104]),
