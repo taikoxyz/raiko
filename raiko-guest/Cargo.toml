@@ -11,7 +11,14 @@ k256 = { version = "=0.13.1", features = [
   "ecdsa",
 ], default_features = false }
 risc0-zkvm = { version = "0.18", default-features = false, features = ['std'] }
-zeth-lib = { path = "../lib", default-features = false, features = ["taiko"] }
+# zeth-lib = { path = "../lib", default-features = false, features = ["taiko"] }
+zeth-lib = { path = "../lib", default-features = false }
+tokio = { version = "1.23", features = ["full"] }
+anyhow = "1.0"
+secp256k1 = { version = "0.27.0", features = ['rand-std', 'bitcoin_hashes'] }
+rand = "0.8.5"
+hex = "0.4.3"
+clap = { version = "4.4.6", features = ["derive"] }
 
 [patch.crates-io]
 radium = { git = 'https://github.com/ferrilab/radium.git', rev = "723bed5" }
