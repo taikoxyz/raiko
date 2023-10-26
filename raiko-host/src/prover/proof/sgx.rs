@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use log::debug;
 use tokio::process::Command;
 
 use crate::prover::{
@@ -11,12 +12,10 @@ use crate::prover::{
 
 pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse, String> {
     let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
+    debug!("Guest path: {}", guest_path);
     let guest_path = Path::new(&guest_path);
-    let bin = guest_path
-        .file_name()
-        .ok_or(String::from("missing sgx executable bin"))?;
     let mut cmd = if req.no_sgx {
-        let mut cmd = Command::new(bin);
+        let mut cmd = Command::new(guest_path);
         cmd.arg("--no-sgx");
         cmd
     } else {

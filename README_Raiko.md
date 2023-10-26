@@ -4,10 +4,9 @@
 
 This branch introduces SGX-enabled Zeth/Raiko. It consists of 2 'modules': `raiko-guest` and `raiko-host`.
 
-`raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is *not* being run inside SGX enclave.
+`raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is _not_ being run inside SGX enclave.
 
 `raiko-guest` is responsible for generating public-private key pair and signing. It is being run inside SGX enclave.
-
 
 ## Building
 
@@ -26,9 +25,7 @@ ubuntu:~/zeth$ cargo build
 
 The above command creates `/target` directory with `raiko-host` and `raiko-guest` compilation artifacts.
 
-
 ### `raiko-guest`
-
 
 #### SGX disabled
 
@@ -43,7 +40,6 @@ Reading input file /tmp/16424130.json.gz (block no: 16424130)
 Public key: 0x02a5103b31a9f16c579f9d96a3cb32c9cb7e2702effdec8d0ae9d01d3ce326a15b
 Signature: 0x3044022018a8f8b8a7ae249631af825dcd5c414197f79c56d9ea9ed224b1abdf3b589a2002205f33dec087a5fe032d47de4da9544ec4eb903323ba2812c4f07a48fc314393fb
 ```
-
 
 #### SGX enabled
 
@@ -136,15 +132,64 @@ Extracted SGX quote with size = 4734 and the following fields:
                     3962323766376634363632336339393466383664336231643332663266646335
 ```
 
-
 ### `raiko-host`
 
+Copy the raiko-guest
+
 ```console
-ubuntu:~/zeth/target/debug$ ./raiko-host --rpc-url="https://rpc.internal.taiko.xyz/" --block-no=169 --cache=/tmp
-thread 'tokio-runtime-worker' panicked at raiko-host/src/main.rs:92:14:
-Could not init: Error at transaction 0: Transaction(InvalidChainId)
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-Error: task 9 panicked
+cp target/debug/raiko-guest raiko-host/guests/sgx
+```
+
+Start the raiko-host server
+
+```console
+ubuntu:~/zeth/target/debug$ RUST_LOG=debug cargo run --bin raiko-host
+```
+
+Request the server
+
+```console
+curl --location --request POST 'http://127.0.0.1:8080/' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "proof",
+  "params": [
+    {
+      "type": "Sgx",
+      "l1_rpc": "https://l1rpc.internal.taiko.xyz",
+      "l2_rpc": "https://rpc.internal.taiko.xyz",
+      "l1_propose_block_hash": "0xba8dea7821dcb31c2f6dd133f564ca18ed6dcb6cc7aaa2b4ef721a8fc5bfa6ad",
+      "l2_block": 2,
+      "protocol_instance": {
+        "parentHash": "0xf3818f1bee79018a8610c1d770352296e9a26865e56438ae5a3950a8ab2e242c",
+        "blockHash": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
+        "signalRoot": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
+        "graffiti": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
+        "blockMetadata": {
+          "l1Hash": "0xb4600f287a6469f39beb157c28998ac3254cfb3601a77ce57502cf95fb0356e0",
+          "difficulty": "0x6d07dff439fb1acf9d98eb0c418b1f67ae6c15aedd5763514a91fb15353c0c2e",
+          "txListHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+          "extraData": "0x302e31372e302d64657600000000000000000000000000000000000000000000",
+          "id": 0,
+          "timestamp": 0,
+          "l1Height": 56,
+          "gasLimit": 15000000,
+          "coinbase": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "depositsProcessed": [
+            {
+              "recipient": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+              "amount": 0,
+              "id": 0
+            }
+          ]
+        }
+      },
+      "no_sgx": true
+    }
+  ]
+}'
 ```
 
 (FIXME - John's Taiko-specific code needed)

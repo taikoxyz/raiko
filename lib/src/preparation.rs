@@ -120,7 +120,8 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
         <D as Database>::Error: Debug,
         E: TxEssence,
     {
-        const GAS_LIMIT: U256 = uint!(1500000_U256);
+        // const GAS_LIMIT: U256 = uint!(15000000_U256);
+        const GAS_LIMIT: U256 = uint!(9000000_U256);
         // Validate gas limit
         if block_builder.input.gas_limit != GAS_LIMIT {
             bail!(

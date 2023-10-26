@@ -6,3 +6,4 @@ log.txt
 rpc_cache.json
 .idea
 *.json.gz
+raiko-guest
