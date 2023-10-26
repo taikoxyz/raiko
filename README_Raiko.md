@@ -138,12 +138,16 @@ Copy the raiko-guest
 
 ```console
 cp target/debug/raiko-guest raiko-host/guests/sgx
+cp raiko-guest/raiko-guest.manifest.template raiko-host/guests/sgx
+// run with SGX
+gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-host/guests/sgx/raiko-guest.manifest.template raiko-host/guests/sgx/raiko-guest.manifest
+gramine-sgx-sign --manifest raiko-host/guests/sgx/raiko-guest.manifest --output raiko-host/guests/sgx/raiko-guest.manifest.sgx
 ```
 
 Start the raiko-host server
 
 ```console
-ubuntu:~/zeth/target/debug$ RUST_LOG=debug cargo run --bin raiko-host
+RUST_LOG=debug cargo run --bin raiko-host
 ```
 
 Request the server
@@ -186,7 +190,7 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
           ]
         }
       },
-      "no_sgx": true
+      "no_sgx": true // if you want to run the server with SGX, please set to false
     }
   ]
 }'
