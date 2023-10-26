@@ -28,6 +28,7 @@ where
         ProofRequest::Sgx(SgxRequest {
             l1_rpc: _,
             l1_propose_block_hash: _,
+            prover: _,
             l2_block,
             l2_rpc,
             protocol_instance,

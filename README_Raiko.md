@@ -165,6 +165,7 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
       "l1_rpc": "https://l1rpc.internal.taiko.xyz",
       "l2_rpc": "https://rpc.internal.taiko.xyz",
       "l1_propose_block_hash": "0xba8dea7821dcb31c2f6dd133f564ca18ed6dcb6cc7aaa2b4ef721a8fc5bfa6ad",
+      "prover": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
       "l2_block": 2,
       "protocol_instance": {
         "parentHash": "0xf3818f1bee79018a8610c1d770352296e9a26865e56438ae5a3950a8ab2e242c",
@@ -199,5 +200,5 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
 Result
 
 ```console
-{"jsonrpc":"2.0","id":1,"result":{"type":"Sgx","instance_signature":"0x304402200b3a77556bef563461570c2f348c442edb9fb98821d8c74d109d22b9bb7367df02206e77f6ec605b050444c6017a4af853963bdbfb1014b72035e0a2a98ae2d07507","public_key":"0x0381f87c9ef0228c1cf4ef5b5e8885f54b9347f4921ad2a1b224bef042c574fdf6","proof":""}}
+{"jsonrpc":"2.0","id":1,"result":{"type":"Sgx","instance_signature":"0x304402200b3a77556bef563461570c2f348c442edb9fb98821d8c74d109d22b9bb7367df02206e77f6ec605b050444c6017a4af853963bdbfb1014b72035e0a2a98ae2d07507","public_key":"0x0381f87c9ef0228c1cf4ef5b5e8885f54b9347f4921ad2a1b224bef042c574fdf6","proof":"XXXXXX"}}
 ```

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
-use zeth_primitives::{taiko::ProtocolInstance, TxHash};
+use zeth_primitives::{taiko::ProtocolInstance, Address, TxHash};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -18,6 +18,8 @@ pub struct SgxRequest {
     /// proposer transaction hash
     #[serde_as(as = "DisplayFromStr")]
     pub l1_propose_block_hash: TxHash,
+    /// the prover
+    pub prover: Address,
     /// the l2 block number
     pub l2_block: u64,
     /// the l2 rpc url
