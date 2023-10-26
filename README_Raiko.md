@@ -196,4 +196,8 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
 }'
 ```
 
-(FIXME - John's Taiko-specific code needed)
+Result
+
+```console
+{"jsonrpc":"2.0","id":1,"result":{"type":"Sgx","instance_signature":"0x304402200b3a77556bef563461570c2f348c442edb9fb98821d8c74d109d22b9bb7367df02206e77f6ec605b050444c6017a4af853963bdbfb1014b72035e0a2a98ae2d07507","public_key":"0x0381f87c9ef0228c1cf4ef5b5e8885f54b9347f4921ad2a1b224bef042c574fdf6","proof":""}}
+```
