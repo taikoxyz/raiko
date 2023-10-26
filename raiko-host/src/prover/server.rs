@@ -1,13 +1,16 @@
-use super::json_rpc::JsonRpcResponse;
-use super::json_rpc::JsonRpcResponseError;
-use super::json_rpc::{JsonRpcError, JsonRpcRequest};
-use super::request::*;
-use super::{context::Context, execution::execute};
-use hyper::body::Buf;
-use hyper::body::HttpBody;
-use hyper::header::HeaderValue;
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use hyper::{
+    body::{Buf, HttpBody},
+    header::HeaderValue,
+    service::{make_service_fn, service_fn},
+    Body, Method, Request, Response, Server, StatusCode,
+};
+
+use super::{
+    context::Context,
+    execution::execute,
+    json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
+    request::*,
+};
 
 /// Starts the proverd json-rpc server.
 /// Note: the server may not immediately listening after returning the
@@ -152,7 +155,7 @@ async fn handle_method(
     match method {
         // enqueues a task for computating proof for any given block
         "proof" => {
-            let options = params.get(0).ok_or("expected struct ProofRequestOptions")?;
+            let options = params.first().ok_or("expected struct ProofRequest")?;
             let req: ProofRequest =
                 serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
             execute(&ctx, &req)
