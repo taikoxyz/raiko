@@ -1,13 +1,17 @@
 //! Prepare Input for guest
-use super::context::Context;
-use super::error::Result;
-use super::request::{ProofRequest, PseZkRequest, SgxRequest};
-use super::utils::cache_file_path;
+use std::fmt::Debug;
+
 use ethers_core::types::Transaction as EthersTransaction;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use zeth_lib::{
     block_builder::NetworkStrategyBundle, consts::TAIKO_MAINNET_CHAIN_SPEC, input::Input,
+};
+
+use super::{
+    context::Context,
+    error::Result,
+    request::{ProofRequest, PseZkRequest, SgxRequest},
+    utils::cache_file_path,
 };
 
 /// prepare input data for guests
@@ -41,7 +45,7 @@ where
                     Some(cache_path),
                     Some(l2_rpc),
                     l2_block,
-                    _protocol_instance,
+                    Some(_protocol_instance),
                 )
             })
             .await?

@@ -16,6 +16,7 @@ use core::fmt::Debug;
 
 use anyhow::{bail, Context, Result};
 use revm::{Database, DatabaseCommit};
+use ruint::uint;
 use zeth_primitives::{block::Header, transactions::TxEssence, U256};
 
 use crate::{
@@ -119,11 +120,12 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
         <D as Database>::Error: Debug,
         E: TxEssence,
     {
+        const GAS_LIMIT: U256 = uint!(1500000_U256);
         // Validate gas limit
-        if block_builder.input.gas_limit < MIN_GAS_LIMIT {
+        if block_builder.input.gas_limit != GAS_LIMIT {
             bail!(
-                "Invalid gas limit: expected >= {}, got {}",
-                MIN_GAS_LIMIT,
+                "Invalid gas limit: expected == {}, got {}",
+                GAS_LIMIT,
                 block_builder.input.gas_limit,
             );
         }

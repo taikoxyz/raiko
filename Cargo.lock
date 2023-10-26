@@ -2432,7 +2432,6 @@ dependencies = [
  "anyhow",
  "clap",
  "hex",
- "k256",
  "rand",
  "risc0-zkvm",
  "secp256k1",

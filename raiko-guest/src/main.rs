@@ -22,8 +22,8 @@ use std::{fs::File, io::prelude::*, path::PathBuf, str::FromStr};
 use anyhow::Result;
 use clap::Parser;
 use zeth_lib::{
-    block_builder::{EthereumBlockBuilder, EthereumStrategyBundle},
-    consts::ETH_MAINNET_CHAIN_SPEC,
+    block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
+    consts::TAIKO_MAINNET_CHAIN_SPEC,
 };
 
 #[derive(Parser, Debug)]
@@ -74,11 +74,12 @@ pub async fn main() -> Result<()> {
 
     let rpc_cache = Some(path_str);
     let init = tokio::task::spawn_blocking(move || {
-        zeth_lib::host::get_initial_data::<EthereumStrategyBundle>(
-            ETH_MAINNET_CHAIN_SPEC.clone(),
+        zeth_lib::host::get_initial_data::<TaikoStrategyBundle>(
+            TAIKO_MAINNET_CHAIN_SPEC.clone(),
             rpc_cache,
             None,
             block_no,
+            None,
         )
         .expect("Could not init")
     })
@@ -87,7 +88,7 @@ pub async fn main() -> Result<()> {
     // run block builder
 
     let input = init.clone().into();
-    let output = EthereumBlockBuilder::build_from(&ETH_MAINNET_CHAIN_SPEC, input)
+    let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input)
         .expect("Failed to build the resulting block");
 
     // get hash of the block header and print it

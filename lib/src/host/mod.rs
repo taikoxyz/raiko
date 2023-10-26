@@ -23,6 +23,8 @@ use ethers_core::types::{Bytes, EIP1186ProofResponse, Transaction as EthersTrans
 use hashbrown::HashMap;
 use log::info;
 use revm::Database;
+#[cfg(feature = "taiko")]
+use zeth_primitives::taiko::ProtocolInstance;
 use zeth_primitives::{
     block::Header,
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -32,9 +34,6 @@ use zeth_primitives::{
     withdrawal::Withdrawal,
     Address, B256, U256,
 };
-
-#[cfg(feature = "taiko")]
-use zeth_primitives::taiko::ProtocolInstance;
 
 use crate::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
@@ -70,7 +69,7 @@ pub fn get_initial_data<N: NetworkStrategyBundle>(
     cache_path: Option<String>,
     rpc_url: Option<String>,
     block_no: u64,
-    #[cfg(feature = "taiko")] protocol_instance: ProtocolInstance,
+    #[cfg(feature = "taiko")] protocol_instance: Option<ProtocolInstance>,
 ) -> Result<Init<N::TxEssence>>
 where
     N::TxEssence: TryFrom<EthersTransaction>,
@@ -78,6 +77,8 @@ where
 {
     let mut provider = new_provider(cache_path, rpc_url)?;
 
+    #[cfg(feature = "taiko")]
+    let protocol_instance = provider.get_protocol_instance(protocol_instance)?;
     // Fetch the initial block
     let init_block = provider.get_partial_block(&BlockQuery {
         block_no: block_no - 1,

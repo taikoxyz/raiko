@@ -22,6 +22,7 @@ use anyhow::{anyhow, Result};
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use zeth_primitives::taiko::ProtocolInstance;
 
 use super::{AccountQuery, BlockQuery, MutProvider, ProofQuery, Provider, StorageQuery};
 
@@ -46,6 +47,8 @@ pub struct FileProvider {
     code: HashMap<AccountQuery, Bytes>,
     #[serde_as(as = "Vec<(_, _)>")]
     storage: HashMap<StorageQuery, H256>,
+    #[cfg(feature = "taiko")]
+    protocol_instance: ProtocolInstance,
 }
 
 impl FileProvider {
@@ -60,6 +63,8 @@ impl FileProvider {
             balance: HashMap::new(),
             code: HashMap::new(),
             storage: HashMap::new(),
+            #[cfg(feature = "taiko")]
+            protocol_instance: ProtocolInstance::default(),
         }
     }
 
@@ -142,6 +147,20 @@ impl Provider for FileProvider {
             None => Err(anyhow!("No data for {:?}", query)),
         }
     }
+
+    #[cfg(feature = "taiko")]
+    fn get_protocol_instance(
+        &mut self,
+        pi: Option<zeth_primitives::taiko::ProtocolInstance>,
+    ) -> Result<zeth_primitives::taiko::ProtocolInstance> {
+        match pi {
+            Some(pi) => {
+                self.insert_protocol_instance(pi.clone());
+            }
+            None => {}
+        }
+        Ok(self.protocol_instance.clone())
+    }
 }
 
 impl MutProvider for FileProvider {
@@ -177,6 +196,12 @@ impl MutProvider for FileProvider {
 
     fn insert_storage(&mut self, query: StorageQuery, val: H256) {
         self.storage.insert(query, val);
+        self.dirty = true;
+    }
+
+    #[cfg(feature = "taiko")]
+    fn insert_protocol_instance(&mut self, pi: zeth_primitives::taiko::ProtocolInstance) {
+        self.protocol_instance = pi;
         self.dirty = true;
     }
 }

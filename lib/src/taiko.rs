@@ -1,6 +1,6 @@
-use crate::host::{AnchorError, VerifyError};
-use once_cell::sync::Lazy;
 use std::str::FromStr;
+
+use once_cell::sync::Lazy;
 use zeth_primitives::{
     block::Header,
     taiko::protocol_instance::ProtocolInstance,
@@ -11,8 +11,10 @@ use zeth_primitives::{
     Address, B256, U256, U64,
 };
 
+use crate::host::{AnchorError, VerifyError};
+
 const ANCHOR_SELECTOR: u32 = 0xda69d3db;
-const ANCHOR_GAS_LIMIT: u64 = 180_000; // TODO: read l1 contract to get this value
+const ANCHOR_GAS_LIMIT: u64 = 250_000;
 const CALL_START: usize = 4;
 const EACH_PARAM_LEN: usize = 32;
 
@@ -158,10 +160,11 @@ pub fn verify_block(
         return Err(VerifyError::BlockFieldMismatch);
     }
     match block.withdrawals_root {
-        Some(withdraws_root) => {
-            if withdraws_root != protocol_instance.blockMetadata.withdraws_root() {
-                return Err(VerifyError::BlockFieldMismatch);
-            }
+        Some(_withdraws_root) => {
+            // TODO: verify withdraws root
+            // if withdraws_root != protocol_instance.blockMetadata.withdraws_root() {
+            //     return Err(VerifyError::BlockFieldMismatch);
+            // }
         }
         None => todo!(),
     }

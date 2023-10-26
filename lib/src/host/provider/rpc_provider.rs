@@ -130,4 +130,12 @@ impl Provider for RpcProvider {
 
         Ok(out)
     }
+
+    #[cfg(feature = "taiko")]
+    fn get_protocol_instance(
+        &mut self,
+        _pi: Option<zeth_primitives::taiko::ProtocolInstance>,
+    ) -> Result<zeth_primitives::taiko::ProtocolInstance> {
+        unreachable!()
+    }
 }

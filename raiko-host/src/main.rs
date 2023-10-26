@@ -13,24 +13,32 @@
 // limitations under the License.
 
 mod prover;
+use std::fmt::Debug;
+
 use anyhow::Result;
 use clap::Parser;
 use prover::server::serve;
-use std::fmt::Debug;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    #[clap(short, long, require_equals = true)]
-    /// Server bind address, e.g. "0.0.0.0:8080"
-    bind: String,
+    #[clap(
+        short,
+        long,
+        require_equals = true,
+        num_args = 0..=1,
+        default_value = "0.0.0.0:8080"
+    )]
+    /// Server bind address
+    /// [default: 0.0.0.0:8080]
+    bind: Option<String>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_missing_value = "raiko-host/testdata")]
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/testdata")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
     /// [default: raiko-host/testdata]
     cache: Option<String>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_missing_value = "raiko-host/guests")]
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/guests")]
     /// The guests path
     /// [default: raiko-host/guests]
     guest: Option<String>,
@@ -54,6 +62,11 @@ struct Args {
 async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
-    serve(&args.bind, &args.guest.unwrap(), &args.cache.unwrap()).await?;
+    serve(
+        &args.bind.unwrap(),
+        &args.guest.unwrap(),
+        &args.cache.unwrap(),
+    )
+    .await?;
     Ok(())
 }

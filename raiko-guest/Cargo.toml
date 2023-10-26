@@ -6,31 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-k256 = { version = "=0.13.1", features = [
-  "std",
-  "ecdsa",
-], default_features = false }
-risc0-zkvm = { version = "0.18", default-features = false, features = ['std'] }
-# zeth-lib = { path = "../lib", default-features = false, features = ["taiko"] }
-zeth-lib = { path = "../lib", default-features = false }
+risc0-zkvm = { version = "0.18", default-features = false, features = ["std"] }
+zeth-lib = { path = "../lib", default-features = false, features = ["taiko"] }
 tokio = { version = "1.23", features = ["full"] }
 anyhow = "1.0"
 secp256k1 = { version = "0.27.0", features = ['rand-std', 'bitcoin_hashes'] }
 rand = "0.8.5"
 hex = "0.4.3"
 clap = { version = "4.4.6", features = ["derive"] }
-
-[patch.crates-io]
-radium = { git = 'https://github.com/ferrilab/radium.git', rev = "723bed5" }
-# use optimized risc0 circuit
-revm = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
-revm-primitives = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
-revm-interpreter = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
-revm-precompile = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
-crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.2-risczero.0" }
-k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.1-risczero.1" }
-sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6-risczero.0" }
-
-[profile.release]
-codegen-units = 1
-panic = "abort"

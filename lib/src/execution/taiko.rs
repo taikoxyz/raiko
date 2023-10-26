@@ -37,10 +37,8 @@ use crate::{
     consts::{GWEI_TO_WEI, MIN_SPEC_ID},
     execution::TxExecStrategy,
     guest_mem_forget,
+    taiko::verify_anchor,
 };
-
-#[cfg(feature = "taiko")]
-use crate::taiko::verify_anchor;
 
 pub struct TaikoTxExecStrategy {}
 
@@ -115,7 +113,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             .into_iter()
             .enumerate()
         {
-            #[cfg(feature = "taiko")]
+            // check the first anchor transaction is valid
             if tx_no == 0 {
                 if let Err(e) = verify_anchor(header, &tx, &block_builder.input.protocol_instance) {
                     bail!(
@@ -152,6 +150,14 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
                 .map_err(|evm_err| anyhow!("Error at transaction {}: {:?}", tx_no, evm_err))?;
 
             // TODO: check the revert of anchor transaction
+            if tx_no == 0 && !result.is_success() {
+                bail!(
+                    "Error at transaction {}: execute anchor failed {:?}",
+                    tx_no,
+                    result
+                );
+            }
+
             let gas_used = result.gas_used().try_into().unwrap();
             cumulative_gas_used = cumulative_gas_used.checked_add(gas_used).unwrap();
 

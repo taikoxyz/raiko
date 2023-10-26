@@ -57,6 +57,12 @@ pub trait Provider: Send {
     fn get_balance(&mut self, query: &AccountQuery) -> Result<U256>;
     fn get_code(&mut self, query: &AccountQuery) -> Result<Bytes>;
     fn get_storage(&mut self, query: &StorageQuery) -> Result<H256>;
+
+    #[cfg(feature = "taiko")]
+    fn get_protocol_instance(
+        &mut self,
+        pi: Option<zeth_primitives::taiko::ProtocolInstance>,
+    ) -> Result<zeth_primitives::taiko::ProtocolInstance>;
 }
 
 pub trait MutProvider: Provider {
@@ -67,6 +73,9 @@ pub trait MutProvider: Provider {
     fn insert_balance(&mut self, query: AccountQuery, val: U256);
     fn insert_code(&mut self, query: AccountQuery, val: Bytes);
     fn insert_storage(&mut self, query: StorageQuery, val: H256);
+
+    #[cfg(feature = "taiko")]
+    fn insert_protocol_instance(&mut self, pi: zeth_primitives::taiko::ProtocolInstance);
 }
 
 pub fn new_file_provider(file_path: String) -> Result<Box<dyn Provider>> {

@@ -125,4 +125,12 @@ impl Provider for CachedRpcProvider {
 
         Ok(out)
     }
+
+    #[cfg(feature = "taiko")]
+    fn get_protocol_instance(
+        &mut self,
+        pi: Option<zeth_primitives::taiko::ProtocolInstance>,
+    ) -> Result<zeth_primitives::taiko::ProtocolInstance> {
+        self.cache.get_protocol_instance(pi)
+    }
 }

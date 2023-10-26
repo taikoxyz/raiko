@@ -1,11 +1,13 @@
+use std::path::Path;
+
+use tokio::process::Command;
+
 use crate::prover::{
     constant::*,
     context::Context,
     request::{SgxRequest, SgxResponse},
     utils::{cache_file_path, guest_executable_path},
 };
-use std::path::Path;
-use tokio::process::Command;
 
 pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse, String> {
     let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
@@ -44,7 +46,6 @@ fn parse_sgx_result(output: Vec<u8>) -> Result<SgxResponse, String> {
     let mut instance_signature = String::new();
     let mut public_key = String::new();
     let mut proof = String::new();
-    let mut mr_enclave = String::new();
     for line in output.lines() {
         if let Some(_instance_signature) = line.trim().strip_prefix(SGX_INSTANCE_SIGNATURE_PREFIX) {
             instance_signature = _instance_signature.trim().to_owned();
