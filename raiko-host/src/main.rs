@@ -16,20 +16,14 @@ mod prover;
 
 use std::fmt::Debug;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use clap::Parser;
 use ethers_core::types::Transaction as EthersTransaction;
-use log::{error, info};
 use serde::{Deserialize, Serialize};
 use zeth_lib::{
-    block_builder::{BlockBuilder, NetworkStrategyBundle, TaikoStrategyBundle},
-    consts::{ChainSpec, TAIKO_MAINNET_CHAIN_SPEC},
-    finalization::DebugBuildFromMemDbStrategy,
-    initialization::MemDbInitStrategy,
-    input::Input,
-    taiko::verify_block,
+    block_builder::{EthereumStrategyBundle, NetworkStrategyBundle},
+    consts::{ChainSpec, ETH_MAINNET_CHAIN_SPEC},
 };
-use zeth_primitives::taiko::ProtocolInstance;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -53,12 +47,26 @@ fn cache_file_path(cache_path: &String, network: &str, block_no: u64, ext: &str)
     format!("{}/{}/{}.{}", cache_path, network, block_no, ext)
 }
 
+// Prerequisites:
+//
+//   $ rustup default
+//   nightly-x86_64-unknown-linux-gnu (default)
+//
+// Go to /host directory and compile with:
+//   $ cargo build
+//
+// Create /tmp/ethereum directory and run with:
+//
+//   $ RUST_LOG=info cargo run -- --rpc-url="https://rpc.internal.taiko.xyz/" --block-no=169 --cache=/tmp
+//
+// from target/debug directory
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    run_with_bundle::<TaikoStrategyBundle>(args, TAIKO_MAINNET_CHAIN_SPEC.clone()).await
+    run_with_bundle::<EthereumStrategyBundle>(args, ETH_MAINNET_CHAIN_SPEC.clone()).await
 }
 
 async fn run_with_bundle<N: NetworkStrategyBundle>(args: Args, chain_spec: ChainSpec) -> Result<()>
@@ -73,104 +81,13 @@ where
         .as_ref()
         .map(|dir| cache_file_path(dir, "taiko", args.block_no, "json.gz"));
 
-    let protocol_instance: ProtocolInstance = serde_json::from_str(args.protocol_instance.as_str())
-        .expect("Could not parse protocol instance");
-
     let init_spec = chain_spec.clone();
-    let _protocol_instance = protocol_instance.clone();
-    let init = tokio::task::spawn_blocking(move || {
-        zeth_lib::host::get_initial_data::<N>(
-            init_spec,
-            rpc_cache,
-            args.rpc_url,
-            args.block_no,
-            _protocol_instance,
-        )
-        .expect("Could not init")
+    // let _protocol_instance = protocol_instance.clone();
+    let _init = tokio::task::spawn_blocking(move || {
+        zeth_lib::host::get_initial_data::<N>(init_spec, rpc_cache, args.rpc_url, args.block_no)
+            .expect("Could not init")
     })
     .await?;
-
-    let input: Input<N::TxEssence> = init.clone().into();
-
-    // Verify that the transactions run correctly
-    {
-        info!("Running from memory ...");
-
-        // todo: extend to use [ConfiguredBlockBuilder]
-        let block_builder = BlockBuilder::new(&chain_spec, input.clone())
-            .initialize_database::<MemDbInitStrategy>()
-            .expect("Error initializing MemDb from Input")
-            .prepare_header::<N::HeaderPrepStrategy>()
-            .expect("Error creating initial block header")
-            .execute_transactions::<N::TxExecStrategy>()
-            .expect("Error while running transactions");
-
-        let fini_db = block_builder.db().unwrap().clone();
-        let accounts_len = fini_db.accounts_len();
-
-        let (validated_header, storage_deltas) = block_builder
-            .build::<DebugBuildFromMemDbStrategy>()
-            .expect("Error while verifying final state");
-
-        info!(
-            "Memory-backed execution is Done! Database contains {} accounts",
-            accounts_len
-        );
-
-        // Verify final state
-        info!("Verifying final state using provider data ...");
-        let errors = zeth_lib::host::verify_state(fini_db, init.fini_proofs, storage_deltas)
-            .expect("Could not verify final state!");
-        for (address, address_errors) in &errors {
-            error!(
-                "Verify found {:?} error(s) for address {:?}",
-                address_errors.len(),
-                address
-            );
-            for error in address_errors {
-                match error {
-                    zeth_lib::host::VerifyError::BalanceMismatch {
-                        rpc_value,
-                        our_value,
-                        difference,
-                    } => error!(
-                        "  Error: BalanceMismatch: rpc_value={} our_value={} difference={}",
-                        rpc_value, our_value, difference
-                    ),
-                    _ => error!("  Error: {:?}", error),
-                }
-            }
-        }
-
-        // verify taiko protocol
-        if let Err(e) = verify_block(&validated_header, &protocol_instance) {
-            bail!("Taiko protocol verification failed: {:?}", e);
-        }
-
-        let errors_len = errors.len();
-        if errors_len > 0 {
-            error!(
-                "Verify found {:?} account(s) with error(s) ({}% correct)",
-                errors_len,
-                (100.0 * (accounts_len - errors_len) as f64 / accounts_len as f64)
-            );
-        }
-
-        // verify between raiko block and geth block
-        let found_hash = validated_header.hash();
-        let expected_hash = init.fini_block.hash();
-        if found_hash.as_slice() != expected_hash.as_slice() {
-            error!(
-                "Final block hash mismatch {} (expected {})",
-                found_hash, expected_hash,
-            );
-
-            bail!("Invalid block hash");
-        }
-
-        info!("Final block hash derived successfully. {}", found_hash)
-        // TODO: SGX signature
-    }
 
     Ok(())
 }

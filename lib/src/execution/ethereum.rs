@@ -35,7 +35,8 @@ use zeth_primitives::{
 use crate::{
     block_builder::BlockBuilder,
     consts,
-    consts::{GWEI_TO_WEI, MIN_SPEC_ID},
+    // consts::{GWEI_TO_WEI, MIN_SPEC_ID},
+    consts::GWEI_TO_WEI,
     execution::TxExecStrategy,
     guest_mem_forget,
 };
@@ -56,13 +57,13 @@ impl TxExecStrategy<EthereumTxEssence> for EthTxExecStrategy {
             .expect("Header is not initialized");
         // Compute the spec id
         let spec_id = block_builder.chain_spec.spec_id(header.number);
-        if !SpecId::enabled(spec_id, MIN_SPEC_ID) {
-            bail!(
-                "Invalid protocol version: expected >= {:?}, got {:?}",
-                MIN_SPEC_ID,
-                spec_id,
-            )
-        }
+        // if !SpecId::enabled(spec_id, MIN_SPEC_ID) {
+        //     bail!(
+        //         "Invalid protocol version: expected >= {:?}, got {:?}",
+        //         MIN_SPEC_ID,
+        //         spec_id,
+        //     )
+        // }
 
         #[cfg(not(target_os = "zkvm"))]
         {
