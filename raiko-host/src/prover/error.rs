@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[derive(Debug)]
 pub enum Error {
     Io(std::io::Error),
     Anyhow(anyhow::Error),
