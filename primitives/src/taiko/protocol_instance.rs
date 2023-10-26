@@ -1,10 +1,15 @@
-use crate::keccak;
+use std::{iter, str::FromStr};
+
 use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{Address, B256, U160, U256};
 use alloy_sol_types::{sol, SolValue};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
-use std::{iter, str::FromStr};
+use serde::{
+    de::{Error as DeError, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+
+use crate::keccak;
 
 pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982")
@@ -18,17 +23,15 @@ pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
-    #[serde(rename_all = "snake_case")]
     struct EthDeposit {
         address recipient;
+        #[serde(serialize_with = "serialize_amount")]
+        #[serde(deserialize_with = "deserialize_amount")]
         uint96 amount;
         uint64 id;
     }
-}
 
-sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
-    #[serde(rename_all = "snake_case")]
     struct BlockMetadata {
         bytes32 l1Hash; // constrain: anchor call
         bytes32 difficulty; // constrain: l2 block's difficulty
@@ -40,6 +43,65 @@ sol! {
         uint32 gasLimit; // constrain: l2 block's gas limit - anchor gas limit
         address coinbase; // constrain: L2 coinbase
         EthDeposit[] depositsProcessed; // constrain: l2 withdraw root
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
+    struct BlockEvidence {
+        BlockMetadata blockMetadata;
+        bytes32 parentHash; // constrain: l2 parent hash
+        bytes32 blockHash; // constrain: l2 block hash
+        bytes32 signalRoot; // constrain: ??l2 service account storage root??
+        bytes32 graffiti; // constrain: l2 block's graffiti
+    }
+}
+
+fn serialize_amount<S>(value: &u128, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    if *value > (u64::MAX as u128) || *value < (u64::MIN as u128) {
+        return value.to_string().serialize(serializer);
+    }
+
+    value.serialize(serializer)
+}
+
+fn deserialize_amount<'de, D>(deserializer: D) -> Result<u128, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(AmountVisitor)
+}
+
+#[derive(Debug)]
+struct AmountVisitor;
+impl<'de> Visitor<'de> for AmountVisitor {
+    type Value = u128;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        dbg!(self);
+        formatter.write_str("expect to receive integer")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        v.parse().map_err(DeError::custom)
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(v as u128)
+    }
+
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(v as u128)
     }
 }
 
@@ -90,18 +152,6 @@ impl BlockMetadata {
             .chain(field6)
             .collect();
         keccak::keccak(input).into()
-    }
-}
-
-sol! {
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    #[serde(rename_all = "snake_case")]
-    struct BlockEvidence {
-        BlockMetadata blockMetadata;
-        bytes32 parentHash; // constrain: l2 parent hash
-        bytes32 blockHash; // constrain: l2 block hash
-        bytes32 signalRoot; // constrain: ??l2 service account storage root??
-        bytes32 graffiti; // constrain: l2 block's graffiti
     }
 }
 

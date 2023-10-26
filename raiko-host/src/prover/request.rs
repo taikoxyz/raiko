@@ -4,6 +4,7 @@ use zeth_primitives::{taiko::ProtocolInstance, TxHash};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum ProofRequest {
     Sgx(SgxRequest),
     PseZk(PseZkRequest),
@@ -16,7 +17,7 @@ pub struct SgxRequest {
     pub l1_rpc: String,
     /// proposer transaction hash
     #[serde_as(as = "DisplayFromStr")]
-    pub proposer_hash: TxHash,
+    pub l1_propose_block_hash: TxHash,
     /// the l2 block number
     pub l2_block: u64,
     /// the l2 rpc url
