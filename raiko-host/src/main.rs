@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod prover;
+
 use std::fmt::Debug;
 
 use anyhow::{bail, Result};
@@ -33,26 +35,18 @@ use zeth_primitives::taiko::ProtocolInstance;
 #[clap(author, version, about, long_about = None)]
 struct Args {
     #[clap(short, long, require_equals = true)]
-    /// URL of the chain RPC node.
-    rpc_url: Option<String>,
+    /// Server bind address, e.g. "0.0.0.0:8080"
+    bind: String,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_missing_value = "host/testdata")]
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_missing_value = "raiko-host/testdata")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
-    /// [default: host/testdata]
+    /// [default: raiko-host/testdata]
     cache: Option<String>,
 
-    #[clap(short, long, require_equals = true)]
-    /// Block number to validate.
-    block_no: u64,
-
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_missing_value = "20")]
-    /// Runs the verification inside the zkvm executor locally. Accepts a custom maximum
-    /// segment cycle count as a power of 2. [default: 20]
-    local_exec: Option<usize>,
-
-    #[clap(short, long, require_equals = true)]
-    /// protocol instance json format
-    protocol_instance: String,
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_missing_value = "raiko-host/guests")]
+    /// The guests path
+    /// [default: raiko-host/guests]
+    guest: Option<String>,
 }
 
 fn cache_file_path(cache_path: &String, network: &str, block_no: u64, ext: &str) -> String {

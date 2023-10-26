@@ -18,6 +18,7 @@ pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
+    #[serde(rename_all = "snake_case")]
     struct EthDeposit {
         address recipient;
         uint96 amount;
@@ -27,6 +28,7 @@ sol! {
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
+    #[serde(rename_all = "snake_case")]
     struct BlockMetadata {
         bytes32 l1Hash; // constrain: anchor call
         bytes32 difficulty; // constrain: l2 block's difficulty
@@ -93,6 +95,7 @@ impl BlockMetadata {
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
+    #[serde(rename_all = "snake_case")]
     struct BlockEvidence {
         BlockMetadata blockMetadata;
         bytes32 parentHash; // constrain: l2 parent hash
