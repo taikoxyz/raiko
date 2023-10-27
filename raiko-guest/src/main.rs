@@ -115,7 +115,7 @@ pub async fn main() -> Result<()> {
 
     // SGX/gramine-specific code
 
-    if args.no_sgx == false {
+    if !args.no_sgx {
         if !std::path::Path::new("/dev/attestation/quote").exists() {
             eprintln!("Cannot find `/dev/attestation/quote`; are you running under SGX, with remote attestation enabled?");
             std::process::exit(1);
@@ -123,7 +123,10 @@ pub async fn main() -> Result<()> {
 
         if let Ok(mut attestation_type_file) = File::open("/dev/attestation/attestation_type") {
             let mut attestation_type = String::new();
-            if let Ok(_) = attestation_type_file.read_to_string(&mut attestation_type) {
+            if attestation_type_file
+                .read_to_string(&mut attestation_type)
+                .is_ok()
+            {
                 println!("Detected attestation type: {}", attestation_type.trim());
             }
         }
@@ -133,14 +136,17 @@ pub async fn main() -> Result<()> {
             // pad the data with null bytes to make it 64 bytes long
             let mut padded_public_key_hash = public_key_hash.clone();
             padded_public_key_hash.resize(64, 0);
-            if let Ok(_) = user_report_data_file.write_all(&padded_public_key_hash) {
+            if user_report_data_file
+                .write_all(&padded_public_key_hash)
+                .is_ok()
+            {
                 println!("Successfully wrote zeros to user_report_data");
             }
         }
 
         if let Ok(mut quote_file) = File::open("/dev/attestation/quote") {
             let mut quote = Vec::new();
-            if let Ok(_) = quote_file.read_to_end(&mut quote) {
+            if quote_file.read_to_end(&mut quote).is_ok() {
                 println!(
                     "Extracted SGX quote with size = {} and the following fields:",
                     quote.len()
