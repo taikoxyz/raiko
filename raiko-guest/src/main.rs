@@ -20,19 +20,47 @@ extern crate secp256k1;
 use std::{fs::File, io::prelude::*, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{ArgAction, Args, Parser, Subcommand};
+use server_sgx;
 use zeth_lib::{
     block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
     consts::TAIKO_MAINNET_CHAIN_SPEC,
 };
 
-#[derive(Parser, Debug)]
-struct Args {
+#[derive(Debug, Parser)]
+struct App {
+    #[clap(flatten)]
+    global_opts: GlobalOpts,
+
+    #[clap(subcommand)]
+    command: Command,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    Server(ServerArgs),
+    OneShot(OneShotArgs),
+}
+
+#[derive(Debug, Args)]
+struct ServerArgs {
+    #[clap(long, short = 'o')]
+    example_opt: bool,
+}
+
+#[derive(Debug, Args)]
+struct OneShotArgs {
     #[clap(short, long)]
     file: PathBuf,
 
     #[clap(short, long)]
     no_sgx: bool,
+}
+
+#[derive(Debug, Args)]
+struct GlobalOpts {
+    #[clap(long, short, global = true, action = ArgAction::Count)]
+    verbose: u8,
 }
 
 // Prerequisites:
@@ -58,11 +86,11 @@ struct Args {
 //
 //   $ cargo run -- --file /tmp/16424130.json.gz --no-sgx
 
-#[tokio::main]
-pub async fn main() -> Result<()> {
-    // read input file with block data (assume `XYZ.tar.gz` file where XYZ is a block number)
+async fn one_shot(args: OneShotArgs) -> Result<()> {
+    if args.no_sgx {
+        println!("Running without SGX");
+    }
 
-    let args = Args::parse();
     let path = args.file;
     let path_str = path.to_string_lossy().to_string();
     let block_no =
@@ -158,32 +186,61 @@ pub async fn main() -> Result<()> {
                     quote[96] & 2 > 0
                 );
                 println!("  ATTRIBUTES.XFRM:  {}", hex::encode(&quote[104..112]));
-                // Enclave's measurement (hash of code and data). MRENCLAVE is a 256-bit value that
-                // represents the hash (message digest) of the code and data within an enclave. It
-                // is a critical security feature of SGX and provides integrity protection for the
-                // enclave's contents. When an enclave is instantiated, its MRENCLAVE value is
-                // computed and stored in the SGX quote. This value can be used to ensure that the
+                // Enclave's measurement (hash of code and data). MRENCLAVE is a 256-bit
+                // value that represents the hash (message digest)
+                // of the code and data within an enclave. It
+                // is a critical security feature of SGX and provides integrity protection
+                // for the enclave's contents. When an enclave is
+                // instantiated, its MRENCLAVE value is computed and
+                // stored in the SGX quote. This value can be used to ensure that the
                 // enclave being run is the intended and correct version.
                 println!("  MRENCLAVE:        {}", hex::encode(&quote[112..144]));
-                // MRSIGNER is a 256-bit value that identifies the entity or signer responsible for
-                // signing the enclave code. It represents the microcode revision of the software
-                // entity that created the enclave. Each entity or signer, such as a software vendor
-                // or developer, has a unique MRSIGNER value associated with their signed enclaves.
-                // The MRSIGNER value provides a way to differentiate between different signers or
-                // entities, allowing applications to make trust decisions based on the signer's
+                // MRSIGNER is a 256-bit value that identifies the entity or signer
+                // responsible for signing the enclave code. It
+                // represents the microcode revision of the software
+                // entity that created the enclave. Each entity or signer, such as a
+                // software vendor or developer, has a unique
+                // MRSIGNER value associated with their signed enclaves.
+                // The MRSIGNER value provides a way to differentiate between different
+                // signers or entities, allowing applications to
+                // make trust decisions based on the signer's
                 // identity and trustworthiness.
                 println!("  MRSIGNER:         {}", hex::encode(&quote[176..208]));
                 println!("  ISVPRODID:        {}", hex::encode(&quote[304..306]));
                 println!("  ISVSVN:           {}", hex::encode(&quote[306..308]));
-                // The REPORTDATA field in the SGX report structure is a 64-byte array used for
-                // providing additional data to the reporting process. The contents of this field
+                // The REPORTDATA field in the SGX report structure is a 64-byte array used
+                // for providing additional data to the reporting
+                // process. The contents of this field
                 // are application-defined and can be used to convey information that the
-                // application considers relevant for its security model. The REPORTDATA field
-                // allows the application to include additional contextual information that might be
+                // application considers relevant for its security model. The REPORTDATA
+                // field allows the application to include
+                // additional contextual information that might be
                 // necessary for the particular security model or usage scenario.
                 println!("  REPORTDATA:       {}", hex::encode(&quote[368..400]));
                 println!("                    {}", hex::encode(&quote[400..432]));
             }
+        }
+    }
+
+    Ok(())
+}
+
+#[tokio::main]
+pub async fn main() -> Result<()> {
+    // read input file with block data (assume `XYZ.tar.gz` file where XYZ is a block number)
+    let args = App::parse();
+
+    match args.command {
+        Command::Server(args) => {
+            println!("Starting RA-TLS server");
+            if args.example_opt {
+                println!("Example option is set");
+            }
+            let _ = server_sgx::result_main();
+        }
+        Command::OneShot(args) => {
+            println!("Starting one shot mode");
+            one_shot(args).await?;
         }
     }
 
