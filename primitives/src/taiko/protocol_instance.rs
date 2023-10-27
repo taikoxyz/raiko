@@ -199,4 +199,9 @@ impl BlockEvidence {
     }
 }
 
-pub type ProtocolInstance = BlockEvidence;
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProtocolInstance {
+    pub block_evidence: BlockEvidence,
+    pub prover: Address,
+}
