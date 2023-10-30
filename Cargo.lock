@@ -4127,6 +4127,7 @@ dependencies = [
  "bincode",
  "bytes",
  "ethers-core",
+ "hex",
  "hex-literal",
  "k256",
  "once_cell",

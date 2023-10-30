@@ -157,15 +157,21 @@ impl BlockMetadata {
 
 pub enum EvidenceType {
     Sgx {
-        prover: Address,
         new_pubkey: Address, // the evidence signature public key
     },
-    PseZk {
-        prover: Address,
-    },
+    PseZk,
 }
 
-impl BlockEvidence {
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProtocolInstance {
+    pub block_evidence: BlockEvidence,
+    pub prover: Address,
+    #[serde(with = "hex::serde")]
+    pub tx_list: Vec<u8>, // hex encoded
+}
+
+impl ProtocolInstance {
     // keccak256(
     //     abi.encode(
     //         evidence.metaHash,
@@ -180,28 +186,20 @@ impl BlockEvidence {
     pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
         use DynSolValue::*;
         let mut abi_encode_tuple = vec![
-            FixedBytes(self.blockMetadata.hash(), 32),
-            FixedBytes(self.parentHash, 32),
-            FixedBytes(self.blockHash, 32),
-            FixedBytes(self.signalRoot, 32),
-            FixedBytes(self.graffiti, 32),
+            FixedBytes(self.block_evidence.blockMetadata.hash(), 32),
+            FixedBytes(self.block_evidence.parentHash, 32),
+            FixedBytes(self.block_evidence.blockHash, 32),
+            FixedBytes(self.block_evidence.signalRoot, 32),
+            FixedBytes(self.block_evidence.graffiti, 32),
+            Address(self.prover),
         ];
         match evidence_type {
-            EvidenceType::Sgx { prover, new_pubkey } => {
-                abi_encode_tuple.extend(vec![Address(prover), Address(new_pubkey)]);
+            EvidenceType::Sgx { new_pubkey } => {
+                abi_encode_tuple.push(Address(new_pubkey));
             }
-            EvidenceType::PseZk { prover } => {
-                abi_encode_tuple.push(Address(prover));
-            }
+            EvidenceType::PseZk => {}
         };
         let input: Vec<u8> = Tuple(abi_encode_tuple).abi_encode();
         keccak::keccak(input).into()
     }
-}
-
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProtocolInstance {
-    pub block_evidence: BlockEvidence,
-    pub prover: Address,
 }

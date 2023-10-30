@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
-use zeth_primitives::{taiko::ProtocolInstance, Address, TxHash};
+use zeth_primitives::taiko::ProtocolInstance;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -10,16 +9,9 @@ pub enum ProofRequest {
     PseZk(PseZkRequest),
 }
 
-#[serde_as]
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SgxRequest {
-    /// the l1 rpc url
-    pub l1_rpc: String,
-    /// proposer transaction hash
-    #[serde_as(as = "DisplayFromStr")]
-    pub l1_propose_block_hash: TxHash,
-    /// the prover
-    pub prover: Address,
     /// the l2 block number
     pub l2_block: u64,
     /// the l2 rpc url
@@ -41,6 +33,7 @@ pub enum ProofResponse {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SgxResponse {
     /// the instance signature from sgx execution
     pub instance_signature: String,
