@@ -13,9 +13,9 @@ pub enum ProofRequest {
 #[serde(rename_all = "camelCase")]
 pub struct SgxRequest {
     /// the l2 block number
-    pub l2_block: u64,
+    pub block: u64,
     /// the l2 rpc url
-    pub l2_rpc: String,
+    pub rpc: String,
     /// the protocol instance data
     pub protocol_instance: ProtocolInstance,
     /// if run in sgx

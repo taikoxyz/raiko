@@ -26,16 +26,16 @@ where
 {
     match req {
         ProofRequest::Sgx(SgxRequest {
-            l2_block,
-            l2_rpc,
+            block,
+            rpc,
             protocol_instance,
             no_sgx: _,
         }) => {
-            let l2_block = *l2_block;
+            let l2_block = *block;
             let cache_path = cache_file_path(&ctx.cache_path, l2_block);
             let init_spec = TAIKO_MAINNET_CHAIN_SPEC.clone();
             let _protocol_instance = protocol_instance.clone();
-            let l2_rpc = l2_rpc.to_owned();
+            let l2_rpc = rpc.to_owned();
             // run sync task in blocking mode
             tokio::task::spawn_blocking(move || {
                 zeth_lib::host::get_initial_data::<N>(

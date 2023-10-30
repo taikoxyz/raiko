@@ -14,8 +14,7 @@ use zeth_primitives::{
 use crate::host::{AnchorError, VerifyError};
 
 const ANCHOR_SELECTOR: u32 = 0xda69d3db;
-// const ANCHOR_GAS_LIMIT: u64 = 250_000;
-const ANCHOR_GAS_LIMIT: u64 = 1_000_000;
+const ANCHOR_GAS_LIMIT: u64 = 250_000;
 const CALL_START: usize = 4;
 const EACH_PARAM_LEN: usize = 32;
 

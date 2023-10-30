@@ -4,7 +4,7 @@ use log::debug;
 use tokio::process::Command;
 
 use crate::prover::{
-    constant::*,
+    consts::*,
     context::Context,
     request::{SgxRequest, SgxResponse},
     utils::{cache_file_path, guest_executable_path},
@@ -26,7 +26,7 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         cmd.current_dir(bin_directory).arg(guest_path);
         cmd
     };
-    let cache_file = cache_file_path(&ctx.cache_path, req.l2_block);
+    let cache_file = cache_file_path(&ctx.cache_path, req.block);
     let output = cmd
         .arg("--file")
         .arg(cache_file)

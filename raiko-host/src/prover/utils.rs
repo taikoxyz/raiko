@@ -1,4 +1,4 @@
-use super::constant::RAIKO_GUEST_EXECUTABLE;
+use super::consts::RAIKO_GUEST_EXECUTABLE;
 
 pub fn cache_file_path(cache_path: &str, block_no: u64) -> String {
     format!("{}/{}.json.gz", cache_path, block_no)
