@@ -42,6 +42,9 @@ struct Args {
     /// The guests path
     /// [default: raiko-host/guests]
     guest: Option<String>,
+
+    #[clap(short, long, require_equals = true, num_args = 0..=1)]
+    sgx_instance_id: u32,
 }
 
 // Prerequisites:
@@ -66,6 +69,7 @@ async fn main() -> Result<()> {
         &args.bind.unwrap(),
         &args.guest.unwrap(),
         &args.cache.unwrap(),
+        args.sgx_instance_id,
     )
     .await?;
     Ok(())

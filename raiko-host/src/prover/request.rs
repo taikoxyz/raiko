@@ -35,11 +35,7 @@ pub enum ProofResponse {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SgxResponse {
-    /// the instance signature from sgx execution
-    pub instance_signature: String,
-    /// the signature public key
-    pub public_key: String,
-    /// SGX
+    /// proof format: 4b(id)+20b(pubkey)+65b(signature)
     pub proof: String,
 }
 

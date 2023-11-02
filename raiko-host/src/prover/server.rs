@@ -15,7 +15,12 @@ use super::{
 /// Starts the proverd json-rpc server.
 /// Note: the server may not immediately listening after returning the
 /// `JoinHandle`.
-pub fn serve(addr: &str, guest_path: &str, cache_path: &str) -> tokio::task::JoinHandle<()> {
+pub fn serve(
+    addr: &str,
+    guest_path: &str,
+    cache_path: &str,
+    sgx_instance_id: u32,
+) -> tokio::task::JoinHandle<()> {
     let addr = addr
         .parse::<std::net::SocketAddr>()
         .expect("valid socket address");
@@ -26,7 +31,7 @@ pub fn serve(addr: &str, guest_path: &str, cache_path: &str) -> tokio::task::Joi
             let guest_path = guest_path.clone();
             let cache_path = cache_path.clone();
             let service = service_fn(move |req| {
-                let ctx = Context::new(guest_path.clone(), cache_path.clone());
+                let ctx = Context::new(guest_path.clone(), cache_path.clone(), sgx_instance_id);
                 handle_request(ctx, req)
             });
 
