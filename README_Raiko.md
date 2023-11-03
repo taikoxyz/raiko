@@ -4,9 +4,9 @@
 
 This branch introduces SGX-enabled Zeth/Raiko. It consists of 2 'modules': `raiko-guest` and `raiko-host`.
 
-`raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is _not_ being run inside SGX enclave.
+1. `raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is _not_ being run inside SGX enclave.
 
-`raiko-guest` is responsible for generating public-private key pair and signing. It is being run inside SGX enclave.
+1. `raiko-guest` is responsible for generating public-private key pair and signing. It is being run inside SGX enclave.
 
 ## Building
 
@@ -27,12 +27,16 @@ The above command creates `/target` directory with `raiko-host` and `raiko-guest
 
 ### `raiko-guest`
 
+The way we run `raiko-guest` is semi-manual as it consists of multiple [Gramine][gramine]-specific steps before you can run the binary. This needs to be automated in the future.
+
+[gramine]: https://github.com/gramineproject/gramine
+
 #### SGX disabled
 
 To run `raiko-guest` without using SGX:
 
 ```console
-ubuntu:~/zeth/target/debug$ cd target/debug
+ubuntu:~/zeth$ cd target/debug
 ubuntu:~/zeth/target/debug$ cp ../../raiko-host/testdata/ethereum/16424130.json.gz /tmp
 ubuntu:~/zeth/target/debug$ ./raiko-guest one-shot --no-sgx --file /tmp/16424130.json.gz
 Reading input file /tmp/16424130.json.gz (block no: 16424130)
@@ -41,12 +45,14 @@ Public key: 0x02a5103b31a9f16c579f9d96a3cb32c9cb7e2702effdec8d0ae9d01d3ce326a15b
 Signature: 0x3044022018a8f8b8a7ae249631af825dcd5c414197f79c56d9ea9ed224b1abdf3b589a2002205f33dec087a5fe032d47de4da9544ec4eb903323ba2812c4f07a48fc314393fb
 ```
 
+Running `raiko-guest` without SGX doesn't make much sense and is going to be deprecated. Disabling SGX can help in debugging on the systems without SGX support.
+
 #### SGX enabled
 
 To run `raiko-guest` with SGX using Gramine:
 
 ```console
-ubuntu:~/zeth/target/debug$ cd target/debug
+ubuntu:~/zeth$ cd target/debug
 ubuntu:~/zeth/target/debug$ cp ../../raiko-guest/config/raiko-guest.manifest.template .
 ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
 ubuntu:~/zeth/target/debug$ gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
@@ -132,12 +138,16 @@ Extracted SGX quote with size = 4734 and the following fields:
                     3962323766376634363632336339393466383664336231643332663266646335
 ```
 
+Key pairs are rotated every run:
+
+![key rotation](img/key_rotation_diagram.png "SGX key rotation")
+
 #### RA-TLS server
 
 To run RA-TLS server listening on port `8080`, run:
 
 ```console
-ubuntu:~/zeth/target/debug$ cd target/debug
+ubuntu:~/zeth$ cd target/debug
 ubuntu:~/zeth/target/debug$ cp ../../raiko-guest/config/raiko-guest.manifest.template .
 ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
 ubuntu:~/zeth/target/debug$ gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
@@ -233,6 +243,8 @@ To run RA-TLS client, run:
 RUST_BACKTRACE=1 ./client 127.0.0.1:8080 [MRENCLAVE] [MRSIGNER] 0 0
 ```
 
+from the following PR: https://github.com/pbeza/rust-mbedtls/pull/1 (TODO integrate that client with guest module).
+
 In the above case, run:
 
 ```
@@ -309,3 +321,13 @@ Result
 ```console
 {"jsonrpc":"2.0","id":1,"result":{"type":"Sgx","instance_signature":"0x304402200b3a77556bef563461570c2f348c442edb9fb98821d8c74d109d22b9bb7367df02206e77f6ec605b050444c6017a4af853963bdbfb1014b72035e0a2a98ae2d07507","public_key":"0x0381f87c9ef0228c1cf4ef5b5e8885f54b9347f4921ad2a1b224bef042c574fdf6","proof":"XXXXXX"}}
 ```
+
+## Troubleshooting
+
+If you are getting the following error:
+
+```
+[P1:T1:] error: libos_init() failed in init_exec_handle: Permission denied (EACCES)
+```
+
+make sure to rerun `gramine-sgx-sign` command.

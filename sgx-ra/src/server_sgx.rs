@@ -15,7 +15,7 @@ use core::ffi::{c_int, c_size_t, c_uchar};
 use std::{
     fs::File,
     io::{prelude::*, BufRead, BufReader, Write},
-    net::{TcpListener, TcpStream},
+    net::{TcpListener, TcpStream, ToSocketAddrs},
     sync::Arc,
 };
 
@@ -47,8 +47,11 @@ extern "C" {
     ) -> c_int;
 }
 
-fn listen<E, F: FnMut(TcpStream) -> Result<(), E>>(mut handle_client: F) -> Result<(), E> {
-    let sock = TcpListener::bind("127.0.0.1:8080").unwrap();
+fn listen<A: ToSocketAddrs, E, F: FnMut(TcpStream) -> Result<(), E>>(
+    addr: A,
+    mut handle_client: F,
+) -> Result<(), E> {
+    let sock = TcpListener::bind(addr).unwrap();
     for conn in sock.incoming().map(Result::unwrap) {
         println!("Connection from {}", conn.peer_addr().unwrap());
         handle_client(conn)?;
@@ -57,7 +60,7 @@ fn listen<E, F: FnMut(TcpStream) -> Result<(), E>>(mut handle_client: F) -> Resu
     Ok(())
 }
 
-pub fn result_main() -> TlsResult<()> {
+pub fn result_main<A: ToSocketAddrs>(addr: A) -> TlsResult<()> {
     // TODO
     //
     // https://gramine.readthedocs.io/en/latest/devel/debugging.html?highlight=meson#debugging-gramine-with-gdb
@@ -172,7 +175,7 @@ pub fn result_main() -> TlsResult<()> {
     //  14. ret = mbedtls_net_accept(&listen_fd, &client_fd, NULL, 0, NULL);
     //  15. mbedtls_ssl_set_bio(&ssl, &client_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
 
-    listen(move |conn| {
+    listen(addr, move |conn| {
         let mut ctx = Context::new(rc_config.clone());
         ctx.establish(conn, None)?;
         let mut session = BufReader::new(ctx);
