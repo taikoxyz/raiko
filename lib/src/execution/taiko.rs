@@ -149,7 +149,6 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
                 .transact()
                 .map_err(|evm_err| anyhow!("Error at transaction {}: {:?}", tx_no, evm_err))?;
 
-            // TODO: check the revert of anchor transaction
             if tx_no == 0 && !result.is_success() {
                 bail!(
                     "Error at transaction {}: execute anchor failed {:?}",
