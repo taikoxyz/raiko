@@ -1,6 +1,8 @@
 #[derive(Debug, Default)]
 pub struct Context {
+    /// guest executable path
     pub guest_path: String,
+    /// cache for public input
     pub cache_path: String,
     pub sgx_context: SgxContext,
 }
