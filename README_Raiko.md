@@ -1,213 +1,171 @@
 # Raiko
 
-# Intro
+This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guest` and `raiko-host`.
 
-This branch introduces SGX-enabled Zeth/Raiko. It consists of 2 'modules': `raiko-guest` and `raiko-host`.
+- `raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is _not_ being run inside SGX enclave.
+- `raiko-guest` is responsible for generating public-private key pair and signing. It can run inside SGX enclave.
 
-1. `raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is _not_ being run inside SGX enclave.
+[zeth]: https://github.com/risc0/zeth
 
-1. `raiko-guest` is responsible for generating public-private key pair and signing. It is being run inside SGX enclave.
 
 ## Building
 
 To build the project make sure you have correct toolchain selected:
 
 ```console
-ubuntu:~/zeth$ rustup default
+ubuntu@ubuntu:~/zeth$ rustup default
 nightly-x86_64-unknown-linux-gnu (default)
 ```
 
 and compile the project:
 
 ```console
-ubuntu:~/zeth$ cargo build
+ubuntu@ubuntu:~/zeth$ cargo build
 ```
 
 The above command creates `/target` directory with `raiko-host` and `raiko-guest` compilation artifacts.
 
-### `raiko-guest`
 
-The way we run `raiko-guest` is semi-manual as it consists of multiple [Gramine][gramine]-specific steps before you can run the binary. This needs to be automated in the future.
+## Running
+
+You can either run `raiko-guest` directly, or indirectly by running `raiko-host` JSON-RPC server. In any case running it requires some [Gramine][gramine]-specific preconfiguration before you can run the binary. This can be automated in the future.
+
+If you are running `raiko-guest` directly, you can either use _one-shot_ mode, or a _long-running RA-TLS server_ (which is experimental). Production environment uses `raiko-host` JSON-RPC server that starts `raiko-guest` in _one-shot_ mode.
+
+To sum up, these are the ways to run `raiko-guest`:
+
+- Run `raiko-guest` directly in:
+  - _one-shot_ mode, or:
+  - _long-running_ mode (RA-TLS server).
+- Run `raiko-host` that in turn runs `raiko-guest` in _one-shot_ mode.
 
 [gramine]: https://github.com/gramineproject/gramine
 
-#### SGX disabled
 
-To run `raiko-guest` without using SGX:
+### One-shot mode
 
-```console
-ubuntu:~/zeth$ cd target/debug
-ubuntu:~/zeth/target/debug$ cp ../../raiko-host/testdata/ethereum/16424130.json.gz /tmp
-ubuntu:~/zeth/target/debug$ ./raiko-guest one-shot --no-sgx --file /tmp/16424130.json.gz
-Reading input file /tmp/16424130.json.gz (block no: 16424130)
-0x3f841e7f8e56223202e174a94524e33cb7aa3a0cc5141b6efd24be3520655ec7
-Public key: 0x02a5103b31a9f16c579f9d96a3cb32c9cb7e2702effdec8d0ae9d01d3ce326a15b
-Signature: 0x3044022018a8f8b8a7ae249631af825dcd5c414197f79c56d9ea9ed224b1abdf3b589a2002205f33dec087a5fe032d47de4da9544ec4eb903323ba2812c4f07a48fc314393fb
-```
+To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
 
-Running `raiko-guest` without SGX doesn't make much sense and is going to be deprecated. Disabling SGX can help in debugging on the systems without SGX support.
+1. Compile Gramine's configuration file:
+   ```console
+   ubuntu@ubuntu:~/zeth$ cd target/debug
+   ubuntu@ubuntu:~/zeth/target/debug$ cp ../../raiko-guest/config/raiko-guest.manifest.template .
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
+   ```
+1. Sign Gramine's configuration file. [`MRENCLAVE`][mrenclave] – a.k.a. [_measurement_][measurement] – is also calculated at this stage (see last line of the below log):
+   ```console
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
+   Attributes:
+       size:        0x10000000000
+       edmm:        True
+       max_threads: 16
+       isv_prod_id: 0
+       isv_svn:     0
+       attr.flags:  0x4
+       attr.xfrm:   0x3
+       misc_select: 0x0
+   SGX remote attestation:
+       DCAP/ECDSA
+   Memory:
+       000000ffffff3000-0000010000000000 [REG:R--] (manifest) measured
+       000000fffff73000-000000ffffff3000 [REG:RW-] (ssa) measured
+       000000fffff63000-000000fffff73000 [TCS:---] (tcs) measured
+       000000fffff53000-000000fffff63000 [REG:RW-] (tls) measured
+       000000fffff13000-000000fffff53000 [REG:RW-] (stack) measured
+       000000ffffed3000-000000fffff13000 [REG:RW-] (stack) measured
+       000000ffffe93000-000000ffffed3000 [REG:RW-] (stack) measured
+       000000ffffe53000-000000ffffe93000 [REG:RW-] (stack) measured
+       000000ffffe13000-000000ffffe53000 [REG:RW-] (stack) measured
+       000000ffffdd3000-000000ffffe13000 [REG:RW-] (stack) measured
+       000000ffffd93000-000000ffffdd3000 [REG:RW-] (stack) measured
+       000000ffffd53000-000000ffffd93000 [REG:RW-] (stack) measured
+       000000ffffd13000-000000ffffd53000 [REG:RW-] (stack) measured
+       000000ffffc53000-000000ffffc93000 [REG:RW-] (stack) measured
+       000000ffffc13000-000000ffffc53000 [REG:RW-] (stack) measured
+       000000ffffbd3000-000000ffffc13000 [REG:RW-] (stack) measured
+       000000ffffb93000-000000ffffbd3000 [REG:RW-] (stack) measured
+       000000ffffb53000-000000ffffb93000 [REG:RW-] (stack) measured
+       000000ffffb43000-000000ffffb53000 [REG:RW-] (sig_stack) measured
+       000000ffffb33000-000000ffffb43000 [REG:RW-] (sig_stack) measured
+       000000ffffa49000-000000ffffa53000 [REG:RW-] (data) measured
+   Measurement:
+       3c2ef3d06dfb2ebb3ba664d82439f4636138c8d0cfd63793d47bb030f07125ca
+   ```
+   The above command creates `raiko-guest.sig` file (next to `raiko-guest.manifest.sgx`). You can check [`MRSIGNER`][mrsigner] and [`MRENCLAVE`][mrenclave] values by running:
 
-#### SGX enabled
+   ```
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx-sigstruct-view ./raiko-guest.sig
+   Attributes:
+    mr_signer: 669b80648c2d9c97f32263fa1961f95f83818682d6359758221f0e7acb9584c0
+    mr_enclave: 3c2ef3d06dfb2ebb3ba664d82439f4636138c8d0cfd63793d47bb030f07125ca
+       isv_prod_id: 0
+       isv_svn: 0
+       debug_enclave: False
+   ```
+1. Initialize `secrets` directory where the encrypted (or more precisely, [sealed][sealing]) private keys will be saved and rotated:
+   ```
+   ubuntu@ubuntu:~/zeth/target/debug$ mkdir secrets
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest bootstrap
+   Gramine is starting. Parsing TOML manifest file, this may take some time...
+   -----------------------------------------------------------------------------------------------------------------------
+   Gramine detected the following insecure configurations:
+     - loader.insecure__use_cmdline_argv = true   (forwarding command-line args from untrusted host to the app)
+     - sys.insecure__allow_eventfd = true         (host-based eventfd is enabled)
+     - sgx.allowed_files = [ ... ]                (some files are passed through from untrusted host without verification)
+   Gramine will continue application execution, but this configuration must not be used in production!
+   -----------------------------------------------------------------------------------------------------------------------
+   Bootstrapping the app
+   Next public key: 0x021d90eee5c402692fa3a3d3edd43a052367efbd6e4d26b9ca14099516525b9d09
+   Entry: /secrets/priv.key
+   ```
+1. Run `raiko-guest` with the input file of your choice:
+   ```
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest one-shot --blocks-data-file /tmp/ethereum/173.json.gz
+   Gramine is starting. Parsing TOML manifest file, this may take some time...
+   -----------------------------------------------------------------------------------------------------------------------
+   Gramine detected the following insecure configurations:
 
-To run `raiko-guest` with SGX using Gramine:
+     - loader.insecure__use_cmdline_argv = true   (forwarding command-line args from untrusted host to the app)
+     - sys.insecure__allow_eventfd = true         (host-based eventfd is enabled)
+     - sgx.allowed_files = [ ... ]                (some files are passed through from untrusted host without verification)
+   Gramine will continue application execution, but this configuration must not be used in production!
+   -----------------------------------------------------------------------------------------------------------------------
+   Starting one shot mode
+   Reading input file /tmp/ethereum/173.json.gz (block no: 173)
+   Current public key: 0x021d90eee5c402692fa3a3d3edd43a052367efbd6e4d26b9ca14099516525b9d09
+   Next public key: 0x02ed03055d75c4c5260fe93b067e6ed7c22232fc7b520b1b5367dfde093c06e92f
+   Signature: 0x3045022100d88304d2538f3ebb80a8b4be1e20fd1516abe543031aede7fce90561303bf7e002203ca644544386f41259cfb491dcc1a40ae3f09435e2bb136cf0baf0baf6969eb0
+   Detected attestation type: dcap
+   Extracted SGX quote with size = 4734 and the following fields:
+   Quote: 03000200<TRUNCATED>649434154452d2d2d2d2d0a00
+     ATTRIBUTES.FLAGS: 0500000000000000  [ Debug bit: false ]
+     ATTRIBUTES.XFRM:  e700000000000000
+     MRENCLAVE:        3c2ef3d06dfb2ebb3ba664d82439f4636138c8d0cfd63793d47bb030f07125ca
+     MRSIGNER:         669b80648c2d9c97f32263fa1961f95f83818682d6359758221f0e7acb9584c0
+     ISVPRODID:        0000
+     ISVSVN:           0000
+     REPORTDATA:       3032656430333035356437356334633532363066653933623036376536656437
+                       6332323233326663376235323062316235333637646664653039336330366539
+   ```
 
-```console
-ubuntu:~/zeth$ cd target/debug
-ubuntu:~/zeth/target/debug$ cp ../../raiko-guest/config/raiko-guest.manifest.template .
-ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
-ubuntu:~/zeth/target/debug$ gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
-Attributes:
-    size:        0x10000000000
-    edmm:        True
-    max_threads: 16
-    isv_prod_id: 0
-    isv_svn:     0
-    attr.flags:  0x4
-    attr.xfrm:   0x3
-    misc_select: 0x0
-SGX remote attestation:
-    DCAP/ECDSA
-Memory:
-    000000ffffff3000-0000010000000000 [REG:R--] (manifest) measured
-    000000fffff73000-000000ffffff3000 [REG:RW-] (ssa) measured
-    000000fffff63000-000000fffff73000 [TCS:---] (tcs) measured
-    000000fffff53000-000000fffff63000 [REG:RW-] (tls) measured
-    000000fffff13000-000000fffff53000 [REG:RW-] (stack) measured
-    000000ffffed3000-000000fffff13000 [REG:RW-] (stack) measured
-    000000ffffe93000-000000ffffed3000 [REG:RW-] (stack) measured
-    000000ffffe53000-000000ffffe93000 [REG:RW-] (stack) measured
-    000000ffffe13000-000000ffffe53000 [REG:RW-] (stack) measured
-    000000ffffdd3000-000000ffffe13000 [REG:RW-] (stack) measured
-    000000ffffd93000-000000ffffdd3000 [REG:RW-] (stack) measured
-    000000ffffd53000-000000ffffd93000 [REG:RW-] (stack) measured
-    000000ffffd13000-000000ffffd53000 [REG:RW-] (stack) measured
-    000000ffffcd3000-000000ffffd13000 [REG:RW-] (stack) measured
-    000000ffffc93000-000000ffffcd3000 [REG:RW-] (stack) measured
-    000000ffffc53000-000000ffffc93000 [REG:RW-] (stack) measured
-    000000ffffc13000-000000ffffc53000 [REG:RW-] (stack) measured
-    000000ffffbd3000-000000ffffc13000 [REG:RW-] (stack) measured
-    000000ffffb93000-000000ffffbd3000 [REG:RW-] (stack) measured
-    000000ffffb53000-000000ffffb93000 [REG:RW-] (stack) measured
-    000000ffffb43000-000000ffffb53000 [REG:RW-] (sig_stack) measured
-    000000ffffb33000-000000ffffb43000 [REG:RW-] (sig_stack) measured
-    000000ffffb23000-000000ffffb33000 [REG:RW-] (sig_stack) measured
-    000000ffffb13000-000000ffffb23000 [REG:RW-] (sig_stack) measured
-    000000ffffb03000-000000ffffb13000 [REG:RW-] (sig_stack) measured
-    000000ffffaf3000-000000ffffb03000 [REG:RW-] (sig_stack) measured
-    000000ffffae3000-000000ffffaf3000 [REG:RW-] (sig_stack) measured
-    000000ffffad3000-000000ffffae3000 [REG:RW-] (sig_stack) measured
-    000000ffffac3000-000000ffffad3000 [REG:RW-] (sig_stack) measured
-    000000ffffab3000-000000ffffac3000 [REG:RW-] (sig_stack) measured
-    000000ffffaa3000-000000ffffab3000 [REG:RW-] (sig_stack) measured
-    000000ffffa93000-000000ffffaa3000 [REG:RW-] (sig_stack) measured
-    000000ffffa83000-000000ffffa93000 [REG:RW-] (sig_stack) measured
-    000000ffffa73000-000000ffffa83000 [REG:RW-] (sig_stack) measured
-    000000ffffa63000-000000ffffa73000 [REG:RW-] (sig_stack) measured
-    000000ffffa53000-000000ffffa63000 [REG:RW-] (sig_stack) measured
-    000000ffff9f9000-000000ffffa49000 [REG:R-X] (code) measured
-    000000ffffa49000-000000ffffa53000 [REG:RW-] (data) measured
-Measurement:
-    6146388af08ec2b1f94219da41d0cae1a890ddd3e80cacad8aac69d0ed533d6d
-ubuntu:~/zeth/target/debug$ cp ../../raiko-host/testdata/ethereum/16424130.json.gz /tmp
-ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest one-shot --file /tmp/16424130.json.gz
-Gramine is starting. Parsing TOML manifest file, this may take some time...
------------------------------------------------------------------------------------------------------------------------
-Gramine detected the following insecure configurations:
-
-  - loader.insecure__use_cmdline_argv = true   (forwarding command-line args from untrusted host to the app)
-  - sys.insecure__allow_eventfd = true         (host-based eventfd is enabled)
-  - sgx.allowed_files = [ ... ]                (some files are passed through from untrusted host without verification)
-
-Gramine will continue application execution, but this configuration must not be used in production!
------------------------------------------------------------------------------------------------------------------------
-
-Reading input file /tmp/16424130.json.gz (block no: 16424130)
-0x3f841e7f8e56223202e174a94524e33cb7aa3a0cc5141b6efd24be3520655ec7
-Public key: 0x022898448ef5976f4636a3624b0fb26c9b27f7f46623c994f86d3b1d32f2fdc587
-Signature: 0x30450221008ba47f82b54ecabab3d30e29e276708a366e4a67eab74cf26515ff442961146d02206d3b415ed850342dd2fe2b474e53da5e43a1b1bed005919256d045fb50f91c5d
-Detected attestation type: dcap
-Successfully wrote zeros to user_report_data
-Extracted SGX quote with size = 4734 and the following fields:
-  ATTRIBUTES.FLAGS: 0500000000000000  [ Debug bit: false ]
-  ATTRIBUTES.XFRM:  e700000000000000
-  MRENCLAVE:        6146388af08ec2b1f94219da41d0cae1a890ddd3e80cacad8aac69d0ed533d6d
-  MRSIGNER:         669b80648c2d9c97f32263fa1961f95f83818682d6359758221f0e7acb9584c0
-  ISVPRODID:        0000
-  ISVSVN:           0000
-  REPORTDATA:       3032323839383434386566353937366634363336613336323462306662323663
-                    3962323766376634363632336339393466383664336231643332663266646335
-```
-
-Key pairs are rotated every run:
+ECDSA key pair is rotated every run as presented in the diagram below:
 
 ![key rotation](img/key_rotation_diagram.png "SGX key rotation")
 
-#### RA-TLS server
+[measurement]: https://sgx101.gitbook.io/sgx101/sgx-bootstrap/attestation#enclave-measurement-aka-software-tcb
+[sealing]: https://sgx101.gitbook.io/sgx101/sgx-bootstrap/sealing
+[mrenclave]: https://sidsbits.com/Intel-SGX-Attestation-Part-1/#Secure-Enclave-Instantiation
+[mrsigner]: https://sidsbits.com/Intel-SGX-Attestation-Part-1/#Secure-Enclave-Instantiation
 
-To run RA-TLS server listening on port `8080`, run:
+### RA-TLS server
+
+To run RA-TLS server listening on port `8080`, run the same commands as in section [`raiko-guest`](#raiko-guest-one-shot-mode) but instead of running `gramine-sgx ./raiko-guest one-shot (...)` run `gramine-sgx ./raiko-guest server`:
 
 ```console
-ubuntu:~/zeth$ cd target/debug
-ubuntu:~/zeth/target/debug$ cp ../../raiko-guest/config/raiko-guest.manifest.template .
-ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
-ubuntu:~/zeth/target/debug$ gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
-Attributes:
-    size:        0x10000000000
-    edmm:        True
-    max_threads: 16
-    isv_prod_id: 0
-    isv_svn:     0
-    attr.flags:  0x4
-    attr.xfrm:   0x3
-    misc_select: 0x0
-SGX remote attestation:
-    DCAP/ECDSA
-Memory:
-    000000ffffff3000-0000010000000000 [REG:R--] (manifest) measured
-    000000fffff73000-000000ffffff3000 [REG:RW-] (ssa) measured
-    000000fffff63000-000000fffff73000 [TCS:---] (tcs) measured
-    000000fffff53000-000000fffff63000 [REG:RW-] (tls) measured
-    000000fffff13000-000000fffff53000 [REG:RW-] (stack) measured
-    000000ffffed3000-000000fffff13000 [REG:RW-] (stack) measured
-    000000ffffe93000-000000ffffed3000 [REG:RW-] (stack) measured
-    000000ffffe53000-000000ffffe93000 [REG:RW-] (stack) measured
-    000000ffffe13000-000000ffffe53000 [REG:RW-] (stack) measured
-    000000ffffdd3000-000000ffffe13000 [REG:RW-] (stack) measured
-    000000ffffd93000-000000ffffdd3000 [REG:RW-] (stack) measured
-    000000ffffd53000-000000ffffd93000 [REG:RW-] (stack) measured
-    000000ffffd13000-000000ffffd53000 [REG:RW-] (stack) measured
-    000000ffffcd3000-000000ffffd13000 [REG:RW-] (stack) measured
-    000000ffffc93000-000000ffffcd3000 [REG:RW-] (stack) measured
-    000000ffffc53000-000000ffffc93000 [REG:RW-] (stack) measured
-    000000ffffc13000-000000ffffc53000 [REG:RW-] (stack) measured
-    000000ffffbd3000-000000ffffc13000 [REG:RW-] (stack) measured
-    000000ffffb93000-000000ffffbd3000 [REG:RW-] (stack) measured
-    000000ffffb53000-000000ffffb93000 [REG:RW-] (stack) measured
-    000000ffffb43000-000000ffffb53000 [REG:RW-] (sig_stack) measured
-    000000ffffb33000-000000ffffb43000 [REG:RW-] (sig_stack) measured
-    000000ffffb23000-000000ffffb33000 [REG:RW-] (sig_stack) measured
-    000000ffffb13000-000000ffffb23000 [REG:RW-] (sig_stack) measured
-    000000ffffb03000-000000ffffb13000 [REG:RW-] (sig_stack) measured
-    000000ffffaf3000-000000ffffb03000 [REG:RW-] (sig_stack) measured
-    000000ffffae3000-000000ffffaf3000 [REG:RW-] (sig_stack) measured
-    000000ffffad3000-000000ffffae3000 [REG:RW-] (sig_stack) measured
-    000000ffffac3000-000000ffffad3000 [REG:RW-] (sig_stack) measured
-    000000ffffab3000-000000ffffac3000 [REG:RW-] (sig_stack) measured
-    000000ffffaa3000-000000ffffab3000 [REG:RW-] (sig_stack) measured
-    000000ffffa93000-000000ffffaa3000 [REG:RW-] (sig_stack) measured
-    000000ffffa83000-000000ffffa93000 [REG:RW-] (sig_stack) measured
-    000000ffffa73000-000000ffffa83000 [REG:RW-] (sig_stack) measured
-    000000ffffa63000-000000ffffa73000 [REG:RW-] (sig_stack) measured
-    000000ffffa53000-000000ffffa63000 [REG:RW-] (sig_stack) measured
-    000000ffff9f9000-000000ffffa49000 [REG:R-X] (code) measured
-    000000ffffa49000-000000ffffa53000 [REG:RW-] (data) measured
-Measurement:
-    50601d1b9eefe5711d7404cb428f6ee0b5d884a4d9f8da538a2cc5bd241f7403
-ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest server
+ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest server
 Gramine is starting. Parsing TOML manifest file, this may take some time...
 -----------------------------------------------------------------------------------------------------------------------
 Gramine detected the following insecure configurations:
-
   - loader.insecure__use_cmdline_argv = true   (forwarding command-line args from untrusted host to the app)
   - sys.insecure__allow_eventfd = true         (host-based eventfd is enabled)
   - sgx.allowed_files = [ ... ]                (some files are passed through from untrusted host without verification)
@@ -215,61 +173,66 @@ Gramine detected the following insecure configurations:
 Gramine will continue application execution, but this configuration must not be used in production!
 -----------------------------------------------------------------------------------------------------------------------
 
-
-Starting RA-TLS server
+Starting RA-TLS server - listening on 127.0.0.1:8080
 Detected attestation type: dcap
 Successfully obtained key and certificate data.
-DER Key: [48, 129, 164, 2, 1, 1, 4, <TRUNCATED> ]
-DER Certificate: [48, 130, 20, 134, 48, 130, 20, <TRUNCATED> ]
+DER Key: [48, 129, <truncated>, 193, 232, 90, 45]
+DER Certificate: [48, 130, <truncated>, 118, 143]
 ```
 
-You can check `MRSIGNER` and `MRENCLAVE` values by running:
+### RA-TLS client
 
-```
-ubuntu:~/zeth/target/debug$ gramine-sgx-sigstruct-view ./raiko-guest.sig
-Attributes:
-    mr_signer: 669b80648c2d9c97f32263fa1961f95f83818682d6359758221f0e7acb9584c0
-    mr_enclave: 50601d1b9eefe5711d7404cb428f6ee0b5d884a4d9f8da538a2cc5bd241f7403
-    isv_prod_id: 0
-    isv_svn: 0
-    debug_enclave: False
-```
-
-#### RA-TLS client
-
-To run RA-TLS client, run:
+To run RA-TLS client, you need to use the following PR: https://github.com/pbeza/rust-mbedtls/pull/1 and run:
 
 ```
 RUST_BACKTRACE=1 ./client 127.0.0.1:8080 [MRENCLAVE] [MRSIGNER] 0 0
 ```
 
-from the following PR: https://github.com/pbeza/rust-mbedtls/pull/1 (TODO integrate that client with guest module).
-
 In the above case, run:
 
 ```
-RUST_BACKTRACE=1 ./client 127.0.0.1:8080 50601d1b9eefe5711d7404cb428f6ee0b5d884a4d9f8da538a2cc5bd241f7403 669b80648c2d9c97f32263fa1961f95f83818682d6359758221f0e7acb9584c0 0 0
+RUST_BACKTRACE=1 ./client 127.0.0.1:8080 3c2ef3d06dfb2ebb3ba664d82439f4636138c8d0cfd63793d47bb030f07125ca 669b80648c2d9c97f32263fa1961f95f83818682d6359758221f0e7acb9584c0 0 0
+```
+
+In case you get the following errors when running the above command:
+```
+ra_tls_verify_callback: Quote: verification failed with error OUT_OF_DATE_CONFIG_NEEDED
+ra_tls_verify_callback_extended_der returned -9984
+```
+
+try to run:
+
+```
+export RA_TLS_ALLOW_HW_CONFIG_NEEDED=1
+export RA_TLS_ALLOW_OUTDATED_TCB_INSECURE=1
+export RA_TLS_ALLOW_SW_HARDENING_NEEDED=1
+export RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE=1
+```
+
+You *may* also need to rebuild the project:
+
+```
+cargo build --example client --verbose
 ```
 
 ### `raiko-host`
 
-Copy the raiko-guest
+Copy `raiko-guest` binary:
 
 ```console
 cp target/debug/raiko-guest raiko-host/guests/sgx
-cp raiko-guest/raiko-guest.manifest.template raiko-host/guests/sgx
-// run with SGX
-gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-host/guests/sgx/raiko-guest.manifest.template raiko-host/guests/sgx/raiko-guest.manifest
-gramine-sgx-sign --manifest raiko-host/guests/sgx/raiko-guest.manifest --output raiko-host/guests/sgx/raiko-guest.manifest.sgx
+cd raiko-host/guests/sgx
+gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
+gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
 ```
 
-Start the raiko-host server
+Start `raiko-host` JSON-RPC server:
 
 ```console
-RUST_LOG=debug cargo run --bin raiko-host
+RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123
 ```
 
-Request the server
+Send a request to the server:
 
 ```console
 curl --location --request POST 'http://127.0.0.1:8080/' \
@@ -318,7 +281,7 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
 
 Result
 
-```console
+```json
 {"jsonrpc":"2.0","id":1,"result":{"type":"Sgx","instance_signature":"0x304402200b3a77556bef563461570c2f348c442edb9fb98821d8c74d109d22b9bb7367df02206e77f6ec605b050444c6017a4af853963bdbfb1014b72035e0a2a98ae2d07507","public_key":"0x0381f87c9ef0228c1cf4ef5b5e8885f54b9347f4921ad2a1b224bef042c574fdf6","proof":"XXXXXX"}}
 ```
 
@@ -326,7 +289,7 @@ Result
 
 If you are getting the following error:
 
-```
+```console
 [P1:T1:] error: libos_init() failed in init_exec_handle: Permission denied (EACCES)
 ```
 

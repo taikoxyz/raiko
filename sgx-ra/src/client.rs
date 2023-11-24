@@ -1,38 +1,43 @@
-/* Copyright (c) Fortanix, Inc.
- *
- * Licensed under the GNU General Public License, version 2 <LICENSE-GPL or
- * https://www.gnu.org/licenses/gpl-2.0.html> or the Apache License, Version
- * 2.0 <LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0>, at your
- * option. This file may not be copied, modified, or distributed except
- * according to those terms. */
+// Copyright (c) Fortanix, Inc.
+//
+// Licensed under the GNU General Public License, version 2 <LICENSE-GPL or
+// https://www.gnu.org/licenses/gpl-2.0.html> or the Apache License, Version
+// 2.0 <LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0>, at your
+// option. This file may not be copied, modified, or distributed except
+// according to those terms.
 
 #![feature(c_size_t)]
 
 extern crate mbedtls;
 
-use clap::Parser;
 use core::ffi::{c_char, c_int, c_size_t, c_uchar, c_uint};
-use mbedtls::error::LoError::Asn1InvalidData;
-use std::ffi::CStr;
-use std::io::{self, stdin, stdout, Write};
-use std::net::TcpStream;
-use std::sync::Arc;
+use std::{
+    ffi::CStr,
+    io::{self, stdin, stdout, Write},
+    net::TcpStream,
+    sync::Arc,
+};
 
-use mbedtls::rng::CtrDrbg;
-use mbedtls::ssl::config::{Endpoint, Preset, Transport};
-use mbedtls::ssl::{Config, Context};
-use mbedtls::x509::{Certificate, VerifyError};
-use mbedtls::Result as TlsResult;
+use clap::Parser;
+use mbedtls::{
+    error::LoError::Asn1InvalidData,
+    rng::CtrDrbg,
+    ssl::{
+        config::{Endpoint, Preset, Transport},
+        Config, Context,
+    },
+    x509::{Certificate, VerifyError},
+    Result as TlsResult,
+};
 
 #[path = "../tests/support/mod.rs"]
 mod support;
-use support::entropy::entropy_new;
-use support::keys;
+use support::{entropy::entropy_new, keys};
 
-/********************************** Beginning of the FFI section **********************************/
+// **************************** Beginning of the FFI section ****************************
 
-// FFI stuff for the functions defined in libra_tls_verify_dcap_gramine.so (if run in SGX enclave)
-// and libra_tls_verify_dcap.so (if run outside of SGX enclave).
+// FFI stuff for the functions defined in libra_tls_verify_dcap_gramine.so (if run in SGX
+// enclave) and libra_tls_verify_dcap.so (if run outside of SGX enclave).
 // See: https://github.com/gramineproject/gramine/blob/master/tools/sgx/ra-tls/ra_tls.h
 
 // FFI for `ra_tls_verify_callback_extended_der` function
@@ -81,27 +86,29 @@ pub union ra_tls_verify_callback_results_union {
 #[derive(Copy, Clone)]
 pub struct RATLSVerifyCallbackResults {
     pub attestation_scheme: RATLSAttestationScheme,
-    pub err_loc: RATLSErrLoc, /* the step at which RA-TLS failed with RA_TLS_ERR_LOC_T_AT_VERIFY_ENCLAVE_ATTRS */
+    pub err_loc: RATLSErrLoc,
     pub __bindgen_anon_1: ra_tls_verify_callback_results_union,
 }
 
 extern "C" {
-    /// Generic verification callback for EPID-based (IAS) or ECDSA-based (DCAP) quote verification
-    /// (DER format) with additional information.
+    /// Generic verification callback for EPID-based (IAS) or ECDSA-based (DCAP) quote
+    /// verification (DER format) with additional information.
     ///
-    /// * `der_crt`      - Self-signed RA-TLS certificate with SGX quote embedded in DER format.
+    /// * `der_crt`      - Self-signed RA-TLS certificate with SGX quote embedded in DER
+    ///   format.
     /// * `der_crt_size` - Size of the RA-TLS certificate.
-    /// * `results`      - (Optional) Verification callback results for retrieving additional
-    ///                    verification results from RA-TLS.
+    /// * `results`      - (Optional) Verification callback results for retrieving
+    ///   additional verification results from RA-TLS.
     ///
-    /// Returns 0 on success, specific mbedTLS error code (negative int) otherwise. This function
-    /// must be called from a non-mbedTLS verification callback, e.g., from a user-defined OpenSSL
-    /// callback for SSL_CTX_set_cert_verify_callback(). All parameters required for the SGX quote,
-    /// IAS attestation report verification, and/or DCAP quote verification must be passed in the
-    /// corresponding RA-TLS environment variables.
+    /// Returns 0 on success, specific mbedTLS error code (negative int) otherwise. This
+    /// function must be called from a non-mbedTLS verification callback, e.g., from a
+    /// user-defined OpenSSL callback for SSL_CTX_set_cert_verify_callback(). All
+    /// parameters required for the SGX quote, IAS attestation report verification,
+    /// and/or DCAP quote verification must be passed in the corresponding RA-TLS
+    /// environment variables.
     ///
-    /// Originally defined as: int ra_tls_verify_callback_extended_der(uint8_t* der_crt, size_t
-    ///   der_crt_size, struct ra_tls_verify_callback_results* results);
+    /// Originally defined as: int ra_tls_verify_callback_extended_der(uint8_t* der_crt,
+    /// size_t   der_crt_size, struct ra_tls_verify_callback_results* results);
     ///
     /// See:
     /// https://raw.githubusercontent.com/gramineproject/gramine/master/tools/sgx/ra-tls/ra_tls.h
@@ -126,16 +133,17 @@ pub type VerifyMeasurementsCallback = Option<
 extern "C" {
     /// Callback for user-specific verification of measurements in SGX quote.
     ///
-    /// * `f_cb` - Callback for user-specific verification; RA-TLS passes pointers to MRENCLAVE,
-    ///            MRSIGNER, ISV_PROD_ID, ISV_SVN measurements in SGX quote. Use NULL to revert to
-    ///            default behavior of RA-TLS.
+    /// * `f_cb` - Callback for user-specific verification; RA-TLS passes pointers to
+    ///   MRENCLAVE, MRSIGNER, ISV_PROD_ID, ISV_SVN measurements in SGX quote. Use NULL to
+    ///   revert to default behavior of RA-TLS.
     ///
     /// Returns 0 on success, specific error code (negative int) otherwise.
     ///
-    /// If this callback is registered before RA-TLS session, then RA-TLS verification will invoke
-    /// this callback to allow for user-specific checks on SGX measurements reported in the SGX
-    /// quote. If no callback is registered (or registered as NULL), then RA-TLS defaults to
-    /// verifying SGX measurements against `RA_TLS_*` environment variables (if any).
+    /// If this callback is registered before RA-TLS session, then RA-TLS verification
+    /// will invoke this callback to allow for user-specific checks on SGX measurements
+    /// reported in the SGX quote. If no callback is registered (or registered as NULL),
+    /// then RA-TLS defaults to verifying SGX measurements against `RA_TLS_*`
+    /// environment variables (if any).
     pub fn ra_tls_set_measurement_callback(f_cb: VerifyMeasurementsCallback);
 }
 
@@ -188,7 +196,7 @@ unsafe extern "C" fn measurement_verification_callback(
     0
 }
 
-/************************************* End of the FFI section *************************************/
+// **************************** End of the FFI section ****************************
 
 fn parse_hex(hex: &str, buffer: &mut [u8; 32]) -> Result<(), &'static str> {
     if hex.len() != buffer.len() * 2 {
@@ -213,7 +221,7 @@ fn parse_hex(hex: &str, buffer: &mut [u8; 32]) -> Result<(), &'static str> {
 }
 
 fn result_main(addr: &str) -> TlsResult<()> {
-    let entropy = Arc::new(entropy_new());  // mbedtls::rng::Rdseed or mbedtls::rng::OsEntropy::new()
+    let entropy = Arc::new(entropy_new()); // mbedtls::rng::Rdseed or mbedtls::rng::OsEntropy::new()
     let rng: Arc<CtrDrbg> = Arc::new(CtrDrbg::new(entropy, None)?);
     let cert = Arc::new(Certificate::from_pem_multiple(
         keys::ROOT_CA_CERT.as_bytes(),
@@ -226,9 +234,9 @@ fn result_main(addr: &str) -> TlsResult<()> {
             return Err(Asn1InvalidData.into()); // MBEDTLS_ERR_X509_INVALID_FORMAT
         }
         if *verify_flags != VerifyError::empty() {
-            /* mbedTLS sets flags to signal that the cert is not to be trusted (e.g., it is not
-             * correctly signed by a trusted CA; since RA-TLS uses self-signed certs, we don't care
-             * what mbedTLS thinks and ignore internal cert verification logic of mbedTLS */
+            // mbedTLS sets flags to signal that the cert is not to be trusted (e.g., it is not
+            // correctly signed by a trusted CA; since RA-TLS uses self-signed certs, we don't care
+            // what mbedTLS thinks and ignore internal cert verification logic of mbedTLS
             *verify_flags = VerifyError::empty();
         }
         let mut ratls_verify_results: RATLSVerifyCallbackResults = unsafe { std::mem::zeroed() };
@@ -254,13 +262,13 @@ fn result_main(addr: &str) -> TlsResult<()> {
 
     let mut config = Config::new(Endpoint::Client, Transport::Stream, Preset::Default);
     config.set_rng(rng);
-    // https://github.com/fortanix/rust-mbedtls/blob/52476eed8af2824cc331acbd5ec84151a836291a/mbedtls/tests/ssl_conf_verify.rs#L53C25-L54C49
+    // https://github.com/fortanix/rust-mbedtls/blob/52476eed8af2824cc331acbd5ec84151a836291a/mbedtls/tests/ssl_conf_verify.rs#L54
     config.set_verify_callback(verify_callback);
     config.set_ca_list(cert, None); // TODO needed?
     let mut ctx = Context::new(Arc::new(config));
 
     let conn = TcpStream::connect(addr).unwrap();
-    ctx.establish(conn, None)?; // TODO it is failing here (callback failure)
+    ctx.establish(conn, None)?;
 
     let mut line = String::new();
     stdin().read_line(&mut line).unwrap();
@@ -279,27 +287,6 @@ struct Cli {
     isv_svn: u16,
 }
 
-// Run with:
-//   export RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE=1
-//   export RA_TLS_ALLOW_HW_CONFIG_NEEDED=1
-//   export RA_TLS_ALLOW_OUTDATED_TCB_INSECURE=1
-//   export RA_TLS_ALLOW_SW_HARDENING_NEEDED=1
-//   cargo build --example client  --verbose
-//   RUST_BACKTRACE=1 ./client 127.0.0.1:8080 3ed8e65a2635898edfd1cf746256f0483005ca8aaab259c2f93066c537816f7a 669b80648c2d9c97f32263fa1961f95f83818682d6359758221f0e7acb9584c0 0 0
-//
-// See the details:
-//   https://gramine.readthedocs.io/en/stable/attestation.html
-//
-// TODO - throws:
-//   ra_tls_verify_callback: Quote: verification failed with error OUT_OF_DATE_CONFIG_NEEDED
-//   ra_tls_verify_callback_extended_der returned -9984
-//
-// Related to the above -9984 error:
-//   https://github.com/gramineproject/gramine/discussions/1139
-//   https://github.com/gramineproject/gramine/discussions/1494#discussioncomment-6776238
-//
-// For reference, see how SSL connection is implemented in mbedtls tests directory:
-// https://github.com/fortanix/rust-mbedtls/blob/52476eed8af2824cc331acbd5ec84151a836291a/mbedtls/tests/ssl_conf_verify.rs#L19
 fn main() {
     let args = Cli::parse();
 

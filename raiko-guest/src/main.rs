@@ -20,7 +20,6 @@ pub async fn main() -> Result<()> {
     match args.command {
         Command::Server(server_args) => {
             eprintln!("Starting RA-TLS server - listening on {}", server_args.addr);
-            // TODO experimental RA-TLS server
             ratls_server(args.global_opts, server_args);
         }
         Command::OneShot(one_shot_args) => {
