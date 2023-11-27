@@ -7,7 +7,6 @@ This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_.
 
 [zeth]: https://github.com/risc0/zeth
 
-
 ## Building
 
 To build the project make sure you have correct toolchain selected:
@@ -25,7 +24,6 @@ ubuntu@ubuntu:~/zeth$ cargo build
 
 The above command creates `/target` directory with `raiko-host` and `raiko-guest` compilation artifacts.
 
-
 ## Running
 
 You can either run `raiko-guest` directly, or indirectly by running `raiko-host` JSON-RPC server. In any case running it requires some [Gramine][gramine]-specific preconfiguration before you can run the binary. This can be automated in the future.
@@ -41,7 +39,6 @@ To sum up, these are the ways to run `raiko-guest`:
 
 [gramine]: https://github.com/gramineproject/gramine
 
-
 ### One-shot mode
 
 To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
@@ -53,6 +50,7 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
    ubuntu@ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
    ```
 1. Sign Gramine's configuration file. [`MRENCLAVE`][mrenclave] – a.k.a. [_measurement_][measurement] – is also calculated at this stage (see last line of the below log):
+
    ```console
    ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
    Attributes:
@@ -91,6 +89,7 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
    Measurement:
        3c2ef3d06dfb2ebb3ba664d82439f4636138c8d0cfd63793d47bb030f07125ca
    ```
+
    The above command creates `raiko-guest.sig` file (next to `raiko-guest.manifest.sgx`). You can check [`MRSIGNER`][mrsigner] and [`MRENCLAVE`][mrenclave] values by running:
 
    ```
@@ -102,6 +101,7 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
        isv_svn: 0
        debug_enclave: False
    ```
+
 1. Initialize `secrets` directory where the encrypted (or more precisely, [sealed][sealing]) private keys will be saved and rotated:
    ```
    ubuntu@ubuntu:~/zeth/target/debug$ mkdir secrets
@@ -119,6 +119,7 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
    Entry: /secrets/priv.key
    ```
 1. Run `raiko-guest` with the input file of your choice:
+
    ```
    ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest one-shot --blocks-data-file /tmp/ethereum/173.json.gz
    Gramine is starting. Parsing TOML manifest file, this may take some time...
@@ -195,6 +196,7 @@ RUST_BACKTRACE=1 ./client 127.0.0.1:8080 3c2ef3d06dfb2ebb3ba664d82439f4636138c8d
 ```
 
 In case you get the following errors when running the above command:
+
 ```
 ra_tls_verify_callback: Quote: verification failed with error OUT_OF_DATE_CONFIG_NEEDED
 ra_tls_verify_callback_extended_der returned -9984
@@ -209,7 +211,7 @@ export RA_TLS_ALLOW_SW_HARDENING_NEEDED=1
 export RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE=1
 ```
 
-You *may* also need to rebuild the project:
+You _may_ also need to rebuild the project:
 
 ```
 cargo build --example client --verbose
@@ -244,36 +246,37 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
   "params": [
     {
       "type": "Sgx",
-      "l1_rpc": "https://l1rpc.internal.taiko.xyz",
-      "l2_rpc": "https://rpc.internal.taiko.xyz",
-      "l1_propose_block_hash": "0xba8dea7821dcb31c2f6dd133f564ca18ed6dcb6cc7aaa2b4ef721a8fc5bfa6ad",
-      "prover": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-      "l2_block": 2,
-      "protocol_instance": {
-        "parentHash": "0xf3818f1bee79018a8610c1d770352296e9a26865e56438ae5a3950a8ab2e242c",
-        "blockHash": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
-        "signalRoot": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
-        "graffiti": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
-        "blockMetadata": {
-          "l1Hash": "0xb4600f287a6469f39beb157c28998ac3254cfb3601a77ce57502cf95fb0356e0",
-          "difficulty": "0x6d07dff439fb1acf9d98eb0c418b1f67ae6c15aedd5763514a91fb15353c0c2e",
-          "txListHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
-          "extraData": "0x302e31372e302d64657600000000000000000000000000000000000000000000",
-          "id": 0,
-          "timestamp": 0,
-          "l1Height": 56,
-          "gasLimit": 15000000,
-          "coinbase": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-          "depositsProcessed": [
-            {
-              "recipient": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-              "amount": 0,
-              "id": 0
-            }
-          ]
+      "rpc": "https://rpc.internal.taiko.xyz",
+      "block": 2,
+      "protocolInstance": {
+        "prover": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+        "l1Rpc": "https://l1rpc.internal.taiko.xyz",
+        "blockEvidence": {
+          "parentHash": "0xf3818f1bee79018a8610c1d770352296e9a26865e56438ae5a3950a8ab2e242c",
+          "blockHash": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
+          "signalRoot": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
+          "graffiti": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
+          "blockMetadata": {
+            "l1Hash": "0xb4600f287a6469f39beb157c28998ac3254cfb3601a77ce57502cf95fb0356e0",
+            "difficulty": "0x6d07dff439fb1acf9d98eb0c418b1f67ae6c15aedd5763514a91fb15353c0c2e",
+            "txListHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+            "extraData": "0x302e31372e302d64657600000000000000000000000000000000000000000000",
+            "id": 0,
+            "timestamp": 0,
+            "l1Height": 56,
+            "gasLimit": 15000000,
+            "coinbase": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+            "depositsProcessed": [
+              {
+                "recipient": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+                "amount": 0,
+                "id": 0
+              }
+            ]
+          }
         }
       },
-      "no_sgx": true // if you want to run the server with SGX, please set to false
+      "noSgx": true // if you want to run the server with SGX, please set to false
     }
   ]
 }'
@@ -282,7 +285,16 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
 Result
 
 ```json
-{"jsonrpc":"2.0","id":1,"result":{"type":"Sgx","instance_signature":"0x304402200b3a77556bef563461570c2f348c442edb9fb98821d8c74d109d22b9bb7367df02206e77f6ec605b050444c6017a4af853963bdbfb1014b72035e0a2a98ae2d07507","public_key":"0x0381f87c9ef0228c1cf4ef5b5e8885f54b9347f4921ad2a1b224bef042c574fdf6","proof":"XXXXXX"}}
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "type": "Sgx",
+    "instance_signature": "0x304402200b3a77556bef563461570c2f348c442edb9fb98821d8c74d109d22b9bb7367df02206e77f6ec605b050444c6017a4af853963bdbfb1014b72035e0a2a98ae2d07507",
+    "public_key": "0x0381f87c9ef0228c1cf4ef5b5e8885f54b9347f4921ad2a1b224bef042c574fdf6",
+    "proof": "XXXXXX"
+  }
+}
 ```
 
 ## Troubleshooting
