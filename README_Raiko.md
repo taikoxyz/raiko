@@ -246,11 +246,11 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
   "params": [
     {
       "type": "Sgx",
-      "rpc": "https://rpc.internal.taiko.xyz",
+      "l2Rpc": "https://rpc.internal.taiko.xyz",
+      "l1Rpc": "https://l1rpc.internal.taiko.xyz",
       "block": 2,
       "protocolInstance": {
         "prover": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-        "l1Rpc": "https://l1rpc.internal.taiko.xyz",
         "blockEvidence": {
           "parentHash": "0xf3818f1bee79018a8610c1d770352296e9a26865e56438ae5a3950a8ab2e242c",
           "blockHash": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",

@@ -14,8 +14,10 @@ pub enum ProofRequest {
 pub struct SgxRequest {
     /// the l2 block number
     pub block: u64,
-    /// the l2 rpc url
-    pub rpc: String,
+    /// l2 node for get block by number
+    pub l2_rpc: String,
+    /// l1 node for signal root verify and get txlist from proposed transaction.
+    pub l1_rpc: String,
     /// the protocol instance data
     pub protocol_instance: ProtocolInstance,
     /// if run in sgx

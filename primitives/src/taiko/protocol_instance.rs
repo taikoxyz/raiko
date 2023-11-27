@@ -167,10 +167,6 @@ pub enum EvidenceType {
 pub struct ProtocolInstance {
     pub block_evidence: BlockEvidence,
     pub prover: Address,
-    #[serde(with = "hex::serde")]
-    pub tx_list: Vec<u8>, // hex encoded
-    /// l1 node for signal root verify
-    pub l1_rpc: String,
 }
 
 impl ProtocolInstance {
