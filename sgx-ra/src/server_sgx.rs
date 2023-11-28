@@ -8,7 +8,6 @@
 
 #![feature(c_size_t)]
 
-// needed to have common code for `mod support` in unit and integrations tests
 extern crate mbedtls;
 
 use core::ffi::{c_int, c_size_t, c_uchar};
@@ -30,11 +29,6 @@ use mbedtls::{
     x509::Certificate,
     Result as TlsResult,
 };
-// #[path = "./support/mod.rs"]
-// mod support;
-// use support::entropy::entropy_new;
-// use support::keys;
-// use support::rand::test_rng;
 
 // Define functions exported from Gramine's libra_tls_attest.so (RA-TLS)
 #[link(name = "ra_tls_attest")]
@@ -56,29 +50,13 @@ fn listen<A: ToSocketAddrs, E, F: FnMut(TcpStream) -> Result<(), E>>(
         println!("Connection from {}", conn.peer_addr().unwrap());
         handle_client(conn)?;
     }
-
     Ok(())
 }
 
+// inspired by:
+// - https://github.com/Mbed-TLS/mbedtls/blob/development/programs/ssl/ssl_server.c
+// - https://github.com/pbeza/rust-mbedtls/blob/master/mbedtls/examples/server.rs
 pub fn result_main<A: ToSocketAddrs>(addr: A) -> TlsResult<()> {
-    // TODO
-    //
-    // https://gramine.readthedocs.io/en/latest/devel/debugging.html?highlight=meson#debugging-gramine-with-gdb
-    // meson setup build-debug/ --werror  -Ddirect=enabled -Ddcap=enabled -Dsgx=enabled
-    // ninja -C build-debug/
-    // cargo build --example server-sgx --verbose
-    // ubuntu@VM-0-6-ubuntu:~/rust-mbedtls/target/debug/examples$ gramine-manifest
-    // -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ ./server-sgx.manifest.template
-    // ./server-sgx.manifest ubuntu@VM-0-6-ubuntu:~/rust-mbedtls/target/debug/examples$
-    // gramine-sgx-sign --manifest ./server-sgx.manifest --output ./server-sgx.manifest.sgx
-    // ubuntu@VM-0-6-ubuntu:~/rust-mbedtls/target/debug/examples$ sudo gramine-sgx
-    // ./server-sgx ubuntu@VM-0-6-ubuntu:~/gramine$ nm -D
-    // ./build-debug/tools/sgx/ra-tls/libra_tls_attest.so ubuntu@VM-0-6-ubuntu:~/
-    // rust-mbedtls/target/debug/examples$ gramine-sgx-sigstruct-view  ./server-sgx.sig
-    // ubuntu@VM-0-6-ubuntu:~/rust-mbedtls/target/debug/examples$ nm -D
-    // /home/ubuntu/rust-mbedtls/mbedtls/examples/libra_tls_attest.so https://github.com/gramineproject/gramine/blob/master/CI-Examples/ra-tls-mbedtls/src/server.c
-    // https://stackoverflow.com/questions/40602708/linking-rust-application-with-a-dynamic-library-not-in-the-runtime-linker-search
-
     // assert /dev/attestation/attestation_type == "dcap"
 
     if let Ok(mut attestation_type_file) = File::open("/dev/attestation/attestation_type") {
@@ -128,11 +106,9 @@ pub fn result_main<A: ToSocketAddrs>(addr: A) -> TlsResult<()> {
 
     println!("Successfully obtained key and certificate data.");
 
-    // Convert the raw pointers and sizes to slices
     let der_key_slice = unsafe { std::slice::from_raw_parts(der_key, der_key_size as usize) };
     let der_crt_slice = unsafe { std::slice::from_raw_parts(der_crt, der_crt_size as usize) };
 
-    // Print or use the key and certificate data as needed
     println!("DER Key: {:?}", der_key_slice);
     println!("DER Certificate: {:?}", der_crt_slice);
 
@@ -143,13 +119,10 @@ pub fn result_main<A: ToSocketAddrs>(addr: A) -> TlsResult<()> {
     // }
 
     //  6. ret = mbedtls_x509_crt_parse(&srvcert, (unsigned char*)der_crt, der_crt_size);
-    let cert = Certificate::from_der(der_crt_slice)?; // generate using libra_tls_attest.so instead (ra_tls_create_key_and_crt_der function)
-                                                      // cert.extensions_raw().unwrap()
-    println!("raz dwa {}", hex::encode(cert.extensions_raw().unwrap()));
+    let cert = Certificate::from_der(der_crt_slice)?;
     //  7. ret = mbedtls_pk_parse_key(&pkey, (unsigned char*)der_key, der_key_size,
     //     /*pwd=*/NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
 
-    // let key = Pk::from_private_key(&mut test_rng(), der_key_slice, None)?;
     let key = Pk::from_private_key(der_key_slice, None)?;
 
     // Bind on https://localhost:4433/:

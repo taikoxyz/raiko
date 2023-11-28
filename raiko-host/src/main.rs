@@ -30,6 +30,7 @@ struct Args {
         default_value = "0.0.0.0:8080"
     )]
     /// Server bind address
+    /// [default: 0.0.0.0:8080]
     bind: Option<String>,
 
     #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/testdata")]

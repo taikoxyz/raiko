@@ -20,8 +20,6 @@ pub struct SgxRequest {
     pub l1_rpc: String,
     /// the protocol instance data
     pub protocol_instance: ProtocolInstance,
-    /// if run in sgx
-    pub no_sgx: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

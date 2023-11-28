@@ -31,10 +31,6 @@ pub struct OneShotArgs {
     #[clap(short, long)]
     /// Path of the *.json.gz file with the block data.
     pub blocks_data_file: PathBuf,
-
-    #[clap(long)]
-    /// Turn off SGX support. This may prove useful for debugging.
-    pub no_sgx: bool,
 }
 
 #[derive(Debug, Args)]

@@ -19,15 +19,15 @@ pub async fn main() -> Result<()> {
 
     match args.command {
         Command::Server(server_args) => {
-            eprintln!("Starting RA-TLS server - listening on {}", server_args.addr);
+            println!("Starting RA-TLS server - listening on {}", server_args.addr);
             ratls_server(args.global_opts, server_args);
         }
         Command::OneShot(one_shot_args) => {
-            eprintln!("Starting one shot mode");
+            println!("Starting one shot mode");
             one_shot(args.global_opts, one_shot_args).await?
         }
         Command::Bootstrap => {
-            eprintln!("Bootstrapping the app");
+            println!("Bootstrapping the app");
             bootstrap(args.global_opts)?
         }
     }

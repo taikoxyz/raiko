@@ -21,10 +21,6 @@ pub const ATTESTATION_USER_REPORT_DATA_DEVICE_FILE: &str = "/dev/attestation/use
 pub const PRIV_KEY_FILENAME: &str = "priv.key";
 
 pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> {
-    if args.no_sgx {
-        eprintln!("Running without SGX");
-    }
-
     if !is_bootstrapped(&global_opts.secrets_dir) {
         bail!("Application was not bootstrapped. Bootstrap it first.")
     }
@@ -38,20 +34,16 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
             .unwrap(),
     ))
     .unwrap();
-    eprintln!("Reading input file {} (block no: {})", path_str, block_no);
+    println!("Reading input file {} (block no: {})", path_str, block_no);
 
     // TODO FIXME
     let block_header_hash_str = String::from("foobar");
     // let block_header_hash_str = get_data_to_sign(path_str, block_no).await?;
-    eprintln!("Data to be signed: {}", block_header_hash_str);
+    println!("Data to be signed: {}", block_header_hash_str);
 
     let public_key = sgx_sign(global_opts.secrets_dir, block_header_hash_str)?;
 
-    if !args.no_sgx {
-        print_sgx_info(public_key)?
-    }
-
-    Ok(())
+    print_sgx_info(public_key)
 }
 
 pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
@@ -60,9 +52,10 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
         println!("Entry: {}", path.unwrap().path().display())
     }
 
-    let (next_private_key, next_public_key, _secp) = generate_new_keypair(global_opts.secrets_dir)?;
+    let (_next_private_key, next_public_key, _secp) =
+        generate_new_keypair(global_opts.secrets_dir)?;
 
-    println!("Next private key: 0x{}", next_private_key.display_secret());
+    // println!("Next private key: 0x{}", _next_private_key.display_secret());
     println!("Next public key: 0x{}", next_public_key);
     // TODO REMOVEME temporary debug
     let paths = fs::read_dir("/secrets").unwrap();
@@ -100,7 +93,7 @@ async fn get_data_to_sign(path_str: String, block_no: u64) -> Result<String> {
 
 fn sgx_sign(secrets_dir: PathBuf, block_header_hash: String) -> Result<PublicKey> {
     let current_priv_key = read_current_priv_key(&secrets_dir)?;
-    let (next_private_key, next_public_key, secp) = generate_new_keypair(secrets_dir)?;
+    let (_next_private_key, next_public_key, secp) = generate_new_keypair(secrets_dir)?;
     let message = Message::from_hashed_data::<sha256::Hash>(block_header_hash.as_bytes());
     // TODO we should be signing next private key with the current private key
     let sig = secp.sign_ecdsa(&message, &current_priv_key);
@@ -112,7 +105,7 @@ fn sgx_sign(secrets_dir: PathBuf, block_header_hash: String) -> Result<PublicKey
         "Current public key: 0x{}",
         current_priv_key.public_key(&secp)
     );
-    println!("Next private key: 0x{}", next_private_key.display_secret());
+    // println!("Next private key: 0x{}", _next_private_key.display_secret());
     println!("Next public key: 0x{}", next_public_key);
     println!("Signature: 0x{}", sig);
     let current_public_key = current_priv_key.public_key(&secp);
@@ -131,7 +124,7 @@ fn read_current_priv_key(secrets_dir: &PathBuf) -> Result<SecretKey, secp256k1::
 
 fn print_sgx_info(public_key: PublicKey) -> Result<()> {
     let attestation_type = get_sgx_attestation_type()?;
-    eprintln!("Detected attestation type: {}", attestation_type.trim());
+    println!("Detected attestation type: {}", attestation_type.trim());
 
     save_attestation_user_report_data(public_key)?;
 

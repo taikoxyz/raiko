@@ -205,10 +205,10 @@ ra_tls_verify_callback_extended_der returned -9984
 try to run:
 
 ```
+export RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE=1
 export RA_TLS_ALLOW_HW_CONFIG_NEEDED=1
 export RA_TLS_ALLOW_OUTDATED_TCB_INSECURE=1
 export RA_TLS_ALLOW_SW_HARDENING_NEEDED=1
-export RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE=1
 ```
 
 You _may_ also need to rebuild the project:
@@ -275,8 +275,7 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
             ]
           }
         }
-      },
-      "noSgx": true // if you want to run the server with SGX, please set to false
+      }
     }
   ]
 }'

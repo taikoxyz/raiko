@@ -14,11 +14,7 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
     let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
     debug!("Guest path: {}", guest_path);
     let guest_path = Path::new(&guest_path);
-    let mut cmd = if req.no_sgx {
-        let mut cmd = Command::new(guest_path);
-        cmd.arg("--no-sgx");
-        cmd
-    } else {
+    let mut cmd = {
         let bin_directory = guest_path
             .parent()
             .ok_or(String::from("missing sgx executable directory"))?;

@@ -30,7 +30,6 @@ where
             l1_rpc: _,
             l2_rpc,
             protocol_instance,
-            no_sgx: _,
         }) => {
             let l2_block = *block;
             let cache_path = cache_file_path(&ctx.cache_path, l2_block);
