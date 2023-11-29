@@ -249,33 +249,8 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
       "l2Rpc": "https://rpc.internal.taiko.xyz",
       "l1Rpc": "https://l1rpc.internal.taiko.xyz",
       "block": 2,
-      "protocolInstance": {
-        "prover": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-        "blockEvidence": {
-          "parentHash": "0xf3818f1bee79018a8610c1d770352296e9a26865e56438ae5a3950a8ab2e242c",
-          "blockHash": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
-          "signalRoot": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
-          "graffiti": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
-          "blockMetadata": {
-            "l1Hash": "0xb4600f287a6469f39beb157c28998ac3254cfb3601a77ce57502cf95fb0356e0",
-            "difficulty": "0x6d07dff439fb1acf9d98eb0c418b1f67ae6c15aedd5763514a91fb15353c0c2e",
-            "txListHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
-            "extraData": "0x302e31372e302d64657600000000000000000000000000000000000000000000",
-            "id": 0,
-            "timestamp": 0,
-            "l1Height": 56,
-            "gasLimit": 15000000,
-            "coinbase": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-            "depositsProcessed": [
-              {
-                "recipient": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-                "amount": 0,
-                "id": 0
-              }
-            ]
-          }
-        }
-      }
+      "propose_block_tx": "0xd8edb622d2cb34f80512b3389b479bec96c2e3b6ae2d53e3269814e8a9db0965",
+      "prover": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
     }
   ]
 }'
