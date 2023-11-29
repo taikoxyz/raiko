@@ -28,7 +28,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle>(
     l1_cache_path: Option<String>,
     l1_chain_spec: ChainSpec,
     l1_rpc_url: Option<String>,
-    propose_block_tx: H256,
+    propose_tx_hash: H256,
     prover: Address,
     l2_cache_path: Option<String>,
     l2_chain_spec: ChainSpec,
@@ -50,7 +50,7 @@ where
         l1_cache_path,
         l1_rpc_url,
         l1_height,
-        Some(propose_block_tx),
+        Some(propose_tx_hash),
     )?;
     let tx_list = get_tx_list(l1_init.transaction.as_ref().unwrap())
         .context("failed to get tx list from propose block tx")?;

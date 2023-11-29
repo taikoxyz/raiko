@@ -6,12 +6,18 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Error, Result};
+use ethers_core::types::H256;
 use secp256k1::{hashes::sha256, rand::rngs::OsRng, All, Message, PublicKey, Secp256k1, SecretKey};
 use zeth_lib::{
-    consts::TAIKO_MAINNET_CHAIN_SPEC,
+    consts::{ETH_MAINNET_CHAIN_SPEC, TAIKO_MAINNET_CHAIN_SPEC},
     host::Init,
-    taiko::block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
+    taiko::{
+        block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
+        host::TaikoInit,
+        input::TaikoInput,
+    },
 };
+use zeth_primitives::Address;
 
 use crate::app_args::{GlobalOpts, OneShotArgs};
 
@@ -81,10 +87,16 @@ fn is_bootstrapped(secrets_dir: &PathBuf) -> bool {
 }
 
 // TODO verify what should be format of the data to be signed
-async fn get_data_to_sign(path_str: String, block_no: u64) -> Result<String> {
-    let init: Init<zeth_lib::EthereumTxEssence> = parse_to_init(path_str, block_no).await?;
-    let input = init.clone().into();
-    let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input)
+async fn get_data_to_sign(
+    path_str: String,
+    l1_blocks_path: String,
+    propose_tx_hash: H256,
+    prover: Address,
+    block_no: u64,
+) -> Result<String> {
+    let init = parse_to_init(path_str, l1_blocks_path, propose_tx_hash, prover, block_no).await?;
+    let input: TaikoInput<zeth_lib::EthereumTxEssence> = init.clone().into();
+    let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input.l2_input)
         .expect("Failed to build the resulting block");
     let block_header_hash = output.hash();
     let block_header_hash_str = block_header_hash.to_string();
@@ -201,16 +213,22 @@ fn get_sgx_attestation_type() -> Result<String> {
 
 async fn parse_to_init(
     blocks_path: String,
+    l1_blocks_path: String,
+    propose_tx_hash: H256,
+    prover: Address,
     block_no: u64,
-) -> Result<Init<zeth_lib::EthereumTxEssence>, Error> {
-    let rpc_cache = Some(blocks_path);
+) -> Result<TaikoInit<zeth_lib::EthereumTxEssence>, Error> {
     let init = tokio::task::spawn_blocking(move || {
-        zeth_lib::host::get_initial_data::<TaikoStrategyBundle>(
+        zeth_lib::taiko::host::get_taiko_initial_data::<TaikoStrategyBundle>(
+            Some(l1_blocks_path),
+            ETH_MAINNET_CHAIN_SPEC.clone(),
+            None,
+            propose_tx_hash,
+            prover,
+            Some(blocks_path),
             TAIKO_MAINNET_CHAIN_SPEC.clone(),
-            rpc_cache,
             None,
             block_no,
-            None,
         )
         .expect("Could not init")
     })

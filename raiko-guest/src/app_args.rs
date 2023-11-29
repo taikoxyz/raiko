@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
 use clap::{ArgAction, Args, Parser, Subcommand};
+use ethers_core::types::H256;
+use zeth_primitives::Address;
 
 #[derive(Debug, Parser)]
 pub struct App {
@@ -31,6 +33,11 @@ pub struct OneShotArgs {
     #[clap(short, long)]
     /// Path of the *.json.gz file with the block data.
     pub blocks_data_file: PathBuf,
+    #[clap(short, long)]
+    pub l1_blocks_data_file: PathBuf,
+    #[clap(short, long)]
+    pub proposal_tx_hash: H256,
+    pub prover: Address,
 }
 
 #[derive(Debug, Args)]

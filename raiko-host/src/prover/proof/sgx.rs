@@ -22,10 +22,17 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         cmd.current_dir(bin_directory).arg(guest_path);
         cmd
     };
-    let cache_file = cache_file_path(&ctx.cache_path, req.block);
+    let l1_cache_file = cache_file_path(&ctx.cache_path, req.block, true);
+    let l2_cache_file = cache_file_path(&ctx.cache_path, req.block, false);
     let output = cmd
-        .arg("--file")
-        .arg(cache_file)
+        .arg("--blocks_data_file")
+        .arg(l2_cache_file)
+        .arg("--l1_blocks_data_file")
+        .arg(l1_cache_file)
+        .arg("--proposal_tx_hash")
+        .arg(req.propose_block_tx.to_string())
+        .arg("--prover")
+        .arg(req.prover.to_string())
         .output()
         .await
         .map_err(|e| e.to_string())?;
