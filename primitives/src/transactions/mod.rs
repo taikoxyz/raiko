@@ -79,6 +79,10 @@ pub trait TxEssence: Encodable + Clone {
     /// signature. If the transaction type (as per EIP-2718) is not zero, an
     /// additional byte is added to the length.
     fn length(transaction: &Transaction<Self>) -> usize;
+    /// Get call data
+    fn data(&self) -> &[u8] {
+        &[]
+    }
 }
 
 /// Provides RLP encoding functionality for the [Transaction] struct.

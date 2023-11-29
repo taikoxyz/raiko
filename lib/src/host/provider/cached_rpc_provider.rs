@@ -126,11 +126,15 @@ impl Provider for CachedRpcProvider {
         Ok(out)
     }
 
-    #[cfg(feature = "taiko")]
-    fn get_protocol_instance(
-        &mut self,
-        pi: Option<zeth_primitives::taiko::ProtocolInstance>,
-    ) -> Result<zeth_primitives::taiko::ProtocolInstance> {
-        self.cache.get_protocol_instance(pi)
+    fn get_transaction(&mut self, tx_hash: &H256) -> Result<Transaction> {
+        let cache_out = self.cache.get_transaction(tx_hash);
+        if cache_out.is_ok() {
+            return cache_out;
+        }
+
+        let out = self.rpc.get_transaction(tx_hash)?;
+        self.cache.insert_transaction(tx_hash.clone(), out.clone());
+
+        Ok(out)
     }
 }

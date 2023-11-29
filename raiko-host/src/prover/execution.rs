@@ -1,3 +1,5 @@
+use zeth_lib::taiko::block_builder::TaikoStrategyBundle;
+
 use super::{
     context::Context,
     error::Result,
@@ -5,7 +7,6 @@ use super::{
     proof::sgx::execute_sgx,
     request::{ProofRequest, ProofResponse},
 };
-use zeth_lib::block_builder::TaikoStrategyBundle;
 
 pub async fn execute(ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
     // load input data into cache path

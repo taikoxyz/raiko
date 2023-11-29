@@ -4287,6 +4287,7 @@ dependencies = [
  "ethers-providers",
  "flate2",
  "hashbrown 0.14.2",
+ "hex 0.4.3",
  "log",
  "once_cell",
  "revm",

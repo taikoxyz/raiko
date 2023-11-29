@@ -131,11 +131,16 @@ impl Provider for RpcProvider {
         Ok(out)
     }
 
-    #[cfg(feature = "taiko")]
-    fn get_protocol_instance(
-        &mut self,
-        _pi: Option<zeth_primitives::taiko::ProtocolInstance>,
-    ) -> Result<zeth_primitives::taiko::ProtocolInstance> {
-        unreachable!()
+    fn get_transaction(&mut self, tx_hash: &H256) -> Result<Transaction> {
+        info!("Querying RPC for transaction: {:?}", tx_hash);
+
+        let response = self
+            .tokio_handle
+            .block_on(async { self.http_client.get_transaction(*tx_hash).await })?;
+
+        match response {
+            Some(out) => Ok(out),
+            None => Err(anyhow!("No data for {:?}", tx_hash)),
+        }
     }
 }

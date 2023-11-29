@@ -23,8 +23,6 @@ use ethers_core::types::{Bytes, EIP1186ProofResponse, Transaction as EthersTrans
 use hashbrown::HashMap;
 use log::info;
 use revm::Database;
-#[cfg(feature = "taiko")]
-use zeth_primitives::taiko::ProtocolInstance;
 use zeth_primitives::{
     block::Header,
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -32,7 +30,7 @@ use zeth_primitives::{
     transactions::{Transaction, TxEssence},
     trie::{MptNode, MptNodeData, MptNodeReference, EMPTY_ROOT},
     withdrawal::Withdrawal,
-    Address, B256, U256,
+    Address, TxHash, B256, U256,
 };
 
 use crate::{
@@ -60,8 +58,7 @@ pub struct Init<E: TxEssence> {
     pub fini_withdrawals: Vec<Withdrawal>,
     pub fini_proofs: HashMap<Address, EIP1186ProofResponse>,
     pub ancestor_headers: Vec<Header>,
-    #[cfg(feature = "taiko")]
-    pub protocol_instance: ProtocolInstance,
+    pub transaction: Option<Transaction<E>>,
 }
 
 pub fn get_initial_data<N: NetworkStrategyBundle>(
@@ -69,7 +66,7 @@ pub fn get_initial_data<N: NetworkStrategyBundle>(
     cache_path: Option<String>,
     rpc_url: Option<String>,
     block_no: u64,
-    #[cfg(feature = "taiko")] protocol_instance: Option<ProtocolInstance>,
+    tx_hash: Option<H256>,
 ) -> Result<Init<N::TxEssence>>
 where
     N::TxEssence: TryFrom<EthersTransaction>,
@@ -77,8 +74,11 @@ where
 {
     let mut provider = new_provider(cache_path, rpc_url)?;
 
-    #[cfg(feature = "taiko")]
-    let protocol_instance = provider.get_protocol_instance(protocol_instance)?;
+    let tx = match tx_hash {
+        Some(ref tx_hash) => Some(provider.get_transaction(tx_hash)?.try_into().unwrap()),
+        None => None,
+    };
+
     // Fetch the initial block
     let init_block = provider.get_partial_block(&BlockQuery {
         block_no: block_no - 1,
@@ -129,14 +129,7 @@ where
         contracts: vec![],
         parent_header: init_block.clone().try_into()?,
         ancestor_headers: vec![],
-        #[cfg(feature = "taiko")]
-        protocol_instance: protocol_instance.clone(),
-        #[cfg(feature = "taiko")]
-        base_fee_per_gas: from_ethers_u256(
-            fini_block
-                .base_fee_per_gas
-                .context("base_fee_per_gas missing")?,
-        ),
+        base_fee_per_gas: Default::default(),
     };
 
     // Create the block builder, run the transactions and extract the DB
@@ -185,8 +178,7 @@ where
         fini_withdrawals: withdrawals,
         fini_proofs,
         ancestor_headers,
-        #[cfg(feature = "taiko")]
-        protocol_instance,
+        transaction: tx,
     })
 }
 
@@ -522,9 +514,6 @@ impl<E: TxEssence> From<Init<E>> for Input<E> {
             parent_storage: storage.into_iter().collect(),
             contracts: contracts.into_values().collect(),
             ancestor_headers: value.ancestor_headers,
-            #[cfg(feature = "taiko")]
-            protocol_instance: value.protocol_instance,
-            #[cfg(feature = "taiko")]
             base_fee_per_gas: value.fini_block.base_fee_per_gas,
         }
     }

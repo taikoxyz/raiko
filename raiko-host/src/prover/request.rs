@@ -1,5 +1,7 @@
+use ethers_core::types::H256;
 use serde::{Deserialize, Serialize};
-use zeth_primitives::taiko::ProtocolInstance;
+use serde_with::{serde_as, DisplayFromStr};
+use zeth_primitives::{taiko::ProtocolInstance, Address, TxHash, B256};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -9,6 +11,7 @@ pub enum ProofRequest {
     PseZk(PseZkRequest),
 }
 
+#[serde_as]
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SgxRequest {
@@ -19,7 +22,11 @@ pub struct SgxRequest {
     /// l1 node for signal root verify and get txlist from proposed transaction.
     pub l1_rpc: String,
     /// the protocol instance data
-    pub protocol_instance: ProtocolInstance,
+    #[serde_as(as = "DisplayFromStr")]
+    pub prover: Address,
+    /// proposeBlock tx hash
+    #[serde_as(as = "DisplayFromStr")]
+    pub propose_block_tx: H256,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

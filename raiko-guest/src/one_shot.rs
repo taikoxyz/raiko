@@ -8,9 +8,9 @@ use std::{
 use anyhow::{anyhow, bail, Error, Result};
 use secp256k1::{hashes::sha256, rand::rngs::OsRng, All, Message, PublicKey, Secp256k1, SecretKey};
 use zeth_lib::{
-    block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
     consts::TAIKO_MAINNET_CHAIN_SPEC,
     host::Init,
+    taiko::block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
 };
 
 use crate::app_args::{GlobalOpts, OneShotArgs};

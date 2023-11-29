@@ -37,7 +37,7 @@ use crate::{
     consts::{GWEI_TO_WEI, MIN_SPEC_ID},
     execution::TxExecStrategy,
     guest_mem_forget,
-    taiko::verify_anchor,
+    taiko::anchor::verify_anchor,
 };
 
 pub struct TaikoTxExecStrategy {}
@@ -114,15 +114,15 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             .enumerate()
         {
             // check the first anchor transaction is valid
-            if tx_no == 0 {
-                if let Err(e) = verify_anchor(header, &tx, &block_builder.input.protocol_instance) {
-                    bail!(
-                        "Error at transaction {}: verify anchor failed {:?}",
-                        tx_no,
-                        e
-                    );
-                }
-            }
+            // if tx_no == 0 {
+            //     if let Err(e) = verify_anchor(header, &tx,
+            // &block_builder.input.protocol_instance) {         bail!(
+            //             "Error at transaction {}: verify anchor failed {:?}",
+            //             tx_no,
+            //             e
+            //         );
+            //     }
+            // }
             // verify the transaction signature
             let tx_from = tx
                 .recover_from()

@@ -3,23 +3,12 @@ use std::{iter, str::FromStr};
 use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{Address, B256, U160, U256};
 use alloy_sol_types::{sol, SolValue};
-use once_cell::sync::Lazy;
 use serde::{
     de::{Error as DeError, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
 use crate::keccak;
-
-pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982")
-        .expect("invalid l1 signal service")
-});
-
-pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x1000777700000000000000000000000000000007")
-        .expect("invalid l2 signal service")
-});
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]

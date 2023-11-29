@@ -18,6 +18,7 @@ ruint = { version = "1.10", default-features = false }
 serde = "1.0"
 thiserror = "1.0"
 zeth-primitives = { path = "../primitives", features = ["revm"] }
+hex = "0.4.3"
 
 [target.'cfg(not(target_os = "zkvm"))'.dependencies]
 chrono = { version = "0.4", default-features = false }

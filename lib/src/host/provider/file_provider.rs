@@ -47,8 +47,8 @@ pub struct FileProvider {
     code: HashMap<AccountQuery, Bytes>,
     #[serde_as(as = "Vec<(_, _)>")]
     storage: HashMap<StorageQuery, H256>,
-    #[cfg(feature = "taiko")]
-    protocol_instance: ProtocolInstance,
+    #[serde_as(as = "Vec<(_, _)>")]
+    transactions: HashMap<H256, Transaction>,
 }
 
 impl FileProvider {
@@ -63,8 +63,7 @@ impl FileProvider {
             balance: HashMap::new(),
             code: HashMap::new(),
             storage: HashMap::new(),
-            #[cfg(feature = "taiko")]
-            protocol_instance: ProtocolInstance::default(),
+            transactions: HashMap::new(),
         }
     }
 
@@ -148,18 +147,11 @@ impl Provider for FileProvider {
         }
     }
 
-    #[cfg(feature = "taiko")]
-    fn get_protocol_instance(
-        &mut self,
-        pi: Option<zeth_primitives::taiko::ProtocolInstance>,
-    ) -> Result<zeth_primitives::taiko::ProtocolInstance> {
-        match pi {
-            Some(pi) => {
-                self.insert_protocol_instance(pi.clone());
-            }
-            None => {}
+    fn get_transaction(&mut self, tx_hash: &H256) -> Result<Transaction> {
+        match self.transactions.get(tx_hash) {
+            Some(val) => Ok(val.clone()),
+            None => Err(anyhow!("No data for {:?}", tx_hash)),
         }
-        Ok(self.protocol_instance.clone())
     }
 }
 
@@ -199,9 +191,8 @@ impl MutProvider for FileProvider {
         self.dirty = true;
     }
 
-    #[cfg(feature = "taiko")]
-    fn insert_protocol_instance(&mut self, pi: zeth_primitives::taiko::ProtocolInstance) {
-        self.protocol_instance = pi;
+    fn insert_transaction(&mut self, tx_hash: H256, val: Transaction) {
+        self.transactions.insert(tx_hash, val);
         self.dirty = true;
     }
 }
