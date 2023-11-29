@@ -146,7 +146,7 @@ impl BlockMetadata {
 
 pub enum EvidenceType {
     Sgx {
-        new_pubkey: Address, // the evidence signature public key
+        new_pubkey: String, // the evidence signature public key
     },
     PseZk,
 }
@@ -182,7 +182,7 @@ impl ProtocolInstance {
         ];
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => {
-                abi_encode_tuple.push(Address(new_pubkey));
+                abi_encode_tuple.push(Bytes(hex::decode(new_pubkey).unwrap()));
             }
             EvidenceType::PseZk => {}
         };

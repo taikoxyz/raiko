@@ -17,7 +17,7 @@ use zeth_lib::{
         input::TaikoInput,
     },
 };
-use zeth_primitives::Address;
+use zeth_primitives::{taiko::EvidenceType, Address};
 
 use crate::app_args::{GlobalOpts, OneShotArgs};
 
@@ -42,14 +42,24 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     .unwrap();
     println!("Reading input file {} (block no: {})", path_str, block_no);
 
-    // TODO FIXME
-    let block_header_hash_str = String::from("foobar");
-    // let block_header_hash_str = get_data_to_sign(path_str, block_no).await?;
-    println!("Data to be signed: {}", block_header_hash_str);
+    let (_next_private_key, next_public_key, secp) = generate_new_keypair(secrets_dir)?;
+    // TODO: save next private key
+    println!("Next public key: 0x{}", next_public_key);
+    let new_pubkey = next_public_key.clone().to_string();
+    let pi_hash_str = get_data_to_sign(
+        path_str,
+        args.l1_blocks_data_file.to_string_lossy().to_string(),
+        args.proposal_tx_hash,
+        args.prover,
+        block_no,
+        new_pubkey,
+    )
+    .await?;
+    println!("Data to be signed: {}", pi_hash_str);
 
-    let public_key = sgx_sign(global_opts.secrets_dir, block_header_hash_str)?;
+    sgx_sign(global_opts.secrets_dir, block_header_hash_str)?;
 
-    print_sgx_info(public_key)
+    print_sgx_info(next_public_key)
 }
 
 pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
@@ -86,26 +96,26 @@ fn is_bootstrapped(secrets_dir: &PathBuf) -> bool {
     priv_key_path.is_file() && priv_key_path.metadata().unwrap().permissions().readonly() == false
 }
 
-// TODO verify what should be format of the data to be signed
 async fn get_data_to_sign(
     path_str: String,
     l1_blocks_path: String,
     propose_tx_hash: H256,
     prover: Address,
     block_no: u64,
+    new_pubkey: String,
 ) -> Result<String> {
     let init = parse_to_init(path_str, l1_blocks_path, propose_tx_hash, prover, block_no).await?;
     let input: TaikoInput<zeth_lib::EthereumTxEssence> = init.clone().into();
-    let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input.l2_input)
+    let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input.l2_input.clone())
         .expect("Failed to build the resulting block");
-    let block_header_hash = output.hash();
-    let block_header_hash_str = block_header_hash.to_string();
-    Ok(block_header_hash_str)
+    let pi = zeth_lib::taiko::protocol_instance::assemble_protocol_instance(&input, &output)?;
+    let pi_hash = pi.hash(EvidenceType::Sgx { new_pubkey });
+    let pi_hash_str = pi_hash.to_string();
+    Ok(pi_hash_str)
 }
 
-fn sgx_sign(secrets_dir: PathBuf, block_header_hash: String) -> Result<PublicKey> {
+fn sgx_sign(secrets_dir: PathBuf, block_header_hash: String) -> Result<()> {
     let current_priv_key = read_current_priv_key(&secrets_dir)?;
-    let (_next_private_key, next_public_key, secp) = generate_new_keypair(secrets_dir)?;
     let message = Message::from_hashed_data::<sha256::Hash>(block_header_hash.as_bytes());
     // TODO we should be signing next private key with the current private key
     let sig = secp.sign_ecdsa(&message, &current_priv_key);
@@ -118,14 +128,13 @@ fn sgx_sign(secrets_dir: PathBuf, block_header_hash: String) -> Result<PublicKey
         current_priv_key.public_key(&secp)
     );
     // println!("Next private key: 0x{}", _next_private_key.display_secret());
-    println!("Next public key: 0x{}", next_public_key);
     println!("Signature: 0x{}", sig);
     let current_public_key = current_priv_key.public_key(&secp);
     // TODO REMOVEME
     assert!(secp
         .verify_ecdsa(&message, &sig, &current_public_key)
         .is_ok());
-    Ok(next_public_key)
+    Ok(())
 }
 
 fn read_current_priv_key(secrets_dir: &PathBuf) -> Result<SecretKey, secp256k1::Error> {
