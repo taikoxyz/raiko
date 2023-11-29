@@ -43,7 +43,7 @@ where
         get_initial_data::<N>(l2_chain_spec, l2_cache_path, l2_rpc_url, l2_block_no, None)?;
     // TODO: check l1 signal root
     let (l1_hash, _l1_signal_root, l1_height, _parent_gas_used) =
-        decode_anchor_arguments(&l2_init.fini_transactions[0].essence.data())
+        decode_anchor_call_args(&l2_init.fini_transactions[0].essence.data())
             .context("failed to decode anchor arguments")?;
     let l1_init = get_initial_data::<N>(
         l1_chain_spec,
@@ -52,7 +52,7 @@ where
         l1_height,
         Some(propose_tx_hash),
     )?;
-    let tx_list = get_tx_list(l1_init.transaction.as_ref().unwrap())
+    let tx_list = decode_propose_block_call_args(l1_init.transaction.as_ref().unwrap())
         .context("failed to get tx list from propose block tx")?;
     Ok(TaikoInit {
         l1_init,

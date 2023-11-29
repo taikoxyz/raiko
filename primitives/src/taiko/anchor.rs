@@ -13,7 +13,7 @@ sol! {
 }
 
 /// decode anchor arguments from anchor transaction
-pub fn decode_anchor_arguments(data: &[u8]) -> Result<(B256, B256, u64, u32)> {
+pub fn decode_anchor_call_args(data: &[u8]) -> Result<(B256, B256, u64, u32)> {
     let decoded = anchorCall::abi_decode(data, false)?;
     Ok((
         decoded.l1Hash,
