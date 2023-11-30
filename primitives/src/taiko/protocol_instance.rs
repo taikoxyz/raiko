@@ -2,24 +2,15 @@ use std::{iter, str::FromStr};
 
 use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{Address, B256, U160, U256};
-use alloy_sol_types::{sol, SolValue};
-use once_cell::sync::Lazy;
+use alloy_sol_types::{sol, SolEvent, SolValue};
+use anyhow::{Context, Result};
+use ethers_core::types::{TransactionReceipt, H256};
 use serde::{
     de::{Error as DeError, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::keccak;
-
-pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982")
-        .expect("invalid l1 signal service")
-});
-
-pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x1000777700000000000000000000000000000007")
-        .expect("invalid l2 signal service")
-});
+use crate::{ethers::from_ethers_h256, keccak};
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -53,6 +44,13 @@ sol! {
         bytes32 signalRoot; // constrain: ??l2 service account storage root??
         bytes32 graffiti; // constrain: l2 block's graffiti
     }
+
+    event BlockProposed(
+        uint256 indexed blockId,
+        address indexed prover,
+        uint256 reward,
+        BlockMetadata meta
+    );
 }
 
 fn serialize_amount<S>(value: &u128, serializer: S) -> Result<S::Ok, S::Error>
@@ -71,6 +69,23 @@ where
     D: Deserializer<'de>,
 {
     deserializer.deserialize_any(AmountVisitor)
+}
+
+pub fn filter_propose_block_event(
+    receipts: &[TransactionReceipt],
+    block_id: U256,
+) -> Result<Option<H256>> {
+    for receipt in receipts {
+        for log in &receipt.logs {
+            let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
+            let block_proposed =
+                BlockProposed::decode_log(topics, &log.data, false).context("decode log failed")?;
+            if block_proposed.blockId == block_id {
+                return Ok(Some(receipt.transaction_hash));
+            }
+        }
+    }
+    Ok(None)
 }
 
 #[derive(Debug)]
@@ -106,11 +121,6 @@ impl<'de> Visitor<'de> for AmountVisitor {
 }
 
 impl BlockMetadata {
-    pub fn withdraws_root(&self) -> B256 {
-        // FIXME: mpt root
-        keccak::keccak(self.depositsProcessed.abi_encode()).into()
-    }
-
     // function hashMetadata(TaikoData.BlockMetadata memory meta)
     //         internal
     //         pure
@@ -157,7 +167,7 @@ impl BlockMetadata {
 
 pub enum EvidenceType {
     Sgx {
-        new_pubkey: Address, // the evidence signature public key
+        new_pubkey: String, // the evidence signature public key
     },
     PseZk,
 }
@@ -167,10 +177,6 @@ pub enum EvidenceType {
 pub struct ProtocolInstance {
     pub block_evidence: BlockEvidence,
     pub prover: Address,
-    #[serde(with = "hex::serde")]
-    pub tx_list: Vec<u8>, // hex encoded
-    /// l1 node for signal root verify
-    pub l1_rpc: String,
 }
 
 impl ProtocolInstance {
@@ -197,7 +203,7 @@ impl ProtocolInstance {
         ];
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => {
-                abi_encode_tuple.push(Address(new_pubkey));
+                abi_encode_tuple.push(Bytes(hex::decode(new_pubkey).unwrap()));
             }
             EvidenceType::PseZk => {}
         };

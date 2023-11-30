@@ -3,7 +3,10 @@ use std::str::FromStr;
 use once_cell::sync::Lazy;
 use zeth_primitives::{
     block::Header,
-    taiko::protocol_instance::ProtocolInstance,
+    taiko::{
+        protocol_instance::ProtocolInstance, ANCHOR_GAS_LIMIT, ANCHOR_SELECTOR,
+        GOLDEN_TOUCH_ACCOUNT, L2_CONTRACT,
+    },
     transactions::{
         ethereum::{EthereumTxEssence, TransactionKind},
         Transaction, TxEssence,
@@ -13,25 +16,8 @@ use zeth_primitives::{
 
 use crate::host::{AnchorError, VerifyError};
 
-const ANCHOR_SELECTOR: u32 = 0xda69d3db;
-const ANCHOR_GAS_LIMIT: u64 = 250_000;
-const CALL_START: usize = 4;
-const EACH_PARAM_LEN: usize = 32;
-
-static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
-        .expect("invalid golden touch account")
-});
-
-pub static TREASURY: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xdf09A0afD09a63fb04ab3573922437e1e637dE8b")
-        .expect("invalid treasury account")
-});
-
-pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x1000777700000000000000000000000000000001")
-        .expect("invalid l2 contract address")
-});
+pub const CALL_START: usize = 4;
+pub const EACH_PARAM_LEN: usize = 32;
 
 #[allow(clippy::result_large_err)]
 pub fn verify_anchor(
@@ -101,7 +87,7 @@ pub fn verify_anchor(
             .into());
         }
         // verify calldata
-        let selector = u32::from_be_bytes(tx.data[..CALL_START].try_into().unwrap());
+        let selector: [u8; 4] = tx.data[..CALL_START].try_into().unwrap();
         if selector != ANCHOR_SELECTOR {
             return Err(AnchorError::AnchorCallDataMismatch.into());
         }

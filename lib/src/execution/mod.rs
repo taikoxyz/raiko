@@ -22,8 +22,6 @@ use crate::block_builder::BlockBuilder;
 
 pub mod ethereum;
 pub mod optimism;
-#[cfg(feature = "taiko")]
-pub mod taiko;
 
 pub trait TxExecStrategy<E: TxEssence> {
     fn execute_transactions<D>(block_builder: BlockBuilder<D, E>) -> Result<BlockBuilder<D, E>>

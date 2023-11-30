@@ -29,9 +29,6 @@ use crate::{
     preparation::{EthHeaderPrepStrategy, HeaderPrepStrategy},
 };
 
-#[cfg(feature = "taiko")]
-use crate::{execution::taiko::TaikoTxExecStrategy, preparation::TaikoHeaderPrepStrategy};
-
 #[derive(Clone, Debug)]
 pub struct BlockBuilder<'a, D, E: TxEssence> {
     pub(crate) chain_spec: &'a ChainSpec,
@@ -202,19 +199,3 @@ impl NetworkStrategyBundle for OptimismStrategyBundle {
 }
 
 pub type OptimismBlockBuilder<'a> = ConfiguredBlockBuilder<'a, OptimismStrategyBundle>;
-
-#[cfg(feature = "taiko")]
-pub struct TaikoStrategyBundle {}
-
-#[cfg(feature = "taiko")]
-impl NetworkStrategyBundle for TaikoStrategyBundle {
-    type Database = MemDb;
-    type TxEssence = EthereumTxEssence;
-    type DbInitStrategy = MemDbInitStrategy;
-    type HeaderPrepStrategy = TaikoHeaderPrepStrategy;
-    type TxExecStrategy = TaikoTxExecStrategy;
-    type BlockBuildStrategy = BuildFromMemDbStrategy;
-}
-
-#[cfg(feature = "taiko")]
-pub type TaikoBlockBuilder<'a> = ConfiguredBlockBuilder<'a, TaikoStrategyBundle>;

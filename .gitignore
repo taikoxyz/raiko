@@ -6,4 +6,4 @@ log.txt
 rpc_cache.json
 .idea
 *.json.gz
-raiko-guest
+raiko-host/guests/sgx/raiko-guest

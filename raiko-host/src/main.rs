@@ -35,12 +35,10 @@ struct Args {
 
     #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/testdata")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
-    /// [default: raiko-host/testdata]
     cache: Option<String>,
 
     #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/guests")]
     /// The guests path
-    /// [default: raiko-host/guests]
     guest: Option<String>,
 
     #[clap(short, long, require_equals = true, num_args = 0..=1)]

@@ -19,12 +19,13 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use ethers_core::types::{Bytes, EIP1186ProofResponse, Transaction as EthersTransaction, H256};
+use ethers_core::types::{
+    Bytes, EIP1186ProofResponse, Transaction as EthersTransaction, H160, H256,
+};
 use hashbrown::HashMap;
 use log::info;
 use revm::Database;
-#[cfg(feature = "taiko")]
-use zeth_primitives::taiko::ProtocolInstance;
+use tokio::signal;
 use zeth_primitives::{
     block::Header,
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -32,7 +33,7 @@ use zeth_primitives::{
     transactions::{Transaction, TxEssence},
     trie::{MptNode, MptNodeData, MptNodeReference, EMPTY_ROOT},
     withdrawal::Withdrawal,
-    Address, B256, U256,
+    Address, TxHash, B256, U256,
 };
 
 use crate::{
@@ -40,7 +41,7 @@ use crate::{
     consts::ChainSpec,
     host::{
         mpt::{orphaned_digests, resolve_digests, shorten_key},
-        provider::{new_provider, BlockQuery},
+        provider::{new_provider, BlockQuery, ProofQuery, ProposeQuery},
     },
     input::{Input, StorageEntry},
     mem_db::MemDb,
@@ -60,8 +61,8 @@ pub struct Init<E: TxEssence> {
     pub fini_withdrawals: Vec<Withdrawal>,
     pub fini_proofs: HashMap<Address, EIP1186ProofResponse>,
     pub ancestor_headers: Vec<Header>,
-    #[cfg(feature = "taiko")]
-    pub protocol_instance: ProtocolInstance,
+    pub propose: Option<Transaction<E>>,
+    pub signal_root: B256,
 }
 
 pub fn get_initial_data<N: NetworkStrategyBundle>(
@@ -69,7 +70,8 @@ pub fn get_initial_data<N: NetworkStrategyBundle>(
     cache_path: Option<String>,
     rpc_url: Option<String>,
     block_no: u64,
-    #[cfg(feature = "taiko")] protocol_instance: Option<ProtocolInstance>,
+    l2_block_no: Option<u64>,
+    signal_service: Address,
 ) -> Result<Init<N::TxEssence>>
 where
     N::TxEssence: TryFrom<EthersTransaction>,
@@ -77,8 +79,26 @@ where
 {
     let mut provider = new_provider(cache_path, rpc_url)?;
 
-    #[cfg(feature = "taiko")]
-    let protocol_instance = provider.get_protocol_instance(protocol_instance)?;
+    // get proposeBlock transaction from l1 block
+    let propose = match l2_block_no {
+        Some(l2_block_no) => Some(
+            provider
+                .get_propose(&ProposeQuery {
+                    l1_block_no: block_no + 1,
+                    l2_block_no: l2_block_no,
+                })?
+                .try_into()
+                .unwrap(),
+        ),
+        None => None,
+    };
+    // get signal root by signal service
+    let proof = provider.get_proof(&ProofQuery {
+        block_no,
+        address: H160::from_slice(signal_service.as_slice()),
+        indices: Default::default(),
+    })?;
+    let signal_root = from_ethers_h256(proof.storage_hash);
     // Fetch the initial block
     let init_block = provider.get_partial_block(&BlockQuery {
         block_no: block_no - 1,
@@ -129,14 +149,7 @@ where
         contracts: vec![],
         parent_header: init_block.clone().try_into()?,
         ancestor_headers: vec![],
-        #[cfg(feature = "taiko")]
-        protocol_instance: protocol_instance.clone(),
-        #[cfg(feature = "taiko")]
-        base_fee_per_gas: from_ethers_u256(
-            fini_block
-                .base_fee_per_gas
-                .context("base_fee_per_gas missing")?,
-        ),
+        base_fee_per_gas: Default::default(),
     };
 
     // Create the block builder, run the transactions and extract the DB
@@ -185,8 +198,8 @@ where
         fini_withdrawals: withdrawals,
         fini_proofs,
         ancestor_headers,
-        #[cfg(feature = "taiko")]
-        protocol_instance,
+        propose,
+        signal_root,
     })
 }
 
@@ -522,9 +535,6 @@ impl<E: TxEssence> From<Init<E>> for Input<E> {
             parent_storage: storage.into_iter().collect(),
             contracts: contracts.into_values().collect(),
             ancestor_headers: value.ancestor_headers,
-            #[cfg(feature = "taiko")]
-            protocol_instance: value.protocol_instance,
-            #[cfg(feature = "taiko")]
             base_fee_per_gas: value.fini_block.base_fee_per_gas,
         }
     }

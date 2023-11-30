@@ -14,11 +14,7 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
     let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
     debug!("Guest path: {}", guest_path);
     let guest_path = Path::new(&guest_path);
-    let mut cmd = if req.no_sgx {
-        let mut cmd = Command::new(guest_path);
-        cmd.arg("--no-sgx");
-        cmd
-    } else {
+    let mut cmd = {
         let bin_directory = guest_path
             .parent()
             .ok_or(String::from("missing sgx executable directory"))?;
@@ -26,10 +22,15 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         cmd.current_dir(bin_directory).arg(guest_path);
         cmd
     };
-    let cache_file = cache_file_path(&ctx.cache_path, req.block);
+    let l1_cache_file = cache_file_path(&ctx.cache_path, req.block, true);
+    let l2_cache_file = cache_file_path(&ctx.cache_path, req.block, false);
     let output = cmd
-        .arg("--file")
-        .arg(cache_file)
+        .arg("--blocks_data_file")
+        .arg(l2_cache_file)
+        .arg("--l1_blocks_data_file")
+        .arg(l1_cache_file)
+        .arg("--prover")
+        .arg(req.prover.to_string())
         .output()
         .await
         .map_err(|e| e.to_string())?;
