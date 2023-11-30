@@ -35,8 +35,6 @@ pub struct OneShotArgs {
     pub blocks_data_file: PathBuf,
     #[clap(short, long)]
     pub l1_blocks_data_file: PathBuf,
-    #[clap(short, long)]
-    pub proposal_tx_hash: H256,
     pub prover: Address,
 }
 

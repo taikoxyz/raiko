@@ -29,8 +29,6 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg(l2_cache_file)
         .arg("--l1_blocks_data_file")
         .arg(l1_cache_file)
-        .arg("--proposal_tx_hash")
-        .arg(req.propose_block_tx.to_string())
         .arg("--prover")
         .arg(req.prover.to_string())
         .output()

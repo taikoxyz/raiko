@@ -126,14 +126,14 @@ impl Provider for CachedRpcProvider {
         Ok(out)
     }
 
-    fn get_transaction(&mut self, tx_hash: &H256) -> Result<Transaction> {
-        let cache_out = self.cache.get_transaction(tx_hash);
+    fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<Transaction> {
+        let cache_out = self.cache.get_propose(query);
         if cache_out.is_ok() {
             return cache_out;
         }
 
-        let out = self.rpc.get_transaction(tx_hash)?;
-        self.cache.insert_transaction(tx_hash.clone(), out.clone());
+        let out = self.rpc.get_propose(query)?;
+        self.cache.insert_propose(query.clone(), out.clone());
 
         Ok(out)
     }

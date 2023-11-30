@@ -38,7 +38,7 @@ use crate::{
     consts::ChainSpec,
     host::{
         mpt::{orphaned_digests, resolve_digests, shorten_key},
-        provider::{new_provider, BlockQuery},
+        provider::{new_provider, BlockQuery, ProposeQuery},
     },
     input::{Input, StorageEntry},
     mem_db::MemDb,
@@ -58,7 +58,7 @@ pub struct Init<E: TxEssence> {
     pub fini_withdrawals: Vec<Withdrawal>,
     pub fini_proofs: HashMap<Address, EIP1186ProofResponse>,
     pub ancestor_headers: Vec<Header>,
-    pub transaction: Option<Transaction<E>>,
+    pub propose: Option<Transaction<E>>,
 }
 
 pub fn get_initial_data<N: NetworkStrategyBundle>(
@@ -66,7 +66,7 @@ pub fn get_initial_data<N: NetworkStrategyBundle>(
     cache_path: Option<String>,
     rpc_url: Option<String>,
     block_no: u64,
-    tx_hash: Option<H256>,
+    l2_block_no: Option<u64>,
 ) -> Result<Init<N::TxEssence>>
 where
     N::TxEssence: TryFrom<EthersTransaction>,
@@ -74,8 +74,16 @@ where
 {
     let mut provider = new_provider(cache_path, rpc_url)?;
 
-    let tx = match tx_hash {
-        Some(ref tx_hash) => Some(provider.get_transaction(tx_hash)?.try_into().unwrap()),
+    let tx = match l2_block_no {
+        Some(l2_block_no) => Some(
+            provider
+                .get_propose(&ProposeQuery {
+                    l1_block_no: block_no + 1,
+                    l2_block_no: l2_block_no,
+                })?
+                .try_into()
+                .unwrap(),
+        ),
         None => None,
     };
 
@@ -178,7 +186,7 @@ where
         fini_withdrawals: withdrawals,
         fini_proofs,
         ancestor_headers,
-        transaction: tx,
+        propose: tx,
     })
 }
 

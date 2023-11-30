@@ -33,7 +33,6 @@ where
             l1_rpc,
             l2_rpc,
             prover,
-            propose_block_tx,
         }) => {
             let l2_block = *block;
             let l2_cache_path = cache_file_path(&ctx.cache_path, l2_block, false);
@@ -43,7 +42,6 @@ where
             let l1_spec = ETH_MAINNET_CHAIN_SPEC.clone();
             let l1_cache_path = cache_file_path(&ctx.cache_path, l2_block, true);
             let l1_rpc = l1_rpc.to_owned();
-            let propose_block_tx = propose_block_tx.to_owned();
             let prover = prover.to_owned();
             // run sync task in blocking mode
             tokio::task::spawn_blocking(move || {
@@ -51,7 +49,6 @@ where
                     Some(l1_cache_path),
                     l1_spec,
                     Some(l1_rpc),
-                    propose_block_tx,
                     prover,
                     Some(l2_cache_path),
                     l2_spec,

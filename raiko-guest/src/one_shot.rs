@@ -49,7 +49,6 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let pi_hash_str = get_data_to_sign(
         path_str,
         args.l1_blocks_data_file.to_string_lossy().to_string(),
-        args.proposal_tx_hash,
         args.prover,
         block_no,
         new_pubkey,
@@ -57,7 +56,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     .await?;
     println!("Data to be signed: {}", pi_hash_str);
 
-    sgx_sign(global_opts.secrets_dir, block_header_hash_str)?;
+    sgx_sign(global_opts.secrets_dir, pi_hash_str)?;
 
     print_sgx_info(next_public_key)
 }
@@ -99,12 +98,11 @@ fn is_bootstrapped(secrets_dir: &PathBuf) -> bool {
 async fn get_data_to_sign(
     path_str: String,
     l1_blocks_path: String,
-    propose_tx_hash: H256,
     prover: Address,
     block_no: u64,
     new_pubkey: String,
 ) -> Result<String> {
-    let init = parse_to_init(path_str, l1_blocks_path, propose_tx_hash, prover, block_no).await?;
+    let init = parse_to_init(path_str, l1_blocks_path, prover, block_no).await?;
     let input: TaikoInput<zeth_lib::EthereumTxEssence> = init.clone().into();
     let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input.l2_input.clone())
         .expect("Failed to build the resulting block");
@@ -223,7 +221,6 @@ fn get_sgx_attestation_type() -> Result<String> {
 async fn parse_to_init(
     blocks_path: String,
     l1_blocks_path: String,
-    propose_tx_hash: H256,
     prover: Address,
     block_no: u64,
 ) -> Result<TaikoInit<zeth_lib::EthereumTxEssence>, Error> {
@@ -232,7 +229,6 @@ async fn parse_to_init(
             Some(l1_blocks_path),
             ETH_MAINNET_CHAIN_SPEC.clone(),
             None,
-            propose_tx_hash,
             prover,
             Some(blocks_path),
             TAIKO_MAINNET_CHAIN_SPEC.clone(),

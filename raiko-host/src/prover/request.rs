@@ -24,9 +24,6 @@ pub struct SgxRequest {
     /// the protocol instance data
     #[serde_as(as = "DisplayFromStr")]
     pub prover: Address,
-    /// proposeBlock tx hash
-    #[serde_as(as = "DisplayFromStr")]
-    pub propose_block_tx: H256,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

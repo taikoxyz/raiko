@@ -2,7 +2,9 @@ use std::{iter, str::FromStr};
 
 use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{Address, B256, U160, U256};
-use alloy_sol_types::{sol, SolValue};
+use alloy_sol_types::{sol, SolEvent, SolValue};
+use anyhow::{Context, Result};
+use ethers_core::types::{TransactionReceipt, H256};
 use serde::{
     de::{Error as DeError, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -42,6 +44,13 @@ sol! {
         bytes32 signalRoot; // constrain: ??l2 service account storage root??
         bytes32 graffiti; // constrain: l2 block's graffiti
     }
+
+    event BlockProposed(
+        uint256 indexed blockId,
+        address indexed prover,
+        uint256 reward,
+        BlockMetadata meta
+    );
 }
 
 fn serialize_amount<S>(value: &u128, serializer: S) -> Result<S::Ok, S::Error>
@@ -60,6 +69,26 @@ where
     D: Deserializer<'de>,
 {
     deserializer.deserialize_any(AmountVisitor)
+}
+
+pub fn filter_propose_block_event(
+    receipts: &[TransactionReceipt],
+    block_id: U256,
+) -> Result<Option<H256>> {
+    for receipt in receipts {
+        for log in &receipt.logs {
+            let topics = log
+                .topics
+                .iter()
+                .map(|topic| U256::from_be_bytes(topic.to_fixed_bytes()));
+            let block_proposed =
+                BlockProposed::decode_log(topics, &log.data, false).context("decode log failed")?;
+            if block_proposed.blockId == block_id {
+                return Ok(Some(receipt.transaction_hash));
+            }
+        }
+    }
+    Ok(None)
 }
 
 #[derive(Debug)]

@@ -22,7 +22,6 @@ use anyhow::{anyhow, Result};
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use zeth_primitives::taiko::ProtocolInstance;
 
 use super::{AccountQuery, BlockQuery, MutProvider, ProofQuery, Provider, StorageQuery};
 
@@ -47,8 +46,7 @@ pub struct FileProvider {
     code: HashMap<AccountQuery, Bytes>,
     #[serde_as(as = "Vec<(_, _)>")]
     storage: HashMap<StorageQuery, H256>,
-    #[serde_as(as = "Vec<(_, _)>")]
-    transactions: HashMap<H256, Transaction>,
+    propose: Option<Transaction>,
 }
 
 impl FileProvider {
@@ -63,7 +61,7 @@ impl FileProvider {
             balance: HashMap::new(),
             code: HashMap::new(),
             storage: HashMap::new(),
-            transactions: HashMap::new(),
+            propose: Default::default(),
         }
     }
 
@@ -147,10 +145,10 @@ impl Provider for FileProvider {
         }
     }
 
-    fn get_transaction(&mut self, tx_hash: &H256) -> Result<Transaction> {
-        match self.transactions.get(tx_hash) {
-            Some(val) => Ok(val.clone()),
-            None => Err(anyhow!("No data for {:?}", tx_hash)),
+    fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<Transaction> {
+        match self.propose {
+            Some(ref val) => Ok(val.clone()),
+            None => Err(anyhow!("No data for {:?}", query)),
         }
     }
 }
@@ -191,8 +189,8 @@ impl MutProvider for FileProvider {
         self.dirty = true;
     }
 
-    fn insert_transaction(&mut self, tx_hash: H256, val: Transaction) {
-        self.transactions.insert(tx_hash, val);
+    fn insert_propose(&mut self, query: super::ProposeQuery, val: Transaction) {
+        self.propose = Some(val);
         self.dirty = true;
     }
 }
