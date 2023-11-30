@@ -17,7 +17,10 @@ use zeth_lib::{
         input::TaikoInput,
     },
 };
-use zeth_primitives::{taiko::EvidenceType, Address};
+use zeth_primitives::{
+    taiko::{string_to_bytes32, EvidenceType},
+    Address,
+};
 
 use crate::app_args::{GlobalOpts, OneShotArgs};
 
@@ -50,6 +53,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         path_str,
         args.l1_blocks_data_file.to_string_lossy().to_string(),
         args.prover,
+        &args.graffiti,
         block_no,
         new_pubkey,
     )
@@ -99,10 +103,11 @@ async fn get_data_to_sign(
     path_str: String,
     l1_blocks_path: String,
     prover: Address,
+    graffiti: &str,
     block_no: u64,
     new_pubkey: String,
 ) -> Result<String> {
-    let init = parse_to_init(path_str, l1_blocks_path, prover, block_no).await?;
+    let init = parse_to_init(path_str, l1_blocks_path, prover, block_no, graffiti).await?;
     let input: TaikoInput<zeth_lib::EthereumTxEssence> = init.clone().into();
     let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input.l2_input.clone())
         .expect("Failed to build the resulting block");
@@ -223,7 +228,9 @@ async fn parse_to_init(
     l1_blocks_path: String,
     prover: Address,
     block_no: u64,
+    graffiti: &str,
 ) -> Result<TaikoInit<zeth_lib::EthereumTxEssence>, Error> {
+    let graffiti = string_to_bytes32(graffiti);
     let init = tokio::task::spawn_blocking(move || {
         zeth_lib::taiko::host::get_taiko_initial_data::<TaikoStrategyBundle>(
             Some(l1_blocks_path),
@@ -234,6 +241,7 @@ async fn parse_to_init(
             TAIKO_MAINNET_CHAIN_SPEC.clone(),
             None,
             block_no,
+            graffiti,
         )
         .expect("Could not init")
     })

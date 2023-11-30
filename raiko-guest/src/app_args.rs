@@ -36,6 +36,7 @@ pub struct OneShotArgs {
     #[clap(short, long)]
     pub l1_blocks_data_file: PathBuf,
     pub prover: Address,
+    pub graffiti: String,
 }
 
 #[derive(Debug, Args)]

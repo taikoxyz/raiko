@@ -10,7 +10,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::keccak;
+use crate::{ethers::from_ethers_h256, keccak};
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -77,10 +77,7 @@ pub fn filter_propose_block_event(
 ) -> Result<Option<H256>> {
     for receipt in receipts {
         for log in &receipt.logs {
-            let topics = log
-                .topics
-                .iter()
-                .map(|topic| U256::from_be_bytes(topic.to_fixed_bytes()));
+            let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
             let block_proposed =
                 BlockProposed::decode_log(topics, &log.data, false).context("decode log failed")?;
             if block_proposed.blockId == block_id {
@@ -124,11 +121,6 @@ impl<'de> Visitor<'de> for AmountVisitor {
 }
 
 impl BlockMetadata {
-    pub fn withdraws_root(&self) -> B256 {
-        // FIXME: mpt root
-        keccak::keccak(self.depositsProcessed.abi_encode()).into()
-    }
-
     // function hashMetadata(TaikoData.BlockMetadata memory meta)
     //         internal
     //         pure

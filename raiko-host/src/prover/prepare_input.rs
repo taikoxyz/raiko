@@ -9,6 +9,7 @@ use zeth_lib::{
     input::Input,
     taiko::input::TaikoInput,
 };
+use zeth_primitives::taiko::string_to_bytes32;
 
 use super::{
     context::Context,
@@ -33,6 +34,7 @@ where
             l1_rpc,
             l2_rpc,
             prover,
+            graffiti,
         }) => {
             let l2_block = *block;
             let l2_cache_path = cache_file_path(&ctx.cache_path, l2_block, false);
@@ -43,6 +45,7 @@ where
             let l1_cache_path = cache_file_path(&ctx.cache_path, l2_block, true);
             let l1_rpc = l1_rpc.to_owned();
             let prover = prover.to_owned();
+            let graffiti = string_to_bytes32(&graffiti);
             // run sync task in blocking mode
             tokio::task::spawn_blocking(move || {
                 zeth_lib::taiko::host::get_taiko_initial_data::<N>(
@@ -54,6 +57,7 @@ where
                     l2_spec,
                     Some(l2_rpc),
                     l2_block,
+                    graffiti,
                 )
             })
             .await?

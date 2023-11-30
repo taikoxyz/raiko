@@ -24,6 +24,7 @@ pub struct SgxRequest {
     /// the protocol instance data
     #[serde_as(as = "DisplayFromStr")]
     pub prover: Address,
+    pub graffiti: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

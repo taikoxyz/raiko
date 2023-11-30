@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use zeth_primitives::{transactions::TxEssence, B256};
+use zeth_primitives::{transactions::TxEssence, Address, B256};
 
 use crate::{input::Input, taiko::host::TaikoInit};
 
@@ -10,6 +10,9 @@ pub struct TaikoInput<E: TxEssence> {
     pub tx_list: Vec<u8>,
     pub l1_hash: B256,
     pub l1_height: u64,
+    pub prover: Address,
+    pub graffiti: B256,
+    pub signal_root: B256,
 }
 
 impl<E: TxEssence> From<TaikoInit<E>> for TaikoInput<E> {
@@ -20,6 +23,9 @@ impl<E: TxEssence> From<TaikoInit<E>> for TaikoInput<E> {
             tx_list: value.tx_list,
             l1_hash: value.l1_hash,
             l1_height: value.l1_height,
+            prover: value.prover,
+            graffiti: value.graffiti,
+            signal_root: value.signal_root,
         }
     }
 }
