@@ -11,7 +11,11 @@ zeth-lib = { path = "../lib", default-features = false, features = ["taiko"] }
 sgx-ra = { path = "../sgx-ra" }
 tokio = { version = "1.23", features = ["full"] }
 anyhow = "1.0"
-secp256k1 = { version = "0.27.0", features = ['rand-std', 'bitcoin_hashes'] }
+secp256k1 = { version = "0.27.0", features = [
+    'rand-std',
+    'bitcoin_hashes',
+    'global-context',
+] }
 rand = "0.8.5"
 hex = "0.4.3"
 clap = { version = "4.4.6", features = ["derive"] }

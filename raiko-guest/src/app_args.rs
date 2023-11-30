@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use clap::{ArgAction, Args, Parser, Subcommand};
-use ethers_core::types::H256;
 use zeth_primitives::Address;
 
 #[derive(Debug, Parser)]
