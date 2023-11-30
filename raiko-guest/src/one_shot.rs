@@ -116,7 +116,7 @@ async fn parse_to_init(
     block_no: u64,
     graffiti: &str,
 ) -> Result<TaikoInit<zeth_lib::EthereumTxEssence>, Error> {
-    let graffiti = string_to_bytes32(graffiti);
+    let graffiti = string_to_bytes32(graffiti.as_bytes());
     let init = tokio::task::spawn_blocking(move || {
         zeth_lib::taiko::host::get_taiko_initial_data::<TaikoStrategyBundle>(
             Some(l1_blocks_path),
@@ -127,7 +127,7 @@ async fn parse_to_init(
             TAIKO_MAINNET_CHAIN_SPEC.clone(),
             None,
             block_no,
-            graffiti,
+            graffiti.into(),
         )
         .expect("Could not init")
     })
