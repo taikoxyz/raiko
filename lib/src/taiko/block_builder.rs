@@ -5,7 +5,7 @@ use crate::{
     finalization::BuildFromMemDbStrategy,
     initialization::MemDbInitStrategy,
     mem_db::MemDb,
-    taiko::{execution::TaikoTxExecStrategy, preparation::TaikoHeaderPrepStrategy},
+    taiko::{execute::TaikoTxExecStrategy, prepare::TaikoHeaderPrepStrategy},
 };
 
 pub struct TaikoStrategyBundle {}

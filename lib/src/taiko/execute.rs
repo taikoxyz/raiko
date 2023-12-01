@@ -37,7 +37,7 @@ use crate::{
     consts::{GWEI_TO_WEI, MIN_SPEC_ID},
     execution::TxExecStrategy,
     guest_mem_forget,
-    taiko::anchor::verify_anchor,
+    taiko::verify::verify_anchor,
 };
 
 pub struct TaikoTxExecStrategy {}
