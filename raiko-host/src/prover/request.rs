@@ -1,7 +1,6 @@
-use ethers_core::types::H256;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
-use zeth_primitives::{taiko::ProtocolInstance, Address, TxHash, B256};
+use zeth_primitives::Address;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]

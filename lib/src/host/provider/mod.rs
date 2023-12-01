@@ -15,9 +15,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::{anyhow, Result};
-use ethers_core::types::{
-    Block, Bytes, EIP1186ProofResponse, Transaction, TransactionReceipt, H160, H256, U256,
-};
+use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H160, H256, U256};
 use serde::{Deserialize, Serialize};
 
 pub mod cached_rpc_provider;

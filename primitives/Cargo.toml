@@ -27,6 +27,7 @@ sha3 = "0.10"
 thiserror = "1.0"
 once_cell = { version = "1.18", default-features = false, optional = true }
 hex = { version = "0.4", features = ["serde"] }
+ruint = { version = "1.10", default-features = false }
 
 [dev-dependencies]
 bincode = "1.3"

@@ -16,7 +16,6 @@ use core::fmt::Debug;
 
 use anyhow::{bail, Context, Result};
 use revm::{Database, DatabaseCommit};
-use ruint::uint;
 use zeth_primitives::{block::Header, transactions::TxEssence, U256};
 
 use crate::{

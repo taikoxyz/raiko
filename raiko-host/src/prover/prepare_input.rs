@@ -1,13 +1,11 @@
 //! Prepare Input for guest
 use std::fmt::Debug;
 
-use ethers_core::types::Transaction as EthersTransaction;
-use serde::{Deserialize, Serialize};
 use zeth_lib::{
     block_builder::NetworkStrategyBundle,
     consts::{ETH_MAINNET_CHAIN_SPEC, TAIKO_MAINNET_CHAIN_SPEC},
-    input::Input,
     taiko::input::TaikoInput,
+    EthereumTxEssence,
 };
 use zeth_primitives::taiko::string_to_bytes32;
 
@@ -19,13 +17,11 @@ use super::{
 };
 
 /// prepare input data for guests
-pub async fn prepare_input<N: NetworkStrategyBundle>(
+pub async fn prepare_input<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     ctx: &Context,
     req: &ProofRequest,
 ) -> Result<TaikoInput<N::TxEssence>>
 where
-    N::TxEssence: 'static + Send + TryFrom<EthersTransaction> + Serialize + Deserialize<'static>,
-    <N::TxEssence as TryFrom<EthersTransaction>>::Error: Debug,
     <N::Database as revm::primitives::db::Database>::Error: Debug,
 {
     match req {

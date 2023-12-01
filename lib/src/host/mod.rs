@@ -25,7 +25,6 @@ use ethers_core::types::{
 use hashbrown::HashMap;
 use log::info;
 use revm::Database;
-use tokio::signal;
 use zeth_primitives::{
     block::Header,
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -33,7 +32,7 @@ use zeth_primitives::{
     transactions::{Transaction, TxEssence},
     trie::{MptNode, MptNodeData, MptNodeReference, EMPTY_ROOT},
     withdrawal::Withdrawal,
-    Address, TxHash, B256, U256,
+    Address, B256, U256,
 };
 
 use crate::{
@@ -231,42 +230,7 @@ pub enum VerifyError {
         first_delta: Option<String>,
         indices: usize,
     },
-    Anchor(AnchorError),
     BlockFieldMismatch,
-}
-
-#[derive(Debug)]
-pub enum AnchorError {
-    AnchorTypeMisMatch {
-        tx_type: u8,
-    },
-    AnchorFromMisMatch {
-        expected: Address,
-        got: Option<Address>,
-    },
-    AnchorToMisMatch {
-        expected: Address,
-        got: Option<Address>,
-    },
-    AnchorValueMisMatch {
-        expected: U256,
-        got: U256,
-    },
-    AnchorGasLimitMisMatch {
-        expected: U256,
-        got: U256,
-    },
-    AnchorGasPriceMisMatch {
-        expected: U256,
-        got: U256,
-    },
-    AnchorCallDataMismatch,
-}
-
-impl From<AnchorError> for VerifyError {
-    fn from(e: AnchorError) -> Self {
-        VerifyError::Anchor(e)
-    }
 }
 
 pub fn verify_state(

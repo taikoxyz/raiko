@@ -1,4 +1,4 @@
-use std::{iter, str::FromStr};
+use std::iter;
 
 use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{Address, B256, U160, U256};

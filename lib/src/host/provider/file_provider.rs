@@ -189,7 +189,7 @@ impl MutProvider for FileProvider {
         self.dirty = true;
     }
 
-    fn insert_propose(&mut self, query: super::ProposeQuery, val: Transaction) {
+    fn insert_propose(&mut self, _query: super::ProposeQuery, val: Transaction) {
         self.propose = Some(val);
         self.dirty = true;
     }

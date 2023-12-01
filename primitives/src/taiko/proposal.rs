@@ -1,9 +1,6 @@
-use alloy_primitives::B256;
-use alloy_sol_types::{sol, Error, SolCall, SolType};
+use alloy_sol_types::{sol, SolCall};
 use anyhow::{Context, Result};
-use ethers_core::types::{Address, U256};
 
-use super::{consts::*, protocol_instance::BlockMetadata};
 use crate::transactions::{Transaction, TxEssence};
 
 sol! {
