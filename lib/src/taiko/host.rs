@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use zeth_primitives::{
     taiko::*,
     transactions::{ethereum::EthereumTxEssence, TxEssence},
-    Address, B256, U256,
+    Address, B256,
 };
 
 use crate::{
@@ -16,12 +17,19 @@ use crate::{
 pub struct TaikoInit<E: TxEssence> {
     pub l1_init: Init<E>,
     pub l2_init: Init<E>,
-    pub tx_list: Vec<u8>,
+    pub extra: TaikoExtra,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct TaikoExtra {
+    pub l2_tx_list: Vec<u8>,
     pub l1_hash: B256,
     pub l1_height: u64,
+    pub l2_parent_gas_used: u32,
     pub prover: Address,
     pub graffiti: B256,
-    pub signal_root: B256,
+    pub l1_signal_root: B256,
+    pub l2_signal_root: B256,
 }
 
 pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
@@ -43,12 +51,13 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         None,
         *L2_SIGNAL_SERVICE,
     )?;
-    let (l1_hash, l1_signal_root, l1_height, parent_gas_used) =
-        decode_anchor_call_args(&l2_init.fini_transactions[0].essence.data())
-            .context("failed to decode anchor arguments")?;
-    if l2_init.init_block.gas_used != U256::from(parent_gas_used) {
-        return Err(anyhow::anyhow!("parent gas used mismatch"));
-    }
+    let anchorCall {
+        l1Hash: l1_hash,
+        l1SignalRoot: l1_signal_root,
+        l1Height: l1_height,
+        parentGasUsed: l2_parent_gas_used,
+    } = decode_anchor_call_args(&l2_init.fini_transactions[0].essence.data())
+        .context("failed to decode anchor arguments")?;
     let l1_init = get_initial_data::<N>(
         l1_chain_spec,
         l1_cache_path,
@@ -57,24 +66,22 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         Some(l2_block_no),
         *L1_SIGNAL_SERVICE,
     )?;
-    if l1_signal_root != l1_init.signal_root {
-        return Err(anyhow::anyhow!("l1 signal root mismatch"));
-    }
-    if l1_init.fini_block.hash() != l1_hash {
-        return Err(anyhow::anyhow!("l1 block hash mismatch"));
-    }
-    let tx_list = decode_propose_block_call_args(l1_init.propose.as_ref().unwrap())
+    let propose_block_call = decode_propose_block_call_args(l1_init.propose.as_ref().unwrap())
         .context("failed to get tx list from propose block tx")?;
-    let signal_root = l2_init.signal_root;
+    let l2_signal_root = l2_init.signal_root;
     let mut init = TaikoInit {
         l1_init,
         l2_init,
-        tx_list,
-        l1_hash,
-        l1_height,
-        prover,
-        graffiti,
-        signal_root,
+        extra: TaikoExtra {
+            l2_tx_list: propose_block_call.txList,
+            l1_hash,
+            l1_height,
+            prover,
+            graffiti,
+            l1_signal_root,
+            l2_signal_root,
+            l2_parent_gas_used,
+        },
     };
     // rebuild transaction list by tx_list from l1 contract
     precheck_block(&mut init)?;

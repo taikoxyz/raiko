@@ -12,10 +12,11 @@ sol! {
     {}
 }
 
-pub fn decode_propose_block_call_args<E: TxEssence>(tx: &Transaction<E>) -> Result<Vec<u8>> {
+pub fn decode_propose_block_call_args<E: TxEssence>(
+    tx: &Transaction<E>,
+) -> Result<proposeBlockCall> {
     let data = tx.essence.data();
-    let propose_block =
+    let propose_block_call =
         proposeBlockCall::abi_decode(data, false).context("failed to decode propose block call")?;
-    let tx_list = propose_block.txList;
-    Ok(tx_list)
+    Ok(propose_block_call)
 }

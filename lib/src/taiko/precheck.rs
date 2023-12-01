@@ -23,13 +23,26 @@ pub fn precheck_block(init: &mut TaikoInit<EthereumTxEssence>) -> Result<()> {
 
     // 2. patch anchor transaction into tx list instead of those from l2 node's
     let remaining_txs: Vec<EthersTransaction> =
-        rlp_decode_list(&init.tx_list).context("failed to decode tx list")?;
+        rlp_decode_list(&init.extra.l2_tx_list).context("failed to decode tx list")?;
     let mut txs: Vec<EthereumTransaction> = remaining_txs
         .into_iter()
         .map(|tx| tx.try_into().unwrap())
         .collect();
     txs.insert(0, anchor.clone());
     init.l2_init.fini_transactions = txs;
+    // 3. check l2 parent gas used
+    if init.l2_init.init_block.gas_used != U256::from(init.extra.l2_parent_gas_used) {
+        return Err(anyhow::anyhow!("parent gas used mismatch"));
+    }
+    // 4. check l1 signal root
+    if init.extra.l1_signal_root != init.l1_init.signal_root {
+        return Err(anyhow::anyhow!("l1 signal root mismatch"));
+    }
+    // 5. check l1 block hash
+    if init.l1_init.fini_block.hash() != init.extra.l1_hash {
+        return Err(anyhow::anyhow!("l1 block hash mismatch"));
+    }
+
     Ok(())
 }
 
