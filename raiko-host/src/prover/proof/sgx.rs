@@ -31,6 +31,8 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg(l1_cache_file)
         .arg("--prover")
         .arg(req.prover.to_string())
+        .arg("--graffiti")
+        .arg(req.graffiti.to_string())
         .output()
         .await
         .map_err(|e| e.to_string())?;
