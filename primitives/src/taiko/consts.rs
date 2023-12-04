@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use alloy_primitives::{uint, Address, U256};
-use alloy_sol_types::SolCall;
 use once_cell::sync::Lazy;
 
 pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
@@ -14,10 +13,8 @@ pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
         .expect("invalid l2 signal service")
 });
 
-pub const ANCHOR_SELECTOR: [u8; 4] = super::anchorCall::SELECTOR;
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
 pub const BLOCK_GAS_LIMIT: Lazy<U256> = Lazy::new(|| uint!(15250000_U256));
-pub const PROPOSE_BLOCK_SELECTOR: [u8; 4] = super::proposeBlockCall::SELECTOR;
 
 pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
