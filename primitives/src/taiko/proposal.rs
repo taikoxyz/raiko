@@ -3,8 +3,7 @@ use anyhow::{Context, Result};
 
 sol! {
     function proposeBlock(
-        bytes calldata input,
-        bytes calldata assignment,
+        bytes calldata params,
         bytes calldata txList
     )
     {}

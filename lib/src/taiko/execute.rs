@@ -140,9 +140,10 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
 
             if tx_no == 0 && !result.is_success() {
                 bail!(
-                    "Error at transaction {}: execute anchor failed {}",
+                    "Error at transaction {}: execute anchor failed {:?}, {:?}",
                     tx_no,
-                    from_utf8(&result.output().unwrap()).unwrap_or_default()
+                    result,
+                    from_utf8(result.output().unwrap()).unwrap()
                 );
             }
 

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
 use log::info;
 use zeth_primitives::{
@@ -111,7 +111,7 @@ fn fetch_data(
         contracts: vec![],
         parent_header: init_block.clone().try_into()?,
         ancestor_headers: vec![],
-        base_fee_per_gas: Default::default(),
+        base_fee_per_gas: from_ethers_u256(fini_block.base_fee_per_gas.unwrap_or_default()),
     };
 
     Ok((provider, init_block, fini_block, signal_root, input))
@@ -200,8 +200,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1SignalRoot: anchor_l1_signal_root,
         l1Height: l1_block_no,
         parentGasUsed: l2_parent_gas_used,
-    } = decode_anchor_call_args(&l2_fini_block.transactions[0].input)
-        .context("failed to decode anchor arguments")?;
+    } = decode_anchor_call_args(&l2_fini_block.transactions[0].input)?;
 
     let (mut l1_provider, _l1_init_block, l1_fini_block, l1_signal_root, _l1_input) = fetch_data(
         "L1",
@@ -218,11 +217,9 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     })?;
 
     let proposeBlockCall {
-        input: _,
-        assignment: _,
+        params: _,
         txList: l2_tx_list,
-    } = decode_propose_block_call_args(&propose_tx.input)
-        .context("failed to get tx list from propose block tx")?;
+    } = decode_propose_block_call_args(&propose_tx.input)?;
 
     // 1. check l2 parent gas used
     if l2_init_block.gas_used != U256::from(l2_parent_gas_used) {
