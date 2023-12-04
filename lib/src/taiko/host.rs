@@ -31,6 +31,7 @@ pub struct TaikoExtra {
     pub l1_signal_root: B256,
     pub l2_signal_root: B256,
     pub l2_withdrawals: Vec<Withdrawal>,
+    pub block_metadata: BlockMetadata,
 }
 
 fn fetch_data(
@@ -211,7 +212,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         L1_SIGNAL_SERVICE.clone(),
     )?;
 
-    let propose_tx = l1_provider.get_propose(&ProposeQuery {
+    let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {
         l1_contract: H160::from_slice(L1_CONTRACT.as_slice()),
         l1_block_no: l1_block_no + 1,
         l2_block_no: l2_block_no,
@@ -250,6 +251,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1_signal_root,
         l2_signal_root,
         l2_withdrawals,
+        block_metadata,
     };
 
     // rebuild transaction list by tx_list from l1 contract

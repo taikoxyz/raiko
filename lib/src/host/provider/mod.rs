@@ -17,6 +17,7 @@ use std::collections::BTreeSet;
 use anyhow::{anyhow, Result};
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H160, H256, U256};
 use serde::{Deserialize, Serialize};
+use zeth_primitives::taiko::BlockMetadata;
 
 pub mod cached_rpc_provider;
 pub mod file_provider;
@@ -64,7 +65,7 @@ pub trait Provider: Send {
     fn get_balance(&mut self, query: &AccountQuery) -> Result<U256>;
     fn get_code(&mut self, query: &AccountQuery) -> Result<Bytes>;
     fn get_storage(&mut self, query: &StorageQuery) -> Result<H256>;
-    fn get_propose(&mut self, query: &ProposeQuery) -> Result<Transaction>;
+    fn get_propose(&mut self, query: &ProposeQuery) -> Result<(Transaction, BlockMetadata)>;
 }
 
 pub trait MutProvider: Provider {
@@ -75,7 +76,7 @@ pub trait MutProvider: Provider {
     fn insert_balance(&mut self, query: AccountQuery, val: U256);
     fn insert_code(&mut self, query: AccountQuery, val: Bytes);
     fn insert_storage(&mut self, query: StorageQuery, val: H256);
-    fn insert_propose(&mut self, query: ProposeQuery, val: Transaction);
+    fn insert_propose(&mut self, query: ProposeQuery, val: (Transaction, BlockMetadata));
 }
 
 pub fn new_file_provider(file_path: String) -> Result<Box<dyn Provider>> {

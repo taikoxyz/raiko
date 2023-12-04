@@ -2,7 +2,10 @@ use anyhow::Result;
 use zeth_primitives::{
     block::Header,
     keccak,
-    taiko::{string_to_bytes32, BlockEvidence, BlockMetadata, EthDeposit, ProtocolInstance},
+    taiko::{
+        deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
+        TIER_SGX_ID,
+    },
     TxHash,
 };
 
@@ -10,7 +13,7 @@ use crate::taiko::host::TaikoExtra;
 
 pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result<ProtocolInstance> {
     let tx_list_hash = TxHash::from(keccak::keccak(extra.l2_tx_list.as_slice()));
-    let deposits = extra
+    let deposits: Vec<EthDeposit> = extra
         .l2_withdrawals
         .iter()
         .map(|w| EthDeposit {
@@ -19,25 +22,31 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             id: w.index,
         })
         .collect();
+    let deposits_hash = deposits_hash(&deposits);
     let extra_data = string_to_bytes32(&header.extra_data);
     let pi = ProtocolInstance {
-        block_evidence: BlockEvidence {
-            blockMetadata: BlockMetadata {
-                l1Hash: extra.l1_hash,
-                difficulty: header.difficulty.into(),
-                txListHash: tx_list_hash,
-                extraData: extra_data.into(),
-                id: header.number,
-                timestamp: header.timestamp.try_into().unwrap(),
-                l1Height: extra.l1_height,
-                gasLimit: header.gas_limit.try_into().unwrap(),
-                coinbase: header.beneficiary,
-                depositsProcessed: deposits,
-            },
+        transition: Transition {
             parentHash: header.parent_hash,
             blockHash: header.hash(),
             signalRoot: extra.l2_signal_root,
             graffiti: extra.graffiti,
+        },
+        block_metadata: BlockMetadata {
+            l1Hash: extra.l1_hash,
+            difficulty: header.difficulty.into(),
+            blobHash: tx_list_hash,
+            extraData: extra_data.into(),
+            depositsHash: deposits_hash,
+            coinbase: header.beneficiary,
+            id: header.number,
+            gasLimit: header.gas_limit.try_into().unwrap(),
+            timestamp: header.timestamp.try_into().unwrap(),
+            l1Height: extra.l1_height,
+            txListByteOffset: 0u32,
+            txListByteSize: 0u32,
+            minTier: TIER_SGX_ID.into(),
+            blobUsed: extra.l2_tx_list.len() == 0,
+            parentMetaHash: extra.block_metadata.parentMetaHash,
         },
         prover: extra.prover,
     };

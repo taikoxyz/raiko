@@ -1,8 +1,6 @@
-use std::iter;
-
 use alloy_dyn_abi::DynSolValue;
-use alloy_primitives::{Address, B256, U160, U256};
-use alloy_sol_types::{sol, SolEvent, SolValue};
+use alloy_primitives::{Address, B256, U256};
+use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
 use anyhow::{Context, Result};
 use ethers_core::types::{Log, H256};
 use serde::{
@@ -24,32 +22,43 @@ sol! {
 
     #[derive(Debug, Default, Deserialize, Serialize)]
     struct BlockMetadata {
-        bytes32 l1Hash; // constrain: anchor call
-        bytes32 difficulty; // constrain: l2 block's difficulty
-        bytes32 txListHash; // constrain: l2 txlist
-        bytes32 extraData; // constrain: l2 block's extra data
-        uint64 id; // constrain: l2 block's number
-        uint64 timestamp; // constrain: l2 block's timestamp
-        uint64 l1Height; // constrain: anchor
-        uint32 gasLimit; // constrain: l2 block's gas limit - anchor gas limit
-        address coinbase; // constrain: L2 coinbase
-        EthDeposit[] depositsProcessed; // constrain: l2 withdraw root
+        bytes32 l1Hash; // slot 1
+        bytes32 difficulty; // slot 2
+        bytes32 blobHash; //or txListHash (if Blob not yet supported), // slot 3
+        bytes32 extraData; // slot 4
+        bytes32 depositsHash; // slot 5
+        address coinbase; // L2 coinbase, // slot 6
+        uint64 id;
+        uint32 gasLimit;
+        uint64 timestamp; // slot 7
+        uint64 l1Height;
+        uint24 txListByteOffset;
+        uint24 txListByteSize;
+        uint16 minTier;
+        bool blobUsed;
+        bytes32 parentMetaHash; // slot 8
     }
 
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct BlockEvidence {
-        BlockMetadata blockMetadata;
-        bytes32 parentHash; // constrain: l2 parent hash
-        bytes32 blockHash; // constrain: l2 block hash
-        bytes32 signalRoot; // constrain: ??l2 service account storage root??
-        bytes32 graffiti; // constrain: l2 block's graffiti
+    struct Transition {
+        bytes32 parentHash;
+        bytes32 blockHash;
+        bytes32 signalRoot;
+        bytes32 graffiti;
+    }
+
+    struct SgxGetSignedHash {
+        Transition transition;
+        address newInstance;
+        address prover;
+        bytes32 metaHash;
     }
 
     event BlockProposed(
         uint256 indexed blockId,
         address indexed prover,
-        uint256 reward,
-        BlockMetadata meta
+        uint96 livenessBond,
+        BlockMetadata meta,
+        EthDeposit[] depositsProcessed
     );
 }
 
@@ -71,13 +80,22 @@ where
     deserializer.deserialize_any(AmountVisitor)
 }
 
-pub fn filter_propose_block_event(logs: &[Log], block_id: U256) -> Result<Option<H256>> {
+pub fn filter_propose_block_event(
+    logs: &[Log],
+    block_id: U256,
+) -> Result<Option<(H256, BlockMetadata)>> {
     for log in logs {
+        if log.topics.len() != <<BlockProposed as SolEvent>::TopicList as TopicList>::COUNT {
+            continue;
+        }
+        if from_ethers_h256(log.topics[0]) != BlockProposed::SIGNATURE_HASH {
+            continue;
+        }
         let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
-        let block_proposed =
-            BlockProposed::decode_log(topics, &log.data, false).context("decode log failed")?;
+        let result = BlockProposed::decode_log(topics, &log.data, false);
+        let block_proposed = result.context("decode log failed")?;
         if block_proposed.blockId == block_id {
-            return Ok(log.transaction_hash);
+            return Ok(log.transaction_hash.map(|h| (h, block_proposed.meta)));
         }
     }
     Ok(None)
@@ -115,94 +133,38 @@ impl<'de> Visitor<'de> for AmountVisitor {
     }
 }
 
-impl BlockMetadata {
-    // function hashMetadata(TaikoData.BlockMetadata memory meta)
-    //         internal
-    //         pure
-    //         returns (bytes32 hash)
-    //     {
-    //         uint256[7] memory inputs;
-    //         inputs[0] = uint256(meta.l1Hash);
-    //         inputs[1] = uint256(meta.difficulty);
-    //         inputs[2] = uint256(meta.txListHash);
-    //         inputs[3] = uint256(meta.extraData);
-    //         inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
-    //             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-    //         inputs[5] = uint256(uint160(meta.coinbase));
-    //         inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
-
-    //         assembly {
-    //             hash := keccak256(inputs, 224 /*mul(7, 32)*/ )
-    //         }
-    //     }
-    pub fn hash(&self) -> B256 {
-        let field0 = self.l1Hash;
-        let field1 = self.difficulty;
-        let field2 = self.txListHash;
-        let field3 = self.extraData;
-        let field4 = U256::from(self.id)
-            | U256::from(self.timestamp) << 64
-            | U256::from(self.l1Height) << 128
-            | U256::from(self.gasLimit) << 192;
-        let coinbase: U160 = self.coinbase.into();
-        let field5 = U256::from(coinbase);
-        let field6 = keccak::keccak(self.depositsProcessed.abi_encode());
-        let input: Vec<u8> = iter::empty()
-            .chain(field0)
-            .chain(field1)
-            .chain(field2)
-            .chain(field3)
-            .chain(field4.to_be_bytes_vec())
-            .chain(field5.to_be_bytes_vec())
-            .chain(field6)
-            .collect();
-        keccak::keccak(input).into()
-    }
-}
-
 pub enum EvidenceType {
     Sgx {
-        new_pubkey: String, // the evidence signature public key
+        new_pubkey: Address, // the evidence signature public key
     },
     PseZk,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ProtocolInstance {
-    pub block_evidence: BlockEvidence,
+    pub transition: Transition,
+    pub block_metadata: BlockMetadata,
     pub prover: Address,
 }
 
 impl ProtocolInstance {
-    // keccak256(
-    //     abi.encode(
-    //         evidence.metaHash,
-    //         evidence.parentHash,
-    //         evidence.blockHash,
-    //         evidence.signalRoot,
-    //         evidence.graffiti,
-    //         assignedProver,
-    //         newPubKey
-    //     )
-    // );
+    // keccak256(abi.encode(tran, newInstance, prover, metaHash))
     pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
-        use DynSolValue::*;
-        let mut abi_encode_tuple = vec![
-            FixedBytes(self.block_evidence.blockMetadata.hash(), 32),
-            FixedBytes(self.block_evidence.parentHash, 32),
-            FixedBytes(self.block_evidence.blockHash, 32),
-            FixedBytes(self.block_evidence.signalRoot, 32),
-            FixedBytes(self.block_evidence.graffiti, 32),
-            Address(self.prover),
-        ];
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => {
-                abi_encode_tuple.push(Bytes(hex::decode(new_pubkey).unwrap()));
+                let meta_hash = keccak::keccak(self.block_metadata.abi_encode());
+                let sgx_get_signed_hash = SgxGetSignedHash {
+                    transition: self.transition.clone(),
+                    newInstance: new_pubkey,
+                    prover: self.prover,
+                    metaHash: meta_hash.into(),
+                };
+                keccak::keccak(sgx_get_signed_hash.abi_encode()).into()
             }
-            EvidenceType::PseZk => {}
-        };
-        let input: Vec<u8> = Tuple(abi_encode_tuple).abi_encode();
-        keccak::keccak(input).into()
+            EvidenceType::PseZk => todo!(),
+        }
     }
+}
+
+pub fn deposits_hash(deposits: &[EthDeposit]) -> B256 {
+    keccak::keccak(deposits.abi_encode()).into()
 }
