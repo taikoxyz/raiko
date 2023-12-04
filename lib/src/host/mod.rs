@@ -19,9 +19,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use ethers_core::types::{
-    Bytes, EIP1186ProofResponse, Transaction as EthersTransaction, H160, H256,
-};
+use ethers_core::types::{Bytes, EIP1186ProofResponse, Transaction as EthersTransaction, H256};
 use hashbrown::HashMap;
 use log::info;
 use revm::Database;
@@ -40,7 +38,7 @@ use crate::{
     consts::ChainSpec,
     host::{
         mpt::{orphaned_digests, resolve_digests, shorten_key},
-        provider::{new_provider, BlockQuery, ProofQuery, ProposeQuery},
+        provider::{new_provider, BlockQuery},
     },
     input::{Input, StorageEntry},
     mem_db::MemDb,
@@ -60,8 +58,6 @@ pub struct Init<E: TxEssence> {
     pub fini_withdrawals: Vec<Withdrawal>,
     pub fini_proofs: HashMap<Address, EIP1186ProofResponse>,
     pub ancestor_headers: Vec<Header>,
-    pub propose: Option<Transaction<E>>,
-    pub signal_root: B256,
 }
 
 pub fn get_initial_data<N: NetworkStrategyBundle>(
@@ -69,8 +65,6 @@ pub fn get_initial_data<N: NetworkStrategyBundle>(
     cache_path: Option<String>,
     rpc_url: Option<String>,
     block_no: u64,
-    l2_block_no: Option<u64>,
-    signal_service: Address,
 ) -> Result<Init<N::TxEssence>>
 where
     N::TxEssence: TryFrom<EthersTransaction>,
@@ -78,26 +72,6 @@ where
 {
     let mut provider = new_provider(cache_path, rpc_url)?;
 
-    // get proposeBlock transaction from l1 block
-    let propose = match l2_block_no {
-        Some(l2_block_no) => Some(
-            provider
-                .get_propose(&ProposeQuery {
-                    l1_block_no: block_no + 1,
-                    l2_block_no: l2_block_no,
-                })?
-                .try_into()
-                .unwrap(),
-        ),
-        None => None,
-    };
-    // get signal root by signal service
-    let proof = provider.get_proof(&ProofQuery {
-        block_no,
-        address: H160::from_slice(signal_service.as_slice()),
-        indices: Default::default(),
-    })?;
-    let signal_root = from_ethers_h256(proof.storage_hash);
     // Fetch the initial block
     let init_block = provider.get_partial_block(&BlockQuery {
         block_no: block_no - 1,
@@ -197,8 +171,6 @@ where
         fini_withdrawals: withdrawals,
         fini_proofs,
         ancestor_headers,
-        propose,
-        signal_root,
     })
 }
 
@@ -230,7 +202,6 @@ pub enum VerifyError {
         first_delta: Option<String>,
         indices: usize,
     },
-    BlockFieldMismatch,
 }
 
 pub fn verify_state(

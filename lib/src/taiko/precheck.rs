@@ -1,48 +1,38 @@
 use std::error::Error;
 
 use anyhow::{bail, Context, Result};
-use ethers_core::types::Transaction as EthersTransaction;
+use ethers_core::types::{Block, EIP1186ProofResponse, Transaction, H160, U256, U64};
 use zeth_primitives::{
+    ethers::{from_ethers_h160, from_ethers_u256},
     signature::TxSignature,
     taiko::{ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, GX1, GX2, L2_CONTRACT},
     transactions::{
         ethereum::{EthereumTxEssence, TransactionKind},
         EthereumTransaction, TxEssence,
     },
-    Address, U256,
+    Address,
 };
 
-use crate::taiko::{host::TaikoInit, utils::rlp_decode_list};
+use crate::taiko::{host::TaikoExtra, utils::rlp_decode_list};
 
-pub fn precheck_block(init: &mut TaikoInit<EthereumTxEssence>) -> Result<()> {
-    let Some(anchor) = init.l2_init.fini_transactions.first().cloned() else {
+// rebuild the block with anchor transaction and txlist from l1 contract, then precheck it
+pub fn rebuild_and_precheck_block(
+    l2_fini: &mut Block<Transaction>,
+    extra: &TaikoExtra,
+) -> Result<()> {
+    let Some(anchor) = l2_fini.transactions.first().cloned() else {
         bail!("no anchor transaction found");
     };
     // 1. check anchor transaction
-    precheck_anchor(init, &anchor).context("precheck anchor error")?;
+    precheck_anchor(l2_fini, &anchor).context("precheck anchor error")?;
 
     // 2. patch anchor transaction into tx list instead of those from l2 node's
-    let remaining_txs: Vec<EthersTransaction> =
-        rlp_decode_list(&init.extra.l2_tx_list).context("failed to decode tx list")?;
-    let mut txs: Vec<EthereumTransaction> = remaining_txs
-        .into_iter()
-        .map(|tx| tx.try_into().unwrap())
-        .collect();
+    let mut txs: Vec<Transaction> =
+        rlp_decode_list(&extra.l2_tx_list).context("failed to decode tx list")?;
+    // insert the anchor transaction into the tx list at the first position
     txs.insert(0, anchor.clone());
-    init.l2_init.fini_transactions = txs;
-    // 3. check l2 parent gas used
-    if init.l2_init.init_block.gas_used != U256::from(init.extra.l2_parent_gas_used) {
-        return Err(anyhow::anyhow!("parent gas used mismatch"));
-    }
-    // 4. check l1 signal root
-    if init.extra.l1_signal_root != init.l1_init.signal_root {
-        return Err(anyhow::anyhow!("l1 signal root mismatch"));
-    }
-    // 5. check l1 block hash
-    if init.l1_init.fini_block.hash() != init.extra.l1_hash {
-        return Err(anyhow::anyhow!("l1 block hash mismatch"));
-    }
-
+    // reset transactions
+    l2_fini.transactions = txs;
     Ok(())
 }
 
@@ -67,9 +57,9 @@ pub enum AnchorError {
         expected: U256,
         got: U256,
     },
-    AnchorGasPriceMisMatch {
-        expected: U256,
-        got: U256,
+    AnchorFeeCapMisMatch {
+        expected: Option<U256>,
+        got: Option<U256>,
     },
     AnchorSignatureMismatch,
 }
@@ -90,58 +80,60 @@ fn precheck_anchor_signature(sign: &TxSignature) -> Result<(), AnchorError> {
     return Err(AnchorError::AnchorSignatureMismatch);
 }
 
-fn precheck_anchor(
-    init: &TaikoInit<EthereumTxEssence>,
-    anchor: &EthereumTransaction,
+pub fn precheck_anchor(
+    l2_fini: &Block<Transaction>,
+    anchor: &Transaction,
 ) -> Result<(), AnchorError> {
-    let EthereumTxEssence::Eip1559(tx) = &anchor.essence else {
+    let tx1559_type = U64::from(0x2);
+    if !matches!(anchor.transaction_type, Some(tx1559_type)) {
         return Err(AnchorError::AnchorTypeMisMatch {
-            tx_type: anchor.essence.tx_type(),
+            tx_type: anchor.transaction_type.unwrap_or_default().as_u64() as u8,
         });
-    };
+    }
     // verify transaction
-    precheck_anchor_signature(&anchor.signature)?;
+    precheck_anchor_signature(&TxSignature {
+        v: anchor.v.as_u64(),
+        r: from_ethers_u256(anchor.r),
+        s: from_ethers_u256(anchor.s),
+    })?;
     // verify the transaction signature
-    let Ok(from) = anchor.recover_from() else {
-        return Err(AnchorError::AnchorToMisMatch {
-            expected: *L2_CONTRACT,
-            got: None,
-        });
-    };
+    let from = from_ethers_h160(anchor.from);
     if from != *GOLDEN_TOUCH_ACCOUNT {
         return Err(AnchorError::AnchorFromMisMatch {
             expected: *GOLDEN_TOUCH_ACCOUNT,
             got: Some(from),
         });
     }
-    let TransactionKind::Call(to) = tx.to else {
+    let Some(to) = anchor.to else {
         return Err(AnchorError::AnchorToMisMatch {
             expected: *L2_CONTRACT,
             got: None,
         });
     };
+    let to = from_ethers_h160(to);
     if to != *L2_CONTRACT {
         return Err(AnchorError::AnchorFromMisMatch {
             expected: *L2_CONTRACT,
-            got: Some(from),
+            got: Some(to),
         });
     }
-    if tx.value != U256::ZERO {
+    if anchor.value != U256::zero() {
         return Err(AnchorError::AnchorValueMisMatch {
-            expected: U256::ZERO,
-            got: tx.value,
+            expected: U256::zero(),
+            got: anchor.value,
         });
     }
-    if tx.gas_limit != U256::from(ANCHOR_GAS_LIMIT) {
+    if anchor.gas != U256::from(ANCHOR_GAS_LIMIT) {
         return Err(AnchorError::AnchorGasLimitMisMatch {
             expected: U256::from(ANCHOR_GAS_LIMIT),
-            got: tx.gas_limit,
+            got: anchor.gas,
         });
     }
-    if tx.max_fee_per_gas != init.l2_init.fini_block.base_fee_per_gas {
-        return Err(AnchorError::AnchorGasPriceMisMatch {
-            expected: U256::from(ANCHOR_GAS_LIMIT),
-            got: anchor.essence.gas_limit(),
+    // anchor's gas price should be the same as the block's
+    if anchor.max_fee_per_gas != l2_fini.base_fee_per_gas {
+        return Err(AnchorError::AnchorFeeCapMisMatch {
+            expected: l2_fini.base_fee_per_gas,
+            got: anchor.max_fee_per_gas,
         });
     }
     Ok(())

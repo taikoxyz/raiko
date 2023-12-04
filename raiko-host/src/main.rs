@@ -41,7 +41,7 @@ struct Args {
     /// The guests path
     guest: Option<String>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1)]
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "0")]
     sgx_instance_id: u32,
 }
 

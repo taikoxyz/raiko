@@ -4,7 +4,8 @@ use std::fmt::Debug;
 use zeth_lib::{
     block_builder::NetworkStrategyBundle,
     consts::{ETH_MAINNET_CHAIN_SPEC, TAIKO_MAINNET_CHAIN_SPEC},
-    taiko::input::TaikoInput,
+    host::Init,
+    taiko::host::TaikoExtra,
     EthereumTxEssence,
 };
 use zeth_primitives::taiko::string_to_bytes32;
@@ -20,7 +21,7 @@ use super::{
 pub async fn prepare_input<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     ctx: &Context,
     req: &ProofRequest,
-) -> Result<TaikoInput<N::TxEssence>>
+) -> Result<(Init<N::TxEssence>, TaikoExtra)>
 where
     <N::Database as revm::primitives::db::Database>::Error: Debug,
 {
@@ -58,7 +59,6 @@ where
             })
             .await?
             .map_err(Into::into)
-            .map(Into::into)
         }
         ProofRequest::PseZk(PseZkRequest { .. }) => todo!(),
     }

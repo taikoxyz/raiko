@@ -11,11 +11,13 @@ use secp256k1::{
 };
 use zeth_lib::{
     consts::{ETH_MAINNET_CHAIN_SPEC, TAIKO_MAINNET_CHAIN_SPEC},
+    host::Init,
+    input::Input,
     taiko::{
         block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
-        host::TaikoInit,
-        input::TaikoInput,
+        host::TaikoExtra,
     },
+    EthereumTxEssence,
 };
 use zeth_primitives::{
     taiko::{string_to_bytes32, EvidenceType},
@@ -99,11 +101,11 @@ async fn get_data_to_sign(
     block_no: u64,
     new_pubkey: String,
 ) -> Result<String> {
-    let init = parse_to_init(path_str, l1_blocks_path, prover, block_no, graffiti).await?;
-    let input: TaikoInput<zeth_lib::EthereumTxEssence> = init.clone().into();
-    let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input.l2_input.clone())
+    let (init, extra) = parse_to_init(path_str, l1_blocks_path, prover, block_no, graffiti).await?;
+    let input: Input<zeth_lib::EthereumTxEssence> = init.clone().into();
+    let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input)
         .expect("Failed to build the resulting block");
-    let pi = zeth_lib::taiko::protocol_instance::assemble_protocol_instance(&input, &output)?;
+    let pi = zeth_lib::taiko::protocol_instance::assemble_protocol_instance(&extra, &output)?;
     let pi_hash = pi.hash(EvidenceType::Sgx { new_pubkey });
     let pi_hash_str = pi_hash.to_string();
     Ok(pi_hash_str)
@@ -115,9 +117,9 @@ async fn parse_to_init(
     prover: Address,
     block_no: u64,
     graffiti: &str,
-) -> Result<TaikoInit<zeth_lib::EthereumTxEssence>, Error> {
+) -> Result<(Init<zeth_lib::EthereumTxEssence>, TaikoExtra), Error> {
     let graffiti = string_to_bytes32(graffiti.as_bytes());
-    let init = tokio::task::spawn_blocking(move || {
+    let (init, extra) = tokio::task::spawn_blocking(move || {
         zeth_lib::taiko::host::get_taiko_initial_data::<TaikoStrategyBundle>(
             Some(l1_blocks_path),
             ETH_MAINNET_CHAIN_SPEC.clone(),
@@ -133,7 +135,7 @@ async fn parse_to_init(
     })
     .await?;
 
-    Ok(init)
+    Ok::<(Init<EthereumTxEssence>, TaikoExtra), _>((init, extra))
 }
 
 fn sgx_sign(privkey: SecretKey, protocol_intance_hash: String) -> Result<Signature> {

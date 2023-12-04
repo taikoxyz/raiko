@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{fmt::Debug, mem::take};
+use std::{fmt::Debug, mem::take, str::from_utf8};
 
 use anyhow::{anyhow, bail, Context};
 #[cfg(not(target_os = "zkvm"))]
@@ -112,16 +112,6 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             .into_iter()
             .enumerate()
         {
-            // check the first anchor transaction is valid
-            // if tx_no == 0 {
-            //     if let Err(e) = verify_anchor(header, &tx,
-            // &block_builder.input.protocol_instance) {         bail!(
-            //             "Error at transaction {}: verify anchor failed {:?}",
-            //             tx_no,
-            //             e
-            //         );
-            //     }
-            // }
             // verify the transaction signature
             let tx_from = tx
                 .recover_from()
@@ -150,9 +140,9 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
 
             if tx_no == 0 && !result.is_success() {
                 bail!(
-                    "Error at transaction {}: execute anchor failed {:?}",
+                    "Error at transaction {}: execute anchor failed {}",
                     tx_no,
-                    result
+                    from_utf8(&result.output().unwrap()).unwrap_or_default()
                 );
             }
 
