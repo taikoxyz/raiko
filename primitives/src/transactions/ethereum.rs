@@ -490,15 +490,6 @@ impl TxEssence for EthereumTxEssence {
         }
         length
     }
-
-    #[inline]
-    fn data(&self) -> &[u8] {
-        match self {
-            EthereumTxEssence::Legacy(tx) => tx.data.as_ref(),
-            EthereumTxEssence::Eip2930(tx) => tx.data.as_ref(),
-            EthereumTxEssence::Eip1559(tx) => tx.data.as_ref(),
-        }
-    }
 }
 
 /// Joins two RLP-encoded lists into a single RLP-encoded list.
