@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
 use log::info;
-use serde::{Deserialize, Serialize};
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
     taiko::*,
@@ -21,7 +20,7 @@ use crate::{
     taiko::precheck::rebuild_and_precheck_block,
 };
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug)]
 pub struct TaikoExtra {
     pub l1_hash: B256,
     pub l1_height: u64,

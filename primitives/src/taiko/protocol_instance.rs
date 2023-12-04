@@ -4,17 +4,15 @@ use anyhow::{Context, Result};
 use ethers_core::types::{Log, H256};
 use serde::{
     de::{Error as DeError, Visitor},
-    Deserialize, Deserializer, Serialize, Serializer,
+    Deserialize, Serialize,
 };
 
 use crate::{ethers::from_ethers_h256, keccak};
 
 sol! {
-    #[derive(Debug, Default, Deserialize, Serialize)]
+    #[derive(Debug)]
     struct EthDeposit {
         address recipient;
-        #[serde(serialize_with = "serialize_amount")]
-        #[serde(deserialize_with = "deserialize_amount")]
         uint96 amount;
         uint64 id;
     }
@@ -38,6 +36,7 @@ sol! {
         bytes32 parentMetaHash; // slot 8
     }
 
+    #[derive(Debug)]
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
@@ -45,6 +44,7 @@ sol! {
         bytes32 graffiti;
     }
 
+    #[derive(Debug)]
     struct SgxGetSignedHash {
         Transition transition;
         address newInstance;
@@ -52,6 +52,7 @@ sol! {
         bytes32 metaHash;
     }
 
+    #[derive(Debug)]
     event BlockProposed(
         uint256 indexed blockId,
         address indexed prover,
@@ -59,24 +60,6 @@ sol! {
         BlockMetadata meta,
         EthDeposit[] depositsProcessed
     );
-}
-
-fn serialize_amount<S>(value: &u128, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    if *value > (u64::MAX as u128) || *value < (u64::MIN as u128) {
-        return value.to_string().serialize(serializer);
-    }
-
-    value.serialize(serializer)
-}
-
-fn deserialize_amount<'de, D>(deserializer: D) -> Result<u128, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    deserializer.deserialize_any(AmountVisitor)
 }
 
 pub fn filter_propose_block_event(
