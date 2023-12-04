@@ -2,10 +2,7 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
 use anyhow::{Context, Result};
 use ethers_core::types::{Log, H256};
-use serde::{
-    de::{Error as DeError, Visitor},
-    Deserialize, Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::{ethers::from_ethers_h256, keccak};
 
@@ -84,37 +81,6 @@ pub fn filter_propose_block_event(
 }
 
 #[derive(Debug)]
-struct AmountVisitor;
-impl<'de> Visitor<'de> for AmountVisitor {
-    type Value = u128;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        dbg!(self);
-        formatter.write_str("expect to receive integer")
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        v.parse().map_err(DeError::custom)
-    }
-
-    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(v as u128)
-    }
-
-    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(v as u128)
-    }
-}
-
 pub enum EvidenceType {
     Sgx {
         new_pubkey: Address, // the evidence signature public key
