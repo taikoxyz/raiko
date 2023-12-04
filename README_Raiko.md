@@ -249,7 +249,7 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
       "l2Rpc": "https://rpc.internal.taiko.xyz",
       "l1Rpc": "https://l1rpc.internal.taiko.xyz",
       "block": 2,
-      "prover": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
       "graffiti": "0"
     }
   ]

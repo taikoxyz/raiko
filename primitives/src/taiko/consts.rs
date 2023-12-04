@@ -5,12 +5,12 @@ use alloy_sol_types::SolCall;
 use once_cell::sync::Lazy;
 
 pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982")
+    Address::from_str("0xf7f1b1Cf92f24aa4BFf028eAAEF15a6159045fC7")
         .expect("invalid l1 signal service")
 });
 
 pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x1000777700000000000000000000000000000007")
+    Address::from_str("0x1670010000000000000000000000000000000005")
         .expect("invalid l2 signal service")
 });
 
@@ -29,12 +29,12 @@ pub static TREASURY: Lazy<Address> = Lazy::new(|| {
 });
 
 pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x610178dA211FEF7D417bC0e6FeD39F05609AD788")
+    Address::from_str("0xB261C6fACc0707B674c7491338412FDF44733A4B")
         .expect("invalid l1 contract address")
 });
 
 pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x1000777700000000000000000000000000000001")
+    Address::from_str("0x1670010000000000000000000000000000010001")
         .expect("invalid l2 contract address")
 });
 
