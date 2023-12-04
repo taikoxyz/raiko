@@ -81,7 +81,7 @@ pub fn precheck_anchor(
     anchor: &Transaction,
 ) -> Result<(), AnchorError> {
     let tx1559_type = U64::from(0x2);
-    if !matches!(anchor.transaction_type, Some(tx1559_type)) {
+    if anchor.transaction_type != Some(tx1559_type) {
         return Err(AnchorError::AnchorTypeMisMatch {
             tx_type: anchor.transaction_type.unwrap_or_default().as_u64() as u8,
         });

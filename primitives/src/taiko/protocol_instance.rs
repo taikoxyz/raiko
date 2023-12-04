@@ -1,4 +1,3 @@
-use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
 use anyhow::{Context, Result};
