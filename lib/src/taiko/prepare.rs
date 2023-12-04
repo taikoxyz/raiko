@@ -2,8 +2,7 @@ use std::fmt::Debug;
 
 use anyhow::{bail, Context, Result};
 use revm::{Database, DatabaseCommit};
-use ruint::uint;
-use zeth_primitives::{block::Header, transactions::TxEssence, U256};
+use zeth_primitives::{block::Header, taiko::BLOCK_GAS_LIMIT, transactions::TxEssence};
 
 use crate::{
     block_builder::BlockBuilder, consts::MAX_EXTRA_DATA_BYTES, preparation::HeaderPrepStrategy,
@@ -18,12 +17,11 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
         <D as Database>::Error: Debug,
         E: TxEssence,
     {
-        const GAS_LIMIT: U256 = uint!(15250000_U256);
         // Validate gas limit
-        if block_builder.input.gas_limit != GAS_LIMIT {
+        if block_builder.input.gas_limit != *BLOCK_GAS_LIMIT {
             bail!(
                 "Invalid gas limit: expected == {}, got {}",
-                GAS_LIMIT,
+                *BLOCK_GAS_LIMIT,
                 block_builder.input.gas_limit,
             );
         }

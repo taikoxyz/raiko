@@ -16,6 +16,7 @@ pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
 
 pub const ANCHOR_SELECTOR: [u8; 4] = super::anchorCall::SELECTOR;
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
+pub const BLOCK_GAS_LIMIT: Lazy<U256> = Lazy::new(|| uint!(15250000_U256));
 pub const PROPOSE_BLOCK_SELECTOR: [u8; 4] = super::proposeBlockCall::SELECTOR;
 
 pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
