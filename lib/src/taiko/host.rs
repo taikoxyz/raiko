@@ -1,17 +1,11 @@
-use std::{fmt::Debug, process::Termination};
-
 use anyhow::{Context, Result};
-use ethers_core::types::{
-    Block, EIP1186ProofResponse, Transaction as EthersTransaction, H160, H256, U256,
-};
-use hashbrown::HashMap;
+use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
 use log::info;
 use serde::{Deserialize, Serialize};
 use zeth_primitives::{
-    block::Header,
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
     taiko::*,
-    transactions::{ethereum::EthereumTxEssence, Transaction, TxEssence},
+    transactions::ethereum::EthereumTxEssence,
     withdrawal::Withdrawal,
     Address, B256,
 };
@@ -21,11 +15,9 @@ use crate::{
     consts::ChainSpec,
     host::{
         provider::{new_provider, BlockQuery, ProofQuery, ProposeQuery, Provider},
-        provider_db::{self, ProviderDb},
         Init,
     },
     input::Input,
-    mem_db::MemDb,
     taiko::precheck::rebuild_and_precheck_block,
 };
 
@@ -129,38 +121,12 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     provider: Box<dyn Provider>,
     chain_spec: ChainSpec,
     init_block: Block<H256>,
+    input: Input<EthereumTxEssence>,
     fini_block: Block<EthersTransaction>,
 ) -> Result<Init<N::TxEssence>> {
     // Create the provider DB
     let provider_db =
         crate::host::provider_db::ProviderDb::new(provider, init_block.number.unwrap().as_u64());
-    // Create input
-    let input = Input {
-        beneficiary: fini_block.author.map(from_ethers_h160).unwrap_or_default(),
-        gas_limit: from_ethers_u256(fini_block.gas_limit),
-        timestamp: from_ethers_u256(fini_block.timestamp),
-        extra_data: fini_block.extra_data.0.clone().into(),
-        mix_hash: from_ethers_h256(fini_block.mix_hash.unwrap()),
-        transactions: fini_block
-            .transactions
-            .clone()
-            .into_iter()
-            .map(|tx| tx.try_into().unwrap())
-            .collect(),
-        withdrawals: fini_block
-            .withdrawals
-            .clone()
-            .unwrap_or_default()
-            .into_iter()
-            .map(|w| w.try_into().unwrap())
-            .collect(),
-        parent_state_trie: Default::default(),
-        parent_storage: Default::default(),
-        contracts: vec![],
-        parent_header: init_block.clone().try_into()?,
-        ancestor_headers: vec![],
-        base_fee_per_gas: Default::default(),
-    };
     // Create the block builder, run the transactions and extract the DB
     let mut builder = BlockBuilder::new(&chain_spec, input)
         .with_db(provider_db)
@@ -212,7 +178,7 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
 
 pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     l1_cache_path: Option<String>,
-    l1_chain_spec: ChainSpec,
+    _l1_chain_spec: ChainSpec,
     l1_rpc_url: Option<String>,
     prover: Address,
     l2_cache_path: Option<String>,
@@ -221,7 +187,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     l2_block_no: u64,
     graffiti: B256,
 ) -> Result<(Init<N::TxEssence>, TaikoExtra)> {
-    let (mut l2_provider, l2_init_block, mut l2_fini_block, l2_signal_root, l2_input) = fetch_data(
+    let (l2_provider, l2_init_block, mut l2_fini_block, l2_signal_root, l2_input) = fetch_data(
         "L2",
         l2_cache_path,
         l2_rpc_url,
@@ -237,7 +203,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     } = decode_anchor_call_args(&l2_fini_block.transactions[0].input)
         .context("failed to decode anchor arguments")?;
 
-    let (mut l1_provider, l1_init_block, l1_fini_block, l1_signal_root, l1_input) = fetch_data(
+    let (mut l1_provider, _l1_init_block, l1_fini_block, l1_signal_root, _l1_input) = fetch_data(
         "L1",
         l1_cache_path,
         l1_rpc_url,
@@ -246,6 +212,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     )?;
 
     let propose_tx = l1_provider.get_propose(&ProposeQuery {
+        l1_contract: H160::from_slice(L1_CONTRACT.as_slice()),
         l1_block_no: l1_block_no + 1,
         l2_block_no: l2_block_no,
     })?;
@@ -291,7 +258,13 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     // execute transactions and get states
 
     Ok((
-        execute_data::<N>(l2_provider, l2_chain_spec, l2_init_block, l2_fini_block)?,
+        execute_data::<N>(
+            l2_provider,
+            l2_chain_spec,
+            l2_init_block,
+            l2_input,
+            l2_fini_block,
+        )?,
         extra,
     ))
 }

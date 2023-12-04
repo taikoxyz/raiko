@@ -49,6 +49,7 @@ pub struct StorageQuery {
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ProposeQuery {
+    pub l1_contract: H160,
     pub l1_block_no: u64,
     pub l2_block_no: u64,
 }

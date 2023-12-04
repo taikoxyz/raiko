@@ -4,7 +4,7 @@ use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{Address, B256, U160, U256};
 use alloy_sol_types::{sol, SolEvent, SolValue};
 use anyhow::{Context, Result};
-use ethers_core::types::{TransactionReceipt, H256};
+use ethers_core::types::{Log, H256};
 use serde::{
     de::{Error as DeError, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -71,18 +71,13 @@ where
     deserializer.deserialize_any(AmountVisitor)
 }
 
-pub fn filter_propose_block_event(
-    receipts: &[TransactionReceipt],
-    block_id: U256,
-) -> Result<Option<H256>> {
-    for receipt in receipts {
-        for log in &receipt.logs {
-            let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
-            let block_proposed =
-                BlockProposed::decode_log(topics, &log.data, false).context("decode log failed")?;
-            if block_proposed.blockId == block_id {
-                return Ok(Some(receipt.transaction_hash));
-            }
+pub fn filter_propose_block_event(logs: &[Log], block_id: U256) -> Result<Option<H256>> {
+    for log in logs {
+        let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
+        let block_proposed =
+            BlockProposed::decode_log(topics, &log.data, false).context("decode log failed")?;
+        if block_proposed.blockId == block_id {
+            return Ok(log.transaction_hash);
         }
     }
     Ok(None)

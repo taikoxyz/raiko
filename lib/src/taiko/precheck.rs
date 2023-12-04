@@ -1,15 +1,11 @@
 use std::error::Error;
 
 use anyhow::{bail, Context, Result};
-use ethers_core::types::{Block, EIP1186ProofResponse, Transaction, H160, U256, U64};
+use ethers_core::types::{Block, Transaction, U256, U64};
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_u256},
     signature::TxSignature,
     taiko::{ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, GX1, GX2, L2_CONTRACT},
-    transactions::{
-        ethereum::{EthereumTxEssence, TransactionKind},
-        EthereumTransaction, TxEssence,
-    },
     Address,
 };
 
@@ -90,6 +86,7 @@ pub fn precheck_anchor(
             tx_type: anchor.transaction_type.unwrap_or_default().as_u64() as u8,
         });
     }
+
     // verify transaction
     precheck_anchor_signature(&TxSignature {
         v: anchor.v.as_u64(),

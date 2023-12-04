@@ -3,7 +3,6 @@ use zeth_primitives::{
     block::Header,
     keccak,
     taiko::{string_to_bytes32, BlockEvidence, BlockMetadata, EthDeposit, ProtocolInstance},
-    transactions::TxEssence,
     TxHash,
 };
 
