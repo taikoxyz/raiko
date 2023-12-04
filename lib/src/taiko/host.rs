@@ -217,7 +217,11 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_block_no: l2_block_no,
     })?;
 
-    let propose_block_call = decode_propose_block_call_args(&propose_tx.input)
+    let proposeBlockCall {
+        input: _,
+        assignment: _,
+        txList: l2_tx_list,
+    } = decode_propose_block_call_args(&propose_tx.input)
         .context("failed to get tx list from propose block tx")?;
 
     // 1. check l2 parent gas used
@@ -244,7 +248,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     let extra = TaikoExtra {
         l1_hash: anchor_l1_hash,
         l1_height: l1_block_no,
-        l2_tx_list: propose_block_call.txList,
+        l2_tx_list,
         prover,
         graffiti,
         l1_signal_root,
