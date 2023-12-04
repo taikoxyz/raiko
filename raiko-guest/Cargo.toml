@@ -18,6 +18,12 @@ secp256k1 = { version = "0.27.0", features = [
 ] }
 rand = "0.8.5"
 hex = "0.4.3"
+k256 = { version = "=0.13.1", features = [
+    "std",
+    "ecdsa",
+], default_features = false }
 clap = { version = "4.4.6", features = ["derive"] }
 ethers-core = { version = "2.0", features = ["optimism"] }
 zeth-primitives = { path = "../primitives", features = ["taiko"] }
+rand_core = "0.6.4"
+sha3 = "0.10.8"

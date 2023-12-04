@@ -6,9 +6,14 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Error, Result};
-use secp256k1::{
-    ecdsa::Signature, hashes::sha256, rand::rngs::OsRng, Message, PublicKey, SecretKey, SECP256K1,
+use k256::{
+    ecdsa::{Signature, SigningKey, VerifyingKey},
+    elliptic_curve::sec1::ToEncodedPoint,
+    schnorr::signature::{Signer, Verifier},
+    PublicKey,
 };
+use rand_core::OsRng;
+use sha3::{Digest, Keccak256};
 use zeth_lib::{
     consts::{ETH_MAINNET_CHAIN_SPEC, TAIKO_MAINNET_CHAIN_SPEC},
     host::Init,
@@ -34,7 +39,7 @@ pub const PRIV_KEY_FILENAME: &str = "priv.key";
 pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let (privkey, _pubkey) = generate_new_keypair()?;
-    fs::write(privkey_path, SecretKey::secret_bytes(&privkey))?;
+    fs::write(privkey_path, privkey.to_bytes())?;
     Ok(())
 }
 
@@ -57,15 +62,19 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let prev_privkey = read_privkey(&privkey_path)?;
     let (new_privkey, new_pubkey) = generate_new_keypair()?;
-    fs::write(privkey_path, SecretKey::secret_bytes(&new_privkey))?;
-    let new_pubkey_str = new_pubkey.clone().to_string();
+    let encoded_point = PublicKey::from(&new_pubkey).to_encoded_point(false);
+    let encoded_point_bytes = encoded_point.as_bytes();
+    debug_assert_eq!(encoded_point_bytes[0], 0x04);
+    let new_pubkey = keccak(&encoded_point_bytes[1..]);
+    let new_pubkey = Address::from_slice(&new_pubkey[12..]);
+    fs::write(privkey_path, new_privkey.to_bytes())?;
     let pi_hash_str = get_data_to_sign(
         path_str,
         args.l1_blocks_data_file.to_string_lossy().to_string(),
         args.prover,
         &args.graffiti,
         block_no,
-        new_pubkey_str,
+        new_pubkey,
     )
     .await?;
 
@@ -79,18 +88,25 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     print_sgx_info()
 }
 
+#[inline]
+pub fn keccak(data: impl AsRef<[u8]>) -> [u8; 32] {
+    Keccak256::digest(data).into()
+}
+
 fn is_bootstrapped(secrets_dir: &PathBuf) -> bool {
     let privkey_path = secrets_dir.join(PRIV_KEY_FILENAME);
     privkey_path.is_file() && privkey_path.metadata().unwrap().permissions().readonly() == false
 }
 
-fn read_privkey(privkey_path: &PathBuf) -> Result<SecretKey, secp256k1::Error> {
+fn read_privkey(privkey_path: &PathBuf) -> Result<SigningKey, k256::ecdsa::Error> {
     let privkey_vec: Vec<u8> = fs::read(privkey_path).unwrap();
-    SecretKey::from_slice(&privkey_vec)
+    SigningKey::from_slice(&privkey_vec)
 }
 
-fn generate_new_keypair() -> Result<(SecretKey, PublicKey), Error> {
-    return Ok(SECP256K1.generate_keypair(&mut OsRng));
+fn generate_new_keypair() -> Result<(SigningKey, VerifyingKey), Error> {
+    let privkey = SigningKey::random(&mut OsRng);
+    let pubkey = privkey.verifying_key();
+    return Ok((privkey.clone(), *pubkey));
 }
 
 async fn get_data_to_sign(
@@ -99,7 +115,7 @@ async fn get_data_to_sign(
     prover: Address,
     graffiti: &str,
     block_no: u64,
-    new_pubkey: String,
+    new_pubkey: Address,
 ) -> Result<String> {
     let (init, extra) = parse_to_init(path_str, l1_blocks_path, prover, block_no, graffiti).await?;
     let input: Input<zeth_lib::EthereumTxEssence> = init.clone().into();
@@ -138,23 +154,22 @@ async fn parse_to_init(
     Ok::<(Init<EthereumTxEssence>, TaikoExtra), _>((init, extra))
 }
 
-fn sgx_sign(privkey: SecretKey, protocol_intance_hash: String) -> Result<Signature> {
-    let message = Message::from_hashed_data::<sha256::Hash>(protocol_intance_hash.as_bytes());
-    let sig = SECP256K1.sign_ecdsa(&message, &privkey);
-    let pubkey = privkey.public_key(&SECP256K1);
-    assert!(SECP256K1.verify_ecdsa(&message, &sig, &pubkey).is_ok());
+fn sgx_sign(privkey: SigningKey, protocol_intance_hash: String) -> Result<Signature> {
+    let msg = protocol_intance_hash.as_bytes();
+    let sig = privkey.sign(msg);
+    let pubkey = privkey.verifying_key();
+    assert!(pubkey.verify(msg, &sig).is_ok());
     Ok(sig)
 }
 
-fn save_attestation_user_report_data(pubkey: PublicKey) -> Result<()> {
+fn save_attestation_user_report_data(pubkey: Address) -> Result<()> {
+    let mut extended_pubkey = pubkey.to_vec();
+    extended_pubkey.resize(64, 0);
     let mut user_report_data_file = OpenOptions::new()
         .write(true)
         .open(ATTESTATION_USER_REPORT_DATA_DEVICE_FILE)?;
-    let pubkey_hash: Vec<u8> = pubkey.to_string().as_bytes().to_vec();
-    let mut padded_pubkey_hash = pubkey_hash.clone();
-    padded_pubkey_hash.resize(64, 0);
     user_report_data_file
-        .write_all(&padded_pubkey_hash)
+        .write_all(&extended_pubkey)
         .map_err(|err| anyhow!("Failed to save user report data: {}", err))
 }
 
