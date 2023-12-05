@@ -33,6 +33,7 @@ pub struct TaikoExtra {
     pub block_metadata: BlockMetadata,
 }
 
+#[allow(clippy::type_complexity)]
 fn fetch_data(
     annotation: &str,
     cache_path: Option<String>,
@@ -176,6 +177,7 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     Ok(init)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     l1_cache_path: Option<String>,
     _l1_chain_spec: ChainSpec,
@@ -192,7 +194,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_cache_path,
         l2_rpc_url,
         l2_block_no,
-        L2_SIGNAL_SERVICE.clone(),
+        *L2_SIGNAL_SERVICE,
     )?;
     // Get anchor call parameters
     let anchorCall {
@@ -207,14 +209,17 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1_cache_path,
         l1_rpc_url,
         l1_block_no,
-        L1_SIGNAL_SERVICE.clone(),
+        *L1_SIGNAL_SERVICE,
     )?;
 
     let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {
         l1_contract: H160::from_slice(L1_CONTRACT.as_slice()),
         l1_block_no: l1_block_no + 1,
-        l2_block_no: l2_block_no,
+        l2_block_no,
     })?;
+
+    // save l1 data
+    l1_provider.save()?;
 
     let proposeBlockCall {
         params: _,

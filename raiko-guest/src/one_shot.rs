@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File, OpenOptions},
     io::prelude::*,
-    path::PathBuf,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
@@ -93,9 +93,9 @@ pub fn keccak(data: impl AsRef<[u8]>) -> [u8; 32] {
     Keccak256::digest(data).into()
 }
 
-fn is_bootstrapped(secrets_dir: &PathBuf) -> bool {
+fn is_bootstrapped(secrets_dir: &Path) -> bool {
     let privkey_path = secrets_dir.join(PRIV_KEY_FILENAME);
-    privkey_path.is_file() && privkey_path.metadata().unwrap().permissions().readonly() == false
+    privkey_path.is_file() && !privkey_path.metadata().unwrap().permissions().readonly()
 }
 
 fn read_privkey(privkey_path: &PathBuf) -> Result<SigningKey, k256::ecdsa::Error> {
@@ -106,7 +106,7 @@ fn read_privkey(privkey_path: &PathBuf) -> Result<SigningKey, k256::ecdsa::Error
 fn generate_new_keypair() -> Result<(SigningKey, VerifyingKey), Error> {
     let privkey = SigningKey::random(&mut OsRng);
     let pubkey = privkey.verifying_key();
-    return Ok((privkey.clone(), *pubkey));
+    Ok((privkey.clone(), *pubkey))
 }
 
 async fn get_data_to_sign(

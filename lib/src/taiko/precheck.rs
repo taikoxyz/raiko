@@ -73,7 +73,7 @@ fn precheck_anchor_signature(sign: &TxSignature) -> Result<(), AnchorError> {
         // TODO: when r == GX2 require s == 0 if k == 1
         return Ok(());
     }
-    return Err(AnchorError::AnchorSignatureMismatch);
+    Err(AnchorError::AnchorSignatureMismatch)
 }
 
 pub fn precheck_anchor(

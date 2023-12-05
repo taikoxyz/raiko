@@ -61,7 +61,10 @@ pub fn result_main<A: ToSocketAddrs>(addr: A) -> TlsResult<()> {
 
     if let Ok(mut attestation_type_file) = File::open("/dev/attestation/attestation_type") {
         let mut attestation_type = String::new();
-        if let Ok(_) = attestation_type_file.read_to_string(&mut attestation_type) {
+        if attestation_type_file
+            .read_to_string(&mut attestation_type)
+            .is_ok()
+        {
             println!("Detected attestation type: {}", attestation_type.trim());
         }
         assert_eq!(attestation_type, "dcap");
