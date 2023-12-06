@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use hyper::{
     body::{Buf, HttpBody},
     header::HeaderValue,
@@ -17,8 +19,8 @@ use super::{
 /// `JoinHandle`.
 pub fn serve(
     addr: &str,
-    guest_path: &str,
-    cache_path: &str,
+    guest_path: &Path,
+    cache_path: &Path,
     sgx_instance_id: u32,
 ) -> tokio::task::JoinHandle<()> {
     let addr = addr

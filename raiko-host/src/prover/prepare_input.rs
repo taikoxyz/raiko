@@ -46,11 +46,11 @@ where
             // run sync task in blocking mode
             tokio::task::spawn_blocking(move || {
                 zeth_lib::taiko::host::get_taiko_initial_data::<N>(
-                    Some(l1_cache_path),
+                    Some(l1_cache_path.into_os_string().into_string().unwrap()),
                     l1_spec,
                     Some(l1_rpc),
                     prover,
-                    Some(l2_cache_path),
+                    Some(l2_cache_path.into_os_string().into_string().unwrap()),
                     l2_spec,
                     Some(l2_rpc),
                     l2_block,

@@ -1,4 +1,5 @@
 #![feature(path_file_prefix)]
+#![feature(absolute_path)]
 // Copyright 2023 RISC Zero, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +15,7 @@
 // limitations under the License.
 
 mod prover;
-use std::fmt::Debug;
+use std::{fmt::Debug, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
@@ -36,11 +37,11 @@ struct Args {
 
     #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/testdata")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
-    cache: Option<String>,
+    cache: Option<PathBuf>,
 
     #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/guests")]
     /// The guests path
-    guest: Option<String>,
+    guest: Option<PathBuf>,
 
     #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "0")]
     sgx_instance_id: u32,

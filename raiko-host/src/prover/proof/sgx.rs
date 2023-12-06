@@ -1,4 +1,4 @@
-use std::{path::Path, str};
+use std::str;
 
 use log::{debug, error, info};
 use tokio::process::Command;
@@ -12,8 +12,7 @@ use crate::prover::{
 
 pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse, String> {
     let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
-    debug!("Guest path: {}", guest_path);
-    let guest_path = Path::new(&guest_path);
+    debug!("Guest path: {:?}", guest_path);
     let mut cmd = {
         let bin_directory = guest_path
             .parent()
