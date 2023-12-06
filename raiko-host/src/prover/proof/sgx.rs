@@ -25,6 +25,8 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         cmd.arg("gramine-sgx");
         cmd.arg(bin);
         cmd.arg("one-shot");
+        cmd.env("INPUT_FILES_DIR", &ctx.cache_path);
+        cmd.env("RUST_LOG", "debug");
         cmd
     };
     let l1_cache_file = cache_file_path(&ctx.cache_path, req.block, true);
