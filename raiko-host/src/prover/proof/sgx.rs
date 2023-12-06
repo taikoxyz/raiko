@@ -31,9 +31,9 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
     let l1_cache_file = cache_file_path(&ctx.cache_path, req.block, true);
     let l2_cache_file = cache_file_path(&ctx.cache_path, req.block, false);
     let output = cmd
-        .arg("--blocks_data_file")
+        .arg("--blocks-data-file")
         .arg(l2_cache_file)
-        .arg("--l1_blocks_data_file")
+        .arg("--l1-blocks-data-file")
         .arg(l1_cache_file)
         .arg("--prover")
         .arg(req.prover.to_string())
