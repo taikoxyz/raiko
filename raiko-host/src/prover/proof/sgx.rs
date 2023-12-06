@@ -1,6 +1,6 @@
-use std::path::Path;
+use std::{path::Path, str};
 
-use log::debug;
+use log::{debug, error, info};
 use tokio::process::Command;
 
 use crate::prover::{
@@ -37,8 +37,13 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .await
         .map_err(|e| e.to_string())?;
     if !output.status.success() {
+        error!("Sgx execution failed: {:?}", str::from_utf8(&output.stderr));
         return Err(output.status.to_string());
     }
+    info!(
+        "Sgx execution success: {:?}",
+        str::from_utf8(&output.stdout)
+    );
     parse_sgx_result(ctx.sgx_context.instance_id, output.stdout)
 }
 
