@@ -18,8 +18,14 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         let bin_directory = guest_path
             .parent()
             .ok_or(String::from("missing sgx executable directory"))?;
-        let mut cmd = Command::new("gramine-sgx");
-        cmd.current_dir(bin_directory).arg(guest_path);
+        let bin = guest_path
+            .file_name()
+            .ok_or(String::from("missing sgx executable"))?;
+        let mut cmd = Command::new("sudo");
+        cmd.current_dir(bin_directory);
+        cmd.arg("gramine-sgx");
+        cmd.arg(bin);
+        cmd.arg("one-shot");
         cmd
     };
     let l1_cache_file = cache_file_path(&ctx.cache_path, req.block, true);
@@ -32,7 +38,7 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg("--prover")
         .arg(req.prover.to_string())
         .arg("--graffiti")
-        .arg(&req.graffiti)
+        .arg(req.graffiti.clone())
         .output()
         .await
         .map_err(|e| e.to_string())?;
