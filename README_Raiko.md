@@ -222,10 +222,12 @@ cargo build --example client --verbose
 Copy `raiko-guest` binary:
 
 ```console
-cp target/debug/raiko-guest raiko-host/guests/sgx
+cargo build -r
+cp target/release/raiko-guest raiko-host/guests/sgx
 cd raiko-host/guests/sgx
 gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
 gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
+cd -
 ```
 
 Start `raiko-host` JSON-RPC server:
