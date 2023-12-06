@@ -35,7 +35,7 @@ struct Args {
     /// [default: 0.0.0.0:8080]
     bind: Option<String>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/testdata")]
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "/temp")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
     cache: Option<PathBuf>,
 
