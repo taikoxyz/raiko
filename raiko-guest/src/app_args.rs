@@ -34,7 +34,9 @@ pub struct OneShotArgs {
     pub blocks_data_file: PathBuf,
     #[clap(short, long)]
     pub l1_blocks_data_file: PathBuf,
+    #[clap(short, long)]
     pub prover: Address,
+    #[clap(short, long)]
     pub graffiti: String,
 }
 
