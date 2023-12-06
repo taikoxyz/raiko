@@ -48,6 +48,11 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         bail!("Application was not bootstrapped. Bootstrap it first.")
     }
 
+    println!(
+        "Global options: {:?}, OneShot options: {:?}",
+        global_opts, args
+    );
+
     let path_str = args.blocks_data_file.to_string_lossy().to_string();
     let block_no = u64::from_str(&String::from(
         args.blocks_data_file
