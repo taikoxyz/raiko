@@ -1,5 +1,7 @@
 use std::path::{absolute, PathBuf};
 
+use log::debug;
+
 #[derive(Debug, Default)]
 pub struct Context {
     /// guest executable path
@@ -17,7 +19,9 @@ pub struct SgxContext {
 impl Context {
     pub fn new(guest_path: PathBuf, cache_path: PathBuf, sgx_instance_id: u32) -> Self {
         let guest_path = absolute(guest_path).unwrap();
+        debug!("Guest path: {:?}", guest_path);
         let cache_path = absolute(cache_path).unwrap();
+        debug!("Cache path: {:?}", cache_path);
         Self {
             guest_path,
             cache_path,
