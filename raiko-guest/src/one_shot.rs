@@ -88,6 +88,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let sig = sgx_sign(prev_privkey, pi_hash_str)?;
 
     println!("Signature: 0x{}", sig);
+    println!("Public key: {}", new_pubkey);
 
     save_attestation_user_report_data(new_pubkey)?;
     print_sgx_info()

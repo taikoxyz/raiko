@@ -1,4 +1,4 @@
-pub const SGX_INSTANCE_SIGNATURE_PREFIX: &str = "Signature:";
+pub const SGX_SIGNATURE_PREFIX: &str = "Signature:";
 pub const SGX_PUBLIC_KEY_PREFIX: &str = "Public key:";
 #[allow(dead_code)]
 pub const SGX_PROOF_PREFIX: &str = "Quote:";
