@@ -42,14 +42,6 @@ sol! {
     }
 
     #[derive(Debug)]
-    struct SgxGetSignedHash {
-        Transition transition;
-        address newInstance;
-        address prover;
-        bytes32 metaHash;
-    }
-
-    #[derive(Debug)]
     event BlockProposed(
         uint256 indexed blockId,
         address indexed prover,
@@ -100,13 +92,10 @@ impl ProtocolInstance {
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => {
                 let meta_hash = keccak::keccak(self.block_metadata.abi_encode());
-                let sgx_get_signed_hash = SgxGetSignedHash {
-                    transition: self.transition.clone(),
-                    newInstance: new_pubkey,
-                    prover: self.prover,
-                    metaHash: meta_hash.into(),
-                };
-                keccak::keccak(sgx_get_signed_hash.abi_encode()).into()
+                keccak::keccak(
+                    (self.transition.clone(), new_pubkey, self.prover, meta_hash).abi_encode(),
+                )
+                .into()
             }
             EvidenceType::PseZk => todo!(),
         }
