@@ -95,6 +95,8 @@ fn precheck_anchor_signature(sign: &TxSignature, msg_hash: B256) -> Result<(), A
     }
     let msg_hash: U256 = msg_hash.into();
     if sign.r == *GX2 {
+        // when r == GX2 require s == 0 if k == 1
+        // alias: when r == GX2 require N == msg_hash + GX1_MUL_PRIVATEKEY
         if *N != msg_hash + *GX1_MUL_PRIVATEKEY {
             return Err(AnchorError::AnchorSignatureMismatch {
                 msg: format!(
