@@ -31,9 +31,4 @@ pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
         .expect("invalid l2 contract address")
 });
 
-pub static GX1: Lazy<U256> =
-    Lazy::new(|| uint!(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798_U256));
-pub static GX2: Lazy<U256> =
-    Lazy::new(|| uint!(0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5_U256));
-
 pub const TIER_SGX_ID: u16 = 200;

@@ -1,19 +1,30 @@
 use std::error::Error;
 
 use anyhow::{bail, Context, Result};
-use ethers_core::types::{Block, Transaction, U256, U64};
+use ethers_core::types::{Block, Transaction as EthersTransaction, U256 as EthersU256, U64};
+use once_cell::sync::Lazy;
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_u256},
     signature::TxSignature,
-    taiko::{ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, GX1, GX2, L2_CONTRACT},
-    Address,
+    taiko::{ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, L2_CONTRACT},
+    transactions::ethereum::EthereumTxEssence,
+    uint, Address, B256, U256,
 };
 
 use crate::taiko::{host::TaikoExtra, utils::rlp_decode_list};
 
+static GX1: Lazy<U256> =
+    Lazy::new(|| uint!(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798_U256));
+static N: Lazy<U256> =
+    Lazy::new(|| uint!(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141_U256));
+static GX1_MUL_PRIVATEKEY: Lazy<U256> =
+    Lazy::new(|| uint!(0x4341adf5a780b4a87939938fd7a032f6e6664c7da553c121d3b4947429639122_U256));
+static GX2: Lazy<U256> =
+    Lazy::new(|| uint!(0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5_U256));
+
 // rebuild the block with anchor transaction and txlist from l1 contract, then precheck it
 pub fn rebuild_and_precheck_block(
-    l2_fini: &mut Block<Transaction>,
+    l2_fini: &mut Block<EthersTransaction>,
     extra: &TaikoExtra,
 ) -> Result<()> {
     let Some(anchor) = l2_fini.transactions.first().cloned() else {
@@ -23,7 +34,7 @@ pub fn rebuild_and_precheck_block(
     precheck_anchor(l2_fini, &anchor).context("precheck anchor error")?;
 
     // 2. patch anchor transaction into tx list instead of those from l2 node's
-    let mut txs: Vec<Transaction> =
+    let mut txs: Vec<EthersTransaction> =
         rlp_decode_list(&extra.l2_tx_list).context("failed to decode tx list")?;
     // insert the anchor transaction into the tx list at the first position
     txs.insert(0, anchor.clone());
@@ -46,18 +57,25 @@ pub enum AnchorError {
         got: Option<Address>,
     },
     AnchorValueMisMatch {
-        expected: U256,
-        got: U256,
+        expected: EthersU256,
+        got: EthersU256,
     },
     AnchorGasLimitMisMatch {
-        expected: U256,
-        got: U256,
+        expected: EthersU256,
+        got: EthersU256,
     },
     AnchorFeeCapMisMatch {
-        expected: Option<U256>,
-        got: Option<U256>,
+        expected: Option<EthersU256>,
+        got: Option<EthersU256>,
     },
     AnchorSignatureMismatch,
+    Anyhow(anyhow::Error),
+}
+
+impl From<anyhow::Error> for AnchorError {
+    fn from(e: anyhow::Error) -> Self {
+        AnchorError::Anyhow(e)
+    }
 }
 
 impl std::fmt::Display for AnchorError {
@@ -68,20 +86,23 @@ impl std::fmt::Display for AnchorError {
 
 impl Error for AnchorError {}
 
-fn precheck_anchor_signature(sign: &TxSignature) -> Result<(), AnchorError> {
+fn precheck_anchor_signature(sign: &TxSignature, msg_hash: B256) -> Result<(), AnchorError> {
     if sign.r == *GX1 {
         return Ok(());
     }
+    let msg_hash: U256 = msg_hash.into();
     if sign.r == *GX2 {
-        // TODO: when r == GX2 require s == 0 if k == 1
+        if *N != msg_hash + *GX1_MUL_PRIVATEKEY {
+            return Err(AnchorError::AnchorSignatureMismatch);
+        }
         return Ok(());
     }
     Err(AnchorError::AnchorSignatureMismatch)
 }
 
 pub fn precheck_anchor(
-    l2_fini: &Block<Transaction>,
-    anchor: &Transaction,
+    l2_fini: &Block<EthersTransaction>,
+    anchor: &EthersTransaction,
 ) -> Result<(), AnchorError> {
     let tx1559_type = U64::from(0x2);
     if anchor.transaction_type != Some(tx1559_type) {
@@ -89,13 +110,16 @@ pub fn precheck_anchor(
             tx_type: anchor.transaction_type.unwrap_or_default().as_u64() as u8,
         });
     }
-
+    let tx: EthereumTxEssence = anchor.clone().try_into()?;
     // verify transaction
-    precheck_anchor_signature(&TxSignature {
-        v: anchor.v.as_u64(),
-        r: from_ethers_u256(anchor.r),
-        s: from_ethers_u256(anchor.s),
-    })?;
+    precheck_anchor_signature(
+        &TxSignature {
+            v: anchor.v.as_u64(),
+            r: from_ethers_u256(anchor.r),
+            s: from_ethers_u256(anchor.s),
+        },
+        tx.signing_hash(),
+    )?;
     // verify the transaction signature
     let from = from_ethers_h160(anchor.from);
     if from != *GOLDEN_TOUCH_ACCOUNT {
@@ -117,15 +141,15 @@ pub fn precheck_anchor(
             got: Some(to),
         });
     }
-    if anchor.value != U256::zero() {
+    if anchor.value != EthersU256::zero() {
         return Err(AnchorError::AnchorValueMisMatch {
-            expected: U256::zero(),
+            expected: EthersU256::zero(),
             got: anchor.value,
         });
     }
-    if anchor.gas != U256::from(ANCHOR_GAS_LIMIT) {
+    if anchor.gas != EthersU256::from(ANCHOR_GAS_LIMIT) {
         return Err(AnchorError::AnchorGasLimitMisMatch {
-            expected: U256::from(ANCHOR_GAS_LIMIT),
+            expected: EthersU256::from(ANCHOR_GAS_LIMIT),
             got: anchor.gas,
         });
     }
