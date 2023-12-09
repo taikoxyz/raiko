@@ -46,7 +46,8 @@ pub fn rebuild_and_precheck_block(
 #[derive(Debug)]
 pub enum AnchorError {
     AnchorTypeMisMatch {
-        tx_type: u8,
+        expected: u8,
+        got: u8,
     },
     AnchorFromMisMatch {
         expected: Address,
@@ -68,7 +69,9 @@ pub enum AnchorError {
         expected: Option<EthersU256>,
         got: Option<EthersU256>,
     },
-    AnchorSignatureMismatch,
+    AnchorSignatureMismatch {
+        msg: String,
+    },
     Anyhow(anyhow::Error),
 }
 
@@ -93,11 +96,21 @@ fn precheck_anchor_signature(sign: &TxSignature, msg_hash: B256) -> Result<(), A
     let msg_hash: U256 = msg_hash.into();
     if sign.r == *GX2 {
         if *N != msg_hash + *GX1_MUL_PRIVATEKEY {
-            return Err(AnchorError::AnchorSignatureMismatch);
+            return Err(AnchorError::AnchorSignatureMismatch {
+                msg: format!(
+                    "r == GX2, but N != msg_hash + GX1_MUL_PRIVATEKEY, N: {}, msg_hash: {}, GX1_MUL_PRIVATEKEY: {}",
+                    *N, msg_hash, *GX1_MUL_PRIVATEKEY
+                ),
+            });
         }
         return Ok(());
     }
-    Err(AnchorError::AnchorSignatureMismatch)
+    Err(AnchorError::AnchorSignatureMismatch {
+        msg: format!(
+            "r != GX1 && r != GX2, r: {}, GX1: {}, GX2: {}",
+            sign.r, *GX1, *GX2
+        ),
+    })
 }
 
 pub fn precheck_anchor(
@@ -107,7 +120,8 @@ pub fn precheck_anchor(
     let tx1559_type = U64::from(0x2);
     if anchor.transaction_type != Some(tx1559_type) {
         return Err(AnchorError::AnchorTypeMisMatch {
-            tx_type: anchor.transaction_type.unwrap_or_default().as_u64() as u8,
+            expected: tx1559_type.as_u64() as u8,
+            got: anchor.transaction_type.unwrap_or_default().as_u64() as u8,
         });
     }
     let tx: EthereumTxEssence = anchor.clone().try_into()?;
