@@ -15,12 +15,14 @@
 use std::{fmt::Debug, mem::take, str::from_utf8};
 
 use anyhow::{anyhow, bail, Context};
-#[cfg(not(target_os = "zkvm"))]
+#[cfg(all(not(target_os = "zkvm"), not(feature = "server")))]
 use log::debug;
 use revm::{
     primitives::{Account, Address, ResultAndState, SpecId, TransactTo, TxEnv, U256},
     Database, DatabaseCommit, EVM,
 };
+#[cfg(all(not(target_os = "zkvm"), feature = "server"))]
+use tracing::debug;
 use zeth_primitives::{
     receipt::Receipt,
     taiko::L2_CONTRACT,

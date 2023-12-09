@@ -1,6 +1,6 @@
 use std::path::{absolute, PathBuf};
 
-use log::debug;
+use tracing::debug;
 
 #[derive(Debug, Default)]
 pub struct Context {

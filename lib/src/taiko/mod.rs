@@ -1,5 +1,7 @@
 pub mod block_builder;
+#[cfg(not(target_os = "zkvm"))]
 pub mod execute;
+#[cfg(not(target_os = "zkvm"))]
 pub mod host;
 pub mod precheck;
 pub mod prepare;

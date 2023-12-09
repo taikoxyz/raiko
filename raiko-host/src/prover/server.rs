@@ -6,8 +6,9 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
+use tracing::info;
 
-use super::{
+use crate::prover::{
     context::Context,
     execution::execute,
     json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
@@ -40,7 +41,7 @@ pub fn serve(
             async move { Ok::<_, hyper::Error>(service) }
         });
         let server = Server::bind(&addr).serve(service);
-        log::info!("Listening on http://{}", addr);
+        info!("Listening on http://{}", addr);
         server.await.expect("server should be serving");
     })
 }
