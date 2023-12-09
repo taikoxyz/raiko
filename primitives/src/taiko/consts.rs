@@ -21,13 +21,8 @@ pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
         .expect("invalid golden touch account")
 });
 
-pub static TREASURY: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xdf09A0afD09a63fb04ab3573922437e1e637dE8b")
-        .expect("invalid treasury account")
-});
-
 pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xB261C6fACc0707B674c7491338412FDF44733A4B")
+    Address::from_str("0xbE71D121291517c85Ab4d3ac65d70F6b1FD57118")
         .expect("invalid l1 contract address")
 });
 

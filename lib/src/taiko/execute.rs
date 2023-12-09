@@ -23,6 +23,7 @@ use revm::{
 };
 use zeth_primitives::{
     receipt::Receipt,
+    taiko::L2_CONTRACT,
     transactions::{
         ethereum::{EthereumTxEssence, TransactionKind},
         TxEssence,
@@ -133,7 +134,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             }
 
             // process the transaction
-            fill_eth_tx_env(&mut evm.env.tx, &tx.essence, tx_from);
+            fill_eth_tx_env(&mut evm.env.tx, &tx.essence, tx_from, tx_no);
             let ResultAndState { result, state } = evm
                 .transact()
                 .map_err(|evm_err| anyhow!("Error at transaction {}: {:?}", tx_no, evm_err))?;
@@ -251,7 +252,16 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
     }
 }
 
-pub fn fill_eth_tx_env(tx_env: &mut TxEnv, essence: &EthereumTxEssence, caller: Address) {
+pub fn fill_eth_tx_env(
+    tx_env: &mut TxEnv,
+    essence: &EthereumTxEssence,
+    caller: Address,
+    tx_no: usize,
+) {
+    // claim the anchor
+    tx_env.taiko.is_anchor = tx_no == 0;
+    // set the treasury address
+    tx_env.taiko.treasury = *L2_CONTRACT;
     match essence {
         EthereumTxEssence::Legacy(tx) => {
             tx_env.caller = caller;

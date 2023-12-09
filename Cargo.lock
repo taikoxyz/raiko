@@ -2716,7 +2716,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "3.5.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#0e7d7792b85a9ea1312ce1e5e8db41acf83bcf0c"
+source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#13c2272bf4ecce03529fb6545767064d1a7a2754"
 dependencies = [
  "auto_impl",
  "revm-interpreter",
@@ -2728,7 +2728,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "1.3.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#0e7d7792b85a9ea1312ce1e5e8db41acf83bcf0c"
+source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#13c2272bf4ecce03529fb6545767064d1a7a2754"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -2737,7 +2737,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "2.2.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#0e7d7792b85a9ea1312ce1e5e8db41acf83bcf0c"
+source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#13c2272bf4ecce03529fb6545767064d1a7a2754"
 dependencies = [
  "c-kzg",
  "k256",
@@ -2753,7 +2753,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "1.3.0"
-source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#0e7d7792b85a9ea1312ce1e5e8db41acf83bcf0c"
+source = "git+https://github.com/johntaiko/revm?branch=feat/taiko#13c2272bf4ecce03529fb6545767064d1a7a2754"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",

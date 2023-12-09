@@ -69,7 +69,10 @@ impl std::fmt::Display for AnchorError {
 impl Error for AnchorError {}
 
 fn precheck_anchor_signature(sign: &TxSignature) -> Result<(), AnchorError> {
-    if sign.r == *GX1 || sign.r == *GX2 {
+    if sign.r == *GX1 {
+        return Ok(());
+    }
+    if sign.r == *GX2 {
         // TODO: when r == GX2 require s == 0 if k == 1
         return Ok(());
     }
