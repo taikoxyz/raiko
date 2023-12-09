@@ -115,10 +115,23 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             .into_iter()
             .enumerate()
         {
+            // anchor transaction must be executed successfully
+            let is_anchor = tx_no == 0;
             // verify the transaction signature
-            let tx_from = tx
-                .recover_from()
-                .with_context(|| format!("Error recovering address for transaction {}", tx_no))?;
+            let tx_from = match tx.recover_from() {
+                Ok(tx_from) => tx_from,
+                Err(err) => {
+                    if is_anchor {
+                        bail!("Error recovering anchor signature: {}", err);
+                    }
+                    #[cfg(not(target_os = "zkvm"))]
+                    debug!(
+                        "Error recovering address for transaction {}, error: {}",
+                        tx_no, err
+                    );
+                    continue;
+                }
+            };
 
             #[cfg(not(target_os = "zkvm"))]
             {
@@ -132,21 +145,34 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             // verify transaction gas
             let block_available_gas = block_builder.input.gas_limit - cumulative_gas_used;
             if block_available_gas < tx.essence.gas_limit() {
-                bail!("Error at transaction {}: gas exceeds block limit", tx_no);
+                if is_anchor {
+                    bail!("Error at transaction {}: gas exceeds block limit", tx_no);
+                }
+                #[cfg(not(target_os = "zkvm"))]
+                debug!("Error at transaction {}: gas exceeds block limit", tx_no);
+                continue;
             }
 
             // process the transaction
-            fill_eth_tx_env(&mut evm.env.tx, &tx.essence, tx_from, tx_no);
-            let ResultAndState { result, state } = evm
-                .transact()
-                .map_err(|evm_err| anyhow!("Error at transaction {}: {:?}", tx_no, evm_err))?;
+            fill_eth_tx_env(&mut evm.env.tx, &tx.essence, tx_from, is_anchor);
+            let ResultAndState { result, state } = match evm.transact() {
+                Ok(result) => result,
+                Err(err) => {
+                    if is_anchor {
+                        bail!("Error at transaction {}: {:?}", tx_no, err);
+                    }
+                    #[cfg(not(target_os = "zkvm"))]
+                    debug!("Error at transaction {}: {:?}", tx_no, err);
+                    continue;
+                }
+            };
 
-            if tx_no == 0 && !result.is_success() {
+            if is_anchor && !result.is_success() {
                 bail!(
-                    "Error at transaction {}: execute anchor failed {:?}, {:?}",
+                    "Error at transaction {}: execute anchor failed {:?}, output {:?}",
                     tx_no,
                     result,
-                    from_utf8(result.output().unwrap()).unwrap()
+                    result.output().map(|o| from_utf8(o).unwrap_or_default())
                 );
             }
 
@@ -169,12 +195,28 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
 
             // Add receipt and tx to tries
             let trie_key = tx_no.to_rlp();
-            tx_trie
-                .insert_rlp(&trie_key, tx)
-                .context("failed to insert transaction")?;
-            receipt_trie
-                .insert_rlp(&trie_key, receipt)
-                .context("failed to insert receipt")?;
+            match tx_trie.insert_rlp(&trie_key, tx) {
+                Ok(_) => (),
+                Err(err) => {
+                    if is_anchor {
+                        bail!("Failed to insert transaction {}: {:?}", tx_no, err);
+                    }
+                    #[cfg(not(target_os = "zkvm"))]
+                    debug!("Failed to insert transaction {}: {:?}", tx_no, err);
+                    continue;
+                }
+            }
+            match receipt_trie.insert_rlp(&trie_key, receipt) {
+                Ok(_) => (),
+                Err(err) => {
+                    if is_anchor {
+                        bail!("Failed to insert receipt {}: {:?}", tx_no, err);
+                    }
+                    #[cfg(not(target_os = "zkvm"))]
+                    debug!("Failed to insert receipt {}: {:?}", tx_no, err);
+                    continue;
+                }
+            }
 
             // update account states
             #[cfg(not(target_os = "zkvm"))]
@@ -258,10 +300,10 @@ pub fn fill_eth_tx_env(
     tx_env: &mut TxEnv,
     essence: &EthereumTxEssence,
     caller: Address,
-    tx_no: usize,
+    is_anchor: bool,
 ) {
     // claim the anchor
-    tx_env.taiko.is_anchor = tx_no == 0;
+    tx_env.taiko.is_anchor = is_anchor;
     // set the treasury address
     tx_env.taiko.treasury = *L2_CONTRACT;
     match essence {

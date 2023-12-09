@@ -144,10 +144,8 @@ impl Provider for RpcProvider {
             .block_on(async { self.http_client.get_logs(&filter).await })?;
         let result =
             filter_propose_block_event(&logs, zeth_primitives::U256::from(query.l2_block_no))?;
-        let (tx_hash, block_metadata) = match result {
-            Some((tx_hash, block_metadata)) => (tx_hash, block_metadata),
-            None => return Err(anyhow!("No propose block event for {:?}", query)),
-        };
+        let (tx_hash, block_metadata) =
+            result.ok_or_else(|| anyhow!("No propose block event for {:?}", query))?;
         let response = self
             .tokio_handle
             .block_on(async { self.http_client.get_transaction(tx_hash).await })?;
