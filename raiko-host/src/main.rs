@@ -45,6 +45,9 @@ struct Args {
 
     #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "0")]
     sgx_instance_id: u32,
+
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "0")]
+    log_path: Option<PathBuf>,
 }
 
 // Prerequisites:
@@ -63,7 +66,16 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    const DEFAULT_FILTER: &str = "info";
+    // try to load filter from `RUST_LOG` or use reasonably verbose defaults
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| DEFAULT_FILTER.into());
+    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+        .with_env_filter(filter)
+        .with_test_writer()
+        .finish();
+    // TODO: assert `log_path` and set the file logging
+    tracing::subscriber::set_global_default(subscriber).unwrap();
     let args = Args::parse();
     serve(
         &args.bind.unwrap(),
