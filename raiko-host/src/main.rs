@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
         Some(ref log_path) => {
             let file_appender = tracing_appender::rolling::daily(log_path, "raiko.log");
             let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-            let subscriber = subscriber_builder.with_writer(non_blocking).finish();
+            let subscriber = subscriber_builder.json().with_writer(non_blocking).finish();
             tracing::subscriber::set_global_default(subscriber).unwrap();
             Some(_guard)
         }
