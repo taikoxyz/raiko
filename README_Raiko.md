@@ -234,6 +234,8 @@ Start `raiko-host` JSON-RPC server:
 
 ```console
 RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123
+// or with specific log path
+RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123 --log-path=/data/log/sgx
 ```
 
 Send a request to the server:
