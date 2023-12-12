@@ -41,7 +41,7 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .output()
         .await
         .map_err(|e| e.to_string())?;
-    error!("Sgx execution stderr: {:?}", str::from_utf8(&output.stderr));
+    info!("Sgx execution stderr: {:?}", str::from_utf8(&output.stderr));
     info!("Sgx execution stdout: {:?}", str::from_utf8(&output.stdout));
     if !output.status.success() {
         return Err(output.status.to_string());
