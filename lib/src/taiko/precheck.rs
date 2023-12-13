@@ -26,7 +26,7 @@ pub fn rebuild_and_precheck_block(
     let mut txs: Vec<EthersTransaction> =
         rlp_decode_list(&extra.l2_tx_list).with_context(|| "failed to decode tx list")?;
     // insert the anchor transaction into the tx list at the first position
-    txs.insert(0, anchor.clone());
+    txs.insert(0, anchor);
     // reset transactions
     l2_fini.transactions = txs;
     Ok(())
