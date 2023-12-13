@@ -1,13 +1,13 @@
 use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use ethers_core::types::{Log, H256};
 use serde::{Deserialize, Serialize};
 
 use crate::{ethers::from_ethers_h256, keccak};
 
 sol! {
-    #[derive(Debug)]
+    #[derive(Debug, Default, Deserialize, Serialize)]
     struct EthDeposit {
         address recipient;
         uint96 amount;
@@ -41,7 +41,7 @@ sol! {
         bytes32 graffiti;
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Default, Clone, Deserialize, Serialize)]
     event BlockProposed(
         uint256 indexed blockId,
         address indexed prover,
@@ -51,10 +51,18 @@ sol! {
     );
 }
 
+// require equal with the assembled protocol instance and the block proposed event
+pub fn assert_pi_and_bp(pi: &ProtocolInstance, bp: &BlockProposed) -> Result<()> {
+    if pi.block_metadata.abi_encode() != bp.meta.abi_encode() {
+        return Err(anyhow!("block metadata mismatch"));
+    }
+    Ok(())
+}
+
 pub fn filter_propose_block_event(
     logs: &[Log],
     block_id: U256,
-) -> Result<Option<(H256, BlockMetadata)>> {
+) -> Result<Option<(H256, BlockProposed)>> {
     for log in logs {
         if log.topics.len() != <<BlockProposed as SolEvent>::TopicList as TopicList>::COUNT {
             continue;
@@ -66,7 +74,7 @@ pub fn filter_propose_block_event(
         let result = BlockProposed::decode_log(topics, &log.data, false);
         let block_proposed = result.with_context(|| "decode log failed")?;
         if block_proposed.blockId == block_id {
-            return Ok(log.transaction_hash.map(|h| (h, block_proposed.meta)));
+            return Ok(log.transaction_hash.map(|h| (h, block_proposed)));
         }
     }
     Ok(None)

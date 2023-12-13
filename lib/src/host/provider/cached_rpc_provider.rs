@@ -14,7 +14,7 @@
 
 use anyhow::Result;
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
-use zeth_primitives::taiko::BlockMetadata;
+use zeth_primitives::taiko::BlockProposed;
 
 use super::{
     file_provider::FileProvider, rpc_provider::RpcProvider, AccountQuery, BlockQuery, MutProvider,
@@ -127,7 +127,7 @@ impl Provider for CachedRpcProvider {
         Ok(out)
     }
 
-    fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockMetadata)> {
+    fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
         let cache_out = self.cache.get_propose(query);
         if cache_out.is_ok() {
             return cache_out;

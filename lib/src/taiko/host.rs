@@ -30,7 +30,7 @@ pub struct TaikoExtra {
     pub l1_signal_root: B256,
     pub l2_signal_root: B256,
     pub l2_withdrawals: Vec<Withdrawal>,
-    pub block_metadata: BlockMetadata,
+    pub block_proposed: BlockProposed,
 }
 
 #[allow(clippy::type_complexity)]
@@ -256,7 +256,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1_signal_root,
         l2_signal_root,
         l2_withdrawals,
-        block_metadata,
+        block_proposed: block_metadata,
     };
 
     // rebuild transaction list by tx_list from l1 contract

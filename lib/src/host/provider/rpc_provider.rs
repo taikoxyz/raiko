@@ -16,7 +16,7 @@ use anyhow::{anyhow, Result};
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Filter, Transaction, H256, U256};
 use ethers_providers::{Http, Middleware};
 use log::info;
-use zeth_primitives::taiko::{filter_propose_block_event, BlockMetadata};
+use zeth_primitives::taiko::{filter_propose_block_event, BlockProposed};
 
 use super::{AccountQuery, BlockQuery, ProofQuery, Provider, StorageQuery};
 
@@ -132,7 +132,7 @@ impl Provider for RpcProvider {
         Ok(out)
     }
 
-    fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockMetadata)> {
+    fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
         info!("Querying RPC for propose: {:?}", query);
 
         let filter = Filter::new()
@@ -144,13 +144,13 @@ impl Provider for RpcProvider {
             .block_on(async { self.http_client.get_logs(&filter).await })?;
         let result =
             filter_propose_block_event(&logs, zeth_primitives::U256::from(query.l2_block_no))?;
-        let (tx_hash, block_metadata) =
+        let (tx_hash, block_proposed) =
             result.ok_or_else(|| anyhow!("No propose block event for {:?}", query))?;
         let response = self
             .tokio_handle
             .block_on(async { self.http_client.get_transaction(tx_hash).await })?;
         match response {
-            Some(out) => Ok((out, block_metadata)),
+            Some(out) => Ok((out, block_proposed)),
             None => Err(anyhow!("No data for {:?}", query)),
         }
     }

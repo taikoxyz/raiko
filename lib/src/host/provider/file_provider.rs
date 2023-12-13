@@ -22,7 +22,7 @@ use anyhow::{anyhow, Result};
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use zeth_primitives::taiko::BlockMetadata;
+use zeth_primitives::taiko::BlockProposed;
 
 use super::{AccountQuery, BlockQuery, MutProvider, ProofQuery, Provider, StorageQuery};
 
@@ -47,7 +47,7 @@ pub struct FileProvider {
     code: HashMap<AccountQuery, Bytes>,
     #[serde_as(as = "Vec<(_, _)>")]
     storage: HashMap<StorageQuery, H256>,
-    propose: Option<(Transaction, BlockMetadata)>,
+    propose: Option<(Transaction, BlockProposed)>,
 }
 
 impl FileProvider {
@@ -146,7 +146,7 @@ impl Provider for FileProvider {
         }
     }
 
-    fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockMetadata)> {
+    fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
         match self.propose {
             Some(ref val) => Ok(val.clone()),
             None => Err(anyhow!("No data for {:?}", query)),
@@ -190,7 +190,7 @@ impl MutProvider for FileProvider {
         self.dirty = true;
     }
 
-    fn insert_propose(&mut self, _query: super::ProposeQuery, val: (Transaction, BlockMetadata)) {
+    fn insert_propose(&mut self, _query: super::ProposeQuery, val: (Transaction, BlockProposed)) {
         self.propose = Some(val);
         self.dirty = true;
     }

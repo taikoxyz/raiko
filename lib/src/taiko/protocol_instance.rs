@@ -46,9 +46,14 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             txListByteSize: 0u32,
             minTier: TIER_SGX_ID,
             blobUsed: extra.l2_tx_list.is_empty(),
-            parentMetaHash: extra.block_metadata.parentMetaHash,
+            parentMetaHash: extra.block_proposed.meta.parentMetaHash,
         },
         prover: extra.prover,
     };
+    #[cfg(not(target_os = "zkvm"))]
+    {
+        use zeth_primitives::taiko::assert_pi_and_bp;
+        assert_pi_and_bp(&pi, &extra.block_proposed)?;
+    }
     Ok(pi)
 }
