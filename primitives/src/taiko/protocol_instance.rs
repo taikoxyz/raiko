@@ -64,7 +64,7 @@ pub fn filter_propose_block_event(
         }
         let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
         let result = BlockProposed::decode_log(topics, &log.data, false);
-        let block_proposed = result.context("decode log failed")?;
+        let block_proposed = result.with_context(|| "decode log failed")?;
         if block_proposed.blockId == block_id {
             return Ok(log.transaction_hash.map(|h| (h, block_proposed.meta)));
         }

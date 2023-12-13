@@ -51,7 +51,7 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
                 .parent_header
                 .number
                 .checked_add(1)
-                .context("Invalid block number: too large")?,
+                .with_context(|| "Invalid block number: too large")?,
             base_fee_per_gas: block_builder.input.base_fee_per_gas,
             // Initialize metadata from input
             beneficiary: block_builder.input.beneficiary,

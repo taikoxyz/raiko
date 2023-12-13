@@ -2,25 +2,14 @@ use std::error::Error;
 
 use anyhow::{bail, Context, Result};
 use ethers_core::types::{Block, Transaction as EthersTransaction, U256 as EthersU256, U64};
-use once_cell::sync::Lazy;
 use zeth_primitives::{
-    ethers::{from_ethers_h160, from_ethers_u256},
-    signature::TxSignature,
-    taiko::{ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, L2_CONTRACT},
-    transactions::ethereum::EthereumTxEssence,
-    uint, Address, B256, U256,
+    ethers::from_ethers_h160,
+    taiko::{anchor::check_anchor_signature, ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, L2_CONTRACT},
+    transactions::EthereumTransaction,
+    Address,
 };
 
 use crate::taiko::{host::TaikoExtra, utils::rlp_decode_list};
-
-static GX1: Lazy<U256> =
-    Lazy::new(|| uint!(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798_U256));
-static N: Lazy<U256> =
-    Lazy::new(|| uint!(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141_U256));
-static GX1_MUL_PRIVATEKEY: Lazy<U256> =
-    Lazy::new(|| uint!(0x4341adf5a780b4a87939938fd7a032f6e6664c7da553c121d3b4947429639122_U256));
-static GX2: Lazy<U256> =
-    Lazy::new(|| uint!(0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5_U256));
 
 // rebuild the block with anchor transaction and txlist from l1 contract, then precheck it
 pub fn rebuild_and_precheck_block(
@@ -31,11 +20,11 @@ pub fn rebuild_and_precheck_block(
         bail!("no anchor transaction found");
     };
     // 1. check anchor transaction
-    precheck_anchor(l2_fini, &anchor).context("precheck anchor error")?;
+    precheck_anchor(l2_fini, &anchor).with_context(|| "precheck anchor error")?;
 
     // 2. patch anchor transaction into tx list instead of those from l2 node's
     let mut txs: Vec<EthersTransaction> =
-        rlp_decode_list(&extra.l2_tx_list).context("failed to decode tx list")?;
+        rlp_decode_list(&extra.l2_tx_list).with_context(|| "failed to decode tx list")?;
     // insert the anchor transaction into the tx list at the first position
     txs.insert(0, anchor.clone());
     // reset transactions
@@ -89,32 +78,6 @@ impl std::fmt::Display for AnchorError {
 
 impl Error for AnchorError {}
 
-fn precheck_anchor_signature(sign: &TxSignature, msg_hash: B256) -> Result<(), AnchorError> {
-    if sign.r == *GX1 {
-        return Ok(());
-    }
-    let msg_hash: U256 = msg_hash.into();
-    if sign.r == *GX2 {
-        // when r == GX2 require s == 0 if k == 1
-        // alias: when r == GX2 require N == msg_hash + GX1_MUL_PRIVATEKEY
-        if *N != msg_hash + *GX1_MUL_PRIVATEKEY {
-            return Err(AnchorError::AnchorSignatureMismatch {
-                msg: format!(
-                    "r == GX2, but N != msg_hash + GX1_MUL_PRIVATEKEY, N: {}, msg_hash: {}, GX1_MUL_PRIVATEKEY: {}",
-                    *N, msg_hash, *GX1_MUL_PRIVATEKEY
-                ),
-            });
-        }
-        return Ok(());
-    }
-    Err(AnchorError::AnchorSignatureMismatch {
-        msg: format!(
-            "r != GX1 && r != GX2, r: {}, GX1: {}, GX2: {}",
-            sign.r, *GX1, *GX2
-        ),
-    })
-}
-
 pub fn precheck_anchor(
     l2_fini: &Block<EthersTransaction>,
     anchor: &EthersTransaction,
@@ -126,16 +89,9 @@ pub fn precheck_anchor(
             got: anchor.transaction_type.unwrap_or_default().as_u64() as u8,
         });
     }
-    let tx: EthereumTxEssence = anchor.clone().try_into()?;
+    let tx: EthereumTransaction = anchor.clone().try_into()?;
     // verify transaction
-    precheck_anchor_signature(
-        &TxSignature {
-            v: anchor.v.as_u64(),
-            r: from_ethers_u256(anchor.r),
-            s: from_ethers_u256(anchor.s),
-        },
-        tx.signing_hash(),
-    )?;
+    check_anchor_signature(&tx)?;
     // verify the transaction signature
     let from = from_ethers_h160(anchor.from);
     if from != *GOLDEN_TOUCH_ACCOUNT {

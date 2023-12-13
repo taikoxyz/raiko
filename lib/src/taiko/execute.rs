@@ -275,7 +275,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             // Add withdrawal to trie
             withdrawals_trie
                 .insert_rlp(&i.to_rlp(), withdrawal)
-                .context("failed to insert withdrawal")?;
+                .with_context(|| "failed to insert withdrawal")?;
         }
 
         // Update result header with computed values

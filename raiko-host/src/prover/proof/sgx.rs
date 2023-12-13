@@ -1,7 +1,7 @@
 use std::str;
 
 use tokio::process::Command;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 use crate::prover::{
     consts::*,
