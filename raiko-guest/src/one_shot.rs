@@ -72,7 +72,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     debug_assert_eq!(encoded_point_bytes[0], 0x04);
     let new_pubkey = keccak(&encoded_point_bytes[1..]);
     let new_pubkey = Address::from_slice(&new_pubkey[12..]);
-    fs::write(privkey_path, new_privkey.to_bytes())?;
+    // fs::write(privkey_path, new_privkey.to_bytes())?;
     let pi_hash_str = get_data_to_sign(
         path_str,
         args.l1_blocks_data_file.to_string_lossy().to_string(),
