@@ -1,6 +1,5 @@
 use anyhow::Result;
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
-use log::info;
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
     taiko::*,
@@ -125,7 +124,7 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     init_block: Block<H256>,
     input: Input<EthereumTxEssence>,
     fini_block: Block<EthersTransaction>,
-) -> Result<Init<N::TxEssence>> {
+) -> Result<Init<EthereumTxEssence>> {
     // Create the provider DB
     let provider_db =
         crate::host::provider_db::ProviderDb::new(provider, init_block.number.unwrap().as_u64());
@@ -189,7 +188,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     l2_rpc_url: Option<String>,
     l2_block_no: u64,
     graffiti: B256,
-) -> Result<(Init<N::TxEssence>, TaikoExtra)> {
+) -> Result<(Init<EthereumTxEssence>, TaikoExtra)> {
     let (l2_provider, l2_init_block, mut l2_fini_block, l2_signal_root, l2_input) = fetch_data(
         "L2",
         l2_cache_path,
@@ -244,14 +243,6 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         return Err(anyhow::anyhow!("l1 block hash mismatch"));
     }
 
-    let l2_withdrawals = l2_fini_block
-        .withdrawals
-        .clone()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|w| w.try_into().unwrap())
-        .collect();
-
     let extra = TaikoExtra {
         l1_hash: anchor_l1_hash,
         l1_height: l1_block_no,
@@ -260,7 +251,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         graffiti,
         l1_signal_root,
         l2_signal_root,
-        l2_withdrawals,
+        l2_withdrawals: l2_input.withdrawals.clone(),
         block_proposed: block_metadata,
         l1_next_block,
     };
@@ -269,15 +260,12 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     rebuild_and_precheck_block(&mut l2_fini_block, &extra)?;
 
     // execute transactions and get states
-
-    Ok((
-        execute_data::<N>(
-            l2_provider,
-            l2_chain_spec,
-            l2_init_block,
-            l2_input,
-            l2_fini_block,
-        )?,
-        extra,
-    ))
+    let init = execute_data::<N>(
+        l2_provider,
+        l2_chain_spec,
+        l2_init_block,
+        l2_input,
+        l2_fini_block,
+    )?;
+    Ok((init, extra))
 }
