@@ -56,7 +56,11 @@ pub fn assert_pi_and_bp(pi: &ProtocolInstance, bp: &BlockProposed) -> Result<()>
     let mut bp = bp.clone();
     bp.meta.minTier = TIER_SGX_ID;
     if pi.block_metadata.abi_encode() != bp.meta.abi_encode() {
-        return Err(anyhow!("block metadata mismatch"));
+        return Err(anyhow!(
+            "block metadata mismatch, expected: {:?}, got: {:?}",
+            bp.meta,
+            pi.block_metadata
+        ));
     }
     Ok(())
 }
