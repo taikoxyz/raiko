@@ -94,6 +94,7 @@ pub enum EvidenceType {
     PseZk,
 }
 
+#[derive(Debug)]
 pub struct ProtocolInstance {
     pub transition: Transition,
     pub block_metadata: BlockMetadata,
