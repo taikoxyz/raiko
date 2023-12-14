@@ -3,6 +3,7 @@
 mod app_args;
 mod one_shot;
 mod ratls_server;
+mod signature;
 
 extern crate rand;
 extern crate secp256k1;

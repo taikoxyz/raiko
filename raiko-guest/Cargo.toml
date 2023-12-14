@@ -13,8 +13,8 @@ tokio = { version = "1.23", features = ["full"] }
 anyhow = "1.0"
 secp256k1 = { version = "0.27.0", features = [
     'rand-std',
-    'bitcoin_hashes',
     'global-context',
+    "recovery",
 ] }
 rand = "0.8.5"
 hex = "0.4.3"

@@ -1,19 +1,11 @@
 use std::{
     fs::{self, File, OpenOptions},
     io::prelude::*,
-    path::{Path, PathBuf},
+    path::Path,
     str::FromStr,
 };
 
 use anyhow::{anyhow, bail, Error, Result};
-use k256::{
-    ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
-    elliptic_curve::sec1::ToEncodedPoint,
-    schnorr::signature::{Signer, Verifier},
-    PublicKey,
-};
-use rand_core::OsRng;
-use sha3::{Digest, Keccak256};
 use zeth_lib::{
     consts::{ETH_MAINNET_CHAIN_SPEC, TAIKO_MAINNET_CHAIN_SPEC},
     host::Init,
@@ -29,7 +21,10 @@ use zeth_primitives::{
     Address, B256,
 };
 
-use crate::app_args::{GlobalOpts, OneShotArgs};
+use crate::{
+    app_args::{GlobalOpts, OneShotArgs},
+    signature::*,
+};
 
 pub const ATTESTATION_QUOTE_DEVICE_FILE: &str = "/dev/attestation/quote";
 pub const ATTESTATION_TYPE_DEVICE_FILE: &str = "/dev/attestation/attestation_type";
@@ -38,8 +33,8 @@ pub const PRIV_KEY_FILENAME: &str = "priv.key";
 
 pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
-    let (privkey, _pubkey) = generate_new_keypair()?;
-    fs::write(privkey_path, privkey.to_bytes())?;
+    let key_pair = generate_key();
+    fs::write(privkey_path, key_pair.secret_bytes())?;
     Ok(())
 }
 
@@ -65,63 +60,43 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     println!("Reading input file {} (block no: {})", path_str, block_no);
 
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
-    let prev_privkey = read_privkey(&privkey_path)?;
-    let (new_privkey, new_pubkey) = generate_new_keypair()?;
-    let new_pubkey: VerifyingKey = *prev_privkey.verifying_key();
-    let encoded_point = PublicKey::from(&new_pubkey).to_encoded_point(false);
-    let encoded_point_bytes = encoded_point.as_bytes();
-    debug_assert_eq!(encoded_point_bytes[0], 0x04);
-    let new_pubkey = keccak(&encoded_point_bytes[1..]);
-    let new_pubkey = Address::from_slice(&new_pubkey[12..]);
+    let prev_privkey = load_private_key(&privkey_path)?;
+    // let (new_privkey, new_pubkey) = generate_new_keypair()?;
+    let new_pubkey = public_key(&prev_privkey);
+    let new_instance = public_key_to_address(new_pubkey);
+
     // fs::write(privkey_path, new_privkey.to_bytes())?;
-    let pi_hash_str = get_data_to_sign(
+    let pi_hash = get_data_to_sign(
         path_str,
         args.l1_blocks_data_file.to_string_lossy().to_string(),
         args.prover,
         &args.graffiti,
         block_no,
-        new_pubkey,
+        new_instance,
     )
     .await?;
 
-    println!("Data to be signed: {}", pi_hash_str);
+    println!("Data to be signed: {}", pi_hash);
 
-    let (sig, v) = sgx_sign(prev_privkey, pi_hash_str)?;
+    let sig = sign_message(&prev_privkey, pi_hash)?;
 
     const SGX_PROOF_LEN: usize = 89;
 
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_le_bytes());
-    proof.extend(new_pubkey);
+    proof.extend(new_instance);
     proof.extend(sig.to_bytes());
-    proof.push(v.to_byte());
     let proof = hex::encode(proof);
     println!("Proof: 0x{}", proof);
     println!("Public key: {}", new_pubkey);
 
-    save_attestation_user_report_data(new_pubkey)?;
+    save_attestation_user_report_data(new_instance)?;
     print_sgx_info()
-}
-
-#[inline]
-pub fn keccak(data: impl AsRef<[u8]>) -> [u8; 32] {
-    Keccak256::digest(data).into()
 }
 
 fn is_bootstrapped(secrets_dir: &Path) -> bool {
     let privkey_path = secrets_dir.join(PRIV_KEY_FILENAME);
     privkey_path.is_file() && !privkey_path.metadata().unwrap().permissions().readonly()
-}
-
-fn read_privkey(privkey_path: &PathBuf) -> Result<SigningKey, k256::ecdsa::Error> {
-    let privkey_vec: Vec<u8> = fs::read(privkey_path).unwrap();
-    SigningKey::from_slice(&privkey_vec)
-}
-
-fn generate_new_keypair() -> Result<(SigningKey, VerifyingKey), Error> {
-    let privkey = SigningKey::random(&mut OsRng);
-    let pubkey = privkey.verifying_key();
-    Ok((privkey.clone(), *pubkey))
 }
 
 async fn get_data_to_sign(
@@ -166,14 +141,6 @@ async fn parse_to_init(
     .await?;
 
     Ok::<(Init<EthereumTxEssence>, TaikoExtra), _>((init, extra))
-}
-
-fn sgx_sign(privkey: SigningKey, msg: B256) -> Result<(Signature, RecoveryId)> {
-    let (sig, v) = privkey.sign_recoverable(msg.as_slice())?;
-    let pubkey = privkey.verifying_key();
-    assert!(pubkey.verify(msg.as_slice(), &sig).is_ok());
-    VerifyingKey::recover_from_prehash(msg.as_slice(), &sig, v)?;
-    Ok((sig, v))
 }
 
 fn save_attestation_user_report_data(pubkey: Address) -> Result<()> {
