@@ -92,7 +92,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_le_bytes());
-    proof.extend(new_pubkey);
+    proof.extend(new_pubkey.to_checksum(None).as_bytes());
     proof.extend(sig.to_bytes());
     proof.push(v.to_byte());
     let proof = hex::encode(proof);
