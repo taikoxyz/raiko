@@ -2533,7 +2533,6 @@ dependencies = [
  "clap",
  "ethers-core",
  "hex 0.4.3",
- "k256",
  "rand",
  "rand_core",
  "risc0-zkvm",
