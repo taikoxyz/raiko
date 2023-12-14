@@ -102,16 +102,23 @@ pub struct ProtocolInstance {
 }
 
 impl ProtocolInstance {
+    pub fn meta_hash(&self) -> B256 {
+        keccak::keccak(self.block_metadata.abi_encode()).into()
+    }
+
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
     pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
         match evidence_type {
-            EvidenceType::Sgx { new_pubkey } => {
-                let meta_hash = keccak::keccak(self.block_metadata.abi_encode());
-                keccak::keccak(
-                    (self.transition.clone(), new_pubkey, self.prover, meta_hash).abi_encode(),
+            EvidenceType::Sgx { new_pubkey } => keccak::keccak(
+                (
+                    self.transition.clone(),
+                    new_pubkey,
+                    self.prover,
+                    self.meta_hash(),
                 )
-                .into()
-            }
+                    .abi_encode(),
+            )
+            .into(),
             EvidenceType::PseZk => todo!(),
         }
     }
