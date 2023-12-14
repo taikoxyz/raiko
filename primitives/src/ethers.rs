@@ -28,7 +28,6 @@ use crate::{
     access_list::{AccessList, AccessListItem},
     block::Header,
     signature::TxSignature,
-    taiko::ANCHOR_GAS_LIMIT,
     transactions::{
         ethereum::{
             EthereumTxEssence, TransactionKind, TxEssenceEip1559, TxEssenceEip2930, TxEssenceLegacy,
@@ -112,7 +111,7 @@ impl<T> TryFrom<EthersBlock<T>> for Header {
             ),
             difficulty: from_ethers_u256(block.difficulty),
             number: block.number.context("number missing")?.as_u64(),
-            gas_limit: from_ethers_u256(block.gas_limit - ANCHOR_GAS_LIMIT),
+            gas_limit: from_ethers_u256(block.gas_limit),
             gas_used: from_ethers_u256(block.gas_used),
             timestamp: from_ethers_u256(block.timestamp),
             extra_data: block.extra_data.0.into(),

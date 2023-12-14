@@ -5,7 +5,7 @@ use zeth_primitives::{
     keccak,
     taiko::{
         deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
-        TIER_SGX_ID,
+        ANCHOR_GAS_LIMIT, TIER_SGX_ID,
     },
     TxHash, U256,
 };
@@ -35,6 +35,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
         ^ (prevrandao_h256
             * U256::from(header.number)
             * U256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()));
+    let gas_limit: u64 = header.gas_limit.try_into().unwrap();
     let pi = ProtocolInstance {
         transition: Transition {
             parentHash: header.parent_hash,
@@ -50,7 +51,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             depositsHash: deposits_hash,
             coinbase: header.beneficiary,
             id: header.number,
-            gasLimit: header.gas_limit.try_into().unwrap(),
+            gasLimit: (gas_limit - ANCHOR_GAS_LIMIT) as u32,
             timestamp: header.timestamp.try_into().unwrap(),
             l1Height: extra.l1_height,
             txListByteOffset: 0u32,
