@@ -92,7 +92,10 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     signature.push(v.to_byte());
     let signature = hex::encode(signature);
     println!("Signature: 0x{}", signature);
-    println!("Public key: {}", new_pubkey.to_checksum(None));
+    println!(
+        "Public key: {}",
+        new_pubkey.to_checksum(Some(TAIKO_MAINNET_CHAIN_SPEC.chain_id()))
+    );
 
     save_attestation_user_report_data(new_pubkey)?;
     print_sgx_info()
