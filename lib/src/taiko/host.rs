@@ -31,6 +31,7 @@ pub struct TaikoExtra {
     pub l2_signal_root: B256,
     pub l2_withdrawals: Vec<Withdrawal>,
     pub block_proposed: BlockProposed,
+    pub l1_next_block: Block<EthersTransaction>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -218,6 +219,10 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_block_no,
     })?;
 
+    let l1_next_block = l1_provider.get_full_block(&BlockQuery {
+        block_no: l1_block_no + 1,
+    })?;
+
     // save l1 data
     l1_provider.save()?;
 
@@ -257,6 +262,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_signal_root,
         l2_withdrawals,
         block_proposed: block_metadata,
+        l1_next_block,
     };
 
     // rebuild transaction list by tx_list from l1 contract

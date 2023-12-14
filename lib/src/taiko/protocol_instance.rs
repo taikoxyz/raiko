@@ -1,12 +1,13 @@
 use anyhow::Result;
 use zeth_primitives::{
     block::Header,
+    ethers::from_ethers_h256,
     keccak,
     taiko::{
         deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
         TIER_SGX_ID,
     },
-    TxHash,
+    TxHash, U256,
 };
 
 use crate::taiko::host::TaikoExtra;
@@ -24,6 +25,16 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
         .collect();
     let deposits_hash = deposits_hash(&deposits);
     let extra_data = string_to_bytes32(&header.extra_data);
+    //   meta.difficulty = meta.blobHash ^ bytes32(block.prevrandao * b.numBlocks *
+    // block.number);
+    let block_hash = tx_list_hash;
+    let block_hash_h256: U256 = block_hash.into();
+    let prevrandao_h256: U256 =
+        from_ethers_h256(extra.l1_next_block.mix_hash.unwrap_or_default()).into();
+    let difficulty = block_hash_h256
+        ^ (prevrandao_h256
+            * U256::from(header.number)
+            * U256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()));
     let pi = ProtocolInstance {
         transition: Transition {
             parentHash: header.parent_hash,
@@ -33,7 +44,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
         },
         block_metadata: BlockMetadata {
             l1Hash: extra.l1_hash,
-            difficulty: header.difficulty.into(),
+            difficulty: difficulty.into(),
             blobHash: tx_list_hash,
             extraData: extra_data.into(),
             depositsHash: deposits_hash,
@@ -43,7 +54,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             timestamp: header.timestamp.try_into().unwrap(),
             l1Height: extra.l1_height,
             txListByteOffset: 0u32,
-            txListByteSize: 0u32,
+            txListByteSize: extra.l2_tx_list.len() as u32,
             minTier: TIER_SGX_ID,
             blobUsed: extra.l2_tx_list.is_empty(),
             parentMetaHash: extra.block_proposed.meta.parentMetaHash,
