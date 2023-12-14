@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use ethers_core::types::{Log, H256};
 use serde::{Deserialize, Serialize};
 
-use crate::{ethers::from_ethers_h256, keccak};
+use crate::{ethers::from_ethers_h256, keccak, taiko::TIER_SGX_ID};
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -53,6 +53,8 @@ sol! {
 
 // require equal with the assembled protocol instance and the block proposed event
 pub fn assert_pi_and_bp(pi: &ProtocolInstance, bp: &BlockProposed) -> Result<()> {
+    let mut bp = bp.clone();
+    bp.meta.minTier = TIER_SGX_ID;
     if pi.block_metadata.abi_encode() != bp.meta.abi_encode() {
         return Err(anyhow!("block metadata mismatch"));
     }
