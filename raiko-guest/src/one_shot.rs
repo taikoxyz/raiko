@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Error, Result};
 use k256::{
-    ecdsa::{Signature, SigningKey, VerifyingKey},
+    ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::sec1::ToEncodedPoint,
     schnorr::signature::{Signer, Verifier},
     PublicKey,
@@ -86,9 +86,12 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     println!("Data to be signed: {}", pi_hash_str);
 
-    let sig = sgx_sign(prev_privkey, pi_hash_str)?;
+    let (sig, v) = sgx_sign(prev_privkey, pi_hash_str)?;
 
-    println!("Signature: 0x{}", sig);
+    let mut signature: Vec<u8> = sig.to_bytes().to_vec();
+    signature.push(v.to_byte());
+    let signature = hex::encode(signature);
+    println!("Signature: 0x{}", signature);
     println!("Public key: {}", new_pubkey.to_checksum(None));
 
     save_attestation_user_report_data(new_pubkey)?;
@@ -161,12 +164,12 @@ async fn parse_to_init(
     Ok::<(Init<EthereumTxEssence>, TaikoExtra), _>((init, extra))
 }
 
-fn sgx_sign(privkey: SigningKey, protocol_intance_hash: String) -> Result<Signature> {
+fn sgx_sign(privkey: SigningKey, protocol_intance_hash: String) -> Result<(Signature, RecoveryId)> {
     let msg = protocol_intance_hash.as_bytes();
-    let sig = privkey.sign(msg);
+    let (sig, v) = privkey.sign_recoverable(msg)?;
     let pubkey = privkey.verifying_key();
     assert!(pubkey.verify(msg, &sig).is_ok());
-    Ok(sig)
+    Ok((sig, v))
 }
 
 fn save_attestation_user_report_data(pubkey: Address) -> Result<()> {
