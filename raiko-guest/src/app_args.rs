@@ -38,6 +38,8 @@ pub struct OneShotArgs {
     pub prover: Address,
     #[clap(short, long)]
     pub graffiti: String,
+    #[clap(short, long)]
+    pub sgx_instance_id: u32,
 }
 
 #[derive(Debug, Args)]

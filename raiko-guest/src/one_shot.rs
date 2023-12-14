@@ -26,7 +26,7 @@ use zeth_lib::{
 };
 use zeth_primitives::{
     taiko::{string_to_bytes32, EvidenceType},
-    Address,
+    Address, B256,
 };
 
 use crate::app_args::{GlobalOpts, OneShotArgs};
@@ -88,14 +88,16 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let (sig, v) = sgx_sign(prev_privkey, pi_hash_str)?;
 
-    let mut signature: Vec<u8> = sig.to_bytes().to_vec();
-    signature.push(v.to_byte());
-    let signature = hex::encode(signature);
-    println!("Signature: 0x{}", signature);
-    println!(
-        "Public key: {}",
-        new_pubkey.to_checksum(Some(TAIKO_MAINNET_CHAIN_SPEC.chain_id()))
-    );
+    const SGX_PROOF_LEN: usize = 89;
+
+    let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+    proof.extend(args.sgx_instance_id.to_le_bytes());
+    proof.extend(new_pubkey);
+    proof.extend(sig.to_bytes());
+    proof.push(v.to_byte());
+    let proof = hex::encode(proof);
+    println!("Proof: 0x{}", proof);
+    println!("Public key: {}", new_pubkey);
 
     save_attestation_user_report_data(new_pubkey)?;
     print_sgx_info()
@@ -129,15 +131,14 @@ async fn get_data_to_sign(
     graffiti: &str,
     block_no: u64,
     new_pubkey: Address,
-) -> Result<String> {
+) -> Result<B256> {
     let (init, extra) = parse_to_init(path_str, l1_blocks_path, prover, block_no, graffiti).await?;
     let input: Input<zeth_lib::EthereumTxEssence> = init.clone().into();
     let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input)
         .expect("Failed to build the resulting block");
     let pi = zeth_lib::taiko::protocol_instance::assemble_protocol_instance(&extra, &output)?;
     let pi_hash = pi.hash(EvidenceType::Sgx { new_pubkey });
-    let pi_hash_str = pi_hash.to_string();
-    Ok(pi_hash_str)
+    Ok(pi_hash)
 }
 
 async fn parse_to_init(
@@ -167,11 +168,10 @@ async fn parse_to_init(
     Ok::<(Init<EthereumTxEssence>, TaikoExtra), _>((init, extra))
 }
 
-fn sgx_sign(privkey: SigningKey, protocol_intance_hash: String) -> Result<(Signature, RecoveryId)> {
-    let msg = protocol_intance_hash.as_bytes();
-    let (sig, v) = privkey.sign_recoverable(msg)?;
+fn sgx_sign(privkey: SigningKey, msg: B256) -> Result<(Signature, RecoveryId)> {
+    let (sig, v) = privkey.sign_recoverable(msg.as_slice())?;
     let pubkey = privkey.verifying_key();
-    assert!(pubkey.verify(msg, &sig).is_ok());
+    assert!(pubkey.verify(msg.as_slice(), &sig).is_ok());
     Ok((sig, v))
 }
 

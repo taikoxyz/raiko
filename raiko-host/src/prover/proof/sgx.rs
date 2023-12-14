@@ -38,6 +38,8 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg(req.prover.to_string())
         .arg("--graffiti")
         .arg(req.graffiti.clone())
+        .arg("--sgx-instance-id")
+        .arg(ctx.sgx_context.instance_id.to_string())
         .output()
         .await
         .map_err(|e| e.to_string())?;
@@ -46,30 +48,17 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
     if !output.status.success() {
         return Err(output.status.to_string());
     }
-    parse_sgx_result(ctx.sgx_context.instance_id, output.stdout)
+    parse_sgx_result(output.stdout)
 }
 
-fn parse_sgx_result(instance_id: u32, output: Vec<u8>) -> Result<SgxResponse, String> {
+fn parse_sgx_result(output: Vec<u8>) -> Result<SgxResponse, String> {
     // parse result of sgx execution
     let output = String::from_utf8(output).map_err(|e| e.to_string())?;
-    let mut signature = String::new();
-    let mut public_key = String::new();
+    let mut proof = String::new();
     for line in output.lines() {
-        if let Some(_signature) = line.trim().strip_prefix(SGX_SIGNATURE_PREFIX) {
-            signature = _signature.trim().to_owned();
-        }
-        if let Some(_public_key) = line.trim().strip_prefix(SGX_PUBLIC_KEY_PREFIX) {
-            public_key = _public_key.trim().to_owned();
+        if let Some(_proof) = line.trim().strip_prefix(SGX_PROOF_PREFIX) {
+            proof = _proof.trim().to_owned();
         }
     }
-    let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
-    proof.extend(instance_id.to_be_bytes());
-    let public_key = hex::decode(&public_key[2..]).map_err(|e| e.to_string())?;
-    info!("Public key length: {:?}", public_key.len());
-    proof.extend(public_key);
-    let signature = hex::decode(&signature[2..]).map_err(|e| e.to_string())?;
-    info!("Signature length: {:?}", signature.len());
-    proof.extend(signature);
-    let proof = hex::encode(proof);
     Ok(SgxResponse { proof })
 }
