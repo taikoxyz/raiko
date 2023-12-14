@@ -62,8 +62,10 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
     };
     #[cfg(not(target_os = "zkvm"))]
     {
+        use tracing::debug;
         use zeth_primitives::taiko::assert_pi_and_bp;
         assert_pi_and_bp(&pi, &extra.block_proposed)?;
+        debug!("Protocol instance: {:?}", pi);
     }
     Ok(pi)
 }
