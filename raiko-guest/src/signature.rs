@@ -24,7 +24,7 @@ pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Addres
         RecoverableSignature::from_compact(&sig[0..64], RecoveryId::from_i32(sig[64] as i32)?)?;
 
     let public = SECP256K1.recover_ecdsa(&Message::from_slice(&msg[..32])?, &sig)?;
-    Ok(public_key_to_address(public))
+    Ok(public_key_to_address(&public))
 }
 
 /// Signs message with the given secret key.
@@ -45,7 +45,7 @@ pub fn sign_message(secret_key: &SecretKey, message: B256) -> Result<TxSignature
 
 /// Converts a public key into an ethereum address by hashing the encoded public key with
 /// keccak256.
-pub fn public_key_to_address(public: PublicKey) -> Address {
+pub fn public_key_to_address(public: &PublicKey) -> Address {
     // strip out the first byte because that should be the SECP256K1_TAG_PUBKEY_UNCOMPRESSED
     // tag returned by libsecp's uncompressed pubkey serialization
     let hash = keccak256(&public.serialize_uncompressed()[1..]);
@@ -80,7 +80,7 @@ mod tests {
         let priv_key = "324b5d1744ec27d6ac458350ce6a6248680bb0209521b2c730c1fe82a433eb54";
         let priv_key = SecretKey::from_str(priv_key).unwrap();
         let pubkey = public_key(&priv_key);
-        let pub_addr = public_key_to_address(pubkey);
+        let pub_addr = public_key_to_address(&pubkey);
         assert_eq!(pub_addr, proof_addr);
         println!("Public address: {}", pub_addr);
         println!("Proof public address: {}", proof_addr);

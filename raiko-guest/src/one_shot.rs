@@ -64,7 +64,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     println!("Private key: {}", prev_privkey.display_secret());
     // let (new_privkey, new_pubkey) = generate_new_keypair()?;
     let new_pubkey = public_key(&prev_privkey);
-    let new_instance = public_key_to_address(new_pubkey);
+    let new_instance = public_key_to_address(&new_pubkey);
 
     // fs::write(privkey_path, new_privkey.to_bytes())?;
     let pi_hash = get_data_to_sign(
