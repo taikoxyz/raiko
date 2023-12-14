@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
+use tracing::info;
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
     taiko::*,
