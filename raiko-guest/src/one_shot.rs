@@ -61,6 +61,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let prev_privkey = load_private_key(&privkey_path)?;
+    println!("Private key: {}", prev_privkey.display_secret());
     // let (new_privkey, new_pubkey) = generate_new_keypair()?;
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(new_pubkey);
@@ -214,4 +215,42 @@ fn get_sgx_attestation_type() -> Result<String> {
         "Cannot find `{}`; are you running under SGX, with remote attestation enabled?",
         ATTESTATION_TYPE_DEVICE_FILE
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use k256::{
+        ecdsa::*,
+        elliptic_curve::{generic_array::typenum::Unsigned, sec1::ToEncodedPoint, Curve},
+        PublicKey, Secp256k1,
+    };
+    use zeth_primitives::{keccak::keccak, Address};
+
+    #[test]
+    fn recover() {
+        let proof = "01000000c13bd882edb37ffbabc9f9e34a0d9789633b850fe55e625b768cc8e5feed7d9f7ab536cbc210c2fcc1385aaf88d8a91d8adc2740245f9deee5fd3d61dd2a71662fb6639515f1e2f3354361a82d86c1952352c1a800";
+        let proof_bytes = hex::decode(proof).unwrap();
+        let signature = Signature::from_slice(&proof_bytes[24..88]).unwrap();
+        let proof_pubkey = Address::from_slice(&proof_bytes[4..24]);
+        let msg = "216ac5cd5a5e13b0c9a81efb1ad04526b9f4ddd2fe6ebc02819c5097dfb0958c";
+        let msg_bytes = hex::decode(msg).unwrap();
+        let pubkey = VerifyingKey::recover_from_prehash(
+            &msg_bytes,
+            &signature,
+            RecoveryId::from_byte(proof_bytes[88]).unwrap(),
+        )
+        .unwrap();
+        println!(
+            "Field length: {}",
+            <Secp256k1 as Curve>::FieldBytesSize::USIZE
+        );
+        println!("Signature: {}", signature);
+        let encoded_point = PublicKey::from(&pubkey).to_encoded_point(false);
+        let encoded_point_bytes = encoded_point.as_bytes();
+        debug_assert_eq!(encoded_point_bytes[0], 0x04);
+        let pubkey = keccak(&encoded_point_bytes[1..]);
+        let pubkey = Address::from_slice(&pubkey[12..]);
+        println!("Public key: {}", pubkey);
+        println!("Proof public key: {}", proof_pubkey);
+    }
 }
