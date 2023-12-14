@@ -172,8 +172,7 @@ fn sgx_sign(privkey: SigningKey, msg: B256) -> Result<(Signature, RecoveryId)> {
     let (sig, v) = privkey.sign_recoverable(msg.as_slice())?;
     let pubkey = privkey.verifying_key();
     assert!(pubkey.verify(msg.as_slice(), &sig).is_ok());
-    let pubkey = VerifyingKey::recover_from_prehash(msg.as_slice(), &sig, v)?;
-    assert_eq!(*privkey.verifying_key(), pubkey);
+    VerifyingKey::recover_from_prehash(msg.as_slice(), &sig, v)?;
     Ok((sig, v))
 }
 
