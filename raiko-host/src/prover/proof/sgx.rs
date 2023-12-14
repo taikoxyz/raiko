@@ -65,8 +65,10 @@ fn parse_sgx_result(instance_id: u32, output: Vec<u8>) -> Result<SgxResponse, St
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(instance_id.to_be_bytes());
     let public_key = hex::decode(&public_key[2..]).map_err(|e| e.to_string())?;
+    info!("Public key length: {:?}", public_key.len());
     proof.extend(public_key);
     let signature = hex::decode(&signature[2..]).map_err(|e| e.to_string())?;
+    info!("Signature length: {:?}", signature.len());
     proof.extend(signature);
     let proof = hex::encode(proof);
     Ok(SgxResponse { proof })
