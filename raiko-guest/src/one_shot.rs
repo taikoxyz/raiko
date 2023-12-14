@@ -67,6 +67,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let prev_privkey = read_privkey(&privkey_path)?;
     let (new_privkey, new_pubkey) = generate_new_keypair()?;
+    let new_pubkey: VerifyingKey = *prev_privkey.verifying_key();
     let encoded_point = PublicKey::from(&new_pubkey).to_encoded_point(false);
     let encoded_point_bytes = encoded_point.as_bytes();
     debug_assert_eq!(encoded_point_bytes[0], 0x04);
