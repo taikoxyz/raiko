@@ -4,7 +4,7 @@ use alloy_primitives::{uint, Address, U256};
 use once_cell::sync::Lazy;
 
 pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xf7f1b1Cf92f24aa4BFf028eAAEF15a6159045fC7")
+    Address::from_str("0x83e383dec6E3C2CD167E3bF6aA8c36F0e55Ad910")
         .expect("invalid l1 signal service")
 });
 
