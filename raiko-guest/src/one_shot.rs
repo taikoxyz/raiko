@@ -92,7 +92,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_le_bytes());
-    proof.extend(new_pubkey.to_checksum(None)[2..].as_bytes());
+    proof.extend(new_pubkey);
     proof.extend(sig.to_bytes());
     proof.push(v.to_byte());
     let proof = hex::encode(proof);
@@ -172,6 +172,8 @@ fn sgx_sign(privkey: SigningKey, msg: B256) -> Result<(Signature, RecoveryId)> {
     let (sig, v) = privkey.sign_recoverable(msg.as_slice())?;
     let pubkey = privkey.verifying_key();
     assert!(pubkey.verify(msg.as_slice(), &sig).is_ok());
+    let pubkey = VerifyingKey::recover_from_prehash(msg.as_slice(), &sig, v)?;
+    assert_eq!(*privkey.verifying_key(), pubkey);
     Ok((sig, v))
 }
 
