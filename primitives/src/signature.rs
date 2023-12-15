@@ -38,7 +38,7 @@ impl TxSignature {
         let mut sig = [0u8; 65];
         sig[..32].copy_from_slice(&self.r.to_be_bytes::<32>());
         sig[32..64].copy_from_slice(&self.s.to_be_bytes::<32>());
-        sig[64] = self.v as u8;
+        sig[64] = (self.v + 27) as u8;
         sig
     }
 }
