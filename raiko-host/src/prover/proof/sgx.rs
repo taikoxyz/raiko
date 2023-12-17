@@ -37,7 +37,7 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg("--prover")
         .arg(req.prover.to_string())
         .arg("--graffiti")
-        .arg(req.graffiti.clone())
+        .arg(req.graffiti.to_string())
         .arg("--sgx-instance-id")
         .arg(ctx.sgx_context.instance_id.to_string())
         .output()

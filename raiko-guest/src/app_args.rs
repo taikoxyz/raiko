@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{ArgAction, Args, Parser, Subcommand};
-use zeth_primitives::Address;
+use zeth_primitives::{Address, B256};
 
 #[derive(Debug, Parser)]
 pub struct App {
@@ -37,7 +37,7 @@ pub struct OneShotArgs {
     #[clap(short, long)]
     pub prover: Address,
     #[clap(short, long)]
-    pub graffiti: String,
+    pub graffiti: B256,
     #[clap(short, long)]
     pub sgx_instance_id: u32,
 }

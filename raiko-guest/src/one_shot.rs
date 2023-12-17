@@ -71,7 +71,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         path_str,
         args.l1_blocks_data_file.to_string_lossy().to_string(),
         args.prover,
-        &args.graffiti,
+        args.graffiti,
         block_no,
         new_instance,
     )
@@ -104,7 +104,7 @@ async fn get_data_to_sign(
     path_str: String,
     l1_blocks_path: String,
     prover: Address,
-    graffiti: &str,
+    graffiti: B256,
     block_no: u64,
     new_pubkey: Address,
 ) -> Result<B256> {
@@ -122,9 +122,8 @@ async fn parse_to_init(
     l1_blocks_path: String,
     prover: Address,
     block_no: u64,
-    graffiti: &str,
+    graffiti: B256,
 ) -> Result<(Init<zeth_lib::EthereumTxEssence>, TaikoExtra), Error> {
-    let graffiti = string_to_bytes32(graffiti.as_bytes());
     let (init, extra) = tokio::task::spawn_blocking(move || {
         zeth_lib::taiko::host::get_taiko_initial_data::<TaikoStrategyBundle>(
             Some(l1_blocks_path),
@@ -135,7 +134,7 @@ async fn parse_to_init(
             TAIKO_MAINNET_CHAIN_SPEC.clone(),
             None,
             block_no,
-            graffiti.into(),
+            graffiti,
         )
         .expect("Could not init")
     })

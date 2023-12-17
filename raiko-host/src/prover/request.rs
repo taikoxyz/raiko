@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
-use zeth_primitives::Address;
+use zeth_primitives::{Address, B256};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -23,7 +23,7 @@ pub struct SgxRequest {
     /// the protocol instance data
     #[serde_as(as = "DisplayFromStr")]
     pub prover: Address,
-    pub graffiti: String,
+    pub graffiti: B256,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
