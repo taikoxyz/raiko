@@ -8,7 +8,6 @@ use zeth_lib::{
     taiko::host::TaikoExtra,
     EthereumTxEssence,
 };
-use zeth_primitives::taiko::string_to_bytes32;
 
 use super::{
     context::Context,

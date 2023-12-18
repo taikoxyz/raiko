@@ -30,5 +30,3 @@ pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0x1670010000000000000000000000000000010001")
         .expect("invalid l2 contract address")
 });
-
-pub const TIER_SGX_ID: u16 = 200;

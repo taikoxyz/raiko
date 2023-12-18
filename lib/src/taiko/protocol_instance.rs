@@ -5,7 +5,7 @@ use zeth_primitives::{
     keccak,
     taiko::{
         deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
-        ANCHOR_GAS_LIMIT, TIER_SGX_ID,
+        ANCHOR_GAS_LIMIT,
     },
     TxHash, U256,
 };
@@ -54,7 +54,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             l1Height: extra.l1_height,
             txListByteOffset: 0u32,
             txListByteSize: extra.l2_tx_list.len() as u32,
-            minTier: TIER_SGX_ID,
+            minTier: extra.block_proposed.meta.minTier,
             blobUsed: extra.l2_tx_list.is_empty(),
             parentMetaHash: extra.block_proposed.meta.parentMetaHash,
         },

@@ -16,10 +16,7 @@ use zeth_lib::{
     },
     EthereumTxEssence,
 };
-use zeth_primitives::{
-    taiko::{string_to_bytes32, EvidenceType},
-    Address, B256,
-};
+use zeth_primitives::{taiko::EvidenceType, Address, B256};
 
 use crate::{
     app_args::{GlobalOpts, OneShotArgs},
@@ -61,7 +58,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let prev_privkey = load_private_key(&privkey_path)?;
-    println!("Private key: {}", prev_privkey.display_secret());
+    // println!("Private key: {}", prev_privkey.display_secret());
     // let (new_privkey, new_pubkey) = generate_new_keypair()?;
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
@@ -165,7 +162,7 @@ fn print_sgx_info() -> Result<()> {
         "Extracted SGX quote with size = {} and the following fields:",
         quote.len()
     );
-    println!("Quote: {}", hex::encode(&quote));
+    // println!("Quote: {}", hex::encode(&quote));
     println!(
         "  ATTRIBUTES.FLAGS: {}  [ Debug bit: {} ]",
         hex::encode(&quote[96..104]),
