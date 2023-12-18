@@ -1,4 +1,7 @@
 {
   "rust-analyzer.cargo.features": "all",
-  "rust-analyzer.linkedProjects": ["./Cargo.toml"]
+  "rust-analyzer.linkedProjects": [
+    "./Cargo.toml",
+    "./raiko-guest-sgx-sgx/Cargo.toml"
+  ]
 }

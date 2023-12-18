@@ -2526,7 +2526,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
-name = "raiko-guest"
+name = "raiko-guest-powdr"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "ethers-core",
+ "hex 0.4.3",
+ "rand",
+ "rand_core",
+ "risc0-zkvm",
+ "secp256k1",
+ "sha3",
+ "tokio",
+ "zeth-lib",
+ "zeth-primitives",
+]
+
+[[package]]
+name = "raiko-guest-sgx"
 version = "0.1.0"
 dependencies = [
  "anyhow",

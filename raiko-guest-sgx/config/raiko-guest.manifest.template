@@ -8,19 +8,19 @@
 # 3. Run:
 #     export SECRETS_DIR="./secrets"
 #     export INPUT_FILES_DIR="/tmp"
-#     gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
-#     gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
-#     gramine-sgx ./raiko-guest
+#     gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest-sgx-sgx.manifest.template raiko-guest-sgx-sgx.manifest
+#     gramine-sgx-sign --manifest raiko-guest-sgx-sgx.manifest --output raiko-guest-sgx-sgx.manifest.sgx
+#     gramine-sgx ./raiko-guest-sgx-sgx
 
 loader.entrypoint = "file:{{ gramine.libos }}"
-libos.entrypoint = "/raiko-guest"
+libos.entrypoint = "/raiko-guest-sgx-sgx"
 loader.log_level = "{{ log_level }}"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
 loader.env.RUST_LOG = "info"
 
 fs.mounts = [
   { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
-  { path = "/raiko-guest", uri = "file:raiko-guest" },
+  { path = "/raiko-guest-sgx-sgx", uri = "file:raiko-guest-sgx-sgx" },
   { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/tmp", uri = "file:/tmp" },
@@ -34,7 +34,7 @@ sgx.edmm_enable = true
 
 sgx.trusted_files = [
   "file:{{ gramine.libos }}",
-  "file:raiko-guest",
+  "file:raiko-guest-sgx-sgx",
   "file:{{ gramine.runtimedir() }}/",
   "file:{{ arch_libdir }}/libgcc_s.so.1",
   "file:{{ arch_libdir }}/libssl.so.3",

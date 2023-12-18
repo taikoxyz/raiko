@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["lib", "primitives", "raiko-guest", "raiko-host", "sgx-ra"]
+members = ["lib", "primitives", "raiko-guest-sgx", "raiko-guest-powdr", "raiko-host", "sgx-ra"]
 
 # Always optimize; building and running the guest takes much longer without optimization.
 [profile.dev]

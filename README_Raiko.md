@@ -1,9 +1,9 @@
 # Raiko
 
-This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guest` and `raiko-host`.
+This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guest-sgx` and `raiko-host`.
 
 - `raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is _not_ being run inside SGX enclave.
-- `raiko-guest` is responsible for generating public-private key pair and signing. It can run inside SGX enclave.
+- `raiko-guest-sgx` is responsible for generating public-private key pair and signing. It can run inside SGX enclave.
 
 [zeth]: https://github.com/risc0/zeth
 
@@ -22,37 +22,37 @@ and compile the project:
 ubuntu@ubuntu:~/zeth$ cargo build
 ```
 
-The above command creates `/target` directory with `raiko-host` and `raiko-guest` compilation artifacts.
+The above command creates `/target` directory with `raiko-host` and `raiko-guest-sgx` compilation artifacts.
 
 ## Running
 
-You can either run `raiko-guest` directly, or indirectly by running `raiko-host` JSON-RPC server. In any case running it requires some [Gramine][gramine]-specific preconfiguration before you can run the binary. This can be automated in the future.
+You can either run `raiko-guest-sgx` directly, or indirectly by running `raiko-host` JSON-RPC server. In any case running it requires some [Gramine][gramine]-specific preconfiguration before you can run the binary. This can be automated in the future.
 
-If you are running `raiko-guest` directly, you can either use _one-shot_ mode, or a _long-running RA-TLS server_ (which is experimental). Production environment uses `raiko-host` JSON-RPC server that starts `raiko-guest` in _one-shot_ mode.
+If you are running `raiko-guest-sgx` directly, you can either use _one-shot_ mode, or a _long-running RA-TLS server_ (which is experimental). Production environment uses `raiko-host` JSON-RPC server that starts `raiko-guest-sgx` in _one-shot_ mode.
 
-To sum up, these are the ways to run `raiko-guest`:
+To sum up, these are the ways to run `raiko-guest-sgx`:
 
-- Run `raiko-guest` directly in:
+- Run `raiko-guest-sgx` directly in:
   - _one-shot_ mode, or:
   - _long-running_ mode (RA-TLS server).
-- Run `raiko-host` that in turn runs `raiko-guest` in _one-shot_ mode.
+- Run `raiko-host` that in turn runs `raiko-guest-sgx` in _one-shot_ mode.
 
 [gramine]: https://github.com/gramineproject/gramine
 
 ### One-shot mode
 
-To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
+To run `raiko-guest-sgx` in _one-shot_ mode with SGX using Gramine:
 
 1. Compile Gramine's configuration file:
    ```console
    ubuntu@ubuntu:~/zeth$ cd target/debug
-   ubuntu@ubuntu:~/zeth/target/debug$ cp ../../raiko-guest/config/raiko-guest.manifest.template .
-   ubuntu@ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
+   ubuntu@ubuntu:~/zeth/target/debug$ cp ../../raiko-guest-sgx/config/raiko-guest-sgx.manifest.template .
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest-sgx.manifest.template raiko-guest-sgx.manifest
    ```
 1. Sign Gramine's configuration file. [`MRENCLAVE`][mrenclave] – a.k.a. [_measurement_][measurement] – is also calculated at this stage (see last line of the below log):
 
    ```console
-   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx-sign --manifest raiko-guest-sgx.manifest --output raiko-guest-sgx.manifest.sgx
    Attributes:
        size:        0x10000000000
        edmm:        True
@@ -90,10 +90,10 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
        3c2ef3d06dfb2ebb3ba664d82439f4636138c8d0cfd63793d47bb030f07125ca
    ```
 
-   The above command creates `raiko-guest.sig` file (next to `raiko-guest.manifest.sgx`). You can check [`MRSIGNER`][mrsigner] and [`MRENCLAVE`][mrenclave] values by running:
+   The above command creates `raiko-guest-sgx.sig` file (next to `raiko-guest-sgx.manifest.sgx`). You can check [`MRSIGNER`][mrsigner] and [`MRENCLAVE`][mrenclave] values by running:
 
    ```
-   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx-sigstruct-view ./raiko-guest.sig
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx-sigstruct-view ./raiko-guest-sgx.sig
    Attributes:
     mr_signer: 669b80648c2d9c97f32263fa1961f95f83818682d6359758221f0e7acb9584c0
     mr_enclave: 3c2ef3d06dfb2ebb3ba664d82439f4636138c8d0cfd63793d47bb030f07125ca
@@ -105,7 +105,7 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
 1. Initialize `secrets` directory where the encrypted (or more precisely, [sealed][sealing]) private keys will be saved and rotated:
    ```
    ubuntu@ubuntu:~/zeth/target/debug$ mkdir secrets
-   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest bootstrap
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest-sgx bootstrap
    Gramine is starting. Parsing TOML manifest file, this may take some time...
    -----------------------------------------------------------------------------------------------------------------------
    Gramine detected the following insecure configurations:
@@ -118,10 +118,10 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
    Next public key: 0x021d90eee5c402692fa3a3d3edd43a052367efbd6e4d26b9ca14099516525b9d09
    Entry: /secrets/priv.key
    ```
-1. Run `raiko-guest` with the input file of your choice:
+1. Run `raiko-guest-sgx` with the input file of your choice:
 
    ```
-   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest one-shot --blocks-data-file /tmp/ethereum/173.json.gz
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest-sgx one-shot --blocks-data-file /tmp/ethereum/173.json.gz
    Gramine is starting. Parsing TOML manifest file, this may take some time...
    -----------------------------------------------------------------------------------------------------------------------
    Gramine detected the following insecure configurations:
@@ -160,10 +160,10 @@ ECDSA key pair is rotated every run as presented in the diagram below:
 
 ### RA-TLS server
 
-To run RA-TLS server listening on port `8080`, run the same commands as in section [`raiko-guest`](#raiko-guest-one-shot-mode) but instead of running `gramine-sgx ./raiko-guest one-shot (...)` run `gramine-sgx ./raiko-guest server`:
+To run RA-TLS server listening on port `8080`, run the same commands as in section [`raiko-guest-sgx`](#raiko-guest-sgx-one-shot-mode) but instead of running `gramine-sgx ./raiko-guest-sgx one-shot (...)` run `gramine-sgx ./raiko-guest-sgx server`:
 
 ```console
-ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest server
+ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest-sgx server
 Gramine is starting. Parsing TOML manifest file, this may take some time...
 -----------------------------------------------------------------------------------------------------------------------
 Gramine detected the following insecure configurations:
@@ -219,14 +219,14 @@ cargo build --example client --verbose
 
 ### `raiko-host`
 
-Copy `raiko-guest` binary:
+Copy `raiko-guest-sgx` binary:
 
 ```console
 cargo build
-cp target/debug/raiko-guest raiko-host/guests/sgx
+cp target/debug/raiko-guest-sgx raiko-host/guests/sgx
 cd raiko-host/guests/sgx
-gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
-gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
+gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest-sgx.manifest.template raiko-guest-sgx.manifest
+gramine-sgx-sign --manifest raiko-guest-sgx.manifest --output raiko-guest-sgx.manifest.sgx
 cd -
 ```
 
