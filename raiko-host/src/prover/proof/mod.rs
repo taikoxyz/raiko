@@ -2,3 +2,4 @@
 
 pub mod pse_zk;
 pub mod sgx;
+pub mod powdr;

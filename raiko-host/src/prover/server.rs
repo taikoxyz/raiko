@@ -8,12 +8,12 @@ use hyper::{
 };
 use tracing::info;
 
-use crate::prover::{
+use crate::{prover::{
     context::Context,
     execution::execute,
     json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
     request::*,
-};
+}, GuestArgs};
 
 /// Starts the proverd json-rpc server.
 /// Note: the server may not immediately listening after returning the
@@ -22,20 +22,26 @@ pub fn serve(
     addr: &str,
     guest_path: &Path,
     cache_path: &Path,
-    sgx_instance_id: u32,
+    guest_args: GuestArgs,
 ) -> tokio::task::JoinHandle<()> {
     let addr = addr
         .parse::<std::net::SocketAddr>()
         .expect("valid socket address");
     let guest_path = guest_path.to_owned();
     let cache_path = cache_path.to_owned();
+
     tokio::spawn(async move {
         let service = make_service_fn(move |_| {
             let guest_path = guest_path.clone();
             let cache_path = cache_path.clone();
+            let guest_ctx = match guest_args {
+                GuestArgs::Sgx{ sgx_instance_id } => 
+                    Context::new_sgx(guest_path, cache_path, sgx_instance_id),
+                GuestArgs::Powdr { todo } => 
+                    Context::new_powdr(guest_path, cache_path),
+            };
             let service = service_fn(move |req| {
-                let ctx = Context::new(guest_path.clone(), cache_path.clone(), sgx_instance_id);
-                handle_request(ctx, req)
+                handle_request(guest_ctx.clone(), req)
             });
 
             async move { Ok::<_, hyper::Error>(service) }
@@ -166,6 +172,7 @@ async fn handle_method(
             let options = params.first().ok_or("expected struct ProofRequest")?;
             let req: ProofRequest =
                 serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
+                
             execute(&ctx, &req)
                 .await
                 .and_then(|result| serde_json::to_value(result).map_err(Into::into))

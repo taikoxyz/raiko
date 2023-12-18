@@ -18,7 +18,7 @@ mod prover;
 use std::{fmt::Debug, path::PathBuf};
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use prover::server::serve;
 
 #[derive(Parser, Debug)]
@@ -43,11 +43,24 @@ struct Args {
     /// The guests path
     guest: Option<PathBuf>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "0")]
-    sgx_instance_id: u32,
+    #[clap(subcommand)]
+    guest_args: GuestArgs,
 
     #[clap(short, long, require_equals = true, num_args = 0..=1)]
     log_path: Option<PathBuf>,
+}
+
+#[derive(Subcommand, Debug)]
+enum GuestArgs {
+    Sgx {
+        #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "0")]
+        sgx_instance_id: u32,
+    },
+    Powdr {
+        // TODO
+        #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "0")]
+        todo: u32,
+    }
 }
 
 // Prerequisites:
@@ -93,7 +106,7 @@ async fn main() -> Result<()> {
         &args.bind.unwrap(),
         &args.guest.unwrap(),
         &args.cache.unwrap(),
-        args.sgx_instance_id,
+        args.guest_args,
     )
     .await?;
     Ok(())

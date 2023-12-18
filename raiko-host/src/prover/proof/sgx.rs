@@ -1,17 +1,22 @@
-use std::str;
+use std::{str, path::PathBuf};
 
 use tokio::process::Command;
 use tracing::{debug, info};
 
 use crate::prover::{
     consts::*,
-    context::Context,
+    context::{Context, SgxContext},
     request::{SgxRequest, SgxResponse},
     utils::{cache_file_path, guest_executable_path},
 };
 
-pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse, String> {
-    let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
+pub async fn execute_sgx(
+    guest_path: &PathBuf, 
+    cache_path: &PathBuf, 
+    ctx: &SgxContext, 
+    req: &SgxRequest
+) -> Result<SgxResponse, String> {
+    let guest_path = guest_executable_path(&guest_path, SGX_PARENT_DIR);
     debug!("Guest path: {:?}", guest_path);
     let mut cmd = {
         let bin_directory = guest_path
@@ -27,8 +32,8 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         cmd.arg("one-shot");
         cmd
     };
-    let l1_cache_file = cache_file_path(&ctx.cache_path, req.block, true);
-    let l2_cache_file = cache_file_path(&ctx.cache_path, req.block, false);
+    let l1_cache_file = cache_file_path(cache_path, req.block, true);
+    let l2_cache_file = cache_file_path(cache_path, req.block, false);
     let output = cmd
         .arg("--blocks-data-file")
         .arg(l2_cache_file)
@@ -39,7 +44,7 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg("--graffiti")
         .arg(req.graffiti.to_string())
         .arg("--sgx-instance-id")
-        .arg(ctx.sgx_context.instance_id.to_string())
+        .arg(ctx.instance_id.to_string())
         .output()
         .await
         .map_err(|e| e.to_string())?;

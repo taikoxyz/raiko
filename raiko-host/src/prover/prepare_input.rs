@@ -13,7 +13,7 @@ use zeth_primitives::taiko::string_to_bytes32;
 use super::{
     context::Context,
     error::Result,
-    request::{ProofRequest, PseZkRequest, SgxRequest},
+    request::{ProofRequest, PseZkRequest, SgxRequest, PowdrRequest},
     utils::cache_file_path,
 };
 
@@ -61,5 +61,6 @@ where
             .map_err(Into::into)
         }
         ProofRequest::PseZk(PseZkRequest { .. }) => todo!(),
+        ProofRequest::Powdr(PowdrRequest { .. }) => todo!(),
     }
 }

@@ -8,6 +8,7 @@ use zeth_primitives::{Address, B256};
 pub enum ProofRequest {
     Sgx(SgxRequest),
     PseZk(PseZkRequest),
+    Powdr(PowdrRequest)
 }
 
 #[serde_as]
@@ -30,10 +31,15 @@ pub struct SgxRequest {
 pub struct PseZkRequest {}
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct PowdrRequest {}
+
+
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ProofResponse {
     Sgx(SgxResponse),
     PseZk(PseZkResponse),
+    Powdr(PowdrResponse)
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -45,3 +51,6 @@ pub struct SgxResponse {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PseZkResponse {}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PowdrResponse {}
