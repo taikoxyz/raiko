@@ -12,10 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "taiko")]
+use anyhow::Context;
 use anyhow::{anyhow, Result};
-use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Filter, Transaction, H256, U256};
+#[cfg(feature = "taiko")]
+use ethers_core::types::Filter;
+use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
 use ethers_providers::{Http, Middleware};
 use log::info;
+#[cfg(feature = "taiko")]
 use zeth_primitives::taiko::{filter_propose_block_event, BlockProposed};
 
 use super::{AccountQuery, BlockQuery, ProofQuery, Provider, StorageQuery};
@@ -132,6 +137,7 @@ impl Provider for RpcProvider {
         Ok(out)
     }
 
+    #[cfg(feature = "taiko")]
     fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
         info!("Querying RPC for propose: {:?}", query);
 
@@ -153,5 +159,20 @@ impl Provider for RpcProvider {
             Some(out) => Ok((out, block_proposed)),
             None => Err(anyhow!("No data for {:?}", query)),
         }
+    }
+
+    #[cfg(feature = "taiko")]
+    /// get 256 blocks one time to reduce the fetch time cost
+    fn batch_get_partial_blocks(&mut self, query: &BlockQuery) -> Result<Vec<Block<H256>>> {
+        info!("Querying RPC for partial blocks: {:?}", query);
+
+        self.tokio_handle.block_on(async {
+            use ethers_core::utils;
+            let id = utils::serialize(&query.block_no);
+            self.http_client
+                .request("taiko_getL2ParentHeaders", [id])
+                .await
+                .context("Failed to fetch l2 parent headers")
+        })
     }
 }

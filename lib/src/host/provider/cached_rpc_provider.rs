@@ -14,6 +14,7 @@
 
 use anyhow::Result;
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
+#[cfg(feature = "taiko")]
 use zeth_primitives::taiko::BlockProposed;
 
 use super::{
@@ -127,6 +128,7 @@ impl Provider for CachedRpcProvider {
         Ok(out)
     }
 
+    #[cfg(feature = "taiko")]
     fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
         let cache_out = self.cache.get_propose(query);
         if cache_out.is_ok() {
@@ -136,6 +138,21 @@ impl Provider for CachedRpcProvider {
         let out = self.rpc.get_propose(query)?;
         self.cache.insert_propose(query.clone(), out.clone());
 
+        Ok(out)
+    }
+
+    #[cfg(feature = "taiko")]
+    fn batch_get_partial_blocks(&mut self, query: &BlockQuery) -> Result<Vec<Block<H256>>> {
+        let cache_out = self.cache.batch_get_partial_blocks(query);
+        if cache_out.is_ok() {
+            return cache_out;
+        }
+
+        let out = self.rpc.batch_get_partial_blocks(query)?;
+        for block in out.iter() {
+            self.cache
+                .insert_partial_block(query.clone(), block.clone());
+        }
         Ok(out)
     }
 }

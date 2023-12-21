@@ -17,7 +17,7 @@ use crate::{
         Init,
     },
     input::Input,
-    taiko::precheck::rebuild_and_precheck_block,
+    taiko::{precheck::rebuild_and_precheck_block, Layer},
 };
 
 #[derive(Debug)]
@@ -41,6 +41,7 @@ fn fetch_data(
     rpc_url: Option<String>,
     block_no: u64,
     signal_service: Address,
+    layer: Layer,
 ) -> Result<(
     Box<dyn Provider>,
     Block<H256>,
@@ -50,10 +51,15 @@ fn fetch_data(
 )> {
     let mut provider = new_provider(cache_path, rpc_url)?;
 
+    let query = BlockQuery { block_no };
+    match layer {
+        Layer::L1 => {}
+        Layer::L2 => {
+            provider.batch_get_partial_blocks(&query)?;
+        }
+    }
     // Fetch the initial block
-    let init_block = provider.get_partial_block(&BlockQuery {
-        block_no: block_no - 1,
-    })?;
+    let init_block = provider.get_partial_block(&query)?;
 
     info!(
         "Initial {} block: {:?} ({:?})",
@@ -143,7 +149,23 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     let fini_proofs = provider_db.get_latest_proofs()?;
 
     // Gather proofs for block history
-    let ancestor_headers = provider_db.get_ancestor_headers()?;
+    let history_headers = provider_db.provider.batch_get_partial_blocks(&BlockQuery {
+        block_no: fini_block.number.unwrap().as_u64(),
+    })?;
+    // ancestors == history - current - parent
+    let ancestor_headers = if history_headers.len() > 2 {
+        history_headers
+            .into_iter()
+            .skip(2)
+            .map(|header| {
+                header
+                    .try_into()
+                    .expect("Failed to convert ancestor headers")
+            })
+            .collect()
+    } else {
+        vec![]
+    };
 
     info!("Saving provider cache ...");
 
@@ -196,6 +218,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_rpc_url,
         l2_block_no,
         *L2_SIGNAL_SERVICE,
+        Layer::L2,
     )?;
     // Get anchor call parameters
     let anchorCall {
@@ -211,6 +234,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1_rpc_url,
         l1_block_no,
         *L1_SIGNAL_SERVICE,
+        Layer::L1,
     )?;
 
     let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {

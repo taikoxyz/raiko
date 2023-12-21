@@ -9,9 +9,9 @@ use super::{
 };
 
 pub async fn execute(ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
-    // load input data into cache path
+    // 1. load input data into cache path
     let _ = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
-    // run proof
+    // 2. run proof
     match req {
         ProofRequest::Sgx(req) => execute_sgx(ctx, req)
             .await

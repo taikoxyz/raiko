@@ -7,3 +7,8 @@ pub mod precheck;
 pub mod prepare;
 pub mod protocol_instance;
 pub mod utils;
+
+pub enum Layer {
+    L1,
+    L2,
+}

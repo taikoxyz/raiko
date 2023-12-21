@@ -153,6 +153,7 @@ mod tests {
         let meta_hash: B256 = keccak::keccak(meta.abi_encode()).into();
         println!("meta_hash: {:?}", meta_hash);
         println!("trans: {:?}", trans);
-        println!("proof: {:?}", proof);
+        println!("proof: {:?}", proof.tier);
+        println!("proof: {:?}", hex::encode(proof.data));
     }
 }
