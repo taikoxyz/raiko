@@ -158,6 +158,7 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     let ancestor_headers = if history_headers.len() > 2 {
         history_headers
             .into_iter()
+            .rev()
             .skip(2)
             .map(|header| {
                 header
