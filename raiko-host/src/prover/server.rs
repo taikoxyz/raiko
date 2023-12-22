@@ -40,19 +40,20 @@ pub fn serve(
             sgx_instance_id,
             proof_cache,
         );
-        let service = make_service_fn(|_| {
-            let _handler = handler.clone();
-            let service = service_fn(move |req| {
-                let _handler = _handler.clone();
-                _handler.handle_request(req)
-            });
-
-            async move { Ok::<_, hyper::Error>(service) }
+        let service = service_fn(move |req| {
+            let handler = handler.clone();
+            handler.handle_request(req)
         });
 
         let service = ServiceBuilder::new()
             .concurrency_limit(concurrency_limit)
             .service(service);
+
+        let service = make_service_fn(|_| {
+            let service = service.clone();
+            async move { Ok::<_, hyper::Error>(service) }
+        });
+
         let server = Server::bind(&addr).serve(service);
         info!("Listening on http://{}", addr);
         server.await.expect("server should be serving");
