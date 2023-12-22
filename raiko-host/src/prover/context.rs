@@ -2,7 +2,7 @@ use std::path::{absolute, PathBuf};
 
 use tracing::debug;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Context {
     /// guest executable path
     pub guest_path: PathBuf,
@@ -11,7 +11,7 @@ pub struct Context {
     pub sgx_context: SgxContext,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SgxContext {
     pub instance_id: u32,
 }

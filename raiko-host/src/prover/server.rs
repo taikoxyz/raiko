@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use hyper::{
     body::{Buf, HttpBody},
@@ -13,6 +13,7 @@ use crate::prover::{
     context::Context,
     execution::execute,
     json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
+    proof::cache::Cache,
     request::*,
 };
 
@@ -24,7 +25,7 @@ pub fn serve(
     guest_path: &Path,
     cache_path: &Path,
     sgx_instance_id: u32,
-    _proof_cache: usize,
+    proof_cache: usize,
     concurrency_limit: usize,
 ) -> tokio::task::JoinHandle<()> {
     let addr = addr
@@ -33,12 +34,17 @@ pub fn serve(
     let guest_path = guest_path.to_owned();
     let cache_path = cache_path.to_owned();
     tokio::spawn(async move {
-        let service = make_service_fn(move |_| {
-            let guest_path = guest_path.clone();
-            let cache_path = cache_path.clone();
+        let handler = Handler::new(
+            guest_path.clone(),
+            cache_path.clone(),
+            sgx_instance_id,
+            proof_cache,
+        );
+        let service = make_service_fn(|_| {
+            let _handler = handler.clone();
             let service = service_fn(move |req| {
-                let ctx = Context::new(guest_path.clone(), cache_path.clone(), sgx_instance_id);
-                handle_request(ctx, req)
+                let _handler = _handler.clone();
+                _handler.handle_request(req)
             });
 
             async move { Ok::<_, hyper::Error>(service) }
@@ -71,113 +77,134 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
     }
 }
 
-async fn handle_request(ctx: Context, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-    {
-        // limits the request size
-        const MAX_BODY_SIZE: u64 = 1 << 20;
-        let response_content_length = match req.body().size_hint().upper() {
-            Some(v) => v,
-            None => MAX_BODY_SIZE + 1,
-        };
-
-        if response_content_length > MAX_BODY_SIZE {
-            let mut resp = Response::new(Body::from("request too large"));
-            *resp.status_mut() = StatusCode::BAD_REQUEST;
-            return Ok(resp);
-        }
-    }
-
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/health") => {
-            // nothing to report yet - healthy by default
-            let mut resp = Response::default();
-            set_headers(resp.headers_mut(), false);
-            Ok(resp)
-        }
-
-        // json-rpc
-        (&Method::POST, "/") => {
-            let body_bytes = hyper::body::aggregate(req.into_body())
-                .await
-                .unwrap()
-                .reader();
-            let json_req: Result<JsonRpcRequest<Vec<serde_json::Value>>, serde_json::Error> =
-                serde_json::from_reader(body_bytes);
-
-            if let Err(err) = json_req {
-                let payload = serde_json::to_vec(&JsonRpcResponseError {
-                    jsonrpc: "2.0".to_string(),
-                    id: 0.into(),
-                    error: JsonRpcError {
-                        // parser error
-                        code: -32700,
-                        message: err.to_string(),
-                    },
-                })
-                .unwrap();
-                let mut resp = Response::new(Body::from(payload));
-                set_headers(resp.headers_mut(), false);
-                return Ok(resp);
-            }
-
-            let json_req = json_req.unwrap();
-            let result: Result<serde_json::Value, String> =
-                handle_method(json_req.method.as_str(), &json_req.params, ctx).await;
-            let payload = match result {
-                Err(err) => {
-                    serde_json::to_vec(&JsonRpcResponseError {
-                        jsonrpc: "2.0".to_string(),
-                        id: json_req.id,
-                        error: JsonRpcError {
-                            // internal server error
-                            code: -32000,
-                            message: err,
-                        },
-                    })
-                }
-                Ok(val) => serde_json::to_vec(&JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
-                    id: json_req.id,
-                    result: Some(val),
-                }),
-            };
-            let mut resp = Response::new(Body::from(payload.unwrap()));
-            set_headers(resp.headers_mut(), false);
-            Ok(resp)
-        }
-
-        // serve CORS headers
-        (&Method::OPTIONS, "/") => {
-            let mut resp = Response::default();
-            set_headers(resp.headers_mut(), true);
-            Ok(resp)
-        }
-
-        // everything else
-        _ => {
-            let mut not_found = Response::default();
-            *not_found.status_mut() = StatusCode::NOT_FOUND;
-            Ok(not_found)
-        }
-    }
+#[derive(Clone)]
+struct Handler {
+    ctx: Context,
+    cache: Cache,
 }
 
-async fn handle_method(
-    method: &str,
-    params: &[serde_json::Value],
-    ctx: Context,
-) -> Result<serde_json::Value, String> {
-    match method {
-        // enqueues a task for computating proof for any given block
-        "proof" => {
-            let options = params.first().ok_or("expected struct ProofRequest")?;
-            let req: ProofRequest =
-                serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
-            execute(&ctx, &req)
-                .await
-                .and_then(|result| serde_json::to_value(result).map_err(Into::into))
-                .map_err(|e| e.to_string())
+impl Handler {
+    fn new(
+        guest_path: PathBuf,
+        cache_path: PathBuf,
+        sgx_instance_id: u32,
+        capacity: usize,
+    ) -> Self {
+        Self {
+            ctx: Context::new(guest_path, cache_path, sgx_instance_id),
+            cache: Cache::new(capacity),
         }
-        _ => todo!(),
+    }
+
+    async fn handle_request(self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+        {
+            // limits the request size
+            const MAX_BODY_SIZE: u64 = 1 << 20;
+            let response_content_length = match req.body().size_hint().upper() {
+                Some(v) => v,
+                None => MAX_BODY_SIZE + 1,
+            };
+
+            if response_content_length > MAX_BODY_SIZE {
+                let mut resp = Response::new(Body::from("request too large"));
+                *resp.status_mut() = StatusCode::BAD_REQUEST;
+                return Ok(resp);
+            }
+        }
+
+        match (req.method(), req.uri().path()) {
+            (&Method::GET, "/health") => {
+                // nothing to report yet - healthy by default
+                let mut resp = Response::default();
+                set_headers(resp.headers_mut(), false);
+                Ok(resp)
+            }
+
+            // json-rpc
+            (&Method::POST, "/") => {
+                let body_bytes = hyper::body::aggregate(req.into_body())
+                    .await
+                    .unwrap()
+                    .reader();
+                let json_req: Result<JsonRpcRequest<Vec<serde_json::Value>>, serde_json::Error> =
+                    serde_json::from_reader(body_bytes);
+
+                if let Err(err) = json_req {
+                    let payload = serde_json::to_vec(&JsonRpcResponseError {
+                        jsonrpc: "2.0".to_string(),
+                        id: 0.into(),
+                        error: JsonRpcError {
+                            // parser error
+                            code: -32700,
+                            message: err.to_string(),
+                        },
+                    })
+                    .unwrap();
+                    let mut resp = Response::new(Body::from(payload));
+                    set_headers(resp.headers_mut(), false);
+                    return Ok(resp);
+                }
+
+                let json_req = json_req.unwrap();
+                let result: Result<serde_json::Value, String> = self
+                    .handle_method(json_req.method.as_str(), &json_req.params)
+                    .await;
+                let payload = match result {
+                    Err(err) => {
+                        serde_json::to_vec(&JsonRpcResponseError {
+                            jsonrpc: "2.0".to_string(),
+                            id: json_req.id,
+                            error: JsonRpcError {
+                                // internal server error
+                                code: -32000,
+                                message: err,
+                            },
+                        })
+                    }
+                    Ok(val) => serde_json::to_vec(&JsonRpcResponse {
+                        jsonrpc: "2.0".to_string(),
+                        id: json_req.id,
+                        result: Some(val),
+                    }),
+                };
+                let mut resp = Response::new(Body::from(payload.unwrap()));
+                set_headers(resp.headers_mut(), false);
+                Ok(resp)
+            }
+
+            // serve CORS headers
+            (&Method::OPTIONS, "/") => {
+                let mut resp = Response::default();
+                set_headers(resp.headers_mut(), true);
+                Ok(resp)
+            }
+
+            // everything else
+            _ => {
+                let mut not_found = Response::default();
+                *not_found.status_mut() = StatusCode::NOT_FOUND;
+                Ok(not_found)
+            }
+        }
+    }
+
+    async fn handle_method(
+        &self,
+        method: &str,
+        params: &[serde_json::Value],
+    ) -> Result<serde_json::Value, String> {
+        match method {
+            // enqueues a task for computating proof for any given block
+            "proof" => {
+                let options = params.first().ok_or("expected struct ProofRequest")?;
+                let req: ProofRequest =
+                    serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
+                execute(&self.cache, &self.ctx, &req)
+                    .await
+                    .and_then(|result| serde_json::to_value(result).map_err(Into::into))
+                    .map_err(|e| e.to_string())
+            }
+            _ => todo!(),
+        }
     }
 }

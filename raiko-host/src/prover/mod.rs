@@ -1,4 +1,3 @@
-pub mod cache;
 pub mod consts;
 pub mod context;
 pub mod error;
