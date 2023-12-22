@@ -1,0 +1,20 @@
+# Ignore everything
+*
+
+# Allow files and directories
+!/Cargo.lock
+!/Cargo.toml
+!/config.toml
+!/docker
+!/lib
+!/primitives
+!/raiko-guest
+!/raiko-host
+!/sgx-ra
+!/taiko.toml
+
+# Ignore unnecessary files inside allowed directories
+# This should go after the allowed directories
+**/docker/docker-compose.yml
+**/docker/Dockerfile
+**/raiko-host/guests/sgx
