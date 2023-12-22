@@ -25,7 +25,6 @@ use prover::server::serve;
 #[clap(author, version, about, long_about = None)]
 struct Args {
     #[clap(
-        short,
         long,
         require_equals = true,
         num_args = 0..=1,
@@ -35,24 +34,24 @@ struct Args {
     /// [default: 0.0.0.0:8080]
     bind: Option<String>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "/tmp")]
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "/tmp")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
     cache: Option<PathBuf>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/guests")]
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/guests")]
     /// The guests path
     guest: Option<PathBuf>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "0")]
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "0")]
     sgx_instance_id: u32,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1)]
+    #[clap(long, require_equals = true, num_args = 0..=1)]
     log_path: Option<PathBuf>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "1000")]
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "1000")]
     proof_cache: Option<usize>,
 
-    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "10")]
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "10")]
     concurrency_limit: Option<usize>,
 }
 
