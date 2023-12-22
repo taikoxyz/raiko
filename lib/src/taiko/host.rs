@@ -257,15 +257,27 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 
     // 1. check l2 parent gas used
     if l2_init_block.gas_used != U256::from(l2_parent_gas_used) {
-        return Err(anyhow::anyhow!("parent gas used mismatch"));
+        return Err(anyhow::anyhow!(
+            "parent gas used mismatch, expect: {}, got: {}",
+            l2_init_block.gas_used,
+            l2_parent_gas_used
+        ));
     }
     // 2. check l1 signal root
     if anchor_l1_signal_root != l1_signal_root {
-        return Err(anyhow::anyhow!("l1 signal root mismatch"));
+        return Err(anyhow::anyhow!(
+            "l1 signal root mismatch, expect: {}, got: {}",
+            anchor_l1_signal_root,
+            l1_signal_root
+        ));
     }
     // 3. check l1 block hash
     if Some(anchor_l1_hash) != l1_fini_block.hash.map(from_ethers_h256) {
-        return Err(anyhow::anyhow!("l1 block hash mismatch"));
+        return Err(anyhow::anyhow!(
+            "l1 block hash mismatch, expect: {}, got: {:?}",
+            anchor_l1_hash,
+            l1_fini_block.hash
+        ));
     }
 
     let extra = TaikoExtra {
