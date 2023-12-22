@@ -51,15 +51,17 @@ fn fetch_data(
 )> {
     let mut provider = new_provider(cache_path, rpc_url)?;
 
-    let query = BlockQuery { block_no };
+    let fini_query = BlockQuery { block_no };
     match layer {
         Layer::L1 => {}
         Layer::L2 => {
-            provider.batch_get_partial_blocks(&query)?;
+            provider.batch_get_partial_blocks(&fini_query)?;
         }
     }
     // Fetch the initial block
-    let init_block = provider.get_partial_block(&query)?;
+    let init_block = provider.get_partial_block(&BlockQuery {
+        block_no: block_no - 1,
+    })?;
 
     info!(
         "Initial {} block: {:?} ({:?})",
@@ -69,7 +71,7 @@ fn fetch_data(
     );
 
     // Fetch the finished block
-    let fini_block = provider.get_full_block(&BlockQuery { block_no })?;
+    let fini_block = provider.get_full_block(&fini_query)?;
 
     info!(
         "Final {} block number: {:?} ({:?})",
