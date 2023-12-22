@@ -10,6 +10,7 @@
 !/primitives
 !/raiko-guest
 !/raiko-host
+!/rust-toolchain
 !/sgx-ra
 !/taiko.toml
 
