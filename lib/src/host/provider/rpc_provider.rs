@@ -19,7 +19,10 @@ use anyhow::{anyhow, Result};
 use ethers_core::types::Filter;
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
 use ethers_providers::{Http, Middleware};
+#[cfg(not(feature = "taiko"))]
 use log::info;
+#[cfg(feature = "taiko")]
+use tracing::info;
 #[cfg(feature = "taiko")]
 use zeth_primitives::taiko::{filter_propose_block_event, BlockProposed};
 
