@@ -48,6 +48,12 @@ struct Args {
 
     #[clap(short, long, require_equals = true, num_args = 0..=1)]
     log_path: Option<PathBuf>,
+
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "1000")]
+    proof_cache: Option<usize>,
+
+    #[clap(short, long, require_equals = true, num_args = 0..=1, default_value = "10")]
+    concurrency_limit: Option<usize>,
 }
 
 // Prerequisites:
@@ -94,6 +100,8 @@ async fn main() -> Result<()> {
         &args.guest.unwrap(),
         &args.cache.unwrap(),
         args.sgx_instance_id,
+        args.proof_cache.unwrap(),
+        args.concurrency_limit.unwrap(),
     )
     .await?;
     Ok(())

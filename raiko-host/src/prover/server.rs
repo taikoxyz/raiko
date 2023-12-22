@@ -6,6 +6,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
+use tower::ServiceBuilder;
 use tracing::info;
 
 use crate::prover::{
@@ -23,6 +24,8 @@ pub fn serve(
     guest_path: &Path,
     cache_path: &Path,
     sgx_instance_id: u32,
+    _proof_cache: usize,
+    concurrency_limit: usize,
 ) -> tokio::task::JoinHandle<()> {
     let addr = addr
         .parse::<std::net::SocketAddr>()
@@ -40,6 +43,10 @@ pub fn serve(
 
             async move { Ok::<_, hyper::Error>(service) }
         });
+
+        let service = ServiceBuilder::new()
+            .concurrency_limit(concurrency_limit)
+            .service(service);
         let server = Server::bind(&addr).serve(service);
         info!("Listening on http://{}", addr);
         server.await.expect("server should be serving");
