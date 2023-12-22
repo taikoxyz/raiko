@@ -150,8 +150,12 @@ impl Provider for CachedRpcProvider {
 
         let out = self.rpc.batch_get_partial_blocks(query)?;
         for block in out.iter() {
-            self.cache
-                .insert_partial_block(query.clone(), block.clone());
+            self.cache.insert_partial_block(
+                BlockQuery {
+                    block_no: block.number.unwrap().as_u64(),
+                },
+                block.clone(),
+            );
         }
         Ok(out)
     }

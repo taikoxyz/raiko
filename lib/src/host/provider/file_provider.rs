@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fs::File,
     io::{Read, Write},
 };
@@ -37,7 +37,7 @@ pub struct FileProvider {
     #[serde_as(as = "Vec<(_, _)>")]
     full_blocks: HashMap<BlockQuery, Block<Transaction>>,
     #[serde_as(as = "Vec<(_, _)>")]
-    partial_blocks: HashMap<BlockQuery, Block<H256>>,
+    partial_blocks: BTreeMap<BlockQuery, Block<H256>>,
     #[serde_as(as = "Vec<(_, _)>")]
     proofs: HashMap<ProofQuery, EIP1186ProofResponse>,
     #[serde_as(as = "Vec<(_, _)>")]
@@ -58,7 +58,7 @@ impl FileProvider {
             file_path,
             dirty: false,
             full_blocks: HashMap::new(),
-            partial_blocks: HashMap::new(),
+            partial_blocks: BTreeMap::new(),
             proofs: HashMap::new(),
             transaction_count: HashMap::new(),
             balance: HashMap::new(),
@@ -159,17 +159,10 @@ impl Provider for FileProvider {
 
     #[cfg(feature = "taiko")]
     fn batch_get_partial_blocks(&mut self, _: &BlockQuery) -> Result<Vec<Block<H256>>> {
-        use itertools::Itertools;
-        let result: Vec<_> = self
-            .partial_blocks
-            .iter()
-            .sorted_by_key(|(k, _)| *k)
-            .map(|(_, v)| v.clone())
-            .collect();
-        if result.is_empty() {
+        if self.partial_blocks.is_empty() {
             Err(anyhow!("No data for partial blocks"))
         } else {
-            Ok(result)
+            Ok(self.partial_blocks.values().cloned().collect())
         }
     }
 }
