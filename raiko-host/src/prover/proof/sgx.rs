@@ -40,6 +40,8 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg(req.graffiti.to_string())
         .arg("--sgx-instance-id")
         .arg(ctx.sgx_context.instance_id.to_string())
+        .arg("--block")
+        .arg(req.block.to_string())
         .output()
         .await
         .map_err(|e| e.to_string())?;
