@@ -9,6 +9,7 @@ pub struct Context {
     /// cache for public input
     pub cache_path: PathBuf,
     pub sgx_context: SgxContext,
+    pub log_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -17,7 +18,12 @@ pub struct SgxContext {
 }
 
 impl Context {
-    pub fn new(guest_path: PathBuf, cache_path: PathBuf, sgx_instance_id: u32) -> Self {
+    pub fn new(
+        guest_path: PathBuf,
+        cache_path: PathBuf,
+        log_path: Option<PathBuf>,
+        sgx_instance_id: u32,
+    ) -> Self {
         let guest_path = absolute(guest_path).unwrap();
         debug!("Guest path: {:?}", guest_path);
         let cache_path = absolute(cache_path).unwrap();
@@ -25,6 +31,7 @@ impl Context {
         Self {
             guest_path,
             cache_path,
+            log_path,
             sgx_context: SgxContext {
                 instance_id: sgx_instance_id,
             },

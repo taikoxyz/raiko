@@ -41,8 +41,11 @@ pub fn execute_sgx(ctx: Context, req: SgxRequest) -> Result<SgxResponse, String>
         .arg(ctx.sgx_context.instance_id.to_string())
         .arg("--block")
         .arg(req.block.to_string())
+        .arg("--log-path")
+        .arg(ctx.log_path.unwrap_or(DEFAULT_SGX_LOG_PATH.into()))
         .output()
         .map_err(|e| e.to_string())?;
+
     info!("Sgx execution stderr: {:?}", str::from_utf8(&output.stderr));
     info!("Sgx execution stdout: {:?}", str::from_utf8(&output.stdout));
     if !output.status.success() {

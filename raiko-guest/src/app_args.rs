@@ -60,7 +60,7 @@ pub struct GlobalOpts {
     pub verbose: u8,
 
     #[clap(long)]
-    pub log_path: Option<PathBuf>,
+    pub log_path: PathBuf,
 
     #[clap(long, default_value = "7")]
     pub max_log_days: Option<usize>,

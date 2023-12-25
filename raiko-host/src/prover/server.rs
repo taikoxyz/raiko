@@ -24,6 +24,7 @@ pub fn serve(
     addr: &str,
     guest_path: &Path,
     cache_path: &Path,
+    log_path: &Option<PathBuf>,
     sgx_instance_id: u32,
     proof_cache: usize,
     concurrency_limit: usize,
@@ -33,10 +34,12 @@ pub fn serve(
         .expect("valid socket address");
     let guest_path = guest_path.to_owned();
     let cache_path = cache_path.to_owned();
+    let log_path = log_path.to_owned();
     tokio::spawn(async move {
         let handler = Handler::new(
-            guest_path.clone(),
-            cache_path.clone(),
+            guest_path,
+            cache_path,
+            log_path,
             sgx_instance_id,
             proof_cache,
         );
@@ -88,11 +91,12 @@ impl Handler {
     fn new(
         guest_path: PathBuf,
         cache_path: PathBuf,
+        log_path: Option<PathBuf>,
         sgx_instance_id: u32,
         capacity: usize,
     ) -> Self {
         Self {
-            ctx: Context::new(guest_path, cache_path, sgx_instance_id),
+            ctx: Context::new(guest_path, cache_path, log_path, sgx_instance_id),
             cache: Cache::new(capacity),
         }
     }

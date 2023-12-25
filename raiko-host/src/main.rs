@@ -60,13 +60,14 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     let _guard = init_tracing(
         args.max_log_days.expect("max_log_days not set"),
-        args.log_path,
+        &args.log_path,
         "raiko-host.log",
     );
     serve(
         &args.bind.unwrap(),
         &args.guest.unwrap(),
         &args.cache.unwrap(),
+        &args.log_path,
         args.sgx_instance_id,
         args.proof_cache.unwrap(),
         args.concurrency_limit.unwrap(),

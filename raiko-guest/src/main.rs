@@ -20,7 +20,7 @@ pub async fn main() -> Result<()> {
     let args = App::parse();
     let _guard = init_tracing(
         args.global_opts.max_log_days.expect("max_log_days not set"),
-        args.global_opts.log_path.clone(),
+        &Some(args.global_opts.log_path.clone()),
         "raiko-guest-sgx.log",
     );
     match args.command {

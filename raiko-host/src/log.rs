@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 pub fn init_tracing(
     max_log_days: usize,
-    log_path: Option<PathBuf>,
+    log_path: &Option<PathBuf>,
     filename_prefix: &str,
 ) -> Option<tracing_appender::non_blocking::WorkerGuard> {
     const DEFAULT_FILTER: &str = "info";
@@ -13,7 +13,7 @@ pub fn init_tracing(
         .with_env_filter(filter)
         .with_test_writer();
     match log_path {
-        Some(ref log_path) => {
+        Some(log_path) => {
             let file_appender = tracing_appender::rolling::Builder::new()
                 .rotation(tracing_appender::rolling::Rotation::DAILY)
                 .filename_prefix(filename_prefix)
