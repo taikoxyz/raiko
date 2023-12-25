@@ -2,7 +2,6 @@ use std::{
     fs::{self, File, OpenOptions},
     io::prelude::*,
     path::Path,
-    str::FromStr,
 };
 
 use anyhow::{anyhow, bail, Error, Result};
@@ -13,6 +12,7 @@ use zeth_lib::{
     taiko::{
         block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
         host::TaikoExtra,
+        FileUrl,
     },
     EthereumTxEssence,
 };
@@ -45,17 +45,6 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         global_opts, args
     );
 
-    let path_str = args.blocks_data_file.to_string_lossy().to_string();
-    let block_no = u64::from_str(&String::from(
-        args.blocks_data_file
-            .file_prefix()
-            .unwrap()
-            .to_str()
-            .unwrap(),
-    ))?;
-
-    println!("Reading input file {} (block no: {})", path_str, block_no);
-
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let prev_privkey = load_private_key(&privkey_path)?;
     // println!("Private key: {}", prev_privkey.display_secret());
@@ -65,11 +54,11 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     // fs::write(privkey_path, new_privkey.to_bytes())?;
     let pi_hash = get_data_to_sign(
-        path_str,
-        args.l1_blocks_data_file.to_string_lossy().to_string(),
+        (args.l1_blocks_data_file, args.l1_rpc),
+        (args.l2_blocks_data_file, args.l2_rpc),
         args.prover,
         args.graffiti,
-        block_no,
+        args.block,
         new_instance,
     )
     .await?;
@@ -97,15 +86,15 @@ fn is_bootstrapped(secrets_dir: &Path) -> bool {
     privkey_path.is_file() && !privkey_path.metadata().unwrap().permissions().readonly()
 }
 
-async fn get_data_to_sign(
-    path_str: String,
-    l1_blocks_path: String,
+async fn get_data_to_sign<T: Into<FileUrl> + Send + 'static>(
+    l1_file_url: T,
+    l2_file_url: T,
     prover: Address,
     graffiti: B256,
     block_no: u64,
     new_pubkey: Address,
 ) -> Result<B256> {
-    let (init, extra) = parse_to_init(path_str, l1_blocks_path, prover, block_no, graffiti).await?;
+    let (init, extra) = parse_to_init(l1_file_url, l2_file_url, prover, block_no, graffiti).await?;
     let input: Input<zeth_lib::EthereumTxEssence> = init.clone().into();
     let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input)
         .expect("Failed to build the resulting block");
@@ -114,22 +103,20 @@ async fn get_data_to_sign(
     Ok(pi_hash)
 }
 
-async fn parse_to_init(
-    blocks_path: String,
-    l1_blocks_path: String,
+async fn parse_to_init<T: Into<FileUrl> + Send + 'static>(
+    l1_file_url: T,
+    l2_file_url: T,
     prover: Address,
     block_no: u64,
     graffiti: B256,
 ) -> Result<(Init<zeth_lib::EthereumTxEssence>, TaikoExtra), Error> {
     let (init, extra) = tokio::task::spawn_blocking(move || {
-        zeth_lib::taiko::host::get_taiko_initial_data::<TaikoStrategyBundle>(
-            Some(l1_blocks_path),
+        zeth_lib::taiko::host::get_taiko_initial_data::<T, TaikoStrategyBundle>(
+            l1_file_url,
+            l2_file_url,
             ETH_MAINNET_CHAIN_SPEC.clone(),
-            None,
             prover,
-            Some(blocks_path),
             TAIKO_MAINNET_CHAIN_SPEC.clone(),
-            None,
             block_no,
             graffiti,
         )

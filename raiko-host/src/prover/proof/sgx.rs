@@ -7,7 +7,7 @@ use crate::prover::{
     consts::*,
     context::Context,
     request::{SgxRequest, SgxResponse},
-    utils::{cache_file_path, guest_executable_path},
+    utils::guest_executable_path,
 };
 
 pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse, String> {
@@ -27,13 +27,13 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         cmd.arg("one-shot");
         cmd
     };
-    let l1_cache_file = cache_file_path(&ctx.cache_path, req.block, true);
-    let l2_cache_file = cache_file_path(&ctx.cache_path, req.block, false);
+    let l1_rpc = req.l1_rpc.clone();
+    let l2_rpc = req.l2_rpc.clone();
     let output = cmd
-        .arg("--blocks-data-file")
-        .arg(l2_cache_file)
-        .arg("--l1-blocks-data-file")
-        .arg(l1_cache_file)
+        .arg("--l1-rpc")
+        .arg(l1_rpc)
+        .arg("--l2-rpc")
+        .arg(l2_rpc)
         .arg("--prover")
         .arg(req.prover.to_string())
         .arg("--graffiti")

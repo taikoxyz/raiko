@@ -1,5 +1,5 @@
 //! Prepare Input for guest
-use std::fmt::Debug;
+use std::{fmt::Debug, path::PathBuf};
 
 use zeth_lib::{
     block_builder::NetworkStrategyBundle,
@@ -44,14 +44,12 @@ where
             let graffiti = *graffiti;
             // run sync task in blocking mode
             tokio::task::spawn_blocking(move || {
-                zeth_lib::taiko::host::get_taiko_initial_data::<N>(
-                    Some(l1_cache_path.into_os_string().into_string().unwrap()),
+                zeth_lib::taiko::host::get_taiko_initial_data::<(Option<PathBuf>,Option<String>),N>(
+                    (Some(l1_cache_path), Some(l1_rpc)),
+                    (Some(l2_cache_path), Some(l2_rpc)),
                     l1_spec,
-                    Some(l1_rpc),
                     prover,
-                    Some(l2_cache_path.into_os_string().into_string().unwrap()),
                     l2_spec,
-                    Some(l2_rpc),
                     l2_block,
                     graffiti,
                 )

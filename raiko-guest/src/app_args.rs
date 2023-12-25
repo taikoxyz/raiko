@@ -29,16 +29,22 @@ pub struct ServerArgs {
 
 #[derive(Debug, Args)]
 pub struct OneShotArgs {
-    #[clap(short, long)]
+    #[clap(long)]
+    pub l1_blocks_data_file: Option<PathBuf>,
+    #[clap(long)]
     /// Path of the *.json.gz file with the block data.
-    pub blocks_data_file: PathBuf,
-    #[clap(short, long)]
-    pub l1_blocks_data_file: PathBuf,
-    #[clap(short, long)]
+    pub l2_blocks_data_file: Option<PathBuf>,
+    #[clap(long)]
+    pub l1_rpc: Option<String>,
+    #[clap(long)]
+    pub l2_rpc: Option<String>,
+    #[clap(long)]
+    pub block: u64,
+    #[clap(long)]
     pub prover: Address,
-    #[clap(short, long)]
+    #[clap(long)]
     pub graffiti: B256,
-    #[clap(short, long)]
+    #[clap(long)]
     pub sgx_instance_id: u32,
 }
 

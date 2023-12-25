@@ -17,7 +17,7 @@ use crate::{
         Init,
     },
     input::Input,
-    taiko::{precheck::rebuild_and_precheck_block, Layer},
+    taiko::{precheck::rebuild_and_precheck_block, FileUrl, Layer},
 };
 
 #[derive(Debug)]
@@ -35,10 +35,9 @@ pub struct TaikoExtra {
 }
 
 #[allow(clippy::type_complexity)]
-fn fetch_data(
+fn fetch_data<T: Into<FileUrl>>(
     annotation: &str,
-    cache_path: Option<String>,
-    rpc_url: Option<String>,
+    file_url: T,
     block_no: u64,
     signal_service: Address,
     layer: Layer,
@@ -49,7 +48,12 @@ fn fetch_data(
     B256,
     Input<EthereumTxEssence>,
 )> {
-    let mut provider = new_provider(cache_path, rpc_url)?;
+    let file_or_url: FileUrl = file_url.into();
+    let (cache_path, rpc_url) = file_or_url.into_file_url();
+    let mut provider = new_provider(
+        cache_path.map(|x| x.to_string_lossy().into_owned()),
+        rpc_url,
+    )?;
 
     let fini_query = BlockQuery { block_no };
     match layer {
@@ -204,21 +208,21 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
-    l1_cache_path: Option<String>,
+pub fn get_taiko_initial_data<
+    T: Into<FileUrl>,
+    N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>,
+>(
+    l1_file_url: T,
+    l2_file_url: T,
     _l1_chain_spec: ChainSpec,
-    l1_rpc_url: Option<String>,
     prover: Address,
-    l2_cache_path: Option<String>,
     l2_chain_spec: ChainSpec,
-    l2_rpc_url: Option<String>,
     l2_block_no: u64,
     graffiti: B256,
 ) -> Result<(Init<EthereumTxEssence>, TaikoExtra)> {
     let (l2_provider, l2_init_block, mut l2_fini_block, l2_signal_root, l2_input) = fetch_data(
         "L2",
-        l2_cache_path,
-        l2_rpc_url,
+        l2_file_url,
         l2_block_no,
         *L2_SIGNAL_SERVICE,
         Layer::L2,
@@ -233,8 +237,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 
     let (mut l1_provider, _l1_init_block, l1_fini_block, l1_signal_root, _l1_input) = fetch_data(
         "L1",
-        l1_cache_path,
-        l1_rpc_url,
+        l1_file_url,
         l1_block_no,
         *L1_SIGNAL_SERVICE,
         Layer::L1,
