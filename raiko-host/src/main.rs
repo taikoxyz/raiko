@@ -53,6 +53,9 @@ struct Args {
 
     #[clap(long, require_equals = true, num_args = 0..=1, default_value = "10")]
     concurrency_limit: Option<usize>,
+
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "7")]
+    max_log_days: Option<usize>,
 }
 
 // Prerequisites:
@@ -85,7 +88,9 @@ async fn main() -> Result<()> {
             let file_appender = tracing_appender::rolling::Builder::new()
                 .rotation(tracing_appender::rolling::Rotation::DAILY)
                 .filename_prefix("raiko.log")
-                .max_log_files(7);
+                .max_log_files(args.max_log_days.expect("max_log_days not set"))
+                .build(log_path)
+                .expect("initializing rolling file appender failed");
             let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
             let subscriber = subscriber_builder.json().with_writer(non_blocking).finish();
             tracing::subscriber::set_global_default(subscriber).unwrap();
