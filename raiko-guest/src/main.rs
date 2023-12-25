@@ -12,12 +12,17 @@ use anyhow::Result;
 use app_args::{App, Command};
 use clap::Parser;
 use one_shot::{bootstrap, one_shot};
+use raiko_host::log::init_tracing;
 use ratls_server::ratls_server;
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
     let args = App::parse();
-
+    let _guard = init_tracing(
+        args.global_opts.max_log_days.expect("max_log_days not set"),
+        args.global_opts.log_path.clone(),
+        "raiko-guest-sgx.log",
+    );
     match args.command {
         Command::Server(server_args) => {
             println!("Starting RA-TLS server - listening on {}", server_args.addr);

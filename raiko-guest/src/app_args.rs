@@ -58,4 +58,10 @@ pub struct GlobalOpts {
     #[clap(long, short, global = true, action = ArgAction::Count)]
     /// Verbosity of the application. Use multiple times to increase verbosity.
     pub verbose: u8,
+
+    #[clap(long)]
+    pub log_path: Option<PathBuf>,
+
+    #[clap(long, default_value = "7")]
+    pub max_log_days: Option<usize>,
 }
