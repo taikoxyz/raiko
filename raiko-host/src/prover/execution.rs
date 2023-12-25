@@ -24,7 +24,9 @@ pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result
             if let Some(proof) = cached {
                 return Ok(ProofResponse::Sgx(SgxResponse { proof }));
             }
-            let resp = execute_sgx(ctx, req).await?;
+            let ctx = ctx.clone();
+            let req = req.clone();
+            let resp = tokio::task::spawn_blocking(move || execute_sgx(ctx, req)).await??;
             cache.set(cache_key, resp.proof.clone());
             Ok(ProofResponse::Sgx(resp))
         }

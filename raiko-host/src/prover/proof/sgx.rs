@@ -1,6 +1,5 @@
-use std::str;
+use std::{process::Command, str};
 
-use tokio::process::Command;
 use tracing::{debug, info};
 
 use crate::prover::{
@@ -10,7 +9,7 @@ use crate::prover::{
     utils::guest_executable_path,
 };
 
-pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse, String> {
+pub fn execute_sgx(ctx: Context, req: SgxRequest) -> Result<SgxResponse, String> {
     let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
     debug!("Guest path: {:?}", guest_path);
     let mut cmd = {
@@ -43,7 +42,6 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg("--block")
         .arg(req.block.to_string())
         .output()
-        .await
         .map_err(|e| e.to_string())?;
     info!("Sgx execution stderr: {:?}", str::from_utf8(&output.stderr));
     info!("Sgx execution stdout: {:?}", str::from_utf8(&output.stdout));
