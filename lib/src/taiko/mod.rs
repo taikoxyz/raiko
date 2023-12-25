@@ -8,6 +8,7 @@ pub mod host;
 pub mod precheck;
 pub mod prepare;
 pub mod protocol_instance;
+pub mod provider;
 pub mod utils;
 
 pub enum Layer {

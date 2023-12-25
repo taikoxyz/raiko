@@ -32,6 +32,7 @@ pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result
             // 1. load input data into cache path
             let _ = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
             // 2. run proof
+            unimplemented!("PseZk proof is not implemented yet")
         }
     }
 }

@@ -13,11 +13,11 @@ use crate::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
     consts::ChainSpec,
     host::{
-        provider::{new_provider, BlockQuery, ProofQuery, ProposeQuery, Provider},
+        provider::{BlockQuery, ProofQuery, ProposeQuery, Provider},
         Init,
     },
     input::Input,
-    taiko::{precheck::rebuild_and_precheck_block, FileUrl, Layer},
+    taiko::{precheck::rebuild_and_precheck_block, provider::new_provider, FileUrl, Layer},
 };
 
 #[derive(Debug)]
