@@ -13,11 +13,9 @@ use super::{
 };
 
 pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
-    // 1. load input data into cache path
-    let _ = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
-    // 2. run proof
     match req {
         ProofRequest::Sgx(req) => {
+            // fetching data in the sgx guest
             let cache_key = CacheKey {
                 proof_type: ProofType::Sgx,
                 block: req.block,
@@ -30,6 +28,10 @@ pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result
             cache.set(cache_key, resp.proof.clone());
             Ok(ProofResponse::Sgx(resp))
         }
-        ProofRequest::PseZk(_) => todo!(),
+        ProofRequest::PseZk(_) => {
+            // 1. load input data into cache path
+            let _ = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
+            // 2. run proof
+        }
     }
 }
