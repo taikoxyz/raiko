@@ -20,10 +20,12 @@ pub fn execute_sgx(ctx: Context, req: SgxRequest) -> Result<SgxResponse, String>
             .file_name()
             .ok_or(String::from("missing sgx executable"))?;
         let mut cmd = Command::new("sudo");
-        cmd.current_dir(bin_directory);
-        cmd.arg("gramine-sgx");
-        cmd.arg(bin);
-        cmd.arg("one-shot");
+        cmd.current_dir(bin_directory)
+            .arg("gramine-sgx")
+            .arg(bin)
+            .arg("--log-path")
+            .arg(ctx.log_path.unwrap_or(DEFAULT_SGX_LOG_PATH.into()))
+            .arg("one-shot");
         cmd
     };
     let l1_rpc = req.l1_rpc.clone();
@@ -41,8 +43,6 @@ pub fn execute_sgx(ctx: Context, req: SgxRequest) -> Result<SgxResponse, String>
         .arg(ctx.sgx_context.instance_id.to_string())
         .arg("--block")
         .arg(req.block.to_string())
-        .arg("--log-path")
-        .arg(ctx.log_path.unwrap_or(DEFAULT_SGX_LOG_PATH.into()))
         .output()
         .map_err(|e| e.to_string())?;
 
