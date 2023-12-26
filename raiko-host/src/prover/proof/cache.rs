@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use lru_time_cache::LruCache;
+use zeth_primitives::{Address, B256};
 
 use super::ProofType;
 pub struct CachedProof {
@@ -11,6 +12,8 @@ pub struct CachedProof {
 pub struct CacheKey {
     pub proof_type: ProofType,
     pub block: u64,
+    pub prover: Address,
+    pub graffiti: B256,
 }
 
 impl AsRef<CacheKey> for CacheKey {

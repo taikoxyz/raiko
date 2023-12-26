@@ -21,6 +21,8 @@ pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result
             let cache_key = CacheKey {
                 proof_type: ProofType::Sgx,
                 block: req.block,
+                prover: req.prover,
+                graffiti: req.graffiti,
             };
             let cached = cache.get(&cache_key);
             if let Some(proof) = cached {
