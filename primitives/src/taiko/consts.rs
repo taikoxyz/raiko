@@ -22,11 +22,11 @@ pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
 });
 
 pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xbE71D121291517c85Ab4d3ac65d70F6b1FD57118")
+    Address::from_str("0x62Acda3Ad15B382C32B2fB21BEAc9DfB95bbb02F")
         .expect("invalid l1 contract address")
 });
 
 pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x1670010000000000000000000000000000010001")
+    Address::from_str("0x1670080000000000000000000000000000010001")
         .expect("invalid l2 contract address")
 });
