@@ -11,10 +11,13 @@ use super::{
     },
     request::{ProofRequest, ProofResponse, SgxResponse},
 };
+use std::time::Instant;
+use crate::metrics::observe_sgx_gen;
 
 pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
     match req {
         ProofRequest::Sgx(req) => {
+            let start = Instant::now();
             // fetching data in the sgx guest
             let cache_key = CacheKey {
                 proof_type: ProofType::Sgx,
@@ -30,6 +33,8 @@ pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result
             let req = req.clone();
             let resp = tokio::task::spawn_blocking(move || execute_sgx(ctx, req)).await??;
             cache.set(cache_key, resp.proof.clone());
+            let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
+            observe_sgx_gen(time_elapsed);
             Ok(ProofResponse::Sgx(resp))
         }
         ProofRequest::PseZk(_) => {

@@ -3,3 +3,4 @@
 
 pub mod log;
 pub mod prover;
+pub mod metrics;
