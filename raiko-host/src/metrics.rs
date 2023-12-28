@@ -1,16 +1,49 @@
-use prometheus::{register_int_gauge_vec, IntGaugeVec};
+use prometheus::{register_int_gauge_vec, register_int_counter_vec, IntGaugeVec, IntCounterVec, labels};
 use lazy_static::lazy_static;
 
 lazy_static! {
     pub static ref SGX_PROOF_GEN_TIME: IntGaugeVec = register_int_gauge_vec!(
             "sgx_proof_time_gauge",
-            "time taken for sgx proof generation", 
-            &["duration"]
+            "time taken for sgx proof generation",
+            &["blockid"]
         )
+    .unwrap();
+
+    pub static ref SGX_PROOF_SUCCESS_COUNTER: IntCounterVec = register_int_counter_vec!(
+        "sgx_proof_success_counter",
+        "number of successful sgx proof calls",
+        &["blockid"]
+    )
+    .unwrap();
+
+    pub static ref SGX_PROOF_ERROR_COUNTER: IntCounterVec = register_int_counter_vec!(
+        "sgx_proof_error_counter",
+        "number of failed sgx proof calls",
+        &["blockid"]
+    )
     .unwrap();
 }
 
-// Function to increment the metric based on method and status
-pub fn observe_sgx_gen(time: i64) {
-    SGX_PROOF_GEN_TIME.with_label_values(&["duration"]).set(time);
+pub fn observe_sgx_gen(block: u64, time: i64) {
+    let bid = &block.to_string()[..];
+    let label = labels!{
+        "blockid" => bid,
+    };
+    SGX_PROOF_GEN_TIME.with(&label).set(time);
+}
+
+pub fn inc_sgx_success(block: u64) {
+    let bid = &block.to_string()[..];
+    let label = labels!{
+        "blockid" => bid,
+    };    
+    SGX_PROOF_SUCCESS_COUNTER.with(&label).inc();
+}
+
+pub fn inc_sgx_error(block: u64) {
+    let bid = &block.to_string()[..];
+    let label = labels!{
+        "blockid" => bid,
+    };
+    SGX_PROOF_ERROR_COUNTER.with(&label).inc();
 }

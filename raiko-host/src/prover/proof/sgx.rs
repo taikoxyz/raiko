@@ -9,6 +9,8 @@ use crate::prover::{
     utils::guest_executable_path,
 };
 
+use crate::metrics::inc_sgx_error;
+
 pub fn execute_sgx(ctx: Context, req: SgxRequest) -> Result<SgxResponse, String> {
     let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
     debug!("Guest path: {:?}", guest_path);
@@ -49,6 +51,7 @@ pub fn execute_sgx(ctx: Context, req: SgxRequest) -> Result<SgxResponse, String>
     info!("Sgx execution stderr: {:?}", str::from_utf8(&output.stderr));
     info!("Sgx execution stdout: {:?}", str::from_utf8(&output.stdout));
     if !output.status.success() {
+        inc_sgx_error(req.block);
         return Err(output.status.to_string());
     }
     parse_sgx_result(output.stdout)
