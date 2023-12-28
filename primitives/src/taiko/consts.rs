@@ -6,7 +6,8 @@ use once_cell::sync::Lazy;
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
 pub static BLOCK_GAS_LIMIT: Lazy<U256> = Lazy::new(|| uint!(15250000_U256));
 
-// need modify blew four address when redeploy contract
+// need modify blew four address and chain id when redeploy contract
+pub const CHAIN_ID: u64 = 167008;
 pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0xb36a8742CDeA0195f5e659DED165FeA0dCC9F485")
         .expect("invalid l1 signal service")

@@ -68,7 +68,7 @@ pub static ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
 /// The taiko mainnet specification.
 #[cfg(feature = "taiko")]
 pub static TAIKO_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
-    chain_id: 167001,
+    chain_id: zeth_primitives::taiko::CHAIN_ID,
     hard_forks: BTreeMap::from([
         (SpecId::SHANGHAI, ForkCondition::Block(0)),
         (SpecId::CANCUN, ForkCondition::TBD),
