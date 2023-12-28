@@ -76,6 +76,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let proof = hex::encode(proof);
     println!("Proof: 0x{}", proof);
     println!("Public key: {}", new_pubkey);
+    println!("Instance address: {}", new_instance);
 
     save_attestation_user_report_data(new_instance)?;
     print_sgx_info()

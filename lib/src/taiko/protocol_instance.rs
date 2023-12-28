@@ -1,7 +1,7 @@
 use anyhow::Result;
 use zeth_primitives::{
     block::Header,
-    ethers::from_ethers_u256,
+    ethers::{from_ethers_h256, from_ethers_u256},
     keccak,
     taiko::{
         deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
@@ -29,8 +29,13 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
     // block.number);
     let block_hash = tx_list_hash;
     let block_hash_h256: U256 = block_hash.into();
+    let prevrando = if cfg!(feature = "pos") {
+        from_ethers_h256(extra.l1_next_block.mix_hash.unwrap_or_default()).into()
+    } else {
+        from_ethers_u256(extra.l1_next_block.difficulty)
+    };
     let difficulty = block_hash_h256
-        ^ (from_ethers_u256(extra.l1_next_block.difficulty)
+        ^ (prevrando
             * U256::from(header.number)
             * U256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()));
     let gas_limit: u64 = header.gas_limit.try_into().unwrap();

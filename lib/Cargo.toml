@@ -33,4 +33,5 @@ serde_with = "3.1"
 
 [features]
 taiko = ["zeth-primitives/taiko"]
+pos = []
 server = []
