@@ -6,7 +6,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
-use prometheus::{TextEncoder, Encoder};
+use prometheus::{Encoder, TextEncoder};
 use tower::ServiceBuilder;
 use tracing::info;
 
@@ -192,9 +192,9 @@ impl Handler {
                 let mf = prometheus::gather();
                 encoder.encode(&mf, &mut buffer).unwrap();
                 let resp = Response::builder()
-                .header(hyper::header::CONTENT_TYPE, encoder.format_type())
-                .body(Body::from(buffer))
-                .unwrap();
+                    .header(hyper::header::CONTENT_TYPE, encoder.format_type())
+                    .body(Body::from(buffer))
+                    .unwrap();
                 Ok(resp)
             }
 

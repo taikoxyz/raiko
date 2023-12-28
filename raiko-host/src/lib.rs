@@ -2,5 +2,5 @@
 #![feature(absolute_path)]
 
 pub mod log;
-pub mod prover;
 pub mod metrics;
+pub mod prover;

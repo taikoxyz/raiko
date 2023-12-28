@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use zeth_lib::taiko::block_builder::TaikoStrategyBundle;
 
 use super::{
@@ -11,8 +13,7 @@ use super::{
     },
     request::{ProofRequest, ProofResponse, SgxResponse},
 };
-use std::time::Instant;
-use crate::metrics::{observe_sgx_gen, inc_sgx_success};
+use crate::metrics::{inc_sgx_success, observe_sgx_gen};
 
 pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
     match req {

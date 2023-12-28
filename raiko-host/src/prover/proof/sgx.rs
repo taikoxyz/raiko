@@ -2,14 +2,15 @@ use std::{process::Command, str};
 
 use tracing::{debug, info};
 
-use crate::prover::{
-    consts::*,
-    context::Context,
-    request::{SgxRequest, SgxResponse},
-    utils::guest_executable_path,
+use crate::{
+    metrics::inc_sgx_error,
+    prover::{
+        consts::*,
+        context::Context,
+        request::{SgxRequest, SgxResponse},
+        utils::guest_executable_path,
+    },
 };
-
-use crate::metrics::inc_sgx_error;
 
 pub fn execute_sgx(ctx: Context, req: SgxRequest) -> Result<SgxResponse, String> {
     let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
