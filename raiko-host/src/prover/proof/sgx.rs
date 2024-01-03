@@ -21,10 +21,12 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
             .file_name()
             .ok_or(String::from("missing sgx executable"))?;
         let mut cmd = Command::new("sudo");
-        cmd.current_dir(bin_directory);
-        cmd.arg("gramine-sgx");
-        cmd.arg(bin);
-        cmd.arg("one-shot");
+        cmd.current_dir(bin_directory)
+            .arg("gramine-sgx")
+            .arg(bin)
+            .arg("--l2-chain")
+            .arg(&ctx.l2_chain)
+            .arg("one-shot");
         cmd
     };
     let l1_cache_file = cache_file_path(&ctx.cache_path, req.block, true);

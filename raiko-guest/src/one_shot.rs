@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Error, Result};
 use zeth_lib::{
-    consts::{ETH_MAINNET_CHAIN_SPEC, TAIKO_MAINNET_CHAIN_SPEC},
+    consts::{get_taiko_chain_spec, ChainSpec, ETH_MAINNET_CHAIN_SPEC},
     host::Init,
     input::Input,
     taiko::{
@@ -63,8 +63,11 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
 
+    let l2_chain_spec = get_taiko_chain_spec(&global_opts.l2_chain);
+
     // fs::write(privkey_path, new_privkey.to_bytes())?;
     let pi_hash = get_data_to_sign(
+        &l2_chain_spec,
         path_str,
         args.l1_blocks_data_file.to_string_lossy().to_string(),
         args.prover,
@@ -99,6 +102,7 @@ fn is_bootstrapped(secrets_dir: &Path) -> bool {
 }
 
 async fn get_data_to_sign(
+    l2_chain_spec: &ChainSpec,
     path_str: String,
     l1_blocks_path: String,
     prover: Address,
@@ -106,9 +110,17 @@ async fn get_data_to_sign(
     block_no: u64,
     new_pubkey: Address,
 ) -> Result<B256> {
-    let (init, extra) = parse_to_init(path_str, l1_blocks_path, prover, block_no, graffiti).await?;
+    let (init, extra) = parse_to_init(
+        l2_chain_spec,
+        path_str,
+        l1_blocks_path,
+        prover,
+        block_no,
+        graffiti,
+    )
+    .await?;
     let input: Input<zeth_lib::EthereumTxEssence> = init.clone().into();
-    let output = TaikoBlockBuilder::build_from(&TAIKO_MAINNET_CHAIN_SPEC, input)
+    let output = TaikoBlockBuilder::build_from(l2_chain_spec, input)
         .expect("Failed to build the resulting block");
     let pi = zeth_lib::taiko::protocol_instance::assemble_protocol_instance(&extra, &output)?;
     let pi_hash = pi.hash(EvidenceType::Sgx { new_pubkey });
@@ -116,12 +128,14 @@ async fn get_data_to_sign(
 }
 
 async fn parse_to_init(
+    l2_chain_spec: &ChainSpec,
     blocks_path: String,
     l1_blocks_path: String,
     prover: Address,
     block_no: u64,
     graffiti: B256,
 ) -> Result<(Init<zeth_lib::EthereumTxEssence>, TaikoExtra), Error> {
+    let l2_chain_spec = l2_chain_spec.clone();
     let (init, extra) = tokio::task::spawn_blocking(move || {
         zeth_lib::taiko::host::get_taiko_initial_data::<TaikoStrategyBundle>(
             Some(l1_blocks_path),
@@ -129,7 +143,7 @@ async fn parse_to_init(
             None,
             prover,
             Some(blocks_path),
-            TAIKO_MAINNET_CHAIN_SPEC.clone(),
+            l2_chain_spec,
             None,
             block_no,
             graffiti,

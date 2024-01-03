@@ -4,15 +4,19 @@ use anyhow::{bail, Context, Result};
 use ethers_core::types::{Block, Transaction as EthersTransaction, U256 as EthersU256, U64};
 use zeth_primitives::{
     ethers::from_ethers_h160,
-    taiko::{anchor::check_anchor_signature, ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, L2_CONTRACT},
+    taiko::{anchor::check_anchor_signature, ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT},
     transactions::EthereumTransaction,
     Address,
 };
 
-use crate::taiko::{host::TaikoExtra, utils::rlp_decode_list};
+use crate::{
+    consts::ChainSpec,
+    taiko::{host::TaikoExtra, utils::rlp_decode_list},
+};
 
 // rebuild the block with anchor transaction and txlist from l1 contract, then precheck it
 pub fn rebuild_and_precheck_block(
+    l2_chain_spec: &ChainSpec,
     l2_fini: &mut Block<EthersTransaction>,
     extra: &TaikoExtra,
 ) -> Result<()> {
@@ -20,7 +24,7 @@ pub fn rebuild_and_precheck_block(
         bail!("no anchor transaction found");
     };
     // 1. check anchor transaction
-    precheck_anchor(l2_fini, &anchor).with_context(|| "precheck anchor error")?;
+    precheck_anchor(l2_chain_spec, l2_fini, &anchor).with_context(|| "precheck anchor error")?;
 
     // 2. patch anchor transaction into tx list instead of those from l2 node's
     let mut txs: Vec<EthersTransaction> =
@@ -79,6 +83,7 @@ impl std::fmt::Display for AnchorError {
 impl Error for AnchorError {}
 
 pub fn precheck_anchor(
+    l2_chain_spec: &ChainSpec,
     l2_fini: &Block<EthersTransaction>,
     anchor: &EthersTransaction,
 ) -> Result<(), AnchorError> {
@@ -102,14 +107,14 @@ pub fn precheck_anchor(
     }
     let Some(to) = anchor.to else {
         return Err(AnchorError::AnchorToMisMatch {
-            expected: *L2_CONTRACT,
+            expected: l2_chain_spec.l2_contract.unwrap(),
             got: None,
         });
     };
     let to = from_ethers_h160(to);
-    if to != *L2_CONTRACT {
+    if to != l2_chain_spec.l2_contract.unwrap() {
         return Err(AnchorError::AnchorFromMisMatch {
-            expected: *L2_CONTRACT,
+            expected: l2_chain_spec.l2_contract.unwrap(),
             got: Some(to),
         });
     }

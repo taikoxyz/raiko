@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use zeth_lib::{
     block_builder::NetworkStrategyBundle,
-    consts::{ETH_MAINNET_CHAIN_SPEC, TAIKO_MAINNET_CHAIN_SPEC},
+    consts::{get_taiko_chain_spec, ETH_MAINNET_CHAIN_SPEC},
     host::Init,
     taiko::host::TaikoExtra,
     EthereumTxEssence,
@@ -34,7 +34,8 @@ where
         }) => {
             let l2_block = *block;
             let l2_cache_path = cache_file_path(&ctx.cache_path, l2_block, false);
-            let l2_spec = TAIKO_MAINNET_CHAIN_SPEC.clone();
+
+            let l2_spec = get_taiko_chain_spec(&ctx.l2_chain);
             let l2_rpc = l2_rpc.to_owned();
 
             let l1_spec = ETH_MAINNET_CHAIN_SPEC.clone();

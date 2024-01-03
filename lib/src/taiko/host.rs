@@ -220,7 +220,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_cache_path,
         l2_rpc_url,
         l2_block_no,
-        *L2_SIGNAL_SERVICE,
+        l2_chain_spec.l2_signal_service.unwrap(),
         Layer::L2,
     )?;
     // Get anchor call parameters
@@ -236,12 +236,12 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1_cache_path,
         l1_rpc_url,
         l1_block_no,
-        *L1_SIGNAL_SERVICE,
+        l2_chain_spec.l1_signal_service.unwrap(),
         Layer::L1,
     )?;
 
     let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {
-        l1_contract: H160::from_slice(L1_CONTRACT.as_slice()),
+        l1_contract: H160::from_slice(l2_chain_spec.l1_contract.unwrap().as_slice()),
         l1_block_no: l1_block_no + 1,
         l2_block_no,
     })?;
@@ -297,7 +297,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     };
 
     // rebuild transaction list by tx_list from l1 contract
-    rebuild_and_precheck_block(&mut l2_fini_block, &extra)?;
+    rebuild_and_precheck_block(&l2_chain_spec, &mut l2_fini_block, &extra)?;
 
     // execute transactions and get states
     let init = execute_data::<N>(

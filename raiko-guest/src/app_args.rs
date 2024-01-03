@@ -52,4 +52,7 @@ pub struct GlobalOpts {
     #[clap(long, short, global = true, action = ArgAction::Count)]
     /// Verbosity of the application. Use multiple times to increase verbosity.
     pub verbose: u8,
+
+    #[clap(long, require_equals = true, default_value = "internal_devnet_a")]
+    pub l2_chain: String,
 }

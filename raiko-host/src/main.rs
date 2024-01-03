@@ -20,6 +20,7 @@ use std::{fmt::Debug, path::PathBuf};
 use anyhow::Result;
 use clap::Parser;
 use prover::server::serve;
+use tracing::info;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -56,6 +57,9 @@ struct Args {
 
     #[clap(long, require_equals = true, num_args = 0..=1, default_value = "7")]
     max_log_days: Option<usize>,
+
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "internal_devnet_a")]
+    l2_chain: Option<String>,
 }
 
 // Prerequisites:
@@ -102,10 +106,12 @@ async fn main() -> Result<()> {
             None
         }
     };
+    info!("Start args: {:?}", args);
     serve(
         &args.bind.unwrap(),
         &args.guest.unwrap(),
         &args.cache.unwrap(),
+        &args.l2_chain.unwrap(),
         args.sgx_instance_id,
         args.proof_cache.unwrap(),
         args.concurrency_limit.unwrap(),
