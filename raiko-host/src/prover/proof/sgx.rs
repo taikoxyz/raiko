@@ -24,8 +24,6 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         cmd.current_dir(bin_directory)
             .arg("gramine-sgx")
             .arg(bin)
-            .arg("--l2-chain")
-            .arg(&ctx.l2_chain)
             .arg("one-shot");
         cmd
     };
@@ -42,6 +40,8 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .arg(req.graffiti.to_string())
         .arg("--sgx-instance-id")
         .arg(ctx.sgx_context.instance_id.to_string())
+        .arg("--l2-chain")
+        .arg(&ctx.l2_chain)
         .output()
         .await
         .map_err(|e| e.to_string())?;

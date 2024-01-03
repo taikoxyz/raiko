@@ -63,7 +63,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
 
-    let l2_chain_spec = get_taiko_chain_spec(&global_opts.l2_chain.unwrap());
+    let l2_chain_spec = get_taiko_chain_spec(&args.l2_chain.unwrap());
 
     // fs::write(privkey_path, new_privkey.to_bytes())?;
     let pi_hash = get_data_to_sign(
