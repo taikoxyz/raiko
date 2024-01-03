@@ -54,5 +54,5 @@ pub struct GlobalOpts {
     pub verbose: u8,
 
     #[clap(long, require_equals = true, default_value = "internal_devnet_a")]
-    pub l2_chain: String,
+    pub l2_chain: Option<String>,
 }
