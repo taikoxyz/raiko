@@ -44,7 +44,7 @@ pub struct OneShotArgs {
 
 #[derive(Debug, Args)]
 pub struct GlobalOpts {
-    #[clap(short, long, require_equals = true, default_value = "/secrets")]
+    #[clap(short, long, default_value = "/secrets")]
     /// Path to the directory with the encrypted private keys being used to sign the
     /// blocks.
     pub secrets_dir: PathBuf,
@@ -53,6 +53,6 @@ pub struct GlobalOpts {
     /// Verbosity of the application. Use multiple times to increase verbosity.
     pub verbose: u8,
 
-    #[clap(long, require_equals = true, default_value = "internal_devnet_a")]
+    #[clap(long, default_value = "internal_devnet_a")]
     pub l2_chain: Option<String>,
 }
