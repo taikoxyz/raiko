@@ -25,7 +25,6 @@ use revm::{
 use tracing::debug;
 use zeth_primitives::{
     receipt::Receipt,
-    taiko::L2_CONTRACT,
     transactions::{
         ethereum::{EthereumTxEssence, TransactionKind},
         TxEssence,
@@ -37,7 +36,7 @@ use zeth_primitives::{
 use crate::{
     block_builder::BlockBuilder,
     consts,
-    consts::{GWEI_TO_WEI, MIN_SPEC_ID},
+    consts::{ChainSpec, GWEI_TO_WEI, MIN_SPEC_ID},
     execution::TxExecStrategy,
     guest_mem_forget,
 };
@@ -154,7 +153,13 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             }
 
             // process the transaction
-            fill_eth_tx_env(&mut evm.env.tx, &tx.essence, tx_from, is_anchor);
+            fill_eth_tx_env(
+                block_builder.chain_spec,
+                &mut evm.env.tx,
+                &tx.essence,
+                tx_from,
+                is_anchor,
+            );
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
@@ -297,6 +302,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
 }
 
 pub fn fill_eth_tx_env(
+    l2_chain_spec: &ChainSpec,
     tx_env: &mut TxEnv,
     essence: &EthereumTxEssence,
     caller: Address,
@@ -305,7 +311,7 @@ pub fn fill_eth_tx_env(
     // claim the anchor
     tx_env.taiko.is_anchor = is_anchor;
     // set the treasury address
-    tx_env.taiko.treasury = *L2_CONTRACT;
+    tx_env.taiko.treasury = l2_chain_spec.l2_contract.unwrap();
     match essence {
         EthereumTxEssence::Legacy(tx) => {
             tx_env.caller = caller;

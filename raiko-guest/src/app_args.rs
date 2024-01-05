@@ -29,22 +29,24 @@ pub struct ServerArgs {
 
 #[derive(Debug, Args)]
 pub struct OneShotArgs {
-    #[clap(short, long)]
+    #[clap(long)]
     /// Path of the *.json.gz file with the block data.
     pub blocks_data_file: PathBuf,
-    #[clap(short, long)]
+    #[clap(long)]
     pub l1_blocks_data_file: PathBuf,
-    #[clap(short, long)]
+    #[clap(long)]
     pub prover: Address,
-    #[clap(short, long)]
+    #[clap(long)]
     pub graffiti: B256,
-    #[clap(short, long)]
+    #[clap(long)]
     pub sgx_instance_id: u32,
+    #[clap(long, default_value = "internal_devnet_a")]
+    pub l2_chain: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct GlobalOpts {
-    #[clap(short, long, require_equals = true, default_value = "/secrets")]
+    #[clap(short, long, default_value = "/secrets")]
     /// Path to the directory with the encrypted private keys being used to sign the
     /// blocks.
     pub secrets_dir: PathBuf,

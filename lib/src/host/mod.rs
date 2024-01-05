@@ -364,7 +364,7 @@ fn proofs_to_tries(
 
         let root_node = if let Some(root_node) = root_node {
             root_node
-        } else if proof.storage_hash.0 == EMPTY_ROOT.0 {
+        } else if proof.storage_hash.0 == EMPTY_ROOT.0 || proof.storage_hash.is_zero() {
             MptNode::default()
         } else {
             // if there are no storage proofs but the root is non-empty, create a dummy
