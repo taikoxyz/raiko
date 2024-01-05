@@ -49,7 +49,6 @@ RUN mkdir -p \
 
 COPY docker/restart_aesm.sh /restart_aesm.sh
 
-# Install Rust
 RUN curl --proto '=https' --tlsv1.3 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
@@ -70,14 +69,3 @@ CMD /restart_aesm.sh && \
     gramine-sgx ./raiko-guest bootstrap && \
     cd - && \
     RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=${SGX_INSTANCE_ID} --bind=${IP_NUMBER}:${PORT_NUMBER} --log-path=${LOG_PATH}
-
-# RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123 --bind=0.0.0.0:9097 --log-path=/data/log/sgx
-# cp target/release/raiko-guest raiko-host/guests/sgx
-
-# RUN cargo run --bin raiko-host -- --sgx-instance-id=123 --bind=0.0.0.0:8081
-# RUN cargo build --release
-
-# ENTRYPOINT ["/bin/sh", "-c"]
-# CMD ["/restart_aesm.sh ; exec /bin/bash"]
-# RUN cargo install --path raiko-host
-# RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123 --log-path=/data/log/sgx

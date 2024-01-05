@@ -9,23 +9,6 @@ services:
         UBUNTU_CODENAME: jammy
     image: raiko:latest
     container_name: raiko
-    # ports:
-    #   - "8082:8082"
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
-
-# Run:
-#   docker-compose build
-#   docker-compose run --rm raiko
-#
-# To learn IP of the container:
-#   docker inspect \
-#     -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' e361e87bb11d
-# mkdir /tmp/sgx
-# cargo run --bin raiko-host -- --sgx-instance-id=123 --bind=0.0.0.0:9091
-# ubuntu@ubuntu:~/zeth/target/debug$ mkdir secrets
-# gramine-sgx ./raiko-guest bootstrap
-#
-# RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123 --bind=0.0.0.0:9097
-# gramine-sgx raiko-guest one-shot --blocks-data-file /tmp/2.l2.json.gz --l1-blocks-data-file /tmp/2.l1.json.gz --prover 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 --graffiti 0000000000000000000000000000000000000000000000000000000000000000 --sgx-instance-id 123
