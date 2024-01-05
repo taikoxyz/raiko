@@ -13,11 +13,14 @@ use super::{
     },
     request::{ProofRequest, ProofResponse, SgxResponse},
 };
-use crate::metrics::{inc_sgx_success, observe_sgx_gen};
+use crate::metrics::{inc_sgx_success, observe_sgx_gen, observe_input};
 
 pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
     // 1. load input data into cache path
+    let start = Instant::now();
     let _ = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
+    let elapsed = Instant::now().duration_since(start).as_millis() as i64;
+    observe_input(elapsed);
     // 2. run proof
     match req {
         ProofRequest::Sgx(req) => {
