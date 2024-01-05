@@ -65,7 +65,6 @@ RUN cargo build --release && \
 
 CMD /restart_aesm.sh && \
     cd raiko-host/guests/sgx && \
-    sleep 10 && \
     gramine-sgx ./raiko-guest bootstrap && \
     cd - && \
     RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=${SGX_INSTANCE_ID} --bind=${IP_NUMBER}:${PORT_NUMBER} --log-path=${LOG_PATH}

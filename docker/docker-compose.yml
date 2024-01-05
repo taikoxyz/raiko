@@ -12,3 +12,5 @@ services:
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
+    volumes:
+      - /data/log/sgx:/data/log/sgx
