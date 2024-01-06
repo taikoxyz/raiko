@@ -15,6 +15,7 @@
 // limitations under the License.
 
 mod prover;
+mod rolling;
 use std::{fmt::Debug, path::PathBuf};
 
 use anyhow::Result;
@@ -60,6 +61,9 @@ struct Args {
 
     #[clap(long, require_equals = true, num_args = 0..=1, default_value = "internal_devnet_a")]
     l2_chain: Option<String>,
+
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "10")]
+    max_caches: Option<usize>,
 }
 
 // Prerequisites:
@@ -115,6 +119,7 @@ async fn main() -> Result<()> {
         args.sgx_instance_id,
         args.proof_cache.unwrap(),
         args.concurrency_limit.unwrap(),
+        args.max_caches.unwrap(),
     )
     .await?;
     Ok(())
