@@ -1,10 +1,9 @@
 use std::{fs, path::Path, sync::Mutex};
 
+use once_cell::sync::Lazy;
+
 const L1_CACHE_FILE_SUFFIX: &str = ".l1.json.gz";
 const L2_CACHE_FILE_SUFFIX: &str = ".l2.json.gz";
-
-use ethers_core::k256::elliptic_curve::rand_core::block;
-use once_cell::sync::Lazy;
 
 static MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
