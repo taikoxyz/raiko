@@ -52,8 +52,7 @@ pub fn prune_old_caches<T: AsRef<Path>>(cache_dir: T, max_blocks: usize) {
     // sort the files by their creation timestamps.
     files.sort_by_key(|(entry, _created_at)| entry.file_name());
 
-    // delete files, so that (n-1) files remain, because we will create another log file
-    for (file, _) in files.iter().take(files.len() - (max_files - 2)) {
+    for (file, _) in files.iter().take(files.len() - max_files) {
         if let Err(error) = fs::remove_file(file.path()) {
             eprintln!(
                 "Failed to remove old log file {}: {}",
