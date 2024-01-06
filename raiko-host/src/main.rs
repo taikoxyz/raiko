@@ -62,7 +62,8 @@ struct Args {
     #[clap(long, require_equals = true, num_args = 0..=1, default_value = "internal_devnet_a")]
     l2_chain: Option<String>,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "10")]
+    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "20")]
+    // must large than concurrency_limit
     max_caches: Option<usize>,
 }
 
