@@ -11,13 +11,14 @@ use super::{
     },
     request::{ProofRequest, ProofResponse, SgxResponse},
 };
-use crate::rolling::prune_old_caches;
+// use crate::rolling::prune_old_caches;
 
 pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
     // 1. load input data into cache path
     let _ = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
     // 2. run proof
-    let resp = match req {
+    // prune_old_caches(&ctx.cache_path, ctx.max_caches);
+    match req {
         ProofRequest::Sgx(req) => {
             let cache_key = CacheKey {
                 proof_type: ProofType::Sgx,
@@ -34,7 +35,5 @@ pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result
             Ok(ProofResponse::Sgx(resp))
         }
         ProofRequest::PseZk(_) => todo!(),
-    };
-    prune_old_caches(&ctx.cache_path, ctx.max_caches);
-    resp
+    }
 }
