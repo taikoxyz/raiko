@@ -63,7 +63,7 @@ struct Args {
     l2_chain: Option<String>,
 
     #[clap(long, require_equals = true, num_args = 0..=1, default_value = "20")]
-    // must large than concurrency_limit
+    // WARNING: must large than concurrency_limit
     max_caches: Option<usize>,
 }
 
