@@ -3,6 +3,7 @@ use std::{fs, path::Path, sync::Mutex};
 const L1_CACHE_FILE_SUFFIX: &str = ".l1.json.gz";
 const L2_CACHE_FILE_SUFFIX: &str = ".l2.json.gz";
 
+use ethers_core::k256::elliptic_curve::rand_core::block;
 use once_cell::sync::Lazy;
 
 static MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
@@ -25,14 +26,15 @@ pub fn prune_old_caches<T: AsRef<Path>>(cache_dir: T, max_blocks: usize) {
             let filename = entry.file_name();
             // if the filename is not a UTF-8 string, skip it.
             let filename = filename.to_str()?;
-            if !filename.ends_with(L1_CACHE_FILE_SUFFIX)
-                && !filename.ends_with(L2_CACHE_FILE_SUFFIX)
-            {
+            let block_no_l1 = filename.strip_suffix(L1_CACHE_FILE_SUFFIX);
+            let block_no_l2 = filename.strip_suffix(L2_CACHE_FILE_SUFFIX);
+            if block_no_l1.is_none() && block_no_l2.is_none() {
                 return None;
             }
+            let block_no = block_no_l1.or(block_no_l2)?;
+            let block_no = block_no.parse::<usize>().ok()?;
 
-            let created = metadata.created().ok()?;
-            Some((entry, created))
+            Some((entry, block_no))
         })
         .collect::<Vec<_>>()
     });
@@ -50,7 +52,7 @@ pub fn prune_old_caches<T: AsRef<Path>>(cache_dir: T, max_blocks: usize) {
     }
 
     // sort the files by their creation timestamps.
-    files.sort_by_key(|(entry, _created_at)| entry.file_name());
+    files.sort_by_key(|(_, block_no)| *block_no);
 
     for (file, _) in files.iter().take(files.len() - max_files) {
         if let Err(error) = fs::remove_file(file.path()) {
