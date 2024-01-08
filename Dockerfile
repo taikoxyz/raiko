@@ -6,11 +6,13 @@
 
 # Build Stage
 FROM rust:latest as builder
+ARG BUILD_FLAGS=""
 WORKDIR /opt/raiko
 COPY . .
 RUN apt-get update && apt-get install -y cmake \
     libclang-dev
-RUN cargo build --release
+RUN cargo build --release ${BUILD_FLAGS}
+
 
 ARG UBUNTU_IMAGE=ubuntu:22.04
 
