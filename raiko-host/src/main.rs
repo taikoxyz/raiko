@@ -15,56 +15,63 @@
 // limitations under the License.
 
 mod prover;
+#[allow(dead_code)]
 mod rolling;
 use std::{fmt::Debug, path::PathBuf};
 
-use anyhow::Result;
-use clap::Parser;
+use anyhow::{Context, Result};
 use prover::server::serve;
+use serde::Deserialize;
+use structopt::StructOpt;
+use structopt_toml::StructOptToml;
 use tracing::info;
 
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Args {
-    #[clap(
-        long,
-        require_equals = true,
-        num_args = 0..=1,
-        default_value = "0.0.0.0:8080"
-    )]
+#[derive(StructOpt, StructOptToml, Deserialize, Debug)]
+#[serde(default)]
+struct Opt {
+    #[structopt(long, require_equals = true, default_value = "0.0.0.0:8080")]
     /// Server bind address
     /// [default: 0.0.0.0:8080]
-    bind: Option<String>,
+    bind: String,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "/tmp")]
+    #[structopt(long, require_equals = true, default_value = "/tmp")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
-    cache: Option<PathBuf>,
+    cache: PathBuf,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "raiko-host/guests")]
+    #[structopt(long, require_equals = true, default_value = "raiko-host/guests")]
     /// The guests path
-    guest: Option<PathBuf>,
+    guest: PathBuf,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "0")]
+    #[structopt(long, require_equals = true, default_value = "0")]
     sgx_instance_id: u32,
 
-    #[clap(long, require_equals = true, num_args = 0..=1)]
+    #[structopt(long, require_equals = true)]
     log_path: Option<PathBuf>,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "1000")]
-    proof_cache: Option<usize>,
+    #[structopt(long, require_equals = true, default_value = "1000")]
+    proof_cache: usize,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "10")]
-    concurrency_limit: Option<usize>,
+    #[structopt(long, require_equals = true, default_value = "10")]
+    concurrency_limit: usize,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "7")]
-    max_log_days: Option<usize>,
+    #[structopt(long, require_equals = true, default_value = "7")]
+    max_log_days: usize,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "internal_devnet_a")]
-    l2_chain: Option<String>,
+    #[structopt(long, require_equals = true, default_value = "internal_devnet_a")]
+    l2_chain: String,
 
-    #[clap(long, require_equals = true, num_args = 0..=1, default_value = "20")]
+    #[structopt(long, require_equals = true, default_value = "20")]
     // WARNING: must large than concurrency_limit
-    max_caches: Option<usize>,
+    max_caches: usize,
+
+    #[structopt(long, require_equals = true)]
+    config_path: Option<PathBuf>,
+
+    #[structopt(long, require_equals = true, default_value = "info")]
+    log_level: String,
+
+    #[structopt(long, require_equals = true, default_value = "config.toml")]
+    config_file: String,
 }
 
 // Prerequisites:
@@ -83,21 +90,29 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Args::parse();
+    let mut opt = Opt::from_args();
 
-    const DEFAULT_FILTER: &str = "info";
+    if let Some(config_path) = opt.config_path {
+        let config_file = config_path.join(opt.config_file);
+        let config_raw = std::fs::read(&config_file)
+            .context(format!("read config_file: {:?} failed", config_file))?;
+        opt =
+            Opt::from_args_with_toml(std::str::from_utf8(&config_raw).context("str parse failed")?)
+                .context("toml parse failed")?;
+    };
+
     // try to load filter from `RUST_LOG` or use reasonably verbose defaults
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| DEFAULT_FILTER.into());
+    let filter =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| opt.log_level);
     let subscriber_builder = tracing_subscriber::FmtSubscriber::builder()
         .with_env_filter(filter)
         .with_test_writer();
-    let _guard = match args.log_path {
+    let _guard = match opt.log_path {
         Some(ref log_path) => {
             let file_appender = tracing_appender::rolling::Builder::new()
                 .rotation(tracing_appender::rolling::Rotation::DAILY)
                 .filename_prefix("raiko.log")
-                .max_log_files(args.max_log_days.expect("max_log_days not set"))
+                .max_log_files(opt.max_log_days)
                 .build(log_path)
                 .expect("initializing rolling file appender failed");
             let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
@@ -111,16 +126,16 @@ async fn main() -> Result<()> {
             None
         }
     };
-    info!("Start args: {:?}", args);
+    info!("Start args: {:?}", opt);
     serve(
-        &args.bind.unwrap(),
-        &args.guest.unwrap(),
-        &args.cache.unwrap(),
-        &args.l2_chain.unwrap(),
-        args.sgx_instance_id,
-        args.proof_cache.unwrap(),
-        args.concurrency_limit.unwrap(),
-        args.max_caches.unwrap(),
+        &opt.bind,
+        &opt.guest,
+        &opt.cache,
+        &opt.l2_chain,
+        opt.sgx_instance_id,
+        opt.proof_cache,
+        opt.concurrency_limit,
+        opt.max_caches,
     )
     .await?;
     Ok(())
