@@ -21,22 +21,24 @@ ENV RAIKO_HOST_SGX_INSTANCE_ID=123
 ENV RAIKO_HOST_LOG_PATH=/data/log/sgx
 
 RUN mkdir -p \
-    ./raiko-host/guests/sgx/secrets \
+    ./guests/sgx \
+    ./secrets \
+    ./bin \
     /tmp/sgx \
     /data/log/sgx
 
-COPY --from=builder /opt/raiko/target/release/raiko-guest ./raiko-host/guests/sgx/
-COPY --from=builder /opt/raiko/raiko-guest/config/raiko-guest.manifest.template ./raiko-host/guests/sgx/
-COPY --from=builder /opt/raiko/target/release/raiko-host ./raiko-host/
+COPY --from=builder /opt/raiko/target/release/raiko-guest ./guests/sgx/
+COPY --from=builder /opt/raiko/raiko-guest/config/raiko-guest.manifest.template ./guests/sgx/
+COPY --from=builder /opt/raiko/target/release/raiko-host ./bin
 COPY ./sgx-ra/src/*.so /usr/lib/
 
-RUN cd ./raiko-host/guests/sgx && \
+RUN cd ./guests/sgx && \
     gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest && \
     gramine-sgx-gen-private-key && \
     gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx && \
     cd -
 
-CMD cd raiko-host/guests/sgx && \
+CMD cd ./guests/sgx && \
     gramine-sgx ./raiko-guest bootstrap && \
     cd - && \
-    /opt/raiko/raiko-host/raiko-host
+    /opt/raiko/bin/raiko-host
