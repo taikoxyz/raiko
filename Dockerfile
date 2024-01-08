@@ -26,8 +26,6 @@ RUN mkdir -p \
     /var/run/aesmd/ \
     /data/log/sgx
 
-RUN ls -l /lib/x86_64-linux-gnu/
-
 COPY docker/restart_aesm.sh /restart_aesm.sh
 COPY --from=builder /opt/raiko/target/release/raiko-guest ./raiko-host/guests/sgx/
 COPY --from=builder /opt/raiko/raiko-guest/config/raiko-guest.manifest.template ./raiko-host/guests/sgx/
@@ -39,8 +37,6 @@ RUN cd ./raiko-host/guests/sgx && \
     gramine-sgx-gen-private-key && \
     gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx && \
     cd -
-
-RUN ls -l /root/.config/gramine/
 
 CMD /restart_aesm.sh && \
     cd raiko-host/guests/sgx && \
