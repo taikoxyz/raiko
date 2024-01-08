@@ -5,7 +5,7 @@
 
 
 # Build Stage
-FROM rust:latest as builder
+FROM rust:1.75.0 as builder
 ARG BUILD_FLAGS=""
 WORKDIR /opt/raiko
 COPY . .
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y cmake \
     libclang-dev
 RUN cargo build --release ${BUILD_FLAGS}
 
-FROM gramineproject/gramine:latest as runtime
+FROM gramineproject/gramine:1.6-focal as runtime
 WORKDIR /opt/raiko
 
 ENV RAIKO_HOST_BIND=0.0.0.0:9090
@@ -23,10 +23,8 @@ ENV RAIKO_HOST_LOG_PATH=/data/log/sgx
 RUN mkdir -p \
     ./raiko-host/guests/sgx/secrets \
     /tmp/sgx \
-    /var/run/aesmd/ \
     /data/log/sgx
 
-COPY docker/restart_aesm.sh /restart_aesm.sh
 COPY --from=builder /opt/raiko/target/release/raiko-guest ./raiko-host/guests/sgx/
 COPY --from=builder /opt/raiko/raiko-guest/config/raiko-guest.manifest.template ./raiko-host/guests/sgx/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./raiko-host/
@@ -38,8 +36,7 @@ RUN cd ./raiko-host/guests/sgx && \
     gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx && \
     cd -
 
-CMD /restart_aesm.sh && \
-    cd raiko-host/guests/sgx && \
+CMD cd raiko-host/guests/sgx && \
     gramine-sgx ./raiko-guest bootstrap && \
     cd - && \
     /opt/raiko/raiko-host/raiko-host
