@@ -13,47 +13,20 @@ RUN apt-get update && apt-get install -y cmake \
     libclang-dev
 RUN cargo build --release ${BUILD_FLAGS}
 
-
-ARG UBUNTU_IMAGE=ubuntu:22.04
-
-FROM ${UBUNTU_IMAGE}
-
-ARG UBUNTU_CODENAME=jammy
+FROM gramineproject/gramine:latest as runtime
 WORKDIR /opt/raiko
 
 ENV RAIKO_HOST_BIND=0.0.0.0:9090
 ENV RAIKO_HOST_SGX_INSTANCE_ID=123
 ENV RAIKO_HOST_LOG_PATH=/data/log/sgx
 
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y curl gnupg2 binutils
-
-RUN curl -fsSLo /usr/share/keyrings/gramine-keyring.gpg https://packages.gramineproject.io/gramine-keyring.gpg && \
-    echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/gramine-keyring.gpg] https://packages.gramineproject.io/ '${UBUNTU_CODENAME}' main' > /etc/apt/sources.list.d/gramine.list
-
-RUN curl -fsSLo /usr/share/keyrings/intel-sgx-deb.key https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key && \
-    echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-sgx-deb.key] https://download.01.org/intel-sgx/sgx_repo/ubuntu '${UBUNTU_CODENAME}' main' > /etc/apt/sources.list.d/intel-sgx.list
-
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    gramine \
-    libsgx-aesm-ecdsa-plugin \
-    libsgx-aesm-epid-plugin \
-    libsgx-aesm-launch-plugin \
-    libsgx-aesm-quote-ex-plugin \
-    libsgx-dcap-quote-verify \
-    libssl-dev \
-    pkg-config \
-    psmisc \
-    sgx-aesm-service \
-    sudo && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 RUN mkdir -p \
     ./raiko-host/guests/sgx/secrets \
     /tmp/sgx \
-    /var/run/aesmd/
+    /var/run/aesmd/ \
+    /data/log/sgx
+
+RUN ls -l /lib/x86_64-linux-gnu/
 
 COPY docker/restart_aesm.sh /restart_aesm.sh
 COPY --from=builder /opt/raiko/target/release/raiko-guest ./raiko-host/guests/sgx/
