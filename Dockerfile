@@ -19,10 +19,9 @@ FROM ${UBUNTU_IMAGE}
 ARG UBUNTU_CODENAME=jammy
 WORKDIR /opt/raiko
 
-ENV IP_NUMBER=0.0.0.0
-ENV PORT_NUMBER=9090
-ENV SGX_INSTANCE_ID=123
-ENV LOG_PATH=/data/log/sgx
+ENV RAIKO_HOST_BIND=0.0.0.0:9090
+ENV RAIKO_HOST_SGX_INSTANCE_ID=123
+ENV RAIKO_HOST_LOG_PATH=/data/log/sgx
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y curl gnupg2 binutils
@@ -72,4 +71,4 @@ CMD /restart_aesm.sh && \
     cd raiko-host/guests/sgx && \
     gramine-sgx ./raiko-guest bootstrap && \
     cd - && \
-    RUST_LOG=debug /opt/raiko/raiko-host/raiko-host --sgx-instance-id=${SGX_INSTANCE_ID} --bind=${BIND} --log-path=${LOG_PATH}
+    /opt/raiko/raiko-host/raiko-host
