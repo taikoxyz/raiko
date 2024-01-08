@@ -16,10 +16,6 @@ RUN cargo build --release ${BUILD_FLAGS}
 FROM gramineproject/gramine:1.6-focal as runtime
 WORKDIR /opt/raiko
 
-ENV RAIKO_HOST_BIND=0.0.0.0:9090
-ENV RAIKO_HOST_SGX_INSTANCE_ID=123
-ENV RAIKO_HOST_LOG_PATH=/data/log/sgx
-
 RUN mkdir -p \
     ./guests/sgx \
     ./secrets \
@@ -38,7 +34,4 @@ RUN cd ./guests/sgx && \
     gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx && \
     cd -
 
-CMD cd ./guests/sgx && \
-    gramine-sgx ./raiko-guest bootstrap && \
-    cd - && \
-    /opt/raiko/bin/raiko-host
+ENTRYPOINT [ "/opt/raiko/bin/raiko-host" ]

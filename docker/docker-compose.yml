@@ -14,3 +14,5 @@ services:
       - "/dev/sgx_provision:/dev/sgx_provision"
     volumes:
       - /data/log/sgx:/data/log/sgx
+      - /tmp/sgx:/tmp/sgx
+      - /secrets:/opt/raiko/secrets
