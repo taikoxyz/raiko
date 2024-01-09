@@ -15,6 +15,4 @@
 
 # Ignore unnecessary files inside allowed directories
 # This should go after the allowed directories
-**/docker/docker-compose.yml
-**/docker/Dockerfile
 **/raiko-host/guests/sgx

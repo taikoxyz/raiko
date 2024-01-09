@@ -5,14 +5,14 @@ services:
       context: ../
       dockerfile: ./Dockerfile
       args:
-        UBUNTU_IMAGE: ubuntu:22.04
-        UBUNTU_CODENAME: jammy
+        BUILD_FLAGS: ""
     image: raiko:latest
     container_name: raiko
+    command: --config-path=/etc/opt/raiko/config.toml
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
     volumes:
-      - /data/log/sgx:/data/log/sgx
-      - /tmp/sgx:/tmp/sgx
       - /secrets:/opt/raiko/secrets
+      - /tmp/sgx:/tmp/sgx
+      - /var/log/raiko:/var/log/raiko

@@ -112,14 +112,6 @@ struct Opt {
     #[structopt(long, env = "RAIKO_HOST_CONFIG_PATH", require_equals = true)]
     config_path: Option<PathBuf>,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_CONFIG_FILE",
-        default_value = "config.toml"
-    )]
-    config_file: String,
-
     #[structopt(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
     log_level: String,
 }
@@ -143,9 +135,8 @@ async fn main() -> Result<()> {
     let mut opt = Opt::from_args();
 
     if let Some(config_path) = opt.config_path {
-        let config_file = config_path.join(opt.config_file);
-        let config_raw = std::fs::read(&config_file)
-            .context(format!("read config_file: {:?} failed", config_file))?;
+        let config_raw = std::fs::read(&config_path)
+            .context(format!("read config file {:?} failed", config_path))?;
         opt =
             Opt::from_args_with_toml(std::str::from_utf8(&config_raw).context("str parse failed")?)
                 .context("toml parse failed")?;

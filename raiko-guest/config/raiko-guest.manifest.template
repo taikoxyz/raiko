@@ -37,8 +37,8 @@ sgx.trusted_files = [
   "file:raiko-guest",
   "file:{{ gramine.runtimedir() }}/",
   "file:{{ arch_libdir }}/libgcc_s.so.1",
-  "file:{{ arch_libdir }}/libssl.so.1.1",
-  "file:{{ arch_libdir }}/libcrypto.so.1.1",
+  "file:{{ arch_libdir }}/libssl.so.3",
+  "file:{{ arch_libdir }}/libcrypto.so.3",
   "file:/usr/lib/ssl/certs/",
 ]
 sgx.max_threads = 16
