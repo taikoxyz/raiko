@@ -5,6 +5,7 @@
 !/Cargo.lock
 !/Cargo.toml
 !/config.toml
+!/docker/entrypoint.sh
 !/lib
 !/primitives
 !/raiko-guest
