@@ -41,4 +41,4 @@ RUN cd ./guests/sgx && \
     gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx && \
     cd -
 
-# ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]
+ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]

@@ -8,8 +8,7 @@ services:
         BUILD_FLAGS: ""
     image: raiko:latest
     container_name: raiko
-    # command: --config-path=/etc/opt/raiko/config.toml
-    # command: --init
+    command: --config-path=/etc/opt/raiko/config.toml
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
