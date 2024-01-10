@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "taiko")]
-use anyhow::Context;
 use anyhow::{anyhow, Result};
 #[cfg(feature = "taiko")]
 use ethers_core::types::Filter;
