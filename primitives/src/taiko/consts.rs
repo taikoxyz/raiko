@@ -13,24 +13,23 @@ pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
 pub mod testnet {
     use super::*;
     pub const CHAIN_ID: u64 = 167008;
+    pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
+        Address::from_str("0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5")
+            .expect("invalid l1 contract address")
+    });
+
     pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0xb36a8742CDeA0195f5e659DED165FeA0dCC9F485")
+        Address::from_str("0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9")
             .expect("invalid l1 signal service")
+    });
+    pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
+        Address::from_str("0x1670080000000000000000000000000000010001")
+            .expect("invalid l2 contract address")
     });
 
     pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
         Address::from_str("0x1670080000000000000000000000000000000005")
             .expect("invalid l2 signal service")
-    });
-
-    pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0x62Acda3Ad15B382C32B2fB21BEAc9DfB95bbb02F")
-            .expect("invalid l1 contract address")
-    });
-
-    pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0x1670080000000000000000000000000000010001")
-            .expect("invalid l2 contract address")
     });
 }
 
