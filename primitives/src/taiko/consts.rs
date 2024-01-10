@@ -14,12 +14,12 @@ pub mod testnet {
     use super::*;
     pub const CHAIN_ID: u64 = 167008;
     pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5")
+        Address::from_str("0xB20BB9105e007Bd3E0F73d63D4D3dA2c8f736b77")
             .expect("invalid l1 contract address")
     });
 
     pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9")
+        Address::from_str("0x08a3f537c4bbe8B6176420f4Cd0C84b02172dC65")
             .expect("invalid l1 signal service")
     });
     pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
