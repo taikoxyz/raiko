@@ -235,7 +235,7 @@ Start `raiko-host` JSON-RPC server:
 ```console
 RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123
 // or with specific log path
-RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123 --log-path=/data/log/sgx
+RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123 --log-path=/var/log/raiko
 ```
 
 Send a request to the server:
@@ -254,7 +254,7 @@ curl --location --request POST 'http://127.0.0.1:8080/' \
       "l1Rpc": "https://l1rpc.internal.taiko.xyz",
       "block": 2,
       "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      "graffiti": "0"
+      "graffiti": "0000000000000000000000000000000000000000000000000000000000000000"
     }
   ]
 }'

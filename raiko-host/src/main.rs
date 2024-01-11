@@ -29,123 +29,55 @@ use tracing::info;
 #[derive(StructOpt, StructOptToml, Deserialize, Debug)]
 #[serde(default)]
 struct Opt {
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_BIND",
-        default_value = "0.0.0.0:8080"
-    )]
+    #[structopt(long, require_equals = true, default_value = "0.0.0.0:8080")]
     /// Server bind address
     /// [default: 0.0.0.0:8080]
     bind: String,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_CACHE",
-        default_value = "/tmp"
-    )]
+    #[structopt(long, require_equals = true, default_value = "/tmp")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
     cache: PathBuf,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_GUEST",
-        default_value = "raiko-host/guests"
-    )]
+    #[structopt(long, require_equals = true, default_value = "raiko-host/guests")]
     /// The guests path
     guest: PathBuf,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_SGX_INSTANCE_ID",
-        default_value = "0"
-    )]
+    #[structopt(long, require_equals = true, default_value = "0")]
     sgx_instance_id: u32,
 
-    #[structopt(long, require_equals = true, env = "RAIKO_HOST_LOG_PATH")]
+    #[structopt(long, require_equals = true)]
     log_path: Option<PathBuf>,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_PROOF_CACHE",
-        default_value = "1000"
-    )]
+    #[structopt(long, require_equals = true, default_value = "1000")]
     proof_cache: usize,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_CONCURRENCY_LIMIT",
-        default_value = "10"
-    )]
+    #[structopt(long, require_equals = true, default_value = "10")]
     concurrency_limit: usize,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_MAX_LOG_DAYS",
-        default_value = "7"
-    )]
+    #[structopt(long, require_equals = true, default_value = "7")]
     max_log_days: usize,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_L2_CHAIN",
-        default_value = "internal_devnet_a"
-    )]
+    #[structopt(long, require_equals = true, default_value = "internal_devnet_a")]
     l2_chain: String,
 
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_MAX_CACHES",
-        default_value = "20"
-    )]
+    #[structopt(long, require_equals = true, default_value = "20")]
     // WARNING: must large than concurrency_limit
     max_caches: usize,
 
-    #[structopt(long, env = "RAIKO_HOST_CONFIG_PATH", require_equals = true)]
+    #[structopt(long, require_equals = true)]
     config_path: Option<PathBuf>,
-
-    #[structopt(
-        long,
-        require_equals = true,
-        env = "RAIKO_HOST_CONFIG_FILE",
-        default_value = "config.toml"
-    )]
-    config_file: String,
 
     #[structopt(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
     log_level: String,
 }
-
-// Prerequisites:
-//
-//   $ rustup default
-//   nightly-x86_64-unknown-linux-gnu (default)
-//
-// Go to /host directory and compile with:
-//   $ cargo build
-//
-// Create /tmp/ethereum directory and run with:
-//
-//   $ RUST_LOG=info cargo run -- --rpc-url="https://rpc.internal.taiko.xyz/" --block-no=169 --cache=/tmp
-//
-// from target/debug directory
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut opt = Opt::from_args();
 
     if let Some(config_path) = opt.config_path {
-        let config_file = config_path.join(opt.config_file);
-        let config_raw = std::fs::read(&config_file)
-            .context(format!("read config_file: {:?} failed", config_file))?;
+        let config_raw = std::fs::read(&config_path)
+            .context(format!("read config file {:?} failed", config_path))?;
         opt =
             Opt::from_args_with_toml(std::str::from_utf8(&config_raw).context("str parse failed")?)
                 .context("toml parse failed")?;
