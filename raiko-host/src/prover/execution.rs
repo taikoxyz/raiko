@@ -6,17 +6,13 @@ use super::{
     context::Context,
     error::Result,
     prepare_input::prepare_input,
-    proof::{
-        cache::{Cache, CacheKey},
-        sgx::execute_sgx,
-        ProofType,
-    },
-    request::{ProofRequest, ProofResponse, SgxResponse},
+    proof::{cache::Cache, sgx::execute_sgx},
+    request::{ProofRequest, ProofResponse},
 };
 use crate::metrics::{inc_sgx_success, observe_sgx_gen, observe_input};
 // use crate::rolling::prune_old_caches;
 
-pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
+pub async fn execute(_cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
     // 1. load input data into cache path
     let start = Instant::now();
     let _ = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
@@ -28,18 +24,7 @@ pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result
         ProofRequest::Sgx(req) => {
             let start = Instant::now();
             let bid = req.block.clone();
-            let cache_key = CacheKey {
-                proof_type: ProofType::Sgx,
-                block: req.block,
-                prover: req.prover,
-                graffiti: req.graffiti,
-            };
-            let cached = cache.get(&cache_key);
-            if let Some(proof) = cached {
-                return Ok(ProofResponse::Sgx(SgxResponse { proof }));
-            }
             let resp = execute_sgx(ctx, req).await?;
-            cache.set(cache_key, resp.proof.clone());
             let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
             observe_sgx_gen(bid, time_elapsed);
             inc_sgx_success(bid);
