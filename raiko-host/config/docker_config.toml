@@ -1,0 +1,6 @@
+# Prod config file for raiko-host to be used with Docker container
+
+bind = "0.0.0.0:8085"
+cache = "/tmp/sgx"
+guest = "./guests"
+log_path = "/var/log/raiko"

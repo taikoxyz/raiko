@@ -29,6 +29,7 @@ pub fn serve(
     sgx_instance_id: u32,
     proof_cache: usize,
     concurrency_limit: usize,
+    max_caches: usize,
 ) -> tokio::task::JoinHandle<()> {
     let addr = addr
         .parse::<std::net::SocketAddr>()
@@ -43,6 +44,7 @@ pub fn serve(
             l2_chain.clone(),
             sgx_instance_id,
             proof_cache,
+            max_caches,
         );
         let service = service_fn(move |req| {
             let handler = handler.clone();
@@ -95,9 +97,16 @@ impl Handler {
         l2_chain: String,
         sgx_instance_id: u32,
         capacity: usize,
+        max_caches: usize,
     ) -> Self {
         Self {
-            ctx: Context::new(guest_path, cache_path, l2_chain, sgx_instance_id),
+            ctx: Context::new(
+                guest_path,
+                cache_path,
+                l2_chain,
+                sgx_instance_id,
+                max_caches,
+            ),
             cache: Cache::new(capacity),
         }
     }

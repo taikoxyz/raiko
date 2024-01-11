@@ -14,6 +14,7 @@ use super::{
     request::{ProofRequest, ProofResponse, SgxResponse},
 };
 use crate::metrics::{inc_sgx_success, observe_sgx_gen, observe_input};
+// use crate::rolling::prune_old_caches;
 
 pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
     // 1. load input data into cache path
@@ -22,6 +23,7 @@ pub async fn execute(cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result
     let elapsed = Instant::now().duration_since(start).as_millis() as i64;
     observe_input(elapsed);
     // 2. run proof
+    // prune_old_caches(&ctx.cache_path, ctx.max_caches);
     match req {
         ProofRequest::Sgx(req) => {
             let start = Instant::now();

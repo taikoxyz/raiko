@@ -26,9 +26,9 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
             );
         }
         // Validate timestamp
-        if block_builder.input.timestamp <= block_builder.input.parent_header.timestamp {
+        if block_builder.input.timestamp < block_builder.input.parent_header.timestamp {
             bail!(
-                "Invalid timestamp: expected > {}, got {}",
+                "Invalid timestamp: expected >= {}, got {}",
                 block_builder.input.parent_header.timestamp,
                 block_builder.input.timestamp,
             );

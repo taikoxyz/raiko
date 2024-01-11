@@ -10,6 +10,7 @@ pub struct Context {
     pub cache_path: PathBuf,
     pub l2_chain: String,
     pub sgx_context: SgxContext,
+    pub max_caches: usize,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -23,6 +24,7 @@ impl Context {
         cache_path: PathBuf,
         l2_chain: String,
         sgx_instance_id: u32,
+        max_caches: usize,
     ) -> Self {
         let guest_path = absolute(guest_path).unwrap();
         debug!("Guest path: {:?}", guest_path);
@@ -35,6 +37,7 @@ impl Context {
             sgx_context: SgxContext {
                 instance_id: sgx_instance_id,
             },
+            max_caches,
         }
     }
 }

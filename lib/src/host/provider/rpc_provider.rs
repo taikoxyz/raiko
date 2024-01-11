@@ -169,13 +169,13 @@ impl Provider for RpcProvider {
     fn batch_get_partial_blocks(&mut self, query: &BlockQuery) -> Result<Vec<Block<H256>>> {
         info!("Querying RPC for partial blocks: {:?}", query);
 
-        self.tokio_handle.block_on(async {
+        let out = self.tokio_handle.block_on(async {
             use ethers_core::utils;
             let id = utils::serialize(&query.block_no);
             self.http_client
                 .request("taiko_getL2ParentHeaders", [id])
                 .await
-                .context("Failed to fetch l2 parent headers")
-        })
+        })?;
+        Ok(out)
     }
 }

@@ -24,7 +24,7 @@ fs.mounts = [
   { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/tmp", uri = "file:/tmp" },
-  { path = "/secrets/", uri = "file:{{ env.get('SECRETS_DIR', './secrets') }}", type = "encrypted", key_name = "_sgx_mrsigner" },
+  { path = "/secrets/", uri = "file:{{ env.get('SECRETS_DIR', '../../secrets') }}", type = "encrypted", key_name = "_sgx_mrsigner" },
 ]
 sys.insecure__allow_eventfd = true
 loader.insecure__use_cmdline_argv = true
