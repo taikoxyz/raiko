@@ -51,12 +51,9 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
     info!("Sgx execution stderr: {:?}", str::from_utf8(&output.stderr));
     info!("Sgx execution stdout: {:?}", str::from_utf8(&output.stdout));
     // clean cache file, avoid reorg error
-    fs::remove_file(l1_cache_file)
-        .await
-        .map_err(|e| e.to_string())?;
-    fs::remove_file(l2_cache_file)
-        .await
-        .map_err(|e| e.to_string())?;
+    for file in &[l1_cache_file, l2_cache_file] {
+        fs::remove_file(file).await.map_err(|e| e.to_string())?;
+    }
     if !output.status.success() {
         inc_sgx_error(req.block);
         return Err(output.status.to_string());
