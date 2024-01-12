@@ -75,7 +75,7 @@ After successfully building Docker image, you are now able to bootstrap and run 
 
 ### Raiko bootstrapping
 
-Bootstrapping is the process of generating public-private key pair that will be used for doing signatures inside SGX enclave. The private key is saved in encrypted form in `~/.config/raiko/secrets/priv.key` as a SGX secret
+Bootstrapping is the process of generating a public-private key pair, which will be used for doing signatures within the SGX enclave. The private key is stored in an [encrypted][gramine-encrypted-files] format in the `~/.config/raiko/secrets/priv.key` file.
 
 1. Make sure you haven't generated Raiko's public-private key pair yet:
    ```
@@ -87,6 +87,8 @@ Bootstrapping is the process of generating public-private key pair that will be 
    docker compose run --rm raiko --init
    ```
    It creates a new, encrypted private key in `~/.config/raiko/secrets` directory.
+
+[gramine-encrypted-files]: https://gramine.readthedocs.io/en/stable/manifest-syntax.html#encrypted-files
 
 ### Running Raiko daemon
 
@@ -107,17 +109,9 @@ Now, once you have Raiko up and running, you can test it to make sure it is serv
    tail -f /var/log/raiko/raiko.log.dd-mm-yyyy
    ```
    to monitor requests that you will be sending. Replace `dd-mm-yyyy` placeholder with the current date.
-1. Check container ID `container_id` of your running `raiko` container.
-   ```
-   docker ps
-   ```
-1. Check the IP address `ip_addr` of `container_id`:
-   ```
-   docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' <container_id>
-   ```
 1. Send a sample request to Raiko:
    ```
-   curl --location --request POST 'http://<ip_addr>:8080' --header 'Content-Type: application/json' --data-raw '{
+   curl --location --request POST 'http://localhost:8080' --header 'Content-Type: application/json' --data-raw '{
      "jsonrpc": "2.0",
      "id": 1,
      "method": "proof",
@@ -133,7 +127,7 @@ Now, once you have Raiko up and running, you can test it to make sure it is serv
      ]
    }'
    ```
-   Make sure to replace `<ip_addr>` with the IP of your container. If the request was served correctly, you should see a lot of logs being produced in the log file and an SGX proof printed on the standard output:
+   If the request was served correctly, you should see a lot of logs being produced in the log file and an SGX proof printed on the standard output:
    ```
    {"jsonrpc":"2.0","id":1,"result":{"type":"Sgx","proof":"0x000000006cbe8f8cb4c319f5beba9a4fa66923105dc90aec3c5214eed022323b9200097b647208956cc1b7ce0d8c0777df657caace329cc73f2398b137095128c7717167fc52d6474887e98e0f97149c9be2ca63a458dc8a1b"}}
    ```
