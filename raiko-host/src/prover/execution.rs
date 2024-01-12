@@ -9,7 +9,7 @@ use super::{
     proof::{cache::Cache, sgx::execute_sgx},
     request::{ProofRequest, ProofResponse},
 };
-use crate::metrics::{inc_sgx_success, observe_sgx_gen, observe_input};
+use crate::metrics::{inc_sgx_success, observe_input, observe_sgx_gen};
 // use crate::rolling::prune_old_caches;
 
 pub async fn execute(_cache: &Cache, ctx: &Context, req: &ProofRequest) -> Result<ProofResponse> {
