@@ -3,11 +3,14 @@ use std::str;
 use tokio::{fs, process::Command};
 use tracing::{debug, info};
 
-use crate::prover::{
-    consts::*,
-    context::Context,
-    request::{SgxRequest, SgxResponse},
-    utils::{cache_file_path, guest_executable_path},
+use crate::{
+    metrics::inc_sgx_error,
+    prover::{
+        consts::*,
+        context::Context,
+        request::{SgxRequest, SgxResponse},
+        utils::{cache_file_path, guest_executable_path},
+    },
 };
 
 pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse, String> {
@@ -55,6 +58,7 @@ pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse,
         .await
         .map_err(|e| e.to_string())?;
     if !output.status.success() {
+        inc_sgx_error(req.block);
         return Err(output.status.to_string());
     }
     parse_sgx_result(output.stdout)
