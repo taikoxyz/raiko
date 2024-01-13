@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use prometheus::{
-    labels, register_int_counter_vec, register_int_gauge, register_int_gauge_vec, IntCounterVec, IntGauge, IntGaugeVec,
+    labels, register_int_counter_vec, register_int_gauge, register_int_gauge_vec, IntCounterVec,
+    IntGauge, IntGaugeVec,
 };
 
 lazy_static! {
@@ -24,7 +25,8 @@ lazy_static! {
     .unwrap();
     pub static ref PREPARE_INPUT_TIME: IntGauge = register_int_gauge!(
         "prepare_input_time_gauge",
-        "time taken for preparing input before proof generation")
+        "time taken for preparing input before proof generation"
+    )
     .unwrap();
 }
 

@@ -207,7 +207,6 @@ impl Handler {
                 Ok(resp)
             }
 
-
             // everything else
             _ => {
                 let mut not_found = Response::default();
