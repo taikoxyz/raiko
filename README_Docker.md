@@ -75,7 +75,7 @@ After successfully building Docker image, you are now able to bootstrap and run 
 
 ### Raiko bootstrapping
 
-Bootstrapping is the process of generating a public-private key pair, which will be used for doing signatures within the SGX enclave. The private key is stored in an [encrypted][gramine-encrypted-files] format in the `~/.config/raiko/secrets/priv.key` file.
+Bootstrapping is the process of generating a public-private key pair, which will be used for doing signatures within the SGX enclave. The private key is stored in an [encrypted][gramine-encrypted-files] format in the `~/.config/raiko/secrets/priv.key` file. Encryption and decryption are performed inside the enclave, providing protection against malicious attacks.
 
 1. Make sure you haven't generated Raiko's public-private key pair yet:
    ```
