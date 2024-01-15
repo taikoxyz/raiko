@@ -4,7 +4,10 @@ use anyhow::{bail, Context, Result};
 use ethers_core::types::{Block, Transaction as EthersTransaction, U256 as EthersU256, U64};
 use zeth_primitives::{
     ethers::from_ethers_h160,
-    taiko::{anchor::check_anchor_signature, ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT},
+    taiko::{
+        anchor::check_anchor_signature, ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, MAX_TX_LIST,
+        MAX_TX_LIST_BYTES,
+    },
     transactions::EthereumTransaction,
     Address,
 };
@@ -23,12 +26,32 @@ pub fn rebuild_and_precheck_block(
     let Some(anchor) = l2_fini.transactions.first().cloned() else {
         bail!("no anchor transaction found");
     };
-    // 1. check anchor transaction
+    // - check anchor transaction
     precheck_anchor(l2_chain_spec, l2_fini, &anchor).with_context(|| "precheck anchor error")?;
 
-    // 2. patch anchor transaction into tx list instead of those from l2 node's
-    let mut txs: Vec<EthersTransaction> =
-        rlp_decode_list(&extra.l2_tx_list).with_context(|| "failed to decode tx list")?;
+    let mut txs: Vec<EthersTransaction> = vec![];
+    // - tx list bytes must be less than MAX_TX_LIST_BYTES
+    if extra.l2_tx_list.len() <= MAX_TX_LIST_BYTES {
+        txs = rlp_decode_list(&extra.l2_tx_list).unwrap_or_else(|err| {
+            tracing::error!("decode tx list error: {}", err);
+            vec![]
+        });
+    } else {
+        tracing::error!(
+            "tx list bytes must be not more than MAX_TX_LIST_BYTES, got: {}",
+            extra.l2_tx_list.len()
+        );
+    }
+    // - tx list must be less than MAX_TX_LIST
+    if txs.len() > MAX_TX_LIST {
+        tracing::error!(
+            "tx list must be not more than MAX_TX_LIST, got: {}",
+            txs.len()
+        );
+        // reset to empty
+        txs.clear();
+    }
+    // - patch anchor transaction into tx list instead of those from l2 node's
     // insert the anchor transaction into the tx list at the first position
     txs.insert(0, anchor);
     // reset transactions
