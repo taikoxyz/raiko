@@ -32,7 +32,8 @@ pub const PRIV_KEY_FILENAME: &str = "priv.key";
 pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let key_pair = generate_key();
-    let mut file = fs::File::create(&privkey_path).context("Failed to create private key file")?;
+    let mut file =
+        fs::File::create(&privkey_path).with_context(|| "Failed to create private key file")?;
     let permissions = std::fs::Permissions::from_mode(0o600);
     file.set_permissions(permissions)
         .with_context(|| "Failed to set permissions to private key file")?;
