@@ -19,9 +19,9 @@ for feature in "${features[@]}"; do
     fi
 
     build_flags=""
-    if [[ -z "$feature" ]] && [[ "$feature" != "none" ]]; then
+    if [[ "$feature" != "none" ]]; then
         tag="${tag}-${feature}"
-        build_flags="--build-arg BUILD_FLAGS=--features ${feature}"
+        build_flags="--build-arg BUILD_FLAGS=--features=${feature}"
     fi
 
     echo "Build and push $1:$tag..."
