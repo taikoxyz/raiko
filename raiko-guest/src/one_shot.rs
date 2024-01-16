@@ -39,6 +39,7 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
         .with_context(|| "Failed to set permissions to private key file")?;
     file.write_all(&key_pair.secret_bytes())
         .with_context(|| format!("Failed to write to {}", privkey_path.display()))?;
+    println!("Public key: 0x{}", key_pair.public_key());
     Ok(())
 }
 
@@ -96,7 +97,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     proof.extend(sig.to_bytes());
     let proof = hex::encode(proof);
     println!("Proof: 0x{}", proof);
-    println!("Public key: {}", new_pubkey);
+    println!("Public key: 0x{}", new_pubkey);
     println!("Instance address: {}", new_instance);
 
     save_attestation_user_report_data(new_instance)?;
