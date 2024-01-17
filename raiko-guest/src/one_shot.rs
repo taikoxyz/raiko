@@ -40,6 +40,8 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     file.write_all(&key_pair.secret_bytes())
         .with_context(|| format!("Failed to write to {}", privkey_path.display()))?;
     println!("Public key: 0x{}", key_pair.public_key());
+    let new_instance = public_key_to_address(&key_pair.public_key());
+    println!("Instance address: {}", new_instance);
     Ok(())
 }
 
