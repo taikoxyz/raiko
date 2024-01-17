@@ -13,18 +13,21 @@ Raiko leverages [Intel SGX][sgx] through [Gramine][gramine]. Since Gramine suppo
 
 Ensure your machine has an [SGX][sgx]-enabled CPU to run raiko. You can check if your CPU supports SGX (Software Guard Extensions) on Linux by using the [`cpuid`][cpuid] tool.
 
-1. Install `cpuid` if it's not already installed. On Ubuntu, you can do this with the following command:
+1.  Install `cpuid` if it's not already installed. On Ubuntu, you can do this with the following command:
 
-       sudo apt-get install cpuid
+    sudo apt-get install cpuid
 
-1. Run `cpuid` and `grep` for SGX:
+1.  Run `cpuid` and `grep` for SGX:
 
-       cpuid | grep -i sgx
-   If your CPU supports SGX, you should see output similar to this:
-   ```
-   SGX: Software Guard Extensions supported = true
-   ```
-   If you don't see this line, your CPU does not support SGX.
+        cpuid | grep -i sgx
+
+    If your CPU supports SGX, you should see output similar to this:
+
+    ```
+    SGX: Software Guard Extensions supported = true
+    ```
+
+    If you don't see this line, your CPU does not support SGX.
 
 Alternatively, you can run `grep sgx /proc/cpuinfo`. If the command returns no output, your CPU doesn't support SGX.
 
@@ -36,11 +39,13 @@ Alternatively, you can run `grep sgx /proc/cpuinfo`. If the command returns no o
 Starting with Linux kernel version [`5.11`][kernel-5.11], the kernel provides out-of-the-box support for SGX. However, it doesn't support [EDMM][edmm] (Enclave Dynamic Memory Management), which Raiko requires. EDMM support first appeared in Linux `6.0`, so ensure that you have Linux kernel `6.0` or above.
 
 To check version of your kernel run:
+
 ```
 uname -a
 ```
 
 If you are using Ubuntu and you want to find what are the available Linux kernel versions, run:
+
 ```
 apt search linux-image
 ```
@@ -87,6 +92,7 @@ Bootstrapping is the process of generating a public-private key pair, which will
    docker compose run --rm raiko --init
    ```
    It creates a new, encrypted private key in `~/.config/raiko/secrets` directory. It also prints a public key that you need to send to the Taiko team for registration.
+   Register the "Instance address"(pinted by `--init` command) with the Taiko team. Once the Taiko team registers your instance, you will be able to use it to sign proofs.
 
 [gramine-encrypted-files]: https://gramine.readthedocs.io/en/stable/manifest-syntax.html#encrypted-files
 
