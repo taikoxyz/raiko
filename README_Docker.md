@@ -86,7 +86,7 @@ Bootstrapping is the process of generating a public-private key pair, which will
    ```
    docker compose run --rm raiko --init
    ```
-   It creates a new, encrypted private key in `~/.config/raiko/secrets` directory.
+   It creates a new, encrypted private key in `~/.config/raiko/secrets` directory. It also prints a public key that you need to send to the Taiko team for registration.
 
 [gramine-encrypted-files]: https://gramine.readthedocs.io/en/stable/manifest-syntax.html#encrypted-files
 
