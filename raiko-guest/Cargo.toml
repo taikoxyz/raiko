@@ -23,6 +23,10 @@ ethers-core = { version = "2.0", features = ["optimism"] }
 zeth-primitives = { path = "../primitives", features = ["taiko"] }
 rand_core = "0.6.4"
 sha3 = "0.10.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64-serde = "0.7.0"
+base64 = "0.21.7"
 
 [features]
 sgx-ra = ["dep:sgx-ra"]

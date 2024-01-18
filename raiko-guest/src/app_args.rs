@@ -46,10 +46,15 @@ pub struct OneShotArgs {
 
 #[derive(Debug, Args)]
 pub struct GlobalOpts {
-    #[clap(short, long, default_value = "/secrets")]
+    #[clap(short, long, default_value = "/etc/opt/raiko/secrets")]
     /// Path to the directory with the encrypted private keys being used to sign the
-    /// blocks.
+    /// blocks. For more details on the encryption see:
+    /// https://gramine.readthedocs.io/en/stable/manifest-syntax.html#encrypted-files
     pub secrets_dir: PathBuf,
+
+    #[clap(short, long, default_value = "/etc/opt/raiko/config")]
+    /// Path to the directory with raiko configuration files.
+    pub config_dir: PathBuf,
 
     #[clap(long, short, global = true, action = ArgAction::Count)]
     /// Verbosity of the application. Use multiple times to increase verbosity.
