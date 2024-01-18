@@ -11,5 +11,6 @@ services:
       - ${HOME}/.config/raiko/secrets:/opt/raiko/secrets
       - /tmp/sgx:/tmp/sgx
       - /var/log/raiko:/var/log/raiko
+      # - YOUR_CONFIG_PATH:/etc/opt/raiko/config.toml
     ports:
       - "8080:8080"
