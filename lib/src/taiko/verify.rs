@@ -1,5 +1,6 @@
 use alloy_sol_types::SolValue;
 use anyhow::{anyhow, Result};
+use serde_json::to_string;
 use zeth_primitives::{
     block::Header, ethers::from_ethers_h256, taiko::ProtocolInstance,
     transactions::EthereumTransaction,
@@ -25,9 +26,9 @@ pub fn verify(header: &Header, pi: &mut ProtocolInstance, extra: &TaikoExtra) ->
             .filter_map(|tx| tx.clone().try_into().ok())
             .collect();
         return Err(anyhow!(
-            "block hash mismatch, expected: {:?}, got: {:?}",
-            txs,
-            header.transactions,
+            "block hash mismatch, expected: {}, got: {}",
+            to_string(&txs).unwrap_or_default(),
+            to_string(&header.transactions).unwrap_or_default(),
         ));
     }
 
