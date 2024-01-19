@@ -109,6 +109,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
 
         // process all the transactions
         let mut tx_trie = MptNode::default();
+        let mut txs = vec![];
         let mut receipt_trie = MptNode::default();
         for (tx_no, tx) in take(&mut block_builder.input.transactions)
             .into_iter()
@@ -200,6 +201,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
 
             // Add receipt and tx to tries
             let trie_key = tx_no.to_rlp();
+            txs.push(tx.clone());
             match tx_trie.insert_rlp(&trie_key, tx) {
                 Ok(_) => (),
                 Err(err) => {
@@ -285,6 +287,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
 
         // Update result header with computed values
         header.transactions_root = tx_trie.hash();
+        header.transactions = txs;
         header.receipts_root = receipt_trie.hash();
         header.logs_bloom = logs_bloom;
         header.gas_used = cumulative_gas_used;
