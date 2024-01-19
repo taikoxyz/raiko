@@ -71,7 +71,7 @@ fn save_bootstrap_details(
     bootstrap_details_file_path: &Path,
 ) -> Result<(), Error> {
     let bootstrap_details = BootstrapData {
-        public_key: key_pair.public_key().to_string(),
+        public_key: format!("0x{}", key_pair.public_key().to_string()),
         new_instance,
         quote,
     };
@@ -94,9 +94,10 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     let bootstrap_details_file_path = global_opts.config_dir.join(BOOTSTRAP_INFO_FILENAME);
     save_bootstrap_details(&key_pair, new_instance, quote, &bootstrap_details_file_path)?;
     println!(
-        "Boostrap details saved in {}",
+        "Bootstrap details saved in {}",
         bootstrap_details_file_path.display()
     );
+    println!("Encrypted private key saved in {}", privkey_path.display());
     Ok(())
 }
 
