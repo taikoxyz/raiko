@@ -39,7 +39,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             * U256::from(header.number)
             * U256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()));
     let gas_limit: u64 = header.gas_limit.try_into().unwrap();
-    let pi = ProtocolInstance {
+    let mut pi = ProtocolInstance {
         transition: Transition {
             parentHash: header.parent_hash,
             blockHash: header.hash(),
@@ -67,7 +67,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
     };
     #[cfg(not(target_os = "zkvm"))]
     {
-        crate::taiko::verify::verify(header, &pi, extra)?;
+        crate::taiko::verify::verify(header, &mut pi, extra)?;
     }
     Ok(pi)
 }
