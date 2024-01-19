@@ -67,10 +67,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
     };
     #[cfg(not(target_os = "zkvm"))]
     {
-        use zeth_primitives::taiko::assert_pi_and_bp;
-        assert_pi_and_bp(&pi, &extra.block_proposed)?;
-        println!("Protocol instance Transition: {:?}", pi.transition);
-        println!("Protocol instance Metahash: {}", pi.meta_hash());
+        crate::taiko::verify::verify(header, &pi, extra)?;
     }
     Ok(pi)
 }
