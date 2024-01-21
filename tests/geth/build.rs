@@ -14,7 +14,8 @@ fn main() {
     {
         // The error type is private so have to check the error string
         if format!("{}", e).starts_with("Failed to find tool.") {
-            fail(
+            fail_with_code(
+                0,
                 " Failed to find Go. Please install Go 1.16 or later \
                 following the instructions at https://golang.org/doc/install.
                 On linux it is also likely available as a package."
@@ -36,11 +37,15 @@ fn main() {
     println!("cargo:rustc-link-lib=static={}", lib_name);
 }
 
-fn fail(message: String) {
+fn fail_with_code(code: i32, message: String) -> ! {
     let _ = writeln!(
         io::stderr(),
         "\n\nError while building geth-utils: {}\n\n",
         message
     );
-    std::process::exit(1);
+    std::process::exit(code);
+}
+
+fn fail(message: String) {
+    fail_with_code(1, message)
 }
