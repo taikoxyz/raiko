@@ -62,6 +62,7 @@ pub struct Header {
     #[serde(default)]
     pub withdrawals_root: Option<B256>,
     #[rlp(skip)]
+    #[serde(skip)]
     pub transactions: Vec<EthereumTransaction>,
 }
 

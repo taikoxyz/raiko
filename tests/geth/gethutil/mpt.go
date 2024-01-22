@@ -52,7 +52,6 @@ type To struct {
 }
 
 func (t *To) UnmarshalJSON(data []byte) error {
-	println(string(data))
 	type to struct {
 		Call *common.Address `json:"Call"`
 	}
@@ -110,7 +109,6 @@ func MptRoot(txs []Transaction) *Result {
 
 		var buf bytes.Buffer
 		tx2.EncodeRLP(&buf)
-		println(hex.EncodeToString(buf.Bytes()))
 		result.Rlps = append(result.Rlps, hex.EncodeToString(buf.Bytes()))
 		txs2 = append(txs2, tx2)
 	}
