@@ -3905,7 +3905,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "gobuild",
- "hex 0.3.2",
+ "hex 0.4.3",
  "log",
  "serde",
  "serde_json",
