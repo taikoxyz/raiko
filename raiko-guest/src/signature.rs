@@ -20,8 +20,10 @@ pub fn generate_key() -> KeyPair {
 /// underlying secp256k1 library.
 #[allow(dead_code)]
 pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Address, Error> {
-    let sig =
-        RecoverableSignature::from_compact(&sig[0..64], RecoveryId::from_i32(sig[64] as i32)?)?;
+    let sig = RecoverableSignature::from_compact(
+        &sig[0..64],
+        RecoveryId::from_i32(sig[64] as i32 - 27)?,
+    )?;
 
     let public = SECP256K1.recover_ecdsa(&Message::from_slice(&msg[..32])?, &sig)?;
     Ok(public_key_to_address(&public))
@@ -58,7 +60,7 @@ pub fn load_private_key<T: AsRef<Path>>(path: T) -> Result<SecretKey, Error> {
 }
 
 pub fn public_key(secret: &SecretKey) -> PublicKey {
-    PublicKey::from_secret_key(&Secp256k1::new(), secret)
+    PublicKey::from_secret_key_global(secret)
 }
 
 #[cfg(test)]
