@@ -24,6 +24,10 @@ pub mod testnet {
         Address::from_str("0x08a3f537c4bbe8B6176420f4Cd0C84b02172dC65")
             .expect("invalid l1 signal service")
     });
+    pub static L1_SGX_VERIFIER: Lazy<Address> = Lazy::new(|| {
+        Address::from_str("0xA30517F2Ee52634ddD9a3473FB50B162C772c84D")
+            .expect("invalid l1 sgx verifier")
+    });
     pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
         Address::from_str("0x1670080000000000000000000000000000010001")
             .expect("invalid l2 contract address")
