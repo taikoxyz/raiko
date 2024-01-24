@@ -2,7 +2,6 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
 use anyhow::{anyhow, Context, Result};
 use ethers_core::types::{Log, H256};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 use crate::{ethers::from_ethers_h256, keccak, taiko::consts::testnet};
@@ -119,9 +118,9 @@ impl ProtocolInstance {
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => keccak::keccak(
                 (
-                    String::from("VERIFY_PROOF"),
+                    "VERIFY_PROOF",
                     testnet::CHAIN_ID,
-                    Lazy::<alloy_primitives::Address>::get(&testnet::L1_SGX_VERIFIER).unwrap(),
+*testnet::L1_SGX_VERIFIER,
                     self.transition.clone(),
                     new_pubkey,
                     self.prover,
