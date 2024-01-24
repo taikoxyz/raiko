@@ -120,7 +120,7 @@ impl ProtocolInstance {
                 (
                     "VERIFY_PROOF",
                     testnet::CHAIN_ID,
-*testnet::L1_SGX_VERIFIER,
+                    *testnet::L1_SGX_VERIFIER,
                     self.transition.clone(),
                     new_pubkey,
                     self.prover,
