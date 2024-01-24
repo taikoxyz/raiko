@@ -70,9 +70,9 @@ mod tests {
     use super::*;
     #[test]
     fn recover() {
-        let proof = "00000002001f982016760285329143de8701ec8424efaedae598af5f5083c6a087bca7a8cbe9606a2c8f0c0b8512face6bb34dea59182c442f944bcc37835bf4a3d0818662c147e58a699274953b3a5bd167139d8cf3f02d1c";
+        let proof = "01000000c13bd882edb37ffbabc9f9e34a0d9789633b850fe55e625b768cc8e5feed7d9f7ab536cbc210c2fcc1385aaf88d8a91d8adc2740245f9deee5fd3d61dd2a71662fb6639515f1e2f3354361a82d86c1952352c1a81b";
         let proof_bytes = hex::decode(proof).unwrap();
-        let msg = "2488d210d965721e4a3f3e8b8ee3f98e827eaf01e91fe83cac9aa0c4cfb0461e";
+        let msg = "216ac5cd5a5e13b0c9a81efb1ad04526b9f4ddd2fe6ebc02819c5097dfb0958c";
         let msg_bytes = hex::decode(msg).unwrap();
         let proof_addr = recover_signer_unchecked(
             &proof_bytes[24..].try_into().unwrap(),
