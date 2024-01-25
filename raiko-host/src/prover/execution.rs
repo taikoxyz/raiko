@@ -29,7 +29,13 @@ pub async fn execute(
     // set cache file path to context
     ctx.l1_cache_file = Some(l1_cache_file);
     ctx.l2_cache_file = Some(l2_cache_file);
-
+    // try remove cache file anyway to avoid reorg error
+    // because tokio::fs::remove_file haven't guarantee of execution. So, we need to remove
+    // twice
+    // > Runs the provided function on an executor dedicated to blocking operations.
+    // > Tasks will be scheduled as non-mandatory, meaning they may not get executed
+    // > in case of runtime shutdown.
+    remove_cache_file(ctx).await?;
     let result = async {
         // 1. load input data into cache path
         let start = Instant::now();
@@ -52,7 +58,11 @@ pub async fn execute(
         }
     }
     .await;
-    // try remove cache file anyway to avoid reorg error
+    remove_cache_file(ctx).await?;
+    result
+}
+
+async fn remove_cache_file(ctx: &Context) -> Result<()> {
     for file in [
         ctx.l1_cache_file.as_ref().unwrap(),
         ctx.l2_cache_file.as_ref().unwrap(),
@@ -66,7 +76,7 @@ pub async fn execute(
             }
         })?;
     }
-    result
+    Ok(())
 }
 
 #[cfg(test)]
