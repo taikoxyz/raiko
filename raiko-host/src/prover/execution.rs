@@ -83,9 +83,7 @@ async fn remove_cache_file(ctx: &Context) -> Result<()> {
 mod tests {
     #[tokio::test]
     async fn test_async_block() {
-        let result = async {
-            return Result::<(), &'static str>::Err("error");
-        };
+        let result = async { Result::<(), &'static str>::Err("error") };
         println!("must here");
         assert!(result.await.is_err());
     }
