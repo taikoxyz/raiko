@@ -152,9 +152,14 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     proof.extend(new_instance);
     proof.extend(sig.to_bytes());
     let proof = hex::encode(proof);
-    println!("Proof: 0x{}", proof);
-    println!("Public key: 0x{}", new_pubkey);
-    println!("Instance address: {}", new_instance);
+    let quote = get_sgx_quote()?;
+    let data = serde_json::json!({
+        "proof": format!("0x{}", proof),
+        "quote": hex::encode(quote),
+        "public_key": format!("0x{}", new_pubkey),
+        "instance_address": new_instance.to_string(),
+    });
+    println!("{}", data);
 
     save_attestation_user_report_data(new_instance)?;
     print_sgx_info()
