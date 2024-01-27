@@ -22,7 +22,7 @@ use log::info;
 #[cfg(feature = "taiko")]
 use tracing::info;
 #[cfg(feature = "taiko")]
-use zeth_primitives::taiko::{filter_propose_block_event, BlockProposed};
+use zeth_primitives::taiko::BlockProposed;
 
 use super::{AccountQuery, BlockQuery, ProofQuery, Provider, StorageQuery};
 
@@ -176,4 +176,31 @@ impl Provider for RpcProvider {
         })?;
         Ok(out)
     }
+}
+use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
+use zeth_primitives::ethers::from_ethers_h256;
+use anyhow::Context;
+use ethers_core::types::{Log, H256};
+
+#[cfg(feature = "taiko")]
+fn filter_propose_block_event(
+    logs: &[Log],
+    block_id: U256,
+) -> Result<Option<(H256, BlockProposed)>> {
+    use zeth_primitives::taiko::protocol_instance::BlockProposed;
+    for log in logs {
+        if log.topics.len() != <<BlockProposed as SolEvent>::TopicList as TopicList>::COUNT {
+            continue;
+        }
+        if from_ethers_h256(log.topics[0]) != BlockProposed::SIGNATURE_HASH {
+            continue;
+        }
+        let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
+        let result = BlockProposed::decode_log(topics, &log.data, false);
+        let block_proposed = result.with_context(|| "decode log failed")?;
+        if block_proposed.blockId == block_id {
+            return Ok(log.transaction_hash.map(|h| (h, block_proposed)));
+        }
+    }
+    Ok(None)
 }

@@ -13,20 +13,33 @@
 // limitations under the License.
 
 extern crate alloc;
+extern crate core;
 
-use alloc::boxed::Box;
+pub use alloc::{
+    boxed::Box,
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::{
     cell::RefCell,
     cmp,
+    cmp::PartialOrd,
+    convert::{AsRef, From},
+    default::Default,
     fmt::{Debug, Write},
     iter, mem,
+    option::{Option, Option::*},
+    result::Result::*,
 };
 
 use alloy_primitives::B256;
 use alloy_rlp::Encodable;
+use anyhow::Result;
 use rlp::{Decodable, DecoderError, Prototype, Rlp};
 use serde::{Deserialize, Serialize};
-use thiserror::Error as ThisError;
+use thiserror_no_std::Error as ThisError;
 
 use crate::{keccak::keccak, trie::EMPTY_ROOT, RlpBytes};
 
