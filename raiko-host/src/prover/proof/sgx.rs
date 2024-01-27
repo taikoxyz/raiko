@@ -14,7 +14,7 @@ use crate::{
 };
 
 pub async fn execute_sgx(ctx: &Context, req: &SgxRequest) -> Result<SgxResponse, String> {
-    let guest_path = guest_executable_path(&ctx.guest_path, SGX_PARENT_DIR);
+    let guest_path =  &ctx.guest_path.join(SGX_PARENT_DIR).join(RAIKO_GUEST_EXECUTABLE);
     debug!("Guest path: {:?}", guest_path);
     let mut cmd = {
         let bin_directory = guest_path

@@ -58,27 +58,6 @@ sol! {
     function proveBlock(uint64 blockId, bytes calldata input) {}
 }
 
-// pub fn filter_propose_block_event(
-//     logs: &[Log],
-//     block_id: U256,
-// ) -> Result<Option<(H256, BlockProposed)>> {
-//     for log in logs {
-//         if log.topics.len() != <<BlockProposed as SolEvent>::TopicList as TopicList>::COUNT {
-//             continue;
-//         }
-//         if from_ethers_h256(log.topics[0]) != BlockProposed::SIGNATURE_HASH {
-//             continue;
-//         }
-//         let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
-//         let result = BlockProposed::decode_log(topics, &log.data, false);
-//         let block_proposed = result.with_context(|| "decode log failed")?;
-//         if block_proposed.blockId == block_id {
-//             return Ok(log.transaction_hash.map(|h| (h, block_proposed)));
-//         }
-//     }
-//     Ok(None)
-// }
-
 #[derive(Debug)]
 pub enum EvidenceType {
     Sgx {

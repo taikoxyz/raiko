@@ -209,3 +209,21 @@ impl MutProvider for FileProvider {
         self.dirty = true;
     }
 }
+
+#[cfg(feature = "taiko")]
+pub fn cache_file_path(cache_path: &Path, block_no: u64, is_l1: bool) -> PathBuf {
+    let prefix = if is_l1 { "l1" } else { "l2" };
+    let file_name = format!("{}.{}.json.gz", block_no, prefix);
+    cache_path.join(file_name)
+}
+
+#[cfg(feature = "taiko")]
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_file_prefix() {
+        let path = std::path::Path::new("/tmp/ethereum/1234.l1.json.gz");
+        let prefix = path.file_prefix().unwrap();
+        assert_eq!(prefix, "1234");
+    }
+}

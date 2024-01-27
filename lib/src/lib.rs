@@ -11,12 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![feature(async_closure)]
-
+#![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 extern crate core;
-
-#[cfg(not(target_os = "zkvm"))]
-pub mod host;
 
 pub mod block_builder;
 pub mod consts;

@@ -84,6 +84,12 @@ pub enum Error {
     LegacyRlp(#[from] DecoderError),
 }
 
+impl From<Error> for anyhow::Error {
+    fn from(error: Error) -> Self {
+        anyhow::Error::msg(error.to_string())
+    }
+}
+
 /// Represents the various types of data that can be stored within a node in the sparse
 /// Merkle Patricia Trie (MPT).
 ///

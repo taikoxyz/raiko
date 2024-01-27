@@ -14,8 +14,11 @@
 
 //! Constants for the Ethereum protocol.
 
-use core::str::FromStr;
-use std::collections::BTreeMap;
+use alloc::{
+    collections::BTreeMap,
+    str::FromStr,
+    string::{String, ToString},
+};
 
 use anyhow::bail;
 use once_cell::sync::Lazy;
