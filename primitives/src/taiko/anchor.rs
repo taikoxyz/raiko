@@ -2,8 +2,8 @@ use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, bail, Context, Result};
 use once_cell::sync::Lazy;
 
-use crate::{transactions::EthereumTransaction, uint, U256};
 use super::AbiEncodeError;
+use crate::{transactions::EthereumTransaction, uint, U256};
 
 static GX1: Lazy<U256> =
     Lazy::new(|| uint!(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798_U256));
