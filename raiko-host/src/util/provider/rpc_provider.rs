@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Result, Context};
 #[cfg(feature = "taiko")]
 use ethers_core::types::Filter;
-use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
+use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256, Log};
 use ethers_providers::{Http, Middleware};
 #[cfg(not(feature = "taiko"))]
 use log::info;
@@ -140,8 +140,8 @@ impl Provider for RpcProvider {
 
     #[cfg(feature = "taiko")]
     fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
+        use alloy_primitives::U256 as _U256;
         info!("Querying RPC for propose: {:?}", query);
-
         let filter = Filter::new()
             .address(query.l1_contract)
             .from_block(query.l1_block_no)
@@ -150,7 +150,7 @@ impl Provider for RpcProvider {
             .tokio_handle
             .block_on(async { self.http_client.get_logs(&filter).await })?;
         let result =
-            filter_propose_block_event(&logs, zeth_primitives::U256::from(query.l2_block_no))?;
+            filter_propose_block_event(&logs, _U256::from(query.l2_block_no))?;
         let (tx_hash, block_proposed) =
             result.ok_or_else(|| anyhow!("No propose block event for {:?}", query))?;
         let response = self
@@ -177,17 +177,19 @@ impl Provider for RpcProvider {
         Ok(out)
     }
 }
-use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
-use zeth_primitives::ethers::from_ethers_h256;
-use anyhow::Context;
-use ethers_core::types::{Log, H256};
 
+
+
+
+#[cfg(feature = "taiko")]
+use alloy_primitives::U256 as _U256;
 #[cfg(feature = "taiko")]
 fn filter_propose_block_event(
     logs: &[Log],
-    block_id: U256,
+    block_id: _U256,
 ) -> Result<Option<(H256, BlockProposed)>> {
-    use zeth_primitives::taiko::protocol_instance::BlockProposed;
+    use alloy_sol_types::{SolEvent, TopicList};
+    use zeth_primitives::ethers::from_ethers_h256;
     for log in logs {
         if log.topics.len() != <<BlockProposed as SolEvent>::TopicList as TopicList>::COUNT {
             continue;
@@ -196,8 +198,9 @@ fn filter_propose_block_event(
             continue;
         }
         let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
-        let result = BlockProposed::decode_log(topics, &log.data, false);
-        let block_proposed = result.with_context(|| "decode log failed")?;
+        let block_proposed = BlockProposed::decode_log(topics, &log.data, false)
+            .map_err(|e|anyhow!(e.to_string()))
+            .with_context(|| "decode log failed")?;
         if block_proposed.blockId == block_id {
             return Ok(log.transaction_hash.map(|h| (h, block_proposed)));
         }

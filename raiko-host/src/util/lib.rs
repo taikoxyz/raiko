@@ -21,7 +21,7 @@ use std::{
 use anyhow::{Context, Result};
 use ethers_core::types::{Bytes, EIP1186ProofResponse, Transaction as EthersTransaction, H256};
 use hashbrown::HashMap;
-use log::info;
+use tracing::log::info;
 use revm::Database;
 use zeth_primitives::{
     block::Header,
@@ -33,13 +33,9 @@ use zeth_primitives::{
     Address, B256, U256,
 };
 
-use crate::{
+use zeth_lib::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
     consts::ChainSpec,
-    host::{
-        mpt::{orphaned_digests, resolve_digests, shorten_key},
-        provider::{new_provider, BlockQuery},
-    },
     input::{Input, StorageEntry},
     mem_db::MemDb,
 };
@@ -47,6 +43,10 @@ use crate::{
 pub mod mpt;
 pub mod provider;
 pub mod provider_db;
+
+use mpt::{orphaned_digests, resolve_digests, shorten_key};
+use provider::{new_provider, BlockQuery};
+use provider_db::ProviderDb;
 
 #[derive(Clone)]
 pub struct Init<E: TxEssence> {
@@ -94,8 +94,7 @@ where
     info!("Transaction count: {:?}", fini_block.transactions.len());
 
     // Create the provider DB
-    let provider_db =
-        crate::host::provider_db::ProviderDb::new(provider, init_block.number.unwrap().as_u64());
+    let provider_db = ProviderDb::new(provider, init_block.number.unwrap().as_u64());
 
     // Create input
     let input = Input {

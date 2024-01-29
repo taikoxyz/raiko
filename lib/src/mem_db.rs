@@ -38,6 +38,12 @@ pub enum DbError {
     Unspecified(#[from] anyhow::Error),
 }
 
+impl From<DbError> for anyhow::Error {
+    fn from(error: DbError) -> Self {
+        anyhow!(error)
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum AccountState {
     // Account can be cleared/removed from state.
