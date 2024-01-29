@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{fmt::Debug, mem::take, str::from_utf8};
 use alloc::vec;
+use core::{fmt::Debug, mem::take, str::from_utf8};
+
 use anyhow::{anyhow, bail, Context};
 #[cfg(all(not(target_os = "zkvm"), not(feature = "server")))]
 use log::debug;

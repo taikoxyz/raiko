@@ -1,5 +1,6 @@
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Context, Result};
+
 use super::AbiEncodeError;
 
 sol! {
@@ -16,4 +17,3 @@ pub fn decode_propose_block_call_args(data: &[u8]) -> Result<proposeBlockCall> {
         .with_context(|| "failed to decode propose block call")?;
     Ok(propose_block_call)
 }
-

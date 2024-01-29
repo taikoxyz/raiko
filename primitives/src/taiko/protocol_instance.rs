@@ -1,8 +1,10 @@
 use alloc::vec::Vec;
+
 use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+
 use crate::keccak;
 
 sol! {

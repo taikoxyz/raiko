@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use alloc::{format, vec::Vec, vec};
+use alloc::{format, vec, vec::Vec};
 use core::{fmt::Debug, mem::take, str::FromStr};
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -407,8 +407,8 @@ where
     };
 
     // let ethers_core::abi::Token::Uint(uint_result) =
-    //     ethers_core::abi::decode(&[ethers_core::abi::ParamType::Uint(256)], &result_encoded)?
-    //         .pop()
+    //     ethers_core::abi::decode(&[ethers_core::abi::ParamType::Uint(256)],
+    // &result_encoded)?         .pop()
     //         .unwrap()
     // else {
     //     bail!("Could not decode result");

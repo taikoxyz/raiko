@@ -10,15 +10,13 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use secp256k1::KeyPair;
 use serde::Serialize;
+use util::{taiko::TaikoExtra, Init};
 use zeth_lib::{
     consts::{get_taiko_chain_spec, ChainSpec, ETH_MAINNET_CHAIN_SPEC},
     input::Input,
-    taiko::{
-        block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
-    },
+    taiko::block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
     EthereumTxEssence,
 };
-use util::{Init, taiko::TaikoExtra};
 use zeth_primitives::{taiko::EvidenceType, Address, B256};
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 

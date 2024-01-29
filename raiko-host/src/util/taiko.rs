@@ -7,15 +7,12 @@ use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U2
 use serde_json::to_string;
 use thiserror::Error as ThisError;
 use tracing::info;
-
-use super::{
-    provider::{
-        BlockQuery, ProposeQuery,
-        Provider,
-    }, Init,
-};
 use zeth_lib::{
-    block_builder::{BlockBuilder, NetworkStrategyBundle}, consts::ChainSpec, input::Input, taiko::{utils::rlp_decode_list, Layer}, EthereumTxEssence
+    block_builder::{BlockBuilder, NetworkStrategyBundle},
+    consts::ChainSpec,
+    input::Input,
+    taiko::{utils::rlp_decode_list, Layer},
+    EthereumTxEssence,
 };
 use zeth_primitives::{
     block::Header,
@@ -30,7 +27,14 @@ use zeth_primitives::{
     Address, TxHash, B256,
 };
 
-use crate::{provider::{new_provider, ProofQuery}, provider_db};
+use super::{
+    provider::{BlockQuery, ProposeQuery, Provider},
+    Init,
+};
+use crate::{
+    provider::{new_provider, ProofQuery},
+    provider_db,
+};
 
 #[derive(Debug)]
 pub struct TaikoExtra {

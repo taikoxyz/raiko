@@ -1,6 +1,11 @@
 //! Prepare Input for guest
 use std::fmt::Debug;
 
+use util::{
+    provider::file_provider::cache_file_path,
+    taiko::{get_taiko_initial_data, TaikoExtra},
+    Init,
+};
 use zeth_lib::{
     block_builder::NetworkStrategyBundle,
     consts::{get_taiko_chain_spec, ETH_MAINNET_CHAIN_SPEC},
@@ -8,12 +13,9 @@ use zeth_lib::{
 };
 
 use super::{
-    context::Context, error::Result, request::{ProofRequest, PseZkRequest, SgxRequest}
-};
-
-use util::{
-    provider::file_provider::cache_file_path, 
-    taiko::{get_taiko_initial_data, TaikoExtra}, Init
+    context::Context,
+    error::Result,
+    request::{ProofRequest, PseZkRequest, SgxRequest},
 };
 
 /// prepare input data for guests
