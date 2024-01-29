@@ -60,21 +60,21 @@ pub mod internal_devnet_a {
 
 pub mod internal_devnet_b {
     use super::*;
-    pub const CHAIN_ID: u64 = 167002;
-    pub const L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
+    pub static CHAIN_ID: u64 = 167002;
+    pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
         Address::from_str("0x674313F932cc0cE272154a288cf3De474D44e14F")
             .expect("invalid l1 contract address")
     });
-    pub const L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
+    pub static L1_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
         Address::from_str("0x83e383dec6E3C2CD167E3bF6aA8c36F0e55Ad910")
             .expect("invalid l1 signal service")
     });
 
-    pub const L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
+    pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
         Address::from_str("0x1670020000000000000000000000000000010001")
             .expect("invalid l2 contract address")
     });
-    pub const L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
+    pub static L2_SIGNAL_SERVICE: Lazy<Address> = Lazy::new(|| {
         Address::from_str("0x1670020000000000000000000000000000000005")
             .expect("invalid l2 signal service")
     });
