@@ -89,6 +89,7 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     save_priv_key(&key_pair, &privkey_path)?;
     println!("Public key: 0x{}", key_pair.public_key());
     let new_instance = public_key_to_address(&key_pair.public_key());
+    save_attestation_user_report_data(new_instance)?;
     println!("Instance address: {}", new_instance);
     let quote = get_sgx_quote()?;
     let bootstrap_details_file_path = global_opts.config_dir.join(BOOTSTRAP_INFO_FILENAME);
