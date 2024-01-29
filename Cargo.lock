@@ -2813,6 +2813,7 @@ dependencies = [
  "dirs",
  "ethers-core",
  "hex 0.4.3",
+ "raiko-host",
  "rand",
  "rand_core",
  "risc0-zkvm",

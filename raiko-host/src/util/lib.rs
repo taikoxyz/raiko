@@ -42,6 +42,7 @@ use zeth_primitives::{
 pub mod mpt;
 pub mod provider;
 pub mod provider_db;
+pub mod taiko;
 
 use mpt::{orphaned_digests, resolve_digests, shorten_key};
 use provider::{new_provider, BlockQuery};

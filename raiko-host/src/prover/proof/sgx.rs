@@ -2,6 +2,7 @@ use std::str;
 
 use tokio::{fs, process::Command};
 use tracing::{debug, info};
+use util::provider::file_provider::cache_file_path;
 
 use crate::{
     metrics::inc_sgx_error,
@@ -9,7 +10,6 @@ use crate::{
         consts::*,
         context::Context,
         request::{SgxRequest, SgxResponse},
-        utils::{cache_file_path},
     },
 };
 

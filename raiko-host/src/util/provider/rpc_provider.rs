@@ -140,7 +140,6 @@ impl Provider for RpcProvider {
 
     #[cfg(feature = "taiko")]
     fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
-        use alloy_primitives::U256 as _U256;
         info!("Querying RPC for propose: {:?}", query);
         let filter = Filter::new()
             .address(query.l1_contract)
@@ -149,7 +148,7 @@ impl Provider for RpcProvider {
         let logs = self
             .tokio_handle
             .block_on(async { self.http_client.get_logs(&filter).await })?;
-        let result = filter_propose_block_event(&logs, _U256::from(query.l2_block_no))?;
+        let result = filter_propose_block_event(&logs, AlloyU256::from(query.l2_block_no))?;
         let (tx_hash, block_proposed) =
             result.ok_or_else(|| anyhow!("No propose block event for {:?}", query))?;
         let response = self
@@ -178,11 +177,11 @@ impl Provider for RpcProvider {
 }
 
 #[cfg(feature = "taiko")]
-use alloy_primitives::U256 as _U256;
+use alloy_primitives::U256 as AlloyU256;
 #[cfg(feature = "taiko")]
 fn filter_propose_block_event(
     logs: &[Log],
-    block_id: _U256,
+    block_id: AlloyU256,
 ) -> Result<Option<(H256, BlockProposed)>> {
     use alloy_sol_types::{SolEvent, TopicList};
     use zeth_primitives::ethers::from_ethers_h256;
