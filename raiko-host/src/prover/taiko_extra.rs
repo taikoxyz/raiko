@@ -1,41 +1,38 @@
 //! Prepare Input for guest
 use std::fmt::Debug;
+
 use alloy_sol_types::SolValue;
-use anyhow::{anyhow, bail, Context, Error};
+use anyhow::{anyhow, bail, Context, Result};
+use ethers_core::types::{Block, Transaction as EthersTransaction, H160, U256, U64};
 use serde_json::to_string;
 use thiserror::Error as ThisError;
-use zeth_lib::{
-    block_builder::NetworkStrategyBundle, consts::{get_taiko_chain_spec, ETH_MAINNET_CHAIN_SPEC}, taiko::utils::rlp_decode_list, EthereumTxEssence
+
+use util::{
+    provider::{
+        BlockQuery, ProposeQuery,
+        Provider,
+    }, Init,
 };
-
-use util::{provider::{file_provider::cache_file_path, new_provider, BlockQuery, ProofQuery, ProposeQuery, Provider}, provider_db};
-use util::Init;
-
-use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256, U64};
-use tracing::info;
-use zeth_primitives::{
-    ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256}, taiko::*, transactions::EthereumTransaction, withdrawal::Withdrawal, Address, B256
-};
-
 use zeth_lib::{
-    block_builder::BlockBuilder,
+    block_builder::NetworkStrategyBundle,
     consts::ChainSpec,
-    input::Input,
-    taiko::Layer,
+    taiko::{utils::rlp_decode_list, Layer},
+    EthereumTxEssence,
 };
-
-use anyhow::Result;
 use zeth_primitives::{
     block::Header,
+    ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
     keccak,
     taiko::{
         deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
-        ANCHOR_GAS_LIMIT,
+        ANCHOR_GAS_LIMIT, *,
     },
-    TxHash,
+    transactions::EthereumTransaction,
+    withdrawal::Withdrawal,
+    Address, TxHash, B256,
 };
 
-use crate::prover::prepare_input::{fetch_data, execute_data};
+use crate::prover::prepare_input::{execute_data, fetch_data};
 
 #[derive(Debug)]
 pub struct TaikoExtra {
@@ -51,7 +48,6 @@ pub struct TaikoExtra {
     pub l1_next_block: Block<EthersTransaction>,
     pub l2_fini_block: Block<EthersTransaction>,
 }
-
 
 #[allow(clippy::too_many_arguments)]
 pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
@@ -161,8 +157,6 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     Ok((init, extra))
 }
 
-
-
 // rebuild the block with anchor transaction and txlist from l1 contract, then precheck it
 pub fn rebuild_and_precheck_block(
     l2_chain_spec: &ChainSpec,
@@ -207,31 +201,37 @@ pub fn rebuild_and_precheck_block(
     Ok(())
 }
 
-
-
-
 #[derive(ThisError, Debug)]
 pub enum AnchorError {
     #[error("anchor transaction type mismatch, expected: {expected}, got: {got}")]
-    AnchorTypeMisMatch {expected: u8, got: u8},
+    AnchorTypeMisMatch { expected: u8, got: u8 },
 
     #[error("anchor transaction from mismatch, expected: {expected}, got: {got:?}")]
-    AnchorFromMisMatch {expected: Address, got: Option<Address>},
+    AnchorFromMisMatch {
+        expected: Address,
+        got: Option<Address>,
+    },
 
     #[error("anchor transaction to mismatch, expected: {expected}, got: {got:?}")]
-    AnchorToMisMatch {expected: Address, got: Option<Address>},
-    
+    AnchorToMisMatch {
+        expected: Address,
+        got: Option<Address>,
+    },
+
     #[error("anchor transaction value mismatch, expected: {expected}, got: {got:?}")]
-    AnchorValueMisMatch {expected: U256, got: U256},
+    AnchorValueMisMatch { expected: U256, got: U256 },
 
     #[error("anchor transaction gas limit mismatch, expected: {expected}, got: {got:?}")]
-    AnchorGasLimitMisMatch {expected: U256, got: U256},
+    AnchorGasLimitMisMatch { expected: U256, got: U256 },
 
     #[error("anchor transaction fee cap mismatch, expected: {expected:?}, got: {got:?}")]
-    AnchorFeeCapMisMatch {expected: Option<U256>, got: Option<U256>},
+    AnchorFeeCapMisMatch {
+        expected: Option<U256>,
+        got: Option<U256>,
+    },
 
     #[error("anchor transaction signature mismatch, {msg}")]
-    AnchorSignatureMismatch { msg: String},
+    AnchorSignatureMismatch { msg: String },
 
     #[error("anchor transaction decode error")]
     Anyhow(#[from] anyhow::Error),
@@ -294,8 +294,6 @@ pub fn precheck_anchor(
     }
     Ok(())
 }
-
-
 
 pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result<ProtocolInstance> {
     let tx_list_hash = TxHash::from(keccak::keccak(extra.l2_tx_list.as_slice()));

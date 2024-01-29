@@ -16,7 +16,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs::File,
     io::{Read, Write},
-    path::{Path, PathBuf}
+    path::{Path, PathBuf},
 };
 
 use anyhow::{anyhow, Result};

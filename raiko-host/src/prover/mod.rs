@@ -7,5 +7,5 @@ pub mod prepare_input;
 pub mod proof;
 pub mod request;
 pub mod server;
-pub mod utils;
 pub mod taiko_extra;
+pub mod utils;

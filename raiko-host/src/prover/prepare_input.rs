@@ -1,17 +1,23 @@
 //! Prepare Input for guest
 use std::fmt::Debug;
-use thiserror::Error as ThisError;
+
+
+use util::{
+    provider::{file_provider::cache_file_path, new_provider, BlockQuery, ProofQuery, Provider},
+    provider_db, Init,
+};
 use zeth_lib::{
-    block_builder::NetworkStrategyBundle, consts::{get_taiko_chain_spec, ETH_MAINNET_CHAIN_SPEC},EthereumTxEssence
+    block_builder::NetworkStrategyBundle,
+    consts::{get_taiko_chain_spec, ETH_MAINNET_CHAIN_SPEC},
+    EthereumTxEssence,
 };
 
 use super::{
-    context::Context, error::Result, request::{ProofRequest, PseZkRequest, SgxRequest}, taiko_extra::{get_taiko_initial_data, TaikoExtra}
-    
+    context::Context,
+    error::Result,
+    request::{ProofRequest, PseZkRequest, SgxRequest},
+    taiko_extra::{get_taiko_initial_data, TaikoExtra},
 };
-
-use util::{provider::{file_provider::cache_file_path, new_provider, BlockQuery, ProofQuery, Provider}, provider_db};
-use util::Init;
 
 /// prepare input data for guests
 pub async fn prepare_input<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
@@ -61,21 +67,12 @@ where
     }
 }
 
-
-
-
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256};
 use tracing::info;
+use zeth_lib::{block_builder::BlockBuilder, consts::ChainSpec, input::Input, taiko::Layer};
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
     Address, B256,
-};
-
-use zeth_lib::{
-    block_builder::BlockBuilder,
-    consts::ChainSpec,
-    input::Input,
-    taiko::Layer,
 };
 
 #[allow(clippy::type_complexity)]
@@ -245,7 +242,3 @@ pub fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     };
     Ok(init)
 }
-
-
-
-

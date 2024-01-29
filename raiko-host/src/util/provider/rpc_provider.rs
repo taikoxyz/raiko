@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use anyhow::{anyhow, Result, Context};
+use anyhow::{anyhow, Context, Result};
 #[cfg(feature = "taiko")]
 use ethers_core::types::Filter;
-use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256, Log};
+use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Log, Transaction, H256, U256};
 use ethers_providers::{Http, Middleware};
 #[cfg(not(feature = "taiko"))]
 use log::info;
@@ -149,8 +149,7 @@ impl Provider for RpcProvider {
         let logs = self
             .tokio_handle
             .block_on(async { self.http_client.get_logs(&filter).await })?;
-        let result =
-            filter_propose_block_event(&logs, _U256::from(query.l2_block_no))?;
+        let result = filter_propose_block_event(&logs, _U256::from(query.l2_block_no))?;
         let (tx_hash, block_proposed) =
             result.ok_or_else(|| anyhow!("No propose block event for {:?}", query))?;
         let response = self
@@ -178,9 +177,6 @@ impl Provider for RpcProvider {
     }
 }
 
-
-
-
 #[cfg(feature = "taiko")]
 use alloy_primitives::U256 as _U256;
 #[cfg(feature = "taiko")]
@@ -199,7 +195,7 @@ fn filter_propose_block_event(
         }
         let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
         let block_proposed = BlockProposed::decode_log(topics, &log.data, false)
-            .map_err(|e|anyhow!(e.to_string()))
+            .map_err(|e| anyhow!(e.to_string()))
             .with_context(|| "decode log failed")?;
         if block_proposed.blockId == block_id {
             return Ok(log.transaction_hash.map(|h| (h, block_proposed)));

@@ -23,7 +23,7 @@ pub async fn execute(_cache: &Cache, ctx: &Context, req: &ProofRequest) -> Resul
     match req {
         ProofRequest::Sgx(req) => {
             let start = Instant::now();
-            let bid = req.block.clone();
+            let bid = req.block;
             let resp = execute_sgx(ctx, req).await?;
             let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
             observe_sgx_gen(bid, time_elapsed);

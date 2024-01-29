@@ -1,4 +1,5 @@
 use std::fmt;
+
 use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
@@ -9,7 +10,6 @@ pub enum Error {
     JoinHandle(tokio::task::JoinError),
     String(String),
 }
-
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
