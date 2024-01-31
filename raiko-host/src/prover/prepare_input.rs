@@ -1,14 +1,14 @@
 //! Prepare Input for guest
 use std::fmt::Debug;
 
-use zeth_lib::host::{
-    provider::file_provider::cache_file_path,
-    taiko::{get_taiko_initial_data, TaikoExtra},
-    Init,
-};
 use zeth_lib::{
     block_builder::NetworkStrategyBundle,
     consts::{get_taiko_chain_spec, ETH_MAINNET_CHAIN_SPEC},
+    host::{
+        provider::file_provider::cache_file_path,
+        taiko::{get_taiko_initial_data, TaikoExtra},
+        Init,
+    },
     EthereumTxEssence,
 };
 

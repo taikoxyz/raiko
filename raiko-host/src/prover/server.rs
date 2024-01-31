@@ -21,6 +21,7 @@ use crate::prover::{
 /// Starts the proverd json-rpc server.
 /// Note: the server may not immediately listening after returning the
 /// `JoinHandle`.
+#[allow(clippy::too_many_arguments)]
 pub fn serve(
     addr: &str,
     guest_path: &Path,

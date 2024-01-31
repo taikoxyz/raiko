@@ -177,7 +177,7 @@ impl Provider for RpcProvider {
 pub mod taiko {
     use super::*;
     use revm::primitives::U256;
-    use zeth_primitives::taiko::*;
+    use zeth_primitives::taiko::BlockProposed;
     use alloy_sol_types::{SolEvent, TopicList};
     use zeth_primitives::ethers::from_ethers_h256;
     pub fn filter_propose_block_event(

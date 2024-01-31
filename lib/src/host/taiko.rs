@@ -351,7 +351,6 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
 
 pub fn verify(header: &Header, pi: &mut ProtocolInstance, extra: &TaikoExtra) -> Result<()> {
     use alloy_sol_types::SolValue;
-    use zeth_primitives::taiko::*;
     // check the block metadata
     if pi.block_metadata.abi_encode() != extra.block_proposed.meta.abi_encode() {
         return Err(anyhow!(

@@ -40,7 +40,3 @@ thiserror = "1.0"
 [dev-dependencies]
 assert_cmd = "2.0"
 rstest = "0.18"
-
-[features]
-default = ["taiko"]
-taiko = ["alloy-sol-types"]
