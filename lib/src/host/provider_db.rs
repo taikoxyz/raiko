@@ -20,7 +20,6 @@ use revm::{
     primitives::{Account, AccountInfo, Bytecode},
     Database, DatabaseCommit,
 };
-use crate::mem_db::{DbError, MemDb};
 use zeth_primitives::{
     block::Header,
     ethers::{from_ethers_bytes, from_ethers_u256},
@@ -28,6 +27,7 @@ use zeth_primitives::{
 };
 
 use super::provider::{AccountQuery, BlockQuery, ProofQuery, Provider, StorageQuery};
+use crate::mem_db::{DbError, MemDb};
 
 pub struct ProviderDb {
     pub provider: Box<dyn Provider>,

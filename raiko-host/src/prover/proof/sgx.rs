@@ -3,7 +3,6 @@ use std::str;
 use serde_json::Value;
 use tokio::process::Command;
 use tracing::{debug, info};
-use zeth_lib::host::provider::file_provider::cache_file_path;
 
 use crate::{
     metrics::inc_sgx_error,

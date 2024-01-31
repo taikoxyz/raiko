@@ -13,14 +13,15 @@
 // limitations under the License.
 
 use anyhow::{anyhow, Context, Result};
-use log::info;
-use ethers_core::types::Filter;
-use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Log, Transaction, H256, U256};
+use ethers_core::types::{
+    Block, Bytes, EIP1186ProofResponse, Filter, Log, Transaction, H256, U256,
+};
 use ethers_providers::{Http, Middleware};
-use super::{AccountQuery, BlockQuery, ProofQuery, Provider, StorageQuery};
-
+use log::info;
 #[cfg(feature = "taiko")]
 use zeth_primitives::taiko::BlockProposed;
+
+use super::{AccountQuery, BlockQuery, ProofQuery, Provider, StorageQuery};
 
 pub struct RpcProvider {
     http_client: ethers_providers::Provider<Http>,
@@ -175,11 +176,11 @@ impl Provider for RpcProvider {
 
 #[cfg(feature = "taiko")]
 pub mod taiko {
-    use super::*;
-    use revm::primitives::U256;
-    use zeth_primitives::taiko::BlockProposed;
     use alloy_sol_types::{SolEvent, TopicList};
-    use zeth_primitives::ethers::from_ethers_h256;
+    use revm::primitives::U256;
+    use zeth_primitives::{ethers::from_ethers_h256, taiko::BlockProposed};
+
+    use super::*;
     pub fn filter_propose_block_event(
         logs: &[Log],
         block_id: U256,
@@ -201,5 +202,4 @@ pub mod taiko {
         }
         Ok(None)
     }
-    
 }

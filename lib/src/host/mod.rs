@@ -20,14 +20,8 @@ use std::{
 use anyhow::{Context, Result};
 use ethers_core::types::{Bytes, EIP1186ProofResponse, Transaction as EthersTransaction, H256};
 use hashbrown::HashMap;
-use revm::Database;
 use log::info;
-use crate::{
-    block_builder::{BlockBuilder, NetworkStrategyBundle},
-    consts::ChainSpec,
-    input::{Input, StorageEntry},
-    mem_db::MemDb,
-};
+use revm::Database;
 use zeth_primitives::{
     block::Header,
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -36,6 +30,13 @@ use zeth_primitives::{
     trie::{MptNode, MptNodeData, MptNodeReference, EMPTY_ROOT},
     withdrawal::Withdrawal,
     Address, B256, U256,
+};
+
+use crate::{
+    block_builder::{BlockBuilder, NetworkStrategyBundle},
+    consts::ChainSpec,
+    input::{Input, StorageEntry},
+    mem_db::MemDb,
 };
 
 pub mod mpt;

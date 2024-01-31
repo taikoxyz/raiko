@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use std::{
     collections::{BTreeMap, HashMap},
     fs::File,
     io::{Read, Write},
     path::{Path, PathBuf},
 };
-use alloc::vec::Vec;
 
 use anyhow::{anyhow, Result};
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};

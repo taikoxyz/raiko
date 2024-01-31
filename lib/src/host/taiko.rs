@@ -6,13 +6,6 @@ use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U2
 use serde_json::to_string;
 use thiserror::Error as ThisError;
 use tracing::info;
-use crate::{
-    block_builder::{BlockBuilder, NetworkStrategyBundle},
-    consts::ChainSpec,
-    input::Input,
-    taiko::{utils::rlp_decode_list, Layer},
-    EthereumTxEssence,
-};
 use zeth_primitives::{
     block::Header,
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -27,8 +20,15 @@ use zeth_primitives::{
 };
 
 use super::{
-    provider::{BlockQuery, ProposeQuery, Provider, new_provider, ProofQuery},
-    Init, provider_db
+    provider::{new_provider, BlockQuery, ProofQuery, ProposeQuery, Provider},
+    provider_db, Init,
+};
+use crate::{
+    block_builder::{BlockBuilder, NetworkStrategyBundle},
+    consts::ChainSpec,
+    input::Input,
+    taiko::{utils::rlp_decode_list, Layer},
+    EthereumTxEssence,
 };
 
 #[derive(Debug)]
