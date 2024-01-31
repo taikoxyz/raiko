@@ -72,6 +72,7 @@ pub static ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
     }
 });
 
+#[cfg(feature = "taiko")]
 macro_rules! taiko_chain_spec {
     ($a:ident, $b:ident ) => {
         pub static $a: Lazy<ChainSpec> = Lazy::new(|| {

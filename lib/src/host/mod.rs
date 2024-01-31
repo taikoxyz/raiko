@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![feature(path_file_prefix)]
 use std::{
     collections::HashSet,
     fmt::Debug,
@@ -22,8 +21,8 @@ use anyhow::{Context, Result};
 use ethers_core::types::{Bytes, EIP1186ProofResponse, Transaction as EthersTransaction, H256};
 use hashbrown::HashMap;
 use revm::Database;
-use tracing::log::info;
-use zeth_lib::{
+use log::info;
+use crate::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
     consts::ChainSpec,
     input::{Input, StorageEntry},

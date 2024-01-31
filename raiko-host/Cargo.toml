@@ -3,10 +3,6 @@ name = "raiko-host"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-name = "util"
-path = "src/util/lib.rs"
-
 [dependencies]
 anyhow = "1.0"
 alloy-sol-types = { version = "0.4", optional = true }
@@ -26,7 +22,7 @@ serde = "1.0"
 serde_with = "3.4.0"
 tempfile = "3.6"
 tokio = { version = "1.23", features = ["full"] }
-zeth-lib = { path = "../lib", features = ["taiko", "server"] }
+zeth-lib = { path = "../lib", features = ["taiko", "server", "std"] }
 zeth-primitives = { path = "../primitives", features = ["taiko"] }
 serde_json = "1.0"
 hyper = { version = "0.14.27", features = ["server"] }

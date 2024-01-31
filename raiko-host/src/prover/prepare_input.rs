@@ -1,7 +1,7 @@
 //! Prepare Input for guest
 use std::fmt::Debug;
 
-use util::{
+use zeth_lib::host::{
     provider::file_provider::cache_file_path,
     taiko::{get_taiko_initial_data, TaikoExtra},
     Init,

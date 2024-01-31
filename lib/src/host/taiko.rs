@@ -1,13 +1,12 @@
 //! Prepare Input for guest
 use std::fmt::Debug;
 
-use alloy_sol_types::SolValue;
 use anyhow::{anyhow, bail, Context, Result};
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256, U64};
 use serde_json::to_string;
 use thiserror::Error as ThisError;
 use tracing::info;
-use zeth_lib::{
+use crate::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
     consts::ChainSpec,
     input::Input,
@@ -28,12 +27,8 @@ use zeth_primitives::{
 };
 
 use super::{
-    provider::{BlockQuery, ProposeQuery, Provider},
-    Init,
-};
-use crate::{
-    provider::{new_provider, ProofQuery},
-    provider_db,
+    provider::{BlockQuery, ProposeQuery, Provider, new_provider, ProofQuery},
+    Init, provider_db
 };
 
 #[derive(Debug)]
@@ -355,6 +350,8 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
 }
 
 pub fn verify(header: &Header, pi: &mut ProtocolInstance, extra: &TaikoExtra) -> Result<()> {
+    use alloy_sol_types::SolValue;
+    use zeth_primitives::taiko::*;
     // check the block metadata
     if pi.block_metadata.abi_encode() != extra.block_proposed.meta.abi_encode() {
         return Err(anyhow!(

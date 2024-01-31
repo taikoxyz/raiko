@@ -18,6 +18,7 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
 };
+use alloc::vec::Vec;
 
 use anyhow::{anyhow, Result};
 use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, U256};
