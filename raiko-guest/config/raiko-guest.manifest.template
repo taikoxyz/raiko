@@ -7,6 +7,7 @@ loader.log_level = "{{ log_level }}"
 loader.env.HOME = "/root"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
 loader.env.RUST_LOG = "info"
+loader.env.EDMM = "1"
 
 fs.mounts = [
   { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
@@ -21,7 +22,7 @@ sys.insecure__allow_eventfd = true
 loader.insecure__use_cmdline_argv = true
 
 sgx.debug = false
-sgx.edmm_enable = {{ 'true' if env.get('EDMM', '1') == '1' else 'false' }}
+sgx.edmm_enable = true
 
 sgx.trusted_files = [
   "file:{{ gramine.libos }}",
@@ -32,7 +33,7 @@ sgx.trusted_files = [
   "file:{{ arch_libdir }}/libcrypto.so.3",
   "file:/usr/lib/ssl/certs/",
 ]
-sgx.max_threads = 16
+sgx.max_threads = 32
 sys.enable_extra_runtime_domain_names_conf = true
 sgx.remote_attestation = "dcap"
 
