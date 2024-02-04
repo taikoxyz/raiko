@@ -70,11 +70,11 @@ Taiko doesn't provide prebuilt Docker image (yet). You need to build it yourself
    
    Enable EDMM in the manifest file:
     ```
-    nano ~/raiko/raiko-guest/config/raiko-guest.manifest.template
+    nano raiko-guest/config/raiko-guest.manifest.template
     ```
    Add the environment variable in the `docker-compose.yml` file:
     ```
-    nano ~/raiko/docker/docker-compose.yml
+    nano docker/docker-compose.yml
     ```
 1. Build the image:
    ```
