@@ -22,7 +22,8 @@ sys.insecure__allow_eventfd = true
 loader.insecure__use_cmdline_argv = true
 
 sgx.debug = false
-# To enable EDMM, set 'sgx.edmm_enable = true' and uncomment or add to this file 'loader.env.EDMM = "1"'.
+# To enable EDMM, set 'sgx.edmm_enable = true' and uncomment or add to this file 'loader.env.EDMM = "1"'
+# You also need to change your docker-compose.yml
 sgx.edmm_enable = false
 
 sgx.trusted_files = [
