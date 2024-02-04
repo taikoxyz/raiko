@@ -106,6 +106,20 @@ docker compose up raiko -d
 
 Start the Raiko daemon. Skip `-d` (which stands for _daemon_) to run in the foreground instead.
 
+### Enable EDMM (Only SGX2)
+
+1. Enable EDMM in the manifest file.
+
+    ```
+    nano ~/raiko/raiko-guest/config/raiko-guest.manifest.template
+    ```
+
+1. Add the environment variable in the `docker-compose.yml` file
+
+    ```
+    nano ~/raiko/docker/docker-compose.yml
+    ```
+
 ### Test Raiko
 
 Now, once you have Raiko up and running, you can test it to make sure it is serving requests as expected.
