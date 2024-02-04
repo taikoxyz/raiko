@@ -63,11 +63,20 @@ Taiko doesn't provide prebuilt Docker image (yet). You need to build it yourself
    ```
 1. Change active directory:
    ```
-   cd raiko/docker
+   cd raiko
    ```
+   # Enable EDMM (Only SGX2)
+    1. Enable EDMM in the manifest file.
+    ```
+    nano ~/raiko/raiko-guest/config/raiko-guest.manifest.template
+    ```
+    1. Add the environment variable in the `docker-compose.yml` file
+    ```
+    nano ~/raiko/docker/docker-compose.yml
+    ```
 1. Build the image:
    ```
-   docker compose build
+   docker build -t raiko:latest .
    ```
 1. That's it! You should now be able to find the `raiko:latest` in the list of all Docker images:
    ```
@@ -105,20 +114,6 @@ docker compose up raiko -d
 ```
 
 Start the Raiko daemon. Skip `-d` (which stands for _daemon_) to run in the foreground instead.
-
-### Enable EDMM (Only SGX2)
-
-1. Enable EDMM in the manifest file.
-
-    ```
-    nano ~/raiko/raiko-guest/config/raiko-guest.manifest.template
-    ```
-
-1. Add the environment variable in the `docker-compose.yml` file
-
-    ```
-    nano ~/raiko/docker/docker-compose.yml
-    ```
 
 ### Test Raiko
 
