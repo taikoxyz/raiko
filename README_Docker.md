@@ -65,7 +65,8 @@ Taiko doesn't provide prebuilt Docker image (yet). You need to build it yourself
    ```
    cd raiko
    ```
-   # Enable EDMM (Only SGX2)
+   ### Enable EDMM (Only SGX2)
+   You can skip this step if you don't have SGX2 support.
     1. Enable EDMM in the manifest file.
     ```
     nano ~/raiko/raiko-guest/config/raiko-guest.manifest.template
