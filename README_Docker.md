@@ -88,6 +88,9 @@ Taiko doesn't provide prebuilt Docker image (yet). You need to build it yourself
 ## Running Docker container
 
 After successfully building Docker image, you are now able to bootstrap and run Raiko as a daemon.
+   ```
+   cd docker
+   ```
 
 ### Raiko bootstrapping
 
