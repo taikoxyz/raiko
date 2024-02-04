@@ -35,7 +35,7 @@ sgx.trusted_files = [
   "file:{{ arch_libdir }}/libcrypto.so.3",
   "file:/usr/lib/ssl/certs/",
 ]
-sgx.max_threads = 32
+sgx.max_threads = 16
 sys.enable_extra_runtime_domain_names_conf = true
 sgx.remote_attestation = "dcap"
 
