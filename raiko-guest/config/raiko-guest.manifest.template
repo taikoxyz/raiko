@@ -7,7 +7,7 @@ loader.log_level = "{{ log_level }}"
 loader.env.HOME = "/root"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
 loader.env.RUST_LOG = "info"
-loader.env.EDMM = "1"
+# loader.env.EDMM = "1"
 
 fs.mounts = [
   { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
@@ -22,7 +22,8 @@ sys.insecure__allow_eventfd = true
 loader.insecure__use_cmdline_argv = true
 
 sgx.debug = false
-sgx.edmm_enable = true
+# To enable EDMM, set 'sgx.edmm_enable = true' and uncomment or add to this file 'loader.env.EDMM = "1"'.
+sgx.edmm_enable = false
 
 sgx.trusted_files = [
   "file:{{ gramine.libos }}",
