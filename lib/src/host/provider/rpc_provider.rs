@@ -23,6 +23,8 @@ use log::info;
 use tracing::info;
 #[cfg(feature = "taiko")]
 use zeth_primitives::taiko::{filter_propose_block_event, BlockProposed};
+// #[cfg(feature = "taiko")]
+// use reth_primitives::Transaction as RethTransaction;
 
 use super::{AccountQuery, BlockQuery, ProofQuery, Provider, StorageQuery};
 
@@ -141,6 +143,55 @@ impl Provider for RpcProvider {
     #[cfg(feature = "taiko")]
     fn get_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
         info!("Querying RPC for propose: {:?}", query);
+
+        let filter = Filter::new()
+            .address(query.l1_contract)
+            .from_block(query.l1_block_no)
+            .to_block(query.l1_block_no);
+        let logs = self
+            .tokio_handle
+            .block_on(async { self.http_client.get_logs(&filter).await })?;
+        let result =
+            filter_propose_block_event(&logs, zeth_primitives::U256::from(query.l2_block_no))?;
+        let (tx_hash, block_proposed) =
+            result.ok_or_else(|| anyhow!("No propose block event for {:?}", query))?;
+        let response = self
+            .tokio_handle
+            .block_on(async { self.http_client.get_transaction(tx_hash).await })?;
+        match response {
+            Some(out) => Ok((out, block_proposed)),
+            None => Err(anyhow!("No data for {:?}", query)),
+        }
+    }
+
+    #[cfg(feature = "taiko")]
+    fn get_blob_tx_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
+        use ethers_core::types::TxHash;
+
+        info!("Querying RPC for propose: {:?}", query);
+
+        async fn get_transaction<T: Send + Sync + Into<TxHash>>(
+            l1_provider: &ethers_providers::Provider<Http>,
+            transaction_hash: T,
+        ) -> Result<Option<Transaction>, ethers_providers::ProviderError> {
+            let hash = transaction_hash.into();
+            l1_provider.request("eth_getTransactionByHash", [hash]).await
+        }
+
+        #[cfg(test)]
+        {
+            let block = self.get_full_block(&BlockQuery { block_no: query.l1_block_no + 1 })?;
+            let tx_hash = block.transactions[0].hash;
+            let response = self
+            .tokio_handle
+            .block_on(async { 
+                get_transaction(&self.http_client, tx_hash).await
+             })?;
+            return match response {
+                Some(out) => Ok((out, BlockProposed::default())),
+                None => Err(anyhow!("No data for {:?}", query)),
+            }
+        }
 
         let filter = Filter::new()
             .address(query.l1_contract)

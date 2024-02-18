@@ -142,6 +142,11 @@ impl Provider for CachedRpcProvider {
     }
 
     #[cfg(feature = "taiko")]
+    fn get_blob_tx_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
+        unimplemented!("get_blob_tx_propose")
+    }
+
+    #[cfg(feature = "taiko")]
     fn batch_get_partial_blocks(&mut self, query: &BlockQuery) -> Result<Vec<Block<H256>>> {
         let cache_out = self.cache.batch_get_partial_blocks(query);
         if cache_out.is_ok() {

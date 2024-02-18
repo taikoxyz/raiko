@@ -210,6 +210,7 @@ async fn parse_to_init(
             Some(l1_blocks_path),
             ETH_MAINNET_CHAIN_SPEC.clone(),
             None,
+            None,
             prover,
             Some(blocks_path),
             l2_chain_spec,
