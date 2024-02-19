@@ -43,8 +43,9 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
         transition: Transition {
             parentHash: header.parent_hash,
             blockHash: header.hash(),
-            signalRoot: extra.l2_signal_root,
+            stateRoot: from_ethers_h256(extra.l2_fini_block.state_root),
             graffiti: extra.graffiti,
+            __reserved: Default::default(),
         },
         block_metadata: BlockMetadata {
             l1Hash: extra.l1_hash,

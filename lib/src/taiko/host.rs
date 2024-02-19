@@ -13,7 +13,7 @@ use crate::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
     consts::ChainSpec,
     host::{
-        provider::{new_provider, BlockQuery, ProofQuery, ProposeQuery, Provider},
+        provider::{new_provider, BlockQuery, ProposeQuery, Provider},
         Init,
     },
     input::Input,
@@ -27,8 +27,6 @@ pub struct TaikoExtra {
     pub l2_tx_list: Vec<u8>,
     pub prover: Address,
     pub graffiti: B256,
-    pub l1_signal_root: B256,
-    pub l2_signal_root: B256,
     pub l2_withdrawals: Vec<Withdrawal>,
     pub block_proposed: BlockProposed,
     pub l1_next_block: Block<EthersTransaction>,
@@ -41,13 +39,11 @@ fn fetch_data(
     cache_path: Option<String>,
     rpc_url: Option<String>,
     block_no: u64,
-    signal_service: Address,
     layer: Layer,
 ) -> Result<(
     Box<dyn Provider>,
     Block<H256>,
     Block<EthersTransaction>,
-    B256,
     Input<EthereumTxEssence>,
 )> {
     let mut provider = new_provider(cache_path, rpc_url)?;
@@ -82,21 +78,6 @@ fn fetch_data(
     );
     info!("Transaction count: {:?}", fini_block.transactions.len());
 
-    // Get l2 signal root by signal service
-    let proof = provider.get_proof(&ProofQuery {
-        block_no,
-        address: H160::from_slice(signal_service.as_slice()),
-        indices: Default::default(),
-    })?;
-    let signal_root = from_ethers_h256(proof.storage_hash);
-
-    info!(
-        "Final {} signal root: {:?} ({:?})",
-        annotation,
-        fini_block.number.unwrap(),
-        signal_root,
-    );
-
     // Create input
     let input = Input {
         beneficiary: fini_block.author.map(from_ethers_h160).unwrap_or_default(),
@@ -125,7 +106,7 @@ fn fetch_data(
         base_fee_per_gas: from_ethers_u256(fini_block.base_fee_per_gas.unwrap_or_default()),
     };
 
-    Ok((provider, init_block, fini_block, signal_root, input))
+    Ok((provider, init_block, fini_block, input))
 }
 
 fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
@@ -216,30 +197,18 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     l2_block_no: u64,
     graffiti: B256,
 ) -> Result<(Init<EthereumTxEssence>, TaikoExtra)> {
-    let (l2_provider, l2_init_block, mut l2_fini_block, l2_signal_root, l2_input) = fetch_data(
-        "L2",
-        l2_cache_path,
-        l2_rpc_url,
-        l2_block_no,
-        l2_chain_spec.l2_signal_service.unwrap(),
-        Layer::L2,
-    )?;
+    let (l2_provider, l2_init_block, mut l2_fini_block, l2_input) =
+        fetch_data("L2", l2_cache_path, l2_rpc_url, l2_block_no, Layer::L2)?;
     // Get anchor call parameters
     let anchorCall {
         l1Hash: anchor_l1_hash,
-        l1SignalRoot: anchor_l1_signal_root,
-        l1Height: l1_block_no,
+        l1StateRoot: anchor_l1_state_root,
+        l1BlockId: l1_block_no,
         parentGasUsed: l2_parent_gas_used,
     } = decode_anchor_call_args(&l2_fini_block.transactions[0].input)?;
 
-    let (mut l1_provider, _l1_init_block, l1_fini_block, l1_signal_root, _l1_input) = fetch_data(
-        "L1",
-        l1_cache_path,
-        l1_rpc_url,
-        l1_block_no,
-        l2_chain_spec.l1_signal_service.unwrap(),
-        Layer::L1,
-    )?;
+    let (mut l1_provider, _l1_init_block, l1_fini_block, _l1_input) =
+        fetch_data("L1", l1_cache_path, l1_rpc_url, l1_block_no, Layer::L1)?;
 
     let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {
         l1_contract: H160::from_slice(l2_chain_spec.l1_contract.unwrap().as_slice()),
@@ -267,12 +236,12 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             l2_parent_gas_used
         ));
     }
-    // 2. check l1 signal root
-    if anchor_l1_signal_root != l1_signal_root {
+    // 2. check l1 state root
+    if anchor_l1_state_root != from_ethers_h256(l1_fini_block.state_root) {
         return Err(anyhow::anyhow!(
             "l1 signal root mismatch, expect: {}, got: {}",
-            anchor_l1_signal_root,
-            l1_signal_root
+            anchor_l1_state_root,
+            l1_fini_block.state_root
         ));
     }
     // 3. check l1 block hash
@@ -290,8 +259,6 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_tx_list,
         prover,
         graffiti,
-        l1_signal_root,
-        l2_signal_root,
         l2_withdrawals: l2_input.withdrawals.clone(),
         block_proposed: block_metadata,
         l1_next_block,
