@@ -207,7 +207,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         parentGasUsed: l2_parent_gas_used,
     } = decode_anchor_call_args(&l2_fini_block.transactions[0].input)?;
 
-    let (mut l1_provider, _l1_init_block, l1_fini_block, _l1_input) =
+    let (mut l1_provider, l1_init_block, l1_fini_block, _l1_input) =
         fetch_data("L1", l1_cache_path, l1_rpc_url, l1_block_no, Layer::L1)?;
 
     let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {
@@ -237,9 +237,9 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         ));
     }
     // 2. check l1 state root
-    if anchor_l1_state_root != from_ethers_h256(l1_fini_block.state_root) {
+    if anchor_l1_state_root != from_ethers_h256(l1_init_block.state_root) {
         return Err(anyhow::anyhow!(
-            "l1 signal root mismatch, expect: {}, got: {}",
+            "l1 state root mismatch, expect: {}, got: {}",
             anchor_l1_state_root,
             l1_fini_block.state_root
         ));
