@@ -2,6 +2,7 @@ use alloy_sol_types::sol_data::FixedBytes;
 use anyhow::Result;
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
 use reqwest;
+use reth_primitives::eip4844::kzg_to_versioned_hash;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tracing::info;
@@ -23,8 +24,6 @@ use crate::{
     input::Input,
     taiko::{precheck::rebuild_and_precheck_block, Layer},
 };
-
-use reth_primitives::eip4844::kzg_to_versioned_hash;
 
 #[derive(Debug)]
 pub struct TaikoExtra {
@@ -262,7 +261,7 @@ fn decode_blob_data(blob: &str) -> Vec<u8> {
 fn calc_blob_hash(commitment: &String) -> [u8; 32] {
     let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
     let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
-    let version_hash: [u8;32] = kzg_to_versioned_hash(kzg_commit).0.clone();
+    let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0.clone();
     version_hash
 }
 
@@ -399,8 +398,9 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use ethers_core::types::Transaction;
+
+    use super::*;
 
     #[test]
     fn test_fetch_blob_data_and_hash() {
@@ -448,9 +448,11 @@ mod test {
             let mut l1_provider = new_provider(None, Some("http://127.0.0.1:8545".to_owned()))
                 .expect("valid provider");
 
-            let l1_next_block = l1_provider.get_full_block(&BlockQuery {
+            let l1_next_block = l1_provider
+                .get_full_block(&BlockQuery {
                     block_no: l1_block_no + 1,
-                }).expect("get l1_next_block success");
+                })
+                .expect("get l1_next_block success");
             println!("l1_next_block: {:?}", l1_next_block);
 
             let (propose_tx, _) = l1_provider
@@ -462,6 +464,8 @@ mod test {
                 .expect("valid get_blob_tx_propose");
 
             println!("propose_tx: {:?}", propose_tx);
-        }).await.unwrap();
+        })
+        .await
+        .unwrap();
     }
 }
