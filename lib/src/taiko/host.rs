@@ -1,10 +1,8 @@
-use alloy_sol_types::sol_data::FixedBytes;
 use anyhow::Result;
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
 use reqwest;
 use reth_primitives::eip4844::kzg_to_versioned_hash;
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 use tracing::info;
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -30,6 +28,7 @@ pub struct TaikoExtra {
     pub l1_hash: B256,
     pub l1_height: u64,
     pub l2_tx_list: Vec<u8>,
+    pub tx_blob_hash: Option<B256>,
     pub prover: Address,
     pub graffiti: B256,
     pub l2_withdrawals: Vec<Withdrawal>,
@@ -198,13 +197,11 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
 // KzgProof                 string                   `json:"kzg_proof"`
 // CommitmentInclusionProof []string
 // `json:"kzg_commitment_inclusion_proof"` }
-
-#[warn(dead_code)]
 #[derive(Clone, Debug, Deserialize)]
 struct GetBlobData {
     pub index: String,
     pub blob: String,
-    // pub signed_block_header: String,
+    // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
     pub kzg_commitment: String,
     pub kzg_proof: String,
     pub kzg_commitment_inclusion_proof: Vec<String>,
@@ -311,11 +308,11 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 
     // blobUsed == (txList.length == 0) according to TaikoL1
     let blob_used = l2_tx_list.is_empty();
-    let l2_tx_list_blob = if blob_used {
+    let (l2_tx_list_blob, tx_blob_hash) = if blob_used {
         let BlockParams {
             assignedProver: _,
             extraData: _,
-            blobHash: proposed_blob_hash,
+            blobHash: _proposed_blob_hash,
             txListByteOffset: offset,
             txListByteSize: size,
             cacheBlobForReuse: _,
@@ -328,9 +325,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         // TODO: multiple blob hash support
         assert!(blob_hashs.len() == 1);
         let blob_hash = blob_hashs[0];
-        // if proposed_blob_hash != [0; 32] {
-        //     assert_eq!(proposed_blob_hash, blob_hash);
-        // }
+        //TODO: check _proposed_blob_hash with blob_hash if _proposed_blob_hash is not None
 
         let blobs = fetch_blob_data(l1_beacon_rpc_url.unwrap(), l1_block_no + 1)?;
         let tx_blobs: Vec<GetBlobData> = blobs
@@ -340,9 +335,9 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             .cloned()
             .collect::<Vec<GetBlobData>>();
         let blob_data = decode_blob_data(&tx_blobs[0].blob);
-        blob_data.as_slice()[offset as usize..(offset + size) as usize].to_vec()
+        (blob_data.as_slice()[offset as usize..(offset + size) as usize].to_vec(), Some(from_ethers_h256(blob_hash)))
     } else {
-        l2_tx_list
+        (l2_tx_list, None)
     };
 
     // 1. check l2 parent gas used
@@ -374,6 +369,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1_hash: anchor_l1_hash,
         l1_height: l1_block_no,
         l2_tx_list: l2_tx_list_blob.to_vec(),
+        tx_blob_hash: tx_blob_hash,
         prover,
         graffiti,
         l2_withdrawals: l2_input.withdrawals.clone(),
@@ -439,33 +435,5 @@ mod test {
         }";
         let tx: Transaction = serde_json::from_str(response).unwrap();
         println!("tx: {:?}", tx);
-    }
-
-    #[tokio::test]
-    async fn test_decode_propose_block_call_params() {
-        tokio::task::spawn_blocking(|| {
-            let l1_block_no = 3;
-            let mut l1_provider = new_provider(None, Some("http://127.0.0.1:8545".to_owned()))
-                .expect("valid provider");
-
-            let l1_next_block = l1_provider
-                .get_full_block(&BlockQuery {
-                    block_no: l1_block_no + 1,
-                })
-                .expect("get l1_next_block success");
-            println!("l1_next_block: {:?}", l1_next_block);
-
-            let (propose_tx, _) = l1_provider
-                .get_blob_tx_propose(&ProposeQuery {
-                    l1_contract: H160::default(),
-                    l1_block_no: l1_block_no,
-                    l2_block_no: 0,
-                })
-                .expect("valid get_blob_tx_propose");
-
-            println!("propose_tx: {:?}", propose_tx);
-        })
-        .await
-        .unwrap();
     }
 }

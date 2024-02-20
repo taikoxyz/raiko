@@ -14,7 +14,9 @@ use zeth_primitives::{
 use crate::taiko::host::TaikoExtra;
 
 pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result<ProtocolInstance> {
-    let tx_list_hash = TxHash::from(keccak::keccak(extra.l2_tx_list.as_slice()));
+    let tx_list_hash = extra
+        .tx_blob_hash
+        .unwrap_or(TxHash::from(keccak::keccak(extra.l2_tx_list.as_slice())));
     let deposits: Vec<EthDeposit> = extra
         .l2_withdrawals
         .iter()
