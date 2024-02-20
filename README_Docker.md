@@ -17,7 +17,7 @@ Ensure your machine has an [SGX][sgx]-enabled CPU to run raiko. You can check if
 
     sudo apt-get install cpuid
 
-1.  Run `cpuid` and `grep` for SGX:
+2.  Run `cpuid` and `grep` for SGX:
 
         cpuid | grep -i sgx
 
@@ -69,7 +69,7 @@ Taiko doesn't provide prebuilt Docker image (yet). You need to build it yourself
    ```
    cd docker && vim docker-compose.yml
    ```
-   Update the docker-compose.yml file:
+4. Update the docker-compose.yml file:
    ```
    image: gcr.io/evmchain/raiko:latest => image: raiko:v1
    ```
