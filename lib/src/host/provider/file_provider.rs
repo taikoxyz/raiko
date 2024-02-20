@@ -158,11 +158,6 @@ impl Provider for FileProvider {
     }
 
     #[cfg(feature = "taiko")]
-    fn get_blob_tx_propose(&mut self, query: &super::ProposeQuery) -> Result<(Transaction, BlockProposed)> {
-        unimplemented!("get_blob_tx_propose")
-    }
-
-    #[cfg(feature = "taiko")]
     fn batch_get_partial_blocks(&mut self, _: &BlockQuery) -> Result<Vec<Block<H256>>> {
         if self.partial_blocks.is_empty() {
             Err(anyhow!("No data for partial blocks"))

@@ -1,9 +1,9 @@
-use alloy_sol_types::abi::encode;
+use alloy_sol_types::sol_data::FixedBytes;
 use anyhow::Result;
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
 use reqwest;
 use serde::Deserialize;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use tracing::info;
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -23,6 +23,8 @@ use crate::{
     input::Input,
     taiko::{precheck::rebuild_and_precheck_block, Layer},
 };
+
+use reth_primitives::eip4844::kzg_to_versioned_hash;
 
 #[derive(Debug)]
 pub struct TaikoExtra {
@@ -245,28 +247,23 @@ fn decode_blob_data(blob: &str) -> Vec<u8> {
     let origin_blob = hex::decode(blob).unwrap();
     assert!(origin_blob.len() == 4096 * 32);
     let mut chunk: Vec<Vec<u8>> = Vec::new();
-    let mut lastSegFound = false;
+    let mut last_seg_found = false;
     for i in (0..4096).rev() {
         let segment = &origin_blob[i * 32..(i + 1) * 32];
-        if segment.iter().any(|&x| x != 0) || lastSegFound {
+        if segment.iter().any(|&x| x != 0) || last_seg_found {
             chunk.push(segment.to_vec());
-            lastSegFound = true;
+            last_seg_found = true;
         }
     }
     chunk.reverse();
     chunk.iter().flatten().cloned().collect()
 }
 
-// TODO: use reth::primitives::eip4844::kzg_to_versioned_hash
-fn kzg_to_versioned_hash(commitment: &String) -> [u8; 32] {
+fn calc_blob_hash(commitment: &String) -> [u8; 32] {
     let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
-    // let mut commit_hash = keccak(commit_bytes);
-    let mut hasher = Sha256::new();
-    hasher.update(commit_bytes);
-    let mut commit_hash: [u8; 32] = hasher.finalize().to_vec().try_into().unwrap();
-    println!("commit_hash: {:?}", hex::encode(commit_hash));
-    commit_hash[0] = 0x01;
-    commit_hash
+    let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
+    let version_hash: [u8;32] = kzg_to_versioned_hash(kzg_commit).0.clone();
+    version_hash
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -295,7 +292,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     let (mut l1_provider, _l1_init_block, l1_fini_block, _l1_input) =
         fetch_data("L1", l1_cache_path, l1_rpc_url, l1_block_no, Layer::L1)?;
 
-    let (propose_tx, block_metadata) = l1_provider.get_blob_tx_propose(&ProposeQuery {
+    let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {
         l1_contract: H160::from_slice(l2_chain_spec.l1_contract.unwrap().as_slice()),
         l1_block_no: l1_block_no + 1,
         l2_block_no,
@@ -328,22 +325,19 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         } = decode_propose_block_call_params(&propose_params)
             .expect("valid propose_block_call_params");
 
-        let blob_hash = proposed_blob_hash;
-        // let blob_hash = blob_hashs[0];
-        // let blob_hashs = propose_tx.blob_versioned_hashes();
+        let blob_hashs = propose_tx.blob_versioned_hashes.unwrap();
         // TODO: multiple blob hash support
-        // assert(blob_hashs.len() == 1);
+        assert!(blob_hashs.len() == 1);
+        let blob_hash = blob_hashs[0];
         // if proposed_blob_hash != [0; 32] {
         //     assert_eq!(proposed_blob_hash, blob_hash);
         // }
 
-        // todo get blob from l1_beacon_rpc_url
         let blobs = fetch_blob_data(l1_beacon_rpc_url.unwrap(), l1_block_no + 1)?;
-        // assume params has the right blobHash now
         let tx_blobs: Vec<GetBlobData> = blobs
             .data
             .iter()
-            .filter(|blob| blob_hash == kzg_to_versioned_hash(&blob.kzg_commitment))
+            .filter(|blob| blob_hash.as_fixed_bytes() == &calc_blob_hash(&blob.kzg_commitment))
             .cloned()
             .collect::<Vec<GetBlobData>>();
         let blob_data = decode_blob_data(&tx_blobs[0].blob);
@@ -406,27 +400,68 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 #[cfg(test)]
 mod test {
     use super::*;
+    use ethers_core::types::Transaction;
 
     #[test]
-    fn test_fetch_blob_data() {
+    fn test_fetch_blob_data_and_hash() {
         let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
         println!("blob len: {:?}", blob_data.data[0].blob.len());
         println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
-        let blob_hash = kzg_to_versioned_hash(&blob_data.data[0].kzg_commitment);
+        let blob_hash = calc_blob_hash(&blob_data.data[0].kzg_commitment);
         println!("blob hash {:?}", hex::encode(blob_hash));
-        // assert_eq!(blob_data.data.len(), 1);
     }
 
     #[test]
-    fn test_decode_propose_block_call_params() {
-        let mut l1_provider = new_provider(None, Some("http://localhost:3500".to_owned())).expect("valid provider");
+    fn json_to_ethers_blob_tx() {
+        let response = "{
+            \"blockHash\":\"0xa61eea0256aa361dfd436be11b0e276470413fbbc34b3642fbbf3b5d8d72f612\",
+		    \"blockNumber\":\"0x4\",
+		    \"from\":\"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\",
+		    \"gas\":\"0xf4240\",
+		    \"gasPrice\":\"0x5e92e74e\",
+		    \"maxFeePerGas\":\"0x8b772ea6\",
+		    \"maxPriorityFeePerGas\":\"0x3b9aca00\",
+		    \"maxFeePerBlobGas\":\"0x2\",
+		    \"hash\":\"0xdb3b11250a2332cc4944fa8022836bd32da43c34d4f2e9e1b246cfdbc5b4c60e\",
+		    \"input\":\"0x11762da2\",
+		    \"nonce\":\"0x1\",
+		    \"to\":\"0x5fbdb2315678afecb367f032d93f642f64180aa3\",
+		    \"transactionIndex\":\"0x0\",
+		    \"value\":\"0x0\",
+		    \"type\":\"0x3\",
+            \"accessList\":[],
+		    \"chainId\":\"0x7e7e\",
+            \"blobVersionedHashes\":[\"0x012d46373b7d1f53793cd6872e40e801f9af6860ecbdbaa2e28df25937618c6f\",\"0x0126d296b606f85b775b12b8b4abeb3bdb88f5a50502754d598537ae9b7fb947\"],
+            \"v\":\"0x0\",
+		    \"r\":\"0xaba289efba8ef610a5b3b70b72a42fe1916640f64d7112ec0b89087bbc8fff5f\",
+		    \"s\":\"0x1de067d69b79d28d0a3bd179e332c85b93cedbd299d9e205398c073a59633dcf\",
+		    \"yParity\":\"0x0\"
+        }";
+        let tx: Transaction = serde_json::from_str(response).unwrap();
+        println!("tx: {:?}", tx);
+    }
 
-        let (propose_tx, block_metadata) = l1_provider.get_blob_tx_propose(&ProposeQuery {
-            l1_contract: H160::default(),
-            l1_block_no: 15,
-            l2_block_no: 0,
-        }).expect("valid propose_tx");
+    #[tokio::test]
+    async fn test_decode_propose_block_call_params() {
+        tokio::task::spawn_blocking(|| {
+            let l1_block_no = 3;
+            let mut l1_provider = new_provider(None, Some("http://127.0.0.1:8545".to_owned()))
+                .expect("valid provider");
 
-        println!("propose_tx: {:?}", propose_tx);
+            let l1_next_block = l1_provider.get_full_block(&BlockQuery {
+                    block_no: l1_block_no + 1,
+                }).expect("get l1_next_block success");
+            println!("l1_next_block: {:?}", l1_next_block);
+
+            let (propose_tx, _) = l1_provider
+                .get_blob_tx_propose(&ProposeQuery {
+                    l1_contract: H160::default(),
+                    l1_block_no: l1_block_no,
+                    l2_block_no: 0,
+                })
+                .expect("valid get_blob_tx_propose");
+
+            println!("propose_tx: {:?}", propose_tx);
+        }).await.unwrap();
     }
 }

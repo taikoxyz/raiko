@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 alloy-sol-types = { version = "0.4", optional = true }
-# reth-primitives = {git = "https://github.com/paradigmxyz/reth.git", branch = "main"}
+reth-primitives = {git = "https://github.com/paradigmxyz/reth.git", branch = "main", features = ["c-kzg"]}
 # reth = {git = "https://github.com/paradigmxyz/reth.git", branch = "main"}
 ethers-core = { version = "2.0", features = ["optimism"] }
 hashbrown = { workspace = true }
@@ -21,6 +21,8 @@ rlp = "0.5.2"
 tracing = "0.1"
 reqwest = "0.11.22"
 sha2 = "0.10.8"
+proptest = "1.4.0"
+c-kzg = "0.4.0"
 
 [target.'cfg(not(target_os = "zkvm"))'.dependencies]
 chrono = { version = "0.4", default-features = false }

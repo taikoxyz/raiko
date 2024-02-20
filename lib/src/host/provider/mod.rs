@@ -19,8 +19,6 @@ use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H160, 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "taiko")]
 use zeth_primitives::taiko::BlockProposed;
-// #[cfg(feature = "taiko")]
-// use reth_primitives::Transaction as RethTransaction;
 
 pub mod cached_rpc_provider;
 pub mod file_provider;
@@ -72,8 +70,6 @@ pub trait Provider: Send {
 
     #[cfg(feature = "taiko")]
     fn get_propose(&mut self, query: &ProposeQuery) -> Result<(Transaction, BlockProposed)>;
-    #[cfg(feature = "taiko")]
-    fn get_blob_tx_propose(&mut self, query: &ProposeQuery) -> Result<(Transaction, BlockProposed)>;
     #[cfg(feature = "taiko")]
     /// get 256 blocks one time to reduce the fetch time cost
     fn batch_get_partial_blocks(&mut self, query: &BlockQuery) -> Result<Vec<Block<H256>>>;
