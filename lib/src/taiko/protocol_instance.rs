@@ -1,16 +1,30 @@
 use anyhow::Result;
 use zeth_primitives::{
     block::Header,
-    ethers::{from_ethers_h256, from_ethers_u256},
+    ethers::{from_ethers_h256},
     keccak,
     taiko::{
         deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
         ANCHOR_GAS_LIMIT,
     },
-    TxHash, U256,
+    TxHash,
 };
-
+use ethers_core::types::U256 as ethU256;
+use ethers_core::abi::{encode_packed, Token};
 use crate::taiko::host::TaikoExtra;
+
+fn calc_difficulty(prevrando: ethU256, num_blocks: u64, block_num: ethU256) -> [u8; 32] {
+    let prevrando_bytes: [u8; 32] = prevrando.into();
+    let num_blocks_bytes: [u8; 8] = num_blocks.to_be_bytes().to_vec().try_into().unwrap();
+    let block_num_bytes: [u8; 32] = block_num.into();
+    let values = vec![
+        Token::FixedBytes(prevrando_bytes.into()),
+        Token::FixedBytes(num_blocks_bytes.into()),
+        Token::FixedBytes(block_num_bytes.into()),
+    ];
+    let encoded = encode_packed(&values).expect("Failed to encode");
+    keccak::keccak(encoded)
+}
 
 pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result<ProtocolInstance> {
     let tx_list_hash = TxHash::from(keccak::keccak(extra.l2_tx_list.as_slice()));
@@ -25,19 +39,12 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
         .collect();
     let deposits_hash = deposits_hash(&deposits);
     let extra_data = string_to_bytes32(&header.extra_data);
-    //   meta.difficulty = meta.blobHash ^ bytes32(block.prevrandao * b.numBlocks *
-    // block.number);
-    let block_hash = tx_list_hash;
-    let block_hash_h256: U256 = block_hash.into();
-    let prevrando = if cfg!(feature = "pos") {
-        from_ethers_h256(extra.l1_next_block.mix_hash.unwrap_or_default()).into()
+    let prevrando: ethU256 = if cfg!(feature = "pos") {
+        extra.l1_next_block.mix_hash.unwrap_or_default().0.into()
     } else {
-        from_ethers_u256(extra.l1_next_block.difficulty)
+        extra.l1_next_block.difficulty
     };
-    let difficulty = block_hash_h256
-        ^ (prevrando
-            * U256::from(header.number)
-            * U256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()));
+    let difficulty = calc_difficulty(prevrando,  header.number, ethU256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()));
     let gas_limit: u64 = header.gas_limit.try_into().unwrap();
     let mut pi = ProtocolInstance {
         transition: Transition {
@@ -71,4 +78,19 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
         crate::taiko::verify::verify(header, &mut pi, extra)?;
     }
     Ok(pi)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use ethers_core::types::U256;
+
+    #[test]
+    fn test_assemble_protocol_difficulty() {
+        let difficulty = calc_difficulty(U256::from(1234u64), 5678u64, U256::from(4321u64));
+        assert_eq!(hex::encode(difficulty), "ed29e631be1dc988025d0e874bf84fe27894c9c0a8034b3a0a212ccbf4216a79");
+
+        let difficulty = calc_difficulty(U256::from(0), 0, U256::from(0));
+        assert_eq!(hex::encode(difficulty), "3cac317908c699fe873a7f6ee4e8cd63fbe9918b2315c97be91585590168e301");
+    }
 }
