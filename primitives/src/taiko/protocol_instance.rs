@@ -37,8 +37,9 @@ sol! {
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
-        bytes32 signalRoot;
+        bytes32 stateRoot;
         bytes32 graffiti;
+        bytes32[2] __reserved;
     }
 
     #[derive(Debug, Default, Clone, Deserialize, Serialize)]

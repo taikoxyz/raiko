@@ -63,9 +63,7 @@ pub static ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
             elasticity_multiplier: uint!(2_U256),
         },
         l1_contract: None,
-        l1_signal_service: None,
         l2_contract: None,
-        l2_signal_service: None,
     }
 });
 
@@ -86,9 +84,7 @@ macro_rules! taiko_chain_spec {
                     elasticity_multiplier: uint!(2_U256),
                 },
                 l1_contract: Some(*L1_CONTRACT),
-                l1_signal_service: Some(*L1_SIGNAL_SERVICE),
                 l2_contract: Some(*L2_CONTRACT),
-                l2_signal_service: Some(*L2_SIGNAL_SERVICE),
             }
         });
     };
@@ -118,9 +114,7 @@ pub static OP_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
         elasticity_multiplier: uint!(6_U256),
     },
     l1_contract: None,
-    l1_signal_service: None,
     l2_contract: None,
-    l2_signal_service: None,
 });
 
 /// The condition at which a fork is activated.
@@ -170,9 +164,7 @@ pub struct ChainSpec {
     hard_forks: BTreeMap<SpecId, ForkCondition>,
     eip_1559_constants: Eip1559Constants,
     pub l1_contract: Option<Address>,
-    pub l1_signal_service: Option<Address>,
     pub l2_contract: Option<Address>,
-    pub l2_signal_service: Option<Address>,
 }
 
 impl ChainSpec {
@@ -187,9 +179,7 @@ impl ChainSpec {
             hard_forks: BTreeMap::from([(spec_id, ForkCondition::Block(0))]),
             eip_1559_constants,
             l1_contract: None,
-            l1_signal_service: None,
             l2_contract: None,
-            l2_signal_service: None,
         }
     }
     /// Returns the network chain ID.
