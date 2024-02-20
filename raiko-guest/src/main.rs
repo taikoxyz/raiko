@@ -2,6 +2,7 @@
 
 mod app_args;
 mod one_shot;
+#[cfg(feature = "sgx")]
 mod ratls_server;
 mod signature;
 
@@ -12,6 +13,7 @@ use anyhow::Result;
 use app_args::{App, Command};
 use clap::Parser;
 use one_shot::{bootstrap, one_shot};
+#[cfg(feature = "sgx")]
 use ratls_server::ratls_server;
 
 #[tokio::main]
@@ -19,6 +21,7 @@ pub async fn main() -> Result<()> {
     let args = App::parse();
 
     match args.command {
+        #[cfg(feature = "sgx")]
         Command::Server(server_args) => {
             println!("Starting RA-TLS server - listening on {}", server_args.addr);
             ratls_server(args.global_opts, server_args);

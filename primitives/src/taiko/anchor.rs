@@ -16,8 +16,8 @@ static GX2: Lazy<U256> =
 sol! {
     function anchor(
         bytes32 l1Hash,
-        bytes32 l1SignalRoot,
-        uint64 l1Height,
+        bytes32 l1StateRoot,
+        uint64 l1BlockId,
         uint32 parentGasUsed
     )
         external
