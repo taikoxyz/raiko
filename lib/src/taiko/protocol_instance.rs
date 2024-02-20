@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ethers_core::{
     abi::{encode_packed, Token},
-    types::U256 as ethU256,
+    types::U256 as EthU256,
 };
 use zeth_primitives::{
     block::Header,
@@ -13,20 +13,22 @@ use zeth_primitives::{
     },
     TxHash,
 };
+use alloy_sol_types::SolValue;
 
 use crate::taiko::host::TaikoExtra;
 
-fn calc_difficulty(prevrando: ethU256, num_blocks: u64, block_num: ethU256) -> [u8; 32] {
+
+fn calc_difficulty(prevrando: EthU256, num_blocks: u64, block_num: EthU256) -> [u8; 32] {
+    // meta.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
     let prevrando_bytes: [u8; 32] = prevrando.into();
     let num_blocks_bytes: [u8; 8] = num_blocks.to_be_bytes().to_vec().try_into().unwrap();
     let block_num_bytes: [u8; 32] = block_num.into();
-    let values = vec![
-        Token::FixedBytes(prevrando_bytes.into()),
-        Token::FixedBytes(num_blocks_bytes.into()),
-        Token::FixedBytes(block_num_bytes.into()),
-    ];
-    let encoded = encode_packed(&values).expect("Failed to encode");
-    keccak::keccak(encoded)
+    let packed_bytes = (
+        prevrando_bytes,
+        num_blocks_bytes,
+        block_num_bytes,
+    ).abi_encode_packed();
+    keccak::keccak(packed_bytes)
 }
 
 pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result<ProtocolInstance> {
@@ -42,7 +44,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
         .collect();
     let deposits_hash = deposits_hash(&deposits);
     let extra_data = string_to_bytes32(&header.extra_data);
-    let prevrando: ethU256 = if cfg!(feature = "pos") {
+    let prevrando: EthU256 = if cfg!(feature = "pos") {
         extra.l1_next_block.mix_hash.unwrap_or_default().0.into()
     } else {
         extra.l1_next_block.difficulty
@@ -50,7 +52,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
     let difficulty = calc_difficulty(
         prevrando,
         header.number,
-        ethU256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()),
+        EthU256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()),
     );
     let gas_limit: u64 = header.gas_limit.try_into().unwrap();
     let mut pi = ProtocolInstance {
