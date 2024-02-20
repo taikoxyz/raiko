@@ -61,17 +61,17 @@ Taiko doesn't provide prebuilt Docker image (yet). You need to build it yourself
    ```
    git clone git@github.com:taikoxyz/raiko.git
    ```
-1. Change active directory:
+2. Change active directory and build the image:
    ```
-   cd raiko/docker
+   cd raiko && DOCKER_BUILDKIT=0 docker build -t raiko:v1 . --no-cache
    ```
-1. Build the image:
+3. Change the active directory and open docker-compose.yml in editor:
    ```
-   docker compose build
+   cd docker && vim docker-compose.yml
    ```
-1. That's it! You should now be able to find the `raiko:latest` in the list of all Docker images:
+   Update the docker-compose.yml file:
    ```
-   docker image ls
+   image: gcr.io/evmchain/raiko:latest => image: raiko:v1
    ```
 
 ## Running Docker container
@@ -87,7 +87,7 @@ Bootstrapping is the process of generating a public-private key pair, which will
    ls ~/.config/raiko/secrets
    ```
    If you `secrets` directory is not empty, you can skip Raiko bootstrapping.
-1. Bootstrap Raiko:
+2. Bootstrap Raiko:
    ```
    docker compose run --rm raiko --init
    ```
@@ -115,7 +115,7 @@ Now, once you have Raiko up and running, you can test it to make sure it is serv
    tail -f /var/log/raiko/raiko.log.dd-mm-yyyy
    ```
    to monitor requests that you will be sending. Replace `dd-mm-yyyy` placeholder with the current date.
-1. Send a sample request to Raiko:
+2. Send a sample request to Raiko:
    ```
    curl --location --request POST 'http://localhost:8080' --header 'Content-Type: application/json' --data-raw '{
      "jsonrpc": "2.0",
