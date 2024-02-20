@@ -241,7 +241,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         return Err(anyhow::anyhow!(
             "l1 state root mismatch, expect: {}, got: {}",
             anchor_l1_state_root,
-            l1_fini_block.state_root
+            from_ethers_h256(l1_init_block.state_root)
         ));
     }
     // 3. check l1 block hash
