@@ -207,7 +207,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         parentGasUsed: l2_parent_gas_used,
     } = decode_anchor_call_args(&l2_fini_block.transactions[0].input)?;
 
-    let (mut l1_provider, l1_init_block, l1_fini_block, _l1_input) =
+    let (mut l1_provider, _l1_init_block, l1_fini_block, _l1_input) =
         fetch_data("L1", l1_cache_path, l1_rpc_url, l1_block_no, Layer::L1)?;
 
     let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {
