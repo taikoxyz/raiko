@@ -1,7 +1,11 @@
 use anyhow::Result;
+use ethers_core::{
+    abi::{encode_packed, Token},
+    types::U256 as ethU256,
+};
 use zeth_primitives::{
     block::Header,
-    ethers::{from_ethers_h256},
+    ethers::from_ethers_h256,
     keccak,
     taiko::{
         deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
@@ -9,8 +13,7 @@ use zeth_primitives::{
     },
     TxHash,
 };
-use ethers_core::types::U256 as ethU256;
-use ethers_core::abi::{encode_packed, Token};
+
 use crate::taiko::host::TaikoExtra;
 
 fn calc_difficulty(prevrando: ethU256, num_blocks: u64, block_num: ethU256) -> [u8; 32] {
@@ -44,7 +47,11 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
     } else {
         extra.l1_next_block.difficulty
     };
-    let difficulty = calc_difficulty(prevrando,  header.number, ethU256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()));
+    let difficulty = calc_difficulty(
+        prevrando,
+        header.number,
+        ethU256::from(extra.l1_next_block.number.unwrap_or_default().as_u64()),
+    );
     let gas_limit: u64 = header.gas_limit.try_into().unwrap();
     let mut pi = ProtocolInstance {
         transition: Transition {
@@ -82,15 +89,22 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use ethers_core::types::U256;
+
+    use super::*;
 
     #[test]
     fn test_assemble_protocol_difficulty() {
         let difficulty = calc_difficulty(U256::from(1234u64), 5678u64, U256::from(4321u64));
-        assert_eq!(hex::encode(difficulty), "ed29e631be1dc988025d0e874bf84fe27894c9c0a8034b3a0a212ccbf4216a79");
+        assert_eq!(
+            hex::encode(difficulty),
+            "ed29e631be1dc988025d0e874bf84fe27894c9c0a8034b3a0a212ccbf4216a79"
+        );
 
         let difficulty = calc_difficulty(U256::from(0), 0, U256::from(0));
-        assert_eq!(hex::encode(difficulty), "3cac317908c699fe873a7f6ee4e8cd63fbe9918b2315c97be91585590168e301");
+        assert_eq!(
+            hex::encode(difficulty),
+            "3cac317908c699fe873a7f6ee4e8cd63fbe9918b2315c97be91585590168e301"
+        );
     }
 }
