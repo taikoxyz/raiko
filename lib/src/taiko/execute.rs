@@ -364,6 +364,22 @@ pub fn fill_eth_tx_env(
             tx_env.nonce = Some(tx.nonce);
             tx_env.access_list = tx.access_list.clone().into();
         }
+        EthereumTxEssence::Eip4844(tx) => {
+            tx_env.caller = caller;
+            tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
+            tx_env.gas_price = tx.max_fee_per_gas;
+            tx_env.gas_priority_fee = Some(tx.max_priority_fee_per_gas);
+            tx_env.transact_to = if let TransactionKind::Call(to_addr) = tx.to {
+                TransactTo::Call(to_addr)
+            } else {
+                TransactTo::create()
+            };
+            tx_env.value = tx.value;
+            tx_env.data = tx.data.clone();
+            tx_env.chain_id = Some(tx.chain_id);
+            tx_env.nonce = Some(tx.nonce);
+            tx_env.access_list = tx.access_list.clone().into();
+        }
     };
 }
 
