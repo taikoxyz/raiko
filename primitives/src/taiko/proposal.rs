@@ -9,6 +9,7 @@ sol! {
 
     struct BlockParams {
         address assignedProver;
+        address coinbase;
         bytes32 extraData;
         bytes32 blobHash;
         uint24 txListByteOffset;

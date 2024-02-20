@@ -240,7 +240,7 @@ fn fetch_blob_data(
 }
 
 fn decode_blob_data(blob: &str) -> Vec<u8> {
-    let origin_blob = hex::decode(blob).unwrap();
+    let origin_blob = hex::decode(blob.to_lowercase().trim_start_matches("0x")).unwrap();
     assert!(origin_blob.len() == 4096 * 32);
     let mut chunk: Vec<Vec<u8>> = Vec::new();
     let mut last_seg_found = false;
@@ -311,6 +311,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     let (l2_tx_list_blob, tx_blob_hash) = if blob_used {
         let BlockParams {
             assignedProver: _,
+            coinbase: _,
             extraData: _,
             blobHash: _proposed_blob_hash,
             txListByteOffset: offset,
