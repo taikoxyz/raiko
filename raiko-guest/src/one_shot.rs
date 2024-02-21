@@ -70,7 +70,7 @@ fn save_bootstrap_details(
     bootstrap_details_file_path: &Path,
 ) -> Result<(), Error> {
     let bootstrap_details = BootstrapData {
-        public_key: format!("0x{}", key_pair.public_key().to_string()),
+        public_key: format!("0x{}", key_pair.public_key()),
         new_instance,
         quote: hex::encode(quote),
     };

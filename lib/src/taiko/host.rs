@@ -204,10 +204,10 @@ fn decode_blob_data(blob: &str) -> Vec<u8> {
     chunk.iter().flatten().cloned().collect()
 }
 
-fn calc_blob_hash(commitment: &String) -> [u8; 32] {
+fn calc_blob_hash(commitment: &str) -> [u8; 32] {
     let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
     let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
-    let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0.clone();
+    let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
     version_hash
 }
 
@@ -334,7 +334,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1_hash: anchor_l1_hash,
         l1_height: l1_block_no,
         l2_tx_list: l2_tx_list_blob.to_vec(),
-        tx_blob_hash: tx_blob_hash,
+        tx_blob_hash,
         prover,
         graffiti,
         l2_withdrawals: l2_input.withdrawals.clone(),
