@@ -20,7 +20,6 @@ use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, 
 use ethers_providers::{Http, Middleware};
 #[cfg(not(feature = "taiko"))]
 use log::info;
-use serde::Deserialize;
 #[cfg(feature = "taiko")]
 use tracing::info;
 #[cfg(feature = "taiko")]

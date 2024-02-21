@@ -53,7 +53,7 @@ pub struct FileProvider {
     #[cfg(feature = "taiko")]
     propose: Option<(Transaction, BlockProposed)>,
     #[cfg(feature = "taiko")]
-    blob: Option<GetBlobsResponse>,
+    blobs: HashMap<u64, GetBlobsResponse>,
 }
 
 impl FileProvider {
@@ -71,7 +71,7 @@ impl FileProvider {
             #[cfg(feature = "taiko")]
             propose: Default::default(),
             #[cfg(feature = "taiko")]
-            blob: Default::default(),
+            blobs: HashMap::new(),
         }
     }
 
@@ -174,8 +174,8 @@ impl Provider for FileProvider {
 
     #[cfg(feature = "taiko")]
     fn get_blob_data(&mut self, block_id: u64) -> Result<GetBlobsResponse> {
-        match self.blob {
-            Some(ref val) => Ok(val.clone()),
+        match self.blobs.get(&block_id) {
+            Some(val) => Ok(val.clone()),
             None => Err(anyhow!("No data for block id: {:?}", block_id)),
         }
     }
@@ -225,7 +225,7 @@ impl MutProvider for FileProvider {
 
     #[cfg(feature = "taiko")]
     fn insert_blob(&mut self, block_id: u64, val: GetBlobsResponse) {
-        self.blob = Some(val);
+        self.blobs.insert(block_id, val);
         self.dirty = true;
     }
 }
