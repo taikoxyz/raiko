@@ -1,4 +1,4 @@
-use alloy_sol_types::{sol, SolType, SolCall};
+use alloy_sol_types::{sol, SolCall, SolType};
 use anyhow::{Context, Result};
 
 sol! {
@@ -34,6 +34,6 @@ pub fn decode_propose_block_call_args(data: &[u8]) -> Result<proposeBlockCall> {
 
 pub fn decode_propose_block_call_params(data: &[u8]) -> Result<BlockParams> {
     let propose_block_params = BlockParams::abi_decode(data, false)
-    .with_context(|| "failed to decode propose block call")?;
+        .with_context(|| "failed to decode propose block call")?;
     Ok(propose_block_params)
 }

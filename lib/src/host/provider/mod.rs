@@ -48,7 +48,6 @@ pub struct GetBlobsResponse {
     pub data: Vec<GetBlobData>,
 }
 
-
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct AccountQuery {
     pub block_no: u64,
