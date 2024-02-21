@@ -188,40 +188,13 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     Ok(init)
 }
 
-// // TODO: move to rpc provider
-// fn fetch_blob_data(
-//     l1_beacon_rpc_url: String,
-//     block_id: u64,
-// ) -> Result<GetBlobsResponse, anyhow::Error> {
-//     // /eth/v1/beacon/blob_sidecars/{block_id}
-//     let url = format!(
-//         "{}/eth/v1/beacon/blob_sidecars/{}",
-//         l1_beacon_rpc_url, block_id
-//     );
-//     let rt = tokio::runtime::Runtime::new().unwrap();
-//     rt.block_on(async {
-//         let response = reqwest::get(url.clone()).await?;
-
-//         if response.status().is_success() {
-//             println!("url: {:?}, response: {:?}", url, response);
-//             let blob_response: GetBlobsResponse = response.json().await?;
-//             Ok(blob_response)
-//         } else {
-//             Err(anyhow::anyhow!(
-//                 "Request failed with status code: {}",
-//                 response.status()
-//             ))
-//         }
-//     })
-// }
-
 fn decode_blob_data(blob: &str) -> Vec<u8> {
     let origin_blob = hex::decode(blob.to_lowercase().trim_start_matches("0x")).unwrap();
     assert!(origin_blob.len() == 4096 * 32);
     let mut chunk: Vec<Vec<u8>> = Vec::new();
     let mut last_seg_found = false;
     for i in (0..4096).rev() {
-        let segment = &origin_blob[i * 32..(i + 1) * 32];
+        let segment = &origin_blob[i * 32 + 1..(i + 1) * 32];
         if segment.iter().any(|&x| x != 0) || last_seg_found {
             chunk.push(segment.to_vec());
             last_seg_found = true;
@@ -389,23 +362,54 @@ mod test {
     use ethers_core::types::Transaction;
 
     use super::*;
+    use crate::consts::get_taiko_chain_spec;
 
+    #[ignore]
+    #[tokio::test]
+    async fn test_propose_block() {
+        tokio::task::spawn_blocking(|| {
+            let l2_chain_spec = get_taiko_chain_spec("internal_devnet_a");
+            let mut l1_provider = new_provider(
+                None,
+                Some("https://localhost:8545".to_owned()),
+                Some("https://localhost:3500/".to_owned()),
+            )
+            .expect("bad provider");
+            let (propose_tx, block_metadata) = l1_provider
+                .get_propose(&ProposeQuery {
+                    l1_contract: H160::from_slice(l2_chain_spec.l1_contract.unwrap().as_slice()),
+                    l1_block_no: 6093,
+                    l2_block_no: 1000,
+                })
+                .expect("bad get_propose");
+            println!("propose_tx: {:?}", propose_tx);
+            println!("block_metadata: {:?}", block_metadata);
+        })
+        .await
+        .unwrap();
+    }
+
+    #[ignore]
     #[tokio::test]
     async fn test_fetch_blob_data_and_hash() {
         tokio::task::spawn_blocking(|| {
             let mut provider = new_provider(
                 None,
-                Some("https://l1rpc.internal.taiko.xyz".to_owned()),
-                Some("https://l1beacon.internal.taiko.xyz/".to_owned()),
+                Some("https://localhost:8545".to_owned()),
+                Some("https://localhost:3500/".to_owned()),
             )
             .expect("bad provider");
             // let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
             let blob_data = provider.get_blob_data(6093).unwrap();
             println!("blob len: {:?}", blob_data.data[0].blob.len());
+            println!("blob tx: {:?}", decode_blob_data(&blob_data.data[0].blob));
+
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
             let blob_hash = calc_blob_hash(&blob_data.data[0].kzg_commitment);
             println!("blob hash {:?}", hex::encode(blob_hash));
-        }).await.unwrap();
+        })
+        .await
+        .unwrap();
     }
 
     #[test]
