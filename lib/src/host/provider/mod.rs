@@ -24,6 +24,31 @@ pub mod cached_rpc_provider;
 pub mod file_provider;
 pub mod rpc_provider;
 
+// Blob data from the beacon chain
+// type Sidecar struct {
+// Index                    string                   `json:"index"`
+// Blob                     string                   `json:"blob"`
+// SignedBeaconBlockHeader  *SignedBeaconBlockHeader `json:"signed_block_header"`
+// KzgCommitment            string                   `json:"kzg_commitment"`
+// KzgProof                 string                   `json:"kzg_proof"`
+// CommitmentInclusionProof []string
+// `json:"kzg_commitment_inclusion_proof"` }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct GetBlobData {
+    pub index: String,
+    pub blob: String,
+    // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
+    pub kzg_commitment: String,
+    pub kzg_proof: String,
+    pub kzg_commitment_inclusion_proof: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct GetBlobsResponse {
+    pub data: Vec<GetBlobData>,
+}
+
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct AccountQuery {
     pub block_no: u64,
@@ -73,6 +98,8 @@ pub trait Provider: Send {
     #[cfg(feature = "taiko")]
     /// get 256 blocks one time to reduce the fetch time cost
     fn batch_get_partial_blocks(&mut self, query: &BlockQuery) -> Result<Vec<Block<H256>>>;
+    #[cfg(feature = "taiko")]
+    fn get_blob_data(&mut self, block_id: u64) -> Result<GetBlobsResponse>;
 }
 
 pub trait MutProvider: Provider {
@@ -86,6 +113,8 @@ pub trait MutProvider: Provider {
 
     #[cfg(feature = "taiko")]
     fn insert_propose(&mut self, query: ProposeQuery, val: (Transaction, BlockProposed));
+    #[cfg(feature = "taiko")]
+    fn insert_blob(&mut self, block_id: u64, val: GetBlobsResponse);
 }
 
 pub fn new_file_provider(file_path: String) -> Result<Box<dyn Provider>> {
@@ -94,14 +123,22 @@ pub fn new_file_provider(file_path: String) -> Result<Box<dyn Provider>> {
     Ok(Box::new(provider))
 }
 
-pub fn new_rpc_provider(rpc_url: String) -> Result<Box<dyn Provider>> {
-    let provider = rpc_provider::RpcProvider::new(rpc_url)?;
+pub fn new_rpc_provider(
+    rpc_url: String,
+    beacon_rpc_url: Option<String>,
+) -> Result<Box<dyn Provider>> {
+    let provider = rpc_provider::RpcProvider::new(rpc_url, beacon_rpc_url)?;
 
     Ok(Box::new(provider))
 }
 
-pub fn new_cached_rpc_provider(cache_path: String, rpc_url: String) -> Result<Box<dyn Provider>> {
-    let provider = cached_rpc_provider::CachedRpcProvider::new(cache_path, rpc_url)?;
+pub fn new_cached_rpc_provider(
+    cache_path: String,
+    rpc_url: String,
+    beacon_rpc_url: Option<String>,
+) -> Result<Box<dyn Provider>> {
+    let provider =
+        cached_rpc_provider::CachedRpcProvider::new(cache_path, rpc_url, beacon_rpc_url)?;
 
     Ok(Box::new(provider))
 }
@@ -109,11 +146,14 @@ pub fn new_cached_rpc_provider(cache_path: String, rpc_url: String) -> Result<Bo
 pub fn new_provider(
     cache_path: Option<String>,
     rpc_url: Option<String>,
+    beacon_rpc_url: Option<String>,
 ) -> Result<Box<dyn Provider>> {
     match (cache_path, rpc_url) {
-        (Some(cache_path), Some(rpc_url)) => new_cached_rpc_provider(cache_path, rpc_url),
+        (Some(cache_path), Some(rpc_url)) => {
+            new_cached_rpc_provider(cache_path, rpc_url, beacon_rpc_url)
+        }
         (Some(cache_path), None) => new_file_provider(cache_path),
-        (None, Some(rpc_url)) => new_rpc_provider(rpc_url),
+        (None, Some(rpc_url)) => new_rpc_provider(rpc_url, beacon_rpc_url),
         (None, None) => Err(anyhow!("No cache_path or rpc_url given")),
     }
 }

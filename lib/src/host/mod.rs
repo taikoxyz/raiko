@@ -70,7 +70,7 @@ where
     N::TxEssence: TryFrom<EthersTransaction>,
     <N::TxEssence as TryFrom<EthersTransaction>>::Error: Debug,
 {
-    let mut provider = new_provider(cache_path, rpc_url)?;
+    let mut provider = new_provider(cache_path, rpc_url, None)?;
 
     // Fetch the initial block
     let init_block = provider.get_partial_block(&BlockQuery {

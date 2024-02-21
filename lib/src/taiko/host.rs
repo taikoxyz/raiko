@@ -1,6 +1,5 @@
 use anyhow::Result;
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
-use reqwest;
 use reth_primitives::eip4844::kzg_to_versioned_hash;
 use serde::Deserialize;
 use tracing::info;
@@ -16,7 +15,7 @@ use crate::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
     consts::ChainSpec,
     host::{
-        provider::{new_provider, BlockQuery, ProposeQuery, Provider},
+        provider::{new_provider, BlockQuery, GetBlobData, ProposeQuery, Provider},
         Init,
     },
     input::Input,
@@ -42,6 +41,7 @@ fn fetch_data(
     annotation: &str,
     cache_path: Option<String>,
     rpc_url: Option<String>,
+    beacon_rpc_url: Option<String>,
     block_no: u64,
     layer: Layer,
 ) -> Result<(
@@ -50,7 +50,7 @@ fn fetch_data(
     Block<EthersTransaction>,
     Input<EthereumTxEssence>,
 )> {
-    let mut provider = new_provider(cache_path, rpc_url)?;
+    let mut provider = new_provider(cache_path, rpc_url, beacon_rpc_url)?;
 
     let fini_query = BlockQuery { block_no };
     match layer {
@@ -189,55 +189,32 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     Ok(init)
 }
 
-// type Sidecar struct {
-// Index                    string                   `json:"index"`
-// Blob                     string                   `json:"blob"`
-// SignedBeaconBlockHeader  *SignedBeaconBlockHeader `json:"signed_block_header"`
-// KzgCommitment            string                   `json:"kzg_commitment"`
-// KzgProof                 string                   `json:"kzg_proof"`
-// CommitmentInclusionProof []string
-// `json:"kzg_commitment_inclusion_proof"` }
-#[derive(Clone, Debug, Deserialize)]
-struct GetBlobData {
-    pub index: String,
-    pub blob: String,
-    // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
-    pub kzg_commitment: String,
-    pub kzg_proof: String,
-    pub kzg_commitment_inclusion_proof: Vec<String>,
-}
+// // TODO: move to rpc provider
+// fn fetch_blob_data(
+//     l1_beacon_rpc_url: String,
+//     block_id: u64,
+// ) -> Result<GetBlobsResponse, anyhow::Error> {
+//     // /eth/v1/beacon/blob_sidecars/{block_id}
+//     let url = format!(
+//         "{}/eth/v1/beacon/blob_sidecars/{}",
+//         l1_beacon_rpc_url, block_id
+//     );
+//     let rt = tokio::runtime::Runtime::new().unwrap();
+//     rt.block_on(async {
+//         let response = reqwest::get(url.clone()).await?;
 
-#[derive(Clone, Debug, Deserialize)]
-struct GetBlobsResponse {
-    pub data: Vec<GetBlobData>,
-}
-
-// TODO: move to rpc provider
-fn fetch_blob_data(
-    l1_beacon_rpc_url: String,
-    block_id: u64,
-) -> Result<GetBlobsResponse, anyhow::Error> {
-    // /eth/v1/beacon/blob_sidecars/{block_id}
-    let url = format!(
-        "{}/eth/v1/beacon/blob_sidecars/{}",
-        l1_beacon_rpc_url, block_id
-    );
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(async {
-        let response = reqwest::get(url.clone()).await?;
-
-        if response.status().is_success() {
-            println!("url: {:?}, response: {:?}", url, response);
-            let blob_response: GetBlobsResponse = response.json().await?;
-            Ok(blob_response)
-        } else {
-            Err(anyhow::anyhow!(
-                "Request failed with status code: {}",
-                response.status()
-            ))
-        }
-    })
-}
+//         if response.status().is_success() {
+//             println!("url: {:?}, response: {:?}", url, response);
+//             let blob_response: GetBlobsResponse = response.json().await?;
+//             Ok(blob_response)
+//         } else {
+//             Err(anyhow::anyhow!(
+//                 "Request failed with status code: {}",
+//                 response.status()
+//             ))
+//         }
+//     })
+// }
 
 fn decode_blob_data(blob: &str) -> Vec<u8> {
     let origin_blob = hex::decode(blob.to_lowercase().trim_start_matches("0x")).unwrap();
@@ -275,8 +252,14 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     l2_block_no: u64,
     graffiti: B256,
 ) -> Result<(Init<EthereumTxEssence>, TaikoExtra)> {
-    let (l2_provider, l2_init_block, mut l2_fini_block, l2_input) =
-        fetch_data("L2", l2_cache_path, l2_rpc_url, l2_block_no, Layer::L2)?;
+    let (l2_provider, l2_init_block, mut l2_fini_block, l2_input) = fetch_data(
+        "L2",
+        l2_cache_path,
+        l2_rpc_url,
+        None,
+        l2_block_no,
+        Layer::L2,
+    )?;
     // Get anchor call parameters
     let anchorCall {
         l1Hash: anchor_l1_hash,
@@ -285,8 +268,14 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         parentGasUsed: l2_parent_gas_used,
     } = decode_anchor_call_args(&l2_fini_block.transactions[0].input)?;
 
-    let (mut l1_provider, _l1_init_block, l1_fini_block, _l1_input) =
-        fetch_data("L1", l1_cache_path, l1_rpc_url, l1_block_no, Layer::L1)?;
+    let (mut l1_provider, _l1_init_block, l1_fini_block, _l1_input) = fetch_data(
+        "L1",
+        l1_cache_path,
+        l1_rpc_url,
+        l1_beacon_rpc_url,
+        l1_block_no,
+        Layer::L1,
+    )?;
 
     let (propose_tx, block_metadata) = l1_provider.get_propose(&ProposeQuery {
         l1_contract: H160::from_slice(l2_chain_spec.l1_contract.unwrap().as_slice()),
@@ -297,9 +286,6 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     let l1_next_block = l1_provider.get_full_block(&BlockQuery {
         block_no: l1_block_no + 1,
     })?;
-
-    // save l1 data
-    l1_provider.save()?;
 
     let proposeBlockCall {
         params: propose_params,
@@ -326,9 +312,9 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         // TODO: multiple blob hash support
         assert!(blob_hashs.len() == 1);
         let blob_hash = blob_hashs[0];
-        //TODO: check _proposed_blob_hash with blob_hash if _proposed_blob_hash is not None
+        // TODO: check _proposed_blob_hash with blob_hash if _proposed_blob_hash is not None
 
-        let blobs = fetch_blob_data(l1_beacon_rpc_url.unwrap(), l1_block_no + 1)?;
+        let blobs = l1_provider.get_blob_data(l1_block_no + 1)?;
         let tx_blobs: Vec<GetBlobData> = blobs
             .data
             .iter()
@@ -336,10 +322,16 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             .cloned()
             .collect::<Vec<GetBlobData>>();
         let blob_data = decode_blob_data(&tx_blobs[0].blob);
-        (blob_data.as_slice()[offset as usize..(offset + size) as usize].to_vec(), Some(from_ethers_h256(blob_hash)))
+        (
+            blob_data.as_slice()[offset as usize..(offset + size) as usize].to_vec(),
+            Some(from_ethers_h256(blob_hash)),
+        )
     } else {
         (l2_tx_list, None)
     };
+
+    // save l1 data
+    l1_provider.save()?;
 
     // 1. check l2 parent gas used
     if l2_init_block.gas_used != U256::from(l2_parent_gas_used) {
@@ -399,13 +391,22 @@ mod test {
 
     use super::*;
 
-    #[test]
-    fn test_fetch_blob_data_and_hash() {
-        let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
-        println!("blob len: {:?}", blob_data.data[0].blob.len());
-        println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
-        let blob_hash = calc_blob_hash(&blob_data.data[0].kzg_commitment);
-        println!("blob hash {:?}", hex::encode(blob_hash));
+    #[tokio::test]
+    async fn test_fetch_blob_data_and_hash() {
+        tokio::task::spawn_blocking(|| {
+            let mut provider = new_provider(
+                None,
+                Some("https://l1rpc.internal.taiko.xyz".to_owned()),
+                Some("https://l1beacon.internal.taiko.xyz/".to_owned()),
+            )
+            .expect("bad provider");
+            // let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
+            let blob_data = provider.get_blob_data(6093).unwrap();
+            println!("blob len: {:?}", blob_data.data[0].blob.len());
+            println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
+            let blob_hash = calc_blob_hash(&blob_data.data[0].kzg_commitment);
+            println!("blob hash {:?}", hex::encode(blob_hash));
+        }).await.unwrap();
     }
 
     #[test]

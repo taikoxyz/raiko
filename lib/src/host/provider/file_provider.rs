@@ -25,7 +25,9 @@ use serde_with::serde_as;
 #[cfg(feature = "taiko")]
 use zeth_primitives::taiko::BlockProposed;
 
-use super::{AccountQuery, BlockQuery, MutProvider, ProofQuery, Provider, StorageQuery};
+use super::{
+    AccountQuery, BlockQuery, GetBlobsResponse, MutProvider, ProofQuery, Provider, StorageQuery,
+};
 
 #[serde_as]
 #[derive(Deserialize, Serialize)]
@@ -50,6 +52,8 @@ pub struct FileProvider {
     storage: HashMap<StorageQuery, H256>,
     #[cfg(feature = "taiko")]
     propose: Option<(Transaction, BlockProposed)>,
+    #[cfg(feature = "taiko")]
+    blob: Option<GetBlobsResponse>,
 }
 
 impl FileProvider {
@@ -66,6 +70,8 @@ impl FileProvider {
             storage: HashMap::new(),
             #[cfg(feature = "taiko")]
             propose: Default::default(),
+            #[cfg(feature = "taiko")]
+            blob: Default::default(),
         }
     }
 
@@ -165,6 +171,14 @@ impl Provider for FileProvider {
             Ok(self.partial_blocks.values().cloned().collect())
         }
     }
+
+    #[cfg(feature = "taiko")]
+    fn get_blob_data(&mut self, block_id: u64) -> Result<GetBlobsResponse> {
+        match self.blob {
+            Some(ref val) => Ok(val.clone()),
+            None => Err(anyhow!("No data for block id: {:?}", block_id)),
+        }
+    }
 }
 
 impl MutProvider for FileProvider {
@@ -206,6 +220,12 @@ impl MutProvider for FileProvider {
     #[cfg(feature = "taiko")]
     fn insert_propose(&mut self, _query: super::ProposeQuery, val: (Transaction, BlockProposed)) {
         self.propose = Some(val);
+        self.dirty = true;
+    }
+
+    #[cfg(feature = "taiko")]
+    fn insert_blob(&mut self, block_id: u64, val: GetBlobsResponse) {
+        self.blob = Some(val);
         self.dirty = true;
     }
 }
