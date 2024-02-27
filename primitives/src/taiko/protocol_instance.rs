@@ -39,7 +39,6 @@ sol! {
         bytes32 blockHash;
         bytes32 stateRoot;
         bytes32 graffiti;
-        bytes32[2] __reserved;
     }
 
     #[derive(Debug, Default, Clone, Deserialize, Serialize)]
