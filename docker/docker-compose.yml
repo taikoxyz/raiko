@@ -1,8 +1,8 @@
 version: "3.9"
 services:
-  raiko:
-    image: gcr.io/evmchain/raiko:latest
-    container_name: raiko
+  raiko-4844:
+    image: gcr.io/evmchain/raiko:4844-pos
+    container_name: raiko-4844
     command: --config-path=/etc/raiko/config.toml
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
@@ -12,6 +12,6 @@ services:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
       # make sure you have ${HOME}/.config/raiko directory
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${HOME}/works/.config/raiko:/root/.config/raiko
     ports:
-      - "8080:8080"
+      - "8090:8080"

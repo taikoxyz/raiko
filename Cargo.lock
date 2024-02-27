@@ -830,9 +830,9 @@ dependencies = [
 
 [[package]]
 name = "c-kzg"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9d8c306be83ec04bf5f73710badd8edf56dea23f2f0d8b7f9fe4644d371c758"
+checksum = "94a4bc5367b6284358d2a6a6a1dc2d92ec4b86034561c3b9d3341909752fd848"
 dependencies = [
  "blst",
  "cc",
@@ -3306,7 +3306,7 @@ dependencies = [
  "alloy-trie",
  "byteorder",
  "bytes",
- "c-kzg 0.4.1",
+ "c-kzg 0.4.2",
  "cfg-if",
  "derive_more",
  "itertools 0.12.1",
@@ -3422,7 +3422,7 @@ checksum = "186373108c0a46e47368752372cc721d4b0ab4886d6786d180ef9dbf4dd71865"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
- "c-kzg 0.4.1",
+ "c-kzg 0.4.2",
  "k256",
  "once_cell",
  "revm-primitives 2.0.1",
@@ -3460,7 +3460,7 @@ dependencies = [
  "bitflags 2.4.2",
  "bitvec",
  "blst",
- "c-kzg 0.4.1",
+ "c-kzg 0.4.2",
  "cfg-if",
  "derive_more",
  "enumn",
@@ -5374,7 +5374,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "bincode",
- "c-kzg 0.4.1",
+ "c-kzg 0.4.2",
  "chrono",
  "ethers-core",
  "ethers-providers",
