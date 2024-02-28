@@ -67,6 +67,8 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             parentMetaHash: extra.block_proposed.meta.parentMetaHash,
         },
         prover: extra.prover,
+        chain_id: extra.chain_id,
+        sgx_verifier_address: extra.sgx_verifier_address,
     };
     #[cfg(not(target_os = "zkvm"))]
     {

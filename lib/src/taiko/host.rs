@@ -33,6 +33,8 @@ pub struct TaikoExtra {
     pub block_proposed: BlockProposed,
     pub l1_next_block: Block<EthersTransaction>,
     pub l2_fini_block: Block<EthersTransaction>,
+    pub chain_id: u64,
+    pub sgx_verifier_address: Address,
 }
 
 #[allow(clippy::type_complexity)]
@@ -341,6 +343,8 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         block_proposed: block_metadata,
         l1_next_block,
         l2_fini_block: l2_fini_block.clone(),
+        chain_id: l2_chain_spec.chain_id(),
+        sgx_verifier_address: *SGX_VERIFIER_ADDRESS,
     };
 
     // rebuild transaction list by tx_list from l1 contract
