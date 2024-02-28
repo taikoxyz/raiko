@@ -1,7 +1,4 @@
 #![feature(path_file_prefix)]
-// when not featuring sgx-ra, no tokio:main is compiled
-#![no_main] 
-#![cfg(feature = "sgx-ra")]
 
 mod app_args;
 mod one_shot;
