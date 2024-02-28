@@ -347,7 +347,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l1_next_block,
         l2_fini_block: l2_fini_block.clone(),
         chain_id: l2_chain_spec.chain_id(),
-        sgx_verifier_address: Address::from_hex("0x4F3F0D5B22338f1f991a1a9686C7171389C97Ff7").unwrap(),
+        sgx_verifier_address: *SGX_VERIFIER_ADDRESS,
     };
 
     // rebuild transaction list by tx_list from l1 contract

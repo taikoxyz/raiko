@@ -140,6 +140,7 @@ pub fn deposits_hash(deposits: &[EthDeposit]) -> B256 {
 #[cfg(test)]
 mod tests {
     use alloy_sol_types::SolCall;
+    use hex::FromHex;
 
     use super::*;
     #[test]
@@ -215,10 +216,7 @@ mod tests {
             proveBlockCall::abi_decode(&input_data, false).unwrap();
         let (meta, trans, _proof) =
             <(BlockMetadata, Transition, TierProof)>::abi_decode_params(&input, false).unwrap();
-        println!("trans: {:?}", trans);
         let meta_hash: B256 = keccak::keccak(meta.abi_encode()).into();
-        println!("meta_hash: {:?}", meta_hash);
-
         let pi_hash = keccak::keccak(
             (
                 "VERIFY_PROOF",
@@ -235,10 +233,9 @@ mod tests {
                 .skip(32)
                 .collect::<Vec<u8>>(),
         );
-        // println!("pi_hash: {:?}", hex::encode(pi_hash));
         assert_eq!(
             hex::encode(pi_hash),
-            "54b29e9a09c207a2677346b59ce63e786690fc4944a7318fff08ae25d1ba8c9e"
+            "299bdbca1a5bb526afa863f6f634d89af7ab1bb3bb221631ce3cc7dbbb4db972"
         );
     }
 }
