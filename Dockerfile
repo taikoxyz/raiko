@@ -10,7 +10,7 @@ RUN apt-get update && \
     libclang-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-RUN cargo build --release ${BUILD_FLAGS} 
+RUN cargo build --release ${BUILD_FLAGS}
 
 FROM gramineproject/gramine:1.6-jammy as runtime
 WORKDIR /opt/raiko

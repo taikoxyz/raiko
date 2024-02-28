@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   raiko:
-    image: gcr.io/evmchain/raiko:latest
+    image: gcr.io/evmchain/raiko:cecilia
     container_name: raiko
     command: --config-path=/etc/raiko/config.toml
     devices:
