@@ -4,18 +4,18 @@
 loader.entrypoint = "file:{{ gramine.libos }}"
 libos.entrypoint = "/raiko-guest"
 loader.log_level = "{{ log_level }}"
-loader.env.HOME = "/home/yue/works"
+loader.env.HOME = "/root"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
 loader.env.RUST_LOG = "info"
 
 fs.mounts = [
   { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
-  { path = "/home/yue/works/taiko/raiko/target/debug/sgx/raiko-guest", uri = "file:raiko-guest" },
+  { path = "/raiko-guest", uri = "file:raiko-guest" },
   { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/tmp", uri = "file:/tmp" },
-  { path = "/home/yue/works/.config/raiko/config", uri = "file:/home/yue/works/.config/raiko/config" },
-  { path = "/home/yue/works/.config/raiko/secrets", uri = "file:{{ '/home/yue/works/.config/raiko/secrets' }}", type = "encrypted", key_name = "_sgx_mrsigner" },
+  { path = "/root/.config/raiko/config", uri = "file:/root/.config/raiko/config" },
+  { path = "/root/.config/raiko/secrets", uri = "file:/root/.config/raiko/secrets", type = "encrypted", key_name = "_sgx_mrsigner" },
 ]
 sys.insecure__allow_eventfd = true
 loader.insecure__use_cmdline_argv = true
@@ -38,5 +38,5 @@ sgx.remote_attestation = "dcap"
 
 sgx.allowed_files = [
   "file:/tmp/sgx",
-  "file:/home/yue/works/.config/raiko/config",
+  "file:/root/.config/raiko/config",
 ]
