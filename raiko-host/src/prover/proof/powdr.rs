@@ -17,7 +17,7 @@ use crate::prover::error::{Error, Result};
 pub async fn execute_powdr() -> Result<(), Error> {
     println!("Compiling Rust...");
     let (asm_file_path, asm_contents) = compile_rust(
-        "/raiko-guest/Cargo.toml",
+        "/raiko-guests/powdr/Cargo.toml",
         Path::new("/tmp/test"),
         true,
         &CoProcessors::base().with_poseidon(),
@@ -39,4 +39,4 @@ pub async fn execute_powdr() -> Result<(), Error> {
 }
 // phoebe@cecilia-gz:~/projects/zeth$
 //  cargo +nightly build --release -Z build-std=core,alloc --target
-// riscv32imac-unknown-none-elf --lib --manifest-path ./raiko-guest/Cargo.toml
+// riscv32imac-unknown-none-elf --lib --manifest-path ./raiko-guests/powdr/Cargo.toml
