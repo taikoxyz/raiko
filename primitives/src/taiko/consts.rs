@@ -4,7 +4,7 @@ use alloy_primitives::{uint, Address, U256};
 use once_cell::sync::Lazy;
 
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
-pub const MAX_TX_LIST: usize = 79;
+pub const MAX_TX_LIST: usize = 149;
 pub const MAX_TX_LIST_BYTES: usize = 120_000;
 pub static BLOCK_GAS_LIMIT: Lazy<U256> = Lazy::new(|| uint!(15250000_U256));
 pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
