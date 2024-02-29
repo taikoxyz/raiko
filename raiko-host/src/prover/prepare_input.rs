@@ -27,6 +27,7 @@ where
         ProofRequest::Sgx(SgxRequest {
             block,
             l1_rpc,
+            l1_beacon_rpc,
             l2_rpc,
             prover,
             graffiti,
@@ -38,6 +39,7 @@ where
 
             let l1_spec = ETH_MAINNET_CHAIN_SPEC.clone();
             let l1_rpc = l1_rpc.to_owned();
+            let l1_beacon_rpc = l1_beacon_rpc.to_owned();
             let prover = prover.to_owned();
             let graffiti = *graffiti;
             // run sync task in blocking mode
@@ -48,6 +50,7 @@ where
                     Some(l1_cache_path.into_os_string().into_string().unwrap()),
                     l1_spec,
                     Some(l1_rpc),
+                    Some(l1_beacon_rpc),
                     prover,
                     Some(l2_cache_path.into_os_string().into_string().unwrap()),
                     l2_spec,

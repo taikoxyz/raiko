@@ -18,8 +18,8 @@ use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, 
 use zeth_primitives::taiko::BlockProposed;
 
 use super::{
-    file_provider::FileProvider, rpc_provider::RpcProvider, AccountQuery, BlockQuery, MutProvider,
-    ProofQuery, Provider, StorageQuery,
+    file_provider::FileProvider, rpc_provider::RpcProvider, AccountQuery, BlockQuery,
+    GetBlobsResponse, MutProvider, ProofQuery, Provider, StorageQuery,
 };
 
 pub struct CachedRpcProvider {
@@ -28,12 +28,16 @@ pub struct CachedRpcProvider {
 }
 
 impl CachedRpcProvider {
-    pub fn new(cache_path: String, rpc_url: String) -> Result<Self> {
+    pub fn new(
+        cache_path: String,
+        rpc_url: String,
+        beacon_rpc_url: Option<String>,
+    ) -> Result<Self> {
         let cache = match FileProvider::read_from_file(cache_path.clone()) {
             Ok(provider) => provider,
             Err(_) => FileProvider::empty(cache_path),
         };
-        let rpc = RpcProvider::new(rpc_url)?;
+        let rpc = RpcProvider::new(rpc_url, beacon_rpc_url)?;
 
         Ok(CachedRpcProvider { cache, rpc })
     }
@@ -157,6 +161,19 @@ impl Provider for CachedRpcProvider {
                 block.clone(),
             );
         }
+        Ok(out)
+    }
+
+    #[cfg(feature = "taiko")]
+    fn get_blob_data(&mut self, block_id: u64) -> Result<GetBlobsResponse> {
+        let cache_out = self.cache.get_blob_data(block_id);
+        if cache_out.is_ok() {
+            return cache_out;
+        }
+
+        let out = self.rpc.get_blob_data(block_id)?;
+        self.cache.insert_blob(block_id, out.clone());
+
         Ok(out)
     }
 }

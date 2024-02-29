@@ -19,25 +19,28 @@ use ethers_core::types::{Block, Bytes, EIP1186ProofResponse, Transaction, H256, 
 use ethers_providers::{Http, Middleware};
 #[cfg(not(feature = "taiko"))]
 use log::info;
+use reqwest;
 #[cfg(feature = "taiko")]
 use tracing::info;
 #[cfg(feature = "taiko")]
 use zeth_primitives::taiko::{filter_propose_block_event, BlockProposed};
 
-use super::{AccountQuery, BlockQuery, ProofQuery, Provider, StorageQuery};
+use super::{AccountQuery, BlockQuery, GetBlobsResponse, ProofQuery, Provider, StorageQuery};
 
 pub struct RpcProvider {
     http_client: ethers_providers::Provider<Http>,
+    beacon_rpc_url: Option<String>,
     tokio_handle: tokio::runtime::Handle,
 }
 
 impl RpcProvider {
-    pub fn new(rpc_url: String) -> Result<Self> {
+    pub fn new(rpc_url: String, beacon_rpc_url: Option<String>) -> Result<Self> {
         let http_client = ethers_providers::Provider::<Http>::try_from(&rpc_url)?;
         let tokio_handle = tokio::runtime::Handle::current();
 
         Ok(RpcProvider {
             http_client,
+            beacon_rpc_url,
             tokio_handle,
         })
     }
@@ -175,5 +178,25 @@ impl Provider for RpcProvider {
                 .await
         })?;
         Ok(out)
+    }
+
+    #[cfg(feature = "taiko")]
+    fn get_blob_data(&mut self, block_id: u64) -> Result<GetBlobsResponse> {
+        match self.beacon_rpc_url {
+            Some(ref url) => self.tokio_handle.block_on(async {
+                let url = format!("{}/eth/v1/beacon/blob_sidecars/{}", url, block_id);
+                let response = reqwest::get(url.clone()).await?;
+                if response.status().is_success() {
+                    let blob_response: GetBlobsResponse = response.json().await?;
+                    Ok(blob_response)
+                } else {
+                    Err(anyhow::anyhow!(
+                        "Request failed with status code: {}",
+                        response.status()
+                    ))
+                }
+            }),
+            None => Err(anyhow!("No beacon_rpc_url given")),
+        }
     }
 }

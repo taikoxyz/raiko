@@ -70,7 +70,7 @@ fn save_bootstrap_details(
     bootstrap_details_file_path: &Path,
 ) -> Result<(), Error> {
     let bootstrap_details = BootstrapData {
-        public_key: format!("0x{}", key_pair.public_key().to_string()),
+        public_key: format!("0x{}", key_pair.public_key()),
         new_instance,
         quote: hex::encode(quote),
     };
@@ -209,6 +209,7 @@ async fn parse_to_init(
         zeth_lib::taiko::host::get_taiko_initial_data::<TaikoStrategyBundle>(
             Some(l1_blocks_path),
             ETH_MAINNET_CHAIN_SPEC.clone(),
+            None,
             None,
             prover,
             Some(blocks_path),

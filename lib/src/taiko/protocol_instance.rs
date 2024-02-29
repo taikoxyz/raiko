@@ -14,7 +14,9 @@ use zeth_primitives::{
 use crate::taiko::host::TaikoExtra;
 
 pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result<ProtocolInstance> {
-    let tx_list_hash = TxHash::from(keccak::keccak(extra.l2_tx_list.as_slice()));
+    let tx_list_hash = extra
+        .tx_blob_hash
+        .unwrap_or(TxHash::from(keccak::keccak(extra.l2_tx_list.as_slice())));
     let deposits: Vec<EthDeposit> = extra
         .l2_withdrawals
         .iter()
@@ -46,7 +48,6 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             blockHash: header.hash(),
             stateRoot: from_ethers_h256(extra.l2_fini_block.state_root),
             graffiti: extra.graffiti,
-            __reserved: Default::default(),
         },
         block_metadata: BlockMetadata {
             l1Hash: extra.l1_hash,
@@ -62,10 +63,12 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             txListByteOffset: 0u32,
             txListByteSize: extra.l2_tx_list.len() as u32,
             minTier: extra.block_proposed.meta.minTier,
-            blobUsed: extra.l2_tx_list.is_empty(),
+            blobUsed: extra.tx_blob_hash.is_some(),
             parentMetaHash: extra.block_proposed.meta.parentMetaHash,
         },
         prover: extra.prover,
+        chain_id: extra.chain_id,
+        sgx_verifier_address: extra.sgx_verifier_address,
     };
     #[cfg(not(target_os = "zkvm"))]
     {
@@ -91,6 +94,23 @@ mod test {
         assert_eq!(
             hex::encode(difficulty),
             "3cac317908c699fe873a7f6ee4e8cd63fbe9918b2315c97be91585590168e301"
+        );
+    }
+
+    #[ignore]
+    #[test]
+    fn test_calc_difficulty() {
+        let buf = (U256::from(0), 1000u64, U256::from(6093)).abi_encode_packed();
+        println!("buf: {:?} ", buf);
+
+        let difficulty =
+            keccak::keccak((U256::from(0), 1000u64, U256::from(6093)).abi_encode_packed());
+        println!(
+            "{} {} {} difficulty: {:?}",
+            U256::from(0),
+            1000,
+            U256::from(6093),
+            hex::encode(difficulty)
         );
     }
 }
