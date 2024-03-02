@@ -1,6 +1,5 @@
 use anyhow::Result;
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
-use hex::FromHex;
 use reth_primitives::eip4844::kzg_to_versioned_hash;
 use tracing::info;
 use zeth_primitives::{
@@ -271,15 +270,10 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     let blob_used = l2_tx_list.is_empty();
     let (l2_tx_list_blob, tx_blob_hash) = if blob_used {
         let BlockParams {
-            assignedProver: _,
-            coinbase: _,
-            extraData: _,
             blobHash: _proposed_blob_hash,
             txListByteOffset: offset,
             txListByteSize: size,
-            cacheBlobForReuse: _,
-            parentMetaHash: _,
-            hookCalls: _,
+            ..
         } = decode_propose_block_call_params(&propose_params)
             .expect("valid propose_block_call_params");
 
@@ -447,14 +441,14 @@ mod test {
         tokio::task::spawn_blocking(|| {
             let mut provider = new_provider(
                 None,
-                Some("https://localhost:8545".to_owned()),
-                Some("https://localhost:3500/".to_owned()),
+                Some("https://l1rpc.internal.taiko.xyz/".to_owned()),
+                Some("https://l1beacon.internal.taiko.xyz/".to_owned()),
             )
             .expect("bad provider");
             // let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
-            let blob_data = provider.get_blob_data(6093).unwrap();
+            let blob_data = provider.get_blob_data(98).unwrap();
             println!("blob len: {:?}", blob_data.data[0].blob.len());
-            println!("blob tx: {:?}", decode_blob_data(&blob_data.data[0].blob));
+            // println!("blob tx: {:?}", decode_blob_data(&blob_data.data[0].blob));
 
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
             let blob_hash = calc_blob_versioned_hash(&blob_data.data[0].kzg_commitment);
