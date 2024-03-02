@@ -2,6 +2,7 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
 use anyhow::{Context, Result};
 use ethers_core::types::{Log, H256};
+use hex::FromHex;
 use serde::{Deserialize, Serialize};
 
 use crate::{ethers::from_ethers_h256, keccak};
@@ -104,6 +105,11 @@ impl ProtocolInstance {
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
     pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
+        println!("chain_id: {:?}", self.chain_id);
+        println!("sgx_verifier_address: {:?}", self.sgx_verifier_address);
+        println!("transition: {:?}", self.transition);
+        println!("prover: {:?}", self.prover);
+        println!("meta_hash: {:?}", self.meta_hash());
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => keccak::keccak(
                 (
