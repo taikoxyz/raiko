@@ -28,9 +28,36 @@ function bootstrap() {
     cd -
 }
 
-/restart_aesm.sh
+npm config set engine-strict true
+cd /opt/intel/sgx-dcap-pccs
+npm install
+cd -
 
-if [[ $# -eq 1 && $1 == "--init" ]]; then
+PCKIDRetrievalTool
+/restart_aesm.sh
+sleep 10
+ls /opt/intel/sgx-dcap-pccs/config
+ls /opt/intel/sgx-dcap-pccs/ssl_key/
+cat /opt/intel/sgx-dcap-pccs/config/default.json
+cd /opt/intel/sgx-dcap-pccs
+node --version
+# tree /opt/intel/sgx-dcap-pccs
+# ls -la /opt/intel/sgx-dcap-pccs/node_modules/config
+# ls: cannot access '/opt/intel/sgx-dcap-pccs/node_modules/config': No such file or directory
+node ./pccs_server.js &
+sleep 10
+curl -v -k -G "https://localhost:8081/sgx/certification/v3/rootcacrl"
+# sudo -u pccs node -r esm pccs_server.js
+cd -
+
+cat /etc/sgx_default_qcnl.conf
+ls -la /dev/
+ps -ef | grep -i pccs
+ps -ef | grep -i aesm
+ps -ef | grep -i sgx
+
+
+if [[ $# -gt 0 && $1 == "--init" ]]; then
     if [[ ! -f "$GRAMINE_PRIV_KEY" ]]; then
         gramine-sgx-gen-private-key
     fi

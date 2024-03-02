@@ -1,7 +1,11 @@
 version: "3.9"
 services:
   raiko:
-    image: gcr.io/evmchain/raiko:latest
+    # image: gcr.io/evmchain/raiko:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    # image: gcr.io/evmchain/raiko:latest
     container_name: raiko
     command: --config-path=/etc/raiko/config.toml
     devices:
@@ -14,4 +18,4 @@ services:
       # make sure you have ${HOME}/.config/raiko directory
       - ${HOME}/.config/raiko:/root/.config/raiko
     ports:
-      - "8080:8080"
+      - "8030:8080"
