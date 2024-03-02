@@ -44,9 +44,9 @@ node --version
 # tree /opt/intel/sgx-dcap-pccs
 # ls -la /opt/intel/sgx-dcap-pccs/node_modules/config
 # ls: cannot access '/opt/intel/sgx-dcap-pccs/node_modules/config': No such file or directory
-node ./pccs_server.js &
-sleep 10
-curl -v -k -G "https://localhost:8081/sgx/certification/v3/rootcacrl"
+# node ./pccs_server.js &
+# sleep 10
+curl -v -k -G "https://host.docker.internal:8081/sgx/certification/v3/rootcacrl"
 # sudo -u pccs node -r esm pccs_server.js
 cd -
 

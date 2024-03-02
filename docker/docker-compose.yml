@@ -19,3 +19,6 @@ services:
       - ${HOME}/.config/raiko:/root/.config/raiko
     ports:
       - "8030:8080"
+      - "8081:8081"
+    extra_hosts:
+        - "host.docker.internal:host-gateway"

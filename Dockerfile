@@ -42,6 +42,7 @@ RUN mkdir /opt/intel/sgx-dcap-pccs/ssl_key
 RUN sed -i 's/#default quoting type = ecdsa_256/default quoting type = ecdsa_256/' /etc/aesmd.conf
 # RUN /restart_aesm.sh
 RUN sed -i 's/,"use_secure_cert": true/,"use_secure_cert": false/' /etc/sgx_default_qcnl.conf
+RUN sed -i 's/https:\/\/localhost:8081/https:\/\/host.docker.internal:8081/g' /etc/sgx_default_qcnl.conf
 
 RUN mkdir -p \
     ./bin \
