@@ -3,12 +3,14 @@ name = "risc0-bin"
 version = "0.1.0"
 edition = "2021"
 
+[build-dependencies]
+risc0-build = { workspace = true }
+
 [workspace]
 
 [dependencies]
 zeth-primitives = { path = "../../../primitives", features = ["revm"] }
 zeth-lib = { path = "../../../lib", features = ["taiko", "std"] }
-raiko-host ={ path = "../../../raiko-host" }
 risc0-zkvm = { version = "0.20.1", default-features = false, features = ['std'] }
 
 

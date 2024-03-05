@@ -57,12 +57,9 @@ pub async fn execute(
                     input.block_hash.to_fixed_bytes(),
                     "block hash unexpected"
                 );
-                GuestOutput::Success((header.clone(), pi))
+                GuestOutput {header: header.clone() }
             }
-            Err(_) => {
-                warn!("Proving bad block construction!");
-                GuestOutput::Failure
-            }
+            _ => panic!("Proving bad block construction!")
         };
         let elapsed = Instant::now().duration_since(start).as_millis() as i64;
         observe_input(elapsed);
@@ -94,7 +91,7 @@ pub async fn execute(
                 Ok(ProofResponse::SP1(resp))
             }
             ProofInstance::Risc0(instance) => {
-                execute_risc0(input, output, ctx, instance).await?;
+                execute_risc0(&input, output, ctx, instance).await?;
                 todo!()
             }
             ProofInstance::Native => Ok(ProofResponse::Native(output)),

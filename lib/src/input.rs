@@ -187,10 +187,9 @@ pub struct TaikoSystemInfo {
     pub tx_blob_hash: Option<B256>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum GuestOutput {
-    Success((Header, FixedBytes<32>)),
-    Failure,
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuestOutput {
+    pub header: Header,
 }
 
 #[cfg(test)]

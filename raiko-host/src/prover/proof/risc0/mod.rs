@@ -7,9 +7,7 @@ use alloy_primitives::FixedBytes;
 use serde::{Deserialize, Serialize};
 use tracing::info as traicing_info;
 use zeth_lib::{
-    consts::TKO_TESTNET_CHAIN_SPEC,
-    input::GuestInput,
-    taiko::{host::HostArgs, GuestInput, GuestOutput, TaikoSystemInfo},
+    input::{GuestInput, GuestOutput},
     EthereumTxEssence,
 };
 
@@ -21,20 +19,27 @@ use crate::prover::{
     utils::guest_executable_path,
 };
 
+use risc0_guests::*;
+
 // TODO: import from risc0_guest_method
 const RISC0_GUEST_ID: [u32; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 pub async fn execute_risc0(
-    input: GuestInput<EthereumTxEssence>,
+    input: &GuestInput<EthereumTxEssence>,
     output: GuestOutput,
     ctx: &Context,
     req: &Risc0Instance,
 ) -> Result<SgxResponse, String> {
-    let elf = include_bytes!("../../../../elf/riscv32im-succinct-zkvm-elf");
-    let result = maybe_prove::<GuestInput, GuestOutput>(
+    //let elf = include_bytes!("../../../../elf/riscv32im-succinct-zkvm-elf");
+
+    //let elf = std::fs::read(METHOD_NAME_PATH)
+    //   .expect("Method code should be present at the specified path; did you use the correct *_PATH constant?");
+
+
+    let result = maybe_prove::<GuestInput<EthereumTxEssence>, GuestOutput>(
         req,
-        &GuestInput { sys_info, input },
-        elf,
+        input,
+        &BIN_ELF,
         &output,
         Default::default(),
     )
