@@ -4,7 +4,7 @@ This tutorial was created to assist you in setting up Raiko and its SGX dependen
 
 ## Prerequisites
 
-Raiko leverages [Intel SGX][sgx] via [Gramine][gramine]. As Gramine only supports [a limited number of distributions][gramine-distros], including Ubuntu, the Docker image is derived from Gramine's base image, which uses Ubuntu.
+Raiko leverages [Intel SGX][sgx] via [Gramine][gramine]. As Gramine only supports [a limited number of distributions][gramine-distros], including Ubuntu. The Docker image is derived from Gramine's base image, which uses Ubuntu.
 
 Intel SGX is a technology that involves a considerable amount of configuration. Given its high level of configurability, the setup of your infrastructure may vary significantly depending on the attestation type (EPID, ECDSA) and other parameters. While we've strived to minimize the manual effort required to prepare the development environment, there are certain prerequisites that are challenging, if not impossible, to automate using Dockerfiles. This section outlines these prerequisites.
 
@@ -147,7 +147,15 @@ USE_SECURE_CERT=FALSE
 
 Replace `<USER_TOKEN>` with the user password you got when you subscribed to the Intel PCS Service, as described in a previous steps of this tutorial.
 
-At this point, you should be ready to fetch Intel's certificates. You can do this by running the following command:
+At this point, you should be ready to fetch Intel's certificates. You can do this by running the `PCKIDRetrievalTool`, which you can install either from the Ubuntu repository:
+```
+$ echo ’deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu
+focal main’ | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
+$ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+$ sudo apt update
+$ sudo apt install sgx-pck-id-retrieval-tool
+```
+Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself. After you have installed it, run the following command:
 
 ```
 PCKIDRetrievalTool
@@ -166,6 +174,8 @@ curl -k -G "https://localhost:8081/sgx/certification/v3/rootcacrl"
 ```
 
 Now, you're ready to bootstrap and run Raiko!
+
+[sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/master/tools/PCKRetrievalTool/installer
 
 ### Raiko bootstrapping
 
