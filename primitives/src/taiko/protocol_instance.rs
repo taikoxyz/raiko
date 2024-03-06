@@ -105,11 +105,6 @@ impl ProtocolInstance {
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
     pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
-        println!("chain_id: {:?}", self.chain_id);
-        println!("sgx_verifier_address: {:?}", self.sgx_verifier_address);
-        println!("transition: {:?}", self.transition);
-        println!("prover: {:?}", self.prover);
-        println!("meta_hash: {:?}", self.meta_hash());
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => keccak::keccak(
                 (

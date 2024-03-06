@@ -470,7 +470,7 @@ mod test {
     #[ignore]
     #[tokio::test]
     async fn test_fetch_and_verify_blob_data() {
-        tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(|| {
             let kzg_settings = init_kzg_settings("../kzg_parsed_trust_setup").unwrap();
 
             let mut provider = new_provider(
@@ -492,7 +492,10 @@ mod test {
             let blob: Blob = blob_bytes.into();
             let kzg_commit: KzgCommitment =
                 KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
-            assert_eq!("0x".to_owned() + &kzg_commit.as_hex_string(), blob_data.data[0].kzg_commitment);
+            assert_eq!(
+                "0x".to_owned() + &kzg_commit.as_hex_string(),
+                blob_data.data[0].kzg_commitment
+            );
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
             let calc_versioned_hash = calc_blob_versioned_hash(&blob_data.data[0].kzg_commitment);
             println!("blob hash {:?}", hex::encode(calc_versioned_hash));
