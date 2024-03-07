@@ -24,7 +24,13 @@ use revm::{
 };
 use ruint::aliases::U256;
 use zeth_primitives::{
-    mpt::MptNode, receipt::Receipt, transactions::{ethereum::{EthereumTxEssence, TransactionKind}, TxEssence}, Bloom, RlpBytes
+    mpt::MptNode,
+    receipt::Receipt,
+    transactions::{
+        ethereum::{EthereumTxEssence, TransactionKind},
+        TxEssence,
+    },
+    Bloom, RlpBytes,
 };
 
 use super::TxExecStrategy;
@@ -32,6 +38,7 @@ use crate::{
     builder::BlockBuilder,
     consts::{self, ChainSpec, GWEI_TO_WEI},
     guest_mem_forget,
+    taiko_utils::check_anchor_tx,
 };
 
 /// Minimum supported protocol version: Bedrock (Block no. 105235063).
@@ -121,10 +128,21 @@ impl TxExecStrategy<EthereumTxEssence> for TkoTxExecStrategy {
         {
             // anchor transaction must be executed successfully
             let is_anchor = tx_no == 0;
+
             // verify the transaction signature
             let tx_from = tx
                 .recover_from()
                 .with_context(|| anyhow!("Error recovering address for transaction {tx_no}"))?;
+
+            if is_anchor {
+                check_anchor_tx(
+                    &block_builder.input,
+                    &tx,
+                    &tx_from,
+                    &block_builder.input.taiko.chain_spec_name,
+                )
+                .expect("invalid anchor tx");
+            }
 
             #[cfg(feature = "std")]
             {
@@ -142,7 +160,7 @@ impl TxExecStrategy<EthereumTxEssence> for TkoTxExecStrategy {
             }
 
             fill_eth_tx_env(
-                block_builder.chain_spec,
+                &block_builder.chain_spec,
                 &mut evm.env().tx,
                 &tx.essence,
                 tx_from,

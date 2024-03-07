@@ -1,10 +1,8 @@
-use std::path::{absolute, PathBuf};
+use std::path::PathBuf;
 
-use ethers_core::k256::elliptic_curve::rand_core::block;
-use tracing::debug;
 use anyhow::Result;
 
-use super::{consts::RAIKO_GUEST_EXECUTABLE, request::ProofInstance};
+use super::{consts::RAIKO_GUEST_EXECUTABLE, request::ProofType};
 
 #[derive(Debug, Default, Clone)]
 pub struct Context {
@@ -16,17 +14,16 @@ pub struct Context {
     pub max_caches: usize,
 
     pub l1_cache_file: Option<PathBuf>,
-    
-    pub l2_cache_file: Option<PathBuf>,
 
+    pub l2_cache_file: Option<PathBuf>,
 }
 
 impl Context {
     pub fn new(
-        guest_elf: PathBuf, 
-        host_cache: PathBuf, 
+        guest_elf: PathBuf,
+        host_cache: PathBuf,
         max_caches: usize,
-        block_no: Option<u64>
+        block_no: Option<u64>,
     ) -> Self {
         let mut ctx = Self {
             guest_elf,
@@ -40,7 +37,6 @@ impl Context {
         ctx
     }
 
-
     pub fn update_cache_path(&mut self, block_no: u64) {
         if self.l1_cache_file.is_none() {
             let file_name = format!("{}.l1.json.gz", block_no);
@@ -52,14 +48,14 @@ impl Context {
         }
     }
 
-    pub fn guest_executable_path(&self, proof_instance: ProofInstance) -> PathBuf {
+    pub fn guest_executable_path(&self, proof_instance: ProofType) -> PathBuf {
         match proof_instance {
-            ProofInstance::Succinct => todo!(),
-            ProofInstance::PseZk => todo!(),
-            ProofInstance::Powdr => todo!(),
-            ProofInstance::Sgx => self.guest_elf.join("sgx").join(RAIKO_GUEST_EXECUTABLE),
-            ProofInstance::Risc0(_) => todo!(),
-            ProofInstance::Native => todo!(),
+            ProofType::Succinct => todo!(),
+            ProofType::PseZk => todo!(),
+            ProofType::Powdr => todo!(),
+            ProofType::Sgx => self.guest_elf.join("sgx").join(RAIKO_GUEST_EXECUTABLE),
+            ProofType::Risc0(_) => todo!(),
+            ProofType::Native => todo!(),
         }
     }
 
@@ -72,10 +68,7 @@ impl Context {
         }
         Ok(())
     }
-
-    
 }
-
 
 #[cfg(test)]
 mod tests {

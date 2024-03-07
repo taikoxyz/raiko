@@ -1,16 +1,21 @@
 #![feature(feature = "sgx")]
 use std::str;
+
+use once_cell::sync::Lazy;
 use serde_json::Value;
 use tokio::process::Command;
 use tracing::{debug, info};
-use once_cell::sync::Lazy;
+
 use crate::{
     metrics::inc_sgx_error,
     prover::{
-        consts::*, context::Context, request::{ProofRequest, SgxInstance, SgxResponse}, server::SGX_INSTANCE_ID, utils::guest_executable_path
+        consts::*,
+        context::Context,
+        request::{ProofRequest, SgxInstance, SgxResponse},
+        server::SGX_INSTANCE_ID,
+        utils::guest_executable_path,
     },
 };
-
 
 pub async fn execute_sgx(ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
     let guest_path = guest_executable_path(&ctx.guest_elf, SGX_PARENT_DIR);
@@ -43,7 +48,7 @@ pub async fn execute_sgx(ctx: &mut Context, req: &ProofRequest) -> Result<SgxRes
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
         .arg("--l2-chain")
-        .arg(&req.l2_contracts)
+        .arg(&req.chain)
         .output()
         .await
         .map_err(|e| e.to_string())?;
@@ -78,5 +83,5 @@ fn parse_sgx_result(output: Vec<u8>) -> Result<SgxResponse, String> {
     let proof = extract_field("proof");
     let quote = extract_field("quote");
 
-    Ok(SgxResponse { proof, quote})
+    Ok(SgxResponse { proof, quote })
 }

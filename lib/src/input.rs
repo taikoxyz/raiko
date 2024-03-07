@@ -13,13 +13,18 @@
 // limitations under the License.
 use core::fmt::Debug;
 
+use alloy_sol_types::{sol, SolCall, SolType};
+use anyhow::{anyhow, Result};
+use ethers_core::types::H256;
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use zeth_primitives::{
-    block::Header, FixedBytes, mpt::MptNode, transactions::{Transaction, TxEssence}, withdrawal::Withdrawal, Address, Bytes, B256, U256
+    block::Header,
+    mpt::MptNode,
+    transactions::{Transaction, TxEssence},
+    withdrawal::Withdrawal,
+    Address, Bytes, FixedBytes, B256, U256,
 };
-use alloy_sol_types::{sol, SolCall};
-use anyhow::{anyhow, Result};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -29,6 +34,8 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 /// External block input.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput<E: TxEssence> {
+    /// Block hash - for reference!
+    pub block_hash: H256,
     /// Previous block header
     pub parent_header: Header,
     /// Address to which all priority fees in this block are transferred.
@@ -56,7 +63,7 @@ pub struct GuestInput<E: TxEssence> {
     /// Base fee per gas
     pub base_fee_per_gas: U256,
     /// Taiko specific data
-    pub taiko: TaikoSystemInfo,
+    pub taiko: TaikoGuestInput,
 }
 
 sol! {
@@ -105,6 +112,25 @@ sol! {
         bytes32 parentMetaHash; // slot 8
     }
 
+    #[derive(Debug, Default, Deserialize, Serialize)]
+    struct BlockParams {
+        address assignedProver;
+        address coinbase;
+        bytes32 extraData;
+        bytes32 blobHash;
+        uint24 txListByteOffset;
+        uint24 txListByteSize;
+        bool cacheBlobForReuse;
+        bytes32 parentMetaHash;
+        HookCall[] hookCalls;
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
+    struct HookCall {
+        address hook;
+        bytes data;
+    }
+
     #[derive(Debug)]
     struct Transition {
         bytes32 parentHash;
@@ -139,7 +165,11 @@ sol! {
     function proveBlock(uint64 blockId, bytes calldata input) {}
 }
 
-
+pub fn decode_propose_block_call_params(data: &[u8]) -> Result<BlockParams> {
+    let propose_block_params = BlockParams::abi_decode(data, false)
+        .map_err(|e| anyhow!("failed to decode propose block call: {e}"))?;
+    Ok(propose_block_params)
+}
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct TaikoProverData {
@@ -148,11 +178,13 @@ pub struct TaikoProverData {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct TaikoSystemInfo {
+pub struct TaikoGuestInput {
+    pub chain_spec_name: String,
     pub l1_header: Header,
     pub tx_list: Vec<u8>,
     pub block_proposed: BlockProposed,
     pub prover_data: TaikoProverData,
+    pub tx_blob_hash: Option<B256>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -172,6 +204,7 @@ mod tests {
     #[test]
     fn input_serde_roundtrip() {
         let input = GuestInput::<EthereumTxEssence> {
+            block_hash: Default::default(),
             parent_header: Default::default(),
             beneficiary: Default::default(),
             gas_limit: Default::default(),

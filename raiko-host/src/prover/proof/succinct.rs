@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use alloy_primitives::FixedBytes;
 use serde::{Deserialize, Serialize};
 use sp1_core::{utils, SP1Prover, SP1Stdin, SP1Verifier};
-use zeth_lib::{consts::TKO_MAINNET_CHAIN_SPEC, taiko::host::HostArgs};
+use zeth_lib::{consts::TKO_TESTNET_CHAIN_SPEC, taiko::host::HostArgs};
 
 use crate::prover::{
     consts::*,
@@ -20,8 +20,8 @@ const SP1_PROOF: &'static str = "../../../../elf/proof-with-pis.json";
 pub async fn execute_sp1(
     input: GuestInput<EthereumTxEssence>,
     output: GuestOutput,
-    ctx: &mut Context, 
-    req: &ProofRequest
+    ctx: &mut Context,
+    req: &ProofRequest,
 ) -> Result<SP1Response, String> {
     // Setup a tracer for logging.
     utils::setup_tracer();
@@ -39,7 +39,6 @@ pub async fn execute_sp1(
 
     // Save the proof.
     proof.save(SP1_PROOF).expect("saving proof failed");
-
 
     println!("succesfully generated and verified proof for the program!");
     Ok(SP1Response {
