@@ -65,6 +65,7 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             minTier: extra.block_proposed.meta.minTier,
             blobUsed: extra.tx_blob_hash.is_some(),
             parentMetaHash: extra.block_proposed.meta.parentMetaHash,
+            sender: extra.block_proposed.meta.sender,
         },
         prover: extra.prover,
         chain_id: extra.chain_id,

@@ -4,7 +4,6 @@ use alloy_primitives::{uint, Address, U256};
 use once_cell::sync::Lazy;
 
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
-pub const MAX_TX_LIST: usize = 149;
 pub const MAX_TX_LIST_BYTES: usize = 120_000;
 pub static BLOCK_GAS_LIMIT: Lazy<U256> = Lazy::new(|| uint!(15250000_U256));
 pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
@@ -12,7 +11,7 @@ pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
         .expect("invalid golden touch account")
 });
 pub static SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
+    Address::from_str("0x00371873dBc091451A9A7103913aa1840f1CaF33")
         .expect("invalid sgx verifier contract address")
 });
 

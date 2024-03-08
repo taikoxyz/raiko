@@ -32,6 +32,7 @@ sol! {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash; // slot 8
+        address sender;
     }
 
     #[derive(Debug)]
