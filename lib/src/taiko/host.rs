@@ -1,6 +1,11 @@
+use std::sync::Arc;
+
 use anyhow::Result;
+use c_kzg::{Blob, KzgCommitment};
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
-use reth_primitives::eip4844::kzg_to_versioned_hash;
+use reth_primitives::{
+    constants::eip4844::MAINNET_KZG_TRUSTED_SETUP, eip4844::kzg_to_versioned_hash,
+};
 use tracing::info;
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -206,9 +211,11 @@ fn decode_blob_data(blob: &str) -> Vec<u8> {
     chunk.iter().flatten().cloned().collect()
 }
 
-fn calc_blob_versioned_hash(commitment: &str) -> [u8; 32] {
-    let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
-    let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
+fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
+    let blob_bytes = hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap();
+    let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
+    let blob = Blob::from_bytes(&blob_bytes).unwrap();
+    let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
     let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
     version_hash
 }
@@ -288,7 +295,8 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             .data
             .iter()
             .filter(|blob: &&GetBlobData| {
-                blob_hash.as_fixed_bytes() == &calc_blob_versioned_hash(&blob.kzg_commitment)
+                // calculate from plain blob
+                blob_hash.as_fixed_bytes() == &calc_blob_versioned_hash(&blob.blob)
             })
             .cloned()
             .collect::<Vec<GetBlobData>>();
@@ -360,16 +368,25 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+    use super::*;
+
     use c_kzg::{Blob, KzgCommitment};
     use ethers_core::types::Transaction;
     use reth_primitives::{
+        constants::eip4844::MAINNET_KZG_TRUSTED_SETUP,
         eip4844::kzg_to_versioned_hash,
         revm_primitives::kzg::{parse_kzg_trusted_setup, KzgSettings},
     };
 
-    use super::*;
     use crate::consts::get_taiko_chain_spec;
-    // use reth_primitives::revm_primitives::kzg::KzgSettings;
+
+    fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
+        let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
+        let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
+        let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+        version_hash
+    }
 
     #[test]
     fn test_parse_kzg_trusted_setup() {
@@ -402,6 +419,18 @@ mod test {
             })
             .unwrap();
         let kzg_settings = KzgSettings::load_trusted_setup(&g1.0, &g2.0).unwrap();
+        let blob = [0u8; 131072].into();
+        let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
+        assert_eq!(
+            kzg_to_versioned_hash(kzg_commit).to_string(),
+            "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
+        );
+    }
+
+    #[test]
+    fn test_c_kzg_lib_commitment() {
+        // check c-kzg mainnet trusted setup is ok
+        let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
@@ -451,28 +480,17 @@ mod test {
             // println!("blob tx: {:?}", decode_blob_data(&blob_data.data[0].blob));
 
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
-            let blob_hash = calc_blob_versioned_hash(&blob_data.data[0].kzg_commitment);
+            let blob_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
             println!("blob hash {:?}", hex::encode(blob_hash));
         })
         .await
         .unwrap();
     }
 
-    fn init_kzg_settings(file_name: &str) -> Result<KzgSettings> {
-        let b_file_exists = std::path::Path::new(file_name).exists();
-        assert!(b_file_exists);
-        // open file as lines of strings
-        let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
-        let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str).unwrap();
-        KzgSettings::load_trusted_setup(&g1.0, &g2.0).map_err(|e| anyhow::Error::new(e))
-    }
-
     #[ignore]
     #[tokio::test]
     async fn test_fetch_and_verify_blob_data() {
         tokio::task::spawn_blocking(|| {
-            let kzg_settings = init_kzg_settings("../kzg_parsed_trust_setup").unwrap();
-
             let mut provider = new_provider(
                 None,
                 Some("https://l1rpc.internal.taiko.xyz".to_owned()),
@@ -490,6 +508,7 @@ mod test {
             .try_into()
             .unwrap();
             let blob: Blob = blob_bytes.into();
+            let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
             let kzg_commit: KzgCommitment =
                 KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
             assert_eq!(
@@ -497,13 +516,14 @@ mod test {
                 blob_data.data[0].kzg_commitment
             );
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
-            let calc_versioned_hash = calc_blob_versioned_hash(&blob_data.data[0].kzg_commitment);
+            let calc_versioned_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
             println!("blob hash {:?}", hex::encode(calc_versioned_hash));
         })
         .await
         .unwrap();
     }
 
+    #[ignore]
     #[test]
     fn json_to_ethers_blob_tx() {
         let response = "{

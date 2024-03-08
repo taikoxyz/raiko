@@ -2,7 +2,6 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{sol, SolEvent, SolValue, TopicList};
 use anyhow::{Context, Result};
 use ethers_core::types::{Log, H256};
-use hex::FromHex;
 use serde::{Deserialize, Serialize};
 
 use crate::{ethers::from_ethers_h256, keccak};
