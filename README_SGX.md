@@ -1,9 +1,9 @@
 # Raiko
 
-This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guest` and `raiko-host`.
+This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guests` and `raiko-host`.
 
 - `raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is _not_ being run inside SGX enclave.
-- `raiko-guest` is responsible for generating public-private key pair and signing. It can run inside SGX enclave.
+- `raiko-guests` is responsible for generating public-private key pair and signing. It can run inside SGX enclave.
 
 [zeth]: https://github.com/risc0/zeth
 
