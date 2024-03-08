@@ -69,7 +69,7 @@ graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 for block in $(eval echo {$rangeStart..$rangeEnd});
 do
   echo "- proving block $block"
-  curl --location --request POST 'http://localhost:8080' \
+  curl --location --request POST 'http://localhost:8089' \
        --header 'Content-Type: application/json' \
        --data-raw "{
          \"jsonrpc\": \"2.0\",

@@ -10,6 +10,7 @@ use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     protocol_instance::{assemble_protocol_instance, EvidenceType},
+    EthereumTxEssence,
 };
 use raiko_primitives::Address;
 use secp256k1::KeyPair;
@@ -122,12 +123,12 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     // Process the block
     let (header, _mpt_node) =
         TaikoStrategy::build_from(&input).expect("Failed to build the resulting block");
-
-    // Calculate the public input hash
     let pi = assemble_protocol_instance(&input, &header)?;
     let pi_hash = pi.instance_hash(EvidenceType::Sgx {
         new_pubkey: new_instance,
     });
+
+    println!("Data to be signed: {pi_hash}");
 
     // Sign the public input hash which contains all required block inputs and outputs
     let sig = sign_message(&prev_privkey, pi_hash)?;
