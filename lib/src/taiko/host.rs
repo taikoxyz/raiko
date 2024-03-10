@@ -205,6 +205,8 @@ fn decode_blob_data(blob: &str) -> Vec<u8> {
         if segment.iter().any(|&x| x != 0) || last_seg_found {
             chunk.push(segment.to_vec());
             last_seg_found = true;
+        } else {
+            chunk.push(vec![0u8; 32]);
         }
     }
     chunk.reverse();
@@ -475,9 +477,10 @@ mod test {
             )
             .expect("bad provider");
             // let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
-            let blob_data = provider.get_blob_data(98).unwrap();
+            let blob_data = provider.get_blob_data(17138).unwrap();
             println!("blob len: {:?}", blob_data.data[0].blob.len());
-            // println!("blob tx: {:?}", decode_blob_data(&blob_data.data[0].blob));
+            let dec_blob = decode_blob_data(&blob_data.data[0].blob);
+            println!("dec blob tx: {:?}", dec_blob.len());
 
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
             let blob_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
