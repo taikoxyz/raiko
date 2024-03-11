@@ -195,21 +195,34 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     Ok(init)
 }
 
+const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
+const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
+const BLOB_DATA_LEN: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
+
 fn decode_blob_data(blob: &str) -> Vec<u8> {
     let origin_blob = hex::decode(blob.to_lowercase().trim_start_matches("0x")).unwrap();
-    assert!(origin_blob.len() == 4096 * 32);
+    let header: U256 = U256::from_big_endian(&origin_blob[0..BLOB_FIELD_ELEMENT_BYTES]); // first element is the length
+    let expected_len = header.as_usize();
+
+    assert!(origin_blob.len() == BLOB_DATA_LEN);
+    // the first 32 bytes is the length of the blob
+    // every first 1 byte is reserved.
+    assert!(expected_len <= (BLOB_FIELD_ELEMENT_NUM - 1) * (BLOB_FIELD_ELEMENT_BYTES - 1));
     let mut chunk: Vec<Vec<u8>> = Vec::new();
-    let mut last_seg_found = false;
-    for i in (0..4096).rev() {
-        let segment = &origin_blob[i * 32 + 1..(i + 1) * 32];
-        if segment.iter().any(|&x| x != 0) || last_seg_found {
-            chunk.push(segment.to_vec());
-            last_seg_found = true;
+    let mut decoded_len = 0;
+    let mut i = 1;
+    while decoded_len < expected_len && i < BLOB_FIELD_ELEMENT_NUM {
+        let segment_len = if expected_len - decoded_len >= 31 {
+            31
         } else {
-            chunk.push(vec![0u8; 32]);
-        }
+            expected_len - decoded_len
+        };
+        let segment = &origin_blob
+            [i * BLOB_FIELD_ELEMENT_BYTES + 1..i * BLOB_FIELD_ELEMENT_BYTES + 1 + segment_len];
+        i += 1;
+        decoded_len += segment_len;
+        chunk.push(segment.to_vec());
     }
-    chunk.reverse();
     chunk.iter().flatten().cloned().collect()
 }
 
@@ -427,6 +440,36 @@ mod test {
             kzg_to_versioned_hash(kzg_commit).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
+    }
+
+    #[test]
+    fn test_new_blob_decode() {
+        let valid_blob_str = "\
+            00000000000000000000000000000000000000000000000000000000000000e2\
+            00f8b9b8b702f8b483028c59821cca8459682f008459682f028286b394016700\
+            00100000000000000000000000000001009980b844a9059cbb00000000000000\
+            0000000000000167001000000000000000000000000000010099000000000000\
+            000000000000000000000000000000000000000000000000000001c080a02d55\
+            004e149d15575030f271403a3b359cd9d5df8acb47ae7df5845aadc54b1ee2a0\
+            0039b7ce8e803c443d8fd33679948fbd0a485d88b6a55812a53d9a03a9221421\
+            0000000000000000000000000000000000000000000000000000000000000000\
+            00000000000000000000";
+        // println!("valid blob: {:?}", valid_blob_str);
+        let expected_dec_blob = "\
+              f8b9b8b702f8b483028c59821cca8459682f008459682f028286b394016700\
+              100000000000000000000000000001009980b844a9059cbb00000000000000\
+              00000000000167001000000000000000000000000000010099000000000000\
+              0000000000000000000000000000000000000000000000000001c080a02d55\
+              4e149d15575030f271403a3b359cd9d5df8acb47ae7df5845aadc54b1ee2a0\
+              39b7ce8e803c443d8fd33679948fbd0a485d88b6a55812a53d9a03a9221421\
+              00000000000000000000000000000000000000000000000000000000000000\
+              000000000000000000";
+
+        let blob_str = format!("{:0<262144}", valid_blob_str);
+        let dec_blob = decode_blob_data(&blob_str);
+        println!("dec blob tx len: {:?}", dec_blob.len());
+        println!("dec blob tx: {:?}", dec_blob);
+        assert_eq!(hex::encode(dec_blob), expected_dec_blob);
     }
 
     #[test]
