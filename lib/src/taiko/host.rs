@@ -384,7 +384,6 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 #[cfg(test)]
 mod test {
     use std::sync::Arc;
-    use super::*;
 
     use c_kzg::{Blob, KzgCommitment};
     use ethers_core::types::Transaction;
@@ -394,6 +393,7 @@ mod test {
         revm_primitives::kzg::{parse_kzg_trusted_setup, KzgSettings},
     };
 
+    use super::*;
     use crate::consts::get_taiko_chain_spec;
 
     fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
