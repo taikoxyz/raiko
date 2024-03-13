@@ -1,6 +1,11 @@
+use std::sync::Arc;
+
 use anyhow::Result;
+use c_kzg::{Blob, KzgCommitment};
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
-use reth_primitives::eip4844::kzg_to_versioned_hash;
+use reth_primitives::{
+    constants::eip4844::MAINNET_KZG_TRUSTED_SETUP, eip4844::kzg_to_versioned_hash,
+};
 use tracing::info;
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
@@ -190,25 +195,42 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     Ok(init)
 }
 
+const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
+const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
+const BLOB_DATA_LEN: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
+
 fn decode_blob_data(blob: &str) -> Vec<u8> {
     let origin_blob = hex::decode(blob.to_lowercase().trim_start_matches("0x")).unwrap();
-    assert!(origin_blob.len() == 4096 * 32);
+    let header: U256 = U256::from_big_endian(&origin_blob[0..BLOB_FIELD_ELEMENT_BYTES]); // first element is the length
+    let expected_len = header.as_usize();
+
+    assert!(origin_blob.len() == BLOB_DATA_LEN);
+    // the first 32 bytes is the length of the blob
+    // every first 1 byte is reserved.
+    assert!(expected_len <= (BLOB_FIELD_ELEMENT_NUM - 1) * (BLOB_FIELD_ELEMENT_BYTES - 1));
     let mut chunk: Vec<Vec<u8>> = Vec::new();
-    let mut last_seg_found = false;
-    for i in (0..4096).rev() {
-        let segment = &origin_blob[i * 32 + 1..(i + 1) * 32];
-        if segment.iter().any(|&x| x != 0) || last_seg_found {
-            chunk.push(segment.to_vec());
-            last_seg_found = true;
-        }
+    let mut decoded_len = 0;
+    let mut i = 1;
+    while decoded_len < expected_len && i < BLOB_FIELD_ELEMENT_NUM {
+        let segment_len = if expected_len - decoded_len >= 31 {
+            31
+        } else {
+            expected_len - decoded_len
+        };
+        let segment = &origin_blob
+            [i * BLOB_FIELD_ELEMENT_BYTES + 1..i * BLOB_FIELD_ELEMENT_BYTES + 1 + segment_len];
+        i += 1;
+        decoded_len += segment_len;
+        chunk.push(segment.to_vec());
     }
-    chunk.reverse();
     chunk.iter().flatten().cloned().collect()
 }
 
-fn calc_blob_hash(commitment: &str) -> [u8; 32] {
-    let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
-    let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
+fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
+    let blob_bytes = hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap();
+    let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
+    let blob = Blob::from_bytes(&blob_bytes).unwrap();
+    let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
     let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
     version_hash
 }
@@ -287,7 +309,10 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         let tx_blobs: Vec<GetBlobData> = blobs
             .data
             .iter()
-            .filter(|blob| blob_hash.as_fixed_bytes() == &calc_blob_hash(&blob.kzg_commitment))
+            .filter(|blob: &&GetBlobData| {
+                // calculate from plain blob
+                blob_hash.as_fixed_bytes() == &calc_blob_versioned_hash(&blob.blob)
+            })
             .cloned()
             .collect::<Vec<GetBlobData>>();
         let blob_data = decode_blob_data(&tx_blobs[0].blob);
@@ -358,10 +383,106 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
+    use c_kzg::{Blob, KzgCommitment};
     use ethers_core::types::Transaction;
+    use reth_primitives::{
+        constants::eip4844::MAINNET_KZG_TRUSTED_SETUP,
+        eip4844::kzg_to_versioned_hash,
+        revm_primitives::kzg::{parse_kzg_trusted_setup, KzgSettings},
+    };
 
     use super::*;
     use crate::consts::get_taiko_chain_spec;
+
+    fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
+        let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
+        let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
+        let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+        version_hash
+    }
+
+    #[test]
+    fn test_parse_kzg_trusted_setup() {
+        // check if file exists
+        let b_file_exists = std::path::Path::new("../kzg_parsed_trust_setup").exists();
+        assert!(b_file_exists);
+        // open file as lines of strings
+        let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
+        let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
+            .map_err(|e| {
+                println!("error: {:?}", e);
+                e
+            })
+            .unwrap();
+        println!("g1: {:?}", g1.0.len());
+        println!("g2: {:?}", g2.0.len());
+    }
+
+    #[test]
+    fn test_blob_to_kzg_commitment() {
+        // check if file exists
+        let b_file_exists = std::path::Path::new("../kzg_parsed_trust_setup").exists();
+        assert!(b_file_exists);
+        // open file as lines of strings
+        let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
+        let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
+            .map_err(|e| {
+                println!("error: {:?}", e);
+                e
+            })
+            .unwrap();
+        let kzg_settings = KzgSettings::load_trusted_setup(&g1.0, &g2.0).unwrap();
+        let blob = [0u8; 131072].into();
+        let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
+        assert_eq!(
+            kzg_to_versioned_hash(kzg_commit).to_string(),
+            "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
+        );
+    }
+
+    #[test]
+    fn test_new_blob_decode() {
+        let valid_blob_str = "\
+            00000000000000000000000000000000000000000000000000000000000000e2\
+            00f8b9b8b702f8b483028c59821cca8459682f008459682f028286b394016700\
+            00100000000000000000000000000001009980b844a9059cbb00000000000000\
+            0000000000000167001000000000000000000000000000010099000000000000\
+            000000000000000000000000000000000000000000000000000001c080a02d55\
+            004e149d15575030f271403a3b359cd9d5df8acb47ae7df5845aadc54b1ee2a0\
+            0039b7ce8e803c443d8fd33679948fbd0a485d88b6a55812a53d9a03a9221421\
+            0000000000000000000000000000000000000000000000000000000000000000\
+            00000000000000000000";
+        // println!("valid blob: {:?}", valid_blob_str);
+        let expected_dec_blob = "\
+              f8b9b8b702f8b483028c59821cca8459682f008459682f028286b394016700\
+              100000000000000000000000000001009980b844a9059cbb00000000000000\
+              00000000000167001000000000000000000000000000010099000000000000\
+              0000000000000000000000000000000000000000000000000001c080a02d55\
+              4e149d15575030f271403a3b359cd9d5df8acb47ae7df5845aadc54b1ee2a0\
+              39b7ce8e803c443d8fd33679948fbd0a485d88b6a55812a53d9a03a9221421\
+              00000000000000000000000000000000000000000000000000000000000000\
+              000000000000000000";
+
+        let blob_str = format!("{:0<262144}", valid_blob_str);
+        let dec_blob = decode_blob_data(&blob_str);
+        println!("dec blob tx len: {:?}", dec_blob.len());
+        println!("dec blob tx: {:?}", dec_blob);
+        assert_eq!(hex::encode(dec_blob), expected_dec_blob);
+    }
+
+    #[test]
+    fn test_c_kzg_lib_commitment() {
+        // check c-kzg mainnet trusted setup is ok
+        let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
+        let blob = [0u8; 131072].into();
+        let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
+        assert_eq!(
+            kzg_to_versioned_hash(kzg_commit).to_string(),
+            "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
+        );
+    }
 
     #[ignore]
     #[tokio::test]
@@ -399,18 +520,56 @@ mod test {
             )
             .expect("bad provider");
             // let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
-            let blob_data = provider.get_blob_data(98).unwrap();
+            let blob_data = provider.get_blob_data(17138).unwrap();
             println!("blob len: {:?}", blob_data.data[0].blob.len());
-            // println!("blob tx: {:?}", decode_blob_data(&blob_data.data[0].blob));
+            let dec_blob = decode_blob_data(&blob_data.data[0].blob);
+            println!("dec blob tx: {:?}", dec_blob.len());
 
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
-            let blob_hash = calc_blob_hash(&blob_data.data[0].kzg_commitment);
+            let blob_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
             println!("blob hash {:?}", hex::encode(blob_hash));
         })
         .await
         .unwrap();
     }
 
+    #[ignore]
+    #[tokio::test]
+    async fn test_fetch_and_verify_blob_data() {
+        tokio::task::spawn_blocking(|| {
+            let mut provider = new_provider(
+                None,
+                Some("https://l1rpc.internal.taiko.xyz".to_owned()),
+                Some("https://l1beacon.internal.taiko.xyz".to_owned()),
+            )
+            .expect("bad provider");
+            let blob_data = provider.get_blob_data(1000).unwrap();
+            let blob_bytes: [u8; 4096 * 32] = hex::decode(
+                blob_data.data[0]
+                    .blob
+                    .to_lowercase()
+                    .trim_start_matches("0x"),
+            )
+            .unwrap()
+            .try_into()
+            .unwrap();
+            let blob: Blob = blob_bytes.into();
+            let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
+            let kzg_commit: KzgCommitment =
+                KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
+            assert_eq!(
+                "0x".to_owned() + &kzg_commit.as_hex_string(),
+                blob_data.data[0].kzg_commitment
+            );
+            println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
+            let calc_versioned_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
+            println!("blob hash {:?}", hex::encode(calc_versioned_hash));
+        })
+        .await
+        .unwrap();
+    }
+
+    #[ignore]
     #[test]
     fn json_to_ethers_blob_tx() {
         let response = "{

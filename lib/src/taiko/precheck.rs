@@ -5,8 +5,7 @@ use ethers_core::types::{Block, Transaction as EthersTransaction, U256 as Ethers
 use zeth_primitives::{
     ethers::from_ethers_h160,
     taiko::{
-        anchor::check_anchor_signature, ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, MAX_TX_LIST,
-        MAX_TX_LIST_BYTES,
+        anchor::check_anchor_signature, ANCHOR_GAS_LIMIT, GOLDEN_TOUCH_ACCOUNT, MAX_TX_LIST_BYTES,
     },
     transactions::EthereumTransaction,
     Address,
@@ -42,15 +41,7 @@ pub fn rebuild_and_precheck_block(
             extra.l2_tx_list.len()
         );
     }
-    // - tx list must be less than MAX_TX_LIST
-    if txs.len() > MAX_TX_LIST {
-        tracing::error!(
-            "tx list must be not more than MAX_TX_LIST, got: {}",
-            txs.len()
-        );
-        // reset to empty
-        txs.clear();
-    }
+
     // - patch anchor transaction into tx list instead of those from l2 node's
     // insert the anchor transaction into the tx list at the first position
     txs.insert(0, anchor);
