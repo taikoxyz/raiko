@@ -11,7 +11,7 @@ pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
         .expect("invalid golden touch account")
 });
 pub static SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
+    Address::from_str("0xA4702E22F8807Df82Fe5B6dDdd99eB3Fcb0237B0")
         .expect("invalid sgx verifier contract address")
 });
 
@@ -32,7 +32,7 @@ pub mod internal_devnet_a {
     use super::*;
     pub const CHAIN_ID: u64 = 167001;
     pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0xC069c3d2a9f2479F559AD34485698ad5199C555f")
+        Address::from_str("0x78155FaC733356cbA069245A435Eb114e7fd815d")
             .expect("invalid l1 contract address")
     });
     pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
