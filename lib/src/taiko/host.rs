@@ -201,10 +201,11 @@ const BLOB_DATA_LEN: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
 
 fn decode_blob_data(blob: &str) -> Vec<u8> {
     let origin_blob = hex::decode(blob.to_lowercase().trim_start_matches("0x")).unwrap();
+    assert!(origin_blob.len() == BLOB_DATA_LEN);
+
     let header: U256 = U256::from_big_endian(&origin_blob[0..BLOB_FIELD_ELEMENT_BYTES]); // first element is the length
     let expected_len = header.as_usize();
 
-    assert!(origin_blob.len() == BLOB_DATA_LEN);
     // the first 32 bytes is the length of the blob
     // every first 1 byte is reserved.
     // assert!(expected_len <= (BLOB_FIELD_ELEMENT_NUM - 1) * (BLOB_FIELD_ELEMENT_BYTES - 1));
@@ -225,7 +226,7 @@ fn decode_blob_data(blob: &str) -> Vec<u8> {
         chunk.push(segment.to_vec());
     }
     let blob_vec: Vec<u8> = chunk.iter().flatten().cloned().collect();
-    assert!(decoded_len == expected_len && blob_vec.len() < expected_len);
+    assert!(decoded_len == expected_len);
     blob_vec
 }
 
