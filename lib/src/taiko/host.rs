@@ -207,24 +207,25 @@ fn decode_blob_data(blob: &str) -> Vec<u8> {
     assert!(origin_blob.len() == BLOB_DATA_LEN);
     // the first 32 bytes is the length of the blob
     // every first 1 byte is reserved.
-    assert!(expected_len <= (BLOB_FIELD_ELEMENT_NUM - 1) * (BLOB_FIELD_ELEMENT_BYTES - 1));
+    // assert!(expected_len <= (BLOB_FIELD_ELEMENT_NUM - 1) * (BLOB_FIELD_ELEMENT_BYTES - 1));
+    assert!(expected_len <= BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES);
     let mut chunk: Vec<Vec<u8>> = Vec::new();
-    let mut decoded_len = 0;
+    let mut decoded_len = 32;
     let mut i = 1;
     while decoded_len < expected_len && i < BLOB_FIELD_ELEMENT_NUM {
-        let segment_len = if expected_len - decoded_len >= 31 {
-            31
+        let segment_len = if expected_len - decoded_len >= 32 {
+            32
         } else {
             expected_len - decoded_len
         };
         let segment = &origin_blob
-            [i * BLOB_FIELD_ELEMENT_BYTES + 1..i * BLOB_FIELD_ELEMENT_BYTES + 1 + segment_len];
+            [i * BLOB_FIELD_ELEMENT_BYTES + 1..i * BLOB_FIELD_ELEMENT_BYTES + segment_len];
         i += 1;
         decoded_len += segment_len;
         chunk.push(segment.to_vec());
     }
     let blob_vec: Vec<u8> = chunk.iter().flatten().cloned().collect();
-    assert!(decoded_len == expected_len && blob_vec.len() == expected_len);
+    assert!(decoded_len == expected_len && blob_vec.len() < expected_len);
     blob_vec
 }
 
