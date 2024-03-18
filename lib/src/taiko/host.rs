@@ -223,7 +223,9 @@ fn decode_blob_data(blob: &str) -> Vec<u8> {
         decoded_len += segment_len;
         chunk.push(segment.to_vec());
     }
-    chunk.iter().flatten().cloned().collect()
+    let blob_vec: Vec<u8> = chunk.iter().flatten().cloned().collect();
+    assert!(decoded_len == expected_len && blob_vec.len() == expected_len);
+    blob_vec
 }
 
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
@@ -284,26 +286,15 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     })?;
 
     let proposeBlockCall {
-        params: propose_params,
-        txList: l2_tx_list,
+        txList: l2_tx_list, ..
     } = decode_propose_block_call_args(&propose_tx.input)?;
 
     // blobUsed == (txList.length == 0) according to TaikoL1
     let blob_used = l2_tx_list.is_empty();
     let (l2_tx_list_blob, tx_blob_hash) = if blob_used {
-        let BlockParams {
-            blobHash: _proposed_blob_hash,
-            txListByteOffset: offset,
-            txListByteSize: size,
-            ..
-        } = decode_propose_block_call_params(&propose_params)
-            .expect("valid propose_block_call_params");
-
         let blob_hashs = propose_tx.blob_versioned_hashes.unwrap();
-        // TODO: multiple blob hash support
         assert!(blob_hashs.len() == 1);
         let blob_hash = blob_hashs[0];
-        // TODO: check _proposed_blob_hash with blob_hash if _proposed_blob_hash is not None
 
         let blobs = l1_provider.get_blob_data(l1_block_no + 1)?;
         let tx_blobs: Vec<GetBlobData> = blobs
@@ -316,10 +307,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             .cloned()
             .collect::<Vec<GetBlobData>>();
         let blob_data = decode_blob_data(&tx_blobs[0].blob);
-        (
-            blob_data.as_slice()[offset as usize..(offset + size) as usize].to_vec(),
-            Some(from_ethers_h256(blob_hash)),
-        )
+        (blob_data, Some(from_ethers_h256(blob_hash)))
     } else {
         (l2_tx_list, None)
     };
@@ -394,7 +382,7 @@ mod test {
     };
 
     use super::*;
-    use crate::consts::get_taiko_chain_spec;
+    use crate::{consts::get_taiko_chain_spec, taiko::utils::rlp_decode_list};
 
     fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
         let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
@@ -543,7 +531,7 @@ mod test {
                 Some("https://l1beacon.internal.taiko.xyz".to_owned()),
             )
             .expect("bad provider");
-            let blob_data = provider.get_blob_data(1000).unwrap();
+            let blob_data = provider.get_blob_data(168).unwrap();
             let blob_bytes: [u8; 4096 * 32] = hex::decode(
                 blob_data.data[0]
                     .blob
@@ -564,6 +552,28 @@ mod test {
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
             let calc_versioned_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
             println!("blob hash {:?}", hex::encode(calc_versioned_hash));
+        })
+        .await
+        .unwrap();
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_fetch_and_decode_blob_tx() {
+        tokio::task::spawn_blocking(|| {
+            let mut provider = new_provider(
+                None,
+                Some("https://l1rpc.internal.taiko.xyz".to_owned()),
+                Some("https://l1beacon.internal.taiko.xyz".to_owned()),
+            )
+            .expect("bad provider");
+            let blob_data = provider.get_blob_data(168).unwrap();
+            let blob_bytes = decode_blob_data(&blob_data.data[0].blob);
+            // println!("blob byte len: {:?}", blob_bytes.len());
+            println!("blob bytes {:?}", blob_bytes);
+            // rlp decode blob tx
+            let txs: Vec<Transaction> = rlp_decode_list(&blob_bytes).unwrap();
+            println!("blob tx: {:?}", txs.len());
         })
         .await
         .unwrap();

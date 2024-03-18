@@ -60,8 +60,6 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             gasLimit: (gas_limit - ANCHOR_GAS_LIMIT) as u32,
             timestamp: header.timestamp.try_into().unwrap(),
             l1Height: extra.l1_height,
-            txListByteOffset: 0u32,
-            txListByteSize: extra.l2_tx_list.len() as u32,
             minTier: extra.block_proposed.meta.minTier,
             blobUsed: extra.tx_blob_hash.is_some(),
             parentMetaHash: extra.block_proposed.meta.parentMetaHash,
