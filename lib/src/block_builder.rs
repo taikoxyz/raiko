@@ -16,17 +16,16 @@ use anyhow::Result;
 use revm::{Database, DatabaseCommit};
 use zeth_primitives::{
     block::Header,
-    transactions::{ethereum::EthereumTxEssence, optimism::OptimismTxEssence, TxEssence},
+    transactions::{TxEssence},
 };
 
 use crate::{
     consts::ChainSpec,
-    execution::{ethereum::EthTxExecStrategy, optimism::OpTxExecStrategy, TxExecStrategy},
-    finalization::{BlockBuildStrategy, BuildFromMemDbStrategy},
-    initialization::{DbInitStrategy, MemDbInitStrategy},
+    execution::TxExecStrategy,
+    finalization::{BlockBuildStrategy},
+    initialization::{DbInitStrategy},
     input::Input,
-    mem_db::MemDb,
-    preparation::{EthHeaderPrepStrategy, HeaderPrepStrategy},
+    preparation::{HeaderPrepStrategy},
 };
 
 #[derive(Clone, Debug)]
@@ -174,28 +173,28 @@ where
     }
 }
 
-pub struct EthereumStrategyBundle {}
+// pub struct EthereumStrategyBundle {}
 
-impl NetworkStrategyBundle for EthereumStrategyBundle {
-    type Database = MemDb;
-    type TxEssence = EthereumTxEssence;
-    type DbInitStrategy = MemDbInitStrategy;
-    type HeaderPrepStrategy = EthHeaderPrepStrategy;
-    type TxExecStrategy = EthTxExecStrategy;
-    type BlockBuildStrategy = BuildFromMemDbStrategy;
-}
+// impl NetworkStrategyBundle for EthereumStrategyBundle {
+//     type Database = MemDb;
+//     type TxEssence = EthereumTxEssence;
+//     type DbInitStrategy = MemDbInitStrategy;
+//     type HeaderPrepStrategy = EthHeaderPrepStrategy;
+//     type TxExecStrategy = EthTxExecStrategy;
+//     type BlockBuildStrategy = BuildFromMemDbStrategy;
+// }
 
-pub type EthereumBlockBuilder<'a> = ConfiguredBlockBuilder<'a, EthereumStrategyBundle>;
+// pub type EthereumBlockBuilder<'a> = ConfiguredBlockBuilder<'a, EthereumStrategyBundle>;
 
-pub struct OptimismStrategyBundle {}
+// pub struct OptimismStrategyBundle {}
 
-impl NetworkStrategyBundle for OptimismStrategyBundle {
-    type Database = MemDb;
-    type TxEssence = OptimismTxEssence;
-    type DbInitStrategy = MemDbInitStrategy;
-    type HeaderPrepStrategy = EthHeaderPrepStrategy;
-    type TxExecStrategy = OpTxExecStrategy;
-    type BlockBuildStrategy = BuildFromMemDbStrategy;
-}
+// impl NetworkStrategyBundle for OptimismStrategyBundle {
+//     type Database = MemDb;
+//     type TxEssence = OptimismTxEssence;
+//     type DbInitStrategy = MemDbInitStrategy;
+//     type HeaderPrepStrategy = EthHeaderPrepStrategy;
+//     type TxExecStrategy = OpTxExecStrategy;
+//     type BlockBuildStrategy = BuildFromMemDbStrategy;
+// }
 
-pub type OptimismBlockBuilder<'a> = ConfiguredBlockBuilder<'a, OptimismStrategyBundle>;
+// pub type OptimismBlockBuilder<'a> = ConfiguredBlockBuilder<'a, OptimismStrategyBundle>;

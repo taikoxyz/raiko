@@ -19,7 +19,7 @@ use anyhow::{anyhow, bail, Context};
 use log::debug;
 use revm::{
     primitives::{Account, Address, ResultAndState, SpecId, TransactTo, TxEnv},
-    Database, DatabaseCommit, EVM,
+    Database, DatabaseCommit, Evm as EVM,
 };
 use ruint::aliases::U256;
 use zeth_primitives::{

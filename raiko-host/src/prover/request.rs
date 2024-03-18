@@ -8,6 +8,24 @@ use zeth_primitives::{Address, B256};
 pub enum ProofRequest {
     Sgx(SgxRequest),
     PseZk(PseZkRequest),
+    Risc0(Risc0Request),
+}
+
+#[serde_as]
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Risc0Request{
+    pub sgx_request: SgxRequest,
+    pub risc0_request: Risc0ProofParams,
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Risc0ProofParams {
+    pub bonsai: bool,
+    pub snark: bool,
+    pub profile: bool,
+    pub execution_po2: u32,
 }
 
 #[serde_as]
@@ -36,6 +54,7 @@ pub struct PseZkRequest {}
 pub enum ProofResponse {
     Sgx(SgxResponse),
     PseZk(PseZkResponse),
+    Risc0(Risc0Response),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -48,3 +67,8 @@ pub struct SgxResponse {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PseZkResponse {}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Risc0Response {
+    pub journal: String,
+}

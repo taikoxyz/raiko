@@ -4,7 +4,10 @@ use anyhow::{Context, Result};
 use ethers_core::types::{Log, H256};
 use serde::{Deserialize, Serialize};
 
-use crate::{ethers::from_ethers_h256, keccak};
+use crate::{
+    ethers::{from_ethers_h160, from_ethers_h256},
+    keccak,
+};
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -16,21 +19,19 @@ sol! {
 
     #[derive(Debug, Default, Deserialize, Serialize)]
     struct BlockMetadata {
-        bytes32 l1Hash; // slot 1
-        bytes32 difficulty; // slot 2
-        bytes32 blobHash; //or txListHash (if Blob not yet supported), // slot 3
-        bytes32 extraData; // slot 4
-        bytes32 depositsHash; // slot 5
-        address coinbase; // L2 coinbase, // slot 6
+        bytes32 l1Hash;
+        bytes32 difficulty;
+        bytes32 blobHash; //or txListHash (if Blob not yet supported)
+        bytes32 extraData;
+        bytes32 depositsHash;
+        address coinbase; // L2 coinbase,
         uint64 id;
         uint32 gasLimit;
-        uint64 timestamp; // slot 7
+        uint64 timestamp;
         uint64 l1Height;
-        uint24 txListByteOffset;
-        uint24 txListByteSize;
         uint16 minTier;
         bool blobUsed;
-        bytes32 parentMetaHash; // slot 8
+        bytes32 parentMetaHash;
         address sender;
     }
 
@@ -72,10 +73,16 @@ pub fn filter_propose_block_event(
             continue;
         }
         let topics = log.topics.iter().map(|topic| from_ethers_h256(*topic));
-        let result = BlockProposed::decode_log(topics, &log.data, false);
+        let query_log = alloy_primitives::Log::new(
+            from_ethers_h160(log.address),
+            topics.collect(),
+            log.data.0.to_vec().into(),
+        )
+        .unwrap();
+        let result = BlockProposed::decode_log(&query_log, false);
         let block_proposed = result.with_context(|| "decode log failed")?;
         if block_proposed.blockId == block_id {
-            return Ok(log.transaction_hash.map(|h| (h, block_proposed)));
+            return Ok(log.transaction_hash.map(|h| (h, block_proposed.data)));
         }
     }
     Ok(None)
@@ -87,6 +94,7 @@ pub enum EvidenceType {
         new_pubkey: Address, // the evidence signature public key
     },
     PseZk,
+    Risc0,
 }
 
 #[derive(Debug)]
@@ -106,6 +114,23 @@ impl ProtocolInstance {
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
     pub fn hash(&self, evidence_type: EvidenceType) -> B256 {
         match evidence_type {
+            EvidenceType::Risc0 => keccak::keccak(
+                (
+                    "VERIFY_PROOF",
+                    self.chain_id,
+                    self.sgx_verifier_address,
+                    self.transition.clone(),
+                    self.prover,
+                    self.prover,
+                    self.meta_hash(),
+                )
+                    .abi_encode()
+                    .iter()
+                    .cloned()
+                    .skip(32)
+                    .collect::<Vec<u8>>(),
+            )
+            .into(),
             EvidenceType::Sgx { new_pubkey } => keccak::keccak(
                 (
                     "VERIFY_PROOF",

@@ -13,9 +13,10 @@ use zeth_primitives::{
 
 use crate::{
     consts::ChainSpec,
-    taiko::{host::TaikoExtra, utils::rlp_decode_list},
+    taiko::{protocol_instance::TaikoExtra, utils::rlp_decode_list},
 };
 
+#[cfg(not(target_os = "zkvm"))]
 // rebuild the block with anchor transaction and txlist from l1 contract, then precheck it
 pub fn rebuild_and_precheck_block(
     l2_chain_spec: &ChainSpec,

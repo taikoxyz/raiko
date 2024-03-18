@@ -1,46 +1,29 @@
-use std::sync::Arc;
-
 use anyhow::Result;
-use c_kzg::{Blob, KzgCommitment};
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
-use reth_primitives::{
-    constants::eip4844::MAINNET_KZG_TRUSTED_SETUP, eip4844::kzg_to_versioned_hash,
-};
 use tracing::info;
 use zeth_primitives::{
     ethers::{from_ethers_h160, from_ethers_h256, from_ethers_u256},
     taiko::*,
     transactions::ethereum::EthereumTxEssence,
-    withdrawal::Withdrawal,
     Address, B256,
 };
 
+use super::protocol_instance::TaikoExtra;
+#[cfg(not(target_os = "zkvm"))]
+use crate::host::{
+    provider::{new_provider, BlockQuery, GetBlobData, ProposeQuery, Provider},
+    Init,
+};
 use crate::{
     block_builder::{BlockBuilder, NetworkStrategyBundle},
     consts::ChainSpec,
-    host::{
-        provider::{new_provider, BlockQuery, GetBlobData, ProposeQuery, Provider},
-        Init,
-    },
     input::Input,
-    taiko::{precheck::rebuild_and_precheck_block, Layer},
+    taiko::{
+        blob_utils::{calc_hex_blob_versioned_hash, decode_blob_data, zlib_decompress_blob},
+        precheck::rebuild_and_precheck_block,
+        Layer,
+    },
 };
-
-#[derive(Debug)]
-pub struct TaikoExtra {
-    pub l1_hash: B256,
-    pub l1_height: u64,
-    pub l2_tx_list: Vec<u8>,
-    pub tx_blob_hash: Option<B256>,
-    pub prover: Address,
-    pub graffiti: B256,
-    pub l2_withdrawals: Vec<Withdrawal>,
-    pub block_proposed: BlockProposed,
-    pub l1_next_block: Block<EthersTransaction>,
-    pub l2_fini_block: Block<EthersTransaction>,
-    pub chain_id: u64,
-    pub sgx_verifier_address: Address,
-}
 
 #[allow(clippy::type_complexity)]
 fn fetch_data(
@@ -195,46 +178,6 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     Ok(init)
 }
 
-const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
-const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
-const BLOB_DATA_LEN: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
-
-fn decode_blob_data(blob: &str) -> Vec<u8> {
-    let origin_blob = hex::decode(blob.to_lowercase().trim_start_matches("0x")).unwrap();
-    let header: U256 = U256::from_big_endian(&origin_blob[0..BLOB_FIELD_ELEMENT_BYTES]); // first element is the length
-    let expected_len = header.as_usize();
-
-    assert!(origin_blob.len() == BLOB_DATA_LEN);
-    // the first 32 bytes is the length of the blob
-    // every first 1 byte is reserved.
-    assert!(expected_len <= (BLOB_FIELD_ELEMENT_NUM - 1) * (BLOB_FIELD_ELEMENT_BYTES - 1));
-    let mut chunk: Vec<Vec<u8>> = Vec::new();
-    let mut decoded_len = 0;
-    let mut i = 1;
-    while decoded_len < expected_len && i < BLOB_FIELD_ELEMENT_NUM {
-        let segment_len = if expected_len - decoded_len >= 31 {
-            31
-        } else {
-            expected_len - decoded_len
-        };
-        let segment = &origin_blob
-            [i * BLOB_FIELD_ELEMENT_BYTES + 1..i * BLOB_FIELD_ELEMENT_BYTES + 1 + segment_len];
-        i += 1;
-        decoded_len += segment_len;
-        chunk.push(segment.to_vec());
-    }
-    chunk.iter().flatten().cloned().collect()
-}
-
-fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
-    let blob_bytes = hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap();
-    let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
-    let blob = Blob::from_bytes(&blob_bytes).unwrap();
-    let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
-    let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
-    version_hash
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
     l1_cache_path: Option<String>,
@@ -284,21 +227,12 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     })?;
 
     let proposeBlockCall {
-        params: propose_params,
-        txList: l2_tx_list,
+        txList: l2_tx_list, ..
     } = decode_propose_block_call_args(&propose_tx.input)?;
 
     // blobUsed == (txList.length == 0) according to TaikoL1
     let blob_used = l2_tx_list.is_empty();
-    let (l2_tx_list_blob, tx_blob_hash) = if blob_used {
-        let BlockParams {
-            blobHash: _proposed_blob_hash,
-            txListByteOffset: offset,
-            txListByteSize: size,
-            ..
-        } = decode_propose_block_call_params(&propose_params)
-            .expect("valid propose_block_call_params");
-
+    let (l2_tx_list_blob, tx_blob_hash, raw_blob_bytes) = if blob_used {
         let blob_hashs = propose_tx.blob_versioned_hashes.unwrap();
         // TODO: multiple blob hash support
         assert!(blob_hashs.len() == 1);
@@ -311,17 +245,22 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             .iter()
             .filter(|blob: &&GetBlobData| {
                 // calculate from plain blob
-                blob_hash.as_fixed_bytes() == &calc_blob_versioned_hash(&blob.blob)
+                blob_hash.as_fixed_bytes() == &calc_hex_blob_versioned_hash(&blob.blob)
             })
             .cloned()
             .collect::<Vec<GetBlobData>>();
-        let blob_data = decode_blob_data(&tx_blobs[0].blob);
+        assert!(!tx_blobs.is_empty());
+        let blob_data =
+            hex::decode(tx_blobs[0].blob.to_lowercase().trim_start_matches("0x")).unwrap();
+        let compressed_tx_list = decode_blob_data(&blob_data);
+        let decompressed_tx_list = zlib_decompress_blob(&compressed_tx_list).unwrap_or_default();
         (
-            blob_data.as_slice()[offset as usize..(offset + size) as usize].to_vec(),
+            decompressed_tx_list,
             Some(from_ethers_h256(blob_hash)),
+            blob_data,
         )
     } else {
-        (l2_tx_list, None)
+        (l2_tx_list, None, Vec::new())
     };
 
     // save l1 data
@@ -365,6 +304,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_fini_block: l2_fini_block.clone(),
         chain_id: l2_chain_spec.chain_id(),
         sgx_verifier_address: *SGX_VERIFIER_ADDRESS,
+        blob_data: raw_blob_bytes,
     };
 
     // rebuild transaction list by tx_list from l1 contract
@@ -383,62 +323,54 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
+    use c_kzg::{Blob, KzgCommitment, KzgSettings};
+    use ethers_core::types::{Transaction, H160};
 
-    use c_kzg::{Blob, KzgCommitment};
-    use ethers_core::types::Transaction;
-    use reth_primitives::{
-        constants::eip4844::MAINNET_KZG_TRUSTED_SETUP,
-        eip4844::kzg_to_versioned_hash,
-        revm_primitives::kzg::{parse_kzg_trusted_setup, KzgSettings},
+    use crate::{
+        consts::get_taiko_chain_spec,
+        host::provider::{new_provider, ProposeQuery},
+        taiko::{
+            blob_utils::{
+                decode_blob_hex_string, get_kzg_settings, kzg_to_versioned_hash,
+                zlib_decompress_blob, KZG_TRUST_SETUP_DATA,
+            },
+            utils::rlp_decode_list,
+        },
     };
-
-    use super::*;
-    use crate::consts::get_taiko_chain_spec;
 
     fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
         let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
         let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
-        let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+        let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit);
         version_hash
     }
 
-    #[test]
-    fn test_parse_kzg_trusted_setup() {
-        // check if file exists
-        let b_file_exists = std::path::Path::new("../kzg_parsed_trust_setup").exists();
-        assert!(b_file_exists);
-        // open file as lines of strings
-        let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
-        let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
-            .map_err(|e| {
-                println!("error: {:?}", e);
-                e
-            })
-            .unwrap();
-        println!("g1: {:?}", g1.0.len());
-        println!("g2: {:?}", g2.0.len());
-    }
+    // #[test]
+    // fn test_parse_kzg_trusted_setup() {
+    //     // check if file exists
+    //     let b_file_exists = std::path::Path::new("../kzg_parsed_trust_setup").exists();
+    //     assert!(b_file_exists);
+    //     // open file as lines of strings
+    //     let kzg_trust_setup_str =
+    // std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();     let (g1, g2) =
+    // parse_kzg_trusted_setup(&kzg_trust_setup_str)         .map_err(|e| {
+    //             println!("error: {:?}", e);
+    //             e
+    //         })
+    //         .unwrap();
+    //     println!("g1: {:?}", g1.0.len());
+    //     println!("g2: {:?}", g2.0.len());
+    // }
 
     #[test]
     fn test_blob_to_kzg_commitment() {
-        // check if file exists
-        let b_file_exists = std::path::Path::new("../kzg_parsed_trust_setup").exists();
-        assert!(b_file_exists);
-        // open file as lines of strings
-        let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
-        let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
-            .map_err(|e| {
-                println!("error: {:?}", e);
-                e
-            })
-            .unwrap();
-        let kzg_settings = KzgSettings::load_trusted_setup(&g1.0, &g2.0).unwrap();
+        let kzg_settings_holder = get_kzg_settings();
+        let kzg_settings = kzg_settings_holder.0;
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
-            kzg_to_versioned_hash(kzg_commit).to_string(),
-            "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
+            hex::encode(kzg_to_versioned_hash(kzg_commit)),
+            "010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
     }
 
@@ -466,7 +398,7 @@ mod test {
               000000000000000000";
 
         let blob_str = format!("{:0<262144}", valid_blob_str);
-        let dec_blob = decode_blob_data(&blob_str);
+        let dec_blob = decode_blob_hex_string(&blob_str);
         println!("dec blob tx len: {:?}", dec_blob.len());
         println!("dec blob tx: {:?}", dec_blob);
         assert_eq!(hex::encode(dec_blob), expected_dec_blob);
@@ -475,13 +407,25 @@ mod test {
     #[test]
     fn test_c_kzg_lib_commitment() {
         // check c-kzg mainnet trusted setup is ok
-        let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
+        // let kzg_settings = init_kzg_settings();
+        let mut data = Vec::<u8>::from(KZG_TRUST_SETUP_DATA);
+        // println!("data = {:?}", data);
+        let kzg_settings = KzgSettings::from_u8_slice(&mut data);
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
-            kzg_to_versioned_hash(kzg_commit).to_string(),
-            "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
+            hex::encode(kzg_to_versioned_hash(kzg_commit)),
+            "010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
+    }
+
+    #[ignore]
+    #[test]
+    fn test_zlib_decoding() {
+        let encoded_str = "789c13320100005a0047";
+        let expect_decoded = "1234";
+        let buf = zlib_decompress_blob(&hex::decode(encoded_str).unwrap()).unwrap();
+        assert_eq!(hex::encode(buf), expect_decoded);
     }
 
     #[ignore]
@@ -522,7 +466,7 @@ mod test {
             // let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
             let blob_data = provider.get_blob_data(17138).unwrap();
             println!("blob len: {:?}", blob_data.data[0].blob.len());
-            let dec_blob = decode_blob_data(&blob_data.data[0].blob);
+            let dec_blob = decode_blob_hex_string(&blob_data.data[0].blob);
             println!("dec blob tx: {:?}", dec_blob.len());
 
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
@@ -554,7 +498,8 @@ mod test {
             .try_into()
             .unwrap();
             let blob: Blob = blob_bytes.into();
-            let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
+            let holder = get_kzg_settings();
+            let kzg_settings = holder.0;
             let kzg_commit: KzgCommitment =
                 KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
             assert_eq!(
@@ -564,6 +509,34 @@ mod test {
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
             let calc_versioned_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
             println!("blob hash {:?}", hex::encode(calc_versioned_hash));
+        })
+        .await
+        .unwrap();
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_fetch_and_decode_blob_tx() {
+        let block_num = std::env::var("TAIKO_L2_BLOCK_NO")
+            .unwrap_or("107".to_owned())
+            .parse::<u64>()
+            .unwrap();
+        tokio::task::spawn_blocking(move || {
+            let mut provider = new_provider(
+                None,
+                Some("http://35.202.137.144:8545".to_owned()),
+                Some("http://35.202.137.144:3500".to_owned()),
+            )
+            .expect("bad provider");
+            let blob_data = provider.get_blob_data(block_num).unwrap();
+            println!("blob str len: {:?}", blob_data.data[0].blob.len());
+            let blob_bytes = decode_blob_hex_string(&blob_data.data[0].blob);
+            // println!("blob byte len: {:?}", blob_bytes.len());
+            println!("blob bytes {:?}", hex::encode(&blob_bytes));
+            let decoded_buf = zlib_decompress_blob(&blob_bytes).unwrap();
+            // rlp decode blob tx
+            let txs: Vec<Transaction> = rlp_decode_list(&decoded_buf).unwrap();
+            println!("blob tx: {:?}", txs);
         })
         .await
         .unwrap();

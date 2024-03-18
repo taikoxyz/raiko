@@ -30,6 +30,20 @@ lru_time_cache = "0.11.11"
 prometheus = "0.13.3"
 lazy_static = "1.4.0"
 once_cell = "1.8.0"
+log = "0.4.21"
+risc0-zkvm = { version = "0.21.0", default-features = false, features = ['std', "getrandom", "prove", "client"] }
+alloy-sol-types = { version = "0.6", default-features = false }
+alloy-primitives = { version = "0.6", default-features = false, features = [
+  "rlp",
+  "serde",
+  "std",
+  "tiny-keccak",
+] }
+ethers-contract =  { version = "2.0", features = ["optimism"] }
+ethers-providers = { version = "2.0", features = ["optimism"] }
+
+methods = {path = "../methods"}
+typetag ={version = "0.2.15"}
 
 [dev-dependencies]
 assert_cmd = "2.0"

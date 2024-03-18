@@ -19,7 +19,7 @@ use anyhow::{anyhow, bail, Context};
 use log::debug;
 use revm::{
     primitives::{Account, Address, ResultAndState, SpecId, TransactTo, TxEnv, U256},
-    Database, DatabaseCommit, EVM,
+    Database, DatabaseCommit, Evm as EVM,
 };
 #[cfg(all(not(target_os = "zkvm"), feature = "server"))]
 use tracing::debug;
@@ -32,7 +32,7 @@ use zeth_primitives::{
     trie::MptNode,
     Bloom, RlpBytes,
 };
-
+use revm::taiko::handler_register;
 use crate::{
     block_builder::BlockBuilder,
     consts,
@@ -85,22 +85,26 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
         }
 
         // initialize the EVM
-        let mut evm = EVM::new();
-
-        // set the EVM configuration
-        evm.env.cfg.chain_id = block_builder.chain_spec.chain_id();
-        evm.env.cfg.spec_id = spec_id;
-
-        // set the EVM block environment
-        evm.env.block.number = header.number.try_into().unwrap();
-        evm.env.block.coinbase = block_builder.input.beneficiary;
-        evm.env.block.timestamp = header.timestamp;
-        evm.env.block.difficulty = U256::ZERO;
-        evm.env.block.prevrandao = Some(header.mix_hash);
-        evm.env.block.basefee = header.base_fee_per_gas;
-        evm.env.block.gas_limit = block_builder.input.gas_limit;
-
-        evm.database(block_builder.db.take().unwrap());
+        let mut evm = EVM::builder()
+        .spec_id(spec_id)
+        .modify_cfg_env(|cfg_env| {
+            // set the EVM configuration
+            cfg_env.chain_id = block_builder.chain_spec.chain_id();
+            cfg_env.taiko = true;
+        })
+        .modify_block_env(|blk_env| {
+            // set the EVM block environment
+            blk_env.number = U256::from(header.number);
+            blk_env.coinbase = block_builder.input.beneficiary;
+            blk_env.timestamp = header.timestamp;
+            blk_env.difficulty = U256::ZERO;
+            blk_env.prevrandao = Some(header.mix_hash);
+            blk_env.basefee = header.base_fee_per_gas;
+            blk_env.gas_limit = block_builder.input.gas_limit;
+        })
+        .with_db(block_builder.db.take().unwrap())
+        .append_handler_register(handler_register::taiko_handle_register)
+        .build();
 
         // bloom filter over all transaction logs
         let mut logs_bloom = Bloom::default();
@@ -157,7 +161,7 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
             // process the transaction
             fill_eth_tx_env(
                 block_builder.chain_spec,
-                &mut evm.env.tx,
+                &mut evm.context.evm.env.tx,
                 &tx.essence,
                 tx_from,
                 is_anchor,
@@ -255,10 +259,10 @@ impl TxExecStrategy<EthereumTxEssence> for TaikoTxExecStrategy {
                 }
             }
 
-            evm.db().unwrap().commit(state);
+            evm.context.evm.db.commit(state);
         }
 
-        let mut db = evm.take_db();
+        let mut db = evm.context.evm.db;
 
         // process withdrawals unconditionally after any transactions
         let mut withdrawals_trie = MptNode::default();

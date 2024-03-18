@@ -16,7 +16,6 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use core::{
-    cell::RefCell,
     cmp,
     fmt::{Debug, Write},
     iter, mem,
@@ -44,7 +43,8 @@ pub struct MptNode {
     /// Cache for a previously computed reference of this node. This is skipped during
     /// serialization.
     #[serde(skip)]
-    cached_reference: RefCell<Option<MptNodeReference>>,
+    // cached_reference: RefCell<Option<MptNodeReference>>,
+    cached_reference: Option<MptNodeReference>,
 }
 
 /// Represents custom error types for the sparse Merkle Patricia Trie (MPT).
@@ -119,7 +119,7 @@ impl From<MptNodeData> for MptNode {
     fn from(value: MptNodeData) -> Self {
         Self {
             data: value,
-            cached_reference: RefCell::new(None),
+            cached_reference: None,
         }
     }
 }
@@ -282,7 +282,8 @@ impl MptNode {
     #[inline]
     pub fn reference(&self) -> MptNodeReference {
         self.cached_reference
-            .borrow_mut()
+            .to_owned()
+            // .borrow_mut()
             .get_or_insert_with(|| self.calc_reference())
             .clone()
     }
@@ -296,7 +297,8 @@ impl MptNode {
             MptNodeData::Null => EMPTY_ROOT,
             _ => match self
                 .cached_reference
-                .borrow_mut()
+                .to_owned()
+                // .borrow_mut()
                 .get_or_insert_with(|| self.calc_reference())
             {
                 MptNodeReference::Digest(digest) => *digest,
@@ -309,7 +311,8 @@ impl MptNode {
     fn reference_encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         match self
             .cached_reference
-            .borrow_mut()
+            .to_owned()
+            // .borrow_mut()
             .get_or_insert_with(|| self.calc_reference())
         {
             // if the reference is an RLP-encoded byte slice, copy it directly
@@ -326,7 +329,8 @@ impl MptNode {
     fn reference_length(&self) -> usize {
         match self
             .cached_reference
-            .borrow_mut()
+            .to_owned()
+            // .borrow_mut()
             .get_or_insert_with(|| self.calc_reference())
         {
             MptNodeReference::Bytes(bytes) => bytes.len(),
@@ -683,7 +687,8 @@ impl MptNode {
     }
 
     fn invalidate_ref_cache(&mut self) {
-        self.cached_reference.borrow_mut().take();
+        self.cached_reference.take();
+        // self.cached_reference.borrow_mut().take();
     }
 
     /// Returns the number of traversable nodes in the trie.

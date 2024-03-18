@@ -18,11 +18,13 @@ use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use zeth_primitives::{
     block::Header,
-    transactions::{Transaction, TxEssence},
+    transactions::{ethereum::EthereumTxEssence, Transaction, TxEssence},
     trie::MptNode,
     withdrawal::Withdrawal,
-    Address, Bytes, B256, U256,
+    Address, Bytes, FixedBytes, B256, U256,
 };
+
+use crate::taiko::protocol_instance::{TaikoExtra, TaikoExtraForVM};
 
 /// External block input.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -55,12 +57,25 @@ pub struct Input<E: TxEssence> {
     pub base_fee_per_gas: U256,
 }
 
+
+#[derive(Serialize, Deserialize)]
+pub struct Risc0Input{
+    pub input: Input<EthereumTxEssence>,
+    pub extra: TaikoExtraForVM,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Output {
+    Success((Header, FixedBytes<32>)),
+    Failure,
+}
+
 pub type StorageEntry = (MptNode, Vec<U256>);
 
 #[cfg(test)]
 mod tests {
     use zeth_primitives::transactions::ethereum::EthereumTxEssence;
-
+    use risc0_zkvm::serde::{from_slice, to_vec};
     use super::*;
 
     #[test]
@@ -82,5 +97,39 @@ mod tests {
         };
         let _: Input<EthereumTxEssence> =
             bincode::deserialize(&bincode::serialize(&input).unwrap()).unwrap();
+        let input_vec = to_vec(&input).unwrap();
+        // println!("{:?}", input_vec);
+        let input_vec_de: Input::<EthereumTxEssence> = from_slice(&input_vec).unwrap();
+        println!("{:?}", input_vec_de);
+
+        let mut extra = TaikoExtraForVM {
+            l1_hash: Default::default(),
+            l1_height: Default::default(),
+            l2_tx_list: Default::default(),
+            tx_blob_hash: Default::default(),
+            prover:Default::default(),
+            graffiti: Default::default(),
+            l2_withdrawals:Default::default(),
+            block_proposed:Default::default(),
+            chain_id: Default::default(),
+            sgx_verifier_address: Default::default(),
+            blob_data: Default::default(),
+        };
+        // extra.l1_next_block.other.insert("test".to_string(), serde_json::json!(true));
+        // extra.l2_fini_block.other.insert("test".to_string(), serde_json::json!(true));
+        let extra_vec = to_vec(&extra).unwrap();
+        // println!("{:?}", extra_vec);
+        let extra_de: TaikoExtraForVM = from_slice(&extra_vec).unwrap();
+        println!("{:?}", extra_de);
+
+        let r0_input = Risc0Input {
+            input,
+            extra,
+        };
+        let r0_input_vec = to_vec(&r0_input).unwrap();
+        println!("{:?}", r0_input_vec);
+
+        let r0_input_de: Risc0Input = from_slice(&r0_input_vec).unwrap();
+        println!("{:?}", r0_input_de.extra);
     }
 }

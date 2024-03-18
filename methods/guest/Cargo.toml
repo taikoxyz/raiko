@@ -1,0 +1,15 @@
+[package]
+name = "risc0-guest"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+# If you want to try (experimental) std support, add `features = [ "std" ]` to risc0-zkvm
+risc0-zkvm = { version = "0.21.0", default-features = false, features = [ "std" ] }
+hex = { version = "0.4.3", default-features = false}
+sha2 = {version = "0.10.8", default-features = false }
+zeth-primitives = { path = "../../primitives", default-features = false, features = ["revm"] }
+zeth-lib = { path = "../../lib", default-features = false, features = ["taiko"] }
+c-kzg = {git = "https://github.com/smtmfft/c-kzg-4844", branch = "remove-file-io", default-features = false, features = ["preload-kzg-settings"]}

@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy-primitives = { version = "0.4", default-features = false, features = [
+alloy-primitives = { version = "0.6", default-features = false, features = [
   "rlp",
   "serde",
   "std",
 ] }
-alloy-sol-types = { version = "0.4", optional = true }
+alloy-sol-types = { version = "0.6", optional = true }
 alloy-dyn-abi = { version = "0.4", optional = true }
 alloy-rlp = { version = "0.3", default-features = false }
 alloy-rlp-derive = { version = "0.3", default-features = false }
@@ -20,7 +20,7 @@ k256 = { version = "0.13.2", features = [
   "std",
   "ecdsa",
 ], default_features = false }
-revm-primitives = { workspace = true, optional = true }
+revm-primitives = { workspace = true, optional = true, default-features = false }
 rlp = "0.5.2"
 serde = { version = "1.0", features = ["derive"] }
 sha3 = "0.10"

@@ -11,10 +11,6 @@ sol! {
         address assignedProver;
         address coinbase;
         bytes32 extraData;
-        bytes32 blobHash;
-        uint24 txListByteOffset;
-        uint24 txListByteSize;
-        bool cacheBlobForReuse;
         bytes32 parentMetaHash;
         HookCall[] hookCalls;
     }

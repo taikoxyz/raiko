@@ -1,0 +1,12 @@
+[package]
+name = "methods"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+risc0-build = { version = "0.21.0", default-features = false}
+zeth-lib = { path = "../lib", default-features = false,  features = ["taiko"] }
+
+[package.metadata.risc0]
+methods = ["guest"]
+

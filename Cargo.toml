@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "lib",
+    "methods",
     "primitives",
     "raiko-guest",
     "raiko-host",
@@ -25,23 +26,27 @@ opt-level = 3
 
 [patch.crates-io]
 # use optimized risc0 circuit
-revm = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
-revm-primitives = { git = "https://github.com/johntaiko/revm", branch = "feat/taiko" }
-ethers-core = {git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10"}
-ethers-providers = {git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10"}
+# ethers-core = {git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10"}
+# ethers-providers = {git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10"}
+# ethers-contract = {git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10"}
+ethers-core = {path = "/home/ubuntu/taiko/references/ethers-rs/ethers-core"}
+ethers-providers = {path = "/home/ubuntu/taiko/references/ethers-rs/ethers-providers"}
+ethers-contract = {path = "/home/ubuntu/taiko/references/ethers-rs/ethers-contract"}
+# c-kzg = {path = "/home/ubuntu/reference/ethereum/c-kzg-4844/bindings/rust"}
+
+# [patch."https://github.com/smtmfft/c-kzg-4844"]
+# c-kzg = {path = "/home/ubuntu/reference/ethereum/c-kzg-4844/bindings/rust"}
+
 
 [workspace.dependencies]
-bonsai-sdk = "0.4"
+bonsai-sdk = { version = "0.7.0", features = ["async"]}
 hashbrown = { version = "0.14", features = ["inline-more"] }
-risc0-build = "0.18"
-risc0-zkvm = { version = "0.18", default-features = false }
-revm = { version = "3.5", default-features = false, features = [
-    "std",
+risc0-build = "0.21.0"
+risc0-zkvm = { version = "0.21.0", default-features = false }
+revm-primitives = { git = "https://github.com/smtmfft/revm.git", branch = "sync-taiko-v3.5", default_features = false }
+revm = { git = "https://github.com/smtmfft/revm.git", branch = "sync-taiko-v3.5", default-features = false, features = [
     "serde",
-    "taiko",
-    "optional_no_base_fee",
-    "optional_balance_check",
+    "taiko"
 ] }
-revm-primitives = { version = "1.3", default_features = false, features = [
-    "taiko",
-] }
+# reth-primitives = {git = "https://github.com/smtmfft/reth.git", branch = "v0.2.0-beta.2", default-features=false, features = ["c-kzg"]}
+c-kzg = {git = "https://github.com/smtmfft/c-kzg-4844", branch = "remove-file-io", default-features = false, features = ["preload-kzg-settings"]}

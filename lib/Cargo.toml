@@ -5,37 +5,42 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-alloy-sol-types = { version = "0.4", optional = true }
-reth-primitives = {git = "https://github.com/paradigmxyz/reth.git", branch = "main", features = ["c-kzg"]}
-ethers-core = { version = "2.0", features = ["optimism"] }
+alloy-sol-types = { version = "0.6", optional = true }
+# reth-primitives = {workspace = true}
+ethers-core = { version = "2.0", default-features = false, features = ["optimism"] }
 hashbrown = { workspace = true }
 once_cell = "1.18"
 revm = { workspace = true }
 ruint = { version = "1.10", default-features = false }
 serde = "1.0"
 thiserror = "1.0"
-zeth-primitives = { path = "../primitives", features = ["revm"] }
+zeth-primitives = { path = "../primitives", default-features = false, features = ["revm", "taiko", "ethers"] }
 hex = "0.4.3"
 rlp = "0.5.2"
 tracing = "0.1"
-reqwest = "0.11.22"
 sha2 = "0.10.8"
-proptest = "1.4.0"
-c-kzg = "0.4.2"
+# c-kzg = {git = "https://github.com/smtmfft/c-kzg-4844", branch = "remove-file-io", default-features = false, features = ["preload-kzg-settings"]}
+c-kzg = {workspace = true}
+libflate = "2.0.0"
 
 [target.'cfg(not(target_os = "zkvm"))'.dependencies]
+ethers-providers = { version = "2.0", default-features = false, features = ["optimism"] }
+reqwest = {version = "0.11.22", default-features = false}
 chrono = { version = "0.4", default-features = false }
-ethers-providers = { version = "2.0", features = ["optimism"] }
 flate2 = "1.0.26"
-log = "0.4"
+log = "0.4.17"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde_with = "3.0"
-tokio = { version = "1.23", features = ["full"] }
-zeth-primitives = { path = "../primitives", features = ["revm", "ethers"] }
+tokio = { version = "1.23", default-features = false, features = ["full"] }
+zeth-primitives = { path = "../primitives", default-features = false, features = ["revm", "ethers"] }
+proptest = "1.4.0"
 
 [dev-dependencies]
 bincode = "1.3"
 serde_with = "3.1"
+# reth-primitives = {workspace = true}
+risc0-zkvm = { version = "0.21.0", default-features = false }
+
 
 [features]
 taiko = ["zeth-primitives/taiko", "dep:alloy-sol-types"]

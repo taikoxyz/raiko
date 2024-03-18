@@ -16,7 +16,7 @@ use zeth_lib::{
     input::Input,
     taiko::{
         block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
-        host::TaikoExtra,
+        protocol_instance::TaikoExtra,
     },
     EthereumTxEssence,
 };

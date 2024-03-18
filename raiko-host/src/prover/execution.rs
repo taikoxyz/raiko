@@ -1,12 +1,20 @@
 use std::time::Instant;
 
-use zeth_lib::taiko::block_builder::TaikoStrategyBundle;
+use tracing::{info, warn};
+use zeth_lib::{
+    consts::get_taiko_chain_spec,
+    input::{Output, Risc0Input},
+    taiko::{
+        block_builder::{TaikoBlockBuilder, TaikoStrategyBundle},
+        protocol_instance::assemble_protocol_instance,
+    },
+};
 
 use super::{
     context::Context,
     error::Result,
     prepare_input::prepare_input,
-    proof::{cache::Cache, sgx::execute_sgx},
+    proof::{cache::Cache, risc0::execute_risc0, sgx::execute_sgx},
     request::{ProofRequest, ProofResponse},
     utils::cache_file_path,
 };
@@ -24,6 +32,11 @@ pub async fn execute(
             let l2_cache_file = cache_file_path(&ctx.cache_path, req.block, false);
             (l1_cache_file, l2_cache_file)
         }
+        ProofRequest::Risc0(req) => {
+            let l1_cache_file = cache_file_path(&ctx.cache_path, req.sgx_request.block, true);
+            let l2_cache_file = cache_file_path(&ctx.cache_path, req.sgx_request.block, false);
+            (l1_cache_file, l2_cache_file)
+        }
         ProofRequest::PseZk(_) => todo!(),
     };
     // set cache file path to context
@@ -39,9 +52,10 @@ pub async fn execute(
     let result = async {
         // 1. load input data into cache path
         let start = Instant::now();
-        let _ = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
+        let input = prepare_input::<TaikoStrategyBundle>(ctx, req).await?;
         let elapsed = Instant::now().duration_since(start).as_millis() as i64;
         observe_input(elapsed);
+
         // 2. run proof
         // prune_old_caches(&ctx.cache_path, ctx.max_caches);
         match req {
@@ -53,6 +67,46 @@ pub async fn execute(
                 observe_sgx_gen(bid, time_elapsed);
                 inc_sgx_success(bid);
                 Ok(ProofResponse::Sgx(resp))
+            }
+            ProofRequest::Risc0(req) => {
+                let start = Instant::now();
+                let l2_chain_spec = get_taiko_chain_spec("internal_devnet_a");
+                let build_result =
+                    TaikoBlockBuilder::build_from(&l2_chain_spec, input.0.clone().into());
+                let output = match &build_result {
+                    Ok(header) => {
+                        info!("Verifying final state using provider data ...");
+                        info!("Final block hash derived successfully. {}", header.hash());
+                        // info!("Final block header derived successfully. {:?}", header);
+                        let pi = assemble_protocol_instance(&input.1.clone().into(), &header)?
+                            .meta_hash();
+
+                        // TODO: verify the block hash
+                        // Make sure the blockhash from the node matches the one from the builder
+                        // assert_eq!(
+                        //     header.hash().0,
+                        //     input.0.clone().fini_block.hash().0,
+                        //     "block hash unexpected"
+                        // );
+                        Output::Success((header.clone(), pi))
+                    }
+                    Err(e) => {
+                        warn!("Proving bad block construction! {:?}", e);
+                        Output::Failure
+                    }
+                };
+                let resp = execute_risc0(
+                    Risc0Input {
+                        input: input.0.clone().into(),
+                        extra: input.1.clone().into(),
+                    },
+                    output,
+                    ctx,
+                    &req.risc0_request,
+                )
+                .await?;
+                let _time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
+                Ok(ProofResponse::Risc0(resp))
             }
             ProofRequest::PseZk(_) => todo!(),
         }

@@ -1,4 +1,9 @@
 {
   "rust-analyzer.cargo.features": "all",
-  "rust-analyzer.linkedProjects": ["./Cargo.toml"]
+  "rust-analyzer.linkedProjects": [
+    "./Cargo.toml",
+    "./methods/guest/Cargo.toml",
+    "./raiko-host/Cargo.toml",
+    "./methods/guest/Cargo.toml"
+]
 }

@@ -45,7 +45,10 @@ use crate::{
 };
 
 pub mod mpt;
+
+#[cfg(not(target_os = "zkvm"))]
 pub mod provider;
+#[cfg(not(target_os = "zkvm"))]
 pub mod provider_db;
 
 #[derive(Clone)]

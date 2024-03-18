@@ -1,17 +1,64 @@
 use alloy_sol_types::SolValue;
 use anyhow::Result;
+use ethers_core::types::{Block, Transaction as EthersTransaction};
 use zeth_primitives::{
-    block::Header,
-    ethers::{from_ethers_h256, from_ethers_u256},
-    keccak,
-    taiko::{
-        deposits_hash, string_to_bytes32, BlockMetadata, EthDeposit, ProtocolInstance, Transition,
-        ANCHOR_GAS_LIMIT,
-    },
-    TxHash, U256,
+    block::Header, ethers::{from_ethers_h256, from_ethers_u256}, keccak, taiko::{
+        deposits_hash, string_to_bytes32, BlockMetadata, BlockProposed, EthDeposit, ProtocolInstance, Transition, ANCHOR_GAS_LIMIT
+    }, withdrawal::Withdrawal, Address, TxHash, B256, U256
 };
 
-use crate::taiko::host::TaikoExtra;
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TaikoExtra {
+    pub l1_hash: B256,
+    pub l1_height: u64,
+    pub l2_tx_list: Vec<u8>,
+    pub tx_blob_hash: Option<B256>,
+    pub prover: Address,
+    pub graffiti: B256,
+    pub l2_withdrawals: Vec<Withdrawal>,
+    pub block_proposed: BlockProposed,
+    pub l1_next_block: Block<EthersTransaction>,
+    pub l2_fini_block: Block<EthersTransaction>,
+    pub chain_id: u64,
+    pub sgx_verifier_address: Address,
+    pub blob_data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TaikoExtraForVM {
+    pub l1_hash: B256,
+    pub l1_height: u64,
+    pub l2_tx_list: Vec<u8>,
+    pub tx_blob_hash: Option<B256>,
+    pub prover: Address,
+    pub graffiti: B256,
+    pub l2_withdrawals: Vec<Withdrawal>,
+    pub block_proposed: BlockProposed,
+    // pub l1_next_block: Block<EthersTransaction>,
+    // pub l2_fini_block: Block<EthersTransaction>,
+    pub chain_id: u64,
+    pub sgx_verifier_address: Address,
+    pub blob_data: Vec<u8>,
+}
+
+impl From<TaikoExtra> for TaikoExtraForVM {
+    fn from(extra: TaikoExtra) -> Self {
+        Self {
+            l1_hash: extra.l1_hash,
+            l1_height: extra.l1_height,
+            l2_tx_list: extra.l2_tx_list,
+            tx_blob_hash: extra.tx_blob_hash,
+            prover: extra.prover,
+            graffiti: extra.graffiti,
+            l2_withdrawals: extra.l2_withdrawals,
+            block_proposed: extra.block_proposed,
+            chain_id: extra.chain_id,
+            sgx_verifier_address: extra.sgx_verifier_address,
+            blob_data: extra.blob_data,
+        }
+    }
+}
 
 pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result<ProtocolInstance> {
     let tx_list_hash = extra
@@ -60,8 +107,6 @@ pub fn assemble_protocol_instance(extra: &TaikoExtra, header: &Header) -> Result
             gasLimit: (gas_limit - ANCHOR_GAS_LIMIT) as u32,
             timestamp: header.timestamp.try_into().unwrap(),
             l1Height: extra.l1_height,
-            txListByteOffset: 0u32,
-            txListByteSize: extra.l2_tx_list.len() as u32,
             minTier: extra.block_proposed.meta.minTier,
             blobUsed: extra.tx_blob_hash.is_some(),
             parentMetaHash: extra.block_proposed.meta.parentMetaHash,

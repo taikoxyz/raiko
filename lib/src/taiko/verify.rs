@@ -6,7 +6,7 @@ use zeth_primitives::{
     transactions::EthereumTransaction,
 };
 
-use crate::taiko::host::TaikoExtra;
+use crate::taiko::protocol_instance::TaikoExtra;
 
 pub fn verify(header: &Header, pi: &mut ProtocolInstance, extra: &TaikoExtra) -> Result<()> {
     // check the block metadata
