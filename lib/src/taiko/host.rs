@@ -215,7 +215,7 @@ fn decode_blob_data(blob_str: &str) -> Vec<u8> {
     }
 
     // decode the 3-byte big-endian length value into a 4-byte integer
-    let output_len: usize =
+    let output_len =
         ((blob_buf[2] as u32) << 16 | (blob_buf[3] as u32) << 8 | (blob_buf[4] as u32)) as usize;
     if output_len > MAX_BLOB_DATA_SIZE {
         return Vec::new();
@@ -223,7 +223,7 @@ fn decode_blob_data(blob_str: &str) -> Vec<u8> {
 
     // round 0 is special cased to copy only the remaining 27 bytes of the first field element
     // into the output due to version/length encoding already occupying its first 5 bytes.
-    let mut output: [u8; MAX_BLOB_DATA_SIZE] = [0; MAX_BLOB_DATA_SIZE];
+    let mut output = [0; MAX_BLOB_DATA_SIZE];
     output[0..27].copy_from_slice(&blob_buf[5..32]);
 
     // now process remaining 3 field elements to complete round 0
@@ -231,8 +231,8 @@ fn decode_blob_data(blob_str: &str) -> Vec<u8> {
     let mut ipos: usize = 32; // current position into the input blob
     let mut encoded_byte: [u8; 4] = [0; 4]; // buffer for the 4 6-bit chunks
     encoded_byte[0] = blob_buf[0];
-    for i in 1..4 {
-        (encoded_byte[i], opos, ipos) =
+    for encoded_byte_i in encoded_byte.iter_mut().skip(1) {
+        (*encoded_byte_i, opos, ipos) =
             match decode_field_element(&blob_buf, opos, ipos, &mut output) {
                 Ok(res) => res,
                 Err(_) => return Vec::new(),
@@ -244,9 +244,9 @@ fn decode_blob_data(blob_str: &str) -> Vec<u8> {
     // bytes of output
     for _ in 1..1024 {
         if opos < output_len {
-            for j in 0..4 {
+            for encoded_byte_j in &mut encoded_byte {
                 // save the first byte of each field element for later re-assembly
-                (encoded_byte[j], opos, ipos) =
+                (*encoded_byte_j, opos, ipos) =
                     match decode_field_element(&blob_buf, opos, ipos, &mut output) {
                         Ok(res) => res,
                         Err(_) => return Vec::new(),
@@ -255,13 +255,13 @@ fn decode_blob_data(blob_str: &str) -> Vec<u8> {
             opos = reassemble_bytes(opos, &encoded_byte, &mut output)
         }
     }
-    for i in output_len..output.len() {
-        if output[i] != 0 {
+    for otailing in output.iter().skip(output_len) {
+        if *otailing != 0 {
             return Vec::new();
         }
     }
-    for i in ipos..BLOB_DATA_CAPACITY {
-        if blob_buf[i] != 0 {
+    for itailing in blob_buf.iter().take(BLOB_DATA_CAPACITY).skip(ipos) {
+        if *itailing != 0 {
             return Vec::new();
         }
     }
@@ -300,7 +300,7 @@ fn reassemble_bytes(
     output[opos - 32] = z;
     output[opos - (32 * 2)] = y;
     output[opos - (32 * 3)] = x;
-    return opos;
+    opos
 }
 
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
@@ -382,7 +382,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             })
             .cloned()
             .collect::<Vec<GetBlobData>>();
-        assert!(tx_blobs.len() >= 1);
+        assert!(!tx_blobs.is_empty());
         (
             decode_blob_data(&tx_blobs[0].blob),
             Some(from_ethers_h256(blob_hash)),
