@@ -10,7 +10,6 @@ use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     protocol_instance::{assemble_protocol_instance, EvidenceType},
-    EthereumTxEssence,
 };
 use raiko_primitives::Address;
 use secp256k1::KeyPair;
