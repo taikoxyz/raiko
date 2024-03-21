@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{io::Read, sync::Arc};
 
 use anyhow::Result;
 use c_kzg::{Blob, KzgCommitment};
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
+use libflate::zlib::Decoder as zlibDecoder;
 use reth_primitives::{
     constants::eip4844::MAINNET_KZG_TRUSTED_SETUP, eip4844::kzg_to_versioned_hash,
 };
@@ -303,6 +304,13 @@ fn reassemble_bytes(
     opos
 }
 
+fn zlib_decompress_blob(blob: &[u8]) -> Result<Vec<u8>> {
+    let mut decoder = zlibDecoder::new(blob)?;
+    let mut decoded_buf = Vec::new();
+    decoder.read_to_end(&mut decoded_buf)?;
+    Ok(decoded_buf)
+}
+
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     let blob_bytes: Vec<u8> =
         hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap();
@@ -383,10 +391,9 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             .cloned()
             .collect::<Vec<GetBlobData>>();
         assert!(!tx_blobs.is_empty());
-        (
-            decode_blob_data(&tx_blobs[0].blob),
-            Some(from_ethers_h256(blob_hash)),
-        )
+        let compressed_tx_list = decode_blob_data(&tx_blobs[0].blob);
+        let decompressed_tx_list = zlib_decompress_blob(&compressed_tx_list).unwrap_or_default();
+        (decompressed_tx_list, Some(from_ethers_h256(blob_hash)))
     } else {
         (l2_tx_list, None)
     };
@@ -451,7 +458,6 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 #[cfg(test)]
 mod test {
     use std::sync::Arc;
-
     use c_kzg::{Blob, KzgCommitment};
     use ethers_core::types::Transaction;
     use reth_primitives::{
@@ -664,10 +670,19 @@ mod test {
     }
 
     #[ignore]
+    #[test]
+    fn test_zlib_decoding() {
+        let encoded_str = "789c13320100005a0047";
+        let expect_decoded = "1234";
+        let buf = zlib_decompress_blob(&hex::decode(encoded_str).unwrap()).unwrap();
+        assert_eq!(hex::encode(buf), expect_decoded);
+    }
+
+    #[ignore]
     #[tokio::test]
     async fn test_fetch_and_decode_blob_tx() {
         let block_num = std::env::var("TAIKO_L2_BLOCK_NO")
-            .unwrap_or("94".to_owned())
+            .unwrap_or("107".to_owned())
             .parse::<u64>()
             .unwrap();
         tokio::task::spawn_blocking(move || {
@@ -681,9 +696,10 @@ mod test {
             println!("blob str len: {:?}", blob_data.data[0].blob.len());
             let blob_bytes = decode_blob_data(&blob_data.data[0].blob);
             // println!("blob byte len: {:?}", blob_bytes.len());
-            println!("blob bytes {:?}", blob_bytes);
+            println!("blob bytes {:?}", hex::encode(&blob_bytes));
+            let decoded_buf = zlib_decompress_blob(&blob_bytes).unwrap();
             // rlp decode blob tx
-            let txs: Vec<Transaction> = rlp_decode_list(&blob_bytes).unwrap();
+            let txs: Vec<Transaction> = rlp_decode_list(&decoded_buf).unwrap();
             println!("blob tx: {:?}", txs);
         })
         .await
