@@ -458,6 +458,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
 #[cfg(test)]
 mod test {
     use std::sync::Arc;
+
     use c_kzg::{Blob, KzgCommitment};
     use ethers_core::types::Transaction;
     use reth_primitives::{
