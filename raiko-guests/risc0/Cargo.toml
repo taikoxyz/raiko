@@ -9,4 +9,6 @@ risc0-build = { version = "0.20.1" }
 [package.metadata.risc0]
 methods = ["guest"]
 
-# cargo build
+[features]
+default = []
+risc0 = []
