@@ -58,6 +58,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
         // generate the transactions from the tx list
         let mut transactions = generate_transactions(
+            block_builder.input.taiko.block_proposed.meta.blobUsed,
             &block_builder.input.taiko.tx_list,
             serde_json::from_str(&block_builder.input.taiko.anchor_tx.clone()).unwrap(),
         );
