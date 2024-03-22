@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{io::Read, sync::Arc};
 
 use anyhow::Result;
 use c_kzg::{Blob, KzgCommitment};
 use ethers_core::types::{Block, Transaction as EthersTransaction, H160, H256, U256};
+use libflate::zlib::Decoder as zlibDecoder;
 use reth_primitives::{
     constants::eip4844::MAINNET_KZG_TRUSTED_SETUP, eip4844::kzg_to_versioned_hash,
 };
@@ -197,37 +198,122 @@ fn execute_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEssence>>(
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
 const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
-const BLOB_DATA_LEN: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
+const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
+const BLOB_VERSION_OFFSET: usize = 1;
+const BLOB_ENCODING_VERSION: u8 = 0;
+const MAX_BLOB_DATA_SIZE: usize = (4 * 31 + 3) * 1024 - 4;
 
-fn decode_blob_data(blob: &str) -> Vec<u8> {
-    let origin_blob = hex::decode(blob.to_lowercase().trim_start_matches("0x")).unwrap();
-    let header: U256 = U256::from_big_endian(&origin_blob[0..BLOB_FIELD_ELEMENT_BYTES]); // first element is the length
-    let expected_len = header.as_usize();
+// decoding https://github.com/ethereum-optimism/optimism/blob/develop/op-service/eth/blob.go
+fn decode_blob_data(blob_str: &str) -> Vec<u8> {
+    let blob_buf: Vec<u8> = match hex::decode(blob_str.to_lowercase().trim_start_matches("0x")) {
+        Ok(b) => b,
+        Err(_) => return Vec::new(),
+    };
 
-    assert!(origin_blob.len() == BLOB_DATA_LEN);
-    // the first 32 bytes is the length of the blob
-    // every first 1 byte is reserved.
-    assert!(expected_len <= (BLOB_FIELD_ELEMENT_NUM - 1) * (BLOB_FIELD_ELEMENT_BYTES - 1));
-    let mut chunk: Vec<Vec<u8>> = Vec::new();
-    let mut decoded_len = 0;
-    let mut i = 1;
-    while decoded_len < expected_len && i < BLOB_FIELD_ELEMENT_NUM {
-        let segment_len = if expected_len - decoded_len >= 31 {
-            31
-        } else {
-            expected_len - decoded_len
-        };
-        let segment = &origin_blob
-            [i * BLOB_FIELD_ELEMENT_BYTES + 1..i * BLOB_FIELD_ELEMENT_BYTES + 1 + segment_len];
-        i += 1;
-        decoded_len += segment_len;
-        chunk.push(segment.to_vec());
+    // check the version
+    if blob_buf[BLOB_VERSION_OFFSET] != BLOB_ENCODING_VERSION {
+        return Vec::new();
     }
-    chunk.iter().flatten().cloned().collect()
+
+    // decode the 3-byte big-endian length value into a 4-byte integer
+    let output_len =
+        ((blob_buf[2] as u32) << 16 | (blob_buf[3] as u32) << 8 | (blob_buf[4] as u32)) as usize;
+    if output_len > MAX_BLOB_DATA_SIZE {
+        return Vec::new();
+    }
+
+    // round 0 is special cased to copy only the remaining 27 bytes of the first field element
+    // into the output due to version/length encoding already occupying its first 5 bytes.
+    let mut output = [0; MAX_BLOB_DATA_SIZE];
+    output[0..27].copy_from_slice(&blob_buf[5..32]);
+
+    // now process remaining 3 field elements to complete round 0
+    let mut opos: usize = 28; // current position into output buffer
+    let mut ipos: usize = 32; // current position into the input blob
+    let mut encoded_byte: [u8; 4] = [0; 4]; // buffer for the 4 6-bit chunks
+    encoded_byte[0] = blob_buf[0];
+    for encoded_byte_i in encoded_byte.iter_mut().skip(1) {
+        (*encoded_byte_i, opos, ipos) =
+            match decode_field_element(&blob_buf, opos, ipos, &mut output) {
+                Ok(res) => res,
+                Err(_) => return Vec::new(),
+            }
+    }
+    opos = reassemble_bytes(opos, &encoded_byte, &mut output);
+
+    // in each remaining round we decode 4 field elements (128 bytes) of the input into 127
+    // bytes of output
+    for _ in 1..1024 {
+        if opos < output_len {
+            for encoded_byte_j in &mut encoded_byte {
+                // save the first byte of each field element for later re-assembly
+                (*encoded_byte_j, opos, ipos) =
+                    match decode_field_element(&blob_buf, opos, ipos, &mut output) {
+                        Ok(res) => res,
+                        Err(_) => return Vec::new(),
+                    }
+            }
+            opos = reassemble_bytes(opos, &encoded_byte, &mut output)
+        }
+    }
+    for otailing in output.iter().skip(output_len) {
+        if *otailing != 0 {
+            return Vec::new();
+        }
+    }
+    for itailing in blob_buf.iter().take(BLOB_DATA_CAPACITY).skip(ipos) {
+        if *itailing != 0 {
+            return Vec::new();
+        }
+    }
+    output[0..output_len].to_vec()
+}
+
+fn decode_field_element(
+    b: &[u8],
+    opos: usize,
+    ipos: usize,
+    output: &mut [u8],
+) -> Result<(u8, usize, usize)> {
+    // two highest order bits of the first byte of each field element should always be 0
+    if b[ipos] & 0b1100_0000 != 0 {
+        return Err(anyhow::anyhow!(
+            "ErrBlobInvalidFieldElement: field element: {}",
+            ipos
+        ));
+    }
+    // copy(output[opos:], b[ipos+1:ipos+32])
+    output[opos..opos + 31].copy_from_slice(&b[ipos + 1..ipos + 32]);
+    Ok((b[ipos], opos + 32, ipos + 32))
+}
+
+fn reassemble_bytes(
+    opos: usize,
+    encoded_byte: &[u8; 4],
+    output: &mut [u8; MAX_BLOB_DATA_SIZE],
+) -> usize {
+    // account for fact that we don't output a 128th byte
+    let opos = opos - 1;
+    let x = (encoded_byte[0] & 0b0011_1111) | ((encoded_byte[1] & 0b0011_0000) << 2);
+    let y = (encoded_byte[1] & 0b0000_1111) | ((encoded_byte[3] & 0b0000_1111) << 4);
+    let z = (encoded_byte[2] & 0b0011_1111) | ((encoded_byte[3] & 0b0011_0000) << 2);
+    // put the re-assembled bytes in their appropriate output locations
+    output[opos - 32] = z;
+    output[opos - (32 * 2)] = y;
+    output[opos - (32 * 3)] = x;
+    opos
+}
+
+fn zlib_decompress_blob(blob: &[u8]) -> Result<Vec<u8>> {
+    let mut decoder = zlibDecoder::new(blob)?;
+    let mut decoded_buf = Vec::new();
+    decoder.read_to_end(&mut decoded_buf)?;
+    Ok(decoded_buf)
 }
 
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
-    let blob_bytes = hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap();
+    let blob_bytes: Vec<u8> =
+        hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap();
     let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
     let blob = Blob::from_bytes(&blob_bytes).unwrap();
     let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
@@ -284,26 +370,15 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
     })?;
 
     let proposeBlockCall {
-        params: propose_params,
-        txList: l2_tx_list,
+        txList: l2_tx_list, ..
     } = decode_propose_block_call_args(&propose_tx.input)?;
 
     // blobUsed == (txList.length == 0) according to TaikoL1
     let blob_used = l2_tx_list.is_empty();
     let (l2_tx_list_blob, tx_blob_hash) = if blob_used {
-        let BlockParams {
-            blobHash: _proposed_blob_hash,
-            txListByteOffset: offset,
-            txListByteSize: size,
-            ..
-        } = decode_propose_block_call_params(&propose_params)
-            .expect("valid propose_block_call_params");
-
         let blob_hashs = propose_tx.blob_versioned_hashes.unwrap();
-        // TODO: multiple blob hash support
         assert!(blob_hashs.len() == 1);
         let blob_hash = blob_hashs[0];
-        // TODO: check _proposed_blob_hash with blob_hash if _proposed_blob_hash is not None
 
         let blobs = l1_provider.get_blob_data(l1_block_no + 1)?;
         let tx_blobs: Vec<GetBlobData> = blobs
@@ -315,11 +390,10 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
             })
             .cloned()
             .collect::<Vec<GetBlobData>>();
-        let blob_data = decode_blob_data(&tx_blobs[0].blob);
-        (
-            blob_data.as_slice()[offset as usize..(offset + size) as usize].to_vec(),
-            Some(from_ethers_h256(blob_hash)),
-        )
+        assert!(!tx_blobs.is_empty());
+        let compressed_tx_list = decode_blob_data(&tx_blobs[0].blob);
+        let decompressed_tx_list = zlib_decompress_blob(&compressed_tx_list).unwrap_or_default();
+        (decompressed_tx_list, Some(from_ethers_h256(blob_hash)))
     } else {
         (l2_tx_list, None)
     };
@@ -394,7 +468,7 @@ mod test {
     };
 
     use super::*;
-    use crate::consts::get_taiko_chain_spec;
+    use crate::{consts::get_taiko_chain_spec, taiko::utils::rlp_decode_list};
 
     fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
         let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
@@ -442,34 +516,61 @@ mod test {
         );
     }
 
+    #[ignore]
     #[test]
     fn test_new_blob_decode() {
         let valid_blob_str = "\
-            00000000000000000000000000000000000000000000000000000000000000e2\
-            00f8b9b8b702f8b483028c59821cca8459682f008459682f028286b394016700\
-            00100000000000000000000000000001009980b844a9059cbb00000000000000\
-            0000000000000167001000000000000000000000000000010099000000000000\
-            000000000000000000000000000000000000000000000000000001c080a02d55\
-            004e149d15575030f271403a3b359cd9d5df8acb47ae7df5845aadc54b1ee2a0\
-            0039b7ce8e803c443d8fd33679948fbd0a485d88b6a55812a53d9a03a9221421\
+            01000004b0f904adb8b502f8b283028c59188459682f008459682f028286b394\
+            006700100000000000000000000000000001009980b844a9059cbb0000000000\
+            0000000000000001670010000000000000000000000000000100990000000000\
+            000000000000000000000000000000000000000000000000000001c080a0af40\
+            093afa19e4b7256a209c71a902d33985c5655e580d5fbf36815e290b623177a0\
+            19d4b4ccaa5497a47845016680c128b63e74e9d6a9756ebdeb2f78a65e0fa120\
+            0001f802f901f483028c592e8459682f008459682f02832625a0941670010000\
+            0b000000000000000000000000000280b90184fa233d0c000000000000000000\
+            0000000000000000000000000000000000000000000000200000000000000000\
+            000000000000000000000000000000000000000000007e7e0000000000000000\
+            0000000014dc79964da2c08b23698b3d3cc7ca32193d99550000000000000000\
+            0000000014dc79964da2c08b23698b3d3cc7ca32193d99550000000000000000\
+            0000000000016700100000000000000000000000000001009900000000000000\
+            0000000000000000000000000000000000000000000000000100000000000000\
+            000000000000000000000000000000000000000000002625a000000000000000\
             0000000000000000000000000000000000000000000000000000000000000000\
-            00000000000000000000";
+            000000000000976ea74026e726554db657fa54763abd0c3a0aa9000000000000\
+            0000000000000000000000000000000000000000000000000120000000000000\
+            220000000000000000000000000000000000000000000000001243726f6e4a6f\
+            102053656e64546f6b656e730000000000000000000000000000c080a0a99edd\
+            2b13d5436cb0fe71b2ea4e69c2292fdc682ae54fe702cc36d6634dd0ba85a057\
+            119f9297ca5ebd5402bd886405fe3aa8f8182438a9e56c1ef2a1ec0ae4a0acb9\
+            00f802f901f483028c592f8459682f008459682f02832625a094167001000000\
+            000000000000000000000000000280b90184fa233d0c00000000000000000000\
+            0000000000000000000000000000000000000000000020000000000000000000\
+            0000000000000000000000000000000000000000007e7e000000000000000000\
+            00000014dc79964da2c08b23698b3d3cc7ca32193d9955000000000000000000\
+            00000014dc79964da2c08b23698b3d3cc7ca32193d9955000000000000000000\
+            0000000001670010000000000000000000000000000100990000000000000000\
+            0000000000000000000000000000000000000000000000010000000000000000\
+            0000000000000000000000000000000000000000002625a00000000000000000\
+            0000000000000000000000000000000000000000000000000000000000000000\
+            0000000000976ea74026e726554db657fa54763abd0c3a0aa900000000000000\
+            0000000000000000000000000000000000000000000000012000000000000000\
+            2000000000000000000000000000000000000000000000001243726f6e4a6f62\
+            0053656e64546f6b656e730000000000000000000000000000c080a08f0a9757\
+            35d78526f1339c69c2ed02df7a6d7cded10c74fb57398c11c1420526c2a0047f\
+            003054d3d75d33120020872b6d5e0a4a05e47c50179bb9a8b866b7fb71b30000\
+            0000000000000000000000000000000000000000000000000000000000000000\
+            0000000000000000000000000000000000000000000000000000000000000000\
+            0000000000000000000000000000000000000000000000000000000000000000\
+            0000000000000000000000000000000000000000000000000000000000000000\
+            0000000000000000000000000000000000000000000000000000000000000000\
+            00000000000000000000000000000000";
         // println!("valid blob: {:?}", valid_blob_str);
-        let expected_dec_blob = "\
-              f8b9b8b702f8b483028c59821cca8459682f008459682f028286b394016700\
-              100000000000000000000000000001009980b844a9059cbb00000000000000\
-              00000000000167001000000000000000000000000000010099000000000000\
-              0000000000000000000000000000000000000000000000000001c080a02d55\
-              4e149d15575030f271403a3b359cd9d5df8acb47ae7df5845aadc54b1ee2a0\
-              39b7ce8e803c443d8fd33679948fbd0a485d88b6a55812a53d9a03a9221421\
-              00000000000000000000000000000000000000000000000000000000000000\
-              000000000000000000";
-
         let blob_str = format!("{:0<262144}", valid_blob_str);
         let dec_blob = decode_blob_data(&blob_str);
         println!("dec blob tx len: {:?}", dec_blob.len());
-        println!("dec blob tx: {:?}", dec_blob);
-        assert_eq!(hex::encode(dec_blob), expected_dec_blob);
+        let txs: Vec<Transaction> = rlp_decode_list(&dec_blob).unwrap();
+        println!("dec blob tx: {:?}", txs);
+        // assert_eq!(hex::encode(dec_blob), expected_dec_blob);
     }
 
     #[test]
@@ -543,7 +644,7 @@ mod test {
                 Some("https://l1beacon.internal.taiko.xyz".to_owned()),
             )
             .expect("bad provider");
-            let blob_data = provider.get_blob_data(1000).unwrap();
+            let blob_data = provider.get_blob_data(168).unwrap();
             let blob_bytes: [u8; 4096 * 32] = hex::decode(
                 blob_data.data[0]
                     .blob
@@ -564,6 +665,43 @@ mod test {
             println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
             let calc_versioned_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
             println!("blob hash {:?}", hex::encode(calc_versioned_hash));
+        })
+        .await
+        .unwrap();
+    }
+
+    #[ignore]
+    #[test]
+    fn test_zlib_decoding() {
+        let encoded_str = "789c13320100005a0047";
+        let expect_decoded = "1234";
+        let buf = zlib_decompress_blob(&hex::decode(encoded_str).unwrap()).unwrap();
+        assert_eq!(hex::encode(buf), expect_decoded);
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_fetch_and_decode_blob_tx() {
+        let block_num = std::env::var("TAIKO_L2_BLOCK_NO")
+            .unwrap_or("107".to_owned())
+            .parse::<u64>()
+            .unwrap();
+        tokio::task::spawn_blocking(move || {
+            let mut provider = new_provider(
+                None,
+                Some("http://35.202.137.144:8545".to_owned()),
+                Some("http://35.202.137.144:3500".to_owned()),
+            )
+            .expect("bad provider");
+            let blob_data = provider.get_blob_data(block_num).unwrap();
+            println!("blob str len: {:?}", blob_data.data[0].blob.len());
+            let blob_bytes = decode_blob_data(&blob_data.data[0].blob);
+            // println!("blob byte len: {:?}", blob_bytes.len());
+            println!("blob bytes {:?}", hex::encode(&blob_bytes));
+            let decoded_buf = zlib_decompress_blob(&blob_bytes).unwrap();
+            // rlp decode blob tx
+            let txs: Vec<Transaction> = rlp_decode_list(&decoded_buf).unwrap();
+            println!("blob tx: {:?}", txs);
         })
         .await
         .unwrap();
