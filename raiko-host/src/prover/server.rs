@@ -1,5 +1,4 @@
 use std::{
-    marker::PhantomData,
     path::{Path, PathBuf},
 };
 
@@ -16,7 +15,12 @@ use tracing::info;
 
 use super::execution_::GuestDriver;
 use crate::prover::{
-    self, context::Context, error::HostError, execution_::execute, json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError}, proof::cache::Cache, request::*
+    context::Context,
+    error::HostError,
+    execution_::execute,
+    json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
+    proof::cache::Cache,
+    request::*,
 };
 
 pub static SGX_INSTANCE_ID: OnceCell<u32> = OnceCell::new();
@@ -101,7 +105,7 @@ impl Handler {
     fn new(
         guest_elf: PathBuf,
         host_cache: PathBuf,
-        l2_contracts: String,
+        _l2_contracts: String,
         capacity: usize,
         max_caches: usize,
     ) -> Self {
@@ -239,8 +243,7 @@ impl Handler {
                         res = execute::<NativeDriver>(&self.cache, &mut self.ctx, &req).await;
                     }
                 };
-                res
-                    .and_then(|res| serde_json::to_value(res).map_err(Into::into))
+                res.and_then(|res| serde_json::to_value(res).map_err(Into::into))
                     .map_err(Into::<HostError>::into)
             }
             _ => todo!(),

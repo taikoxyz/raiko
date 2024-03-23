@@ -1,5 +1,5 @@
 //! Generate different proofs for the taiko protocol.
-use zeth_lib::input::{GuestInput, GuestOutput};
+use zeth_lib::input::{GuestOutput};
 
 use crate::prover::{
     context::Context,
@@ -26,7 +26,7 @@ pub mod pse_zk;
 #[cfg(not(feature = "pse_zk"))]
 pub mod pse_zk {
     use super::*;
-    pub async fn execute_pse(ctx: &mut Context, req: &ProofRequest) {
+    pub async fn execute_pse(_ctx: &mut Context, _req: &ProofRequest) {
         println!("Feature not pse_zk is enabled");
     }
 }
@@ -36,7 +36,7 @@ pub mod sgx;
 #[cfg(not(feature = "sgx"))]
 pub mod sgx {
     use super::*;
-    pub async fn execute_sgx(ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
+    pub async fn execute_sgx(_ctx: &mut Context, _req: &ProofRequest) -> Result<SgxResponse, String> {
         Err("Feature not sgx is enabled".to_string())
     }
 }
@@ -61,16 +61,15 @@ pub mod risc0;
 #[cfg(not(feature = "risc0"))]
 pub mod risc0 {
     use zeth_lib::{
-        builder::{BlockBuilderStrategy, TaikoStrategy},
         input::GuestInput,
     };
 
     use super::*;
     use crate::prover::request::{Risc0ProofParams, Risc0Response};
     pub async fn execute_risc0(
-        input: GuestInput,
-        output: GuestOutput,
-        req: &Risc0ProofParams,
+        _input: GuestInput,
+        _output: GuestOutput,
+        _req: &Risc0ProofParams,
     ) -> Result<Risc0Response, String> {
         Err("Feature risc0 is not enabled".to_string())
     }

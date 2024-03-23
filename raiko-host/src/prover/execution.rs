@@ -48,11 +48,11 @@ pub async fn execute(
         let build_result = TaikoStrategy::build_from(&input);
         // TODO: cherry-pick risc0 latest output
         let output = match &build_result {
-            Ok((header, mpt_node)) => {
+            Ok((header, _mpt_node)) => {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
                 info!("Final block header derived successfully. {:?}", header);
-                let pi = assemble_protocol_instance(&input, &header)?
+                let pi = assemble_protocol_instance(&input, header)?
                     .instance_hash(req.proof_type.clone().into());
 
                 // Make sure the blockhash from the node matches the one from the builder
@@ -79,17 +79,17 @@ pub async fn execute(
                 ProofResponse::Sgx(resp)
             }
             ProofType::Powdr => {
-                let bid = req.block_number;
-                let resp = execute_powdr().await?;
-                let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
+                let _bid = req.block_number;
+                execute_powdr().await?;
+                let _time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
                 todo!()
             }
             ProofType::PseZk => todo!(),
             #[cfg(feature = "succinct")]
             ProofType::Succinct => {
-                let bid = req.block_number;
+                let _bid = req.block_number;
                 let resp = execute_sp1(input, output).await?;
-                let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
+                let _time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
                 ProofResponse::SP1(resp)
             }
             ProofType::Risc0(param) => {
@@ -103,7 +103,7 @@ pub async fn execute(
                 // Build the block
                 let build_result = TaikoStrategy::build_from(&input);
                 match &build_result {
-                    Ok((header, mpt_node)) => {
+                    Ok((header, _mpt_node)) => {
                         // Make sure the blockhash from the node matches the one from the builder
                         assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
                         ProofResponse::Native(output)
@@ -131,8 +131,8 @@ pub async fn execute(
 /// prepare input data for guests
 pub async fn prepare_input(ctx: &mut Context, req: ProofRequest) -> Result<GuestInput> {
     // Todo(Cecilia): should contract address as args, curently hardcode
-    let l1_cache = ctx.l1_cache_file.clone();
-    let l2_cache = ctx.l2_cache_file.clone();
+    let _l1_cache = ctx.l1_cache_file.clone();
+    let _l2_cache = ctx.l2_cache_file.clone();
     tokio::task::spawn_blocking(move || {
         preflight(
             Some(req.l1_rpc),

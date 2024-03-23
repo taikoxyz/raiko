@@ -19,7 +19,7 @@ pub mod host;
 mod metrics;
 mod prover;
 
-use shit::Shit;
+
 
 #[allow(dead_code)]
 mod rolling;
@@ -32,7 +32,7 @@ use structopt::StructOpt;
 use structopt_toml::StructOptToml;
 use tracing::info;
 
-use crate::prover::execution_::GuestDriver;
+
 
 #[derive(StructOpt, StructOptToml, Deserialize, Debug)]
 #[serde(default)]

@@ -1,9 +1,9 @@
-use std::error::Error;
 
-use k256::{ecdsa::RecoveryId, elliptic_curve::PublicKey};
-use revm_primitives::{Address, B256, U256};
 
-use crate::keccak::keccak;
+
+use revm_primitives::{U256};
+
+
 
 /// The order of the secp256k1 curve, divided by two. Signatures that should be checked
 /// according to EIP-2 should have an S value less than or equal to this.

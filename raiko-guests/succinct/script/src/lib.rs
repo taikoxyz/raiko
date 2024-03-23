@@ -1,17 +1,13 @@
-use std::{env, path::PathBuf};
+use std::{env};
 
-use alloy_primitives::FixedBytes;
+
 use serde::{Deserialize, Serialize};
 use sp1_core::{utils, SP1Prover, SP1Stdin, SP1Verifier};
 use zeth_lib::input::{GuestInput, GuestOutput};
 
+const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
-const ELF: &[u8] =
-    include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
-
-pub async fn execute(
-    input: GuestInput,
-) -> Result<Sp1Response, String> {
+pub async fn execute(input: GuestInput) -> Result<Sp1Response, String> {
     let config = utils::BabyBearBlake3::new();
 
     // Write the input.
@@ -34,7 +30,7 @@ pub async fn execute(
         .save(
             proof_dir
                 .as_path()
-                .join(format!("proof-with-io.json"))
+                .join("proof-with-io.json")
                 .to_str()
                 .unwrap(),
         )
@@ -46,7 +42,6 @@ pub async fn execute(
         output,
     })
 }
-
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {

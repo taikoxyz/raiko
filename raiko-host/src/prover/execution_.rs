@@ -8,23 +8,22 @@ use zeth_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::Network,
     input::{GuestInput, GuestOutput, TaikoProverData},
-    protocol_instance::{assemble_protocol_instance, EvidenceType, ProtocolInstance},
+    protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     taiko_utils::HeaderHasher,
 };
-use zeth_primitives::{keccak::keccak, Address};
+use zeth_primitives::{keccak::keccak};
 
 use super::{
     context::Context,
     error::Result,
     proof::{
-        cache::Cache, powdr::execute_powdr, risc0::execute_risc0, sgx::execute_sgx,
-        succinct::execute_sp1,
+        cache::Cache,
     },
-    request::{ProofRequest_, ProofType},
+    request::{ProofRequest_},
 };
 use crate::{
     host::host::preflight,
-    metrics::{inc_sgx_success, observe_input, observe_sgx_gen},
+    metrics::{observe_input},
 };
 
 pub trait GuestDriver {
@@ -55,11 +54,11 @@ pub async fn execute<D: GuestDriver>(
     let build_result = TaikoStrategy::build_from(&input);
     // TODO: cherry-pick risc0 latest output
     let output = match &build_result {
-        Ok((header, mpt_node)) => {
+        Ok((header, _mpt_node)) => {
             info!("Verifying final state using provider data ...");
             info!("Final block hash derived successfully. {}", header.hash());
             info!("Final block header derived successfully. {:?}", header);
-            let pi = D::instance_hash(assemble_protocol_instance(&input, &header)?);
+            let pi = D::instance_hash(assemble_protocol_instance(&input, header)?);
             // Make sure the blockhash from the node matches the one from the builder
             assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
             GuestOutput::Success((header.clone(), pi))
@@ -78,15 +77,15 @@ pub async fn execute<D: GuestDriver>(
 /// prepare input data for guests
 pub async fn prepare_input<P>(ctx: &mut Context, req: &ProofRequest_<P>) -> Result<GuestInput> {
     // Todo(Cecilia): should contract address as args, curently hardcode
-    let l1_cache = ctx.l1_cache_file.clone();
-    let l2_cache = ctx.l2_cache_file.clone();
+    let _l1_cache = ctx.l1_cache_file.clone();
+    let _l2_cache = ctx.l2_cache_file.clone();
     let block_number = req.block_number;
     let l1_rpc = req.l1_rpc.clone();
     let l2_rpc = req.l2_rpc.clone();
     let beacon_rpc = req.beacon_rpc.clone();
     let chain = req.chain.clone();
-    let graffiti = req.graffiti.clone();
-    let prover = req.prover.clone();
+    let graffiti = req.graffiti;
+    let prover = req.prover;
     tokio::task::spawn_blocking(move || {
         preflight(
             Some(l1_rpc),
@@ -124,21 +123,21 @@ impl GuestDriver for NativeDriver {
     type ProofResponse = NativeResponse;
 
     async fn run(
-        input: GuestInput,
+        _input: GuestInput,
         output: GuestOutput,
         _param: Self::ProofParam,
     ) -> Result<Self::ProofResponse> {
         Ok(NativeResponse { output })
     }
 
-    fn instance_hash(pi: ProtocolInstance) -> B256 {
+    fn instance_hash(_pi: ProtocolInstance) -> B256 {
         B256::default()
     }
 }
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "succinct")] {
-        
+
         pub struct Sp1Driver;
 
         impl GuestDriver for Sp1Driver {
@@ -147,7 +146,7 @@ cfg_if::cfg_if! {
 
             async fn run(
                 input: GuestInput,
-                output: GuestOutput,
+                _output: GuestOutput,
                 _param: Self::ProofParam,
             ) -> Result<Self::ProofResponse> {
                 let res = sp1_guest::execute(input).await?;
@@ -165,6 +164,6 @@ cfg_if::cfg_if! {
             }
         }
     } else {
-        
+
     }
 }

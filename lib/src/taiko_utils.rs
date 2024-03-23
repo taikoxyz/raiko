@@ -117,7 +117,7 @@ pub fn check_anchor_tx(
             };
             // Check that it's from the golden touch address
             ensure!(
-                *from == GOLDEN_TOUCH_ACCOUNT.clone(),
+                *from == *GOLDEN_TOUCH_ACCOUNT,
                 "anchor transaction from mismatch"
             );
             // Check that the L2 contract is being called
@@ -137,7 +137,7 @@ pub fn check_anchor_tx(
             );
             // Check needs to have the base fee set to the block base fee
             ensure!(
-                tx.max_fee_per_gas == input.base_fee_per_gas.try_into().unwrap(),
+                tx.max_fee_per_gas == input.base_fee_per_gas.into(),
                 "anchor transaction gas mismatch"
             );
 

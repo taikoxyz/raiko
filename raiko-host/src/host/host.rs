@@ -101,12 +101,12 @@ pub fn preflight(
         println!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashs = proposal_tx.blob_versioned_hashes;
-        assert!(blob_hashs.len() >= 1);
+        assert!(!blob_hashs.is_empty());
         // Currently the protocol enforces the first blob hash to be used
         let blob_hash = blob_hashs[0];
         // Get the blob data for this block
         let blobs = get_blob_data(&beacon_rpc_url.clone().unwrap(), l1_inclusion_block_no)?;
-        assert!(blobs.data.len() > 0, "blob data not available anymore");
+        assert!(!blobs.data.is_empty(), "blob data not available anymore");
         // Get the blob data for the blob storing the tx list
         let tx_blobs: Vec<GetBlobData> = blobs
             .data
@@ -145,7 +145,7 @@ pub fn preflight(
     };
     let input = GuestInput {
         network,
-        block_hash: block.header.hash.unwrap().0.try_into().unwrap(),
+        block_hash: block.header.hash.unwrap().0.into(),
         beneficiary: block.header.miner,
         gas_limit: block.header.gas_limit.try_into().unwrap(),
         timestamp: block.header.timestamp.try_into().unwrap(),
@@ -447,7 +447,7 @@ pub fn get_block_proposed_event(
 mod test {
     use std::sync::Arc;
 
-    use c_kzg::{Blob, KzgCommitment};
+    use c_kzg::{KzgCommitment};
     use ethers_core::types::Transaction;
     use reth_primitives::{
         constants::eip4844::MAINNET_KZG_TRUSTED_SETUP,
