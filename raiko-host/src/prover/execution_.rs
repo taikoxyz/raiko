@@ -9,7 +9,7 @@ use zeth_lib::{
     protocol_instance::{assemble_protocol_instance, EvidenceType, ProtocolInstance},
     taiko_utils::HeaderHasher,
 };
-use zeth_primitives::Address;
+use zeth_primitives::{keccak, Address};
 
 use super::{
     context::Context,
@@ -24,13 +24,12 @@ use crate::{
     host::host::preflight,
     metrics::{inc_sgx_success, observe_input, observe_sgx_gen},
 };
+use alloy_sol_types::SolValue;
 
 
 pub trait GuestDriver {
     type ProofParam;
     type ProofResponse;
-
-    fn new() -> Self;
 
     fn run(
         input: GuestInput,
@@ -109,7 +108,7 @@ pub async fn prepare_input<P>(
         .expect("Failed to fetch required data for block")
     })
     .await
-    .map_err(Into::<super::error::Error>::into)
+    .map_err(Into::<super::error::HostError>::into)
 }
 
 #[cfg(test)]
@@ -119,5 +118,36 @@ mod tests {
         let result = async { Result::<(), &'static str>::Err("error") };
         println!("must here");
         assert!(result.await.is_err());
+    }
+}
+
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "succinct")] {
+        
+
+    }
+}
+
+
+
+pub struct Sp1Driver;
+
+impl GuestDriver for Sp1Driver {
+    type ProofParam = ();
+    type ProofResponse = Sp1Response;
+
+    fn run(
+        input: GuestInput,
+        output: GuestOutput,
+        _param: Self::ProofParam,
+    ) -> Result<Self::ProofResponse> {
+        let res = sp1_guest::execute(&input).await?;
+        Ok(res)
+    }
+
+    fn instance_hash(pi: ProtocolInstance) -> B256 {
+        let data = (pi.transition, pi.prover, pi.meta_hash()).abi_encode();
+        keccak(data).into()
     }
 }

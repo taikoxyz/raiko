@@ -148,7 +148,7 @@ pub async fn prepare_input(ctx: &mut Context, req: ProofRequest) -> Result<Guest
         .expect("Failed to fetch required data for block")
     })
     .await
-    .map_err(Into::<super::error::Error>::into)
+    .map_err(Into::<super::error::HostError>::into)
 }
 
 impl From<ProofType> for EvidenceType {

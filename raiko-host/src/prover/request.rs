@@ -78,7 +78,7 @@ pub enum ProofResponse {
     Sgx(SgxResponse),
     PseZk(PseZkResponse),
     #[cfg(feature = "succinct")]
-    SP1(sp1_guest::SP1Response),
+    SP1(sp1_guest::Sp1Response),
     Native(GuestOutput),
     Risc0(Risc0Response),
 }
@@ -95,7 +95,7 @@ pub struct SgxResponse {
 pub struct PseZkResponse {}
 
 // #[derive(Clone, Serialize, Deserialize)]
-// pub struct SP1Response {
+// pub struct Sp1Response {
 //     pub proof: String,
 //     pub output: GuestOutput,
 // }

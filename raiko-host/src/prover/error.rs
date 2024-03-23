@@ -3,7 +3,7 @@ use std::fmt;
 use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
-pub enum Error {
+pub enum HostError {
     Io(std::io::Error),
     Anyhow(#[from] anyhow::Error),
     Serde(serde_json::Error),
@@ -11,40 +11,40 @@ pub enum Error {
     String(String),
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for HostError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::Io(e) => e.fmt(f),
-            Error::Anyhow(e) => e.fmt(f),
-            Error::Serde(e) => e.fmt(f),
-            Error::JoinHandle(e) => e.fmt(f),
-            Error::String(e) => e.fmt(f),
+            HostError::Io(e) => e.fmt(f),
+            HostError::Anyhow(e) => e.fmt(f),
+            HostError::Serde(e) => e.fmt(f),
+            HostError::JoinHandle(e) => e.fmt(f),
+            HostError::String(e) => e.fmt(f),
         }
     }
 }
 
-impl From<std::io::Error> for Error {
+impl From<std::io::Error> for HostError {
     fn from(e: std::io::Error) -> Self {
-        Error::Io(e)
+        HostError::Io(e)
     }
 }
 
-impl From<serde_json::Error> for Error {
+impl From<serde_json::Error> for HostError {
     fn from(e: serde_json::Error) -> Self {
-        Error::Serde(e)
+        HostError::Serde(e)
     }
 }
 
-impl From<tokio::task::JoinError> for Error {
+impl From<tokio::task::JoinError> for HostError {
     fn from(e: tokio::task::JoinError) -> Self {
-        Error::JoinHandle(e)
+        HostError::JoinHandle(e)
     }
 }
 
-impl From<String> for Error {
+impl From<String> for HostError {
     fn from(e: String) -> Self {
-        Error::String(e)
+        HostError::String(e)
     }
 }
 
-pub type Result<T, E = Error> = core::result::Result<T, E>;
+pub type Result<T, E = HostError> = core::result::Result<T, E>;

@@ -73,7 +73,7 @@ rstest = "0.18"
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git" }
 
 [features]
-# default = ["succinct"]
+default = ["succinct"]
 # powdr = ["dep:powdr"]
 succinct = ["dep:sp1-guest"]
 risc0 = [
