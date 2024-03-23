@@ -45,9 +45,8 @@ pub mod sgx {
 pub mod succinct;
 #[cfg(not(feature = "succinct"))]
 pub mod succinct {
-    use crate::prover::request::Risc0Response;
-
     use super::*;
+    use crate::prover::request::Risc0Response;
     pub async fn execute_sp1(
         input: GuestInput,
         output: GuestOutput,

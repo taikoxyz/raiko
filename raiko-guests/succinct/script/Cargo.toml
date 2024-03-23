@@ -9,6 +9,7 @@ serde = "1.0"
 serde_json = "1.0"
 zeth-lib = { path = "../../../lib", features = ["taiko", "std"] }
 sp1-core = { git = "https://github.com/succinctlabs/sp1.git" }
+anyhow = "1.0"
 
 [build-dependencies]
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git" }

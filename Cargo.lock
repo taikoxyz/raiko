@@ -4056,6 +4056,7 @@ dependencies = [
  "bonsai-sdk",
  "bytemuck",
  "c-kzg",
+ "cfg-if",
  "clap 4.5.2",
  "ethers-contract",
  "ethers-core",
@@ -5474,6 +5475,7 @@ name = "sp1-guest"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "anyhow",
  "serde",
  "serde_json",
  "sp1-core",

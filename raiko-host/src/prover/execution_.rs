@@ -1,6 +1,8 @@
 use std::{fmt::Debug, str::FromStr, time::Instant};
 
+use alloy_sol_types::SolValue;
 use reth_primitives::B256;
+use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 use zeth_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
@@ -9,7 +11,7 @@ use zeth_lib::{
     protocol_instance::{assemble_protocol_instance, EvidenceType, ProtocolInstance},
     taiko_utils::HeaderHasher,
 };
-use zeth_primitives::{keccak, Address};
+use zeth_primitives::{keccak::keccak, Address};
 
 use super::{
     context::Context,
@@ -24,14 +26,12 @@ use crate::{
     host::host::preflight,
     metrics::{inc_sgx_success, observe_input, observe_sgx_gen},
 };
-use alloy_sol_types::SolValue;
-
 
 pub trait GuestDriver {
-    type ProofParam;
-    type ProofResponse;
+    type ProofParam: Debug + Clone;
+    type ProofResponse: Serialize;
 
-    fn run(
+    async fn run(
         input: GuestInput,
         output: GuestOutput,
         param: Self::ProofParam,
@@ -44,10 +44,7 @@ pub async fn execute<D: GuestDriver>(
     _cache: &Cache,
     ctx: &mut Context,
     req: &ProofRequest_<D::ProofParam>,
-) -> Result<D::ProofResponse>
-    where 
-        D::ProofParam: Debug + Clone
- {
+) -> Result<D::ProofResponse> {
     println!("- {:?}", req);
     // 1. load input data into cache path
     let start = Instant::now();
@@ -74,15 +71,12 @@ pub async fn execute<D: GuestDriver>(
     };
     let elapsed = Instant::now().duration_since(start).as_millis() as i64;
     observe_input(elapsed);
-    
-    D::run(input, output, req.proof_param.clone())
+
+    D::run(input, output, req.proof_param.clone()).await
 }
 
 /// prepare input data for guests
-pub async fn prepare_input<P>(
-    ctx: &mut Context, 
-    req: &ProofRequest_<P>
-) -> Result<GuestInput> {
+pub async fn prepare_input<P>(ctx: &mut Context, req: &ProofRequest_<P>) -> Result<GuestInput> {
     // Todo(Cecilia): should contract address as args, curently hardcode
     let l1_cache = ctx.l1_cache_file.clone();
     let l2_cache = ctx.l2_cache_file.clone();
@@ -99,10 +93,7 @@ pub async fn prepare_input<P>(
             Some(l2_rpc),
             block_number,
             Network::from_str(&chain).unwrap(),
-            TaikoProverData {
-                graffiti,
-                prover,
-            },
+            TaikoProverData { graffiti, prover },
             Some(beacon_rpc),
         )
         .expect("Failed to fetch required data for block")
@@ -121,33 +112,59 @@ mod tests {
     }
 }
 
+pub struct NativeDriver;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "succinct")] {
-        
-
-    }
+#[derive(Clone, Serialize, Deserialize)]
+pub struct NativeResponse {
+    output: GuestOutput,
 }
 
-
-
-pub struct Sp1Driver;
-
-impl GuestDriver for Sp1Driver {
+impl GuestDriver for NativeDriver {
     type ProofParam = ();
-    type ProofResponse = Sp1Response;
+    type ProofResponse = NativeResponse;
 
-    fn run(
+    async fn run(
         input: GuestInput,
         output: GuestOutput,
         _param: Self::ProofParam,
     ) -> Result<Self::ProofResponse> {
-        let res = sp1_guest::execute(&input).await?;
-        Ok(res)
+        Ok(NativeResponse { output })
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {
-        let data = (pi.transition, pi.prover, pi.meta_hash()).abi_encode();
-        keccak(data).into()
+        B256::default()
+    }
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "succinct")] {
+        
+        pub struct Sp1Driver;
+
+        impl GuestDriver for Sp1Driver {
+            type ProofParam = ();
+            type ProofResponse = sp1_guest::Sp1Response;
+
+            async fn run(
+                input: GuestInput,
+                output: GuestOutput,
+                _param: Self::ProofParam,
+            ) -> Result<Self::ProofResponse> {
+                let res = sp1_guest::execute(input).await?;
+                Ok(res)
+            }
+
+            fn instance_hash(pi: ProtocolInstance) -> B256 {
+                let data = (
+                    pi.transition.clone(),
+                    pi.prover,
+                    pi.meta_hash()
+                ).abi_encode();
+
+                keccak(data).into()
+            }
+        }
+    } else {
+        
     }
 }

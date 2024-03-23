@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    marker::PhantomData,
+    path::{Path, PathBuf},
+};
 
 use hyper::{
     body::{Buf, HttpBody},
@@ -11,12 +14,9 @@ use prometheus::{Encoder, TextEncoder};
 use tower::ServiceBuilder;
 use tracing::info;
 
+use super::execution_::GuestDriver;
 use crate::prover::{
-    context::Context,
-    execution::execute,
-    json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
-    proof::cache::Cache,
-    request::*,
+    self, context::Context, error::HostError, execution_::execute, json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError}, proof::cache::Cache, request::*
 };
 
 pub static SGX_INSTANCE_ID: OnceCell<u32> = OnceCell::new();
@@ -161,7 +161,7 @@ impl Handler {
                 }
 
                 let json_req = json_req.unwrap();
-                let result: Result<serde_json::Value, String> = self
+                let result = self
                     .handle_method(json_req.method.as_str(), &json_req.params)
                     .await;
                 let payload = match result {
@@ -172,7 +172,7 @@ impl Handler {
                             error: JsonRpcError {
                                 // internal server error
                                 code: -32000,
-                                message: err,
+                                message: err.to_string(),
                             },
                         })
                     }
@@ -220,6 +220,37 @@ impl Handler {
         &mut self,
         method: &str,
         params: &[serde_json::Value],
+    ) -> Result<serde_json::Value, HostError> {
+        match method {
+            // enqueues a task for computating proof for any given block
+            "proof" => {
+                let options = params.first().expect("params must not be empty");
+                let mut res = Err(HostError::GuestError("Execution failed to run".to_string()));
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "succinct")] {
+                        use crate::prover::execution_::Sp1Driver;
+                        let req: ProofRequest_<<Sp1Driver as GuestDriver>::ProofParam> =
+                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
+                        res = execute::<Sp1Driver>(&self.cache, &mut self.ctx, &req).await;
+                    } else {
+                        use crate::prover::execution_::NativeDriver;
+                        let req: ProofRequest_<<NativeDriver as GuestDriver>::ProofParam> =
+                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
+                        res = execute::<NativeDriver>(&self.cache, &mut self.ctx, &req).await;
+                    }
+                };
+                res
+                    .and_then(|res| serde_json::to_value(res).map_err(Into::into))
+                    .map_err(Into::<HostError>::into)
+            }
+            _ => todo!(),
+        }
+    }
+
+    async fn handle_method_old(
+        &mut self,
+        method: &str,
+        params: &[serde_json::Value],
     ) -> Result<serde_json::Value, String> {
         match method {
             // enqueues a task for computating proof for any given block
@@ -227,7 +258,7 @@ impl Handler {
                 let options = params.first().ok_or("expected struct ProofRequest")?;
                 let req: ProofRequest =
                     serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
-                execute(&self.cache, &mut self.ctx, &req)
+                crate::prover::execution::execute(&self.cache, &mut self.ctx, &req)
                     .await
                     .and_then(|result| serde_json::to_value(result).map_err(Into::into))
                     .map_err(|e| e.to_string())

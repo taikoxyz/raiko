@@ -32,6 +32,8 @@ use structopt::StructOpt;
 use structopt_toml::StructOptToml;
 use tracing::info;
 
+use crate::prover::execution_::GuestDriver;
+
 #[derive(StructOpt, StructOptToml, Deserialize, Debug)]
 #[serde(default)]
 struct Opt {

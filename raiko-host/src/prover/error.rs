@@ -8,7 +8,7 @@ pub enum HostError {
     Anyhow(#[from] anyhow::Error),
     Serde(serde_json::Error),
     JoinHandle(tokio::task::JoinError),
-    String(String),
+    GuestError(String),
 }
 
 impl fmt::Display for HostError {
@@ -18,7 +18,7 @@ impl fmt::Display for HostError {
             HostError::Anyhow(e) => e.fmt(f),
             HostError::Serde(e) => e.fmt(f),
             HostError::JoinHandle(e) => e.fmt(f),
-            HostError::String(e) => e.fmt(f),
+            HostError::GuestError(e) => e.fmt(f),
         }
     }
 }
@@ -43,7 +43,7 @@ impl From<tokio::task::JoinError> for HostError {
 
 impl From<String> for HostError {
     fn from(e: String) -> Self {
-        HostError::String(e)
+        HostError::GuestError(e)
     }
 }
 

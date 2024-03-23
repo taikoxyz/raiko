@@ -1,8 +1,9 @@
+use core::fmt::Debug;
+
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use zeth_lib::input::GuestOutput;
 use zeth_primitives::{Address, B256};
-use core::fmt::Debug;
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -67,9 +68,9 @@ pub struct ProofRequest_<P> {
     /// the protocol instance data
     #[serde_as(as = "DisplayFromStr")]
     pub prover: Address,
+    // Generic proof parameters which has to match with the type
     pub proof_param: P,
 }
-
 
 // Use Output type in Patar's Driver trait
 #[derive(Clone, Serialize, Deserialize)]

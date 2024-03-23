@@ -21,11 +21,11 @@ else
 fi
 
 if [ "$proof" == "native" ]; then
-  proofType='"native"'
+  proofParam=null
 elif [ "$proof" == "succinct" ]; then
-  proofType='"succinct"'
+  proofParam=null
 elif [ "$proof" == "risc0" ]; then
-  proofType='{
+  proofParam='{
     "risc0": {
       "bonsai": false,
       "snark": false,
@@ -34,7 +34,7 @@ elif [ "$proof" == "risc0" ]; then
     }
   }'
 elif [ "$proof" == "risc0-bonsai" ]; then
-  proofType='{
+  proofParam='{
     "risc0": {
       "bonsai": true,
       "snark": true,
@@ -75,7 +75,7 @@ do
              \"l2Rpc\": \"$l2Rpc\",
              \"l1Rpc\": \"$l1Rpc\",
              \"beaconRpc\": \"$beaconRpc\",
-             \"proofType\": $proofType,
+             \"proofParam\": $proofParam,
              \"blockNumber\": $block,
              \"prover\": \"$prover\",
              \"graffiti\": \"$graffiti\"

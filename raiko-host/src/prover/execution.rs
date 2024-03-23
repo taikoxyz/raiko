@@ -88,7 +88,7 @@ pub async fn execute(
             #[cfg(feature = "succinct")]
             ProofType::Succinct => {
                 let bid = req.block_number;
-                let resp = execute_sp1(input, outpu).await?;
+                let resp = execute_sp1(input, output).await?;
                 let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
                 ProofResponse::SP1(resp)
             }
