@@ -88,12 +88,12 @@ pub async fn execute(
             #[cfg(feature = "succinct")]
             ProofType::Succinct => {
                 let bid = req.block_number;
-                let resp = execute_sp1(input, output, ctx, req).await?;
+                let resp = execute_sp1(input, outpu).await?;
                 let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
                 ProofResponse::SP1(resp)
             }
             ProofType::Risc0(param) => {
-                let resp = execute_risc0(input, output, ctx, param).await?;
+                let resp = execute_risc0(input, output, param).await?;
                 ProofResponse::Risc0(resp)
             }
             ProofType::Native => {

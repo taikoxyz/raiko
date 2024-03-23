@@ -23,7 +23,6 @@ use crate::prover::{
 pub async fn execute_risc0(
     input: GuestInput,
     output: GuestOutput,
-    ctx: &Context,
     req: &Risc0ProofParams,
 ) -> Result<Risc0Response, String> {
     println!("elf code length: {}", RISC0_METHODS_ELF.len());

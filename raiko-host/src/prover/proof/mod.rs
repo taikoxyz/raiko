@@ -51,8 +51,6 @@ pub mod succinct {
     pub async fn execute_sp1(
         input: GuestInput,
         output: GuestOutput,
-        ctx: &mut Context,
-        req: &ProofRequest,
         // TODO: Cecilia
     ) -> Result<Risc0Response, String> {
         Err("Feature not succinct is enabled".to_string())
@@ -73,7 +71,6 @@ pub mod risc0 {
     pub async fn execute_risc0(
         input: GuestInput,
         output: GuestOutput,
-        ctx: &Context,
         req: &Risc0ProofParams,
     ) -> Result<Risc0Response, String> {
         Err("Feature risc0 is not enabled".to_string())

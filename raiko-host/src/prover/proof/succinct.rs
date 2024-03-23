@@ -13,8 +13,6 @@ use crate::prover::{
 pub async fn execute_sp1(
     input: GuestInput,
     output: GuestOutput,
-    ctx: &mut Context,
-    req: &ProofRequest,
 ) -> Result<sp1_guest::SP1Response, String> {
     sp1_guest::execute_sp1(input).await
 }

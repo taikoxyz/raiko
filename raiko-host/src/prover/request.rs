@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use zeth_lib::input::GuestOutput;
 use zeth_primitives::{Address, B256};
+use core::fmt::Debug;
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -44,9 +45,31 @@ pub struct ProofRequest {
     /// the protocol instance data
     #[serde_as(as = "DisplayFromStr")]
     pub prover: Address,
-
     pub proof_type: ProofType,
 }
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProofRequest_<P> {
+    /// the l2 block number
+    pub block_number: u64,
+    /// l2 node for get block by number
+    pub l2_rpc: String,
+    /// l1 node for signal root verify and get txlist info from proposed transaction.
+    pub l1_rpc: String,
+    /// beacon node for data blobs
+    pub beacon_rpc: String,
+    /// l2 contracts selection
+    pub chain: String,
+    // graffiti
+    pub graffiti: B256,
+    /// the protocol instance data
+    #[serde_as(as = "DisplayFromStr")]
+    pub prover: Address,
+    pub proof_param: P,
+}
+
 
 // Use Output type in Patar's Driver trait
 #[derive(Clone, Serialize, Deserialize)]
