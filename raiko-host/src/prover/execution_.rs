@@ -167,3 +167,30 @@ cfg_if::cfg_if! {
 
     }
 }
+
+
+pub struct Risc0Driver;
+
+    impl GuestDriver for Risc0Driver {
+        type ProofParam = ();
+        type ProofResponse = risc0_guest::Risc0ProofParams;
+
+        async fn run(
+            input: GuestInput,
+            output: GuestOutput,
+            param: Self::ProofParam,
+        ) -> Result<Self::ProofResponse> {
+            let res = risc0_guest::execute(input, output, param).await?;
+            Ok(res)
+        }
+
+        fn instance_hash(pi: ProtocolInstance) -> B256 {
+            let data = (
+                pi.transition.clone(),
+                pi.prover,
+                pi.meta_hash()
+            ).abi_encode();
+
+            keccak(data).into()
+        }
+    }

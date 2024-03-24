@@ -1,12 +1,16 @@
 use std::{
-    env,
-    fmt::Debug,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
 };
 
-use bonsai_sdk::alpha::responses::SnarkReceipt;
 use hex::ToHex;
+// use risc0_guest::{RISC0_METHODS_ELF, RISC0_METHODS_ID};
+use serde::{Deserialize, Serialize};
+use tracing::info as traicing_info;
+use zeth_lib::input::{GuestInput, GuestOutput};
+use std::fmt::Debug;
+use serde_with::{serde_as};
+use bonsai_sdk::alpha::responses::SnarkReceipt;
 use log::{debug, error, info, warn};
 use risc0_zkvm::{
     compute_image_id, is_dev_mode,
@@ -15,11 +19,6 @@ use risc0_zkvm::{
     Assumption, ExecutorEnv, ExecutorImpl, FileSegmentRef, Receipt, Segment, SegmentRef,
 };
 use serde::de::DeserializeOwned;
-// use risc0_guest::{RISC0_METHODS_ELF, RISC0_METHODS_ID};
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
-use tracing::info as traicing_info;
-use zeth_lib::input::{GuestInput, GuestOutput};
 use zeth_primitives::keccak::keccak;
 
 pub mod snarks;
@@ -36,12 +35,13 @@ pub struct Risc0ProofParams {
     pub execution_po2: u32,
 }
 
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Risc0Response {
     pub journal: String,
 }
 
-pub async fn execute_risc0(
+pub async fn execute(
     input: GuestInput,
     output: GuestOutput,
     req: &Risc0ProofParams,
@@ -79,6 +79,7 @@ pub async fn execute_risc0(
 
     Ok(Risc0Response { journal })
 }
+
 
 pub async fn stark2snark(
     image_id: Digest,
@@ -404,63 +405,6 @@ struct NullSegmentRef {}
 impl SegmentRef for NullSegmentRef {
     fn resolve(&self) -> anyhow::Result<Segment> {
         unimplemented!()
-    }
-}
-
-/// Execute the guest code with the given input and verify the output.
-pub fn execute<T: Serialize, O: Eq + Debug + DeserializeOwned>(
-    input: &T,
-    segment_limit_po2: u32,
-    profile: bool,
-    elf: &[u8],
-    expected_output: &O,
-    profile_reference: &String,
-) {
-    debug!(
-        "Running in executor with segment_limit_po2 = {:?}",
-        segment_limit_po2
-    );
-
-    let input = to_vec(input).expect("Could not serialize input!");
-    debug!(
-        "Input size: {} words ( {} MB )",
-        input.len(),
-        input.len() * 4 / 1_000_000
-    );
-
-    info!("Running the executor...");
-    let session = {
-        let mut env_builder = ExecutorEnv::builder();
-        env_builder
-            .session_limit(None)
-            .segment_limit_po2(segment_limit_po2)
-            .write_slice(&input);
-
-        if profile {
-            info!("Profiling enabled.");
-            env_builder.enable_profiler(format!("profile_{}.pb", profile_reference));
-        }
-
-        let env = env_builder.build().unwrap();
-        let mut exec = ExecutorImpl::from_elf(env, elf).unwrap();
-
-        exec.run_with_callback(|_| Ok(Box::new(NULL_SEGMENT_REF)))
-            .unwrap()
-    };
-    println!(
-        "Executor ran in (roughly) {} cycles",
-        session.segments.len() * (1 << segment_limit_po2)
-    );
-    // verify output
-    let journal = session.journal.unwrap();
-    let output_guest: O = journal.decode().expect("Could not decode journal");
-    if expected_output == &output_guest {
-        info!("Executor succeeded");
-    } else {
-        error!(
-            "Output mismatch! Executor: {:?}, expected: {:?}",
-            output_guest, expected_output,
-        );
     }
 }
 

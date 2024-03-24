@@ -51,7 +51,7 @@ thiserror = "1.0"
 sp1-guest = { path = "../raiko-guests/succinct/script", optional = true}
 risc0-zkvm = { version = "0.20.1", features = ["prove", "getrandom"], optional = true }
 bonsai-sdk = { version = "0.6.0", features = ["async"],  optional = true }
-risc0-guest = { path = "../raiko-guests/risc0", features = ["risc0"], optional = true}
+risc0-guest = { path = "../raiko-guests/risc0", optional = true}
 log = {version = "0.4"}
 typetag ={version = "0.2.15", optional = true}
 reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", branch = "main", features = [
@@ -60,7 +60,7 @@ reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", branch = "m
 reqwest = "0.11.22"
 sha2 = "0.10.8"
 proptest = "1.4.0"
-c-kzg = "0.4.0"
+c-kzg = "1.0.0"
 rlp = "0.5.2"
 url = "2.5.0"
 cfg-if = "1.0.0"
@@ -73,14 +73,14 @@ rstest = "0.18"
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git" }
 
 [features]
-default = ["succinct"]
+default = ["risc0"]
 # powdr = ["dep:powdr"]
 succinct = ["dep:sp1-guest"]
 risc0 = [
   "dep:risc0-guest",
-  "dep:risc0-zkvm",
-  "dep:bonsai-sdk",
-  "dep:typetag"
+  # "dep:risc0-zkvm",
+  # "dep:bonsai-sdk",
+  # "dep:typetag"
 ]
 cuda = ["risc0-zkvm/cuda"]
 metal = ["risc0-zkvm/metal"]

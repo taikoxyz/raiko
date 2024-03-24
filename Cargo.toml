@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "lib",
+    "raiko-host",
     "primitives",
     "raiko-guests/succinct/script",
     "raiko-guests/risc0",
