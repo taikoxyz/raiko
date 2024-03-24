@@ -3,12 +3,30 @@ name = "risc0-guest"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+alloy-primitives = { version = "0.6", default-features = false }
+alloy-sol-types = { version = "0.6" }
+ethers-contract = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10" }
+ethers-core = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10" }
+ethers-providers = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10" }
+tracing = "0.1"
+serde = "1.0"
+once_cell = "1.8.0"
+hex = "0.4.3"
+zeth-lib = { path = "../../lib", features = ["taiko", "std"] }
+anyhow = "1.0"
+risc0-zkvm = { version = "0.20.1", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "0.6.0", features = ["async"] }
+log = {version = "0.4"}
+zeth-primitives = { path = "../../primitives", features = ["taiko", "revm"] }
+bincode = "1.3.3"
+bytemuck = "1.13"
+typetag = "0.2.15"
+serde_with = "3.4.0"
+
 [build-dependencies]
 risc0-build = { version = "0.20.1" }
 
 [package.metadata.risc0]
 methods = ["guest"]
 
-# cargo build
-[features]
-risc0 = []

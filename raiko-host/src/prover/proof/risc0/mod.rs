@@ -11,7 +11,6 @@ use zeth_lib::input::{GuestInput, GuestOutput};
 
 use crate::prover::{
     consts::*,
-    context::Context,
     proof::risc0::snarks::verify_groth16_snark,
     request::{ProofRequest, ProofType, Risc0ProofParams, Risc0Response},
     utils::guest_executable_path,
@@ -74,7 +73,6 @@ use risc0_zkvm::{
     Assumption, ExecutorEnv, ExecutorImpl, FileSegmentRef, Receipt, Segment, SegmentRef,
 };
 use serde::de::DeserializeOwned;
-use tempfile::tempdir;
 use zeth_primitives::keccak::keccak;
 
 // use crate::{load_receipt, save_receipt};

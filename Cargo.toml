@@ -3,8 +3,8 @@ resolver = "2"
 members = [
     "lib",
     "primitives",
-    "raiko-host",
     "raiko-guests/succinct/script",
+    "raiko-guests/risc0",
     # "sgx-ra",
     # "tests/*",
 ]

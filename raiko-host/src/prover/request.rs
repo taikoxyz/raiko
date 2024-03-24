@@ -95,11 +95,6 @@ pub struct SgxResponse {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PseZkResponse {}
 
-// #[derive(Clone, Serialize, Deserialize)]
-// pub struct Sp1Response {
-//     pub proof: String,
-//     pub output: GuestOutput,
-// }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Risc0Response {
