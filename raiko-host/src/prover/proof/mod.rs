@@ -21,15 +21,6 @@ pub mod powdr {
     }
 }
 
-#[cfg(feature = "pse_zk")]
-pub mod pse_zk;
-#[cfg(not(feature = "pse_zk"))]
-pub mod pse_zk {
-    use super::*;
-    pub async fn execute_pse(_ctx: &mut Context, _req: &ProofRequest) {
-        println!("Feature not pse_zk is enabled");
-    }
-}
 
 #[cfg(feature = "sgx")]
 pub mod sgx;

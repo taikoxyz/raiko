@@ -13,13 +13,13 @@ use prometheus::{Encoder, TextEncoder};
 use tower::ServiceBuilder;
 use tracing::info;
 
-use super::execution_::GuestDriver;
+use super::execution::GuestDriver;
 use crate::prover::{
     context::Context,
     error::HostError,
-    execution_::execute,
+    execution::execute,
     json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
-    proof::cache::Cache,
+    cache::Cache,
     request::*,
 };
 
@@ -232,15 +232,20 @@ impl Handler {
                 let mut res = Err(HostError::GuestError("Execution failed to run".to_string()));
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "succinct")] {
-                        use crate::prover::execution_::Sp1Driver;
-                        let req: ProofRequest_<<Sp1Driver as GuestDriver>::ProofParam> =
+                        use crate::prover::execution::Sp1Driver;
+                        let req: ProofRequest<<Sp1Driver as GuestDriver>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<Sp1Driver>(&self.cache, &mut self.ctx, &req).await;
+                        res = execute::<Sp1Driver>(&mut self.ctx, &req).await;
+                    } else if #[cfg(feature = "risc0")] {
+                        use crate::prover::execution::Risc0Driver;
+                        let req: ProofRequest<<Risc0Driver as GuestDriver>::ProofParam> =
+                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
+                        res = execute::<Risc0Driver>(&mut self.ctx, &req).await;
                     } else {
-                        use crate::prover::execution_::NativeDriver;
-                        let req: ProofRequest_<<NativeDriver as GuestDriver>::ProofParam> =
+                        use crate::prover::execution_rs::NativeDriver;
+                        let req: ProofRequest<<NativeDriver as GuestDriver>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<NativeDriver>(&self.cache, &mut self.ctx, &req).await;
+                        res = execute::<NativeDriver>(&mut self.ctx, &req).await;
                     }
                 };
                 res.and_then(|res| serde_json::to_value(res).map_err(Into::into))
@@ -250,24 +255,4 @@ impl Handler {
         }
     }
 
-    // async fn handle_method_old(
-    //     &mut self,
-    //     method: &str,
-    //     params: &[serde_json::Value],
-    // ) -> Result<serde_json::Value, String> {
-    //     match method {
-    //         // enqueues a task for computating proof for any given block
-    //         "proof" => {
-    //             let options = params.first().ok_or("expected struct ProofRequest")?;
-    //             let req: ProofRequest =
-    //                 serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
-    //             crate::prover::execution::execute(&self.cache, &mut self.ctx, &req)
-    //                 .await
-    //                 .and_then(|result| serde_json::to_value(result).map_err(Into::into))
-    //                 .map_err(|e| e.to_string())
-    //             // Ok(serde_json::Value::Bool(false))
-    //         }
-    //         _ => todo!(),
-    //     }
-    // }
 }

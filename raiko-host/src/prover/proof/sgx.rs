@@ -17,6 +17,8 @@ use crate::{
     },
 };
 
+pub const SGX_PARENT_DIR: &str = "sgx";
+
 pub async fn execute_sgx(ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
     let guest_path = guest_executable_path(&ctx.guest_elf, SGX_PARENT_DIR);
     debug!("Guest path: {:?}", guest_path);

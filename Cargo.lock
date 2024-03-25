@@ -3690,9 +3690,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a41cf62165e97c7f814d2221421dbb9afcbcdb0a88068e5ea206e19951c2cbb5"
+checksum = "8d3928fb5db768cb86f891ff014f0144589297e3c6a1aba6ed7cecfdace270c7"
 dependencies = [
  "proc-macro2",
  "syn 2.0.55",
@@ -4149,7 +4149,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs"
 version = "0.2.0-beta.3"
-source = "git+https://github.com/paradigmxyz/reth.git?branch=main#7efd5b09d210757ec9063acfd1904d372fb338d5"
+source = "git+https://github.com/paradigmxyz/reth.git?branch=main#a31202670b3ca2348b6dbca807b6b00a86a1539c"
 dependencies = [
  "alloy-primitives",
  "bytes",
@@ -4159,7 +4159,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs-derive"
 version = "0.2.0-beta.3"
-source = "git+https://github.com/paradigmxyz/reth.git?branch=main#7efd5b09d210757ec9063acfd1904d372fb338d5"
+source = "git+https://github.com/paradigmxyz/reth.git?branch=main#a31202670b3ca2348b6dbca807b6b00a86a1539c"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -4170,7 +4170,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-forks"
 version = "0.2.0-beta.3"
-source = "git+https://github.com/paradigmxyz/reth.git?branch=main#7efd5b09d210757ec9063acfd1904d372fb338d5"
+source = "git+https://github.com/paradigmxyz/reth.git?branch=main#a31202670b3ca2348b6dbca807b6b00a86a1539c"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -4183,7 +4183,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives"
 version = "0.2.0-beta.3"
-source = "git+https://github.com/paradigmxyz/reth.git?branch=main#7efd5b09d210757ec9063acfd1904d372fb338d5"
+source = "git+https://github.com/paradigmxyz/reth.git?branch=main#a31202670b3ca2348b6dbca807b6b00a86a1539c"
 dependencies = [
  "alloy-chains",
  "alloy-eips 0.1.0 (git+https://github.com/alloy-rs/alloy?rev=410850b)",
@@ -4222,7 +4222,7 @@ dependencies = [
 [[package]]
 name = "reth-rpc-types"
 version = "0.2.0-beta.3"
-source = "git+https://github.com/paradigmxyz/reth.git?branch=main#7efd5b09d210757ec9063acfd1904d372fb338d5"
+source = "git+https://github.com/paradigmxyz/reth.git?branch=main#a31202670b3ca2348b6dbca807b6b00a86a1539c"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -5277,7 +5277,7 @@ dependencies = [
 [[package]]
 name = "sp1-core"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#5fa44d6589a4612fda531a119dad030e88f84015"
+source = "git+https://github.com/succinctlabs/sp1.git#f668224355fb72a2090ec675719cd5336b0e3ad1"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5341,7 +5341,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#5fa44d6589a4612fda531a119dad030e88f84015"
+source = "git+https://github.com/succinctlabs/sp1.git#f668224355fb72a2090ec675719cd5336b0e3ad1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5364,7 +5364,7 @@ dependencies = [
 [[package]]
 name = "sp1-helper"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#5fa44d6589a4612fda531a119dad030e88f84015"
+source = "git+https://github.com/succinctlabs/sp1.git#f668224355fb72a2090ec675719cd5336b0e3ad1"
 dependencies = [
  "cargo_metadata 0.18.1",
  "chrono",
@@ -5373,7 +5373,7 @@ dependencies = [
 [[package]]
 name = "sp1-precompiles"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#5fa44d6589a4612fda531a119dad030e88f84015"
+source = "git+https://github.com/succinctlabs/sp1.git#f668224355fb72a2090ec675719cd5336b0e3ad1"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5387,7 +5387,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#5fa44d6589a4612fda531a119dad030e88f84015"
+source = "git+https://github.com/succinctlabs/sp1.git#f668224355fb72a2090ec675719cd5336b0e3ad1"
 dependencies = [
  "bincode",
  "cfg-if",

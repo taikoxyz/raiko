@@ -1,170 +1,100 @@
-use std::{str::FromStr, time::Instant};
+use std::{fmt::Debug, str::FromStr, time::Instant};
 
+use alloy_sol_types::SolValue;
+use reth_primitives::B256;
+use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 use zeth_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::Network,
     input::{GuestInput, GuestOutput, TaikoProverData},
-    protocol_instance::{assemble_protocol_instance, EvidenceType},
+    protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     taiko_utils::HeaderHasher,
 };
-use zeth_primitives::Address;
+use zeth_primitives::{keccak::keccak};
 
 use super::{
     context::Context,
     error::Result,
-    proof::{
-        cache::Cache, powdr::execute_powdr, risc0::execute_risc0, sgx::execute_sgx,
-        succinct::execute_sp1,
-    },
-    request::{ProofRequest, ProofResponse, ProofType},
+    request::{ProofRequest},
 };
 use crate::{
     host::host::preflight,
-    metrics::{inc_sgx_success, observe_input, observe_sgx_gen},
+    metrics::{observe_input},
 };
 
-pub async fn execute(
-    _cache: &Cache,
-    ctx: &mut Context,
-    req: &ProofRequest,
-) -> Result<ProofResponse> {
-    // ctx.update_cache_path(req.block);
-    // try remove cache file anyway to avoid reorg error
-    // because tokio::fs::remove_file haven't guarantee of execution. So, we need to remove
-    // twice
-    // > Runs the provided function on an executor dedicated to blocking operations.
-    // > Tasks will be scheduled as non-mandatory, meaning they may not get executed
-    // > in case of runtime shutdown.
-    // ctx.remove_cache_file().await?;
-    let result = async {
-        println!("- {:?}", req);
-        // 1. load input data into cache path
-        let start = Instant::now();
-        let input = prepare_input(ctx, req.clone()).await?;
-        let elapsed = Instant::now().duration_since(start).as_millis() as i64;
-        observe_input(elapsed);
-        // 2. pre-build the block
-        let build_result = TaikoStrategy::build_from(&input);
-        // TODO: cherry-pick risc0 latest output
-        let output = match &build_result {
-            Ok((header, _mpt_node)) => {
-                info!("Verifying final state using provider data ...");
-                info!("Final block hash derived successfully. {}", header.hash());
-                info!("Final block header derived successfully. {:?}", header);
-                let pi = assemble_protocol_instance(&input, header)?
-                    .instance_hash(req.proof_type.clone().into());
+pub trait GuestDriver {
+    type ProofParam: Debug + Clone;
+    type ProofResponse: Serialize;
 
-                // Make sure the blockhash from the node matches the one from the builder
-                assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
-                GuestOutput::Success((header.clone(), pi))
-            }
-            Err(_) => {
-                warn!("Proving bad block construction!");
-                GuestOutput::Failure
-            }
-        };
-        let elapsed = Instant::now().duration_since(start).as_millis() as i64;
-        observe_input(elapsed);
-        // 3. run proof
-        // prune_old_caches(&ctx.cache_path, ctx.max_caches);
-        let start = Instant::now();
-        let proof = match &req.proof_type {
-            ProofType::Sgx => {
-                let bid = req.block_number;
-                let resp = execute_sgx(ctx, req).await?;
-                let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
-                observe_sgx_gen(bid, time_elapsed);
-                inc_sgx_success(bid);
-                ProofResponse::Sgx(resp)
-            }
-            ProofType::Powdr => {
-                let _bid = req.block_number;
-                execute_powdr().await?;
-                let _time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
-                todo!()
-            }
-            ProofType::PseZk => todo!(),
-            #[cfg(feature = "succinct")]
-            ProofType::Succinct => {
-                let _bid = req.block_number;
-                let resp = execute_sp1(input, output).await?;
-                let _time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
-                ProofResponse::SP1(resp)
-            }
-            ProofType::Risc0(param) => {
-                let resp = execute_risc0(input, output, param).await?;
-                ProofResponse::Risc0(resp)
-            }
-            ProofType::Native => {
-                // Make sure the binary serialization of the input works
-                let encoded: Vec<u8> = bincode::serialize(&input).unwrap();
-                let input = bincode::deserialize(&encoded[..]).unwrap();
-                // Build the block
-                let build_result = TaikoStrategy::build_from(&input);
-                match &build_result {
-                    Ok((header, _mpt_node)) => {
-                        // Make sure the blockhash from the node matches the one from the builder
-                        assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
-                        ProofResponse::Native(output)
-                    }
-                    Err(_) => {
-                        warn!("Proving bad block construction!");
-                        ProofResponse::Native(GuestOutput::Failure)
-                    }
-                }
-            }
-        };
-        let time_elapsed = Instant::now().duration_since(start);
-        println!(
-            "Proof generated in {}.{} seconds",
-            time_elapsed.as_secs(),
-            time_elapsed.subsec_millis()
-        );
-        Ok(proof)
-    }
-    .await;
-    ctx.remove_cache_file().await?;
-    result
+    async fn run(
+        input: GuestInput,
+        output: GuestOutput,
+        param: Self::ProofParam,
+    ) -> Result<Self::ProofResponse>;
+
+    fn instance_hash(pi: ProtocolInstance) -> B256;
+}
+
+pub async fn execute<D: GuestDriver>(
+    ctx: &mut Context,
+    req: &ProofRequest<D::ProofParam>,
+) -> Result<D::ProofResponse> {
+    println!("- {:?}", req);
+    // 1. load input data into cache path
+    let start = Instant::now();
+    let input = prepare_input(ctx, req).await?;
+    let elapsed = Instant::now().duration_since(start).as_millis() as i64;
+    observe_input(elapsed);
+    // 2. pre-build the block
+    let build_result = TaikoStrategy::build_from(&input);
+    // TODO: cherry-pick risc0 latest output
+    let output = match &build_result {
+        Ok((header, _mpt_node)) => {
+            info!("Verifying final state using provider data ...");
+            info!("Final block hash derived successfully. {}", header.hash());
+            info!("Final block header derived successfully. {:?}", header);
+            let pi = D::instance_hash(assemble_protocol_instance(&input, header)?);
+            // Make sure the blockhash from the node matches the one from the builder
+            assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
+            GuestOutput::Success((header.clone(), pi))
+        }
+        Err(_) => {
+            warn!("Proving bad block construction!");
+            GuestOutput::Failure
+        }
+    };
+    let elapsed = Instant::now().duration_since(start).as_millis() as i64;
+    observe_input(elapsed);
+
+    D::run(input, output, req.proof_param.clone()).await
 }
 
 /// prepare input data for guests
-pub async fn prepare_input(ctx: &mut Context, req: ProofRequest) -> Result<GuestInput> {
+pub async fn prepare_input<P>(ctx: &mut Context, req: &ProofRequest<P>) -> Result<GuestInput> {
     // Todo(Cecilia): should contract address as args, curently hardcode
     let _l1_cache = ctx.l1_cache_file.clone();
     let _l2_cache = ctx.l2_cache_file.clone();
+    let block_number = req.block_number;
+    let l1_rpc = req.l1_rpc.clone();
+    let l2_rpc = req.l2_rpc.clone();
+    let beacon_rpc = req.beacon_rpc.clone();
+    let chain = req.chain.clone();
+    let graffiti = req.graffiti;
+    let prover = req.prover;
     tokio::task::spawn_blocking(move || {
         preflight(
-            Some(req.l1_rpc),
-            Some(req.l2_rpc),
-            req.block_number,
-            Network::from_str(&req.chain).unwrap(),
-            TaikoProverData {
-                graffiti: req.graffiti,
-                prover: req.prover,
-            },
-            Some(req.beacon_rpc),
+            Some(l1_rpc),
+            Some(l2_rpc),
+            block_number,
+            Network::from_str(&chain).unwrap(),
+            TaikoProverData { graffiti, prover },
+            Some(beacon_rpc),
         )
         .expect("Failed to fetch required data for block")
     })
     .await
     .map_err(Into::<super::error::HostError>::into)
-}
-
-impl From<ProofType> for EvidenceType {
-    fn from(value: ProofType) -> Self {
-        match value {
-            #[cfg(feature = "succinct")]
-            ProofType::Succinct => EvidenceType::Succinct,
-            ProofType::PseZk => EvidenceType::PseZk,
-            ProofType::Powdr => EvidenceType::Powdr,
-            ProofType::Sgx => EvidenceType::Sgx {
-                new_pubkey: Address::default(),
-            },
-            ProofType::Risc0(_) => EvidenceType::Risc0,
-            ProofType::Native => EvidenceType::Native,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -174,5 +104,87 @@ mod tests {
         let result = async { Result::<(), &'static str>::Err("error") };
         println!("must here");
         assert!(result.await.is_err());
+    }
+}
+
+pub struct NativeDriver;
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct NativeResponse {
+    output: GuestOutput,
+}
+
+impl GuestDriver for NativeDriver {
+    type ProofParam = ();
+    type ProofResponse = NativeResponse;
+
+    async fn run(
+        _input: GuestInput,
+        output: GuestOutput,
+        _param: Self::ProofParam,
+    ) -> Result<Self::ProofResponse> {
+        Ok(NativeResponse { output })
+    }
+
+    fn instance_hash(_pi: ProtocolInstance) -> B256 {
+        B256::default()
+    }
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "succinct")] {
+
+        pub struct Sp1Driver;
+
+        impl GuestDriver for Sp1Driver {
+            type ProofParam = ();
+            type ProofResponse = sp1_guest::Sp1Response;
+
+            async fn run(
+                input: GuestInput,
+                _output: GuestOutput,
+                _param: Self::ProofParam,
+            ) -> Result<Self::ProofResponse> {
+                let res = sp1_guest::execute(input).await?;
+                Ok(res)
+            }
+
+            fn instance_hash(pi: ProtocolInstance) -> B256 {
+                let data = (
+                    pi.transition.clone(),
+                    pi.prover,
+                    pi.meta_hash()
+                ).abi_encode();
+
+                keccak(data).into()
+            }
+        }
+    } else if #[cfg(feature = "risc0")] {
+
+        pub struct Risc0Driver;
+
+        impl GuestDriver for Risc0Driver {
+            type ProofParam = risc0_guest::Risc0ProofParams;
+            type ProofResponse = risc0_guest::Risc0Response;
+    
+            async fn run(
+                input: GuestInput,
+                output: GuestOutput,
+                param: Self::ProofParam,
+            ) -> Result<Self::ProofResponse> {
+                let res = risc0_guest::execute(input, output, &param).await?;
+                Ok(res)
+            }
+    
+            fn instance_hash(pi: ProtocolInstance) -> B256 {
+                let data = (
+                    pi.transition.clone(),
+                    pi.prover,
+                    pi.meta_hash()
+                ).abi_encode();
+    
+                keccak(data).into()
+            }
+        }
     }
 }

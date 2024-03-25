@@ -1,6 +1,8 @@
 #![feature(path_file_prefix)]
 #![feature(absolute_path)]
 #![feature(offset_of)]
+// TODO(Cecilia): sp1 need this due to compiler versioning, fix toolchain condition on guest type
+#![feature(generic_const_exprs)]
 // Copyright 2023 RISC Zero, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

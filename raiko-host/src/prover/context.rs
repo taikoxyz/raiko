@@ -1,9 +1,6 @@
 use std::path::PathBuf;
-
 use anyhow::Result;
-
-use super::{consts::RAIKO_GUEST_EXECUTABLE, request::ProofType};
-
+use super::request::ProofType;
 #[derive(Debug, Default, Clone)]
 pub struct Context {
     /// guest executable path
@@ -50,13 +47,8 @@ impl Context {
 
     pub fn guest_executable_path(&self, proof_instance: ProofType) -> PathBuf {
         match proof_instance {
-            #[cfg(feature = "succinct")]
-            ProofType::Succinct => todo!(),
-            ProofType::PseZk => todo!(),
             ProofType::Powdr => todo!(),
-            ProofType::Sgx => self.guest_elf.join("sgx").join(RAIKO_GUEST_EXECUTABLE),
-            ProofType::Risc0(_) => todo!(),
-            ProofType::Native => todo!(),
+            ProofType::Sgx => self.guest_elf.join("sgx").join(crate::prover::utils::RAIKO_GUEST_EXECUTABLE),
         }
     }
 
