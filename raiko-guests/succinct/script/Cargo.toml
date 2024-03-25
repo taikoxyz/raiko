@@ -4,12 +4,23 @@ name = "sp1-guest"
 edition = "2021"
 
 [dependencies]
-alloy-primitives = { version = "0.6", default-features = false }
-serde = "1.0"
-serde_json = "1.0"
-zeth-lib = { path = "../../../lib", features = ["taiko", "std"] }
-sp1-core = { git = "https://github.com/succinctlabs/sp1.git" }
-anyhow = "1.0"
+alloy-primitives = { version = "0.6", default-features = false, optional = true }
+serde = { version = "1.0", optional = true}
+serde_json = { version = "1.0", optional = true }
+zeth-lib = { path = "../../../lib", features = ["taiko", "std"] , optional = true }
+sp1-core = { git = "https://github.com/succinctlabs/sp1.git" , optional = true }
+anyhow = {version = "1.0", optional = true }
 
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git" , optional = true }
+
+[features]
+enable = [
+    "serde",
+    "serde_json",
+    "zeth-lib",
+    "sp1-core",
+    "anyhow",
+    "sp1-helper",
+    "alloy-primitives",
+]

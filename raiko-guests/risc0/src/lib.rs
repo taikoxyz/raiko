@@ -1,3 +1,5 @@
+#![cfg(feature = "enable")]
+
 use std::{
     env,
     fmt::Debug,

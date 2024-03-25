@@ -36,10 +36,10 @@ pub struct ProofRequest<P> {
     pub proof_param: P,
 }
 
-// #[derive(Default, Clone, Serialize, Deserialize)]
-// #[serde(rename_all = "camelCase")]
-// pub struct SgxResponse {
-//     /// proof format: 4b(id)+20b(pubkey)+65b(signature)
-//     pub proof: String,
-//     pub quote: String,
-// }
+#[derive(Default, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SgxResponse {
+    /// proof format: 4b(id)+20b(pubkey)+65b(signature)
+    pub proof: String,
+    pub quote: String,
+}

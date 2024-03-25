@@ -35,7 +35,8 @@ jobs:
       uses: cargo-bins/cargo-binstall@v1.6.4
     - run: cargo binstall -y --force cargo-risczero
     - run: cargo risczero install
-    - run: cargo build -p risc0-guest
+    - run: cargo build -p risc0-guest --features enable
+    - run: cargo test -p risc0-guest --features enable
 
   build-test-sp1:
     name: Build and test sp1
@@ -53,8 +54,8 @@ jobs:
         run: |
           curl -L https://sp1.succinct.xyz | bash
           /home/runner/.config/.sp1/bin/sp1up
-          cargo build -p raiko-host --features succinct
-          cargo test -p raiko-host --features succinct
+          cargo build -p sp1-guest --features enable
+          cargo test -p sp1-guest --features enable
         shell: bash
 
   test-lib:

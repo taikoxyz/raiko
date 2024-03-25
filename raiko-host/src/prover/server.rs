@@ -240,7 +240,7 @@ impl Handler {
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
                         res = execute::<Risc0Driver>(&mut self.ctx, &req).await;
                     } else {
-                        use crate::prover::execution_rs::NativeDriver;
+                        use crate::prover::execution::NativeDriver;
                         let req: ProofRequest<<NativeDriver as GuestDriver>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
                         res = execute::<NativeDriver>(&mut self.ctx, &req).await;

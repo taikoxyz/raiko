@@ -31,37 +31,3 @@ pub mod sgx {
         Err("Feature not sgx is enabled".to_string())
     }
 }
-
-// #[cfg(feature = "succinct")]
-// pub mod succinct;
-// #[cfg(not(feature = "succinct"))]
-// pub mod succinct {
-//     use super::*;
-//     use crate::prover::request::Risc0Response;
-//     pub async fn execute_sp1(
-//         input: GuestInput,
-//         output: GuestOutput,
-//         // TODO: Cecilia
-//     ) -> Result<Risc0Response, String> {
-//         Err("Feature not succinct is enabled".to_string())
-//     }
-// }
-
-// #[cfg(feature = "risc0")]
-// pub mod risc0;
-// #[cfg(not(feature = "risc0"))]
-// pub mod risc0 {
-//     use zeth_lib::{
-//         input::GuestInput,
-//     };
-
-//     use super::*;
-//     use crate::prover::request::{Risc0ProofParams, Risc0Response};
-//     pub async fn execute_risc0(
-//         _input: GuestInput,
-//         _output: GuestOutput,
-//         _req: &Risc0ProofParams,
-//     ) -> Result<Risc0Response, String> {
-//         Err("Feature risc0 is not enabled".to_string())
-//     }
-// }
