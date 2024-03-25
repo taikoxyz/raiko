@@ -26,12 +26,10 @@ elif [ "$proof" == "succinct" ]; then
   proofParam=null
 elif [ "$proof" == "risc0" ]; then
   proofParam='{
-    "risc0": {
       "bonsai": false,
       "snark": false,
       "profile": true,
       "execution_po2": 18
-    }
   }'
 elif [ "$proof" == "risc0-bonsai" ]; then
   proofParam='{

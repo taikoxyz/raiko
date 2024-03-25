@@ -250,24 +250,24 @@ impl Handler {
         }
     }
 
-    async fn handle_method_old(
-        &mut self,
-        method: &str,
-        params: &[serde_json::Value],
-    ) -> Result<serde_json::Value, String> {
-        match method {
-            // enqueues a task for computating proof for any given block
-            "proof" => {
-                let options = params.first().ok_or("expected struct ProofRequest")?;
-                let req: ProofRequest =
-                    serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
-                crate::prover::execution::execute(&self.cache, &mut self.ctx, &req)
-                    .await
-                    .and_then(|result| serde_json::to_value(result).map_err(Into::into))
-                    .map_err(|e| e.to_string())
-                // Ok(serde_json::Value::Bool(false))
-            }
-            _ => todo!(),
-        }
-    }
+    // async fn handle_method_old(
+    //     &mut self,
+    //     method: &str,
+    //     params: &[serde_json::Value],
+    // ) -> Result<serde_json::Value, String> {
+    //     match method {
+    //         // enqueues a task for computating proof for any given block
+    //         "proof" => {
+    //             let options = params.first().ok_or("expected struct ProofRequest")?;
+    //             let req: ProofRequest =
+    //                 serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
+    //             crate::prover::execution::execute(&self.cache, &mut self.ctx, &req)
+    //                 .await
+    //                 .and_then(|result| serde_json::to_value(result).map_err(Into::into))
+    //                 .map_err(|e| e.to_string())
+    //             // Ok(serde_json::Value::Bool(false))
+    //         }
+    //         _ => todo!(),
+    //     }
+    // }
 }
