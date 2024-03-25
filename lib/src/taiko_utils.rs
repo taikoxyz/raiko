@@ -106,7 +106,7 @@ fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     encoded_byte[0] = blob_buf[0];
     for encoded_byte_i in encoded_byte.iter_mut().skip(1) {
         (*encoded_byte_i, opos, ipos) =
-            match decode_field_element(&blob_buf, opos, ipos, &mut output) {
+            match decode_field_element(blob_buf, opos, ipos, &mut output) {
                 Ok(res) => res,
                 Err(_) => return Vec::new(),
             }
@@ -120,7 +120,7 @@ fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
             for encoded_byte_j in &mut encoded_byte {
                 // save the first byte of each field element for later re-assembly
                 (*encoded_byte_j, opos, ipos) =
-                    match decode_field_element(&blob_buf, opos, ipos, &mut output) {
+                    match decode_field_element(blob_buf, opos, ipos, &mut output) {
                         Ok(res) => res,
                         Err(_) => return Vec::new(),
                     }

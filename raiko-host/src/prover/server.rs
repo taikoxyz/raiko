@@ -1,6 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use hyper::{
     body::{Buf, HttpBody},
@@ -15,11 +13,11 @@ use tracing::info;
 
 use super::execution::GuestDriver;
 use crate::prover::{
+    cache::Cache,
     context::Context,
     error::HostError,
     execution::execute,
     json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
-    cache::Cache,
     request::*,
 };
 
@@ -254,5 +252,4 @@ impl Handler {
             _ => todo!(),
         }
     }
-
 }

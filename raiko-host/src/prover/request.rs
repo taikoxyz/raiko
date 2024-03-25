@@ -13,7 +13,6 @@ pub enum ProofType {
     Sgx,
 }
 
-
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,7 +35,6 @@ pub struct ProofRequest<P> {
     // Generic proof parameters which has to match with the type
     pub proof_param: P,
 }
-
 
 // #[derive(Default, Clone, Serialize, Deserialize)]
 // #[serde(rename_all = "camelCase")]

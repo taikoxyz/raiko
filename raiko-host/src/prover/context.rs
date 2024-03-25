@@ -1,5 +1,7 @@
 use std::path::PathBuf;
+
 use anyhow::Result;
+
 use super::request::ProofType;
 #[derive(Debug, Default, Clone)]
 pub struct Context {
@@ -48,7 +50,10 @@ impl Context {
     pub fn guest_executable_path(&self, proof_instance: ProofType) -> PathBuf {
         match proof_instance {
             ProofType::Powdr => todo!(),
-            ProofType::Sgx => self.guest_elf.join("sgx").join(crate::prover::utils::RAIKO_GUEST_EXECUTABLE),
+            ProofType::Sgx => self
+                .guest_elf
+                .join("sgx")
+                .join(crate::prover::utils::RAIKO_GUEST_EXECUTABLE),
         }
     }
 

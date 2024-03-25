@@ -348,7 +348,7 @@ pub fn get_block_proposed_event(
 mod test {
     use std::sync::Arc;
 
-    use c_kzg::{KzgCommitment};
+    use c_kzg::KzgCommitment;
     use ethers_core::types::Transaction;
     use reth_primitives::{
         constants::eip4844::MAINNET_KZG_TRUSTED_SETUP,

@@ -11,17 +11,10 @@ use zeth_lib::{
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     taiko_utils::HeaderHasher,
 };
-use zeth_primitives::{keccak::keccak};
+use zeth_primitives::keccak::keccak;
 
-use super::{
-    context::Context,
-    error::Result,
-    request::{ProofRequest},
-};
-use crate::{
-    host::host::preflight,
-    metrics::{observe_input},
-};
+use super::{context::Context, error::Result, request::ProofRequest};
+use crate::{host::host::preflight, metrics::observe_input};
 
 pub trait GuestDriver {
     type ProofParam: Debug + Clone;
@@ -166,7 +159,7 @@ cfg_if::cfg_if! {
         impl GuestDriver for Risc0Driver {
             type ProofParam = risc0_guest::Risc0ProofParams;
             type ProofResponse = risc0_guest::Risc0Response;
-    
+
             async fn run(
                 input: GuestInput,
                 output: GuestOutput,
@@ -175,14 +168,14 @@ cfg_if::cfg_if! {
                 let res = risc0_guest::execute(input, output, &param).await?;
                 Ok(res)
             }
-    
+
             fn instance_hash(pi: ProtocolInstance) -> B256 {
                 let data = (
                     pi.transition.clone(),
                     pi.prover,
                     pi.meta_hash()
                 ).abi_encode();
-    
+
                 keccak(data).into()
             }
         }

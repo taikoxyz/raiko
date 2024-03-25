@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 
 pub const RAIKO_GUEST_EXECUTABLE: &str = "raiko-guest";
 
-
 pub fn cache_file_path(cache_path: &Path, block_no: u64, is_l1: bool) -> PathBuf {
     let prefix = if is_l1 { "l1" } else { "l2" };
     let file_name = format!("{}.{}.json.gz", block_no, prefix);

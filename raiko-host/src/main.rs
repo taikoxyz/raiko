@@ -21,8 +21,6 @@ pub mod host;
 mod metrics;
 mod prover;
 
-
-
 #[allow(dead_code)]
 mod rolling;
 use std::{fmt::Debug, path::PathBuf};
@@ -33,8 +31,6 @@ use serde::Deserialize;
 use structopt::StructOpt;
 use structopt_toml::StructOptToml;
 use tracing::info;
-
-
 
 #[derive(StructOpt, StructOptToml, Deserialize, Debug)]
 #[serde(default)]

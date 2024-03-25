@@ -1,16 +1,12 @@
 use std::{
-    env, fs,
+    env,
+    fmt::Debug,
+    fs,
     path::{Path, PathBuf},
 };
 
-use hex::ToHex;
-// use risc0_guest::{RISC0_METHODS_ELF, RISC0_METHODS_ID};
-use serde::{Deserialize, Serialize};
-use tracing::info as traicing_info;
-use zeth_lib::input::{GuestInput, GuestOutput};
-use std::fmt::Debug;
-use serde_with::{serde_as};
 use bonsai_sdk::alpha::responses::SnarkReceipt;
+use hex::ToHex;
 use log::{debug, error, info, warn};
 use risc0_zkvm::{
     compute_image_id, is_dev_mode,
@@ -19,6 +15,11 @@ use risc0_zkvm::{
     Assumption, ExecutorEnv, ExecutorImpl, FileSegmentRef, Receipt, Segment, SegmentRef,
 };
 use serde::de::DeserializeOwned;
+// use risc0_guest::{RISC0_METHODS_ELF, RISC0_METHODS_ID};
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use tracing::info as traicing_info;
+use zeth_lib::input::{GuestInput, GuestOutput};
 use zeth_primitives::keccak::keccak;
 
 pub mod snarks;
@@ -34,7 +35,6 @@ pub struct Risc0ProofParams {
     pub profile: bool,
     pub execution_po2: u32,
 }
-
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Risc0Response {
@@ -79,7 +79,6 @@ pub async fn execute(
 
     Ok(Risc0Response { journal })
 }
-
 
 pub async fn stark2snark(
     image_id: Digest,
