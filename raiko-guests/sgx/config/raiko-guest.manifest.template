@@ -2,7 +2,7 @@
 # To learn more see: https://gramine.readthedocs.io/en/stable/manifest-syntax.html
 
 loader.entrypoint = "file:{{ gramine.libos }}"
-libos.entrypoint = "/raiko-guest"
+libos.entrypoint = "/sgx-guest"
 loader.log_level = "{{ log_level }}"
 loader.env.HOME = "/root"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
@@ -10,12 +10,18 @@ loader.env.RUST_LOG = "info"
 
 fs.mounts = [
   { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
-  { path = "/raiko-guest", uri = "file:raiko-guest" },
+  { path = "/sgx-guest", uri = "file:sgx-guest" },
   { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/tmp", uri = "file:/tmp" },
-  { path = "/root/.config/raiko/config", uri = "file:/root/.config/raiko/config" },
-  { path = "/root/.config/raiko/secrets", uri = "file:/root/.config/raiko/secrets", type = "encrypted", key_name = "_sgx_mrsigner" },
+  { path = "/root/.config/raiko/config", uri = "file:config" },
+  # TODO(Brecht): add back encrypted, for some reason it gives an IO error
+  { path = "/root/.config/raiko/secrets", uri = "file:secrets" },
+  { path = "/input.bin", uri = "file:input.bin" },
+  # TODO(Brecht): should only be done in direct mode
+  { path = "/dev/attestation/user_report_data", uri = "file:user_report_data" },
+  { path = "/dev/attestation/quote", uri = "file:quote" },
+  { path = "/dev/attestation/attestation_type", uri = "file:attestation_type" },
 ]
 sys.insecure__allow_eventfd = true
 loader.insecure__use_cmdline_argv = true
@@ -25,7 +31,7 @@ sgx.edmm_enable = {{ 'true' if env.get('EDMM', '1') == '1' else 'false' }}
 
 sgx.trusted_files = [
   "file:{{ gramine.libos }}",
-  "file:raiko-guest",
+  "file:sgx-guest",
   "file:{{ gramine.runtimedir() }}/",
   "file:{{ arch_libdir }}/libgcc_s.so.1",
   "file:{{ arch_libdir }}/libssl.so.3",

@@ -14,7 +14,6 @@ use crate::prover::{
     context::Context,
     proof::risc0::snarks::verify_groth16_snark,
     request::{ProofRequest, ProofType, Risc0ProofParams, Risc0Response},
-    utils::guest_executable_path,
 };
 
 // TODO: import from risc0_guest_method

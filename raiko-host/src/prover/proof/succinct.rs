@@ -9,7 +9,6 @@ use crate::prover::{
     consts::*,
     context::Context,
     request::{ProofRequest, SP1Response, SgxResponse},
-    utils::guest_executable_path,
 };
 
 const ELF: &[u8] =

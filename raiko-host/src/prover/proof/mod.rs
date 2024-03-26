@@ -36,7 +36,7 @@ pub mod sgx;
 #[cfg(not(feature = "sgx"))]
 pub mod sgx {
     use super::*;
-    pub async fn execute_sgx(ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
+    pub async fn execute_sgx(input: GuestInput, output: GuestOutput, ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
         Err("Feature not sgx is enabled".to_string())
     }
 }

@@ -12,14 +12,9 @@ use secp256k1::KeyPair;
 use serde::Serialize;
 use zeth_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    consts::TKO_MAINNET_CHAIN_SPEC,
-    input::Input,
-    taiko::{
-        protocol_instance::{assemble_protocol_instance, EvidenceType},
-        TaikoGuestInput,
-    },
+    protocol_instance::{assemble_protocol_instance, EvidenceType},
 };
-use zeth_primitives::{Address, B256};
+use zeth_primitives::Address;
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
 use crate::{
@@ -108,15 +103,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     println!("Global options: {global_opts:?}, OneShot options: {args:?}");
 
     let path_str = args.blocks_data_file.to_string_lossy().to_string();
-    let block_no = u64::from_str(&String::from(
-        args.blocks_data_file
-            .file_prefix()
-            .unwrap()
-            .to_str()
-            .unwrap(),
-    ))?;
-
-    println!("Reading input file {path_str} (block no: {block_no})");
+    println!("Reading input file {path_str}");
 
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let prev_privkey = load_private_key(&privkey_path)?;
@@ -125,26 +112,28 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let new_instance = public_key_to_address(&new_pubkey);
 
     // Get the input
-    let file = File::open(path_str).expect("unable to open file");
+    let file = File::open("input.bin").expect("unable to open file");
     let input = bincode::deserialize_from(file).expect("unable to deserialize input");
 
     // Process the block
-    let (header, _mpt_node) = TaikoStrategy::build_from(&input)
-        .expect("Failed to build the resulting block");
+    let (header, _mpt_node) =
+        TaikoStrategy::build_from(&input).expect("Failed to build the resulting block");
     let pi = assemble_protocol_instance(&input, &header)?;
-    let pi_hash = pi.instance_hash(EvidenceType::Sgx { new_pubkey });
+    let pi_hash = pi.instance_hash(EvidenceType::Sgx {
+        new_pubkey: new_instance,
+    });
 
     // fs::write(privkey_path, new_privkey.to_bytes())?;
-    let pi_hash = get_data_to_sign(
-        "testnet".to_string(),
-        path_str,
-        args.l1_blocks_data_file.to_string_lossy().to_string(),
-        args.prover,
-        args.graffiti,
-        block_no,
-        new_instance,
-    )
-    .await?;
+    // let pi_hash = get_data_to_sign(
+    //     "testnet".to_string(),
+    //     path_str,
+    //     args.l1_blocks_data_file.to_string_lossy().to_string(),
+    //     args.prover,
+    //     args.graffiti,
+    //     block_no,
+    //     new_instance,
+    // )
+    // .await?;
 
     println!("Data to be signed: {pi_hash}");
 
@@ -153,12 +142,16 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     const SGX_PROOF_LEN: usize = 89;
 
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
-    proof.extend(args.sgx_instance_id.to_be_bytes());
+    // TODO(Brecht): fix
+    proof.extend(/*args.sgx_instance_id*/97u64.to_be_bytes());
     proof.extend(new_instance);
-    proof.extend(sig.to_bytes());
+    proof.extend(sig.as_bytes());
     let proof = hex::encode(proof);
+    println!("saving attestation");
     save_attestation_user_report_data(new_instance)?;
+    println!("done!");
     let quote = get_sgx_quote()?;
+    println!("SGX quote done");
     let data = serde_json::json!({
         "proof": format!("0x{proof}"),
         "quote": hex::encode(quote),

@@ -1,7 +1,4 @@
-#![feature(feature = "sgx")]
 use std::str;
-
-use once_cell::sync::Lazy;
 use serde_json::Value;
 use tokio::process::Command;
 use tracing::{debug, info};
@@ -9,55 +6,88 @@ use tracing::{debug, info};
 use crate::{
     metrics::inc_sgx_error,
     prover::{
-        consts::*,
         context::Context,
-        request::{ProofRequest, SgxInstance, SgxResponse},
+        request::{ProofRequest, SgxResponse},
         server::SGX_INSTANCE_ID,
-        utils::guest_executable_path,
     },
 };
+use zeth_lib::input::{GuestInput, GuestOutput};
+use std::fs::{File, create_dir_all, copy};
+use std::env;
+use std::path::PathBuf;
 
-pub async fn execute_sgx(ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
-    let guest_path = guest_executable_path(&ctx.guest_elf, SGX_PARENT_DIR);
-    debug!("Guest path: {:?}", guest_path);
-    let mut cmd = {
-        let bin_directory = guest_path
-            .parent()
-            .ok_or(String::from("missing sgx executable directory"))?;
-        let bin = guest_path
-            .file_name()
-            .ok_or(String::from("missing sgx executable"))?;
-        let mut cmd = Command::new("sudo");
-        cmd.current_dir(bin_directory)
-            .arg("gramine-sgx")
-            .arg(bin)
-            .arg("one-shot");
-        cmd
+pub const RAIKO_GUEST_EXECUTABLE: &str = "sgx-guest";
+pub const INPUT_FILE: &str = "input.bin";
+pub const CONFIG: &str = "../../raiko-guests/sgx/config/";
+
+fn get_working_directory() -> PathBuf {
+    let binding = env::current_exe().unwrap();
+    binding.parent().unwrap().to_path_buf()
+}
+
+pub async fn execute_sgx(input: GuestInput, _output: GuestOutput, _ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
+    // Write the input to a file that will be read by the SGX insance
+    let mut file = File::create(get_working_directory().join(INPUT_FILE)).expect("unable to open file");
+    bincode::serialize_into(&mut file, &input).expect("unable to serialize input");
+
+    // Working paths
+    let working_directory = get_working_directory();
+    let bin = RAIKO_GUEST_EXECUTABLE;
+
+    // Support both SGX and the native backend for testing
+    let no_sgx = true;
+    let gramine = if no_sgx {
+        "gramine-direct"
+    } else {
+        "gramine-sgx"
     };
 
-    let instance_id = SGX_INSTANCE_ID.get().unwrap_or(0);
+    // TODO(Brecht): probably move some of this setup stuff to a build.rs file
+
+    // Create required directories
+    let directories = ["secrets", "config"];
+    for dir in directories {
+        create_dir_all(working_directory.join(dir)).unwrap();
+    }
+
+    // Sign the manifest
+    let mut cmd = Command::new("gramine-manifest");
+    cmd.current_dir(working_directory.clone())
+        .arg("-Dlog_level=error")
+        .arg("-Darch_libdir=/lib/x86_64-linux-gnu/")
+        .arg(working_directory.join(CONFIG).join("raiko-guest.manifest.template"))
+        .arg("sgx-guest.manifest")
+        .output().await.map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
+
+    // Copy dummy files
+    if no_sgx {
+        let files = ["attestation_type", "quote", "user_report_data"];
+        for file in files {
+            copy(working_directory.join(CONFIG).join("dummy_data").join(file), working_directory.join(file)).unwrap();
+        }
+    }
+
+    // Bootstrap
+    let mut cmd = Command::new(gramine);
+    cmd.current_dir(working_directory.clone()).arg(bin).arg("bootstrap").output().await.map_err(|e| format!("Could not run SGX guest boostrap: {}", e.to_string()))?;
+
+    // Prove
+    let mut cmd = Command::new(gramine);
+    let cmd = cmd.current_dir(working_directory).arg(bin).arg("one-shot");
+    let default_sgx_instance_id: u32 = 0;
+    let instance_id = SGX_INSTANCE_ID.get().unwrap_or(&default_sgx_instance_id);
     let output = cmd
-        .arg("--blocks-data-file")
-        .arg(ctx.l2_cache_file.as_ref().unwrap())
-        .arg("--l1-blocks-data-file")
-        .arg(ctx.l1_cache_file.as_ref().unwrap())
-        .arg("--prover")
-        .arg(req.prover.to_string())
-        .arg("--graffiti")
-        .arg(req.graffiti.to_string())
-        .arg("--sgx-instance-id")
-        .arg(instance_id.to_string())
-        .arg("--l2-chain")
-        .arg(&req.chain)
         .output()
         .await
-        .map_err(|e| e.to_string())?;
-    info!("Sgx execution stderr: {:?}", str::from_utf8(&output.stderr));
-    info!("Sgx execution stdout: {:?}", str::from_utf8(&output.stdout));
+        .map_err(|e| format!("Could not run SGX guest prover: {}", e.to_string()))?;
+    print!("Sgx execution stderr: {}", str::from_utf8(&output.stderr).unwrap());
+    print!("Sgx execution stdout: {}", str::from_utf8(&output.stdout).unwrap());
+
     if !output.status.success() {
         inc_sgx_error(req.block_number);
         return Err(output.status.to_string());
     }
+
     parse_sgx_result(output.stdout)
 }
 

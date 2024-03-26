@@ -18,6 +18,7 @@ $ sp1up
 $ cargo prove --version
 ```
 
+- For SGX, install gramine: https://github.com/gramineproject/gramine. If you're running ubuntu 22.04 (or a compatible distro) you can just download and install this deb file: https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
 
 - Clone the repository and build with `cargo`:
 
@@ -84,4 +85,9 @@ CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-
 ### succinct's SP1:
 ```
 cargo run --release --features succinct
+```
+
+### SGX:
+```
+cargo run --release --features sgx
 ```
