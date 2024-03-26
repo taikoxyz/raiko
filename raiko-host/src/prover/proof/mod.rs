@@ -20,14 +20,3 @@ pub mod powdr {
         Err("Feature not powdr is enabled".to_string())
     }
 }
-
-
-#[cfg(feature = "sgx")]
-pub mod sgx;
-#[cfg(not(feature = "sgx"))]
-pub mod sgx {
-    use super::*;
-    pub async fn execute_sgx(_ctx: &mut Context, _req: &ProofRequest) -> Result<SgxResponse, String> {
-        Err("Feature not sgx is enabled".to_string())
-    }
-}

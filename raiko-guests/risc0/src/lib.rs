@@ -31,7 +31,7 @@ include!(concat!(env!("OUT_DIR"), "/methods.rs"));
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Risc0Params {
+pub struct Risc0Param {
     pub bonsai: bool,
     pub snark: bool,
     pub profile: bool,
@@ -46,7 +46,7 @@ pub struct Risc0Response {
 pub async fn execute(
     input: GuestInput,
     output: GuestOutput,
-    req: &Risc0Params,
+    req: &Risc0Param,
 ) -> Result<Risc0Response, String> {
     println!("elf code length: {}", RISC0_METHODS_ELF.len());
     let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
@@ -225,7 +225,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
 }
 
 pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOwned>(
-    req: &Risc0Params,
+    req: &Risc0Param,
     encoded_input: Vec<u32>,
     elf: &[u8],
     expected_output: &O,

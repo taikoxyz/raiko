@@ -239,7 +239,12 @@ impl Handler {
                         let req: ProofRequest<<Risc0Driver as GuestDriver>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
                         res = execute::<Risc0Driver>(&mut self.ctx, &req).await;
-                    } else {
+                    } else if #[cfg(feature = "sgx")] {
+                        use crate::prover::execution::SgxDriver;
+                        let req: ProofRequest<<SgxDriver as GuestDriver>::ProofParam> =
+                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
+                        res = execute::<SgxDriver>(&mut self.ctx, &req).await;
+                    }  else {
                         use crate::prover::execution::NativeDriver;
                         let req: ProofRequest<<NativeDriver as GuestDriver>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;

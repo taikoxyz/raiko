@@ -157,7 +157,7 @@ cfg_if::cfg_if! {
         pub struct Risc0Driver;
 
         impl GuestDriver for Risc0Driver {
-            type ProofParam = risc0_guest::Risc0Params;
+            type ProofParam = risc0_guest::Risc0Param;
             type ProofResponse = risc0_guest::Risc0Response;
 
             async fn run(
@@ -199,6 +199,7 @@ cfg_if::cfg_if! {
             fn instance_hash(pi: ProtocolInstance) -> B256 {
                 let data = (
                     pi.transition.clone(),
+                    // new_pubkey, TODO(cecilia)
                     pi.prover,
                     pi.meta_hash()
                 ).abi_encode();
