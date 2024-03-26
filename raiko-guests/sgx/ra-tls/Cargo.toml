@@ -1,5 +1,5 @@
 [package]
-name = "sgx-ra"
+name = "ra-tls"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,3 +14,5 @@ hex = "0.3"
 [lib]
 name = "server_sgx"
 path = "src/server_sgx.rs"
+
+[workspace]

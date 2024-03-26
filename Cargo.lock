@@ -4109,6 +4109,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "sgx-guest",
  "sha2",
  "sp1-guest",
  "sp1-helper",
@@ -5317,6 +5318,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.55",
+]
+
+[[package]]
+name = "sgx-guest"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "tokio",
+ "tracing",
+ "zeth-lib",
+ "zeth-primitives",
 ]
 
 [[package]]

@@ -1,15 +1,15 @@
+[workspace]
 [package]
-name = "raiko-sgx"
+name = "sgx-lib"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zeth-lib = { path = "../../lib", default-features = false, features = ["taiko"] }
-zeth-primitives = { path = "../../primitives", features = ["taiko"] }
-raiko-host = { path = "../../raiko-host"}
-sgx-ra = { optional = true, path = "../../sgx-ra" }
+zeth-lib = { path = "../../../lib", default-features = false, features = ["taiko", "std"] }
+zeth-primitives = { path = "../../../primitives", features = ["taiko", "std"] }
+ra-tls = { optional = true, path = "../ra-tls" }
 tokio = { version = "^1.23", features = ["full"] }
 anyhow = "1.0"
 secp256k1 = { version = "0.27.0", features = [
@@ -29,4 +29,4 @@ base64 = "0.21.7"
 dirs = "5.0.1"
 
 [features]
-sgx-ra = ["dep:sgx-ra"]
+ra-tls = ["dep:ra-tls"]

@@ -31,7 +31,7 @@ COPY --from=builder /opt/raiko/raiko-guest/config/raiko-guest.manifest.template 
 COPY --from=builder /opt/raiko/raiko-host/config/config.toml /etc/raiko/
 COPY --from=builder /opt/raiko/target/release/raiko-guest ./guests/sgx/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
-COPY ./sgx-ra/src/*.so /usr/lib/
+COPY ./ra-tls/src/*.so /usr/lib/
 
 ARG EDMM=0
 ENV EDMM=${EDMM}

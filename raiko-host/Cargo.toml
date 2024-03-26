@@ -49,6 +49,7 @@ cfg-if = "1.0.0"
 # powdr = { git = "https://github.com/ceciliaz030/powdr", branch = "+nightly", optional = true}
 sp1-guest = { path = "../raiko-guests/succinct/script" }
 risc0-guest = { path = "../raiko-guests/risc0" }
+sgx-guest = { path = "../raiko-guests/sgx/script" }
 
 [dev-dependencies]
 assert_cmd = "2.0"
@@ -66,4 +67,6 @@ succinct = [
 risc0 = [
   "risc0-guest/enable",
 ]
-sgx = []
+sgx = [
+  "sgx-guest/enable",
+]
