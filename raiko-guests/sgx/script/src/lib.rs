@@ -1,8 +1,9 @@
 #![cfg(feature = "enable")]
 use std::{fs::File, path::PathBuf, str};
+
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::serde_as;
-use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 use tracing::{debug, info};
 use zeth_lib::input::{GuestInput, GuestOutput};
@@ -13,7 +14,6 @@ pub const SGX_ELF_PATH: &str = "todo"; // TODO
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SgxParam {
     pub instance_id: u64,
-
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -24,9 +24,11 @@ pub struct SgxResponse {
     pub quote: String,
 }
 
-
-pub async fn execute(input: GuestInput, output: GuestOutput, param: &SgxParam) -> Result<SgxResponse, String> {
-    
+pub async fn execute(
+    input: GuestInput,
+    output: GuestOutput,
+    param: &SgxParam,
+) -> Result<SgxResponse, String> {
     let mut file = File::create(format!("./target/debug/input.bin")).expect("unable to open file");
     bincode::serialize_into(&mut file, &input).expect("unable to serialize input");
 
@@ -40,9 +42,7 @@ pub async fn execute(input: GuestInput, output: GuestOutput, param: &SgxParam) -
             .file_name()
             .ok_or(String::from("missing sgx executable"))?;
         let mut cmd = Command::new("gramine-direct");
-        cmd.current_dir(bin_directory)
-            .arg(bin)
-            .arg("one-shot");
+        cmd.current_dir(bin_directory).arg(bin).arg("one-shot");
         cmd
     };
 

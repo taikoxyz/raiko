@@ -1,6 +1,7 @@
 #![cfg(feature = "enable")]
 
 use std::env;
+
 use serde::{Deserialize, Serialize};
 use sp1_core::{utils, SP1Prover, SP1Stdin, SP1Verifier};
 use zeth_lib::input::{GuestInput, GuestOutput};
