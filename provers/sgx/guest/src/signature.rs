@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
-use raiko_primitives::{keccak256, Address, Signature, B256};
+use anyhow::Result;
+use raiko_primitives::{keccak256, Address, Signature, B256, U256};
 use rand_core::OsRng;
 use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
@@ -31,13 +32,17 @@ pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Addres
 
 /// Signs message with the given secret key.
 /// Returns the corresponding signature.
-pub fn sign_message(secret_key: &SecretKey, message: B256) -> Result<[u8; 65], Error> {
+pub fn sign_message(secret_key: &SecretKey, message: B256) -> Result<alloy_primitives::Signature> {
     let secret = B256::from_slice(&secret_key.secret_bytes()[..]);
     let sec = SecretKey::from_slice(secret.as_ref())?;
     let s = SECP256K1.sign_ecdsa_recoverable(&Message::from_slice(&message[..])?, &sec);
     let (rec_id, data) = s.serialize_compact();
-    let signature = Signature::from_bytes_and_parity(&data, (rec_id.to_i32() != 0) as u64).unwrap();
-    Ok(signature.as_bytes())
+    let signature = alloy_primitives::Signature::from_rs_and_parity(
+        U256::try_from_be_slice(&data[..32]).expect("The slice has at most 32 bytes"),
+        U256::try_from_be_slice(&data[32..64]).expect("The slice has at most 32 bytes"),
+        (rec_id.to_i32() != 0) as bool,
+    )?;
+    Ok(signature)
 }
 
 /// Converts a public key into an ethereum address by hashing the encoded public key with
@@ -65,7 +70,9 @@ mod tests {
     use super::*;
     #[test]
     fn recover() {
-        let proof = "01000000c13bd882edb37ffbabc9f9e34a0d9789633b850fe55e625b768cc8e5feed7d9f7ab536cbc210c2fcc1385aaf88d8a91d8adc2740245f9deee5fd3d61dd2a71662fb6639515f1e2f3354361a82d86c1952352c1a81b";
+        let proof =
+"01000000c13bd882edb37ffbabc9f9e34a0d9789633b850fe55e625b768cc8e5feed7d9f7ab536cbc210c2fcc1385aaf88d8a91d8adc2740245f9deee5fd3d61dd2a71662fb6639515f1e2f3354361a82d86c1952352c1a81b"
+;
         let proof_bytes = hex::decode(proof).unwrap();
         let msg = "216ac5cd5a5e13b0c9a81efb1ad04526b9f4ddd2fe6ebc02819c5097dfb0958c";
         let msg_bytes = hex::decode(msg).unwrap();
