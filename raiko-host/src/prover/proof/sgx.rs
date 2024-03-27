@@ -1,7 +1,14 @@
-use std::str;
+use std::{
+    env,
+    fs::{copy, create_dir_all, File},
+    path::PathBuf,
+    str,
+};
+
 use serde_json::Value;
 use tokio::process::Command;
 use tracing::{debug, info};
+use zeth_lib::input::{GuestInput, GuestOutput};
 
 use crate::{
     metrics::inc_sgx_error,
@@ -11,10 +18,6 @@ use crate::{
         server::SGX_INSTANCE_ID,
     },
 };
-use zeth_lib::input::{GuestInput, GuestOutput};
-use std::fs::{File, create_dir_all, copy};
-use std::env;
-use std::path::PathBuf;
 
 pub const RAIKO_GUEST_EXECUTABLE: &str = "sgx-guest";
 pub const INPUT_FILE: &str = "input.bin";
@@ -25,9 +28,15 @@ fn get_working_directory() -> PathBuf {
     binding.parent().unwrap().to_path_buf()
 }
 
-pub async fn execute_sgx(input: GuestInput, _output: GuestOutput, _ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
+pub async fn execute_sgx(
+    input: GuestInput,
+    _output: GuestOutput,
+    _ctx: &mut Context,
+    req: &ProofRequest,
+) -> Result<SgxResponse, String> {
     // Write the input to a file that will be read by the SGX insance
-    let mut file = File::create(get_working_directory().join(INPUT_FILE)).expect("unable to open file");
+    let mut file =
+        File::create(get_working_directory().join(INPUT_FILE)).expect("unable to open file");
     bincode::serialize_into(&mut file, &input).expect("unable to serialize input");
 
     // Working paths
@@ -55,21 +64,36 @@ pub async fn execute_sgx(input: GuestInput, _output: GuestOutput, _ctx: &mut Con
     cmd.current_dir(working_directory.clone())
         .arg("-Dlog_level=error")
         .arg("-Darch_libdir=/lib/x86_64-linux-gnu/")
-        .arg(working_directory.join(CONFIG).join("raiko-guest.manifest.template"))
+        .arg(
+            working_directory
+                .join(CONFIG)
+                .join("raiko-guest.manifest.template"),
+        )
         .arg("sgx-guest.manifest")
-        .output().await.map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
+        .output()
+        .await
+        .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
 
     // Copy dummy files
     if no_sgx {
         let files = ["attestation_type", "quote", "user_report_data"];
         for file in files {
-            copy(working_directory.join(CONFIG).join("dummy_data").join(file), working_directory.join(file)).unwrap();
+            copy(
+                working_directory.join(CONFIG).join("dummy_data").join(file),
+                working_directory.join(file),
+            )
+            .unwrap();
         }
     }
 
     // Bootstrap
     let mut cmd = Command::new(gramine);
-    cmd.current_dir(working_directory.clone()).arg(bin).arg("bootstrap").output().await.map_err(|e| format!("Could not run SGX guest boostrap: {}", e.to_string()))?;
+    cmd.current_dir(working_directory.clone())
+        .arg(bin)
+        .arg("bootstrap")
+        .output()
+        .await
+        .map_err(|e| format!("Could not run SGX guest boostrap: {}", e.to_string()))?;
 
     // Prove
     let mut cmd = Command::new(gramine);
@@ -80,8 +104,14 @@ pub async fn execute_sgx(input: GuestInput, _output: GuestOutput, _ctx: &mut Con
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e.to_string()))?;
-    print!("Sgx execution stderr: {}", str::from_utf8(&output.stderr).unwrap());
-    print!("Sgx execution stdout: {}", str::from_utf8(&output.stdout).unwrap());
+    print!(
+        "Sgx execution stderr: {}",
+        str::from_utf8(&output.stderr).unwrap()
+    );
+    print!(
+        "Sgx execution stdout: {}",
+        str::from_utf8(&output.stdout).unwrap()
+    );
 
     if !output.status.success() {
         inc_sgx_error(req.block_number);

@@ -143,7 +143,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     // TODO(Brecht): fix
-    proof.extend(/*args.sgx_instance_id*/97u64.to_be_bytes());
+    proof.extend(/* args.sgx_instance_id */ 97u64.to_be_bytes());
     proof.extend(new_instance);
     proof.extend(sig.as_bytes());
     let proof = hex::encode(proof);
