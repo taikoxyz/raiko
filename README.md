@@ -91,3 +91,9 @@ cargo run --release --features succinct
 ```
 cargo run --release --features sgx
 ```
+
+If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
+
+```
+SGX_DIRECT=1 cargo run --release --features sgx
+```

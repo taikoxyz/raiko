@@ -1,7 +1,7 @@
 use std::{
     env,
-    fs::{copy, create_dir_all, File},
-    path::PathBuf,
+    fs::{copy, create_dir_all, remove_file, File},
+    path::{Path, PathBuf},
     str,
 };
 
@@ -34,7 +34,7 @@ pub async fn execute_sgx(
     _ctx: &mut Context,
     req: &ProofRequest,
 ) -> Result<SgxResponse, String> {
-    // Write the input to a file that will be read by the SGX insance
+    // Write the input to a file that will be read by the SGX instance
     let mut file =
         File::create(get_working_directory().join(INPUT_FILE)).expect("unable to open file");
     bincode::serialize_into(&mut file, &input).expect("unable to serialize input");
@@ -43,13 +43,16 @@ pub async fn execute_sgx(
     let working_directory = get_working_directory();
     let bin = RAIKO_GUEST_EXECUTABLE;
 
-    // Support both SGX and the native backend for testing
-    let no_sgx = true;
-    let gramine = if no_sgx {
-        "gramine-direct"
-    } else {
-        "gramine-sgx"
+    // Support both SGX and the direct backend for testing
+    let direct_mode = match env::var("SGX_DIRECT") {
+        Ok(value) => value == "1",
+        Err(_) => false,
     };
+
+    // Print a warning when running in direct mode
+    if direct_mode {
+        println!("WARNING: running SGX in direct mode!");
+    }
 
     // TODO(Brecht): probably move some of this setup stuff to a build.rs file
 
@@ -59,11 +62,16 @@ pub async fn execute_sgx(
         create_dir_all(working_directory.join(dir)).unwrap();
     }
 
-    // Sign the manifest
+    // Generate the manifest
     let mut cmd = Command::new("gramine-manifest");
-    cmd.current_dir(working_directory.clone())
+    let output = cmd
+        .current_dir(working_directory.clone())
         .arg("-Dlog_level=error")
         .arg("-Darch_libdir=/lib/x86_64-linux-gnu/")
+        .arg(format!(
+            "-Ddirect_mode={}",
+            if direct_mode { "1" } else { "0" }
+        ))
         .arg(
             working_directory
                 .join(CONFIG)
@@ -72,10 +80,18 @@ pub async fn execute_sgx(
         .arg("sgx-guest.manifest")
         .output()
         .await
-        .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
+        .map_err(|e| format!("Could not generate manfifest: {}", e.to_string()))?;
+    print!(
+        "Sgx manifest stderr: {}\n",
+        str::from_utf8(&output.stderr).unwrap()
+    );
+    print!(
+        "Sgx manifest stdout: {}\n",
+        str::from_utf8(&output.stdout).unwrap()
+    );
 
-    // Copy dummy files
-    if no_sgx {
+    if direct_mode {
+        // Copy dummy files
         let files = ["attestation_type", "quote", "user_report_data"];
         for file in files {
             copy(
@@ -84,19 +100,65 @@ pub async fn execute_sgx(
             )
             .unwrap();
         }
+    } else {
+        // Generate a private key
+        let mut cmd = Command::new("gramine-sgx-gen-private-key");
+        cmd.current_dir(working_directory.clone())
+            .arg("-f")
+            .output()
+            .await
+            .map_err(|e| format!("Could not generate SGX private key: {}", e.to_string()))?;
+
+        // Sign the manifest
+        let mut cmd = Command::new("gramine-sgx-sign");
+        cmd.current_dir(working_directory.clone())
+            .arg("--manifest")
+            .arg("sgx-guest.manifest")
+            .arg("--output")
+            .arg("sgx-guest.manifest.sgx")
+            .output()
+            .await
+            .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
     }
 
+    let gramine_cmd = || -> Command {
+        if direct_mode {
+            Command::new("gramine-direct")
+        } else {
+            let mut cmd = Command::new("sudo");
+            cmd.arg("gramine-sgx");
+            cmd
+        }
+    };
+
     // Bootstrap
-    let mut cmd = Command::new(gramine);
-    cmd.current_dir(working_directory.clone())
+    // First delete the private key if it already exists
+    let private_key_path = working_directory.join("secrets/priv.key");
+    if private_key_path.exists() {
+        if let Err(e) = remove_file(private_key_path) {
+            println!("Error deleting file: {}", e);
+        }
+    }
+    // Generate a new one
+    let mut cmd = gramine_cmd();
+    let output = cmd
+        .current_dir(working_directory.clone())
         .arg(bin)
         .arg("bootstrap")
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest boostrap: {}", e.to_string()))?;
+    print!(
+        "Sgx bootstrap stderr: {}\n",
+        str::from_utf8(&output.stderr).unwrap()
+    );
+    print!(
+        "Sgx bootstrap stdout: {}\n",
+        str::from_utf8(&output.stdout).unwrap()
+    );
 
     // Prove
-    let mut cmd = Command::new(gramine);
+    let mut cmd = gramine_cmd();
     let cmd = cmd.current_dir(working_directory).arg(bin).arg("one-shot");
     let default_sgx_instance_id: u32 = 0;
     let instance_id = SGX_INSTANCE_ID.get().unwrap_or(&default_sgx_instance_id);
@@ -105,11 +167,11 @@ pub async fn execute_sgx(
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e.to_string()))?;
     print!(
-        "Sgx execution stderr: {}",
+        "Sgx execution stderr: {}\n",
         str::from_utf8(&output.stderr).unwrap()
     );
     print!(
-        "Sgx execution stdout: {}",
+        "Sgx execution stdout: {}\n",
         str::from_utf8(&output.stdout).unwrap()
     );
 

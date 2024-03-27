@@ -15,14 +15,22 @@ fs.mounts = [
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/tmp", uri = "file:/tmp" },
   { path = "/root/.config/raiko/config", uri = "file:config" },
-  # TODO(Brecht): add back encrypted, for some reason it gives an IO error
-  { path = "/root/.config/raiko/secrets", uri = "file:secrets" },
   { path = "/input.bin", uri = "file:input.bin" },
-  # TODO(Brecht): should only be done in direct mode
-  { path = "/dev/attestation/user_report_data", uri = "file:user_report_data" },
-  { path = "/dev/attestation/quote", uri = "file:quote" },
-  { path = "/dev/attestation/attestation_type", uri = "file:attestation_type" },
+
+  # encrypted files give an IO error in direct mode so just make it a normal file
+  { path = "/root/.config/raiko/secrets", uri = "file:secrets" {{ ", type = 'encrypted', key_name = '_sgx_mrsigner'" if direct_mode != '1' else "" }} },
+
+  # Redirect some files exposed by SGX to mocked data when running in direct mode
+  {{
+    "
+      { path = '/dev/attestation/user_report_data', uri = 'file:user_report_data' },
+      { path = '/dev/attestation/quote', uri = 'file:quote' },
+      { path = '/dev/attestation/attestation_type', uri = 'file:attestation_type' },
+    "
+    if direct_mode == '1' else ""
+  }}
 ]
+
 sys.insecure__allow_eventfd = true
 loader.insecure__use_cmdline_argv = true
 
@@ -44,5 +52,7 @@ sgx.remote_attestation = "dcap"
 
 sgx.allowed_files = [
   "file:/tmp/sgx",
-  "file:/root/.config/raiko/config",
+  "file:config",
+  "file:input.bin",
+  {{ " 'file:secrets', " if direct_mode == '1' else ""}}
 ]
