@@ -163,6 +163,8 @@ pub async fn execute_sgx(
     let default_sgx_instance_id: u32 = 0;
     let instance_id = SGX_INSTANCE_ID.get().unwrap_or(&default_sgx_instance_id);
     let output = cmd
+        .arg("--sgx-instance-id")
+        .arg(instance_id.to_string())
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e.to_string()))?;
