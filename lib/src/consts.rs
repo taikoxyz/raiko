@@ -64,6 +64,7 @@ pub static ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
         },
         l1_contract: None,
         l2_contract: None,
+        sgx_verifier_address: None,
     }
 });
 
@@ -85,6 +86,7 @@ macro_rules! taiko_chain_spec {
                 },
                 l1_contract: Some(*L1_CONTRACT),
                 l2_contract: Some(*L2_CONTRACT),
+                sgx_verifier_address: Some(*SGX_VERIFIER_ADDRESS),
             }
         });
     };
@@ -115,6 +117,7 @@ pub static OP_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     },
     l1_contract: None,
     l2_contract: None,
+    sgx_verifier_address: None,
 });
 
 /// The condition at which a fork is activated.
@@ -165,6 +168,7 @@ pub struct ChainSpec {
     eip_1559_constants: Eip1559Constants,
     pub l1_contract: Option<Address>,
     pub l2_contract: Option<Address>,
+    pub sgx_verifier_address: Option<Address>,
 }
 
 impl ChainSpec {
@@ -180,6 +184,7 @@ impl ChainSpec {
             eip_1559_constants,
             l1_contract: None,
             l2_contract: None,
+            sgx_verifier_address: None,
         }
     }
     /// Returns the network chain ID.
