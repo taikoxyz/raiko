@@ -18,6 +18,7 @@ RUN cargo binstall -y --force cargo-risczero
 RUN cargo risczero install
 
 RUN cargo build --release ${BUILD_FLAGS}
+RUN cd raiko-guests/sgx && cargo build --release
 RUN ls -la /opt/raiko
 RUN ls -la /opt/raiko/target
 RUN ls -la /opt/raiko/target/release
@@ -59,20 +60,12 @@ RUN ls -la /opt/raiko
 RUN ls -la /opt/raiko/bin
 RUN ls -la /opt/raiko/provers
 RUN ls -la /opt/raiko/provers/sgx
-COPY --from=builder /opt/raiko/target/release/provers ./provers/sgx/
-# ubuntu@VM-0-6-ubuntu:~/zeth-john/provers/sgx$ cargo build --release
-# GROTH16_VERIFIER_ADDRESS="" cargo build --features "sgx" --release
-# ./provers/sp1/target
-# ./provers/risc0/guest/target
-# /target/release/host
-# "/opt/raiko/target/release/provers": not found
+COPY --from=builder /opt/raiko/raiko-guests/sgx/target/release/raiko-sgx  ./provers/sgx/
+COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 
-# COPY --from=builder /opt/raiko/target/release/host ./bin/
+ARG EDMM=0
+ENV EDMM=${EDMM}
+RUN cd ./provers/sgx && \
+    gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
 
-# ARG EDMM=0
-# ENV EDMM=${EDMM}
-# RUN cd ./provers/sgx && \
-#     gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
-
-# ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]
-ENTRYPOINT [ "/bin/bash" ]
+ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]

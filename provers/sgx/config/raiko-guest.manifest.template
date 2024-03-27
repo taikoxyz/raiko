@@ -2,7 +2,7 @@
 # To learn more see: https://gramine.readthedocs.io/en/stable/manifest-syntax.html
 
 loader.entrypoint = "file:{{ gramine.libos }}"
-libos.entrypoint = "/sgx-guest"
+libos.entrypoint = "/raiko-sgx"
 loader.log_level = "{{ log_level }}"
 loader.env.HOME = "/root"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
@@ -10,7 +10,7 @@ loader.env.RUST_LOG = "info"
 
 fs.mounts = [
   { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
-  { path = "/sgx-guest", uri = "file:sgx-guest" },
+  { path = "/raiko-sgx", uri = "file:raiko-sgx" },
   { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/tmp", uri = "file:/tmp" },
@@ -39,7 +39,7 @@ sgx.edmm_enable = {{ 'true' if env.get('EDMM', '1') == '1' else 'false' }}
 
 sgx.trusted_files = [
   "file:{{ gramine.libos }}",
-  "file:sgx-guest",
+  "file:raiko-sgx",
   "file:{{ gramine.runtimedir() }}/",
   "file:{{ arch_libdir }}/libgcc_s.so.1",
   "file:{{ arch_libdir }}/libssl.so.3",
