@@ -4,8 +4,8 @@ members = [
     "lib",
     "primitives",
     "raiko-host",
-    # "sgx-ra",
     # "tests/*",
+    "raiko-guests/sgx",
 ]
 
 

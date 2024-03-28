@@ -37,7 +37,7 @@ for feature in "${features[@]}"; do
         --build-arg TARGETPLATFORM=linux/amd64
 
     docker tag raiko:$tag gcr.io/evmchain/raiko:$tag
-    docker push gcr.io/evmchain/raiko:$tag
+    #docker push gcr.io/evmchain/raiko:$tag
 
     echo "Done"
 done

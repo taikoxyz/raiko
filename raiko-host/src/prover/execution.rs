@@ -72,7 +72,7 @@ pub async fn execute(
         let proof = match &req.proof_type {
             ProofType::Sgx => {
                 let bid = req.block_number;
-                let resp = execute_sgx(ctx, req).await?;
+                let resp = execute_sgx(input, output, ctx, req).await?;
                 let time_elapsed = Instant::now().duration_since(start).as_millis() as i64;
                 observe_sgx_gen(bid, time_elapsed);
                 inc_sgx_success(bid);

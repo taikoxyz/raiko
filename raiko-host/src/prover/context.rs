@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
-use super::{consts::RAIKO_GUEST_EXECUTABLE, request::ProofType};
+use super::request::ProofType;
 
 #[derive(Debug, Default, Clone)]
 pub struct Context {
@@ -47,18 +47,6 @@ impl Context {
             self.l2_cache_file = Some(self.host_cache.join(file_name));
         }
     }
-
-    pub fn guest_executable_path(&self, proof_instance: ProofType) -> PathBuf {
-        match proof_instance {
-            ProofType::Succinct => todo!(),
-            ProofType::PseZk => todo!(),
-            ProofType::Powdr => todo!(),
-            ProofType::Sgx => self.guest_elf.join("sgx").join(RAIKO_GUEST_EXECUTABLE),
-            ProofType::Risc0(_) => todo!(),
-            ProofType::Native => todo!(),
-        }
-    }
-
     pub async fn remove_cache_file(&self) -> Result<()> {
         if let Some(file) = &self.l1_cache_file {
             tokio::fs::remove_file(file).await?;

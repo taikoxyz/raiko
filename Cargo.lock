@@ -825,10 +825,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
+name = "base64-serde"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba368df5de76a5bea49aaf0cf1b39ccfbbef176924d1ba5db3e4135216cbe3c7"
+dependencies = [
+ "base64 0.21.7",
+ "serde",
+]
+
+[[package]]
 name = "base64ct"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
+
+[[package]]
+name = "beef"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bincode"
@@ -1547,6 +1566,15 @@ name = "directories"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a49173b84e034382284f27f1af4dcbbd231ffa358c0fe316541a7337f376a35"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
 dependencies = [
  "dirs-sys",
 ]
@@ -3942,6 +3970,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "sgx-guest",
  "sha2",
  "sp1-core",
  "sp1-helper",
@@ -5016,6 +5045,50 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.55",
+]
+
+[[package]]
+name = "sgx-guest"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "base64-serde",
+ "bincode",
+ "clap 4.5.2",
+ "dirs",
+ "hex",
+ "rand",
+ "rand_core",
+ "secp256k1 0.27.0",
+ "serde",
+ "serde_json",
+ "sha3",
+ "tokio",
+ "zeth-lib",
+ "zeth-primitives",
+]
+
+[[package]]
+name = "sgx-guest"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "base64-serde",
+ "bincode",
+ "clap 4.5.2",
+ "dirs",
+ "hex",
+ "rand",
+ "rand_core",
+ "secp256k1 0.27.0",
+ "serde",
+ "serde_json",
+ "sha3",
+ "tokio",
+ "zeth-lib",
+ "zeth-primitives",
 ]
 
 [[package]]

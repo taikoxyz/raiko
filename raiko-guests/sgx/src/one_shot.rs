@@ -12,12 +12,7 @@ use secp256k1::KeyPair;
 use serde::Serialize;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    consts::TKO_MAINNET_CHAIN_SPEC,
-    input::Input,
-    taiko::{
-        protocol_instance::{assemble_protocol_instance, EvidenceType},
-        TaikoGuestInput,
-    },
+    protocol_instance::{assemble_protocol_instance, EvidenceType},
 };
 use raiko_primitives::{Address, B256};
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
@@ -82,13 +77,18 @@ fn save_bootstrap_details(
 }
 
 pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
+    // Generate a new key pair
     let key_pair = generate_key();
+    // Store it on disk encrypted inside SGX so we can reuse it between program runs
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     save_priv_key(&key_pair, &privkey_path)?;
+    // Get the public key from the pair
     println!("Public key: 0x{}", key_pair.public_key());
     let new_instance = public_key_to_address(&key_pair.public_key());
-    save_attestation_user_report_data(new_instance)?;
     println!("Instance address: {new_instance}");
+    // Store the attestation with the new public key
+    save_attestation_user_report_data(new_instance)?;
+    // Store all this data for future use on disk (no encryption necessary)
     let quote = get_sgx_quote()?;
     let bootstrap_details_file_path = global_opts.config_dir.join(BOOTSTRAP_INFO_FILENAME);
     save_bootstrap_details(&key_pair, new_instance, quote, &bootstrap_details_file_path)?;
@@ -101,63 +101,50 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
 }
 
 pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> {
+    // Make sure this SGX instance was bootstrapped
     if !is_bootstrapped(&global_opts.secrets_dir) {
         bail!("Application was not bootstrapped. Bootstrap it first.");
     }
 
     println!("Global options: {global_opts:?}, OneShot options: {args:?}");
 
-    let path_str = args.blocks_data_file.to_string_lossy().to_string();
-    let block_no = u64::from_str(&String::from(
-        args.blocks_data_file
-            .file_prefix()
-            .unwrap()
-            .to_str()
-            .unwrap(),
-    ))?;
-
-    println!("Reading input file {path_str} (block no: {block_no})");
-
+    // Load the signing data
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
     let prev_privkey = load_private_key(&privkey_path)?;
     // let (new_privkey, new_pubkey) = generate_new_keypair()?;
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
 
-    // Get the input
-    let file = File::open(path_str).expect("unable to open file");
+    // Get the block input
+    let input_path = args.blocks_data_file.to_string_lossy().to_string();
+    let file = File::open(input_path).expect("unable to open file");
     let input = bincode::deserialize_from(file).expect("unable to deserialize input");
 
     // Process the block
-    let (header, _mpt_node) = TaikoStrategy::build_from(&input)
-        .expect("Failed to build the resulting block");
+    let (header, _mpt_node) =
+        TaikoStrategy::build_from(&input).expect("Failed to build the resulting block");
+
+    // Calculate the public input hash
     let pi = assemble_protocol_instance(&input, &header)?;
-    let pi_hash = pi.instance_hash(EvidenceType::Sgx { new_pubkey });
+    let pi_hash = pi.instance_hash(EvidenceType::Sgx {
+        new_pubkey: new_instance,
+    });
 
-    // fs::write(privkey_path, new_privkey.to_bytes())?;
-    let pi_hash = get_data_to_sign(
-        "testnet".to_string(),
-        path_str,
-        args.l1_blocks_data_file.to_string_lossy().to_string(),
-        args.prover,
-        args.graffiti,
-        block_no,
-        new_instance,
-    )
-    .await?;
-
-    println!("Data to be signed: {pi_hash}");
-
+    // Sign the public input hash which contains all required block inputs and outputs
     let sig = sign_message(&prev_privkey, pi_hash)?;
 
+    // Create the proof for the onchain SGX verifier
     const SGX_PROOF_LEN: usize = 89;
-
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_be_bytes());
     proof.extend(new_instance);
-    proof.extend(sig.to_bytes());
+    proof.extend(sig);
     let proof = hex::encode(proof);
+
+    // Store the public key address in the attestation data
     save_attestation_user_report_data(new_instance)?;
+
+    // Print out the proof and updated public info
     let quote = get_sgx_quote()?;
     let data = serde_json::json!({
         "proof": format!("0x{proof}"),
@@ -167,6 +154,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     });
     println!("{data}");
 
+    // Print out general SGX information
     print_sgx_info()
 }
 

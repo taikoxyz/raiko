@@ -8,10 +8,9 @@
 !/docker/entrypoint.sh
 !/lib
 !/primitives
-!/raiko-guest
+!/raiko-guests
 !/raiko-host
 !/rust-toolchain
-!/sgx-ra
 !/taiko.toml
 !/tests
 # Ignore unnecessary files inside allowed directories
