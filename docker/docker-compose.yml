@@ -17,10 +17,8 @@ services:
       - ${HOME}/.config/raiko:/root/.config/raiko
     ports:
       - "8080:8080"
-  #   depends_on:
-  #     - pccs
-  #   environment:
-  #     - GITHUB_TOKEN=${GITHUB_TOKEN}
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
   #   depends_on:
   #     - pccs
   # pccs:
