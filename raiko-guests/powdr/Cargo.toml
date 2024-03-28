@@ -12,8 +12,8 @@ path = "src/main.rs"
 
 
 [dependencies]
-zeth-primitives = { path = "../../primitives", features = ["revm"] }
-zeth-lib = { path = "../../lib", features = ["taiko"] }
+raiko-primitives = { path = "../../primitives", features = ["revm"] }
+raiko-lib = { path = "../../lib", features = ["taiko"] }
 powdr-riscv-runtime ={ git = "https://github.com/ceciliaz030/powdr", branch = "+nightly" }
 
 

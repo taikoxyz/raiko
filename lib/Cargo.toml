@@ -1,5 +1,5 @@
 [package]
-name = "zeth-lib"
+name = "raiko-lib"
 version = "0.1.0"
 edition = "2021"
 
@@ -26,7 +26,7 @@ revm = { workspace = true, default-features = false }
 ruint = { version = "1.10", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["alloc"] }
 thiserror-no-std = "2.0.2"
-zeth-primitives = { path = "../primitives", features = ["revm"] }
+raiko-primitives = { path = "../primitives", default-features = false, features = ["revm"] }
 hex = { version = "0.4.3", default-features = false, optional = true }
 url = "2.5.0"
 
@@ -56,7 +56,7 @@ std = [
   # "dep:tokio",
   ]
 taiko = [
-  "zeth-primitives/taiko",
+  "raiko-primitives/taiko",
   "revm/taiko",
   "dep:hex",
   ]

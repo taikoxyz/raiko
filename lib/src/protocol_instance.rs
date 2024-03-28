@@ -2,7 +2,7 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use zeth_primitives::keccak::keccak;
+use raiko_primitives::keccak::keccak;
 
 use super::taiko_utils::ANCHOR_GAS_LIMIT;
 use crate::{

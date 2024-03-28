@@ -20,7 +20,7 @@ use revm::{
 };
 use serde::{Deserialize, Serialize};
 use thiserror_no_std::Error as ThisError;
-use zeth_primitives::{Address, B256, U256};
+use raiko_primitives::{Address, B256, U256};
 
 /// Error returned by the [MemDb].
 #[derive(Debug, ThisError)]

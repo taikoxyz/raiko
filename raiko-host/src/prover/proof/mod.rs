@@ -1,5 +1,5 @@
 //! Generate different proofs for the taiko protocol.
-use zeth_lib::input::{GuestInput, GuestOutput};
+use raiko_lib::input::{GuestInput, GuestOutput};
 
 use crate::prover::{
     context::Context,
@@ -61,7 +61,7 @@ pub mod succinct {
 pub mod risc0;
 #[cfg(not(feature = "risc0"))]
 pub mod risc0 {
-    use zeth_lib::{
+    use raiko_lib::{
         builder::{BlockBuilderStrategy, TaikoStrategy},
         input::GuestInput,
     };

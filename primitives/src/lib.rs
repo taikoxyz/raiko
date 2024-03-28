@@ -22,6 +22,10 @@ pub mod keccak;
 pub mod mpt;
 pub mod receipt;
 pub mod signature;
+pub mod eip4844;
+
+#[cfg(feature = "c-kzg")]
+pub use c_kzg as kzg;
 
 #[cfg(feature = "revm")]
 pub mod revm;

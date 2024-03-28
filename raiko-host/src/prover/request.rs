@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
-use zeth_lib::input::GuestOutput;
-use zeth_primitives::{Address, B256};
+use raiko_lib::input::GuestOutput;
+use raiko_primitives::{Address, B256};
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]

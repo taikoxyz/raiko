@@ -7,7 +7,7 @@ use alloy_rlp::*;
 use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use once_cell::unsync::Lazy;
-use zeth_primitives::{keccak256, B256};
+use raiko_primitives::{keccak256, B256};
 
 use crate::{
     consts::{get_network_spec, Network},

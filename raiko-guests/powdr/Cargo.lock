@@ -1624,8 +1624,8 @@ name = "powdr"
 version = "0.1.0"
 dependencies = [
  "powdr-riscv-runtime",
- "zeth-lib",
- "zeth-primitives",
+ "raiko-lib",
+ "raiko-primitives",
 ]
 
 [[package]]
@@ -3215,7 +3215,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zeth-lib"
+name = "raiko-lib"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
@@ -3238,11 +3238,11 @@ dependencies = [
  "thiserror",
  "thiserror-no-std",
  "tokio",
- "zeth-primitives",
+ "raiko-primitives",
 ]
 
 [[package]]
-name = "zeth-primitives"
+name = "raiko-primitives"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",

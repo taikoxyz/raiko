@@ -14,14 +14,14 @@
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_providers::tmp::{HttpProvider, TempProvider};
 use alloy_rpc_types::{BlockId, EIP1186AccountProofResponse};
-use hashbrown::HashMap;
+use revm::primitives::HashMap;
 use revm::{
     primitives::{Account, AccountInfo, Bytecode},
     Database, DatabaseCommit,
 };
 use tokio::runtime::Handle;
-use zeth_lib::{mem_db::MemDb, taiko_utils::to_header};
-use zeth_primitives::{Address, B256, U256};
+use raiko_lib::{mem_db::MemDb, taiko_utils::to_header};
+use raiko_primitives::{Address, B256, U256};
 
 use crate::host::host::get_block;
 

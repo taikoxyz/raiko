@@ -29,8 +29,8 @@ serde = "1.0"
 serde_with = "3.4.0"
 tempfile = "3.6"
 tokio = { version = "^1.23", features = ["full"] }
-zeth-lib = { path = "../lib", features = ["taiko", "std"] }
-zeth-primitives = { path = "../primitives", features = ["taiko", "revm"] }
+raiko-lib = { path = "../lib", features = ["taiko", "std"] }
+raiko-primitives = { path = "../primitives", features = ["taiko", "revm", "c-kzg"] }
 serde_json = "1.0"
 hyper = { version = "0.14.27", features = ["server"] }
 hashbrown = { workspace = true }
@@ -50,13 +50,13 @@ bonsai-sdk = { version = "0.6.0", features = ["async"],  optional = true }
 risc0-guest = { path = "../raiko-guests/risc0", features = ["risc0"], optional = true}
 log = {version = "0.4"}
 typetag ={version = "0.2.15", optional = true}
-reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", branch = "main", features = [
-  "c-kzg",
-] }
+# reth-primitives = { git = "https://github.com/paradigmxyz/reth.git", branch = "main", default-features = false, features = [
+#   "c-kzg",
+# ] }
 reqwest = "0.11.22"
 sha2 = "0.10.8"
 proptest = "1.4.0"
-c-kzg = "0.4.0"
+c-kzg = "1.0.0"
 rlp = "0.5.2"
 url = "2.5.0"
 

@@ -17,9 +17,9 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
-use hashbrown::HashMap;
+use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
-use zeth_primitives::{mpt::MptNode, Address, Bytes, FixedBytes, B256, U256};
+use raiko_primitives::{mpt::MptNode, Address, Bytes, FixedBytes, B256, U256};
 
 use crate::consts::Network;
 

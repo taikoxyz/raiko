@@ -11,12 +11,10 @@ use alloy_transport_http::Http;
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use hashbrown::HashSet;
-use reth_primitives::{
-    constants::eip4844::MAINNET_KZG_TRUSTED_SETUP, eip4844::kzg_to_versioned_hash,
-};
+use raiko_primitives::eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP};
 use serde::{Deserialize, Serialize};
 use url::Url;
-use zeth_lib::{
+use raiko_lib::{
     builder::{prepare::TaikoHeaderPrepStrategy, BlockBuilder, TkoTxExecStrategy},
     consts::{get_network_spec, Network},
     input::{
@@ -25,7 +23,7 @@ use zeth_lib::{
     },
     taiko_utils::{generate_transactions, to_header},
 };
-use zeth_primitives::mpt::proofs_to_tries;
+use raiko_primitives::mpt::proofs_to_tries;
 
 use crate::host::provider_db::ProviderDb;
 
@@ -412,7 +410,7 @@ pub fn get_block_proposed_event(
                 false,
             )
             .unwrap();
-            if event.blockId == zeth_primitives::U256::from(l2_block_no) {
+            if event.blockId == raiko_primitives::U256::from(l2_block_no) {
                 let tx = tokio_handle
                     .block_on(async {
                         provider
@@ -428,7 +426,7 @@ pub fn get_block_proposed_event(
                 false,
             )
             .unwrap();
-            if event.blockId == zeth_primitives::U256::from(l2_block_no) {
+            if event.blockId == raiko_primitives::U256::from(l2_block_no) {
                 let tx = tokio_handle
                     .block_on(async {
                         provider
@@ -443,6 +441,7 @@ pub fn get_block_proposed_event(
     bail!("No BlockProposed event found for block {l2_block_no}");
 }
 
+
 #[cfg(test)]
 mod test {
     use std::sync::Arc;
@@ -454,7 +453,7 @@ mod test {
         eip4844::kzg_to_versioned_hash,
         revm_primitives::kzg::{parse_kzg_trusted_setup, KzgSettings},
     };
-    use zeth_lib::taiko_utils::decode_transactions;
+    use raiko_lib::taiko_utils::decode_transactions;
 
     use super::*;
 

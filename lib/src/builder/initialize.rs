@@ -15,12 +15,12 @@
 use core::mem;
 
 use anyhow::{bail, Result};
-use hashbrown::HashMap;
+use revm::primitives::HashMap;
 use revm::{
     primitives::{AccountInfo, Bytecode, B256},
     Database, DatabaseCommit,
 };
-use zeth_primitives::{
+use raiko_primitives::{
     keccak::{keccak, KECCAK_EMPTY},
     mpt::StateAccount,
     Bytes,
@@ -99,7 +99,7 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
             // load storage reads
             let mut storage = HashMap::with_capacity(slots.len());
             for slot in slots {
-                let value: zeth_primitives::U256 = storage_trie
+                let value: raiko_primitives::U256 = storage_trie
                     .get_rlp(&keccak(slot.to_be_bytes::<32>()))?
                     .unwrap_or_default();
                 storage.insert(slot, value);

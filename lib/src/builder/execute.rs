@@ -20,11 +20,11 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use log::debug;
 use revm::{
     interpreter::Host,
-    primitives::{Account, Address, EVMError, ResultAndState, SpecId, TransactTo, TxEnv},
+    primitives::{Account, Address, EVMError, HandlerCfg, ResultAndState, SpecId, TransactTo, TxEnv},
     taiko, Database, DatabaseCommit, Evm,
 };
 use ruint::aliases::U256;
-use zeth_primitives::{mpt::MptNode, receipt::Receipt, Bloom, RlpBytes};
+use raiko_primitives::{mpt::MptNode, receipt::Receipt, Bloom, RlpBytes};
 
 use super::TxExecStrategy;
 use crate::{
@@ -63,11 +63,11 @@ impl TxExecStrategy for TkoTxExecStrategy {
         );
 
         let mut evm = Evm::builder()
-            .spec_id(spec_id)
+            .with_db(block_builder.db.take().unwrap())
+            .with_handler_cfg(HandlerCfg::new_with_taiko(spec_id, true))
             .modify_cfg_env(|cfg_env| {
                 // set the EVM configuration
                 cfg_env.chain_id = chain_id;
-                cfg_env.taiko = true;
             })
             .modify_block_env(|blk_env| {
                 // set the EVM block environment
@@ -79,7 +79,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 blk_env.basefee = header.base_fee_per_gas.unwrap().try_into().unwrap();
                 blk_env.gas_limit = block_builder.input.gas_limit.try_into().unwrap();
             })
-            .with_db(block_builder.db.take().unwrap())
             .append_handler_register(taiko::handler_register::taiko_handle_register)
             .build();
 
@@ -155,7 +154,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             // setup the transaction
             fill_eth_tx_env(
                 block_builder.input.network,
-                &mut evm.env().tx,
+                &mut evm.env_mut().tx,
                 &tx,
                 tx_from,
                 is_anchor,
@@ -203,7 +202,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 tx_type,
                 result.is_success(),
                 cumulative_gas_used.try_into().unwrap(),
-                result.logs().into_iter().map(|log| log.into()).collect(),
+                result.logs().into_iter().map(|log| log.clone().into()).collect(),
             );
 
             // update the state
@@ -261,7 +260,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         // Leak memory, save cycles
         guest_mem_forget([tx_trie, receipt_trie, withdrawals_trie]);
         // Return block builder with updated database
-        Ok(block_builder.with_db(evm.context.evm.db))
+        Ok(block_builder.with_db(evm.context.evm.inner.db))
     }
 }
 

@@ -22,7 +22,7 @@ use anyhow::bail;
 use once_cell::unsync::Lazy;
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
-use zeth_primitives::{uint, BlockNumber, ChainId, U256};
+use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;
