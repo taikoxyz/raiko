@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 raiko-primitives = { path = "../../primitives", features = ["revm"] }
-raiko-lib = { path = "../../lib", features = ["std", "taiko"] }
+raiko-lib = { path = "../../lib", features = ["taiko", "std"] }
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git" }
 serde = { version = "1.0.195", features = ["derive"] }
 

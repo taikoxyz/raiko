@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-raiko-lib = { path = "../../lib", default-features = false, features = ["taiko"] }
+raiko-lib = { path = "../../lib", default-features = false, features = ["taiko", "std"] }
 raiko-primitives = { path = "../../primitives", features = ["taiko"] }
 tokio = { version = "^1.23", features = ["full"] }
 anyhow = "1.0"
