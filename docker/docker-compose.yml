@@ -21,6 +21,8 @@ services:
   #     - pccs
   #   environment:
   #     - GITHUB_TOKEN=${GITHUB_TOKEN}
+  #   depends_on:
+  #     - pccs
   # pccs:
   #   build:
   #     context: ..
