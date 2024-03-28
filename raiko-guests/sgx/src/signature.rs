@@ -31,20 +31,13 @@ pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Addres
 
 /// Signs message with the given secret key.
 /// Returns the corresponding signature.
-pub fn sign_message(secret_key: &SecretKey, message: B256) -> Result<Signature, Error> {
+pub fn sign_message(secret_key: &SecretKey, message: B256) -> Result<[u8; 65], Error> {
     let secret = B256::from_slice(&secret_key.secret_bytes()[..]);
     let sec = SecretKey::from_slice(secret.as_ref())?;
     let s = SECP256K1.sign_ecdsa_recoverable(&Message::from_slice(&message[..])?, &sec);
     let (rec_id, data) = s.serialize_compact();
-
-    let signature = Signature::from_rs_and_parity(
-        U256::try_from_be_slice(&data[..32]).expect("The slice has at most 32 bytes"),
-        U256::try_from_be_slice(&data[32..64]).expect("The slice has at most 32 bytes"),
-        (rec_id.to_i32() != 0) as u64,
-    )
-    .unwrap();
-
-    Ok(signature)
+    let signature = Signature::from_bytes_and_parity(&data, (rec_id.to_i32() != 0) as u64).unwrap();
+    Ok(signature.as_bytes())
 }
 
 /// Converts a public key into an ethereum address by hashing the encoded public key with
