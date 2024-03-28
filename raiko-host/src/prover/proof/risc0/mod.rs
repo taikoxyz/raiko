@@ -10,7 +10,6 @@ use tracing::info as traicing_info;
 use zeth_lib::input::{GuestInput, GuestOutput};
 
 use crate::prover::{
-    consts::*,
     context::Context,
     proof::risc0::snarks::verify_groth16_snark,
     request::{ProofRequest, ProofType, Risc0ProofParams, Risc0Response},
