@@ -21,10 +21,6 @@ pub const GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
         .expect("invalid golden touch account")
 });
-pub const SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
-        .expect("invalid sgx verifier contract address")
-});
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
     alloy_rlp::Decodable::decode(&mut &tx_list.to_owned()[..]).unwrap_or_default()
