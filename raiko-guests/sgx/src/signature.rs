@@ -5,7 +5,7 @@ use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
     Error, KeyPair, Message, PublicKey, SecretKey, SECP256K1,
 };
-use raiko_primitives::{keccak256, transactions::signature::TxSignature, Address, B256, U256};
+use raiko_primitives::{keccak256, Signature, Address, B256, U256};
 
 pub fn generate_key() -> KeyPair {
     KeyPair::new_global(&mut OsRng)
