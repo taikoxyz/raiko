@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use core::fmt::Debug;
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;

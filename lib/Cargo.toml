@@ -45,7 +45,8 @@ serde_with = "3.1"
 
 [features]
 std = [
-  "revm/std",
+  # always use no-std for revm since we use hashbrown in workspace
+  # "revm/std",
   "dep:thiserror",
   "anyhow/std",
   "dep:chrono",

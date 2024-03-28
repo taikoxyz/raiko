@@ -120,7 +120,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     if is_anchor {
                         bail!("Error recovering anchor signature: {}", err);
                     }
-                    #[cfg(not(target_os = "zkvm"))]
+                    #[cfg(feature = "std")]
                     debug!(
                         "Error recovering address for transaction {}, error: {}",
                         tx_no, err
@@ -147,7 +147,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 if is_anchor {
                     bail!("Error at transaction {}: gas exceeds block limit", tx_no);
                 }
-                #[cfg(not(target_os = "zkvm"))]
+                #[cfg(feature = "std")]
                 debug!("Error at transaction {}: gas exceeds block limit", tx_no);
                 continue;
             }
@@ -171,7 +171,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     // manipulated by the prover)
                     match err {
                         EVMError::Transaction(invalid_transaction) => {
-                            #[cfg(not(target_os = "zkvm"))]
+                            #[cfg(feature = "std")]
                             debug!("Invalid tx at {}: {:?}", tx_no, invalid_transaction);
                             // skip the tx
                             continue;

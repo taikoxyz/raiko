@@ -14,8 +14,9 @@
 
 //! Constants for the Ethereum protocol.
 extern crate alloc;
-
 use alloc::{collections::BTreeMap, str::FromStr};
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 
 use alloy_primitives::Address;
 use anyhow::bail;
