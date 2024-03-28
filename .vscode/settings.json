@@ -3,6 +3,7 @@
     "rust-analyzer.linkedProjects": [
         "./Cargo.toml",
         "./raiko-guests/risc0/guest/Cargo.toml",
-        "./raiko-guests/succinct/Cargo.toml"
+        "./raiko-guests/succinct/Cargo.toml",
+        "./raiko-guests/sgx/Cargo.toml"
     ]
 }

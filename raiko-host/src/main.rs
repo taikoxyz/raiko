@@ -42,7 +42,7 @@ struct Opt {
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
     cache: PathBuf,
 
-    #[structopt(long, require_equals = true, default_value = "raiko-host/guests")]
+    #[structopt(long, require_equals = true, default_value = "./")]
     /// The guests path
     guest: PathBuf,
 

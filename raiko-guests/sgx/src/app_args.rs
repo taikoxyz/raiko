@@ -16,8 +16,6 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    #[cfg(feature = "sgx")]
-    Server(ServerArgs),
     OneShot(OneShotArgs),
     /// Bootstrap the application and exit. Bootstraping process creates the first
     /// public-private key pair and saves it on disk in encrypted form.
@@ -25,26 +23,11 @@ pub enum Command {
 }
 
 #[derive(Debug, Args)]
-pub struct ServerArgs {
-    #[clap(short, long, require_equals = true, default_value = "0.0.0.0:8080")]
-    pub addr: String,
-}
-
-#[derive(Debug, Args)]
 pub struct OneShotArgs {
-    #[clap(long)]
-    /// Path of the *.json.gz file with the block data.
+    #[clap(long, default_value = "./input.bin")]
     pub blocks_data_file: PathBuf,
     #[clap(long)]
-    pub l1_blocks_data_file: PathBuf,
-    #[clap(long)]
-    pub prover: Address,
-    #[clap(long)]
-    pub graffiti: B256,
-    #[clap(long)]
     pub sgx_instance_id: u32,
-    #[clap(long, default_value = "internal_devnet_a")]
-    pub l2_chain: Option<String>,
 }
 
 fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {

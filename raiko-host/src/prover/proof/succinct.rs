@@ -6,10 +6,8 @@ use sp1_core::{utils, SP1Prover, SP1Stdin, SP1Verifier};
 use zeth_lib::input::{GuestInput, GuestOutput};
 
 use crate::prover::{
-    consts::*,
     context::Context,
     request::{ProofRequest, SP1Response, SgxResponse},
-    utils::guest_executable_path,
 };
 
 const ELF: &[u8] =

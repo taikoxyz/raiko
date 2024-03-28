@@ -1,63 +1,187 @@
-#![feature(feature = "sgx")]
-use std::str;
+use std::{
+    env,
+    fs::{copy, create_dir_all, remove_file, File},
+    path::{Path, PathBuf},
+    str,
+};
 
-use once_cell::sync::Lazy;
 use serde_json::Value;
 use tokio::process::Command;
 use tracing::{debug, info};
+use zeth_lib::input::{GuestInput, GuestOutput};
 
 use crate::{
     metrics::inc_sgx_error,
     prover::{
-        consts::*,
         context::Context,
-        request::{ProofRequest, SgxInstance, SgxResponse},
+        request::{ProofRequest, SgxResponse},
         server::SGX_INSTANCE_ID,
-        utils::guest_executable_path,
     },
 };
 
-pub async fn execute_sgx(ctx: &mut Context, req: &ProofRequest) -> Result<SgxResponse, String> {
-    let guest_path = guest_executable_path(&ctx.guest_elf, SGX_PARENT_DIR);
-    debug!("Guest path: {:?}", guest_path);
-    let mut cmd = {
-        let bin_directory = guest_path
-            .parent()
-            .ok_or(String::from("missing sgx executable directory"))?;
-        let bin = guest_path
-            .file_name()
-            .ok_or(String::from("missing sgx executable"))?;
-        let mut cmd = Command::new("sudo");
-        cmd.current_dir(bin_directory)
-            .arg("gramine-sgx")
-            .arg(bin)
-            .arg("one-shot");
-        cmd
+pub const RAIKO_GUEST_EXECUTABLE: &str = "sgx-guest";
+pub const INPUT_FILE: &str = "input.bin";
+pub const CONFIG: &str = "../../raiko-guests/sgx/config/";
+
+fn get_working_directory() -> PathBuf {
+    let binding = env::current_exe().unwrap();
+    binding.parent().unwrap().to_path_buf()
+}
+
+pub async fn execute_sgx(
+    input: GuestInput,
+    _output: GuestOutput,
+    _ctx: &mut Context,
+    req: &ProofRequest,
+) -> Result<SgxResponse, String> {
+    // Write the input to a file that will be read by the SGX instance
+    let mut file =
+        File::create(get_working_directory().join(INPUT_FILE)).expect("unable to open file");
+    bincode::serialize_into(&mut file, &input).expect("unable to serialize input");
+
+    // Working paths
+    let working_directory = get_working_directory();
+    let bin = RAIKO_GUEST_EXECUTABLE;
+
+    // Support both SGX and the direct backend for testing
+    let direct_mode = match env::var("SGX_DIRECT") {
+        Ok(value) => value == "1",
+        Err(_) => false,
     };
 
-    let instance_id = SGX_INSTANCE_ID.get().unwrap_or(0);
+    // Print a warning when running in direct mode
+    if direct_mode {
+        println!("WARNING: running SGX in direct mode!");
+    }
+
+    // TODO(Brecht): probably move some of this setup stuff to a build.rs file
+
+    // Create required directories
+    let directories = ["secrets", "config"];
+    for dir in directories {
+        create_dir_all(working_directory.join(dir)).unwrap();
+    }
+
+    // Generate the manifest
+    let mut cmd = Command::new("gramine-manifest");
     let output = cmd
-        .arg("--blocks-data-file")
-        .arg(ctx.l2_cache_file.as_ref().unwrap())
-        .arg("--l1-blocks-data-file")
-        .arg(ctx.l1_cache_file.as_ref().unwrap())
-        .arg("--prover")
-        .arg(req.prover.to_string())
-        .arg("--graffiti")
-        .arg(req.graffiti.to_string())
-        .arg("--sgx-instance-id")
-        .arg(instance_id.to_string())
-        .arg("--l2-chain")
-        .arg(&req.chain)
+        .current_dir(working_directory.clone())
+        .arg("-Dlog_level=error")
+        .arg("-Darch_libdir=/lib/x86_64-linux-gnu/")
+        .arg(format!(
+            "-Ddirect_mode={}",
+            if direct_mode { "1" } else { "0" }
+        ))
+        .arg(
+            working_directory
+                .join(CONFIG)
+                .join("raiko-guest.manifest.template"),
+        )
+        .arg("sgx-guest.manifest")
         .output()
         .await
-        .map_err(|e| e.to_string())?;
-    info!("Sgx execution stderr: {:?}", str::from_utf8(&output.stderr));
-    info!("Sgx execution stdout: {:?}", str::from_utf8(&output.stdout));
+        .map_err(|e| format!("Could not generate manfifest: {}", e.to_string()))?;
+    print!(
+        "Sgx manifest stderr: {}\n",
+        str::from_utf8(&output.stderr).unwrap()
+    );
+    print!(
+        "Sgx manifest stdout: {}\n",
+        str::from_utf8(&output.stdout).unwrap()
+    );
+
+    if direct_mode {
+        // Copy dummy files
+        let files = ["attestation_type", "quote", "user_report_data"];
+        for file in files {
+            copy(
+                working_directory.join(CONFIG).join("dummy_data").join(file),
+                working_directory.join(file),
+            )
+            .unwrap();
+        }
+    } else {
+        // Generate a private key
+        let mut cmd = Command::new("gramine-sgx-gen-private-key");
+        cmd.current_dir(working_directory.clone())
+            .arg("-f")
+            .output()
+            .await
+            .map_err(|e| format!("Could not generate SGX private key: {}", e.to_string()))?;
+
+        // Sign the manifest
+        let mut cmd = Command::new("gramine-sgx-sign");
+        cmd.current_dir(working_directory.clone())
+            .arg("--manifest")
+            .arg("sgx-guest.manifest")
+            .arg("--output")
+            .arg("sgx-guest.manifest.sgx")
+            .output()
+            .await
+            .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
+    }
+
+    let gramine_cmd = || -> Command {
+        if direct_mode {
+            Command::new("gramine-direct")
+        } else {
+            let mut cmd = Command::new("sudo");
+            cmd.arg("gramine-sgx");
+            cmd
+        }
+    };
+
+    // Bootstrap
+    // First delete the private key if it already exists
+    let private_key_path = working_directory.join("secrets/priv.key");
+    if private_key_path.exists() {
+        if let Err(e) = remove_file(private_key_path) {
+            println!("Error deleting file: {}", e);
+        }
+    }
+    // Generate a new one
+    let mut cmd = gramine_cmd();
+    let output = cmd
+        .current_dir(working_directory.clone())
+        .arg(bin)
+        .arg("bootstrap")
+        .output()
+        .await
+        .map_err(|e| format!("Could not run SGX guest boostrap: {}", e.to_string()))?;
+    print!(
+        "Sgx bootstrap stderr: {}\n",
+        str::from_utf8(&output.stderr).unwrap()
+    );
+    print!(
+        "Sgx bootstrap stdout: {}\n",
+        str::from_utf8(&output.stdout).unwrap()
+    );
+
+    // Prove
+    let mut cmd = gramine_cmd();
+    let cmd = cmd.current_dir(working_directory).arg(bin).arg("one-shot");
+    let default_sgx_instance_id: u32 = 0;
+    let instance_id = SGX_INSTANCE_ID.get().unwrap_or(&default_sgx_instance_id);
+    let output = cmd
+        .arg("--sgx-instance-id")
+        .arg(instance_id.to_string())
+        .output()
+        .await
+        .map_err(|e| format!("Could not run SGX guest prover: {}", e.to_string()))?;
+    print!(
+        "Sgx execution stderr: {}\n",
+        str::from_utf8(&output.stderr).unwrap()
+    );
+    print!(
+        "Sgx execution stdout: {}\n",
+        str::from_utf8(&output.stdout).unwrap()
+    );
+
     if !output.status.success() {
         inc_sgx_error(req.block_number);
         return Err(output.status.to_string());
     }
+
     parse_sgx_result(output.stdout)
 }
 

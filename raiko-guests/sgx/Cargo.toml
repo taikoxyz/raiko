@@ -1,5 +1,5 @@
 [package]
-name = "raiko-sgx"
+name = "sgx-guest"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,8 +8,6 @@ edition = "2021"
 [dependencies]
 zeth-lib = { path = "../../lib", default-features = false, features = ["taiko"] }
 zeth-primitives = { path = "../../primitives", features = ["taiko"] }
-raiko-host = { path = "../../raiko-host"}
-sgx-ra = { optional = true, path = "../../sgx-ra" }
 tokio = { version = "^1.23", features = ["full"] }
 anyhow = "1.0"
 secp256k1 = { version = "0.27.0", features = [
@@ -27,6 +25,7 @@ serde_json = "1.0"
 base64-serde = "0.7.0"
 base64 = "0.21.7"
 dirs = "5.0.1"
+bincode = "1.3"
 
 [features]
-sgx-ra = ["dep:sgx-ra"]
+sgx = []
