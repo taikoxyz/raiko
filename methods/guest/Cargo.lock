@@ -1089,6 +1089,31 @@ dependencies = [
 
 [[package]]
 name = "ethers-core"
+version = "2.0.10"
+dependencies = [
+ "arrayvec",
+ "bytes",
+ "chrono",
+ "const-hex",
+ "elliptic-curve",
+ "ethabi",
+ "generic-array",
+ "k256",
+ "num_enum",
+ "open-fastrlp",
+ "rand",
+ "rlp",
+ "serde",
+ "serde_json",
+ "strum 0.25.0",
+ "tempfile",
+ "thiserror",
+ "tiny-keccak",
+ "unicode-xid",
+]
+
+[[package]]
+name = "ethers-core"
 version = "2.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82d80cc6ad30b14a48ab786523af33b37f28a8623fc06afd55324816ef18fb1f"
@@ -1107,7 +1132,7 @@ dependencies = [
  "rlp",
  "serde",
  "serde_json",
- "strum",
+ "strum 0.26.2",
  "tempfile",
  "thiserror",
  "tiny-keccak",
@@ -1126,7 +1151,7 @@ dependencies = [
  "bytes",
  "const-hex",
  "enr",
- "ethers-core",
+ "ethers-core 2.0.14",
  "futures-core",
  "futures-timer",
  "futures-util",
@@ -2517,6 +2542,7 @@ name = "risc0-guest"
 version = "0.1.0"
 dependencies = [
  "c-kzg",
+ "ethers-core 2.0.10",
  "hex",
  "risc0-zkvm",
  "sha2",
@@ -3001,11 +3027,33 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+dependencies = [
+ "strum_macros 0.25.3",
+]
+
+[[package]]
+name = "strum"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.26.2",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.25.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.55",
 ]
 
 [[package]]
@@ -3806,7 +3854,7 @@ dependencies = [
  "anyhow",
  "c-kzg",
  "chrono",
- "ethers-core",
+ "ethers-core 2.0.14",
  "ethers-providers",
  "flate2",
  "hashbrown 0.14.3",
@@ -3840,7 +3888,7 @@ dependencies = [
  "alloy-sol-types 0.6.4",
  "anyhow",
  "bytes",
- "ethers-core",
+ "ethers-core 2.0.14",
  "hex",
  "k256",
  "once_cell",
