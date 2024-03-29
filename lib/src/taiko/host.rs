@@ -380,7 +380,7 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         assert!(blob_hashs.len() == 1);
         let blob_hash = blob_hashs[0];
         let slot_id = block_time_to_block_slot(
-            l2_fini_block.timestamp.as_u64(),
+            l1_next_block.timestamp.as_u64(),
             l2_chain_spec.genesis_time,
             l2_chain_spec.seconds_per_slot,
         )?;
