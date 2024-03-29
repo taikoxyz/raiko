@@ -10,10 +10,6 @@ pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
         .expect("invalid golden touch account")
 });
-pub static SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
-        .expect("invalid sgx verifier contract address")
-});
 
 pub mod testnet {
     use super::*;
@@ -25,6 +21,10 @@ pub mod testnet {
     pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
         Address::from_str("0x1670080000000000000000000000000000010001")
             .expect("invalid l2 contract address")
+    });
+    pub static SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
+        Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
+            .expect("invalid sgx verifier contract address")
     });
 }
 
@@ -39,6 +39,10 @@ pub mod internal_devnet_a {
         Address::from_str("0x1670010000000000000000000000000000010001")
             .expect("invalid l2 contract address")
     });
+    pub static SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
+        Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
+            .expect("invalid sgx verifier contract address")
+    });
 }
 
 pub mod internal_devnet_b {
@@ -51,5 +55,9 @@ pub mod internal_devnet_b {
     pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
         Address::from_str("0x1670020000000000000000000000000000010001")
             .expect("invalid l2 contract address")
+    });
+    pub static SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
+        Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
+            .expect("invalid sgx verifier contract address")
     });
 }
