@@ -13,6 +13,7 @@ alloy-dyn-abi = { version = "0.6",default-features = false, optional = true }
 alloy-rlp = { version = "0.3", default-features = false }
 alloy-rlp-derive = { version = "0.3", default-features = false }
 alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
+alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
 anyhow = { version = "1.0", default-features = false }
 bytes = { version = "1.5", default-features = false }
 k256 = { version = "^0.13.3", features = ["ecdsa"], default_features = false }
