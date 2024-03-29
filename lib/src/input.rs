@@ -305,6 +305,7 @@ impl From<taiko_a6::BlockProposed> for BlockProposed {
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
     use alloc::vec;
 
     use super::*;
