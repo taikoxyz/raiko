@@ -11,18 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#[cfg(not(feature = "std"))]
-use crate::no_std::*;
-
 use anyhow::anyhow;
 use hashbrown::{hash_map::Entry, HashMap};
+use raiko_primitives::{Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode},
     Database, DatabaseCommit,
 };
 use serde::{Deserialize, Serialize};
 use thiserror_no_std::Error as ThisError;
-use raiko_primitives::{Address, B256, U256};
+
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 
 /// Error returned by the [MemDb].
 #[derive(Debug, ThisError)]

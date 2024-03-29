@@ -14,8 +14,8 @@
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use anyhow::Result;
-use revm::{Database, DatabaseCommit};
 use raiko_primitives::mpt::MptNode;
+use revm::{Database, DatabaseCommit};
 
 pub use self::execute::TkoTxExecStrategy;
 use crate::{

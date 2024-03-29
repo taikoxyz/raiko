@@ -18,13 +18,15 @@ use alloy_consensus::{TxEnvelope, TxKind};
 use anyhow::{anyhow, bail, Context, Error, Result};
 #[cfg(feature = "std")]
 use log::debug;
+use raiko_primitives::{mpt::MptNode, receipt::Receipt, Bloom, Rlp2718Bytes, RlpBytes};
 use revm::{
     interpreter::Host,
-    primitives::{Account, Address, EVMError, HandlerCfg, ResultAndState, SpecId, TransactTo, TxEnv},
+    primitives::{
+        Account, Address, EVMError, HandlerCfg, ResultAndState, SpecId, TransactTo, TxEnv,
+    },
     taiko, Database, DatabaseCommit, Evm,
 };
 use ruint::aliases::U256;
-use raiko_primitives::{mpt::MptNode, receipt::Receipt, Bloom, Rlp2718Bytes, RlpBytes};
 
 use super::TxExecStrategy;
 use crate::{
@@ -203,7 +205,11 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 tx_type,
                 result.is_success(),
                 cumulative_gas_used.try_into().unwrap(),
-                result.logs().into_iter().map(|log| log.clone().into()).collect(),
+                result
+                    .logs()
+                    .into_iter()
+                    .map(|log| log.clone().into())
+                    .collect(),
             );
 
             // update the state

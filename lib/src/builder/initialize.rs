@@ -15,15 +15,14 @@
 use core::mem;
 
 use anyhow::{bail, Result};
-use revm::primitives::HashMap;
-use revm::{
-    primitives::{AccountInfo, Bytecode, B256},
-    Database, DatabaseCommit,
-};
 use raiko_primitives::{
     keccak::{keccak, KECCAK_EMPTY},
     mpt::StateAccount,
     Bytes,
+};
+use revm::{
+    primitives::{AccountInfo, Bytecode, HashMap, B256},
+    Database, DatabaseCommit,
 };
 
 use crate::{

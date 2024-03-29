@@ -16,11 +16,11 @@ use core::mem;
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use anyhow::Result;
-use revm::{Database, DatabaseCommit};
 use raiko_primitives::{
     keccak::keccak,
     mpt::{MptNode, StateAccount},
 };
+use revm::{Database, DatabaseCommit};
 
 use crate::{
     builder::BlockBuilder,

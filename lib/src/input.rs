@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use core::fmt::Debug;
-#[cfg(not(feature = "std"))]
-use crate::no_std::*;
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
+use raiko_primitives::{mpt::MptNode, Address, Bytes, FixedBytes, B256, U256};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
-use raiko_primitives::{mpt::MptNode, Address, Bytes, FixedBytes, B256, U256};
 
 use crate::consts::Network;
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the

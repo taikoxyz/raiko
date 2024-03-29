@@ -15,15 +15,16 @@
 //! Constants for the Ethereum protocol.
 extern crate alloc;
 use alloc::{collections::BTreeMap, str::FromStr};
-#[cfg(not(feature = "std"))]
-use crate::no_std::*;
 
 use alloy_primitives::Address;
 use anyhow::bail;
 use once_cell::unsync::Lazy;
+use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
-use raiko_primitives::{uint, BlockNumber, ChainId, U256};
+
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;

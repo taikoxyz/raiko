@@ -1,12 +1,10 @@
 //! Helpers for working with EIP-4844 blob fee.
 
+// re-exports from revm for calculating blob fee
+pub use revm_primitives::{calc_blob_gasprice, calc_excess_blob_gas as calculate_excess_blob_gas};
 #[cfg(feature = "c-kzg")]
 use sha2::{Digest, Sha256};
 
-// re-exports from revm for calculating blob fee
-pub use revm_primitives::{
-    calc_blob_gasprice, calc_excess_blob_gas as calculate_excess_blob_gas,
-};
 use crate::B256;
 
 /// Calculates the versioned hash for a KzgCommitment
@@ -19,25 +17,24 @@ pub fn kzg_to_versioned_hash(commitment: c_kzg::KzgCommitment) -> B256 {
     B256::new(res.into())
 }
 
-
-/// [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844#parameters) protocol constants and utils for shard Blob Transactions.
-#[cfg(feature = "c-kzg")]
-pub use trusted_setup::*;
-
 /// Constants for EIP-4844
 /// from https://github.com/paradigmxyz/reth/blob/79452eadaf4963f1e8d78a18b1f490d7c560aa54/crates/primitives/src/constants/eip4844.rs#L2
-
 pub use alloy_eips::eip4844::{
     BLOB_GASPRICE_UPDATE_FRACTION, BLOB_TX_MIN_BLOB_GASPRICE, DATA_GAS_PER_BLOB,
     FIELD_ELEMENTS_PER_BLOB, FIELD_ELEMENT_BYTES, MAX_BLOBS_PER_BLOCK, MAX_DATA_GAS_PER_BLOCK,
     TARGET_BLOBS_PER_BLOCK, TARGET_DATA_GAS_PER_BLOCK, VERSIONED_HASH_VERSION_KZG,
 };
+/// [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844#parameters) protocol constants and utils for shard Blob Transactions.
+#[cfg(feature = "c-kzg")]
+pub use trusted_setup::*;
 
 #[cfg(feature = "c-kzg")]
 mod trusted_setup {
-    use crate::kzg::KzgSettings;
-    use once_cell::sync::Lazy;
     use std::{io::Write, sync::Arc};
+
+    use once_cell::sync::Lazy;
+
+    use crate::kzg::KzgSettings;
 
     /// KZG trusted setup
     pub static MAINNET_KZG_TRUSTED_SETUP: Lazy<Arc<KzgSettings>> = Lazy::new(|| {
@@ -50,15 +47,17 @@ mod trusted_setup {
         )
     });
 
-    /// Loads the trusted setup parameters from the given bytes and returns the [KzgSettings].
+    /// Loads the trusted setup parameters from the given bytes and returns the
+    /// [KzgSettings].
     ///
-    /// This creates a temp file to store the bytes and then loads the [KzgSettings] from the file
-    /// via [KzgSettings::load_trusted_setup_file].
+    /// This creates a temp file to store the bytes and then loads the [KzgSettings] from
+    /// the file via [KzgSettings::load_trusted_setup_file].
     pub fn load_trusted_setup_from_bytes(
         bytes: &[u8],
     ) -> Result<KzgSettings, LoadKzgSettingsError> {
         let mut file = tempfile::NamedTempFile::new().map_err(LoadKzgSettingsError::TempFileErr)?;
-        file.write_all(bytes).map_err(LoadKzgSettingsError::TempFileErr)?;
+        file.write_all(bytes)
+            .map_err(LoadKzgSettingsError::TempFileErr)?;
         KzgSettings::load_trusted_setup_file(file.path()).map_err(LoadKzgSettingsError::KzgError)
     }
 
@@ -84,4 +83,3 @@ mod trusted_setup {
         }
     }
 }
-

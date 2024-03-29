@@ -19,14 +19,13 @@
 mod no_std {
     extern crate alloc;
     extern crate core;
-    pub use alloc::vec::Vec;
-    pub use alloc::string::{String, ToString};
-    pub use alloc::format;
-    pub use alloc::borrow::ToOwned;
+    pub use alloc::{
+        borrow::ToOwned,
+        format,
+        string::{String, ToString},
+        vec::Vec,
+    };
 }
-
-
-
 
 pub mod builder;
 pub mod consts;

@@ -2,9 +2,6 @@ use core::str::FromStr;
 // TODO(Cecilia): fix for no-std
 use std::io::Read;
 
-#[cfg(not(feature = "std"))]
-use crate::no_std::*;
-
 use alloy_consensus::{Header as AlloyConsensusHeader, TxEip1559, TxEnvelope, TxKind};
 use alloy_network::Signed;
 use alloy_primitives::{uint, Address, Signature, U256};
@@ -15,6 +12,8 @@ use libflate::zlib::Decoder as zlibDecoder;
 use once_cell::unsync::Lazy;
 use raiko_primitives::{keccak256, B256};
 
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 use crate::{
     consts::{get_network_spec, Network},
     input::{decode_anchor, GuestInput},
@@ -82,8 +81,6 @@ const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BY
 const BLOB_VERSION_OFFSET: usize = 1;
 const BLOB_ENCODING_VERSION: u8 = 0;
 const MAX_BLOB_DATA_SIZE: usize = (4 * 31 + 3) * 1024 - 4;
-
-
 
 // decoding https://github.com/ethereum-optimism/optimism/blob/develop/op-service/eth/blob.go
 fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {

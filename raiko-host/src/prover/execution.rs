@@ -1,6 +1,5 @@
 use std::{str::FromStr, time::Instant};
 
-use tracing::{info, warn};
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::Network,
@@ -9,6 +8,7 @@ use raiko_lib::{
     taiko_utils::HeaderHasher,
 };
 use raiko_primitives::Address;
+use tracing::{info, warn};
 
 use super::{
     context::Context,
