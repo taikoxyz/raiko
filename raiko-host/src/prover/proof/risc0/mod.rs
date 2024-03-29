@@ -4,10 +4,10 @@ use std::{
 };
 
 use hex::ToHex;
+use raiko_lib::input::{GuestInput, GuestOutput};
 use risc0_guest::{RISC0_METHODS_ELF, RISC0_METHODS_ID};
 use serde::{Deserialize, Serialize};
 use tracing::info as traicing_info;
-use zeth_lib::input::{GuestInput, GuestOutput};
 
 use crate::prover::{
     context::Context,
@@ -66,6 +66,7 @@ use std::fmt::Debug;
 
 use bonsai_sdk::alpha::responses::SnarkReceipt;
 use log::{debug, error, info, warn};
+use raiko_primitives::keccak::keccak;
 use risc0_zkvm::{
     compute_image_id, is_dev_mode,
     serde::to_vec,
@@ -74,7 +75,6 @@ use risc0_zkvm::{
 };
 use serde::de::DeserializeOwned;
 use tempfile::tempdir;
-use zeth_primitives::keccak::keccak;
 
 // use crate::{load_receipt, save_receipt};
 

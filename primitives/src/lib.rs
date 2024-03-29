@@ -18,10 +18,14 @@ extern crate core;
 
 pub use alloc::{vec, vec::Vec};
 
+pub mod eip4844;
 pub mod keccak;
 pub mod mpt;
 pub mod receipt;
 pub mod signature;
+
+#[cfg(feature = "c-kzg")]
+pub use c_kzg as kzg;
 
 #[cfg(feature = "revm")]
 pub mod revm;

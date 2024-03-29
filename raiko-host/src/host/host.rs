@@ -11,12 +11,7 @@ use alloy_transport_http::Http;
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use hashbrown::HashSet;
-use reth_primitives::{
-    constants::eip4844::MAINNET_KZG_TRUSTED_SETUP, eip4844::kzg_to_versioned_hash,
-};
-use serde::{Deserialize, Serialize};
-use url::Url;
-use zeth_lib::{
+use raiko_lib::{
     builder::{prepare::TaikoHeaderPrepStrategy, BlockBuilder, TkoTxExecStrategy},
     consts::{get_network_spec, Network},
     input::{
@@ -25,7 +20,12 @@ use zeth_lib::{
     },
     taiko_utils::{generate_transactions, to_header},
 };
-use zeth_primitives::mpt::proofs_to_tries;
+use raiko_primitives::{
+    eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
+    mpt::proofs_to_tries,
+};
+use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::host::provider_db::ProviderDb;
 
@@ -313,7 +313,7 @@ pub fn get_block_proposed_event(
                 false,
             )
             .unwrap();
-            if event.blockId == zeth_primitives::U256::from(l2_block_no) {
+            if event.blockId == raiko_primitives::U256::from(l2_block_no) {
                 let tx = tokio_handle
                     .block_on(async {
                         provider
@@ -329,7 +329,7 @@ pub fn get_block_proposed_event(
                 false,
             )
             .unwrap();
-            if event.blockId == zeth_primitives::U256::from(l2_block_no) {
+            if event.blockId == raiko_primitives::U256::from(l2_block_no) {
                 let tx = tokio_handle
                     .block_on(async {
                         provider
@@ -350,12 +350,12 @@ mod test {
 
     use c_kzg::{Blob, KzgCommitment};
     use ethers_core::types::Transaction;
-    use reth_primitives::{
-        constants::eip4844::MAINNET_KZG_TRUSTED_SETUP,
-        eip4844::kzg_to_versioned_hash,
-        revm_primitives::kzg::{parse_kzg_trusted_setup, KzgSettings},
+    use raiko_lib::taiko_utils::decode_transactions;
+    use raiko_primitives::{
+        eip4844::{kzg_to_versioned_hash, parse_kzg_trusted_setup, MAINNET_KZG_TRUSTED_SETUP},
+        kzg::KzgSettings,
+        mpt::proofs_to_tries,
     };
-    use zeth_lib::taiko_utils::decode_transactions;
 
     use super::*;
 
@@ -366,6 +366,8 @@ mod test {
         version_hash
     }
 
+    // TODO(Cecilia): "../kzg_parsed_trust_setup" does not exist
+    #[ignore]
     #[test]
     fn test_parse_kzg_trusted_setup() {
         // check if file exists
@@ -383,6 +385,8 @@ mod test {
         println!("g2: {:?}", g2.0.len());
     }
 
+    // TODO(Cecilia): "../kzg_parsed_trust_setup" does not exist
+    #[ignore]
     #[test]
     fn test_blob_to_kzg_commitment() {
         // check if file exists
@@ -405,7 +409,6 @@ mod test {
         );
     }
 
-    #[ignore]
     #[test]
     fn test_new_blob_decode() {
         let valid_blob_str = "\
@@ -455,7 +458,7 @@ mod test {
             00000000000000000000000000000000";
         // println!("valid blob: {:?}", valid_blob_str);
         let blob_str = format!("{:0<262144}", valid_blob_str);
-        let dec_blob = decode_blob_data(&blob_str);
+        let dec_blob = blob_to_bytes(&blob_str);
         println!("dec blob tx len: {:?}", dec_blob.len());
         let txs = decode_transactions(&dec_blob);
         println!("dec blob tx: {:?}", txs);
@@ -586,7 +589,6 @@ mod test {
     // .unwrap();
     // }
 
-    #[ignore]
     #[test]
     fn json_to_ethers_blob_tx() {
         let response = "{

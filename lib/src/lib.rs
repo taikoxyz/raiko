@@ -15,8 +15,17 @@
 #![feature(sync_unsafe_cell)]
 #![cfg_attr(any(not(feature = "std")), no_std)]
 
-extern crate alloc;
-extern crate core;
+#[cfg(not(feature = "std"))]
+mod no_std {
+    extern crate alloc;
+    extern crate core;
+    pub use alloc::{
+        borrow::ToOwned,
+        format,
+        string::{String, ToString},
+        vec::Vec,
+    };
+}
 
 pub mod builder;
 pub mod consts;

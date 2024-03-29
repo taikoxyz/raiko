@@ -58,7 +58,7 @@ jobs:
         shell: bash
 
   test-lib:
-    name: Test zeth-lib
+    name: Test raiko-lib
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -68,7 +68,7 @@ jobs:
           profile: minimal
           toolchain: nightly-2024-01-25
           override: true
-      - run: cargo test -p zeth-lib --features=taiko,std
+      - run: cargo test -p raiko-lib --features=taiko,std
 
   clippy:
     name: clippy

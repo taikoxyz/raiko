@@ -5,10 +5,10 @@ use std::{
     str,
 };
 
+use raiko_lib::input::{GuestInput, GuestOutput};
 use serde_json::Value;
 use tokio::process::Command;
 use tracing::{debug, info};
-use zeth_lib::input::{GuestInput, GuestOutput};
 
 use crate::{
     metrics::inc_sgx_error,
