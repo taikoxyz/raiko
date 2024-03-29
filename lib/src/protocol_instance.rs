@@ -6,7 +6,7 @@ use zeth_primitives::keccak::keccak;
 
 use super::taiko_utils::ANCHOR_GAS_LIMIT;
 use crate::{
-    consts::get_network_spec,
+    consts::{get_network_spec, Network},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     taiko_utils::HeaderHasher,
 };
@@ -128,17 +128,19 @@ pub fn assemble_protocol_instance(
         },
         prover: input.taiko.prover_data.prover,
         chain_id: chain_spec.chain_id,
-        sgx_verifier_address: chain_spec.sgx_verifier_address.unwrap(),
+        sgx_verifier_address: chain_spec.sgx_verifier_address.unwrap_or_default(),
     };
 
     // Sanity check
-    ensure!(
-        pi.block_metadata.abi_encode() == input.taiko.block_proposed.meta.abi_encode(),
-        format!(
-            "block hash mismatch, expected: {:?}, got: {:?}",
-            input.taiko.block_proposed.meta, pi.block_metadata
-        )
-    );
+    if input.network != Network::Ethereum {
+        ensure!(
+            pi.block_metadata.abi_encode() == input.taiko.block_proposed.meta.abi_encode(),
+            format!(
+                "block hash mismatch, expected: {:?}, got: {:?}",
+                input.taiko.block_proposed.meta, pi.block_metadata
+            )
+        );
+    }
 
     Ok(pi)
 }

@@ -9,14 +9,17 @@ rangeStart="$3"
 rangeEnd="$4"
 
 # Check the caain name and set the corresponding RPC values
-if [ "$chain" == "taiko_a6" ]; then
+if [ "$chain" == "ethereum" ]; then
+  l2Rpc="https://rpc.ankr.com/eth"
+  l1Rpc="https://rpc.ankr.com/eth"
+elif [ "$chain" == "taiko_a6" ]; then
   l2Rpc="https://rpc.katla.taiko.xyz"
   l1Rpc="https://l1rpc.katla.taiko.xyz"
 elif [ "$chain" == "taiko_a7" ]; then
   l2Rpc="https://rpc.internal.taiko.xyz"
   l1Rpc="https://l1rpc.internal.taiko.xyz"
 else
-  echo "Invalid chain name. Please use 'taiko_a6' or 'taiko_a7'."
+  echo "Invalid chain name. Please use 'ethereum', 'taiko_a6' or 'taiko_a7'."
   exit 1
 fi
 

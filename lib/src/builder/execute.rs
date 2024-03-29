@@ -56,11 +56,19 @@ impl TxExecStrategy for TkoTxExecStrategy {
         }
         let chain_id = block_builder.chain_spec.chain_id();
 
+        let network = block_builder.input.network;
+        let is_taiko = network != Network::Ethereum;
+
         // generate the transactions from the tx list
+        let anchor_tx = if block_builder.input.network == Network::Ethereum {
+            None
+        } else {
+            Some(serde_json::from_str(&block_builder.input.taiko.anchor_tx.clone()).unwrap())
+        };
         let mut transactions = generate_transactions(
             block_builder.input.taiko.block_proposed.meta.blobUsed,
             &block_builder.input.taiko.tx_list,
-            serde_json::from_str(&block_builder.input.taiko.anchor_tx.clone()).unwrap(),
+            anchor_tx,
         );
 
         let mut evm = Evm::builder()
@@ -68,7 +76,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             .modify_cfg_env(|cfg_env| {
                 // set the EVM configuration
                 cfg_env.chain_id = chain_id;
-                cfg_env.taiko = true;
+                cfg_env.taiko = is_taiko;
             })
             .modify_block_env(|blk_env| {
                 // set the EVM block environment
@@ -96,7 +104,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let mut actual_tx_no = 0usize;
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
             // anchor transaction always the first transaction
-            let is_anchor = tx_no == 0;
+            let is_anchor = is_taiko && tx_no == 0;
 
             // TODO(Brecht): use optimized recover
             let (tx_gas_limit, from) = match &tx {
@@ -276,7 +284,7 @@ pub fn fill_eth_tx_env(
     // claim the anchor
     tx_env.taiko.is_anchor = is_anchor;
     // set the treasury address
-    tx_env.taiko.treasury = get_network_spec(network).l2_contract.unwrap();
+    tx_env.taiko.treasury = get_network_spec(network).l2_contract.unwrap_or_default();
 
     tx_env.caller = caller;
     match tx {
@@ -357,8 +365,10 @@ pub fn fill_eth_tx_env(
             tx_env.nonce = Some(tx.nonce);
             tx_env.access_list = tx.access_list.clone().into_flattened();
 
-            // Data blobs are not allowed on L2
-            bail!(tx.blob_versioned_hashes.len() == 0);
+            if network != Network::Ethereum {
+                // Data blobs are not allowed on L2
+                bail!(tx.blob_versioned_hashes.len() == 0);
+            }
         }
     };
     Ok(())
