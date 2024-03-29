@@ -82,7 +82,7 @@ name = "alloy-consensus"
 version = "0.1.0"
 source = "git+https://github.com/brechtpd/alloy?branch=header-serialize#14381350e57921a71292304875e87dfbfd33c3b5"
 dependencies = [
- "alloy-eips 0.1.0 (git+https://github.com/brechtpd/alloy?branch=header-serialize)",
+ "alloy-eips",
  "alloy-network",
  "alloy-primitives",
  "alloy-rlp",
@@ -116,19 +116,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "alloy-eips"
-version = "0.1.0"
-source = "git+https://github.com/alloy-rs/alloy?rev=7e39c85#7e39c85f9f51e6449a8b661f54df0ac213f18639"
-dependencies = [
- "alloy-primitives",
- "alloy-rlp",
- "alloy-serde",
- "c-kzg",
- "once_cell",
- "serde",
-]
-
-[[package]]
 name = "alloy-json-abi"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -155,7 +142,7 @@ name = "alloy-network"
 version = "0.1.0"
 source = "git+https://github.com/brechtpd/alloy?branch=header-serialize#14381350e57921a71292304875e87dfbfd33c3b5"
 dependencies = [
- "alloy-eips 0.1.0 (git+https://github.com/brechtpd/alloy?branch=header-serialize)",
+ "alloy-eips",
  "alloy-json-rpc",
  "alloy-primitives",
  "alloy-rlp",
@@ -272,16 +259,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "alloy-serde"
-version = "0.1.0"
-source = "git+https://github.com/alloy-rs/alloy?rev=7e39c85#7e39c85f9f51e6449a8b661f54df0ac213f18639"
-dependencies = [
- "alloy-primitives",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -4017,7 +3994,7 @@ name = "raiko-primitives"
 version = "0.1.0"
 dependencies = [
  "alloy-dyn-abi",
- "alloy-eips 0.1.0 (git+https://github.com/alloy-rs/alloy?rev=7e39c85)",
+ "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rlp-derive",
