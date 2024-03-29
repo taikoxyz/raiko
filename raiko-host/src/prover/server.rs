@@ -17,7 +17,7 @@ use crate::prover::{
     context::Context,
     error::HostError,
     execution::execute,
-    json_rpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
+    request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
     request::*,
 };
 

@@ -6,7 +6,7 @@ edition = "2021"
 [workspace]
 
 [dependencies]
-raiko-primitives = { path = "../../../primitives", features = ["revm"] }
+raiko-primitives = { path = "../../../primitives" }
 raiko-lib = { path = "../../../lib", features = ["taiko", "std"] }
 risc0-zkvm = { version = "0.20.1", default-features = false, features = ['std', "getrandom"] }
 

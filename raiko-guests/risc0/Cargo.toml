@@ -13,8 +13,8 @@ tracing = {version = "0.1", optional = true}
 serde = {version = "1.0", optional = true}
 once_cell = {version = "1.8.0", optional = true}
 hex = {version = "0.4.3", optional = true}
-zeth-lib = { path = "../../lib", features = ["taiko", "std"] , optional = true}
-zeth-primitives = { path = "../../primitives", features = ["taiko", "revm"] , optional = true}
+raiko-lib = { path = "../../lib", features = ["taiko", "std"] , optional = true}
+raiko-primitives = { path = "../../primitives", features = ["taiko"] , optional = true}
 anyhow ={version =  "1.0", optional = true}
 risc0-zkvm = { version = "0.20.1", features = ["prove", "getrandom"], optional = true}
 bonsai-sdk = { version = "0.6.0", features = ["async"],  optional = true}
@@ -34,8 +34,8 @@ methods = ["guest"]
 enable = [
     "anyhow",
     "risc0-zkvm",
-    "zeth-lib",
-    "zeth-primitives",
+    "raiko-lib",
+    "raiko-primitives",
     "bonsai-sdk",
     "serde",
     "serde_with",

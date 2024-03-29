@@ -23,7 +23,7 @@ serde = "1.0"
 serde_with = "3.4.0"
 tokio = { version = "^1.23", features = ["full"] }
 raiko-lib = { path = "../lib", features = ["taiko", "std"] }
-raiko-primitives = { path = "../primitives", features = ["taiko", "revm", "c-kzg"] }
+raiko-primitives = { path = "../primitives", features = ["taiko", "c-kzg"] }
 serde_json = "1.0"
 hyper = { version = "0.14.27", features = ["server"] }
 hashbrown = { workspace = true }

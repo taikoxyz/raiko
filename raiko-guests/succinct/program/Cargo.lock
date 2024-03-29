@@ -1531,7 +1531,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 [[package]]
 name = "revm"
 version = "7.2.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=unstable#94e83925c0a40d5ca15b116a9d448c030e7d7164"
+source = "git+https://github.com/taikoxyz/revm.git?branch=unstable#501e02eae672fc7e83cd2e21f45124fa1b460596"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -1544,7 +1544,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "3.4.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=unstable#94e83925c0a40d5ca15b116a9d448c030e7d7164"
+source = "git+https://github.com/taikoxyz/revm.git?branch=unstable#501e02eae672fc7e83cd2e21f45124fa1b460596"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -1553,7 +1553,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "5.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=unstable#94e83925c0a40d5ca15b116a9d448c030e7d7164"
+source = "git+https://github.com/taikoxyz/revm.git?branch=unstable#501e02eae672fc7e83cd2e21f45124fa1b460596"
 dependencies = [
  "aurora-engine-modexp",
  "k256",
@@ -1568,7 +1568,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=unstable#94e83925c0a40d5ca15b116a9d448c030e7d7164"
+source = "git+https://github.com/taikoxyz/revm.git?branch=unstable#501e02eae672fc7e83cd2e21f45124fa1b460596"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
@@ -1845,7 +1845,7 @@ dependencies = [
 [[package]]
 name = "sp1-precompiles"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#cb43fd74b24fad8ed24a4885499159de3680c89f"
+source = "git+https://github.com/succinctlabs/sp1.git#14bd4b2e9a2fdafc5667bfb0472dd382046e2521"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1859,7 +1859,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#cb43fd74b24fad8ed24a4885499159de3680c89f"
+source = "git+https://github.com/succinctlabs/sp1.git#14bd4b2e9a2fdafc5667bfb0472dd382046e2521"
 dependencies = [
  "bincode",
  "cfg-if",

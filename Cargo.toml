@@ -9,7 +9,6 @@ members = [
     "raiko-guests/sgx/script",
     # "ra-tls",
     # "tests/*",
-    "raiko-guests/sgx",
 ]
 
 

@@ -7,8 +7,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zeth-lib = { path = "../../../lib", default-features = false, features = ["taiko", "std"] }
-zeth-primitives = { path = "../../../primitives", features = ["taiko", "std"] }
+raiko-lib = { path = "../../../lib", default-features = false, features = ["taiko", "std"] }
+raiko-primitives = { path = "../../../primitives", features = ["taiko", "std"] }
 ra-tls = { optional = true, path = "../ra-tls" }
 tokio = { version = "^1.23", features = ["full"] }
 anyhow = "1.0"

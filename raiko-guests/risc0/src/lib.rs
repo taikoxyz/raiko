@@ -21,8 +21,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info as traicing_info;
-use zeth_lib::input::{GuestInput, GuestOutput};
-use zeth_primitives::keccak::keccak;
+use raiko_lib::input::{GuestInput, GuestOutput};
+use raiko_primitives::keccak::keccak;
 
 pub mod snarks;
 use crate::snarks::verify_groth16_snark;

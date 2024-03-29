@@ -26,7 +26,7 @@ revm = { workspace = true, default-features = false }
 ruint = { version = "1.10", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["alloc"] }
 thiserror-no-std = "2.0.2"
-raiko-primitives = { path = "../primitives", default-features = false, features = ["revm"] }
+raiko-primitives = { path = "../primitives", default-features = false}
 hex = { version = "0.4.3", default-features = false, optional = true }
 url = "2.5.0"
 

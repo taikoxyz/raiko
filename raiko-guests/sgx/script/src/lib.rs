@@ -6,7 +6,7 @@ use serde_json::Value;
 use serde_with::serde_as;
 use tokio::process::Command;
 use tracing::{debug, info};
-use zeth_lib::input::{GuestInput, GuestOutput};
+use raiko_lib::input::{GuestInput, GuestOutput};
 
 pub const SGX_ELF_PATH: &str = "todo"; // TODO
 

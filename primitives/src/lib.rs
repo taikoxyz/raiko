@@ -27,9 +27,7 @@ pub mod signature;
 #[cfg(feature = "c-kzg")]
 pub use c_kzg as kzg;
 
-#[cfg(feature = "revm")]
 pub mod revm;
-
 pub use alloy_eips;
 pub use alloy_primitives::*;
 pub use alloy_rlp as rlp;

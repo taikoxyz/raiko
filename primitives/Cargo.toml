@@ -21,7 +21,7 @@ hashbrown = { workspace = true }
 sha2 = { version = "0.10.7", optional = true }
 tempfile = { workspace = true, optional = true }
 
-revm-primitives = { workspace = true, optional = true, default-features = false }
+revm-primitives = { workspace = true, default-features = false }
 rlp = { version = "0.5.2", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 sha3 = { version = "0.10", default-features = false}
@@ -40,7 +40,6 @@ hex-literal = "0.4"
 serde_json = { version = "1.0", default-features = false }
 
 [features]
-std = ["anyhow/std"]
+std = ["anyhow/std", "rlp/std"]
 taiko = ["revm-primitives/taiko"]
-revm = ["dep:revm-primitives"]
-c-kzg = ["dep:c-kzg", "revm-primitives?/c-kzg", "dep:sha2", "dep:tempfile", "dep:once_cell"]
+c-kzg = ["dep:c-kzg", "revm-primitives/c-kzg", "dep:sha2", "dep:tempfile", "dep:once_cell"]
