@@ -1,4 +1,5 @@
 #![feature(path_file_prefix)]
+#![feature(generic_const_exprs)]
 #![feature(absolute_path)]
 #![feature(offset_of)]
 // Copyright 2023 RISC Zero, Inc.

@@ -5187,7 +5187,7 @@ dependencies = [
 [[package]]
 name = "sp1-core"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#0c4c91a753a5bed959f43bb26b01491871461225"
+source = "git+https://github.com/succinctlabs/sp1.git#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5251,7 +5251,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#0c4c91a753a5bed959f43bb26b01491871461225"
+source = "git+https://github.com/succinctlabs/sp1.git#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5261,7 +5261,7 @@ dependencies = [
 [[package]]
 name = "sp1-helper"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#0c4c91a753a5bed959f43bb26b01491871461225"
+source = "git+https://github.com/succinctlabs/sp1.git#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "cargo_metadata 0.18.1",
  "chrono",
@@ -5270,7 +5270,7 @@ dependencies = [
 [[package]]
 name = "sp1-precompiles"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#0c4c91a753a5bed959f43bb26b01491871461225"
+source = "git+https://github.com/succinctlabs/sp1.git#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5284,7 +5284,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#0c4c91a753a5bed959f43bb26b01491871461225"
+source = "git+https://github.com/succinctlabs/sp1.git#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "bincode",
  "cfg-if",
