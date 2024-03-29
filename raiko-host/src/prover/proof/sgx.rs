@@ -79,7 +79,7 @@ pub async fn execute_sgx(
                 .join(CONFIG)
                 .join("raiko-guest.manifest.template"),
         )
-        .arg("sgx-guest.manifest")
+        .arg("raiko-guest.manifest")
         .output()
         .await
         .map_err(|e| format!("Could not generate manfifest: {}", e.to_string()))?;
@@ -115,9 +115,9 @@ pub async fn execute_sgx(
         let mut cmd = Command::new("gramine-sgx-sign");
         cmd.current_dir(working_directory.clone())
             .arg("--manifest")
-            .arg("sgx-guest.manifest")
+            .arg("raiko-guest.manifest")
             .arg("--output")
-            .arg("sgx-guest.manifest.sgx")
+            .arg("raiko-guest.manifest.sgx")
             .output()
             .await
             .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;

@@ -17,8 +17,7 @@ RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/ca
 RUN cargo binstall -y --force cargo-risczero
 RUN cargo risczero install
 
-RUN cargo build --release ${BUILD_FLAGS}
-RUN cd raiko-guests/sgx && cargo build --release
+RUN cargo build --release ${BUILD_FLAGS} --features "sgx"
 
 
 FROM gramineproject/gramine:1.6-jammy as runtime
@@ -52,7 +51,7 @@ RUN mkdir -p \
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
 COPY --from=builder /opt/raiko/provers/sgx/config/raiko-guest.manifest.template ./provers/sgx/
 COPY --from=builder /opt/raiko/host/config/config.toml /etc/raiko/
-COPY --from=builder /opt/raiko/raiko-guests/sgx/target/release/raiko-sgx  ./provers/sgx/
+COPY --from=builder /opt/raiko/target/release/sgx-guest ./provers/sgx/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 
 ARG EDMM=0
