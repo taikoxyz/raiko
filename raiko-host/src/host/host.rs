@@ -351,10 +351,9 @@ mod test {
     use c_kzg::{Blob, KzgCommitment};
     use ethers_core::types::Transaction;
     use raiko_lib::taiko_utils::decode_transactions;
-
     use raiko_primitives::{
+        eip4844::{kzg_to_versioned_hash, parse_kzg_trusted_setup, MAINNET_KZG_TRUSTED_SETUP},
         kzg::KzgSettings,
-        eip4844::{parse_kzg_trusted_setup, kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
         mpt::proofs_to_tries,
     };
 
