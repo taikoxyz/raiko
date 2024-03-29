@@ -30,8 +30,8 @@ pub use trusted_setup::*;
 
 #[cfg(feature = "c-kzg")]
 mod trusted_setup {
+    pub use revm_primitives::kzg::parse_kzg_trusted_setup;
     use std::{io::Write, sync::Arc};
-
     use once_cell::sync::Lazy;
 
     use crate::kzg::KzgSettings;
