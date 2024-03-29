@@ -379,8 +379,12 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         let blob_hashs = propose_tx.blob_versioned_hashes.unwrap();
         assert!(blob_hashs.len() == 1);
         let blob_hash = blob_hashs[0];
-
-        let blobs = l1_provider.get_blob_data(l1_block_no + 1)?;
+        let slot_id = block_time_to_block_slot(
+            l2_fini_block.timestamp.as_u64(),
+            l2_chain_spec.genesis_time,
+            l2_chain_spec.seconds_per_slot,
+        )?;
+        let blobs = l1_provider.get_blob_data(slot_id)?;
         let tx_blobs: Vec<GetBlobData> = blobs
             .data
             .iter()
@@ -453,6 +457,21 @@ pub fn get_taiko_initial_data<N: NetworkStrategyBundle<TxEssence = EthereumTxEss
         l2_fini_block,
     )?;
     Ok((init, extra))
+}
+
+// block_time_to_block_slot returns the slots of the given timestamp.
+fn block_time_to_block_slot(
+    block_time: u64,
+    genesis_time: u64,
+    block_per_slot: u64,
+) -> Result<u64> {
+    if block_time < genesis_time {
+        Err(anyhow::Error::msg(
+            "provided block_time precedes genesis time",
+        ))
+    } else {
+        Ok((block_time - genesis_time) / block_per_slot)
+    }
 }
 
 #[cfg(test)]
@@ -583,6 +602,25 @@ mod test {
             kzg_to_versioned_hash(kzg_commit).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
+    }
+
+    #[test]
+    fn test_slot_block_num_mapping() {
+        let chain_spec = get_taiko_chain_spec("testnet");
+        let expected_slot = 1000u64;
+        let second_per_slot = 12u64;
+        let block_time = chain_spec.genesis_time + expected_slot * second_per_slot;
+        let block_num =
+            block_time_to_block_slot(block_time, chain_spec.genesis_time, second_per_slot)
+                .expect("block time to slot failed");
+        assert_eq!(block_num, expected_slot);
+
+        assert!(block_time_to_block_slot(
+            chain_spec.genesis_time - 10,
+            chain_spec.genesis_time,
+            second_per_slot
+        )
+        .is_err());
     }
 
     #[ignore]
