@@ -2677,6 +2677,7 @@ dependencies = [
 name = "zeth-primitives"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rlp-derive",

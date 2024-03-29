@@ -24,7 +24,7 @@ use revm::{
     taiko, Database, DatabaseCommit, Evm,
 };
 use ruint::aliases::U256;
-use zeth_primitives::{mpt::MptNode, receipt::Receipt, Bloom, RlpBytes};
+use zeth_primitives::{mpt::MptNode, receipt::Receipt, Bloom, Rlp2718Bytes, RlpBytes};
 
 use super::TxExecStrategy;
 use crate::{
@@ -215,11 +215,8 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             // Add receipt and tx to tries
             let trie_key = actual_tx_no.to_rlp();
-            // This will encode the tx inside an rlp value wrapper
-            let tx_rlp = tx.to_rlp();
-            // Extract the actual tx rlp encoding
-            let tx_rlp = tx_rlp[tx_rlp.len() - tx.inner_length() - 1..].to_vec();
-            tx_trie.insert_rlp_encoded(&trie_key, tx_rlp)?;
+            // Add to tx trie
+            tx_trie.insert_rlp_encoded(&trie_key, tx.to_rlp_2718())?;
             // Add to receipt trie
             receipt_trie.insert_rlp(&trie_key, receipt)?;
 
