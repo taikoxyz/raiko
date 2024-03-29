@@ -2387,5 +2387,59 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.55",
+ "syn 2.0.52",
+]
+
+[[package]]
+name = "zeth-lib"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rlp-derive",
+ "alloy-rpc-types",
+ "alloy-sol-types",
+ "anyhow",
+ "bytes",
+ "chrono",
+ "flate2",
+ "hashbrown 0.14.3",
+ "hex",
+ "libflate",
+ "log",
+ "once_cell",
+ "revm",
+ "rlp",
+ "ruint",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror",
+ "thiserror-no-std",
+ "url",
+ "zeth-primitives",
+]
+
+[[package]]
+name = "zeth-primitives"
+version = "0.1.0"
+dependencies = [
+ "alloy-eips",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rlp-derive",
+ "alloy-rpc-types",
+ "anyhow",
+ "bytes",
+ "hashbrown 0.14.3",
+ "hex",
+ "k256",
+ "revm-primitives",
+ "rlp",
+ "ruint",
+ "serde",
+ "sha3",
+ "thiserror",
 ]
