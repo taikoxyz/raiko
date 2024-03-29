@@ -46,17 +46,6 @@ impl Context {
             self.l2_cache_file = Some(self.host_cache.join(file_name));
         }
     }
-
-    pub fn guest_executable_path(&self, proof_instance: ProofType) -> PathBuf {
-        match proof_instance {
-            ProofType::Powdr => todo!(),
-            ProofType::Sgx => self
-                .guest_elf
-                .join("sgx")
-                .join(crate::prover::utils::RAIKO_GUEST_EXECUTABLE),
-        }
-    }
-
     pub async fn remove_cache_file(&self) -> Result<()> {
         if let Some(file) = &self.l1_cache_file {
             tokio::fs::remove_file(file).await?;

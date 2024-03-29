@@ -18,13 +18,15 @@ use alloy_consensus::{TxEnvelope, TxKind};
 use anyhow::{anyhow, bail, Context, Error, Result};
 #[cfg(feature = "std")]
 use log::debug;
+use raiko_primitives::{mpt::MptNode, receipt::Receipt, Bloom, Rlp2718Bytes, RlpBytes};
 use revm::{
     interpreter::Host,
-    primitives::{Account, Address, EVMError, ResultAndState, SpecId, TransactTo, TxEnv},
+    primitives::{
+        Account, Address, EVMError, HandlerCfg, ResultAndState, SpecId, TransactTo, TxEnv,
+    },
     taiko, Database, DatabaseCommit, Evm,
 };
 use ruint::aliases::U256;
-use zeth_primitives::{mpt::MptNode, receipt::Receipt, Bloom, RlpBytes};
 
 use super::TxExecStrategy;
 use crate::{
@@ -64,11 +66,11 @@ impl TxExecStrategy for TkoTxExecStrategy {
         );
 
         let mut evm = Evm::builder()
-            .spec_id(spec_id)
+            .with_db(block_builder.db.take().unwrap())
+            .with_handler_cfg(HandlerCfg::new_with_taiko(spec_id, true))
             .modify_cfg_env(|cfg_env| {
                 // set the EVM configuration
                 cfg_env.chain_id = chain_id;
-                cfg_env.taiko = true;
             })
             .modify_block_env(|blk_env| {
                 // set the EVM block environment
@@ -80,7 +82,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 blk_env.basefee = header.base_fee_per_gas.unwrap().try_into().unwrap();
                 blk_env.gas_limit = block_builder.input.gas_limit.try_into().unwrap();
             })
-            .with_db(block_builder.db.take().unwrap())
             .append_handler_register(taiko::handler_register::taiko_handle_register)
             .build();
 
@@ -121,7 +122,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     if is_anchor {
                         bail!("Error recovering anchor signature: {}", err);
                     }
-                    #[cfg(not(target_os = "zkvm"))]
+                    #[cfg(feature = "std")]
                     debug!(
                         "Error recovering address for transaction {}, error: {}",
                         tx_no, err
@@ -148,7 +149,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 if is_anchor {
                     bail!("Error at transaction {}: gas exceeds block limit", tx_no);
                 }
-                #[cfg(not(target_os = "zkvm"))]
+                #[cfg(feature = "std")]
                 debug!("Error at transaction {}: gas exceeds block limit", tx_no);
                 continue;
             }
@@ -156,7 +157,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             // setup the transaction
             fill_eth_tx_env(
                 block_builder.input.network,
-                &mut evm.env().tx,
+                &mut evm.env_mut().tx,
                 &tx,
                 tx_from,
                 is_anchor,
@@ -172,7 +173,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     // manipulated by the prover)
                     match err {
                         EVMError::Transaction(invalid_transaction) => {
-                            #[cfg(not(target_os = "zkvm"))]
+                            #[cfg(feature = "std")]
                             debug!("Invalid tx at {}: {:?}", tx_no, invalid_transaction);
                             // skip the tx
                             continue;
@@ -204,7 +205,11 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 tx_type,
                 result.is_success(),
                 cumulative_gas_used.try_into().unwrap(),
-                result.logs().into_iter().map(|log| log.into()).collect(),
+                result
+                    .logs()
+                    .into_iter()
+                    .map(|log| log.clone().into())
+                    .collect(),
             );
 
             // update the state
@@ -215,11 +220,8 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             // Add receipt and tx to tries
             let trie_key = actual_tx_no.to_rlp();
-            // This will encode the tx inside an rlp value wrapper
-            let tx_rlp = tx.to_rlp();
-            // Extract the actual tx rlp encoding
-            let tx_rlp = tx_rlp[tx_rlp.len() - tx.inner_length() - 1..].to_vec();
-            tx_trie.insert_rlp_encoded(&trie_key, tx_rlp)?;
+            // Add to tx trie
+            tx_trie.insert_rlp_encoded(&trie_key, tx.to_rlp_2718())?;
             // Add to receipt trie
             receipt_trie.insert_rlp(&trie_key, receipt)?;
 
@@ -262,7 +264,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         // Leak memory, save cycles
         guest_mem_forget([tx_trie, receipt_trie, withdrawals_trie]);
         // Return block builder with updated database
-        Ok(block_builder.with_db(evm.context.evm.db))
+        Ok(block_builder.with_db(evm.context.evm.inner.db))
     }
 }
 

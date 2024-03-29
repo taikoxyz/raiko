@@ -1,4 +1,6 @@
 use core::str::FromStr;
+// TODO(Cecilia): fix for no-std
+use std::io::Read;
 
 use alloy_consensus::{Header as AlloyConsensusHeader, TxEip1559, TxEnvelope, TxKind};
 use alloy_network::Signed;
@@ -6,9 +8,12 @@ use alloy_primitives::{uint, Address, Signature, U256};
 use alloy_rlp::*;
 use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
 use anyhow::{anyhow, bail, ensure, Context, Result};
+use libflate::zlib::Decoder as zlibDecoder;
 use once_cell::unsync::Lazy;
-use zeth_primitives::{keccak256, B256};
+use raiko_primitives::{keccak256, B256};
 
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 use crate::{
     consts::{get_network_spec, Network},
     input::{decode_anchor, GuestInput},
@@ -18,10 +23,6 @@ pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
 pub const GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
     Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
         .expect("invalid golden touch account")
-});
-pub const SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0xA4702E22F8807Df82Fe5B6dDdd99eB3Fcb0237B0")
-        .expect("invalid sgx verifier contract address")
 });
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
@@ -35,7 +36,8 @@ pub fn generate_transactions(
 ) -> Vec<TxEnvelope> {
     // Decode the tx list from the raw data posted onchain
     let tx_list = &if is_blob_data {
-        decode_blob_data(tx_list)
+        let compressed_tx_list = decode_blob_data(tx_list);
+        zlib_decompress_blob(&compressed_tx_list).unwrap_or_default()
     } else {
         tx_list.to_owned()
     };
@@ -174,6 +176,13 @@ fn reassemble_bytes(
     output[opos - (32 * 2)] = y;
     output[opos - (32 * 3)] = x;
     opos
+}
+
+fn zlib_decompress_blob(blob: &[u8]) -> Result<Vec<u8>> {
+    let mut decoder = zlibDecoder::new(blob)?;
+    let mut decoded_buf = Vec::new();
+    decoder.read_to_end(&mut decoded_buf)?;
+    Ok(decoded_buf)
 }
 
 const GX1: Lazy<U256> =

@@ -1,4 +1,5 @@
 #![feature(path_file_prefix)]
+#![feature(generic_const_exprs)]
 #![feature(absolute_path)]
 #![feature(offset_of)]
 // TODO(Cecilia): sp1 need this due to compiler versioning, fix toolchain condition on guest type
@@ -44,7 +45,7 @@ struct Opt {
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
     cache: PathBuf,
 
-    #[structopt(long, require_equals = true, default_value = "raiko-host/guests")]
+    #[structopt(long, require_equals = true, default_value = "./")]
     /// The guests path
     guest: PathBuf,
 

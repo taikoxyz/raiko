@@ -1,5 +1,5 @@
 //! Generate different proofs for the taiko protocol.
-use zeth_lib::input::{GuestOutput};
+use raiko_lib::input::{GuestInput, GuestOutput};
 
 use crate::prover::{
     context::Context,

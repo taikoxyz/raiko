@@ -2,12 +2,12 @@
 use risc0_zkvm::guest::env;
 risc0_zkvm::guest::entry!(main);
 
-use zeth_lib::{
+use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput},
 };
-use zeth_lib::protocol_instance::assemble_protocol_instance;
-use zeth_lib::protocol_instance::EvidenceType;
+use raiko_lib::protocol_instance::assemble_protocol_instance;
+use raiko_lib::protocol_instance::EvidenceType;
 
 fn main() {
 

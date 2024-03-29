@@ -13,11 +13,19 @@
 // limitations under the License.
 // #![feature(path_file_prefix)]
 #![feature(sync_unsafe_cell)]
-#![feature(build_hasher_simple_hash_one)]
 #![cfg_attr(any(not(feature = "std")), no_std)]
 
-extern crate alloc;
-extern crate core;
+#[cfg(not(feature = "std"))]
+mod no_std {
+    extern crate alloc;
+    extern crate core;
+    pub use alloc::{
+        borrow::ToOwned,
+        format,
+        string::{String, ToString},
+        vec::Vec,
+    };
+}
 
 pub mod builder;
 pub mod consts;

@@ -14,15 +14,17 @@
 
 //! Constants for the Ethereum protocol.
 extern crate alloc;
-
 use alloc::{collections::BTreeMap, str::FromStr};
 
 use alloy_primitives::Address;
 use anyhow::bail;
 use once_cell::unsync::Lazy;
+use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
-use zeth_primitives::{uint, BlockNumber, ChainId, U256};
+
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;
@@ -57,6 +59,7 @@ pub const ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
         },
         l1_contract: None,
         l2_contract: None,
+        sgx_verifier_address: None,
     }
 });
 
@@ -75,6 +78,9 @@ pub const TAIKO_A6_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     },
     l1_contract: Some(Address::from_str("0xB20BB9105e007Bd3E0F73d63D4D3dA2c8f736b77").unwrap()),
     l2_contract: Some(Address::from_str("0x1670080000000000000000000000000000010001").unwrap()),
+    sgx_verifier_address: Some(
+        Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9").unwrap(),
+    ),
 });
 
 /// The Taiko A7 specification.
@@ -90,8 +96,11 @@ pub const TAIKO_A7_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
         base_fee_max_decrease_denominator: uint!(8_U256),
         elasticity_multiplier: uint!(2_U256),
     },
-    l1_contract: Some(Address::from_str("0x78155FaC733356cbA069245A435Eb114e7fd815d").unwrap()),
+    l1_contract: Some(Address::from_str("0xC069c3d2a9f2479F559AD34485698ad5199C555f").unwrap()),
     l2_contract: Some(Address::from_str("0x1670010000000000000000000000000000010001").unwrap()),
+    sgx_verifier_address: Some(
+        Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9").unwrap(),
+    ),
 });
 
 pub fn get_network_spec(network: Network) -> ChainSpec {
@@ -150,6 +159,7 @@ pub struct ChainSpec {
     pub eip_1559_constants: Eip1559Constants,
     pub l1_contract: Option<Address>,
     pub l2_contract: Option<Address>,
+    pub sgx_verifier_address: Option<Address>,
 }
 
 impl ChainSpec {
@@ -165,6 +175,7 @@ impl ChainSpec {
             eip_1559_constants,
             l1_contract: None,
             l2_contract: None,
+            sgx_verifier_address: None,
         }
     }
     /// Returns the network chain ID.

@@ -4,14 +4,14 @@ use alloy_sol_types::SolValue;
 use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
-use zeth_lib::{
+use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::Network,
     input::{GuestInput, GuestOutput, TaikoProverData},
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     taiko_utils::HeaderHasher,
 };
-use zeth_primitives::keccak::keccak;
+use raiko_primitives::Address;
 
 use super::{context::Context, error::Result, request::ProofRequest};
 use crate::{host::host::preflight, metrics::observe_input};
