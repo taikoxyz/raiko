@@ -22,6 +22,7 @@ use once_cell::unsync::Lazy;
 use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
+use anyhow::Result;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -44,12 +45,13 @@ pub const GWEI_TO_WEI: U256 = uint!(1_000_000_000_U256);
 pub const ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
     ChainSpec {
         chain_id: 1,
+        max_spec_id: SpecId::CANCUN,
         hard_forks: BTreeMap::from([
             (SpecId::FRONTIER, ForkCondition::Block(0)),
             // previous versions not supported
             (SpecId::MERGE, ForkCondition::Block(15537394)),
             (SpecId::SHANGHAI, ForkCondition::Block(17034870)),
-            (SpecId::CANCUN, ForkCondition::TBD),
+            (SpecId::CANCUN, ForkCondition::Timestamp(1710338135)),
         ]),
         eip_1559_constants: Eip1559Constants {
             base_fee_change_denominator: uint!(8_U256),
@@ -66,6 +68,7 @@ pub const ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
 /// The Taiko A6 specification.
 pub const TAIKO_A6_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     chain_id: 167008,
+    max_spec_id: SpecId::SHANGHAI,
     hard_forks: BTreeMap::from([
         (SpecId::SHANGHAI, ForkCondition::Block(0)),
         (SpecId::CANCUN, ForkCondition::TBD),
@@ -86,6 +89,7 @@ pub const TAIKO_A6_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
 /// The Taiko A7 specification.
 pub const TAIKO_A7_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     chain_id: 167001,
+    max_spec_id: SpecId::SHANGHAI,
     hard_forks: BTreeMap::from([
         (SpecId::SHANGHAI, ForkCondition::Block(0)),
         (SpecId::CANCUN, ForkCondition::TBD),
@@ -117,15 +121,18 @@ pub fn get_network_spec(network: Network) -> ChainSpec {
 pub enum ForkCondition {
     /// The fork is activated with a certain block.
     Block(BlockNumber),
+    /// The fork is activated with a specific timestamp.
+    Timestamp(u64),
     /// The fork is not yet active.
     TBD,
 }
 
 impl ForkCondition {
     /// Returns whether the condition has been met.
-    pub fn active(&self, block_number: BlockNumber) -> bool {
+    pub fn active(&self, block_number: BlockNumber, timestamp: u64) -> bool {
         match self {
             ForkCondition::Block(block) => *block <= block_number,
+            ForkCondition::Timestamp(ts) => *ts <= timestamp,
             ForkCondition::TBD => false,
         }
     }
@@ -156,6 +163,7 @@ impl Default for Eip1559Constants {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ChainSpec {
     pub chain_id: ChainId,
+    pub max_spec_id: SpecId,
     pub hard_forks: BTreeMap<SpecId, ForkCondition>,
     pub eip_1559_constants: Eip1559Constants,
     pub l1_contract: Option<Address>,
@@ -172,6 +180,7 @@ impl ChainSpec {
     ) -> Self {
         ChainSpec {
             chain_id,
+            max_spec_id: spec_id,
             hard_forks: BTreeMap::from([(spec_id, ForkCondition::Block(0))]),
             eip_1559_constants,
             l1_contract: None,
@@ -183,18 +192,32 @@ impl ChainSpec {
     pub fn chain_id(&self) -> ChainId {
         self.chain_id
     }
-    /// Returns the revm specification ID for `block_number`.
-    pub fn spec_id(&self, block_number: BlockNumber) -> SpecId {
-        for (spec_id, fork) in self.hard_forks.iter().rev() {
-            if fork.active(block_number) {
-                return *spec_id;
+    /// Returns the [SpecId] for a given block number and timestamp or an error if not
+    /// supported.
+    pub fn active_fork(&self, block_number: BlockNumber, timestamp: u64) -> Result<SpecId> {
+        match self.spec_id(block_number, timestamp) {
+            Some(spec_id) => {
+                if spec_id > self.max_spec_id {
+                    bail!("expected <= {:?}, got {:?}", self.max_spec_id, spec_id);
+                } else {
+                    Ok(spec_id)
+                }
             }
+            None => bail!("no supported fork for block {}", block_number),
         }
-        unreachable!()
     }
     /// Returns the Eip1559 constants
     pub fn gas_constants(&self) -> &Eip1559Constants {
         &self.eip_1559_constants
+    }
+
+    fn spec_id(&self, block_number: BlockNumber, timestamp: u64) -> Option<SpecId> {
+        for (spec_id, fork) in self.hard_forks.iter().rev() {
+            if fork.active(block_number, timestamp) {
+                return Some(*spec_id);
+            }
+        }
+        None
     }
 }
 

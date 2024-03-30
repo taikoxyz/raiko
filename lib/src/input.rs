@@ -61,6 +61,11 @@ pub struct GuestInput {
     pub ancestor_headers: Vec<AlloyConsensusHeader>,
     /// Base fee per gas
     pub base_fee_per_gas: u64,
+
+    pub blob_gas_used: Option<u64>,
+    pub excess_blob_gas: Option<u64>,
+    pub parent_beacon_block_root: Option<B256>,
+
     /// Taiko specific data
     pub taiko: TaikoGuestInput,
 }
