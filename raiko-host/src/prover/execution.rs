@@ -37,7 +37,6 @@ pub async fn execute<D: GuestDriver>(
     observe_input(elapsed);
     // 2. pre-build the block
     let build_result = TaikoStrategy::build_from(&input);
-    // TODO: cherry-pick risc0 latest output
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
             info!("Verifying final state using provider data ...");
@@ -122,6 +121,8 @@ impl GuestDriver for NativeDriver {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "succinct")] {
+        use raiko_primitives::keccak::keccak;
+        use alloy_sol_types::SolValue;
 
         pub struct Sp1Driver;
 
@@ -149,7 +150,8 @@ cfg_if::cfg_if! {
             }
         }
     } else if #[cfg(feature = "risc0")] {
-
+        use raiko_primitives::keccak::keccak;
+        use alloy_sol_types::SolValue;
         pub struct Risc0Driver;
 
         impl GuestDriver for Risc0Driver {
@@ -176,6 +178,8 @@ cfg_if::cfg_if! {
             }
         }
     } else if #[cfg(feature = "sgx")] {
+        use raiko_primitives::keccak::keccak;
+        use alloy_sol_types::SolValue;
 
         pub struct SgxDriver;
 
@@ -194,6 +198,8 @@ cfg_if::cfg_if! {
 
             fn instance_hash(pi: ProtocolInstance) -> B256 {
                 let data = (
+                    "VERIFY_PROOF",
+                    pi.chain_id,
                     pi.transition.clone(),
                     // new_pubkey, TODO(cecilia)
                     pi.prover,

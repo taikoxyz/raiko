@@ -24,10 +24,7 @@ pub mod host;
 mod metrics;
 mod prover;
 
-#[allow(dead_code)]
-mod rolling;
 use std::{fmt::Debug, path::PathBuf};
-
 use anyhow::{Context, Result};
 use prover::server::serve;
 use serde::Deserialize;

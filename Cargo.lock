@@ -4987,6 +4987,7 @@ name = "sgx-guest"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "once_cell",
  "raiko-lib",
  "raiko-primitives",
  "serde",
@@ -5204,6 +5205,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
+ "once_cell",
  "raiko-lib",
  "serde",
  "serde_json",

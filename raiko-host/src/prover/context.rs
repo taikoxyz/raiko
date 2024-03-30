@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 
 use super::request::ProofType;
+
 #[derive(Debug, Default, Clone)]
 pub struct Context {
     /// guest executable path

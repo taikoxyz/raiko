@@ -14,9 +14,10 @@ tokio = { version = "^1.23", features = ["full"], optional = true}
 bincode = {version = "1.3.3", optional = true}
 raiko-lib = { path = "../../../lib", features = ["taiko", "std"] , optional = true}
 raiko-primitives = { path = "../../../primitives", features = ["taiko"] , optional = true}
-
+once_cell = "1.19.0"
 
 [features]
+default = ["enable"]
 enable = [
     "raiko-lib",
     "raiko-primitives",
