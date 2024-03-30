@@ -8,13 +8,13 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
-use secp256k1::KeyPair;
-use serde::Serialize;
-use zeth_lib::{
+use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     protocol_instance::{assemble_protocol_instance, EvidenceType},
 };
-use zeth_primitives::Address;
+use raiko_primitives::{Address, B256};
+use secp256k1::KeyPair;
+use serde::Serialize;
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
 use crate::{

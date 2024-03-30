@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use alloy_consensus::{TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy};
+use alloy_consensus::{TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy};
 pub use alloy_primitives::*;
 use alloy_providers::tmp::{HttpProvider, TempProvider};
 pub use alloy_rlp as rlp;
@@ -12,12 +12,7 @@ use alloy_transport_http::Http;
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use hashbrown::HashSet;
-use reth_primitives::{
-    constants::eip4844::MAINNET_KZG_TRUSTED_SETUP, eip4844::kzg_to_versioned_hash,
-};
-use serde::{Deserialize, Serialize};
-use url::Url;
-use zeth_lib::{
+use raiko_lib::{
     builder::{prepare::TaikoHeaderPrepStrategy, BlockBuilder, TkoTxExecStrategy},
     consts::{get_network_spec, Network},
     input::{
@@ -26,7 +21,11 @@ use zeth_lib::{
     },
     taiko_utils::{generate_transactions, to_header},
 };
-use zeth_primitives::mpt::proofs_to_tries;
+use raiko_primitives::{
+    alloy_eips::eip2930::{AccessList, AccessListItem}, eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries
+};
+use serde::{Deserialize, Serialize};
+use url::Url;
 use alloy_consensus::TxEip1559;
 use alloy_network::Signed;
 
@@ -173,8 +172,23 @@ pub fn preflight(
                         let s = Signed::new_unchecked(t, sig, tx.hash);
                         txs2.push(TxEnvelope::Legacy(s));
                     } else if tx.transaction_type.unwrap().as_limbs()[0] == 1 {
-                        // TODO(Brecht)
-                        println!("TODO txType 1");
+                        let t = TxEip2930 {
+                            chain_id: if tx.chain_id.is_some() { tx.chain_id.unwrap().try_into().unwrap() } else { 1 },
+                            nonce: tx.nonce.try_into().unwrap(),
+                            gas_price: tx.gas_price.unwrap().try_into().unwrap(),
+                            gas_limit: tx.gas.try_into().unwrap(),
+                            to: if tx.to.is_none() { alloy_consensus::TxKind::Create } else { alloy_consensus::TxKind::Call(tx.to.unwrap())},
+                            value: tx.value.try_into().unwrap(),
+                            input: tx.input,
+                            access_list: to_access_list(tx.access_list.unwrap_or_default()),
+                        };
+                        let sig = Signature::from_rs_and_parity(
+                            tx.signature.unwrap().r,
+                            tx.signature.unwrap().s,
+                            if tx.signature.unwrap().y_parity.is_some() { tx.signature.unwrap().y_parity.unwrap().0 } else { false },
+                        ).unwrap();
+                        let s = Signed::new_unchecked(t, sig, tx.hash);
+                        txs2.push(TxEnvelope::Eip2930(s));
                     } else if tx.transaction_type.unwrap().as_limbs()[0] == 2 {
                         let t = TxEip1559 {
                             chain_id: tx.chain_id.unwrap().try_into().unwrap(),
@@ -184,7 +198,7 @@ pub fn preflight(
                             max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
                             to: if tx.to.is_none() { alloy_consensus::TxKind::Create } else { alloy_consensus::TxKind::Call(tx.to.unwrap())},
                             value: tx.value.try_into().unwrap(),
-                            access_list: Default::default(),
+                            access_list: to_access_list(tx.access_list.unwrap_or_default()),
                             input: tx.input,
                         };
                         let sig = Signature::from_rs_and_parity(
@@ -203,7 +217,7 @@ pub fn preflight(
                             max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
                             to: if tx.to.is_none() { alloy_consensus::TxKind::Create } else { alloy_consensus::TxKind::Call(tx.to.unwrap())},
                             value: tx.value.try_into().unwrap(),
-                            access_list: Default::default(),
+                            access_list: to_access_list(tx.access_list.unwrap_or_default()),
                             input: tx.input,
                             blob_versioned_hashes: tx.blob_versioned_hashes,
                             max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap().try_into().unwrap(),
@@ -243,6 +257,9 @@ pub fn preflight(
         parent_header: to_header(&parent_block.header),
         ancestor_headers: Default::default(),
         base_fee_per_gas: block.header.base_fee_per_gas.unwrap().try_into().unwrap(),
+        blob_gas_used: if block.header.blob_gas_used.is_some() { Some(block.header.blob_gas_used.unwrap().try_into().unwrap())} else { None },
+        excess_blob_gas: if block.header.excess_blob_gas.is_some() { Some(block.header.excess_blob_gas.unwrap().try_into().unwrap())} else { None },
+        parent_beacon_block_root: block.header.parent_beacon_block_root,
         taiko: taiko_guest_input,
     };
 
@@ -397,7 +414,7 @@ pub fn get_block_proposed_event(
                 false,
             )
             .unwrap();
-            if event.blockId == zeth_primitives::U256::from(l2_block_no) {
+            if event.blockId == raiko_primitives::U256::from(l2_block_no) {
                 let tx = tokio_handle
                     .block_on(async {
                         provider
@@ -413,7 +430,7 @@ pub fn get_block_proposed_event(
                 false,
             )
             .unwrap();
-            if event.blockId == zeth_primitives::U256::from(l2_block_no) {
+            if event.blockId == raiko_primitives::U256::from(l2_block_no) {
                 let tx = tokio_handle
                     .block_on(async {
                         provider
@@ -428,18 +445,26 @@ pub fn get_block_proposed_event(
     bail!("No BlockProposed event found for block {l2_block_no}");
 }
 
+fn to_access_list(item: Vec<alloy_rpc_types::transaction::AccessListItem>) -> AccessList {
+    let converted = item.iter().map(|item| AccessListItem {
+        address: item.address,
+        storage_keys: item.storage_keys.clone(),
+    }).collect();
+    AccessList(converted)
+}
+
 #[cfg(test)]
 mod test {
     use std::sync::Arc;
 
     use c_kzg::{Blob, KzgCommitment};
     use ethers_core::types::Transaction;
-    use reth_primitives::{
-        constants::eip4844::MAINNET_KZG_TRUSTED_SETUP,
-        eip4844::kzg_to_versioned_hash,
-        revm_primitives::kzg::{parse_kzg_trusted_setup, KzgSettings},
+    use raiko_lib::taiko_utils::decode_transactions;
+    use raiko_primitives::{
+        eip4844::{kzg_to_versioned_hash, parse_kzg_trusted_setup, MAINNET_KZG_TRUSTED_SETUP},
+        kzg::KzgSettings,
+        mpt::proofs_to_tries,
     };
-    use zeth_lib::taiko_utils::decode_transactions;
 
     use super::*;
 
@@ -450,6 +475,8 @@ mod test {
         version_hash
     }
 
+    // TODO(Cecilia): "../kzg_parsed_trust_setup" does not exist
+    #[ignore]
     #[test]
     fn test_parse_kzg_trusted_setup() {
         // check if file exists
@@ -467,6 +494,8 @@ mod test {
         println!("g2: {:?}", g2.0.len());
     }
 
+    // TODO(Cecilia): "../kzg_parsed_trust_setup" does not exist
+    #[ignore]
     #[test]
     fn test_blob_to_kzg_commitment() {
         // check if file exists
@@ -489,7 +518,6 @@ mod test {
         );
     }
 
-    #[ignore]
     #[test]
     fn test_new_blob_decode() {
         let valid_blob_str = "\
@@ -539,7 +567,7 @@ mod test {
             00000000000000000000000000000000";
         // println!("valid blob: {:?}", valid_blob_str);
         let blob_str = format!("{:0<262144}", valid_blob_str);
-        let dec_blob = decode_blob_data(&blob_str);
+        let dec_blob = blob_to_bytes(&blob_str);
         println!("dec blob tx len: {:?}", dec_blob.len());
         let txs = decode_transactions(&dec_blob);
         println!("dec blob tx: {:?}", txs);
@@ -670,7 +698,6 @@ mod test {
     // .unwrap();
     // }
 
-    #[ignore]
     #[test]
     fn json_to_ethers_blob_tx() {
         let response = "{

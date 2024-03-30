@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use lru_time_cache::LruCache;
-use zeth_primitives::{Address, B256};
+use raiko_primitives::{Address, B256};
 pub struct CachedProof {
     proof: String,
 }

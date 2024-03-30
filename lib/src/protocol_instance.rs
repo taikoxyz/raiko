@@ -2,9 +2,11 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use zeth_primitives::keccak::keccak;
+use raiko_primitives::keccak::keccak;
 
 use super::taiko_utils::ANCHOR_GAS_LIMIT;
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 use crate::{
     consts::{get_network_spec, Network},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
@@ -156,7 +158,7 @@ fn bytes_to_bytes32(input: &[u8]) -> [u8; 32] {
 mod tests {
     use alloy_primitives::{address, b256};
     use alloy_sol_types::SolCall;
-    use zeth_primitives::keccak;
+    use raiko_primitives::keccak;
 
     use super::*;
     use crate::input::{proveBlockCall, BlockMetadata, TierProof, Transition};

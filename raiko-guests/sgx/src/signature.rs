@@ -1,11 +1,11 @@
 use std::{fs, path::Path};
 
+use raiko_primitives::{keccak256, Address, Signature, B256, U256};
 use rand_core::OsRng;
 use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
     Error, KeyPair, Message, PublicKey, SecretKey, SECP256K1,
 };
-use zeth_primitives::{keccak256, Address, Signature, B256, U256};
 
 pub fn generate_key() -> KeyPair {
     KeyPair::new_global(&mut OsRng)

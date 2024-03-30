@@ -1,5 +1,5 @@
 [package]
-name = "zeth-primitives"
+name = "raiko-primitives"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,10 +13,13 @@ alloy-dyn-abi = { version = "0.6",default-features = false, optional = true }
 alloy-rlp = { version = "0.3", default-features = false }
 alloy-rlp-derive = { version = "0.3", default-features = false }
 alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
+alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
 anyhow = { version = "1.0", default-features = false }
 bytes = { version = "1.5", default-features = false }
 k256 = { version = "^0.13.3", features = ["ecdsa"], default_features = false }
 hashbrown = { workspace = true }
+sha2 = { version = "0.10.7", optional = true }
+tempfile = { workspace = true, optional = true }
 
 revm-primitives = { workspace = true, optional = true, default-features = false }
 rlp = { version = "0.5.2", default-features = false }
@@ -28,6 +31,9 @@ once_cell = { version = "1.18.0", default-features = false, features = ["critica
 hex = { version = "0.4",  default-features = false}
 ruint = { version = "1.10", default-features = false }
 
+# for eip-4844
+c-kzg = { workspace = true, features = ["serde"], optional = true }
+
 [dev-dependencies]
 bincode = "1.3"
 hex-literal = "0.4"
@@ -37,3 +43,4 @@ serde_json = { version = "1.0", default-features = false }
 std = ["anyhow/std"]
 taiko = ["revm-primitives/taiko"]
 revm = ["dep:revm-primitives"]
+c-kzg = ["dep:c-kzg", "revm-primitives?/c-kzg", "dep:sha2", "dep:tempfile", "dep:once_cell"]

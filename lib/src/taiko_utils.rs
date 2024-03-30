@@ -1,4 +1,5 @@
 use core::str::FromStr;
+// TODO(Cecilia): fix for no-std
 use std::io::Read;
 
 use alloy_consensus::{Header as AlloyConsensusHeader, TxEip1559, TxEnvelope, TxKind};
@@ -9,8 +10,10 @@ use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use libflate::zlib::Decoder as zlibDecoder;
 use once_cell::unsync::Lazy;
-use zeth_primitives::{keccak256, B256};
+use raiko_primitives::{keccak256, B256};
 
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 use crate::{
     consts::{get_network_spec, Network},
     input::{decode_anchor, GuestInput},
