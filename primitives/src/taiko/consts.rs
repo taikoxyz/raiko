@@ -13,19 +13,21 @@ pub static GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
 
 pub mod testnet {
     use super::*;
-    pub const CHAIN_ID: u64 = 167008;
+    pub const CHAIN_ID: u64 = 167009;
     pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0xB20BB9105e007Bd3E0F73d63D4D3dA2c8f736b77")
+        Address::from_str("0xaC6ccC4B3aBA6E96E2F58E0fF7A4ff3aF469E62E")
             .expect("invalid l1 contract address")
     });
     pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0x1670080000000000000000000000000000010001")
+        Address::from_str("0x1670090000000000000000000000000000010001")
             .expect("invalid l2 contract address")
     });
     pub static SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
+        Address::from_str("0x914e458035Cd10B3650B4115D74f351f79EA768E")
             .expect("invalid sgx verifier contract address")
     });
+    pub const GENISES_TIME: u64 = 1695902400u64;
+    pub const SECONDS_PER_SLOT: u64 = 12u64;
 }
 
 pub mod internal_devnet_a {
@@ -43,6 +45,8 @@ pub mod internal_devnet_a {
         Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
             .expect("invalid sgx verifier contract address")
     });
+    pub const GENISES_TIME: u64 = 1695902400u64;
+    pub const SECONDS_PER_SLOT: u64 = 12u64;
 }
 
 pub mod internal_devnet_b {
@@ -60,4 +64,6 @@ pub mod internal_devnet_b {
         Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9")
             .expect("invalid sgx verifier contract address")
     });
+    pub const GENISES_TIME: u64 = 1695902400u64;
+    pub const SECONDS_PER_SLOT: u64 = 12u64;
 }

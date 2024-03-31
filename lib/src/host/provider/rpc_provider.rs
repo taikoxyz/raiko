@@ -184,7 +184,11 @@ impl Provider for RpcProvider {
     fn get_blob_data(&mut self, block_id: u64) -> Result<GetBlobsResponse> {
         match self.beacon_rpc_url {
             Some(ref url) => self.tokio_handle.block_on(async {
-                let url = format!("{}/eth/v1/beacon/blob_sidecars/{}", url, block_id);
+                let url = format!(
+                    "{}/eth/v1/beacon/blob_sidecars/{}",
+                    url.trim_end_matches('/'),
+                    block_id
+                );
                 let response = reqwest::get(url.clone()).await?;
                 if response.status().is_success() {
                     let blob_response: GetBlobsResponse = response.json().await?;
