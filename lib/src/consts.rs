@@ -100,10 +100,10 @@ pub const TAIKO_A7_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
         base_fee_max_decrease_denominator: uint!(8_U256),
         elasticity_multiplier: uint!(2_U256),
     },
-    l1_contract: Some(Address::from_str("0xaC6ccC4B3aBA6E96E2F58E0fF7A4ff3aF469E62E").unwrap()),
+    l1_contract: Some(Address::from_str("0x79C9109b764609df928d16fC4a91e9081F7e87DB").unwrap()),
     l2_contract: Some(Address::from_str("0x1670090000000000000000000000000000010001").unwrap()),
     sgx_verifier_address: Some(
-        Address::from_str("0x914e458035Cd10B3650B4115D74f351f79EA768E").unwrap(),
+        Address::from_str("0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9").unwrap(),
     ),
     genesis_time: 1695902400u64,
     seconds_per_slot: 12u64,

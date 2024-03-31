@@ -12,9 +12,11 @@ rangeEnd="$4"
 if [ "$chain" == "taiko_a6" ]; then
   l2Rpc="https://rpc.katla.taiko.xyz"
   l1Rpc="https://l1rpc.katla.taiko.xyz"
+  beaconRpc="https://l1beacon.hekla.taiko.xyz"
 elif [ "$chain" == "taiko_a7" ]; then
-  l2Rpc="https://rpc.internal.taiko.xyz"
-  l1Rpc="https://l1rpc.internal.taiko.xyz"
+  l2Rpc="https://rpc.hekla.taiko.xyz/"
+  l1Rpc="https://l1rpc.hekla.taiko.xyz/"
+  beaconRpc="https://l1beacon.hekla.taiko.xyz"
 else
   echo "Invalid chain name. Please use 'taiko_a6' or 'taiko_a7'."
   exit 1
@@ -59,7 +61,6 @@ if [ "$rangeEnd" == "" ]; then
   rangeEnd=$rangeStart
 fi
 
-beaconRpc="https://l1beacon.internal.taiko.xyz"
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
