@@ -2,8 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
-
-
 #[derive(Debug, Default, Clone)]
 pub struct Context {
     /// guest executable path

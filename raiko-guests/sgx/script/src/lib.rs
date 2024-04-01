@@ -1,14 +1,18 @@
 #![cfg(feature = "enable")]
 use std::{
-    env, fs::{copy, create_dir_all, remove_file, File}, path::{PathBuf}, process::Output, str
+    env,
+    fs::{copy, create_dir_all, remove_file, File},
+    path::PathBuf,
+    process::Output,
+    str,
 };
+
+use once_cell::sync::Lazy;
+use raiko_lib::input::{GuestInput, GuestOutput};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::serde_as;
 use tokio::{process::Command, sync::OnceCell};
-
-use raiko_lib::input::{GuestInput, GuestOutput};
-use once_cell::sync::Lazy;
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,7 +28,6 @@ pub struct SgxResponse {
     pub proof: String,
     pub quote: String,
 }
-
 
 pub const ELF_NAME: &str = "sgx-bin";
 pub const INPUT_FILE_NAME: &str = "input.bin";
@@ -55,38 +58,36 @@ async fn prepare_working_directory(
         create_dir_all(cur_dir.join(dir)).unwrap();
     }
     GRAMINE_MANIFEST_TEMPLATE
-        .get_or_init(|| async {
-            cur_dir.join(CONFIG).join("raiko-guest.manifest.template")
-        })
+        .get_or_init(|| async { cur_dir.join(CONFIG).join("raiko-guest.manifest.template") })
         .await;
-     // If cached input file is not provided
-     // write the input to a file that will be read by the SGX instance
-     let input_path = match cached_input {
+    // If cached input file is not provided
+    // write the input to a file that will be read by the SGX instance
+    let input_path = match cached_input {
         Some(path) => path.clone(),
         None => {
             let path = cur_dir.join(INPUT_FILE_NAME);
-            bincode::serialize_into(
-                File::create(&path).expect("Unable to open file"),
-                &input).expect("Unable to serialize input"
-            );
+            bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
+                .expect("Unable to serialize input");
             path
         }
     };
-    // TODO(Ceilia): support long running ra-tls server 
-    INPUT_FILE.get_or_init(|| async {input_path}).await;
-    PRIVATE_KEY.get_or_init( || async {
-        // Bootstrap
-        // First delete the private key if it already exists
-        let path = cur_dir.join("secrets").join("priv.key");
-        if path.exists() {
-            if let Err(e) = remove_file(&path) {
-                println!("Error deleting file: {}", e);
+    // TODO(Ceilia): support long running ra-tls server
+    INPUT_FILE.get_or_init(|| async { input_path }).await;
+    PRIVATE_KEY
+        .get_or_init(|| async {
+            // Bootstrap
+            // First delete the private key if it already exists
+            let path = cur_dir.join("secrets").join("priv.key");
+            if path.exists() {
+                if let Err(e) = remove_file(&path) {
+                    println!("Error deleting file: {}", e);
+                }
             }
-        }
-        path
-    }).await;
+            path
+        })
+        .await;
     if direct_mode {
-        // Copy dummy files in direct mode 
+        // Copy dummy files in direct mode
         let files = ["attestation_type", "quote", "user_report_data"];
         for file in files {
             copy(
@@ -96,9 +97,13 @@ async fn prepare_working_directory(
             .unwrap();
         }
     }
-    ATTESTATION_TYPE.get_or_init(|| async {cur_dir.join("attestation_type")}).await;
-    QUOTE.get_or_init(|| async {cur_dir.join("quote")}).await;
-    USER_REPORT_DATA.get_or_init(|| async {cur_dir.join("user_report_data")}).await;
+    ATTESTATION_TYPE
+        .get_or_init(|| async { cur_dir.join("attestation_type") })
+        .await;
+    QUOTE.get_or_init(|| async { cur_dir.join("quote") }).await;
+    USER_REPORT_DATA
+        .get_or_init(|| async { cur_dir.join("user_report_data") })
+        .await;
     cur_dir
 }
 
@@ -107,8 +112,6 @@ pub async fn execute(
     _output: GuestOutput,
     param: SgxParam,
 ) -> Result<SgxResponse, String> {
-    
-
     // Support both SGX and the direct backend for testing
     let direct_mode = match env::var("SGX_DIRECT") {
         Ok(value) => value == "1",
@@ -224,11 +227,17 @@ fn parse_sgx_result(output: Vec<u8>) -> Result<SgxResponse, String> {
     Ok(SgxResponse { proof, quote })
 }
 
-
 fn print_output(output: &Output, name: &str) {
-    print!("{} stderr: {}\n", name, str::from_utf8(&output.stderr).unwrap());
-    print!("{} stdout: {}\n", name,str::from_utf8(&output.stdout).unwrap());
-
+    print!(
+        "{} stderr: {}\n",
+        name,
+        str::from_utf8(&output.stderr).unwrap()
+    );
+    print!(
+        "{} stdout: {}\n",
+        name,
+        str::from_utf8(&output.stdout).unwrap()
+    );
 }
 
 fn print_dirs() {

@@ -1,7 +1,5 @@
 use std::{fmt::Debug, str::FromStr, time::Instant};
-use raiko_primitives::B256;
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::Network,
@@ -9,6 +7,10 @@ use raiko_lib::{
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     taiko_utils::HeaderHasher,
 };
+use raiko_primitives::B256;
+use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
+
 use super::{context::Context, error::Result, request::ProofRequest};
 use crate::{host::host::preflight, metrics::observe_input};
 

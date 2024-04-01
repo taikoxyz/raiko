@@ -17,8 +17,7 @@ use crate::prover::{
     context::Context,
     error::HostError,
     execution::execute,
-    request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError},
-    request::*,
+    request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
 };
 
 pub static SGX_INSTANCE_ID: OnceCell<u32> = OnceCell::new();

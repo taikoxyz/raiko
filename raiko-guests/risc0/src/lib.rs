@@ -10,6 +10,8 @@ use std::{
 use bonsai_sdk::alpha::responses::SnarkReceipt;
 use hex::ToHex;
 use log::{debug, error, info, warn};
+use raiko_lib::input::{GuestInput, GuestOutput};
+use raiko_primitives::keccak::keccak;
 use risc0_zkvm::{
     compute_image_id, is_dev_mode,
     serde::to_vec,
@@ -21,8 +23,6 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info as traicing_info;
-use raiko_lib::input::{GuestInput, GuestOutput};
-use raiko_primitives::keccak::keccak;
 
 pub mod snarks;
 use crate::snarks::verify_groth16_snark;

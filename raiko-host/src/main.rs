@@ -3,8 +3,8 @@
 #![feature(absolute_path)]
 #![feature(offset_of)]
 
-// // TODO(Cecilia): sp1 need this due to compiler versioning, fix toolchain condition on guest type
-// #![feature(generic_const_exprs)]
+// // TODO(Cecilia): sp1 need this due to compiler versioning, fix toolchain condition on
+// guest type #![feature(generic_const_exprs)]
 
 // Copyright 2023 RISC Zero, Inc.
 //
@@ -25,6 +25,7 @@ mod metrics;
 mod prover;
 
 use std::{fmt::Debug, path::PathBuf};
+
 use anyhow::{Context, Result};
 use prover::server::serve;
 use serde::Deserialize;

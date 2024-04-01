@@ -11,7 +11,7 @@ use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     protocol_instance::{assemble_protocol_instance, EvidenceType},
 };
-use raiko_primitives::{Address};
+use raiko_primitives::Address;
 use secp256k1::KeyPair;
 use serde::Serialize;
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);

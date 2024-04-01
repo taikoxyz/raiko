@@ -2,9 +2,9 @@
 
 use std::env;
 
+use raiko_lib::input::{GuestInput, GuestOutput};
 use serde::{Deserialize, Serialize};
 use sp1_core::{utils, SP1Prover, SP1Stdin, SP1Verifier};
-use raiko_lib::input::{GuestInput, GuestOutput};
 
 const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
