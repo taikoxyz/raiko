@@ -160,40 +160,40 @@ impl TxExecStrategy for TkoTxExecStrategy {
             // anchor transaction always the first transaction
             let is_anchor = is_taiko && tx_no == 0;
 
-            // TODO(Brecht): use optimized recover
-            let (tx_gas_limit, from) = match &tx {
-                TxEnvelope::Legacy(tx) => (tx.tx().gas_limit, tx.recover_signer()),
-                TxEnvelope::Eip2930(tx) => (tx.tx().gas_limit, tx.recover_signer()),
-                TxEnvelope::Eip1559(tx) => (tx.tx().gas_limit, tx.recover_signer()),
-                TxEnvelope::Eip4844(tx) => (tx.tx().tx().gas_limit, tx.recover_signer()),
-            };
+            // setup the EVM environment
+            let tx_env = &mut evm.env_mut().tx;
+            fill_eth_tx_env(tx_env, &tx)?;
+            // Set and check some taiko specific values
+            if network != Network::Ethereum {
+                // set if the tx is the anchor tx
+                tx_env.taiko.is_anchor = is_anchor;
+                // set the treasury address
+                tx_env.taiko.treasury = get_network_spec(network).l2_contract.unwrap_or_default();
 
-            // verify the transaction signature
-            let tx_from = match from {
-                Ok(tx_from) => tx_from,
-                Err(err) => {
-                    if is_anchor {
-                        bail!("Error recovering anchor signature: {}", err);
-                    }
-                    #[cfg(feature = "std")]
-                    debug!(
-                        "Error recovering address for transaction {}, error: {}",
-                        tx_no, err
-                    );
-                    if !is_taiko {
-                        bail!("invalid signature");
-                    }
-                    // If the signature is not valid, skip the transaction
-                    continue;
+                // Data blobs are not allowed on L2
+                ensure!(tx_env.blob_hashes.len() == 0);
+            }
+
+            // if the sigature was not valid, the caller address will have been set to zero
+            if tx_env.caller == Address::ZERO {
+                if is_anchor {
+                    bail!("Error recovering anchor signature");
                 }
-            };
+                #[cfg(feature = "std")]
+                debug!("Error recovering address for transaction {}", tx_no);
+                if !is_taiko {
+                    bail!("invalid signature");
+                }
+                // If the signature is not valid, skip the transaction
+                continue;
+            }
 
             // verify the anchor tx
             if is_anchor {
                 check_anchor_tx(
                     &block_builder.input,
                     &tx,
-                    &tx_from,
+                    &tx_env.caller,
                     block_builder.input.network,
                 )
                 .expect("invalid anchor tx");
@@ -201,7 +201,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             // verify transaction gas
             let block_available_gas = block_builder.input.gas_limit - cumulative_gas_used;
-            if block_available_gas < tx_gas_limit.try_into().unwrap() {
+            if block_available_gas < tx_env.gas_limit {
                 if is_anchor {
                     bail!("Error at transaction {}: gas exceeds block limit", tx_no);
                 }
@@ -224,20 +224,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 );
             }
 
-            // setup the transaction
-            let tx_env = &mut evm.env_mut().tx;
-            tx_env.caller = tx_from;
-            fill_eth_tx_env(tx_env, &tx)?;
-            // Set and check some taiko specific values
-            if network != Network::Ethereum {
-                // set if the tx is the anchor tx
-                tx_env.taiko.is_anchor = is_anchor;
-                // set the treasury address
-                tx_env.taiko.treasury = get_network_spec(network).l2_contract.unwrap_or_default();
-
-                // Data blobs are not allowed on L2
-                ensure!(tx_env.blob_hashes.len() == 0);
-            }
             // process the transaction
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
@@ -354,8 +340,10 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
     tx_env.blob_hashes.clear();
     tx_env.max_fee_per_blob_gas.take();
     // Get the data from the tx
+    // TODO(Brecht): use optimized recover
     match tx {
         TxEnvelope::Legacy(tx) => {
+            tx_env.caller = tx.recover_signer().unwrap_or_default();
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
@@ -372,6 +360,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list.clear();
         }
         TxEnvelope::Eip2930(tx) => {
+            tx_env.caller = tx.recover_signer().unwrap_or_default();
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
@@ -388,6 +377,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list = tx.access_list.flattened();
         }
         TxEnvelope::Eip1559(tx) => {
+            tx_env.caller = tx.recover_signer().unwrap_or_default();
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.max_fee_per_gas.try_into().unwrap();
@@ -404,6 +394,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list = tx.access_list.flattened();
         }
         TxEnvelope::Eip4844(tx) => {
+            tx_env.caller = tx.recover_signer().unwrap_or_default();
             let tx = tx.tx().tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.max_fee_per_gas.try_into().unwrap();

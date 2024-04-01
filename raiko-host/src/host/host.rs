@@ -389,36 +389,25 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
     )
     .unwrap();
     match tx.transaction_type.unwrap_or_default().as_limbs()[0] {
-        0 => {
-            TxEnvelope::Legacy(
-                TxLegacy {
-                    // chain_id: if tx.chain_id.is_some() { sig.v().chain_id() } else { None },
-                    chain_id: if tx.chain_id.is_some() {
-                        Some(tx.chain_id.unwrap().try_into().unwrap())
-                    } else {
-                        None
-                    },
-                    nonce: tx.nonce.try_into().unwrap(),
-                    gas_price: tx.gas_price.unwrap().try_into().unwrap(),
-                    gas_limit: tx.gas.try_into().unwrap(),
-                    to: if tx.to.is_none() {
-                        TxKind::Create
-                    } else {
-                        TxKind::Call(tx.to.unwrap())
-                    },
-                    value: tx.value.try_into().unwrap(),
-                    input: tx.input.0.clone().into(),
-                }
-                .into_signed(signature),
-            )
-        }
+        0 => TxEnvelope::Legacy(
+            TxLegacy {
+                chain_id: tx.chain_id,
+                nonce: tx.nonce.try_into().unwrap(),
+                gas_price: tx.gas_price.unwrap().try_into().unwrap(),
+                gas_limit: tx.gas.try_into().unwrap(),
+                to: if tx.to.is_none() {
+                    TxKind::Create
+                } else {
+                    TxKind::Call(tx.to.unwrap())
+                },
+                value: tx.value.try_into().unwrap(),
+                input: tx.input.0.clone().into(),
+            }
+            .into_signed(signature),
+        ),
         1 => TxEnvelope::Eip2930(
             TxEip2930 {
-                chain_id: if tx.chain_id.is_some() {
-                    tx.chain_id.unwrap().try_into().unwrap()
-                } else {
-                    1
-                },
+                chain_id: tx.chain_id.unwrap(),
                 nonce: tx.nonce.try_into().unwrap(),
                 gas_price: tx.gas_price.unwrap().try_into().unwrap(),
                 gas_limit: tx.gas.try_into().unwrap(),
@@ -435,7 +424,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         ),
         2 => TxEnvelope::Eip1559(
             TxEip1559 {
-                chain_id: tx.chain_id.unwrap().try_into().unwrap(),
+                chain_id: tx.chain_id.unwrap(),
                 nonce: tx.nonce.try_into().unwrap(),
                 gas_limit: tx.gas.try_into().unwrap(),
                 max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
@@ -453,7 +442,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         ),
         3 => TxEnvelope::Eip4844(
             TxEip4844Variant::TxEip4844(TxEip4844 {
-                chain_id: tx.chain_id.unwrap().try_into().unwrap(),
+                chain_id: tx.chain_id.unwrap(),
                 nonce: tx.nonce.try_into().unwrap(),
                 gas_limit: tx.gas.try_into().unwrap(),
                 max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
