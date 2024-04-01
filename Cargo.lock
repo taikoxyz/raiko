@@ -3912,6 +3912,7 @@ dependencies = [
  "c-kzg",
  "cfg-if",
  "clap 4.5.4",
+ "ethers-core",
  "flate2",
  "hashbrown 0.14.3",
  "hyper",

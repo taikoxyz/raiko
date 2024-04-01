@@ -1,12 +1,12 @@
 #![cfg(feature = "enable")]
 use std::{
-    env, fs::{copy, create_dir_all, remove_file, File}, path::{Path, PathBuf}, process::Output, str
+    env, fs::{copy, create_dir_all, remove_file, File}, path::{PathBuf}, process::Output, str
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::serde_as;
 use tokio::{process::Command, sync::OnceCell};
-use tracing::{debug, info};
+
 use raiko_lib::input::{GuestInput, GuestOutput};
 use once_cell::sync::Lazy;
 
@@ -72,7 +72,8 @@ async fn prepare_working_directory(
             path
         }
     };
-    INPUT_FILE.set(input_path).expect("Fail to set INPUT_FILE");
+    // TODO(Ceilia): support long running ra-tls server 
+    INPUT_FILE.get_or_init(|| async {input_path}).await;
     PRIVATE_KEY.get_or_init( || async {
         // Bootstrap
         // First delete the private key if it already exists
@@ -95,13 +96,9 @@ async fn prepare_working_directory(
             .unwrap();
         }
     }
-    ATTESTATION_TYPE
-        .set(cur_dir.join("attestation_type"))
-        .expect("Fail to set ATTESTATION_TYPE");
-    QUOTE.set(cur_dir.join("quote")).expect("Fail to set QUOTE");
-    USER_REPORT_DATA
-        .set(cur_dir.join("user_report_data"))
-        .expect("Fail to set USER_REPORT_DATA");
+    ATTESTATION_TYPE.get_or_init(|| async {cur_dir.join("attestation_type")}).await;
+    QUOTE.get_or_init(|| async {cur_dir.join("quote")}).await;
+    USER_REPORT_DATA.get_or_init(|| async {cur_dir.join("user_report_data")}).await;
     cur_dir
 }
 

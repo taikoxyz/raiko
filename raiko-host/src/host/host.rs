@@ -354,7 +354,6 @@ mod test {
     use raiko_primitives::{
         eip4844::{kzg_to_versioned_hash, parse_kzg_trusted_setup, MAINNET_KZG_TRUSTED_SETUP},
         kzg::KzgSettings,
-        mpt::proofs_to_tries,
     };
 
     use super::*;
