@@ -26,8 +26,9 @@ pub struct SgxResponse {
 }
 
 
-pub const ELF_NAME: &str = "sgx-guest";
+pub const ELF_NAME: &str = "sgx-bin";
 pub const INPUT_FILE_NAME: &str = "input.bin";
+pub const CONFIG: &str = "../../raiko-guests/sgx/config";
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static INPUT_FILE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
@@ -46,6 +47,7 @@ async fn prepare_working_directory(
         .parent()
         .unwrap()
         .to_path_buf();
+    print!("Current directory: {:?}\n", cur_dir);
 
     // Create required directories
     let directories = ["secrets", "config"];
@@ -54,7 +56,7 @@ async fn prepare_working_directory(
     }
     GRAMINE_MANIFEST_TEMPLATE
         .get_or_init(|| async {
-            cur_dir.join("../../raiko-guests/sgx/config").join("raiko-guest.manifest.template")
+            cur_dir.join(CONFIG).join("raiko-guest.manifest.template")
         })
         .await;
      // If cached input file is not provided
@@ -87,7 +89,7 @@ async fn prepare_working_directory(
         let files = ["attestation_type", "quote", "user_report_data"];
         for file in files {
             copy(
-                cur_dir.join("config").join("dummy_data").join(file),
+                cur_dir.join(CONFIG).join("dummy_data").join(file),
                 cur_dir.join(file),
             )
             .unwrap();
@@ -134,7 +136,7 @@ pub async fn execute(
             if direct_mode { "1" } else { "0" }
         ))
         .arg(GRAMINE_MANIFEST_TEMPLATE.get().unwrap())
-        .arg("sgx-guest.manifest")
+        .arg("sgx-bin.manifest")
         .output()
         .await
         .map_err(|e| format!("Could not generate manfifest: {}", e.to_string()))?;
@@ -154,9 +156,9 @@ pub async fn execute(
         let mut cmd = Command::new("gramine-sgx-sign");
         cmd.current_dir(cur_dir.clone())
             .arg("--manifest")
-            .arg("sgx-guest.manifest")
+            .arg("sgx-bin.manifest")
             .arg("--output")
-            .arg("sgx-guest.manifest.sgx")
+            .arg("sgx-bin.manifest.sgx")
             .output()
             .await
             .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
@@ -220,6 +222,7 @@ fn parse_sgx_result(output: Vec<u8>) -> Result<SgxResponse, String> {
     };
     let proof = extract_field("proof");
     let quote = extract_field("quote");
+    print_dirs();
 
     Ok(SgxResponse { proof, quote })
 }
@@ -229,4 +232,16 @@ fn print_output(output: &Output, name: &str) {
     print!("{} stderr: {}\n", name, str::from_utf8(&output.stderr).unwrap());
     print!("{} stdout: {}\n", name,str::from_utf8(&output.stdout).unwrap());
 
+}
+
+fn print_dirs() {
+    println!("SGX output directories:");
+    for dir in [
+        PRIVATE_KEY.get().unwrap(),
+        ATTESTATION_TYPE.get().unwrap(),
+        QUOTE.get().unwrap(),
+        USER_REPORT_DATA.get().unwrap(),
+    ] {
+        println!(" {:?}", dir);
+    }
 }

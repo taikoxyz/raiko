@@ -7,6 +7,7 @@ members = [
     "raiko-guests/succinct/script",
     "raiko-guests/risc0", 
     "raiko-guests/sgx/script",
+    "raiko-guests/sgx/guest",
     # "ra-tls",
     # "tests/*",
 ]
