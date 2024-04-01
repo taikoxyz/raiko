@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
-use alloy_consensus::{TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy};
+use alloy_consensus::{
+    SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy,
+};
 pub use alloy_primitives::*;
-use alloy_providers::tmp::{HttpProvider, TempProvider};
+use alloy_provider::{Provider, ProviderBuilder, ReqwestProvider, RootProvider};
 pub use alloy_rlp as rlp;
+use alloy_rpc_client::RpcClient;
 use alloy_rpc_types::{
     Block as AlloyBlock, BlockTransactions, Filter, Transaction as AlloyRpcTransaction,
 };
@@ -22,51 +25,36 @@ use raiko_lib::{
     taiko_utils::{generate_transactions, to_header},
 };
 use raiko_primitives::{
-    alloy_eips::eip2930::{AccessList, AccessListItem}, eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries
+    eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
+    mpt::proofs_to_tries,
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
-use alloy_consensus::TxEip1559;
-use alloy_network::Signed;
 
 use crate::host::provider_db::ProviderDb;
 
-pub trait RlpBytes {
-    /// Returns the RLP-encoding.
-    fn to_rlp(&self) -> Vec<u8>;
-}
-
-impl<T> RlpBytes for T
-where
-    T: rlp::Encodable,
-{
-    #[inline]
-    fn to_rlp(&self) -> Vec<u8> {
-        let rlp_length = self.length();
-        let mut out = Vec::with_capacity(rlp_length);
-        self.encode(&mut out);
-        debug_assert_eq!(out.len(), rlp_length);
-        out
-    }
-}
-
 pub fn preflight(
-    l1_rpc_url: Option<String>,
-    l2_rpc_url: Option<String>,
-    l2_block_no: u64,
+    rpc_url: Option<String>,
+    block_no: u64,
     network: Network,
     prover_data: TaikoProverData,
+    l1_rpc_url: Option<String>,
     beacon_rpc_url: Option<String>,
 ) -> Result<GuestInput> {
-    let http_l2 = Http::new(Url::parse(&l2_rpc_url.clone().unwrap()).expect("invalid rpc url"));
-    let provider_l2: HttpProvider = HttpProvider::new(http_l2);
+    let http = Http::new(Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"));
+    let provider = ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http, true)));
 
-    let block = get_block(&provider_l2, l2_block_no, true).unwrap();
-    let parent_block = get_block(&provider_l2, l2_block_no - 1, false).unwrap();
+    let block = get_block(&provider, block_no, true).unwrap();
+    let parent_block = get_block(&provider, block_no - 1, false).unwrap();
+
+    println!("block.hash: {:?}", block.header.hash.unwrap());
+    println!("block.parent_hash: {:?}", block.header.parent_hash);
+    println!("Block transactions: {:?}", block.transactions.len());
 
     let taiko_guest_input = if network != Network::Ethereum {
         let http_l1 = Http::new(Url::parse(&l1_rpc_url.clone().unwrap()).expect("invalid rpc url"));
-        let provider_l1: HttpProvider = HttpProvider::new(http_l1);
+        let provider_l1 =
+            ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http_l1, true)));
 
         // Decode the anchor tx to find out which L1 blocks we need to fetch
         let anchor_tx = match &block.transactions {
@@ -78,8 +66,6 @@ pub fn preflight(
         let l1_state_block_no = anchor_call.l1BlockId;
         let l1_inclusion_block_no = l1_state_block_no + 1;
 
-        println!("block.hash: {:?}", block.header.hash.unwrap());
-        println!("block.parent_hash: {:?}", block.header.parent_hash);
         println!("anchor L1 block id: {:?}", anchor_call.l1BlockId);
         println!("anchor L1 state root: {:?}", anchor_call.l1StateRoot);
 
@@ -93,17 +79,17 @@ pub fn preflight(
 
         // Get the block proposal data
         let (proposal_tx, proposal_event) = get_block_proposed_event(
-            l1_rpc_url.clone().unwrap(),
+            &provider_l1,
             network,
             l1_inclusion_block.header.hash.unwrap(),
-            l2_block_no,
+            block_no,
         )?;
 
         // Fetch the tx list
         let (tx_list, tx_blob_hash) = if proposal_event.meta.blobUsed {
             println!("blob active");
             // Get the blob hashes attached to the propose tx
-            let blob_hashs = proposal_tx.blob_versioned_hashes;
+            let blob_hashs = proposal_tx.blob_versioned_hashes.unwrap_or_default();
             assert!(blob_hashs.len() >= 1);
             // Currently the protocol enforces the first blob hash to be used
             let blob_hash = blob_hashs[0];
@@ -125,14 +111,16 @@ pub fn preflight(
         } else {
             // Get the tx list data directly from the propose transaction data
             let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false).unwrap();
-            (proposal_call.txList.clone(), None)
+            (proposal_call.txList.as_ref().to_owned(), None)
         };
 
         // Create the transactions from the proposed tx list
-        let transactions =
-            generate_transactions(proposal_event.meta.blobUsed, &tx_list, Some(anchor_tx.clone()));
+        let transactions = generate_transactions(
+            proposal_event.meta.blobUsed,
+            &tx_list,
+            Some(anchor_tx.clone()),
+        );
         // Do a sanity check using the transactions returned by the node
-        println!("Block transactions: {:?}", block.transactions.len());
         assert!(
             transactions.len() >= block.transactions.len(),
             "unexpected number of transactions"
@@ -149,95 +137,10 @@ pub fn preflight(
         }
     } else {
         println!("block header: {:?}", block.header);
-
-        let mut txs2: Vec<TxEnvelope> = Vec::new();
-        match &block.transactions {
-            BlockTransactions::Full(txs) => {
-                for tx in txs.to_vec() {
-                    if tx.transaction_type.is_none() || tx.transaction_type.unwrap().as_limbs()[0] == 0 {
-                        let t = TxLegacy {
-                            chain_id: Some(tx.chain_id.unwrap_or_default().try_into().unwrap()),
-                            nonce: tx.nonce.try_into().unwrap(),
-                            gas_price: tx.gas_price.unwrap().try_into().unwrap(),
-                            gas_limit: tx.gas.try_into().unwrap(),
-                            to: if tx.to.is_none() { alloy_consensus::TxKind::Create } else { alloy_consensus::TxKind::Call(tx.to.unwrap())},
-                            value: tx.value.try_into().unwrap(),
-                            input: tx.input,
-                        };
-                        let sig = Signature::from_rs_and_parity(
-                            tx.signature.unwrap().r,
-                            tx.signature.unwrap().s,
-                            if tx.signature.unwrap().y_parity.is_some() { tx.signature.unwrap().y_parity.unwrap().0 } else { false },
-                        ).unwrap();
-                        let s = Signed::new_unchecked(t, sig, tx.hash);
-                        txs2.push(TxEnvelope::Legacy(s));
-                    } else if tx.transaction_type.unwrap().as_limbs()[0] == 1 {
-                        let t = TxEip2930 {
-                            chain_id: if tx.chain_id.is_some() { tx.chain_id.unwrap().try_into().unwrap() } else { 1 },
-                            nonce: tx.nonce.try_into().unwrap(),
-                            gas_price: tx.gas_price.unwrap().try_into().unwrap(),
-                            gas_limit: tx.gas.try_into().unwrap(),
-                            to: if tx.to.is_none() { alloy_consensus::TxKind::Create } else { alloy_consensus::TxKind::Call(tx.to.unwrap())},
-                            value: tx.value.try_into().unwrap(),
-                            input: tx.input,
-                            access_list: to_access_list(tx.access_list.unwrap_or_default()),
-                        };
-                        let sig = Signature::from_rs_and_parity(
-                            tx.signature.unwrap().r,
-                            tx.signature.unwrap().s,
-                            if tx.signature.unwrap().y_parity.is_some() { tx.signature.unwrap().y_parity.unwrap().0 } else { false },
-                        ).unwrap();
-                        let s = Signed::new_unchecked(t, sig, tx.hash);
-                        txs2.push(TxEnvelope::Eip2930(s));
-                    } else if tx.transaction_type.unwrap().as_limbs()[0] == 2 {
-                        let t = TxEip1559 {
-                            chain_id: tx.chain_id.unwrap().try_into().unwrap(),
-                            nonce: tx.nonce.try_into().unwrap(),
-                            gas_limit: tx.gas.try_into().unwrap(),
-                            max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
-                            max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
-                            to: if tx.to.is_none() { alloy_consensus::TxKind::Create } else { alloy_consensus::TxKind::Call(tx.to.unwrap())},
-                            value: tx.value.try_into().unwrap(),
-                            access_list: to_access_list(tx.access_list.unwrap_or_default()),
-                            input: tx.input,
-                        };
-                        let sig = Signature::from_rs_and_parity(
-                            tx.signature.unwrap().r,
-                            tx.signature.unwrap().s,
-                            tx.signature.unwrap().y_parity.unwrap().0
-                        ).unwrap();
-                        let s = Signed::new_unchecked(t, sig, tx.hash);
-                        txs2.push(TxEnvelope::from(s));
-                    } else if tx.transaction_type.unwrap().as_limbs()[0] == 3 {
-                        let t = TxEip4844 {
-                            chain_id: tx.chain_id.unwrap().try_into().unwrap(),
-                            nonce: tx.nonce.try_into().unwrap(),
-                            gas_limit: tx.gas.try_into().unwrap(),
-                            max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
-                            max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
-                            to: if tx.to.is_none() { alloy_consensus::TxKind::Create } else { alloy_consensus::TxKind::Call(tx.to.unwrap())},
-                            value: tx.value.try_into().unwrap(),
-                            access_list: to_access_list(tx.access_list.unwrap_or_default()),
-                            input: tx.input,
-                            blob_versioned_hashes: tx.blob_versioned_hashes,
-                            max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap().try_into().unwrap(),
-                        };
-                        let sig = Signature::from_rs_and_parity(
-                            tx.signature.unwrap().r,
-                            tx.signature.unwrap().s,
-                            tx.signature.unwrap().y_parity.unwrap().0
-                        ).unwrap();
-                        let s = Signed::new_unchecked(TxEip4844Variant::TxEip4844(t), sig, tx.hash);
-                        txs2.push(TxEnvelope::Eip4844(s));
-                    } else {
-                        unimplemented!("{:?}", tx.transaction_type);
-                    }
-                }
-            },
-            _ => unreachable!("Block is too old, please use a block that is at most 128 block old."),
-        };
+        // For Ethereum blocks we just convert the block transactions in a tx_list
+        // so that we don't have to supports separate paths.
         TaikoGuestInput {
-            tx_list: txs2.to_rlp(),
+            tx_list: alloy_rlp::encode(&get_transactions_from_block(&block)),
             ..Default::default()
         }
     };
@@ -257,15 +160,23 @@ pub fn preflight(
         parent_header: to_header(&parent_block.header),
         ancestor_headers: Default::default(),
         base_fee_per_gas: block.header.base_fee_per_gas.unwrap().try_into().unwrap(),
-        blob_gas_used: if block.header.blob_gas_used.is_some() { Some(block.header.blob_gas_used.unwrap().try_into().unwrap())} else { None },
-        excess_blob_gas: if block.header.excess_blob_gas.is_some() { Some(block.header.excess_blob_gas.unwrap().try_into().unwrap())} else { None },
+        blob_gas_used: if block.header.blob_gas_used.is_some() {
+            Some(block.header.blob_gas_used.unwrap().try_into().unwrap())
+        } else {
+            None
+        },
+        excess_blob_gas: if block.header.excess_blob_gas.is_some() {
+            Some(block.header.excess_blob_gas.unwrap().try_into().unwrap())
+        } else {
+            None
+        },
         parent_beacon_block_root: block.header.parent_beacon_block_root,
         taiko: taiko_guest_input,
     };
 
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
-        provider_l2,
+        provider,
         parent_block.header.number.unwrap().try_into().unwrap(),
     );
     let mut builder = BlockBuilder::new(&input)
@@ -365,7 +276,7 @@ pub struct GetBlobsResponse {
     pub data: Vec<GetBlobData>,
 }
 
-pub fn get_block(provider: &HttpProvider, block_number: u64, full: bool) -> Result<AlloyBlock> {
+pub fn get_block(provider: &ReqwestProvider, block_number: u64, full: bool) -> Result<AlloyBlock> {
     let tokio_handle = tokio::runtime::Handle::current();
     let response = tokio_handle.block_on(async {
         provider
@@ -379,13 +290,11 @@ pub fn get_block(provider: &HttpProvider, block_number: u64, full: bool) -> Resu
 }
 
 pub fn get_block_proposed_event(
-    rpc_url: String,
+    provider: &ReqwestProvider,
     network: Network,
     block_hash: B256,
     l2_block_no: u64,
 ) -> Result<(AlloyRpcTransaction, BlockProposed)> {
-    let http = Http::new(Url::parse(&rpc_url).expect("invalid rpc url"));
-    let provider: HttpProvider = HttpProvider::new(http);
     let tokio_handle = tokio::runtime::Handle::current();
 
     // Get the address that emited the event
@@ -403,14 +312,19 @@ pub fn get_block_proposed_event(
         .at_block_hash(block_hash)
         .event_signature(event_signature);
     // Now fetch the events
-    let logs = tokio_handle.block_on(async { provider.get_logs(filter).await })?;
+    let logs = tokio_handle.block_on(async { provider.get_logs(&filter).await })?;
 
     // Run over the logs returned to find the matching event for the specified L2 block number
     // (there can be multiple blocks proposed in the same block and even same tx)
     for log in logs {
         if network == Network::TaikoA6 {
             let event = TestnetBlockProposed::decode_log(
-                &Log::new(log.address, log.topics, log.data).unwrap(),
+                &Log::new(
+                    log.address(),
+                    log.topics().to_vec(),
+                    log.data().data.clone(),
+                )
+                .unwrap(),
                 false,
             )
             .unwrap();
@@ -426,7 +340,12 @@ pub fn get_block_proposed_event(
             }
         } else {
             let event = BlockProposed::decode_log(
-                &Log::new(log.address, log.topics, log.data).unwrap(),
+                &Log::new(
+                    log.address(),
+                    log.topics().to_vec(),
+                    log.data().data.clone(),
+                )
+                .unwrap(),
                 false,
             )
             .unwrap();
@@ -445,12 +364,111 @@ pub fn get_block_proposed_event(
     bail!("No BlockProposed event found for block {l2_block_no}");
 }
 
-fn to_access_list(item: Vec<alloy_rpc_types::transaction::AccessListItem>) -> AccessList {
-    let converted = item.iter().map(|item| AccessListItem {
-        address: item.address,
-        storage_keys: item.storage_keys.clone(),
-    }).collect();
-    AccessList(converted)
+fn get_transactions_from_block(block: &AlloyBlock) -> Vec<TxEnvelope> {
+    let mut transactions: Vec<TxEnvelope> = Vec::new();
+    match &block.transactions {
+        BlockTransactions::Full(txs) => {
+            for tx in txs {
+                transactions.push(from_block_tx(tx));
+            }
+        },
+        _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
+    };
+    assert!(
+        transactions.len() == block.transactions.len(),
+        "unexpected number of transactions"
+    );
+    transactions
+}
+
+fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
+    let signature = Signature::from_rs_and_parity(
+        tx.signature.unwrap().r,
+        tx.signature.unwrap().s,
+        tx.signature.unwrap().v.as_limbs()[0],
+    )
+    .unwrap();
+    match tx.transaction_type.unwrap_or_default().as_limbs()[0] {
+        0 => {
+            TxEnvelope::Legacy(
+                TxLegacy {
+                    // chain_id: if tx.chain_id.is_some() { sig.v().chain_id() } else { None },
+                    chain_id: if tx.chain_id.is_some() {
+                        Some(tx.chain_id.unwrap().try_into().unwrap())
+                    } else {
+                        None
+                    },
+                    nonce: tx.nonce.try_into().unwrap(),
+                    gas_price: tx.gas_price.unwrap().try_into().unwrap(),
+                    gas_limit: tx.gas.try_into().unwrap(),
+                    to: if tx.to.is_none() {
+                        TxKind::Create
+                    } else {
+                        TxKind::Call(tx.to.unwrap())
+                    },
+                    value: tx.value.try_into().unwrap(),
+                    input: tx.input.0.clone().into(),
+                }
+                .into_signed(signature),
+            )
+        }
+        1 => TxEnvelope::Eip2930(
+            TxEip2930 {
+                chain_id: if tx.chain_id.is_some() {
+                    tx.chain_id.unwrap().try_into().unwrap()
+                } else {
+                    1
+                },
+                nonce: tx.nonce.try_into().unwrap(),
+                gas_price: tx.gas_price.unwrap().try_into().unwrap(),
+                gas_limit: tx.gas.try_into().unwrap(),
+                to: if tx.to.is_none() {
+                    TxKind::Create
+                } else {
+                    TxKind::Call(tx.to.unwrap())
+                },
+                value: tx.value.try_into().unwrap(),
+                input: tx.input.clone(),
+                access_list: tx.access_list.clone().unwrap_or_default(),
+            }
+            .into_signed(signature),
+        ),
+        2 => TxEnvelope::Eip1559(
+            TxEip1559 {
+                chain_id: tx.chain_id.unwrap().try_into().unwrap(),
+                nonce: tx.nonce.try_into().unwrap(),
+                gas_limit: tx.gas.try_into().unwrap(),
+                max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
+                max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
+                to: if tx.to.is_none() {
+                    TxKind::Create
+                } else {
+                    TxKind::Call(tx.to.unwrap())
+                },
+                value: tx.value.try_into().unwrap(),
+                access_list: tx.access_list.clone().unwrap_or_default(),
+                input: tx.input.clone(),
+            }
+            .into_signed(signature),
+        ),
+        3 => TxEnvelope::Eip4844(
+            TxEip4844Variant::TxEip4844(TxEip4844 {
+                chain_id: tx.chain_id.unwrap().try_into().unwrap(),
+                nonce: tx.nonce.try_into().unwrap(),
+                gas_limit: tx.gas.try_into().unwrap(),
+                max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
+                max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
+                to: tx.to.unwrap(),
+                value: tx.value.try_into().unwrap(),
+                access_list: tx.access_list.clone().unwrap_or_default(),
+                input: tx.input.clone(),
+                blob_versioned_hashes: tx.blob_versioned_hashes.clone().unwrap_or_default(),
+                max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap().try_into().unwrap(),
+            })
+            .into_signed(signature),
+        ),
+        _ => unimplemented!(),
+    }
 }
 
 #[cfg(test)]

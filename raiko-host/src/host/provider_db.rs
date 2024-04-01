@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use alloy_consensus::Header as AlloyConsensusHeader;
-use alloy_providers::tmp::{HttpProvider, TempProvider};
+use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{BlockId, EIP1186AccountProofResponse};
 use raiko_lib::{mem_db::MemDb, taiko_utils::to_header};
 use raiko_primitives::{Address, B256, U256};
@@ -25,7 +25,7 @@ use tokio::runtime::Handle;
 use crate::host::host::get_block;
 
 pub struct ProviderDb {
-    pub provider: HttpProvider,
+    pub provider: ReqwestProvider,
     pub block_number: u64,
     pub initial_db: MemDb,
     pub current_db: MemDb,
@@ -33,7 +33,7 @@ pub struct ProviderDb {
 }
 
 impl ProviderDb {
-    pub fn new(provider: HttpProvider, block_number: u64) -> Self {
+    pub fn new(provider: ReqwestProvider, block_number: u64) -> Self {
         ProviderDb {
             provider,
             block_number,
@@ -130,7 +130,7 @@ impl Database for ProviderDb {
         })?;
         let code = self.async_executor.block_on(async {
             self.provider
-                .get_code_at(address, Some(BlockId::from(self.block_number)))
+                .get_code_at(address, BlockId::from(self.block_number))
                 .await
         })?;
 

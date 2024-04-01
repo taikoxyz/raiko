@@ -17,12 +17,11 @@ extern crate alloc;
 use alloc::{collections::BTreeMap, str::FromStr};
 
 use alloy_primitives::Address;
-use anyhow::bail;
+use anyhow::{bail, Result};
 use once_cell::unsync::Lazy;
 use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;

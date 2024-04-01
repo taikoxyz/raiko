@@ -10,13 +10,12 @@ rangeEnd="$4"
 
 # Check the caain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
-  l2Rpc="https://rpc.ankr.com/eth"
-  l1Rpc="https://rpc.ankr.com/eth"
+  rpc="https://rpc.ankr.com/eth"
 elif [ "$chain" == "taiko_a6" ]; then
-  l2Rpc="https://rpc.katla.taiko.xyz"
+  rpc="https://rpc.katla.taiko.xyz"
   l1Rpc="https://l1rpc.katla.taiko.xyz"
 elif [ "$chain" == "taiko_a7" ]; then
-  l2Rpc="https://rpc.internal.taiko.xyz"
+  rpc="https://rpc.internal.taiko.xyz"
   l1Rpc="https://l1rpc.internal.taiko.xyz"
 else
   echo "Invalid chain name. Please use 'ethereum', 'taiko_a6' or 'taiko_a7'."
@@ -77,7 +76,7 @@ do
          \"params\": [
            {
              \"chain\": \"$chain\",
-             \"l2Rpc\": \"$l2Rpc\",
+             \"rpc\": \"$rpc\",
              \"l1Rpc\": \"$l1Rpc\",
              \"beaconRpc\": \"$beaconRpc\",
              \"proofType\": $proofType,

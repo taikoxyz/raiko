@@ -2,9 +2,8 @@ use core::str::FromStr;
 // TODO(Cecilia): fix for no-std
 use std::io::Read;
 
-use alloy_consensus::{Header as AlloyConsensusHeader, TxEip1559, TxEnvelope, TxKind};
-use alloy_network::Signed;
-use alloy_primitives::{uint, Address, Signature, U256};
+use alloy_consensus::{Header as AlloyConsensusHeader, Signed, TxEip1559, TxEnvelope};
+use alloy_primitives::{uint, Address, Signature, TxKind, U256};
 use alloy_rlp::*;
 use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
 use anyhow::{anyhow, bail, ensure, Context, Result};
@@ -26,7 +25,7 @@ pub const GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
 });
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
-    alloy_rlp::Decodable::decode(&mut &tx_list.to_owned()[..]).unwrap_or_default()
+    Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]).unwrap()
 }
 
 pub fn generate_transactions(
@@ -233,6 +232,8 @@ pub fn check_anchor_tx(
         TxEnvelope::Eip1559(tx) => {
             // Check the signature
             check_anchor_signature(tx).context(anyhow!("failed to check anchor signature"))?;
+
+            let tx = tx.tx();
 
             // Extract the `to` address
             let to = if let TxKind::Call(to_addr) = tx.to {

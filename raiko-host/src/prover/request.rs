@@ -31,7 +31,7 @@ pub struct ProofRequest {
     /// the l2 block number
     pub block_number: u64,
     /// l2 node for get block by number
-    pub l2_rpc: String,
+    pub rpc: String,
     /// l1 node for signal root verify and get txlist info from proposed transaction.
     pub l1_rpc: String,
     /// beacon node for data blobs

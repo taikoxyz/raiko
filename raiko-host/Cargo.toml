@@ -6,15 +6,16 @@ default-run = "raiko-host"
 
 [dependencies]
 anyhow = "1.0"
-alloy-rlp = { version = "0.3", default-features = false }
-alloy-rlp-derive = { version = "0.3", default-features = false }
-alloy-sol-types = { version = "0.6" }
-alloy-primitives = { version = "0.6", default-features = false }
-alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
-alloy-providers = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
-alloy-transport-http = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
-alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
-alloy-network = { git = "https://github.com/brechtpd/alloy", branch = "header-serialize" }
+alloy-rlp = { workspace = true }
+alloy-rlp-derive = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-transport-http = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-network = { workspace = true }
+alloy-rpc-client = { workspace = true }
 bincode = "1.3.3"
 bytemuck = "1.13"
 clap = { version = "4.0", features = ["derive"] }
@@ -27,7 +28,7 @@ ethers-providers = { git = "https://github.com/smtmfft/ethers-rs", branch = "eth
 flate2 = "1.0.28"
 hex = "0.4.3"
 revm = { workspace = true }
-serde = "1.0"
+serde = { workspace = true }
 serde_with = "3.4.0"
 tempfile = "3.6"
 tokio = { version = "^1.23", features = ["full"] }

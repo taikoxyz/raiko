@@ -9,7 +9,6 @@ edition = "2021"
 raiko-primitives = { path = "../../primitives", features = ["revm"] }
 raiko-lib = { path = "../../lib", features = ["taiko", "std"] }
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git" }
-serde = { version = "1.0.195", features = ["derive"] }
 
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
