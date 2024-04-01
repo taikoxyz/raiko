@@ -163,7 +163,7 @@ cfg_if::cfg_if! {
                 output: GuestOutput,
                 param: Self::ProofParam,
             ) -> Result<Self::ProofResponse> {
-                let res = risc0_guest::execute(input, output, &param).await?;
+                let res = risc0_guest::execute(input, output, param).await?;
                 Ok(res)
             }
 
@@ -192,7 +192,7 @@ cfg_if::cfg_if! {
                 output: GuestOutput,
                 param: Self::ProofParam,
             ) -> Result<Self::ProofResponse> {
-                let res = sgx_guest::execute(input, output, &param).await?;
+                let res = sgx_guest::execute(input, output, param).await?;
                 Ok(res)
             }
 

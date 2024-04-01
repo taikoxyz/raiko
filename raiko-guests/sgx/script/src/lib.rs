@@ -25,11 +25,22 @@ pub struct SgxResponse {
     pub quote: String,
 }
 
-pub const INPUT_FILE_NAME: &str = "input.bin";
-static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
-static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 
-async fn prepare_working_directory(direct_mode: bool) -> PathBuf {
+pub const ELF_NAME: &str = "sgx-guest";
+pub const INPUT_FILE_NAME: &str = "input.bin";
+
+static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
+static INPUT_FILE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
+static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
+static ATTESTATION_TYPE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
+static QUOTE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
+static USER_REPORT_DATA: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
+
+async fn prepare_working_directory(
+    direct_mode: bool,
+    input: GuestInput,
+    cached_input: Option<PathBuf>,
+) -> PathBuf {
     let cur_dir = env::current_exe()
         .expect("Fail to get current directory")
         .parent()
@@ -42,8 +53,24 @@ async fn prepare_working_directory(direct_mode: bool) -> PathBuf {
         create_dir_all(cur_dir.join(dir)).unwrap();
     }
     GRAMINE_MANIFEST_TEMPLATE
-        .set(cur_dir.join("config").join("raiko-guest.manifest.template"))
-        .expect("Fail to set GRAMINE_MANIFEST_TEMPLATE");
+        .get_or_init(|| async {
+            cur_dir.join("../../raiko-guests/sgx/config").join("raiko-guest.manifest.template")
+        })
+        .await;
+     // If cached input file is not provided
+     // write the input to a file that will be read by the SGX instance
+     let input_path = match cached_input {
+        Some(path) => path.clone(),
+        None => {
+            let path = cur_dir.join(INPUT_FILE_NAME);
+            bincode::serialize_into(
+                File::create(&path).expect("Unable to open file"),
+                &input).expect("Unable to serialize input"
+            );
+            path
+        }
+    };
+    INPUT_FILE.set(input_path).expect("Fail to set INPUT_FILE");
     PRIVATE_KEY.get_or_init( || async {
         // Bootstrap
         // First delete the private key if it already exists
@@ -56,7 +83,7 @@ async fn prepare_working_directory(direct_mode: bool) -> PathBuf {
         path
     }).await;
     if direct_mode {
-        // Copy dummy files
+        // Copy dummy files in direct mode 
         let files = ["attestation_type", "quote", "user_report_data"];
         for file in files {
             copy(
@@ -66,13 +93,20 @@ async fn prepare_working_directory(direct_mode: bool) -> PathBuf {
             .unwrap();
         }
     }
+    ATTESTATION_TYPE
+        .set(cur_dir.join("attestation_type"))
+        .expect("Fail to set ATTESTATION_TYPE");
+    QUOTE.set(cur_dir.join("quote")).expect("Fail to set QUOTE");
+    USER_REPORT_DATA
+        .set(cur_dir.join("user_report_data"))
+        .expect("Fail to set USER_REPORT_DATA");
     cur_dir
 }
 
 pub async fn execute(
     input: GuestInput,
     _output: GuestOutput,
-    param: &SgxParam,
+    param: SgxParam,
 ) -> Result<SgxResponse, String> {
     
 
@@ -87,21 +121,7 @@ pub async fn execute(
     }
 
     // Working paths
-    let cur_dir = prepare_working_directory(direct_mode).await;
-
-     // If cached input file is not provided
-     // write the input to a file that will be read by the SGX instance
-    let bin = match &param.input_path {
-        Some(path) => path.clone(),
-        None => {
-            let path = cur_dir.join(INPUT_FILE_NAME);
-            bincode::serialize_into(
-                File::create(&path).expect("Unable to open file"),
-                &input).expect("Unable to serialize input"
-            );
-            path
-        }
-    };
+    let cur_dir = prepare_working_directory(direct_mode, input.clone(), param.input_path).await;
 
     // Generate the manifest
     let mut cmd = Command::new("gramine-manifest");
@@ -151,7 +171,7 @@ pub async fn execute(
             cmd.arg("gramine-sgx");
             cmd
         };
-        cmd.current_dir(&cur_dir).arg(&bin);
+        cmd.current_dir(&cur_dir).arg(ELF_NAME);
         cmd
     };
 

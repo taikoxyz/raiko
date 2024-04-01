@@ -24,6 +24,11 @@ if [ "$proof" == "native" ]; then
   proofParam=null
 elif [ "$proof" == "succinct" ]; then
   proofParam=null
+elif [ "$proof" == "sgx" ]; then
+  proofParam='{
+    "instance_id": 123,
+    "input_path": null
+  }'
 elif [ "$proof" == "risc0" ]; then
   proofParam='{
       "bonsai": false,
