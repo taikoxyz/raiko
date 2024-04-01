@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 raiko-primitives = { path = "../../../primitives"}
 raiko-lib = { path = "../../../lib", features = ["std", "taiko"] }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
 serde = { version = "1.0.195", features = ["derive"] }
 
 [patch.crates-io]

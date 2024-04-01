@@ -4224,7 +4224,7 @@ dependencies = [
  "revm-primitives",
  "ripemd",
  "sha2",
- "sp1-precompiles",
+ "sp1-precompiles 0.1.0 (git+https://github.com/succinctlabs/sp1.git)",
  "substrate-bn",
 ]
 
@@ -5190,7 +5190,7 @@ dependencies = [
 [[package]]
 name = "sp1-core"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#14bd4b2e9a2fdafc5667bfb0472dd382046e2521"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5254,7 +5254,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#14bd4b2e9a2fdafc5667bfb0472dd382046e2521"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5264,10 +5264,24 @@ dependencies = [
 [[package]]
 name = "sp1-helper"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#14bd4b2e9a2fdafc5667bfb0472dd382046e2521"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "cargo_metadata 0.18.1",
  "chrono",
+]
+
+[[package]]
+name = "sp1-precompiles"
+version = "0.1.0"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "getrandom",
+ "k256",
+ "rand",
+ "serde",
 ]
 
 [[package]]
@@ -5301,7 +5315,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#14bd4b2e9a2fdafc5667bfb0472dd382046e2521"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -5310,7 +5324,7 @@ dependencies = [
  "libm",
  "rand",
  "serde",
- "sp1-precompiles",
+ "sp1-precompiles 0.1.0 (git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f)",
 ]
 
 [[package]]

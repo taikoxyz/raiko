@@ -56,7 +56,7 @@ ethers-core = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-c
 
 
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git" }
+sp1-helper = { workspace = true }
 
 [features]
 default = []
