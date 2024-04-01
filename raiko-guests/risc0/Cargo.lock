@@ -268,7 +268,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "risc0-guest"
+name = "risc0-prover"
 version = "0.1.0"
 dependencies = [
  "risc0-build",

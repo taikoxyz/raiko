@@ -1,5 +1,5 @@
 [package]
-name = "risc0-guest"
+name = "risc0-prover"
 version = "0.1.0"
 edition = "2021"
 

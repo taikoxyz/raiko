@@ -29,7 +29,7 @@ pub struct SgxResponse {
     pub quote: String,
 }
 
-pub const ELF_NAME: &str = "sgx-bin";
+pub const ELF_NAME: &str = "sgx-guest";
 pub const INPUT_FILE_NAME: &str = "input.bin";
 pub const CONFIG: &str = "../../raiko-guests/sgx/config";
 
@@ -136,7 +136,7 @@ pub async fn execute(
             if direct_mode { "1" } else { "0" }
         ))
         .arg(GRAMINE_MANIFEST_TEMPLATE.get().unwrap())
-        .arg("sgx-bin.manifest")
+        .arg("sgx-guest.manifest")
         .output()
         .await
         .map_err(|e| format!("Could not generate manfifest: {}", e.to_string()))?;
@@ -156,9 +156,9 @@ pub async fn execute(
         let mut cmd = Command::new("gramine-sgx-sign");
         cmd.current_dir(cur_dir.clone())
             .arg("--manifest")
-            .arg("sgx-bin.manifest")
+            .arg("sgx-guest.manifest")
             .arg("--output")
-            .arg("sgx-bin.manifest.sgx")
+            .arg("sgx-guest.manifest.sgx")
             .output()
             .await
             .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;

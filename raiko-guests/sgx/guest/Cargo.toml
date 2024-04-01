@@ -1,5 +1,5 @@
 [package]
-name = "sgx-bin"
+name = "sgx-guest"
 version = "0.1.0"
 edition = "2021"
 
@@ -27,5 +27,3 @@ base64 = "0.21.7"
 dirs = "5.0.1"
 bincode = "1.3"
 
-[features]
-sgx = []

@@ -4,13 +4,12 @@ members = [
     "lib",
     "raiko-host",
     "primitives",
-    "raiko-guests/succinct/script",
+    "raiko-guests/succinct/prover",
     "raiko-guests/risc0", 
-    "raiko-guests/sgx/script",
+    "raiko-guests/sgx/prover",
     "raiko-guests/sgx/guest",
-    # "ra-tls",
-    # "tests/*",
 ]
+
 
 
 # Always optimize; building and running the guest takes much longer without optimization.

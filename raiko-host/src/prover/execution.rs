@@ -130,14 +130,14 @@ cfg_if::cfg_if! {
 
         impl GuestDriver for Sp1Driver {
             type ProofParam = ();
-            type ProofResponse = sp1_guest::Sp1Response;
+            type ProofResponse = sp1_prover::Sp1Response;
 
             async fn run(
                 input: GuestInput,
                 _output: GuestOutput,
                 _param: Self::ProofParam,
             ) -> Result<Self::ProofResponse> {
-                let res = sp1_guest::execute(input).await?;
+                let res = sp1_prover::execute(input).await?;
                 Ok(res)
             }
 
@@ -157,15 +157,15 @@ cfg_if::cfg_if! {
         pub struct Risc0Driver;
 
         impl GuestDriver for Risc0Driver {
-            type ProofParam = risc0_guest::Risc0Param;
-            type ProofResponse = risc0_guest::Risc0Response;
+            type ProofParam = risc0_prover::Risc0Param;
+            type ProofResponse = risc0_prover::Risc0Response;
 
             async fn run(
                 input: GuestInput,
                 output: GuestOutput,
                 param: Self::ProofParam,
             ) -> Result<Self::ProofResponse> {
-                let res = risc0_guest::execute(input, output, param).await?;
+                let res = risc0_prover::execute(input, output, param).await?;
                 Ok(res)
             }
 
@@ -186,15 +186,15 @@ cfg_if::cfg_if! {
         pub struct SgxDriver;
 
         impl GuestDriver for SgxDriver {
-            type ProofParam = sgx_guest::SgxParam;
-            type ProofResponse = sgx_guest::SgxResponse;
+            type ProofParam = sgx_prover::SgxParam;
+            type ProofResponse = sgx_prover::SgxResponse;
 
             async fn run(
                 input: GuestInput,
                 output: GuestOutput,
                 param: Self::ProofParam,
             ) -> Result<Self::ProofResponse> {
-                let res = sgx_guest::execute(input, output, param).await?;
+                let res = sgx_prover::execute(input, output, param).await?;
                 Ok(res)
             }
 

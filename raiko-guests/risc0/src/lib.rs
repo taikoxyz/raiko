@@ -19,7 +19,6 @@ use risc0_zkvm::{
     Assumption, ExecutorEnv, ExecutorImpl, FileSegmentRef, Receipt, Segment, SegmentRef,
 };
 use serde::de::DeserializeOwned;
-// use risc0_guest::{RISC0_METHODS_ELF, RISC0_METHODS_ID};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info as traicing_info;
@@ -46,13 +45,13 @@ pub struct Risc0Response {
 pub async fn execute(
     input: GuestInput,
     output: GuestOutput,
-    req: &Risc0Param,
+    param: Risc0Param,
 ) -> Result<Risc0Response, String> {
     println!("elf code length: {}", RISC0_METHODS_ELF.len());
     let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
     let result = maybe_prove::<GuestInput, GuestOutput>(
-        req,
+        &param,
         encoded_input,
         RISC0_METHODS_ELF,
         &output,
@@ -63,7 +62,7 @@ pub async fn execute(
     let journal: String = result.clone().unwrap().1.journal.encode_hex();
 
     // Create/verify Groth16 SNARK
-    if req.snark {
+    if param.snark {
         let Some((stark_uuid, stark_receipt)) = result else {
             panic!("No STARK data to snarkify!");
         };
@@ -225,7 +224,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
 }
 
 pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOwned>(
-    req: &Risc0Param,
+    param: &Risc0Param,
     encoded_input: Vec<u32>,
     elf: &[u8],
     expected_output: &O,
@@ -248,7 +247,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
         if let Ok(Some(cached_data)) = load_receipt(&receipt_label) {
             info!("Loaded locally cached receipt");
             (cached_data.0, cached_data.1, true)
-        } else if req.bonsai {
+        } else if param.bonsai {
             // query bonsai service until it works
             loop {
                 if let Ok(remote_proof) = prove_bonsai(
@@ -267,11 +266,11 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             (
                 Default::default(),
                 prove_locally(
-                    req.execution_po2,
+                    param.execution_po2,
                     encoded_input,
                     elf,
                     assumption_instances,
-                    req.profile,
+                    param.profile,
                 ),
                 false,
             )
@@ -292,7 +291,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     }
 
     // upload receipt to bonsai
-    if req.bonsai && receipt_uuid.is_empty() {
+    if param.bonsai && receipt_uuid.is_empty() {
         info!("Uploading cached receipt without UUID to Bonsai.");
         receipt_uuid = upload_receipt(&receipt)
             .await

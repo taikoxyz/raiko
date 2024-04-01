@@ -3925,16 +3925,17 @@ dependencies = [
  "raiko-primitives",
  "reqwest",
  "revm",
- "risc0-guest",
+ "risc0-prover",
  "rlp",
  "rstest",
  "serde",
  "serde_json",
  "serde_with",
  "sgx-guest",
+ "sgx-prover",
  "sha2",
- "sp1-guest",
  "sp1-helper",
+ "sp1-prover",
  "structopt",
  "structopt-toml",
  "thiserror",
@@ -4414,7 +4415,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "risc0-guest"
+name = "risc0-prover"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
@@ -5022,7 +5023,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sgx-bin"
+name = "sgx-guest"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5044,7 +5045,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sgx-guest"
+name = "sgx-prover"
 version = "0.1.0"
 dependencies = [
  "bincode",
@@ -5261,20 +5262,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp1-guest"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "anyhow",
- "once_cell",
- "raiko-lib",
- "serde",
- "serde_json",
- "sp1-core",
- "sp1-helper",
-]
-
-[[package]]
 name = "sp1-helper"
 version = "0.1.0"
 source = "git+https://github.com/succinctlabs/sp1.git#14bd4b2e9a2fdafc5667bfb0472dd382046e2521"
@@ -5295,6 +5282,20 @@ dependencies = [
  "k256",
  "rand",
  "serde",
+]
+
+[[package]]
+name = "sp1-prover"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "anyhow",
+ "once_cell",
+ "raiko-lib",
+ "serde",
+ "serde_json",
+ "sp1-core",
+ "sp1-helper",
 ]
 
 [[package]]
