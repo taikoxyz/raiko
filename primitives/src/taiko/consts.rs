@@ -15,7 +15,7 @@ pub mod testnet {
     use super::*;
     pub const CHAIN_ID: u64 = 167009;
     pub static L1_CONTRACT: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0xaC6ccC4B3aBA6E96E2F58E0fF7A4ff3aF469E62E")
+        Address::from_str("0x79C9109b764609df928d16fC4a91e9081F7e87DB")
             .expect("invalid l1 contract address")
     });
     pub static L2_CONTRACT: Lazy<Address> = Lazy::new(|| {
@@ -23,7 +23,7 @@ pub mod testnet {
             .expect("invalid l2 contract address")
     });
     pub static SGX_VERIFIER_ADDRESS: Lazy<Address> = Lazy::new(|| {
-        Address::from_str("0x914e458035Cd10B3650B4115D74f351f79EA768E")
+        Address::from_str("0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9")
             .expect("invalid sgx verifier contract address")
     });
     pub const GENISES_TIME: u64 = 1695902400u64;
