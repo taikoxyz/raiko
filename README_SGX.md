@@ -1,8 +1,8 @@
 # Raiko
 
-This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guest` and `raiko-host`.
+This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guest` and `host`.
 
-- `raiko-host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `raiko-host` is _not_ being run inside SGX enclave.
+- `host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `host` is _not_ being run inside SGX enclave.
 - `raiko-guest` is responsible for generating public-private key pair and signing. It can run inside SGX enclave.
 
 [zeth]: https://github.com/risc0/zeth
@@ -22,20 +22,20 @@ and compile the project:
 ubuntu@ubuntu:~/zeth$ cargo build
 ```
 
-The above command creates `/target` directory with `raiko-host` and `raiko-guest` compilation artifacts.
+The above command creates `/target` directory with `host` and `raiko-guest` compilation artifacts.
 
 ## Running
 
-You can either run `raiko-guest` directly, or indirectly by running `raiko-host` JSON-RPC server. In any case running it requires some [Gramine][gramine]-specific preconfiguration before you can run the binary. This can be automated in the future.
+You can either run `raiko-guest` directly, or indirectly by running `host` JSON-RPC server. In any case running it requires some [Gramine][gramine]-specific preconfiguration before you can run the binary. This can be automated in the future.
 
-If you are running `raiko-guest` directly, you can either use _one-shot_ mode, or a _long-running RA-TLS server_ (which is experimental). Production environment uses `raiko-host` JSON-RPC server that starts `raiko-guest` in _one-shot_ mode.
+If you are running `raiko-guest` directly, you can either use _one-shot_ mode, or a _long-running RA-TLS server_ (which is experimental). Production environment uses `host` JSON-RPC server that starts `raiko-guest` in _one-shot_ mode.
 
 To sum up, these are the ways to run `raiko-guest`:
 
 - Run `raiko-guest` directly in:
   - _one-shot_ mode, or:
   - _long-running_ mode (RA-TLS server).
-- Run `raiko-host` that in turn runs `raiko-guest` in _one-shot_ mode.
+- Run `host` that in turn runs `raiko-guest` in _one-shot_ mode.
 
 [gramine]: https://github.com/gramineproject/gramine
 
@@ -217,25 +217,25 @@ You _may_ also need to rebuild the project:
 cargo build --example client --verbose
 ```
 
-### `raiko-host`
+### `host`
 
 Copy `raiko-guest` binary:
 
 ```console
 cargo build
-cp target/debug/raiko-guest raiko-host/guests/sgx
-cd raiko-host/guests/sgx
+cp target/debug/raiko-guest host/guests/sgx
+cd host/guests/sgx
 gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
 gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
 cd -
 ```
 
-Start `raiko-host` JSON-RPC server:
+Start `host` JSON-RPC server:
 
 ```console
-RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123
+RUST_LOG=debug cargo run --bin host -- --sgx-instance-id=123
 // or with specific log path
-RUST_LOG=debug cargo run --bin raiko-host -- --sgx-instance-id=123 --log-path=/var/log/raiko
+RUST_LOG=debug cargo run --bin host -- --sgx-instance-id=123 --log-path=/var/log/raiko
 ```
 
 Send a request to the server:

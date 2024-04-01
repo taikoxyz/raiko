@@ -31,7 +31,7 @@ pub struct SgxResponse {
 
 pub const ELF_NAME: &str = "sgx-guest";
 pub const INPUT_FILE_NAME: &str = "input.bin";
-pub const CONFIG: &str = "../../raiko-guests/sgx/config";
+pub const CONFIG: &str = "../../guests/sgx/config";
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static INPUT_FILE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);

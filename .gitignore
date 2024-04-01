@@ -7,4 +7,4 @@ rpc_cache.json
 .idea
 *.json.gz
 .vscode/
-raiko-host/guests/sgx/raiko-guest
+host/guests/sgx/raiko-guest

@@ -1,4 +1,4 @@
-# Prod config file for raiko-host to be used with Docker container
+# Prod config file for host to be used with Docker container
 
 bind = "0.0.0.0:8080"
 cache = "/tmp/sgx"

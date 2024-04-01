@@ -2,12 +2,12 @@
 resolver = "2"
 members = [
     "lib",
-    "raiko-host",
+    "host",
     "primitives",
-    "raiko-guests/succinct/prover",
-    "raiko-guests/risc0", 
-    "raiko-guests/sgx/prover",
-    "raiko-guests/sgx/guest",
+    "guests/succinct/prover",
+    "guests/risc0", 
+    "guests/sgx/prover",
+    "guests/sgx/guest",
 ]
 
 

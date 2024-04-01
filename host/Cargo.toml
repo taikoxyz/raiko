@@ -44,10 +44,10 @@ rlp = "0.5.2"
 url = "2.5.0"
 cfg-if = "1.0.0"
 
-sp1-prover = { path = "../raiko-guests/succinct/prover", optional = true}
-risc0-prover = { path = "../raiko-guests/risc0", optional = true}
-sgx-prover = { path = "../raiko-guests/sgx/prover", optional = true}
-sgx-guest = { path = "../raiko-guests/sgx/guest", optional = true}
+sp1-prover = { path = "../guests/succinct/prover", optional = true}
+risc0-prover = { path = "../guests/risc0", optional = true}
+sgx-prover = { path = "../guests/sgx/prover", optional = true}
+sgx-guest = { path = "../guests/sgx/guest", optional = true}
 
 [dev-dependencies]
 assert_cmd = "2.0"

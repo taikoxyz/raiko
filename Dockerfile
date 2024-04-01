@@ -21,7 +21,7 @@ RUN cargo build --release ${BUILD_FLAGS}
 RUN ls -la /opt/raiko
 RUN ls -la /opt/raiko/target
 RUN ls -la /opt/raiko/target/release
-RUN ls -la /opt/raiko/target/release/raiko-host
+RUN ls -la /opt/raiko/target/release/host
 
 
 FROM gramineproject/gramine:1.6-jammy as runtime
@@ -53,21 +53,21 @@ RUN mkdir -p \
     /var/log/raiko
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
-COPY --from=builder /opt/raiko/raiko-guests/sgx/config/raiko-guest.manifest.template ./guests/sgx/
-COPY --from=builder /opt/raiko/raiko-host/config/config.toml /etc/raiko/
+COPY --from=builder /opt/raiko/guests/sgx/config/raiko-guest.manifest.template ./guests/sgx/
+COPY --from=builder /opt/raiko/host/config/config.toml /etc/raiko/
 RUN ls -la /opt/raiko
 RUN ls -la /opt/raiko/bin
 RUN ls -la /opt/raiko/guests
 RUN ls -la /opt/raiko/guests/sgx
-COPY --from=builder /opt/raiko/target/release/raiko-guests ./guests/sgx/
-# ubuntu@VM-0-6-ubuntu:~/zeth-john/raiko-guests/sgx$ cargo build --release
+COPY --from=builder /opt/raiko/target/release/guests ./guests/sgx/
+# ubuntu@VM-0-6-ubuntu:~/zeth-john/guests/sgx$ cargo build --release
 # GROTH16_VERIFIER_ADDRESS="" cargo build --features "sgx" --release
-# ./raiko-guests/succinct/target
-# ./raiko-guests/risc0/guest/target
-# /target/release/raiko-host
-# "/opt/raiko/target/release/raiko-guests": not found
+# ./guests/succinct/target
+# ./guests/risc0/guest/target
+# /target/release/host
+# "/opt/raiko/target/release/guests": not found
 
-# COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
+# COPY --from=builder /opt/raiko/target/release/host ./bin/
 
 # ARG EDMM=0
 # ENV EDMM=${EDMM}
