@@ -49,7 +49,7 @@ Look into `prove_block.sh` for the available options or run the script without i
 Provers can be enabled using features. To compile with all of them (using standard options):
 
 ```
-cargo run --release --features "risc0 succinct"
+cargo run --release --features "risc0 sp1"
 ```
 
 ### risc zero
@@ -83,9 +83,9 @@ cargo run -F metal --release --features risc0
 
 CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 
-### succinct's SP1:
+### sp1's SP1:
 ```
-cargo run --release --features succinct
+cargo run --release --features sp1
 ```
 
 ### SGX:

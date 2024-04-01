@@ -228,7 +228,7 @@ impl Handler {
                 let options = params.first().expect("params must not be empty");
                 let mut res = Err(HostError::GuestError("Execution failed to run".to_string()));
                 cfg_if::cfg_if! {
-                    if #[cfg(feature = "succinct")] {
+                    if #[cfg(feature = "sp1")] {
                         use crate::prover::execution::Sp1Driver;
                         let req: ProofRequest<<Sp1Driver as GuestDriver>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;

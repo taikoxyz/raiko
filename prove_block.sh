@@ -22,7 +22,7 @@ fi
 
 if [ "$proof" == "native" ]; then
   proofParam=null
-elif [ "$proof" == "succinct" ]; then
+elif [ "$proof" == "sp1" ]; then
   proofParam=null
 elif [ "$proof" == "sgx" ]; then
   proofParam='{
@@ -46,7 +46,7 @@ elif [ "$proof" == "risc0-bonsai" ]; then
     }
   }'
 else
-  echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', or 'succinct'."
+  echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', or 'sp1'."
   exit 1
 fi
 

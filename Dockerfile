@@ -62,7 +62,7 @@ RUN ls -la /opt/raiko/guests/sgx
 COPY --from=builder /opt/raiko/target/release/guests ./guests/sgx/
 # ubuntu@VM-0-6-ubuntu:~/zeth-john/guests/sgx$ cargo build --release
 # GROTH16_VERIFIER_ADDRESS="" cargo build --features "sgx" --release
-# ./guests/succinct/target
+# ./guests/sp1/target
 # ./guests/risc0/guest/target
 # /target/release/host
 # "/opt/raiko/target/release/guests": not found

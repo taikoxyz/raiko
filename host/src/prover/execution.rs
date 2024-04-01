@@ -122,7 +122,7 @@ impl GuestDriver for NativeDriver {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "succinct")] {
+    if #[cfg(feature = "sp1")] {
         use raiko_primitives::keccak::keccak;
         use alloy_sol_types::SolValue;
 

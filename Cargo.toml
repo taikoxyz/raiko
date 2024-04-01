@@ -4,7 +4,7 @@ members = [
     "lib",
     "host",
     "primitives",
-    "guests/succinct/prover",
+    "guests/sp1/prover",
     "guests/risc0", 
     "guests/sgx/prover",
     "guests/sgx/guest",

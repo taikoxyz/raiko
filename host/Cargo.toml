@@ -44,7 +44,7 @@ rlp = "0.5.2"
 url = "2.5.0"
 cfg-if = "1.0.0"
 
-sp1-prover = { path = "../guests/succinct/prover", optional = true}
+sp1-prover = { path = "../guests/sp1/prover", optional = true}
 risc0-prover = { path = "../guests/risc0", optional = true}
 sgx-prover = { path = "../guests/sgx/prover", optional = true}
 sgx-guest = { path = "../guests/sgx/guest", optional = true}
@@ -61,7 +61,7 @@ sp1-helper = { git = "https://github.com/succinctlabs/sp1.git" }
 [features]
 default = []
 # powdr = ["dep:powdr"]
-succinct = [
+sp1 = [
   "dep:sp1-prover",
   "sp1-prover/enable",
 ]
