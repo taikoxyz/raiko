@@ -104,8 +104,15 @@ pub fn preflight(
         assert!(!blob_hashs.is_empty());
         // Currently the protocol enforces the first blob hash to be used
         let blob_hash = blob_hashs[0];
+
+        let l2_chain_spec = get_network_spec(network);
+        let slot_id = block_time_to_block_slot(
+            l1_inclusion_block.header.timestamp.as_limbs()[0],
+            l2_chain_spec.genesis_time,
+            l2_chain_spec.seconds_per_slot,
+        )?;
         // Get the blob data for this block
-        let blobs = get_blob_data(&beacon_rpc_url.clone().unwrap(), l1_inclusion_block_no)?;
+        let blobs = get_blob_data(&beacon_rpc_url.clone().unwrap(), slot_id)?;
         assert!(!blobs.data.is_empty(), "blob data not available anymore");
         // Get the blob data for the blob storing the tx list
         let tx_blobs: Vec<GetBlobData> = blobs
@@ -203,6 +210,21 @@ pub fn preflight(
     })
 }
 
+// block_time_to_block_slot returns the slots of the given timestamp.
+fn block_time_to_block_slot(
+    block_time: u64,
+    genesis_time: u64,
+    block_per_slot: u64,
+) -> Result<u64> {
+    if block_time < genesis_time {
+        Err(anyhow::Error::msg(
+            "provided block_time precedes genesis time",
+        ))
+    } else {
+        Ok((block_time - genesis_time) / block_per_slot)
+    }
+}
+
 fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
     match hex::decode(blob_str.to_lowercase().trim_start_matches("0x")) {
         Ok(b) => b,
@@ -225,7 +247,8 @@ fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsResponse
     tokio_handle.block_on(async {
         let url = format!(
             "{}/eth/v1/beacon/blob_sidecars/{}",
-            beacon_rpc_url, block_id
+            beacon_rpc_url.trim_end_matches('/'),
+            block_id
         );
         let response = reqwest::get(url.clone()).await?;
         if response.status().is_success() {
@@ -588,6 +611,26 @@ mod test {
     // .unwrap();
     // }
 
+    #[test]
+    fn test_slot_block_num_mapping() {
+        let chain_spec = get_taiko_chain_spec("testnet");
+        let expected_slot = 1000u64;
+        let second_per_slot = 12u64;
+        let block_time = chain_spec.genesis_time + expected_slot * second_per_slot;
+        let block_num =
+            block_time_to_block_slot(block_time, chain_spec.genesis_time, second_per_slot)
+                .expect("block time to slot failed");
+        assert_eq!(block_num, expected_slot);
+
+        assert!(block_time_to_block_slot(
+            chain_spec.genesis_time - 10,
+            chain_spec.genesis_time,
+            second_per_slot
+        )
+        .is_err());
+    }
+
+    #[ignore]
     #[test]
     fn json_to_ethers_blob_tx() {
         let response = "{

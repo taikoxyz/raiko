@@ -60,6 +60,8 @@ pub const ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
         l1_contract: None,
         l2_contract: None,
         sgx_verifier_address: None,
+        genesis_time: 0u64,
+        seconds_per_slot: 1u64,
     }
 });
 
@@ -81,11 +83,13 @@ pub const TAIKO_A6_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     sgx_verifier_address: Some(
         Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9").unwrap(),
     ),
+    genesis_time: 0u64,
+    seconds_per_slot: 1u64,
 });
 
 /// The Taiko A7 specification.
 pub const TAIKO_A7_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
-    chain_id: 167001,
+    chain_id: 167009,
     hard_forks: BTreeMap::from([
         (SpecId::SHANGHAI, ForkCondition::Block(0)),
         (SpecId::CANCUN, ForkCondition::TBD),
@@ -96,11 +100,13 @@ pub const TAIKO_A7_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
         base_fee_max_decrease_denominator: uint!(8_U256),
         elasticity_multiplier: uint!(2_U256),
     },
-    l1_contract: Some(Address::from_str("0xC069c3d2a9f2479F559AD34485698ad5199C555f").unwrap()),
-    l2_contract: Some(Address::from_str("0x1670010000000000000000000000000000010001").unwrap()),
+    l1_contract: Some(Address::from_str("0x79C9109b764609df928d16fC4a91e9081F7e87DB").unwrap()),
+    l2_contract: Some(Address::from_str("0x1670090000000000000000000000000000010001").unwrap()),
     sgx_verifier_address: Some(
-        Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9").unwrap(),
+        Address::from_str("0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9").unwrap(),
     ),
+    genesis_time: 1695902400u64,
+    seconds_per_slot: 12u64,
 });
 
 pub fn get_network_spec(network: Network) -> ChainSpec {
@@ -160,6 +166,8 @@ pub struct ChainSpec {
     pub l1_contract: Option<Address>,
     pub l2_contract: Option<Address>,
     pub sgx_verifier_address: Option<Address>,
+    pub genesis_time: u64,
+    pub seconds_per_slot: u64,
 }
 
 impl ChainSpec {
@@ -176,6 +184,8 @@ impl ChainSpec {
             l1_contract: None,
             l2_contract: None,
             sgx_verifier_address: None,
+            genesis_time: 0u64,
+            seconds_per_slot: 1u64,
         }
     }
     /// Returns the network chain ID.
