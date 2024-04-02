@@ -6,7 +6,7 @@ use raiko_lib::input::{GuestInput, GuestOutput};
 use serde::{Deserialize, Serialize};
 use sp1_core::{utils, SP1Prover, SP1Stdin, SP1Verifier};
 
-const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
+const ELF: &[u8] = include_bytes!("../../guest/elf/riscv32im-succinct-zkvm-elf");
 
 pub async fn execute(input: GuestInput) -> Result<Sp1Response, String> {
     let config = utils::BabyBearBlake3::new();

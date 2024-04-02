@@ -1,6 +1,5 @@
 {
     "rust-analyzer.linkedProjects": [
         "Cargo.toml",
-        "./raiko-guests/sgx/script/Cargo.toml",
     ]
 }

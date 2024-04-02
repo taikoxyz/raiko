@@ -83,7 +83,7 @@ cargo run -F metal --release --features risc0
 
 CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 
-### sp1's SP1:
+### SP1:
 ```
 cargo run --release --features sp1
 ```

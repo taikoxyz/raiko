@@ -3,5 +3,5 @@ fn main() {
     println!("Sp1 not enabled");
 
     #[cfg(feature = "enable")]
-    sp1_helper::build_program("../program");
+    sp1_helper::build_program("../guest");
 }
