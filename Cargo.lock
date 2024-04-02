@@ -3931,7 +3931,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "sgx-guest",
  "sgx-prover",
  "sha2",
  "sp1-helper",
