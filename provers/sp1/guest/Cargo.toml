@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-raiko-primitives = { path = "../../primitives" }
-raiko-lib = { path = "../../lib", features = ["taiko", "std"] }
+raiko-primitives = { path = "../../../primitives" }
+raiko-lib = { path = "../../../lib", features = ["taiko", "std"] }
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
 
 [patch.crates-io]

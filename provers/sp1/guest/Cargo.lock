@@ -1539,15 +1539,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
-name = "raiko-guest"
-version = "0.1.0"
-dependencies = [
- "raiko-lib",
- "raiko-primitives",
- "sp1-zkvm",
-]
-
-[[package]]
 name = "raiko-lib"
 version = "0.1.0"
 dependencies = [
@@ -1680,7 +1671,7 @@ dependencies = [
  "revm-primitives",
  "ripemd",
  "sha2",
- "sp1-precompiles",
+ "sp1-precompiles 0.1.0 (git+https://github.com/succinctlabs/sp1.git)",
  "substrate-bn",
 ]
 
@@ -1962,6 +1953,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-guest"
+version = "0.1.0"
+dependencies = [
+ "raiko-lib",
+ "raiko-primitives",
+ "sp1-zkvm",
+]
+
+[[package]]
+name = "sp1-precompiles"
+version = "0.1.0"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "getrandom",
+ "k256",
+ "rand",
+ "serde",
+]
+
+[[package]]
 name = "sp1-precompiles"
 version = "0.1.0"
 source = "git+https://github.com/succinctlabs/sp1.git#fe8df5e28ca1cb232edfb0729a2af2bf9b5a645f"
@@ -1978,7 +1992,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#fe8df5e28ca1cb232edfb0729a2af2bf9b5a645f"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -1987,7 +2001,7 @@ dependencies = [
  "libm",
  "rand",
  "serde",
- "sp1-precompiles",
+ "sp1-precompiles 0.1.0 (git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f)",
 ]
 
 [[package]]
