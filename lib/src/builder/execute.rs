@@ -360,7 +360,7 @@ pub fn fill_eth_tx_env(
             tx_env.access_list = tx.access_list.clone().into_flattened();
 
             // Data blobs are not allowed on L2
-            bail!(tx.blob_versioned_hashes.len() == 0);
+            bail!(tx.blob_versioned_hashes.is_empty());
         }
     };
     Ok(())

@@ -108,7 +108,7 @@ fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     encoded_byte[0] = blob_buf[0];
     for encoded_byte_i in encoded_byte.iter_mut().skip(1) {
         (*encoded_byte_i, opos, ipos) =
-            match decode_field_element(&blob_buf, opos, ipos, &mut output) {
+            match decode_field_element(blob_buf, opos, ipos, &mut output) {
                 Ok(res) => res,
                 Err(_) => return Vec::new(),
             }
@@ -122,7 +122,7 @@ fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
             for encoded_byte_j in &mut encoded_byte {
                 // save the first byte of each field element for later re-assembly
                 (*encoded_byte_j, opos, ipos) =
-                    match decode_field_element(&blob_buf, opos, ipos, &mut output) {
+                    match decode_field_element(blob_buf, opos, ipos, &mut output) {
                         Ok(res) => res,
                         Err(_) => return Vec::new(),
                     }
@@ -240,7 +240,7 @@ pub fn check_anchor_tx(
             };
             // Check that it's from the golden touch address
             ensure!(
-                *from == GOLDEN_TOUCH_ACCOUNT.clone(),
+                *from == *GOLDEN_TOUCH_ACCOUNT,
                 "anchor transaction from mismatch"
             );
             // Check that the L2 contract is being called
@@ -260,7 +260,7 @@ pub fn check_anchor_tx(
             );
             // Check needs to have the base fee set to the block base fee
             ensure!(
-                tx.max_fee_per_gas == input.base_fee_per_gas.try_into().unwrap(),
+                tx.max_fee_per_gas == input.base_fee_per_gas.into(),
                 "anchor transaction gas mismatch"
             );
 

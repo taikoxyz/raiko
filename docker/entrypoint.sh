@@ -7,7 +7,7 @@ RAIKO_DOCKER_VOLUME_PATH="/root/.config/raiko"
 RAIKO_DOCKER_VOLUME_CONFIG_PATH="$RAIKO_DOCKER_VOLUME_PATH/config"
 RAIKO_DOCKER_VOLUME_SECRETS_PATH="$RAIKO_DOCKER_VOLUME_PATH/secrets"
 RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH="$RAIKO_DOCKER_VOLUME_SECRETS_PATH/priv.key"
-RAIKO_GUEST_APP_DIR="/opt/raiko/guests/sgx"
+RAIKO_GUEST_APP_DIR="/opt/raiko/provers/sgx"
 RAIKO_GUEST_APP_FILENAME="raiko-guest"
 RAIKO_INPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.manifest"
 RAIKO_OUTPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.manifest.sgx"
@@ -44,5 +44,5 @@ else
     fi
 
     sign_gramine_manifest
-    /opt/raiko/bin/raiko-host "$@"
+    /opt/raiko/bin/host "$@"
 fi

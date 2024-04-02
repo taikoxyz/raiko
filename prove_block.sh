@@ -21,22 +21,23 @@ else
 fi
 
 if [ "$proof" == "native" ]; then
-  proofType='"native"'
-elif [ "$proof" == "succinct" ]; then
-  proofType='"succinct"'
+  proofParam=null
+elif [ "$proof" == "sp1" ]; then
+  proofParam=null
 elif [ "$proof" == "sgx" ]; then
-  proofType='"sgx"'
+  proofParam='{
+    "instance_id": 123,
+    "input_path": null
+  }'
 elif [ "$proof" == "risc0" ]; then
-  proofType='{
-    "risc0": {
+  proofParam='{
       "bonsai": false,
       "snark": false,
       "profile": true,
       "execution_po2": 18
-    }
   }'
 elif [ "$proof" == "risc0-bonsai" ]; then
-  proofType='{
+  proofParam='{
     "risc0": {
       "bonsai": true,
       "snark": true,
@@ -45,7 +46,7 @@ elif [ "$proof" == "risc0-bonsai" ]; then
     }
   }'
 else
-  echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', or 'succinct'."
+  echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', or 'sp1'."
   exit 1
 fi
 
@@ -77,7 +78,7 @@ do
              \"l2Rpc\": \"$l2Rpc\",
              \"l1Rpc\": \"$l1Rpc\",
              \"beaconRpc\": \"$beaconRpc\",
-             \"proofType\": $proofType,
+             \"proofParam\": $proofParam,
              \"blockNumber\": $block,
              \"prover\": \"$prover\",
              \"graffiti\": \"$graffiti\"

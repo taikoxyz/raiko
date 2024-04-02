@@ -11,8 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// #![feature(path_file_prefix)]
-#![feature(sync_unsafe_cell)]
 #![cfg_attr(any(not(feature = "std")), no_std)]
 
 #[cfg(not(feature = "std"))]
@@ -32,6 +30,7 @@ pub mod consts;
 pub mod input;
 pub mod mem_db;
 pub mod protocol_instance;
+pub mod prover;
 pub mod taiko_utils;
 
 /// call forget only if running inside the guest

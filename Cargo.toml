@@ -2,12 +2,13 @@
 resolver = "2"
 members = [
     "lib",
+    "host",
     "primitives",
-    "raiko-host",
-    # "tests/*",
-    "raiko-guests/sgx",
+    "provers/sp1/prover",
+    "provers/risc0",
+    "provers/sgx/prover",
+    "provers/sgx/guest",
 ]
-
 
 # Always optimize; building and running the guest takes much longer without optimization.
 [profile.dev]
@@ -30,6 +31,9 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "unst
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "unstable", default-features = false, features = [
     "serde",
 ] }
+sp1-core = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
 
 # for eip-4844
 c-kzg = "1.0.0"
