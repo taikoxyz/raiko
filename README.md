@@ -90,8 +90,11 @@ cargo run --release --features sp1
 
 ### SGX:
 ```
+cargo build --release --features sgx
 cargo run --release --features sgx
 ```
+
+Make sure to first do a cargo build because cargo run does not build the sgx binary!
 
 If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
 
