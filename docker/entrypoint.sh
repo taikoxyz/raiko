@@ -44,5 +44,5 @@ else
     fi
 
     sign_gramine_manifest
-    /opt/raiko/bin/host "$@"
+    /opt/raiko/bin/raiko-host "$@"
 fi

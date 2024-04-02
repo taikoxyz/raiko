@@ -11,6 +11,5 @@
 !/provers
 !/host
 !/rust-toolchain
-!/ra-tls
 !/taiko.toml
 !/tests
