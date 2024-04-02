@@ -19,7 +19,7 @@ sha2 = { version = "0.10.7", optional = true }
 tempfile = { workspace = true, optional = true }
 
 revm-primitives = { workspace = true, default-features = false }
-rlp = { version = "0.5.2", default-features = false }
+rlp = { version = "0.5.2", default-features = false, features = ["std"] }
 serde = { workspace = true }
 sha3 = { version = "0.10", default-features = false}
 thiserror = "1.0"
