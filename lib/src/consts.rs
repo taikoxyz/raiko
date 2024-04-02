@@ -272,8 +272,17 @@ mod tests {
     #[test]
     fn revm_spec_id() {
         assert!(ETH_MAINNET_CHAIN_SPEC.spec_id(15537393, 0) < Some(SpecId::MERGE));
-        assert_eq!(ETH_MAINNET_CHAIN_SPEC.spec_id(15537394, 0), Some(SpecId::MERGE));
-        assert_eq!(ETH_MAINNET_CHAIN_SPEC.spec_id(17034869, 0), Some(SpecId::MERGE));
-        assert_eq!(ETH_MAINNET_CHAIN_SPEC.spec_id(17034870, 0), Some(SpecId::SHANGHAI));
+        assert_eq!(
+            ETH_MAINNET_CHAIN_SPEC.spec_id(15537394, 0),
+            Some(SpecId::MERGE)
+        );
+        assert_eq!(
+            ETH_MAINNET_CHAIN_SPEC.spec_id(17034869, 0),
+            Some(SpecId::MERGE)
+        );
+        assert_eq!(
+            ETH_MAINNET_CHAIN_SPEC.spec_id(17034870, 0),
+            Some(SpecId::SHANGHAI)
+        );
     }
 }
