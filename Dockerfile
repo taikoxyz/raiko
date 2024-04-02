@@ -48,30 +48,30 @@ RUN sed -i 's/https:\/\/localhost:8081/https:\/\/pccs:8081/g' /etc/sgx_default_q
 
 RUN mkdir -p \
     ./bin \
-    ./guests/sgx \
+    ./provers/sgx \
     /tmp/sgx \
     /var/log/raiko
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
-COPY --from=builder /opt/raiko/guests/sgx/config/raiko-guest.manifest.template ./guests/sgx/
+COPY --from=builder /opt/raiko/provers/sgx/config/raiko-guest.manifest.template ./provers/sgx/
 COPY --from=builder /opt/raiko/host/config/config.toml /etc/raiko/
 RUN ls -la /opt/raiko
 RUN ls -la /opt/raiko/bin
-RUN ls -la /opt/raiko/guests
-RUN ls -la /opt/raiko/guests/sgx
-COPY --from=builder /opt/raiko/target/release/guests ./guests/sgx/
-# ubuntu@VM-0-6-ubuntu:~/zeth-john/guests/sgx$ cargo build --release
+RUN ls -la /opt/raiko/provers
+RUN ls -la /opt/raiko/provers/sgx
+COPY --from=builder /opt/raiko/target/release/provers ./provers/sgx/
+# ubuntu@VM-0-6-ubuntu:~/zeth-john/provers/sgx$ cargo build --release
 # GROTH16_VERIFIER_ADDRESS="" cargo build --features "sgx" --release
-# ./guests/sp1/target
-# ./guests/risc0/guest/target
+# ./provers/sp1/target
+# ./provers/risc0/guest/target
 # /target/release/host
-# "/opt/raiko/target/release/guests": not found
+# "/opt/raiko/target/release/provers": not found
 
 # COPY --from=builder /opt/raiko/target/release/host ./bin/
 
 # ARG EDMM=0
 # ENV EDMM=${EDMM}
-# RUN cd ./guests/sgx && \
+# RUN cd ./provers/sgx && \
 #     gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
 
 # ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]

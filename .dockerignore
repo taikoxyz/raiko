@@ -8,12 +8,9 @@
 !/docker/entrypoint.sh
 !/lib
 !/primitives
-!/guests
+!/provers
 !/host
 !/rust-toolchain
 !/ra-tls
 !/taiko.toml
 !/tests
-# Ignore unnecessary files inside allowed directories
-# This should go after the allowed directories
-**/host/guests/sgx

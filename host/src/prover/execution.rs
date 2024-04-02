@@ -50,7 +50,7 @@ pub async fn execute<D: Prover>(
         .map_err(|e| HostError::GuestError(e.to_string()))
 }
 
-/// prepare input data for guests
+/// prepare input data for provers
 pub async fn prepare_input<P>(ctx: &mut Context, req: &ProofRequest<P>) -> Result<GuestInput> {
     // Todo(Cecilia): should contract address as args, curently hardcode
     let _l1_cache = ctx.l1_cache_file.clone();

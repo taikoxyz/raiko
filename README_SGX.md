@@ -219,12 +219,12 @@ cargo build --example client --verbose
 
 ### `host`
 
-Copy `raiko-guest` binary:
+Copy `sgx-guest` binary:
 
 ```console
 cargo build
-cp target/debug/raiko-guest host/guests/sgx
-cd host/guests/sgx
+cp target/debug/raiko-guest host/provers/sgx
+cd host/provers/sgx
 gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
 gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
 cd -

@@ -44,10 +44,11 @@ rlp = "0.5.2"
 url = "2.5.0"
 cfg-if = "1.0.0"
 
-sp1-prover = { path = "../guests/sp1/prover", optional = true}
-risc0-prover = { path = "../guests/risc0", optional = true}
-sgx-prover = { path = "../guests/sgx/prover", optional = true}
-sgx-guest = { path = "../guests/sgx/guest", optional = true}
+# provers
+sp1-prover = { path = "../provers/sp1/prover", optional = true}
+risc0-prover = { path = "../provers/risc0", optional = true}
+sgx-prover = { path = "../provers/sgx/prover", optional = true}
+sgx-guest = { path = "../provers/sgx/guest", optional = true}
 
 [dev-dependencies]
 assert_cmd = "2.0"
