@@ -5,6 +5,7 @@ use raiko_lib::{
     consts::Network,
     input::{GuestInput, GuestOutput, TaikoProverData},
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
+    prover::{Prover, ProverResult},
     taiko_utils::HeaderHasher,
 };
 use raiko_primitives::B256;
@@ -12,22 +13,9 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use super::{context::Context, error::Result, request::ProofRequest};
-use crate::{host::host::preflight, metrics::observe_input};
+use crate::{host::host::preflight, metrics::observe_input, prover::error::HostError};
 
-pub trait GuestDriver {
-    type ProofParam: Debug + Clone;
-    type ProofResponse: Serialize;
-
-    async fn run(
-        input: GuestInput,
-        output: GuestOutput,
-        param: Self::ProofParam,
-    ) -> Result<Self::ProofResponse>;
-
-    fn instance_hash(pi: ProtocolInstance) -> B256;
-}
-
-pub async fn execute<D: GuestDriver>(
+pub async fn execute<D: Prover>(
     ctx: &mut Context,
     req: &ProofRequest<D::ProofParam>,
 ) -> Result<D::ProofResponse> {
@@ -57,7 +45,9 @@ pub async fn execute<D: GuestDriver>(
     let elapsed = Instant::now().duration_since(start).as_millis() as i64;
     observe_input(elapsed);
 
-    D::run(input, output, req.proof_param.clone()).await
+    D::run(input, output, req.proof_param.clone())
+        .await
+        .map_err(|e| HostError::GuestError(e.to_string()))
 }
 
 /// prepare input data for guests
@@ -87,16 +77,6 @@ pub async fn prepare_input<P>(ctx: &mut Context, req: &ProofRequest<P>) -> Resul
     .map_err(Into::<super::error::HostError>::into)
 }
 
-#[cfg(test)]
-mod tests {
-    #[tokio::test]
-    async fn test_async_block() {
-        let result = async { Result::<(), &'static str>::Err("error") };
-        println!("must here");
-        assert!(result.await.is_err());
-    }
-}
-
 pub struct NativeDriver;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -104,7 +84,7 @@ pub struct NativeResponse {
     output: GuestOutput,
 }
 
-impl GuestDriver for NativeDriver {
+impl Prover for NativeDriver {
     type ProofParam = ();
     type ProofResponse = NativeResponse;
 
@@ -112,7 +92,7 @@ impl GuestDriver for NativeDriver {
         _input: GuestInput,
         output: GuestOutput,
         _param: Self::ProofParam,
-    ) -> Result<Self::ProofResponse> {
+    ) -> ProverResult<Self::ProofResponse> {
         Ok(NativeResponse { output })
     }
 
@@ -121,95 +101,12 @@ impl GuestDriver for NativeDriver {
     }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "sp1")] {
-        use raiko_primitives::keccak::keccak;
-        use alloy_sol_types::SolValue;
-
-        pub struct Sp1Driver;
-
-        impl GuestDriver for Sp1Driver {
-            type ProofParam = ();
-            type ProofResponse = sp1_prover::Sp1Response;
-
-            async fn run(
-                input: GuestInput,
-                _output: GuestOutput,
-                _param: Self::ProofParam,
-            ) -> Result<Self::ProofResponse> {
-                let res = sp1_prover::execute(input).await?;
-                Ok(res)
-            }
-
-            fn instance_hash(pi: ProtocolInstance) -> B256 {
-                let data = (
-                    pi.transition.clone(),
-                    pi.prover,
-                    pi.meta_hash()
-                ).abi_encode();
-
-                keccak(data).into()
-            }
-        }
-    } else if #[cfg(feature = "risc0")] {
-        use raiko_primitives::keccak::keccak;
-        use alloy_sol_types::SolValue;
-        pub struct Risc0Driver;
-
-        impl GuestDriver for Risc0Driver {
-            type ProofParam = risc0_prover::Risc0Param;
-            type ProofResponse = risc0_prover::Risc0Response;
-
-            async fn run(
-                input: GuestInput,
-                output: GuestOutput,
-                param: Self::ProofParam,
-            ) -> Result<Self::ProofResponse> {
-                let res = risc0_prover::execute(input, output, param).await?;
-                Ok(res)
-            }
-
-            fn instance_hash(pi: ProtocolInstance) -> B256 {
-                let data = (
-                    pi.transition.clone(),
-                    pi.prover,
-                    pi.meta_hash()
-                ).abi_encode();
-
-                keccak(data).into()
-            }
-        }
-    } else if #[cfg(feature = "sgx")] {
-        use raiko_primitives::keccak::keccak;
-        use alloy_sol_types::SolValue;
-
-        pub struct SgxDriver;
-
-        impl GuestDriver for SgxDriver {
-            type ProofParam = sgx_prover::SgxParam;
-            type ProofResponse = sgx_prover::SgxResponse;
-
-            async fn run(
-                input: GuestInput,
-                output: GuestOutput,
-                param: Self::ProofParam,
-            ) -> Result<Self::ProofResponse> {
-                let res = sgx_prover::execute(input, output, param).await?;
-                Ok(res)
-            }
-
-            fn instance_hash(pi: ProtocolInstance) -> B256 {
-                let data = (
-                    "VERIFY_PROOF",
-                    pi.chain_id,
-                    pi.transition.clone(),
-                    // new_pubkey, TODO(cecilia)
-                    pi.prover,
-                    pi.meta_hash()
-                ).abi_encode();
-
-                keccak(data).into()
-            }
-        }
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_async_block() {
+        let result = async { Result::<(), &'static str>::Err("error") };
+        println!("must here");
+        assert!(result.await.is_err());
     }
 }

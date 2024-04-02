@@ -5048,6 +5048,7 @@ dependencies = [
 name = "sgx-prover"
 version = "0.1.0"
 dependencies = [
+ "alloy-sol-types",
  "bincode",
  "once_cell",
  "raiko-lib",
@@ -5303,11 +5304,13 @@ name = "sp1-prover"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-sol-types",
  "anyhow",
  "once_cell",
  "raiko-lib",
  "serde",
  "serde_json",
+ "sha3",
  "sp1-core",
  "sp1-helper",
 ]

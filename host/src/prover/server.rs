@@ -8,10 +8,10 @@ use hyper::{
 };
 use once_cell::sync::OnceCell;
 use prometheus::{Encoder, TextEncoder};
+use raiko_lib::prover::Prover;
 use tower::ServiceBuilder;
 use tracing::info;
 
-use super::execution::GuestDriver;
 use crate::prover::{
     cache::Cache,
     context::Context,
@@ -229,23 +229,23 @@ impl Handler {
                 let mut res = Err(HostError::GuestError("Execution failed to run".to_string()));
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "sp1")] {
-                        use crate::prover::execution::Sp1Driver;
-                        let req: ProofRequest<<Sp1Driver as GuestDriver>::ProofParam> =
+                        use sp1_prover::Sp1Prover;
+                        let req: ProofRequest<<Sp1Prover as Prover>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<Sp1Driver>(&mut self.ctx, &req).await;
+                        res = execute::<Sp1Prover>(&mut self.ctx, &req).await;
                     } else if #[cfg(feature = "risc0")] {
-                        use crate::prover::execution::Risc0Driver;
-                        let req: ProofRequest<<Risc0Driver as GuestDriver>::ProofParam> =
+                        use risc0_prover::Risc0Prover;
+                        let req: ProofRequest<<Risc0Prover as Prover>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<Risc0Driver>(&mut self.ctx, &req).await;
+                        res = execute::<Risc0Prover>(&mut self.ctx, &req).await;
                     } else if #[cfg(feature = "sgx")] {
-                        use crate::prover::execution::SgxDriver;
-                        let req: ProofRequest<<SgxDriver as GuestDriver>::ProofParam> =
+                        use sgx_prover::SgxProver;
+                        let req: ProofRequest<<SgxProver as Prover>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<SgxDriver>(&mut self.ctx, &req).await;
+                        res = execute::<SgxProver>(&mut self.ctx, &req).await;
                     }  else {
                         use crate::prover::execution::NativeDriver;
-                        let req: ProofRequest<<NativeDriver as GuestDriver>::ProofParam> =
+                        let req: ProofRequest<<NativeDriver as Prover>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
                         res = execute::<NativeDriver>(&mut self.ctx, &req).await;
                     }

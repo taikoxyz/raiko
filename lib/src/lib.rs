@@ -32,6 +32,7 @@ pub mod consts;
 pub mod input;
 pub mod mem_db;
 pub mod protocol_instance;
+pub mod prover;
 pub mod taiko_utils;
 
 /// call forget only if running inside the guest

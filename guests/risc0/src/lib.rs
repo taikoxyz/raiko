@@ -7,10 +7,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use alloy_primitives::B256;
+use alloy_sol_types::SolValue;
 use bonsai_sdk::alpha::responses::SnarkReceipt;
 use hex::ToHex;
 use log::{debug, error, info, warn};
-use raiko_lib::input::{GuestInput, GuestOutput};
+use raiko_lib::{
+    input::{GuestInput, GuestOutput},
+    protocol_instance::ProtocolInstance,
+    prover::{Prover, ProverResult},
+};
 use raiko_primitives::keccak::keccak;
 use risc0_zkvm::{
     compute_image_id, is_dev_mode,
@@ -18,8 +24,7 @@ use risc0_zkvm::{
     sha::{Digest, Digestible},
     Assumption, ExecutorEnv, ExecutorImpl, FileSegmentRef, Receipt, Segment, SegmentRef,
 };
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info as traicing_info;
 
@@ -42,43 +47,56 @@ pub struct Risc0Response {
     pub journal: String,
 }
 
-pub async fn execute(
-    input: GuestInput,
-    output: GuestOutput,
-    param: Risc0Param,
-) -> Result<Risc0Response, String> {
-    println!("elf code length: {}", RISC0_METHODS_ELF.len());
-    let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
+pub struct Risc0Prover;
 
-    let result = maybe_prove::<GuestInput, GuestOutput>(
-        &param,
-        encoded_input,
-        RISC0_METHODS_ELF,
-        &output,
-        Default::default(),
-    )
-    .await;
+impl Prover for Risc0Prover {
+    type ProofParam = Risc0Param;
+    type ProofResponse = Risc0Response;
 
-    let journal: String = result.clone().unwrap().1.journal.encode_hex();
+    async fn run(
+        input: GuestInput,
+        output: GuestOutput,
+        param: Self::ProofParam,
+    ) -> ProverResult<Self::ProofResponse> {
+        println!("elf code length: {}", RISC0_METHODS_ELF.len());
+        let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
-    // Create/verify Groth16 SNARK
-    if param.snark {
-        let Some((stark_uuid, stark_receipt)) = result else {
-            panic!("No STARK data to snarkify!");
-        };
-        let image_id = Digest::from(RISC0_METHODS_ID);
-        let (snark_uuid, snark_receipt) = stark2snark(image_id, stark_uuid, stark_receipt)
-            .await
-            .map_err(|err| format!("Failed to convert STARK to SNARK: {:?}", err))?;
+        let result = maybe_prove::<GuestInput, GuestOutput>(
+            &param,
+            encoded_input,
+            RISC0_METHODS_ELF,
+            &output,
+            Default::default(),
+        )
+        .await;
 
-        traicing_info!("Validating SNARK uuid: {}", snark_uuid);
+        let journal: String = result.clone().unwrap().1.journal.encode_hex();
 
-        verify_groth16_snark(image_id, snark_receipt)
-            .await
-            .map_err(|err| format!("Failed to verify SNARK: {:?}", err))?;
+        // Create/verify Groth16 SNARK
+        if param.snark {
+            let Some((stark_uuid, stark_receipt)) = result else {
+                panic!("No STARK data to snarkify!");
+            };
+            let image_id = Digest::from(RISC0_METHODS_ID);
+            let (snark_uuid, snark_receipt) = stark2snark(image_id, stark_uuid, stark_receipt)
+                .await
+                .map_err(|err| format!("Failed to convert STARK to SNARK: {:?}", err))?;
+
+            traicing_info!("Validating SNARK uuid: {}", snark_uuid);
+
+            verify_groth16_snark(image_id, snark_receipt)
+                .await
+                .map_err(|err| format!("Failed to verify SNARK: {:?}", err))?;
+        }
+
+        Ok(Risc0Response { journal })
     }
 
-    Ok(Risc0Response { journal })
+    fn instance_hash(pi: ProtocolInstance) -> B256 {
+        let data = (pi.transition.clone(), pi.prover, pi.meta_hash()).abi_encode();
+
+        keccak(data).into()
+    }
 }
 
 pub async fn stark2snark(
