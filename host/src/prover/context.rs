@@ -55,13 +55,3 @@ impl Context {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_file_prefix() {
-        let path = std::path::Path::new("/tmp/ethereum/1234.l1.json.gz");
-        let prefix = path.file_prefix().unwrap();
-        assert_eq!(prefix, "1234");
-    }
-}

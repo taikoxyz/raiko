@@ -728,7 +728,7 @@ mod test {
 
     #[test]
     fn test_slot_block_num_mapping() {
-        let chain_spec = get_taiko_chain_spec("testnet");
+        let chain_spec = get_network_spec(Network::TaikoA6);
         let expected_slot = 1000u64;
         let second_per_slot = 12u64;
         let block_time = chain_spec.genesis_time + expected_slot * second_per_slot;
