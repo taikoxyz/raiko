@@ -5,7 +5,17 @@ edition = "2021"
 default-run = "raiko-host"
 
 [dependencies]
-anyhow = "1.0"
+
+# provers
+sp1-prover = { path = "../provers/sp1/prover", optional = true}
+risc0-prover = { path = "../provers/risc0", optional = true}
+sgx-prover = { path = "../provers/sgx/prover", optional = true}
+
+# raiko
+raiko-lib = { workspace = true }
+raiko-primitives = { workspace = true, features = ["c-kzg"] }
+
+# alloy
 alloy-rlp = { workspace = true }
 alloy-rlp-derive = { workspace = true }
 alloy-sol-types = { workspace = true }
@@ -16,48 +26,43 @@ alloy-transport-http = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
-bincode = "1.3.3"
-bytemuck = "1.13"
-clap = { version = "4.0", features = ["derive"] }
-structopt = "0.3.26"
-structopt-toml = "0.5.1"
-flate2 = "1.0.28"
+
+# misc
+anyhow = { workspace = true }
+bincode = { workspace = true }
+bytemuck = { workspace = true }
+clap = { workspace = true }
+structopt = { workspace = true }
+structopt-toml = { workspace = true }
+flate2 = { workspace = true }
 revm = { workspace = true }
 serde = { workspace = true }
-serde_with = "3.4.0"
-tokio = { version = "^1.23", features = ["full"] }
-raiko-lib = { path = "../lib", features = ["taiko", "std"] }
-raiko-primitives = { path = "../primitives", features = ["taiko", "c-kzg"] }
-serde_json = "1.0"
-hyper = { version = "0.14.27", features = ["server"] }
+serde_with = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+hyper = { workspace = true }
 hashbrown = { workspace = true }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-tracing-appender = "0.2"
-tower = { version = "0.4.13", features = ["full"] }
-lru_time_cache = "0.11.11"
-prometheus = "0.13.3"
-lazy_static = "1.4.0"
-once_cell = "1.8.0"
-thiserror = "1.0"
-reqwest = { version = "0.11.22", features = ["json"] }
-sha2 = "0.10.8"
-proptest = "1.4.0"
-c-kzg = "1.0.0"
-rlp = "0.5.2"
-url = "2.5.0"
-cfg-if = "1.0.0"
-
-# provers
-sp1-prover = { path = "../provers/sp1/prover", optional = true}
-risc0-prover = { path = "../provers/risc0", optional = true}
-sgx-prover = { path = "../provers/sgx/prover", optional = true}
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+tower = { workspace = true }
+lru_time_cache = { workspace = true }
+prometheus = { workspace = true }
+lazy_static = { workspace = true }
+once_cell = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { workspace = true }
+sha2 = { workspace = true }
+proptest = { workspace = true }
+c-kzg = { workspace = true }
+rlp = { workspace = true }
+url = { workspace = true }
+cfg-if = { workspace = true }
 
 [dev-dependencies]
-assert_cmd = "2.0"
-rstest = "0.18"
-ethers-core = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10"}
-
+assert_cmd = { workspace = true }
+rstest = { workspace = true }
+ethers-core = { workspace = true }
 
 [build-dependencies]
 sp1-helper = { workspace = true }

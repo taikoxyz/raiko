@@ -15,7 +15,7 @@
 use core::{fmt::Debug, mem::take, str::from_utf8};
 
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
-use alloy_primitives::TxKind;
+use alloy_primitives::{TxKind, U256};
 use anyhow::{anyhow, bail, ensure, Context, Error, Result};
 #[cfg(feature = "std")]
 use log::debug;
@@ -31,7 +31,6 @@ use revm::{
     },
     taiko, Database, DatabaseCommit, Evm,
 };
-use ruint::aliases::U256;
 
 use super::TxExecStrategy;
 use crate::{
