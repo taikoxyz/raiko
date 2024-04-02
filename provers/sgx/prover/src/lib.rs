@@ -197,18 +197,16 @@ async fn prepare_working_directory(
     // TODO(Ceilia): support long running ra-tls server
     INPUT_FILE.get_or_init(|| async { input_path }).await;
     PRIVATE_KEY
-        .get_or_init(|| async {
-            // Bootstrap
-            // First delete the private key if it already exists
-            let path = cur_dir.join("secrets").join("priv.key");
-            if path.exists() {
-                if let Err(e) = remove_file(&path) {
-                    println!("Error deleting file: {}", e);
-                }
-            }
-            path
-        })
+        .get_or_init(|| async { cur_dir.join("secrets").join("priv.key") })
         .await;
+    // Bootstrap
+    // First delete the private key if it already exists
+    let path = cur_dir.join("secrets").join("priv.key");
+    if path.exists() {
+        if let Err(e) = remove_file(&path) {
+            println!("Error deleting file: {}", e);
+        }
+    }
     if direct_mode {
         // Copy dummy files in direct mode
         let files = ["attestation_type", "quote", "user_report_data"];
