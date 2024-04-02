@@ -14,31 +14,34 @@ if [ "$chain" == "ethereum" ]; then
 elif [ "$chain" == "taiko_a6" ]; then
   rpc="https://rpc.katla.taiko.xyz"
   l1Rpc="https://l1rpc.katla.taiko.xyz"
+  beaconRpc="https://l1beacon.hekla.taiko.xyz"
 elif [ "$chain" == "taiko_a7" ]; then
-  rpc="https://rpc.internal.taiko.xyz"
-  l1Rpc="https://l1rpc.internal.taiko.xyz"
+  rpc="https://rpc.hekla.taiko.xyz/"
+  l1Rpc="https://l1rpc.hekla.taiko.xyz/"
+  beaconRpc="https://l1beacon.hekla.taiko.xyz"
 else
   echo "Invalid chain name. Please use 'ethereum', 'taiko_a6' or 'taiko_a7'."
   exit 1
 fi
 
 if [ "$proof" == "native" ]; then
-  proofType='"native"'
-elif [ "$proof" == "succinct" ]; then
-  proofType='"succinct"'
+  proofParam=null
+elif [ "$proof" == "sp1" ]; then
+  proofParam=null
 elif [ "$proof" == "sgx" ]; then
-  proofType='"sgx"'
+  proofParam='{
+    "instance_id": 123,
+    "input_path": null
+  }'
 elif [ "$proof" == "risc0" ]; then
-  proofType='{
-    "risc0": {
+  proofParam='{
       "bonsai": false,
       "snark": false,
       "profile": true,
       "execution_po2": 18
-    }
   }'
 elif [ "$proof" == "risc0-bonsai" ]; then
-  proofType='{
+  proofParam='{
     "risc0": {
       "bonsai": true,
       "snark": true,
@@ -47,7 +50,7 @@ elif [ "$proof" == "risc0-bonsai" ]; then
     }
   }'
 else
-  echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', or 'succinct'."
+  echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', or 'sp1'."
   exit 1
 fi
 
@@ -60,7 +63,6 @@ if [ "$rangeEnd" == "" ]; then
   rangeEnd=$rangeStart
 fi
 
-beaconRpc="https://l1beacon.internal.taiko.xyz"
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
@@ -79,7 +81,7 @@ do
              \"rpc\": \"$rpc\",
              \"l1Rpc\": \"$l1Rpc\",
              \"beaconRpc\": \"$beaconRpc\",
-             \"proofType\": $proofType,
+             \"proofParam\": $proofParam,
              \"blockNumber\": $block,
              \"prover\": \"$prover\",
              \"graffiti\": \"$graffiti\"

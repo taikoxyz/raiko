@@ -9,4 +9,4 @@ export GROTH16_VERIFIER_ADDRESS="850EC3780CeDfdb116E38B009d0bf7a1ef1b8b38"
 export GROTH16_VERIFIER_RPC_URL="https://l1rpc.internal.taiko.xyz"
 #export CC=gcc
 #export CC_riscv32im_risc0_zkvm_elf=/opt/riscv/bin/riscv32-unknown-elf-gcc 
-RUST_LOG="[executor]=info" cargo run --release --features risc0 --bin raiko-host
+RUST_LOG="[executor]=info" cargo run --release --features risc0 --bin host

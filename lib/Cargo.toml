@@ -22,7 +22,7 @@ serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
 thiserror-no-std = "2.0.2"
-raiko-primitives = { path = "../primitives", default-features = false, features = ["revm"] }
+raiko-primitives = { path = "../primitives", default-features = false}
 hex = { version = "0.4.3", default-features = false, optional = true }
 url = "2.5.0"
 

@@ -49,7 +49,7 @@ Look into `prove_block.sh` for the available options or run the script without i
 Provers can be enabled using features. To compile with all of them (using standard options):
 
 ```
-cargo run --release --features "risc0 succinct"
+cargo run --release --features "risc0 sp1"
 ```
 
 ### risc zero
@@ -83,15 +83,18 @@ cargo run -F metal --release --features risc0
 
 CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 
-### succinct's SP1:
+### SP1:
 ```
-cargo run --release --features succinct
+cargo run --release --features sp1
 ```
 
 ### SGX:
 ```
+cargo build --release --features sgx
 cargo run --release --features sgx
 ```
+
+Make sure to first do a cargo build because cargo run does not build the sgx binary!
 
 If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
 
