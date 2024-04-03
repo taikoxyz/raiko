@@ -84,7 +84,7 @@ impl Prover for SgxProver {
             .arg("sgx-guest.manifest")
             .output()
             .await
-            .map_err(|e| format!("Could not generate manfifest: {}", e.to_string()))?;
+            .map_err(|e| format!("Could not generate manfifest: {}", e))?;
 
         print_output(&output, "Generate manifest");
 
@@ -95,7 +95,7 @@ impl Prover for SgxProver {
                 .arg("-f")
                 .output()
                 .await
-                .map_err(|e| format!("Could not generate SGX private key: {}", e.to_string()))?;
+                .map_err(|e| format!("Could not generate SGX private key: {}", e))?;
 
             // Sign the manifest
             let mut cmd = Command::new("gramine-sgx-sign");
@@ -106,7 +106,7 @@ impl Prover for SgxProver {
                 .arg("sgx-guest.manifest.sgx")
                 .output()
                 .await
-                .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
+                .map_err(|e| format!("Could not sign manfifest: {}", e))?;
         }
 
         // Form gramine command
@@ -127,7 +127,7 @@ impl Prover for SgxProver {
             .arg("bootstrap")
             .output()
             .await
-            .map_err(|e| format!("Could not run SGX guest boostrap: {}", e.to_string()))?;
+            .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
         print_output(&output, "Sgx bootstrap");
 
         // Prove
@@ -137,7 +137,7 @@ impl Prover for SgxProver {
             .arg(param.instance_id.to_string())
             .output()
             .await
-            .map_err(|e| format!("Could not run SGX guest prover: {}", e.to_string()))?;
+            .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
         print_output(&output, "Sgx execution");
 
         if !output.status.success() {
@@ -173,7 +173,7 @@ async fn prepare_working_directory(
         .parent()
         .unwrap()
         .to_path_buf();
-    print!("Current directory: {:?}\n", cur_dir);
+    println!("Current directory: {:?}\n", cur_dir);
 
     // Create required directories
     let directories = ["secrets", "config"];
@@ -260,7 +260,7 @@ pub async fn execute(
         .arg("sgx-guest.manifest")
         .output()
         .await
-        .map_err(|e| format!("Could not generate manfifest: {}", e.to_string()))?;
+        .map_err(|e| format!("Could not generate manfifest: {}", e))?;
 
     print_output(&output, "Generate manifest");
 
@@ -271,7 +271,7 @@ pub async fn execute(
             .arg("-f")
             .output()
             .await
-            .map_err(|e| format!("Could not generate SGX private key: {}", e.to_string()))?;
+            .map_err(|e| format!("Could not generate SGX private key: {}", e))?;
 
         // Sign the manifest
         let mut cmd = Command::new("gramine-sgx-sign");
@@ -282,7 +282,7 @@ pub async fn execute(
             .arg("sgx-guest.manifest.sgx")
             .output()
             .await
-            .map_err(|e| format!("Could not sign manfifest: {}", e.to_string()))?;
+            .map_err(|e| format!("Could not sign manfifest: {}", e))?;
     }
 
     // Form gramine command
@@ -303,7 +303,7 @@ pub async fn execute(
         .arg("bootstrap")
         .output()
         .await
-        .map_err(|e| format!("Could not run SGX guest boostrap: {}", e.to_string()))?;
+        .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
     print_output(&output, "Sgx bootstrap");
 
     // Prove
@@ -313,7 +313,7 @@ pub async fn execute(
         .arg(param.instance_id.to_string())
         .output()
         .await
-        .map_err(|e| format!("Could not run SGX guest prover: {}", e.to_string()))?;
+        .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
     print_output(&output, "Sgx execution");
 
     if !output.status.success() {

@@ -26,8 +26,8 @@ use raiko_primitives::{
 use revm::{
     interpreter::Host,
     primitives::{
-        bitvec::mem::elts, Account, Address, BlobExcessGasAndPrice, EVMError, HandlerCfg,
-        ResultAndState, SpecId, TransactTo, TxEnv, MAX_BLOB_GAS_PER_BLOCK,
+        Account, Address, EVMError, HandlerCfg, ResultAndState, SpecId, TransactTo, TxEnv,
+        MAX_BLOB_GAS_PER_BLOCK,
     },
     taiko, Database, DatabaseCommit, Evm,
 };
@@ -261,7 +261,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             }
 
             // keep track of all the gas used in the block
-            let gas_used = result.gas_used().try_into().unwrap();
+            let gas_used = result.gas_used();
             cumulative_gas_used = cumulative_gas_used.checked_add(gas_used).unwrap();
 
             // create the receipt from the EVM result
@@ -269,11 +269,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 tx.tx_type() as u8,
                 result.is_success(),
                 cumulative_gas_used.try_into().unwrap(),
-                result
-                    .logs()
-                    .into_iter()
-                    .map(|log| log.clone().into())
-                    .collect(),
+                result.logs().iter().map(|log| log.clone().into()).collect(),
             );
 
             // update the state
@@ -318,7 +314,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         header.transactions_root = tx_trie.hash();
         header.receipts_root = receipt_trie.hash();
         header.logs_bloom = logs_bloom;
-        header.gas_used = cumulative_gas_used.try_into().unwrap();
+        header.gas_used = cumulative_gas_used;
         if spec_id >= SpecId::SHANGHAI {
             header.withdrawals_root = Some(withdrawals_trie.hash());
         };
@@ -344,7 +340,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
         TxEnvelope::Legacy(tx) => {
             tx_env.caller = tx.recover_signer().unwrap_or_default();
             let tx = tx.tx();
-            tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
+            tx_env.gas_limit = tx.gas_limit;
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
             tx_env.gas_priority_fee = None;
             tx_env.transact_to = if let TxKind::Call(to_addr) = tx.to {
@@ -361,7 +357,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
         TxEnvelope::Eip2930(tx) => {
             tx_env.caller = tx.recover_signer().unwrap_or_default();
             let tx = tx.tx();
-            tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
+            tx_env.gas_limit = tx.gas_limit;
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
             tx_env.gas_priority_fee = None;
             tx_env.transact_to = if let TxKind::Call(to_addr) = tx.to {
@@ -378,7 +374,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
         TxEnvelope::Eip1559(tx) => {
             tx_env.caller = tx.recover_signer().unwrap_or_default();
             let tx = tx.tx();
-            tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
+            tx_env.gas_limit = tx.gas_limit;
             tx_env.gas_price = tx.max_fee_per_gas.try_into().unwrap();
             tx_env.gas_priority_fee = Some(tx.max_priority_fee_per_gas.try_into().unwrap());
             tx_env.transact_to = if let TxKind::Call(to_addr) = tx.to {
@@ -395,7 +391,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
         TxEnvelope::Eip4844(tx) => {
             tx_env.caller = tx.recover_signer().unwrap_or_default();
             let tx = tx.tx().tx();
-            tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
+            tx_env.gas_limit = tx.gas_limit;
             tx_env.gas_price = tx.max_fee_per_gas.try_into().unwrap();
             tx_env.gas_priority_fee = Some(tx.max_priority_fee_per_gas.try_into().unwrap());
             tx_env.transact_to = TransactTo::Call(tx.to);

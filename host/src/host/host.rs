@@ -90,7 +90,7 @@ pub fn preflight(
             println!("blob active");
             // Get the blob hashes attached to the propose tx
             let blob_hashs = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-            assert!(blob_hashs.len() >= 1);
+            assert!(!blob_hashs.is_empty());
             // Currently the protocol enforces the first blob hash to be used
             let blob_hash = blob_hashs[0];
             let l2_chain_spec = get_network_spec(network);
@@ -101,14 +101,14 @@ pub fn preflight(
                 l2_chain_spec.seconds_per_slot,
             )?;
             let blobs = get_blob_data(&beacon_rpc_url.clone().unwrap(), slot_id)?;
-            assert!(blobs.data.len() > 0, "blob data not available anymore");
+            assert!(!blobs.data.is_empty(), "blob data not available anymore");
             // Get the blob data for the blob storing the tx list
             let tx_blobs: Vec<GetBlobData> = blobs
                 .data
                 .iter()
                 .filter(|blob: &&GetBlobData| {
                     // calculate from plain blob
-                    blob_hash == &calc_blob_versioned_hash(&blob.blob)
+                    blob_hash == calc_blob_versioned_hash(&blob.blob)
                 })
                 .cloned()
                 .collect::<Vec<GetBlobData>>();
@@ -239,7 +239,7 @@ fn block_time_to_block_slot(
 fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
     match hex::decode(blob_str.to_lowercase().trim_start_matches("0x")) {
         Ok(b) => b,
-        Err(_) => return Vec::new(),
+        Err(_) => Vec::new(),
     }
 }
 
@@ -414,7 +414,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         0 => TxEnvelope::Legacy(
             TxLegacy {
                 chain_id: tx.chain_id,
-                nonce: tx.nonce.try_into().unwrap(),
+                nonce: tx.nonce,
                 gas_price: tx.gas_price.unwrap().try_into().unwrap(),
                 gas_limit: tx.gas.try_into().unwrap(),
                 to: if tx.to.is_none() {
@@ -422,7 +422,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
                 } else {
                     TxKind::Call(tx.to.unwrap())
                 },
-                value: tx.value.try_into().unwrap(),
+                value: tx.value,
                 input: tx.input.0.clone().into(),
             }
             .into_signed(signature),
@@ -430,7 +430,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         1 => TxEnvelope::Eip2930(
             TxEip2930 {
                 chain_id: tx.chain_id.unwrap(),
-                nonce: tx.nonce.try_into().unwrap(),
+                nonce: tx.nonce,
                 gas_price: tx.gas_price.unwrap().try_into().unwrap(),
                 gas_limit: tx.gas.try_into().unwrap(),
                 to: if tx.to.is_none() {
@@ -438,7 +438,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
                 } else {
                     TxKind::Call(tx.to.unwrap())
                 },
-                value: tx.value.try_into().unwrap(),
+                value: tx.value,
                 input: tx.input.clone(),
                 access_list: tx.access_list.clone().unwrap_or_default(),
             }
@@ -447,7 +447,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         2 => TxEnvelope::Eip1559(
             TxEip1559 {
                 chain_id: tx.chain_id.unwrap(),
-                nonce: tx.nonce.try_into().unwrap(),
+                nonce: tx.nonce,
                 gas_limit: tx.gas.try_into().unwrap(),
                 max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
                 max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
@@ -456,7 +456,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
                 } else {
                     TxKind::Call(tx.to.unwrap())
                 },
-                value: tx.value.try_into().unwrap(),
+                value: tx.value,
                 access_list: tx.access_list.clone().unwrap_or_default(),
                 input: tx.input.clone(),
             }
@@ -465,12 +465,12 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         3 => TxEnvelope::Eip4844(
             TxEip4844Variant::TxEip4844(TxEip4844 {
                 chain_id: tx.chain_id.unwrap(),
-                nonce: tx.nonce.try_into().unwrap(),
+                nonce: tx.nonce,
                 gas_limit: tx.gas.try_into().unwrap(),
                 max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
                 max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
                 to: tx.to.unwrap(),
-                value: tx.value.try_into().unwrap(),
+                value: tx.value,
                 access_list: tx.access_list.clone().unwrap_or_default(),
                 input: tx.input.clone(),
                 blob_versioned_hashes: tx.blob_versioned_hashes.clone().unwrap_or_default(),

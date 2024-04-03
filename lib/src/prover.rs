@@ -34,6 +34,7 @@ pub trait Prover {
     type ProofParam: fmt::Debug + Clone;
     type ProofResponse: Serialize;
 
+    #[allow(async_fn_in_trait)]
     async fn run(
         input: GuestInput,
         output: GuestOutput,

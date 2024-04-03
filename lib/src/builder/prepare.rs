@@ -36,7 +36,7 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
         <D as Database>::Error: Debug,
     {
         // Validate timestamp
-        let timestamp: u64 = block_builder.input.timestamp.try_into().unwrap();
+        let timestamp: u64 = block_builder.input.timestamp;
         if timestamp < block_builder.input.parent_header.timestamp {
             bail!(
                 "Invalid timestamp: expected >= {}, got {}",

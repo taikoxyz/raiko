@@ -5,6 +5,7 @@ pub use revm_primitives::{calc_blob_gasprice, calc_excess_blob_gas as calculate_
 #[cfg(feature = "c-kzg")]
 use sha2::{Digest, Sha256};
 
+#[cfg(feature = "c-kzg")]
 use crate::B256;
 
 /// Calculates the versioned hash for a KzgCommitment

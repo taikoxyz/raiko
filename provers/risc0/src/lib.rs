@@ -402,7 +402,7 @@ pub fn prove_locally(
         fs::create_dir(segment_dir.clone()).unwrap();
 
         exec.run_with_callback(|segment| {
-            let path = segment_dir
+            let _path = segment_dir
                 .as_path()
                 .join(format!("{}.bincode", segment.index));
             Ok(Box::new(FileSegmentRef::new(
@@ -415,7 +415,7 @@ pub fn prove_locally(
     session.prove().unwrap()
 }
 
-const NULL_SEGMENT_REF: NullSegmentRef = NullSegmentRef {};
+const _NULL_SEGMENT_REF: NullSegmentRef = NullSegmentRef {};
 #[derive(Serialize, Deserialize)]
 struct NullSegmentRef {}
 

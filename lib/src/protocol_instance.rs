@@ -104,7 +104,7 @@ pub fn assemble_protocol_instance(
         .collect::<Vec<_>>();
 
     let chain_spec = get_network_spec(input.network);
-    let gas_limit: u64 = header.gas_limit.try_into().unwrap();
+    let gas_limit: u64 = header.gas_limit;
     let pi = ProtocolInstance {
         transition: Transition {
             parentHash: header.parent_hash,
@@ -121,8 +121,8 @@ pub fn assemble_protocol_instance(
             coinbase: header.beneficiary,
             id: header.number,
             gasLimit: (gas_limit - ANCHOR_GAS_LIMIT) as u32,
-            timestamp: header.timestamp.try_into().unwrap(),
-            l1Height: input.taiko.l1_header.number.try_into().unwrap(),
+            timestamp: header.timestamp,
+            l1Height: input.taiko.l1_header.number,
             minTier: input.taiko.block_proposed.meta.minTier,
             blobUsed: blob_used,
             parentMetaHash: input.taiko.block_proposed.meta.parentMetaHash,

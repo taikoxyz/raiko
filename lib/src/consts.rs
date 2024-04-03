@@ -117,7 +117,6 @@ pub fn get_network_spec(network: Network) -> ChainSpec {
         Network::Ethereum => ETH_MAINNET_CHAIN_SPEC.clone(),
         Network::TaikoA6 => TAIKO_A6_CHAIN_SPEC.clone(),
         Network::TaikoA7 => TAIKO_A7_CHAIN_SPEC.clone(),
-        _ => unimplemented!("invalid chain name: {:?}", network),
     }
 }
 

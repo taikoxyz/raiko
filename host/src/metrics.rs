@@ -30,7 +30,7 @@ lazy_static! {
     .unwrap();
 }
 
-pub fn observe_sgx_gen(block: u64, time: i64) {
+pub fn _observe_sgx_gen(block: u64, time: i64) {
     let bid = &block.to_string()[..];
     let label = labels! {
         "blockid" => bid,
@@ -38,7 +38,7 @@ pub fn observe_sgx_gen(block: u64, time: i64) {
     SGX_PROOF_GEN_TIME.with(&label).set(time);
 }
 
-pub fn inc_sgx_success(block: u64) {
+pub fn _inc_sgx_success(block: u64) {
     let bid = &block.to_string()[..];
     let label = labels! {
         "blockid" => bid,
@@ -46,7 +46,7 @@ pub fn inc_sgx_success(block: u64) {
     SGX_PROOF_SUCCESS_COUNTER.with(&label).inc();
 }
 
-pub fn inc_sgx_error(block: u64) {
+pub fn _inc_sgx_error(block: u64) {
     let bid = &block.to_string()[..];
     let label = labels! {
         "blockid" => bid,

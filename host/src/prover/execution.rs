@@ -1,4 +1,4 @@
-use std::{fmt::Debug, str::FromStr, time::Instant};
+use std::{str::FromStr, time::Instant};
 
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
@@ -56,7 +56,7 @@ pub async fn execute<D: Prover>(
 }
 
 /// prepare input data for provers
-pub async fn prepare_input<P>(ctx: &mut Context, req: &ProofRequest<P>) -> Result<GuestInput> {
+pub async fn prepare_input<P>(_ctx: &mut Context, req: &ProofRequest<P>) -> Result<GuestInput> {
     let block_number = req.block_number;
     let rpc = req.rpc.clone();
     let l1_rpc = req.l1_rpc.clone();

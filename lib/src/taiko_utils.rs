@@ -48,8 +48,8 @@ pub fn generate_transactions(
         // the tx list
         let signed_eip1559_tx = Signed::<TxEip1559>::new_unchecked(
             TxEip1559 {
-                chain_id: anchor_tx.chain_id.unwrap().try_into().unwrap(),
-                nonce: anchor_tx.nonce.try_into().unwrap(),
+                chain_id: anchor_tx.chain_id.unwrap(),
+                nonce: anchor_tx.nonce,
                 gas_limit: anchor_tx.gas.try_into().unwrap(),
                 max_fee_per_gas: anchor_tx.max_fee_per_gas.unwrap().try_into().unwrap(),
                 max_priority_fee_per_gas: anchor_tx
@@ -58,7 +58,7 @@ pub fn generate_transactions(
                     .try_into()
                     .unwrap(),
                 to: TxKind::Call(anchor_tx.to.unwrap()),
-                value: anchor_tx.value.try_into().unwrap(),
+                value: anchor_tx.value,
                 access_list: Default::default(),
                 input: anchor_tx.input,
             },
