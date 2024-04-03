@@ -18,7 +18,10 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # GitHub limits the number of requests unless a token is provided
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      # Set to 0 (which is the default) to run on real hardware; use 1 for testing
+      - SGX_DIRECT=${SGX_DIRECT}
     depends_on:
       - pccs
   pccs:

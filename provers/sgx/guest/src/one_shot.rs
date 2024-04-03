@@ -137,7 +137,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_be_bytes());
     proof.extend(new_instance);
-    proof.extend(sig.as_bytes());
+    proof.extend(sig);
     let proof = hex::encode(proof);
 
     // Store the public key address in the attestation data
