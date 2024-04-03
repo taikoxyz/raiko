@@ -1,10 +1,6 @@
-#![feature(path_file_prefix)]
+// Required for SP1
 #![feature(generic_const_exprs)]
-#![feature(absolute_path)]
-#![feature(offset_of)]
-
-// // TODO(Cecilia): sp1 need this due to compiler versioning, fix toolchain condition on
-// guest type #![feature(generic_const_exprs)]
+#![allow(incomplete_features)]
 
 // Copyright 2023 RISC Zero, Inc.
 //

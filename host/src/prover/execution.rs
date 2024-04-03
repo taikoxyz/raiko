@@ -1,9 +1,9 @@
-use std::{fmt::Debug, str::FromStr, time::Instant};
+use std::{str::FromStr, time::Instant};
 
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::Network,
-    input::{GuestInput, GuestOutput, TaikoProverData},
+    input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader},
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     prover::{Prover, ProverResult},
     taiko_utils::HeaderHasher,
@@ -35,7 +35,12 @@ pub async fn execute<D: Prover>(
             let pi = D::instance_hash(assemble_protocol_instance(&input, header)?);
             // Make sure the blockhash from the node matches the one from the builder
             assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
-            GuestOutput::Success((header.clone(), pi))
+            GuestOutput::Success((
+                WrappedHeader {
+                    header: header.clone(),
+                },
+                pi,
+            ))
         }
         Err(_) => {
             warn!("Proving bad block construction!");
@@ -51,24 +56,21 @@ pub async fn execute<D: Prover>(
 }
 
 /// prepare input data for provers
-pub async fn prepare_input<P>(ctx: &mut Context, req: &ProofRequest<P>) -> Result<GuestInput> {
-    // Todo(Cecilia): should contract address as args, curently hardcode
-    let _l1_cache = ctx.l1_cache_file.clone();
-    let _l2_cache = ctx.l2_cache_file.clone();
+pub async fn prepare_input<P>(_ctx: &mut Context, req: &ProofRequest<P>) -> Result<GuestInput> {
     let block_number = req.block_number;
+    let rpc = req.rpc.clone();
     let l1_rpc = req.l1_rpc.clone();
-    let l2_rpc = req.l2_rpc.clone();
     let beacon_rpc = req.beacon_rpc.clone();
     let chain = req.chain.clone();
     let graffiti = req.graffiti;
     let prover = req.prover;
     tokio::task::spawn_blocking(move || {
         preflight(
-            Some(l1_rpc),
-            Some(l2_rpc),
+            Some(rpc),
             block_number,
             Network::from_str(&chain).unwrap(),
             TaikoProverData { graffiti, prover },
+            Some(l1_rpc),
             Some(beacon_rpc),
         )
         .expect("Failed to fetch required data for block")

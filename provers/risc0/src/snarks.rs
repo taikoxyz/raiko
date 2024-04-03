@@ -16,12 +16,10 @@ use std::{str::FromStr, sync::Arc};
 
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolValue};
-use anyhow::anyhow;
 use bonsai_sdk::alpha::responses::{Groth16Seal, SnarkReceipt};
 use ethers_contract::abigen;
-use ethers_core::{abi::AbiDecode, types::H160};
+use ethers_core::types::H160;
 use ethers_providers::{Http, Provider, RetryClient};
-use once_cell::unsync::Lazy;
 use risc0_zkvm::sha::{Digest, Digestible};
 use tracing::{error as tracing_err, info as tracing_info};
 

@@ -45,7 +45,7 @@ impl Context {
             self.l2_cache_file = Some(self.host_cache.join(file_name));
         }
     }
-    pub async fn remove_cache_file(&self) -> Result<()> {
+    pub async fn _remove_cache_file(&self) -> Result<()> {
         if let Some(file) = &self.l1_cache_file {
             tokio::fs::remove_file(file).await?;
         }
@@ -53,15 +53,5 @@ impl Context {
             tokio::fs::remove_file(file).await?;
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_file_prefix() {
-        let path = std::path::Path::new("/tmp/ethereum/1234.l1.json.gz");
-        let prefix = path.file_prefix().unwrap();
-        assert_eq!(prefix, "1234");
     }
 }

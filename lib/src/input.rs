@@ -20,10 +20,11 @@ use anyhow::{anyhow, Result};
 use raiko_primitives::{mpt::MptNode, Address, Bytes, FixedBytes, B256, U256};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
-use crate::consts::Network;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+use crate::{consts::Network, serde_with::RlpBytes};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -31,13 +32,15 @@ use crate::no_std::*;
 pub type StorageEntry = (MptNode, Vec<U256>);
 
 /// External block input.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde_as]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput {
     /// The network to generate the proof for
     pub network: Network,
     /// Block hash - for reference!
     pub block_hash: B256,
     /// Previous block header
+    #[serde_as(as = "RlpBytes")]
     pub parent_header: AlloyConsensusHeader,
     /// Address to which all priority fees in this block are transferred.
     pub beneficiary: Address,
@@ -58,15 +61,24 @@ pub struct GuestInput {
     /// The code of all unique contracts.
     pub contracts: Vec<Bytes>,
     /// List of at most 256 previous block headers
+    #[serde_as(as = "Vec<RlpBytes>")]
     pub ancestor_headers: Vec<AlloyConsensusHeader>,
     /// Base fee per gas
     pub base_fee_per_gas: u64,
+
+    pub blob_gas_used: Option<u64>,
+    pub excess_blob_gas: Option<u64>,
+    pub parent_beacon_block_root: Option<B256>,
+
     /// Taiko specific data
     pub taiko: TaikoGuestInput,
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TaikoGuestInput {
+    /// header
+    #[serde_as(as = "RlpBytes")]
     pub l1_header: AlloyConsensusHeader,
     pub tx_list: Vec<u8>,
     pub anchor_tx: String,
@@ -83,8 +95,15 @@ pub struct TaikoProverData {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GuestOutput {
-    Success((AlloyConsensusHeader, FixedBytes<32>)),
+    Success((WrappedHeader, FixedBytes<32>)),
     Failure,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WrappedHeader {
+    #[serde_as(as = "RlpBytes")]
+    pub header: AlloyConsensusHeader,
 }
 
 sol! {
@@ -306,29 +325,11 @@ impl From<taiko_a6::BlockProposed> for BlockProposed {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-    use alloc::vec;
-
     use super::*;
 
     #[test]
     fn input_serde_roundtrip() {
-        let input = GuestInput {
-            network: Default::default(),
-            block_hash: Default::default(),
-            parent_header: Default::default(),
-            beneficiary: Default::default(),
-            gas_limit: Default::default(),
-            timestamp: Default::default(),
-            extra_data: Default::default(),
-            mix_hash: Default::default(),
-            withdrawals: vec![],
-            parent_state_trie: Default::default(),
-            parent_storage: Default::default(),
-            contracts: vec![],
-            ancestor_headers: vec![],
-            base_fee_per_gas: Default::default(),
-            taiko: Default::default(),
-        };
+        let input = GuestInput::default();
         let _: GuestInput = bincode::deserialize(&bincode::serialize(&input).unwrap()).unwrap();
     }
 }

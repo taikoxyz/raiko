@@ -109,7 +109,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     // Load the signing data
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
-    let prev_privkey = load_private_key(&privkey_path)?;
+    let prev_privkey = load_private_key(privkey_path)?;
     // let (new_privkey, new_pubkey) = generate_new_keypair()?;
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
@@ -220,9 +220,9 @@ fn print_sgx_info() -> Result<()> {
 
 fn get_sgx_attestation_type() -> Result<String> {
     let mut attestation_type = String::new();
-    if !File::open(ATTESTATION_TYPE_DEVICE_FILE)
+    if File::open(ATTESTATION_TYPE_DEVICE_FILE)
         .and_then(|mut file| file.read_to_string(&mut attestation_type))
-        .is_ok()
+        .is_err()
     {
         bail!(
             "Cannot find `{}`; are you running under SGX, with remote attestation enabled?",

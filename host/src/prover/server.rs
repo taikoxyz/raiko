@@ -13,7 +13,6 @@ use tower::ServiceBuilder;
 use tracing::info;
 
 use crate::prover::{
-    cache::Cache,
     context::Context,
     error::HostError,
     execution::execute,
@@ -95,7 +94,7 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
 #[derive(Clone)]
 struct Handler {
     ctx: Context,
-    cache: Cache,
+    // cache: Cache,
 }
 
 impl Handler {
@@ -103,12 +102,12 @@ impl Handler {
         guest_elf: PathBuf,
         host_cache: PathBuf,
         _l2_contracts: String,
-        capacity: usize,
+        _capacity: usize,
         max_caches: usize,
     ) -> Self {
         Self {
             ctx: Context::new(guest_elf, host_cache, max_caches, None),
-            cache: Cache::new(capacity),
+            // cache: Cache::new(capacity),
         }
     }
 
@@ -226,28 +225,27 @@ impl Handler {
             // enqueues a task for computating proof for any given block
             "proof" => {
                 let options = params.first().expect("params must not be empty");
-                let mut res = Err(HostError::GuestError("Execution failed to run".to_string()));
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "sp1")] {
                         use sp1_prover::Sp1Prover;
                         let req: ProofRequest<<Sp1Prover as Prover>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<Sp1Prover>(&mut self.ctx, &req).await;
+                        let res = execute::<Sp1Prover>(&mut self.ctx, &req).await;
                     } else if #[cfg(feature = "risc0")] {
                         use risc0_prover::Risc0Prover;
                         let req: ProofRequest<<Risc0Prover as Prover>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<Risc0Prover>(&mut self.ctx, &req).await;
+                        let res = execute::<Risc0Prover>(&mut self.ctx, &req).await;
                     } else if #[cfg(feature = "sgx")] {
                         use sgx_prover::SgxProver;
                         let req: ProofRequest<<SgxProver as Prover>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<SgxProver>(&mut self.ctx, &req).await;
+                        let res = execute::<SgxProver>(&mut self.ctx, &req).await;
                     }  else {
                         use crate::prover::execution::NativeDriver;
                         let req: ProofRequest<<NativeDriver as Prover>::ProofParam> =
                             serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        res = execute::<NativeDriver>(&mut self.ctx, &req).await;
+                        let res = execute::<NativeDriver>(&mut self.ctx, &req).await;
                     }
                 };
                 res.and_then(|res| serde_json::to_value(res).map_err(Into::into))

@@ -16,10 +16,10 @@ pub enum ProofType {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProofRequest<P> {
-    /// the l2 block number
+    /// the block number
     pub block_number: u64,
-    /// l2 node for get block by number
-    pub l2_rpc: String,
+    /// node for get block by number
+    pub rpc: String,
     /// l1 node for signal root verify and get txlist info from proposed transaction.
     pub l1_rpc: String,
     /// beacon node for data blobs

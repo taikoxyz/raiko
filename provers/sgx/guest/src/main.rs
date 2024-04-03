@@ -1,5 +1,3 @@
-#![feature(path_file_prefix)]
-
 mod app_args;
 mod one_shot;
 mod signature;

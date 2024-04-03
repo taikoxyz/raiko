@@ -36,7 +36,7 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
         <D as Database>::Error: Debug,
     {
         // Validate timestamp
-        let timestamp: u64 = block_builder.input.timestamp.try_into().unwrap();
+        let timestamp: u64 = block_builder.input.timestamp;
         if timestamp < block_builder.input.parent_header.timestamp {
             bail!(
                 "Invalid timestamp: expected >= {}, got {}",
@@ -68,6 +68,9 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
             timestamp: block_builder.input.timestamp,
             mix_hash: block_builder.input.mix_hash,
             extra_data: block_builder.input.extra_data.clone(),
+            blob_gas_used: block_builder.input.blob_gas_used,
+            excess_blob_gas: block_builder.input.excess_blob_gas,
+            parent_beacon_block_root: block_builder.input.parent_beacon_block_root,
             // do not fill the remaining fields
             ..Default::default()
         });
