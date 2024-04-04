@@ -1802,7 +1802,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 [[package]]
 name = "revm"
 version = "7.2.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=fix-ecrecover#8d1d50fb5f0840811613feb565ad1dc56cab1cbc"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bab7e150a15e356bebd5dc1387638d00a88301b4"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -1810,12 +1810,13 @@ dependencies = [
  "revm-interpreter",
  "revm-precompile",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "revm-interpreter"
 version = "3.4.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=fix-ecrecover#8d1d50fb5f0840811613feb565ad1dc56cab1cbc"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bab7e150a15e356bebd5dc1387638d00a88301b4"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -1824,13 +1825,16 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "5.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=fix-ecrecover#8d1d50fb5f0840811613feb565ad1dc56cab1cbc"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bab7e150a15e356bebd5dc1387638d00a88301b4"
 dependencies = [
  "aurora-engine-modexp",
+ "c-kzg",
+ "cfg-if",
  "k256",
  "once_cell",
  "revm-primitives",
  "ripemd",
+ "secp256k1",
  "sha2",
  "sp1-precompiles",
  "substrate-bn",
@@ -1839,7 +1843,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=fix-ecrecover#8d1d50fb5f0840811613feb565ad1dc56cab1cbc"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bab7e150a15e356bebd5dc1387638d00a88301b4"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
@@ -2120,6 +2124,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "secp256k1"
+version = "0.28.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d24b59d129cdadea20aea4fb2352fa053712e5d713eee47d700cd4b2bc002f10"
+dependencies = [
+ "rand",
+ "secp256k1-sys",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5d1746aae42c19d583c3c1a8c646bfad910498e2051c551a7f2e3c0c9fbb7eb"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "semver"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2169,6 +2192,7 @@ version = "1.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12dc5c46daa8e9fdf4f5e71b6cf9a53f2487da0e86e55808e2d35539666497dd"
 dependencies = [
+ "indexmap 2.2.6",
  "itoa",
  "ryu",
  "serde",
