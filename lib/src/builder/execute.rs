@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use core::{fmt::Debug, mem::take, str::from_utf8};
+#[cfg(feature = "std")]
+use std::io::{self, Write};
 
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
 use alloy_primitives::{TxKind, U256};
@@ -155,7 +157,10 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let mut actual_tx_no = 0usize;
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
-            println!("tx {tx_no}/{num_transactions}");
+            print!("\rprocessing tx {tx_no}/{num_transactions}...");
+            #[cfg(feature = "std")]
+            io::stdout().flush().unwrap();
+
             // anchor transaction always the first transaction
             let is_anchor = is_taiko && tx_no == 0;
 
@@ -288,6 +293,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             // If we got here it means the tx is not invalid
             actual_tx_no += 1;
         }
+        print!("\r");
 
         let mut db = &mut evm.context.evm.db;
 

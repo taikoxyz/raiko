@@ -20,12 +20,18 @@ pub async fn execute<D: Prover>(
     req: &ProofRequest<D::ProofParam>,
 ) -> Result<D::ProofResponse> {
     println!("- {:?}", req);
-    // 1. load input data into cache path
+    // Generate the witness
     let start = Instant::now();
     let input = prepare_input(ctx, req).await?;
-    let elapsed = Instant::now().duration_since(start).as_millis() as i64;
-    observe_input(elapsed);
-    // 2. pre-build the block
+    let time_elapsed = Instant::now().duration_since(start);
+    println!(
+        "Witness generated in {}.{} seconds",
+        time_elapsed.as_secs(),
+        time_elapsed.subsec_millis()
+    );
+    observe_input(time_elapsed.as_millis() as i64);
+
+    // 2. Test run the block
     let build_result = TaikoStrategy::build_from(&input);
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
@@ -47,12 +53,20 @@ pub async fn execute<D: Prover>(
             GuestOutput::Failure
         }
     };
-    let elapsed = Instant::now().duration_since(start).as_millis() as i64;
-    observe_input(elapsed);
 
-    D::run(input, output, req.proof_param.clone())
+    // Prove
+    let start = Instant::now();
+    let res = D::run(input, output, req.proof_param.clone())
         .await
-        .map_err(|e| HostError::GuestError(e.to_string()))
+        .map_err(|e| HostError::GuestError(e.to_string()));
+    let time_elapsed = Instant::now().duration_since(start);
+    println!(
+        "Proof generated in {}.{} seconds",
+        time_elapsed.as_secs(),
+        time_elapsed.subsec_millis()
+    );
+
+    res
 }
 
 /// prepare input data for provers
