@@ -288,7 +288,10 @@ fn print_output(output: &Output, name: &str) {
 
 fn print_dirs() {
     println!("SGX output directories:");
-    for dir in [PRIVATE_KEY.get().unwrap()] {
+    for dir in [
+        GRAMINE_MANIFEST_TEMPLATE.get().unwrap(),
+        PRIVATE_KEY.get().unwrap(),
+    ] {
         println!(" {:?}", dir);
     }
 }
