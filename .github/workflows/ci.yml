@@ -59,7 +59,7 @@ jobs:
         shell: bash
 
   build-test-sgx:
-    name: Build and test SGX
+    name: Build and test sgx
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -67,7 +67,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.76.0
+          toolchain: nightly-2024-01-25
           override: true
           components: clippy, rustfmt, rust-src
       - name: Setup and build
