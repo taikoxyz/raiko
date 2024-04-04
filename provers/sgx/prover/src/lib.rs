@@ -64,14 +64,14 @@ impl Prover for SgxProver {
         // Prepare prerequisites if running in direct mode. For SGX mode, we assume they are
         // already prepared by the Docker image.
         let cur_dir = if direct_mode {
-            let cur_dir = env::current_exe()
+            let dir = env::current_exe()
                 .expect("Fail to get current directory")
                 .parent()
                 .unwrap()
                 .to_path_buf();
-            println!("Current directory: {:?}\n", cur_dir);
-            prepare_working_directory(cur_dir.clone()).await?;
-            cur_dir
+            println!("Current directory: {:?}\n", dir);
+            prepare_working_directory(dir.clone()).await?;
+            dir
         } else {
             PathBuf::from("/opt/raiko/provers/sgx")
         };
@@ -156,16 +156,16 @@ impl Prover for SgxProver {
 
 // This function prepares the working directory for the SGX prover running in testing
 // (direct) mode. It is not applicable in hardware mode.
-async fn prepare_working_directory(cur_dir: PathBuf) -> ProverResult<()> {
+async fn prepare_working_directory(dir: PathBuf) -> ProverResult<()> {
     // Create required directories
     let directories = ["secrets", "config"];
-    for dir in directories {
-        create_dir_all(cur_dir.join(dir)).unwrap();
+    for cur_dir in directories {
+        create_dir_all(dir.join(cur_dir)).unwrap();
     }
-    let gramine_manifest_template = cur_dir.join(CONFIG).join("raiko-guest.manifest.template");
+    let gramine_manifest_template = dir.join(CONFIG).join("sgx-guest.manifest.template");
 
     // Bootstrap. First delete the private key if it already exists.
-    let path = cur_dir.join("secrets").join("priv.key");
+    let path = dir.join("secrets").join("priv.key");
     if path.exists() {
         if let Err(e) = remove_file(&path) {
             println!("Error deleting file: {}", e);
@@ -176,8 +176,8 @@ async fn prepare_working_directory(cur_dir: PathBuf) -> ProverResult<()> {
     let files = ["attestation_type", "quote", "user_report_data"];
     for file in files {
         copy(
-            cur_dir.join(CONFIG).join("dummy_data").join(file),
-            cur_dir.join(file),
+            dir.join(CONFIG).join("dummy_data").join(file),
+            dir.join(file),
         )
         .unwrap();
     }
@@ -185,7 +185,7 @@ async fn prepare_working_directory(cur_dir: PathBuf) -> ProverResult<()> {
     // Generate Gramine's manifest
     let mut cmd = Command::new("gramine-manifest");
     let output = cmd
-        .current_dir(cur_dir.clone())
+        .current_dir(dir.clone())
         .arg("-Dlog_level=error")
         .arg("-Darch_libdir=/lib/x86_64-linux-gnu/")
         .arg("-Ddirect_mode=1")

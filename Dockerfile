@@ -49,7 +49,7 @@ RUN mkdir -p \
     /var/log/raiko
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
-COPY --from=builder /opt/raiko/provers/sgx/config/raiko-guest.manifest.template ./provers/sgx/
+COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.manifest.template ./provers/sgx/
 COPY --from=builder /opt/raiko/host/config/config.toml /etc/raiko/
 COPY --from=builder /opt/raiko/target/release/sgx-guest ./provers/sgx/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
@@ -57,6 +57,6 @@ COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 ARG EDMM=0
 ENV EDMM=${EDMM}
 RUN cd ./provers/sgx && \
-    gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
+    gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ sgx-guest.manifest.template sgx-guest.manifest
 
 ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]
