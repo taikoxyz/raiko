@@ -11,6 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use std::{
+    ops::AddAssign,
+    time::{Duration, Instant},
+};
+
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{BlockId, EIP1186AccountProofResponse};
@@ -203,5 +208,100 @@ impl Database for ProviderDb {
 impl DatabaseCommit for ProviderDb {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
         self.current_db.commit(changes)
+    }
+}
+
+pub struct MeasuredProviderDb {
+    pub provider: ProviderDb,
+    pub num_basic: u64,
+    pub time_basic: Duration,
+    pub num_storage: u64,
+    pub time_storage: Duration,
+    pub num_block_hash: u64,
+    pub time_block_hash: Duration,
+    pub num_code_by_hash: u64,
+}
+
+impl MeasuredProviderDb {
+    pub fn new(provider: ProviderDb) -> Self {
+        MeasuredProviderDb {
+            provider,
+            num_basic: 0,
+            time_basic: Duration::default(),
+            num_storage: 0,
+            time_storage: Duration::default(),
+            num_block_hash: 0,
+            time_block_hash: Duration::default(),
+            num_code_by_hash: 0,
+        }
+    }
+
+    pub fn db(&mut self) -> &mut ProviderDb {
+        &mut self.provider
+    }
+
+    pub fn print_report(&self) {
+        println!("db accesses: ");
+        println!(
+            "- account: {}.{} seconds ({} ops)",
+            self.time_basic.as_secs(),
+            self.time_basic.subsec_millis(),
+            self.num_basic
+        );
+        println!(
+            "- storage: {}.{} seconds ({} ops)",
+            self.time_storage.as_secs(),
+            self.time_storage.subsec_millis(),
+            self.num_storage
+        );
+        println!(
+            "- block_hash: {}.{} seconds ({} ops)",
+            self.time_block_hash.as_secs(),
+            self.time_block_hash.subsec_millis(),
+            self.num_block_hash
+        );
+        println!("- code_by_hash: {}", self.num_code_by_hash);
+    }
+}
+
+impl Database for MeasuredProviderDb {
+    type Error = anyhow::Error;
+
+    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+        self.num_basic += 1;
+        let start = Instant::now();
+        let res = self.provider.basic(address);
+        self.time_basic
+            .add_assign(Instant::now().duration_since(start));
+        res
+    }
+
+    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+        self.num_storage += 1;
+        let start = Instant::now();
+        let res = self.provider.storage(address, index);
+        self.time_storage
+            .add_assign(Instant::now().duration_since(start));
+        res
+    }
+
+    fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
+        self.num_block_hash += 1;
+        let start = Instant::now();
+        let res = self.provider.block_hash(number);
+        self.time_block_hash
+            .add_assign(Instant::now().duration_since(start));
+        res
+    }
+
+    fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
+        self.num_code_by_hash += 1;
+        self.provider.code_by_hash(_code_hash)
+    }
+}
+
+impl DatabaseCommit for MeasuredProviderDb {
+    fn commit(&mut self, changes: HashMap<Address, Account>) {
+        self.provider.commit(changes)
     }
 }

@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{fmt::Debug, mem::take, str::from_utf8};
+use core::{fmt::Debug, mem::take, ops::AddAssign, str::from_utf8, time::Duration};
 #[cfg(feature = "std")]
 use std::io::{self, Write};
+use std::time::Instant;
 
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
 use alloy_primitives::{TxKind, U256};
@@ -53,6 +54,10 @@ impl TxExecStrategy for TkoTxExecStrategy {
         D: Database + DatabaseCommit,
         <D as Database>::Error: Debug,
     {
+        let mut tx_transact_duration = Duration::default();
+        let mut tx_misc_duration = Duration::default();
+        let mut block_misc_duration = Duration::default();
+
         let header = block_builder
             .header
             .as_mut()
@@ -229,6 +234,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             }
 
             // process the transaction
+            let start = Instant::now();
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
@@ -256,6 +262,9 @@ impl TxExecStrategy for TkoTxExecStrategy {
             };
             #[cfg(feature = "std")]
             debug!("  Ok: {result:?}");
+            tx_transact_duration.add_assign(Instant::now().duration_since(start));
+
+            let start = Instant::now();
 
             // anchor tx needs to succeed
             if is_anchor && !result.is_success() {
@@ -292,12 +301,18 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             // If we got here it means the tx is not invalid
             actual_tx_no += 1;
+
+            tx_misc_duration.add_assign(Instant::now().duration_since(start));
         }
-        print!("\r");
+        // Clear the line
+        print!("\r\x1B[2K");
+
+        let start = Instant::now();
 
         let mut db = &mut evm.context.evm.db;
 
         // process withdrawals unconditionally after any transactions
+        println!("Processing withdrawals...");
         let mut withdrawals_trie = MptNode::default();
         for (i, withdrawal) in take(&mut block_builder.input.withdrawals)
             .into_iter()
@@ -317,6 +332,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         }
 
         // Update result header with computed values
+        println!("Generating block header...");
         header.transactions_root = tx_trie.hash();
         header.receipts_root = receipt_trie.hash();
         header.logs_bloom = logs_bloom;
@@ -327,6 +343,24 @@ impl TxExecStrategy for TkoTxExecStrategy {
         if spec_id >= SpecId::CANCUN {
             header.blob_gas_used = Some(blob_gas_used);
         }
+
+        block_misc_duration.add_assign(Instant::now().duration_since(start));
+
+        println!(
+            "Tx transact time: {}.{} seconds",
+            tx_transact_duration.as_secs(),
+            tx_transact_duration.subsec_millis()
+        );
+        println!(
+            "Tx misc time: {}.{} seconds",
+            tx_misc_duration.as_secs(),
+            tx_misc_duration.subsec_millis()
+        );
+        println!(
+            "Block misc time: {}.{} seconds",
+            block_misc_duration.as_secs(),
+            block_misc_duration.subsec_millis()
+        );
 
         // Leak memory, save cycles
         guest_mem_forget([tx_trie, receipt_trie, withdrawals_trie]);

@@ -1,4 +1,8 @@
-use std::sync::Arc;
+use std::{
+    io::{self, Write},
+    sync::Arc,
+    time::Instant,
+};
 
 use alloy_consensus::{
     SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy,
@@ -31,7 +35,7 @@ use raiko_primitives::{
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::host::provider_db::ProviderDb;
+use crate::host::provider_db::{MeasuredProviderDb, ProviderDb};
 
 pub fn preflight(
     rpc_url: Option<String>,
@@ -44,12 +48,16 @@ pub fn preflight(
     let http = Http::new(Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"));
     let provider = ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http, true)));
 
+    println!("Fetching block data...");
+    let start = Instant::now();
+
     let block = get_block(&provider, block_no, true).unwrap();
     let parent_block = get_block(&provider, block_no - 1, false).unwrap();
 
     println!("block.hash: {:?}", block.header.hash.unwrap());
+    println!("block header: {:?}", block.header);
     println!("block.parent_hash: {:?}", block.header.parent_hash);
-    println!("Block transactions: {:?}", block.transactions.len());
+    println!("block transactions: {:?}", block.transactions.len());
 
     let taiko_guest_input = if network != Network::Ethereum {
         let http_l1 = Http::new(Url::parse(&l1_rpc_url.clone().unwrap()).expect("invalid rpc url"));
@@ -142,7 +150,6 @@ pub fn preflight(
             prover_data,
         }
     } else {
-        println!("block header: {:?}", block.header);
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
         TaikoGuestInput {
@@ -150,6 +157,13 @@ pub fn preflight(
             ..Default::default()
         }
     };
+
+    let time_elapsed = Instant::now().duration_since(start);
+    println!(
+        "\rBlock data fetched in {}.{} seconds",
+        time_elapsed.as_secs(),
+        time_elapsed.subsec_millis()
+    );
 
     let input = GuestInput {
         network,
@@ -186,10 +200,16 @@ pub fn preflight(
         parent_block.header.number.unwrap().try_into().unwrap(),
     );
     let mut builder = BlockBuilder::new(&input)
-        .with_db(provider_db)
+        .with_db(MeasuredProviderDb::new(provider_db))
         .prepare_header::<TaikoHeaderPrepStrategy>()?
         .execute_transactions::<TkoTxExecStrategy>()?;
-    let provider_db: &mut ProviderDb = builder.mut_db().unwrap();
+    let provider_db = builder.mut_db().unwrap();
+    provider_db.print_report();
+    let provider_db = provider_db.db();
+
+    print!("Generating block proofs...");
+    io::stdout().flush().unwrap();
+    let start = Instant::now();
 
     // Construct the state trie and storage from the storage proofs.
     // Gather inclusion proofs for the initial and final state
@@ -210,6 +230,13 @@ pub fn preflight(
             contracts.insert(code.bytecode.0.clone());
         }
     }
+
+    let time_elapsed = Instant::now().duration_since(start);
+    println!(
+        "\rBlock proofs generated in {}.{} seconds",
+        time_elapsed.as_secs(),
+        time_elapsed.subsec_millis()
+    );
 
     // Add the collected data to the input
     Ok(GuestInput {
