@@ -1635,7 +1635,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 [[package]]
 name = "revm"
 version = "7.2.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#a975d272ced2c9b14207e8ff8513e158fd71455b"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#0450c4d14eb9eeb0081b6f46b8c966f8c7652d9b"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -1649,7 +1649,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "3.4.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#a975d272ced2c9b14207e8ff8513e158fd71455b"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#0450c4d14eb9eeb0081b6f46b8c966f8c7652d9b"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -1658,7 +1658,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "5.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#a975d272ced2c9b14207e8ff8513e158fd71455b"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#0450c4d14eb9eeb0081b6f46b8c966f8c7652d9b"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -1676,7 +1676,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#a975d272ced2c9b14207e8ff8513e158fd71455b"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#0450c4d14eb9eeb0081b6f46b8c966f8c7652d9b"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
@@ -1997,7 +1997,7 @@ dependencies = [
 [[package]]
 name = "sp1-precompiles"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#60d0ea86460107f3db66a60b3e8828317d93fb7f"
+source = "git+https://github.com/succinctlabs/sp1.git#c454f8950bef85c5619e405ed1909d1ceae59028"
 dependencies = [
  "anyhow",
  "bincode",
