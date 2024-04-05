@@ -8,12 +8,12 @@ edition = "2021"
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std"] }
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
-    "zk-op",
+    # "zk-op",
     "taiko",
     "std",
 ] }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
-    "zk-op",
+    # "zk-op",
     "taiko",
     "std",
 ] }
