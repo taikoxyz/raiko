@@ -40,7 +40,7 @@ use crate::{
     consts::{get_network_spec, Network, GWEI_TO_WEI},
     guest_mem_forget,
     taiko_utils::{check_anchor_tx, generate_transactions},
-    time::{self, AddAssign, Duration, Instant},
+    time::{AddAssign, Duration, Instant},
 };
 
 /// Minimum supported protocol version: SHANGHAI
@@ -263,7 +263,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             #[cfg(feature = "std")]
             debug!("  Ok: {result:?}");
 
-            tx_transact_duration.add_assign(time::now().duration_since(start));
+            tx_transact_duration.add_assign(Instant::now().duration_since(start));
 
             let start = Instant::now();
 

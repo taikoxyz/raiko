@@ -37,12 +37,9 @@ pub mod taiko_utils;
 mod time {
     pub use core::ops::AddAssign;
     pub use std::time::{Duration, Instant};
-
-    pub fn now() -> Instant {
-        Instant::now()
-    }
 }
 #[cfg(target_os = "zkvm")]
+// Dummy time implementation
 mod time {
     pub trait AddAssign<Rhs = Self> {
         fn add_assign(&mut self, rhs: Self);
@@ -75,10 +72,6 @@ mod time {
 
     impl AddAssign for Duration {
         fn add_assign(&mut self, _rhs: Duration) {}
-    }
-
-    pub fn now() -> Instant {
-        Instant::default()
     }
 }
 
