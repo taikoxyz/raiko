@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{fmt::Debug, mem::take, ops::AddAssign, str::from_utf8, time::Duration};
+use core::{fmt::Debug, mem::take, str::from_utf8};
 #[cfg(feature = "std")]
 use std::io::{self, Write};
-use std::time::Instant;
 
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
 use alloy_primitives::{TxKind, U256};
@@ -41,6 +40,7 @@ use crate::{
     consts::{get_network_spec, Network, GWEI_TO_WEI},
     guest_mem_forget,
     taiko_utils::{check_anchor_tx, generate_transactions},
+    time::{self, AddAssign, Duration, Instant},
 };
 
 /// Minimum supported protocol version: SHANGHAI
@@ -262,7 +262,8 @@ impl TxExecStrategy for TkoTxExecStrategy {
             };
             #[cfg(feature = "std")]
             debug!("  Ok: {result:?}");
-            tx_transact_duration.add_assign(Instant::now().duration_since(start));
+
+            tx_transact_duration.add_assign(time::now().duration_since(start));
 
             let start = Instant::now();
 

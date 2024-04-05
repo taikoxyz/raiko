@@ -33,6 +33,55 @@ pub mod protocol_instance;
 pub mod prover;
 pub mod taiko_utils;
 
+#[cfg(not(target_os = "zkvm"))]
+mod time {
+    pub use core::ops::AddAssign;
+    pub use std::time::{Duration, Instant};
+
+    pub fn now() -> Instant {
+        Instant::now()
+    }
+}
+#[cfg(target_os = "zkvm")]
+mod time {
+    pub trait AddAssign<Rhs = Self> {
+        fn add_assign(&mut self, rhs: Self);
+    }
+
+    #[derive(Default)]
+    pub struct Instant {}
+
+    impl Instant {
+        pub fn now() -> Instant {
+            Instant::default()
+        }
+        pub fn duration_since(&self, _instant: Instant) -> Duration {
+            Duration::default()
+        }
+    }
+
+    #[derive(Default)]
+    pub struct Duration {}
+
+    impl Duration {
+        pub fn as_secs(&self) -> u64 {
+            0
+        }
+
+        pub fn subsec_millis(&self) -> u64 {
+            0
+        }
+    }
+
+    impl AddAssign for Duration {
+        fn add_assign(&mut self, _rhs: Duration) {}
+    }
+
+    pub fn now() -> Instant {
+        Instant::default()
+    }
+}
+
 /// call forget only if running inside the guest
 pub fn guest_mem_forget<T>(_t: T) {
     #[cfg(target_os = "zkvm")] // TODO: seperate for risc0
