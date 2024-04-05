@@ -207,21 +207,47 @@ pub fn preflight(
     provider_db.print_report();
     let provider_db = provider_db.db();
 
-    print!("Generating block proofs...");
+    // Gather inclusion proofs for the initial and final state
+    print!("Fetching storage proofs...");
     io::stdout().flush().unwrap();
     let start = Instant::now();
+    let (parent_proofs, proofs) = provider_db.get_proofs()?;
+    let time_elapsed = Instant::now().duration_since(start);
+    println!(
+        "\rStorage proofs gathered in {}.{} seconds",
+        time_elapsed.as_secs(),
+        time_elapsed.subsec_millis()
+    );
 
     // Construct the state trie and storage from the storage proofs.
-    // Gather inclusion proofs for the initial and final state
-    let parent_proofs = provider_db.get_initial_proofs()?;
-    let proofs = provider_db.get_latest_proofs()?;
+    print!("Constructing MPT...");
+    io::stdout().flush().unwrap();
+    let start = Instant::now();
     let (state_trie, storage) =
         proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
+    let time_elapsed = Instant::now().duration_since(start);
+    println!(
+        "\rMPT generated in {}.{} seconds",
+        time_elapsed.as_secs(),
+        time_elapsed.subsec_millis()
+    );
 
     // Gather proofs for block history
+    print!("Fetching historical block headers...");
+    io::stdout().flush().unwrap();
+    let start = Instant::now();
     let ancestor_headers = provider_db.get_ancestor_headers()?;
+    let time_elapsed = Instant::now().duration_since(start);
+    println!(
+        "\rHistorical block headers gathered in {}.{} seconds",
+        time_elapsed.as_secs(),
+        time_elapsed.subsec_millis()
+    );
 
     // Get the contracts from the initial db.
+    print!("Fetching contract code...");
+    io::stdout().flush().unwrap();
+    let start = Instant::now();
     let mut contracts = HashSet::new();
     let initial_db = &provider_db.initial_db;
     for account in initial_db.accounts.values() {
@@ -230,10 +256,9 @@ pub fn preflight(
             contracts.insert(code.bytecode.0.clone());
         }
     }
-
     let time_elapsed = Instant::now().duration_since(start);
     println!(
-        "\rBlock proofs generated in {}.{} seconds",
+        "\rContract code gathered in {}.{} seconds",
         time_elapsed.as_secs(),
         time_elapsed.subsec_millis()
     );

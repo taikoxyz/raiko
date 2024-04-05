@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::{
+    io::{self, Write},
     ops::AddAssign,
     time::{Duration, Instant},
 };
@@ -56,33 +57,44 @@ impl ProviderDb {
         &self.current_db
     }
 
-    fn get_proofs(
+    fn get_storage_proofs(
         &mut self,
         block_number: u64,
         storage_keys: HashMap<Address, Vec<U256>>,
+        offset: usize,
+        num_storage_proofs: usize,
     ) -> Result<HashMap<Address, EIP1186AccountProofResponse>, anyhow::Error> {
         let mut storage_proofs = HashMap::new();
+        let mut idx = offset;
         for (address, keys) in storage_keys {
-            let indices = keys.into_iter().map(|x| x.to_be_bytes().into()).collect();
+            print!("\rfetching storage proof {idx}/{num_storage_proofs}...");
+            io::stdout().flush().unwrap();
+
+            let indices = keys.iter().map(|x| x.to_be_bytes().into()).collect();
             let proof = self.async_executor.block_on(async {
                 self.provider
                     .get_proof(address, indices, Some(BlockId::from(block_number)))
                     .await
             })?;
             storage_proofs.insert(address, proof);
+            idx += keys.len();
         }
+        // Clear the line
+        print!("\r\x1B[2K");
+
         Ok(storage_proofs)
     }
 
-    pub fn get_initial_proofs(
+    pub fn get_proofs(
         &mut self,
-    ) -> Result<HashMap<Address, EIP1186AccountProofResponse>, anyhow::Error> {
-        self.get_proofs(self.block_number, self.initial_db.storage_keys())
-    }
-
-    pub fn get_latest_proofs(
-        &mut self,
-    ) -> Result<HashMap<Address, EIP1186AccountProofResponse>, anyhow::Error> {
+    ) -> Result<
+        (
+            HashMap<Address, EIP1186AccountProofResponse>,
+            HashMap<Address, EIP1186AccountProofResponse>,
+        ),
+        anyhow::Error,
+    > {
+        // Latest proof keys
         let mut storage_keys = self.initial_db.storage_keys();
         for (address, mut indices) in self.current_db.storage_keys() {
             match storage_keys.get_mut(&address) {
@@ -92,7 +104,32 @@ impl ProviderDb {
                 }
             }
         }
-        self.get_proofs(self.block_number + 1, storage_keys)
+
+        // Calculate how many storage proofs we need
+        let num_initial_values: usize = self
+            .initial_db
+            .storage_keys()
+            .iter()
+            .map(|(_address, keys)| keys.len())
+            .sum();
+        let num_latest_values: usize = storage_keys.iter().map(|(_address, keys)| keys.len()).sum();
+        let num_storage_proofs = num_initial_values + num_latest_values;
+
+        // Initial proofs
+        let initial_proofs = self.get_storage_proofs(
+            self.block_number,
+            self.initial_db.storage_keys(),
+            0,
+            num_storage_proofs,
+        )?;
+        let latest_proofs = self.get_storage_proofs(
+            self.block_number + 1,
+            storage_keys,
+            num_initial_values,
+            num_storage_proofs,
+        )?;
+
+        Ok((initial_proofs, latest_proofs))
     }
 
     pub fn get_ancestor_headers(&mut self) -> Result<Vec<AlloyConsensusHeader>, anyhow::Error> {

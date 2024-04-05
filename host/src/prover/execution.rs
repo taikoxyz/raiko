@@ -25,7 +25,7 @@ pub async fn execute<D: Prover>(
     let input = prepare_input(ctx, req).await?;
     let time_elapsed = Instant::now().duration_since(start);
     println!(
-        "Witness generated in {}.{} seconds",
+        "=> Witness generated in {}.{} seconds",
         time_elapsed.as_secs(),
         time_elapsed.subsec_millis()
     );
@@ -61,7 +61,7 @@ pub async fn execute<D: Prover>(
         .map_err(|e| HostError::GuestError(e.to_string()));
     let time_elapsed = Instant::now().duration_since(start);
     println!(
-        "Proof generated in {}.{} seconds",
+        "=> Proof generated in {}.{} seconds",
         time_elapsed.as_secs(),
         time_elapsed.subsec_millis()
     );
