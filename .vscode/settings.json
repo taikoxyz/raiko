@@ -1,5 +1,6 @@
 {
     "rust-analyzer.linkedProjects": [
         "Cargo.toml",
+        "provers/sp1/guest/Cargo.toml",
     ]
 }

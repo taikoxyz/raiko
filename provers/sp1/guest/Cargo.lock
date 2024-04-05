@@ -1635,7 +1635,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 [[package]]
 name = "revm"
 version = "7.2.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bab7e150a15e356bebd5dc1387638d00a88301b4"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#a975d272ced2c9b14207e8ff8513e158fd71455b"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -1649,7 +1649,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "3.4.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bab7e150a15e356bebd5dc1387638d00a88301b4"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#a975d272ced2c9b14207e8ff8513e158fd71455b"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -1658,7 +1658,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "5.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bab7e150a15e356bebd5dc1387638d00a88301b4"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#a975d272ced2c9b14207e8ff8513e158fd71455b"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -1669,14 +1669,14 @@ dependencies = [
  "ripemd",
  "secp256k1",
  "sha2",
- "sp1-precompiles",
+ "sp1-precompiles 0.1.0 (git+https://github.com/succinctlabs/sp1.git)",
  "substrate-bn",
 ]
 
 [[package]]
 name = "revm-primitives"
 version = "3.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bab7e150a15e356bebd5dc1387638d00a88301b4"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#a975d272ced2c9b14207e8ff8513e158fd71455b"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
@@ -1975,13 +1975,29 @@ name = "sp1-guest"
 version = "0.1.0"
 dependencies = [
  "raiko-lib",
+ "revm-precompile",
+ "revm-primitives",
  "sp1-zkvm",
 ]
 
 [[package]]
 name = "sp1-precompiles"
 version = "0.1.0"
-source = "git+https://www.github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f#cb43fd74b24fad8ed24a4885499159de3680c89f"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "getrandom",
+ "k256",
+ "rand",
+ "serde",
+]
+
+[[package]]
+name = "sp1-precompiles"
+version = "0.1.0"
+source = "git+https://github.com/succinctlabs/sp1.git#60d0ea86460107f3db66a60b3e8828317d93fb7f"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2004,7 +2020,7 @@ dependencies = [
  "libm",
  "rand",
  "serde",
- "sp1-precompiles",
+ "sp1-precompiles 0.1.0 (git+https://github.com/succinctlabs/sp1.git?rev=cb43fd74b24fad8ed24a4885499159de3680c89f)",
 ]
 
 [[package]]
