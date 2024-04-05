@@ -1,4 +1,4 @@
-use std::{str::FromStr, time::Instant};
+use std::str::FromStr;
 
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
@@ -7,25 +7,26 @@ use raiko_lib::{
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     prover::{Prover, ProverResult},
     taiko_utils::HeaderHasher,
+    Measurement,
 };
 use raiko_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use super::{context::Context, error::Result, request::ProofRequest};
-use crate::{host::host::preflight, metrics::observe_input, prover::error::HostError};
+use crate::{host::host::preflight, prover::error::HostError};
 
 pub async fn execute<D: Prover>(
     ctx: &mut Context,
     req: &ProofRequest<D::ProofParam>,
 ) -> Result<D::ProofResponse> {
     println!("- {:?}", req);
-    // 1. load input data into cache path
-    let start = Instant::now();
+    // Generate the witness
+    let measurement = Measurement::start("Generating witness...", false);
     let input = prepare_input(ctx, req).await?;
-    let elapsed = Instant::now().duration_since(start).as_millis() as i64;
-    observe_input(elapsed);
-    // 2. pre-build the block
+    measurement.stop_with("=> Witness generated");
+
+    // 2. Test run the block
     let build_result = TaikoStrategy::build_from(&input);
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
@@ -47,12 +48,15 @@ pub async fn execute<D: Prover>(
             GuestOutput::Failure
         }
     };
-    let elapsed = Instant::now().duration_since(start).as_millis() as i64;
-    observe_input(elapsed);
 
-    D::run(input, output, req.proof_param.clone())
+    // Prove
+    let measurement = Measurement::start("Generating proof...", false);
+    let res = D::run(input, output, req.proof_param.clone())
         .await
-        .map_err(|e| HostError::GuestError(e.to_string()))
+        .map_err(|e| HostError::GuestError(e.to_string()));
+    measurement.stop_with("=> Proof generated");
+
+    res
 }
 
 /// prepare input data for provers

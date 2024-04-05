@@ -24,6 +24,9 @@ use tokio::{process::Command, sync::OnceCell};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SgxParam {
     pub instance_id: u64,
+    pub setup: bool,
+    pub bootstrap: bool,
+    pub prove: bool,
     pub input_path: Option<PathBuf>,
 }
 
@@ -40,11 +43,7 @@ pub const INPUT_FILE_NAME: &str = "input.bin";
 pub const CONFIG: &str = "../../provers/sgx/config";
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
-static INPUT_FILE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
-static ATTESTATION_TYPE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
-static QUOTE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
-static USER_REPORT_DATA: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 
 pub struct SgxProver;
 
@@ -67,49 +66,22 @@ impl Prover for SgxProver {
             println!("WARNING: running SGX in direct mode!");
         }
 
+        // The working directory
+        let cur_dir = env::current_exe()
+            .expect("Fail to get current directory")
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        println!("Current directory: {:?}\n", cur_dir);
         // Working paths
-        let cur_dir = prepare_working_directory(direct_mode, input.clone(), param.input_path).await;
+        PRIVATE_KEY
+            .get_or_init(|| async { cur_dir.join("secrets").join("priv.key") })
+            .await;
+        GRAMINE_MANIFEST_TEMPLATE
+            .get_or_init(|| async { cur_dir.join(CONFIG).join("raiko-guest.manifest.template") })
+            .await;
 
-        // Generate the manifest
-        let mut cmd = Command::new("gramine-manifest");
-        let output = cmd
-            .current_dir(cur_dir.clone())
-            .arg("-Dlog_level=error")
-            .arg("-Darch_libdir=/lib/x86_64-linux-gnu/")
-            .arg(format!(
-                "-Ddirect_mode={}",
-                if direct_mode { "1" } else { "0" }
-            ))
-            .arg(GRAMINE_MANIFEST_TEMPLATE.get().unwrap())
-            .arg("sgx-guest.manifest")
-            .output()
-            .await
-            .map_err(|e| format!("Could not generate manfifest: {}", e))?;
-
-        print_output(&output, "Generate manifest");
-
-        if !direct_mode {
-            // Generate a private key
-            let mut cmd = Command::new("gramine-sgx-gen-private-key");
-            cmd.current_dir(cur_dir.clone())
-                .arg("-f")
-                .output()
-                .await
-                .map_err(|e| format!("Could not generate SGX private key: {}", e))?;
-
-            // Sign the manifest
-            let mut cmd = Command::new("gramine-sgx-sign");
-            cmd.current_dir(cur_dir.clone())
-                .arg("--manifest")
-                .arg("sgx-guest.manifest")
-                .arg("--output")
-                .arg("sgx-guest.manifest.sgx")
-                .output()
-                .await
-                .map_err(|e| format!("Could not sign manfifest: {}", e))?;
-        }
-
-        // Form gramine command
+        // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> Command {
             let mut cmd = if direct_mode {
                 Command::new("gramine-direct")
@@ -122,30 +94,30 @@ impl Prover for SgxProver {
             cmd
         };
 
-        // Bootstrap new private key
-        let output = gramine_cmd()
-            .arg("bootstrap")
-            .output()
-            .await
-            .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
-        print_output(&output, "Sgx bootstrap");
-
-        // Prove
-        let output = gramine_cmd()
-            .arg("one-shot")
-            .arg("--sgx-instance-id")
-            .arg(param.instance_id.to_string())
-            .output()
-            .await
-            .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
-        print_output(&output, "Sgx execution");
-
-        if !output.status.success() {
-            // inc_sgx_error(req.block_number);
-            return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
+        // Setup: run this once while setting up your SGX instance
+        if param.setup {
+            setup(&cur_dir, direct_mode).await?;
         }
 
-        Ok(parse_sgx_result(output.stdout)?)
+        // Boostrap: run this each time a new keypair for proving needs to be generated
+        if param.bootstrap {
+            bootstrap(&mut gramine_cmd()).await?;
+        }
+
+        // Prove: run for each block
+        if param.prove {
+            prove(
+                &mut gramine_cmd(),
+                &cur_dir,
+                input,
+                param.instance_id,
+                param.input_path,
+            )
+            .await
+        } else {
+            // Dummy proof: it's ok when only setup/bootstrap was requested
+            Ok(SgxResponse::default())
+        }
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {
@@ -163,49 +135,11 @@ impl Prover for SgxProver {
     }
 }
 
-async fn prepare_working_directory(
-    direct_mode: bool,
-    input: GuestInput,
-    cached_input: Option<PathBuf>,
-) -> PathBuf {
-    let cur_dir = env::current_exe()
-        .expect("Fail to get current directory")
-        .parent()
-        .unwrap()
-        .to_path_buf();
-    println!("Current directory: {:?}\n", cur_dir);
-
+async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse, String> {
     // Create required directories
     let directories = ["secrets", "config"];
     for dir in directories {
         create_dir_all(cur_dir.join(dir)).unwrap();
-    }
-    GRAMINE_MANIFEST_TEMPLATE
-        .get_or_init(|| async { cur_dir.join(CONFIG).join("raiko-guest.manifest.template") })
-        .await;
-    // If cached input file is not provided
-    // write the input to a file that will be read by the SGX instance
-    let input_path = match cached_input {
-        Some(path) => path.clone(),
-        None => {
-            let path = cur_dir.join(INPUT_FILE_NAME);
-            bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
-                .expect("Unable to serialize input");
-            path
-        }
-    };
-    // TODO(Ceilia): support long running ra-tls server
-    INPUT_FILE.get_or_init(|| async { input_path }).await;
-    PRIVATE_KEY
-        .get_or_init(|| async { cur_dir.join("secrets").join("priv.key") })
-        .await;
-    // Bootstrap
-    // First delete the private key if it already exists
-    let path = cur_dir.join("secrets").join("priv.key");
-    if path.exists() {
-        if let Err(e) = remove_file(&path) {
-            println!("Error deleting file: {}", e);
-        }
     }
     if direct_mode {
         // Copy dummy files in direct mode
@@ -218,33 +152,6 @@ async fn prepare_working_directory(
             .unwrap();
         }
     }
-    ATTESTATION_TYPE
-        .get_or_init(|| async { cur_dir.join("attestation_type") })
-        .await;
-    QUOTE.get_or_init(|| async { cur_dir.join("quote") }).await;
-    USER_REPORT_DATA
-        .get_or_init(|| async { cur_dir.join("user_report_data") })
-        .await;
-    cur_dir
-}
-
-pub async fn execute(
-    input: GuestInput,
-    _output: GuestOutput,
-    param: SgxParam,
-) -> Result<SgxResponse, String> {
-    // Support both SGX and the direct backend for testing
-    let direct_mode = match env::var("SGX_DIRECT") {
-        Ok(value) => value == "1",
-        Err(_) => false,
-    };
-    // Print a warning when running in direct mode
-    if direct_mode {
-        println!("WARNING: running SGX in direct mode!");
-    }
-
-    // Working paths
-    let cur_dir = prepare_working_directory(direct_mode, input.clone(), param.input_path).await;
 
     // Generate the manifest
     let mut cmd = Command::new("gramine-manifest");
@@ -285,43 +192,61 @@ pub async fn execute(
             .map_err(|e| format!("Could not sign manfifest: {}", e))?;
     }
 
-    // Form gramine command
-    let gramine_cmd = || -> Command {
-        let mut cmd = if direct_mode {
-            Command::new("gramine-direct")
-        } else {
-            let mut cmd = Command::new("sudo");
-            cmd.arg("gramine-sgx");
-            cmd
-        };
-        cmd.current_dir(&cur_dir).arg(ELF_NAME);
-        cmd
-    };
+    Ok(SgxResponse::default())
+}
 
-    // Bootstrap new private key
-    let output = gramine_cmd()
+async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, String> {
+    // Bootstrap with new private key for signing proofs
+    // First delete the private key if it already exists
+    if PRIVATE_KEY.get().unwrap().exists() {
+        if let Err(e) = remove_file(&PRIVATE_KEY.get().unwrap()) {
+            println!("Error deleting file: {}", e);
+        }
+    }
+    let output = gramine_cmd
         .arg("bootstrap")
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
     print_output(&output, "Sgx bootstrap");
 
+    Ok(SgxResponse::default())
+}
+
+async fn prove(
+    gramine_cmd: &mut Command,
+    cur_dir: &PathBuf,
+    input: GuestInput,
+    instance_id: u64,
+    input_path: Option<PathBuf>,
+) -> ProverResult<SgxResponse, ProverError> {
+    // If cached input file is not provided
+    // write the input to a file that will be read by the SGX instance
+    let _input_path = match input_path {
+        Some(path) => path.clone(),
+        None => {
+            let path = cur_dir.join(INPUT_FILE_NAME);
+            bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
+                .expect("Unable to serialize input");
+            path
+        }
+    };
+
     // Prove
-    let output = gramine_cmd()
+    let output = gramine_cmd
         .arg("one-shot")
         .arg("--sgx-instance-id")
-        .arg(param.instance_id.to_string())
+        .arg(instance_id.to_string())
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
     print_output(&output, "Sgx execution");
-
     if !output.status.success() {
         // inc_sgx_error(req.block_number);
-        return Err(output.status.to_string());
+        return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
     }
 
-    parse_sgx_result(output.stdout)
+    Ok(parse_sgx_result(output.stdout)?)
 }
 
 fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
@@ -364,10 +289,8 @@ fn print_output(output: &Output, name: &str) {
 fn print_dirs() {
     println!("SGX output directories:");
     for dir in [
+        GRAMINE_MANIFEST_TEMPLATE.get().unwrap(),
         PRIVATE_KEY.get().unwrap(),
-        ATTESTATION_TYPE.get().unwrap(),
-        QUOTE.get().unwrap(),
-        USER_REPORT_DATA.get().unwrap(),
     ] {
         println!(" {:?}", dir);
     }

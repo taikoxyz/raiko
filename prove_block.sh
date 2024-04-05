@@ -31,6 +31,9 @@ elif [ "$proof" == "sp1" ]; then
 elif [ "$proof" == "sgx" ]; then
   proofParam='{
     "instance_id": 123,
+    "setup": true,
+    "bootstrap": true,
+    "prove": true,
     "input_path": null
   }'
 elif [ "$proof" == "risc0" ]; then
