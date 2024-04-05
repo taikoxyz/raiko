@@ -35,9 +35,12 @@ use revm::{
 use super::TxExecStrategy;
 use crate::{
     builder::BlockBuilder,
+    clear_line,
     consts::{get_network_spec, Network, GWEI_TO_WEI},
-    guest_mem_forget,
+    guest_mem_forget, inplace_print, print_duration,
     taiko_utils::{check_anchor_tx, generate_transactions},
+    time::{AddAssign, Duration, Instant},
+    Measurement,
 };
 
 /// Minimum supported protocol version: SHANGHAI
@@ -51,6 +54,9 @@ impl TxExecStrategy for TkoTxExecStrategy {
         D: Database + DatabaseCommit,
         <D as Database>::Error: Debug,
     {
+        let mut tx_transact_duration = Duration::default();
+        let mut tx_misc_duration = Duration::default();
+
         let header = block_builder
             .header
             .as_mut()
@@ -155,7 +161,8 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let mut actual_tx_no = 0usize;
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
-            println!("tx {tx_no}/{num_transactions}");
+            inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+
             // anchor transaction always the first transaction
             let is_anchor = is_taiko && tx_no == 0;
 
@@ -224,6 +231,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             }
 
             // process the transaction
+            let start = Instant::now();
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
@@ -251,6 +259,10 @@ impl TxExecStrategy for TkoTxExecStrategy {
             };
             #[cfg(feature = "std")]
             debug!("  Ok: {result:?}");
+
+            tx_transact_duration.add_assign(Instant::now().duration_since(start));
+
+            let start = Instant::now();
 
             // anchor tx needs to succeed
             if is_anchor && !result.is_success() {
@@ -287,11 +299,17 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             // If we got here it means the tx is not invalid
             actual_tx_no += 1;
+
+            tx_misc_duration.add_assign(Instant::now().duration_since(start));
         }
+        clear_line();
+        print_duration("Tx transact time: ", tx_transact_duration);
+        print_duration("Tx misc time: ", tx_misc_duration);
 
         let mut db = &mut evm.context.evm.db;
 
         // process withdrawals unconditionally after any transactions
+        let measurement = Measurement::start("Processing withdrawals...", true);
         let mut withdrawals_trie = MptNode::default();
         for (i, withdrawal) in take(&mut block_builder.input.withdrawals)
             .into_iter()
@@ -309,8 +327,10 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 .insert_rlp(&i.to_rlp(), withdrawal)
                 .with_context(|| "failed to insert withdrawal")?;
         }
+        measurement.stop();
 
         // Update result header with computed values
+        let measurement = Measurement::start("Generating block header...", true);
         header.transactions_root = tx_trie.hash();
         header.receipts_root = receipt_trie.hash();
         header.logs_bloom = logs_bloom;
@@ -321,6 +341,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         if spec_id >= SpecId::CANCUN {
             header.blob_gas_used = Some(blob_gas_used);
         }
+        measurement.stop();
 
         // Leak memory, save cycles
         guest_mem_forget([tx_trie, receipt_trie, withdrawals_trie]);

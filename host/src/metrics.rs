@@ -54,6 +54,6 @@ pub fn _inc_sgx_error(block: u64) {
     SGX_PROOF_ERROR_COUNTER.with(&label).inc();
 }
 
-pub fn observe_input(time: i64) {
+pub fn _observe_input(time: i64) {
     PREPARE_INPUT_TIME.set(time);
 }

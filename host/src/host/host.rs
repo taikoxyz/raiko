@@ -23,6 +23,7 @@ use raiko_lib::{
         BlockProposed, GuestInput, TaikoGuestInput, TaikoProverData,
     },
     taiko_utils::{generate_transactions, to_header},
+    Measurement,
 };
 use raiko_primitives::{
     eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
@@ -31,7 +32,7 @@ use raiko_primitives::{
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::host::provider_db::ProviderDb;
+use crate::host::provider_db::{MeasuredProviderDb, ProviderDb};
 
 pub fn preflight(
     rpc_url: Option<String>,
@@ -44,12 +45,15 @@ pub fn preflight(
     let http = Http::new(Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"));
     let provider = ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http, true)));
 
+    let measurement = Measurement::start("Fetching block data...", true);
+
     let block = get_block(&provider, block_no, true).unwrap();
     let parent_block = get_block(&provider, block_no - 1, false).unwrap();
 
     println!("block.hash: {:?}", block.header.hash.unwrap());
+    println!("block header: {:?}", block.header);
     println!("block.parent_hash: {:?}", block.header.parent_hash);
-    println!("Block transactions: {:?}", block.transactions.len());
+    println!("block transactions: {:?}", block.transactions.len());
 
     let taiko_guest_input = if network != Network::Ethereum {
         let http_l1 = Http::new(Url::parse(&l1_rpc_url.clone().unwrap()).expect("invalid rpc url"));
@@ -142,7 +146,6 @@ pub fn preflight(
             prover_data,
         }
     } else {
-        println!("block header: {:?}", block.header);
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
         TaikoGuestInput {
@@ -150,6 +153,7 @@ pub fn preflight(
             ..Default::default()
         }
     };
+    measurement.stop();
 
     let input = GuestInput {
         network,
@@ -186,22 +190,31 @@ pub fn preflight(
         parent_block.header.number.unwrap().try_into().unwrap(),
     );
     let mut builder = BlockBuilder::new(&input)
-        .with_db(provider_db)
+        .with_db(MeasuredProviderDb::new(provider_db))
         .prepare_header::<TaikoHeaderPrepStrategy>()?
         .execute_transactions::<TkoTxExecStrategy>()?;
-    let provider_db: &mut ProviderDb = builder.mut_db().unwrap();
+    let provider_db = builder.mut_db().unwrap();
+    provider_db.print_report();
+    let provider_db = provider_db.db();
+
+    // Gather inclusion proofs for the initial and final state
+    let measurement = Measurement::start("Fetching storage proofs...", true);
+    let (parent_proofs, proofs) = provider_db.get_proofs()?;
+    measurement.stop();
 
     // Construct the state trie and storage from the storage proofs.
-    // Gather inclusion proofs for the initial and final state
-    let parent_proofs = provider_db.get_initial_proofs()?;
-    let proofs = provider_db.get_latest_proofs()?;
+    let measurement = Measurement::start("Constructing MPT...", true);
     let (state_trie, storage) =
         proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
+    measurement.stop();
 
     // Gather proofs for block history
+    let measurement = Measurement::start("Fetching historical block headers...", true);
     let ancestor_headers = provider_db.get_ancestor_headers()?;
+    measurement.stop();
 
     // Get the contracts from the initial db.
+    let measurement = Measurement::start("Fetching contract code...", true);
     let mut contracts = HashSet::new();
     let initial_db = &provider_db.initial_db;
     for account in initial_db.accounts.values() {
@@ -210,6 +223,7 @@ pub fn preflight(
             contracts.insert(code.bytecode.0.clone());
         }
     }
+    measurement.stop();
 
     // Add the collected data to the input
     Ok(GuestInput {
