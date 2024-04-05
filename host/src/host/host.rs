@@ -1,8 +1,4 @@
-use std::{
-    io::{self, Write},
-    sync::Arc,
-    time::Instant,
-};
+use std::sync::Arc;
 
 use alloy_consensus::{
     SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy,
@@ -27,6 +23,7 @@ use raiko_lib::{
         BlockProposed, GuestInput, TaikoGuestInput, TaikoProverData,
     },
     taiko_utils::{generate_transactions, to_header},
+    Measurement,
 };
 use raiko_primitives::{
     eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
@@ -48,8 +45,7 @@ pub fn preflight(
     let http = Http::new(Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"));
     let provider = ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http, true)));
 
-    println!("Fetching block data...");
-    let start = Instant::now();
+    let measurement = Measurement::start("Fetching block data...", true);
 
     let block = get_block(&provider, block_no, true).unwrap();
     let parent_block = get_block(&provider, block_no - 1, false).unwrap();
@@ -157,13 +153,7 @@ pub fn preflight(
             ..Default::default()
         }
     };
-
-    let time_elapsed = Instant::now().duration_since(start);
-    println!(
-        "\rBlock data fetched in {}.{} seconds",
-        time_elapsed.as_secs(),
-        time_elapsed.subsec_millis()
-    );
+    measurement.stop();
 
     let input = GuestInput {
         network,
@@ -208,46 +198,23 @@ pub fn preflight(
     let provider_db = provider_db.db();
 
     // Gather inclusion proofs for the initial and final state
-    print!("Fetching storage proofs...");
-    io::stdout().flush().unwrap();
-    let start = Instant::now();
+    let measurement = Measurement::start("Fetching storage proofs...", true);
     let (parent_proofs, proofs) = provider_db.get_proofs()?;
-    let time_elapsed = Instant::now().duration_since(start);
-    println!(
-        "\rStorage proofs gathered in {}.{} seconds",
-        time_elapsed.as_secs(),
-        time_elapsed.subsec_millis()
-    );
+    measurement.stop();
 
     // Construct the state trie and storage from the storage proofs.
-    print!("Constructing MPT...");
-    io::stdout().flush().unwrap();
-    let start = Instant::now();
+    let measurement = Measurement::start("Constructing MPT...", true);
     let (state_trie, storage) =
         proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
-    let time_elapsed = Instant::now().duration_since(start);
-    println!(
-        "\rMPT generated in {}.{} seconds",
-        time_elapsed.as_secs(),
-        time_elapsed.subsec_millis()
-    );
+    measurement.stop();
 
     // Gather proofs for block history
-    print!("Fetching historical block headers...");
-    io::stdout().flush().unwrap();
-    let start = Instant::now();
+    let measurement = Measurement::start("Fetching historical block headers...", true);
     let ancestor_headers = provider_db.get_ancestor_headers()?;
-    let time_elapsed = Instant::now().duration_since(start);
-    println!(
-        "\rHistorical block headers gathered in {}.{} seconds",
-        time_elapsed.as_secs(),
-        time_elapsed.subsec_millis()
-    );
+    measurement.stop();
 
     // Get the contracts from the initial db.
-    print!("Fetching contract code...");
-    io::stdout().flush().unwrap();
-    let start = Instant::now();
+    let measurement = Measurement::start("Fetching contract code...", true);
     let mut contracts = HashSet::new();
     let initial_db = &provider_db.initial_db;
     for account in initial_db.accounts.values() {
@@ -256,12 +223,7 @@ pub fn preflight(
             contracts.insert(code.bytecode.0.clone());
         }
     }
-    let time_elapsed = Instant::now().duration_since(start);
-    println!(
-        "\rContract code gathered in {}.{} seconds",
-        time_elapsed.as_secs(),
-        time_elapsed.subsec_millis()
-    );
+    measurement.stop();
 
     // Add the collected data to the input
     Ok(GuestInput {

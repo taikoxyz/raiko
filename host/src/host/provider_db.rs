@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::{
-    io::{self, Write},
     ops::AddAssign,
     time::{Duration, Instant},
 };
@@ -20,7 +19,7 @@ use std::{
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{BlockId, EIP1186AccountProofResponse};
-use raiko_lib::{mem_db::MemDb, taiko_utils::to_header};
+use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, taiko_utils::to_header};
 use raiko_primitives::{Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
@@ -67,8 +66,9 @@ impl ProviderDb {
         let mut storage_proofs = HashMap::new();
         let mut idx = offset;
         for (address, keys) in storage_keys {
-            print!("\rfetching storage proof {idx}/{num_storage_proofs}...");
-            io::stdout().flush().unwrap();
+            inplace_print(&format!(
+                "fetching storage proof {idx}/{num_storage_proofs}..."
+            ));
 
             let indices = keys.iter().map(|x| x.to_be_bytes().into()).collect();
             let proof = self.async_executor.block_on(async {
@@ -79,8 +79,7 @@ impl ProviderDb {
             storage_proofs.insert(address, proof);
             idx += keys.len();
         }
-        // Clear the line
-        print!("\r\x1B[2K");
+        clear_line();
 
         Ok(storage_proofs)
     }

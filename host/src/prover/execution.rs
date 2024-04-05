@@ -1,4 +1,4 @@
-use std::{str::FromStr, time::Instant};
+use std::str::FromStr;
 
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
@@ -7,13 +7,14 @@ use raiko_lib::{
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     prover::{Prover, ProverResult},
     taiko_utils::HeaderHasher,
+    Measurement,
 };
 use raiko_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use super::{context::Context, error::Result, request::ProofRequest};
-use crate::{host::host::preflight, metrics::observe_input, prover::error::HostError};
+use crate::{host::host::preflight, prover::error::HostError};
 
 pub async fn execute<D: Prover>(
     ctx: &mut Context,
@@ -21,15 +22,9 @@ pub async fn execute<D: Prover>(
 ) -> Result<D::ProofResponse> {
     println!("- {:?}", req);
     // Generate the witness
-    let start = Instant::now();
+    let measurement = Measurement::start("Generating witness...", false);
     let input = prepare_input(ctx, req).await?;
-    let time_elapsed = Instant::now().duration_since(start);
-    println!(
-        "=> Witness generated in {}.{} seconds",
-        time_elapsed.as_secs(),
-        time_elapsed.subsec_millis()
-    );
-    observe_input(time_elapsed.as_millis() as i64);
+    measurement.stop_with("=> Witness generated");
 
     // 2. Test run the block
     let build_result = TaikoStrategy::build_from(&input);
@@ -55,16 +50,11 @@ pub async fn execute<D: Prover>(
     };
 
     // Prove
-    let start = Instant::now();
+    let measurement = Measurement::start("Generating proof...", false);
     let res = D::run(input, output, req.proof_param.clone())
         .await
         .map_err(|e| HostError::GuestError(e.to_string()));
-    let time_elapsed = Instant::now().duration_since(start);
-    println!(
-        "=> Proof generated in {}.{} seconds",
-        time_elapsed.as_secs(),
-        time_elapsed.subsec_millis()
-    );
+    measurement.stop_with("=> Proof generated");
 
     res
 }

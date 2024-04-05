@@ -13,6 +13,9 @@
 // limitations under the License.
 #![cfg_attr(any(not(feature = "std")), no_std)]
 
+#[cfg(feature = "std")]
+use std::io::{self, Write};
+
 #[cfg(not(feature = "std"))]
 mod no_std {
     extern crate alloc;
@@ -45,7 +48,7 @@ mod time {
         fn add_assign(&mut self, rhs: Self);
     }
 
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy)]
     pub struct Instant {}
 
     impl Instant {
@@ -57,7 +60,7 @@ mod time {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy)]
     pub struct Duration {}
 
     impl Duration {
@@ -73,6 +76,60 @@ mod time {
     impl AddAssign for Duration {
         fn add_assign(&mut self, _rhs: Duration) {}
     }
+}
+
+pub struct Measurement {
+    start: time::Instant,
+    title: String,
+    inplace: bool,
+}
+
+impl Measurement {
+    pub fn start(title: &str, inplace: bool) -> Measurement {
+        if inplace {
+            print!("{title}");
+            #[cfg(feature = "std")]
+            io::stdout().flush().unwrap();
+        } else {
+            println!("{title}");
+        }
+        Self {
+            start: time::Instant::now(),
+            title: title.to_string(),
+            inplace,
+        }
+    }
+
+    pub fn stop(&self) {
+        self.stop_with(&format!("{} Done", self.title));
+    }
+
+    pub fn stop_with(&self, title: &str) {
+        let time_elapsed = time::Instant::now().duration_since(self.start);
+        print_duration(
+            &format!("{}{} in ", if self.inplace { "\r" } else { "" }, title,),
+            time_elapsed,
+        );
+    }
+}
+
+pub fn print_duration(title: &str, duration: time::Duration) {
+    println!(
+        "{}{}.{} seconds",
+        title,
+        duration.as_secs(),
+        duration.subsec_millis()
+    );
+}
+
+pub fn inplace_print(title: &str) {
+    print!("\r{}", title);
+    #[cfg(feature = "std")]
+    io::stdout().flush().unwrap();
+}
+
+pub fn clear_line() {
+    print!("\r\x1B[2K");
 }
 
 /// call forget only if running inside the guest
