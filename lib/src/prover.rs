@@ -29,17 +29,22 @@ impl From<String> for ProverError {
 }
 
 pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
+pub type ProverConfig = serde_json::Value;
+pub type Proof = serde_json::Value;
 
 pub trait Prover {
-    type ProofParam: fmt::Debug + Clone;
-    type ProofResponse: Serialize;
-
     #[allow(async_fn_in_trait)]
     async fn run(
         input: GuestInput,
         output: GuestOutput,
-        param: Self::ProofParam,
-    ) -> ProverResult<Self::ProofResponse>;
+        config: &ProverConfig,
+    ) -> ProverResult<Proof>;
 
     fn instance_hash(pi: ProtocolInstance) -> B256;
+}
+
+pub fn to_proof(proof: ProverResult<impl Serialize>) -> ProverResult<Proof> {
+    proof.and_then(|res| {
+        serde_json::to_value(res).map_err(|err| ProverError::GuestError(err.to_string()))
+    })
 }

@@ -7,7 +7,7 @@ use alloy_sol_types::SolValue;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
-    prover::{Prover, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use sha3::{self, Digest};
@@ -24,14 +24,11 @@ pub struct Sp1Response {
 pub struct Sp1Prover;
 
 impl Prover for Sp1Prover {
-    type ProofParam = ();
-    type ProofResponse = Sp1Response;
-
     async fn run(
         input: GuestInput,
         _output: GuestOutput,
-        _param: Self::ProofParam,
-    ) -> ProverResult<Self::ProofResponse> {
+        _config: &ProverConfig,
+    ) -> ProverResult<Proof> {
         let config = utils::BabyBearBlake3::new();
 
         // Write the input.
@@ -61,10 +58,10 @@ impl Prover for Sp1Prover {
             .expect("Sp1: saving proof failed");
 
         println!("succesfully generated and verified proof for the program!");
-        Ok(Sp1Response {
+        to_proof(Ok(Sp1Response {
             proof: serde_json::to_string(&proof).unwrap(),
             output,
-        })
+        }))
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {

@@ -15,7 +15,7 @@ use log::{debug, error, info, warn};
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
-    prover::{Prover, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use raiko_primitives::keccak::keccak;
 use risc0_zkvm::{
@@ -50,19 +50,18 @@ pub struct Risc0Response {
 pub struct Risc0Prover;
 
 impl Prover for Risc0Prover {
-    type ProofParam = Risc0Param;
-    type ProofResponse = Risc0Response;
-
     async fn run(
         input: GuestInput,
         output: GuestOutput,
-        param: Self::ProofParam,
-    ) -> ProverResult<Self::ProofResponse> {
+        config: &ProverConfig,
+    ) -> ProverResult<Proof> {
+        let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+
         println!("elf code length: {}", RISC0_METHODS_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
         let result = maybe_prove::<GuestInput, GuestOutput>(
-            &param,
+            &config,
             encoded_input,
             RISC0_METHODS_ELF,
             &output,
@@ -73,7 +72,7 @@ impl Prover for Risc0Prover {
         let journal: String = result.clone().unwrap().1.journal.encode_hex();
 
         // Create/verify Groth16 SNARK
-        if param.snark {
+        if config.snark {
             let Some((stark_uuid, stark_receipt)) = result else {
                 panic!("No STARK data to snarkify!");
             };
@@ -89,7 +88,7 @@ impl Prover for Risc0Prover {
                 .map_err(|err| format!("Failed to verify SNARK: {:?}", err))?;
         }
 
-        Ok(Risc0Response { journal })
+        to_proof(Ok(Risc0Response { journal }))
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {
