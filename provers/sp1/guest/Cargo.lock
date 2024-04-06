@@ -1978,6 +1978,7 @@ dependencies = [
  "revm-precompile",
  "revm-primitives",
  "sp1-zkvm",
+ "substrate-bn",
 ]
 
 [[package]]
@@ -1997,7 +1998,7 @@ dependencies = [
 [[package]]
 name = "sp1-precompiles"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#c454f8950bef85c5619e405ed1909d1ceae59028"
+source = "git+https://github.com/succinctlabs/sp1.git#5ccb3b94fc5ae9023ee9971fc324a767aeab017b"
 dependencies = [
  "anyhow",
  "bincode",
