@@ -13,14 +13,7 @@ pub struct CacheKey {
     pub prover: Address,
     pub graffiti: B256,
 }
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub enum ProofType {
-    Succinct,
-    PseZk,
-    Powdr,
-    Sgx,
-    Risc0,
-}
+
 impl AsRef<CacheKey> for CacheKey {
     fn as_ref(&self) -> &CacheKey {
         self

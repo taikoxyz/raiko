@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use hyper::{
     body::{Buf, HttpBody},
@@ -6,60 +6,39 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
-use once_cell::sync::OnceCell;
 use prometheus::{Encoder, TextEncoder};
-use raiko_lib::prover::Prover;
 use tower::ServiceBuilder;
 use tracing::info;
 
-use crate::prover::{
-    context::Context,
-    error::HostError,
-    execution::execute,
-    request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
+use crate::{
+    get_config,
+    prover::{
+        error::HostError,
+        execution::execute,
+        request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
+    },
+    Opt,
 };
-
-pub static SGX_INSTANCE_ID: OnceCell<u32> = OnceCell::new();
 
 /// Starts the proverd json-rpc server.
 /// Note: the server may not immediately listening after returning the
 /// `JoinHandle`.
 #[allow(clippy::too_many_arguments)]
-pub fn serve(
-    addr: &str,
-    guest_elf: &Path,
-    host_cache: &Path,
-    l2_contracts: &str,
-    sgx_instance_id: u32,
-    proof_cache: usize,
-    concurrency_limit: usize,
-    max_caches: usize,
-) -> tokio::task::JoinHandle<()> {
-    let addr = addr
+pub fn serve(opt: Opt) -> tokio::task::JoinHandle<()> {
+    let addr = opt
+        .address
         .parse::<std::net::SocketAddr>()
         .expect("valid socket address");
-    let guest_elf = guest_elf.to_owned();
-    let host_cache = host_cache.to_owned();
-    let l2_contracts = l2_contracts.to_owned();
-    SGX_INSTANCE_ID
-        .set(sgx_instance_id)
-        .expect("cannot set sgx instance id");
+
     tokio::spawn(async move {
-        let handler = Handler::new(
-            guest_elf.clone(),
-            host_cache.clone(),
-            l2_contracts.clone(),
-            // sgx_instance_id,
-            proof_cache,
-            max_caches,
-        );
+        let handler = Handler::new();
         let service = service_fn(move |req| {
             let handler = handler.clone();
             handler.handle_request(req)
         });
 
         let service = ServiceBuilder::new()
-            .concurrency_limit(concurrency_limit)
+            .concurrency_limit(opt.concurrency_limit)
             .service(service);
 
         let service = make_service_fn(|_| {
@@ -92,23 +71,11 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
 }
 
 #[derive(Clone)]
-struct Handler {
-    ctx: Context,
-    // cache: Cache,
-}
+struct Handler;
 
 impl Handler {
-    fn new(
-        guest_elf: PathBuf,
-        host_cache: PathBuf,
-        _l2_contracts: String,
-        _capacity: usize,
-        max_caches: usize,
-    ) -> Self {
-        Self {
-            ctx: Context::new(guest_elf, host_cache, max_caches, None),
-            // cache: Cache::new(capacity),
-        }
+    fn new() -> Self {
+        Self {}
     }
 
     async fn handle_request(mut self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
@@ -222,34 +189,28 @@ impl Handler {
         params: &[serde_json::Value],
     ) -> Result<serde_json::Value, HostError> {
         match method {
-            // enqueues a task for computating proof for any given block
+            // Generate a proof for a block
             "proof" => {
-                let options = params.first().expect("params must not be empty");
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "sp1")] {
-                        use sp1_prover::Sp1Prover;
-                        let req: ProofRequest<<Sp1Prover as Prover>::ProofParam> =
-                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        let res = execute::<Sp1Prover>(&mut self.ctx, &req).await;
-                    } else if #[cfg(feature = "risc0")] {
-                        use risc0_prover::Risc0Prover;
-                        let req: ProofRequest<<Risc0Prover as Prover>::ProofParam> =
-                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        let res = execute::<Risc0Prover>(&mut self.ctx, &req).await;
-                    } else if #[cfg(feature = "sgx")] {
-                        use sgx_prover::SgxProver;
-                        let req: ProofRequest<<SgxProver as Prover>::ProofParam> =
-                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        let res = execute::<SgxProver>(&mut self.ctx, &req).await;
-                    }  else {
-                        use crate::prover::execution::NativeDriver;
-                        let req: ProofRequest<<NativeDriver as Prover>::ProofParam> =
-                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        let res = execute::<NativeDriver>(&mut self.ctx, &req).await;
-                    }
-                };
-                res.and_then(|res| serde_json::to_value(res).map_err(Into::into))
-                    .map_err(Into::<HostError>::into)
+                // Get the request data sent through json-rpc
+                let request: serde_json::Value =
+                    params.first().expect("params must not be empty").to_owned();
+
+                // Use it to build the config
+                let config = get_config(Some(request)).unwrap();
+
+                // Run the selected prover
+                let proof_type =
+                    ProofType::from_str(config["proof_type"].as_str().unwrap()).unwrap();
+                match proof_type {
+                    ProofType::Native => execute::<super::execution::NativeDriver>(&config).await,
+                    #[cfg(feature = "sp1")]
+                    ProofType::Sp1 => execute::<sp1_prover::Sp1Prover>(&config).await,
+                    #[cfg(feature = "risc0")]
+                    ProofType::Risc0 => execute::<risc0_prover::Risc0Prover>(&config).await,
+                    #[cfg(feature = "sgx")]
+                    ProofType::Sgx => execute::<sgx_prover::SgxProver>(&config).await,
+                    _ => unimplemented!("Prover {:?} not enabled!", proof_type),
+                }
             }
             _ => todo!(),
         }

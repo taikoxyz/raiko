@@ -20,33 +20,25 @@ pub mod host;
 mod metrics;
 mod prover;
 
-use std::{fmt::Debug, path::PathBuf};
+use std::{fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use prover::server::serve;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use structopt::StructOpt;
-use structopt_toml::StructOptToml;
-use tracing::info;
 
-#[derive(StructOpt, StructOptToml, Deserialize, Debug)]
+#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
-struct Opt {
+pub struct Opt {
     #[structopt(long, require_equals = true, default_value = "0.0.0.0:8080")]
     /// Server bind address
     /// [default: 0.0.0.0:8080]
-    bind: String,
+    address: String,
 
     #[structopt(long, require_equals = true, default_value = "/tmp")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
     cache: PathBuf,
-
-    #[structopt(long, require_equals = true, default_value = "./")]
-    /// The guests path
-    guest: PathBuf,
-
-    #[structopt(long, require_equals = true, default_value = "0")]
-    sgx_instance_id: u32,
 
     #[structopt(long, require_equals = true)]
     log_path: Option<PathBuf>,
@@ -60,11 +52,8 @@ struct Opt {
     #[structopt(long, require_equals = true, default_value = "7")]
     max_log_days: usize,
 
-    #[structopt(long, require_equals = true, default_value = "testnet")]
-    l2_contracts: String,
-
     #[structopt(long, require_equals = true, default_value = "20")]
-    // WARNING: must large than concurrency_limit
+    // WARNING: must be larger than concurrency_limit
     max_caches: usize,
 
     #[structopt(long, require_equals = true)]
@@ -76,15 +65,9 @@ struct Opt {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut opt = Opt::from_args();
-
-    if let Some(config_path) = opt.config_path {
-        let config_raw = std::fs::read(&config_path)
-            .context(format!("read config file {:?} failed", config_path))?;
-        opt =
-            Opt::from_args_with_toml(std::str::from_utf8(&config_raw).context("str parse failed")?)
-                .context("toml parse failed")?;
-    };
+    let config = get_config(None).unwrap();
+    let opt = Opt::deserialize(&config).unwrap();
+    println!("Start config: {:?}", opt);
 
     let subscriber_builder = tracing_subscriber::FmtSubscriber::builder()
         .with_env_filter(&opt.log_level)
@@ -108,17 +91,44 @@ async fn main() -> Result<()> {
             None
         }
     };
-    info!("Start args: {:?}", opt);
-    serve(
-        &opt.bind,
-        &opt.guest,
-        &opt.cache,
-        &opt.l2_contracts,
-        opt.sgx_instance_id,
-        opt.proof_cache,
-        opt.concurrency_limit,
-        opt.max_caches,
-    )
-    .await?;
+
+    serve(opt).await?;
     Ok(())
+}
+
+/// Gets the config going through all possible sources
+pub fn get_config(request_config: Option<Value>) -> Result<Value> {
+    let mut config = Value::default();
+    let opt = Opt::from_args();
+
+    // Config file has the lowest preference
+    if let Some(config_path) = &opt.config_path {
+        let file = File::open(config_path)?;
+        let reader = BufReader::new(file);
+        let file_config: Value = serde_json::from_reader(reader)?;
+        merge(&mut config, &file_config);
+    };
+
+    // Command line values have higher preference
+    let cli_config = serde_json::to_value(&opt)?;
+    merge(&mut config, &cli_config);
+
+    // Values sent via json-rpc have the highest preference
+    if let Some(request_config) = request_config {
+        merge(&mut config, &request_config);
+    };
+
+    Ok(config)
+}
+
+/// Merges two json's together, overwriting `a` with the values of `b`
+fn merge(a: &mut Value, b: &Value) {
+    match (a, b) {
+        (Value::Object(a), Value::Object(b)) => {
+            for (k, v) in b {
+                merge(a.entry(k.clone()).or_insert(Value::Null), v);
+            }
+        }
+        (a, b) => *a = b.clone(),
+    }
 }

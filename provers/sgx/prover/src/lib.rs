@@ -12,7 +12,7 @@ use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
-    prover::{Prover, ProverError, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use raiko_primitives::{keccak::keccak, B256};
 use serde::{Deserialize, Serialize};
@@ -48,14 +48,13 @@ static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 pub struct SgxProver;
 
 impl Prover for SgxProver {
-    type ProofParam = SgxParam;
-    type ProofResponse = SgxResponse;
-
     async fn run(
         input: GuestInput,
         _output: GuestOutput,
-        param: Self::ProofParam,
-    ) -> ProverResult<Self::ProofResponse> {
+        config: &ProverConfig,
+    ) -> ProverResult<Proof> {
+        let config = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
+
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
             Ok(value) => value == "1",
@@ -95,29 +94,31 @@ impl Prover for SgxProver {
         };
 
         // Setup: run this once while setting up your SGX instance
-        if param.setup {
+        if config.setup {
             setup(&cur_dir, direct_mode).await?;
         }
 
         // Boostrap: run this each time a new keypair for proving needs to be generated
-        if param.bootstrap {
+        if config.bootstrap {
             bootstrap(&mut gramine_cmd()).await?;
         }
 
         // Prove: run for each block
-        if param.prove {
+        let sgx_proof = if config.prove {
             prove(
                 &mut gramine_cmd(),
                 &cur_dir,
                 input,
-                param.instance_id,
-                param.input_path,
+                config.instance_id,
+                config.input_path,
             )
             .await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
-        }
+        };
+
+        to_proof(sgx_proof)
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {
