@@ -39,7 +39,7 @@ pub struct Opt {
     /// [default: 0.0.0.0:8080]
     address: String,
 
-    #[structopt(long, require_equals = true, default_value = "/tmp")]
+    #[structopt(long, require_equals = true, default_value = "/tmp/raiko-host")]
     /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
     cache: PathBuf,
 
