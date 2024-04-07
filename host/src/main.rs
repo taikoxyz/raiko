@@ -16,16 +16,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod host;
+pub mod error;
+pub mod execution;
 mod metrics;
-mod prover;
+pub mod preflight;
+pub mod provider_db;
+pub mod request;
+pub mod server;
 
 use std::{fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
-use prover::server::serve;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use server::serve;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
@@ -42,9 +46,6 @@ pub struct Opt {
 
     #[structopt(long, require_equals = true)]
     log_path: Option<PathBuf>,
-
-    #[structopt(long, require_equals = true, default_value = "1000")]
-    proof_cache: usize,
 
     #[structopt(long, require_equals = true, default_value = "10")]
     concurrency_limit: usize,
@@ -69,29 +70,11 @@ async fn main() -> Result<()> {
     let opt = Opt::deserialize(&config).unwrap();
     println!("Start config: {:?}", opt);
 
-    let subscriber_builder = tracing_subscriber::FmtSubscriber::builder()
+    let subscriber = tracing_subscriber::FmtSubscriber::builder()
         .with_env_filter(&opt.log_level)
-        .with_test_writer();
-    let _guard = match opt.log_path {
-        Some(ref log_path) => {
-            let file_appender = tracing_appender::rolling::Builder::new()
-                .rotation(tracing_appender::rolling::Rotation::DAILY)
-                .filename_prefix("raiko.log")
-                .max_log_files(opt.max_log_days)
-                .build(log_path)
-                .expect("initializing rolling file appender failed");
-            let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-            let subscriber = subscriber_builder.json().with_writer(non_blocking).finish();
-            tracing::subscriber::set_global_default(subscriber).unwrap();
-            Some(_guard)
-        }
-        None => {
-            let subscriber = subscriber_builder.finish();
-            tracing::subscriber::set_global_default(subscriber).unwrap();
-            None
-        }
-    };
-
+        .with_test_writer()
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).unwrap();
     serve(opt).await?;
     Ok(())
 }

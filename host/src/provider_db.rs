@@ -27,7 +27,7 @@ use revm::{
 };
 use tokio::runtime::Handle;
 
-use crate::host::preflight::get_block;
+use crate::preflight::get_block;
 
 pub struct ProviderDb {
     pub provider: ReqwestProvider,

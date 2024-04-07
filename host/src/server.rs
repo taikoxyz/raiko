@@ -12,13 +12,11 @@ use tower::ServiceBuilder;
 use tracing::info;
 
 use crate::{
+    error::HostError,
+    execution::execute,
     get_config,
-    prover::{
-        error::HostError,
-        execution::execute,
-        request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
-    },
-    set_config, Opt,
+    request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
+    Opt,
 };
 
 /// Starts the proverd json-rpc server.
@@ -91,7 +89,7 @@ impl Handler {
 
     pub fn set(&self, block_no: u64, input: GuestInput) -> super::error::Result<()> {
         let file = File::create(self.cache_dir.join(format!("input-{}", block_no)))
-            .map_err(|e| HostError::Io(e))?;
+            .map_err(HostError::Io)?;
         bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
         Ok(())
     }

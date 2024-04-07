@@ -192,7 +192,7 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
     // Bootstrap with new private key for signing proofs
     // First delete the private key if it already exists
     if PRIVATE_KEY.get().unwrap().exists() {
-        if let Err(e) = remove_file(&PRIVATE_KEY.get().unwrap()) {
+        if let Err(e) = remove_file(PRIVATE_KEY.get().unwrap()) {
             println!("Error deleting file: {}", e);
         }
     }
@@ -259,13 +259,13 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
 }
 
 fn print_output(output: &Output, name: &str) {
-    print!(
-        "{} stderr: {}\n",
+    println!(
+        "{} stderr: {}",
         name,
         str::from_utf8(&output.stderr).unwrap()
     );
-    print!(
-        "{} stdout: {}\n",
+    println!(
+        "{} stdout: {}",
         name,
         str::from_utf8(&output.stdout).unwrap()
     );

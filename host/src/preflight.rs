@@ -32,7 +32,7 @@ use raiko_primitives::{
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::host::provider_db::{MeasuredProviderDb, ProviderDb};
+use crate::provider_db::{MeasuredProviderDb, ProviderDb};
 
 pub fn preflight(
     rpc_url: Option<String>,
