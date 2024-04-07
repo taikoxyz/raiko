@@ -312,16 +312,13 @@ pub struct GetBlobsResponse {
     pub data: Vec<GetBlobData>,
 }
 
-pub fn get_block(provider: &ReqwestProvider, block_number: u64, full: bool) -> Result<AlloyBlock> {
+pub fn get_block(provider: &ReqwestProvider, block_no: u64, full: bool) -> Result<AlloyBlock> {
     let tokio_handle = tokio::runtime::Handle::current();
-    let response = tokio_handle.block_on(async {
-        provider
-            .get_block_by_number((block_number).into(), full)
-            .await
-    })?;
+    let response = tokio_handle
+        .block_on(async { provider.get_block_by_number((block_no).into(), full).await })?;
     match response {
         Some(out) => Ok(out),
-        None => Err(anyhow!("No data for {block_number:?}")),
+        None => Err(anyhow!("No data for {block_no:?}")),
     }
 }
 

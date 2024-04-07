@@ -13,5 +13,5 @@
 // limitations under the License.
 extern crate std;
 
-pub mod host;
+pub mod preflight;
 pub mod provider_db;

@@ -27,21 +27,21 @@ use revm::{
 };
 use tokio::runtime::Handle;
 
-use crate::host::host::get_block;
+use crate::host::preflight::get_block;
 
 pub struct ProviderDb {
     pub provider: ReqwestProvider,
-    pub block_number: u64,
+    pub block_no: u64,
     pub initial_db: MemDb,
     pub current_db: MemDb,
     async_executor: Handle,
 }
 
 impl ProviderDb {
-    pub fn new(provider: ReqwestProvider, block_number: u64) -> Self {
+    pub fn new(provider: ReqwestProvider, block_no: u64) -> Self {
         ProviderDb {
             provider,
-            block_number,
+            block_no,
             initial_db: MemDb::default(),
             current_db: MemDb::default(),
             async_executor: tokio::runtime::Handle::current(),
@@ -58,7 +58,7 @@ impl ProviderDb {
 
     fn get_storage_proofs(
         &mut self,
-        block_number: u64,
+        block_no: u64,
         storage_keys: HashMap<Address, Vec<U256>>,
         offset: usize,
         num_storage_proofs: usize,
@@ -73,7 +73,7 @@ impl ProviderDb {
             let indices = keys.iter().map(|x| x.to_be_bytes().into()).collect();
             let proof = self.async_executor.block_on(async {
                 self.provider
-                    .get_proof(address, indices, Some(BlockId::from(block_number)))
+                    .get_proof(address, indices, Some(BlockId::from(block_no)))
                     .await
             })?;
             storage_proofs.insert(address, proof);
@@ -116,13 +116,13 @@ impl ProviderDb {
 
         // Initial proofs
         let initial_proofs = self.get_storage_proofs(
-            self.block_number,
+            self.block_no,
             self.initial_db.storage_keys(),
             0,
             num_storage_proofs,
         )?;
         let latest_proofs = self.get_storage_proofs(
-            self.block_number + 1,
+            self.block_no + 1,
             storage_keys,
             num_initial_values,
             num_storage_proofs,
@@ -137,8 +137,8 @@ impl ProviderDb {
             .block_hashes
             .keys()
             .min()
-            .unwrap_or(&self.block_number);
-        let headers = (*earliest_block..self.block_number)
+            .unwrap_or(&self.block_no);
+        let headers = (*earliest_block..self.block_no)
             .rev()
             .map(|block_no| to_header(&get_block(&self.provider, block_no, false).unwrap().header))
             .collect();
@@ -161,17 +161,17 @@ impl Database for ProviderDb {
         // Get the nonce, balance, and code to reconstruct the account.
         let nonce = self.async_executor.block_on(async {
             self.provider
-                .get_transaction_count(address, Some(BlockId::from(self.block_number)))
+                .get_transaction_count(address, Some(BlockId::from(self.block_no)))
                 .await
         })?;
         let balance = self.async_executor.block_on(async {
             self.provider
-                .get_balance(address, Some(BlockId::from(self.block_number)))
+                .get_balance(address, Some(BlockId::from(self.block_no)))
                 .await
         })?;
         let code = self.async_executor.block_on(async {
             self.provider
-                .get_code_at(address, BlockId::from(self.block_number))
+                .get_code_at(address, BlockId::from(self.block_no))
                 .await
         })?;
 
@@ -203,7 +203,7 @@ impl Database for ProviderDb {
                 .get_storage_at(
                     address.into_array().into(),
                     index,
-                    Some(BlockId::from(self.block_number)),
+                    Some(BlockId::from(self.block_no)),
                 )
                 .await
         })?;
@@ -219,10 +219,10 @@ impl Database for ProviderDb {
         }
 
         // Get the block hash from the provider.
-        let block_number = u64::try_from(number).unwrap();
+        let block_no = u64::try_from(number).unwrap();
         let block_hash = self.async_executor.block_on(async {
             self.provider
-                .get_block_by_number(block_number.into(), false)
+                .get_block_by_number(block_no.into(), false)
                 .await
                 .unwrap()
                 .unwrap()
@@ -232,7 +232,7 @@ impl Database for ProviderDb {
                 .0
                 .into()
         });
-        self.initial_db.insert_block_hash(block_number, block_hash);
+        self.initial_db.insert_block_hash(block_no, block_hash);
         Ok(block_hash)
     }
 

@@ -27,7 +27,6 @@ pub struct SgxParam {
     pub setup: bool,
     pub bootstrap: bool,
     pub prove: bool,
-    pub input_path: Option<PathBuf>,
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -105,14 +104,7 @@ impl Prover for SgxProver {
 
         // Prove: run for each block
         let sgx_proof = if config.prove {
-            prove(
-                &mut gramine_cmd(),
-                &cur_dir,
-                input,
-                config.instance_id,
-                config.input_path,
-            )
-            .await
+            prove(&mut gramine_cmd(), &cur_dir, input, config.instance_id).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -219,19 +211,11 @@ async fn prove(
     cur_dir: &PathBuf,
     input: GuestInput,
     instance_id: u64,
-    input_path: Option<PathBuf>,
 ) -> ProverResult<SgxResponse, ProverError> {
-    // If cached input file is not provided
-    // write the input to a file that will be read by the SGX instance
-    let _input_path = match input_path {
-        Some(path) => path.clone(),
-        None => {
-            let path = cur_dir.join(INPUT_FILE_NAME);
-            bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
-                .expect("Unable to serialize input");
-            path
-        }
-    };
+    // Write the input to a file that will be read by the SGX instance
+    let path = cur_dir.join(INPUT_FILE_NAME);
+    bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
+        .expect("Unable to serialize input");
 
     // Prove
     let output = gramine_cmd
@@ -243,7 +227,7 @@ async fn prove(
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
     print_output(&output, "Sgx execution");
     if !output.status.success() {
-        // inc_sgx_error(req.block_number);
+        // inc_sgx_error(req.block_no);
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
     }
 

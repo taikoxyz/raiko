@@ -15,17 +15,26 @@ use tracing::{info, warn};
 
 use super::error::Result;
 use crate::{
-    host::host::preflight,
+    host::preflight::preflight,
     prover::{error::HostError, request::ProofRequest},
 };
 
-pub async fn execute<D: Prover>(config: &serde_json::Value) -> Result<Proof> {
+pub async fn execute<D: Prover>(
+    config: &serde_json::Value,
+    cached_input: Option<GuestInput>,
+) -> Result<(GuestInput, Proof)> {
     println!("- {:?}", config);
 
     // Generate the input
-    let measurement = Measurement::start("Generating input...", false);
-    let input = prepare_input(config).await?;
-    measurement.stop_with("=> Input generated");
+    let input = match cached_input {
+        Some(input) => input,
+        None => {
+            let measurement = Measurement::start("Generating input...", false);
+            let input = prepare_input(config).await?;
+            measurement.stop_with("=> Input generated");
+            input
+        }
+    };
 
     // 2. Test run the block
     let build_result = TaikoStrategy::build_from(&input);
@@ -52,8 +61,9 @@ pub async fn execute<D: Prover>(config: &serde_json::Value) -> Result<Proof> {
 
     // Prove
     let measurement = Measurement::start("Generating proof...", false);
-    let res = D::run(input, output, config)
+    let res = D::run(input.clone(), output, config)
         .await
+        .map(|proof| (input, proof))
         .map_err(|e| HostError::GuestError(e.to_string()));
     measurement.stop_with("=> Proof generated");
 
@@ -63,7 +73,7 @@ pub async fn execute<D: Prover>(config: &serde_json::Value) -> Result<Proof> {
 /// prepare input data for provers
 pub async fn prepare_input(config: &serde_json::Value) -> Result<GuestInput> {
     let req = ProofRequest::deserialize(config).unwrap();
-    let block_number = req.block_number;
+    let block_no = req.block_no;
     let rpc = req.rpc.clone();
     let l1_rpc = req.l1_rpc.clone();
     let beacon_rpc = req.beacon_rpc.clone();
@@ -73,7 +83,7 @@ pub async fn prepare_input(config: &serde_json::Value) -> Result<GuestInput> {
     tokio::task::spawn_blocking(move || {
         preflight(
             Some(rpc),
-            block_number,
+            block_no,
             Network::from_str(&network).unwrap(),
             TaikoProverData { graffiti, prover },
             Some(l1_rpc),

@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fs::File, path::PathBuf, str::FromStr};
 
 use hyper::{
     body::{Buf, HttpBody},
@@ -7,6 +7,7 @@ use hyper::{
     Body, Method, Request, Response, Server, StatusCode,
 };
 use prometheus::{Encoder, TextEncoder};
+use raiko_lib::input::GuestInput;
 use tower::ServiceBuilder;
 use tracing::info;
 
@@ -17,7 +18,7 @@ use crate::{
         execution::execute,
         request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
     },
-    Opt,
+    set_config, Opt,
 };
 
 /// Starts the proverd json-rpc server.
@@ -31,7 +32,7 @@ pub fn serve(opt: Opt) -> tokio::task::JoinHandle<()> {
         .expect("valid socket address");
 
     tokio::spawn(async move {
-        let handler = Handler::new();
+        let handler = Handler::new(opt.cache);
         let service = service_fn(move |req| {
             let handler = handler.clone();
             handler.handle_request(req)
@@ -71,11 +72,28 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
 }
 
 #[derive(Clone)]
-struct Handler;
+struct Handler {
+    cache_dir: PathBuf,
+}
 
 impl Handler {
-    fn new() -> Self {
-        Self {}
+    pub fn new(dir: PathBuf) -> Self {
+        Self { cache_dir: dir }
+    }
+
+    pub fn get(&self, block_no: u64) -> Option<GuestInput> {
+        let path = self.cache_dir.join(format!("input-{}", block_no));
+        if let Ok(file) = File::open(path) {
+            return bincode::deserialize_from(file).ok();
+        }
+        None
+    }
+
+    pub fn set(&self, block_no: u64, input: GuestInput) -> super::error::Result<()> {
+        let file = File::create(self.cache_dir.join(format!("input-{}", block_no)))
+            .map_err(|e| HostError::Io(e))?;
+        bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
+        Ok(())
     }
 
     async fn handle_request(mut self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
@@ -195,22 +213,31 @@ impl Handler {
                 let request: serde_json::Value =
                     params.first().expect("params must not be empty").to_owned();
 
-                // Use it to build the config
+                // Use it to find cached input if any  build the config
                 let config = get_config(Some(request)).unwrap();
+                let block_no = config["block_no"].as_u64().unwrap();
+                let cached_input = self.get(block_no);
 
                 // Run the selected prover
                 let proof_type =
                     ProofType::from_str(config["proof_type"].as_str().unwrap()).unwrap();
-                match proof_type {
-                    ProofType::Native => execute::<super::execution::NativeDriver>(&config).await,
+                let (input, proof) = match proof_type {
+                    ProofType::Native => {
+                        execute::<super::execution::NativeDriver>(&config, cached_input).await
+                    }
                     #[cfg(feature = "sp1")]
-                    ProofType::Sp1 => execute::<sp1_prover::Sp1Prover>(&config).await,
+                    ProofType::Sp1 => execute::<sp1_prover::Sp1Prover>(&config, cached_input).await,
                     #[cfg(feature = "risc0")]
-                    ProofType::Risc0 => execute::<risc0_prover::Risc0Prover>(&config).await,
+                    ProofType::Risc0 => {
+                        execute::<risc0_prover::Risc0Prover>(&config, cached_input).await
+                    }
                     #[cfg(feature = "sgx")]
-                    ProofType::Sgx => execute::<sgx_prover::SgxProver>(&config).await,
+                    ProofType::Sgx => execute::<sgx_prover::SgxProver>(&config, cached_input).await,
                     _ => unimplemented!("Prover {:?} not enabled!", proof_type),
-                }
+                }?;
+                // Cache the input
+                self.set(block_no, input)?;
+                Ok(proof)
             }
             _ => todo!(),
         }

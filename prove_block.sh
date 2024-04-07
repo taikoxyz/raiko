@@ -95,7 +95,7 @@ do
              \"rpc\": \"$rpc\",
              \"l1_rpc\": \"$l1Rpc\",
              \"beacon_rpc\": \"$beaconRpc\",
-             \"block_number\": $block,
+             \"block_no\": $block,
              \"prover\": \"$prover\",
              \"graffiti\": \"$graffiti\",
              $proofParam
