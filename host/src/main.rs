@@ -49,6 +49,9 @@ pub struct Opt {
     #[structopt(long, require_equals = true, default_value = "10")]
     concurrency_limit: usize,
 
+    #[structopt(long, require_equals = true, default_value = "taiko_a7")]
+    network: String,
+
     #[structopt(long, require_equals = true, default_value = "7")]
     max_log_days: usize,
 
