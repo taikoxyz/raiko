@@ -50,13 +50,6 @@ pub struct Opt {
     #[structopt(long, require_equals = true, default_value = "10")]
     concurrency_limit: usize,
 
-    #[structopt(long, require_equals = true, default_value = "7")]
-    max_log_days: usize,
-
-    #[structopt(long, require_equals = true, default_value = "20")]
-    // WARNING: must be larger than concurrency_limit
-    max_caches: usize,
-
     #[structopt(long, require_equals = true)]
     config_path: Option<PathBuf>,
 
@@ -80,7 +73,7 @@ async fn main() -> Result<()> {
 }
 
 /// Gets the config going through all possible sources
-pub fn get_config(request_config: Option<Value>) -> Result<Value> {
+fn get_config(request_config: Option<Value>) -> Result<Value> {
     let mut config = Value::default();
     let opt = Opt::from_args();
 

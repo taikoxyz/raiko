@@ -1,9 +1,6 @@
 {
     "bind": "0.0.0.0:8080",
     "cache": "/tmp/sgx",
-    "concurrency_limit": 10,
-    "max_log_days": 7,
-    "log_level": "info",
     "network": "taiko_a7",
     "sgx": {
         "instance_id": 0
