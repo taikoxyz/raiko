@@ -78,6 +78,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = "0.2"
 
+# memory
+cap = { git = "https://github.com/brechtpd/cap", branch = "more-stats", features = ["stats"] }
+
 # misc
 hashbrown = { version = "0.14", features = ["inline-more"] }
 c-kzg = "1.0.0"
