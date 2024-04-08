@@ -72,6 +72,9 @@ pub struct Opt {
     #[structopt(long, require_equals = true)]
     log_path: Option<PathBuf>,
 
+    #[structopt(long, require_equals = true, default_value = "7")]
+    max_log_days: usize,
+
     #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
     /// Path to a config file that includes sufficent json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
@@ -91,12 +94,28 @@ async fn main() -> Result<()> {
     let opt = Opt::from_args();
     let config = get_config(None).unwrap();
     println!("Start config: {:?}", config);
-
-    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+    let subscriber_builder = tracing_subscriber::FmtSubscriber::builder()
         .with_env_filter(&opt.log_level)
-        .with_test_writer()
-        .finish();
-    tracing::subscriber::set_global_default(subscriber).unwrap();
+        .with_test_writer();
+    let _guard = match opt.log_path {
+        Some(ref log_path) => {
+            let file_appender = tracing_appender::rolling::Builder::new()
+                .rotation(tracing_appender::rolling::Rotation::DAILY)
+                .filename_prefix("raiko.log")
+                .max_log_files(opt.max_log_days)
+                .build(log_path)
+                .expect("initializing rolling file appender failed");
+            let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+            let subscriber = subscriber_builder.json().with_writer(non_blocking).finish();
+            tracing::subscriber::set_global_default(subscriber).unwrap();
+            Some(_guard)
+        }
+        None => {
+            let subscriber = subscriber_builder.finish();
+            tracing::subscriber::set_global_default(subscriber).unwrap();
+            None
+        }
+    };
     serve(opt).await?;
     Ok(())
 }

@@ -36,7 +36,7 @@ use crate::provider_db::{MeasuredProviderDb, ProviderDb};
 
 pub fn preflight(
     rpc_url: Option<String>,
-    block_number: u64,
+    block_no: u64,
     network: Network,
     prover_data: TaikoProverData,
     l1_rpc_url: Option<String>,
@@ -47,8 +47,8 @@ pub fn preflight(
 
     let measurement = Measurement::start("Fetching block data...", true);
 
-    let block = get_block(&provider, block_number, true).unwrap();
-    let parent_block = get_block(&provider, block_number - 1, false).unwrap();
+    let block = get_block(&provider, block_no, true).unwrap();
+    let parent_block = get_block(&provider, block_no - 1, false).unwrap();
 
     println!("block.hash: {:?}", block.header.hash.unwrap());
     println!("block header: {:?}", block.header);
@@ -86,7 +86,7 @@ pub fn preflight(
             &provider_l1,
             network,
             l1_inclusion_block.header.hash.unwrap(),
-            block_number,
+            block_no,
         )?;
 
         // Fetch the tx list
@@ -312,13 +312,13 @@ pub struct GetBlobsResponse {
     pub data: Vec<GetBlobData>,
 }
 
-pub fn get_block(provider: &ReqwestProvider, block_number: u64, full: bool) -> Result<AlloyBlock> {
+pub fn get_block(provider: &ReqwestProvider, block_no: u64, full: bool) -> Result<AlloyBlock> {
     let tokio_handle = tokio::runtime::Handle::current();
     let response = tokio_handle
-        .block_on(async { provider.get_block_by_number((block_number).into(), full).await })?;
+        .block_on(async { provider.get_block_by_number((block_no).into(), full).await })?;
     match response {
         Some(out) => Ok(out),
-        None => Err(anyhow!("No data for {block_number:?}")),
+        None => Err(anyhow!("No data for {block_no:?}")),
     }
 }
 

@@ -70,7 +70,7 @@ pub async fn execute<D: Prover>(
 /// prepare input data for provers
 pub async fn prepare_input(config: &serde_json::Value) -> Result<GuestInput> {
     let req = ProofRequest::deserialize(config).unwrap();
-    let block_number = req.block_number;
+    let block_no = req.block_no;
     let rpc = req.rpc.clone();
     let l1_rpc = req.l1_rpc.clone();
     let beacon_rpc = req.beacon_rpc.clone();
@@ -80,7 +80,7 @@ pub async fn prepare_input(config: &serde_json::Value) -> Result<GuestInput> {
     tokio::task::spawn_blocking(move || {
         preflight(
             Some(rpc),
-            block_number,
+            block_no,
             Network::from_str(&network).unwrap(),
             TaikoProverData { graffiti, prover },
             Some(l1_rpc),

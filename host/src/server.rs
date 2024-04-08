@@ -94,18 +94,18 @@ impl Handler {
         }
     }
 
-    pub fn get(&self, block_number: u64, network: &str) -> Option<GuestInput> {
+    pub fn get(&self, block_no: u64, network: &str) -> Option<GuestInput> {
         let mut input: Option<GuestInput> = None;
         self.cache_dir
             .as_ref()
-            .map(|dir| dir.join(format!("input-{}-{}", network, block_number)))
+            .map(|dir| dir.join(format!("input-{}-{}", network, block_no)))
             .map(|path| File::open(path).map(|file| input = bincode::deserialize_from(file).ok()));
         input
     }
 
-    pub fn set(&self, block_number: u64, network: &str, input: GuestInput) -> super::error::Result<()> {
+    pub fn set(&self, block_no: u64, network: &str, input: GuestInput) -> super::error::Result<()> {
         if let Some(dir) = self.cache_dir.as_ref() {
-            let path = dir.join(format!("input-{}-{}", network, block_number));
+            let path = dir.join(format!("input-{}-{}", network, block_no));
             if !path.exists() {
                 let file = File::create(&path).map_err(HostError::Io)?;
                 println!("------------~~ Setting input for {:?}", path);
@@ -235,9 +235,9 @@ impl Handler {
 
                 // Use it to find cached input if any  build the config
                 let config = get_config(Some(request)).unwrap();
-                let block_number = config["block_number"].as_u64().expect("block_number not provided");
+                let block_no = config["block_no"].as_u64().expect("block_no not provided");
                 let network = config["network"].as_str().expect("network not provided");
-                let cached_input = self.get(block_number, network);
+                let cached_input = self.get(block_no, network);
 
                 // Run the selected prover
                 let proof_type =
@@ -257,7 +257,7 @@ impl Handler {
                     _ => unimplemented!("Prover {:?} not enabled!", proof_type),
                 }?;
                 // Cache the input
-                self.set(block_number, network, input)?;
+                self.set(block_no, network, input)?;
                 Ok(proof)
             }
             _ => todo!(),
