@@ -20,13 +20,39 @@ pub mod host;
 mod metrics;
 mod prover;
 
-use std::{fmt::Debug, fs::File, io::BufReader, path::PathBuf};
+use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
+use cap::Cap;
 use prover::server::serve;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use structopt::StructOpt;
+
+#[global_allocator]
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
+
+mod memory {
+    use crate::ALLOCATOR;
+
+    pub(crate) fn reset_stats() {
+        ALLOCATOR.reset_stats();
+    }
+
+    pub(crate) fn get_max_allocated() -> usize {
+        ALLOCATOR.max_allocated()
+    }
+
+    pub(crate) fn print_stats(title: &str) {
+        let max_memory = get_max_allocated();
+        println!(
+            "{}{}.{} MB",
+            title,
+            max_memory / 1000000,
+            max_memory % 1000000
+        );
+    }
+}
 
 #[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
