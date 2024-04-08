@@ -226,8 +226,8 @@ async fn prove(
 ) -> ProverResult<SgxResponse, ProverError> {
     // If cached input file is not provided
     // write the input to a file that will be read by the SGX instance
-    let input_path = match input_path {
-        Some(path) => path.clone(),
+    let (input_path, need_clean) = match input_path {
+        Some(path) => (path.clone(), false),
         None => {
             let path = get_default_raiko_sgx_inputs_path(
                 &(input.taiko.block_proposed.meta.id.to_string() + ".bin"),
@@ -237,7 +237,7 @@ async fn prove(
                 &input,
             )
             .expect("Unable to serialize input");
-            path
+            (path, true)
         }
     };
 
@@ -247,7 +247,7 @@ async fn prove(
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
         .arg("--blocks-data-file")
-        .arg(input_path)
+        .arg(&input_path)
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
@@ -255,6 +255,11 @@ async fn prove(
     if !output.status.success() {
         // inc_sgx_error(req.block_number);
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
+    }
+
+    if need_clean {
+        std::fs::remove_file(input_path)
+            .map_err(|e| format!("Could not clean up input file: {}", e))?;
     }
 
     Ok(parse_sgx_result(output.stdout)?)
