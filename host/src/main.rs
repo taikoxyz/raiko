@@ -43,10 +43,10 @@ pub struct Opt {
     /// Limit the max number of in-flight requests
     concurrency_limit: usize,
 
-    #[structopt(long, require_equals = true)]
+    #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
     /// Path to a config file that includes sufficent json args to request 
     /// a proof of specified type. Curl json-rpc overrides its contents
-    config_path: Option<PathBuf>,
+    config_path: PathBuf,
 
     #[structopt(long, require_equals = true)]
     /// Use a local directory as a cache for input. Accepts a custom directory.
@@ -59,10 +59,10 @@ pub struct Opt {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let opt = Opt::from_args();
     let config = get_config(None).unwrap();
-    let opt = Opt::deserialize(&config).unwrap();
-    println!("Start config: {:?}", opt);
-
+    println!("Start config: {:?}", config);
+    
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
         .with_env_filter(&opt.log_level)
         .with_test_writer()
@@ -76,14 +76,14 @@ async fn main() -> Result<()> {
 fn get_config(request_config: Option<Value>) -> Result<Value> {
     let mut config = Value::default();
     let opt = Opt::from_args();
+    println!("     cli_args: {:?}", opt);
 
     // Config file has the lowest preference
-    if let Some(config_path) = &opt.config_path {
-        let file = File::open(config_path)?;
-        let reader = BufReader::new(file);
-        let file_config: Value = serde_json::from_reader(reader)?;
-        merge(&mut config, &file_config);
-    };
+    let file = File::open(&opt.config_path)?;
+    let reader = BufReader::new(file);
+    let file_config: Value = serde_json::from_reader(reader)?;
+    merge(&mut config, &file_config);
+    println!("     config_path {:? }Config: {:?}", &opt.config_path, config);
 
     // Command line values have higher preference
     let cli_config = serde_json::to_value(&opt)?;
