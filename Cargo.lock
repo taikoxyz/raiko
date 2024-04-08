@@ -1089,6 +1089,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "cap"
+version = "0.1.2"
+source = "git+https://github.com/brechtpd/cap?branch=more-stats#a75714150823408c0672c120eb68fde4340ca2f5"
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4040,6 +4045,7 @@ dependencies = [
  "bincode",
  "bytemuck",
  "c-kzg",
+ "cap",
  "cfg-if",
  "clap 4.5.4",
  "ethers-core",

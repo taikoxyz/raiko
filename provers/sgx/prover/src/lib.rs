@@ -80,9 +80,14 @@ impl Prover for SgxProver {
             .await;
 
         // Write the input to a file that will be read by the SGX instance
-        let path = cur_dir.join(INPUT_FILE_NAME);
-        bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
-            .expect("Unable to serialize input");
+        let input_path = get_sgx_input_path(
+            &(input.taiko.block_proposed.meta.id.to_string() + ".bin"),
+        );
+        bincode::serialize_into(
+            File::create(&input_path).expect("Unable to open input file"),
+            &input,
+        )
+        .expect("Unable to serialize input");
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> Command {
@@ -109,7 +114,7 @@ impl Prover for SgxProver {
 
         // Prove: run for each block
         let sgx_proof = if config.prove {
-            prove(&mut gramine_cmd(), &cur_dir, input, config.instance_id).await
+            prove(&mut gramine_cmd(), &input_path, config.instance_id).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -211,10 +216,15 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
     Ok(SgxResponse::default())
 }
 
+fn get_sgx_input_path(file_name: &str) -> PathBuf {
+    // Format the input path according the to BlockMetadata.id
+    let input_dir = PathBuf::from("/tmp/inputs");
+    input_dir.join(file_name)
+}
+
 async fn prove(
     gramine_cmd: &mut Command,
-    _cur_dir: &PathBuf,
-    _input: GuestInput,
+    input_path: &PathBuf,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
     // Prove
@@ -222,6 +232,8 @@ async fn prove(
         .arg("one-shot")
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
+        .arg("--blocks-data-file")
+        .arg(&input_path)
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
@@ -230,6 +242,9 @@ async fn prove(
         // inc_sgx_error(req.block_no);
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
     }
+
+    std::fs::remove_file(input_path)
+        .map_err(|e| format!("Could not clean up input file: {}", e))?;
 
     Ok(parse_sgx_result(output.stdout)?)
 }

@@ -29,7 +29,7 @@ impl Prover for Sp1Prover {
         _output: GuestOutput,
         _config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        let config = utils::BabyBearBlake3::new();
+        let config = utils::BabyBearPoseidon2::new();
 
         // Write the input.
         let mut stdin = SP1Stdin::new();

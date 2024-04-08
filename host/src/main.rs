@@ -23,13 +23,39 @@ pub mod provider_db;
 pub mod request;
 pub mod server;
 
-use std::{fmt::Debug, fs::File, io::BufReader, path::PathBuf};
+use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
+use cap::Cap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use server::serve;
 use structopt::StructOpt;
+
+#[global_allocator]
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
+
+mod memory {
+    use crate::ALLOCATOR;
+
+    pub(crate) fn reset_stats() {
+        ALLOCATOR.reset_stats();
+    }
+
+    pub(crate) fn get_max_allocated() -> usize {
+        ALLOCATOR.max_allocated()
+    }
+
+    pub(crate) fn print_stats(title: &str) {
+        let max_memory = get_max_allocated();
+        println!(
+            "{}{}.{} MB",
+            title,
+            max_memory / 1000000,
+            max_memory % 1000000
+        );
+    }
+}
 
 #[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
@@ -42,6 +68,9 @@ pub struct Opt {
     #[structopt(long, require_equals = true, default_value = "16")]
     /// Limit the max number of in-flight requests
     concurrency_limit: usize,
+
+    #[structopt(long, require_equals = true)]
+    log_path: Option<PathBuf>,
 
     #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
     /// Path to a config file that includes sufficent json args to request
