@@ -1,7 +1,7 @@
 #![cfg(feature = "enable")]
 use std::{
     env,
-    fs::{copy, create_dir_all, remove_file, File},
+    fs::{self, copy, create_dir_all, remove_file, File},
     path::PathBuf,
     process::Output,
     str,
@@ -83,8 +83,10 @@ impl Prover for SgxProver {
         let input_path = get_sgx_input_path(
             &(input.taiko.block_proposed.meta.id.to_string() + ".bin"),
         );
+        let file = File::create(&input_path).expect("Unable to open input file");
+        println!("-------------~~ Writing input to {:?}", input_path);
         bincode::serialize_into(
-            File::create(&input_path).expect("Unable to open input file"),
+            file,
             &input,
         )
         .expect("Unable to serialize input");
@@ -219,6 +221,10 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
 fn get_sgx_input_path(file_name: &str) -> PathBuf {
     // Format the input path according the to BlockMetadata.id
     let input_dir = PathBuf::from("/tmp/inputs");
+    if !input_dir.exists() {
+        fs::create_dir_all(&input_dir)
+            .expect(&format!("Failed to create cache directory {:?}", input_dir));
+    }
     input_dir.join(file_name)
 }
 
@@ -239,7 +245,7 @@ async fn prove(
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
     print_output(&output, "Sgx execution");
     if !output.status.success() {
-        // inc_sgx_error(req.block_no);
+        // inc_sgx_error(req.block_number);
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
     }
 

@@ -105,17 +105,13 @@ async fn main() -> Result<()> {
 fn get_config(request_config: Option<Value>) -> Result<Value> {
     let mut config = Value::default();
     let opt = Opt::from_args();
-    println!("     cli_args: {:?}", opt);
-
+    println!("---------~~ Opt: {:?}", opt);
+    
     // Config file has the lowest preference
     let file = File::open(&opt.config_path)?;
     let reader = BufReader::new(file);
     let file_config: Value = serde_json::from_reader(reader)?;
     merge(&mut config, &file_config);
-    println!(
-        "     config_path {:? }Config: {:?}",
-        &opt.config_path, config
-    );
 
     // Command line values have higher preference
     let cli_config = serde_json::to_value(&opt)?;

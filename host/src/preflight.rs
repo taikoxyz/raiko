@@ -36,7 +36,7 @@ use crate::provider_db::{MeasuredProviderDb, ProviderDb};
 
 pub fn preflight(
     rpc_url: Option<String>,
-    block_no: u64,
+    block_number: u64,
     network: Network,
     prover_data: TaikoProverData,
     l1_rpc_url: Option<String>,
@@ -47,8 +47,8 @@ pub fn preflight(
 
     let measurement = Measurement::start("Fetching block data...", true);
 
-    let block = get_block(&provider, block_no, true).unwrap();
-    let parent_block = get_block(&provider, block_no - 1, false).unwrap();
+    let block = get_block(&provider, block_number, true).unwrap();
+    let parent_block = get_block(&provider, block_number - 1, false).unwrap();
 
     println!("block.hash: {:?}", block.header.hash.unwrap());
     println!("block header: {:?}", block.header);
@@ -67,15 +67,15 @@ pub fn preflight(
         };
         let anchor_call = decode_anchor(anchor_tx.input.as_ref())?;
         // The L1 blocks we need
-        let l1_state_block_no = anchor_call.l1BlockId;
-        let l1_inclusion_block_no = l1_state_block_no + 1;
+        let l1_state_block_number = anchor_call.l1BlockId;
+        let l1_inclusion_block_number = l1_state_block_number + 1;
 
         println!("anchor L1 block id: {:?}", anchor_call.l1BlockId);
         println!("anchor L1 state root: {:?}", anchor_call.l1StateRoot);
 
         // Get the L1 state block header so that we can prove the L1 state root
-        let l1_inclusion_block = get_block(&provider_l1, l1_inclusion_block_no, false).unwrap();
-        let l1_state_block = get_block(&provider_l1, l1_state_block_no, false).unwrap();
+        let l1_inclusion_block = get_block(&provider_l1, l1_inclusion_block_number, false).unwrap();
+        let l1_state_block = get_block(&provider_l1, l1_state_block_number, false).unwrap();
         println!(
             "l1_state_root_block hash: {:?}",
             l1_state_block.header.hash.unwrap()
@@ -86,7 +86,7 @@ pub fn preflight(
             &provider_l1,
             network,
             l1_inclusion_block.header.hash.unwrap(),
-            block_no,
+            block_number,
         )?;
 
         // Fetch the tx list
@@ -312,13 +312,13 @@ pub struct GetBlobsResponse {
     pub data: Vec<GetBlobData>,
 }
 
-pub fn get_block(provider: &ReqwestProvider, block_no: u64, full: bool) -> Result<AlloyBlock> {
+pub fn get_block(provider: &ReqwestProvider, block_number: u64, full: bool) -> Result<AlloyBlock> {
     let tokio_handle = tokio::runtime::Handle::current();
     let response = tokio_handle
-        .block_on(async { provider.get_block_by_number((block_no).into(), full).await })?;
+        .block_on(async { provider.get_block_by_number((block_number).into(), full).await })?;
     match response {
         Some(out) => Ok(out),
-        None => Err(anyhow!("No data for {block_no:?}")),
+        None => Err(anyhow!("No data for {block_number:?}")),
     }
 }
 
@@ -326,7 +326,7 @@ pub fn get_block_proposed_event(
     provider: &ReqwestProvider,
     network: Network,
     block_hash: B256,
-    l2_block_no: u64,
+    l2_block_number: u64,
 ) -> Result<(AlloyRpcTransaction, BlockProposed)> {
     let tokio_handle = tokio::runtime::Handle::current();
 
@@ -361,7 +361,7 @@ pub fn get_block_proposed_event(
                 false,
             )
             .unwrap();
-            if event.blockId == raiko_primitives::U256::from(l2_block_no) {
+            if event.blockId == raiko_primitives::U256::from(l2_block_number) {
                 let tx = tokio_handle
                     .block_on(async {
                         provider
@@ -382,7 +382,7 @@ pub fn get_block_proposed_event(
                 false,
             )
             .unwrap();
-            if event.blockId == raiko_primitives::U256::from(l2_block_no) {
+            if event.blockId == raiko_primitives::U256::from(l2_block_number) {
                 let tx = tokio_handle
                     .block_on(async {
                         provider
@@ -394,7 +394,7 @@ pub fn get_block_proposed_event(
             }
         }
     }
-    bail!("No BlockProposed event found for block {l2_block_no}");
+    bail!("No BlockProposed event found for block {l2_block_number}");
 }
 
 fn get_transactions_from_block(block: &AlloyBlock) -> Vec<TxEnvelope> {
@@ -639,8 +639,8 @@ mod test {
     // let (propose_tx, block_metadata) = l1_provider
     // .get_propose(&ProposeQuery {
     // l1_contract: H160::from_slice(l2_chain_spec.l1_contract.unwrap().as_slice()),
-    // l1_block_no: 6093,
-    // l2_block_no: 1000,
+    // l1_block_number: 6093,
+    // l2_block_number: 1000,
     // })
     // .expect("bad get_propose");
     // println!("propose_tx: {:?}", propose_tx);
@@ -713,7 +713,7 @@ mod test {
     // #[ignore]
     // #[tokio::test]
     // async fn test_fetch_and_decode_blob_tx() {
-    // let block_num = std::env::var("TAIKO_L2_BLOCK_NO")
+    // let block_num = std::env::var("TAIKO_L2_block_number")
     // .unwrap_or("94".to_owned())
     // .parse::<u64>()
     // .unwrap();

@@ -127,8 +127,8 @@ impl MemDb {
     }
 
     /// Insert the specified block hash. Panics if a different block hash exists.
-    pub fn insert_block_hash(&mut self, block_no: u64, block_hash: B256) {
-        match self.block_hashes.entry(block_no) {
+    pub fn insert_block_hash(&mut self, block_number: u64, block_hash: B256) {
+        match self.block_hashes.entry(block_number) {
             Entry::Occupied(entry) => assert_eq!(&block_hash, entry.get()),
             Entry::Vacant(entry) => {
                 entry.insert(block_hash);
@@ -175,7 +175,7 @@ impl Database for MemDb {
     }
 
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        let block_no: u64 = number.try_into().map_err(|_| {
+        let block_number: u64 = number.try_into().map_err(|_| {
             anyhow!(
                 "invalid block number: expected <= {}, got {}",
                 u64::MAX,
@@ -183,9 +183,9 @@ impl Database for MemDb {
             )
         })?;
         self.block_hashes
-            .get(&block_no)
+            .get(&block_number)
             .cloned()
-            .ok_or(DbError::BlockNotFound(block_no))
+            .ok_or(DbError::BlockNotFound(block_number))
     }
 }
 
