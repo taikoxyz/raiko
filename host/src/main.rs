@@ -44,7 +44,7 @@ pub struct Opt {
     concurrency_limit: usize,
 
     #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
-    /// Path to a config file that includes sufficent json args to request 
+    /// Path to a config file that includes sufficent json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
 
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
     let opt = Opt::from_args();
     let config = get_config(None).unwrap();
     println!("Start config: {:?}", config);
-    
+
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
         .with_env_filter(&opt.log_level)
         .with_test_writer()
@@ -83,7 +83,10 @@ fn get_config(request_config: Option<Value>) -> Result<Value> {
     let reader = BufReader::new(file);
     let file_config: Value = serde_json::from_reader(reader)?;
     merge(&mut config, &file_config);
-    println!("     config_path {:? }Config: {:?}", &opt.config_path, config);
+    println!(
+        "     config_path {:? }Config: {:?}",
+        &opt.config_path, config
+    );
 
     // Command line values have higher preference
     let cli_config = serde_json::to_value(&opt)?;

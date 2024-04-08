@@ -213,8 +213,8 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
 
 async fn prove(
     gramine_cmd: &mut Command,
-    cur_dir: &PathBuf,
-    input: GuestInput,
+    _cur_dir: &PathBuf,
+    _input: GuestInput,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
     // Prove
