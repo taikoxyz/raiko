@@ -39,20 +39,21 @@ pub struct Opt {
     /// [default: 0.0.0.0:8080]
     address: String,
 
-    #[structopt(long, require_equals = true, default_value = "/tmp/raiko-host")]
-    /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
-    cache: PathBuf,
-
-    #[structopt(long, require_equals = true)]
-    log_path: Option<PathBuf>,
-
-    #[structopt(long, require_equals = true, default_value = "10")]
+    #[structopt(long, require_equals = true, default_value = "16")]
+    /// Limit the max number of in-flight requests
     concurrency_limit: usize,
 
     #[structopt(long, require_equals = true)]
+    /// Path to a config file that includes sufficent json args to request 
+    /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: Option<PathBuf>,
 
+    #[structopt(long, require_equals = true)]
+    /// Use a local directory as a cache for input. Accepts a custom directory.
+    cache: Option<PathBuf>,
+
     #[structopt(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
+    /// Set the log level
     log_level: String,
 }
 

@@ -30,7 +30,12 @@ pub fn serve(opt: Opt) -> tokio::task::JoinHandle<()> {
         .expect("valid socket address");
 
     tokio::spawn(async move {
-        let handler = Handler::new(opt.cache);
+        let handler = if let Some(cache) = opt.cache {
+            Handler::new_with_cache(cache)
+        } else {
+            Handler::new()
+        };
+
         let service = service_fn(move |req| {
             let handler = handler.clone();
             handler.handle_request(req)
@@ -71,26 +76,35 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
 
 #[derive(Clone)]
 struct Handler {
-    cache_dir: PathBuf,
+    cache_dir: Option<PathBuf>,
 }
 
 impl Handler {
-    pub fn new(dir: PathBuf) -> Self {
-        Self { cache_dir: dir }
+    pub fn new() -> Self {
+        Self { cache_dir: None }
     }
 
-    pub fn get(&self, block_no: u64) -> Option<GuestInput> {
-        let path = self.cache_dir.join(format!("input-{}", block_no));
-        if let Ok(file) = File::open(path) {
-            return bincode::deserialize_from(file).ok();
+    pub fn new_with_cache(dir: PathBuf) -> Self {
+        Self {
+            cache_dir: Some(dir),
         }
-        None
     }
 
-    pub fn set(&self, block_no: u64, input: GuestInput) -> super::error::Result<()> {
-        let file = File::create(self.cache_dir.join(format!("input-{}", block_no)))
-            .map_err(HostError::Io)?;
-        bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
+    pub fn get(&self, block_no: u64, network: &str) -> Option<GuestInput> {
+        let mut input: Option<GuestInput> = None;
+        self.cache_dir
+            .as_ref()
+            .map(|dir| dir.join(format!("input-{}-{}", network, block_no)))
+            .map(|path| File::open(path).map(|file| input = bincode::deserialize_from(file).ok()));
+        input
+    }
+
+    pub fn set(&self, block_no: u64, network: &str, input: GuestInput) -> super::error::Result<()> {
+        if let Some(dir) = self.cache_dir.as_ref() {
+            let path = dir.join(format!("input-{}-{}", network, block_no));
+            let file = File::create(path).map_err(HostError::Io)?;
+            bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
+        }
         Ok(())
     }
 
@@ -213,8 +227,9 @@ impl Handler {
 
                 // Use it to find cached input if any  build the config
                 let config = get_config(Some(request)).unwrap();
-                let block_no = config["block_no"].as_u64().unwrap();
-                let cached_input = self.get(block_no);
+                let block_no = config["block_no"].as_u64().expect("block_no not provided");
+                let network = config["network"].as_str().expect("network not provided");
+                let cached_input = self.get(block_no, network);
 
                 // Run the selected prover
                 let proof_type =
@@ -234,7 +249,7 @@ impl Handler {
                     _ => unimplemented!("Prover {:?} not enabled!", proof_type),
                 }?;
                 // Cache the input
-                self.set(block_no, input)?;
+                self.set(block_no, network, input)?;
                 Ok(proof)
             }
             _ => todo!(),

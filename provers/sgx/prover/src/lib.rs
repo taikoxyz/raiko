@@ -79,6 +79,11 @@ impl Prover for SgxProver {
             .get_or_init(|| async { cur_dir.join(CONFIG).join("raiko-guest.manifest.template") })
             .await;
 
+        // Write the input to a file that will be read by the SGX instance
+        let path = cur_dir.join(INPUT_FILE_NAME);
+        bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
+            .expect("Unable to serialize input");
+
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> Command {
             let mut cmd = if direct_mode {
@@ -212,11 +217,6 @@ async fn prove(
     input: GuestInput,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
-    // Write the input to a file that will be read by the SGX instance
-    let path = cur_dir.join(INPUT_FILE_NAME);
-    bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
-        .expect("Unable to serialize input");
-
     // Prove
     let output = gramine_cmd
         .arg("one-shot")
