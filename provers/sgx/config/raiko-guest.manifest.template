@@ -15,7 +15,7 @@ fs.mounts = [
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/tmp", uri = "file:/tmp" },
   { path = "/root/.config/raiko/config", uri = "file:config" },
-  { path = "/input.bin", uri = "file:input.bin" },
+  { path = "/tmp/inputs", uri = "file:/tmp/inputs" },
 
   # encrypted files give an IO error in direct mode so just make it a normal file
   { path = "/root/.config/raiko/secrets", uri = "file:secrets" {{ ", type = 'encrypted', key_name = '_sgx_mrsigner'" if direct_mode != '1' else "" }} },
@@ -51,8 +51,7 @@ sys.enable_extra_runtime_domain_names_conf = true
 sgx.remote_attestation = "dcap"
 
 sgx.allowed_files = [
-  "file:/tmp/sgx",
   "file:config",
-  "file:input.bin",
+  "file:/tmp/inputs",
   {{ " 'file:secrets', " if direct_mode == '1' else ""}}
 ]

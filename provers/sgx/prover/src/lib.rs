@@ -107,7 +107,6 @@ impl Prover for SgxProver {
         let sgx_proof = if config.prove {
             prove(
                 &mut gramine_cmd(),
-                &cur_dir,
                 input,
                 config.instance_id,
                 config.input_path,
@@ -214,22 +213,31 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
     Ok(SgxResponse::default())
 }
 
+fn get_default_raiko_sgx_inputs_path(sub_dir: &str) -> PathBuf {
+    let input_dir = PathBuf::from("/tmp/inputs");
+    input_dir.join(sub_dir)
+}
+
 async fn prove(
     gramine_cmd: &mut Command,
-    cur_dir: &PathBuf,
     input: GuestInput,
     instance_id: u64,
     input_path: Option<PathBuf>,
 ) -> ProverResult<SgxResponse, ProverError> {
     // If cached input file is not provided
     // write the input to a file that will be read by the SGX instance
-    let _input_path = match input_path {
-        Some(path) => path.clone(),
+    let (input_path, need_clean) = match input_path {
+        Some(path) => (path.clone(), false),
         None => {
-            let path = cur_dir.join(INPUT_FILE_NAME);
-            bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
-                .expect("Unable to serialize input");
-            path
+            let path = get_default_raiko_sgx_inputs_path(
+                &(input.taiko.block_proposed.meta.id.to_string() + ".bin"),
+            );
+            bincode::serialize_into(
+                File::create(&path).expect("Unable to open input file"),
+                &input,
+            )
+            .expect("Unable to serialize input");
+            (path, true)
         }
     };
 
@@ -238,6 +246,8 @@ async fn prove(
         .arg("one-shot")
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
+        .arg("--blocks-data-file")
+        .arg(&input_path)
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
@@ -245,6 +255,11 @@ async fn prove(
     if !output.status.success() {
         // inc_sgx_error(req.block_number);
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
+    }
+
+    if need_clean {
+        std::fs::remove_file(input_path)
+            .map_err(|e| format!("Could not clean up input file: {}", e))?;
     }
 
     Ok(parse_sgx_result(output.stdout)?)
