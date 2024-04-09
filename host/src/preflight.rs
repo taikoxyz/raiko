@@ -712,7 +712,7 @@ mod test {
     // #[ignore]
     // #[tokio::test]
     // async fn test_fetch_and_decode_blob_tx() {
-    // let block_num = std::env::var("TAIKO_L2_block_no")
+    // let block_num = std::env::var("TAIKO_L2_BLOCK_NO")
     // .unwrap_or("94".to_owned())
     // .parse::<u64>()
     // .unwrap();
