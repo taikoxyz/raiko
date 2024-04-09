@@ -240,7 +240,6 @@ async fn prove(
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
     print_output(&output, "Sgx execution");
     if !output.status.success() {
-        // inc_sgx_error(req.block_no);
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
     }
 
