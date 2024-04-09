@@ -10,7 +10,7 @@ use std::{
 use alloy_sol_types::SolValue;
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
+    input::{get_input_path, GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
@@ -79,13 +79,6 @@ impl Prover for SgxProver {
             .get_or_init(|| async { cur_dir.join(CONFIG).join("raiko-guest.manifest.template") })
             .await;
 
-        // Write the input to a file that will be read by the SGX instance
-        let input_path =
-            get_sgx_input_path(&(input.taiko.block_proposed.meta.id.to_string() + ".bin"));
-        let file = File::create(&input_path).expect("Unable to open input file");
-        println!("writing SGX input to {:?}", input_path);
-        bincode::serialize_into(file, &input).expect("Unable to serialize input");
-
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> Command {
             let mut cmd = if direct_mode {
@@ -111,7 +104,7 @@ impl Prover for SgxProver {
 
         // Prove: run for each block
         let sgx_proof = if config.prove {
-            prove(&mut gramine_cmd(), &input_path, config.instance_id).await
+            prove(&mut gramine_cmd(), input.clone(), config.instance_id).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -213,28 +206,34 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
     Ok(SgxResponse::default())
 }
 
-fn get_sgx_input_path(file_name: &str) -> PathBuf {
-    // Format the input path according the to BlockMetadata.id
+fn get_sgx_input_path(block_number: u64, network: &str) -> PathBuf {
+    // Format the input path
     let input_dir = PathBuf::from("/tmp/inputs");
     if !input_dir.exists() {
         fs::create_dir_all(&input_dir)
             .unwrap_or_else(|_| panic!("Failed to create cache directory {:?}", input_dir));
     }
-    input_dir.join(file_name)
+    get_input_path(&input_dir, block_number, network)
 }
 
 async fn prove(
     gramine_cmd: &mut Command,
-    input_path: &PathBuf,
+    input: GuestInput,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
+    // Write the input to a file that will be read by the SGX instance
+    let input_path = get_sgx_input_path(input.block_number, &input.network.to_string());
+    let file = File::create(&input_path).expect("Unable to open input file");
+    println!("writing SGX input to {:?}", input_path);
+    bincode::serialize_into(file, &input).expect("Unable to serialize input");
+
     // Prove
     let output = gramine_cmd
         .arg("one-shot")
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
         .arg("--blocks-data-file")
-        .arg(input_path)
+        .arg(&input_path)
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
@@ -243,6 +242,7 @@ async fn prove(
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
     }
 
+    // Delete the input file
     std::fs::remove_file(input_path)
         .map_err(|e| format!("Could not clean up input file: {}", e))?;
 

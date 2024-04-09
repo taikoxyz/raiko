@@ -32,7 +32,7 @@ impl FromStr for ProofType {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProofRequest {
     /// the block number
-    pub block_no: u64,
+    pub block_number: u64,
     /// node for get block by number
     pub rpc: String,
     /// l1 node for signal root verify and get txlist info from proposed transaction.

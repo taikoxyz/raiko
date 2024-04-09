@@ -10,7 +10,8 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
-use raiko_lib::input::GuestInput;
+use raiko_lib::input::{get_input_path, GuestInput};
+use serde::Deserialize;
 use tower::ServiceBuilder;
 use tracing::info;
 
@@ -77,10 +78,6 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
     }
 }
 
-fn get_cached_input_file(dir: &PathBuf, block_no: u64, network: &str) -> PathBuf {
-    dir.join(format!("input-{}-{}", network, block_no))
-}
-
 #[derive(Clone)]
 struct Handler {
     cache_dir: Option<PathBuf>,
@@ -101,18 +98,23 @@ impl Handler {
         }
     }
 
-    pub fn get(&self, block_no: u64, network: &str) -> Option<GuestInput> {
+    pub fn get(&self, block_number: u64, network: &str) -> Option<GuestInput> {
         let mut input: Option<GuestInput> = None;
         self.cache_dir
             .as_ref()
-            .map(|dir| get_cached_input_file(dir, block_no, network))
+            .map(|dir| get_input_path(dir, block_number, network))
             .map(|path| File::open(path).map(|file| input = bincode::deserialize_from(file).ok()));
         input
     }
 
-    pub fn set(&self, block_no: u64, network: &str, input: GuestInput) -> super::error::Result<()> {
+    pub fn set(
+        &self,
+        block_number: u64,
+        network: &str,
+        input: GuestInput,
+    ) -> super::error::Result<()> {
         if let Some(dir) = self.cache_dir.as_ref() {
-            let path = get_cached_input_file(dir, block_no, network);
+            let path = get_input_path(dir, block_number, network);
             if !path.exists() {
                 let file = File::create(&path).map_err(HostError::Io)?;
                 println!("caching input for {:?}", path);
@@ -242,9 +244,12 @@ impl Handler {
 
                 // Use it to find cached input if any  build the config
                 let config = get_config(Some(request)).unwrap();
-                let block_no = config["block_no"].as_u64().expect("block_no not provided");
-                let network = config["network"].as_str().expect("network not provided");
-                let cached_input = self.get(block_no, network);
+                let req = ProofRequest::deserialize(config.clone()).unwrap();
+                println!(
+                    "# Generating proof for block {} on {}",
+                    req.block_number, req.network
+                );
+                let cached_input = self.get(req.block_number, &req.network);
 
                 // Run the selected prover
                 let proof_type =
@@ -264,7 +269,7 @@ impl Handler {
                     _ => unimplemented!("Prover {:?} not enabled!", proof_type),
                 }?;
                 // Cache the input
-                self.set(block_no, network, input)?;
+                self.set(req.block_number, &req.network, input)?;
                 Ok(proof)
             }
             _ => todo!(),

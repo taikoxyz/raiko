@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use core::fmt::Debug;
+#[cfg(feature = "std")]
+use std::path::PathBuf;
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
@@ -37,6 +39,8 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 pub struct GuestInput {
     /// The network to generate the proof for
     pub network: Network,
+    /// Block number
+    pub block_number: u64,
     /// Block hash - for reference!
     pub block_hash: B256,
     /// Previous block header
@@ -320,6 +324,11 @@ impl From<taiko_a6::BlockProposed> for BlockProposed {
                 .collect(),
         }
     }
+}
+
+#[cfg(feature = "std")]
+pub fn get_input_path(dir: &PathBuf, block_number: u64, network: &str) -> PathBuf {
+    dir.join(format!("input-{}-{}.bin", network, block_number))
 }
 
 #[cfg(test)]
