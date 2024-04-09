@@ -77,6 +77,10 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
     }
 }
 
+fn get_cached_input_file(dir: &PathBuf, block_no: u64, network: &str) -> PathBuf {
+    dir.join(format!("input-{}-{}", network, block_no))
+}
+
 #[derive(Clone)]
 struct Handler {
     cache_dir: Option<PathBuf>,
@@ -101,14 +105,14 @@ impl Handler {
         let mut input: Option<GuestInput> = None;
         self.cache_dir
             .as_ref()
-            .map(|dir| dir.join(format!("input-{}-{}", network, block_no)))
+            .map(|dir| get_cached_input_file(dir, block_no, network))
             .map(|path| File::open(path).map(|file| input = bincode::deserialize_from(file).ok()));
         input
     }
 
     pub fn set(&self, block_no: u64, network: &str, input: GuestInput) -> super::error::Result<()> {
         if let Some(dir) = self.cache_dir.as_ref() {
-            let path = dir.join(format!("input-{}-{}", network, block_no));
+            let path = get_cached_input_file(dir, block_no, network);
             if !path.exists() {
                 let file = File::create(&path).map_err(HostError::Io)?;
                 println!("caching input for {:?}", path);
