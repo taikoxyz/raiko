@@ -32,7 +32,7 @@ use serde_json::Value;
 use server::serve;
 use structopt::StructOpt;
 use tracing_appender::{
-    non_blocking::{WorkerGuard},
+    non_blocking::WorkerGuard,
     rolling::{Builder, Rotation},
 };
 use tracing_subscriber::FmtSubscriber;

@@ -20,7 +20,6 @@ pub async fn execute<D: Prover>(
     config: &serde_json::Value,
     cached_input: Option<GuestInput>,
 ) -> Result<(GuestInput, Proof)> {
-
     // Generate the input
     let input = if let Some(cached_input) = cached_input {
         println!("Using cached input");
@@ -33,7 +32,6 @@ pub async fn execute<D: Prover>(
         memory::print_stats("Input generation peak memory used: ");
         input
     };
-    
 
     // 2. Test run the block
     memory::reset_stats();
