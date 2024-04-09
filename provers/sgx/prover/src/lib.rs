@@ -216,8 +216,7 @@ fn write_input(input: GuestInput) -> ProverResult<PathBuf, String> {
     );
     let file =
         File::create(&input_path).map_err(|e| format!("Could not create input file: {}", e))?;
-    serde_json::to_writer(&file, &input)
-        .map_err(|e| format!("Could not write input file: {}", e))?;
+    bincode::serialize_into(file, &input).expect("Unable to serialize input");
     Ok(input_path)
 }
 
