@@ -1,7 +1,7 @@
 #![cfg(feature = "enable")]
 use std::{
     env,
-    fs::{self, copy, create_dir_all, remove_file, File},
+    fs::{copy, create_dir_all, remove_file, File},
     path::PathBuf,
     process::Output,
     str,
@@ -10,7 +10,7 @@ use std::{
 use alloy_sol_types::SolValue;
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{self, get_input_path, GuestInput, GuestOutput},
+    input::{get_input_path, GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
@@ -209,8 +209,12 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<(), String> {
 }
 
 fn write_input(input: GuestInput) -> ProverResult<PathBuf, String> {
-    let input_path = get_input_path(&PathBuf::from(SGX_INPUT_PATH), block_number, network);
-    let mut file =
+    let input_path = get_input_path(
+        &PathBuf::from(SGX_INPUT_PATH),
+        input.block_number,
+        &input.network.to_string(),
+    );
+    let file =
         File::create(&input_path).map_err(|e| format!("Could not create input file: {}", e))?;
     serde_json::to_writer(&file, &input)
         .map_err(|e| format!("Could not write input file: {}", e))?;
@@ -231,7 +235,7 @@ async fn prove(
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
         .arg("--blocks-data-file")
-        .arg(input_path)
+        .arg(input_path.clone())
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
