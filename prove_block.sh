@@ -11,6 +11,8 @@ rangeEnd="$4"
 # Check the caain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
   rpc="https://rpc.ankr.com/eth"
+elif [ "$chain" == "holesky" ]; then
+  rpc="https://ethereum-holesky-rpc.publicnode.com"
 elif [ "$chain" == "taiko_a6" ]; then
   rpc="https://rpc.katla.taiko.xyz"
   l1Rpc="https://l1rpc.katla.taiko.xyz"

@@ -52,9 +52,10 @@ pub fn preflight(
 
     println!("\nblock.hash: {:?}", block.header.hash.unwrap());
     println!("block.parent_hash: {:?}", block.header.parent_hash);
+    println!("block gas used: {:?}", block.header.gas_used.as_limbs()[0]);
     println!("block transactions: {:?}", block.transactions.len());
 
-    let taiko_guest_input = if network != Network::Ethereum {
+    let taiko_guest_input = if network.is_taiko() {
         let http_l1 = Http::new(Url::parse(&l1_rpc_url.clone().unwrap()).expect("invalid rpc url"));
         let provider_l1 =
             ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http_l1, true)));
@@ -402,18 +403,20 @@ pub fn get_block_proposed_event(
 
 fn get_transactions_from_block(block: &AlloyBlock) -> Vec<TxEnvelope> {
     let mut transactions: Vec<TxEnvelope> = Vec::new();
-    match &block.transactions {
-        BlockTransactions::Full(txs) => {
-            for tx in txs {
-                transactions.push(from_block_tx(tx));
-            }
-        },
-        _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
-    };
-    assert!(
-        transactions.len() == block.transactions.len(),
-        "unexpected number of transactions"
-    );
+    if !block.transactions.is_empty() {
+        match &block.transactions {
+            BlockTransactions::Full(txs) => {
+                for tx in txs {
+                    transactions.push(from_block_tx(tx));
+                }
+            },
+            _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
+        };
+        assert!(
+            transactions.len() == block.transactions.len(),
+            "unexpected number of transactions"
+        );
+    }
     transactions
 }
 

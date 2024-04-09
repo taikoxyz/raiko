@@ -36,7 +36,7 @@ use super::TxExecStrategy;
 use crate::{
     builder::BlockBuilder,
     clear_line,
-    consts::{get_network_spec, Network, GWEI_TO_WEI},
+    consts::{get_network_spec, GWEI_TO_WEI},
     guest_mem_forget, inplace_print, print_duration,
     taiko_utils::{check_anchor_tx, generate_transactions},
     time::{AddAssign, Duration, Instant},
@@ -73,14 +73,14 @@ impl TxExecStrategy for TkoTxExecStrategy {
         println!("spec_id: {:?}", spec_id);
 
         let network = block_builder.input.network;
-        let is_taiko = network != Network::Ethereum;
+        let is_taiko = network.is_taiko();
 
         // generate the transactions from the tx list
         // For taiko blocks, insert the anchor tx as the first transaction
-        let anchor_tx = if block_builder.input.network == Network::Ethereum {
-            None
-        } else {
+        let anchor_tx = if block_builder.input.network.is_taiko() {
             Some(serde_json::from_str(&block_builder.input.taiko.anchor_tx.clone()).unwrap())
+        } else {
+            None
         };
         let mut transactions = generate_transactions(
             block_builder.input.taiko.block_proposed.meta.blobUsed,
@@ -170,7 +170,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             let tx_env = &mut evm.env_mut().tx;
             fill_eth_tx_env(tx_env, &tx)?;
             // Set and check some taiko specific values
-            if network != Network::Ethereum {
+            if network.is_taiko() {
                 // set if the tx is the anchor tx
                 tx_env.taiko.is_anchor = is_anchor;
                 // set the treasury address
