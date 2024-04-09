@@ -16,43 +16,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod host;
-mod metrics;
-mod prover;
+pub mod error;
+pub mod execution;
+pub mod preflight;
+pub mod provider_db;
+pub mod request;
+pub mod server;
 
 use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
 use cap::Cap;
-use prover::server::serve;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use server::serve;
 use structopt::StructOpt;
+use tracing_appender::{
+    non_blocking::WorkerGuard,
+    rolling::{Builder, Rotation},
+};
+use tracing_subscriber::FmtSubscriber;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
-
-mod memory {
-    use crate::ALLOCATOR;
-
-    pub(crate) fn reset_stats() {
-        ALLOCATOR.reset_stats();
-    }
-
-    pub(crate) fn get_max_allocated() -> usize {
-        ALLOCATOR.max_allocated()
-    }
-
-    pub(crate) fn print_stats(title: &str) {
-        let max_memory = get_max_allocated();
-        println!(
-            "{}{}.{} MB",
-            title,
-            max_memory / 1000000,
-            max_memory % 1000000
-        );
-    }
-}
 
 #[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
@@ -62,51 +48,57 @@ pub struct Opt {
     /// [default: 0.0.0.0:8080]
     address: String,
 
-    #[structopt(long, require_equals = true, default_value = "/tmp")]
-    /// Use a local directory as a cache for RPC calls. Accepts a custom directory.
-    cache: PathBuf,
+    #[structopt(long, require_equals = true, default_value = "16")]
+    /// Limit the max number of in-flight requests
+    concurrency_limit: usize,
 
     #[structopt(long, require_equals = true)]
     log_path: Option<PathBuf>,
 
-    #[structopt(long, require_equals = true, default_value = "1000")]
-    proof_cache: usize,
-
-    #[structopt(long, require_equals = true, default_value = "10")]
-    concurrency_limit: usize,
-
-    #[structopt(long, require_equals = true, default_value = "taiko_a7")]
-    network: String,
-
     #[structopt(long, require_equals = true, default_value = "7")]
-    max_log_days: usize,
+    max_log: usize,
 
-    #[structopt(long, require_equals = true, default_value = "20")]
-    // WARNING: must be larger than concurrency_limit
-    max_caches: usize,
+    #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
+    /// Path to a config file that includes sufficent json args to request
+    /// a proof of specified type. Curl json-rpc overrides its contents
+    config_path: PathBuf,
 
     #[structopt(long, require_equals = true)]
-    config_path: Option<PathBuf>,
+    /// Use a local directory as a cache for input. Accepts a custom directory.
+    cache_path: Option<PathBuf>,
 
     #[structopt(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
+    /// Set the log level
     log_level: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let opt = Opt::from_args();
     let config = get_config(None).unwrap();
-    let opt = Opt::deserialize(&config).unwrap();
-    println!("Start config: {:?}", opt);
+    println!("Start config:\n{:#?}", config);
+    println!("Args:\n{:#?}", opt);
 
-    let subscriber_builder = tracing_subscriber::FmtSubscriber::builder()
-        .with_env_filter(&opt.log_level)
+    let _guard = subscribe_log(&opt.log_path, &opt.log_level, opt.max_log);
+
+    serve(opt).await?;
+    Ok(())
+}
+
+fn subscribe_log(
+    log_path: &Option<PathBuf>,
+    log_level: &String,
+    max_log: usize,
+) -> Option<WorkerGuard> {
+    let subscriber_builder = FmtSubscriber::builder()
+        .with_env_filter(log_level)
         .with_test_writer();
-    let _guard = match opt.log_path {
+    match log_path {
         Some(ref log_path) => {
-            let file_appender = tracing_appender::rolling::Builder::new()
-                .rotation(tracing_appender::rolling::Rotation::DAILY)
+            let file_appender = Builder::new()
+                .rotation(Rotation::DAILY)
                 .filename_prefix("raiko.log")
-                .max_log_files(opt.max_log_days)
+                .max_log_files(max_log)
                 .build(log_path)
                 .expect("initializing rolling file appender failed");
             let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
@@ -119,24 +111,19 @@ async fn main() -> Result<()> {
             tracing::subscriber::set_global_default(subscriber).unwrap();
             None
         }
-    };
-
-    serve(opt).await?;
-    Ok(())
+    }
 }
 
 /// Gets the config going through all possible sources
-pub fn get_config(request_config: Option<Value>) -> Result<Value> {
+fn get_config(request_config: Option<Value>) -> Result<Value> {
     let mut config = Value::default();
     let opt = Opt::from_args();
 
     // Config file has the lowest preference
-    if let Some(config_path) = &opt.config_path {
-        let file = File::open(config_path)?;
-        let reader = BufReader::new(file);
-        let file_config: Value = serde_json::from_reader(reader)?;
-        merge(&mut config, &file_config);
-    };
+    let file = File::open(&opt.config_path)?;
+    let reader = BufReader::new(file);
+    let file_config: Value = serde_json::from_reader(reader)?;
+    merge(&mut config, &file_config);
 
     // Command line values have higher preference
     let cli_config = serde_json::to_value(&opt)?;
@@ -159,5 +146,27 @@ fn merge(a: &mut Value, b: &Value) {
             }
         }
         (a, b) => *a = b.clone(),
+    }
+}
+
+mod memory {
+    use crate::ALLOCATOR;
+
+    pub(crate) fn reset_stats() {
+        ALLOCATOR.reset_stats();
+    }
+
+    pub(crate) fn get_max_allocated() -> usize {
+        ALLOCATOR.max_allocated()
+    }
+
+    pub(crate) fn print_stats(title: &str) {
+        let max_memory = get_max_allocated();
+        println!(
+            "{}{}.{} MB",
+            title,
+            max_memory / 1000000,
+            max_memory % 1000000
+        );
     }
 }

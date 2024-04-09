@@ -1,4 +1,8 @@
-use std::str::FromStr;
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use hyper::{
     body::{Buf, HttpBody},
@@ -6,17 +10,16 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
-use prometheus::{Encoder, TextEncoder};
+use raiko_lib::input::{get_input_path, GuestInput};
+use serde::Deserialize;
 use tower::ServiceBuilder;
 use tracing::info;
 
 use crate::{
+    error::HostError,
+    execution::execute,
     get_config,
-    prover::{
-        error::HostError,
-        execution::execute,
-        request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
-    },
+    request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
     Opt,
 };
 
@@ -31,7 +34,12 @@ pub fn serve(opt: Opt) -> tokio::task::JoinHandle<()> {
         .expect("valid socket address");
 
     tokio::spawn(async move {
-        let handler = Handler::new();
+        let handler = if let Some(cache) = opt.cache_path {
+            Handler::new_with_cache(cache)
+        } else {
+            Handler::new()
+        };
+
         let service = service_fn(move |req| {
             let handler = handler.clone();
             handler.handle_request(req)
@@ -71,11 +79,49 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
 }
 
 #[derive(Clone)]
-struct Handler;
+struct Handler {
+    cache_dir: Option<PathBuf>,
+}
 
 impl Handler {
-    fn new() -> Self {
-        Self {}
+    pub fn new() -> Self {
+        Self { cache_dir: None }
+    }
+
+    pub fn new_with_cache(dir: PathBuf) -> Self {
+        if !dir.exists() {
+            fs::create_dir_all(&dir)
+                .unwrap_or_else(|_| panic!("Failed to create cache directory {:?}", dir));
+        }
+        Self {
+            cache_dir: Some(dir),
+        }
+    }
+
+    pub fn get(&self, block_number: u64, network: &str) -> Option<GuestInput> {
+        let mut input: Option<GuestInput> = None;
+        self.cache_dir
+            .as_ref()
+            .map(|dir| get_input_path(dir, block_number, network))
+            .map(|path| File::open(path).map(|file| input = bincode::deserialize_from(file).ok()));
+        input
+    }
+
+    pub fn set(
+        &self,
+        block_number: u64,
+        network: &str,
+        input: GuestInput,
+    ) -> super::error::Result<()> {
+        if let Some(dir) = self.cache_dir.as_ref() {
+            let path = get_input_path(dir, block_number, network);
+            if !path.exists() {
+                let file = File::create(&path).map_err(HostError::Io)?;
+                println!("caching input for {:?}", path);
+                bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
+            }
+        }
+        Ok(())
     }
 
     async fn handle_request(mut self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
@@ -161,18 +207,19 @@ impl Handler {
                 Ok(resp)
             }
 
-            // serve metrics
-            (&Method::GET, "/metrics") => {
-                let encoder = TextEncoder::new();
-                let mut buffer = vec![];
-                let mf = prometheus::gather();
-                encoder.encode(&mf, &mut buffer).unwrap();
-                let resp = Response::builder()
-                    .header(hyper::header::CONTENT_TYPE, encoder.format_type())
-                    .body(Body::from(buffer))
-                    .unwrap();
-                Ok(resp)
-            }
+            // TODO(Cecilia): better way to serve metrics, perhaps can be done in OpenAPI
+            // refactoring serve metrics
+            // (&Method::GET, "/metrics") => {
+            //     let encoder = TextEncoder::new();
+            //     let mut buffer = vec![];
+            //     let mf = prometheus::gather();
+            //     encoder.encode(&mf, &mut buffer).unwrap();
+            //     let resp = Response::builder()
+            //         .header(hyper::header::CONTENT_TYPE, encoder.format_type())
+            //         .body(Body::from(buffer))
+            //         .unwrap();
+            //     Ok(resp)
+            // }
 
             // everything else
             _ => {
@@ -195,22 +242,35 @@ impl Handler {
                 let request: serde_json::Value =
                     params.first().expect("params must not be empty").to_owned();
 
-                // Use it to build the config
+                // Use it to find cached input if any  build the config
                 let config = get_config(Some(request)).unwrap();
+                let req = ProofRequest::deserialize(config.clone()).unwrap();
+                println!(
+                    "# Generating proof for block {} on {}",
+                    req.block_number, req.network
+                );
+                let cached_input = self.get(req.block_number, &req.network);
 
                 // Run the selected prover
                 let proof_type =
                     ProofType::from_str(config["proof_type"].as_str().unwrap()).unwrap();
-                match proof_type {
-                    ProofType::Native => execute::<super::execution::NativeDriver>(&config).await,
+                let (input, proof) = match proof_type {
+                    ProofType::Native => {
+                        execute::<super::execution::NativeDriver>(&config, cached_input).await
+                    }
                     #[cfg(feature = "sp1")]
-                    ProofType::Sp1 => execute::<sp1_prover::Sp1Prover>(&config).await,
+                    ProofType::Sp1 => execute::<sp1_prover::Sp1Prover>(&config, cached_input).await,
                     #[cfg(feature = "risc0")]
-                    ProofType::Risc0 => execute::<risc0_prover::Risc0Prover>(&config).await,
+                    ProofType::Risc0 => {
+                        execute::<risc0_prover::Risc0Prover>(&config, cached_input).await
+                    }
                     #[cfg(feature = "sgx")]
-                    ProofType::Sgx => execute::<sgx_prover::SgxProver>(&config).await,
+                    ProofType::Sgx => execute::<sgx_prover::SgxProver>(&config, cached_input).await,
                     _ => unimplemented!("Prover {:?} not enabled!", proof_type),
-                }
+                }?;
+                // Cache the input
+                self.set(req.block_number, &req.network, input)?;
+                Ok(proof)
             }
             _ => todo!(),
         }

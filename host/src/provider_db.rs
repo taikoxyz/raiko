@@ -27,7 +27,7 @@ use revm::{
 };
 use tokio::runtime::Handle;
 
-use crate::host::host::get_block;
+use crate::preflight::get_block;
 
 pub struct ProviderDb {
     pub provider: ReqwestProvider,
@@ -140,7 +140,13 @@ impl ProviderDb {
             .unwrap_or(&self.block_number);
         let headers = (*earliest_block..self.block_number)
             .rev()
-            .map(|block_no| to_header(&get_block(&self.provider, block_no, false).unwrap().header))
+            .map(|block_number| {
+                to_header(
+                    &get_block(&self.provider, block_number, false)
+                        .unwrap()
+                        .header,
+                )
+            })
             .collect();
         Ok(headers)
     }

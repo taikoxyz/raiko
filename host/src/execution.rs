@@ -14,21 +14,24 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use super::error::Result;
-use crate::{
-    host::host::preflight,
-    memory,
-    prover::{error::HostError, request::ProofRequest},
-};
+use crate::{error::HostError, memory, preflight::preflight, request::ProofRequest};
 
-pub async fn execute<D: Prover>(config: &serde_json::Value) -> Result<Proof> {
-    println!("- {:?}", config);
-
+pub async fn execute<D: Prover>(
+    config: &serde_json::Value,
+    cached_input: Option<GuestInput>,
+) -> Result<(GuestInput, Proof)> {
     // Generate the input
-    memory::reset_stats();
-    let measurement = Measurement::start("Generating input...", false);
-    let input = prepare_input(config).await?;
-    measurement.stop_with("=> Input generated");
-    memory::print_stats("Input generation peak memory used: ");
+    let input = if let Some(cached_input) = cached_input {
+        println!("Using cached input");
+        cached_input
+    } else {
+        memory::reset_stats();
+        let measurement = Measurement::start("Generating input...", false);
+        let input = prepare_input(config).await?;
+        measurement.stop_with("=> Input generated");
+        memory::print_stats("Input generation peak memory used: ");
+        input
+    };
 
     // 2. Test run the block
     memory::reset_stats();
@@ -58,8 +61,9 @@ pub async fn execute<D: Prover>(config: &serde_json::Value) -> Result<Proof> {
     // Prove
     memory::reset_stats();
     let measurement = Measurement::start("Generating proof...", false);
-    let res = D::run(input, output, config)
+    let res = D::run(input.clone(), output, config)
         .await
+        .map(|proof| (input, proof))
         .map_err(|e| HostError::GuestError(e.to_string()));
     measurement.stop_with("=> Proof generated");
     memory::print_stats("Prover peak memory used: ");

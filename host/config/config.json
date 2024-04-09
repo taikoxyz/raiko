@@ -1,12 +1,19 @@
 {
-    "bind": "0.0.0.0:8080",
-    "cache": "/tmp/sgx",
-    "log_path": "./log/raiko",
-    "concurrency_limit": 10,
-    "max_log_days": 7,
-    "log_level": "info",
     "network": "taiko_a7",
+    "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
+    "proof_type": "sgx",
     "sgx": {
-        "instance_id": 0
+        "instance_id": 456,
+        "setup": false,
+        "bootstrap": false,
+        "prove": true,
+        "input_path": null
+    },
+    "risc0": {
+        "bonsai": true,
+        "snark": true,
+        "profile": false,
+        "execution_po2": 20
     }
 }
