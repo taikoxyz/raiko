@@ -32,7 +32,7 @@ use serde_json::Value;
 use server::serve;
 use structopt::StructOpt;
 use tracing_appender::{
-    non_blocking::{self, WorkerGuard},
+    non_blocking::{WorkerGuard},
     rolling::{Builder, Rotation},
 };
 use tracing_subscriber::FmtSubscriber;
@@ -79,7 +79,6 @@ async fn main() -> Result<()> {
     println!("Start config:\n{:#?}", config);
     println!("Args:\n{:#?}", opt);
 
-
     let _guard = subscribe_log(&opt.log_path, &opt.log_level, opt.max_log);
 
     serve(opt).await?;
@@ -92,7 +91,7 @@ fn subscribe_log(
     max_log: usize,
 ) -> Option<WorkerGuard> {
     let subscriber_builder = FmtSubscriber::builder()
-        .with_env_filter(&log_level)
+        .with_env_filter(log_level)
         .with_test_writer();
     match log_path {
         Some(ref log_path) => {
@@ -149,7 +148,6 @@ fn merge(a: &mut Value, b: &Value) {
         (a, b) => *a = b.clone(),
     }
 }
-
 
 mod memory {
     use crate::ALLOCATOR;

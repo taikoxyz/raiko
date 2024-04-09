@@ -218,7 +218,7 @@ fn get_sgx_input_path(file_name: &str) -> PathBuf {
     let input_dir = PathBuf::from("/tmp/inputs");
     if !input_dir.exists() {
         fs::create_dir_all(&input_dir)
-            .expect(&format!("Failed to create cache directory {:?}", input_dir));
+            .unwrap_or_else(|_| panic!("Failed to create cache directory {:?}", input_dir));
     }
     input_dir.join(file_name)
 }
@@ -234,7 +234,7 @@ async fn prove(
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
         .arg("--blocks-data-file")
-        .arg(&input_path)
+        .arg(input_path)
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;

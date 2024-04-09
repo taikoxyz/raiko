@@ -10,7 +10,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
-use prometheus::{Encoder, TextEncoder};
+
 use raiko_lib::input::GuestInput;
 use tower::ServiceBuilder;
 use tracing::info;
@@ -90,7 +90,7 @@ impl Handler {
 
     pub fn new_with_cache(dir: PathBuf) -> Self {
         if !dir.exists() {
-            fs::create_dir_all(&dir).expect(&format!("Failed to create cache directory {:?}", dir));
+            fs::create_dir_all(&dir).unwrap_or_else(|_| panic!("Failed to create cache directory {:?}", dir));
         }
         Self {
             cache_dir: Some(dir),
@@ -201,8 +201,8 @@ impl Handler {
                 Ok(resp)
             }
 
-            // TODO(Cecilia): better way to serve metrics, perhaps can be done in OpenAPI refactoring
-            // serve metrics
+            // TODO(Cecilia): better way to serve metrics, perhaps can be done in OpenAPI
+            // refactoring serve metrics
             // (&Method::GET, "/metrics") => {
             //     let encoder = TextEncoder::new();
             //     let mut buffer = vec![];
