@@ -18,7 +18,6 @@ impl FromStr for ProofType {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!("proof type: {}", s);
         match s.trim().to_lowercase().as_str() {
             "native" => Ok(ProofType::Native),
             "sp1" => Ok(ProofType::Sp1),

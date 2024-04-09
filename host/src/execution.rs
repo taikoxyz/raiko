@@ -14,26 +14,22 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use super::error::Result;
-use crate::{error::HostError, preflight::preflight, request::ProofRequest};
+use crate::{memory, error::HostError, preflight::preflight, request::ProofRequest};
 
 pub async fn execute<D: Prover>(
     config: &serde_json::Value,
     cached_input: Option<GuestInput>,
 ) -> Result<(GuestInput, Proof)> {
-    println!("- {:?}", config);
 
     // Generate the input
-    let input = match cached_input {
-        Some(input) => input,
-        None => {
-            let measurement = Measurement::start("Generating input...", false);
-            let input = prepare_input(config).await?;
-            measurement.stop_with("=> Input generated");
-            input
-        }
-    };
+    memory::reset_stats();
+    let measurement = Measurement::start("Generating input...", false);
+    let input = prepare_input(config).await?;
+    measurement.stop_with("=> Input generated");
+    memory::print_stats("Input generation peak memory used: ");
 
     // 2. Test run the block
+    memory::reset_stats();
     let build_result = TaikoStrategy::build_from(&input);
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
@@ -55,14 +51,17 @@ pub async fn execute<D: Prover>(
             GuestOutput::Failure
         }
     };
+    memory::print_stats("Guest program peak memory used: ");
 
     // Prove
+    memory::reset_stats();
     let measurement = Measurement::start("Generating proof...", false);
     let res = D::run(input.clone(), output, config)
         .await
         .map(|proof| (input, proof))
         .map_err(|e| HostError::GuestError(e.to_string()));
     measurement.stop_with("=> Proof generated");
+    memory::print_stats("Prover peak memory used: ");
 
     res
 }

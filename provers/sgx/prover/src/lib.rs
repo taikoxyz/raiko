@@ -80,16 +80,11 @@ impl Prover for SgxProver {
             .await;
 
         // Write the input to a file that will be read by the SGX instance
-        let input_path = get_sgx_input_path(
-            &(input.taiko.block_proposed.meta.id.to_string() + ".bin"),
-        );
+        let input_path =
+            get_sgx_input_path(&(input.taiko.block_proposed.meta.id.to_string() + ".bin"));
         let file = File::create(&input_path).expect("Unable to open input file");
-        println!("-------------~~ Writing input to {:?}", input_path);
-        bincode::serialize_into(
-            file,
-            &input,
-        )
-        .expect("Unable to serialize input");
+        println!("writing SGX input to {:?}", input_path);
+        bincode::serialize_into(file, &input).expect("Unable to serialize input");
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> Command {

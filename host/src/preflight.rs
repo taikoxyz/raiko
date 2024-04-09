@@ -50,8 +50,7 @@ pub fn preflight(
     let block = get_block(&provider, block_no, true).unwrap();
     let parent_block = get_block(&provider, block_no - 1, false).unwrap();
 
-    println!("block.hash: {:?}", block.header.hash.unwrap());
-    println!("block header: {:?}", block.header);
+    println!("\nblock.hash: {:?}", block.header.hash.unwrap());
     println!("block.parent_hash: {:?}", block.header.parent_hash);
     println!("block transactions: {:?}", block.transactions.len());
 

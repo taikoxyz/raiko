@@ -1,4 +1,8 @@
-use std::{fs::{self, File}, path::PathBuf, str::FromStr};
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use hyper::{
     body::{Buf, HttpBody},
@@ -30,7 +34,7 @@ pub fn serve(opt: Opt) -> tokio::task::JoinHandle<()> {
         .expect("valid socket address");
 
     tokio::spawn(async move {
-        let handler = if let Some(cache) = opt.cache {
+        let handler = if let Some(cache) = opt.cache_path {
             Handler::new_with_cache(cache)
         } else {
             Handler::new()
@@ -86,8 +90,7 @@ impl Handler {
 
     pub fn new_with_cache(dir: PathBuf) -> Self {
         if !dir.exists() {
-            fs::create_dir_all(&dir)
-                .expect(&format!("Failed to create cache directory {:?}", dir));
+            fs::create_dir_all(&dir).expect(&format!("Failed to create cache directory {:?}", dir));
         }
         Self {
             cache_dir: Some(dir),
@@ -108,10 +111,9 @@ impl Handler {
             let path = dir.join(format!("input-{}-{}", network, block_no));
             if !path.exists() {
                 let file = File::create(&path).map_err(HostError::Io)?;
-                println!("------------~~ Setting input for {:?}", path);
+                println!("caching input for {:?}", path);
                 bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
             }
-
         }
         Ok(())
     }
@@ -199,18 +201,19 @@ impl Handler {
                 Ok(resp)
             }
 
+            // TODO(Cecilia): better way to serve metrics, perhaps can be done in OpenAPI refactoring
             // serve metrics
-            (&Method::GET, "/metrics") => {
-                let encoder = TextEncoder::new();
-                let mut buffer = vec![];
-                let mf = prometheus::gather();
-                encoder.encode(&mf, &mut buffer).unwrap();
-                let resp = Response::builder()
-                    .header(hyper::header::CONTENT_TYPE, encoder.format_type())
-                    .body(Body::from(buffer))
-                    .unwrap();
-                Ok(resp)
-            }
+            // (&Method::GET, "/metrics") => {
+            //     let encoder = TextEncoder::new();
+            //     let mut buffer = vec![];
+            //     let mf = prometheus::gather();
+            //     encoder.encode(&mf, &mut buffer).unwrap();
+            //     let resp = Response::builder()
+            //         .header(hyper::header::CONTENT_TYPE, encoder.format_type())
+            //         .body(Body::from(buffer))
+            //         .unwrap();
+            //     Ok(resp)
+            // }
 
             // everything else
             _ => {
