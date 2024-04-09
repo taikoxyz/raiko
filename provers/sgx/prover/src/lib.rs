@@ -1,7 +1,7 @@
 #![cfg(feature = "enable")]
 use std::{
     env,
-    fs::{self, copy, create_dir_all, remove_file, File},
+    fs::{copy, create_dir_all, remove_file, File},
     path::PathBuf,
     process::Output,
     str,
@@ -40,6 +40,7 @@ pub struct SgxResponse {
 pub const ELF_NAME: &str = "sgx-guest";
 pub const INPUT_FILE_NAME: &str = "input.bin";
 pub const CONFIG: &str = "../../provers/sgx/config";
+pub const SGX_INPUT_PATH: &str = "/tmp/inputs";
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
@@ -104,7 +105,7 @@ impl Prover for SgxProver {
 
         // Prove: run for each block
         let sgx_proof = if config.prove {
-            prove(&mut gramine_cmd(), input.clone(), config.instance_id).await
+            prove(input, &mut gramine_cmd(), config.instance_id).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -128,12 +129,13 @@ impl Prover for SgxProver {
     }
 }
 
-async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse, String> {
+async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String> {
     // Create required directories
     let directories = ["secrets", "config"];
     for dir in directories {
         create_dir_all(cur_dir.join(dir)).unwrap();
     }
+    create_dir_all(SGX_INPUT_PATH).unwrap();
     if direct_mode {
         // Copy dummy files in direct mode
         let files = ["attestation_type", "quote", "user_report_data"];
@@ -185,10 +187,10 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse
             .map_err(|e| format!("Could not sign manfifest: {}", e))?;
     }
 
-    Ok(SgxResponse::default())
+    Ok(())
 }
 
-async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, String> {
+async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<(), String> {
     // Bootstrap with new private key for signing proofs
     // First delete the private key if it already exists
     if PRIVATE_KEY.get().unwrap().exists() {
@@ -203,29 +205,28 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
         .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
     print_output(&output, "Sgx bootstrap");
 
-    Ok(SgxResponse::default())
+    Ok(())
 }
 
-fn get_sgx_input_path(block_number: u64, network: &str) -> PathBuf {
-    // Format the input path
-    let input_dir = PathBuf::from("/tmp/inputs");
-    if !input_dir.exists() {
-        fs::create_dir_all(&input_dir)
-            .unwrap_or_else(|_| panic!("Failed to create cache directory {:?}", input_dir));
-    }
-    get_input_path(&input_dir, block_number, network)
+fn write_input(input: GuestInput) -> ProverResult<PathBuf, String> {
+    let input_path = get_input_path(
+        &PathBuf::from(SGX_INPUT_PATH),
+        input.block_number,
+        &input.network.to_string(),
+    );
+    let file =
+        File::create(&input_path).map_err(|e| format!("Could not create input file: {}", e))?;
+    bincode::serialize_into(file, &input).expect("Unable to serialize input");
+    Ok(input_path)
 }
 
 async fn prove(
-    gramine_cmd: &mut Command,
     input: GuestInput,
+    gramine_cmd: &mut Command,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
-    // Write the input to a file that will be read by the SGX instance
-    let input_path = get_sgx_input_path(input.block_number, &input.network.to_string());
-    let file = File::create(&input_path).expect("Unable to open input file");
-    println!("writing SGX input to {:?}", input_path);
-    bincode::serialize_into(file, &input).expect("Unable to serialize input");
+    // Write the input file for the SGX guest
+    let input_path = write_input(input)?;
 
     // Prove
     let output = gramine_cmd
@@ -233,7 +234,7 @@ async fn prove(
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
         .arg("--blocks-data-file")
-        .arg(&input_path)
+        .arg(input_path.clone())
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
