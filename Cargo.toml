@@ -39,8 +39,8 @@ revm = { git = "https://github.com/taikoxyz/revm.git", branch = "fix-ecrecover",
 ] }
 
 # risc zero
-risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"]}
-bonsai-sdk = { version = "0.7.0", features = ["async"]}
+risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "0.7.0", features = ["async"] }
 risc0-build = { version = "0.21.0" }
 
 # SP1
@@ -73,7 +73,10 @@ ethers-core = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-c
 ethers-providers = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10" }
 
 # serde
-serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde = { version = "1.0", default-features = false, features = [
+    "derive",
+    "alloc",
+] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde_with = { version = "3.0" }
 
@@ -83,7 +86,16 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = "0.2"
 
 # memory
-cap = { git = "https://github.com/brechtpd/cap", branch = "more-stats", features = ["stats"] }
+cap = { git = "https://github.com/brechtpd/cap", branch = "more-stats", features = [
+    "stats",
+] }
+
+# server
+axum = { version = "0.7.5", features = ["macros"] }
+tower-http = { version = "0.5.2", features = ["full"] }
+tower = { version = "0.4.13", features = ["full"] }
+utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
+utoipa = { version = "4.2.0", features = ["axum_extras"] }
 
 # misc
 hashbrown = { version = "0.14", features = ["inline-more"] }
@@ -97,7 +109,6 @@ structopt = "0.3.26"
 flate2 = "1.0.28"
 tokio = { version = "^1.23", features = ["full"] }
 hyper = { version = "0.14.27", features = ["server"] }
-tower = { version = "0.4.13", features = ["full"] }
 lru_time_cache = "0.11.11"
 prometheus = "0.13.3"
 lazy_static = "1.4.0"

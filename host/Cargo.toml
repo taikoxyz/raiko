@@ -27,6 +27,13 @@ alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
 
+# server
+axum = { workspace = true }
+tower-http = { workspace = true }
+tower = { workspace = true }
+utoipa-swagger-ui = { workspace = true }
+utoipa = { workspace = true }
+
 # misc
 anyhow = { workspace = true }
 bincode = { workspace = true }
@@ -45,7 +52,6 @@ env_logger = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
-tower = { workspace = true }
 lru_time_cache = { workspace = true }
 prometheus = { workspace = true }
 lazy_static = { workspace = true }
@@ -72,15 +78,6 @@ sp1-helper = { workspace = true }
 [features]
 default = []
 # powdr = ["dep:powdr"]
-sp1 = [
-  "dep:sp1-prover",
-  "sp1-prover/enable",
-]
-risc0 = [
-  "dep:risc0-prover",
-  "risc0-prover/enable",
-]
-sgx = [
-  "dep:sgx-prover",
-  "sgx-prover/enable",
-]
+sp1 = ["dep:sp1-prover", "sp1-prover/enable"]
+risc0 = ["dep:risc0-prover", "risc0-prover/enable"]
+sgx = ["dep:sgx-prover", "sgx-prover/enable"]

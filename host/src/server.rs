@@ -1,27 +1,12 @@
-use std::{
-    fs::{self, File},
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{net::SocketAddr, str::FromStr};
 
-use hyper::{
-    body::{Buf, HttpBody},
-    header::HeaderValue,
-    service::{make_service_fn, service_fn},
-    Body, Method, Request, Response, Server, StatusCode,
-};
-use raiko_lib::input::{get_input_path, GuestInput};
-use serde::Deserialize;
-use tower::ServiceBuilder;
-use tracing::info;
+use anyhow::Context;
+use tokio::net::TcpListener;
+use tracing::debug;
 
-use crate::{
-    error::HostError,
-    execution::execute,
-    get_config,
-    request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
-    Opt,
-};
+use crate::{error::HostError, server::api::create_router, ProverState};
+
+pub mod api;
 
 /// Starts the proverd json-rpc server.
 /// Note: the server may not immediately listening after returning the
@@ -179,7 +164,6 @@ impl Handler {
                     .await;
                 let payload = match result {
                     Err(err) => {
-                        println!("Error: {}", err.to_string());
                         serde_json::to_vec(&JsonRpcResponseError {
                             jsonrpc: "2.0".to_string(),
                             id: json_req.id,

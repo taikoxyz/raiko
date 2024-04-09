@@ -1,15 +1,9 @@
-use std::str::FromStr;
-
+use alloy_primitives::B256;
 use raiko_lib::{
-    builder::{BlockBuilderStrategy, TaikoStrategy},
-    consts::Network,
-    input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader},
-    protocol_instance::{assemble_protocol_instance, ProtocolInstance},
+    input::{GuestInput, GuestOutput, TaikoProverData},
+    protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverResult},
-    taiko_utils::HeaderHasher,
-    Measurement,
 };
-use raiko_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
@@ -76,20 +70,23 @@ pub async fn execute<D: Prover>(
 }
 
 /// prepare input data for provers
-pub async fn prepare_input(config: &serde_json::Value) -> Result<GuestInput> {
-    let req = ProofRequest::deserialize(config).unwrap();
-    let block_number = req.block_number;
-    let rpc = req.rpc.clone();
-    let l1_rpc = req.l1_rpc.clone();
-    let beacon_rpc = req.beacon_rpc.clone();
-    let network = req.network.clone();
-    let graffiti = req.graffiti;
-    let prover = req.prover;
+pub async fn prepare_input(
+    ProofRequest {
+        block_number,
+        rpc,
+        l1_rpc,
+        beacon_rpc,
+        network,
+        graffiti,
+        prover,
+        ..
+    }: ProofRequest,
+) -> HostResult<GuestInput> {
     tokio::task::spawn_blocking(move || {
         preflight(
             Some(rpc),
             block_number,
-            Network::from_str(&network).unwrap(),
+            network,
             TaikoProverData { graffiti, prover },
             Some(l1_rpc),
             Some(beacon_rpc),
@@ -97,7 +94,7 @@ pub async fn prepare_input(config: &serde_json::Value) -> Result<GuestInput> {
         .expect("Failed to fetch required data for block")
     })
     .await
-    .map_err(Into::<super::error::HostError>::into)
+    .map_err(|e| e.into())
 }
 
 pub struct NativeDriver;

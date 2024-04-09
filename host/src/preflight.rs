@@ -171,16 +171,8 @@ pub fn preflight(
         parent_header: to_header(&parent_block.header),
         ancestor_headers: Default::default(),
         base_fee_per_gas: block.header.base_fee_per_gas.unwrap().try_into().unwrap(),
-        blob_gas_used: if block.header.blob_gas_used.is_some() {
-            Some(block.header.blob_gas_used.unwrap().try_into().unwrap())
-        } else {
-            None
-        },
-        excess_blob_gas: if block.header.excess_blob_gas.is_some() {
-            Some(block.header.excess_blob_gas.unwrap().try_into().unwrap())
-        } else {
-            None
-        },
+        blob_gas_used: block.header.blob_gas_used.map(|b| b.try_into().unwrap()),
+        excess_blob_gas: block.header.excess_blob_gas.map(|b| b.try_into().unwrap()),
         parent_beacon_block_root: block.header.parent_beacon_block_root,
         taiko: taiko_guest_input,
     };
@@ -523,15 +515,9 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
-    use c_kzg::KzgCommitment;
     use ethers_core::types::Transaction;
     use raiko_lib::taiko_utils::decode_transactions;
-    use raiko_primitives::{
-        eip4844::{kzg_to_versioned_hash, parse_kzg_trusted_setup, MAINNET_KZG_TRUSTED_SETUP},
-        kzg::KzgSettings,
-    };
+    use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;
 
