@@ -189,6 +189,7 @@ pub fn preflight(
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
         provider,
+        network,
         parent_block.header.number.unwrap().try_into().unwrap(),
     );
     let mut builder = BlockBuilder::new(&input)
