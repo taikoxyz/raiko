@@ -160,7 +160,7 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse
         .arg("sgx-guest.manifest")
         .output()
         .await
-        .map_err(|e| format!("Could not generate manfifest: {}", e))?;
+        .map_err(|e| handle_gramine_error("Could not generate manfifest", e))?;
 
     print_output(&output, "Generate manifest");
 
@@ -171,7 +171,7 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse
             .arg("-f")
             .output()
             .await
-            .map_err(|e| format!("Could not generate SGX private key: {}", e))?;
+            .map_err(|e| handle_gramine_error("Could not generate SGX private key", e))?;
 
         // Sign the manifest
         let mut cmd = Command::new("gramine-sgx-sign");
@@ -182,7 +182,7 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse
             .arg("sgx-guest.manifest.sgx")
             .output()
             .await
-            .map_err(|e| format!("Could not sign manfifest: {}", e))?;
+            .map_err(|e| handle_gramine_error("Could not sign manfifest", e))?;
     }
 
     Ok(SgxResponse::default())
@@ -200,7 +200,7 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
         .arg("bootstrap")
         .output()
         .await
-        .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
+        .map_err(|e| handle_gramine_error("Could not run SGX guest boostrap", e))?;
     print_output(&output, "Sgx bootstrap");
 
     Ok(SgxResponse::default())
@@ -236,7 +236,7 @@ async fn prove(
         .arg(&input_path)
         .output()
         .await
-        .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
+        .map_err(|e| handle_gramine_error("Could not run SGX guest prover", e))?;
     print_output(&output, "Sgx execution");
     if !output.status.success() {
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
@@ -271,6 +271,14 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
     print_dirs();
 
     Ok(SgxResponse { proof, quote })
+}
+
+fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
+    if let std::io::ErrorKind::NotFound = err.kind() {
+        format!("gramine could not be found, please install gramine first. ({})", err)
+    } else {
+        format!("{}: {}", context, err)
+    }
 }
 
 fn print_output(output: &Output, name: &str) {
