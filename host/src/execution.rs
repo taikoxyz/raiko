@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use super::error::Result;
-use crate::{error::HostError, memory, preflight::preflight, request::ProofRequest, STATS};
+use crate::{error::HostError, memory, preflight::preflight, request::ProofRequest};
 
 pub async fn execute<D: Prover>(
     config: &serde_json::Value,
