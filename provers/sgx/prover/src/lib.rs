@@ -214,7 +214,6 @@ async fn bootstrap(mut gramine_cmd: StdCommand) -> ProverResult<(), String> {
 async fn prove(
     mut gramine_cmd: StdCommand,
     input: GuestInput,
-    gramine_cmd: &mut Command,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
