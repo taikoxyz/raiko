@@ -275,7 +275,10 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
 
 fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
     if let std::io::ErrorKind::NotFound = err.kind() {
-        format!("gramine could not be found, please install gramine first. ({})", err)
+        format!(
+            "gramine could not be found, please install gramine first. ({})",
+            err
+        )
     } else {
         format!("{}: {}", context, err)
     }

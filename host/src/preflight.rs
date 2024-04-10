@@ -202,7 +202,11 @@ pub fn preflight(
     // Gather inclusion proofs for the initial and final state
     let measurement = Measurement::start("Fetching storage proofs...", true);
     let (parent_proofs, proofs, num_storage_proofs) = provider_db.get_proofs()?;
-    measurement.stop_with_count(&format!("[{} Account/{} Storage]", parent_proofs.len() + proofs.len(), num_storage_proofs));
+    measurement.stop_with_count(&format!(
+        "[{} Account/{} Storage]",
+        parent_proofs.len() + proofs.len(),
+        num_storage_proofs
+    ));
 
     // Construct the state trie and storage from the storage proofs.
     let measurement = Measurement::start("Constructing MPT...", true);

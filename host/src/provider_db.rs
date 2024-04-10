@@ -90,7 +90,7 @@ impl ProviderDb {
         (
             HashMap<Address, EIP1186AccountProofResponse>,
             HashMap<Address, EIP1186AccountProofResponse>,
-            usize
+            usize,
         ),
         anyhow::Error,
     > {
@@ -285,9 +285,18 @@ impl MeasuredProviderDb {
 
     pub fn print_report(&self) {
         println!("db accesses: ");
-        print_duration(&format!("- account [{} ops]: ", self.num_basic), self.time_basic);
-        print_duration(&format!("- storage [{} ops]: ", self.num_storage), self.time_storage);
-        print_duration(&format!("- block_hash [{} ops]: ", self.num_block_hash), self.time_block_hash);
+        print_duration(
+            &format!("- account [{} ops]: ", self.num_basic),
+            self.time_basic,
+        );
+        print_duration(
+            &format!("- storage [{} ops]: ", self.num_storage),
+            self.time_storage,
+        );
+        print_duration(
+            &format!("- block_hash [{} ops]: ", self.num_block_hash),
+            self.time_block_hash,
+        );
         println!("- code_by_hash: {}", self.num_code_by_hash);
     }
 }
