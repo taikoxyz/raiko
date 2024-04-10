@@ -46,7 +46,6 @@ Look into `prove_block.sh` for the available options or run the script without i
 
 You can also automatically sync with the tip of the chain and prove all blocks:
 
-
 ```
 ./prove_block.sh ethereum native sync
 ```
