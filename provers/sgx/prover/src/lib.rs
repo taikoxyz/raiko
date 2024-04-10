@@ -1,18 +1,16 @@
 #![cfg(feature = "enable")]
 use std::{
     env,
-    fs::{self, copy, create_dir_all, remove_file, File},
-    ops::DerefMut,
+    fs::{copy, create_dir_all, remove_file},
     path::PathBuf,
-    process::Output,
+    process::{Command as StdCommand, Output, Stdio},
     str,
 };
 
 use alloy_sol_types::SolValue;
-use nix::fcntl::{Flock, FlockArg};
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{get_input_path, GuestInput, GuestOutput},
+    input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
@@ -82,11 +80,11 @@ impl Prover for SgxProver {
             .await;
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
-        let gramine_cmd = || -> Command {
+        let gramine_cmd = || -> StdCommand {
             let mut cmd = if direct_mode {
-                Command::new("gramine-direct")
+                StdCommand::new("gramine-direct")
             } else {
-                let mut cmd = Command::new("sudo");
+                let mut cmd = StdCommand::new("sudo");
                 cmd.arg("gramine-sgx");
                 cmd
             };
@@ -101,12 +99,12 @@ impl Prover for SgxProver {
 
         // Boostrap: run this each time a new keypair for proving needs to be generated
         if config.bootstrap {
-            bootstrap(&mut gramine_cmd()).await?;
+            bootstrap(gramine_cmd()).await?;
         }
 
         // Prove: run for each block
         let sgx_proof = if config.prove {
-            prove(&mut gramine_cmd(), input.clone(), config.instance_id).await
+            prove(gramine_cmd(), input.clone(), config.instance_id).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -190,75 +188,57 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse
     Ok(SgxResponse::default())
 }
 
-async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, String> {
-    // Bootstrap with new private key for signing proofs
-    // First delete the private key if it already exists
-    if PRIVATE_KEY.get().unwrap().exists() {
-        if let Err(e) = remove_file(PRIVATE_KEY.get().unwrap()) {
-            println!("Error deleting file: {}", e);
+async fn bootstrap(mut gramine_cmd: StdCommand) -> ProverResult<SgxResponse, String> {
+    tokio::task::spawn_blocking(move || {
+        // Bootstrap with new private key for signing proofs
+        // First delete the private key if it already exists
+        if PRIVATE_KEY.get().unwrap().exists() {
+            if let Err(e) = remove_file(PRIVATE_KEY.get().unwrap()) {
+                println!("Error deleting file: {}", e);
+            }
         }
-    }
-    let output = gramine_cmd
-        .arg("bootstrap")
-        .output()
-        .await
-        .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
-    print_output(&output, "Sgx bootstrap");
+        let output = gramine_cmd
+            .arg("bootstrap")
+            .output()
+            .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
+        print_output(&output, "Sgx bootstrap");
 
-    Ok(SgxResponse::default())
-}
-
-fn get_sgx_input_path(block_number: u64, network: &str) -> PathBuf {
-    // Format the input path
-    let input_dir = PathBuf::from("/tmp/inputs");
-    if !input_dir.exists() {
-        fs::create_dir_all(&input_dir)
-            .unwrap_or_else(|_| panic!("Failed to create cache directory {:?}", input_dir));
-    }
-    get_input_path(&input_dir, block_number, network)
+        Ok(SgxResponse::default())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 async fn prove(
-    gramine_cmd: &mut Command,
+    mut gramine_cmd: StdCommand,
     input: GuestInput,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
-    // Write the input to a file that will be read by the SGX instance
-    let input_path = get_sgx_input_path(input.block_number, &input.network.to_string());
-    let file = File::create(&input_path).expect("Unable to open input file");
-    let mut file = match Flock::lock(file, FlockArg::LockExclusiveNonblock) {
-        Ok(file) => file,
-        Err((_, no)) => {
-            println!("Failed to lock file: {}", no);
-            return ProverResult::Err(ProverError::GuestError(no.to_string()));
+    tokio::task::spawn_blocking(move || {
+        // Prove
+        let mut child = gramine_cmd
+            .arg("one-shot")
+            .arg("--sgx-instance-id")
+            .arg(instance_id.to_string())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Could not spawn gramine cmd: {}", e))?;
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        bincode::serialize_into(stdin, &input).expect("Unable to serialize input");
+
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
+        print_output(&output, "Sgx execution");
+        if !output.status.success() {
+            return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
         }
-    };
-    println!("writing SGX input to {:?}", input_path);
-    bincode::serialize_into(file.deref_mut(), &input).expect("Unable to serialize input");
-
-    // Prove
-    let output = gramine_cmd
-        .arg("one-shot")
-        .arg("--sgx-instance-id")
-        .arg(instance_id.to_string())
-        .arg("--blocks-data-file")
-        .arg(&input_path)
-        .output()
-        .await
-        .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
-    print_output(&output, "Sgx execution");
-    if !output.status.success() {
-        return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
-    }
-
-    // release lock before delete file
-    drop(file);
-
-    // Delete the input file
-    std::fs::remove_file(input_path)
-        .map_err(|e| format!("Could not clean up input file: {}", e))?;
-
-    Ok(parse_sgx_result(output.stdout)?)
+        Ok(parse_sgx_result(output.stdout)?)
+    })
+    .await
+    .map_err(|e| ProverError::GuestError(e.to_string()))?
 }
 
 fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {

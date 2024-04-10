@@ -33,12 +33,12 @@ RUN curl -o setup.sh -sL https://deb.nodesource.com/setup_18.x && \
     ./setup.sh && \
     apt-get update && \
     apt-get install -y \
-        cracklib-runtime \
-        libsgx-dcap-default-qpl \
-        libsgx-dcap-ql \
-        libsgx-urts \
-        sgx-pck-id-retrieval-tool \
-        sudo && \
+    cracklib-runtime \
+    libsgx-dcap-default-qpl \
+    libsgx-dcap-ql \
+    libsgx-urts \
+    sgx-pck-id-retrieval-tool \
+    sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -49,7 +49,6 @@ RUN sed -i 's/https:\/\/localhost:8081/https:\/\/pccs:8081/g' /etc/sgx_default_q
 RUN mkdir -p \
     ./bin \
     ./provers/sgx \
-    /tmp/sgx \
     /var/log/raiko
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/

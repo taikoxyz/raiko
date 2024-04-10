@@ -16,7 +16,6 @@ tokio = { workspace = true, optional = true }
 bincode = { workspace = true, optional = true }
 once_cell = { workspace = true }
 alloy-sol-types = { workspace = true }
-nix = { version = "0.28.0", features = ["fs"] }
 
 [features]
 default = ["enable"]
