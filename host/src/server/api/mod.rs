@@ -23,22 +23,35 @@ mod metrics;
 mod proof;
 
 #[derive(OpenApi)]
-#[openapi(info(
-    title = "Raiko Proverd Server API",
-    version = "1.0",
-    description = "Raiko Proverd Server API",
-    contact(
-        name = "API Support",
-        url = "https://community.taiko.xyz",
-        email = "info@taiko.xyz",
+#[openapi(
+    info(
+        title = "Raiko Proverd Server API",
+        version = "1.0",
+        description = "Raiko Proverd Server API",
+        contact(
+            name = "API Support",
+            url = "https://community.taiko.xyz",
+            email = "info@taiko.xyz",
+        ),
+        license(
+            name = "MIT",
+            url = "https://github.com/taikoxyz/raiko/blob/taiko/unstable/LICENSE"
+        ),
     ),
-    license(
-        name = "MIT",
-        url = "https://github.com/taikoxyz/raiko/blob/taiko/unstable/LICENSE"
+    components(
+        schemas(
+            crate::request::ProofRequestOpt,
+            crate::error::HostError,
+        )
     ),
-))]
+    tags(
+        (name = "Prooving", description = "Routes that handle prooving requests"),
+        (name = "Health", description = "Routes that report the server health status"),
+        (name = "Metrics", description = "Routes that give detailed insight into the server")
+    )
+)]
 /// The root API struct which is generated from the `OpenApi` derive macro.
-pub struct RootApi;
+pub struct Docs;
 
 #[must_use]
 pub fn create_docs() -> utoipa::openapi::OpenApi {
@@ -48,7 +61,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
         proof::create_docs(),
     ]
     .into_iter()
-    .fold(RootApi::openapi(), |mut doc, sub_doc| {
+    .fold(Docs::openapi(), |mut doc, sub_doc| {
         doc.merge(sub_doc);
         doc
     })
@@ -66,30 +79,32 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
         .allow_origin(cors::Any);
     let compression = CompressionLayer::new();
 
-    let middleware = ServiceBuilder::new()
-        .concurrency_limit(concurrency_limit)
-        .layer(cors)
-        .layer(compression)
-        .layer(SetResponseHeaderLayer::overriding(
+    let middleware = ServiceBuilder::new().layer(cors).layer(compression).layer(
+        SetResponseHeaderLayer::overriding(
             header::CONTENT_TYPE,
             HeaderValue::from_static("application/json"),
-        ));
+        ),
+    );
 
     let trace = TraceLayer::new_for_http();
 
     Router::new()
-        .nest("/proof", proof::create_router())
+        // Only add the concurrency limit to the proof route. We want to still be able to call
+        // healthchecks and metrics to have insight into the system.
+        .nest(
+            "/proof",
+            proof::create_router()
+                .layer(ServiceBuilder::new().concurrency_limit(concurrency_limit)),
+        )
         .nest("/health", health::create_router())
         .nest("/metrics", metrics::create_router())
         .layer(middleware)
         .layer(middleware::from_fn(check_max_body_size))
         .layer(trace)
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", create_docs()))
-        .fallback(not_found)
-}
-
-async fn not_found(uri: Uri) -> (StatusCode, String) {
-    (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
+        .fallback(|uri: Uri| async move {
+            (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
+        })
 }
 
 async fn check_max_body_size(req: Request, next: Next) -> Response {

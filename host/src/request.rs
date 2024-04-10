@@ -15,14 +15,16 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use structopt::StructOpt;
 use tracing::{info, warn};
+use utoipa::ToSchema;
 
 use crate::{
     error::{HostError, HostResult},
     execution::{prepare_input, NativeDriver},
     memory,
+    metrics::{inc_guest_req_count, observe_guest_time, observe_prepare_input_time},
 };
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize, ToSchema)]
 /// Available proof types.
 pub enum ProofType {
     /// # Native
@@ -94,7 +96,7 @@ pub struct ProofRequest {
     pub proof_type: ProofType,
 }
 
-#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
+#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
 #[serde(default)]
 /// A partial proof request config.
 pub struct ProofRequestOpt {
@@ -292,7 +294,8 @@ impl ProofRequest {
             memory::reset_stats();
             let measurement = Measurement::start("Generating input...", false);
             let input = prepare_input(self.clone()).await?;
-            measurement.stop_with("=> Input generated");
+            let input_time = measurement.stop_with("=> Input generated");
+            observe_prepare_input_time(self.block_number, input_time.as_millis());
             memory::print_stats("Input generation peak memory used: ");
             input
         };
@@ -325,11 +328,13 @@ impl ProofRequest {
         // 3. Prove
         memory::reset_stats();
         let measurement = Measurement::start("Generating proof...", false);
+        inc_guest_req_count(&self.proof_type, self.block_number);
         let res = self
             .run_driver(input.clone(), output, &serde_json::to_value(self)?)
             .await
             .map(|proof| (input, proof));
-        measurement.stop_with("=> Proof generated");
+        let guest_time = measurement.stop_with("=> Proof generated");
+        observe_guest_time(&self.proof_type, self.block_number, guest_time.as_millis());
         memory::print_stats("Prover peak memory used: ");
 
         res

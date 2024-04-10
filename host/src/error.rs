@@ -1,10 +1,11 @@
 use axum::{http::StatusCode, response::IntoResponse};
 use raiko_lib::prover::ProverError;
+use utoipa::ToSchema;
 
 use crate::request::ProofType;
 
 /// The standardized error returned by the Raiko host.
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, ToSchema)]
 pub enum HostError {
     /// For invalid proof type generation request.
     #[error("Unknown proof type: {0}")]

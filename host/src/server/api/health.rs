@@ -13,6 +13,9 @@ use crate::ProverState;
 )]
 #[debug_handler(state = ProverState)]
 /// Health check
+///
+/// Currently only responds with an OK status.
+/// Will return more detailed status information soon.
 async fn handler() -> StatusCode {
     StatusCode::OK
 }

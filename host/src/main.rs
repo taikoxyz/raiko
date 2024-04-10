@@ -16,6 +16,7 @@
 
 mod error;
 mod execution;
+mod metrics;
 mod preflight;
 mod provider_db;
 mod request;
