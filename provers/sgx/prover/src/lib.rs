@@ -40,6 +40,7 @@ pub struct SgxResponse {
 pub const ELF_NAME: &str = "sgx-guest";
 pub const INPUT_FILE_NAME: &str = "input.bin";
 pub const CONFIG: &str = "../../provers/sgx/config";
+pub const SGX_INPUT_PATH: &str = "/tmp/inputs";
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
@@ -128,12 +129,13 @@ impl Prover for SgxProver {
     }
 }
 
-async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse, String> {
+async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String> {
     // Create required directories
     let directories = ["secrets", "config"];
     for dir in directories {
         create_dir_all(cur_dir.join(dir)).unwrap();
     }
+    create_dir_all(SGX_INPUT_PATH).unwrap();
     if direct_mode {
         // Copy dummy files in direct mode
         let files = ["attestation_type", "quote", "user_report_data"];
@@ -185,10 +187,10 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse
             .map_err(|e| format!("Could not sign manfifest: {}", e))?;
     }
 
-    Ok(SgxResponse::default())
+    Ok(())
 }
 
-async fn bootstrap(mut gramine_cmd: StdCommand) -> ProverResult<SgxResponse, String> {
+async fn bootstrap(mut gramine_cmd: StdCommand) -> ProverResult<(), String> {
     tokio::task::spawn_blocking(move || {
         // Bootstrap with new private key for signing proofs
         // First delete the private key if it already exists
@@ -203,7 +205,7 @@ async fn bootstrap(mut gramine_cmd: StdCommand) -> ProverResult<SgxResponse, Str
             .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
         print_output(&output, "Sgx bootstrap");
 
-        Ok(SgxResponse::default())
+        Ok(())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -212,6 +214,7 @@ async fn bootstrap(mut gramine_cmd: StdCommand) -> ProverResult<SgxResponse, Str
 async fn prove(
     mut gramine_cmd: StdCommand,
     input: GuestInput,
+    gramine_cmd: &mut Command,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
