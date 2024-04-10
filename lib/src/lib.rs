@@ -13,7 +13,6 @@
 // limitations under the License.
 #![cfg_attr(any(not(feature = "std")), no_std)]
 
-use core::time::Duration;
 #[cfg(feature = "std")]
 use std::io::{self, Write};
 
