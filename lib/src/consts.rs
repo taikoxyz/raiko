@@ -133,9 +133,9 @@ pub enum ForkCondition {
 
 impl ForkCondition {
     /// Returns whether the condition has been met.
-    pub fn active(&self, block_number: BlockNumber, timestamp: u64) -> bool {
+    pub fn active(&self, block_no: BlockNumber, timestamp: u64) -> bool {
         match self {
-            ForkCondition::Block(block) => *block <= block_number,
+            ForkCondition::Block(block) => *block <= block_no,
             ForkCondition::Timestamp(ts) => *ts <= timestamp,
             ForkCondition::TBD => false,
         }
@@ -202,8 +202,8 @@ impl ChainSpec {
     }
     /// Returns the [SpecId] for a given block number and timestamp or an error if not
     /// supported.
-    pub fn active_fork(&self, block_number: BlockNumber, timestamp: u64) -> Result<SpecId> {
-        match self.spec_id(block_number, timestamp) {
+    pub fn active_fork(&self, block_no: BlockNumber, timestamp: u64) -> Result<SpecId> {
+        match self.spec_id(block_no, timestamp) {
             Some(spec_id) => {
                 if spec_id > self.max_spec_id {
                     bail!("expected <= {:?}, got {:?}", self.max_spec_id, spec_id);
@@ -211,7 +211,7 @@ impl ChainSpec {
                     Ok(spec_id)
                 }
             }
-            None => bail!("no supported fork for block {}", block_number),
+            None => bail!("no supported fork for block {}", block_no),
         }
     }
     /// Returns the Eip1559 constants
@@ -219,9 +219,9 @@ impl ChainSpec {
         &self.eip_1559_constants
     }
 
-    fn spec_id(&self, block_number: BlockNumber, timestamp: u64) -> Option<SpecId> {
+    fn spec_id(&self, block_no: BlockNumber, timestamp: u64) -> Option<SpecId> {
         for (spec_id, fork) in self.hard_forks.iter().rev() {
-            if fork.active(block_number, timestamp) {
+            if fork.active(block_no, timestamp) {
                 return Some(*spec_id);
             }
         }

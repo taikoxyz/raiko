@@ -10,9 +10,9 @@ use std::{
 use alloy_sol_types::SolValue;
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
+    input::{get_input_path, GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
-    prover::{Prover, ProverError, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use raiko_primitives::{keccak::keccak, B256};
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,6 @@ pub struct SgxParam {
     pub setup: bool,
     pub bootstrap: bool,
     pub prove: bool,
-    pub input_path: Option<PathBuf>,
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -41,6 +40,7 @@ pub struct SgxResponse {
 pub const ELF_NAME: &str = "sgx-guest";
 pub const INPUT_FILE_NAME: &str = "input.bin";
 pub const CONFIG: &str = "../../provers/sgx/config";
+pub const SGX_INPUT_PATH: &str = "/tmp/inputs";
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
@@ -48,14 +48,13 @@ static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 pub struct SgxProver;
 
 impl Prover for SgxProver {
-    type ProofParam = SgxParam;
-    type ProofResponse = SgxResponse;
-
     async fn run(
         input: GuestInput,
         _output: GuestOutput,
-        param: Self::ProofParam,
-    ) -> ProverResult<Self::ProofResponse> {
+        config: &ProverConfig,
+    ) -> ProverResult<Proof> {
+        let config = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
+
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
             Ok(value) => value == "1",
@@ -95,29 +94,24 @@ impl Prover for SgxProver {
         };
 
         // Setup: run this once while setting up your SGX instance
-        if param.setup {
+        if config.setup {
             setup(&cur_dir, direct_mode).await?;
         }
 
         // Boostrap: run this each time a new keypair for proving needs to be generated
-        if param.bootstrap {
+        if config.bootstrap {
             bootstrap(&mut gramine_cmd()).await?;
         }
 
         // Prove: run for each block
-        if param.prove {
-            prove(
-                &mut gramine_cmd(),
-                &cur_dir,
-                input,
-                param.instance_id,
-                param.input_path,
-            )
-            .await
+        let sgx_proof = if config.prove {
+            prove(input, &mut gramine_cmd(), config.instance_id).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
-        }
+        };
+
+        to_proof(sgx_proof)
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {
@@ -135,12 +129,13 @@ impl Prover for SgxProver {
     }
 }
 
-async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse, String> {
+async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String> {
     // Create required directories
     let directories = ["secrets", "config"];
     for dir in directories {
         create_dir_all(cur_dir.join(dir)).unwrap();
     }
+    create_dir_all(SGX_INPUT_PATH).unwrap();
     if direct_mode {
         // Copy dummy files in direct mode
         let files = ["attestation_type", "quote", "user_report_data"];
@@ -192,14 +187,14 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<SgxResponse
             .map_err(|e| format!("Could not sign manfifest: {}", e))?;
     }
 
-    Ok(SgxResponse::default())
+    Ok(())
 }
 
-async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, String> {
+async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<(), String> {
     // Bootstrap with new private key for signing proofs
     // First delete the private key if it already exists
     if PRIVATE_KEY.get().unwrap().exists() {
-        if let Err(e) = remove_file(&PRIVATE_KEY.get().unwrap()) {
+        if let Err(e) = remove_file(PRIVATE_KEY.get().unwrap()) {
             println!("Error deleting file: {}", e);
         }
     }
@@ -210,41 +205,47 @@ async fn bootstrap(gramine_cmd: &mut Command) -> ProverResult<SgxResponse, Strin
         .map_err(|e| format!("Could not run SGX guest boostrap: {}", e))?;
     print_output(&output, "Sgx bootstrap");
 
-    Ok(SgxResponse::default())
+    Ok(())
+}
+
+fn write_input(input: GuestInput) -> ProverResult<PathBuf, String> {
+    let input_path = get_input_path(
+        &PathBuf::from(SGX_INPUT_PATH),
+        input.block_number,
+        &input.network.to_string(),
+    );
+    let file =
+        File::create(&input_path).map_err(|e| format!("Could not create input file: {}", e))?;
+    bincode::serialize_into(file, &input).expect("Unable to serialize input");
+    Ok(input_path)
 }
 
 async fn prove(
-    gramine_cmd: &mut Command,
-    cur_dir: &PathBuf,
     input: GuestInput,
+    gramine_cmd: &mut Command,
     instance_id: u64,
-    input_path: Option<PathBuf>,
 ) -> ProverResult<SgxResponse, ProverError> {
-    // If cached input file is not provided
-    // write the input to a file that will be read by the SGX instance
-    let _input_path = match input_path {
-        Some(path) => path.clone(),
-        None => {
-            let path = cur_dir.join(INPUT_FILE_NAME);
-            bincode::serialize_into(File::create(&path).expect("Unable to open file"), &input)
-                .expect("Unable to serialize input");
-            path
-        }
-    };
+    // Write the input file for the SGX guest
+    let input_path = write_input(input)?;
 
     // Prove
     let output = gramine_cmd
         .arg("one-shot")
         .arg("--sgx-instance-id")
         .arg(instance_id.to_string())
+        .arg("--blocks-data-file")
+        .arg(input_path.clone())
         .output()
         .await
         .map_err(|e| format!("Could not run SGX guest prover: {}", e))?;
     print_output(&output, "Sgx execution");
     if !output.status.success() {
-        // inc_sgx_error(req.block_number);
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
     }
+
+    // Delete the input file
+    std::fs::remove_file(input_path)
+        .map_err(|e| format!("Could not clean up input file: {}", e))?;
 
     Ok(parse_sgx_result(output.stdout)?)
 }
@@ -274,13 +275,13 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
 }
 
 fn print_output(output: &Output, name: &str) {
-    print!(
-        "{} stderr: {}\n",
+    println!(
+        "{} stderr: {}",
         name,
         str::from_utf8(&output.stderr).unwrap()
     );
-    print!(
-        "{} stdout: {}\n",
+    println!(
+        "{} stdout: {}",
         name,
         str::from_utf8(&output.stdout).unwrap()
     );

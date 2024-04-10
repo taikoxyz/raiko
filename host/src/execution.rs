@@ -5,7 +5,7 @@ use raiko_lib::{
     consts::Network,
     input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader},
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
-    prover::{Prover, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverResult},
     taiko_utils::HeaderHasher,
     Measurement,
 };
@@ -13,20 +13,28 @@ use raiko_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use super::{context::Context, error::Result, request::ProofRequest};
-use crate::{host::host::preflight, prover::error::HostError};
+use super::error::Result;
+use crate::{error::HostError, memory, preflight::preflight, request::ProofRequest};
 
 pub async fn execute<D: Prover>(
-    ctx: &mut Context,
-    req: &ProofRequest<D::ProofParam>,
-) -> Result<D::ProofResponse> {
-    println!("- {:?}", req);
-    // Generate the witness
-    let measurement = Measurement::start("Generating witness...", false);
-    let input = prepare_input(ctx, req).await?;
-    measurement.stop_with("=> Witness generated");
+    config: &serde_json::Value,
+    cached_input: Option<GuestInput>,
+) -> Result<(GuestInput, Proof)> {
+    // Generate the input
+    let input = if let Some(cached_input) = cached_input {
+        println!("Using cached input");
+        cached_input
+    } else {
+        memory::reset_stats();
+        let measurement = Measurement::start("Generating input...", false);
+        let input = prepare_input(config).await?;
+        measurement.stop_with("=> Input generated");
+        memory::print_stats("Input generation peak memory used: ");
+        input
+    };
 
     // 2. Test run the block
+    memory::reset_stats();
     let build_result = TaikoStrategy::build_from(&input);
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
@@ -48,31 +56,36 @@ pub async fn execute<D: Prover>(
             GuestOutput::Failure
         }
     };
+    memory::print_stats("Guest program peak memory used: ");
 
     // Prove
+    memory::reset_stats();
     let measurement = Measurement::start("Generating proof...", false);
-    let res = D::run(input, output, req.proof_param.clone())
+    let res = D::run(input.clone(), output, config)
         .await
+        .map(|proof| (input, proof))
         .map_err(|e| HostError::GuestError(e.to_string()));
     measurement.stop_with("=> Proof generated");
+    memory::print_stats("Prover peak memory used: ");
 
     res
 }
 
 /// prepare input data for provers
-pub async fn prepare_input<P>(_ctx: &mut Context, req: &ProofRequest<P>) -> Result<GuestInput> {
+pub async fn prepare_input(config: &serde_json::Value) -> Result<GuestInput> {
+    let req = ProofRequest::deserialize(config).unwrap();
     let block_number = req.block_number;
     let rpc = req.rpc.clone();
     let l1_rpc = req.l1_rpc.clone();
     let beacon_rpc = req.beacon_rpc.clone();
-    let chain = req.chain.clone();
+    let network = req.network.clone();
     let graffiti = req.graffiti;
     let prover = req.prover;
     tokio::task::spawn_blocking(move || {
         preflight(
             Some(rpc),
             block_number,
-            Network::from_str(&chain).unwrap(),
+            Network::from_str(&network).unwrap(),
             TaikoProverData { graffiti, prover },
             Some(l1_rpc),
             Some(beacon_rpc),
@@ -91,15 +104,12 @@ pub struct NativeResponse {
 }
 
 impl Prover for NativeDriver {
-    type ProofParam = ();
-    type ProofResponse = NativeResponse;
-
     async fn run(
         _input: GuestInput,
         output: GuestOutput,
-        _param: Self::ProofParam,
-    ) -> ProverResult<Self::ProofResponse> {
-        Ok(NativeResponse { output })
+        _request: &serde_json::Value,
+    ) -> ProverResult<Proof> {
+        to_proof(Ok(NativeResponse { output }))
     }
 
     fn instance_hash(_pi: ProtocolInstance) -> B256 {

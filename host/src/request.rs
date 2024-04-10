@@ -1,21 +1,36 @@
 use core::fmt::Debug;
+use std::str::FromStr;
 
 use alloy_primitives::{Address, B256};
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 
-#[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub enum ProofType {
-    Powdr,
+    Native,
+    Sp1,
     Sgx,
+    Risc0,
+}
+
+impl FromStr for ProofType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "native" => Ok(ProofType::Native),
+            "sp1" => Ok(ProofType::Sp1),
+            "sgx" => Ok(ProofType::Sgx),
+            "risc0" => Ok(ProofType::Risc0),
+            _ => bail!("Unknown prover type: {}", s),
+        }
+    }
 }
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProofRequest<P> {
+pub struct ProofRequest {
     /// the block number
     pub block_number: u64,
     /// node for get block by number
@@ -24,15 +39,13 @@ pub struct ProofRequest<P> {
     pub l1_rpc: String,
     /// beacon node for data blobs
     pub beacon_rpc: String,
-    /// l2 contracts selection
-    pub chain: String,
+    /// network selection
+    pub network: String,
     // graffiti
     pub graffiti: B256,
     /// the protocol instance data
     #[serde_as(as = "DisplayFromStr")]
     pub prover: Address,
-    // Generic proof parameters which has to match with the type
-    pub proof_param: P,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

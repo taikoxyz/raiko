@@ -1,4 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use hyper::{
     body::{Buf, HttpBody},
@@ -6,60 +10,43 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
-use once_cell::sync::OnceCell;
-use prometheus::{Encoder, TextEncoder};
-use raiko_lib::prover::Prover;
+use raiko_lib::input::{get_input_path, GuestInput};
+use serde::Deserialize;
 use tower::ServiceBuilder;
 use tracing::info;
 
-use crate::prover::{
-    context::Context,
+use crate::{
     error::HostError,
     execution::execute,
+    get_config,
     request::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcResponseError, *},
+    Opt,
 };
-
-pub static SGX_INSTANCE_ID: OnceCell<u32> = OnceCell::new();
 
 /// Starts the proverd json-rpc server.
 /// Note: the server may not immediately listening after returning the
 /// `JoinHandle`.
 #[allow(clippy::too_many_arguments)]
-pub fn serve(
-    addr: &str,
-    guest_elf: &Path,
-    host_cache: &Path,
-    l2_contracts: &str,
-    sgx_instance_id: u32,
-    proof_cache: usize,
-    concurrency_limit: usize,
-    max_caches: usize,
-) -> tokio::task::JoinHandle<()> {
-    let addr = addr
+pub fn serve(opt: Opt) -> tokio::task::JoinHandle<()> {
+    let addr = opt
+        .address
         .parse::<std::net::SocketAddr>()
         .expect("valid socket address");
-    let guest_elf = guest_elf.to_owned();
-    let host_cache = host_cache.to_owned();
-    let l2_contracts = l2_contracts.to_owned();
-    SGX_INSTANCE_ID
-        .set(sgx_instance_id)
-        .expect("cannot set sgx instance id");
+
     tokio::spawn(async move {
-        let handler = Handler::new(
-            guest_elf.clone(),
-            host_cache.clone(),
-            l2_contracts.clone(),
-            // sgx_instance_id,
-            proof_cache,
-            max_caches,
-        );
+        let handler = if let Some(cache) = opt.cache_path {
+            Handler::new_with_cache(cache)
+        } else {
+            Handler::new()
+        };
+
         let service = service_fn(move |req| {
             let handler = handler.clone();
             handler.handle_request(req)
         });
 
         let service = ServiceBuilder::new()
-            .concurrency_limit(concurrency_limit)
+            .concurrency_limit(opt.concurrency_limit)
             .service(service);
 
         let service = make_service_fn(|_| {
@@ -93,22 +80,48 @@ fn set_headers(headers: &mut hyper::HeaderMap, extended: bool) {
 
 #[derive(Clone)]
 struct Handler {
-    ctx: Context,
-    // cache: Cache,
+    cache_dir: Option<PathBuf>,
 }
 
 impl Handler {
-    fn new(
-        guest_elf: PathBuf,
-        host_cache: PathBuf,
-        _l2_contracts: String,
-        _capacity: usize,
-        max_caches: usize,
-    ) -> Self {
-        Self {
-            ctx: Context::new(guest_elf, host_cache, max_caches, None),
-            // cache: Cache::new(capacity),
+    pub fn new() -> Self {
+        Self { cache_dir: None }
+    }
+
+    pub fn new_with_cache(dir: PathBuf) -> Self {
+        if !dir.exists() {
+            fs::create_dir_all(&dir)
+                .unwrap_or_else(|_| panic!("Failed to create cache directory {:?}", dir));
         }
+        Self {
+            cache_dir: Some(dir),
+        }
+    }
+
+    pub fn get(&self, block_number: u64, network: &str) -> Option<GuestInput> {
+        let mut input: Option<GuestInput> = None;
+        self.cache_dir
+            .as_ref()
+            .map(|dir| get_input_path(dir, block_number, network))
+            .map(|path| File::open(path).map(|file| input = bincode::deserialize_from(file).ok()));
+        input
+    }
+
+    pub fn set(
+        &self,
+        block_number: u64,
+        network: &str,
+        input: GuestInput,
+    ) -> super::error::Result<()> {
+        if let Some(dir) = self.cache_dir.as_ref() {
+            let path = get_input_path(dir, block_number, network);
+            if !path.exists() {
+                let file = File::create(&path).map_err(HostError::Io)?;
+                println!("caching input for {:?}", path);
+                bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
+            }
+        }
+        Ok(())
     }
 
     async fn handle_request(mut self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
@@ -194,18 +207,19 @@ impl Handler {
                 Ok(resp)
             }
 
-            // serve metrics
-            (&Method::GET, "/metrics") => {
-                let encoder = TextEncoder::new();
-                let mut buffer = vec![];
-                let mf = prometheus::gather();
-                encoder.encode(&mf, &mut buffer).unwrap();
-                let resp = Response::builder()
-                    .header(hyper::header::CONTENT_TYPE, encoder.format_type())
-                    .body(Body::from(buffer))
-                    .unwrap();
-                Ok(resp)
-            }
+            // TODO(Cecilia): better way to serve metrics, perhaps can be done in OpenAPI
+            // refactoring serve metrics
+            // (&Method::GET, "/metrics") => {
+            //     let encoder = TextEncoder::new();
+            //     let mut buffer = vec![];
+            //     let mf = prometheus::gather();
+            //     encoder.encode(&mf, &mut buffer).unwrap();
+            //     let resp = Response::builder()
+            //         .header(hyper::header::CONTENT_TYPE, encoder.format_type())
+            //         .body(Body::from(buffer))
+            //         .unwrap();
+            //     Ok(resp)
+            // }
 
             // everything else
             _ => {
@@ -222,34 +236,41 @@ impl Handler {
         params: &[serde_json::Value],
     ) -> Result<serde_json::Value, HostError> {
         match method {
-            // enqueues a task for computating proof for any given block
+            // Generate a proof for a block
             "proof" => {
-                let options = params.first().expect("params must not be empty");
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "sp1")] {
-                        use sp1_prover::Sp1Prover;
-                        let req: ProofRequest<<Sp1Prover as Prover>::ProofParam> =
-                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        let res = execute::<Sp1Prover>(&mut self.ctx, &req).await;
-                    } else if #[cfg(feature = "risc0")] {
-                        use risc0_prover::Risc0Prover;
-                        let req: ProofRequest<<Risc0Prover as Prover>::ProofParam> =
-                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        let res = execute::<Risc0Prover>(&mut self.ctx, &req).await;
-                    } else if #[cfg(feature = "sgx")] {
-                        use sgx_prover::SgxProver;
-                        let req: ProofRequest<<SgxProver as Prover>::ProofParam> =
-                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        let res = execute::<SgxProver>(&mut self.ctx, &req).await;
-                    }  else {
-                        use crate::prover::execution::NativeDriver;
-                        let req: ProofRequest<<NativeDriver as Prover>::ProofParam> =
-                            serde_json::from_value(options.to_owned()).map_err(Into::<HostError>::into)?;
-                        let res = execute::<NativeDriver>(&mut self.ctx, &req).await;
+                // Get the request data sent through json-rpc
+                let request: serde_json::Value =
+                    params.first().expect("params must not be empty").to_owned();
+
+                // Use it to find cached input if any  build the config
+                let config = get_config(Some(request)).unwrap();
+                let req = ProofRequest::deserialize(config.clone()).unwrap();
+                println!(
+                    "# Generating proof for block {} on {}",
+                    req.block_number, req.network
+                );
+                let cached_input = self.get(req.block_number, &req.network);
+
+                // Run the selected prover
+                let proof_type =
+                    ProofType::from_str(config["proof_type"].as_str().unwrap()).unwrap();
+                let (input, proof) = match proof_type {
+                    ProofType::Native => {
+                        execute::<super::execution::NativeDriver>(&config, cached_input).await
                     }
-                };
-                res.and_then(|res| serde_json::to_value(res).map_err(Into::into))
-                    .map_err(Into::<HostError>::into)
+                    #[cfg(feature = "sp1")]
+                    ProofType::Sp1 => execute::<sp1_prover::Sp1Prover>(&config, cached_input).await,
+                    #[cfg(feature = "risc0")]
+                    ProofType::Risc0 => {
+                        execute::<risc0_prover::Risc0Prover>(&config, cached_input).await
+                    }
+                    #[cfg(feature = "sgx")]
+                    ProofType::Sgx => execute::<sgx_prover::SgxProver>(&config, cached_input).await,
+                    _ => unimplemented!("Prover {:?} not enabled!", proof_type),
+                }?;
+                // Cache the input
+                self.set(req.block_number, &req.network, input)?;
+                Ok(proof)
             }
             _ => todo!(),
         }

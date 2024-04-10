@@ -23,7 +23,7 @@ pub enum Command {
 
 #[derive(Debug, Args)]
 pub struct OneShotArgs {
-    #[clap(long, default_value = "./input.bin")]
+    #[clap(long, required = true)]
     pub blocks_data_file: PathBuf,
     #[clap(long)]
     pub sgx_instance_id: u32,

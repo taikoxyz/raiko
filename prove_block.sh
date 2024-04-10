@@ -25,35 +25,46 @@ else
 fi
 
 if [ "$proof" == "native" ]; then
-  proofParam=null
+  proofParam='
+    "proof_type": "native"
+  '
 elif [ "$proof" == "sp1" ]; then
-  proofParam=null
+  proofParam='
+    "proof_type": "sp1"
+  '
 elif [ "$proof" == "sgx" ]; then
-  proofParam='{
-    "instance_id": 123,
-    "setup": true,
-    "bootstrap": true,
-    "prove": true,
-    "input_path": null
-  }'
+  proofParam='
+    "proof_type": "sgx",
+    "sgx": {
+        "instance_id": 456,
+        "setup": true,
+        "bootstrap": true,
+        "prove": true,
+        "input_path": null
+      }
+    '
 elif [ "$proof" == "risc0" ]; then
-  proofParam='{
+  proofParam='
+    "proof_type": "risc0",
+    "risc0": {
       "bonsai": false,
       "snark": false,
       "profile": true,
       "execution_po2": 18
-  }'
+    }
+  '
 elif [ "$proof" == "risc0-bonsai" ]; then
-  proofParam='{
+  proofParam='
+    "proof_type": "risc0",
     "risc0": {
       "bonsai": true,
       "snark": true,
       "profile": false,
       "execution_po2": 20
     }
-  }'
+  '
 else
-  echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', or 'sp1'."
+  echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
   exit 1
 fi
 
@@ -80,14 +91,14 @@ do
          \"method\": \"proof\",
          \"params\": [
            {
-             \"chain\": \"$chain\",
+             \"network\": \"$chain\",
              \"rpc\": \"$rpc\",
-             \"l1Rpc\": \"$l1Rpc\",
-             \"beaconRpc\": \"$beaconRpc\",
-             \"proofParam\": $proofParam,
-             \"blockNumber\": $block,
+             \"l1_rpc\": \"$l1Rpc\",
+             \"beacon_rpc\": \"$beaconRpc\",
+             \"block_number\": $block,
              \"prover\": \"$prover\",
-             \"graffiti\": \"$graffiti\"
+             \"graffiti\": \"$graffiti\",
+             $proofParam
            }
          ]
        }"
