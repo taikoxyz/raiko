@@ -1,10 +1,8 @@
 use std::{fs::File, path::PathBuf};
 
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_lib::{
-    input::{get_input_path, GuestInput},
-    prover::Proof,
-};
+use raiko_lib::input::{get_input_path, GuestInput};
+use serde_json::Value;
 use utoipa::OpenApi;
 
 use crate::{
@@ -50,10 +48,10 @@ fn set_cached_input(
     Ok(())
 }
 
-#[utoipa::path(get, path = "/proof",
+#[utoipa::path(post, path = "/proof",
     tag = "Prooving",
     responses (
-        (status = 200, description = "Successfuly created proof for request", body = Proof)
+        (status = 200, description = "Successfuly created proof for request")
     )
 )]
 #[debug_handler(state = ProverState)]
@@ -65,10 +63,10 @@ fn set_cached_input(
 /// - sgx - uses the sgx environment to construct a block and produce proof of execution
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
-async fn handler(
+async fn proof_handler(
     State(ProverState { opts }): State<ProverState>,
     Json(req): Json<ProofRequestOpt>,
-) -> HostResult<Json<Proof>> {
+) -> HostResult<Json<Value>> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
@@ -127,7 +125,7 @@ async fn handler(
 }
 
 #[derive(OpenApi)]
-#[openapi(paths(handler))]
+#[openapi(paths(proof_handler))]
 struct Docs;
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
@@ -135,5 +133,5 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/:proof", post(handler))
+    Router::new().route("/:proof", post(proof_handler))
 }

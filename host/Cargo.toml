@@ -81,3 +81,11 @@ default = []
 sp1 = ["dep:sp1-prover", "sp1-prover/enable"]
 risc0 = ["dep:risc0-prover", "risc0-prover/enable"]
 sgx = ["dep:sgx-prover", "sgx-prover/enable"]
+
+[[bin]]
+name = "raiko-host"
+path = "src/main.rs"
+
+[[bin]]
+name = "docs"
+path = "src/docs.rs"

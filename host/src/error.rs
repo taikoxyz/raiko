@@ -21,26 +21,32 @@ pub enum HostError {
 
     /// For I/O errors.
     #[error("There was a I/O error: {0}")]
+    #[schema(value_type = Value)]
     Io(#[from] std::io::Error),
 
     /// For Serde errors.
     #[error("There was a deserialization error: {0}")]
+    #[schema(value_type = Value)]
     Serde(#[from] serde_json::Error),
 
     /// For errors related to the tokio runtime.
     #[error("There was a tokio task error: {0}")]
+    #[schema(value_type = Value)]
     JoinHandle(#[from] tokio::task::JoinError),
 
     /// For errors produced by the guest provers.
     #[error("There was a error with a guest prover: {0}")]
+    #[schema(value_type = Value)]
     GuestError(#[from] ProverError),
 
     /// For requesting a proof of a type that is not supported.
     #[error("Feature not supported: {0}")]
+    #[schema(value_type = Value)]
     FeatureNotSupportedError(ProofType),
 
     /// A catch-all error for any other error type.
     #[error("There was an unexpected error: {0}")]
+    #[schema(value_type = Value)]
     Anyhow(#[from] anyhow::Error),
 }
 

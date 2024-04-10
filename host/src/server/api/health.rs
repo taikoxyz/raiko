@@ -16,12 +16,12 @@ use crate::ProverState;
 ///
 /// Currently only responds with an OK status.
 /// Will return more detailed status information soon.
-async fn handler() -> StatusCode {
+async fn health_handler() -> StatusCode {
     StatusCode::OK
 }
 
 #[derive(OpenApi)]
-#[openapi(paths(handler))]
+#[openapi(paths(health_handler))]
 struct Docs;
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
@@ -29,5 +29,5 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", get(handler))
+    Router::new().route("/", get(health_handler))
 }
