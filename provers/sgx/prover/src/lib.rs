@@ -2,12 +2,14 @@
 use std::{
     env,
     fs::{self, copy, create_dir_all, remove_file, File},
+    ops::DerefMut,
     path::PathBuf,
     process::Output,
     str,
 };
 
 use alloy_sol_types::SolValue;
+use nix::fcntl::{Flock, FlockArg};
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{get_input_path, GuestInput, GuestOutput},
@@ -224,8 +226,15 @@ async fn prove(
     // Write the input to a file that will be read by the SGX instance
     let input_path = get_sgx_input_path(input.block_number, &input.network.to_string());
     let file = File::create(&input_path).expect("Unable to open input file");
+    let mut file = match Flock::lock(file, FlockArg::LockExclusiveNonblock) {
+        Ok(file) => file,
+        Err((_, no)) => {
+            println!("Failed to lock file: {}", no);
+            return ProverResult::Err(ProverError::GuestError(no.to_string()));
+        }
+    };
     println!("writing SGX input to {:?}", input_path);
-    bincode::serialize_into(file, &input).expect("Unable to serialize input");
+    bincode::serialize_into(file.deref_mut(), &input).expect("Unable to serialize input");
 
     // Prove
     let output = gramine_cmd
@@ -241,6 +250,9 @@ async fn prove(
     if !output.status.success() {
         return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
     }
+
+    // release lock before delete file
+    drop(file);
 
     // Delete the input file
     std::fs::remove_file(input_path)
