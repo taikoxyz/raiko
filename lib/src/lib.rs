@@ -122,7 +122,7 @@ impl Measurement {
 
 pub fn print_duration(title: &str, duration: time::Duration) {
     println!(
-        "{}{}.{} seconds",
+        "{}{}.{:03} seconds",
         title,
         duration.as_secs(),
         duration.subsec_millis()
