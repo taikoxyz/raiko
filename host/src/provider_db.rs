@@ -27,7 +27,7 @@ use revm::{
 };
 use tokio::runtime::Handle;
 
-use crate::preflight::get_block;
+use crate::preflight::{batch_get_history_headers, get_block};
 
 pub struct ProviderDb {
     pub provider: ReqwestProvider,
@@ -225,22 +225,16 @@ impl Database for ProviderDb {
             return Ok(block_hash);
         }
 
-        // Get the block hash from the provider.
+        // Get the 256 history block hashes from the provider at first time for anchor
+        // transaction.
         let block_number = u64::try_from(number).unwrap();
-        let block_hash = self.async_executor.block_on(async {
-            self.provider
-                .get_block_by_number(block_number.into(), false)
-                .await
-                .unwrap()
-                .unwrap()
-                .header
-                .hash
-                .unwrap()
-                .0
-                .into()
-        });
-        self.initial_db.insert_block_hash(block_number, block_hash);
-        Ok(block_hash)
+        for block in batch_get_history_headers(&self.provider, &self.async_executor, block_number)?
+        {
+            let block_number = block.header.number.unwrap().try_into().unwrap();
+            let block_hash = block.header.hash.unwrap();
+            self.initial_db.insert_block_hash(block_number, block_hash);
+        }
+        self.block_hash(number)
     }
 
     fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
