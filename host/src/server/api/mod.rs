@@ -65,7 +65,6 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
         ])
         .allow_origin(cors::Any);
     let compression = CompressionLayer::new();
-    let trace = TraceLayer::new_for_http();
 
     let middleware = ServiceBuilder::new()
         .concurrency_limit(concurrency_limit)
@@ -75,6 +74,8 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
             header::CONTENT_TYPE,
             HeaderValue::from_static("application/json"),
         ));
+
+    let trace = TraceLayer::new_for_http();
 
     Router::new()
         .nest("/proof", proof::create_router())

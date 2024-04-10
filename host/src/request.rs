@@ -22,8 +22,8 @@ use crate::{
     memory,
 };
 
-/// Available proof types.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize)]
+/// Available proof types.
 pub enum ProofType {
     /// # Native
     ///
@@ -54,124 +54,6 @@ impl std::fmt::Display for ProofType {
     }
 }
 
-impl ProofType {
-    fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
-        match self {
-            ProofType::Native => Ok(NativeDriver::instance_hash(pi)),
-            ProofType::Sp1 => {
-                #[cfg(feature = "sp1")]
-                return Ok((sp1_prover::Sp1Prover::instance_hash(pi)));
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Risc0 => {
-                #[cfg(feature = "risc0")]
-                return Ok(risc0_prover::Risc0Prover::instance_hash(pi));
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Sgx => {
-                #[cfg(feature = "sgx")]
-                return Ok(sgx_prover::SgxProver::instance_hash(pi));
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-        }
-    }
-
-    async fn run_driver(
-        &self,
-        input: GuestInput,
-        output: GuestOutput,
-        config: &serde_json::Value,
-    ) -> HostResult<Proof> {
-        match self {
-            ProofType::Native => NativeDriver::run(input, output, config)
-                .await
-                .map_err(|e| e.into()),
-            ProofType::Sp1 => {
-                #[cfg(feature = "sp1")]
-                return sp1_prover::Sp1Prover::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Risc0 => {
-                #[cfg(feature = "risc0")]
-                return risc0_prover::Risc0Prover::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Sgx => {
-                #[cfg(feature = "sgx")]
-                return sgx_prover::SgxProver::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-        }
-    }
-
-    pub async fn execute(
-        &self,
-        config: &ProofRequest,
-        cached_input: Option<GuestInput>,
-    ) -> HostResult<(GuestInput, Proof)> {
-        let input = if let Some(cached_input) = cached_input {
-            println!("Using cached input");
-            cached_input
-        } else {
-            memory::reset_stats();
-            let measurement = Measurement::start("Generating input...", false);
-            let input = prepare_input(config.clone()).await?;
-            measurement.stop_with("=> Input generated");
-            memory::print_stats("Input generation peak memory used: ");
-            input
-        };
-
-        // 2. Test run the block
-        memory::reset_stats();
-        let build_result = TaikoStrategy::build_from(&input);
-        let output = match &build_result {
-            Ok((header, _mpt_node)) => {
-                info!("Verifying final state using provider data ...");
-                info!("Final block hash derived successfully. {}", header.hash());
-                info!("Final block header derived successfully. {header:?}");
-                let pi = self.instance_hash(assemble_protocol_instance(&input, header)?)?;
-                // Make sure the blockhash from the node matches the one from the builder
-                assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
-                GuestOutput::Success((
-                    WrappedHeader {
-                        header: header.clone(),
-                    },
-                    pi,
-                ))
-            }
-            Err(_) => {
-                warn!("Proving bad block construction!");
-                GuestOutput::Failure
-            }
-        };
-        memory::print_stats("Guest program peak memory used: ");
-
-        // Prove
-        memory::reset_stats();
-        let measurement = Measurement::start("Generating proof...", false);
-        let res = self
-            .run_driver(input.clone(), output, &serde_json::to_value(config)?)
-            .await
-            .map(|proof| (input, proof));
-        measurement.stop_with("=> Proof generated");
-        memory::print_stats("Prover peak memory used: ");
-
-        res
-    }
-}
-
 impl FromStr for ProofType {
     type Err = HostError;
 
@@ -186,9 +68,9 @@ impl FromStr for ProofType {
     }
 }
 
-/// A request for a proof.
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// A request for a proof.
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
@@ -214,6 +96,7 @@ pub struct ProofRequest {
 
 #[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
+/// A partial proof request config.
 pub struct ProofRequestOpt {
     #[structopt(long, require_equals = true)]
     /// The block number for the block to generate a proof for.
@@ -243,6 +126,7 @@ pub struct ProofRequestOpt {
 }
 
 impl ProofRequestOpt {
+    /// Read a partial proof request config from a file.
     pub fn from_file<T>(path: T) -> Result<Self, HostError>
     where
         T: AsRef<Path>,
@@ -253,6 +137,7 @@ impl ProofRequestOpt {
         Self::deserialize(&config).map_err(|e| e.into())
     }
 
+    /// Merge a partial proof request into current one.
     pub fn merge(&mut self, other: &Self) {
         if other.block_number.is_some() {
             self.block_number = other.block_number;
@@ -327,5 +212,126 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 .parse()
                 .map_err(|_| HostError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
         })
+    }
+}
+
+impl ProofRequest {
+    /// Get the instance hash for the protocol instance depending on the proof type.
+    fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
+        match self.proof_type {
+            ProofType::Native => Ok(NativeDriver::instance_hash(pi)),
+            ProofType::Sp1 => {
+                #[cfg(feature = "sp1")]
+                return Ok((sp1_prover::Sp1Prover::instance_hash(pi)));
+
+                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
+            }
+            ProofType::Risc0 => {
+                #[cfg(feature = "risc0")]
+                return Ok(risc0_prover::Risc0Prover::instance_hash(pi));
+
+                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
+            }
+            ProofType::Sgx => {
+                #[cfg(feature = "sgx")]
+                return Ok(sgx_prover::SgxProver::instance_hash(pi));
+
+                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
+            }
+        }
+    }
+
+    /// Run the prover driver depending on the proof type.
+    async fn run_driver(
+        &self,
+        input: GuestInput,
+        output: GuestOutput,
+        config: &serde_json::Value,
+    ) -> HostResult<Proof> {
+        match self.proof_type {
+            ProofType::Native => NativeDriver::run(input, output, config)
+                .await
+                .map_err(|e| e.into()),
+            ProofType::Sp1 => {
+                #[cfg(feature = "sp1")]
+                return sp1_prover::Sp1Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+
+                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
+            }
+            ProofType::Risc0 => {
+                #[cfg(feature = "risc0")]
+                return risc0_prover::Risc0Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+
+                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
+            }
+            ProofType::Sgx => {
+                #[cfg(feature = "sgx")]
+                return sgx_prover::SgxProver::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+
+                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
+            }
+        }
+    }
+
+    /// Execute the proof generation.
+    pub async fn execute(
+        &self,
+        cached_input: Option<GuestInput>,
+    ) -> HostResult<(GuestInput, Proof)> {
+        // 1. Prepare input - use cached input if available, otherwise prepare new input
+        let input = if let Some(cached_input) = cached_input {
+            println!("Using cached input");
+            cached_input
+        } else {
+            memory::reset_stats();
+            let measurement = Measurement::start("Generating input...", false);
+            let input = prepare_input(self.clone()).await?;
+            measurement.stop_with("=> Input generated");
+            memory::print_stats("Input generation peak memory used: ");
+            input
+        };
+
+        // 2. Test run the block
+        memory::reset_stats();
+        let build_result = TaikoStrategy::build_from(&input);
+        let output = match &build_result {
+            Ok((header, _mpt_node)) => {
+                info!("Verifying final state using provider data ...");
+                info!("Final block hash derived successfully. {}", header.hash());
+                info!("Final block header derived successfully. {header:?}");
+                let pi = self.instance_hash(assemble_protocol_instance(&input, header)?)?;
+                // Make sure the blockhash from the node matches the one from the builder
+                assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
+                GuestOutput::Success((
+                    WrappedHeader {
+                        header: header.clone(),
+                    },
+                    pi,
+                ))
+            }
+            Err(_) => {
+                warn!("Proving bad block construction!");
+                GuestOutput::Failure
+            }
+        };
+        memory::print_stats("Guest program peak memory used: ");
+
+        // 3. Prove
+        memory::reset_stats();
+        let measurement = Measurement::start("Generating proof...", false);
+        let res = self
+            .run_driver(input.clone(), output, &serde_json::to_value(self)?)
+            .await
+            .map(|proof| (input, proof));
+        measurement.stop_with("=> Proof generated");
+        memory::print_stats("Prover peak memory used: ");
+
+        res
     }
 }

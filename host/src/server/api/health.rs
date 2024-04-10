@@ -13,18 +13,18 @@ use crate::ProverState;
 )]
 #[debug_handler(state = ProverState)]
 /// Health check
-async fn health() -> StatusCode {
+async fn handler() -> StatusCode {
     StatusCode::OK
 }
 
 #[derive(OpenApi)]
-#[openapi(paths(health))]
-struct HealthDocs;
+#[openapi(paths(handler))]
+struct Docs;
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    HealthDocs::openapi()
+    Docs::openapi()
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", get(health))
+    Router::new().route("/", get(handler))
 }

@@ -1199,8 +1199,7 @@ dependencies = [
 [[package]]
 name = "axum-core"
 version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a15c63fd72d41492dc4f497196f5da1fb04fb7529e631d73630d1b491e47a2e3"
+source = "git+https://github.com/petarvujovic98/axum?branch=raiko#2efe6a9041f88a181cff6a3ff92b313f5d0f0c81"
 dependencies = [
  "async-trait",
  "bytes",
@@ -5621,7 +5620,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rust-embed-utils",
- "syn 2.0.57",
+ "syn 2.0.58",
  "walkdir",
 ]
 
@@ -7269,7 +7268,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "syn 2.0.57",
+ "syn 2.0.58",
 ]
 
 [[package]]
