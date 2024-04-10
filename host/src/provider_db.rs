@@ -19,7 +19,7 @@ use std::{
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{BlockId, EIP1186AccountProofResponse};
-use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, taiko_utils::to_header};
+use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, print_duration, taiko_utils::to_header};
 use raiko_primitives::{Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
@@ -90,6 +90,7 @@ impl ProviderDb {
         (
             HashMap<Address, EIP1186AccountProofResponse>,
             HashMap<Address, EIP1186AccountProofResponse>,
+            usize
         ),
         anyhow::Error,
     > {
@@ -128,7 +129,7 @@ impl ProviderDb {
             num_storage_proofs,
         )?;
 
-        Ok((initial_proofs, latest_proofs))
+        Ok((initial_proofs, latest_proofs, num_storage_proofs))
     }
 
     pub fn get_ancestor_headers(&mut self) -> Result<Vec<AlloyConsensusHeader>, anyhow::Error> {
@@ -284,24 +285,9 @@ impl MeasuredProviderDb {
 
     pub fn print_report(&self) {
         println!("db accesses: ");
-        println!(
-            "- account: {}.{} seconds ({} ops)",
-            self.time_basic.as_secs(),
-            self.time_basic.subsec_millis(),
-            self.num_basic
-        );
-        println!(
-            "- storage: {}.{} seconds ({} ops)",
-            self.time_storage.as_secs(),
-            self.time_storage.subsec_millis(),
-            self.num_storage
-        );
-        println!(
-            "- block_hash: {}.{} seconds ({} ops)",
-            self.time_block_hash.as_secs(),
-            self.time_block_hash.subsec_millis(),
-            self.num_block_hash
-        );
+        print_duration(&format!("- account [{} ops]: ", self.num_basic), self.time_basic);
+        print_duration(&format!("- storage [{} ops]: ", self.num_storage), self.time_storage);
+        print_duration(&format!("- block_hash [{} ops]: ", self.num_block_hash), self.time_block_hash);
         println!("- code_by_hash: {}", self.num_code_by_hash);
     }
 }

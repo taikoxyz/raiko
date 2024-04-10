@@ -91,7 +91,9 @@ impl Measurement {
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
         } else {
-            println!("{title}");
+            if !title.is_empty() {
+                println!("{title}");
+            }
         }
         Self {
             start: time::Instant::now(),
@@ -104,12 +106,17 @@ impl Measurement {
         self.stop_with(&format!("{} Done", self.title));
     }
 
-    pub fn stop_with(&self, title: &str) {
+    pub fn stop_with_count(&self, count: &str) {
+        self.stop_with(&format!("{} {} done", self.title, count));
+    }
+
+    pub fn stop_with(&self, title: &str) -> time::Duration {
         let time_elapsed = time::Instant::now().duration_since(self.start);
         print_duration(
             &format!("{}{} in ", if self.inplace { "\r" } else { "" }, title,),
             time_elapsed,
         );
+        time_elapsed
     }
 }
 

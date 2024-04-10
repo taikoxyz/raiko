@@ -1,18 +1,33 @@
 #!/bin/bash
 
+getBlockNumber() {
+    # Get the latest block number from the node
+    output=$(curl $rpc -s -X POST -H "Content-Type: application/json" --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}')
+
+    # Extract the hexadecimal number using jq and remove the surrounding quotes
+    hex_number=$(echo $output | jq -r '.result')
+
+    # Convert the hexadecimal to decimal
+    block_number=$(echo $((${hex_number})))
+
+    # Return the block number by echoing it
+    echo "$block_number"
+}
+
 # Use the first command line argument as the chain name
 chain="$1"
 # Use the second command line argument as the proof type
 proof="$2"
 # Use the third(/fourth) parameter(s) as the block number as a range
+# Use the special value "sync" as the third parameter to follow the tip of the chain
 rangeStart="$3"
 rangeEnd="$4"
 
-# Check the caain name and set the corresponding RPC values
+# Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
   rpc="https://rpc.ankr.com/eth"
 elif [ "$chain" == "holesky" ]; then
-  rpc="https://ethereum-holesky-rpc.publicnode.com"
+ rpc="http://localhost:8545/"
 elif [ "$chain" == "taiko_a6" ]; then
   rpc="https://rpc.katla.taiko.xyz"
   l1Rpc="https://l1rpc.katla.taiko.xyz"
@@ -70,6 +85,13 @@ else
   exit 1
 fi
 
+
+if [ "$rangeStart" == "sync" ]; then
+  sync="true"
+  rangeStart=$(getBlockNumber)
+  rangeEnd=$((rangeStart + 1000000))
+fi
+
 if [ "$rangeStart" == "" ]; then
   echo "Please specify a valid block range like \"10\" or \"10 20\""
   exit 1
@@ -84,6 +106,16 @@ graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
 for block in $(eval echo {$rangeStart..$rangeEnd});
 do
+  # Special sync logic to follow the tip of the chain
+  if [ "$sync" == "true" ]; then
+    block_number=$(getBlockNumber)
+    # While the current block is greater than the block number from the blockchain
+    while [ "$block" -gt "$block_number" ]; do
+        sleep 0.1 # Wait for 100ms
+        block_number=$(getBlockNumber) # Query again to get the updated block number
+    done
+  fi
+
   echo "- proving block $block"
   curl --location --request POST 'http://localhost:8080' \
        --header 'Content-Type: application/json' \

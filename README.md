@@ -39,10 +39,17 @@ cargo run
 Then in another terminal you can do requests like this:
 
 ```
-./prove_block.sh testnet native 10
+./prove_block.sh ethereum native 10
 ```
 
 Look into `prove_block.sh` for the available options or run the script without inputs and it will tell you.
+
+You can also automatically sync with the tip of the chain and prove all blocks:
+
+
+```
+./prove_block.sh ethereum native sync
+```
 
 ## Provers
 
@@ -63,7 +70,7 @@ RISC0_DEV_MODE=1 cargo run --release --features risc0
 # edit run_bonsai.sh and run
 run_bonsai.sh
 # then
-prove_block.sh testnet risc0-bonsai 10
+prove_block.sh ethereum risc0-bonsai 10
 ```
 
 #### CPU

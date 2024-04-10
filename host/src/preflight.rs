@@ -158,6 +158,7 @@ pub fn preflight(
     let input = GuestInput {
         network,
         block_number,
+        gas_used: block.header.gas_used.try_into().unwrap(),
         block_hash: block.header.hash.unwrap().0.into(),
         beneficiary: block.header.miner,
         gas_limit: block.header.gas_limit.try_into().unwrap(),
@@ -200,8 +201,8 @@ pub fn preflight(
 
     // Gather inclusion proofs for the initial and final state
     let measurement = Measurement::start("Fetching storage proofs...", true);
-    let (parent_proofs, proofs) = provider_db.get_proofs()?;
-    measurement.stop();
+    let (parent_proofs, proofs, num_storage_proofs) = provider_db.get_proofs()?;
+    measurement.stop_with_count(&format!("[{} Account/{} Storage]", parent_proofs.len() + proofs.len(), num_storage_proofs));
 
     // Construct the state trie and storage from the storage proofs.
     let measurement = Measurement::start("Constructing MPT...", true);

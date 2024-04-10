@@ -41,6 +41,8 @@ pub struct GuestInput {
     pub network: Network,
     /// Block number
     pub block_number: u64,
+    /// Block gas used
+    pub gas_used: u64,
     /// Block hash - for reference!
     pub block_hash: B256,
     /// Previous block header
