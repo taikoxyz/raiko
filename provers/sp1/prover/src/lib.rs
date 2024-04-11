@@ -71,3 +71,6 @@ impl Prover for Sp1Prover {
         hash.into()
     }
 }
+
+#[test]
+fn 
