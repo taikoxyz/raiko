@@ -4,11 +4,11 @@ This tutorial was created to assist you in verifying your SGX machine for provin
 
 ## Prerequisites
 
-You must have a Raiko instance set up, following the README_DOCKER guide in this repo.
+You must have a Raiko instance set up, following the [README_Docker](https://github.com/taikoxyz/raiko/blob/alpha-7/README_Docker.md) guide in this repo.
 
 
 ### Procedure
-1. Clone taiko-mono and navigate to the scripts
+1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main) and navigate to the scripts
 
 ```
 git clone https://github.com/taikoxyz/taiko-mono.git
@@ -25,7 +25,7 @@ PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E \
 
 Replace these values in the `config_dcap_sgx_verifier.sh` script.
 
-3. If you've followed the README_DOCKER guide, you will have bootstrapped raiko and obtained a quote:
+3. If you've followed the [README_Docker](https://github.com/taikoxyz/raiko/blob/alpha-7/README_Docker.md) guide, you will have bootstrapped raiko and obtained a quote:
 
 ```
 "public_key": "0x02ab85f14dcdc93832f4bb9b40ad908a5becb840d36f64d21645550ba4a2b28892",
