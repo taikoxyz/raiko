@@ -148,7 +148,7 @@ You can now bootstrap and run Raiko as a daemon.
 
 Now, we need to retrieve Intel's PCK Certificates and populate the PCCS service with them.
 
-Install the `PCKIDRetrievalTool` [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
+Install the `PCKIDRetrievalTool`
 
 You can install either from the Ubuntu repository:
 ```
@@ -191,6 +191,7 @@ curl -k -G "https://localhost:8081/sgx/certification/v3/rootcacrl"
 
 Now, you're ready to bootstrap and run Raiko!
 
+[sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 
 ### Raiko bootstrapping
 
