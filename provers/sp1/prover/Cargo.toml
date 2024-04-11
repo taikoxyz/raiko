@@ -4,29 +4,29 @@ name = "sp1-prover"
 edition = "2021"
 
 [dependencies]
-raiko-lib = { workspace = true, optional = true }
-alloy-primitives = { workspace = true, optional = true }
-alloy-sol-types = { workspace = true }
-serde = {  workspace = true , optional = true}
-serde_json = { workspace = true , optional = true }
-sp1-core = { workspace = true, optional = true }
-anyhow = { workspace = true, optional = true }
-once_cell = { workspace = true }
-sha3 = { workspace = true, default-features = false}
+# raiko-lib = { workspace = true, optional = true }
+# alloy-primitives = { workspace = true, optional = true }
+# alloy-sol-types = { workspace = true }
+# serde = {  workspace = true , optional = true}
+# serde_json = { workspace = true , optional = true }
+# sp1-core = { workspace = true, optional = true }
+# anyhow = { workspace = true, optional = true }
+# once_cell = { workspace = true }
+# sha3 = { workspace = true, default-features = false}
 
 [build-dependencies]
-sp1-helper = { workspace = true, optional = true }
+# sp1-helper = { workspace = true, optional = true }
 cargo_metadata = "0.18.1"
 chrono = { version = "0.4.34", default-features = false, features = ["clock"] }
 regex = "1.5.4"
 
 [features]
 enable = [
-    "serde",
-    "serde_json",
-    "raiko-lib",
-    "sp1-core",
-    "anyhow",
-    "sp1-helper",
-    "alloy-primitives",
+    # "serde",
+    # "serde_json",
+    # "raiko-lib",
+    # "sp1-core",
+    # "anyhow",
+    # "sp1-helper",
+    # "alloy-primitives",
 ]
