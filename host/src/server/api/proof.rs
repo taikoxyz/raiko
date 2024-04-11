@@ -144,5 +144,5 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/:proof", post(proof_handler))
+    Router::new().route("/", post(proof_handler))
 }
