@@ -39,7 +39,7 @@ Take that quote and replace `V3_QUOTE_BYTES` in the `config_dcap_sgx_verifier.sh
 
 > **_NOTE:_**  If you already have QE/TCB/Enclave already configured you can change `export TASK_ENABLE="1,1,1,1,1"` to `export TASK_ENABLE="0,0,0,0,1"` to only register the SGX instance.
 
-5. If you've been successful, you will get a SGX instance id which can be used to run Raiko!
+5. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
 It should look like this:
 ```
