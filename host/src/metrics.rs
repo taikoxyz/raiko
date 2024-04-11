@@ -40,13 +40,13 @@ lazy_static! {
     pub static ref GUEST_PROOF_TIME: IntGaugeVec = register_int_gauge_vec!(
         "guest_proof_time_gauge",
         "time taken for proof generation by this guest",
-        &["guest", "block_id"]
+        &["guest", "block_id", "success"]
     )
     .unwrap();
     pub static ref PREPARE_INPUT_TIME: IntGaugeVec = register_int_gauge_vec!(
         "prepare_input_time_histogram",
         "time taken for prepare input",
-        &["block_id"]
+        &["block_id", "success"]
     )
     .unwrap();
     pub static ref CONCURRENT_REQUESTS: IntGauge = register_int_gauge!(
@@ -118,21 +118,25 @@ pub fn inc_guest_error(guest: &ProofType, block_id: u64) {
 }
 
 /// Observe the time taken for the given guest to generate a proof.
-pub fn observe_guest_time(guest: &ProofType, block_id: u64, time: u128) {
+pub fn observe_guest_time(guest: &ProofType, block_id: u64, time: u128, success: bool) {
     let guest = guest.to_string();
     let block_id = block_id.to_string();
+    let sucess = success.to_string();
     let labels = labels! {
         "guest" => guest.as_str(),
         "block_id" => &block_id,
+        "success" => &sucess,
     };
     GUEST_PROOF_TIME.with(&labels).set(time as i64);
 }
 
 /// Observe the time taken for prepare input.
-pub fn observe_prepare_input_time(block_id: u64, time: u128) {
+pub fn observe_prepare_input_time(block_id: u64, time: u128, success: bool) {
     let block_id = block_id.to_string();
+    let sucess = success.to_string();
     let labels = labels! {
         "block_id" => block_id.as_str(),
+        "success" => &sucess,
     };
     PREPARE_INPUT_TIME.with(&labels).set(time as i64);
 }

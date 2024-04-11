@@ -293,11 +293,11 @@ impl ProofRequest {
         } else {
             memory::reset_stats();
             let measurement = Measurement::start("Generating input...", false);
-            let input = prepare_input(self.clone()).await?;
+            let input = prepare_input(self.clone()).await;
             let input_time = measurement.stop_with("=> Input generated");
-            observe_prepare_input_time(self.block_number, input_time.as_millis());
+            observe_prepare_input_time(self.block_number, input_time.as_millis(), input.is_ok());
             memory::print_stats("Input generation peak memory used: ");
-            input
+            input?
         };
 
         // 2. Test run the block
@@ -334,7 +334,12 @@ impl ProofRequest {
             .await
             .map(|proof| (input, proof));
         let guest_time = measurement.stop_with("=> Proof generated");
-        observe_guest_time(&self.proof_type, self.block_number, guest_time.as_millis());
+        observe_guest_time(
+            &self.proof_type,
+            self.block_number,
+            guest_time.as_millis(),
+            res.is_ok(),
+        );
         memory::print_stats("Prover peak memory used: ");
 
         res
