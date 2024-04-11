@@ -44,8 +44,14 @@ lazy_static! {
     )
     .unwrap();
     pub static ref PREPARE_INPUT_TIME: IntGaugeVec = register_int_gauge_vec!(
-        "prepare_input_time_histogram",
+        "prepare_input_time_gauge",
         "time taken for prepare input",
+        &["block_id", "success"]
+    )
+    .unwrap();
+    pub static ref TOTAL_TIME: IntGaugeVec = register_int_gauge_vec!(
+        "total_time_gauge",
+        "time taken for the whole request",
         &["block_id", "success"]
     )
     .unwrap();
@@ -139,4 +145,15 @@ pub fn observe_prepare_input_time(block_id: u64, time: u128, success: bool) {
         "success" => &sucess,
     };
     PREPARE_INPUT_TIME.with(&labels).set(time as i64);
+}
+
+/// Observe the time taken for prepare input.
+pub fn observe_total_time(block_id: u64, time: u128, success: bool) {
+    let block_id = block_id.to_string();
+    let sucess = success.to_string();
+    let labels = labels! {
+        "block_id" => block_id.as_str(),
+        "success" => &sucess,
+    };
+    TOTAL_TIME.with(&labels).set(time as i64);
 }
