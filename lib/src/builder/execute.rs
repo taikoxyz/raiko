@@ -260,7 +260,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             #[cfg(feature = "std")]
             debug!("  Ok: {result:?}");
 
-            tx_transact_duration.add_assign(Instant::now().duration_since(start));
+            tx_transact_duration.add_assign(start.elapsed());
 
             let start = Instant::now();
 
@@ -300,7 +300,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             // If we got here it means the tx is not invalid
             actual_tx_no += 1;
 
-            tx_misc_duration.add_assign(Instant::now().duration_since(start));
+            tx_misc_duration.add_assign(start.elapsed());
         }
         clear_line();
         print_duration("Tx transact time: ", tx_transact_duration);

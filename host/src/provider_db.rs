@@ -326,8 +326,7 @@ impl Database for MeasuredProviderDb {
         self.num_basic += 1;
         let start = Instant::now();
         let res = self.provider.basic(address);
-        self.time_basic
-            .add_assign(Instant::now().duration_since(start));
+        self.time_basic.add_assign(start.elapsed());
         res
     }
 
@@ -335,8 +334,7 @@ impl Database for MeasuredProviderDb {
         self.num_storage += 1;
         let start = Instant::now();
         let res = self.provider.storage(address, index);
-        self.time_storage
-            .add_assign(Instant::now().duration_since(start));
+        self.time_storage.add_assign(start.elapsed());
         res
     }
 
@@ -344,8 +342,7 @@ impl Database for MeasuredProviderDb {
         self.num_block_hash += 1;
         let start = Instant::now();
         let res = self.provider.block_hash(number);
-        self.time_block_hash
-            .add_assign(Instant::now().duration_since(start));
+        self.time_block_hash.add_assign(start.elapsed());
         res
     }
 

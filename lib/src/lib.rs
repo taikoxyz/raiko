@@ -58,6 +58,9 @@ mod time {
         pub fn duration_since(&self, _instant: Instant) -> Duration {
             Duration::default()
         }
+        pub fn elapsed(&self) -> Duration {
+            Duration::default()
+        }
     }
 
     #[derive(Default, Clone, Copy)]
@@ -111,7 +114,7 @@ impl Measurement {
     }
 
     pub fn stop_with(&self, title: &str) -> time::Duration {
-        let time_elapsed = time::Instant::now().duration_since(self.start);
+        let time_elapsed = self.start.elapsed();
         print_duration(
             &format!("{}{} in ", if self.inplace { "\r" } else { "" }, title,),
             time_elapsed,
