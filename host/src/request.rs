@@ -1,27 +1,21 @@
 use core::fmt::Debug;
 use std::{path::Path, str::FromStr};
 
-use alloy_consensus::Sealable;
 use alloy_primitives::{Address, B256};
 use raiko_lib::{
-    builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::Network,
-    input::{GuestInput, GuestOutput, WrappedHeader},
-    protocol_instance::{assemble_protocol_instance, ProtocolInstance},
+    input::{GuestInput, GuestOutput},
+    protocol_instance::ProtocolInstance,
     prover::{Proof, Prover},
-    Measurement,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use structopt::StructOpt;
-use tracing::{info, warn};
 use utoipa::ToSchema;
 
 use crate::{
     error::{HostError, HostResult},
-    execution::{prepare_input, NativeProver},
-    memory,
-    metrics::{inc_guest_req_count, observe_guest_time, observe_prepare_input_time},
+    execution::NativeProver,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize, ToSchema)]
@@ -219,7 +213,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
 
 impl ProofRequest {
     /// Get the instance hash for the protocol instance depending on the proof type.
-    fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
+    pub fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
         match self.proof_type {
             ProofType::Native => Ok(NativeProver::instance_hash(pi)),
             ProofType::Sp1 => {
@@ -244,7 +238,7 @@ impl ProofRequest {
     }
 
     /// Run the prover driver depending on the proof type.
-    async fn run_prover(
+    pub async fn run_prover(
         &self,
         input: GuestInput,
         output: GuestOutput,
@@ -279,69 +273,5 @@ impl ProofRequest {
                 Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
             }
         }
-    }
-
-    /// Execute the proof generation.
-    pub async fn execute(
-        &self,
-        cached_input: Option<GuestInput>,
-    ) -> HostResult<(GuestInput, Proof)> {
-        // 1. Prepare input - use cached input if available, otherwise prepare new input
-        let input = if let Some(cached_input) = cached_input {
-            println!("Using cached input");
-            cached_input
-        } else {
-            memory::reset_stats();
-            let measurement = Measurement::start("Generating input...", false);
-            let input = prepare_input(self.clone()).await;
-            let input_time = measurement.stop_with("=> Input generated");
-            observe_prepare_input_time(self.block_number, input_time.as_millis(), input.is_ok());
-            memory::print_stats("Input generation peak memory used: ");
-            input?
-        };
-
-        // 2. Test run the block
-        memory::reset_stats();
-        let build_result = TaikoStrategy::build_from(&input);
-        let output = match &build_result {
-            Ok((header, _mpt_node)) => {
-                info!("Verifying final state using provider data ...");
-                info!("Final block hash derived successfully. {}", header.hash());
-                info!("Final block header derived successfully. {header:?}");
-                let pi = self.instance_hash(assemble_protocol_instance(&input, header)?)?;
-                // Make sure the blockhash from the node matches the one from the builder
-                assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
-                GuestOutput::Success((
-                    WrappedHeader {
-                        header: header.clone(),
-                    },
-                    pi,
-                ))
-            }
-            Err(_) => {
-                warn!("Proving bad block construction!");
-                GuestOutput::Failure
-            }
-        };
-        memory::print_stats("Guest program peak memory used: ");
-
-        // 3. Prove
-        memory::reset_stats();
-        let measurement = Measurement::start("Generating proof...", false);
-        inc_guest_req_count(&self.proof_type, self.block_number);
-        let res = self
-            .run_prover(input.clone(), output, &serde_json::to_value(self)?)
-            .await
-            .map(|proof| (input, proof));
-        let guest_time = measurement.stop_with("=> Proof generated");
-        observe_guest_time(
-            &self.proof_type,
-            self.block_number,
-            guest_time.as_millis(),
-            res.is_ok(),
-        );
-        memory::print_stats("Prover peak memory used: ");
-
-        res
     }
 }

@@ -10,6 +10,7 @@ use utoipa::OpenApi;
 
 use crate::{
     error::{HostError, HostResult},
+    execution::execute,
     metrics::{
         dec_current_req, inc_current_req, inc_guest_error, inc_guest_success, inc_host_error,
         inc_host_req_count, observe_total_time,
@@ -98,7 +99,7 @@ async fn proof_handler(
 
     // Execute the proof generation.
     let total_time = Measurement::start("", false);
-    let (input, proof) = proof_request.execute(cached_input).await.map_err(|e| {
+    let (input, proof) = execute(&proof_request, cached_input).await.map_err(|e| {
         dec_current_req();
         let total_time = total_time.stop_with("====> Complete proof generated");
         observe_total_time(proof_request.block_number, total_time.as_millis(), true);

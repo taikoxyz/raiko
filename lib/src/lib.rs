@@ -41,6 +41,7 @@ mod time {
     pub use core::ops::AddAssign;
     pub use std::time::{Duration, Instant};
 }
+
 #[cfg(target_os = "zkvm")]
 // Dummy time implementation
 mod time {
@@ -93,11 +94,10 @@ impl Measurement {
             print!("{title}");
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
-        } else {
-            if !title.is_empty() {
-                println!("{title}");
-            }
+        } else if !title.is_empty() {
+            println!("{title}");
         }
+
         Self {
             start: time::Instant::now(),
             title: title.to_string(),
