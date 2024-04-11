@@ -18,7 +18,7 @@ const ELF: &[u8] = include_bytes!("../../guest/elf/riscv32im-succinct-zkvm-elf")
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
     pub proof: String,
-    pub output: GuestOutput,  
+    pub output: GuestOutput,
 }
 
 pub struct Sp1Prover;
