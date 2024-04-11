@@ -298,7 +298,7 @@ fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsResponse
 // CommitmentInclusionProof []string
 // `json:"kzg_commitment_inclusion_proof"` }
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct GetBlobData {
+struct GetBlobData {
     pub index: String,
     pub blob: String,
     // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
@@ -308,7 +308,7 @@ pub struct GetBlobData {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct GetBlobsResponse {
+struct GetBlobsResponse {
     pub data: Vec<GetBlobData>,
 }
 
@@ -325,7 +325,21 @@ pub fn get_block(provider: &ReqwestProvider, block_number: u64, full: bool) -> R
     }
 }
 
-pub fn get_block_proposed_event(
+pub fn batch_get_history_headers(
+    provider: &ReqwestProvider,
+    handle: &tokio::runtime::Handle,
+    block_number: u64,
+) -> Result<Vec<AlloyBlock>> {
+    let response = handle.block_on(async {
+        provider
+            .client()
+            .request("taiko_getL2ParentHeaders", (block_number,))
+            .await
+    })?;
+    Ok(response)
+}
+
+fn get_block_proposed_event(
     provider: &ReqwestProvider,
     network: Network,
     block_hash: B256,
