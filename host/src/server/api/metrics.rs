@@ -25,6 +25,13 @@ use crate::{error::HostResult, ProverState};
 /// - guest_proof_time_gauge - time taken for proof generation by this guest
 /// - prepare_input_time_gauge - time taken for prepare input
 /// - total_time_gauge - time taken for the whole proof request
+/// - process_cpu_seconds_total - total user and system CPU time spent in seconds
+/// - process_open_fds - number of open file descriptors
+/// - process_max_fds - maximum number of open file descriptors
+/// - process_virtual_memory_bytes - virtual memory size in bytes
+/// - process_resident_memory_bytes - resident memory size in bytes
+/// - process_start_time_seconds - start time of the process since unix epoch in seconds
+/// - process_threads - number of threads
 async fn metrics_handler() -> HostResult<Response> {
     let encoder = TextEncoder::new();
     let mut buffer = vec![];

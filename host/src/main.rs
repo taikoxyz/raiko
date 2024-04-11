@@ -17,6 +17,11 @@ use tracing_subscriber::FmtSubscriber;
 async fn main() -> Result<()> {
     env_logger::init();
     let state = ProverState::init()?;
+    // Initialize the process collector for prometheus, this captures common process
+    // metrics.
+    let process_collector = ProcessCollector::for_self();
+    prometheus::register(Box::new(process_collector))
+        .context("Could not register process metrics")?;
     println!("Start config:\n{:#?}", state.opts.proof_request_opt);
     println!("Args:\n{:#?}", state.opts);
 
