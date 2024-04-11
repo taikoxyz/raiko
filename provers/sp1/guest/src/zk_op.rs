@@ -110,7 +110,8 @@ fn point_to_be_bytes(p: AffinePoint<Bn254>) -> [u8; 64] {
 
 /// To build test elf:
 /// ~/raiko/provers/sp1/prover$ cargo build --features enable
-/// The build script builds the main binary and all test binaries avaliable.
+/// The build script builds the main binary and all test binaries avaliable
+/// Resulting in "riscv32im-succinct-zkvm-elf-test-name-of-test" in elf dir
 /// Todo(Cecilia): PR to `cargo prove test`
 #[cfg(test)]
 mod test {
