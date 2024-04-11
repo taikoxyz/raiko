@@ -186,10 +186,17 @@ pub fn preflight(
         taiko: taiko_guest_input,
     };
 
+    // Get the 256 history block hashes from the provider at first time for anchor
+    // transaction.
+    let initial_history_blocks = if network.is_taiko() {
+        Some(batch_get_history_headers(&provider, block_number)?)
+    } else {
+        None
+    };
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
         provider,
-        network,
+        initial_history_blocks,
         parent_block.header.number.unwrap().try_into().unwrap(),
     );
     let mut builder = BlockBuilder::new(&input)
@@ -332,12 +339,12 @@ pub fn get_block(provider: &ReqwestProvider, block_number: u64, full: bool) -> R
     }
 }
 
-pub fn batch_get_history_headers(
+fn batch_get_history_headers(
     provider: &ReqwestProvider,
-    handle: &tokio::runtime::Handle,
     block_number: u64,
 ) -> Result<Vec<AlloyBlock>> {
-    let response = handle.block_on(async {
+    let tokio_handle = tokio::runtime::Handle::current();
+    let response = tokio_handle.block_on(async {
         provider
             .client()
             .request("taiko_getL2ParentHeaders", (block_number,))

@@ -18,11 +18,8 @@ use std::{
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{BlockId, EIP1186AccountProofResponse};
-use raiko_lib::{
-    clear_line, consts::Network, inplace_print, mem_db::MemDb, print_duration,
-    taiko_utils::to_header,
-};
+use alloy_rpc_types::{Block, BlockId, EIP1186AccountProofResponse};
+use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, print_duration, taiko_utils::to_header};
 use raiko_primitives::{Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
@@ -30,24 +27,38 @@ use revm::{
 };
 use tokio::runtime::Handle;
 
-use crate::preflight::{batch_get_history_headers, get_block};
+use crate::preflight::get_block;
 
 pub struct ProviderDb {
     pub provider: ReqwestProvider,
-    pub network: Network,
     pub block_number: u64,
     pub initial_db: MemDb,
+    pub initial_headers: HashMap<u64, AlloyConsensusHeader>,
     pub current_db: MemDb,
     async_executor: Handle,
 }
 
 impl ProviderDb {
-    pub fn new(provider: ReqwestProvider, network: Network, block_number: u64) -> Self {
+    pub fn new(
+        provider: ReqwestProvider,
+        initial_history_blocks: Option<Vec<Block>>,
+        block_number: u64,
+    ) -> Self {
+        let mut initial_db = MemDb::default();
+        let mut initial_headers = HashMap::new();
+        if let Some(initial_history_blocks) = initial_history_blocks {
+            for block in initial_history_blocks {
+                let block_number: u64 = block.header.number.unwrap().try_into().unwrap();
+                let block_hash = block.header.hash.unwrap();
+                initial_db.insert_block_hash(block_number, block_hash);
+                initial_headers.insert(block_number, to_header(&block.header));
+            }
+        }
         ProviderDb {
             provider,
-            network,
             block_number,
-            initial_db: MemDb::default(),
+            initial_db,
+            initial_headers,
             current_db: MemDb::default(),
             async_executor: tokio::runtime::Handle::current(),
         }
@@ -147,11 +158,16 @@ impl ProviderDb {
         let headers = (*earliest_block..self.block_number)
             .rev()
             .map(|block_number| {
-                to_header(
-                    &get_block(&self.provider, block_number, false)
-                        .unwrap()
-                        .header,
-                )
+                self.initial_headers
+                    .get(&block_number)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        to_header(
+                            &get_block(&self.provider, block_number, false)
+                                .unwrap()
+                                .header,
+                        )
+                    })
             })
             .collect();
         Ok(headers)
@@ -231,34 +247,21 @@ impl Database for ProviderDb {
         }
 
         let block_number = u64::try_from(number).unwrap();
-        if self.network.is_taiko() {
-            // Get the 256 history block hashes from the provider at first time for anchor
-            // transaction.
-            for block in
-                batch_get_history_headers(&self.provider, &self.async_executor, block_number)?
-            {
-                let block_number = block.header.number.unwrap().try_into().unwrap();
-                let block_hash = block.header.hash.unwrap();
-                self.initial_db.insert_block_hash(block_number, block_hash);
-            }
-            self.block_hash(number)
-        } else {
-            // Get the block hash from the provider.
-            let block_hash = self.async_executor.block_on(async {
-                self.provider
-                    .get_block_by_number(block_number.into(), false)
-                    .await
-                    .unwrap()
-                    .unwrap()
-                    .header
-                    .hash
-                    .unwrap()
-                    .0
-                    .into()
-            });
-            self.initial_db.insert_block_hash(block_number, block_hash);
-            Ok(block_hash)
-        }
+        // Get the block hash from the provider.
+        let block_hash = self.async_executor.block_on(async {
+            self.provider
+                .get_block_by_number(block_number.into(), false)
+                .await
+                .unwrap()
+                .unwrap()
+                .header
+                .hash
+                .unwrap()
+                .0
+                .into()
+        });
+        self.initial_db.insert_block_hash(block_number, block_hash);
+        Ok(block_hash)
     }
 
     fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
