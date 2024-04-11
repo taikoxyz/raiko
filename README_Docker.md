@@ -76,15 +76,20 @@ rm csr.pem
 
 ### Subscribing to Intel PCS Service
 
-To use ECDSA Attestation, you need to subscribe to the Intel PCS service, following the steps in [Intel's how-to guide][intel-dcap-install-howto]. (The guide is rather outdated, but the install flow remains relatively the same.) After subscribing to the service, you will get two keys: a primary API key and a secondary API key.
+To use ECDSA Attestation, you need to subscribe to the Intel PCS service, following the steps in [Intel's how-to guide][intel-dcap-install-howto]. After subscribing to the service, you will get two keys: a primary API key and a secondary API key.
 
-To use these keys in your configuration file, copy the `config/default.json` [template config file][pccs-readme] to `$HOME/.config/sgx-pccs`. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
+To use these keys in your configuration file, copy the `config/default.json` [template config file][pccs-config-file] to `$HOME/.config/sgx-pccs`. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
 - `ApiKey`: The PCCS uses this API key to request collaterals from Intel's Provisioning Certificate Service. User needs to subscribe first to obtain an API key. For how to subscribe to Intel Provisioning Certificate Service and receive an API key, goto https://api.portal.trustedservices.intel.com/provisioning-certification and click on `Subscribe`.
+
 - `UserTokenHash`: SHA512 hash of the user token for the PCCS client user to register a platform. For example, PCK Cert ID retrieval tool will use the user token to send platform information to PCCS. (`echo -n "user_password" | sha512sum | tr -d '[:space:]-'`).
+
 - `AdminTokenHash`: SHA512 hash of the administrator token for the PCCS administrator to perform a manual refresh of cached artifacts (`echo -n "admin_password" | sha512sum | tr -d '[:space:]-'`).
+
+> **_NOTE:_** These tokens can be set to whatever you like, the above commands set them to `"user_password" and "admin_password"`.
 
 [intel-dcap-install-howto]: https://www.intel.com/content/www/us/en/developer/articles/guide/intel-software-guard-extensions-data-center-attestation-primitives-quick-install-guide.html
 [pccs-cert-gen-config]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/master/QuoteGeneration/pccs/container#3-fill-up-configuration-file
+[pccs-config-file]: https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/main/QuoteGeneration/pccs/config/default.json
 
 ## Building Docker image
 
@@ -92,26 +97,30 @@ Taiko doesn't currently offer a prebuilt Docker image. You will need to build it
 
 1. Clone `raiko` repository:
    ```
-   git clone git@github.com:taikoxyz/raiko.git
+   git clone https://github.com/taikoxyz/raiko.git
    ```
-1. If you wish to use the latest `raiko` version, choose the `taiko/unstable` branch (which is the default option at the time of writing this document).
+1. Checkout the `taiko/alpha-7` branch.
    ```
-   git checkout taiko/unstable
+   cd raiko
+   git checkout taiko/alpha-7
    ```
 1. Change active directory:
    ```
-   cd raiko/docker
+   cd docker
    ```
 1. Build the image:
    ```
    docker compose build
    ```
+> **_NOTE:_** If you're running into issues where Docker's `$HOME` var is set strangely, it might have to do with your docker installation; try reinstalling with [this][docker] guide! 
+
 1. That's it! You should now see two Raiko images, `raiko` and `pccs`, in your Docker images list. You can view this list by running the following command:
    ```
    docker image ls
    ```
 
 [ecdsa]: https://github.com/cloud-security-research/sgx-ra-tls/blob/master/README-ECDSA.md
+[docker]: https://docs.docker.com/engine/install/ubuntu/
 
 ## Running PCCS service
 
