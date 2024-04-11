@@ -7,8 +7,8 @@ fn main() {
     #[cfg(not(feature = "enable"))]
     println!("Sp1 not enabled");
 
-    // #[cfg(feature = "enable")]
-    // sp1_helper::build_program("../guest");
+    #[cfg(feature = "enable")]
+    sp1_helper::build_program("../guest");
     #[cfg(feature = "enable")]
     build_test("../guest");
 }
@@ -54,8 +54,6 @@ fn current_datetime() -> String {
     now.format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
-
-
 /// Executes the `cargo prove build` command in the program directory
 fn execute_build_cmd(
     program_dir: &Path,
@@ -65,7 +63,6 @@ fn execute_build_cmd(
     metadata_cmd.current_dir(program_dir);
     let metadata = metadata_cmd.exec().unwrap();
     let root_package = metadata.root_package();
-    let root_package_name = root_package.as_ref().map(|p| &p.name);
     
     let build_target = "riscv32im-succinct-zkvm-elf";
     let rust_flags = [
@@ -80,7 +77,7 @@ fn execute_build_cmd(
     let mut cmd = Command::new("cargo");
     cmd.current_dir(program_dir)
         .env("RUSTUP_TOOLCHAIN", "succinct")
-        .env("RUSTFLAGS", rust_flags.join(" "))
+        .env("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))
         .args([
             "test", 
             "--release",
@@ -92,43 +89,31 @@ fn execute_build_cmd(
         .env_remove("RUSTC")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-
-    // let mut cmd = Command::new("sh");
-    // cmd.arg("-c")
-    //     .arg("cd \"../guest\" && RUSTFLAGS=\"-C passes=loweratomic -C link-arg=-Ttext=0x00200800 -C panic=abort\" RUSTUP_TOOLCHAIN=\"succinct\" cargo test --release --target \"riscv32im-succinct-zkvm-elf\" --locked --no-run")
-    //     .env_remove("RUSTC")
-    //     .stdout(Stdio::piped())
-    //     .stderr(Stdio::piped());
-    println!("cmd: {:?}", cmd);
+    println!("Build test cmd:\n{:?}", cmd);
     let mut child = cmd.spawn()?;
 
     let stdout = BufReader::new(child.stdout.take().unwrap());
     let stderr = BufReader::new(child.stderr.take().unwrap());
 
-    // stderr.lines().for_each(|line| {
-    //     eprintln!("[sp1-err] {}", line.as_ref().unwrap());
-    //     if line.as_ref().is_ok_and(|l| l.contains("Executable unittests")) {
-    //         println!("!!!!!")
-    //     }
-    // });
 
-
-    let elf_path = stderr
+    let elf_paths = stderr
         .lines()
         .filter(|line| line.as_ref().is_ok_and(|l| l.contains("Executable unittests")))
         .map(|line| extract_path(&line.unwrap()).unwrap())
-        .collect::<Vec<_>>();
-    println!("elf_path: {:?}", elf_path);
-    
+        .collect::<Vec<_>>();    
 
     let elf_dir = metadata.target_directory.parent().unwrap().join("elf");
-    let elf_path_ = metadata.target_directory.parent().unwrap().join(elf_path[0].to_str().unwrap());
     fs::create_dir_all(&elf_dir)?;
-    println!("elf_dir: {:?}", elf_dir);
-    println!("elf_path: {:?}", elf_path_);
 
-    let result_elf_path = elf_dir.join("riscv32im-succinct-zkvm-elf-test");
-    fs::copy(elf_path_, &result_elf_path)?;
+    for elf_path in elf_paths {
+        let name = elf_path.file_name().unwrap();
+        let src_elf_path = metadata.target_directory.parent().unwrap().join(elf_path.to_str().unwrap());
+        let dest_elf_path = elf_dir.join(
+            format!("{}-{}", "riscv32im-succinct-zkvm-elf-test", name.to_str().unwrap())
+        );
+        fs::copy(&src_elf_path, &dest_elf_path)?;
+        println!("Copied test elf from\n[{:?}]\nto\n[{:?}]", src_elf_path, dest_elf_path);
+    }
 
     // Pipe stdout and stderr to the parent process with [sp1] prefix
     let stdout_handle = thread::spawn(move || {
@@ -136,11 +121,6 @@ fn execute_build_cmd(
             println!("[sp1] {}", line.unwrap());
         });
     });
-
-    // stderr.lines().for_each(|line| {
-    //     eprintln!("[sp1-err] {}", line.unwrap());
-    // });
-    // println!("stderr last {:?}", stderr.lines().last().unwrap().unwrap());
 
     stdout_handle.join().unwrap();
 
