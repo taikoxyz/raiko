@@ -153,6 +153,54 @@ pub struct ProofRequest {
     pub prover: Address,
     /// The proof type.
     pub proof_type: ProofType,
+    /// The sgx prover params.
+    pub sgx: Option<SgxParams>,
+    /// The risc0 prover params.
+    pub risc0: Option<Risc0Params>,
+}
+
+#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
+/// SGX prover configuration options.
+pub struct SgxParams {
+    #[structopt(long, require_equals = true)]
+    pub instance_id: i32,
+    #[structopt(long, require_equals = true)]
+    pub setup: bool,
+    #[structopt(long, require_equals = true)]
+    pub bootstrap: bool,
+    #[structopt(long, require_equals = true)]
+    pub prove: bool,
+    #[structopt(long, require_equals = true)]
+    pub input_path: Option<String>,
+}
+
+impl FromStr for SgxParams {
+    type Err = HostError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s).map_err(|e| e.into())
+    }
+}
+
+#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
+/// Risc0 prover configuration options.
+pub struct Risc0Params {
+    #[structopt(long, require_equals = true)]
+    pub bonsai: bool,
+    #[structopt(long, require_equals = true)]
+    pub snark: bool,
+    #[structopt(long, require_equals = true)]
+    pub profile: bool,
+    #[structopt(long, require_equals = true)]
+    pub execution_po2: i32,
+}
+
+impl FromStr for Risc0Params {
+    type Err = HostError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s).map_err(|e| e.into())
+    }
 }
 
 #[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
@@ -184,6 +232,12 @@ pub struct ProofRequestOpt {
     #[structopt(long, require_equals = true)]
     /// The proof type.
     pub proof_type: Option<String>,
+    #[structopt(long, require_equals = true)]
+    /// The sgx prover params in JSON format.
+    pub sgx: Option<SgxParams>,
+    #[structopt(long, require_equals = true)]
+    /// The risc0 prover params in JSON format.
+    pub risc0: Option<Risc0Params>,
 }
 
 impl ProofRequestOpt {
@@ -272,6 +326,8 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 ))?
                 .parse()
                 .map_err(|_| HostError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
+            sgx: value.sgx,
+            risc0: value.risc0,
         })
     }
 }
