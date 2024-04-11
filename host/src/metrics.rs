@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use prometheus::{
-    labels, register_int_counter_vec, register_int_gauge, register_int_gauge_vec, IntCounterVec,
-    IntGauge, IntGaugeVec,
+    labels, register_histogram_vec, register_int_counter_vec, register_int_gauge, HistogramVec,
+    IntCounterVec, IntGauge,
 };
 
 use crate::request::ProofType;
@@ -37,20 +37,20 @@ lazy_static! {
         &["guest", "block_id"]
     )
     .unwrap();
-    pub static ref GUEST_PROOF_TIME: IntGaugeVec = register_int_gauge_vec!(
-        "guest_proof_time_gauge",
+    pub static ref GUEST_PROOF_TIME: HistogramVec = register_histogram_vec!(
+        "guest_proof_time_histogram",
         "time taken for proof generation by this guest",
         &["guest", "block_id", "success"]
     )
     .unwrap();
-    pub static ref PREPARE_INPUT_TIME: IntGaugeVec = register_int_gauge_vec!(
-        "prepare_input_time_gauge",
+    pub static ref PREPARE_INPUT_TIME: HistogramVec = register_histogram_vec!(
+        "prepare_input_time_histogram",
         "time taken for prepare input",
         &["block_id", "success"]
     )
     .unwrap();
-    pub static ref TOTAL_TIME: IntGaugeVec = register_int_gauge_vec!(
-        "total_time_gauge",
+    pub static ref TOTAL_TIME: HistogramVec = register_histogram_vec!(
+        "total_time_histogram",
         "time taken for the whole request",
         &["block_id", "success"]
     )
@@ -133,7 +133,7 @@ pub fn observe_guest_time(guest: &ProofType, block_id: u64, time: u128, success:
         "block_id" => &block_id,
         "success" => &sucess,
     };
-    GUEST_PROOF_TIME.with(&labels).set(time as i64);
+    GUEST_PROOF_TIME.with(&labels).observe(time as f64);
 }
 
 /// Observe the time taken for prepare input.
@@ -144,7 +144,7 @@ pub fn observe_prepare_input_time(block_id: u64, time: u128, success: bool) {
         "block_id" => block_id.as_str(),
         "success" => &sucess,
     };
-    PREPARE_INPUT_TIME.with(&labels).set(time as i64);
+    PREPARE_INPUT_TIME.with(&labels).observe(time as f64);
 }
 
 /// Observe the time taken for prepare input.
@@ -155,5 +155,5 @@ pub fn observe_total_time(block_id: u64, time: u128, success: bool) {
         "block_id" => block_id.as_str(),
         "success" => &sucess,
     };
-    TOTAL_TIME.with(&labels).set(time as i64);
+    TOTAL_TIME.with(&labels).observe(time as f64);
 }
