@@ -19,7 +19,7 @@ use utoipa::ToSchema;
 
 use crate::{
     error::{HostError, HostResult},
-    execution::{prepare_input, NativeDriver},
+    execution::{prepare_input, NativeProver},
     memory,
     metrics::{inc_guest_req_count, observe_guest_time, observe_prepare_input_time},
 };
@@ -221,7 +221,7 @@ impl ProofRequest {
     /// Get the instance hash for the protocol instance depending on the proof type.
     fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
         match self.proof_type {
-            ProofType::Native => Ok(NativeDriver::instance_hash(pi)),
+            ProofType::Native => Ok(NativeProver::instance_hash(pi)),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
                 return Ok((sp1_prover::Sp1Prover::instance_hash(pi)));
@@ -244,14 +244,14 @@ impl ProofRequest {
     }
 
     /// Run the prover driver depending on the proof type.
-    async fn run_driver(
+    async fn run_prover(
         &self,
         input: GuestInput,
         output: GuestOutput,
         config: &serde_json::Value,
     ) -> HostResult<Proof> {
         match self.proof_type {
-            ProofType::Native => NativeDriver::run(input, output, config)
+            ProofType::Native => NativeProver::run(input, output, config)
                 .await
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
@@ -330,7 +330,7 @@ impl ProofRequest {
         let measurement = Measurement::start("Generating proof...", false);
         inc_guest_req_count(&self.proof_type, self.block_number);
         let res = self
-            .run_driver(input.clone(), output, &serde_json::to_value(self)?)
+            .run_prover(input.clone(), output, &serde_json::to_value(self)?)
             .await
             .map(|proof| (input, proof));
         let guest_time = measurement.stop_with("=> Proof generated");

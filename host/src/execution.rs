@@ -97,14 +97,14 @@ pub async fn prepare_input(
     .map_err(|e| e.into())
 }
 
-pub struct NativeDriver;
+pub struct NativeProver;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct NativeResponse {
     output: GuestOutput,
 }
 
-impl Prover for NativeDriver {
+impl Prover for NativeProver {
     async fn run(
         _input: GuestInput,
         output: GuestOutput,
