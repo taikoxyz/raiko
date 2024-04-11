@@ -163,7 +163,7 @@ mod memory {
     pub(crate) fn print_stats(title: &str) {
         let max_memory = get_max_allocated();
         println!(
-            "{}{}.{} MB",
+            "{}{}.{:06} MB",
             title,
             max_memory / 1000000,
             max_memory % 1000000

@@ -66,6 +66,31 @@ pub const ETH_MAINNET_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
     }
 });
 
+/// The Ethereum testnet "holesky" specification.
+pub const ETH_HOLESKY_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| {
+    ChainSpec {
+        chain_id: 17000,
+        max_spec_id: SpecId::CANCUN,
+        hard_forks: BTreeMap::from([
+            (SpecId::FRONTIER, ForkCondition::Block(0)),
+            // previous versions not supported
+            (SpecId::SHANGHAI, ForkCondition::Timestamp(1696000704)),
+            (SpecId::CANCUN, ForkCondition::Timestamp(1707305664)),
+        ]),
+        eip_1559_constants: Eip1559Constants {
+            base_fee_change_denominator: uint!(8_U256),
+            base_fee_max_increase_denominator: uint!(8_U256),
+            base_fee_max_decrease_denominator: uint!(8_U256),
+            elasticity_multiplier: uint!(2_U256),
+        },
+        l1_contract: None,
+        l2_contract: None,
+        sgx_verifier_address: None,
+        genesis_time: 0u64,
+        seconds_per_slot: 1u64,
+    }
+});
+
 /// The Taiko A6 specification.
 pub const TAIKO_A6_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     chain_id: 167008,
@@ -115,6 +140,7 @@ pub const TAIKO_A7_CHAIN_SPEC: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
 pub fn get_network_spec(network: Network) -> ChainSpec {
     match network {
         Network::Ethereum => ETH_MAINNET_CHAIN_SPEC.clone(),
+        Network::Holesky => ETH_HOLESKY_CHAIN_SPEC.clone(),
         Network::TaikoA6 => TAIKO_A6_CHAIN_SPEC.clone(),
         Network::TaikoA7 => TAIKO_A7_CHAIN_SPEC.clone(),
     }
@@ -234,6 +260,8 @@ pub enum Network {
     /// The Ethereum Mainnet
     #[default]
     Ethereum,
+    /// Ethereum testnet holesky
+    Holesky,
     /// Taiko A6 tesnet
     TaikoA6,
     /// Taiko A7 tesnet
@@ -246,6 +274,7 @@ impl FromStr for Network {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "ethereum" => Ok(Network::Ethereum),
+            "holesky" => Ok(Network::Holesky),
             "taiko_a6" => Ok(Network::TaikoA6),
             "taiko_a7" => Ok(Network::TaikoA7),
             #[allow(clippy::needless_return)]
@@ -258,8 +287,20 @@ impl ToString for Network {
     fn to_string(&self) -> String {
         match self {
             Network::Ethereum => String::from("ethereum"),
+            Network::Holesky => String::from("holesky"),
             Network::TaikoA6 => String::from("taiko_a6"),
             Network::TaikoA7 => String::from("taiko_a7"),
+        }
+    }
+}
+
+impl Network {
+    pub fn is_taiko(&self) -> bool {
+        match self {
+            Network::Ethereum => false,
+            Network::Holesky => false,
+            Network::TaikoA6 => true,
+            Network::TaikoA7 => true,
         }
     }
 }

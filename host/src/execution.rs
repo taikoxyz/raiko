@@ -20,6 +20,8 @@ pub async fn execute<D: Prover>(
     config: &serde_json::Value,
     cached_input: Option<GuestInput>,
 ) -> Result<(GuestInput, Proof)> {
+    let total_proving_time = Measurement::start("", false);
+
     // Generate the input
     let input = if let Some(cached_input) = cached_input {
         println!("Using cached input");
@@ -67,6 +69,8 @@ pub async fn execute<D: Prover>(
         .map_err(|e| HostError::GuestError(e.to_string()));
     measurement.stop_with("=> Proof generated");
     memory::print_stats("Prover peak memory used: ");
+
+    total_proving_time.stop_with("====> Complete proof generated");
 
     res
 }

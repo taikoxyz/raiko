@@ -19,7 +19,10 @@ use std::{
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{BlockId, EIP1186AccountProofResponse};
-use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, taiko_utils::to_header};
+use raiko_lib::{
+    clear_line, consts::Network, inplace_print, mem_db::MemDb, print_duration,
+    taiko_utils::to_header,
+};
 use raiko_primitives::{Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
@@ -31,6 +34,7 @@ use crate::preflight::{batch_get_history_headers, get_block};
 
 pub struct ProviderDb {
     pub provider: ReqwestProvider,
+    pub network: Network,
     pub block_number: u64,
     pub initial_db: MemDb,
     pub current_db: MemDb,
@@ -38,9 +42,10 @@ pub struct ProviderDb {
 }
 
 impl ProviderDb {
-    pub fn new(provider: ReqwestProvider, block_number: u64) -> Self {
+    pub fn new(provider: ReqwestProvider, network: Network, block_number: u64) -> Self {
         ProviderDb {
             provider,
+            network,
             block_number,
             initial_db: MemDb::default(),
             current_db: MemDb::default(),
@@ -90,6 +95,7 @@ impl ProviderDb {
         (
             HashMap<Address, EIP1186AccountProofResponse>,
             HashMap<Address, EIP1186AccountProofResponse>,
+            usize,
         ),
         anyhow::Error,
     > {
@@ -128,7 +134,7 @@ impl ProviderDb {
             num_storage_proofs,
         )?;
 
-        Ok((initial_proofs, latest_proofs))
+        Ok((initial_proofs, latest_proofs, num_storage_proofs))
     }
 
     pub fn get_ancestor_headers(&mut self) -> Result<Vec<AlloyConsensusHeader>, anyhow::Error> {
@@ -224,16 +230,35 @@ impl Database for ProviderDb {
             return Ok(block_hash);
         }
 
-        // Get the 256 history block hashes from the provider at first time for anchor
-        // transaction.
         let block_number = u64::try_from(number).unwrap();
-        for block in batch_get_history_headers(&self.provider, &self.async_executor, block_number)?
-        {
-            let block_number = block.header.number.unwrap().try_into().unwrap();
-            let block_hash = block.header.hash.unwrap();
+        if self.network.is_taiko() {
+            // Get the 256 history block hashes from the provider at first time for anchor
+            // transaction.
+            for block in
+                batch_get_history_headers(&self.provider, &self.async_executor, block_number)?
+            {
+                let block_number = block.header.number.unwrap().try_into().unwrap();
+                let block_hash = block.header.hash.unwrap();
+                self.initial_db.insert_block_hash(block_number, block_hash);
+            }
+            self.block_hash(number)
+        } else {
+            // Get the block hash from the provider.
+            let block_hash = self.async_executor.block_on(async {
+                self.provider
+                    .get_block_by_number(block_number.into(), false)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .header
+                    .hash
+                    .unwrap()
+                    .0
+                    .into()
+            });
             self.initial_db.insert_block_hash(block_number, block_hash);
+            Ok(block_hash)
         }
-        self.block_hash(number)
     }
 
     fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
@@ -278,23 +303,17 @@ impl MeasuredProviderDb {
 
     pub fn print_report(&self) {
         println!("db accesses: ");
-        println!(
-            "- account: {}.{} seconds ({} ops)",
-            self.time_basic.as_secs(),
-            self.time_basic.subsec_millis(),
-            self.num_basic
+        print_duration(
+            &format!("- account [{} ops]: ", self.num_basic),
+            self.time_basic,
         );
-        println!(
-            "- storage: {}.{} seconds ({} ops)",
-            self.time_storage.as_secs(),
-            self.time_storage.subsec_millis(),
-            self.num_storage
+        print_duration(
+            &format!("- storage [{} ops]: ", self.num_storage),
+            self.time_storage,
         );
-        println!(
-            "- block_hash: {}.{} seconds ({} ops)",
-            self.time_block_hash.as_secs(),
-            self.time_block_hash.subsec_millis(),
-            self.num_block_hash
+        print_duration(
+            &format!("- block_hash [{} ops]: ", self.num_block_hash),
+            self.time_block_hash,
         );
         println!("- code_by_hash: {}", self.num_code_by_hash);
     }
@@ -307,8 +326,7 @@ impl Database for MeasuredProviderDb {
         self.num_basic += 1;
         let start = Instant::now();
         let res = self.provider.basic(address);
-        self.time_basic
-            .add_assign(Instant::now().duration_since(start));
+        self.time_basic.add_assign(start.elapsed());
         res
     }
 
@@ -316,8 +334,7 @@ impl Database for MeasuredProviderDb {
         self.num_storage += 1;
         let start = Instant::now();
         let res = self.provider.storage(address, index);
-        self.time_storage
-            .add_assign(Instant::now().duration_since(start));
+        self.time_storage.add_assign(start.elapsed());
         res
     }
 
@@ -325,8 +342,7 @@ impl Database for MeasuredProviderDb {
         self.num_block_hash += 1;
         let start = Instant::now();
         let res = self.provider.block_hash(number);
-        self.time_block_hash
-            .add_assign(Instant::now().duration_since(start));
+        self.time_block_hash.add_assign(start.elapsed());
         res
     }
 
