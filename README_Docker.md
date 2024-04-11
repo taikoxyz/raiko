@@ -137,7 +137,23 @@ You can now bootstrap and run Raiko as a daemon.
 
 ## Retrieving PCK Certs
 
-Now, we need to retrieve Intel's PCK Certificates and populate the PCCS service with them. To do this, open the file `/opt/intel/sgx-pck-id-retrieval-tool/network_setting.conf` and add the following lines:
+Now, we need to retrieve Intel's PCK Certificates and populate the PCCS service with them.
+
+Install the `PCKIDRetrievalTool` [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
+
+You can install either from the Ubuntu repository:
+```
+$ echo ’deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu
+focal main’ | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
+$ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+$ sudo apt update
+$ sudo apt install sgx-pck-id-retrieval-tool
+```
+Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself. 
+
+After you have installed it, You should be ready to retrieve fetch Intel's certificates!
+
+To do this, open the file `/opt/intel/sgx-pck-id-retrieval-tool/network_setting.conf` and add the following lines:
 
 ```
 PCCS_URL=https://localhost:8082/sgx/certification/v3/platforms
@@ -147,22 +163,13 @@ USE_SECURE_CERT=FALSE
 
 Replace `<USER_TOKEN>` with the user password you got when you subscribed to the Intel PCS Service, as described in a previous steps of this tutorial.
 
-At this point, you should be ready to fetch Intel's certificates. You can do this by running the `PCKIDRetrievalTool`, which you can install either from the Ubuntu repository:
-```
-$ echo ’deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu
-focal main’ | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
-$ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
-$ sudo apt update
-$ sudo apt install sgx-pck-id-retrieval-tool
-```
-Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself. After you have installed it, run the following command:
+Then you can run the following command:
 
 ```
 PCKIDRetrievalTool
 ```
 
-Alternatively, you can skip editing the `network_setting.conf` configuration file and directly run the following command:
-
+Alternatively, you can skip editing the `network_setting.conf` configuration file and directly run the command with flags
 ```
 PCKIDRetrievalTool -url https://localhost:8082/sgx/certification/v3/platforms -user_token '<USER_TOKEN>' -use_secure_cert false
 ```
@@ -175,7 +182,6 @@ curl -k -G "https://localhost:8081/sgx/certification/v3/rootcacrl"
 
 Now, you're ready to bootstrap and run Raiko!
 
-[sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/master/tools/PCKRetrievalTool/installer
 
 ### Raiko bootstrapping
 
