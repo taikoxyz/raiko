@@ -324,7 +324,7 @@ impl ProviderDb {
         Ok(storage_proofs)
     }
 
-    pub fn get_proofs(&mut self) -> Result<(StorageProofs, StorageProofs), anyhow::Error> {
+    pub fn get_proofs(&mut self) -> Result<(StorageProofs, StorageProofs, usize), anyhow::Error> {
         // Latest proof keys
         let mut storage_keys = self.initial_db.storage_keys();
         for (address, mut indices) in self.current_db.storage_keys() {
