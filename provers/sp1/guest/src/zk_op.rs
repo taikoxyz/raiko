@@ -108,11 +108,10 @@ fn point_to_be_bytes(p: AffinePoint<Bn254>) -> [u8; 64] {
     p_bytes
 }
 
-// Todo(Cecilia):
-//  - make unit tests into seperate bin compiled by native rust
-//  - run benchmark in seperate guest bin run on sp1
-/// To run the tests, comment out the #[no_main] and enrypoint! macro
-/// and sp1_zkvm::io calls in the main function]
+/// To build test elf:
+/// ~/raiko/provers/sp1/prover$ cargo build --features enable
+/// The build script builds the main binary and all test binaries avaliable.
+/// Todo(Cecilia): PR to `cargo prove test`
 #[cfg(test)]
 mod test {
     use revm_precompile::bn128;
