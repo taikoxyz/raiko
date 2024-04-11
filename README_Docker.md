@@ -76,7 +76,7 @@ rm csr.pem
 
 ### Subscribing to Intel PCS Service
 
-To use ECDSA Attestation, you need to subscribe to the Intel PCS service, following the steps in [Intel's how-to guide][intel-dcap-install-howto]. After subscribing to the service, you will get two keys: a primary API key and a secondary API key.
+To use ECDSA Attestation, you need to subscribe to the Intel PCS service, following the steps in [Intel's how-to guide][intel-dcap-install-howto]. (The guide is rather outdated, but the install flow remains relatively the same.) After subscribing to the service, you will get two keys: a primary API key and a secondary API key.
 
 To use these keys in your configuration file, copy the `config/default.json` [template config file][pccs-readme] to `$HOME/.config/sgx-pccs`. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
 - `ApiKey`: The PCCS uses this API key to request collaterals from Intel's Provisioning Certificate Service. User needs to subscribe first to obtain an API key. For how to subscribe to Intel Provisioning Certificate Service and receive an API key, goto https://api.portal.trustedservices.intel.com/provisioning-certification and click on `Subscribe`.
