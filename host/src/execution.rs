@@ -49,7 +49,9 @@ pub async fn execute(
             info!("Verifying final state using provider data ...");
             info!("Final block hash derived successfully. {}", header.hash());
             info!("Final block header derived successfully. {header:?}");
-            let pi = proof_request.instance_hash(assemble_protocol_instance(&input, header)?)?;
+            let pi = proof_request
+                .proof_type
+                .instance_hash(assemble_protocol_instance(&input, header)?)?;
             // Make sure the blockhash from the node matches the one from the builder
             assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
             GuestOutput::Success((
@@ -71,6 +73,7 @@ pub async fn execute(
     let measurement = Measurement::start("Generating proof...", false);
     inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
     let res = proof_request
+        .proof_type
         .run_prover(input.clone(), output, &serde_json::to_value(proof_request)?)
         .await
         .map(|proof| (input, proof));

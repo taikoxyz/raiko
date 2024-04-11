@@ -64,6 +64,71 @@ impl FromStr for ProofType {
     }
 }
 
+impl ProofType {
+    /// Get the instance hash for the protocol instance depending on the proof type.
+    pub fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
+        match self {
+            ProofType::Native => Ok(NativeProver::instance_hash(pi)),
+            ProofType::Sp1 => {
+                #[cfg(feature = "sp1")]
+                return Ok((sp1_prover::Sp1Prover::instance_hash(pi)));
+
+                Err(HostError::FeatureNotSupportedError(self.clone()))
+            }
+            ProofType::Risc0 => {
+                #[cfg(feature = "risc0")]
+                return Ok(risc0_prover::Risc0Prover::instance_hash(pi));
+
+                Err(HostError::FeatureNotSupportedError(self.clone()))
+            }
+            ProofType::Sgx => {
+                #[cfg(feature = "sgx")]
+                return Ok(sgx_prover::SgxProver::instance_hash(pi));
+
+                Err(HostError::FeatureNotSupportedError(self.clone()))
+            }
+        }
+    }
+
+    /// Run the prover driver depending on the proof type.
+    pub async fn run_prover(
+        &self,
+        input: GuestInput,
+        output: GuestOutput,
+        config: &serde_json::Value,
+    ) -> HostResult<Proof> {
+        match self {
+            ProofType::Native => NativeProver::run(input, output, config)
+                .await
+                .map_err(|e| e.into()),
+            ProofType::Sp1 => {
+                #[cfg(feature = "sp1")]
+                return sp1_prover::Sp1Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+
+                Err(HostError::FeatureNotSupportedError(self.clone()))
+            }
+            ProofType::Risc0 => {
+                #[cfg(feature = "risc0")]
+                return risc0_prover::Risc0Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+
+                Err(HostError::FeatureNotSupportedError(self.clone()))
+            }
+            ProofType::Sgx => {
+                #[cfg(feature = "sgx")]
+                return sgx_prover::SgxProver::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+
+                Err(HostError::FeatureNotSupportedError(self.clone()))
+            }
+        }
+    }
+}
+
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// A request for a proof.
@@ -208,70 +273,5 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 .parse()
                 .map_err(|_| HostError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
         })
-    }
-}
-
-impl ProofRequest {
-    /// Get the instance hash for the protocol instance depending on the proof type.
-    pub fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
-        match self.proof_type {
-            ProofType::Native => Ok(NativeProver::instance_hash(pi)),
-            ProofType::Sp1 => {
-                #[cfg(feature = "sp1")]
-                return Ok((sp1_prover::Sp1Prover::instance_hash(pi)));
-
-                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
-            }
-            ProofType::Risc0 => {
-                #[cfg(feature = "risc0")]
-                return Ok(risc0_prover::Risc0Prover::instance_hash(pi));
-
-                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
-            }
-            ProofType::Sgx => {
-                #[cfg(feature = "sgx")]
-                return Ok(sgx_prover::SgxProver::instance_hash(pi));
-
-                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
-            }
-        }
-    }
-
-    /// Run the prover driver depending on the proof type.
-    pub async fn run_prover(
-        &self,
-        input: GuestInput,
-        output: GuestOutput,
-        config: &serde_json::Value,
-    ) -> HostResult<Proof> {
-        match self.proof_type {
-            ProofType::Native => NativeProver::run(input, output, config)
-                .await
-                .map_err(|e| e.into()),
-            ProofType::Sp1 => {
-                #[cfg(feature = "sp1")]
-                return sp1_prover::Sp1Prover::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
-
-                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
-            }
-            ProofType::Risc0 => {
-                #[cfg(feature = "risc0")]
-                return risc0_prover::Risc0Prover::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
-
-                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
-            }
-            ProofType::Sgx => {
-                #[cfg(feature = "sgx")]
-                return sgx_prover::SgxProver::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
-
-                Err(HostError::FeatureNotSupportedError(self.proof_type.clone()))
-            }
-        }
     }
 }
