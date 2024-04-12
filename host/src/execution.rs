@@ -62,7 +62,7 @@ pub async fn execute<D: Prover>(
                 .map_err(|e| HostError::GuestError(e.to_string()));
             measurement.stop_with("=> Proof generated");
             memory::print_stats("Prover peak memory used: ");
-        
+
             total_proving_time.stop_with("====> Complete proof generated");
             res
         }

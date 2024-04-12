@@ -273,7 +273,8 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                     expected_output,
                     assumption_uuids.clone(),
                 )
-                .await {
+                .await
+                {
                     Ok((receipt_uuid, receipt)) => {
                         break (receipt_uuid, receipt, false);
                     }

@@ -27,6 +27,7 @@ use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
 use cap::Cap;
+use env_logger;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use server::serve;
@@ -36,7 +37,6 @@ use tracing_appender::{
     rolling::{Builder, Rotation},
 };
 use tracing_subscriber::FmtSubscriber;
-use env_logger;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());

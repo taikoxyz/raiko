@@ -16,12 +16,14 @@ use std::{str::FromStr, sync::Arc};
 
 use alloy_primitives::U256;
 use alloy_sol_types::{sol, SolValue};
-use risc0_zkvm::Groth16Seal;
 use bonsai_sdk::alpha::responses::SnarkReceipt;
 use ethers_contract::abigen;
 use ethers_core::types::H160;
 use ethers_providers::{Http, Provider, RetryClient};
-use risc0_zkvm::sha::{Digest, Digestible};
+use risc0_zkvm::{
+    sha::{Digest, Digestible},
+    Groth16Seal,
+};
 use tracing::{error as tracing_err, info as tracing_info};
 
 sol!(
