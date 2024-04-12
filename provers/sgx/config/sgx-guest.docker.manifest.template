@@ -1,0 +1,40 @@
+# This is a Gramine manifest designed for use with Docker containers. There's also another
+# Dockerfile intended for use on your local machine. These two files have minor differences, such as
+# the assumed paths to the configuration directories. Ideally, we should create a single, generic
+# template manifest file (TODO).
+#
+# To learn more, visit: https://gramine.readthedocs.io/en/stable/manifest-syntax.html
+
+libos.entrypoint = "/sgx-guest"
+loader.entrypoint = "file:{{ gramine.libos }}"
+loader.env.HOME = "/root"
+loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
+loader.env.RUST_LOG = "info"
+loader.insecure__use_cmdline_argv = true
+loader.log_level = "{{ log_level }}"
+fs.mounts = [
+  { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
+  { path = "/sgx-guest", uri = "file:sgx-guest" },
+  { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
+  { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
+  { path = "/root/.config/raiko/config", uri = "file:/root/.config/raiko/config" },
+  { path = "/root/.config/raiko/secrets", uri = "file:/root/.config/raiko/secrets", type = "encrypted", key_name = "_sgx_mrenclave" },
+]
+sgx.allowed_files = [
+  "file:/root/.config/raiko/config",
+]
+sgx.debug = false
+sgx.edmm_enable = {{ 'true' if env.get('EDMM', '1') == '1' else 'false' }}
+sgx.trusted_files = [
+  "file:{{ arch_libdir }}/libcrypto.so.3",
+  "file:{{ arch_libdir }}/libgcc_s.so.1",
+  "file:{{ arch_libdir }}/libssl.so.3",
+  "file:{{ gramine.libos }}",
+  "file:{{ gramine.runtimedir() }}/",
+  "file:/usr/lib/ssl/certs/",
+  "file:sgx-guest",
+]
+sgx.max_threads = 16
+sgx.remote_attestation = "dcap"
+sys.enable_extra_runtime_domain_names_conf = true
+sys.insecure__allow_eventfd = true

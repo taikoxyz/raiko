@@ -4,13 +4,12 @@
 # Allow files and directories
 !/Cargo.lock
 !/Cargo.toml
-!/config.toml
+!/config.json
 !/docker/entrypoint.sh
 !/lib
 !/primitives
 !/provers
 !/host
 !/rust-toolchain
-!/ra-tls
 !/taiko.toml
 !/tests

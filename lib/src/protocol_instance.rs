@@ -43,7 +43,7 @@ impl ProtocolInstance {
                     .abi_encode()
                     .iter()
                     .cloned()
-                    .skip(32) // TICKY: skip the first dyn flag 0x00..20.
+                    .skip(32) // TRICKY: skip the first dyn flag 0x00..20.
                     .collect::<Vec<u8>>(),
             )
             .into(),
@@ -59,10 +59,7 @@ impl ProtocolInstance {
                     .abi_encode(),
             )
             .into(),
-            EvidenceType::Risc0 => {
-                keccak((self.transition.clone(), self.prover, self.meta_hash()).abi_encode()).into()
-            }
-            EvidenceType::Native => {
+            EvidenceType::Risc0 | EvidenceType::Native => {
                 keccak((self.transition.clone(), self.prover, self.meta_hash()).abi_encode()).into()
             }
         }
