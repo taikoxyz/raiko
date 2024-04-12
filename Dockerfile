@@ -45,7 +45,6 @@ RUN sed -i 's/https:\/\/localhost:8081/https:\/\/pccs:8081/g' /etc/sgx_default_q
 RUN mkdir -p \
     ./bin \
     ./provers/sgx \
-    /tmp/sgx \
     /var/log/raiko
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
