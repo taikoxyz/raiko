@@ -17,6 +17,7 @@ use utoipa::ToSchema;
 use crate::{
     error::{HostError, HostResult},
     execution::NativeProver,
+    merge,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize, ToSchema)]
@@ -205,34 +206,11 @@ impl ProofRequestOpt {
     }
 
     /// Merge a partial proof request into current one.
-    pub fn merge(&mut self, other: &Self) {
-        if other.block_number.is_some() {
-            self.block_number = other.block_number;
-        }
-        if other.rpc.is_some() {
-            self.rpc.clone_from(&other.rpc);
-        }
-        if other.l1_rpc.is_some() {
-            self.l1_rpc.clone_from(&other.l1_rpc);
-        }
-        if other.beacon_rpc.is_some() {
-            self.beacon_rpc.clone_from(&other.beacon_rpc);
-        }
-        if other.network.is_some() {
-            self.network.clone_from(&other.network);
-        }
-        if other.graffiti.is_some() {
-            self.graffiti.clone_from(&other.graffiti);
-        }
-        if other.prover.is_some() {
-            self.prover.clone_from(&other.prover);
-        }
-        if other.proof_type.is_some() {
-            self.proof_type.clone_from(&other.proof_type);
-        }
-        if other.prover_args.is_some() {
-            self.prover_args.clone_from(&other.prover_args);
-        }
+    pub fn merge(&mut self, other: &Value) -> Result<(), HostError> {
+        let mut this = serde_json::to_value(&self)?;
+        merge(&mut this, other);
+        *self = serde_json::from_value(this)?;
+        Ok(())
     }
 }
 

@@ -29,6 +29,7 @@ use std::{alloc, fmt::Debug, path::PathBuf};
 use anyhow::{Context, Result};
 use cap::Cap;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use structopt::StructOpt;
 
 use crate::{error::HostError, request::ProofRequestOpt};
@@ -36,15 +37,37 @@ use crate::{error::HostError, request::ProofRequestOpt};
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
 
+fn default_address() -> String {
+    "0.0.0.0:8080".to_string()
+}
+
+fn default_concurrency_limit() -> usize {
+    16
+}
+
+fn default_max_log() -> usize {
+    16
+}
+
+fn default_config_path() -> PathBuf {
+    PathBuf::from("host/config/config.json")
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
+}
+
 #[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
 pub struct Opt {
     #[structopt(long, require_equals = true, default_value = "0.0.0.0:8080")]
+    #[serde(default = "default_address")]
     /// Server bind address
     /// [default: 0.0.0.0:8080]
     address: String,
 
     #[structopt(long, require_equals = true, default_value = "16")]
+    #[serde(default = "default_concurrency_limit")]
     /// Limit the max number of in-flight requests
     pub concurrency_limit: usize,
 
@@ -52,9 +75,11 @@ pub struct Opt {
     pub log_path: Option<PathBuf>,
 
     #[structopt(long, require_equals = true, default_value = "7")]
+    #[serde(default = "default_max_log")]
     pub max_log: usize,
 
     #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
+    #[serde(default = "default_config_path")]
     /// Path to a config file that includes sufficent json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
@@ -64,12 +89,38 @@ pub struct Opt {
     cache_path: Option<PathBuf>,
 
     #[structopt(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
+    #[serde(default = "default_log_level")]
     /// Set the log level
     pub log_level: String,
 
     #[structopt(flatten)]
     /// Proof request options
     pub proof_request_opt: ProofRequestOpt,
+}
+
+impl Opt {
+    /// Read the options from a file and merge it with the current options.
+    pub fn merge_from_file(&mut self) -> Result<(), HostError> {
+        let file = std::fs::File::open(&self.config_path)?;
+        let reader = std::io::BufReader::new(file);
+        let mut config: Value = serde_json::from_reader(reader)?;
+        let this = serde_json::to_value(&self)?;
+        merge(&mut config, &this);
+        *self = serde_json::from_value(config)?;
+        Ok(())
+    }
+}
+
+/// Merges two json's together, overwriting `a` with the values of `b`
+fn merge(a: &mut Value, b: &Value) {
+    match (a, b) {
+        (Value::Object(a), Value::Object(b)) => {
+            for (k, v) in b {
+                merge(a.entry(k.clone()).or_insert(Value::Null), v);
+            }
+        }
+        (a, b) => *a = b.clone(),
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -82,11 +133,7 @@ impl ProverState {
         // Read the command line arguments;
         let mut opts = Opt::from_args();
         // Read the config file.
-        let mut file_config = ProofRequestOpt::from_file(&opts.config_path)?;
-        // Merge the config file with the command line arguments so that command line
-        // arguments take precedence.
-        file_config.merge(&opts.proof_request_opt);
-        opts.proof_request_opt = file_config;
+        opts.merge_from_file()?;
 
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {

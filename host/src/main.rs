@@ -7,6 +7,7 @@ use env_logger;
 use serde::{Deserialize, Serialize};
 use server::serve;
 use structopt::StructOpt;
+use tracing::debug;
 use tracing_appender::{
     non_blocking::WorkerGuard,
     rolling::{Builder, Rotation},
@@ -17,8 +18,8 @@ use tracing_subscriber::FmtSubscriber;
 async fn main() -> Result<()> {
     env_logger::init();
     let state = ProverState::init()?;
-    println!("Start config:\n{:#?}", state.opts.proof_request_opt);
-    println!("Args:\n{:#?}", state.opts);
+    debug!("Start config:\n{:#?}", state.opts.proof_request_opt);
+    debug!("Args:\n{:#?}", state.opts);
 
     let _guard = subscribe_log(
         &state.opts.log_path,

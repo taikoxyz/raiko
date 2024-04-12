@@ -15,7 +15,7 @@ use crate::{
         dec_current_req, inc_current_req, inc_guest_error, inc_guest_success, inc_host_error,
         inc_host_req_count, observe_total_time,
     },
-    request::{ProofRequest, ProofRequestOpt},
+    request::ProofRequest,
     ProverState,
 };
 
@@ -69,13 +69,13 @@ fn set_cached_input(
 /// - risc0 - uses the risc0 prover
 async fn proof_handler(
     State(ProverState { opts }): State<ProverState>,
-    Json(req): Json<ProofRequestOpt>,
+    Json(req): Json<Value>,
 ) -> HostResult<Json<Value>> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     let mut config = opts.proof_request_opt.clone();
-    config.merge(&req);
+    config.merge(&req)?;
 
     // Construct the actual proof request from the available configs.
     let proof_request = ProofRequest::try_from(config).map_err(|e| {
