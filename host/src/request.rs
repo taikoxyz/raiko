@@ -9,6 +9,7 @@ use raiko_lib::{
     prover::{Proof, Prover},
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
 use structopt::StructOpt;
 use utoipa::ToSchema;
@@ -95,7 +96,7 @@ impl ProofType {
         &self,
         input: GuestInput,
         output: GuestOutput,
-        config: &serde_json::Value,
+        config: &Value,
     ) -> HostResult<Proof> {
         match self {
             ProofType::Native => NativeProver::run(input, output, config)
@@ -153,54 +154,8 @@ pub struct ProofRequest {
     pub prover: Address,
     /// The proof type.
     pub proof_type: ProofType,
-    /// The sgx prover params.
-    pub sgx: Option<SgxParams>,
-    /// The risc0 prover params.
-    pub risc0: Option<Risc0Params>,
-}
-
-#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
-/// SGX prover configuration options.
-pub struct SgxParams {
-    #[structopt(long, require_equals = true)]
-    pub instance_id: i32,
-    #[structopt(long, require_equals = true)]
-    pub setup: bool,
-    #[structopt(long, require_equals = true)]
-    pub bootstrap: bool,
-    #[structopt(long, require_equals = true)]
-    pub prove: bool,
-    #[structopt(long, require_equals = true)]
-    pub input_path: Option<String>,
-}
-
-impl FromStr for SgxParams {
-    type Err = HostError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s).map_err(|e| e.into())
-    }
-}
-
-#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
-/// Risc0 prover configuration options.
-pub struct Risc0Params {
-    #[structopt(long, require_equals = true)]
-    pub bonsai: bool,
-    #[structopt(long, require_equals = true)]
-    pub snark: bool,
-    #[structopt(long, require_equals = true)]
-    pub profile: bool,
-    #[structopt(long, require_equals = true)]
-    pub execution_po2: i32,
-}
-
-impl FromStr for Risc0Params {
-    type Err = HostError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s).map_err(|e| e.into())
-    }
+    /// Additional prover params.
+    pub prover_args: Option<Value>,
 }
 
 #[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
@@ -233,11 +188,8 @@ pub struct ProofRequestOpt {
     /// The proof type.
     pub proof_type: Option<String>,
     #[structopt(long, require_equals = true)]
-    /// The sgx prover params in JSON format.
-    pub sgx: Option<SgxParams>,
-    #[structopt(long, require_equals = true)]
-    /// The risc0 prover params in JSON format.
-    pub risc0: Option<Risc0Params>,
+    /// Any additional prover params in JSON format.
+    pub prover_args: Option<Value>,
 }
 
 impl ProofRequestOpt {
@@ -248,7 +200,7 @@ impl ProofRequestOpt {
     {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
-        let config: serde_json::Value = serde_json::from_reader(reader)?;
+        let config: Value = serde_json::from_reader(reader)?;
         Self::deserialize(&config).map_err(|e| e.into())
     }
 
@@ -277,6 +229,9 @@ impl ProofRequestOpt {
         }
         if other.proof_type.is_some() {
             self.proof_type.clone_from(&other.proof_type);
+        }
+        if other.prover_args.is_some() {
+            self.prover_args.clone_from(&other.prover_args);
         }
     }
 }
@@ -326,8 +281,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 ))?
                 .parse()
                 .map_err(|_| HostError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
-            sgx: value.sgx,
-            risc0: value.risc0,
+            prover_args: value.prover_args,
         })
     }
 }

@@ -55,7 +55,7 @@ impl Prover for Risc0Prover {
         output: GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+        let config = Risc0Param::deserialize(config.get("prover_args").unwrap()).unwrap();
 
         println!("elf code length: {}", RISC0_METHODS_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
