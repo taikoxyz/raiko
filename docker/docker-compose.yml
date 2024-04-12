@@ -6,20 +6,24 @@ services:
       dockerfile: Dockerfile
     image: gcr.io/evmchain/raiko:latest
     container_name: raiko
-    command: --config-path=/etc/raiko/config.toml
+    command: --config-path=/etc/raiko/config.json
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
     volumes:
+      - /tmp/sgx:/tmp/sgx
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
       - ${HOME}/.config/raiko:/root/.config/raiko
     ports:
       - "8080:8080"
+    environment:
+      # GitHub limits the number of requests unless a token is provided
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      # Set to 0 (which is the default) to run on real hardware; use 1 for testing
+      - SGX_DIRECT=${SGX_DIRECT}
     depends_on:
       - pccs
-    environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
   pccs:
     build:
       context: ..

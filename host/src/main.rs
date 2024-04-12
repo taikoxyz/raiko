@@ -60,7 +60,7 @@ pub struct Opt {
     max_log: usize,
 
     #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
-    /// Path to a config file that includes sufficent json args to request
+    /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
 

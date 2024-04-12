@@ -196,8 +196,8 @@ Bootstrapping involves generating a public-private key pair, which is used for s
    /home/ubuntu/.config/raiko
    ├── config
    │   ├── bootstrap.json
-   │   ├── raiko-guest.manifest.sgx
-   │   └── raiko-guest.sig
+   │   ├── sgx-guest.manifest.sgx
+   │   └── sgx-guest.sig
    └── secrets
       └── priv.key
    ```
