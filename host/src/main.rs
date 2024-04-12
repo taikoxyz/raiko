@@ -36,6 +36,7 @@ use tracing_appender::{
     rolling::{Builder, Rotation},
 };
 use tracing_subscriber::FmtSubscriber;
+use env_logger;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
@@ -74,6 +75,7 @@ pub struct Opt {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     let opt = Opt::from_args();
     let config = get_config(None).unwrap();
     println!("Start config:\n{:#?}", config);

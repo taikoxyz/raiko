@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 raiko-primitives = { path = "../../../primitives" }
 raiko-lib = { path = "../../../lib", features = ["std"] }
-risc0-zkvm = { version = "0.20.1", default-features = false, features = ['std', "getrandom"] }
+risc0-zkvm = { version = "0.21.0", default-features = false, features = ['std', "getrandom"] }
 
 [patch.crates-io]
 # use optimized risc0 circuit

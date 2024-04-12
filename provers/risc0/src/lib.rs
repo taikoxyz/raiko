@@ -22,7 +22,7 @@ use risc0_zkvm::{
     compute_image_id, is_dev_mode,
     serde::to_vec,
     sha::{Digest, Digestible},
-    Assumption, ExecutorEnv, ExecutorImpl, FileSegmentRef, Receipt, Segment, SegmentRef,
+    Assumption, ExecutorEnv, ExecutorImpl, Receipt,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::serde_as;
@@ -44,7 +44,7 @@ pub struct Risc0Param {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Risc0Response {
-    pub journal: String,
+    pub proof: String,
 }
 
 pub struct Risc0Prover;
@@ -88,7 +88,7 @@ impl Prover for Risc0Prover {
                 .map_err(|err| format!("Failed to verify SNARK: {:?}", err))?;
         }
 
-        to_proof(Ok(Risc0Response { journal }))
+        to_proof(Ok(Risc0Response { proof: journal }))
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {
@@ -112,7 +112,7 @@ pub async fn stark2snark(
     );
     // Load cached receipt if found
     if let Ok(Some(cached_data)) = load_receipt(&receipt_label) {
-        info!("Loaded locally cached receipt");
+        info!("Loaded locally cached snark receipt {:?}", receipt_label);
         return Ok(cached_data);
     }
     // Otherwise compute on Bonsai
@@ -262,24 +262,30 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     // get receipt
     let (mut receipt_uuid, receipt, cached) =
         if let Ok(Some(cached_data)) = load_receipt(&receipt_label) {
-            info!("Loaded locally cached receipt");
+            info!("Loaded locally cached stark receipt {:?}", receipt_label);
             (cached_data.0, cached_data.1, true)
         } else if param.bonsai {
             // query bonsai service until it works
             loop {
-                if let Ok(remote_proof) = prove_bonsai(
+                match prove_bonsai(
                     encoded_input.clone(),
                     elf,
                     expected_output,
                     assumption_uuids.clone(),
                 )
-                .await
-                {
-                    break (remote_proof.0, remote_proof.1, false);
+                .await {
+                    Ok((receipt_uuid, receipt)) => {
+                        break (receipt_uuid, receipt, false);
+                    }
+                    Err(err) => {
+                        warn!("Failed to prove on Bonsai: {:?}", err);
+                        std::thread::sleep(std::time::Duration::from_secs(15));
+                    }
                 }
             }
         } else {
             // run prover
+            info!("start running local prover");
             (
                 Default::default(),
                 prove_locally(
@@ -293,8 +299,8 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             )
         };
 
-    println!("receipt: {:?}", receipt);
-    println!("journal: {:?}", receipt.journal);
+    info!("receipt: {:?}", receipt);
+    info!("journal: {:?}", receipt.journal);
 
     // verify output
     let output_guest: O = receipt.journal.decode().unwrap();
@@ -391,38 +397,17 @@ pub fn prove_locally(
             env_builder.add_assumption(assumption);
         }
 
-        let env = env_builder.build().unwrap();
-        let mut exec = ExecutorImpl::from_elf(env, elf).unwrap();
-
         let segment_dir = PathBuf::from("/tmp/risc0-cache");
         if segment_dir.exists() {
             fs::remove_dir_all(segment_dir.clone()).unwrap();
         }
         fs::create_dir(segment_dir.clone()).unwrap();
+        let env = env_builder.segment_path(segment_dir).build().unwrap();
+        let mut exec = ExecutorImpl::from_elf(env, elf).unwrap();
 
-        exec.run_with_callback(|segment| {
-            let _path = segment_dir
-                .as_path()
-                .join(format!("{}.bincode", segment.index));
-            Ok(Box::new(FileSegmentRef::new(
-                &segment,
-                segment_dir.as_path(),
-            )?))
-        })
-        .unwrap()
+        exec.run().unwrap()
     };
     session.prove().unwrap()
-}
-
-const _NULL_SEGMENT_REF: NullSegmentRef = NullSegmentRef {};
-#[derive(Serialize, Deserialize)]
-struct NullSegmentRef {}
-
-#[typetag::serde]
-impl SegmentRef for NullSegmentRef {
-    fn resolve(&self) -> anyhow::Result<Segment> {
-        unimplemented!()
-    }
 }
 
 pub fn load_receipt<T: serde::de::DeserializeOwned>(
