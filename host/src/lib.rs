@@ -94,6 +94,7 @@ pub struct Opt {
     pub log_level: String,
 
     #[structopt(flatten)]
+    #[serde(flatten)]
     /// Proof request options
     pub proof_request_opt: ProofRequestOpt,
 }
