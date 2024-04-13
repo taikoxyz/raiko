@@ -27,6 +27,7 @@ use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
 use cap::Cap;
+use env_logger;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use server::serve;
@@ -74,6 +75,7 @@ pub struct Opt {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     let opt = Opt::from_args();
     let config = get_config(None).unwrap();
     println!("Start config:\n{:#?}", config);

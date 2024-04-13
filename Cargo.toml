@@ -38,9 +38,9 @@ revm = { git = "https://github.com/taikoxyz/revm.git", branch = "fix-ecrecover",
 ] }
 
 # risc zero
-risc0-zkvm = { version = "0.20.1", features = ["prove", "getrandom"]}
-bonsai-sdk = { version = "0.6.0", features = ["async"]}
-risc0-build = { version = "0.20.1" }
+risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"]}
+bonsai-sdk = { version = "0.7.0", features = ["async"]}
+risc0-build = { version = "0.21.0" }
 
 # SP1
 sp1-core = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
@@ -108,6 +108,7 @@ cfg-if = "1.0.0"
 libflate = { version = "2.0.0" }
 sha3 = { version = "0.10", default-features = false }
 log = { version = "0.4" }
+env_logger = { version = "0.11.3" }
 typetag = { version = "0.2.15" }
 hex = { version = "0.4.3" }
 thiserror-no-std = "2.0.2"
