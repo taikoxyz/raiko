@@ -76,6 +76,18 @@ jobs:
           cargo test -p sgx-prover --features enable
         shell: bash
 
+  build-test-sgx-with-docker:
+    name: Build and test sgx with Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup and build
+        run: |
+          cd docker
+          docker compose build --no-cache
+        shell: bash
+
   test-lib:
     name: Test raiko-lib
     runs-on: ubuntu-latest
