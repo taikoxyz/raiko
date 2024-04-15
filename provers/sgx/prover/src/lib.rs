@@ -8,6 +8,7 @@ use std::{
 };
 
 use alloy_sol_types::SolValue;
+use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
@@ -17,7 +18,8 @@ use raiko_primitives::{keccak::keccak, B256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::serde_as;
-use tokio::process::Command;
+use tokio::{process::Command, sync::OnceCell};
+
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -38,6 +40,9 @@ pub struct SgxResponse {
 
 pub const ELF_NAME: &str = "sgx-guest";
 pub const CONFIG: &str = "../../provers/sgx/config";
+
+static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
+static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 
 pub struct SgxProver;
 
@@ -64,23 +69,22 @@ impl Prover for SgxProver {
             }
         );
 
-        // Prepare prerequisites if running in direct mode. For SGX mode, we assume they are
-        // already prepared by the Docker image.
-        let cur_dir = if direct_mode {
-            let dir = env::current_exe()
-                .expect("Fail to get current directory")
-                .parent()
-                .unwrap()
-                .to_path_buf();
-            println!("Current directory: {:?}\n", dir);
-            setup(dir.clone()).await?;
-            dir
-        } else {
-            PathBuf::from("/opt/raiko/provers/sgx")
-        };
+        // The working directory
+        let cur_dir = env::current_exe()
+            .expect("Fail to get current directory")
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        println!("Current directory: {:?}\n", cur_dir);
+        // Working paths
+        PRIVATE_KEY
+            .get_or_init(|| async { cur_dir.join("secrets").join("priv.key") })
+            .await;
+        GRAMINE_MANIFEST_TEMPLATE
+            .get_or_init(|| async { cur_dir.join(CONFIG).join("raiko-guest.manifest.template") })
+            .await;
 
-        // The Gramine command - 'gramine-sgx' for SGX environment, or 'gramine-direct' for
-        // testing in non-SGX environment (a.k.a. simulation mode).
+        // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
             let mut cmd = if direct_mode {
                 StdCommand::new("gramine-direct")
@@ -123,40 +127,62 @@ impl Prover for SgxProver {
     }
 }
 
-// This function prepares the working directory for the SGX prover running in testing
-// (direct/simulation) mode. It is not applicable in hardware mode.
-async fn setup(dir: PathBuf) -> ProverResult<()> {
+async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String> {
     // Create required directories
     let directories = ["secrets", "config"];
-    for cur_dir in directories {
-        create_dir_all(dir.join(cur_dir)).unwrap();
+    for dir in directories {
+        create_dir_all(cur_dir.join(dir)).unwrap();
     }
-    let gramine_manifest_template = dir.join(CONFIG).join("sgx-guest.local.manifest.template");
-
-    // Copy dummy files in direct mode
-    let files = ["attestation_type", "quote", "user_report_data"];
-    for file in files {
-        copy(
-            dir.join(CONFIG).join("dummy_data").join(file),
-            dir.join(file),
-        )
-        .unwrap();
+    if direct_mode {
+        // Copy dummy files in direct mode
+        let files = ["attestation_type", "quote", "user_report_data"];
+        for file in files {
+            copy(
+                cur_dir.join(CONFIG).join("dummy_data").join(file),
+                cur_dir.join(file),
+            )
+            .unwrap();
+        }
     }
 
-    // Generate Gramine's manifest
+    // Generate the manifest
     let mut cmd = Command::new("gramine-manifest");
     let output = cmd
-        .current_dir(dir.clone())
+        .current_dir(cur_dir.clone())
         .arg("-Dlog_level=error")
         .arg("-Darch_libdir=/lib/x86_64-linux-gnu/")
-        .arg("-Ddirect_mode=1")
-        .arg(gramine_manifest_template)
+        .arg(format!(
+            "-Ddirect_mode={}",
+            if direct_mode { "1" } else { "0" }
+        ))
+        .arg(GRAMINE_MANIFEST_TEMPLATE.get().unwrap())
         .arg("sgx-guest.manifest")
         .output()
         .await
-        .map_err(|e| format!("Could not generate manifest: {}", e))?;
+        .map_err(|e| handle_gramine_error("Could not generate manfifest", e))?;
 
     print_output(&output, "Generate manifest");
+
+    if !direct_mode {
+        // Generate a private key
+        let mut cmd = Command::new("gramine-sgx-gen-private-key");
+        cmd.current_dir(cur_dir.clone())
+            .arg("-f")
+            .output()
+            .await
+            .map_err(|e| handle_gramine_error("Could not generate SGX private key", e))?;
+
+        // Sign the manifest
+        let mut cmd = Command::new("gramine-sgx-sign");
+        cmd.current_dir(cur_dir.clone())
+            .arg("--manifest")
+            .arg("sgx-guest.manifest")
+            .arg("--output")
+            .arg("sgx-guest.manifest.sgx")
+            .output()
+            .await
+            .map_err(|e| handle_gramine_error("Could not sign manfifest", e))?;
+    }
 
     Ok(())
 }

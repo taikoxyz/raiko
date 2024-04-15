@@ -2,8 +2,6 @@ FROM rust:1.75.0 as builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
-WORKDIR /opt/raiko
-COPY . .
 RUN apt-get update && \
     apt-get install -y \
     cmake \
@@ -12,11 +10,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # risc0 dependencies
-
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 RUN cargo binstall -y --force cargo-risczero
 RUN cargo risczero install
 
+WORKDIR /opt/raiko
+COPY . .
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx"
 
 
