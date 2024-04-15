@@ -62,12 +62,12 @@ lazy_static! {
     .unwrap();
 }
 
-/// Increase the count of requests currnetly being processed.
+/// Increase the count of requests currently being processed.
 pub fn inc_current_req() {
     CONCURRENT_REQUESTS.inc();
 }
 
-/// Decrease the count of requests currnetly being processed.
+/// Decrease the count of requests currently being processed.
 pub fn dec_current_req() {
     CONCURRENT_REQUESTS.dec();
 }
@@ -127,11 +127,11 @@ pub fn inc_guest_error(guest: &ProofType, block_id: u64) {
 pub fn observe_guest_time(guest: &ProofType, block_id: u64, time: u128, success: bool) {
     let guest = guest.to_string();
     let block_id = block_id.to_string();
-    let sucess = success.to_string();
+    let success = success.to_string();
     let labels = labels! {
         "guest" => guest.as_str(),
         "block_id" => &block_id,
-        "success" => &sucess,
+        "success" => &success,
     };
     GUEST_PROOF_TIME.with(&labels).observe(time as f64);
 }
@@ -139,10 +139,10 @@ pub fn observe_guest_time(guest: &ProofType, block_id: u64, time: u128, success:
 /// Observe the time taken for prepare input.
 pub fn observe_prepare_input_time(block_id: u64, time: u128, success: bool) {
     let block_id = block_id.to_string();
-    let sucess = success.to_string();
+    let success = success.to_string();
     let labels = labels! {
         "block_id" => block_id.as_str(),
-        "success" => &sucess,
+        "success" => &success,
     };
     PREPARE_INPUT_TIME.with(&labels).observe(time as f64);
 }
@@ -150,10 +150,10 @@ pub fn observe_prepare_input_time(block_id: u64, time: u128, success: bool) {
 /// Observe the time taken for prepare input.
 pub fn observe_total_time(block_id: u64, time: u128, success: bool) {
     let block_id = block_id.to_string();
-    let sucess = success.to_string();
+    let success = success.to_string();
     let labels = labels! {
         "block_id" => block_id.as_str(),
-        "success" => &sucess,
+        "success" => &success,
     };
     TOTAL_TIME.with(&labels).observe(time as f64);
 }
