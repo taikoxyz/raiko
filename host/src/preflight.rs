@@ -93,10 +93,10 @@ pub fn preflight(
         let (tx_list, tx_blob_hash) = if proposal_event.meta.blobUsed {
             println!("blob active");
             // Get the blob hashes attached to the propose tx
-            let blob_hashs = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-            assert!(!blob_hashs.is_empty());
+            let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
+            assert!(!blob_hashes.is_empty());
             // Currently the protocol enforces the first blob hash to be used
-            let blob_hash = blob_hashs[0];
+            let blob_hash = blob_hashes[0];
             let l2_chain_spec = get_network_spec(network);
             // Get the blob data for this block
             let slot_id = block_time_to_block_slot(
@@ -348,7 +348,7 @@ fn get_block_proposed_event(
 ) -> Result<(AlloyRpcTransaction, BlockProposed)> {
     let tokio_handle = tokio::runtime::Handle::current();
 
-    // Get the address that emited the event
+    // Get the address that emitted the event
     let l1_address = get_network_spec(network).l1_contract.unwrap();
 
     // Get the event signature (value can differ between chains)
