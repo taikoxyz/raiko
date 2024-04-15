@@ -102,7 +102,7 @@ async fn proof_handler(
     let (input, proof) = execute(&proof_request, cached_input).await.map_err(|e| {
         dec_current_req();
         let total_time = total_time.stop_with("====> Proof generation failed");
-        observe_total_time(proof_request.block_number, total_time.as_millis(), true);
+        observe_total_time(proof_request.block_number, total_time.as_millis(), false);
         match e {
             HostError::GuestError(e) => {
                 inc_guest_error(&proof_request.proof_type, proof_request.block_number);
