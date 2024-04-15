@@ -47,14 +47,17 @@ RUN mkdir -p \
     /var/log/raiko
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
-COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/
-COPY --from=builder /opt/raiko/host/config/config.json /etc/raiko/
-COPY --from=builder /opt/raiko/target/release/sgx-guest ./provers/sgx/
+COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/config/
+COPY --from=builder /opt/raiko/host/config/config.docker.json /etc/raiko/
+COPY --from=builder /opt/raiko/target/release/sgx-guest ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 
 ARG EDMM=0
 ENV EDMM=${EDMM}
-RUN cd ./provers/sgx && \
-    gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ sgx-guest.docker.manifest.template sgx-guest.manifest
+RUN cd ./bin && \
+    gramine-sgx-gen-private-key -f && \
+    gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ ../provers/sgx/config/sgx-guest.docker.manifest.template sgx-guest.manifest && \
+    gramine-sgx-sign --manifest sgx-guest.manifest --output sgx-guest.manifest.sgx && \
+    gramine-sgx-sigstruct-view "sgx-guest.sig"
 
 ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]

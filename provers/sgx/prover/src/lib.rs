@@ -39,7 +39,7 @@ pub struct SgxResponse {
 }
 
 pub const ELF_NAME: &str = "sgx-guest";
-pub const CONFIG: &str = "../../provers/sgx/config";
+pub const CONFIG: &str = "../provers/sgx/config";
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
@@ -81,7 +81,7 @@ impl Prover for SgxProver {
             .get_or_init(|| async { cur_dir.join("secrets").join("priv.key") })
             .await;
         GRAMINE_MANIFEST_TEMPLATE
-            .get_or_init(|| async { cur_dir.join(CONFIG).join("raiko-guest.manifest.template") })
+            .get_or_init(|| async { cur_dir.join(CONFIG).join("sgx-guest.manifest.template") })
             .await;
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
@@ -96,6 +96,11 @@ impl Prover for SgxProver {
             cmd.current_dir(&cur_dir).arg(ELF_NAME);
             cmd
         };
+
+        // Setup: run this once while setting up your SGX instance
+        if config.setup {
+            setup(&cur_dir, direct_mode).await?;
+        }
 
         if config.bootstrap {
             bootstrap(cur_dir.clone(), gramine_cmd()).await?;

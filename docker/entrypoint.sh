@@ -30,19 +30,21 @@ function bootstrap() {
 
 /restart_aesm.sh
 
-if [[ $# -eq 1 && $1 == "--init" ]]; then
-    if [[ ! -f "$GRAMINE_PRIV_KEY" ]]; then
-        gramine-sgx-gen-private-key
-    fi
-    sign_gramine_manifest
-    bootstrap
-else
-    if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
-        echo "Application was not bootstrapped. "\
-             "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
-        exit 1
-    fi
+/opt/raiko/bin/raiko-host --config-path=/etc/raiko/config.docker.json #"$@"
 
-    sign_gramine_manifest
-    /opt/raiko/bin/raiko-host "$@"
-fi
+# if [[ $# -eq 1 && $1 == "--init" ]]; then
+#     if [[ ! -f "$GRAMINE_PRIV_KEY" ]]; then
+#         gramine-sgx-gen-private-key
+#     fi
+#     sign_gramine_manifest
+#     bootstrap
+# else
+#     if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
+#         echo "Application was not bootstrapped. "\
+#              "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
+#         exit 1
+#     fi
+
+#     sign_gramine_manifest
+#     /opt/raiko/bin/raiko-host "$@"
+# fi
