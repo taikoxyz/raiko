@@ -1,12 +1,7 @@
 #![allow(incomplete_features)]
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use cap::Cap;
-use env_logger;
-use serde::{Deserialize, Serialize};
-use server::serve;
-use structopt::StructOpt;
+use raiko_host::{error::HostResult, server::serve, ProverState};
 use tracing::debug;
 use tracing_appender::{
     non_blocking::WorkerGuard,
@@ -15,7 +10,7 @@ use tracing_appender::{
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> HostResult<()> {
     env_logger::init();
     let state = ProverState::init()?;
     debug!("Start config:\n{:#?}", state.opts.proof_request_opt);
