@@ -43,9 +43,9 @@ bonsai-sdk = { version = "0.7.0", features = ["async"]}
 risc0-build = { version = "0.21.0" }
 
 # SP1
-sp1-core = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
+sp1-sdk ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-helper ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
 
 # alloy
 alloy-rlp = { version = "0.3", default-features = false }

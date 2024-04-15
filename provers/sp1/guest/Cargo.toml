@@ -7,15 +7,15 @@ edition = "2021"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std"] }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
+sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
 
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
 
 [patch."https://github.com/succinctlabs/sp1.git"]
-sp1-precompiles = { git = "https://www.github.com/succinctlabs/sp1.git", rev = "cb43fd74b24fad8ed24a4885499159de3680c89f" }
+sp1-precompiles = { git = "https://www.github.com/succinctlabs/sp1.git", branch = "main"}
 
 [workspace]
 
-# cargo prove build
+# cargo prove build 

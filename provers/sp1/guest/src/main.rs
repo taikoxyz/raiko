@@ -25,5 +25,5 @@ pub fn main() {
         }
     };
 
-    sp1_zkvm::io::write(&output);
+    sp1_zkvm::io::commit(&output);
 }
