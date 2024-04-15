@@ -29,7 +29,6 @@ impl Prover for Sp1Prover {
         _output: GuestOutput,
         _config: &ProverConfig,
     ) -> ProverResult<Proof> {
-
         // Write the input.
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
