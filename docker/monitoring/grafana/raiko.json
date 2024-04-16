@@ -489,9 +489,26 @@
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Memory",
+          "legendFormat": "Virtual",
           "range": true,
           "refId": "A",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "process_resident_memory_bytes",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "Resident",
+          "range": true,
+          "refId": "B",
           "useBackend": false
         }
       ],
@@ -947,13 +964,13 @@
     ]
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Raiko Metrics",
   "uid": "bdishcsl6e2v4e",
-  "version": 10,
+  "version": 2,
   "weekStart": ""
 }
