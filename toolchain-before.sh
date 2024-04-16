@@ -24,12 +24,3 @@ fi
 # Extract the channel (toolchain version) from the selected crate toolchain file
 TOOLCHAIN_VERSION=$(grep "channel = " $CRATE_TOOLCHAIN | cut -d '"' -f 2)
 echo $TOOLCHAIN_VERSION > $ROOT_TOOLCHAIN
-
-# Extract components from the selected crate toolchain file and add them using rustup
-grep "components = \[" $CRATE_TOOLCHAIN | sed 's/.*\[\(.*\)\].*/\1/' | tr ',' '\n' | while read -r component; do
-    component=$(echo $component | xargs | tr -d '"')
-    if [ ! -z "$component" ]; then
-        echo "Adding component: $component"
-        rustup component add "$component" --toolchain "$TOOLCHAIN_VERSION"
-    fi
-done
