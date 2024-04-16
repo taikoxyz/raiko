@@ -83,7 +83,7 @@
           "custom": {
             "axisBorderShow": false,
             "axisCenteredZero": false,
-            "axisColorMode": "text",
+            "axisColorMode": "series",
             "axisLabel": "",
             "axisPlacement": "auto",
             "fillOpacity": 80,
@@ -143,7 +143,7 @@
         },
         "xField": "Time",
         "xTickLabelRotation": 45,
-        "xTickLabelSpacing": 0
+        "xTickLabelSpacing": -100
       },
       "pluginVersion": "10.4.0",
       "targets": [
@@ -164,7 +164,7 @@
           "useBackend": false
         }
       ],
-      "title": "Panel Title",
+      "title": "Traffic",
       "type": "barchart"
     },
     {
@@ -644,7 +644,8 @@
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
-              "type": "linear"
+              "log": 2,
+              "type": "log"
             },
             "showPoints": "auto",
             "spanNulls": false,
@@ -747,7 +748,8 @@
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
-              "type": "linear"
+              "log": 2,
+              "type": "log"
             },
             "showPoints": "auto",
             "spanNulls": false,
@@ -800,12 +802,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum by(success) (rate(guest_proof_time_histogram_bucket[$__interval]))",
+          "expr": "sum by(success, guest) (rate(guest_proof_time_histogram_bucket[$__interval]))",
           "format": "heatmap",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Request success: {{success}}",
+          "legendFormat": "{{guest}} success: {{success}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -845,7 +847,8 @@
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
-              "type": "linear"
+              "log": 2,
+              "type": "log"
             },
             "showPoints": "auto",
             "spanNulls": false,
@@ -862,7 +865,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -949,7 +953,7 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "Raiko Metrics",
-  "uid": "raiko-metrics",
-  "version": 5,
+  "uid": "bdishcsl6e2v4e",
+  "version": 10,
   "weekStart": ""
 }
