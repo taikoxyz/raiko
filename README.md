@@ -52,6 +52,12 @@ You can also automatically sync with the tip of the chain and prove all new bloc
 
 ## Provers
 
+Before running you should set the rust toolchain in workspace to the desired prover's toolchain. If the script is not run, cargo will proceed with the defult `rust-toolchain` file which specifies "nightly". Assuming you want to run prover X:
+
+```
+./toolchain.sh X
+```
+
 Provers can be enabled using features. To compile with all of them (using standard options):
 
 ```
