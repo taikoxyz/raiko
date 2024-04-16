@@ -12,7 +12,7 @@ docker compose up -d
 or the following if you are running Raiko outside of docker.
 
 ```bash
-docker compose up -d --scale raiko=0,pccs=0
+docker compose up -d --scale raiko=0 --scale pccs=0
 ```
 
 To view the Raiko Metrics dashboard you can load the grafana UI in your browser by going to `localhost:3000`.
