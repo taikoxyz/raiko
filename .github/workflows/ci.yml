@@ -25,11 +25,7 @@ jobs:
       with:
         submodules: recursive
     - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: 1.76.0
-        override: true
-    - run: rustc --version
+    - run: ./toolchain.sh risc0
     - uses: risc0/risc0/.github/actions/sccache@release-0.19
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
@@ -45,11 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2024-01-25
-          override: true
-          components: clippy, rustfmt, rust-src
+      - run: ./toolchain.sh sp1
       - name: Setup and build
         run: |
           curl -L https://sp1.succinct.xyz | bash
@@ -65,11 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2024-01-25
-          override: true
-          components: clippy, rustfmt, rust-src
+      - run: ./toolchain.sh sgx
       - name: Setup and build
         run: |
           cargo build --features sgx
@@ -83,10 +71,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2024-01-25
-          override: true
       - run: cargo test -p raiko-lib --features=std
 
   clippy:
