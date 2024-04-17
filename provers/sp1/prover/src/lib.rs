@@ -11,7 +11,7 @@ use raiko_lib::{
 };
 use serde::{Deserialize, Serialize};
 use sha3::{self, Digest};
-use sp1_core::{utils, SP1Prover, SP1Stdin, SP1Verifier};
+use sp1_sdk::{utils, ProverClient, SP1Stdin};
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/riscv32im-succinct-zkvm-elf");
 
@@ -29,21 +29,21 @@ impl Prover for Sp1Prover {
         _output: GuestOutput,
         _config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        let config = utils::BabyBearPoseidon2::new();
-
         // Write the input.
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 
         // Generate the proof for the given program.
-        let mut proof =
-            SP1Prover::prove_with_config(ELF, stdin, config.clone()).expect("Sp1: proving failed");
+        let client = ProverClient::new();
+        let mut proof = client.prove(ELF, stdin).expect("Sp1: proving failed");
 
         // Read the output.
-        let output = proof.stdout.read::<GuestOutput>();
+        let output = proof.public_values.read::<GuestOutput>();
 
         // Verify proof.
-        SP1Verifier::verify_with_config(ELF, &proof, config).expect("Sp1: verification failed");
+        client
+            .verify(ELF, &proof)
+            .expect("Sp1: verification failed");
 
         // Save the proof.
         let proof_dir = env::current_dir().expect("Sp1: dir error");
