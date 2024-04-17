@@ -30,7 +30,7 @@ function bootstrap() {
 
 /restart_aesm.sh
 
-/opt/raiko/bin/raiko-host --config-path=/etc/raiko/config.docker.json #"$@"
+/opt/raiko/bin/raiko-host "$@"
 
 # if [[ $# -eq 1 && $1 == "--init" ]]; then
 #     if [[ ! -f "$GRAMINE_PRIV_KEY" ]]; then

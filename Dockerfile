@@ -25,7 +25,7 @@ WORKDIR /opt/raiko
 
 RUN curl -o setup.sh -sL https://deb.nodesource.com/setup_18.x && \
     chmod a+x setup.sh && \
-    ./setup.s && \
+    ./setup.sh && \
     apt-get update && \
     apt-get install -y \
     cracklib-runtime \
@@ -48,7 +48,7 @@ RUN mkdir -p \
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
 COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/config/
-COPY --from=builder /opt/raiko/host/config/config.docker.json /etc/raiko/
+COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
 COPY --from=builder /opt/raiko/target/release/sgx-guest ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 
