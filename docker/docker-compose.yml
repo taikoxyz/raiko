@@ -20,10 +20,11 @@ services:
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       # you can use your own PCCS host
-      - PCCS_HOST=host.docker.internal:8081
-    extra_hosts:
-      # use the host's network to connect to the PCCS
-      - "host.docker.internal:host-gateway"
+      #- PCCS_HOST=host.docker.internal:8081
+
+    # use the host's network to connect to the PCCS
+    #extra_hosts:
+    #  - "host.docker.internal:host-gateway"
     depends_on:
       - pccs
   pccs:
