@@ -7,8 +7,6 @@ services:
     image: gcr.io/evmchain/raiko:latest
     container_name: raiko
     command: --config-path=/etc/raiko/config.sgx.json
-    extra_hosts:
-      - "pccs:pccs"
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
