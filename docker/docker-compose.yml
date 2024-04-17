@@ -8,7 +8,7 @@ services:
     container_name: raiko
     command: --config-path=/etc/raiko/config.sgx.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "pccs:pccs"
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -19,12 +19,10 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # GitHub limits the number of requests unless a token is provided
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
-      # - SGX_DIRECT=${SGX_DIRECT}
-    #depends_on:
-    #  - pccs
+      - SGX_DIRECT=${SGX_DIRECT}
+    depends_on:
+      - pccs
   pccs:
     build:
       context: ..
@@ -35,7 +33,3 @@ services:
       - ${HOME}/.config/sgx-pccs/default.json:/opt/intel/pccs/config/default.json
       - ${HOME}/.config/sgx-pccs/file.crt:/opt/intel/pccs/ssl_key/file.crt
       - ${HOME}/.config/sgx-pccs/private.pem:/opt/intel/pccs/ssl_key/private.pem
-    ports:
-      - "8082:8081"
-    environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}

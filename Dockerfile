@@ -39,7 +39,7 @@ RUN curl -o setup.sh -sL https://deb.nodesource.com/setup_18.x && \
 
 RUN sed -i 's/#default quoting type = ecdsa_256/default quoting type = ecdsa_256/' /etc/aesmd.conf
 RUN sed -i 's/,"use_secure_cert": true/,"use_secure_cert": false/' /etc/sgx_default_qcnl.conf
-RUN sed -i 's/https:\/\/localhost:8081/https:\/\/host.docker.internal:8081/g' /etc/sgx_default_qcnl.conf
+RUN sed -i 's/https:\/\/localhost:8081/https:\/\/pccs:8081/g' /etc/sgx_default_qcnl.conf
 
 RUN mkdir -p \
     ./bin \
