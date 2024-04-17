@@ -28,6 +28,14 @@ function bootstrap() {
     cd -
 }
 
+if [[ -z "${PCCS_HOST}" ]]; then
+    MY_PCCS_HOST=pccs:8081
+else
+    MY_PCCS_HOST=${PCCS_HOST}
+fi
+
+sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
+
 /restart_aesm.sh
 
 /opt/raiko/bin/raiko-host "$@"
