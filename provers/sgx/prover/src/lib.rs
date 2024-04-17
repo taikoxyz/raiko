@@ -20,7 +20,6 @@ use serde_json::Value;
 use serde_with::serde_as;
 use tokio::{process::Command, sync::OnceCell};
 
-
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SgxParam {
