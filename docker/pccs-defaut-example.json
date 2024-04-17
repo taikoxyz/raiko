@@ -1,6 +1,6 @@
 {
   "HTTPS_PORT": 8081,
-  "hosts": "",
+  "hosts": "0.0.0.0",
   "uri": "https://api.trustedservices.intel.com/sgx/certification/v4/",
   "ApiKey": "YOUR_API_KEY",
   "proxy": "",
