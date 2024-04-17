@@ -25,7 +25,14 @@ pub const GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
 });
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
-    Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]).unwrap()
+    match Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]) {
+        Ok(transactions) => transactions,
+        Err(e) => {
+            // a empty vec
+            println!("decode_transactions error: {:?}, use empty tx_list", e);
+            vec![]
+        }
+    }
 }
 
 pub fn generate_transactions(

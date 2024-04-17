@@ -38,7 +38,11 @@ pub struct SgxResponse {
 }
 
 pub const ELF_NAME: &str = "sgx-guest";
-pub const CONFIG: &str = "../provers/sgx/config";
+pub const CONFIG: &str = if cfg!(feature = "docker_build") {
+    "../provers/sgx/config"
+} else {
+    "../../provers/sgx/config"
+};
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);

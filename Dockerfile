@@ -16,7 +16,7 @@ RUN cargo risczero install
 
 WORKDIR /opt/raiko
 COPY . .
-RUN cargo build --release ${BUILD_FLAGS} --features "sgx"
+RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 
 FROM gramineproject/gramine:1.6-jammy as runtime
