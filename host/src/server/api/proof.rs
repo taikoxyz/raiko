@@ -86,8 +86,7 @@ async fn proof_handler(
 
     println!(
         "# Generating proof for block {} on {}",
-        proof_request.block_number,
-        proof_request.network
+        proof_request.block_number, proof_request.network
     );
 
     // Check for a cached input for the given request config.
