@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{ArgAction, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 const DEFAULT_RAIKO_USER_CONFIG_SUBDIR_PATH: &str = ".config/raiko";
 
@@ -15,9 +15,11 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Prove (i.e. sign) a single block and exit.
     OneShot(OneShotArgs),
-    /// Bootstrap the application and exit. Bootstraping process creates the first
-    /// public-private key pair and saves it on disk in encrypted form.
+    /// Bootstrap the application and then exit. The bootstrapping process generates the
+    /// initial public-private key pair and stores it on the disk in an encrypted
+    /// format using SGX encryption primitives.
     Bootstrap,
 }
 
@@ -43,10 +45,6 @@ pub struct GlobalOpts {
     pub secrets_dir: PathBuf,
 
     #[clap(short, long, default_value=get_default_raiko_user_config_path("config").into_os_string())]
-    /// Path to the directory with raiko configuration files.
+    /// Path to the directory containing Raiko configuration files.
     pub config_dir: PathBuf,
-
-    #[clap(long, short, global = true, action = ArgAction::Count)]
-    /// Verbosity of the application. Use multiple times to increase verbosity.
-    pub verbose: u8,
 }

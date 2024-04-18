@@ -38,9 +38,11 @@ pub struct SgxResponse {
 }
 
 pub const ELF_NAME: &str = "sgx-guest";
-pub const INPUT_FILE_NAME: &str = "input.bin";
-pub const CONFIG: &str = "../../provers/sgx/config";
-pub const SGX_INPUT_PATH: &str = "/tmp/inputs";
+pub const CONFIG: &str = if cfg!(feature = "docker_build") {
+    "../provers/sgx/config"
+} else {
+    "../../provers/sgx/config"
+};
 
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
@@ -60,10 +62,15 @@ impl Prover for SgxProver {
             Ok(value) => value == "1",
             Err(_) => false,
         };
-        // Print a warning when running in direct mode
-        if direct_mode {
-            println!("WARNING: running SGX in direct mode!");
-        }
+
+        println!(
+            "WARNING: running SGX in {} mode!",
+            if direct_mode {
+                "direct (a.k.a. simulation)"
+            } else {
+                "hardware"
+            }
+        );
 
         // The working directory
         let cur_dir = env::current_exe()
@@ -77,7 +84,7 @@ impl Prover for SgxProver {
             .get_or_init(|| async { cur_dir.join("secrets").join("priv.key") })
             .await;
         GRAMINE_MANIFEST_TEMPLATE
-            .get_or_init(|| async { cur_dir.join(CONFIG).join("raiko-guest.manifest.template") })
+            .get_or_init(|| async { cur_dir.join(CONFIG).join("sgx-guest.manifest.template") })
             .await;
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
@@ -98,9 +105,8 @@ impl Prover for SgxProver {
             setup(&cur_dir, direct_mode).await?;
         }
 
-        // Boostrap: run this each time a new keypair for proving needs to be generated
         if config.bootstrap {
-            bootstrap(gramine_cmd()).await?;
+            bootstrap(cur_dir.clone(), gramine_cmd()).await?;
         }
 
         // Prove: run for each block
@@ -135,7 +141,6 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
     for dir in directories {
         create_dir_all(cur_dir.join(dir)).unwrap();
     }
-    create_dir_all(SGX_INPUT_PATH).unwrap();
     if direct_mode {
         // Copy dummy files in direct mode
         let files = ["attestation_type", "quote", "user_report_data"];
@@ -190,20 +195,21 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
     Ok(())
 }
 
-async fn bootstrap(mut gramine_cmd: StdCommand) -> ProverResult<(), String> {
+async fn bootstrap(dir: PathBuf, mut gramine_cmd: StdCommand) -> ProverResult<(), String> {
     tokio::task::spawn_blocking(move || {
         // Bootstrap with new private key for signing proofs
         // First delete the private key if it already exists
-        if PRIVATE_KEY.get().unwrap().exists() {
-            if let Err(e) = remove_file(PRIVATE_KEY.get().unwrap()) {
+        let path = dir.join("secrets").join("priv.key");
+        if path.exists() {
+            if let Err(e) = remove_file(&path) {
                 println!("Error deleting file: {}", e);
             }
         }
         let output = gramine_cmd
             .arg("bootstrap")
             .output()
-            .map_err(|e| handle_gramine_error("Could not run SGX guest boostrap", e))?;
-        print_output(&output, "Sgx bootstrap");
+            .map_err(|e| handle_gramine_error("Could not run SGX guest bootstrap", e))?;
+        print_output(&output, "SGX bootstrap");
 
         Ok(())
     })
@@ -217,7 +223,6 @@ async fn prove(
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
-        // Prove
         let mut child = gramine_cmd
             .arg("one-shot")
             .arg("--sgx-instance-id")
@@ -260,11 +265,11 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
             .unwrap_or("")
             .to_string()
     };
-    let proof = extract_field("proof");
-    let quote = extract_field("quote");
-    print_dirs();
 
-    Ok(SgxResponse { proof, quote })
+    Ok(SgxResponse {
+        proof: extract_field("proof"),
+        quote: extract_field("quote"),
+    })
 }
 
 fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
@@ -289,14 +294,4 @@ fn print_output(output: &Output, name: &str) {
         name,
         str::from_utf8(&output.stdout).unwrap()
     );
-}
-
-fn print_dirs() {
-    println!("SGX output directories:");
-    for dir in [
-        GRAMINE_MANIFEST_TEMPLATE.get().unwrap(),
-        PRIVATE_KEY.get().unwrap(),
-    ] {
-        println!(" {:?}", dir);
-    }
 }

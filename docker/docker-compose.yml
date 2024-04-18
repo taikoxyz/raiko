@@ -1,12 +1,31 @@
 version: "3.9"
 services:
+  init:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: gcr.io/evmchain/raiko:latest
+    container_name: raiko-init
+    command: --init
+    devices:
+      - "/dev/sgx_enclave:/dev/sgx_enclave"
+      - "/dev/sgx_provision:/dev/sgx_provision"
+    volumes:
+      - /var/log/raiko:/var/log/raiko
+      - ${HOME}/.config/gramine:/root/.config/gramine
+      - ${HOME}/.config/raiko:/root/.config/raiko
+    # environment:
+      # you can use your own PCCS host
+      #- PCCS_HOST=host.docker.internal:8081
+    depends_on:
+      - pccs
   raiko:
     build:
       context: ..
       dockerfile: Dockerfile
     image: gcr.io/evmchain/raiko:latest
     container_name: raiko
-    command: --config-path=/etc/raiko/config.toml
+    command: --config-path=/etc/raiko/config.sgx.json
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -16,10 +35,17 @@ services:
       - ${HOME}/.config/raiko:/root/.config/raiko
     ports:
       - "8080:8080"
+    environment:
+      # Set to 0 (which is the default) to run on real hardware; use 1 for testing
+      - SGX_DIRECT=${SGX_DIRECT}
+      - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
+      # you can use your own PCCS host
+      #- PCCS_HOST=host.docker.internal:8081
+    # use the host's network to connect to the PCCS
+    #extra_hosts:
+    #  - "host.docker.internal:host-gateway"
     depends_on:
       - pccs
-    environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
   pccs:
     build:
       context: ..
@@ -30,7 +56,3 @@ services:
       - ${HOME}/.config/sgx-pccs/default.json:/opt/intel/pccs/config/default.json
       - ${HOME}/.config/sgx-pccs/file.crt:/opt/intel/pccs/ssl_key/file.crt
       - ${HOME}/.config/sgx-pccs/private.pem:/opt/intel/pccs/ssl_key/private.pem
-    ports:
-      - "8082:8081"
-    environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
