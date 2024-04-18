@@ -44,9 +44,9 @@ bonsai-sdk = { version = "0.7.0", features = ["async"] }
 risc0-build = { version = "0.21.0" }
 
 # SP1
-sp1-sdk ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-helper ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
 
 # alloy
 alloy-rlp = { version = "0.3", default-features = false }
@@ -91,7 +91,7 @@ cap = { git = "https://github.com/brechtpd/cap", branch = "more-stats", features
 ] }
 
 # server
-axum = { version = "0.7.5", features = ["macros"] }
+axum = { version = "0.7.4", features = ["macros"] }
 tower-http = { version = "0.5.2", features = ["full"] }
 tower = { version = "0.4.13", features = ["full"] }
 utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
