@@ -59,12 +59,14 @@ pub async fn execute<D: Prover>(
             let res = D::run(input.clone(), output, config)
                 .await
                 .map(|proof| (input, proof))
-                .map_err(|e| HostError::GuestError(e.to_string()));
+                .map_err(|e| HostError::GuestError(e.to_string()))?;
+
             measurement.stop_with("=> Proof generated");
             memory::print_stats("Prover peak memory used: ");
 
             total_proving_time.stop_with("====> Complete proof generated");
-            res
+
+            Ok(res)
         }
         Err(e) => {
             warn!("Proving bad block construction!");

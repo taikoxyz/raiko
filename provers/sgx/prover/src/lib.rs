@@ -84,7 +84,11 @@ impl Prover for SgxProver {
             .get_or_init(|| async { cur_dir.join("secrets").join("priv.key") })
             .await;
         GRAMINE_MANIFEST_TEMPLATE
-            .get_or_init(|| async { cur_dir.join(CONFIG).join("sgx-guest.manifest.template") })
+            .get_or_init(|| async {
+                cur_dir
+                    .join(CONFIG)
+                    .join("sgx-guest.local.manifest.template")
+            })
             .await;
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
@@ -168,21 +172,23 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
         .output()
         .await
         .map_err(|e| handle_gramine_error("Could not generate manfifest", e))?;
-
-    print_output(&output, "Generate manifest");
+    handle_output(&output, "SGX generate manifest")?;
 
     if !direct_mode {
         // Generate a private key
         let mut cmd = Command::new("gramine-sgx-gen-private-key");
-        cmd.current_dir(cur_dir.clone())
+        let output = cmd
+            .current_dir(cur_dir.clone())
             .arg("-f")
             .output()
             .await
             .map_err(|e| handle_gramine_error("Could not generate SGX private key", e))?;
+        handle_output(&output, "SGX private key")?;
 
         // Sign the manifest
         let mut cmd = Command::new("gramine-sgx-sign");
-        cmd.current_dir(cur_dir.clone())
+        let output = cmd
+            .current_dir(cur_dir.clone())
             .arg("--manifest")
             .arg("sgx-guest.manifest")
             .arg("--output")
@@ -190,6 +196,7 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
             .output()
             .await
             .map_err(|e| handle_gramine_error("Could not sign manfifest", e))?;
+        handle_output(&output, "SGX manifest sign")?;
     }
 
     Ok(())
@@ -209,7 +216,7 @@ async fn bootstrap(dir: PathBuf, mut gramine_cmd: StdCommand) -> ProverResult<()
             .arg("bootstrap")
             .output()
             .map_err(|e| handle_gramine_error("Could not run SGX guest bootstrap", e))?;
-        print_output(&output, "SGX bootstrap");
+        handle_output(&output, "SGX bootstrap")?;
 
         Ok(())
     })
@@ -238,10 +245,7 @@ async fn prove(
         let output = child
             .wait_with_output()
             .map_err(|e| handle_gramine_error("Could not run SGX guest prover", e))?;
-        print_output(&output, "Sgx execution");
-        if !output.status.success() {
-            return ProverResult::Err(ProverError::GuestError(output.status.to_string()));
-        }
+        handle_output(&output, "SGX prove")?;
         Ok(parse_sgx_result(output.stdout)?)
     })
     .await
@@ -283,7 +287,7 @@ fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
     }
 }
 
-fn print_output(output: &Output, name: &str) {
+fn handle_output(output: &Output, name: &str) -> ProverResult<(), String> {
     println!(
         "{} stderr: {}",
         name,
@@ -294,4 +298,13 @@ fn print_output(output: &Output, name: &str) {
         name,
         str::from_utf8(&output.stdout).unwrap()
     );
+    if !output.status.success() {
+        return Err(format!(
+            "{} encountered an error {}: {}",
+            name,
+            output.status.to_string(),
+            String::from_utf8_lossy(&output.stderr),
+        ));
+    }
+    Ok(())
 }
