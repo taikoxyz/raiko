@@ -14,7 +14,7 @@ services:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
       - ${HOME}/.config/raiko:/root/.config/raiko
-    environment:
+    # environment:
       # you can use your own PCCS host
       #- PCCS_HOST=host.docker.internal:8081
     depends_on:
