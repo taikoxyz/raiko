@@ -2,17 +2,17 @@
 
 In order to run metrics locally, you need to run a prometheus instance to collect your raiko host metrics.
 
-This can be done by running using the [docker-compose.yml](./docker/docker-compose.yml) file with the following
+This can be done by running using the [docker-compose.metrics.yml](./docker/docker-compose.metrics.yml) file with the following
 params:
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.metrics.yml up -d
 ```
 
-or the following if you are running Raiko outside of docker.
+or the following if you are running Raiko inside of docker.
 
 ```bash
-docker compose up -d --scale raiko=0 --scale pccs=0
+docker compose -f docker-compose.yml -f docker-compose.metrics.yml up -d 
 ```
 
 To view the Raiko Metrics dashboard you can load the grafana UI in your browser by going to `localhost:3000`.
@@ -24,8 +24,4 @@ In the dashboard import screen you have the option to upload a dashboard JSON fi
 This repo contains the [raiko.json](./docker/monitoring/grafana/raiko.json) dashboard definition file.
 Next, you will be asked to provide a prometheus data source that provides the Raiko metrics.
 If you have your own setup, please use that prometheus instance, otherwise, a prometheus instance will be available
-on the following URL `http://prometheus:9090` (docker host definition).
-
-**NOTE:** If you have an existing grafana instance running, it might not have access to `http://prometheus:9090` so
-the prometheus instance will be available at `http://localhost:9090`. If you want to add Raiko metrics to your existing
-prometheus server however - check out the [prometheus.yml](./docker/monitoring/prometheus/prometheus.yml) file.
+on the following URL `http://localhost:9090`.
