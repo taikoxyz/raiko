@@ -212,9 +212,8 @@ pub fn preflight(
     let measurement = Measurement::start("Fetching storage proofs...", true);
     let (parent_proofs, proofs, num_storage_proofs) = provider_db.get_proofs()?;
     measurement.stop_with_count(&format!(
-        "[{} Account/{} Storage]",
+        "[{} Account/{num_storage_proofs} Storage]",
         parent_proofs.len() + proofs.len(),
-        num_storage_proofs
     ));
 
     // Construct the state trie and storage from the storage proofs.
@@ -286,9 +285,8 @@ fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsResponse
     let tokio_handle = tokio::runtime::Handle::current();
     tokio_handle.block_on(async {
         let url = format!(
-            "{}/eth/v1/beacon/blob_sidecars/{}",
+            "{}/eth/v1/beacon/blob_sidecars/{block_id}",
             beacon_rpc_url.trim_end_matches('/'),
-            block_id
         );
         let response = reqwest::get(url.clone()).await?;
         if response.status().is_success() {
@@ -540,7 +538,7 @@ mod test {
         let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
         let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
             .map_err(|e| {
-                println!("error: {:?}", e);
+                println!("error: {e:?}");
                 e
             })
             .unwrap();
@@ -559,7 +557,7 @@ mod test {
         let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
         let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
             .map_err(|e| {
-                println!("error: {:?}", e);
+                println!("error: {e:?}");
                 e
             })
             .unwrap();
@@ -624,7 +622,7 @@ mod test {
         let dec_blob = blob_to_bytes(&blob_str);
         println!("dec blob tx len: {:?}", dec_blob.len());
         let txs = decode_transactions(&dec_blob);
-        println!("dec blob tx: {:?}", txs);
+        println!("dec blob tx: {txs:?}");
         // assert_eq!(hex::encode(dec_blob), expected_dec_blob);
     }
 
@@ -799,6 +797,6 @@ mod test {
 		    \"yParity\":\"0x0\"
         }";
         let tx: Transaction = serde_json::from_str(response).unwrap();
-        println!("tx: {:?}", tx);
+        println!("tx: {tx:?}");
     }
 }

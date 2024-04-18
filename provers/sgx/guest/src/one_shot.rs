@@ -248,8 +248,7 @@ fn get_sgx_attestation_type() -> Result<String> {
         .is_err()
     {
         bail!(
-            "Cannot find `{}`; are you running under SGX, with remote attestation enabled?",
-            ATTESTATION_TYPE_DEVICE_FILE
+            "Cannot find `{ATTESTATION_TYPE_DEVICE_FILE}`; are you running under SGX, with remote attestation enabled?"
         );
     }
 
