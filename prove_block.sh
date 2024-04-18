@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 getBlockNumber() {
 	# Get the latest block number from the node
