@@ -7,8 +7,8 @@ use alloy_primitives::{uint, Address, Signature, TxKind, U256};
 use alloy_rlp::*;
 use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
 use anyhow::{anyhow, bail, ensure, Context, Result};
+use lazy_static::lazy_static;
 use libflate::zlib::Decoder as zlibDecoder;
-use once_cell::unsync::Lazy;
 use raiko_primitives::{keccak256, B256};
 
 #[cfg(not(feature = "std"))]
@@ -19,10 +19,21 @@ use crate::{
 };
 
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
-pub const GOLDEN_TOUCH_ACCOUNT: Lazy<Address> = Lazy::new(|| {
-    Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
-        .expect("invalid golden touch account")
-});
+
+lazy_static! {
+    pub static ref GOLDEN_TOUCH_ACCOUNT: Address = {
+        Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
+            .expect("invalid golden touch account")
+    };
+    static ref GX1: U256 =
+        uint!(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798_U256);
+    static ref N: U256 =
+        uint!(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141_U256);
+    static ref GX1_MUL_PRIVATEKEY: U256 =
+        uint!(0x4341adf5a780b4a87939938fd7a032f6e6664c7da553c121d3b4947429639122_U256);
+    static ref GX2: U256 =
+        uint!(0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5_U256);
+}
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
     match Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]) {
@@ -160,8 +171,7 @@ fn decode_field_element(
     // two highest order bits of the first byte of each field element should always be 0
     if b[ipos] & 0b1100_0000 != 0 {
         return Err(anyhow::anyhow!(
-            "ErrBlobInvalidFieldElement: field element: {}",
-            ipos
+            "ErrBlobInvalidFieldElement: field element: {ipos}",
         ));
     }
     // copy(output[opos:], b[ipos+1:ipos+32])
@@ -192,15 +202,6 @@ fn zlib_decompress_blob(blob: &[u8]) -> Result<Vec<u8>> {
     decoder.read_to_end(&mut decoded_buf)?;
     Ok(decoded_buf)
 }
-
-const GX1: Lazy<U256> =
-    Lazy::new(|| uint!(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798_U256));
-const N: Lazy<U256> =
-    Lazy::new(|| uint!(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141_U256));
-const GX1_MUL_PRIVATEKEY: Lazy<U256> =
-    Lazy::new(|| uint!(0x4341adf5a780b4a87939938fd7a032f6e6664c7da553c121d3b4947429639122_U256));
-const GX2: Lazy<U256> =
-    Lazy::new(|| uint!(0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5_U256));
 
 /// check the anchor signature with fixed K value
 fn check_anchor_signature(anchor: &Signed<TxEip1559>) -> Result<()> {
