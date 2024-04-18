@@ -1,7 +1,8 @@
 use core::fmt::Debug;
-use std::{path::Path, str::FromStr};
+use std::{collections::HashMap, path::Path, str::FromStr};
 
 use alloy_primitives::{Address, B256};
+use clap::{Args, ValueEnum};
 use raiko_lib::{
     consts::Network,
     input::{GuestInput, GuestOutput},
@@ -11,7 +12,6 @@ use raiko_lib::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
-use structopt::StructOpt;
 use utoipa::ToSchema;
 
 use crate::{
@@ -20,7 +20,9 @@ use crate::{
     merge,
 };
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize, ToSchema)]
+#[derive(
+    PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize, ToSchema, Hash, ValueEnum,
+)]
 /// Available proof types.
 pub enum ProofType {
     /// # Native
@@ -155,42 +157,66 @@ pub struct ProofRequest {
     pub prover: Address,
     /// The proof type.
     pub proof_type: ProofType,
+    #[serde(flatten)]
     /// Additional prover params.
-    pub prover_args: Option<Value>,
+    pub prover_args: HashMap<String, Value>,
 }
 
-#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
 #[serde(default)]
 /// A partial proof request config.
 pub struct ProofRequestOpt {
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     /// The block number for the block to generate a proof for.
     pub block_number: Option<u64>,
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     /// RPC URL for retreiving block by block number.
     pub rpc: Option<String>,
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     /// The L1 node URL for signal root verify and get txlist info from proposed
     /// transaction.
     pub l1_rpc: Option<String>,
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     /// The beacon node URL for retreiving data blobs.
     pub beacon_rpc: Option<String>,
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     /// The network to generate the proof for.
     pub network: Option<String>,
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     // Graffiti.
     pub graffiti: Option<String>,
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     /// The protocol instance data.
     pub prover: Option<String>,
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     /// The proof type.
     pub proof_type: Option<String>,
-    #[structopt(long, require_equals = true)]
+    #[command(flatten)]
     /// Any additional prover params in JSON format.
-    pub prover_args: Option<Value>,
+    pub prover_args: ProverSpecificOpts,
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
+pub struct ProverSpecificOpts {
+    pub native: Option<Value>,
+    pub sgx: Option<Value>,
+    pub sp1: Option<Value>,
+    pub risc0: Option<Value>,
+}
+
+impl From<ProverSpecificOpts> for HashMap<String, Value> {
+    fn from(value: ProverSpecificOpts) -> Self {
+        HashMap::from_iter(
+            [
+                ("native", value.native.clone()),
+                ("sgx", value.sgx.clone()),
+                ("sp1", value.sp1.clone()),
+                ("risc0", value.risc0.clone()),
+            ]
+            .into_iter()
+            .filter_map(|(name, value)| value.map(|v| (name.to_string(), v))),
+        )
+    }
 }
 
 impl ProofRequestOpt {
@@ -259,7 +285,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 ))?
                 .parse()
                 .map_err(|_| HostError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
-            prover_args: value.prover_args,
+            prover_args: value.prover_args.into(),
         })
     }
 }

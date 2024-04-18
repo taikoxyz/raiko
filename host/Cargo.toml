@@ -39,7 +39,6 @@ anyhow = { workspace = true }
 bincode = { workspace = true }
 bytemuck = { workspace = true }
 clap = { workspace = true }
-structopt = { workspace = true }
 flate2 = { workspace = true }
 revm = { workspace = true }
 serde = { workspace = true }

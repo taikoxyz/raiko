@@ -28,9 +28,9 @@ use std::{alloc, fmt::Debug, path::PathBuf};
 
 use anyhow::{Context, Result};
 use cap::Cap;
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use structopt::StructOpt;
 
 use crate::{error::HostError, request::ProofRequestOpt};
 
@@ -57,49 +57,51 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
-#[derive(StructOpt, Default, Clone, Serialize, Deserialize, Debug)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]
+#[command(name = "raiko")]
+#[command(about = "The taiko prover host", long_about = None)]
 #[serde(default)]
-pub struct Opt {
-    #[structopt(long, require_equals = true, default_value = "0.0.0.0:8080")]
+pub struct Cli {
+    #[arg(long, require_equals = true, default_value = "0.0.0.0:8080")]
     #[serde(default = "default_address")]
     /// Server bind address
     /// [default: 0.0.0.0:8080]
     address: String,
 
-    #[structopt(long, require_equals = true, default_value = "16")]
+    #[arg(long, require_equals = true, default_value = "16")]
     #[serde(default = "default_concurrency_limit")]
     /// Limit the max number of in-flight requests
     pub concurrency_limit: usize,
 
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     pub log_path: Option<PathBuf>,
 
-    #[structopt(long, require_equals = true, default_value = "7")]
+    #[arg(long, require_equals = true, default_value = "7")]
     #[serde(default = "default_max_log")]
     pub max_log: usize,
 
-    #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
+    #[arg(long, require_equals = true, default_value = "host/config/config.json")]
     #[serde(default = "default_config_path")]
     /// Path to a config file that includes sufficent json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
 
-    #[structopt(long, require_equals = true)]
+    #[arg(long, require_equals = true)]
     /// Use a local directory as a cache for input. Accepts a custom directory.
     cache_path: Option<PathBuf>,
 
-    #[structopt(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
+    #[arg(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
     #[serde(default = "default_log_level")]
     /// Set the log level
     pub log_level: String,
 
-    #[structopt(flatten)]
+    #[command(flatten)]
     #[serde(flatten)]
     /// Proof request options
     pub proof_request_opt: ProofRequestOpt,
 }
 
-impl Opt {
+impl Cli {
     /// Read the options from a file and merge it with the current options.
     pub fn merge_from_file(&mut self) -> Result<(), HostError> {
         let file = std::fs::File::open(&self.config_path)?;
@@ -126,13 +128,13 @@ fn merge(a: &mut Value, b: &Value) {
 
 #[derive(Debug, Clone)]
 pub struct ProverState {
-    pub opts: Opt,
+    pub opts: Cli,
 }
 
 impl ProverState {
     pub fn init() -> Result<Self, HostError> {
         // Read the command line arguments;
-        let mut opts = Opt::from_args();
+        let mut opts = Cli::parse();
         // Read the config file.
         opts.merge_from_file()?;
 
@@ -161,8 +163,7 @@ mod memory {
     pub(crate) fn print_stats(title: &str) {
         let max_memory = get_max_allocated();
         println!(
-            "{}{}.{:06} MB",
-            title,
+            "{title}{}.{:06} MB",
             max_memory / 1000000,
             max_memory % 1000000
         );

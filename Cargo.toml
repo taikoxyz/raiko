@@ -104,8 +104,7 @@ tempfile = "3.8"
 anyhow = "1.0"
 bincode = "1.3.3"
 bytemuck = "1.13"
-clap = { version = "4.4.6", features = ["derive", "string"] }
-structopt = "0.3.26"
+clap = { version = "4.4.6", features = ["derive", "string", "env"] }
 flate2 = "1.0.28"
 tokio = { version = "^1.23", features = ["full"] }
 hyper = { version = "0.14.27", features = ["server"] }
