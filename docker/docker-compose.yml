@@ -1,5 +1,24 @@
 version: "3.9"
 services:
+  init:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: gcr.io/evmchain/raiko:latest
+    container_name: raiko-init
+    command: --init
+    devices:
+      - "/dev/sgx_enclave:/dev/sgx_enclave"
+      - "/dev/sgx_provision:/dev/sgx_provision"
+    volumes:
+      - /var/log/raiko:/var/log/raiko
+      - ${HOME}/.config/gramine:/root/.config/gramine
+      - ${HOME}/.config/raiko:/root/.config/raiko
+    environment:
+      # you can use your own PCCS host
+      #- PCCS_HOST=host.docker.internal:8081
+    depends_on:
+      - pccs
   raiko:
     build:
       context: ..
@@ -19,9 +38,9 @@ services:
     environment:
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
+      - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
       # you can use your own PCCS host
       #- PCCS_HOST=host.docker.internal:8081
-
     # use the host's network to connect to the PCCS
     #extra_hosts:
     #  - "host.docker.internal:host-gateway"

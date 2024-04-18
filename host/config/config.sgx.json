@@ -1,6 +1,6 @@
 {
     "network": "taiko_a7",
     "sgx": {
-        "instance_id": 456
+        "instance_id": 123456
     }
 }
