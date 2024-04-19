@@ -153,6 +153,8 @@ n7qROhU4OOJnVs9lqNxxi8AFrJJHU2E=
 
 If the response's `SGX-FMSPC` matches the one in the above example, you can proceed!
 
+[sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
+
 ### Git
 
 You will need to clone our `raiko` repository and `taiko-mono` repository to run Raiko and perform on-chain attestation to begin proving. An easy way to do this is with [git](https://git-scm.com/download/linux).
