@@ -208,9 +208,9 @@ export PRIVATE_KEY={PROVER_PRIVATE_KEY}
 
 4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match
 
-SGX_VERIFIER_ADDRESS=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 \
-ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398 \
-PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E \
+`SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
+`ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398 
+`PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E 
 
 5. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
 
@@ -222,7 +222,7 @@ PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E \
 
 Take that quote and replace `V3_QUOTE_BYTES` in the `script/config_dcap_sgx_verifier.sh` script.
 
-6. Replace L24 of `script/config_dcap_sgx_verifier.sh` with a Holesky RPC Url.
+6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with any Holesky RPC URL.
 
 7. Call the script with `./script/config_dcap_sgx_verifier.sh`.
 
