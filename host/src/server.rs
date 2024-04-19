@@ -179,6 +179,7 @@ impl Handler {
                     .await;
                 let payload = match result {
                     Err(err) => {
+                        println!("Error: {}", err.to_string());
                         serde_json::to_vec(&JsonRpcResponseError {
                             jsonrpc: "2.0".to_string(),
                             id: json_req.id,
