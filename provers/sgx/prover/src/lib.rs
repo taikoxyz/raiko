@@ -109,12 +109,11 @@ impl Prover for SgxProver {
             setup(&cur_dir, direct_mode).await?;
         }
 
-        if config.bootstrap {
-            bootstrap(cur_dir.clone(), gramine_cmd()).await?;
-        }
-
-        // Prove: run for each block
-        let sgx_proof = if config.prove {
+        let sgx_proof = if config.bootstrap {
+            bootstrap(cur_dir.clone(), gramine_cmd()).await
+        } else if config.prove {
+            // now prove can not go with bootstrap as we need manually register sgx id.
+            // TODO: auto register sgx id
             prove(gramine_cmd(), input.clone(), config.instance_id).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
@@ -202,7 +201,10 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
     Ok(())
 }
 
-async fn bootstrap(dir: PathBuf, mut gramine_cmd: StdCommand) -> ProverResult<(), String> {
+async fn bootstrap(
+    dir: PathBuf,
+    mut gramine_cmd: StdCommand,
+) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
         // Bootstrap with new private key for signing proofs
         // First delete the private key if it already exists
@@ -218,10 +220,10 @@ async fn bootstrap(dir: PathBuf, mut gramine_cmd: StdCommand) -> ProverResult<()
             .map_err(|e| handle_gramine_error("Could not run SGX guest bootstrap", e))?;
         handle_output(&output, "SGX bootstrap")?;
 
-        Ok(())
+        Ok(parse_sgx_result(output.stdout)?)
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| ProverError::GuestError(e.to_string()))?
 }
 
 async fn prove(
