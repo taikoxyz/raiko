@@ -276,4 +276,42 @@ Opt {
 2024-04-18T12:50:09.400319Z  INFO raiko_host::server: Listening on http://0.0.0.0:8080
 ```
 
-At this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
+## Verify that your Raiko instance is running properly
+
+Once your Raiko instance is running, you can verify if it was started properly as follows:
+
+```
+ curl --location 'http://localhost:8080' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "proof",
+    "params": [
+        {
+            "proof_type": "sgx",
+            "block_number": 31991,
+            "rpc": "https://rpc.hekla.taiko.xyz/",
+            "l1_rpc": “{HOLESKY_RPC_URL}“,
+            "beacon_rpc": “{HOLESKY_BEACON_RPC_URL}“,
+            "prover": "0x7b399987d24fc5951f3e94a4cb16e87414bf2229",
+            "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "sgx": {
+                "setup": false,
+                "bootstrap": false,
+                "prove": true
+            }
+        }
+    ],
+    "id": 0
+}'
+```
+
+Replace `HOLESKY_RPC_URL` and `HOLESKY_BEACON_RPC_URL` with your Holesky RPC urls.
+
+The response should look like this:
+
+```
+{"jsonrpc":"2.0","id":0,"result":{"proof":"0x000000149f....", "quote": "03000200000000000a"}}
+```
+
+If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
