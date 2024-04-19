@@ -236,11 +236,11 @@ mkdir ~/.config/raiko/config
 mkdir ~/.config/raiko/secrets
 ```
 
-5. Now, clone raiko and check out the `taiko/unstable` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
+5. Now, clone raiko and check out the `taiko/alpha-7` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
 
 ```
 git clone https://github.com/taikoxyz/raiko.git
-git checkout taiko/unstable
+git checkout taiko/alpha-7
 cd raiko/docker
 docker compose build
 ```
