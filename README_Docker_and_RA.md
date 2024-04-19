@@ -26,17 +26,6 @@ Ensure that your machine has an [Intel SGX][sgx]-enabled CPU to run Raiko. You c
 
     If this line doesn't appear, your CPU either doesn't support SGX, or it isn't enabled in the BIOS.
 
-3. Run `cpuid` and `grep` for `SGX2`:
-
-        cpuid | grep -i SGX2
-    If your CPU supports SGX2, the output should resemble the following:
-
-    ```
-    SGX2 supported = true
-    ```
-
-    If this line doesn't appear, your CPU doesn't support SGX2 or doesn't have it enabled in the BIOS.
-
 As an alternative, you can execute `grep sgx /proc/cpuinfo`. If the command doesn't return any output, your CPU doesn't support SGX.
 
 [sgx]: https://www.intel.com/content/www/us/en/architecture-and-technology/software-guard-extensions.html
