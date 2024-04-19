@@ -52,6 +52,7 @@ lazy_static = { workspace = true }
 once_cell = { workspace = true }
 thiserror = { workspace = true }
 reqwest = { workspace = true }
+reqwest_alloy = { workspace = true }
 sha2 = { workspace = true }
 proptest = { workspace = true }
 c-kzg = { workspace = true }

@@ -92,7 +92,7 @@ dependencies = [
  "alloy-signer 0.1.0 (git+https://github.com/alloy-rs/alloy?rev=bfd0fda)",
  "alloy-signer-wallet",
  "alloy-transport-http 0.1.0 (git+https://github.com/alloy-rs/alloy?rev=bfd0fda)",
- "reqwest 0.12.3",
+ "reqwest 0.12.4",
 ]
 
 [[package]]
@@ -323,7 +323,7 @@ dependencies = [
  "dashmap",
  "futures",
  "lru",
- "reqwest 0.12.3",
+ "reqwest 0.12.4",
  "serde_json",
  "tokio",
  "tracing",
@@ -349,7 +349,7 @@ dependencies = [
  "dashmap",
  "futures",
  "lru",
- "reqwest 0.12.3",
+ "reqwest 0.12.4",
  "serde_json",
  "tokio",
  "tracing",
@@ -388,7 +388,7 @@ dependencies = [
  "alloy-transport-http 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
  "futures",
  "pin-project",
- "reqwest 0.12.3",
+ "reqwest 0.12.4",
  "serde",
  "serde_json",
  "tokio",
@@ -408,7 +408,7 @@ dependencies = [
  "alloy-transport-http 0.1.0 (git+https://github.com/alloy-rs/alloy?rev=bfd0fda)",
  "futures",
  "pin-project",
- "reqwest 0.12.3",
+ "reqwest 0.12.4",
  "serde",
  "serde_json",
  "tokio",
@@ -640,7 +640,7 @@ source = "git+https://github.com/brechtpd/alloy?branch=175#55a8fb3b1cee4a867851e
 dependencies = [
  "alloy-json-rpc 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
  "alloy-transport 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
- "reqwest 0.12.3",
+ "reqwest 0.12.4",
  "serde_json",
  "tower",
  "url",
@@ -653,7 +653,7 @@ source = "git+https://github.com/alloy-rs/alloy?rev=bfd0fda#bfd0fda492e560c3463d
 dependencies = [
  "alloy-json-rpc 0.1.0 (git+https://github.com/alloy-rs/alloy?rev=bfd0fda)",
  "alloy-transport 0.1.0 (git+https://github.com/alloy-rs/alloy?rev=bfd0fda)",
- "reqwest 0.12.3",
+ "reqwest 0.12.4",
  "serde_json",
  "tower",
  "url",
@@ -4610,6 +4610,7 @@ dependencies = [
  "raiko-lib",
  "raiko-primitives",
  "reqwest 0.11.27",
+ "reqwest 0.12.4",
  "revm",
  "risc0-prover",
  "rlp",
@@ -4881,14 +4882,16 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e6cc1e89e689536eb5aeede61520e874df5a4707df811cd5da4aa5fbb2aae19"
+checksum = "566cafdd92868e0939d3fb961bd0dc25fcfaaed179291093b3d43e6b3150ea10"
 dependencies = [
  "base64 0.22.0",
  "bytes",
+ "encoding_rs",
  "futures-core",
  "futures-util",
+ "h2 0.4.4",
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
@@ -4908,6 +4911,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sync_wrapper",
+ "system-configuration",
  "tokio",
  "tokio-native-tls",
  "tower-service",

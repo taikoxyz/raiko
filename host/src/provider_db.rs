@@ -17,10 +17,14 @@ use std::{
 };
 
 use alloy_consensus::Header as AlloyConsensusHeader;
+use alloy_primitives::{Bytes, Uint};
 use alloy_provider::{Provider, ReqwestProvider};
+use alloy_rpc_client::{ClientBuilder, RpcClient};
 use alloy_rpc_types::{Block, BlockId, EIP1186AccountProofResponse};
+use alloy_transport_http::Http;
 use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, print_duration, taiko_utils::to_header};
-use raiko_primitives::{mpt::KECCAK_EMPTY, Address, B256, U256};
+use raiko_primitives::{Address, B256, U256};
+use reqwest_alloy::Client;
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
@@ -31,6 +35,7 @@ use crate::preflight::get_block;
 
 pub struct ProviderDb {
     pub provider: ReqwestProvider,
+    pub client: RpcClient<Http<Client>>,
     pub block_number: u64,
     pub initial_db: MemDb,
     pub initial_headers: HashMap<u64, AlloyConsensusHeader>,
@@ -54,8 +59,12 @@ impl ProviderDb {
                 initial_headers.insert(block_number, to_header(&block.header));
             }
         }
+        // The client used for batch requests
+        let client = ClientBuilder::default()
+            .reqwest_http(reqwest::Url::parse(&provider.client().transport().url()).unwrap());
         ProviderDb {
             provider,
+            client,
             block_number,
             initial_db,
             initial_headers,
@@ -81,19 +90,37 @@ impl ProviderDb {
     ) -> Result<HashMap<Address, EIP1186AccountProofResponse>, anyhow::Error> {
         let mut storage_proofs = HashMap::new();
         let mut idx = offset;
-        for (address, keys) in storage_keys {
+
+        // Create a batch for all storage proofs
+        let mut batch = self.client.new_batch();
+
+        // Collect all requests
+        let mut requests = Vec::new();
+        for (address, keys) in storage_keys.clone() {
+            requests.push((
+                Box::pin(
+                    batch
+                        .add_call::<_, EIP1186AccountProofResponse>(
+                            "eth_getProof",
+                            &(address, keys.clone(), BlockId::from(block_number)),
+                        )
+                        .unwrap(),
+                ),
+                keys.len(),
+            ));
+        }
+
+        // Send the batch
+        self.async_executor.block_on(async { batch.send().await })?;
+
+        // Collect the data from the batch
+        for (request, num_keys) in requests.into_iter() {
             inplace_print(&format!(
                 "fetching storage proof {idx}/{num_storage_proofs}..."
             ));
-
-            let indices = keys.iter().map(|x| x.to_be_bytes().into()).collect();
-            let proof = self.async_executor.block_on(async {
-                self.provider
-                    .get_proof(address, indices, Some(BlockId::from(block_number)))
-                    .await
-            })?;
-            storage_proofs.insert(address, proof);
-            idx += keys.len();
+            let proof = self.async_executor.block_on(async { request.await })?;
+            storage_proofs.insert(proof.address, proof);
+            idx += num_keys;
         }
         clear_line();
 
@@ -186,57 +213,46 @@ impl Database for ProviderDb {
             return Ok(db_result);
         }
 
-        let use_get_proof = true;
-        let account_info = if use_get_proof {
-            let proof = self.async_executor.block_on(async {
-                self.provider
-                    .get_proof(address, Vec::new(), Some(BlockId::from(self.block_number)))
-                    .await
-            })?;
+        // Create a batch request for all account values
+        let mut batch = self.client.new_batch();
 
-            // Only fetch the code if we know it's not empty
-            let code = if proof.code_hash.0 != KECCAK_EMPTY.0 {
-                let code = self.async_executor.block_on(async {
-                    self.provider
-                        .get_code_at(address, BlockId::from(self.block_number))
-                        .await
-                })?;
-                Bytecode::new_raw(code)
-            } else {
-                Bytecode::new()
-            };
-
-            AccountInfo::new(
-                proof.balance,
-                proof.nonce.try_into().unwrap(),
-                proof.code_hash,
-                code,
+        let nonce_request = batch
+            .add_call::<_, Uint<64, 1>>(
+                "eth_getTransactionCount",
+                &(address, Some(BlockId::from(self.block_number))),
             )
-        } else {
-            // Get the nonce, balance, and code to reconstruct the account.
-            let nonce = self.async_executor.block_on(async {
-                self.provider
-                    .get_transaction_count(address, Some(BlockId::from(self.block_number)))
-                    .await
-            })?;
-            let balance = self.async_executor.block_on(async {
-                self.provider
-                    .get_balance(address, Some(BlockId::from(self.block_number)))
-                    .await
-            })?;
-            let code = self.async_executor.block_on(async {
-                self.provider
-                    .get_code_at(address, BlockId::from(self.block_number))
-                    .await
-            })?;
-
-            AccountInfo::new(
-                balance,
-                nonce.try_into().unwrap(),
-                Bytecode::new_raw(code.clone()).hash_slow(),
-                Bytecode::new_raw(code),
+            .unwrap();
+        let balance_request = batch
+            .add_call::<_, Uint<256, 4>>(
+                "eth_getBalance",
+                &(address, Some(BlockId::from(self.block_number))),
             )
-        };
+            .unwrap();
+        let code_request = batch
+            .add_call::<_, Bytes>(
+                "eth_getCode",
+                &(address, Some(BlockId::from(self.block_number))),
+            )
+            .unwrap();
+
+        // Send the batch
+        self.async_executor.block_on(async { batch.send().await })?;
+
+        // Collect the data from the batch
+        let (nonce, balance, code) = self.async_executor.block_on(async {
+            Ok::<_, Self::Error>((
+                nonce_request.await?,
+                balance_request.await?,
+                code_request.await?,
+            ))
+        })?;
+
+        let account_info = AccountInfo::new(
+            balance,
+            nonce.try_into().unwrap(),
+            Bytecode::new_raw(code.clone()).hash_slow(),
+            Bytecode::new_raw(code),
+        );
 
         // Insert the account into the initial database.
         self.initial_db
