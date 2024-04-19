@@ -8,7 +8,7 @@ use super::taiko_utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::{get_network_spec, Network},
+    consts::get_network_spec,
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     taiko_utils::HeaderHasher,
 };
@@ -43,7 +43,7 @@ impl ProtocolInstance {
                     .abi_encode()
                     .iter()
                     .cloned()
-                    .skip(32) // TICKY: skip the first dyn flag 0x00..20.
+                    .skip(32) // TRICKY: skip the first dyn flag 0x00..20.
                     .collect::<Vec<u8>>(),
             )
             .into(),
@@ -59,10 +59,7 @@ impl ProtocolInstance {
                     .abi_encode(),
             )
             .into(),
-            EvidenceType::Risc0 => {
-                keccak((self.transition.clone(), self.prover, self.meta_hash()).abi_encode()).into()
-            }
-            EvidenceType::Native => {
+            EvidenceType::Risc0 | EvidenceType::Native => {
                 keccak((self.transition.clone(), self.prover, self.meta_hash()).abi_encode()).into()
             }
         }
@@ -134,7 +131,7 @@ pub fn assemble_protocol_instance(
     };
 
     // Sanity check
-    if input.network != Network::Ethereum {
+    if input.network.is_taiko() {
         ensure!(
             pi.block_metadata.abi_encode() == input.taiko.block_proposed.meta.abi_encode(),
             format!(

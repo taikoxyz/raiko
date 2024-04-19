@@ -58,6 +58,9 @@ mod time {
         pub fn duration_since(&self, _instant: Instant) -> Duration {
             Duration::default()
         }
+        pub fn elapsed(&self) -> Duration {
+            Duration::default()
+        }
     }
 
     #[derive(Default, Clone, Copy)]
@@ -91,7 +94,9 @@ impl Measurement {
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
         } else {
-            println!("{title}");
+            if !title.is_empty() {
+                println!("{title}");
+            }
         }
         Self {
             start: time::Instant::now(),
@@ -104,18 +109,23 @@ impl Measurement {
         self.stop_with(&format!("{} Done", self.title));
     }
 
-    pub fn stop_with(&self, title: &str) {
-        let time_elapsed = time::Instant::now().duration_since(self.start);
+    pub fn stop_with_count(&self, count: &str) {
+        self.stop_with(&format!("{} {} done", self.title, count));
+    }
+
+    pub fn stop_with(&self, title: &str) -> time::Duration {
+        let time_elapsed = self.start.elapsed();
         print_duration(
             &format!("{}{} in ", if self.inplace { "\r" } else { "" }, title,),
             time_elapsed,
         );
+        time_elapsed
     }
 }
 
 pub fn print_duration(title: &str, duration: time::Duration) {
     println!(
-        "{}{}.{} seconds",
+        "{}{}.{:03} seconds",
         title,
         duration.as_secs(),
         duration.subsec_millis()

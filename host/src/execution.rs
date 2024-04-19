@@ -20,6 +20,8 @@ pub async fn execute<D: Prover>(
     config: &serde_json::Value,
     cached_input: Option<GuestInput>,
 ) -> Result<(GuestInput, Proof)> {
+    let total_proving_time = Measurement::start("", false);
+
     // Generate the input
     let input = if let Some(cached_input) = cached_input {
         println!("Using cached input");
@@ -35,40 +37,42 @@ pub async fn execute<D: Prover>(
 
     // 2. Test run the block
     memory::reset_stats();
-    let build_result = TaikoStrategy::build_from(&input);
-    let output = match &build_result {
+    match TaikoStrategy::build_from(&input) {
         Ok((header, _mpt_node)) => {
             info!("Verifying final state using provider data ...");
             info!("Final block hash derived successfully. {}", header.hash());
             info!("Final block header derived successfully. {:?}", header);
-            let pi = D::instance_hash(assemble_protocol_instance(&input, header)?);
+            let pi = D::instance_hash(assemble_protocol_instance(&input, &header)?);
             // Make sure the blockhash from the node matches the one from the builder
             assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
-            GuestOutput::Success((
+            let output = GuestOutput::Success((
                 WrappedHeader {
                     header: header.clone(),
                 },
                 pi,
-            ))
+            ));
+            memory::print_stats("Guest program peak memory used: ");
+
+            // Prove
+            memory::reset_stats();
+            let measurement = Measurement::start("Generating proof...", false);
+            let res = D::run(input.clone(), output, config)
+                .await
+                .map(|proof| (input, proof))
+                .map_err(|e| HostError::GuestError(e.to_string()))?;
+
+            measurement.stop_with("=> Proof generated");
+            memory::print_stats("Prover peak memory used: ");
+
+            total_proving_time.stop_with("====> Complete proof generated");
+
+            Ok(res)
         }
-        Err(_) => {
+        Err(e) => {
             warn!("Proving bad block construction!");
-            GuestOutput::Failure
+            Err(HostError::GuestError(e.to_string()))
         }
-    };
-    memory::print_stats("Guest program peak memory used: ");
-
-    // Prove
-    memory::reset_stats();
-    let measurement = Measurement::start("Generating proof...", false);
-    let res = D::run(input.clone(), output, config)
-        .await
-        .map(|proof| (input, proof))
-        .map_err(|e| HostError::GuestError(e.to_string()));
-    measurement.stop_with("=> Proof generated");
-    memory::print_stats("Prover peak memory used: ");
-
-    res
+    }
 }
 
 /// prepare input data for provers

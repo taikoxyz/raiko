@@ -2607,7 +2607,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
-name = "sp1-core"
+name = "sp1-sdk"
 version = "0.1.0"
 source = "git+https://github.com/succinctlabs/sp1.git#95c0c3bdd6117433fcf288858951ccc5f0a08a45"
 dependencies = [
@@ -2708,7 +2708,7 @@ dependencies = [
  "alloy-primitives",
  "serde",
  "serde_json",
- "sp1-core",
+ "sp1-sdk",
  "sp1-helper",
  "raiko-lib",
 ]

@@ -1,5 +1,7 @@
 # Raiko
 
+> :warning: **DISCLAIMER**: This `README.md` hasn't been updated for a while and may be outdated. For a more current guide, please refer to `README_Docker.md`.
+
 This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guest` and `host`.
 
 - `host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `host` is _not_ being run inside SGX enclave.
@@ -46,8 +48,8 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
 1. Compile Gramine's configuration file:
    ```console
    ubuntu@ubuntu:~/zeth$ cd target/debug
-   ubuntu@ubuntu:~/zeth/target/debug$ cp ../../raiko-guest/config/raiko-guest.manifest.template .
-   ubuntu@ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
+   ubuntu@ubuntu:~/zeth/target/debug$ cp ../../raiko-guest/config/raiko-guest.local.manifest.template .
+   ubuntu@ubuntu:~/zeth/target/debug$ gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.local.manifest.template raiko-guest.manifest
    ```
 1. Sign Gramine's configuration file. [`MRENCLAVE`][mrenclave] – a.k.a. [_measurement_][measurement] – is also calculated at this stage (see last line of the below log):
 
@@ -118,7 +120,7 @@ To run `raiko-guest` in _one-shot_ mode with SGX using Gramine:
    Next public key: 0x021d90eee5c402692fa3a3d3edd43a052367efbd6e4d26b9ca14099516525b9d09
    Entry: /root/.config/raiko/secrets/priv.key
    ```
-1. Run `raiko-guest` with the input file of your choice:
+1. ~~Run `raiko-guest` with the input file of your choice:~~
 
    ```
    ubuntu@ubuntu:~/zeth/target/debug$ gramine-sgx ./raiko-guest one-shot --blocks-data-file /tmp/ethereum/173.json.gz
@@ -225,7 +227,7 @@ Copy `sgx-guest` binary:
 cargo build
 cp target/debug/raiko-guest host/provers/sgx
 cd host/provers/sgx
-gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.manifest.template raiko-guest.manifest
+gramine-manifest -Dlog_level=error -Darch_libdir=/lib/x86_64-linux-gnu/ raiko-guest.local.manifest.template raiko-guest.manifest
 gramine-sgx-sign --manifest raiko-guest.manifest --output raiko-guest.manifest.sgx
 cd -
 ```

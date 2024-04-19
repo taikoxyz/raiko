@@ -1,5 +1,3 @@
-// Required for SP1
-#![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 
 // Copyright 2023 RISC Zero, Inc.
@@ -27,6 +25,7 @@ use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
 use cap::Cap;
+use env_logger;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use server::serve;
@@ -59,7 +58,7 @@ pub struct Opt {
     max_log: usize,
 
     #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
-    /// Path to a config file that includes sufficent json args to request
+    /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
 
@@ -74,6 +73,7 @@ pub struct Opt {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     let opt = Opt::from_args();
     let config = get_config(None).unwrap();
     println!("Start config:\n{:#?}", config);
@@ -163,7 +163,7 @@ mod memory {
     pub(crate) fn print_stats(title: &str) {
         let max_memory = get_max_allocated();
         println!(
-            "{}{}.{} MB",
+            "{}{}.{:06} MB",
             title,
             max_memory / 1000000,
             max_memory % 1000000

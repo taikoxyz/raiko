@@ -39,12 +39,24 @@ cargo run
 Then in another terminal you can do requests like this:
 
 ```
-./prove_block.sh testnet native 10
+./prove_block.sh taiko_a7 native 10
 ```
 
 Look into `prove_block.sh` for the available options or run the script without inputs and it will tell you.
 
+You can also automatically sync with the tip of the chain and prove all new blocks:
+
+```
+./prove_block.sh taiko_a7 native sync
+```
+
 ## Provers
+
+Before running you should set the rust toolchain in workspace to the desired prover's toolchain. If the script is not run, cargo will proceed with the defult `rust-toolchain` file which specifies "nightly". Assuming you want to run prover X:
+
+```
+./toolchain.sh X
+```
 
 Provers can be enabled using features. To compile with all of them (using standard options):
 
@@ -63,7 +75,7 @@ RISC0_DEV_MODE=1 cargo run --release --features risc0
 # edit run_bonsai.sh and run
 run_bonsai.sh
 # then
-prove_block.sh testnet risc0-bonsai 10
+prove_block.sh taiko_a7 risc0-bonsai 10
 ```
 
 #### CPU

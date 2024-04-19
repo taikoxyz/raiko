@@ -9,7 +9,7 @@ alloy-primitives = { workspace = true, optional = true }
 alloy-sol-types = { workspace = true }
 serde = {  workspace = true , optional = true}
 serde_json = { workspace = true , optional = true }
-sp1-core = { workspace = true, optional = true }
+sp1-sdk = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
 once_cell = { workspace = true }
 sha3 = { workspace = true, default-features = false}
@@ -25,7 +25,7 @@ enable = [
     "serde",
     "serde_json",
     "raiko-lib",
-    "sp1-core",
+    "sp1-sdk",
     "anyhow",
     "sp1-helper",
     "alloy-primitives",

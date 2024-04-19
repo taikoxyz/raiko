@@ -114,10 +114,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
 
-    // Get the block input
-    let input_path = args.blocks_data_file.to_string_lossy().to_string();
-    let file = File::open(input_path).expect("unable to open file");
-    let input = bincode::deserialize_from(file).expect("unable to deserialize input");
+    let input = bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
 
     // Process the block
     let (header, _mpt_node) =
@@ -128,6 +125,8 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let pi_hash = pi.instance_hash(EvidenceType::Sgx {
         new_pubkey: new_instance,
     });
+
+    println!("Data to be signed: {pi_hash}");
 
     // Sign the public input hash which contains all required block inputs and outputs
     let sig = sign_message(&prev_privkey, pi_hash)?;

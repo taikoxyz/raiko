@@ -40,5 +40,5 @@ pub fn main() {
         Err(_) => GuestOutput::Failure,
     };
 
-    sp1_zkvm::io::write(&output);
+    sp1_zkvm::io::commit(&output);
 }
