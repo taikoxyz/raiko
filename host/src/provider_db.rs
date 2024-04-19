@@ -20,7 +20,7 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Block, BlockId, EIP1186AccountProofResponse};
 use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, print_duration, taiko_utils::to_header};
-use raiko_primitives::{Address, B256, U256};
+use raiko_primitives::{mpt::KECCAK_EMPTY, Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
@@ -186,30 +186,59 @@ impl Database for ProviderDb {
             return Ok(db_result);
         }
 
-        // Get the nonce, balance, and code to reconstruct the account.
-        let nonce = self.async_executor.block_on(async {
-            self.provider
-                .get_transaction_count(address, Some(BlockId::from(self.block_number)))
-                .await
-        })?;
-        let balance = self.async_executor.block_on(async {
-            self.provider
-                .get_balance(address, Some(BlockId::from(self.block_number)))
-                .await
-        })?;
-        let code = self.async_executor.block_on(async {
-            self.provider
-                .get_code_at(address, BlockId::from(self.block_number))
-                .await
-        })?;
+        let use_get_proof = true;
+        let account_info = if use_get_proof {
+            let proof = self.async_executor.block_on(async {
+                self.provider
+                    .get_proof(address, Vec::new(), Some(BlockId::from(self.block_number)))
+                    .await
+            })?;
+
+            // Only fetch the code if we know it's not empty
+            let code = if proof.code_hash.0 != KECCAK_EMPTY.0 {
+                let code = self.async_executor.block_on(async {
+                    self.provider
+                        .get_code_at(address, BlockId::from(self.block_number))
+                        .await
+                })?;
+                Bytecode::new_raw(code)
+            } else {
+                Bytecode::new()
+            };
+
+            AccountInfo::new(
+                proof.balance,
+                proof.nonce.try_into().unwrap(),
+                proof.code_hash,
+                code,
+            )
+        } else {
+            // Get the nonce, balance, and code to reconstruct the account.
+            let nonce = self.async_executor.block_on(async {
+                self.provider
+                    .get_transaction_count(address, Some(BlockId::from(self.block_number)))
+                    .await
+            })?;
+            let balance = self.async_executor.block_on(async {
+                self.provider
+                    .get_balance(address, Some(BlockId::from(self.block_number)))
+                    .await
+            })?;
+            let code = self.async_executor.block_on(async {
+                self.provider
+                    .get_code_at(address, BlockId::from(self.block_number))
+                    .await
+            })?;
+
+            AccountInfo::new(
+                balance,
+                nonce.try_into().unwrap(),
+                Bytecode::new_raw(code.clone()).hash_slow(),
+                Bytecode::new_raw(code),
+            )
+        };
 
         // Insert the account into the initial database.
-        let account_info = AccountInfo::new(
-            balance,
-            nonce.try_into().unwrap(),
-            Bytecode::new_raw(code.clone()).hash_slow(),
-            Bytecode::new_raw(code),
-        );
         self.initial_db
             .insert_account_info(address, account_info.clone());
         Ok(Some(account_info))
@@ -284,6 +313,7 @@ pub struct MeasuredProviderDb {
     pub num_block_hash: u64,
     pub time_block_hash: Duration,
     pub num_code_by_hash: u64,
+    pub time_code_by_hash: Duration,
 }
 
 impl MeasuredProviderDb {
@@ -297,6 +327,7 @@ impl MeasuredProviderDb {
             num_block_hash: 0,
             time_block_hash: Duration::default(),
             num_code_by_hash: 0,
+            time_code_by_hash: Duration::default(),
         }
     }
 
@@ -318,7 +349,10 @@ impl MeasuredProviderDb {
             &format!("- block_hash [{} ops]: ", self.num_block_hash),
             self.time_block_hash,
         );
-        println!("- code_by_hash: {}", self.num_code_by_hash);
+        print_duration(
+            &format!("- code_by_hash [{} ops]: ", self.num_code_by_hash),
+            self.time_code_by_hash,
+        );
     }
 }
 
@@ -351,7 +385,10 @@ impl Database for MeasuredProviderDb {
 
     fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
         self.num_code_by_hash += 1;
-        self.provider.code_by_hash(_code_hash)
+        let start = Instant::now();
+        let res = self.provider.code_by_hash(_code_hash);
+        self.time_code_by_hash.add_assign(start.elapsed());
+        res
     }
 }
 
