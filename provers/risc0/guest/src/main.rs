@@ -2,16 +2,29 @@
 use risc0_zkvm::guest::env;
 risc0_zkvm::guest::entry!(main);
 
+use raiko_lib::protocol_instance::assemble_protocol_instance;
+use raiko_lib::protocol_instance::EvidenceType;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, WrappedHeader},
 };
-use raiko_lib::protocol_instance::assemble_protocol_instance;
-use raiko_lib::protocol_instance::EvidenceType;
+
+mod zk_op;
+use revm_precompile::zk_op::Operation;
+use zk_op::Risc0Operator;
 
 fn main() {
-
     let input: GuestInput = env::read();
+
+    revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Risc0Operator {}));
+    revm_precompile::zk_op::ZKVM_OPERATIONS
+        .set(Box::new(vec![
+            // Operation::Bn128Add,
+            // Operation::Bn128Mul,
+            // Operation::Secp256k1,
+        ]))
+        .expect("Failed to set ZkvmOperations");
+
     let build_result = TaikoStrategy::build_from(&input);
 
     // TODO: cherry-pick risc0 latest output
@@ -20,11 +33,14 @@ fn main() {
             let pi = assemble_protocol_instance(&input, &header)
                 .expect("Failed to assemble protocol instance")
                 .instance_hash(EvidenceType::Risc0);
-            GuestOutput::Success((WrappedHeader {header: header.clone() }, pi))
+            GuestOutput::Success((
+                WrappedHeader {
+                    header: header.clone(),
+                },
+                pi,
+            ))
         }
-        Err(_) => {
-            GuestOutput::Failure
-        }
+        Err(_) => GuestOutput::Failure,
     };
 
     env::commit(&output);

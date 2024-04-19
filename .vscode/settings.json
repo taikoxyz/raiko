@@ -22,5 +22,6 @@
     "rust-analyzer.linkedProjects": [
         "Cargo.toml",
         "provers/sp1/guest/Cargo.toml",
+        "provers/risc0/Cargo.toml",
     ]
 }
