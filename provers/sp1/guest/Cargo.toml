@@ -8,6 +8,16 @@ edition = "2021"
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std"] }
 sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
+    "taiko",
+    "std",
+] }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
+    "taiko",
+    "std",
+] }
+[dev-dependencies]
+substrate-bn = "0.6.0"
 
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }

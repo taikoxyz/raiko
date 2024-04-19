@@ -1,6 +1,10 @@
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
 use revm_primitives::keccak256;
-use sp1_zkvm::precompiles::{bn254::Bn254, secp256k1::ecrecover, utils::AffinePoint};
+use sp1_zkvm::precompiles::{
+    bn254::Bn254,
+    secp256k1::ecrecover,
+    utils::{bytes_to_words_le, words_to_bytes_le, AffinePoint},
+};
 
 #[derive(Debug)]
 pub struct Sp1Operator;
@@ -83,29 +87,27 @@ impl ZkvmOperator for Sp1Operator {
 }
 
 #[inline]
-fn be_bytes_to_point(input: &[u8]) -> AffinePoint<Bn254> {
-    let points = input
-        .chunks_exact(32)
-        .map(|chunk| {
-            let mut le_chunk: [u8; 32] = chunk.try_into().expect("Input size unmatch");
-            le_chunk.reverse();
-            le_chunk
-        })
-        .collect::<Vec<_>>();
+fn be_bytes_to_point(input: &[u8]) -> AffinePoint<Bn254, 16> {
+    assert!(input.len() == 64, "Input length must be 64 bytes");
+    let mut x: [u8; 32] = input[..32].try_into().unwrap();
+    let mut y: [u8; 32] = input[32..].try_into().unwrap();
+    x.reverse();
+    y.reverse();
 
     // Init AffinePoint for sp1
-    AffinePoint::<Bn254>::from(points[0], points[1])
+    AffinePoint::<Bn254, 16>::from(x, y)
 }
 
 #[inline]
-fn point_to_be_bytes(p: AffinePoint<Bn254>) -> [u8; 64] {
-    let mut p_bytes = [0u8; 64];
-    let p_bytes_le = p.to_le_bytes();
+fn point_to_be_bytes(p: AffinePoint<Bn254, 16>) -> [u8; 64] {
+    let p = p.to_le_bytes();
+    let mut x = [0u8; 32];
+    let mut y = [0u8; 32];
 
-    // Reverse to x, y seperatly to big-endian bytes
-    p_bytes[..32].copy_from_slice(&p_bytes_le[..32].iter().rev().copied().collect::<Vec<_>>());
-    p_bytes[32..].copy_from_slice(&p_bytes_le[32..].iter().rev().copied().collect::<Vec<_>>());
-    p_bytes
+    x.copy_from_slice(&p[..32].iter().rev().copied().collect::<Vec<_>>());
+    y.copy_from_slice(&p[32..].iter().rev().copied().collect::<Vec<_>>());
+
+    ([x, y]).concat().try_into().unwrap()
 }
 
 /// To build test elf:
@@ -150,7 +152,7 @@ mod test {
                 le_chunk
             })
             .collect::<Vec<_>>();
-        let p = AffinePoint::<Bn254>::from(p_bytes[0], p_bytes[1]);
+        let p = AffinePoint::<Bn254, 16>::from(p_bytes[0], p_bytes[1]);
 
         let mut p_x_le = p.to_le_bytes()[..32].to_owned();
         let mut p_y_le = p.to_le_bytes()[32..].to_owned();
@@ -183,7 +185,7 @@ mod test {
         p_x.reverse();
         p_y.reverse();
 
-        let p = AffinePoint::<Bn254>::from(p_x, p_y);
+        let p = AffinePoint::<Bn254, 16>::from(p_x, p_y);
         let p_bytes_le = p.to_le_bytes();
 
         // Reverse to x, y seperatly to big-endian bytes
