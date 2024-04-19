@@ -71,9 +71,7 @@ To use ECDSA Attestation, you need to subscribe to the Intel PCS service, follow
 
 [intel-dcap-install-howto]: https://www.intel.com/content/www/us/en/developer/articles/guide/intel-software-guard-extensions-data-center-attestation-primitives-quick-install-guide.html
 
-:::note
-You do NOT need to follow the entirety of the linked guide, just the `Subscribe to the Intel PCS` section.
-:::
+> **_NOTE:_** You do NOT need to follow the entirety of the linked guide, just the `Subscribe to the Intel PCS` section.
 
 ## Raiko Docker
 
@@ -107,9 +105,7 @@ rm csr.pem
 
 3. Install Intel lib & copy the config file
 
-:::note
-The library requires nodejs 18, but regardless if installation succeeds or not, we just need the `default.json` file it comes with.
-:::
+> **_NOTE:_** The library requires nodejs 18, but regardless if installation succeeds or not, we just need the `default.json` file it comes with.
 
 ```
 apt install sgx-dcap-pccs
@@ -152,9 +148,7 @@ cd raiko/docker
 docker compose build
 ```
 
-:::note
-This step will take some time, sometimes ~5 minutes.
-:::
+> **_NOTE:_** This step will take some time, sometimes ~5 minutes.
 
 6. Check that the images have been built
 
