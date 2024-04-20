@@ -5,7 +5,6 @@ use alloy_consensus::{
 };
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ProviderBuilder, ReqwestProvider, RootProvider};
-pub use alloy_rlp as rlp;
 use alloy_rpc_types::{
     Block as AlloyBlock, BlockTransactions, Filter, Transaction as AlloyRpcTransaction,
 };

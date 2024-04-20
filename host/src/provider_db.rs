@@ -19,8 +19,8 @@ use std::{
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Bytes, Uint};
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_client::{BatchRequest, ClientBuilder, RpcClient};
-use alloy_rpc_types::{Block, BlockId, EIP1186AccountProofResponse};
+use alloy_rpc_client::{ClientBuilder, RpcClient};
+use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofResponse};
 use alloy_transport_http::Http;
 use raiko_lib::{
     clear_line, consts::Network, inplace_print, mem_db::MemDb, print_duration,
@@ -91,9 +91,10 @@ impl ProviderDb {
         let mut requests = vec![];
 
         for block_number in start..=block_number {
-            requests.push(Box::pin(
-                batch.add_call("eth_getBlockByNumber", &(BlockNumberOrTag::from(block_number), false))?,
-            ));
+            requests.push(Box::pin(batch.add_call(
+                "eth_getBlockByNumber",
+                &(BlockNumberOrTag::from(block_number), false),
+            )?));
         }
 
         let blocks = self.async_executor.block_on(async {
@@ -109,28 +110,20 @@ impl ProviderDb {
         Ok(blocks)
     }
 
-    pub fn get_initial_db(&self) -> &MemDb {
-        &self.initial_db
-    }
-
-    pub fn get_latest_db(&self) -> &MemDb {
-        &self.current_db
-    }
-
     fn get_storage_proofs(
         &mut self,
         block_number: u64,
-        storage_keys: HashMap<Address, Vec<U256>>,
+        accounts: HashMap<Address, Vec<U256>>,
         offset: usize,
         num_storage_proofs: usize,
     ) -> Result<HashMap<Address, EIP1186AccountProofResponse>, anyhow::Error> {
         let mut storage_proofs: HashMap<Address, EIP1186AccountProofResponse> = HashMap::new();
         let mut idx = offset;
 
-        let mut storage_keys = storage_keys.clone();
+        let mut accounts = accounts.clone();
 
         let batch_limit = 1000;
-        while !storage_keys.is_empty() {
+        while !accounts.is_empty() {
             inplace_print(&format!(
                 "fetching storage proof {idx}/{num_storage_proofs}..."
             ));
@@ -142,9 +135,9 @@ impl ProviderDb {
             let mut requests = Vec::new();
 
             let mut batch_size = 0;
-            while !storage_keys.is_empty() && batch_size < batch_limit {
+            while !accounts.is_empty() && batch_size < batch_limit {
                 let mut address_to_remove = None;
-                if let Some((address, keys)) = storage_keys.iter_mut().next() {
+                if let Some((address, keys)) = accounts.iter_mut().next() {
                     // Calculate how many keys we can still process
                     let num_keys_to_process = if batch_size + keys.len() < batch_limit {
                         keys.len()
@@ -181,7 +174,7 @@ impl ProviderDb {
 
                 // Remove the address if all keys were processed for this account
                 if let Some(address) = address_to_remove {
-                    storage_keys.remove(&address);
+                    accounts.remove(&address);
                 }
             }
 
