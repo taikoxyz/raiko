@@ -67,7 +67,7 @@ impl ProviderDb {
         if network.is_taiko() {
             // Get the 256 history block hashes from the provider at first time for anchor
             // transaction.
-            let initial_history_blocks = provider_db.batch_get_history_headers(block_number + 1)?;
+            let initial_history_blocks = provider_db.batch_get_history_headers(block_number)?;
             for block in initial_history_blocks {
                 let block_number: u64 = block.header.number.unwrap().try_into().unwrap();
                 let block_hash = block.header.hash.unwrap();
@@ -92,7 +92,7 @@ impl ProviderDb {
 
         for block_number in start..=block_number {
             requests.push(Box::pin(
-                batch.add_call("eth_getBlockByNumber", &(block_number, false))?,
+                batch.add_call("eth_getBlockByNumber", &(BlockNumberOrTag::from(block_number), false))?,
             ));
         }
 
