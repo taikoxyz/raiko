@@ -109,16 +109,17 @@ impl Prover for SgxProver {
             setup(&cur_dir, direct_mode).await?;
         }
 
-        let sgx_proof = if config.bootstrap {
+        let mut sgx_proof = if config.bootstrap {
             bootstrap(cur_dir.clone(), gramine_cmd()).await
-        } else if config.prove {
-            // now prove can not go with bootstrap as we need manually register sgx id.
-            // TODO: auto register sgx id
-            prove(gramine_cmd(), input.clone(), config.instance_id).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
         };
+
+        if config.prove {
+            // overwirte sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
+            sgx_proof = prove(gramine_cmd(), input.clone(), config.instance_id).await
+        }
 
         to_proof(sgx_proof)
     }
