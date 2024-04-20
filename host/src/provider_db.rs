@@ -19,10 +19,13 @@ use std::{
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Bytes, Uint};
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_client::{ClientBuilder, RpcClient};
+use alloy_rpc_client::{BatchRequest, ClientBuilder, RpcClient};
 use alloy_rpc_types::{Block, BlockId, EIP1186AccountProofResponse};
 use alloy_transport_http::Http;
-use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, print_duration, taiko_utils::to_header};
+use raiko_lib::{
+    clear_line, consts::Network, inplace_print, mem_db::MemDb, print_duration,
+    taiko_utils::to_header,
+};
 use raiko_primitives::{Address, B256, U256};
 use reqwest_alloy::Client;
 use revm::{
@@ -46,31 +49,64 @@ pub struct ProviderDb {
 impl ProviderDb {
     pub fn new(
         provider: ReqwestProvider,
-        initial_history_blocks: Option<Vec<Block>>,
+        network: Network,
         block_number: u64,
-    ) -> Self {
-        let mut initial_db = MemDb::default();
-        let mut initial_headers = HashMap::new();
-        if let Some(initial_history_blocks) = initial_history_blocks {
-            for block in initial_history_blocks {
-                let block_number: u64 = block.header.number.unwrap().try_into().unwrap();
-                let block_hash = block.header.hash.unwrap();
-                initial_db.insert_block_hash(block_number, block_hash);
-                initial_headers.insert(block_number, to_header(&block.header));
-            }
-        }
-        // The client used for batch requests
+    ) -> Result<Self, anyhow::Error> {
         let client = ClientBuilder::default()
             .reqwest_http(reqwest::Url::parse(&provider.client().transport().url()).unwrap());
-        ProviderDb {
+
+        let mut provider_db = ProviderDb {
             provider,
             client,
             block_number,
-            initial_db,
-            initial_headers,
-            current_db: MemDb::default(),
+            initial_db: Default::default(),
+            initial_headers: Default::default(),
+            current_db: Default::default(),
             async_executor: tokio::runtime::Handle::current(),
+        };
+        if network.is_taiko() {
+            // Get the 256 history block hashes from the provider at first time for anchor
+            // transaction.
+            let initial_history_blocks = provider_db.batch_get_history_headers(block_number + 1)?;
+            for block in initial_history_blocks {
+                let block_number: u64 = block.header.number.unwrap().try_into().unwrap();
+                let block_hash = block.header.hash.unwrap();
+                provider_db
+                    .initial_db
+                    .insert_block_hash(block_number, block_hash);
+                provider_db
+                    .initial_headers
+                    .insert(block_number, to_header(&block.header));
+            }
         }
+        Ok(provider_db)
+    }
+
+    fn batch_get_history_headers(
+        &mut self,
+        block_number: u64,
+    ) -> Result<Vec<Block>, anyhow::Error> {
+        let mut batch = self.client.new_batch();
+        let start = block_number.saturating_sub(255);
+        let mut requests = vec![];
+
+        for block_number in start..=block_number {
+            requests.push(Box::pin(
+                batch.add_call("eth_getBlockByNumber", &(block_number, false))?,
+            ));
+        }
+
+        let blocks = self.async_executor.block_on(async {
+            batch.send().await?;
+            let mut blocks = vec![];
+            // Collect the data from the batch
+            for request in requests.into_iter() {
+                blocks.push(request.await?);
+            }
+            Ok::<_, anyhow::Error>(blocks)
+        })?;
+
+        Ok(blocks)
     }
 
     pub fn get_initial_db(&self) -> &MemDb {

@@ -7,9 +7,9 @@ default-run = "raiko-host"
 [dependencies]
 
 # provers
-sp1-prover = { path = "../provers/sp1/prover", optional = true}
-risc0-prover = { path = "../provers/risc0", optional = true}
-sgx-prover = { path = "../provers/sgx/prover", optional = true}
+sp1-prover = { path = "../provers/sp1/prover", optional = true }
+risc0-prover = { path = "../provers/risc0", optional = true }
+sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
 raiko-lib = { workspace = true }
