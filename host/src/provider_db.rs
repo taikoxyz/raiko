@@ -88,39 +88,80 @@ impl ProviderDb {
         offset: usize,
         num_storage_proofs: usize,
     ) -> Result<HashMap<Address, EIP1186AccountProofResponse>, anyhow::Error> {
-        let mut storage_proofs = HashMap::new();
+        let mut storage_proofs: HashMap<Address, EIP1186AccountProofResponse> = HashMap::new();
         let mut idx = offset;
 
-        // Create a batch for all storage proofs
-        let mut batch = self.client.new_batch();
+        let mut storage_keys = storage_keys.clone();
 
-        // Collect all requests
-        let mut requests = Vec::new();
-        for (address, keys) in storage_keys.clone() {
-            requests.push((
-                Box::pin(
-                    batch
-                        .add_call::<_, EIP1186AccountProofResponse>(
-                            "eth_getProof",
-                            &(address, keys.clone(), BlockId::from(block_number)),
-                        )
-                        .unwrap(),
-                ),
-                keys.len(),
-            ));
-        }
-
-        // Send the batch
-        self.async_executor.block_on(async { batch.send().await })?;
-
-        // Collect the data from the batch
-        for (request, num_keys) in requests.into_iter() {
+        let batch_limit = 1000;
+        while !storage_keys.is_empty() {
             inplace_print(&format!(
                 "fetching storage proof {idx}/{num_storage_proofs}..."
             ));
-            let proof = self.async_executor.block_on(async { request.await })?;
-            storage_proofs.insert(proof.address, proof);
-            idx += num_keys;
+
+            // Create a batch for all storage proofs
+            let mut batch = self.client.new_batch();
+
+            // Collect all requests
+            let mut requests = Vec::new();
+
+            let mut batch_size = 0;
+            while !storage_keys.is_empty() && batch_size < batch_limit {
+                let mut address_to_remove = None;
+                if let Some((address, keys)) = storage_keys.iter_mut().next() {
+                    // Calculate how many keys we can still process
+                    let num_keys_to_process = if batch_size + keys.len() < batch_limit {
+                        keys.len()
+                    } else {
+                        batch_limit - batch_size
+                    };
+
+                    // If we can process all keys, remove the address from the map after the loop
+                    if num_keys_to_process == keys.len() {
+                        address_to_remove = Some(address.clone());
+                    }
+
+                    // Extract the keys to process
+                    let keys_to_process = keys.drain(0..num_keys_to_process).collect::<Vec<_>>();
+
+                    // Add the request
+                    requests.push(Box::pin(
+                        batch
+                            .add_call::<_, EIP1186AccountProofResponse>(
+                                "eth_getProof",
+                                &(
+                                    address.clone(),
+                                    keys_to_process.clone(),
+                                    BlockId::from(block_number),
+                                ),
+                            )
+                            .unwrap(),
+                    ));
+
+                    // Keep track of how many keys were processed
+                    // Add an additional 1 for the account proof itself
+                    batch_size += 1 + keys_to_process.len();
+                }
+
+                // Remove the address if all keys were processed for this account
+                if let Some(address) = address_to_remove {
+                    storage_keys.remove(&address);
+                }
+            }
+
+            // Send the batch
+            self.async_executor.block_on(async { batch.send().await })?;
+
+            // Collect the data from the batch
+            for request in requests.into_iter() {
+                let mut proof = self.async_executor.block_on(async { request.await })?;
+                idx += proof.storage_proof.len();
+                if let Some(map_proof) = storage_proofs.get_mut(&proof.address) {
+                    map_proof.storage_proof.append(&mut proof.storage_proof);
+                } else {
+                    storage_proofs.insert(proof.address, proof);
+                }
+            }
         }
         clear_line();
 
