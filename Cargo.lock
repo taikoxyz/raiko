@@ -7424,10 +7424,3 @@ dependencies = [
  "crossbeam-utils",
  "flate2",
 ]
-
-[[package]]
-name = "zkop"
-version = "0.1.0"
-dependencies = [
- "revm-precompile",
-]

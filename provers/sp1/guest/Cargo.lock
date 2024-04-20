@@ -42,7 +42,7 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde",
  "serde",
- "sha2",
+ "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -577,9 +577,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.94"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f6e324229dc011159fcc089755d1e2e216a90d43a7dea6853ca740b84f35e7"
+checksum = "d32a725bc159af97c3e629873bb9f88fb8cf8a4867175f76dc987815ea07c83b"
 
 [[package]]
 name = "cfg-if"
@@ -1194,7 +1194,7 @@ dependencies = [
  "ecdsa",
  "elliptic-curve",
  "once_cell",
- "sha2",
+ "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "signature",
 ]
 
@@ -1768,7 +1768,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 [[package]]
 name = "revm"
 version = "7.2.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bbe3fc2dd926d1344f0e24fdd75e0e353a9bc189"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#39b5b95e14559b6013a000762fa270959d20c826"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -1782,7 +1782,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "3.4.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bbe3fc2dd926d1344f0e24fdd75e0e353a9bc189"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#39b5b95e14559b6013a000762fa270959d20c826"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -1791,7 +1791,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "5.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bbe3fc2dd926d1344f0e24fdd75e0e353a9bc189"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#39b5b95e14559b6013a000762fa270959d20c826"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -1801,15 +1801,14 @@ dependencies = [
  "revm-primitives",
  "ripemd",
  "secp256k1",
- "sha2",
- "sp1-precompiles",
+ "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "substrate-bn",
 ]
 
 [[package]]
 name = "revm-primitives"
 version = "3.1.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#bbe3fc2dd926d1344f0e24fdd75e0e353a9bc189"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#39b5b95e14559b6013a000762fa270959d20c826"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
@@ -2090,6 +2089,17 @@ dependencies = [
 [[package]]
 name = "sha2"
 version = "0.10.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest 0.10.7",
+]
+
+[[package]]
+name = "sha2"
+version = "0.10.8"
 source = "git+https://github.com/sp1-patches/RustCrypto-hashes?branch=v0.10.8#3d692aa90b91513886d757d01f8fc2d51c0ec0d7"
 dependencies = [
  "cfg-if",
@@ -2144,6 +2154,7 @@ dependencies = [
  "raiko-lib",
  "revm-precompile",
  "revm-primitives",
+ "sha2 0.10.8 (git+https://github.com/sp1-patches/RustCrypto-hashes?branch=v0.10.8)",
  "sp1-zkvm",
  "substrate-bn",
 ]
@@ -2151,7 +2162,7 @@ dependencies = [
 [[package]]
 name = "sp1-precompiles"
 version = "0.1.0"
-source = "git+https://www.github.com/succinctlabs/sp1.git?branch=main#e290ae81d2488dcf9fbbd8cd7f8d672087d954ef"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=main#08a62812eb9e015fb5cf1396a07f164a358010f3"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2168,7 +2179,7 @@ dependencies = [
 [[package]]
 name = "sp1-primitives"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=main#e290ae81d2488dcf9fbbd8cd7f8d672087d954ef"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=main#08a62812eb9e015fb5cf1396a07f164a358010f3"
 dependencies = [
  "itertools 0.12.1",
  "lazy_static",
@@ -2181,7 +2192,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=main#e290ae81d2488dcf9fbbd8cd7f8d672087d954ef"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=main#08a62812eb9e015fb5cf1396a07f164a358010f3"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -2193,7 +2204,7 @@ dependencies = [
  "p3-field",
  "rand",
  "serde",
- "sha2",
+ "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp1-precompiles",
  "sp1-primitives",
 ]

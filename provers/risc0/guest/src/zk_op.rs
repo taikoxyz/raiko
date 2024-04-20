@@ -1,4 +1,6 @@
-use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
+use k256 as risc0_k256;
+use revm_precompile::{zk_op::ZkvmOperator, Error};
+use sha2 as risc0_sha2;
 
 #[derive(Debug)]
 pub struct Risc0Operator;
@@ -20,14 +22,9 @@ impl ZkvmOperator for Risc0Operator {
         unreachable!()
     }
 
-    fn sha256_run(&self, _input: &[u8]) -> Result<[u8; 32], Error> {
-        // Handle through [patch.crates-io]
-        // sha2-v0-10-8 = {
-        //     git = "https://github.com/sp1-patches/RustCrypto-hashes",
-        //     package = "sha2",
-        //     branch = "v0.10.8"
-        // }
-        unreachable!()
+    fn sha256_run(&self, input: &[u8]) -> Result<[u8; 32], Error> {
+        use risc0_sha2::Digest;
+        Ok(risc0_sha2::Sha256::digest(input).into())
     }
 
     fn ripemd160_run(&self, _input: &[u8]) -> Result<[u8; 32], Error> {
@@ -41,9 +38,36 @@ impl ZkvmOperator for Risc0Operator {
     fn secp256k1_ecrecover(
         &self,
         sig: &[u8; 64],
-        recid: u8,
+        mut recid: u8,
         msg: &[u8; 32],
     ) -> Result<[u8; 32], Error> {
-        unreachable!()
+        use revm_primitives::{alloy_primitives::B512, keccak256, B256};
+        use risc0_k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
+
+        // parse signature
+        let mut sig = Signature::from_slice(sig.as_slice()).map_err(|_| {
+            Error::ZkvmOperatrion("Patched k256 deserialize signature failed".to_string())
+        })?;
+
+        // normalize signature and flip recovery id if needed.
+        if let Some(sig_normalized) = sig.normalize_s() {
+            sig = sig_normalized;
+            recid ^= 1;
+        }
+        let recid = RecoveryId::from_byte(recid).expect("recovery ID is valid");
+
+        // recover key
+        let recovered_key = VerifyingKey::recover_from_prehash(&msg[..], &sig, recid)
+            .map_err(|_| Error::ZkvmOperatrion("Patched k256 recover key failed".to_string()))?;
+        // hash it
+        let mut hash = keccak256(
+            &recovered_key
+                .to_encoded_point(/* compress = */ false)
+                .as_bytes()[1..],
+        );
+
+        // truncate to 20 bytes
+        hash[..12].fill(0);
+        Ok(*hash)
     }
 }

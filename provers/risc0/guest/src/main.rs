@@ -10,7 +10,7 @@ use raiko_lib::{
 };
 
 mod zk_op;
-use revm_precompile::zk_op::Operation;
+use revm_precompile::zk_op::ZkOperation;
 use zk_op::Risc0Operator;
 
 fn main() {

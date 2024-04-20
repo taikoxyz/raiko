@@ -1,10 +1,7 @@
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
 use revm_primitives::keccak256;
-use sp1_zkvm::precompiles::{
-    bn254::Bn254,
-    secp256k1::ecrecover,
-    utils::{bytes_to_words_le, words_to_bytes_le, AffinePoint},
-};
+use sha2_v0_10_8 as sp1_sha2;
+use sp1_zkvm::precompiles::{bn254::Bn254, secp256k1::ecrecover, utils::AffinePoint};
 
 #[derive(Debug)]
 pub struct Sp1Operator;
@@ -48,14 +45,9 @@ impl ZkvmOperator for Sp1Operator {
         unreachable!()
     }
 
-    fn sha256_run(&self, _input: &[u8]) -> Result<[u8; 32], Error> {
-        // Handle through [patch.crates-io]
-        // sha2-v0-10-8 = {
-        //     git = "https://github.com/sp1-patches/RustCrypto-hashes",
-        //     package = "sha2",
-        //     branch = "v0.10.8"
-        // }
-        unreachable!()
+    fn sha256_run(&self, input: &[u8]) -> Result<[u8; 32], Error> {
+        use sp1_sha2::Digest;
+        Ok(sp1_sha2::Sha256::digest(input).into())
     }
 
     fn ripemd160_run(&self, _input: &[u8]) -> Result<[u8; 32], Error> {

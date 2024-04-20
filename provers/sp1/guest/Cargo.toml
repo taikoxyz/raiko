@@ -16,16 +16,29 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat
     "taiko",
     "std",
 ] }
+sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
+
 [dev-dependencies]
 substrate-bn = "0.6.0"
 
-[patch.crates-io]
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
-sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
-
-[patch."https://github.com/succinctlabs/sp1.git"]
-sp1-precompiles = { git = "https://www.github.com/succinctlabs/sp1.git", branch = "main"}
-
 [workspace]
 
-# cargo prove build 
+[patch.crates-io]
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
+# tiny-keccak v2.0.2
+# ├── alloy-primitives v0.7.0
+# │   └── revm-primitives v3.1.0 (/home/ubuntu/revm/crates/primitives)
+# │       ├── revm-interpreter v3.4.0 (/home/ubuntu/revm/crates/interpreter)
+# │       │   └── revm v7.2.0 (/home/ubuntu/revm/crates/revm)
+# │       └── revm-precompile v5.1.0 (/home/ubuntu/revm/crates/precompile)
+# │           └── revm v7.2.0 (/home/ubuntu/revm/crates/revm)
+# ├── ethbloom v0.13.0
+# │   └── ethereum-types v0.14.1
+# │       ├── ethabi v18.0.0
+# │       │   └── ethers-core v2.0.14
+# │       │       └── ethers-contract v2.0.14
+# │       │           [dev-dependencies]
+# │       │           └── revm v7.2.0 (/home/ubuntu/revm/crates/revm)
+# │       └── open-fastrlp v0.1.4
+# │           └── ethers-core v2.0.14 (*)
+# └── ethers-core v2.0.14 (*)
