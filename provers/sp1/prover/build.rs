@@ -144,5 +144,6 @@ fn execute_build_cmd(program_dir: &Path) -> Result<std::process::ExitStatus, std
 fn extract_path(line: &str) -> Option<PathBuf> {
     let re = Regex::new(r"\(([^)]+)\)").unwrap();
     re.captures(line)
-        .and_then(|caps| caps.get(1).map(|m| m.as_str().to_string())).map(|s| PathBuf::from(s))
+        .and_then(|caps| caps.get(1).map(|m| m.as_str().to_string()))
+        .map(PathBuf::from)
 }

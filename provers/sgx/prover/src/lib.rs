@@ -302,7 +302,7 @@ fn handle_output(output: &Output, name: &str) -> ProverResult<(), String> {
         return Err(format!(
             "{} encountered an error ({}): {}",
             name,
-            output.status.to_string(),
+            output.status,
             String::from_utf8_lossy(&output.stderr),
         ));
     }
