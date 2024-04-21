@@ -14,12 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod error;
-pub mod execution;
-pub mod preflight;
-pub mod provider_db;
-pub mod request;
-pub mod server;
+mod error;
+mod execution;
+mod preflight;
+mod provider_db;
+mod request;
+mod server;
 
 use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 

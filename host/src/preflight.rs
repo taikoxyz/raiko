@@ -5,13 +5,10 @@ use alloy_consensus::{
 };
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ProviderBuilder, ReqwestProvider, RootProvider};
-pub use alloy_rlp as rlp;
-use alloy_rpc_client::RpcClient;
 use alloy_rpc_types::{
     Block as AlloyBlock, BlockTransactions, Filter, Transaction as AlloyRpcTransaction,
 };
 use alloy_sol_types::{SolCall, SolEvent};
-use alloy_transport_http::Http;
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use hashbrown::HashSet;
@@ -30,7 +27,6 @@ use raiko_primitives::{
     mpt::proofs_to_tries,
 };
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::provider_db::{MeasuredProviderDb, ProviderDb};
 
@@ -42,8 +38,9 @@ pub fn preflight(
     l1_rpc_url: Option<String>,
     beacon_rpc_url: Option<String>,
 ) -> Result<GuestInput> {
-    let http = Http::new(Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"));
-    let provider = ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http, true)));
+    let provider = ProviderBuilder::new().provider(RootProvider::new_http(
+        reqwest::Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"),
+    ));
 
     let measurement = Measurement::start("Fetching block data...", true);
 
@@ -56,9 +53,9 @@ pub fn preflight(
     println!("block transactions: {:?}", block.transactions.len());
 
     let taiko_guest_input = if network.is_taiko() {
-        let http_l1 = Http::new(Url::parse(&l1_rpc_url.clone().unwrap()).expect("invalid rpc url"));
-        let provider_l1 =
-            ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http_l1, true)));
+        let provider_l1 = ProviderBuilder::new().provider(RootProvider::new_http(
+            reqwest::Url::parse(&l1_rpc_url.clone().unwrap()).expect("invalid rpc url"),
+        ));
 
         // Decode the anchor tx to find out which L1 blocks we need to fetch
         let anchor_tx = match &block.transactions {
@@ -186,19 +183,12 @@ pub fn preflight(
         taiko: taiko_guest_input,
     };
 
-    // Get the 256 history block hashes from the provider at first time for anchor
-    // transaction.
-    let initial_history_blocks = if network.is_taiko() {
-        Some(batch_get_history_headers(&provider, block_number)?)
-    } else {
-        None
-    };
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
         provider,
-        initial_history_blocks,
+        network,
         parent_block.header.number.unwrap().try_into().unwrap(),
-    );
+    )?;
     let mut builder = BlockBuilder::new(&input)
         .with_db(MeasuredProviderDb::new(provider_db))
         .prepare_header::<TaikoHeaderPrepStrategy>()?
@@ -337,20 +327,6 @@ pub fn get_block(provider: &ReqwestProvider, block_number: u64, full: bool) -> R
         Some(out) => Ok(out),
         None => Err(anyhow!("No data for {block_number:?}")),
     }
-}
-
-fn batch_get_history_headers(
-    provider: &ReqwestProvider,
-    block_number: u64,
-) -> Result<Vec<AlloyBlock>> {
-    let tokio_handle = tokio::runtime::Handle::current();
-    let response = tokio_handle.block_on(async {
-        provider
-            .client()
-            .request("taiko_getL2ParentHeaders", (block_number,))
-            .await
-    })?;
-    Ok(response)
 }
 
 fn get_block_proposed_event(
