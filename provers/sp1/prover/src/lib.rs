@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 use sha3::{self, Digest};
 use sp1_sdk::{utils, ProverClient, SP1Stdin};
 
+#[cfg(test)]
+mod test;
+
 const ELF: &[u8] = include_bytes!("../../guest/elf/riscv32im-succinct-zkvm-elf");
 
 #[derive(Clone, Serialize, Deserialize)]

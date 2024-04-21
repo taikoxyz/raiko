@@ -15,7 +15,7 @@ fn main() {
 
     #[cfg(feature = "enable")]
     sp1_helper::build_program("../guest");
-    #[cfg(feature = "enable")]
+    #[cfg(all(feature = "enable", test))]
     build_test("../guest");
 }
 
@@ -98,7 +98,7 @@ fn execute_build_cmd(program_dir: &Path) -> Result<std::process::ExitStatus, std
     let stdout = BufReader::new(child.stdout.take().unwrap());
     let stderr = BufReader::new(child.stderr.take().unwrap());
 
-    let elf_paths = stderr
+    let elfs = stderr
         .lines()
         .filter(|line| {
             line.as_ref()
@@ -107,27 +107,21 @@ fn execute_build_cmd(program_dir: &Path) -> Result<std::process::ExitStatus, std
         .map(|line| extract_path(&line.unwrap()).unwrap())
         .collect::<Vec<_>>();
 
-    let elf_dir = metadata.target_directory.parent().unwrap().join("elf");
-    fs::create_dir_all(&elf_dir)?;
+    let src_elf_path = metadata
+        .target_directory
+        .parent()
+        .unwrap()
+        .join(elfs.first().expect("Failed to extract cargot test elf").to_str().unwrap());
 
-    for elf_path in elf_paths {
-        let name = elf_path.file_name().unwrap();
-        let src_elf_path = metadata
-            .target_directory
-            .parent()
-            .unwrap()
-            .join(elf_path.to_str().unwrap());
-        let dest_elf_path = elf_dir.join(format!(
-            "{}-{}",
-            "riscv32im-succinct-zkvm-elf-test",
-            name.to_str().unwrap()
-        ));
-        fs::copy(&src_elf_path, &dest_elf_path)?;
-        println!(
-            "Copied test elf from\n[{:?}]\nto\n[{:?}]",
-            src_elf_path, dest_elf_path
-        );
-    }
+    let mut dest_elf_path = metadata.target_directory.parent().unwrap().join("elf");
+    fs::create_dir_all(&dest_elf_path)?;
+    dest_elf_path = dest_elf_path.join("riscv32im-succinct-zkvm-elf-test");
+
+    fs::copy(&src_elf_path, &dest_elf_path)?;
+    println!(
+        "Copied test elf from\n[{:?}]\nto\n[{:?}]",
+        src_elf_path, dest_elf_path
+    );
 
     // Pipe stdout and stderr to the parent process with [sp1] prefix
     let stdout_handle = thread::spawn(move || {
