@@ -12,7 +12,7 @@ use raiko_lib::{
     protocol_instance::{assemble_protocol_instance, EvidenceType},
 };
 use raiko_primitives::Address;
-use secp256k1::KeyPair;
+use secp256k1::{KeyPair, SecretKey};
 use serde::Serialize;
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
@@ -67,6 +67,8 @@ fn save_bootstrap_details(
         new_instance,
         quote: hex::encode(quote),
     };
+
+    println!("{}", serde_json::json!(&bootstrap_details));
     let json = serde_json::to_string_pretty(&bootstrap_details)?;
     fs::write(bootstrap_details_file_path, json).context(format!(
         "Saving bootstrap data file {} failed",
@@ -101,16 +103,12 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
 
 pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> {
     // Make sure this SGX instance was bootstrapped
-    if !is_bootstrapped(&global_opts.secrets_dir) {
-        bail!("Application was not bootstrapped. Bootstrap it first.");
-    }
+    let prev_privkey = load_bootstrap(&global_opts.secrets_dir)
+        .or_else(|_| bail!("Application was not bootstrapped or has a deprecated bootstrap."))
+        .unwrap();
 
     println!("Global options: {global_opts:?}, OneShot options: {args:?}");
 
-    // Load the signing data
-    let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
-    let prev_privkey = load_private_key(privkey_path)?;
-    // let (new_privkey, new_pubkey) = generate_new_keypair()?;
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
 
@@ -156,9 +154,22 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     print_sgx_info()
 }
 
-fn is_bootstrapped(secrets_dir: &Path) -> bool {
+fn load_bootstrap(secrets_dir: &Path) -> Result<SecretKey, Error> {
     let privkey_path = secrets_dir.join(PRIV_KEY_FILENAME);
-    privkey_path.is_file() && !privkey_path.metadata().unwrap().permissions().readonly()
+    if privkey_path.is_file() && !privkey_path.metadata().unwrap().permissions().readonly() {
+        load_private_key(&privkey_path).map_err(|e| {
+            anyhow!(
+                "Failed to load private key from {}: {}",
+                privkey_path.display(),
+                e
+            )
+        })
+    } else {
+        Err(anyhow!(
+            "No readable private key found in {}",
+            privkey_path.display()
+        ))
+    }
 }
 
 fn save_attestation_user_report_data(pubkey: Address) -> Result<()> {
