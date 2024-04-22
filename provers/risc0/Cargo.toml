@@ -31,6 +31,10 @@ hex = { workspace = true, optional = true }
 
 [build-dependencies]
 risc0-build = { workspace = true, optional = true }
+cargo_metadata = "0.18"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
 
 [package.metadata.risc0]
 # does not support paths that contain .. for some reason, so the guest needs to be part of the prover

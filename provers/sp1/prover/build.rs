@@ -15,12 +15,13 @@ fn main() {
 
     #[cfg(feature = "enable")]
     sp1_helper::build_program("../guest");
-    #[cfg(feature = "enable")]
-    build_test("../guest");
+
+    // #[cfg(all(feature = "enable", test))]
+    // #[cfg(feature = "enable")]
+    // build_test("../guest");
 }
 
 pub fn build_test(path: &str) {
-    println!("Building program at `{}`", path);
     let program_dir = std::path::Path::new(path);
 
     // Tell cargo to rerun the script only if program/{src, Cargo.toml, Cargo.lock} changes
@@ -34,9 +35,8 @@ pub fn build_test(path: &str) {
         println!("cargo:rerun-if-changed={}", dir.display());
     }
 
-    // Print a message so the user knows that their program was built. Cargo caches warnings
-    // emitted from build scripts, so we'll print the date/time when the program was
-    // built.
+    // Print a message so the user knows that their program was built. Cargo caches warnings emitted
+    // from build scripts, so we'll print the date/time when the program was built.
     let metadata_file = program_dir.join("Cargo.toml");
     let mut metadata_cmd = cargo_metadata::MetadataCommand::new();
     let metadata = metadata_cmd.manifest_path(metadata_file).exec().unwrap();
@@ -51,7 +51,7 @@ pub fn build_test(path: &str) {
         current_datetime()
     );
 
-    execute_build_cmd(program_dir)
+    execute_build_cmd(&program_dir)
         .unwrap_or_else(|_| panic!("Failed to build `{}`.", root_package_name));
 }
 
@@ -65,22 +65,13 @@ fn execute_build_cmd(program_dir: &Path) -> Result<std::process::ExitStatus, std
     let mut metadata_cmd = cargo_metadata::MetadataCommand::new();
     metadata_cmd.current_dir(program_dir);
     let metadata = metadata_cmd.exec().unwrap();
-    let _root_package = metadata.root_package();
+    let root_package = metadata.root_package();
+    let root_package_name = root_package.as_ref().map(|p| &p.name);
 
     let build_target = "riscv32im-succinct-zkvm-elf";
-    let rust_flags = [
-        "-C",
-        "passes=loweratomic",
-        "-C",
-        "link-arg=-Ttext=0x00200800",
-        "-C",
-        "panic=abort",
-    ];
-
     let mut cmd = Command::new("cargo");
     cmd.current_dir(program_dir)
         .env("RUSTUP_TOOLCHAIN", "succinct")
-        .env("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))
         .args([
             "test",
             "--release",
@@ -89,10 +80,10 @@ fn execute_build_cmd(program_dir: &Path) -> Result<std::process::ExitStatus, std
             "--locked",
             "--no-run",
         ])
+        .env("CARGO_MANIFEST_DIR", program_dir)
         .env_remove("RUSTC")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    println!("Build test cmd:\n{:?}", cmd);
     let mut child = cmd.spawn()?;
 
     let stdout = BufReader::new(child.stdout.take().unwrap());
@@ -106,28 +97,27 @@ fn execute_build_cmd(program_dir: &Path) -> Result<std::process::ExitStatus, std
         })
         .map(|line| extract_path(&line.unwrap()).unwrap())
         .collect::<Vec<_>>();
+    println!("elf_paths: {:?}", elf_paths);
 
-    let elf_dir = metadata.target_directory.parent().unwrap().join("elf");
-    fs::create_dir_all(&elf_dir)?;
+    let src_elf_path = metadata.target_directory.parent().unwrap().join(
+        elf_paths
+            .first()
+            .expect("Failed to extract carge test elf path")
+            .to_str()
+            .unwrap(),
+    );
+    println!("src_elf_path: {:?}", src_elf_path);
 
-    for elf_path in elf_paths {
-        let name = elf_path.file_name().unwrap();
-        let src_elf_path = metadata
-            .target_directory
-            .parent()
-            .unwrap()
-            .join(elf_path.to_str().unwrap());
-        let dest_elf_path = elf_dir.join(format!(
-            "{}-{}",
-            "riscv32im-succinct-zkvm-elf-test",
-            name.to_str().unwrap()
-        ));
-        fs::copy(&src_elf_path, &dest_elf_path)?;
-        println!(
-            "Copied test elf from\n[{:?}]\nto\n[{:?}]",
-            src_elf_path, dest_elf_path
-        );
-    }
+    let mut dest_elf_path = metadata.target_directory.parent().unwrap().join("elf");
+    fs::create_dir_all(&dest_elf_path)?;
+    dest_elf_path = dest_elf_path.join("riscv32im-succinct-zkvm-elf-test");
+    println!("dest_elf_path: {:?}", dest_elf_path);
+
+    fs::copy(&src_elf_path, &dest_elf_path)?;
+    println!(
+        "Copied test elf from\n[{:?}]\nto\n[{:?}]",
+        src_elf_path, dest_elf_path
+    );
 
     // Pipe stdout and stderr to the parent process with [sp1] prefix
     let stdout_handle = thread::spawn(move || {
@@ -135,6 +125,11 @@ fn execute_build_cmd(program_dir: &Path) -> Result<std::process::ExitStatus, std
             println!("[sp1] {}", line.unwrap());
         });
     });
+
+    // stderr.lines().for_each(|line| {
+    //     eprintln!("[sp1-err] {}", line.unwrap());
+    // });
+    // println!("stderr last {:?}", stderr.lines().last().unwrap().unwrap());
 
     stdout_handle.join().unwrap();
 
@@ -145,5 +140,5 @@ fn extract_path(line: &str) -> Option<PathBuf> {
     let re = Regex::new(r"\(([^)]+)\)").unwrap();
     re.captures(line)
         .and_then(|caps| caps.get(1).map(|m| m.as_str().to_string()))
-        .map(PathBuf::from)
+        .and_then(|s| Some(PathBuf::from(s)))
 }
