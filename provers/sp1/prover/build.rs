@@ -15,7 +15,9 @@ fn main() {
 
     #[cfg(feature = "enable")]
     sp1_helper::build_program("../guest");
-    #[cfg(all(feature = "enable", test))]
+    
+    // #[cfg(all(feature = "enable", test))]
+    #[cfg(feature = "enable")]
     build_test("../guest");
 }
 
