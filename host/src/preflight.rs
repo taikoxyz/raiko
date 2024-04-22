@@ -104,17 +104,16 @@ pub fn preflight(
             let blobs = get_blob_data(&beacon_rpc_url.clone().unwrap(), slot_id)?;
             assert!(!blobs.data.is_empty(), "blob data not available anymore");
             // Get the blob data for the blob storing the tx list
-            let tx_blobs: Vec<GetBlobData> = blobs
+            let tx_blob = blobs
                 .data
                 .iter()
-                .filter(|blob: &&GetBlobData| {
+                .find(|blob| {
                     // calculate from plain blob
                     blob_hash == calc_blob_versioned_hash(&blob.blob)
                 })
-                .cloned()
-                .collect::<Vec<GetBlobData>>();
-            assert!(!tx_blobs.is_empty());
-            (blob_to_bytes(&tx_blobs[0].blob), Some(blob_hash))
+                .cloned();
+            assert!(tx_blob.is_some());
+            (blob_to_bytes(&tx_blob.unwrap().blob), Some(blob_hash))
         } else {
             // Get the tx list data directly from the propose transaction data
             let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false).unwrap();
