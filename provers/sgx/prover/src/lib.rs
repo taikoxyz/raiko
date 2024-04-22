@@ -20,6 +20,9 @@ use serde_json::Value;
 use serde_with::serde_as;
 use tokio::{process::Command, sync::OnceCell};
 
+// to register the instance id
+mod sgx_register_utils;
+
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SgxParam {

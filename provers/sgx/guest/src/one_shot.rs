@@ -124,7 +124,10 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         new_pubkey: new_instance,
     });
 
-    println!("Data to be signed: {pi_hash}");
+    println!(
+        "Block {}. PI data to be signed: {pi_hash}",
+        input.block_number
+    );
 
     // Sign the public input hash which contains all required block inputs and outputs
     let sig = sign_message(&prev_privkey, pi_hash)?;

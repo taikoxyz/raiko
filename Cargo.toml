@@ -59,9 +59,12 @@ alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-rpc-client = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["serde"] }
 alloy-network = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["k256"] }
+alloy-contract = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["serde"]  }
 alloy-provider = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-transport-http = { git = "https://github.com/brechtpd/alloy", branch = "175" }
+alloy-signer = { git = "https://github.com/brechtpd/alloy", branch = "175" }
+alloy-signer-wallet = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 
 # ethers (TODO: remove)
 ethers-contract = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10" }
