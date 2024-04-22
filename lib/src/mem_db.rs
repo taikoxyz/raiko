@@ -21,6 +21,7 @@ use revm::{
 use serde::{Deserialize, Serialize};
 use thiserror_no_std::Error as ThisError;
 
+use crate::builder::OptimisticDatabase;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
@@ -278,5 +279,15 @@ impl DatabaseCommit for MemDb {
                     .map(|(key, value)| (key, value.present_value())),
             );
         }
+    }
+}
+
+impl OptimisticDatabase for MemDb {
+    fn fetch_data(&mut self) -> bool {
+        true
+    }
+
+    fn is_optimistic(&self) -> bool {
+        false
     }
 }
