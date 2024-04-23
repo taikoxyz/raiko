@@ -45,6 +45,17 @@ pub struct Risc0Param {
     pub execution_po2: u32,
 }
 
+impl Default for Risc0Param {
+    fn default() -> Self {
+        Self {
+            bonsai: false,
+            snark: false,
+            profile: true,
+            execution_po2: 18,
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Risc0Response {
     pub proof: String,
