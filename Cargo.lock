@@ -5188,6 +5188,7 @@ dependencies = [
  "once_cell",
  "raiko-lib",
  "raiko-primitives",
+ "regex",
  "risc0-build",
  "risc0-zkvm",
  "serde",

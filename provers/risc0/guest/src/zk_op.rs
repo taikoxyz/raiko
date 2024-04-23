@@ -71,3 +71,19 @@ impl ZkvmOperator for Risc0Operator {
         Ok(*hash)
     }
 }
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn fib() {
+        let mut a = 1;
+        let mut b = 1;
+        for _ in 0..10 {
+            let c = a + b;
+            a = b;
+            b = c;
+        }
+        assert_eq!(b, 144);
+    }
+}

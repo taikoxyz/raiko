@@ -31,6 +31,9 @@ use tracing::info as traicing_info;
 pub mod snarks;
 use crate::snarks::verify_groth16_snark;
 
+#[cfg(test)]
+mod tests;
+
 include!(concat!(env!("OUT_DIR"), "/methods.rs"));
 
 #[serde_as]

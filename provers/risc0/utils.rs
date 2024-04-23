@@ -44,7 +44,10 @@ impl GuestListEntry {
     /// Builds the [GuestListEntry] by reading the ELF from disk, and calculating the associated
     /// image ID.
     pub fn build(name: &str, elf_path: &str) -> Result<Self> {
+        println!("*************  {} *************", elf_path);
         let elf = std::fs::read(elf_path)?;
+        println!("******--*****  {} ******--*****", elf_path);
+
         // Todo(Cecilia)
         let image_id = [9u32; DIGEST_WORDS];
 
@@ -65,30 +68,36 @@ impl GuestListEntry {
         }
 
         let upper = self.name.to_uppercase().replace('-', "_");
+        let mut parts: Vec<&str> = upper.split('_').collect();
+        parts.pop();
+        parts.push("TEST");
+        let upper = parts.join("_");
+
         let image_id: [u32; DIGEST_WORDS] = self.image_id;
         let elf_path: &str = &self.path;
         let elf_contents: &[u8] = &self.elf;
-        format!(
+        let f = format!(
             r##"
 pub const {upper}_ELF: &[u8] = &{elf_contents:?};
 pub const {upper}_ID: [u32; 8] = {image_id:?};
 pub const {upper}_PATH: &str = r#"{elf_path}"#;
 "##
-        )
-    }
-
-    #[cfg(feature = "guest-list")]
-    fn codegen_list_entry(&self) -> String {
-        let upper = self.name.to_uppercase().replace('-', "_");
-        format!(
-            r##"
-    GuestListEntry {{
-        name: std::borrow::Cow::Borrowed("{upper}"),
-        elf: std::borrow::Cow::Borrowed({upper}_ELF),
-        image_id: {upper}_ID,
-        path: std::borrow::Cow::Borrowed({upper}_PATH),
-    }}"##
-        )
+        );
+        println!(
+            "elf_contents: {:?}",
+            [
+                elf_contents[100],
+                elf_contents[101],
+                elf_contents[102],
+                elf_contents[103],
+                elf_contents[104],
+                elf_contents[105],
+                elf_contents[106],
+                elf_contents[107]
+            ]
+        );
+        println!("elf_path: {:?}", elf_path);
+        f
     }
 }
 
