@@ -14,7 +14,7 @@ fn main() {
     println!("Sp1 not enabled");
 
     #[cfg(feature = "enable")]
-    sp1_helper::build_program("../guest");
+    // sp1_helper::build_program("../guest");
     
     // #[cfg(all(feature = "enable", test))]
     #[cfg(feature = "enable")]

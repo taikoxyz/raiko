@@ -37,7 +37,7 @@ risc0-build = { workspace = true, optional = true }
 methods = ["guest"]
 
 [features]
-default = ["enable"]
+# default = ["enable"]
 enable = [
     "anyhow",
     "risc0-zkvm",

@@ -1,6 +1,6 @@
 #![cfg(feature = "enable")]
 
-use std::env;
+use std::{env, println};
 
 use alloy_primitives::B256;
 use alloy_sol_types::SolValue;
@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use sha3::{self, Digest};
 use sp1_sdk::{utils, ProverClient, SP1Stdin};
 
-#[cfg(test)]
 mod test;
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/riscv32im-succinct-zkvm-elf");
@@ -73,4 +72,12 @@ impl Prover for Sp1Prover {
         let hash: [u8; 32] = sha3::Keccak256::digest(data).into();
         hash.into()
     }
+}
+
+#[test]
+fn testssss() {
+    // asdfdas
+    1 + 1 + 1 + 1;
+    println!("@@@@@@@@ test");
+    assert_eq!(1, 1);
 }
