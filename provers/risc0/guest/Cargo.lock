@@ -624,6 +624,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "blobby"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "847495c209977a90e8aad588b959d0ca9f5dc228096d29a6bd3defd53f35eaec"
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -916,6 +922,7 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
+ "blobby",
  "block-buffer",
  "const-oid",
  "crypto-common",
@@ -1952,7 +1959,7 @@ name = "risc0-methods"
 version = "0.1.0"
 dependencies = [
  "crypto-bigint",
- "hex-literal",
+ "digest 0.10.7",
  "k256 0.13.3 (git+https://github.com/risc0/RustCrypto-elliptic-curves?tag=k256/v0.13.3-risczero.0)",
  "raiko-lib",
  "raiko-primitives",

@@ -22,8 +22,8 @@ sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6
 crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.2-risczero.0" }
 
 [dev-dependencies]
-hex-literal = "0.4"
 sha3 = { version = "0.10", default-features = false }
+digest = { version = "0.10.7", features = ["dev"] }
 
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.2-risczero.0" }
