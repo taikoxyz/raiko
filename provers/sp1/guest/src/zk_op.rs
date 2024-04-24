@@ -114,11 +114,11 @@ mod test {
     // use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
     // use substrate_bn::Group;
 
-    use crate::{SimpleAlloc, HEAP};
+    // use crate::{SimpleAlloc, HEAP};
 
     #[test]
     fn testttt() {
-        assert_eq!(1, 1);
+        1 + 1;
     }
 
     // #[test]
