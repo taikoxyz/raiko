@@ -109,90 +109,90 @@ fn point_to_be_bytes(p: AffinePoint<Bn254, 16>) -> [u8; 64] {
 /// Todo(Cecilia): PR to `cargo prove test`
 #[cfg(test)]
 mod test {
-    // use revm_precompile::bn128;
-    // use revm_primitives::hex;
-    // use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
-    // use substrate_bn::Group;
+    use revm_precompile::bn128;
+    use revm_primitives::hex;
+    use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
+    use substrate_bn::Group;
 
-    // use crate::{SimpleAlloc, HEAP};
+    use crate::{SimpleAlloc, HEAP};
 
     #[test]
     fn testttt() {
         1 + 1;
     }
 
-    // #[test]
-    // fn hex_to_point() {
-    //     let input = hex::decode(
-    //         "\
-    //         18b18acfb4c2c30276db5411368e7185b311dd124691610c5d3b74034e093dc9\
-    //         063c909c4720840cb5134cb9f59fa749755796819658d32efc0d288198f37266\
-    //         07c2b7f58a84bd6145f00c9c2bc0bb1a187f20ff2c92963a88019e7c6a014eed\
-    //         06614e20c147e940f2d70da3f74c9a17df361706a4485c742bd6788478fa17d7",
-    //     )
-    //     .unwrap();
+    #[test]
+    fn hex_to_point() {
+        let input = hex::decode(
+            "\
+            18b18acfb4c2c30276db5411368e7185b311dd124691610c5d3b74034e093dc9\
+            063c909c4720840cb5134cb9f59fa749755796819658d32efc0d288198f37266\
+            07c2b7f58a84bd6145f00c9c2bc0bb1a187f20ff2c92963a88019e7c6a014eed\
+            06614e20c147e940f2d70da3f74c9a17df361706a4485c742bd6788478fa17d7",
+        )
+        .unwrap();
 
-    //     // Deserialize BN point used in revm
-    //     let p = bn128::read_point(&input).unwrap();
-    //     // Extract x, y big-endian bytes
-    //     let mut p_x = [0u8; 32];
-    //     let mut p_y = [0u8; 32];
-    //     p.x().to_big_endian(&mut p_x).unwrap();
-    //     p.y().to_big_endian(&mut p_y).unwrap();
+        // Deserialize BN point used in revm
+        let p = bn128::read_point(&input).unwrap();
+        // Extract x, y big-endian bytes
+        let mut p_x = [0u8; 32];
+        let mut p_y = [0u8; 32];
+        p.x().to_big_endian(&mut p_x).unwrap();
+        p.y().to_big_endian(&mut p_y).unwrap();
 
-    //     // Deserialize AffinePoint in Sp1
-    //     let p_bytes = input
-    //         .chunks_exact(32)
-    //         .map(|chunk| {
-    //             let mut le_chunk: [u8; 32] = chunk.try_into().expect("Input size unmatch");
-    //             le_chunk.reverse();
-    //             le_chunk
-    //         })
-    //         .collect::<Vec<_>>();
-    //     let p = AffinePoint::<Bn254, 16>::from(p_bytes[0], p_bytes[1]);
+        // Deserialize AffinePoint in Sp1
+        let p_bytes = input
+            .chunks_exact(32)
+            .map(|chunk| {
+                let mut le_chunk: [u8; 32] = chunk.try_into().expect("Input size unmatch");
+                le_chunk.reverse();
+                le_chunk
+            })
+            .collect::<Vec<_>>();
+        let p = AffinePoint::<Bn254, 16>::from(p_bytes[0], p_bytes[1]);
 
-    //     let mut p_x_le = p.to_le_bytes()[..32].to_owned();
-    //     let mut p_y_le = p.to_le_bytes()[32..].to_owned();
-    //     p_x_le.reverse();
-    //     p_y_le.reverse();
+        let mut p_x_le = p.to_le_bytes()[..32].to_owned();
+        let mut p_y_le = p.to_le_bytes()[32..].to_owned();
+        p_x_le.reverse();
+        p_y_le.reverse();
 
-    //     assert!(p_x == *p_x_le);
-    //     assert!(p_y == *p_y_le);
-    // }
+        assert!(p_x == *p_x_le);
+        assert!(p_y == *p_y_le);
+    }
 
-    // #[test]
-    // fn point_to_hex() {
-    //     let G1_LE: [u8; 64] = [
-    //         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //         0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //         0, 0, 0, 0, 0, 0,
-    //     ];
+    #[test]
+    fn point_to_hex() {
+        let G1_LE: [u8; 64] = [
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+        ];
 
-    //     // Generate G1 in revm
-    //     let p = substrate_bn::G1::one();
-    //     // Extract x, y big-endian bytes
-    //     let mut p_x = [0u8; 32];
-    //     let mut p_y = [0u8; 32];
-    //     p.x().to_big_endian(&mut p_x).unwrap();
-    //     p.y().to_big_endian(&mut p_y).unwrap();
+        // Generate G1 in revm
+        let p = substrate_bn::G1::one();
+        // Extract x, y big-endian bytes
+        let mut p_x = [0u8; 32];
+        let mut p_y = [0u8; 32];
+        p.x().to_big_endian(&mut p_x).unwrap();
+        p.y().to_big_endian(&mut p_y).unwrap();
 
-    //     // G1 bytes in big-endian
-    //     let G1_BE = [p_x, p_y].concat();
+        // G1 bytes in big-endian
+        let G1_BE = [p_x, p_y].concat();
 
-    //     p_x.reverse();
-    //     p_y.reverse();
+        p_x.reverse();
+        p_y.reverse();
 
-    //     let p = AffinePoint::<Bn254, 16>::from(p_x, p_y);
-    //     let p_bytes_le = p.to_le_bytes();
+        let p = AffinePoint::<Bn254, 16>::from(p_x, p_y);
+        let p_bytes_le = p.to_le_bytes();
 
-    //     // Reverse to x, y seperatly to big-endian bytes
-    //     let mut p_bytes_be = [0; 64];
-    //     p_bytes_be[..32]
-    //         .copy_from_slice(&p_bytes_le[..32].iter().rev().copied().collect::<Vec<_>>());
-    //     p_bytes_be[32..]
-    //         .copy_from_slice(&p_bytes_le[32..].iter().rev().copied().collect::<Vec<_>>());
+        // Reverse to x, y seperatly to big-endian bytes
+        let mut p_bytes_be = [0; 64];
+        p_bytes_be[..32]
+            .copy_from_slice(&p_bytes_le[..32].iter().rev().copied().collect::<Vec<_>>());
+        p_bytes_be[32..]
+            .copy_from_slice(&p_bytes_le[32..].iter().rev().copied().collect::<Vec<_>>());
 
-    //     assert!(G1_LE == p_bytes_le);
-    //     assert!(G1_BE == p_bytes_be);
-    // }
+        assert!(G1_LE == p_bytes_le);
+        assert!(G1_BE == p_bytes_be);
+    }
 }
