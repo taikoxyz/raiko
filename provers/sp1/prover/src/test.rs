@@ -17,10 +17,10 @@ fn fibo() {
 
 #[test]
 fn test_unittest_elf() {
-    // Generate the proof for the given program.
     let client = ProverClient::new();
     let mut stdin = SP1Stdin::new();
-    stdin.write::<Vec<String>>(&Vec::new());
+    // test binary takes the same input as main binary
+    stdin.write(&crate::GuestInput::default());
 
     let mut proof = client.prove(TEST_ELF, stdin).expect("Sp1: proving failed");
 
