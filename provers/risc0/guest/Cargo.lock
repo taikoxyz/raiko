@@ -1952,6 +1952,7 @@ name = "risc0-methods"
 version = "0.1.0"
 dependencies = [
  "crypto-bigint",
+ "hex-literal",
  "k256 0.13.3 (git+https://github.com/risc0/RustCrypto-elliptic-curves?tag=k256/v0.13.3-risczero.0)",
  "raiko-lib",
  "raiko-primitives",
@@ -1959,6 +1960,7 @@ dependencies = [
  "revm-primitives",
  "risc0-zkvm",
  "sha2 0.10.6",
+ "sha3",
 ]
 
 [[package]]

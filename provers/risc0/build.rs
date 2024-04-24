@@ -156,6 +156,7 @@ where
 
     let mut cmd = cargo_command("test", &[]);
     cmd.args([
+        "--ignore-rust-version",
         "--no-run",
         "--manifest-path",
         pkg.manifest_path.as_str(),
