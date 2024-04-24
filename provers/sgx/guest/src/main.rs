@@ -8,7 +8,7 @@ extern crate secp256k1;
 use anyhow::Result;
 use app_args::{App, Command};
 use clap::Parser;
-use one_shot::{bootstrap, one_shot};
+use one_shot::{bootstrap, load_bootstrap, one_shot};
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
@@ -22,6 +22,11 @@ pub async fn main() -> Result<()> {
         Command::Bootstrap => {
             println!("Bootstrapping the app");
             bootstrap(args.global_opts)?
+        }
+        Command::Check => {
+            println!("Checking if bootstrap is readable");
+            load_bootstrap(&args.global_opts.secrets_dir)
+                .map_err(|_| anyhow::Error::msg("check booststrap failed"))?;
         }
     }
 

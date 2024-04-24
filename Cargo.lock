@@ -4734,6 +4734,63 @@ dependencies = [
 ]
 
 [[package]]
+name = "raiko-setup"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
+ "alloy-network 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
+ "alloy-primitives",
+ "alloy-provider 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
+ "alloy-rlp",
+ "alloy-rlp-derive",
+ "alloy-rpc-client 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
+ "alloy-rpc-types 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
+ "alloy-sol-types",
+ "alloy-transport-http 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175)",
+ "anyhow",
+ "assert_cmd",
+ "bincode",
+ "bytemuck",
+ "cap",
+ "cfg-if",
+ "clap 4.5.4",
+ "dirs",
+ "env_logger",
+ "ethers-core",
+ "flate2",
+ "hashbrown 0.14.3",
+ "hyper 0.14.28",
+ "lazy_static",
+ "lru_time_cache",
+ "once_cell",
+ "prometheus",
+ "proptest",
+ "raiko-lib",
+ "raiko-primitives",
+ "reqwest 0.11.27",
+ "reqwest 0.12.4",
+ "revm",
+ "risc0-prover",
+ "rlp",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sgx-prover",
+ "sha2",
+ "sp1-helper",
+ "sp1-prover",
+ "structopt",
+ "thiserror",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber 0.3.18",
+ "url",
+]
+
+[[package]]
 name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

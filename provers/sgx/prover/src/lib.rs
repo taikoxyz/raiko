@@ -4,12 +4,13 @@ use std::{
     fs::{copy, create_dir_all, remove_file},
     path::PathBuf,
     process::{Command as StdCommand, Output, Stdio},
-    str,
+    str::{self, FromStr},
 };
 
 use alloy_sol_types::SolValue;
 use once_cell::sync::Lazy;
 use raiko_lib::{
+    consts::{get_network_spec, Network},
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
@@ -19,6 +20,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::serde_as;
 use tokio::{process::Command, sync::OnceCell};
+
+pub use crate::sgx_register_utils::register_sgx_instance;
+
+pub const PRIV_KEY_FILENAME: &str = "priv.key";
 
 // to register the instance id
 mod sgx_register_utils;
@@ -58,7 +63,7 @@ impl Prover for SgxProver {
         _output: GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        let config = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
+        let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
@@ -84,7 +89,7 @@ impl Prover for SgxProver {
         println!("Current directory: {:?}\n", cur_dir);
         // Working paths
         PRIVATE_KEY
-            .get_or_init(|| async { cur_dir.join("secrets").join("priv.key") })
+            .get_or_init(|| async { cur_dir.join("secrets").join(PRIV_KEY_FILENAME) })
             .await;
         GRAMINE_MANIFEST_TEMPLATE
             .get_or_init(|| async {
@@ -108,20 +113,39 @@ impl Prover for SgxProver {
         };
 
         // Setup: run this once while setting up your SGX instance
-        if config.setup {
+        if sgx_param.setup {
             setup(&cur_dir, direct_mode).await?;
         }
 
-        let mut sgx_proof = if config.bootstrap {
-            bootstrap(cur_dir.clone(), gramine_cmd()).await
+        let mut sgx_proof: Result<SgxResponse, ProverError> = if sgx_param.bootstrap {
+            let bootstrap_proof = bootstrap(cur_dir.clone().join("secrets"), gramine_cmd()).await?;
+
+            // #[cfg(feature = "k8s-all-in-one")]
+            {
+                let l1_network: Network =
+                    Network::from_str(config.get("network").unwrap().as_str().unwrap()).unwrap();
+                let l2_network: Network =
+                    Network::from_str(config.get("l1_network").unwrap().as_str().unwrap()).unwrap();
+                let register_res = register_sgx_instance(
+                    &bootstrap_proof.quote,
+                    config.get("l1_rpc").unwrap().as_str().unwrap(),
+                    get_network_spec(l1_network).chain_id,
+                    get_network_spec(l2_network).sgx_verifier_address.unwrap(),
+                )
+                .await;
+                if let Err(e) = register_res {
+                    return Err(ProverError::GuestError(e.to_string()));
+                }
+            }
+            Ok(bootstrap_proof)
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
         };
 
-        if config.prove {
+        if sgx_param.prove {
             // overwirte sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
-            sgx_proof = prove(gramine_cmd(), input.clone(), config.instance_id).await
+            sgx_proof = prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
         }
 
         to_proof(sgx_proof)
@@ -205,14 +229,41 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
     Ok(())
 }
 
-async fn bootstrap(
-    dir: PathBuf,
+pub async fn check_bootstrap(
+    secret_dir: PathBuf,
+    mut gramine_cmd: StdCommand,
+) -> ProverResult<(), ProverError> {
+    tokio::task::spawn_blocking(move || {
+        // Check if the private key exists
+        let path = secret_dir.join(PRIV_KEY_FILENAME);
+        if !path.exists() {
+            Err(ProverError::GuestError(
+                "Private key does not exist".to_string(),
+            ))
+        } else {
+            // Check if the private key is valid
+            let output = gramine_cmd.arg("check").output().map_err(|e| {
+                ProverError::GuestError(handle_gramine_error(
+                    "Could not run SGX guest bootstrap",
+                    e,
+                ))
+            })?;
+            handle_output(&output, "SGX check bootstrap")?;
+            Ok(())
+        }
+    })
+    .await
+    .map_err(|e| ProverError::GuestError(e.to_string()))?
+}
+
+pub async fn bootstrap(
+    secret_dir: PathBuf,
     mut gramine_cmd: StdCommand,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
         // Bootstrap with new private key for signing proofs
         // First delete the private key if it already exists
-        let path = dir.join("secrets").join("priv.key");
+        let path = secret_dir.join(PRIV_KEY_FILENAME);
         if path.exists() {
             if let Err(e) = remove_file(&path) {
                 println!("Error deleting file: {}", e);
