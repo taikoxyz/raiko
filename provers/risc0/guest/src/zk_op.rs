@@ -137,7 +137,7 @@ mod test {
         }
     }
 
-        /// End-to-end example which ensures RFC6979 is implemented in the same
+    /// End-to-end example which ensures RFC6979 is implemented in the same
     /// way as other Ethereum libraries, using HMAC-DRBG-SHA-256 for RFC6979,
     /// and Keccak256 for hashing the message.
     ///
