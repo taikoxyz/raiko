@@ -155,9 +155,13 @@ n7qROhU4OOJnVs9lqNxxi8AFrJJHU2E=
 -----END CERTIFICATE-----
 ```
 
-If the response's `SGX-FMSPC` matches the one in the above example, you can proceed!
+Currently Supported FMSPCs:
+- 00606A000000
+- 00A067110000
 
-> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: *Tencent Cloud* and Alibaba Cloud. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model and Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000`.
+Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
+
+> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510) and Alibaba Cloud. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model and Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000`.
 
 [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 
