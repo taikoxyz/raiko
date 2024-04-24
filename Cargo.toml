@@ -7,7 +7,7 @@ members = [
     "provers/sp1/prover",
     "provers/risc0",
     "provers/sgx/prover",
-    "provers/sgx/guest",
+    "provers/sgx/guest"
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

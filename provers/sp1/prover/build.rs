@@ -13,12 +13,12 @@ fn main() {
     #[cfg(not(feature = "enable"))]
     println!("Sp1 not enabled");
 
-    #[cfg(feature = "enable")]
-    // sp1_helper::build_program("../guest");
+    // #[cfg(feature = "enable")]
+    // sp1_helper::build_program("../testt");
 
     // #[cfg(all(feature = "enable", test))]
     #[cfg(feature = "enable")]
-    build_test("../guest");
+    build_test("../testt");
 }
 
 pub fn build_test(path: &str) {

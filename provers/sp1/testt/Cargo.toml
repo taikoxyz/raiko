@@ -1,33 +1,23 @@
-[workspace]
+ [workspace]
 
-[package]
-name = "sp1-guest"
+ [package]
+name = "my_project"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
-nama = "sp1_zk"
+name = "sp1_zk"
 path = "src/zk.rs"
 
-
-[[bin]]
-name = "sp1-benchmark"
-path = "src/benchmark.rs"
-
+# [[bin]]
+# name = "sp1-benchmark"
+# path = "src/benchmark.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std"] }
 sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
-    "taiko",
-    "std",
-] }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
-    "taiko",
-    "std",
-] }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = ["taiko","std"] }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = ["taiko","std"] }
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
 
 [dev-dependencies]
@@ -52,3 +42,5 @@ tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "pa
 # │       └── open-fastrlp v0.1.4
 # │           └── ethers-core v2.0.14 (*)
 # └── ethers-core v2.0.14 (*)
+
+
