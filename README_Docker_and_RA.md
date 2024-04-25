@@ -2,6 +2,10 @@
 
 This tutorial was created to assist you in setting up Raiko and its SGX dependencies using a Docker container. Configuring SGX can be complex without a detailed guide to walk you through each step. This tutorial strives to provide a comprehensive walkthrough, leaving no detail unaddressed.
 
+## Recommended Specs
+
+We recommended 4 cores and 8GB memory for running Raiko. 8 cores and 16GB memory is ideal; the bare minimum is 2 cores and 4GB memory (tentative).
+
 ## Prerequisites
 
 Intel SGX is a technology that involves a considerable amount of configuration. Given its high level of configurability, the setup of your infrastructure may vary significantly depending on the attestation type (EPID, ECDSA) and other parameters. While we've strived to minimize the manual effort required to prepare the development environment, there are certain prerequisites that are challenging, if not impossible, to automate using Dockerfiles. This section outlines these prerequisites.
@@ -151,7 +155,13 @@ n7qROhU4OOJnVs9lqNxxi8AFrJJHU2E=
 -----END CERTIFICATE-----
 ```
 
-If the response's `SGX-FMSPC` matches the one in the above example, you can proceed!
+Currently Supported FMSPCs:
+- 00606A000000
+- 00A067110000
+
+Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
+
+> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510) and Alibaba Cloud. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model and Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000`.
 
 [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 
