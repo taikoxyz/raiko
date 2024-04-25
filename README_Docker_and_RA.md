@@ -68,11 +68,7 @@ At the moment Raiko only supports certain `fmspc`, so to prevent wasted time che
 
 To retrieve this information, you will need to use the `PCKIDRetrievalTool` and query the Intel API.
 
-1. Retrieving PCK Certs
-
-We need to retrieve Intel's PCK Certificates
-
-Install the `PCKIDRetrievalTool`
+1. Install the `PCKIDRetrievalTool`
 
 You can install either from the Ubuntu repository:
 ```
@@ -83,9 +79,19 @@ $ sudo apt install sgx-pck-id-retrieval-tool
 ```
 Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself.
 
-After you have installed it, You should be ready to retrieve fetch Intel's certificates!
+2. Retrieve your machine's FMSPC by running the following command:
 
-Run the following command:
+```
+echo "Please enter Intel's PCS Service API key" && read -r API_KEY && PCKIDRetrievalTool -f /tmp/pckid.csv > /dev/null && pckid=$(cat /tmp/pckid.csv) && ppid=$(echo "$pckid" | awk -F "," '{print $1}') && cpusvn=$(echo "$pckid" | awk -F "," '{print $3}') && pcesvn=$(echo "$pckid" | awk -F "," '{print $4}') && pceid=$(echo "$pckid" | awk -F "," '{print $2}') && curl -v "https://api.trustedservices.intel.com/sgx/certification/v4/pckcert?encrypted_ppid=${ppid}&cpusvn=${cpusvn}&pcesvn=${pcesvn}&pceid=${pceid}" -H "Ocp-Apim-Subscription-Key:${API_KEY}" 2>&1 | grep -i "SGX-FMSPC"
+```
+
+<details>
+<summary>Or you can retrieve FMSPC step by step</summary>
+
+
+After you have installed PCKIDRetrievalTool, You should be ready to retrieve fetch Intel's certificates!
+
+1. Run the following command:
 
 ```
 PCKIDRetrievalTool
@@ -153,6 +159,8 @@ MEUCIE5VvyXrsalV8fp3Z0AbFWF4cfOJOSAaoJQLIji1TRLbAiEAsZwZGnme5EQr
 n7qROhU4OOJnVs9lqNxxi8AFrJJHU2E=
 -----END CERTIFICATE-----
 ```
+
+</details>
 
 Currently Supported FMSPCs:
 - 00606A000000
