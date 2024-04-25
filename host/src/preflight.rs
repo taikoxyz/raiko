@@ -13,7 +13,9 @@ use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use hashbrown::HashSet;
 use raiko_lib::{
-    builder::{prepare::TaikoHeaderPrepStrategy, BlockBuilder, TkoTxExecStrategy},
+    builder::{
+        prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, TkoTxExecStrategy,
+    },
     consts::{get_network_spec, Network},
     input::{
         decode_anchor, proposeBlockCall, taiko_a6::BlockProposed as TestnetBlockProposed,
@@ -28,7 +30,7 @@ use raiko_primitives::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::provider_db::{MeasuredProviderDb, ProviderDb};
+use crate::provider_db::ProviderDb;
 
 pub fn preflight(
     rpc_url: Option<String>,
@@ -41,6 +43,7 @@ pub fn preflight(
     let provider = ProviderBuilder::new().provider(RootProvider::new_http(
         reqwest::Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"),
     ));
+    let is_local = provider.client().is_local();
 
     let measurement = Measurement::start("Fetching block data...", true);
 
@@ -188,13 +191,30 @@ pub fn preflight(
         network,
         parent_block.header.number.unwrap().try_into().unwrap(),
     )?;
+
     let mut builder = BlockBuilder::new(&input)
-        .with_db(MeasuredProviderDb::new(provider_db))
-        .prepare_header::<TaikoHeaderPrepStrategy>()?
-        .execute_transactions::<TkoTxExecStrategy>()?;
+        .with_db(provider_db)
+        .prepare_header::<TaikoHeaderPrepStrategy>()?;
+
+    // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
+    let max_iterations = if is_local { 1 } else { 50 };
+    let mut done = false;
+    let mut num_iterations = 0;
+    while !done {
+        println!("Execution iteration {num_iterations}...");
+        builder.mut_db().unwrap().optimistic = if num_iterations + 1 < max_iterations {
+            true
+        } else {
+            false
+        };
+        builder = builder.execute_transactions::<TkoTxExecStrategy>()?;
+        if builder.mut_db().unwrap().fetch_data() {
+            done = true;
+        }
+        num_iterations += 1;
+    }
+    builder = builder.prepare_header::<TaikoHeaderPrepStrategy>()?;
     let provider_db = builder.mut_db().unwrap();
-    provider_db.print_report();
-    let provider_db = provider_db.db();
 
     // Gather inclusion proofs for the initial and final state
     let measurement = Measurement::start("Fetching storage proofs...", true);

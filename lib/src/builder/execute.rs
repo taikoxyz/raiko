@@ -32,7 +32,7 @@ use revm::{
     taiko, Database, DatabaseCommit, Evm,
 };
 
-use super::TxExecStrategy;
+use super::{OptimisticDatabase, TxExecStrategy};
 use crate::{
     builder::BlockBuilder,
     clear_line,
@@ -51,11 +51,13 @@ pub struct TkoTxExecStrategy {}
 impl TxExecStrategy for TkoTxExecStrategy {
     fn execute_transactions<D>(mut block_builder: BlockBuilder<D>) -> Result<BlockBuilder<D>>
     where
-        D: Database + DatabaseCommit,
+        D: Database + DatabaseCommit + OptimisticDatabase,
         <D as Database>::Error: Debug,
     {
         let mut tx_transact_duration = Duration::default();
         let mut tx_misc_duration = Duration::default();
+
+        let is_optimistic = block_builder.db().unwrap().is_optimistic();
 
         let header = block_builder
             .header
@@ -208,6 +210,9 @@ impl TxExecStrategy for TkoTxExecStrategy {
             // verify transaction gas
             let block_available_gas = block_builder.input.gas_limit - cumulative_gas_used;
             if block_available_gas < tx_env.gas_limit {
+                if is_optimistic {
+                    continue;
+                }
                 if is_anchor {
                     bail!("Error at transaction {}: gas exceeds block limit", tx_no);
                 }
@@ -235,6 +240,9 @@ impl TxExecStrategy for TkoTxExecStrategy {
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
+                    if is_optimistic {
+                        continue;
+                    }
                     if !is_taiko {
                         bail!("tx failed to execute successfully: {:?}", err);
                     }
@@ -265,7 +273,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             let start = Instant::now();
 
             // anchor tx needs to succeed
-            if is_anchor && !result.is_success() {
+            if is_anchor && !result.is_success() && !is_optimistic {
                 bail!(
                     "Error at transaction {tx_no}: execute anchor failed {result:?}, output {:?}",
                     result.output().map(|o| from_utf8(o).unwrap_or_default())
@@ -311,10 +319,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         // process withdrawals unconditionally after any transactions
         let measurement = Measurement::start("Processing withdrawals...", true);
         let mut withdrawals_trie = MptNode::default();
-        for (i, withdrawal) in take(&mut block_builder.input.withdrawals)
-            .into_iter()
-            .enumerate()
-        {
+        for (i, withdrawal) in block_builder.input.withdrawals.iter().enumerate() {
             // the withdrawal amount is given in Gwei
             let amount_wei = GWEI_TO_WEI
                 .checked_mul(withdrawal.amount.try_into().unwrap())
