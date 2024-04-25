@@ -398,8 +398,8 @@ Once your Raiko instance is running, you can verify if it was started properly a
             "proof_type": "sgx",
             "block_number": 31991,
             "rpc": "https://rpc.hekla.taiko.xyz/",
-            "l1_rpc": “{HOLESKY_RPC_URL}“,
-            "beacon_rpc": “{HOLESKY_BEACON_RPC_URL}“,
+            "l1_rpc": "{HOLESKY_RPC_URL}",
+            "beacon_rpc": "{HOLESKY_BEACON_RPC_URL}",
             "prover": "0x7b399987d24fc5951f3e94a4cb16e87414bf2229",
             "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",
             "sgx": {
