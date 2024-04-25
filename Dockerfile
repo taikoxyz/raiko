@@ -46,7 +46,7 @@ RUN mkdir -p \
     /var/log/raiko
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
-COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/config/
+COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/config/sgx-guest.local.manifest.template
 COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
 COPY --from=builder /opt/raiko/target/release/sgx-guest ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
