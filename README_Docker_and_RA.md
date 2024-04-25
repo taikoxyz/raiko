@@ -187,7 +187,7 @@ Once you have satisfied all the prerequisites, you can follow this section.
 1. Prepare your system with some necessary installations
 
 ```
-sudo apt-get update && apt-get install -y build-essential wget python-is-python3 debhelper zip libcurl4-openssl-dev pkgconf libboost-dev libboost-system-dev libboost-thread-dev protobuf-c-compiler libprotobuf-c-dev protobuf-compiler
+sudo apt-get update && sudo apt-get install -y build-essential wget python-is-python3 debhelper zip libcurl4-openssl-dev pkgconf libboost-dev libboost-system-dev libboost-thread-dev protobuf-c-compiler libprotobuf-c-dev protobuf-compiler
 ```
 
 2. Generating PCCS Certificates
