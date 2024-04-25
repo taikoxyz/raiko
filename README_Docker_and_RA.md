@@ -14,11 +14,11 @@ Intel SGX is a technology that involves a considerable amount of configuration. 
 
 Ensure that your machine has an [Intel SGX][sgx]-enabled CPU to run Raiko. You can verify if your CPU supports SGX (Software Guard Extensions) on Linux by using the [`cpuid`][cpuid] tool.
 
-1. If `cpuid` isn't already installed, you can install it. On Ubuntu, use the following command:
+1.  If `cpuid` isn't already installed, you can install it. On Ubuntu, use the following command:
 
         sudo apt-get install cpuid
 
-2. Run `cpuid` and `grep` for `sgx`:
+2.  Run `cpuid` and `grep` for `sgx`:
 
         cpuid | grep -i sgx
 
@@ -75,6 +75,7 @@ We need to retrieve Intel's PCK Certificates
 Install the `PCKIDRetrievalTool`
 
 You can install either from the Ubuntu repository:
+
 ```
 $ echo ’deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu
 focal main’ | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
@@ -82,7 +83,8 @@ $ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key 
 $ sudo apt update
 $ sudo apt install sgx-pck-id-retrieval-tool
 ```
-Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself. 
+
+Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself.
 
 After you have installed it, You should be ready to retrieve fetch Intel's certificates!
 
@@ -123,7 +125,7 @@ The response should look as follows:
 < SGX-PCK-Certificate-CA-Type: platform
 < SGX-FMSPC: 00606A000000  <-- The FMSPC we want!
 < Date: Wed, 10 Jan 2024 02:57:40 GMT
-< 
+<
 -----BEGIN CERTIFICATE-----
 MIIE8zCCBJmgAwIBAgIVALz+jYjxcX+fJomAUbCJqgifIol6MAoGCCqGSM49BAMC
 MHAxIjAgBgNVBAMMGUludGVsIFNHWCBQQ0sgUGxhdGZvcm0gQ0ExGjAYBgNVBAoM
@@ -156,12 +158,13 @@ n7qROhU4OOJnVs9lqNxxi8AFrJJHU2E=
 ```
 
 Currently Supported FMSPCs:
+
 - 00606A000000
 - 00A067110000
 
 Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
 
-> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510) and Alibaba Cloud. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model and Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000`.
+> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [_Tencent Cloud_](https://www.tencentcloud.com/document/product/213/45510) and Alibaba Cloud. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model and Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000`.
 
 [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 
@@ -231,7 +234,7 @@ Make sure you've copied the `default.json` into the .config/sgx-pccs directory y
 - `hosts`: replace it with "0.0.0.0".
 
 Ensure docker can use it by modifying permissions to the file:
- 
+
 ```
 chmod 644 default.json
 ```
@@ -310,14 +313,14 @@ pnpm compile
 3. Prepare your prover's private key
 
 ```
-export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
+export PRIVATE_KEY={PROVER_PRIVATE_KEY}
 ```
 
 4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match
 
-`SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
-`ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398 
-`PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E 
+`SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
+`ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
+`PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
 
 5. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
 
@@ -333,7 +336,7 @@ Take that quote and replace `V3_QUOTE_BYTES` in the `script/config_dcap_sgx_veri
 
 7. Call the script with `./script/config_dcap_sgx_verifier.sh`.
 
-> **_NOTE:_**  If you already have QE/TCB/Enclave already configured you can change `export TASK_ENABLE="1,1,1,1,1"` to `export TASK_ENABLE="0,0,0,0,1"` to only register the SGX instance.
+> **_NOTE:_** If you already have QE/TCB/Enclave already configured you can change `export TASK_ENABLE="1,1,1,1,1"` to `export TASK_ENABLE="0,0,0,0,1"` to only register the SGX instance.
 
 8. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
@@ -414,6 +417,11 @@ Once your Raiko instance is running, you can verify if it was started properly a
 ```
 
 Replace `HOLESKY_RPC_URL` and `HOLESKY_BEACON_RPC_URL` with your Holesky RPC urls.
+
+Rplace `block_number` with highest block number
+To retrive latest block number you can use
+
+`https://cdn.testnet.routescan.io/api/evm/167009/sync`
 
 The response should look like this:
 
