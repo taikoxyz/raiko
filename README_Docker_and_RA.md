@@ -76,13 +76,12 @@ Install the `PCKIDRetrievalTool`
 
 You can install either from the Ubuntu repository:
 ```
-$ echo ’deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu
-focal main’ | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
+$ echo "deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
 $ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
 $ sudo apt update
 $ sudo apt install sgx-pck-id-retrieval-tool
 ```
-Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself. 
+Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself.
 
 After you have installed it, You should be ready to retrieve fetch Intel's certificates!
 
@@ -250,8 +249,7 @@ mkdir ~/.config/raiko/secrets
 5. Now, clone raiko and check out the `taiko/alpha-7` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
 
 ```
-git clone https://github.com/taikoxyz/raiko.git
-git checkout taiko/alpha-7
+git clone -b taiko/alpha-7 https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 docker compose build
 ```
