@@ -77,13 +77,11 @@ Install the `PCKIDRetrievalTool`
 You can install either from the Ubuntu repository:
 
 ```
-$ echo ’deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu
-focal main’ | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
+$ echo "deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
 $ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
 $ sudo apt update
 $ sudo apt install sgx-pck-id-retrieval-tool
 ```
-
 Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself.
 
 After you have installed it, You should be ready to retrieve fetch Intel's certificates!
@@ -161,10 +159,11 @@ Currently Supported FMSPCs:
 
 - 00606A000000
 - 00A067110000
+- 00906ED50000
 
 Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
 
-> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [_Tencent Cloud_](https://www.tencentcloud.com/document/product/213/45510) and Alibaba Cloud. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model and Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000`.
+> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
 
 [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 
@@ -190,7 +189,7 @@ Once you have satisfied all the prerequisites, you can follow this section.
 1. Prepare your system with some necessary installations
 
 ```
-sudo apt-get update && apt-get install -y build-essential wget python-is-python3 debhelper zip libcurl4-openssl-dev pkgconf libboost-dev libboost-system-dev libboost-thread-dev protobuf-c-compiler libprotobuf-c-dev protobuf-compiler
+sudo apt-get update && sudo apt-get install -y build-essential wget python-is-python3 debhelper zip libcurl4-openssl-dev pkgconf libboost-dev libboost-system-dev libboost-thread-dev protobuf-c-compiler libprotobuf-c-dev protobuf-compiler
 ```
 
 2. Generating PCCS Certificates
@@ -252,8 +251,7 @@ mkdir ~/.config/raiko/secrets
 5. Now, clone raiko and check out the `taiko/alpha-7` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
 
 ```
-git clone https://github.com/taikoxyz/raiko.git
-git checkout taiko/alpha-7
+git clone -b taiko/alpha-7 https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 docker compose build
 ```
@@ -302,6 +300,13 @@ cd taiko-mono/packages/protocol
 ```
 
 2. Install [`pnpm`](https://pnpm.io/installation#on-posix-systems) and [`foundry`](https://book.getfoundry.sh/getting-started/installation) so that you can install dependencies for taiko-mono.
+
+```
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+curl -L https://foundry.paradigm.xyz | bash
+source ~/.bashrc
+foundryup
+```
 
 Once you have installed them, run the following:
 
@@ -418,7 +423,7 @@ Once your Raiko instance is running, you can verify if it was started properly a
 
 Replace `HOLESKY_RPC_URL` and `HOLESKY_BEACON_RPC_URL` with your Holesky RPC urls.
 
-Rplace `block_number` with highest block number
+Replace `block_number` with highest block number
 To retrive latest block number you can use
 
 `https://cdn.testnet.routescan.io/api/evm/167009/sync`
