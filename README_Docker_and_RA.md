@@ -301,6 +301,13 @@ cd taiko-mono/packages/protocol
 
 2. Install [`pnpm`](https://pnpm.io/installation#on-posix-systems) and [`foundry`](https://book.getfoundry.sh/getting-started/installation) so that you can install dependencies for taiko-mono.
 
+```
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+curl -L https://foundry.paradigm.xyz | bash
+source ~/.bashrc
+foundryup
+```
+
 Once you have installed them, run the following:
 
 ```
