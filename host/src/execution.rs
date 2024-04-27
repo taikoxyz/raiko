@@ -6,7 +6,7 @@ use raiko_lib::{
     input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader},
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
     prover::{to_proof, Proof, Prover, ProverResult},
-    taiko_utils::HeaderHasher,
+    utils::HeaderHasher,
     Measurement,
 };
 use raiko_primitives::B256;

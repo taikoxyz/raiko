@@ -21,7 +21,7 @@ use raiko_lib::{
         decode_anchor, proposeBlockCall, taiko_a6::BlockProposed as TestnetBlockProposed,
         BlockProposed, GuestInput, TaikoGuestInput, TaikoProverData,
     },
-    taiko_utils::{generate_transactions, to_header},
+    utils::{generate_transactions, to_header},
     Measurement,
 };
 use raiko_primitives::{
@@ -527,7 +527,7 @@ mod test {
 
     use c_kzg::KzgCommitment;
     use ethers_core::types::Transaction;
-    use raiko_lib::taiko_utils::decode_transactions;
+    use raiko_lib::utils::decode_transactions;
     use raiko_primitives::{
         eip4844::{kzg_to_versioned_hash, parse_kzg_trusted_setup, MAINNET_KZG_TRUSTED_SETUP},
         kzg::KzgSettings,

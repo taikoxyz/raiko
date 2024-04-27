@@ -4,13 +4,13 @@ use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use raiko_primitives::keccak::keccak;
 
-use super::taiko_utils::ANCHOR_GAS_LIMIT;
+use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
     consts::get_network_spec,
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    taiko_utils::HeaderHasher,
+    utils::HeaderHasher,
 };
 
 #[derive(Debug)]
