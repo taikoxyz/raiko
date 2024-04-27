@@ -56,7 +56,7 @@ impl ProviderDb {
         block_number: u64,
     ) -> Result<Self, anyhow::Error> {
         let client = ClientBuilder::default()
-            .reqwest_http(reqwest::Url::parse(&provider.client().transport().url()).unwrap());
+            .reqwest_http(reqwest::Url::parse(provider.client().transport().url()).unwrap());
 
         let mut provider_db = ProviderDb {
             provider,
@@ -269,13 +269,13 @@ impl ProviderDb {
 
                     // If we can process all keys, remove the address from the map after the loop
                     if num_keys_to_process == keys.len() {
-                        address_to_remove = Some(address.clone());
+                        address_to_remove = Some(*address);
                     }
 
                     // Extract the keys to process
                     let keys_to_process = keys
                         .drain(0..num_keys_to_process)
-                        .map(|v| StorageKey::from(v))
+                        .map(StorageKey::from)
                         .collect::<Vec<_>>();
 
                     // Add the request
@@ -284,7 +284,7 @@ impl ProviderDb {
                             .add_call::<_, EIP1186AccountProofResponse>(
                                 "eth_getProof",
                                 &(
-                                    address.clone(),
+                                    *address,
                                     keys_to_process.clone(),
                                     BlockId::from(block_number),
                                 ),
@@ -308,7 +308,7 @@ impl ProviderDb {
 
             // Collect the data from the batch
             for request in requests.into_iter() {
-                let mut proof = self.async_executor.block_on(async { request.await })?;
+                let mut proof = self.async_executor.block_on(request)?;
                 idx += proof.storage_proof.len();
                 if let Some(map_proof) = storage_proofs.get_mut(&proof.address) {
                     map_proof.storage_proof.append(&mut proof.storage_proof);
@@ -455,7 +455,7 @@ impl Database for ProviderDb {
         if let Ok(db_result) = self.staging_db.storage(address, index) {
             if self.is_valid_run() {
                 self.initial_db
-                    .insert_account_storage(&address, index, db_result.clone());
+                    .insert_account_storage(&address, index, db_result);
             }
             return Ok(db_result);
         }
@@ -471,7 +471,7 @@ impl Database for ProviderDb {
         self.initial_db.basic(address)?;
 
         // Fetch the storage value
-        let value = self.fetch_storage_slots(&vec![(address, index)])?[0].clone();
+        let value = self.fetch_storage_slots(&vec![(address, index)])?[0];
 
         self.initial_db
             .insert_account_storage(&address, index, value);
@@ -488,7 +488,7 @@ impl Database for ProviderDb {
         if let Ok(db_result) = self.staging_db.block_hash(number) {
             if self.is_valid_run() {
                 self.initial_db
-                    .insert_block_hash(block_number, db_result.clone());
+                    .insert_block_hash(block_number, db_result);
             }
             return Ok(db_result);
         }
@@ -539,7 +539,7 @@ impl OptimisticDatabase for ProviderDb {
             .zip(accounts.iter())
         {
             self.staging_db
-                .insert_account_info(address.clone(), account.clone());
+                .insert_account_info(address, account.clone());
         }
 
         let slots = self
@@ -548,7 +548,7 @@ impl OptimisticDatabase for ProviderDb {
         for ((address, index), value) in take(&mut self.pending_slots).into_iter().zip(slots.iter())
         {
             self.staging_db
-                .insert_account_storage(&address, index.clone(), value.clone());
+                .insert_account_storage(&address, index, *value);
         }
 
         let blocks = self

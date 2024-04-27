@@ -93,10 +93,8 @@ impl Measurement {
             print!("{title}");
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
-        } else {
-            if !title.is_empty() {
-                println!("{title}");
-            }
+        } else if !title.is_empty() {
+            println!("{title}");
         }
         Self {
             start: time::Instant::now(),

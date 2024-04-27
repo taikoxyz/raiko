@@ -25,7 +25,7 @@ use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::Result;
 use cap::Cap;
-use env_logger;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use server::serve;

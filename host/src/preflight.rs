@@ -202,11 +202,7 @@ pub fn preflight(
     let mut num_iterations = 0;
     while !done {
         println!("Execution iteration {num_iterations}...");
-        builder.mut_db().unwrap().optimistic = if num_iterations + 1 < max_iterations {
-            true
-        } else {
-            false
-        };
+        builder.mut_db().unwrap().optimistic = num_iterations + 1 < max_iterations;
         builder = builder.execute_transactions::<TkoTxExecStrategy>()?;
         if builder.mut_db().unwrap().fetch_data() {
             done = true;
