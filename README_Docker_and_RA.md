@@ -81,8 +81,8 @@ Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself.
 
 2. Retrieve your machine's FMSPC by running the following command:
 
-```
-echo "Please enter Intel's PCS Service API key" && read -r API_KEY && PCKIDRetrievalTool -f /tmp/pckid.csv && pckid=$(cat /tmp/pckid.csv) && ppid=$(echo "$pckid" | awk -F "," '{print $1}') && cpusvn=$(echo "$pckid" | awk -F "," '{print $3}') && pcesvn=$(echo "$pckid" | awk -F "," '{print $4}') && pceid=$(echo "$pckid" | awk -F "," '{print $2}') && curl -v "https://api.trustedservices.intel.com/sgx/certification/v4/pckcert?encrypted_ppid=${ppid}&cpusvn=${cpusvn}&pcesvn=${pcesvn}&pceid=${pceid}" -H "Ocp-Apim-Subscription-Key:${API_KEY}" 2>&1 | grep -i "SGX-FMSPC"
+```shell
+read -r -e -p "API_KEY: " -i "${API_KEY}" API_KEY && PCKIDRetrievalTool -f /tmp/pckid.csv && params=$(awk -F "," '{print "encrypted_ppid="$1"&cpusvn="$3"&pcesvn="$4"&pceid="$2}' < /tmp/pckid.csv) && curl -v "https://api.trustedservices.intel.com/sgx/certification/v4/pckcert?$params" -H "Ocp-Apim-Subscription-Key:${API_KEY}" 2>&1 | grep -i "SGX-FMSPC"
 ```
 
 <details>
