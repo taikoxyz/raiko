@@ -7,13 +7,22 @@ edition = "2021"
 
 [lib]
 name = "bar"
-path = "src/lib.rs"
+path = "src/bar.rs"
 
 [[bin]]
 name = "foo"
 path = "src/foo.rs"
 
-[build-dependencies]
-pipeline = { path = "../" }
+[dependencies]
+cfg-if = "0.1.10"
+sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main", optional = true }
+risc0-zkvm = { version = "0.21.0", features = [ "std" ], optional = true }
+
+[features]
+default = ["risc0"]
+sp1 = ["sp1-zkvm"]
+risc0 = ["risc0-zkvm"]
+
+
 
 [workspace]

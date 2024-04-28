@@ -218,7 +218,7 @@ impl GuestBuilder {
     //    └── bin2               --> this is the output (same)
     pub fn build_command(&self, profile: &str, bins: &Vec<String>) -> Executor {
         let args = vec!["build".to_string()];
-        let cmd = self.inner_command(args, profile, bins);
+        let cmd = self.inner_command(args, profile, bins.clone());
         let target_path: PathBuf = self
             .meta
             .target_directory
@@ -229,6 +229,7 @@ impl GuestBuilder {
             .meta
             .bins()
             .iter()
+            .filter(|t| bins.iter().any(|b| b.contains(&t.name)))
             .map(|t| target_path.join(t.name.clone()))
             .collect::<Vec<_>>();
 
@@ -251,7 +252,7 @@ impl GuestBuilder {
     // Thus the test artifacts path are hypothetical because we don't know the hash yet
     pub fn test_command(&self, profile: &str, bins: &Vec<String>) -> Executor {
         let args = vec!["test".to_string(), "--no-run".to_string()];
-        let cmd = self.inner_command(args, profile, bins);
+        let cmd = self.inner_command(args, profile, bins.clone());
         let target_path: PathBuf = self
             .meta
             .target_directory
@@ -259,10 +260,15 @@ impl GuestBuilder {
             .join(profile)
             .join("deps")
             .into();
+        println!("tests {:?}", bins);
         let artifacts = self
             .meta
             .tests()
             .iter()
+            .filter(|t| {
+                println!("*************** {:?}", t.name);
+                bins.iter().any(|b| b.contains(&t.name))
+            })
             .map(|t| target_path.join(t.name.clone()))
             .collect::<Vec<_>>();
 
@@ -277,7 +283,7 @@ impl GuestBuilder {
         &self,
         mut args: Vec<String>,
         profile: &str,
-        bins: &Vec<String>,
+        mut bins: Vec<String>,
     ) -> Command {
         let GuestBuilder {
             meta,
@@ -303,6 +309,14 @@ impl GuestBuilder {
             "--locked".to_string(),
         ]);
         if !bins.is_empty() {
+            let libs = meta
+                .libs()
+                .iter()
+                .filter(|t| bins.iter().any(|b| b.contains(&t.name)))
+                .map(|t| t.name.clone())
+                .collect::<Vec<_>>();
+            bins.retain(|x| !libs.contains(x));
+            args.extend(format_flags("--lib", &libs));
             args.extend(format_flags("--bin", &bins));
         }
         if let Some(z_flags) = z_flags {

@@ -33,13 +33,13 @@ pub mod sp1 {
     pub fn tests(manifest: &str, bins: &[&str]) {
         let meta = parse_metadata(manifest);
         let bins = meta
-            .bins()
+            .tests()
             .iter()
             .filter(|t| bins.iter().any(|b| b.contains(&t.name)))
             .map(|t| t.name.clone())
             .collect::<Vec<_>>();
 
-        println!("Compiling Sp1 bins: {:?}", bins);
+        println!("Compiling Sp1 tests: {:?}", bins);
         inner(meta, &bins, true, "release");
     }
 
@@ -70,7 +70,7 @@ pub mod risc0 {
     use super::*;
     use crate::risc0_util::*;
 
-    /// Compile the specified Sp1 binaries in the manifest
+    /// Compile the specified Ris0 binaries in the manifest
     pub fn bins(manifest: &str, bins: &[&str], dest: &[&str]) {
         let meta = parse_metadata(manifest);
         let bins = meta
@@ -80,38 +80,38 @@ pub mod risc0 {
             .map(|t| t.name.clone())
             .collect::<Vec<_>>();
 
-        println!("Compiling Sp1 bins: {:?}", bins);
+        println!("Compiling Ris0 bins: {:?}", bins);
         inner(meta, &bins, dest, false, "debug");
     }
 
-    /// Compile the specified Sp1 test in the manifest
+    /// Compile the specified Ris0 test in the manifest
     pub fn tests(manifest: &str, bins: &[&str], dest: &[&str]) {
         let meta = parse_metadata(manifest);
         let bins = meta
-            .bins()
+            .tests()
             .iter()
             .filter(|t| bins.iter().any(|b| b.contains(&t.name)))
             .map(|t| t.name.clone())
             .collect::<Vec<_>>();
 
-        println!("Compiling Sp1 bins: {:?}", bins);
+        println!("Compiling Ris0 tests: {:?}", bins);
         inner(meta, &bins, dest, true, "debug");
     }
 
     pub fn inner(meta: Metadata, bins: &Vec<String>, dest: &[&str], test: bool, profile: &str) {
-        let mut builder = GuestBuilder::new(&meta, "riscv32im-risc0-zkvm-elf", "risc0")
-            .rust_flags(&[
+        let mut builder =
+            GuestBuilder::new(&meta, "riscv32im-risc0-zkvm-elf", "risc0").rust_flags(&[
                 "passes=loweratomic",
                 "link-arg=-Ttext=0x00200800",
                 "link-arg=--fatal-warnings",
                 "panic=abort",
-            ])
-            .cc_compiler(
-                risc0_data()
-                    .unwrap()
-                    .join("cpp/bin/riscv32-unknown-elf-gcc"),
-            )
-            .c_flags(&["-march=rv32im", "-nostdlib"]);
+            ]);
+        // .cc_compiler(
+        //     risc0_data()
+        //         .unwrap()
+        //         .join("cpp/bin/riscv32-unknown-elf-gcc"),
+        // )
+        // .c_flags(&["-march=rv32im", "-nostdlib"]);
         builder.unset_cargo();
         let executor = if !test {
             builder.build_command(profile, bins)
