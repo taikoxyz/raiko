@@ -117,27 +117,8 @@ impl Prover for SgxProver {
             setup(&cur_dir, direct_mode).await?;
         }
 
-        let mut sgx_proof: Result<SgxResponse, ProverError> = if sgx_param.bootstrap {
-            let bootstrap_proof = bootstrap(cur_dir.clone().join("secrets"), gramine_cmd()).await?;
-
-            // #[cfg(feature = "k8s-all-in-one")]
-            {
-                let l1_network: Network =
-                    Network::from_str(config.get("network").unwrap().as_str().unwrap()).unwrap();
-                let l2_network: Network =
-                    Network::from_str(config.get("l1_network").unwrap().as_str().unwrap()).unwrap();
-                let register_res = register_sgx_instance(
-                    &bootstrap_proof.quote,
-                    config.get("l1_rpc").unwrap().as_str().unwrap(),
-                    get_network_spec(l1_network).chain_id,
-                    get_network_spec(l2_network).sgx_verifier_address.unwrap(),
-                )
-                .await;
-                if let Err(e) = register_res {
-                    return Err(ProverError::GuestError(e.to_string()));
-                }
-            }
-            Ok(bootstrap_proof)
+        let mut sgx_proof = if sgx_param.bootstrap {
+            bootstrap(cur_dir.clone().join("secrets"), gramine_cmd()).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
