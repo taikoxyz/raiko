@@ -310,6 +310,7 @@ mod test {
         println!("{:?}", parsed_quote);
     }
 
+    #[ignore = "anvil test"]
     #[test]
     fn test_tx_call_register() {
         let rt = tokio::runtime::Runtime::new().unwrap();
@@ -322,6 +323,7 @@ mod test {
     async fn simple_test_register_sgx_instance(
         quote_str: &str,
     ) -> Result<u64, Box<dyn std::error::Error>> {
+        // change chain_id & sgx_verifier_address to anvil env accordingly
         register_sgx_instance(
             quote_str,
             "http://localhost:8545/",
