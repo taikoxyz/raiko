@@ -66,7 +66,7 @@ impl Executor {
 
         for src in &self.artifacts {
             let dest = dest.join(if self.test {
-                format!("test-{}", file_name(src))
+                format!("test-{}", file_name(src).split("-").collect::<Vec<_>>()[0])
             } else {
                 file_name(src)
             });

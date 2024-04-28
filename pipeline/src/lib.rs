@@ -3,6 +3,8 @@ mod executor;
 #[cfg(feature = "risc0")]
 mod risc0_util;
 
+use std::path::PathBuf;
+
 use builder::{parse_metadata, GuestBuilder, GuestMetadata};
 use cargo_metadata::Metadata;
 
@@ -15,9 +17,9 @@ fn main() {
 pub mod sp1 {
     use super::*;
 
-    /// Compile the specified Sp1 binaries in the manifest
-    pub fn bins(manifest: &str, bins: &[&str]) {
-        let meta = parse_metadata(manifest);
+    /// Compile the specified Sp1 binaries in the project
+    pub fn bins(project: &str, bins: &[&str]) {
+        let meta = parse_metadata(project);
         let bins = meta
             .bins()
             .iter()
@@ -29,9 +31,9 @@ pub mod sp1 {
         inner(meta, &bins, false, "release");
     }
 
-    /// Compile the specified Sp1 test in the manifest
-    pub fn tests(manifest: &str, bins: &[&str]) {
-        let meta = parse_metadata(manifest);
+    /// Compile the specified Sp1 test in the project
+    pub fn tests(project: &str, bins: &[&str]) {
+        let meta = parse_metadata(project);
         let bins = meta
             .tests()
             .iter()
@@ -44,6 +46,7 @@ pub mod sp1 {
     }
 
     pub fn inner(meta: Metadata, bins: &Vec<String>, test: bool, profile: &str) {
+        rerun_if_changed(&[meta.target_directory.parent().unwrap().into()], &[]);
         let builder = GuestBuilder::new(&meta, "riscv32im-succinct-zkvm-elf", "succinct")
             .rust_flags(&[
                 "passes=loweratomic",
@@ -58,10 +61,11 @@ pub mod sp1 {
         };
         println!("executor: {:?}", executor);
 
-        let _ = executor
+        executor
             .execute()
             .expect("Execution failed")
-            .sp1_placement(&meta);
+            .sp1_placement(&meta)
+            .expect("Failed to export Sp1 artifacts");
     }
 }
 
@@ -70,9 +74,9 @@ pub mod risc0 {
     use super::*;
     use crate::risc0_util::*;
 
-    /// Compile the specified Ris0 binaries in the manifest
-    pub fn bins(manifest: &str, bins: &[&str], dest: &[&str]) {
-        let meta = parse_metadata(manifest);
+    /// Compile the specified Ris0 binaries in the project
+    pub fn bins(project: &str, bins: &[&str], dest: &[&str]) {
+        let meta = parse_metadata(project);
         let bins = meta
             .bins()
             .iter()
@@ -84,9 +88,9 @@ pub mod risc0 {
         inner(meta, &bins, dest, false, "debug");
     }
 
-    /// Compile the specified Ris0 test in the manifest
-    pub fn tests(manifest: &str, bins: &[&str], dest: &[&str]) {
-        let meta = parse_metadata(manifest);
+    /// Compile the specified Ris0 test in the project
+    pub fn tests(project: &str, bins: &[&str], dest: &[&str]) {
+        let meta = parse_metadata(project);
         let bins = meta
             .tests()
             .iter()
@@ -99,6 +103,7 @@ pub mod risc0 {
     }
 
     pub fn inner(meta: Metadata, bins: &Vec<String>, dest: &[&str], test: bool, profile: &str) {
+        rerun_if_changed(&[meta.target_directory.parent().unwrap().into()], &[]);
         let mut builder =
             GuestBuilder::new(&meta, "riscv32im-risc0-zkvm-elf", "risc0").rust_flags(&[
                 "passes=loweratomic",
@@ -121,9 +126,22 @@ pub mod risc0 {
 
         println!("executor: {:?}", executor);
 
-        let _ = executor
+        executor
             .execute()
             .expect("Execution failed")
-            .risc0_placement(&meta, dest);
+            .risc0_placement(&meta, dest)
+            .expect("Failed to export Ris0 artifacts");
+    }
+}
+
+pub fn rerun_if_changed(paths: &[PathBuf], env_vars: &[&str]) {
+    // Only work in build.rs
+    // Tell cargo to rerun the script only if program/{src, Cargo.toml, Cargo.lock} changes
+    // Ref: https://doc.rust-lang.org/nightly/cargo/reference/build-scripts.html#rerun-if-changed
+    for p in paths {
+        println!("cargo::rerun-if-changed={}", p.display());
+    }
+    for v in env_vars {
+        println!("cargo::rerun-if-env-changed={}", v);
     }
 }

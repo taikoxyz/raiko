@@ -4,7 +4,4 @@ use pipeline;
 /// Risc0 only works with build.rs
 fn main() {
     println!("Hello, world!");
-
-    // pipeline::sp1::bins("../example", &["example", "foo"]);
-    // pipeline::sp1::tests("../example", &["example", "foo", "bar"]);
 }

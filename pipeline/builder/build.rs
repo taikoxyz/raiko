@@ -1,20 +1,34 @@
 use pipeline;
 
+#[cfg(feature = "sp1")]
+fn main() {
+    pipeline::sp1::bins("../example-sp1", &["example", "foo"]);
+    pipeline::sp1::tests("../example-sp1", &["example", "bar"]);
+}
+
+#[cfg(feature = "risc0")]
 /// Build the example project with both sp1 and risc0 from build.rs
 /// Risc0 only works with build.rs
 fn main() {
-    println!("Hello, world!");
     pipeline::risc0::bins(
-        "../example",
+        "../example-risc0",
         &["example", "foo"],
-        &["../example/methods/example.rs", "../example/methods/foo.rs"],
-    );
-    pipeline::risc0::tests(
-        "../example",
-        &["example", "bar"],
         &[
-            "../example/methods/test_example.rs",
-            "../example/methods/test_bar.rs",
+            "../example-risc0/methods/example.rs",
+            "../example-risc0/methods/foo.rs",
         ],
     );
+    pipeline::risc0::tests(
+        "../example-risc0",
+        &["example", "bar"],
+        &[
+            "../example-risc0/methods/test_example.rs",
+            "../example-risc0/methods/test_bar.rs",
+        ],
+    );
+}
+
+#[cfg(not(any(feature = "sp1", feature = "risc0")))]
+fn main() {
+    println!("Hello, world!");
 }

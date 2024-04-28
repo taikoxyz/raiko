@@ -11,6 +11,10 @@ pipeline = { path = "../" }
 [build-dependencies]
 pipeline = { path = "../" }
 
+[features]
+sp1 = []
+risc0 = []
+
 [workspace]
 
 
