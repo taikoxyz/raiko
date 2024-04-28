@@ -1,10 +1,11 @@
 use anyhow::Result;
 use cargo_metadata::Metadata;
 use regex::Regex;
+use std::fs::File;
 use std::io::BufRead;
 use std::{
     fs,
-    io::BufReader,
+    io::{BufReader, Write},
     path::PathBuf,
     process::{Command, Stdio},
     thread,
@@ -57,6 +58,7 @@ impl Executor {
         Ok(self)
     }
 
+    #[cfg(feature = "sp1")]
     pub fn sp1_placement(&self, meta: &Metadata) -> Result<()> {
         let parant = meta.target_directory.parent().unwrap();
         let dest = parant.join("elf");
@@ -75,17 +77,20 @@ impl Executor {
     }
 
     #[cfg(feature = "risc0")]
-    pub fn risc0_placement(&self, meta: &Metadata, dest: &str) -> Result<()> {
+    pub fn risc0_placement(&self, meta: &Metadata, dest: &[&str]) -> Result<()> {
+        use crate::risc0_util::GuestListEntry;
+        use std::env;
+
+        assert!(dest.len() == self.artifacts.len());
         let parant = meta.target_directory.parent().unwrap();
-        let mut dest = File::create(&dest).unwrap();
-        for src in &self.artifacts {
-            let src_name = file_name(&src);
-            println!("src: {:?}", src);
+        let _current = env::current_dir()?;
+        for (i, src) in self.artifacts.iter().enumerate() {
+            let mut dest = File::create(dest[i]).unwrap();
             let guest = GuestListEntry::build(
                 &if self.test {
-                    format!("test-{}", src_name)
+                    format!("test-{}", file_name(&src))
                 } else {
-                    src_name
+                    file_name(&src)
                 },
                 &parant.join(src.to_str().unwrap()).to_string(),
             )

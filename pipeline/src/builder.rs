@@ -4,31 +4,6 @@ use std::{collections::HashMap, env, path::PathBuf, process::Command};
 
 use crate::executor::Executor;
 
-// #[test]
-// fn testt() {
-//     let meta = super::parse_metadata("../cunt");
-//     let tests = meta.tests();
-//     let bins = meta.bins();
-//     let libs = meta.libs();
-//     [tests, bins, libs].iter().for_each(|ps| {
-//         let names = ps.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
-//         println!("{:?}\n", names);
-//     });
-
-//     let builder = GuestBuilder::new(&meta, "riscv32im-succinct-zkvm-elf", "succinct")
-//         .rust_flags(&[
-//             "passes=loweratomic",
-//             "link-arg=-Ttext=0x00200800",
-//             "panic=abort",
-//         ])
-//         .custom_args(&["--ignore-rust-version"]);
-//     let mut cmd = builder.build_command("release", []);
-//     println!("\n{:?}", cmd);
-
-//     let res = cmd.status().expect("Failed to run cargo command.");
-//     assert!(res.success());
-// }
-
 pub fn parse_metadata(path: &str) -> Metadata {
     let manifest = std::path::Path::new(path).join("Cargo.toml");
     let mut metadata_cmd = cargo_metadata::MetadataCommand::new();
@@ -170,15 +145,15 @@ impl GuestBuilder {
         }
     }
 
-    fn unset_cargo(&mut self) {
+    pub fn unset_cargo(&mut self) {
         self.cargo = None;
     }
 
-    fn unset_rustc(&mut self) {
+    pub fn unset_rustc(&mut self) {
         self.rustc = None;
     }
 
-    fn sanitized_env(mut self, env_vars: &[&str]) -> Self {
+    pub fn sanitized_env(mut self, env_vars: &[&str]) -> Self {
         self.sanitized_env = to_strings(env_vars);
         self
     }

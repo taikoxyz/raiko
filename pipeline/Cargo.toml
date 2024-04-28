@@ -4,10 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "run-pipeline"
+path = "bin/main.rs"
 
 [dependencies]
-cargo_metadata = {workspace = true}
+cargo_metadata = { workspace = true}
 chrono = { workwpace = true }
 regex = { workspace = true }
 anyhow = { workspace = true }
 dirs = { workspace = true }
+
+[features]
+default = ["risc0", "sp1"]
+risc0 = []
+sp1 = []
