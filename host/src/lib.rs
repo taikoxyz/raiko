@@ -122,7 +122,9 @@ fn merge(a: &mut Value, b: &Value) {
                 merge(a.entry(k.clone()).or_insert(Value::Null), v);
             }
         }
-        (a, b) => *a = b.clone(),
+        (a, b) if !b.is_null() => *a = b.clone(),
+        // If b is null, just keep a (which means do nothing).
+        _ => {}
     }
 }
 
