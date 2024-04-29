@@ -1,5 +1,5 @@
 use anyhow::Result;
-use cargo_metadata::Metadata;
+
 use regex::Regex;
 use std::fs::File;
 use std::io::BufRead;
@@ -68,7 +68,7 @@ impl Executor {
 
         for src in &self.artifacts {
             let dest = dest.join(if self.test {
-                format!("test-{}", file_name(src).split("-").collect::<Vec<_>>()[0])
+                format!("test-{}", file_name(src).split('-').collect::<Vec<_>>()[0])
             } else {
                 file_name(src)
             });
@@ -81,7 +81,7 @@ impl Executor {
     #[cfg(feature = "risc0")]
     pub fn risc0_placement(&self, dest: &[&str]) -> Result<()> {
         use crate::{risc0_util::GuestListEntry, ROOT_DIR};
-        use std::env;
+        
 
         assert!(dest.len() == self.artifacts.len());
         let root = ROOT_DIR.get().unwrap();
@@ -92,9 +92,9 @@ impl Executor {
             let mut dest = File::create(dest[i]).unwrap();
             let guest = GuestListEntry::build(
                 &if self.test {
-                    format!("test-{}", file_name(&src))
+                    format!("test-{}", file_name(src))
                 } else {
-                    file_name(&src)
+                    file_name(src)
                 },
                 root.join(src).to_str().unwrap(),
             )

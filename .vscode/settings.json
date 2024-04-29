@@ -21,5 +21,6 @@
     ],
     "rust-analyzer.linkedProjects": [
         "Cargo.toml",
+        "pipeline/example-builder/Cargo.toml",
     ]
 }

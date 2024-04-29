@@ -12,7 +12,6 @@ static ROOT_DIR: OnceCell<PathBuf> = OnceCell::new();
 
 #[cfg(feature = "sp1")]
 pub mod sp1 {
-    use std::str::FromStr;
 
     use super::*;
 
@@ -47,6 +46,7 @@ pub mod sp1 {
     }
 
     pub fn inner(meta: Metadata, bins: &Vec<String>, test: bool, profile: &str) {
+        // Only work in build.rs, when run in main has no effects
         rerun_if_changed(
             &[
                 ROOT_DIR.get().unwrap().join("src"),
@@ -80,7 +80,6 @@ pub mod sp1 {
 #[cfg(feature = "risc0")]
 pub mod risc0 {
     use super::*;
-    use crate::risc0_util::*;
 
     /// Compile the specified Ris0 binaries in the project
     pub fn bins(project: &str, bins: &[&str], dest: &[&str]) {
@@ -113,6 +112,7 @@ pub mod risc0 {
     }
 
     pub fn inner(meta: Metadata, bins: &Vec<String>, dest: &[&str], test: bool, profile: &str) {
+        // Only work in build.rs, when run in main has no effects
         rerun_if_changed(
             &[
                 ROOT_DIR.get().unwrap().join("src"),

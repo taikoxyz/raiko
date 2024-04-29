@@ -487,8 +487,7 @@ impl Database for ProviderDb {
         }
         if let Ok(db_result) = self.staging_db.block_hash(number) {
             if self.is_valid_run() {
-                self.initial_db
-                    .insert_block_hash(block_number, db_result);
+                self.initial_db.insert_block_hash(block_number, db_result);
             }
             return Ok(db_result);
         }

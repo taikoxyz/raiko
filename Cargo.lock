@@ -4297,6 +4297,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cargo_metadata 0.18.1",
+ "cfg-if",
  "chrono",
  "dirs",
  "once_cell",

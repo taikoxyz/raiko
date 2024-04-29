@@ -294,8 +294,6 @@ impl GuestBuilder {
             ..
         } = self.clone();
 
-        assert_eq!(1, 2);
-
         // Construct cargo args
         // `--{profile} {bin} --target {target} --locked -Z {z_flags}`
         if profile != "debug" {

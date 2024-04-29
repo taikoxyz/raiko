@@ -1,8 +1,5 @@
 use anyhow::Result;
-use std::{
-    borrow::Cow,
-    path::{PathBuf},
-};
+use std::{borrow::Cow, path::PathBuf};
 
 pub const DIGEST_WORDS: usize = 8;
 
@@ -43,7 +40,7 @@ impl GuestListEntry {
         Ok(Self {
             name: Cow::Owned(name.to_owned()),
             elf: Cow::Owned(elf),
-            image_id: image_id.into(),
+            image_id,
             path: Cow::Owned(elf_path.to_owned()),
         })
     }
