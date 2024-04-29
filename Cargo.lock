@@ -4299,6 +4299,7 @@ dependencies = [
  "cargo_metadata 0.18.1",
  "chrono",
  "dirs",
+ "once_cell",
  "regex",
 ]
 

@@ -16,13 +16,16 @@ fn fibonacci(n: u32) -> u32 {
 pub fn main() {
     let result = black_box(fibonacci(black_box(1000)));
     println!("result: {}", result);
+
+    #[cfg(test)]
+    test::fibb()
 }
 
 #[cfg(test)]
 mod test {
 
     #[test]
-    fn fib() {
+    pub fn fibb() {
         let mut a = 1;
         let mut b = 1;
         for _ in 0..10 {
@@ -30,6 +33,12 @@ mod test {
             a = b;
             b = c;
         }
-        assert_eq!(b, 144);
+        assert_eq!(b, 145);
+        panic!("this is a test panic");
+    }
+
+    #[test]
+    pub fn shithole() {
+        assert_eq!(1, 2);
     }
 }

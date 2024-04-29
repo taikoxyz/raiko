@@ -7,8 +7,6 @@ fn main() {
 }
 
 #[cfg(feature = "risc0")]
-/// Build the example project with both sp1 and risc0 from build.rs
-/// Risc0 only works with build.rs
 fn main() {
     pipeline::risc0::bins(
         "../example-risc0",

@@ -59,9 +59,11 @@ impl Executor {
     }
 
     #[cfg(feature = "sp1")]
-    pub fn sp1_placement(&self, meta: &Metadata) -> Result<()> {
-        let parant = meta.target_directory.parent().unwrap();
-        let dest = parant.join("elf");
+    pub fn sp1_placement(&self) -> Result<()> {
+        use crate::ROOT_DIR;
+
+        let root = ROOT_DIR.get().unwrap();
+        let dest = root.join("elf");
         fs::create_dir_all(&dest)?;
 
         for src in &self.artifacts {
@@ -70,21 +72,23 @@ impl Executor {
             } else {
                 file_name(src)
             });
-            fs::copy(parant.join(src.to_str().unwrap()), dest.clone())?;
+            fs::copy(root.join(src.to_str().unwrap()), dest.clone())?;
             println!("Copied test elf from\n[{:?}]\nto\n[{:?}]", src, dest);
         }
         Ok(())
     }
 
     #[cfg(feature = "risc0")]
-    pub fn risc0_placement(&self, meta: &Metadata, dest: &[&str]) -> Result<()> {
-        use crate::risc0_util::GuestListEntry;
+    pub fn risc0_placement(&self, dest: &[&str]) -> Result<()> {
+        use crate::{risc0_util::GuestListEntry, ROOT_DIR};
         use std::env;
 
         assert!(dest.len() == self.artifacts.len());
-        let parant = meta.target_directory.parent().unwrap();
-        let _current = env::current_dir()?;
+        let root = ROOT_DIR.get().unwrap();
         for (i, src) in self.artifacts.iter().enumerate() {
+            PathBuf::from(dest[i])
+                .parent()
+                .map_or((), |p| fs::create_dir_all(p).unwrap());
             let mut dest = File::create(dest[i]).unwrap();
             let guest = GuestListEntry::build(
                 &if self.test {
@@ -92,7 +96,7 @@ impl Executor {
                 } else {
                     file_name(&src)
                 },
-                &parant.join(src.to_str().unwrap()).to_string(),
+                root.join(src).to_str().unwrap(),
             )
             .unwrap();
             dest.write_all(guest.codegen_consts().as_bytes())?;

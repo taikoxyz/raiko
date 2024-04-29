@@ -2,7 +2,7 @@ use cargo_metadata::{Metadata, Target};
 
 use std::{collections::HashMap, env, path::PathBuf, process::Command};
 
-use crate::executor::Executor;
+use crate::{executor::Executor, ROOT_DIR};
 
 pub fn parse_metadata(path: &str) -> Metadata {
     let manifest = std::path::Path::new(path).join("Cargo.toml");
@@ -265,10 +265,7 @@ impl GuestBuilder {
             .meta
             .tests()
             .iter()
-            .filter(|t| {
-                println!("*************** {:?}", t.name);
-                bins.iter().any(|b| b.contains(&t.name))
-            })
+            .filter(|t| bins.iter().any(|b| b.contains(&t.name)))
             .map(|t| target_path.join(t.name.clone()))
             .collect::<Vec<_>>();
 
@@ -296,6 +293,8 @@ impl GuestBuilder {
             c_flags,
             ..
         } = self.clone();
+
+        assert_eq!(1, 2);
 
         // Construct cargo args
         // `--{profile} {bin} --target {target} --locked -Z {z_flags}`
@@ -328,7 +327,7 @@ impl GuestBuilder {
             Command::new(cargo.map_or("cargo".to_string(), |c| String::from(c.to_str().unwrap())));
         // Clear unwanted env vars
         self.sanitize(&mut cmd, true);
-        cmd.current_dir(meta.target_directory.parent().unwrap());
+        cmd.current_dir(ROOT_DIR.get().unwrap());
 
         // Set Rustc compiler path and flags
         cmd.env(

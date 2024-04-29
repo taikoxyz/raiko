@@ -9,6 +9,7 @@ edition = "2021"
 cargo_metadata = { workspace = true}
 chrono = { workwpace = true }
 regex = { workspace = true }
+once_cell = { workspace = true }
 anyhow = { workspace = true }
 dirs = { workspace = true }
 

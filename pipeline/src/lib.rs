@@ -3,22 +3,22 @@ mod executor;
 #[cfg(feature = "risc0")]
 mod risc0_util;
 
-use std::path::PathBuf;
-
 use builder::{parse_metadata, GuestBuilder, GuestMetadata};
 use cargo_metadata::Metadata;
+use once_cell::sync::OnceCell;
+use std::path::PathBuf;
 
-fn main() {
-    println!("Hello, world!");
-    sp1::bins("../a", &["bins", "d"]);
-}
+static ROOT_DIR: OnceCell<PathBuf> = OnceCell::new();
 
 #[cfg(feature = "sp1")]
 pub mod sp1 {
+    use std::str::FromStr;
+
     use super::*;
 
     /// Compile the specified Sp1 binaries in the project
     pub fn bins(project: &str, bins: &[&str]) {
+        ROOT_DIR.get_or_init(|| PathBuf::from(project));
         let meta = parse_metadata(project);
         let bins = meta
             .bins()
@@ -33,6 +33,7 @@ pub mod sp1 {
 
     /// Compile the specified Sp1 test in the project
     pub fn tests(project: &str, bins: &[&str]) {
+        ROOT_DIR.get_or_init(|| PathBuf::from(project));
         let meta = parse_metadata(project);
         let bins = meta
             .tests()
@@ -46,7 +47,14 @@ pub mod sp1 {
     }
 
     pub fn inner(meta: Metadata, bins: &Vec<String>, test: bool, profile: &str) {
-        rerun_if_changed(&[meta.target_directory.parent().unwrap().into()], &[]);
+        rerun_if_changed(
+            &[
+                ROOT_DIR.get().unwrap().join("src"),
+                ROOT_DIR.get().unwrap().join("Cargo.toml"),
+                ROOT_DIR.get().unwrap().join("Cargo.lock"),
+            ],
+            &[],
+        );
         let builder = GuestBuilder::new(&meta, "riscv32im-succinct-zkvm-elf", "succinct")
             .rust_flags(&[
                 "passes=loweratomic",
@@ -64,7 +72,7 @@ pub mod sp1 {
         executor
             .execute()
             .expect("Execution failed")
-            .sp1_placement(&meta)
+            .sp1_placement()
             .expect("Failed to export Sp1 artifacts");
     }
 }
@@ -76,6 +84,7 @@ pub mod risc0 {
 
     /// Compile the specified Ris0 binaries in the project
     pub fn bins(project: &str, bins: &[&str], dest: &[&str]) {
+        ROOT_DIR.get_or_init(|| PathBuf::from(project));
         let meta = parse_metadata(project);
         let bins = meta
             .bins()
@@ -85,11 +94,12 @@ pub mod risc0 {
             .collect::<Vec<_>>();
 
         println!("Compiling Ris0 bins: {:?}", bins);
-        inner(meta, &bins, dest, false, "debug");
+        inner(meta, &bins, dest, false, "release");
     }
 
     /// Compile the specified Ris0 test in the project
     pub fn tests(project: &str, bins: &[&str], dest: &[&str]) {
+        ROOT_DIR.get_or_init(|| PathBuf::from(project));
         let meta = parse_metadata(project);
         let bins = meta
             .tests()
@@ -99,11 +109,18 @@ pub mod risc0 {
             .collect::<Vec<_>>();
 
         println!("Compiling Ris0 tests: {:?}", bins);
-        inner(meta, &bins, dest, true, "debug");
+        inner(meta, &bins, dest, true, "release");
     }
 
     pub fn inner(meta: Metadata, bins: &Vec<String>, dest: &[&str], test: bool, profile: &str) {
-        rerun_if_changed(&[meta.target_directory.parent().unwrap().into()], &[]);
+        rerun_if_changed(
+            &[
+                ROOT_DIR.get().unwrap().join("src"),
+                ROOT_DIR.get().unwrap().join("Cargo.toml"),
+                ROOT_DIR.get().unwrap().join("Cargo.lock"),
+            ],
+            &[],
+        );
         let mut builder =
             GuestBuilder::new(&meta, "riscv32im-risc0-zkvm-elf", "risc0").rust_flags(&[
                 "passes=loweratomic",
@@ -129,7 +146,7 @@ pub mod risc0 {
         executor
             .execute()
             .expect("Execution failed")
-            .risc0_placement(&meta, dest)
+            .risc0_placement(dest)
             .expect("Failed to export Ris0 artifacts");
     }
 }
