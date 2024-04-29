@@ -3,7 +3,6 @@
 name = "raiko-setup"
 version = "0.1.0"
 edition = "2021"
-default-run = "raiko-setup"
 
 [dependencies]
 sp1-prover = { path = "../provers/sp1/prover", optional = true }
