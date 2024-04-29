@@ -1,3 +1,5 @@
+// Required for SP1
+#![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 
 // Copyright 2023 RISC Zero, Inc.
@@ -14,12 +16,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod error;
-mod execution;
-mod preflight;
-mod provider_db;
-mod request;
-mod server;
+pub mod error;
+pub mod execution;
+pub mod preflight;
+pub mod provider_db;
+pub mod request;
+pub mod server;
 
 use std::{alloc, fmt::Debug, fs::File, io::BufReader, path::PathBuf};
 
@@ -58,7 +60,7 @@ pub struct Opt {
     max_log: usize,
 
     #[structopt(long, require_equals = true, default_value = "host/config/config.json")]
-    /// Path to a config file that includes sufficient json args to request
+    /// Path to a config file that includes sufficent json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
 
@@ -75,7 +77,7 @@ pub struct Opt {
 async fn main() -> Result<()> {
     env_logger::init();
     let opt = Opt::from_args();
-    let config = get_config(None).unwrap();
+    let config = get_config(None)?;
     println!("Start config:\n{:#?}", config);
     println!("Args:\n{:#?}", opt);
 
@@ -100,15 +102,15 @@ fn subscribe_log(
                 .filename_prefix("raiko.log")
                 .max_log_files(max_log)
                 .build(log_path)
-                .expect("initializing rolling file appender failed");
+                .ok()?;
             let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
             let subscriber = subscriber_builder.json().with_writer(non_blocking).finish();
-            tracing::subscriber::set_global_default(subscriber).unwrap();
+            tracing::subscriber::set_global_default(subscriber).ok()?;
             Some(_guard)
         }
         None => {
             let subscriber = subscriber_builder.finish();
-            tracing::subscriber::set_global_default(subscriber).unwrap();
+            tracing::subscriber::set_global_default(subscriber).ok()?;
             None
         }
     }
