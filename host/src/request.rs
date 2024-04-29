@@ -41,6 +41,8 @@ pub struct ProofRequest {
     pub beacon_rpc: String,
     /// network selection
     pub network: String,
+    /// l1 network selection
+    pub l1_network: String,
     // graffiti
     pub graffiti: B256,
     /// the protocol instance data

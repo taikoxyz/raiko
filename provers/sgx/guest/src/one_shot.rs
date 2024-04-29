@@ -77,6 +77,15 @@ fn save_bootstrap_details(
     Ok(())
 }
 
+pub enum BootStrapError {
+    // file does not exist
+    FileNotExist,
+    // file exists but has wrong permissions
+    FileWithWrongPermissions,
+    // file exists but could not be read normally due to mrenclave change
+    FileDecryptionError(String),
+}
+
 pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     // Generate a new key pair
     let key_pair = generate_key();
@@ -124,7 +133,10 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         new_pubkey: new_instance,
     });
 
-    println!("Data to be signed: {pi_hash}");
+    println!(
+        "Block {}. PI data to be signed: {pi_hash}",
+        input.block_number
+    );
 
     // Sign the public input hash which contains all required block inputs and outputs
     let sig = sign_message(&prev_privkey, pi_hash)?;
@@ -154,21 +166,22 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     print_sgx_info()
 }
 
-fn load_bootstrap(secrets_dir: &Path) -> Result<SecretKey, Error> {
+pub fn load_bootstrap(secrets_dir: &Path) -> Result<SecretKey, BootStrapError> {
     let privkey_path = secrets_dir.join(PRIV_KEY_FILENAME);
     if privkey_path.is_file() && !privkey_path.metadata().unwrap().permissions().readonly() {
         load_private_key(&privkey_path).map_err(|e| {
-            anyhow!(
+            BootStrapError::FileDecryptionError(format!(
                 "Failed to load private key from {}: {}",
                 privkey_path.display(),
                 e
-            )
+            ))
         })
     } else {
-        Err(anyhow!(
-            "No readable private key found in {}",
-            privkey_path.display()
-        ))
+        if privkey_path.is_file() {
+            Err(BootStrapError::FileWithWrongPermissions)
+        } else {
+            Err(BootStrapError::FileNotExist)
+        }
     }
 }
 
