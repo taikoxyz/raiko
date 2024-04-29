@@ -9,7 +9,7 @@ use crate::request::ProofType;
 pub enum HostError {
     /// For invalid proof type generation request.
     #[error("Unknown proof type: {0}")]
-    InvlaidProofType(String),
+    InvalidProofType(String),
 
     /// For invalid proof request configuration.
     #[error("Invalid proof request: {0}")]
@@ -53,7 +53,7 @@ pub enum HostError {
 impl IntoResponse for HostError {
     fn into_response(self) -> axum::response::Response {
         match self {
-            HostError::InvlaidProofType(e)
+            HostError::InvalidProofType(e)
             | HostError::InvalidRequestConfig(e)
             | HostError::InvalidAddress(e) => {
                 (StatusCode::BAD_REQUEST, e.to_string()).into_response()

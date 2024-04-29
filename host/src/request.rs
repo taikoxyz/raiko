@@ -63,7 +63,7 @@ impl FromStr for ProofType {
             "sp1" => Ok(ProofType::Sp1),
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
-            _ => Err(HostError::InvlaidProofType(s.to_string())),
+            _ => Err(HostError::InvalidProofType(s.to_string())),
         }
     }
 }
@@ -139,16 +139,16 @@ impl ProofType {
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
-    /// RPC URL for retreiving block by block number.
+    /// RPC URL for retrieving block by block number.
     pub rpc: String,
     /// The L1 node URL for signal root verify and get txlist info from proposed
     /// transaction.
     pub l1_rpc: String,
-    /// The beacon node URL for retreiving data blobs.
+    /// The beacon node URL for retrieving data blobs.
     pub beacon_rpc: String,
     /// The network to generate the proof for.
     pub network: Network,
-    /// L1 network selection
+    /// The L1 network to grnerate the proof for.
     pub l1_network: String,
     /// Graffiti.
     pub graffiti: B256,
@@ -170,18 +170,21 @@ pub struct ProofRequestOpt {
     /// The block number for the block to generate a proof for.
     pub block_number: Option<u64>,
     #[arg(long, require_equals = true)]
-    /// RPC URL for retreiving block by block number.
+    /// RPC URL for retrieving block by block number.
     pub rpc: Option<String>,
     #[arg(long, require_equals = true)]
     /// The L1 node URL for signal root verify and get txlist info from proposed
     /// transaction.
     pub l1_rpc: Option<String>,
     #[arg(long, require_equals = true)]
-    /// The beacon node URL for retreiving data blobs.
+    /// The beacon node URL for retrieving data blobs.
     pub beacon_rpc: Option<String>,
     #[arg(long, require_equals = true)]
     /// The network to generate the proof for.
     pub network: Option<String>,
+    #[arg(long, require_equals = true)]
+    /// The L1 network to generate the proof for.
+    pub l1_network: Option<String>,
     #[arg(long, require_equals = true)]
     // Graffiti.
     pub graffiti: Option<String>,
@@ -264,6 +267,11 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 ))?
                 .parse()
                 .map_err(|_| HostError::InvalidRequestConfig("Invalid network".to_string()))?,
+            l1_network: value
+                .l1_network
+                .ok_or(HostError::InvalidRequestConfig(
+                    "Missing l1_network".to_string(),
+                ))?,
             graffiti: value
                 .graffiti
                 .ok_or(HostError::InvalidRequestConfig(
