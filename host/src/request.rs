@@ -267,11 +267,9 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 ))?
                 .parse()
                 .map_err(|_| HostError::InvalidRequestConfig("Invalid network".to_string()))?,
-            l1_network: value
-                .l1_network
-                .ok_or(HostError::InvalidRequestConfig(
-                    "Missing l1_network".to_string(),
-                ))?,
+            l1_network: value.l1_network.ok_or(HostError::InvalidRequestConfig(
+                "Missing l1_network".to_string(),
+            ))?,
             graffiti: value
                 .graffiti
                 .ok_or(HostError::InvalidRequestConfig(
