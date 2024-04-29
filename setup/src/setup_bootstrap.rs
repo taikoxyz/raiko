@@ -31,9 +31,28 @@ pub(crate) async fn setup_bootstrap(
         cmd
     };
 
-    if let Err(_) = check_bootstrap(secret_dir.clone(), gramine_cmd()).await {
-        let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
+    let registered_check_file = PathBuf::from(&bootstrap_args.config_path)
+        .parent()
+        .unwrap()
+        .join("registered");
 
+    let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd())
+        .await
+        .is_err()
+        || fs::metadata(&registered_check_file).is_err();
+
+    if need_init {
+        let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
+        match fs::remove_file(&registered_check_file) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Ok(())
+                } else {
+                    Err(e)
+                }
+            }
+        }?;
         let _register_res = register_sgx_instance(
             &bootstrap_proof.quote,
             &bootstrap_args.l1_rpc,
@@ -42,7 +61,6 @@ pub(crate) async fn setup_bootstrap(
         )
         .await
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
-
         //todo: update the config
         // Config file has the lowest preference
         let file = File::open(&bootstrap_args.config_path)?;
@@ -60,6 +78,7 @@ pub(crate) async fn setup_bootstrap(
             "Saving bootstrap data file {} failed",
             bootstrap_args.config_path.display()
         ))?;
+        File::create(&registered_check_file)?;
     }
 
     Ok(())
