@@ -349,6 +349,8 @@ It should look like this:
 emit InstanceAdded(id: 1, instance: 0xc369eedf4C69CacceDa551390576EAd2383E6f9E, replaced: 0x0000000000000000000000000000000000000000, validSince: 1708704201 [1.708e9])
 ```
 
+Or, you can also check the transaction of the wallet address you set as the prover. You can check it from the `Logs` tab of the Transaction details with the method name `Register Instance`.
+
 ## Running Raiko
 
 Once you've completed the above steps, you can actually run a prover. Your `SGX_INSTANCE_ID` is the one emitted in the `InstanceAdded` event above.
