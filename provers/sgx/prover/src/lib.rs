@@ -63,11 +63,7 @@ impl Prover for SgxProver {
         _output: GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-<<<<<<< HEAD
-        let sgx_param = SgxParam::deserialize(config.get("prover_args").unwrap()).unwrap();
-=======
-        let config = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
->>>>>>> 9fa59bf (chore: Fix clippy lints)
+        let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
