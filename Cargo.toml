@@ -58,10 +58,16 @@ alloy-primitives = { version = "0.7.0", default-features = false }
 alloy-sol-types = { version = "0.7.0", default-features = false }
 alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-rpc-client = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["serde"] }
-alloy-network = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["k256"] }
+alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+    "serde",
+] }
+alloy-network = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+    "k256",
+] }
 alloy-contract = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["serde"]  }
+alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+    "serde",
+] }
 alloy-provider = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-transport-http = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-signer = { git = "https://github.com/brechtpd/alloy", branch = "175" }
@@ -141,6 +147,7 @@ secp256k1 = { version = "0.27.0", features = [
     "rand",
     "recovery",
 ] }
+structopt = { version = "0.3.26" }
 
 [patch.crates-io]
 axum = { git = "https://github.com/petarvujovic98/axum", branch = "raiko" }
