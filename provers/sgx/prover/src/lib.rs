@@ -129,7 +129,7 @@ impl Prover for SgxProver {
         };
 
         if sgx_param.prove {
-            // overwirte sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
+            // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             sgx_proof = prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
         }
 
@@ -190,7 +190,7 @@ async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
         // Generate a private key
         let mut cmd = Command::new("gramine-sgx-gen-private-key");
         let output = cmd
-            .current_dir(cur_dir.clone())
+            .current_dir(cur_dir)
             .arg("-f")
             .output()
             .await
@@ -200,7 +200,7 @@ async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
         // Sign the manifest
         let mut cmd = Command::new("gramine-sgx-sign");
         let output = cmd
-            .current_dir(cur_dir.clone())
+            .current_dir(cur_dir)
             .arg("--manifest")
             .arg("sgx-guest.manifest")
             .arg("--output")
@@ -326,25 +326,15 @@ fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
     }
 }
 
-fn print_output(output: &Output, name: &str) {
+fn handle_output(output: &Output, name: &str) -> ProverResult<(), String> {
     println!("{name} stderr: {}", str::from_utf8(&output.stderr).unwrap());
     println!("{name} stdout: {}", str::from_utf8(&output.stdout).unwrap());
     if !output.status.success() {
         return Err(format!(
             "{name} encountered an error ({}): {}",
-            output.status.to_string(),
+            output.status,
             String::from_utf8_lossy(&output.stderr),
         ));
-    }
-}
-
-fn print_dirs() {
-    println!("SGX output directories:");
-    for dir in [
-        GRAMINE_MANIFEST_TEMPLATE.get().unwrap(),
-        PRIVATE_KEY.get().unwrap(),
-    ] {
-        println!(" {dir:?}");
     }
     Ok(())
 }
