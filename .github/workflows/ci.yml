@@ -43,11 +43,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - run: .github/toolchain-before.sh sp1
+      # - run: .github/toolchain-before.sh sp1
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-      - run: .github/toolchain-after.sh sp1
+      # - run: .github/toolchain-after.sh sp1
       - name: Setup and build
         run: |
           curl -L https://sp1.succinct.xyz | bash
