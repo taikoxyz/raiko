@@ -9,9 +9,11 @@ edition = "2021"
 cfg-if = { workspace = true }
 bincode = { workspace = true }
 sp1-sdk = { workspace = true, optional = true}
+risc0-zkvm = { workspace = true, optional = true }
+methods = { path = "../risc0/methods", optional = true }
 
 [features]
-default = ["sp1"]
+default = ["sp1", "risc0"]
 sp1 = ["dep:sp1-sdk"]
-risc0 = []
+risc0 = ["dep:risc0-zkvm", "dep:methods"]
 

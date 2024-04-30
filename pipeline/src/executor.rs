@@ -42,7 +42,7 @@ impl Executor {
                 if let Some(test) = extract_path(&line) {
                     self.artifacts
                         .iter_mut()
-                        .find(|a| file_name(&test).contains(&file_name(a.clone())))
+                        .find(|a| file_name(&test).contains(&file_name(*a.clone())))
                         .map(|a| *a = test)
                         .expect("Failed to find test artifact");
                 }
@@ -59,48 +59,44 @@ impl Executor {
     }
 
     #[cfg(feature = "sp1")]
-    pub fn sp1_placement(&self) -> Result<()> {
+    pub fn sp1_placement(&self, dest: &str) -> Result<()> {
         use crate::ROOT_DIR;
 
         let root = ROOT_DIR.get().unwrap();
-        let dest = root.join("elf");
-        fs::create_dir_all(&dest)?;
-
+        let dest = PathBuf::from(dest);
+        if !dest.exists() {
+            fs::create_dir_all(&dest).unwrap();
+        }
         for src in &self.artifacts {
-            let dest = dest.join(if self.test {
-                format!("test-{}", file_name(src).split('-').collect::<Vec<_>>()[0])
-            } else {
-                file_name(src)
-            });
-            fs::copy(root.join(src.to_str().unwrap()), dest.clone())?;
-            println!("Copied test elf from\n[{:?}]\nto\n[{:?}]", src, dest);
+            let mut name = file_name(src);
+            if self.test {
+                name = format!("test-{}", name.split("-").collect::<Vec<_>>()[0]);
+            }
+            fs::copy(root.join(src.to_str().unwrap()), &dest.join(&name))?;
+            println!("Wrote elf from\n    {:?}\nto\n    {:?}", src, dest);
         }
         Ok(())
     }
 
     #[cfg(feature = "risc0")]
-    pub fn risc0_placement(&self, dest: &[&str]) -> Result<()> {
+    pub fn risc0_placement(&self, dest: &str) -> Result<()> {
         use crate::{risc0_util::GuestListEntry, ROOT_DIR};
-        
-
-        assert!(dest.len() == self.artifacts.len());
         let root = ROOT_DIR.get().unwrap();
-        for (i, src) in self.artifacts.iter().enumerate() {
-            PathBuf::from(dest[i])
-                .parent()
-                .map_or((), |p| fs::create_dir_all(p).unwrap());
-            let mut dest = File::create(dest[i]).unwrap();
-            let guest = GuestListEntry::build(
-                &if self.test {
-                    format!("test-{}", file_name(src))
-                } else {
-                    file_name(src)
-                },
-                root.join(src).to_str().unwrap(),
-            )
-            .unwrap();
+        let dest = PathBuf::from(dest);
+        if !dest.exists() {
+            fs::create_dir_all(&dest).unwrap();
+        }
+        for src in &self.artifacts {
+            let name = file_name(src);
+            let file_name = if self.test {
+                format!("test_{}.rs", name.split("-").collect::<Vec<_>>()[0])
+            } else {
+                format!("{}.rs", name)
+            };
+            let mut dest = File::create(dest.join(&file_name)).unwrap();
+            let guest = GuestListEntry::build(&name, root.join(src).to_str().unwrap()).unwrap();
             dest.write_all(guest.codegen_consts().as_bytes())?;
-            println!("Wrote from\n[{:?}]\nto\n[{:?}]", src, dest);
+            println!("Wrote from\n  {:?}\nto\n  {:?}", src, dest);
         }
         Ok(())
     }

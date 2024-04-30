@@ -16,7 +16,7 @@ pub mod sp1 {
     use super::*;
 
     /// Compile the specified Sp1 binaries in the project
-    pub fn bins(project: &str, bins: &[&str]) {
+    pub fn bins(project: &str, bins: &[&str], dest: &str) {
         ROOT_DIR.get_or_init(|| PathBuf::from(project));
         let meta = parse_metadata(project);
         let bins = meta
@@ -27,11 +27,11 @@ pub mod sp1 {
             .collect::<Vec<_>>();
 
         println!("Compiling Sp1 bins: {:?}", bins);
-        inner(meta, &bins, false, "release");
+        inner(meta, &bins, dest, false, "release");
     }
 
     /// Compile the specified Sp1 test in the project
-    pub fn tests(project: &str, bins: &[&str]) {
+    pub fn tests(project: &str, bins: &[&str], dest: &str) {
         ROOT_DIR.get_or_init(|| PathBuf::from(project));
         let meta = parse_metadata(project);
         let bins = meta
@@ -42,10 +42,10 @@ pub mod sp1 {
             .collect::<Vec<_>>();
 
         println!("Compiling Sp1 tests: {:?}", bins);
-        inner(meta, &bins, true, "release");
+        inner(meta, &bins, dest, true, "release");
     }
 
-    pub fn inner(meta: Metadata, bins: &Vec<String>, test: bool, profile: &str) {
+    pub fn inner(meta: Metadata, bins: &Vec<String>, dest: &str, test: bool, profile: &str) {
         // Only work in build.rs, when run in main has no effects
         rerun_if_changed(
             &[
@@ -67,12 +67,15 @@ pub mod sp1 {
         } else {
             builder.test_command(profile, bins)
         };
-        println!("executor: {:?}", executor);
+        println!(
+            "executor: \n   ${:?}\ntargets: \n   {:?}",
+            executor.cmd, executor.artifacts
+        );
 
         executor
             .execute()
             .expect("Execution failed")
-            .sp1_placement()
+            .sp1_placement(dest)
             .expect("Failed to export Sp1 artifacts");
     }
 }
@@ -82,7 +85,7 @@ pub mod risc0 {
     use super::*;
 
     /// Compile the specified Ris0 binaries in the project
-    pub fn bins(project: &str, bins: &[&str], dest: &[&str]) {
+    pub fn bins(project: &str, bins: &[&str], dest: &str) {
         ROOT_DIR.get_or_init(|| PathBuf::from(project));
         let meta = parse_metadata(project);
         let bins = meta
@@ -97,7 +100,7 @@ pub mod risc0 {
     }
 
     /// Compile the specified Ris0 test in the project
-    pub fn tests(project: &str, bins: &[&str], dest: &[&str]) {
+    pub fn tests(project: &str, bins: &[&str], dest: &str) {
         ROOT_DIR.get_or_init(|| PathBuf::from(project));
         let meta = parse_metadata(project);
         let bins = meta
@@ -111,7 +114,7 @@ pub mod risc0 {
         inner(meta, &bins, dest, true, "release");
     }
 
-    pub fn inner(meta: Metadata, bins: &Vec<String>, dest: &[&str], test: bool, profile: &str) {
+    pub fn inner(meta: Metadata, bins: &Vec<String>, dest: &str, test: bool, profile: &str) {
         // Only work in build.rs, when run in main has no effects
         rerun_if_changed(
             &[
@@ -140,9 +143,10 @@ pub mod risc0 {
         } else {
             builder.test_command(profile, bins)
         };
-
-        println!("executor: {:?}", executor);
-
+        println!(
+            "executor: \n   ${:?}\ntargets: \n   {:?}",
+            executor.cmd, executor.artifacts
+        );
         executor
             .execute()
             .expect("Execution failed")

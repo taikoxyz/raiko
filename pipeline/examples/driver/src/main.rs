@@ -47,9 +47,17 @@ cfg_if::cfg_if! {
             client.verify(&proof, &vk).expect("verification failed");
         }
 
-    } else {
+    } else if #[cfg(feature = "risc0")] {
+
+        // use methods::example{EXAMPLE_ELF};
+        use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+
         fn main() {
+
             println!("Hello, world!");
+            let env = ExecutorEnv::builder().unwrap()
+            let prover = default_prover();
+            // let receipt = prover.prove(env, MULTIPLY_ELF).unwrap().receipt;
         }
     }
 }

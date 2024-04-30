@@ -355,10 +355,7 @@ impl GuestBuilder {
 }
 
 fn to_strings(strs: &[&str]) -> Vec<String> {
-    println!("{:?}", strs);
-    let r = strs.iter().map(|s| s.to_string()).collect();
-    println!("{:?}", r);
-    r
+    strs.iter().map(|s| s.to_string()).collect()
 }
 
 pub fn format_flags(flag: &str, items: &Vec<String>) -> Vec<String> {
