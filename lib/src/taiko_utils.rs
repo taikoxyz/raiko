@@ -56,7 +56,7 @@ pub fn generate_transactions(
         let compressed_tx_list = decode_blob_data(tx_list);
         zlib_decompress_blob(&compressed_tx_list).unwrap_or_default()
     } else {
-        tx_list.to_owned()
+        zlib_decompress_blob(&tx_list.to_owned()).unwrap_or_default()
     };
 
     // Decode the transactions from the tx list
