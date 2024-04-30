@@ -4,13 +4,12 @@ use std::{
     fs::{copy, create_dir_all, remove_file},
     path::PathBuf,
     process::{Command as StdCommand, Output, Stdio},
-    str::{self, FromStr},
+    str,
 };
 
 use alloy_sol_types::SolValue;
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    consts::{get_network_spec, Network},
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
