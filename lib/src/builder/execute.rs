@@ -72,7 +72,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             bail!("Invalid protocol version: expected >= {MIN_SPEC_ID:?}, got {spec_id:?}")
         }
         let chain_id = block_builder.chain_spec.chain_id();
-        println!("spec_id: {:?}", spec_id);
+        println!("spec_id: {spec_id:?}");
 
         let network = block_builder.input.network;
         let is_taiko = network.is_taiko();
@@ -188,7 +188,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     bail!("Error recovering anchor signature");
                 }
                 #[cfg(feature = "std")]
-                debug!("Error recovering address for transaction {}", tx_no);
+                debug!("Error recovering address for transaction {tx_no}");
                 if !is_taiko {
                     bail!("invalid signature");
                 }
@@ -214,10 +214,10 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     continue;
                 }
                 if is_anchor {
-                    bail!("Error at transaction {}: gas exceeds block limit", tx_no);
+                    bail!("Error at transaction {tx_no}: gas exceeds block limit");
                 }
                 #[cfg(feature = "std")]
-                debug!("Error at transaction {}: gas exceeds block limit", tx_no);
+                debug!("Error at transaction {tx_no}: gas exceeds block limit");
                 if !is_taiko {
                     bail!("gas exceeds block limit");
                 }
@@ -230,8 +230,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 blob_gas_used = blob_gas_used.checked_add(tx.blob_gas()).unwrap();
                 ensure!(
                     blob_gas_used <= MAX_BLOB_GAS_PER_BLOCK,
-                    "Error at transaction {}: total blob gas spent exceeds the limit",
-                    tx_no
+                    "Error at transaction {tx_no}: total blob gas spent exceeds the limit",
                 );
             }
 
@@ -244,23 +243,23 @@ impl TxExecStrategy for TkoTxExecStrategy {
                         continue;
                     }
                     if !is_taiko {
-                        bail!("tx failed to execute successfully: {:?}", err);
+                        bail!("tx failed to execute successfully: {err:?}");
                     }
                     if is_anchor {
-                        bail!("Anchor tx failed to execute successfully: {:?}", err);
+                        bail!("Anchor tx failed to execute successfully: {err:?}");
                     }
                     // only continue for invalid tx errors, not db errors (because those can be
                     // manipulated by the prover)
                     match err {
                         EVMError::Transaction(invalid_transaction) => {
                             #[cfg(feature = "std")]
-                            debug!("Invalid tx at {}: {:?}", tx_no, invalid_transaction);
+                            debug!("Invalid tx at {tx_no}: {invalid_transaction:?}");
                             // skip the tx
                             continue;
                         }
                         _ => {
                             // any other error is not allowed
-                            bail!("Error at tx {}: {:?}", tx_no, err);
+                            bail!("Error at tx {tx_no}: {err:?}");
                         }
                     }
                 }
@@ -426,7 +425,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.chain_id = Some(tx.chain_id);
             tx_env.nonce = Some(tx.nonce);
             tx_env.access_list = tx.access_list.flattened();
-            tx_env.blob_hashes = tx.blob_versioned_hashes.clone();
+            tx_env.blob_hashes.clone_from(&tx.blob_versioned_hashes);
             tx_env.max_fee_per_blob_gas = Some(U256::from(tx.max_fee_per_blob_gas));
         }
     };
@@ -445,13 +444,7 @@ where
     // Read account from database
     let mut account: Account = db
         .basic(address)
-        .map_err(|db_err| {
-            anyhow!(
-                "Error increasing account balance for {}: {:?}",
-                address,
-                db_err
-            )
-        })?
+        .map_err(|db_err| anyhow!("Error increasing account balance for {address}: {db_err:?}"))?
         .unwrap_or_default()
         .into();
     // Credit withdrawal amount

@@ -154,7 +154,7 @@ fn parse_quote_enclave_report(
     })
 }
 
-fn parse_cerification_chain_bytes(pem_bytes: &[u8]) -> [Vec<u8>; 3] {
+fn parse_certification_chain_bytes(pem_bytes: &[u8]) -> [Vec<u8>; 3] {
     let pems = parse_many(pem_bytes).unwrap();
     assert_eq!(pems.len(), 3);
     let mut decoded_cert_data_array = [vec![], vec![], vec![]];
@@ -178,7 +178,7 @@ fn parse_quote_auth_data(
     let cert_data_size = little_endian_decode(&quote_bytes[offset..offset + 4]);
     offset += 4;
     let cert_data = &quote_bytes[offset..offset + cert_data_size as usize];
-    let decoded_cert_data_array = parse_cerification_chain_bytes(cert_data);
+    let decoded_cert_data_array = parse_certification_chain_bytes(cert_data);
 
     let ecdsa_sig = &quote_bytes[0..64];
     let ecdsa_attestation_key = &quote_bytes[64..128];
@@ -242,7 +242,7 @@ pub async fn register_sgx_instance(
     println!("wallet: {:?}", wallet);
 
     // init rpc conn
-    let http = Http::new(Url::parse(&l1_rpc_url).expect("invalid rpc url"));
+    let http = Http::new(Url::parse(l1_rpc_url).expect("invalid rpc url"));
     let provider = ProviderBuilder::new()
         .signer(EthereumSigner::from(wallet.clone()))
         .with_recommended_layers()
