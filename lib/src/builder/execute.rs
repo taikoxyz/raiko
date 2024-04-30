@@ -128,7 +128,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             evm.env_mut().tx = TxEnv {
                 transact_to: TransactTo::Call(BEACON_ROOTS_ADDRESS),
                 caller: SYSTEM_ADDRESS,
-                data: parent_beacon_block_root.0.into(),
+                data: parent_beacon_block_root.into(),
                 gas_limit: 30_000_000,
                 value: U256::ZERO,
                 ..Default::default()
