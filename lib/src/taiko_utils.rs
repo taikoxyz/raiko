@@ -35,6 +35,11 @@ pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
     }
 }
 
+// leave a simply fn in case of more checks in future
+fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
+    tx_list.len() <= CALL_DATA_CAPACITY
+}
+
 pub fn generate_transactions(
     is_blob_data: bool,
     tx_list: &[u8],
@@ -45,7 +50,11 @@ pub fn generate_transactions(
         let compressed_tx_list = decode_blob_data(tx_list);
         zlib_decompress_blob(&compressed_tx_list).unwrap_or_default()
     } else {
-        zlib_decompress_blob(&tx_list.to_owned()).unwrap_or_default()
+        if validate_calldata_tx_list(&tx_list) {
+            zlib_decompress_blob(&tx_list.to_owned()).unwrap_or_default()
+        } else {
+            vec![]
+        }
     };
 
     // Decode the transactions from the tx list
@@ -86,6 +95,8 @@ pub fn generate_transactions(
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
 const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
 const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
+// max call data bytes
+const CALL_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * (BLOB_FIELD_ELEMENT_BYTES - 1);
 const BLOB_VERSION_OFFSET: usize = 1;
 const BLOB_ENCODING_VERSION: u8 = 0;
 const MAX_BLOB_DATA_SIZE: usize = (4 * 31 + 3) * 1024 - 4;
