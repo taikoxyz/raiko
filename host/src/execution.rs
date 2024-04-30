@@ -44,7 +44,7 @@ pub async fn execute<D: Prover>(
             info!("Final block header derived successfully. {:?}", header);
             let pi = D::instance_hash(assemble_protocol_instance(&input, &header)?);
             // Make sure the blockhash from the node matches the one from the builder
-            assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
+            assert_eq!(header.hash(), input.block_hash, "block hash unexpected");
             let output = GuestOutput::Success((
                 WrappedHeader {
                     header: header.clone(),
