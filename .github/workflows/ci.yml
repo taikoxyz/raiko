@@ -43,16 +43,17 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      # - run: .github/toolchain-before.sh sp1
+      - run: .github/toolchain-before.sh sp1
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-      # - run: .github/toolchain-after.sh sp1
+      - run: .github/toolchain-after.sh sp1
       - name: Setup and build
         run: |
           curl -L https://sp1.succinct.xyz | bash
-          /home/runner/.config/.sp1/bin/sp1up
-          cargo +succinct prove -h
+          echo "/root/.sp1/bin" >> $GITHUB_PATH
+          /root/.sp1/bin/sp1up
+          cargo prove -h
           cargo build -p sp1-prover --features enable
           cargo test -p sp1-prover --features enable
         shell: bash
