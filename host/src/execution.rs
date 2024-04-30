@@ -53,7 +53,7 @@ pub async fn execute(
                 .proof_type
                 .instance_hash(assemble_protocol_instance(&input, header)?)?;
             // Make sure the blockhash from the node matches the one from the builder
-            assert_eq!(header.hash().0, input.block_hash, "block hash unexpected");
+            assert_eq!(header.hash(), input.block_hash, "block hash unexpected");
             GuestOutput::Success((
                 WrappedHeader {
                     header: header.clone(),

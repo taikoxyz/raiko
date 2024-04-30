@@ -557,7 +557,7 @@ impl OptimisticDatabase for ProviderDb {
             .zip(blocks.iter())
         {
             self.staging_db
-                .insert_block_hash(block_number, block.header.hash.unwrap().0.into());
+                .insert_block_hash(block_number, block.header.hash.unwrap());
             self.initial_headers
                 .insert(block_number, to_header(&block.header));
         }
