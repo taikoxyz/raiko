@@ -42,7 +42,7 @@ impl Executor {
                 if let Some(test) = extract_path(&line) {
                     self.artifacts
                         .iter_mut()
-                        .find(|a| file_name(&test).contains(&file_name(*a.clone())))
+                        .find(|a| file_name(&test).contains(&file_name(a)))
                         .map(|a| *a = test)
                         .expect("Failed to find test artifact");
                 }
@@ -70,7 +70,7 @@ impl Executor {
         for src in &self.artifacts {
             let mut name = file_name(src);
             if self.test {
-                name = format!("test-{}", name.split("-").collect::<Vec<_>>()[0]);
+                name = format!("test-{}", name.split('-').collect::<Vec<_>>()[0]);
             }
             fs::copy(root.join(src.to_str().unwrap()), &dest.join(&name))?;
             println!("Wrote elf from\n    {:?}\nto\n    {:?}", src, dest);
@@ -89,7 +89,7 @@ impl Executor {
         for src in &self.artifacts {
             let mut name = file_name(src);
             if self.test {
-                name = format!("test-{}", name.split("-").collect::<Vec<_>>()[0]).to_string();
+                name = format!("test-{}", name.split('-').collect::<Vec<_>>()[0]).to_string();
             }
             let mut dest =
                 File::create(dest.join(&format!("{}.rs", name.replace('-', "_")))).unwrap();

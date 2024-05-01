@@ -1,6 +1,7 @@
 #![no_main]
-sp1_zkvm::entrypoint!(main);
+#![allow(unused_imports)]
 use harness::*;
+sp1_zkvm::entrypoint!(main);
 
 fn main() {
     call_foo();

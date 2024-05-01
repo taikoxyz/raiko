@@ -174,23 +174,6 @@ pub fn inner_assert_eq<T: PartialEq + std::fmt::Debug>(a: T, b: T, file: &str, l
         true
     }
 }
-fn tryy() {
-    let result = inner_assert(false, file!(), line!());
-    let log = ASSERTION_LOG.get().unwrap();
-    log.lock()
-        .unwrap()
-        .add(Box::new(Assertion::<bool>::Cond(Assert { result })));
-
-    let result = inner_assert_eq(1, 2, file!(), line!());
-    let log = ASSERTION_LOG.get().unwrap();
-    log.lock()
-        .unwrap()
-        .add(Box::new(Assertion::<i32>::Eq(AssertEQ {
-            left: 1,
-            right: 2,
-            result,
-        })));
-}
 
 #[macro_export]
 macro_rules! assert {

@@ -1,4 +1,5 @@
 #![no_main]
+#![allow(unused_imports)]
 risc0_zkvm::guest::entry!(run);
 use harness::*;
 

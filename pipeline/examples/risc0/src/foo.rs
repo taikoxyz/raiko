@@ -1,7 +1,8 @@
 #![no_main]
+#![allow(unused_imports)]
+use harness::*;
 risc0_zkvm::guest::entry!(main);
 
-use bar;
 use harness::*;
 
 fn main() {

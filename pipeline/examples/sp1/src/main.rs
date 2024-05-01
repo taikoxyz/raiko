@@ -1,4 +1,5 @@
 #![no_main]
+#![allow(unused_imports)]
 sp1_zkvm::entrypoint!(main);
 use harness::*;
 use std::hint::black_box;

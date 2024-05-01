@@ -12,5 +12,5 @@ fn main() {
 
 #[cfg(not(any(feature = "sp1", feature = "risc0")))]
 fn main() {
-    println!("Hello, world!");
+    println!("Please use --features to specify the target platform.");
 }

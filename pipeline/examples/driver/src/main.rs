@@ -97,7 +97,9 @@ cfg_if::cfg_if! {
                 .unwrap();
 
         }
-
-
+    } else {
+        fn main() {
+            println!("Please use --features to specify the target platform.");
+        }
     }
 }
