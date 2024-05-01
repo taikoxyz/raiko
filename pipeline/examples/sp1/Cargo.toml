@@ -13,6 +13,7 @@ path = "src/bar.rs"
 name = "foo"
 path = "src/foo.rs"
 
+
 [dependencies]
 sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
 harness = { path = "../../harness" }

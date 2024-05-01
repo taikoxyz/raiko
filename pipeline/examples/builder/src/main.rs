@@ -6,8 +6,8 @@ fn main() {
 
 #[cfg(feature = "risc0")]
 fn main() {
-    pipeline::risc0::bins("../risc0", &["example", "foo"], "../risc0/methods");
-    pipeline::risc0::tests("../risc0", &["example", "bar"], "../risc0/methods");
+    pipeline::risc0::bins("../risc0", &["example", "foo"], "../risc0/methods/src");
+    pipeline::risc0::tests("../risc0", &["foo", "bar"], "../risc0/methods/src");
 }
 
 #[cfg(not(any(feature = "sp1", feature = "risc0")))]

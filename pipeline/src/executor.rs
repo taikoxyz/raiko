@@ -87,13 +87,12 @@ impl Executor {
             fs::create_dir_all(&dest).unwrap();
         }
         for src in &self.artifacts {
-            let name = file_name(src);
-            let file_name = if self.test {
-                format!("test_{}.rs", name.split("-").collect::<Vec<_>>()[0])
-            } else {
-                format!("{}.rs", name)
-            };
-            let mut dest = File::create(dest.join(&file_name)).unwrap();
+            let mut name = file_name(src);
+            if self.test {
+                name = format!("test-{}", name.split("-").collect::<Vec<_>>()[0]).to_string();
+            }
+            let mut dest =
+                File::create(dest.join(&format!("{}.rs", name.replace('-', "_")))).unwrap();
             let guest = GuestListEntry::build(&name, root.join(src).to_str().unwrap()).unwrap();
             dest.write_all(guest.codegen_consts().as_bytes())?;
             println!("Wrote from\n  {:?}\nto\n  {:?}", src, dest);

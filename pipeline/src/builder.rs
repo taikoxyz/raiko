@@ -303,7 +303,7 @@ impl GuestBuilder {
         args.extend(vec![
             "--target".to_string(),
             target.clone(),
-            "--locked".to_string(),
+            // "--locked".to_string(),
         ]);
         if !bins.is_empty() {
             let libs = meta

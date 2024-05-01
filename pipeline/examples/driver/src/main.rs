@@ -27,17 +27,19 @@ cfg_if::cfg_if! {
         }
 
         #[test]
+        #[should_panic]
         fn test_foo() {
             // Generate the proof for the given program.
             let mut client = ProverClient::new();
             let stdin = SP1Stdin::new();
-            let (pk, vk) = cliexnt.setup(TEST_FOO);
+            let (pk, vk) = client.setup(TEST_FOO);
             let proof = client.prove(&pk, stdin).expect("proving failed");
             client.verify(&proof, &vk).expect("verification failed");
         }
 
 
         #[test]
+        #[should_panic]
         fn test_example() {
             // Generate the proof for the given program.
             let mut client = ProverClient::new();
@@ -49,15 +51,52 @@ cfg_if::cfg_if! {
 
     } else if #[cfg(feature = "risc0")] {
 
-        // use methods::example{EXAMPLE_ELF};
-        use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+        use methods::{
+            example::{EXAMPLE_ELF, EXAMPLE_ID},
+            foo::{FOO_ELF, FOO_ID},
+            test_foo::{TEST_FOO_ELF, TEST_FOO_ID},
+            test_bar::{TEST_BAR_ELF, TEST_BAR_ID},
+        };
+        use risc0_zkvm::{default_prover, ExecutorEnv};
+
 
         fn main() {
+            [EXAMPLE_ELF, FOO_ELF]
+                .iter()
+                .for_each(|elf| {
+                    let env = ExecutorEnv::builder().build().unwrap();
+                    let prover = default_prover();
+                    let receipt = prover
+                        .prove(env, elf)
+                        .unwrap();
+                    // receipt
+                    // .verify(HELLO_GUEST_ID)
+                    // .unwrap();
 
-            println!("Hello, world!");
-            let env = ExecutorEnv::builder().unwrap()
-            let prover = default_prover();
-            // let receipt = prover.prove(env, MULTIPLY_ELF).unwrap().receipt;
+                });
         }
+
+        #[test]
+        #[should_panic]
+        fn test_foo() {
+            let env = ExecutorEnv::builder().build().unwrap();
+            let prover = default_prover();
+            let receipt = prover
+                .prove(env, TEST_FOO_ELF)
+                .unwrap();
+        }
+
+        #[test]
+        #[should_panic]
+        fn test_bar() {
+            let env = ExecutorEnv::builder().build().unwrap();
+            let prover = default_prover();
+            let receipt = prover
+                .prove(env, TEST_BAR_ELF)
+                .unwrap();
+
+        }
+
+
     }
 }

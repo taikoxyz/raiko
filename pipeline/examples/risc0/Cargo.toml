@@ -15,5 +15,6 @@ path = "src/foo.rs"
 
 [dependencies]
 risc0-zkvm = { version = "0.21.0", features = [ "std" ]}
+harness = { path = "../../harness" }
 
 [workspace]

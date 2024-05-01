@@ -70,7 +70,7 @@ ethers-core = { workspace = true }
 sp1-helper = { workspace = true }
 
 [features]
-default = []
+default = ["risc0"]
 # powdr = ["dep:powdr"]
 sp1 = [
   "dep:sp1-prover",
