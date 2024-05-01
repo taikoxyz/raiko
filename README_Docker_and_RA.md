@@ -50,6 +50,14 @@ If you're using Ubuntu and want to see the available Linux kernel versions, run 
 ```
 apt search linux-image
 ```
+To install kernel version 6.5.0 , then wait reboot 
+```
+sudo add-apt-repository ppa:cappelikan/ppa
+sudo apt update
+sudo apt install linux-image-6.5.0-28-generic  linux-headers-6.5.0-28-generic 
+sudo update-grub
+sudo reboot
+```
 
 [kernel-5.11]: https://www.intel.com/content/www/us/en/developer/tools/software-guard-extensions/linux-overview.html
 [edmm]: https://gramine.readthedocs.io/en/stable/manifest-syntax.html#edmm
@@ -91,7 +99,14 @@ Run the following command:
 PCKIDRetrievalTool
 ```
 
-If successful, it should generate a `pckid_retrieval.csv`. This is a csv string which consists of:
+If successful, it should generate a `pckid_retrieval.csv`. 
+run this to see sting in part:
+
+```
+more pckid_retrieval.csv
+```
+
+This is a csv string which consists of:
 
     1. EncryptedPPID(384 BE byte array)
     2. PCE_ID(LE 16 bit integer)
