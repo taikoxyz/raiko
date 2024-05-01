@@ -35,12 +35,12 @@ impl GuestListEntry {
     /// image ID.
     pub fn build(name: &str, elf_path: &str) -> Result<Self> {
         let elf = std::fs::read(elf_path)?;
-        let image_id = [9u32; 8]; /* compute_image_id(&elf)?; */
+        let image_id = risc0_binfmt::compute_image_id(&elf)?;
 
         Ok(Self {
             name: Cow::Owned(name.to_owned()),
             elf: Cow::Owned(elf),
-            image_id,
+            image_id: image_id.into(),
             path: Cow::Owned(elf_path.to_owned()),
         })
     }

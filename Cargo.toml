@@ -42,7 +42,7 @@ revm = { git = "https://github.com/taikoxyz/revm.git", branch = "fix-ecrecover",
 risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"]}
 bonsai-sdk = { version = "0.7.0", features = ["async"]}
 risc0-build = { version = "0.21.0" }
-
+risc0-binfmt = { version = "0.21.0" }
 
 # SP1
 sp1-sdk ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }

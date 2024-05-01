@@ -23,7 +23,7 @@ cfg_if::cfg_if! {
                     client.verify(&proof, &vk).expect("verification failed");
                 });
 
-            println!("successfully generated and verified proof for the program!")
+            println!("successfully generated and verified proof for the program!");
         }
 
         #[test]
@@ -63,17 +63,18 @@ cfg_if::cfg_if! {
         fn main() {
             [EXAMPLE_ELF, FOO_ELF]
                 .iter()
-                .for_each(|elf| {
+                .zip([EXAMPLE_ID, FOO_ID].iter())
+                .for_each(|(elf, id)| {
                     let env = ExecutorEnv::builder().build().unwrap();
                     let prover = default_prover();
                     let receipt = prover
                         .prove(env, elf)
                         .unwrap();
-                    // receipt
-                    // .verify(HELLO_GUEST_ID)
-                    // .unwrap();
-
+                    receipt
+                        .verify(*id)
+                        .unwrap();
                 });
+            println!("successfully generated and verified proof for the program!");
         }
 
         #[test]

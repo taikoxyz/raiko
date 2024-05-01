@@ -4302,6 +4302,7 @@ dependencies = [
  "dirs",
  "once_cell",
  "regex",
+ "risc0-binfmt",
 ]
 
 [[package]]
