@@ -37,14 +37,14 @@ impl Prover for Sp1Prover {
 
         // Generate the proof for the given program.
         let client = ProverClient::new();
-        let mut proof = client.prove(ELF, stdin).expect("Sp1: proving failed");
+        let (pk, vk) = client.setup(ELF);
+        let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
 
         // Read the output.
         let output = proof.public_values.read::<GuestOutput>();
-
         // Verify proof.
         client
-            .verify(ELF, &proof)
+            .verify(&proof, &vk)
             .expect("Sp1: verification failed");
 
         // Save the proof.

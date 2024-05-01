@@ -17,8 +17,8 @@ fn main() {
     // sp1_helper::build_program("../testt");
 
     // #[cfg(all(feature = "enable", test))]
-    #[cfg(feature = "enable")]
-    build_test("../testt");
+    // #[cfg(feature = "enable")]
+    // build_test("../testt");
 }
 
 pub fn build_test(path: &str) {
