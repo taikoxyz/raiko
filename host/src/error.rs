@@ -1,50 +1,82 @@
-use std::fmt;
+use axum::{http::StatusCode, response::IntoResponse};
+use raiko_lib::prover::ProverError;
+use utoipa::ToSchema;
 
-use thiserror::Error as ThisError;
+use crate::request::ProofType;
 
-#[derive(ThisError, Debug)]
+/// The standardized error returned by the Raiko host.
+#[derive(thiserror::Error, Debug, ToSchema)]
 pub enum HostError {
-    Io(std::io::Error),
+    /// For invalid proof type generation request.
+    #[error("Unknown proof type: {0}")]
+    InvalidProofType(String),
+
+    /// For invalid proof request configuration.
+    #[error("Invalid proof request: {0}")]
+    InvalidRequestConfig(String),
+
+    /// For invalid address.
+    #[error("Invalid address: {0}")]
+    InvalidAddress(String),
+
+    /// For I/O errors.
+    #[error("There was a I/O error: {0}")]
+    #[schema(value_type = Value)]
+    Io(#[from] std::io::Error),
+
+    /// For Serde errors.
+    #[error("There was a deserialization error: {0}")]
+    #[schema(value_type = Value)]
+    Serde(#[from] serde_json::Error),
+
+    /// For errors related to the tokio runtime.
+    #[error("There was a tokio task error: {0}")]
+    #[schema(value_type = Value)]
+    JoinHandle(#[from] tokio::task::JoinError),
+
+    /// For errors produced by the guest provers.
+    #[error("There was a error with a guest prover: {0}")]
+    #[schema(value_type = Value)]
+    GuestError(#[from] ProverError),
+
+    /// For requesting a proof of a type that is not supported.
+    #[error("Feature not supported: {0}")]
+    #[schema(value_type = Value)]
+    FeatureNotSupportedError(ProofType),
+
+    /// A catch-all error for any other error type.
+    #[error("There was an unexpected error: {0}")]
+    #[schema(value_type = Value)]
     Anyhow(#[from] anyhow::Error),
-    Serde(serde_json::Error),
-    JoinHandle(tokio::task::JoinError),
-    GuestError(String),
 }
 
-impl fmt::Display for HostError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl IntoResponse for HostError {
+    fn into_response(self) -> axum::response::Response {
         match self {
-            HostError::Io(e) => e.fmt(f),
-            HostError::Anyhow(e) => e.fmt(f),
-            HostError::Serde(e) => e.fmt(f),
-            HostError::JoinHandle(e) => e.fmt(f),
-            HostError::GuestError(e) => e.fmt(f),
+            HostError::InvalidProofType(e)
+            | HostError::InvalidRequestConfig(e)
+            | HostError::InvalidAddress(e) => {
+                (StatusCode::BAD_REQUEST, e.to_string()).into_response()
+            }
+            HostError::Io(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+            HostError::Serde(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+            }
+            HostError::Anyhow(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+            }
+            HostError::JoinHandle(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+            }
+            HostError::GuestError(e) => {
+                (StatusCode::FAILED_DEPENDENCY, e.to_string()).into_response()
+            }
+            HostError::FeatureNotSupportedError(e) => {
+                (StatusCode::METHOD_NOT_ALLOWED, e.to_string()).into_response()
+            }
         }
     }
 }
 
-impl From<std::io::Error> for HostError {
-    fn from(e: std::io::Error) -> Self {
-        HostError::Io(e)
-    }
-}
-
-impl From<serde_json::Error> for HostError {
-    fn from(e: serde_json::Error) -> Self {
-        HostError::Serde(e)
-    }
-}
-
-impl From<tokio::task::JoinError> for HostError {
-    fn from(e: tokio::task::JoinError) -> Self {
-        HostError::JoinHandle(e)
-    }
-}
-
-impl From<String> for HostError {
-    fn from(e: String) -> Self {
-        HostError::GuestError(e)
-    }
-}
-
-pub type Result<T, E = HostError> = core::result::Result<T, E>;
+/// A type alias for the standardized result type returned by the Raiko host.
+pub type HostResult<T> = axum::response::Result<T, HostError>;

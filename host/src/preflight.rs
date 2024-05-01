@@ -5,18 +5,17 @@ use alloy_consensus::{
 };
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ProviderBuilder, ReqwestProvider, RootProvider};
-pub use alloy_rlp as rlp;
-use alloy_rpc_client::RpcClient;
 use alloy_rpc_types::{
     Block as AlloyBlock, BlockTransactions, Filter, Transaction as AlloyRpcTransaction,
 };
 use alloy_sol_types::{SolCall, SolEvent};
-use alloy_transport_http::Http;
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use hashbrown::HashSet;
 use raiko_lib::{
-    builder::{prepare::TaikoHeaderPrepStrategy, BlockBuilder, TkoTxExecStrategy},
+    builder::{
+        prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, TkoTxExecStrategy,
+    },
     consts::{get_network_spec, Network},
     input::{
         decode_anchor, proposeBlockCall, taiko_a6::BlockProposed as TestnetBlockProposed,
@@ -30,9 +29,8 @@ use raiko_primitives::{
     mpt::proofs_to_tries,
 };
 use serde::{Deserialize, Serialize};
-use url::Url;
 
-use crate::provider_db::{MeasuredProviderDb, ProviderDb};
+use crate::provider_db::ProviderDb;
 
 pub fn preflight(
     rpc_url: Option<String>,
@@ -42,8 +40,10 @@ pub fn preflight(
     l1_rpc_url: Option<String>,
     beacon_rpc_url: Option<String>,
 ) -> Result<GuestInput> {
-    let http = Http::new(Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"));
-    let provider = ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http, true)));
+    let provider = ProviderBuilder::new().provider(RootProvider::new_http(
+        reqwest::Url::parse(&rpc_url.clone().unwrap()).expect("invalid rpc url"),
+    ));
+    let is_local = provider.client().is_local();
 
     let measurement = Measurement::start("Fetching block data...", true);
 
@@ -56,9 +56,9 @@ pub fn preflight(
     println!("block transactions: {:?}", block.transactions.len());
 
     let taiko_guest_input = if network.is_taiko() {
-        let http_l1 = Http::new(Url::parse(&l1_rpc_url.clone().unwrap()).expect("invalid rpc url"));
-        let provider_l1 =
-            ProviderBuilder::new().provider(RootProvider::new(RpcClient::new(http_l1, true)));
+        let provider_l1 = ProviderBuilder::new().provider(RootProvider::new_http(
+            reqwest::Url::parse(&l1_rpc_url.clone().unwrap()).expect("invalid rpc url"),
+        ));
 
         // Decode the anchor tx to find out which L1 blocks we need to fetch
         let anchor_tx = match &block.transactions {
@@ -93,10 +93,10 @@ pub fn preflight(
         let (tx_list, tx_blob_hash) = if proposal_event.meta.blobUsed {
             println!("blob active");
             // Get the blob hashes attached to the propose tx
-            let blob_hashs = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-            assert!(!blob_hashs.is_empty());
+            let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
+            assert!(!blob_hashes.is_empty());
             // Currently the protocol enforces the first blob hash to be used
-            let blob_hash = blob_hashs[0];
+            let blob_hash = blob_hashes[0];
             let l2_chain_spec = get_network_spec(network);
             // Get the blob data for this block
             let slot_id = block_time_to_block_slot(
@@ -107,17 +107,16 @@ pub fn preflight(
             let blobs = get_blob_data(&beacon_rpc_url.clone().unwrap(), slot_id)?;
             assert!(!blobs.data.is_empty(), "blob data not available anymore");
             // Get the blob data for the blob storing the tx list
-            let tx_blobs: Vec<GetBlobData> = blobs
+            let tx_blob = blobs
                 .data
                 .iter()
-                .filter(|blob: &&GetBlobData| {
+                .find(|blob| {
                     // calculate from plain blob
                     blob_hash == calc_blob_versioned_hash(&blob.blob)
                 })
-                .cloned()
-                .collect::<Vec<GetBlobData>>();
-            assert!(!tx_blobs.is_empty());
-            (blob_to_bytes(&tx_blobs[0].blob), Some(blob_hash))
+                .cloned();
+            assert!(tx_blob.is_some());
+            (blob_to_bytes(&tx_blob.unwrap().blob), Some(blob_hash))
         } else {
             // Get the tx list data directly from the propose transaction data
             let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false).unwrap();
@@ -159,11 +158,11 @@ pub fn preflight(
         network,
         block_number,
         gas_used: block.header.gas_used.try_into().unwrap(),
-        block_hash: block.header.hash.unwrap().0.into(),
+        block_hash: block.header.hash.unwrap(),
         beneficiary: block.header.miner,
         gas_limit: block.header.gas_limit.try_into().unwrap(),
         timestamp: block.header.timestamp.try_into().unwrap(),
-        extra_data: block.header.extra_data.0.into(),
+        extra_data: block.header.extra_data,
         mix_hash: block.header.mix_hash.unwrap(),
         withdrawals: block.withdrawals.unwrap_or_default(),
         parent_state_trie: Default::default(),
@@ -172,48 +171,45 @@ pub fn preflight(
         parent_header: to_header(&parent_block.header),
         ancestor_headers: Default::default(),
         base_fee_per_gas: block.header.base_fee_per_gas.unwrap().try_into().unwrap(),
-        blob_gas_used: if block.header.blob_gas_used.is_some() {
-            Some(block.header.blob_gas_used.unwrap().try_into().unwrap())
-        } else {
-            None
-        },
-        excess_blob_gas: if block.header.excess_blob_gas.is_some() {
-            Some(block.header.excess_blob_gas.unwrap().try_into().unwrap())
-        } else {
-            None
-        },
+        blob_gas_used: block.header.blob_gas_used.map(|b| b.try_into().unwrap()),
+        excess_blob_gas: block.header.excess_blob_gas.map(|b| b.try_into().unwrap()),
         parent_beacon_block_root: block.header.parent_beacon_block_root,
         taiko: taiko_guest_input,
     };
 
-    // Get the 256 history block hashes from the provider at first time for anchor
-    // transaction.
-    let initial_history_blocks = if network.is_taiko() {
-        Some(batch_get_history_headers(&provider, block_number)?)
-    } else {
-        None
-    };
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
         provider,
-        initial_history_blocks,
+        network,
         parent_block.header.number.unwrap().try_into().unwrap(),
-    );
+    )?;
+
     let mut builder = BlockBuilder::new(&input)
-        .with_db(MeasuredProviderDb::new(provider_db))
-        .prepare_header::<TaikoHeaderPrepStrategy>()?
-        .execute_transactions::<TkoTxExecStrategy>()?;
+        .with_db(provider_db)
+        .prepare_header::<TaikoHeaderPrepStrategy>()?;
+
+    // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
+    let max_iterations = if is_local { 1 } else { 50 };
+    let mut done = false;
+    let mut num_iterations = 0;
+    while !done {
+        println!("Execution iteration {num_iterations}...");
+        builder.mut_db().unwrap().optimistic = num_iterations + 1 < max_iterations;
+        builder = builder.execute_transactions::<TkoTxExecStrategy>()?;
+        if builder.mut_db().unwrap().fetch_data() {
+            done = true;
+        }
+        num_iterations += 1;
+    }
+    builder = builder.prepare_header::<TaikoHeaderPrepStrategy>()?;
     let provider_db = builder.mut_db().unwrap();
-    provider_db.print_report();
-    let provider_db = provider_db.db();
 
     // Gather inclusion proofs for the initial and final state
     let measurement = Measurement::start("Fetching storage proofs...", true);
     let (parent_proofs, proofs, num_storage_proofs) = provider_db.get_proofs()?;
     measurement.stop_with_count(&format!(
-        "[{} Account/{} Storage]",
+        "[{} Account/{num_storage_proofs} Storage]",
         parent_proofs.len() + proofs.len(),
-        num_storage_proofs
     ));
 
     // Construct the state trie and storage from the storage proofs.
@@ -285,9 +281,8 @@ fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsResponse
     let tokio_handle = tokio::runtime::Handle::current();
     tokio_handle.block_on(async {
         let url = format!(
-            "{}/eth/v1/beacon/blob_sidecars/{}",
+            "{}/eth/v1/beacon/blob_sidecars/{block_id}",
             beacon_rpc_url.trim_end_matches('/'),
-            block_id
         );
         let response = reqwest::get(url.clone()).await?;
         if response.status().is_success() {
@@ -339,20 +334,6 @@ pub fn get_block(provider: &ReqwestProvider, block_number: u64, full: bool) -> R
     }
 }
 
-fn batch_get_history_headers(
-    provider: &ReqwestProvider,
-    block_number: u64,
-) -> Result<Vec<AlloyBlock>> {
-    let tokio_handle = tokio::runtime::Handle::current();
-    let response = tokio_handle.block_on(async {
-        provider
-            .client()
-            .request("taiko_getL2ParentHeaders", (block_number,))
-            .await
-    })?;
-    Ok(response)
-}
-
 fn get_block_proposed_event(
     provider: &ReqwestProvider,
     network: Network,
@@ -361,7 +342,7 @@ fn get_block_proposed_event(
 ) -> Result<(AlloyRpcTransaction, BlockProposed)> {
     let tokio_handle = tokio::runtime::Handle::current();
 
-    // Get the address that emited the event
+    // Get the address that emitted the event
     let l1_address = get_network_spec(network).l1_contract.unwrap();
 
     // Get the event signature (value can differ between chains)
@@ -528,18 +509,13 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
-    use c_kzg::KzgCommitment;
     use ethers_core::types::Transaction;
     use raiko_lib::taiko_utils::decode_transactions;
-    use raiko_primitives::{
-        eip4844::{kzg_to_versioned_hash, parse_kzg_trusted_setup, MAINNET_KZG_TRUSTED_SETUP},
-        kzg::KzgSettings,
-    };
+    use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;
 
+    #[allow(dead_code)]
     fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
         let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
         let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
@@ -558,7 +534,7 @@ mod test {
         let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
         let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
             .map_err(|e| {
-                println!("error: {:?}", e);
+                println!("error: {e:?}");
                 e
             })
             .unwrap();
@@ -577,7 +553,7 @@ mod test {
         let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
         let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
             .map_err(|e| {
-                println!("error: {:?}", e);
+                println!("error: {e:?}");
                 e
             })
             .unwrap();
@@ -642,7 +618,7 @@ mod test {
         let dec_blob = blob_to_bytes(&blob_str);
         println!("dec blob tx len: {:?}", dec_blob.len());
         let txs = decode_transactions(&dec_blob);
-        println!("dec blob tx: {:?}", txs);
+        println!("dec blob tx: {txs:?}");
         // assert_eq!(hex::encode(dec_blob), expected_dec_blob);
     }
 
@@ -817,6 +793,6 @@ mod test {
 		    \"yParity\":\"0x0\"
         }";
         let tx: Transaction = serde_json::from_str(response).unwrap();
-        println!("tx: {:?}", tx);
+        println!("tx: {tx:?}");
     }
 }

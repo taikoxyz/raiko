@@ -329,8 +329,11 @@ impl From<taiko_a6::BlockProposed> for BlockProposed {
 }
 
 #[cfg(feature = "std")]
-pub fn get_input_path(dir: &PathBuf, block_number: u64, network: &str) -> PathBuf {
-    dir.join(format!("input-{}-{}.bin", network, block_number))
+use std::path::Path;
+
+#[cfg(feature = "std")]
+pub fn get_input_path(dir: &Path, block_number: u64, network: &str) -> PathBuf {
+    dir.join(format!("input-{network}-{block_number}.bin"))
 }
 
 #[cfg(test)]

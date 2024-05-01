@@ -11,16 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{
-    ops::AddAssign,
-    time::{Duration, Instant},
-};
+use std::{collections::HashSet, mem::take};
 
 use alloy_consensus::Header as AlloyConsensusHeader;
+use alloy_primitives::{Bytes, StorageKey, Uint};
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{Block, BlockId, EIP1186AccountProofResponse};
-use raiko_lib::{clear_line, inplace_print, mem_db::MemDb, print_duration, taiko_utils::to_header};
-use raiko_primitives::{mpt::KECCAK_EMPTY, Address, B256, U256};
+use alloy_rpc_client::{ClientBuilder, RpcClient};
+use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofResponse};
+use alloy_transport_http::Http;
+use raiko_lib::{
+    builder::OptimisticDatabase, clear_line, consts::Network, inplace_print, mem_db::MemDb,
+    taiko_utils::to_header,
+};
+use raiko_primitives::{Address, B256, U256};
+use reqwest_alloy::Client;
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
@@ -31,85 +35,296 @@ use crate::preflight::get_block;
 
 pub struct ProviderDb {
     pub provider: ReqwestProvider,
+    pub client: RpcClient<Http<Client>>,
     pub block_number: u64,
     pub initial_db: MemDb,
     pub initial_headers: HashMap<u64, AlloyConsensusHeader>,
     pub current_db: MemDb,
     async_executor: Handle,
+
+    pub optimistic: bool,
+    pub staging_db: MemDb,
+    pub pending_accounts: HashSet<Address>,
+    pub pending_slots: HashSet<(Address, U256)>,
+    pub pending_block_hashes: HashSet<u64>,
 }
+
+type StorageProofs = HashMap<Address, EIP1186AccountProofResponse>;
 
 impl ProviderDb {
     pub fn new(
         provider: ReqwestProvider,
-        initial_history_blocks: Option<Vec<Block>>,
+        network: Network,
         block_number: u64,
-    ) -> Self {
-        let mut initial_db = MemDb::default();
-        let mut initial_headers = HashMap::new();
-        if let Some(initial_history_blocks) = initial_history_blocks {
+    ) -> Result<Self, anyhow::Error> {
+        let client = ClientBuilder::default()
+            .reqwest_http(reqwest::Url::parse(provider.client().transport().url()).unwrap());
+
+        let mut provider_db = ProviderDb {
+            provider,
+            client,
+            block_number,
+            initial_db: Default::default(),
+            initial_headers: Default::default(),
+            current_db: Default::default(),
+            async_executor: tokio::runtime::Handle::current(),
+            optimistic: false,
+            staging_db: Default::default(),
+            pending_accounts: HashSet::new(),
+            pending_slots: HashSet::new(),
+            pending_block_hashes: HashSet::new(),
+        };
+        if network.is_taiko() {
+            // Get the 256 history block hashes from the provider at first time for anchor
+            // transaction.
+            let start = block_number.saturating_sub(255);
+            let block_numbers = (start..=block_number).collect::<Vec<_>>();
+            let initial_history_blocks = provider_db.fetch_blocks(&block_numbers)?;
             for block in initial_history_blocks {
                 let block_number: u64 = block.header.number.unwrap().try_into().unwrap();
                 let block_hash = block.header.hash.unwrap();
-                initial_db.insert_block_hash(block_number, block_hash);
-                initial_headers.insert(block_number, to_header(&block.header));
+                provider_db
+                    .initial_db
+                    .insert_block_hash(block_number, block_hash);
+                provider_db
+                    .initial_headers
+                    .insert(block_number, to_header(&block.header));
             }
         }
-        ProviderDb {
-            provider,
-            block_number,
-            initial_db,
-            initial_headers,
-            current_db: MemDb::default(),
-            async_executor: tokio::runtime::Handle::current(),
+        Ok(provider_db)
+    }
+
+    fn fetch_blocks(&mut self, block_numbers: &[u64]) -> Result<Vec<Block>, anyhow::Error> {
+        let mut all_blocks = Vec::new();
+
+        let max_batch_size = 32;
+        for block_numbers in block_numbers.chunks(max_batch_size) {
+            let mut batch = self.client.new_batch();
+            let mut requests = vec![];
+
+            for block_number in block_numbers.iter() {
+                requests.push(Box::pin(batch.add_call(
+                    "eth_getBlockByNumber",
+                    &(BlockNumberOrTag::from(*block_number), false),
+                )?));
+            }
+
+            let mut blocks = self.async_executor.block_on(async {
+                batch.send().await?;
+                let mut blocks = vec![];
+                // Collect the data from the batch
+                for request in requests.into_iter() {
+                    blocks.push(request.await?);
+                }
+                Ok::<_, anyhow::Error>(blocks)
+            })?;
+
+            all_blocks.append(&mut blocks);
         }
+
+        Ok(all_blocks)
     }
 
-    pub fn get_initial_db(&self) -> &MemDb {
-        &self.initial_db
+    fn fetch_accounts(&self, accounts: &[Address]) -> Result<Vec<AccountInfo>, anyhow::Error> {
+        let mut all_accounts = Vec::new();
+
+        let max_batch_size = 250;
+        for accounts in accounts.chunks(max_batch_size) {
+            let mut batch = self.client.new_batch();
+
+            let mut nonce_requests = Vec::new();
+            let mut balance_requests = Vec::new();
+            let mut code_requests = Vec::new();
+
+            for address in accounts {
+                nonce_requests.push(Box::pin(
+                    batch
+                        .add_call::<_, Uint<64, 1>>(
+                            "eth_getTransactionCount",
+                            &(address, Some(BlockId::from(self.block_number))),
+                        )
+                        .unwrap(),
+                ));
+                balance_requests.push(Box::pin(
+                    batch
+                        .add_call::<_, Uint<256, 4>>(
+                            "eth_getBalance",
+                            &(address, Some(BlockId::from(self.block_number))),
+                        )
+                        .unwrap(),
+                ));
+                code_requests.push(Box::pin(
+                    batch
+                        .add_call::<_, Bytes>(
+                            "eth_getCode",
+                            &(address, Some(BlockId::from(self.block_number))),
+                        )
+                        .unwrap(),
+                ));
+            }
+
+            let mut accounts = self.async_executor.block_on(async {
+                batch.send().await?;
+                let mut accounts = vec![];
+                // Collect the data from the batch
+                for (nonce_request, (balance_request, code_request)) in nonce_requests
+                    .into_iter()
+                    .zip(balance_requests.into_iter().zip(code_requests.into_iter()))
+                {
+                    let (nonce, balance, code) = (
+                        nonce_request.await?,
+                        balance_request.await?,
+                        code_request.await?,
+                    );
+
+                    let account_info = AccountInfo::new(
+                        balance,
+                        nonce.try_into().unwrap(),
+                        Bytecode::new_raw(code.clone()).hash_slow(),
+                        Bytecode::new_raw(code),
+                    );
+
+                    accounts.push(account_info);
+                }
+                Ok::<_, anyhow::Error>(accounts)
+            })?;
+
+            all_accounts.append(&mut accounts);
+        }
+
+        Ok(all_accounts)
     }
 
-    pub fn get_latest_db(&self) -> &MemDb {
-        &self.current_db
+    fn fetch_storage_slots(
+        &self,
+        accounts: &[(Address, U256)],
+    ) -> Result<Vec<U256>, anyhow::Error> {
+        let mut all_values = Vec::new();
+
+        let max_batch_size = 1000;
+        for accounts in accounts.chunks(max_batch_size) {
+            let mut batch = self.client.new_batch();
+
+            let mut requests = Vec::new();
+
+            for (address, key) in accounts {
+                requests.push(Box::pin(
+                    batch
+                        .add_call::<_, U256>(
+                            "eth_getStorageAt",
+                            &(address, key, Some(BlockId::from(self.block_number))),
+                        )
+                        .unwrap(),
+                ));
+            }
+
+            let mut values = self.async_executor.block_on(async {
+                batch.send().await?;
+                let mut values = vec![];
+                // Collect the data from the batch
+                for request in requests.into_iter() {
+                    values.push(request.await?);
+                }
+                Ok::<_, anyhow::Error>(values)
+            })?;
+
+            all_values.append(&mut values);
+        }
+
+        Ok(all_values)
     }
 
     fn get_storage_proofs(
         &mut self,
         block_number: u64,
-        storage_keys: HashMap<Address, Vec<U256>>,
+        accounts: HashMap<Address, Vec<U256>>,
         offset: usize,
         num_storage_proofs: usize,
-    ) -> Result<HashMap<Address, EIP1186AccountProofResponse>, anyhow::Error> {
-        let mut storage_proofs = HashMap::new();
+    ) -> Result<StorageProofs, anyhow::Error> {
+        let mut storage_proofs: HashMap<Address, EIP1186AccountProofResponse> = HashMap::new();
         let mut idx = offset;
-        for (address, keys) in storage_keys {
+
+        let mut accounts = accounts.clone();
+
+        let batch_limit = 1000;
+        while !accounts.is_empty() {
             inplace_print(&format!(
                 "fetching storage proof {idx}/{num_storage_proofs}..."
             ));
 
-            let indices = keys.iter().map(|x| x.to_be_bytes().into()).collect();
-            let proof = self.async_executor.block_on(async {
-                self.provider
-                    .get_proof(address, indices, Some(BlockId::from(block_number)))
-                    .await
-            })?;
-            storage_proofs.insert(address, proof);
-            idx += keys.len();
+            // Create a batch for all storage proofs
+            let mut batch = self.client.new_batch();
+
+            // Collect all requests
+            let mut requests = Vec::new();
+
+            let mut batch_size = 0;
+            while !accounts.is_empty() && batch_size < batch_limit {
+                let mut address_to_remove = None;
+                if let Some((address, keys)) = accounts.iter_mut().next() {
+                    // Calculate how many keys we can still process
+                    let num_keys_to_process = if batch_size + keys.len() < batch_limit {
+                        keys.len()
+                    } else {
+                        batch_limit - batch_size
+                    };
+
+                    // If we can process all keys, remove the address from the map after the loop
+                    if num_keys_to_process == keys.len() {
+                        address_to_remove = Some(*address);
+                    }
+
+                    // Extract the keys to process
+                    let keys_to_process = keys
+                        .drain(0..num_keys_to_process)
+                        .map(StorageKey::from)
+                        .collect::<Vec<_>>();
+
+                    // Add the request
+                    requests.push(Box::pin(
+                        batch
+                            .add_call::<_, EIP1186AccountProofResponse>(
+                                "eth_getProof",
+                                &(
+                                    address,
+                                    keys_to_process.clone(),
+                                    BlockId::from(block_number),
+                                ),
+                            )
+                            .unwrap(),
+                    ));
+
+                    // Keep track of how many keys were processed
+                    // Add an additional 1 for the account proof itself
+                    batch_size += 1 + keys_to_process.len();
+                }
+
+                // Remove the address if all keys were processed for this account
+                if let Some(address) = address_to_remove {
+                    accounts.remove(&address);
+                }
+            }
+
+            // Send the batch
+            self.async_executor.block_on(async { batch.send().await })?;
+
+            // Collect the data from the batch
+            for request in requests.into_iter() {
+                let mut proof = self.async_executor.block_on(request)?;
+                idx += proof.storage_proof.len();
+                if let Some(map_proof) = storage_proofs.get_mut(&proof.address) {
+                    map_proof.storage_proof.append(&mut proof.storage_proof);
+                } else {
+                    storage_proofs.insert(proof.address, proof);
+                }
+            }
         }
         clear_line();
 
         Ok(storage_proofs)
     }
 
-    pub fn get_proofs(
-        &mut self,
-    ) -> Result<
-        (
-            HashMap<Address, EIP1186AccountProofResponse>,
-            HashMap<Address, EIP1186AccountProofResponse>,
-            usize,
-        ),
-        anyhow::Error,
-    > {
+    pub fn get_proofs(&mut self) -> Result<(StorageProofs, StorageProofs, usize), anyhow::Error> {
         // Latest proof keys
         let mut storage_keys = self.initial_db.storage_keys();
         for (address, mut indices) in self.current_db.storage_keys() {
@@ -172,6 +387,12 @@ impl ProviderDb {
             .collect();
         Ok(headers)
     }
+
+    pub fn is_valid_run(&self) -> bool {
+        self.pending_accounts.is_empty()
+            && self.pending_slots.is_empty()
+            && self.pending_block_hashes.is_empty()
+    }
 }
 
 impl Database for ProviderDb {
@@ -185,63 +406,35 @@ impl Database for ProviderDb {
         if let Ok(db_result) = self.initial_db.basic(address) {
             return Ok(db_result);
         }
+        if let Ok(db_result) = self.staging_db.basic(address) {
+            if self.is_valid_run() {
+                self.initial_db
+                    .insert_account_info(address, db_result.clone().unwrap());
+            }
+            return Ok(db_result);
+        }
 
-        let use_get_proof = true;
-        let account_info = if use_get_proof {
-            let proof = self.async_executor.block_on(async {
-                self.provider
-                    .get_proof(address, Vec::new(), Some(BlockId::from(self.block_number)))
-                    .await
-            })?;
+        // In optimistic mode, don't wait on the data and just return some default values
+        if self.optimistic {
+            self.pending_accounts.insert(address);
 
-            // Only fetch the code if we know it's not empty
-            let code = if proof.code_hash.0 != KECCAK_EMPTY.0 {
-                let code = self.async_executor.block_on(async {
-                    self.provider
-                        .get_code_at(address, BlockId::from(self.block_number))
-                        .await
-                })?;
-                Bytecode::new_raw(code)
-            } else {
-                Bytecode::new()
-            };
-
-            AccountInfo::new(
-                proof.balance,
-                proof.nonce.try_into().unwrap(),
-                proof.code_hash,
-                code,
-            )
-        } else {
-            // Get the nonce, balance, and code to reconstruct the account.
-            let nonce = self.async_executor.block_on(async {
-                self.provider
-                    .get_transaction_count(address, Some(BlockId::from(self.block_number)))
-                    .await
-            })?;
-            let balance = self.async_executor.block_on(async {
-                self.provider
-                    .get_balance(address, Some(BlockId::from(self.block_number)))
-                    .await
-            })?;
-            let code = self.async_executor.block_on(async {
-                self.provider
-                    .get_code_at(address, BlockId::from(self.block_number))
-                    .await
-            })?;
-
-            AccountInfo::new(
-                balance,
-                nonce.try_into().unwrap(),
+            let code = Bytes::from(vec![]);
+            let account_info = AccountInfo::new(
+                U256::ZERO,
+                u64::MAX,
                 Bytecode::new_raw(code.clone()).hash_slow(),
                 Bytecode::new_raw(code),
-            )
-        };
+            );
+            return Ok(Some(account_info));
+        }
+
+        // Fetch the account
+        let account = self.fetch_accounts(&[address])?[0].clone();
 
         // Insert the account into the initial database.
         self.initial_db
-            .insert_account_info(address, account_info.clone());
-        Ok(Some(account_info))
+            .insert_account_info(address, account.clone());
+        Ok(Some(account))
     }
 
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
@@ -252,43 +445,60 @@ impl Database for ProviderDb {
         if let Ok(db_result) = self.initial_db.storage(address, index) {
             return Ok(db_result);
         }
+        if let Ok(db_result) = self.staging_db.storage(address, index) {
+            if self.is_valid_run() {
+                self.initial_db
+                    .insert_account_storage(&address, index, db_result);
+            }
+            return Ok(db_result);
+        }
 
-        // Get the storage slot from the provider.
+        // In optimistic mode, don't wait on the data and just return a default value
+        if self.optimistic {
+            self.basic(address)?;
+            self.pending_slots.insert((address, index));
+            return Ok(U256::default());
+        }
+
+        // Makes sure the account is also always loaded
         self.initial_db.basic(address)?;
-        let storage = self.async_executor.block_on(async {
-            self.provider
-                .get_storage_at(
-                    address.into_array().into(),
-                    index,
-                    Some(BlockId::from(self.block_number)),
-                )
-                .await
-        })?;
+
+        // Fetch the storage value
+        let value = self.fetch_storage_slots(&[(address, index)])?[0];
+
         self.initial_db
-            .insert_account_storage(&address, index, storage);
-        Ok(storage)
+            .insert_account_storage(&address, index, value);
+        Ok(value)
     }
 
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
+        let block_number = u64::try_from(number).unwrap();
+
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
             return Ok(block_hash);
         }
+        if let Ok(db_result) = self.staging_db.block_hash(number) {
+            if self.is_valid_run() {
+                self.initial_db.insert_block_hash(block_number, db_result);
+            }
+            return Ok(db_result);
+        }
 
-        let block_number = u64::try_from(number).unwrap();
-        // Get the block hash from the provider.
-        let block_hash = self.async_executor.block_on(async {
-            self.provider
-                .get_block_by_number(block_number.into(), false)
-                .await
-                .unwrap()
-                .unwrap()
-                .header
-                .hash
-                .unwrap()
-                .0
-                .into()
-        });
+        // In optimistic mode, don't wait on the data and just return some default values
+        if self.optimistic {
+            self.pending_block_hashes.insert(block_number);
+            return Ok(B256::default());
+        }
+
+        // Fetch the block hash
+        let block_hash = self.fetch_blocks(&[block_number])?[0]
+            .header
+            .hash
+            .unwrap()
+            .0
+            .into();
+
         self.initial_db.insert_block_hash(block_number, block_hash);
         Ok(block_hash)
     }
@@ -304,96 +514,63 @@ impl DatabaseCommit for ProviderDb {
     }
 }
 
-pub struct MeasuredProviderDb {
-    pub provider: ProviderDb,
-    pub num_basic: u64,
-    pub time_basic: Duration,
-    pub num_storage: u64,
-    pub time_storage: Duration,
-    pub num_block_hash: u64,
-    pub time_block_hash: Duration,
-    pub num_code_by_hash: u64,
-    pub time_code_by_hash: Duration,
-}
+impl OptimisticDatabase for ProviderDb {
+    fn fetch_data(&mut self) -> bool {
+        //println!("all accounts touched: {:?}", self.pending_accounts);
+        //println!("all slots touched: {:?}", self.pending_slots);
+        //println!("all block hashes touched: {:?}", self.pending_block_hashes);
 
-impl MeasuredProviderDb {
-    pub fn new(provider: ProviderDb) -> Self {
-        MeasuredProviderDb {
-            provider,
-            num_basic: 0,
-            time_basic: Duration::default(),
-            num_storage: 0,
-            time_storage: Duration::default(),
-            num_block_hash: 0,
-            time_block_hash: Duration::default(),
-            num_code_by_hash: 0,
-            time_code_by_hash: Duration::default(),
+        // This run was valid when no pending work was scheduled
+        let valid_run = self.is_valid_run();
+
+        let accounts = self
+            .fetch_accounts(&self.pending_accounts.iter().cloned().collect::<Vec<_>>())
+            .unwrap();
+        for (address, account) in take(&mut self.pending_accounts)
+            .into_iter()
+            .zip(accounts.iter())
+        {
+            self.staging_db
+                .insert_account_info(address, account.clone());
         }
+
+        let slots = self
+            .fetch_storage_slots(&self.pending_slots.iter().cloned().collect::<Vec<_>>())
+            .unwrap();
+        for ((address, index), value) in take(&mut self.pending_slots).into_iter().zip(slots.iter())
+        {
+            self.staging_db
+                .insert_account_storage(&address, index, *value);
+        }
+
+        let blocks = self
+            .fetch_blocks(
+                &self
+                    .pending_block_hashes
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+        for (block_number, block) in take(&mut self.pending_block_hashes)
+            .into_iter()
+            .zip(blocks.iter())
+        {
+            self.staging_db
+                .insert_block_hash(block_number, block.header.hash.unwrap());
+            self.initial_headers
+                .insert(block_number, to_header(&block.header));
+        }
+
+        // If this wasn't a valid run, clear the post execution database
+        if !valid_run {
+            self.current_db = Default::default();
+        }
+
+        valid_run
     }
 
-    pub fn db(&mut self) -> &mut ProviderDb {
-        &mut self.provider
-    }
-
-    pub fn print_report(&self) {
-        println!("db accesses: ");
-        print_duration(
-            &format!("- account [{} ops]: ", self.num_basic),
-            self.time_basic,
-        );
-        print_duration(
-            &format!("- storage [{} ops]: ", self.num_storage),
-            self.time_storage,
-        );
-        print_duration(
-            &format!("- block_hash [{} ops]: ", self.num_block_hash),
-            self.time_block_hash,
-        );
-        print_duration(
-            &format!("- code_by_hash [{} ops]: ", self.num_code_by_hash),
-            self.time_code_by_hash,
-        );
-    }
-}
-
-impl Database for MeasuredProviderDb {
-    type Error = anyhow::Error;
-
-    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        self.num_basic += 1;
-        let start = Instant::now();
-        let res = self.provider.basic(address);
-        self.time_basic.add_assign(start.elapsed());
-        res
-    }
-
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
-        self.num_storage += 1;
-        let start = Instant::now();
-        let res = self.provider.storage(address, index);
-        self.time_storage.add_assign(start.elapsed());
-        res
-    }
-
-    fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        self.num_block_hash += 1;
-        let start = Instant::now();
-        let res = self.provider.block_hash(number);
-        self.time_block_hash.add_assign(start.elapsed());
-        res
-    }
-
-    fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
-        self.num_code_by_hash += 1;
-        let start = Instant::now();
-        let res = self.provider.code_by_hash(_code_hash);
-        self.time_code_by_hash.add_assign(start.elapsed());
-        res
-    }
-}
-
-impl DatabaseCommit for MeasuredProviderDb {
-    fn commit(&mut self, changes: HashMap<Address, Account>) {
-        self.provider.commit(changes)
+    fn is_optimistic(&self) -> bool {
+        self.optimistic
     }
 }

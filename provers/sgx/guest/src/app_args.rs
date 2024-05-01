@@ -21,6 +21,8 @@ pub enum Command {
     /// initial public-private key pair and stores it on the disk in an encrypted
     /// format using SGX encryption primitives.
     Bootstrap,
+    /// Check if bootstrap is readable
+    Check,
 }
 
 #[derive(Debug, Args)]

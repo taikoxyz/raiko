@@ -32,7 +32,7 @@ use revm::{
     taiko, Database, DatabaseCommit, Evm,
 };
 
-use super::TxExecStrategy;
+use super::{OptimisticDatabase, TxExecStrategy};
 use crate::{
     builder::BlockBuilder,
     clear_line,
@@ -51,11 +51,13 @@ pub struct TkoTxExecStrategy {}
 impl TxExecStrategy for TkoTxExecStrategy {
     fn execute_transactions<D>(mut block_builder: BlockBuilder<D>) -> Result<BlockBuilder<D>>
     where
-        D: Database + DatabaseCommit,
+        D: Database + DatabaseCommit + OptimisticDatabase,
         <D as Database>::Error: Debug,
     {
         let mut tx_transact_duration = Duration::default();
         let mut tx_misc_duration = Duration::default();
+
+        let is_optimistic = block_builder.db().unwrap().is_optimistic();
 
         let header = block_builder
             .header
@@ -70,7 +72,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             bail!("Invalid protocol version: expected >= {MIN_SPEC_ID:?}, got {spec_id:?}")
         }
         let chain_id = block_builder.chain_spec.chain_id();
-        println!("spec_id: {:?}", spec_id);
+        println!("spec_id: {spec_id:?}");
 
         let network = block_builder.input.network;
         let is_taiko = network.is_taiko();
@@ -126,7 +128,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             evm.env_mut().tx = TxEnv {
                 transact_to: TransactTo::Call(BEACON_ROOTS_ADDRESS),
                 caller: SYSTEM_ADDRESS,
-                data: parent_beacon_block_root.0.into(),
+                data: parent_beacon_block_root.into(),
                 gas_limit: 30_000_000,
                 value: U256::ZERO,
                 ..Default::default()
@@ -186,7 +188,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     bail!("Error recovering anchor signature");
                 }
                 #[cfg(feature = "std")]
-                debug!("Error recovering address for transaction {}", tx_no);
+                debug!("Error recovering address for transaction {tx_no}");
                 if !is_taiko {
                     bail!("invalid signature");
                 }
@@ -208,11 +210,14 @@ impl TxExecStrategy for TkoTxExecStrategy {
             // verify transaction gas
             let block_available_gas = block_builder.input.gas_limit - cumulative_gas_used;
             if block_available_gas < tx_env.gas_limit {
+                if is_optimistic {
+                    continue;
+                }
                 if is_anchor {
-                    bail!("Error at transaction {}: gas exceeds block limit", tx_no);
+                    bail!("Error at transaction {tx_no}: gas exceeds block limit");
                 }
                 #[cfg(feature = "std")]
-                debug!("Error at transaction {}: gas exceeds block limit", tx_no);
+                debug!("Error at transaction {tx_no}: gas exceeds block limit");
                 if !is_taiko {
                     bail!("gas exceeds block limit");
                 }
@@ -225,8 +230,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 blob_gas_used = blob_gas_used.checked_add(tx.blob_gas()).unwrap();
                 ensure!(
                     blob_gas_used <= MAX_BLOB_GAS_PER_BLOCK,
-                    "Error at transaction {}: total blob gas spent exceeds the limit",
-                    tx_no
+                    "Error at transaction {tx_no}: total blob gas spent exceeds the limit",
                 );
             }
 
@@ -235,24 +239,27 @@ impl TxExecStrategy for TkoTxExecStrategy {
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
+                    if is_optimistic {
+                        continue;
+                    }
                     if !is_taiko {
-                        bail!("tx failed to execute successfully: {:?}", err);
+                        bail!("tx failed to execute successfully: {err:?}");
                     }
                     if is_anchor {
-                        bail!("Anchor tx failed to execute successfully: {:?}", err);
+                        bail!("Anchor tx failed to execute successfully: {err:?}");
                     }
                     // only continue for invalid tx errors, not db errors (because those can be
                     // manipulated by the prover)
                     match err {
                         EVMError::Transaction(invalid_transaction) => {
                             #[cfg(feature = "std")]
-                            debug!("Invalid tx at {}: {:?}", tx_no, invalid_transaction);
+                            debug!("Invalid tx at {tx_no}: {invalid_transaction:?}");
                             // skip the tx
                             continue;
                         }
                         _ => {
                             // any other error is not allowed
-                            bail!("Error at tx {}: {:?}", tx_no, err);
+                            bail!("Error at tx {tx_no}: {err:?}");
                         }
                     }
                 }
@@ -265,7 +272,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             let start = Instant::now();
 
             // anchor tx needs to succeed
-            if is_anchor && !result.is_success() {
+            if is_anchor && !result.is_success() && !is_optimistic {
                 bail!(
                     "Error at transaction {tx_no}: execute anchor failed {result:?}, output {:?}",
                     result.output().map(|o| from_utf8(o).unwrap_or_default())
@@ -311,10 +318,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         // process withdrawals unconditionally after any transactions
         let measurement = Measurement::start("Processing withdrawals...", true);
         let mut withdrawals_trie = MptNode::default();
-        for (i, withdrawal) in take(&mut block_builder.input.withdrawals)
-            .into_iter()
-            .enumerate()
-        {
+        for (i, withdrawal) in block_builder.input.withdrawals.iter().enumerate() {
             // the withdrawal amount is given in Gwei
             let amount_wei = GWEI_TO_WEI
                 .checked_mul(withdrawal.amount.try_into().unwrap())
@@ -421,7 +425,7 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.chain_id = Some(tx.chain_id);
             tx_env.nonce = Some(tx.nonce);
             tx_env.access_list = tx.access_list.flattened();
-            tx_env.blob_hashes = tx.blob_versioned_hashes.clone();
+            tx_env.blob_hashes.clone_from(&tx.blob_versioned_hashes);
             tx_env.max_fee_per_blob_gas = Some(U256::from(tx.max_fee_per_blob_gas));
         }
     };
@@ -440,13 +444,7 @@ where
     // Read account from database
     let mut account: Account = db
         .basic(address)
-        .map_err(|db_err| {
-            anyhow!(
-                "Error increasing account balance for {}: {:?}",
-                address,
-                db_err
-            )
-        })?
+        .map_err(|db_err| anyhow!("Error increasing account balance for {address}: {db_err:?}"))?
         .unwrap_or_default()
         .into();
     // Credit withdrawal amount

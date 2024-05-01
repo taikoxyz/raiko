@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   init:
     build:
@@ -16,6 +15,31 @@ services:
       - ${HOME}/.config/raiko:/root/.config/raiko
     # environment:
       # you can use your own PCCS host
+      #- PCCS_HOST=host.docker.internal:8081
+    depends_on:
+      - pccs
+  init-self-register:
+    build:
+      context: ..
+      args:
+        ENABLE_SELF_REGISTER: "true"
+      dockerfile: Dockerfile
+    image: gcr.io/evmchain/raiko-self-register:latest
+    container_name: raiko-init-self-register
+    command: --init-self-register
+    devices:
+      - "/dev/sgx_enclave:/dev/sgx_enclave"
+      - "/dev/sgx_provision:/dev/sgx_provision"
+    volumes:
+      - /var/log/raiko:/var/log/raiko
+      - ${HOME}/.config/gramine:/root/.config/gramine
+      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
+    environment:
+      - SENDER_PRIV_KEY=${SENDER_PRIV_KEY}
+      - L1_RPC=${L1_RPC}
+      - L1_CHAIN_ID=${L1_CHAIN_ID}
+      - SGX_VERIFIER_ADDRESS=${SGX_VERIFIER_ADDRESS}
       #- PCCS_HOST=host.docker.internal:8081
     depends_on:
       - pccs
@@ -39,6 +63,31 @@ services:
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
+      # you can use your own PCCS host
+      #- PCCS_HOST=host.docker.internal:8081
+    # use the host's network to connect to the PCCS
+    #extra_hosts:
+    #  - "host.docker.internal:host-gateway"
+    depends_on:
+      - pccs
+  raiko-self-register:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: gcr.io/evmchain/raiko-self-register:latest
+    container_name: raiko-self-register
+    command: --config-path=/etc/raiko/config.sgx.json
+    devices:
+      - "/dev/sgx_enclave:/dev/sgx_enclave"
+      - "/dev/sgx_provision:/dev/sgx_provision"
+    volumes:
+      - /var/log/raiko:/var/log/raiko
+      - ${HOME}/.config/gramine:/root/.config/gramine
+      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
+    ports:
+      - "8080:8080"
+    # environment:
       # you can use your own PCCS host
       #- PCCS_HOST=host.docker.internal:8081
     # use the host's network to connect to the PCCS

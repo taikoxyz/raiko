@@ -34,6 +34,15 @@ mod finalize;
 mod initialize;
 pub mod prepare;
 
+/// Optimistic database
+pub trait OptimisticDatabase {
+    /// Handle post execution work
+    fn fetch_data(&mut self) -> bool;
+
+    /// If the current database is optimistic
+    fn is_optimistic(&self) -> bool;
+}
+
 /// A generic builder for building a block.
 #[derive(Clone, Debug)]
 pub struct BlockBuilder<D> {
@@ -45,7 +54,7 @@ pub struct BlockBuilder<D> {
 
 impl<D> BlockBuilder<D>
 where
-    D: Database + DatabaseCommit,
+    D: Database + DatabaseCommit + OptimisticDatabase,
     <D as Database>::Error: core::fmt::Debug,
 {
     /// Creates a new block builder.
@@ -123,6 +132,6 @@ impl BlockBuilderStrategy for TaikoStrategy {
 pub trait TxExecStrategy {
     fn execute_transactions<D>(block_builder: BlockBuilder<D>) -> Result<BlockBuilder<D>>
     where
-        D: Database + DatabaseCommit,
+        D: Database + DatabaseCommit + OptimisticDatabase,
         <D as Database>::Error: core::fmt::Debug;
 }
