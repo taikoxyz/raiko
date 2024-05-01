@@ -57,7 +57,7 @@ impl Prover for Sp1Prover {
             )
             .expect("Sp1: saving proof failed");
 
-        println!("succesfully generated and verified proof for the program!");
+        println!("successfully generated and verified proof for the program!");
         to_proof(Ok(Sp1Response {
             proof: serde_json::to_string(&proof).unwrap(),
             output,

@@ -286,7 +286,7 @@ It should look something like this:
 }
 ```
 
-You've now prepared your machine for running Raiko through Docker. Now, you need to perform On-Chain Remote Attestation to recieve TTKOh and begin proving for Taiko!
+You've now prepared your machine for running Raiko through Docker. Now, you need to perform On-Chain Remote Attestation to receive TTKOh and begin proving for Taiko!
 
 ## On-Chain RA
 

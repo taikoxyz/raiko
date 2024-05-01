@@ -182,7 +182,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 ensure!(tx_env.blob_hashes.len() == 0);
             }
 
-            // if the sigature was not valid, the caller address will have been set to zero
+            // if the signature was not valid, the caller address will have been set to zero
             if tx_env.caller == Address::ZERO {
                 if is_anchor {
                     bail!("Error recovering anchor signature");
