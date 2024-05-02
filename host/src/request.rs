@@ -81,7 +81,7 @@ impl ProofType {
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                return Ok(risc0_prover::Risc0Prover::instance_hash(pi));
+                return Ok(risc0_driver::Risc0Prover::instance_hash(pi));
 
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
@@ -115,7 +115,7 @@ impl ProofType {
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                return risc0_prover::Risc0Prover::run(input, output, config)
+                return risc0_driver::Risc0Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
 

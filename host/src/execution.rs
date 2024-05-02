@@ -1,4 +1,3 @@
-use alloy_consensus::Sealable;
 use alloy_primitives::B256;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},

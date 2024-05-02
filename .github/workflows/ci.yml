@@ -34,8 +34,8 @@ jobs:
       uses: cargo-bins/cargo-binstall@v1.6.4
     - run: cargo binstall -y --force cargo-risczero
     - run: cargo risczero install
-    - run: cargo build -p risc0-prover --features enable
-    - run: cargo test -p risc0-prover --features enable
+    - run: cargo build -p risc0-driver --features enable
+    - run: cargo test -p risc0-driver --features enable
 
   build-test-sp1:
     name: Build and test sp1
