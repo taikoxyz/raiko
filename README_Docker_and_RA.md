@@ -184,13 +184,7 @@ Raiko leverages [Intel SGX][sgx] via [Gramine][gramine]. As Gramine only support
 
 Once you have satisfied all the prerequisites, you can follow this section.
 
-1. Prepare your system with some necessary installations
-
-```
-sudo apt-get update && sudo apt-get install -y build-essential wget python-is-python3 debhelper zip libcurl4-openssl-dev pkgconf libboost-dev libboost-system-dev libboost-thread-dev protobuf-c-compiler libprotobuf-c-dev protobuf-compiler
-```
-
-2. Generating PCCS Certificates
+1. Generating PCCS Certificates
 
 Before running the Raiko Docker container, you need to fulfill some SGX-specific prerequisites, which include setting up the [PCCS][pccs-readme] (Provisioning Certificate Caching Service) configuration. The PCCS service is responsible for retrieving PCK Certificates and other collaterals on-demand from the internet at runtime, and then caching them in a local database. The PCCS exposes similar HTTPS interfaces as Intel's Provisioning Certificate Service.
 
@@ -210,17 +204,13 @@ rm csr.pem
 [pccs-readme]: https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/master/QuoteGeneration/pccs/README.md
 [pccs-cert-gen]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/master/QuoteGeneration/pccs/container#2-generate-certificates-to-use-with-pccs
 
-3. Install Intel lib & copy the config file
-
-> **_NOTE:_** The library requires nodejs 18, but regardless if installation succeeds or not, we just need the `default.json` file it comes with.
+2. Configure the PCCS
 
 ```
-apt install sgx-dcap-pccs
-cd ~/.config/sgx-pccs
-cp /opt/intel/sgx-dcap-pccs/config/default.json  .
+curl https://raw.githubusercontent.com/intel/SGXDataCenterAttestationPrimitives/main/QuoteGeneration/pccs/config/default.json > ~/.config/sgx-pccs/default.json
 ```
 
-Make sure you've copied the `default.json` into the .config/sgx-pccs directory you created earlier. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
+Open `~/.config/sgx-pccs/default.json` for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
 
 - `ApiKey`: The PCCS uses this API key to request collaterals from Intel's Provisioning Certificate Service. User needs to subscribe first to obtain an API key. Use either the primary or secondary key you obtained from the previous step `Subscribing to Intel PCS Service`.
 
@@ -300,7 +290,9 @@ cd taiko-mono/packages/protocol
 2. Install [`pnpm`](https://pnpm.io/installation#on-posix-systems) and [`foundry`](https://book.getfoundry.sh/getting-started/installation) so that you can install dependencies for taiko-mono.
 
 ```
-curl -fsSL https://get.pnpm.io/install.sh | sh -
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+apt install nodejs -y
+npm install -g pnpm
 curl -L https://foundry.paradigm.xyz | bash
 source ~/.bashrc
 foundryup
