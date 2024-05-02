@@ -1,6 +1,6 @@
 [package]
 version = "0.1.0"
-name = "sp1-prover"
+name = "sp1-driver"
 edition = "2021"
 
 [dependencies]

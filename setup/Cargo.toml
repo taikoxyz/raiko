@@ -5,8 +5,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sp1-prover = { path = "../provers/sp1/prover", optional = true }
-risc0-prover = { path = "../provers/risc0", optional = true }
+sp1-driver = { path = "../provers/sp1/driver", optional = true }
+risc0-prover = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
@@ -70,8 +70,8 @@ sp1-helper = { workspace = true }
 [features]
 default = ["sgx"]
 sp1 = [
-  "dep:sp1-prover",
-  "sp1-prover/enable",
+  "dep:sp1-driver",
+  "sp1-driver/enable",
 ]
 risc0 = [
   "dep:risc0-prover",

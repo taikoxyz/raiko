@@ -52,8 +52,8 @@ jobs:
         run: |
           curl -L https://sp1.succinct.xyz | bash
           /home/runner/.config/.sp1/bin/sp1up
-          cargo build -p sp1-prover --features enable
-          cargo test -p sp1-prover --features enable
+          cargo build -p sp1-driver --features enable
+          cargo test -p sp1-driver --features enable
         shell: bash
 
   build-test-sgx:

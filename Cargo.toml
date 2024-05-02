@@ -104,7 +104,8 @@ tower-http = { version = "0.5.2", features = ["full"] }
 tower = { version = "0.4.13", features = ["full"] }
 utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
 utoipa = { version = "4.2.0", features = ["axum_extras"] }
-
+structopt = "0.3.24"
+prometheus = { version = "0.13.3", features = ["process"] }
 
 # crypto
 c-kzg = "1.0.0"
@@ -122,12 +123,12 @@ tempfile = "3.8"
 anyhow = "1.0"
 bincode = "1.3.3"
 bytemuck = "1.13"
+cargo_metadata = "0.12.1"
 clap = { version = "4.4.6", features = ["derive", "string", "env"] }
 flate2 = "1.0.28"
 tokio = { version = "^1.23", features = ["full"] }
 hyper = { version = "0.14.27", features = ["server"] }
 lru_time_cache = "0.11.11"
-prometheus = { version = "0.13.3", features = ["process"] }
 lazy_static = "1.4.0"
 once_cell = "1.8.0"
 thiserror = "1.0"
@@ -146,6 +147,7 @@ thiserror-no-std = "2.0.2"
 chrono = { version = "0.4", default-features = false }
 hex-literal = "0.4"
 assert_cmd = "2.0"
+regex = "1.5.4"
 rstest = "0.18"
 rand = "0.8.5"
 rand_core = "0.6.4"
