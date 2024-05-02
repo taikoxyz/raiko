@@ -77,7 +77,7 @@ default = ["sgx"]
 #   "dep:risc0-driver",
 #   "risc0-driver/enable",
 # ]
-# sgx = [
-#   "dep:sgx-prover",
-#   "sgx-prover/enable",
-# ]
+sgx = [
+  "dep:sgx-prover",
+  "sgx-prover/enable",
+]
