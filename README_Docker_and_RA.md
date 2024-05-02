@@ -84,10 +84,10 @@ Install the `PCKIDRetrievalTool`
 
 You can install either from the Ubuntu repository:
 ```
-$ echo "deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
-$ wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
-$ sudo apt update
-$ sudo apt install sgx-pck-id-retrieval-tool
+echo "deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/intel-sgx.list > /dev/null
+wget -O - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+sudo apt update
+sudo apt install sgx-pck-id-retrieval-tool
 ```
 Or, you can [build and install][sgx-pck-id-retrieval-tool] it yourself.
 
