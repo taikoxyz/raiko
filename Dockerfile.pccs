@@ -51,6 +51,12 @@ FROM ubuntu:23.04
 # Create user and group before copying files
 ARG USER=pccs
 RUN useradd -M -U -r ${USER} -s /bin/false
+RUN DEBIAN_FRONTEND=noninteractive \
+    apt-get update -yq \
+    && apt-get install -yq --no-install-recommends \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy only necessary files from builder stage
 COPY --from=builder /usr/bin/node /usr/bin/node

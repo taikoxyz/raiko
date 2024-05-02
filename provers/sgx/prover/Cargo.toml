@@ -16,9 +16,17 @@ tokio = { workspace = true, optional = true }
 bincode = { workspace = true, optional = true }
 once_cell = { workspace = true }
 alloy-sol-types = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-signer-wallet = { workspace = true }
+alloy-rpc-client = { workspace = true }
+alloy-transport-http = { workspace = true }
+pem = {version = "3.0.4", optional = true}
+url = { workspace = true }
 
 [features]
-default = ["enable"]
+default = ["enable", "pem"]
 enable = [
     "raiko-lib",
     "raiko-primitives",

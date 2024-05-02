@@ -41,6 +41,7 @@ mod time {
     pub use core::ops::AddAssign;
     pub use std::time::{Duration, Instant};
 }
+
 #[cfg(target_os = "zkvm")]
 // Dummy time implementation
 mod time {
@@ -93,11 +94,10 @@ impl Measurement {
             print!("{title}");
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
-        } else {
-            if !title.is_empty() {
-                println!("{title}");
-            }
+        } else if !title.is_empty() {
+            println!("{title}");
         }
+
         Self {
             start: time::Instant::now(),
             title: title.to_string(),
@@ -110,13 +110,13 @@ impl Measurement {
     }
 
     pub fn stop_with_count(&self, count: &str) {
-        self.stop_with(&format!("{} {} done", self.title, count));
+        self.stop_with(&format!("{} {count} done", self.title));
     }
 
     pub fn stop_with(&self, title: &str) -> time::Duration {
         let time_elapsed = self.start.elapsed();
         print_duration(
-            &format!("{}{} in ", if self.inplace { "\r" } else { "" }, title,),
+            &format!("{}{title} in ", if self.inplace { "\r" } else { "" }),
             time_elapsed,
         );
         time_elapsed
@@ -125,15 +125,14 @@ impl Measurement {
 
 pub fn print_duration(title: &str, duration: time::Duration) {
     println!(
-        "{}{}.{:03} seconds",
-        title,
+        "{title}{}.{:03} seconds",
         duration.as_secs(),
         duration.subsec_millis()
     );
 }
 
 pub fn inplace_print(title: &str) {
-    print!("\r{}", title);
+    print!("\r{title}");
     #[cfg(feature = "std")]
     io::stdout().flush().unwrap();
 }

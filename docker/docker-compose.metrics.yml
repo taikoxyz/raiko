@@ -1,0 +1,21 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - './monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml'
+      - 'prometheus_storage:/prometheus'
+    network_mode: "host"
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - 'grafana_storage:/var/lib/grafana'
+volumes:
+  grafana_storage: {}
+  prometheus_storage: {}
