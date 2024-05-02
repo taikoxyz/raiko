@@ -15,20 +15,24 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Prove (i.e. sign) a single block and exit.
-    OneShot(OneShotArgs),
     /// Bootstrap the application and then exit. The bootstrapping process generates the
     /// initial public-private key pair and stores it on the disk in an encrypted
     /// format using SGX encryption primitives.
-    Bootstrap,
-    /// Check if bootstrap is readable
-    Check,
+    Bootstrap(BootstrapArgs),
 }
 
 #[derive(Debug, Args)]
-pub struct OneShotArgs {
-    #[clap(long)]
-    pub sgx_instance_id: u32,
+pub struct BootstrapArgs {
+    #[clap(long, default_value = "http://localhost:8545")]
+    pub l1_rpc: String,
+    #[clap(long, default_value = "31337")]
+    pub l1_chain_id: u64,
+    #[clap(long, default_value = "0x4826533B4897376654Bb4d4AD88B7faFD0C98528")]
+    pub sgx_verifier_address: String,
+    #[clap(long, default_value = "/etc/raiko/config.sgx.json")]
+    /// Path to a config file that includes sufficient json args to request
+    /// a proof of specified type. Curl json-rpc overrides its contents
+    pub config_path: PathBuf,
 }
 
 fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {

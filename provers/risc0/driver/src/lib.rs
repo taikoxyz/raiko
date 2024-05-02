@@ -78,13 +78,13 @@ impl Prover for Risc0Prover {
             let image_id = Digest::from(RISC0_GUEST_ID);
             let (snark_uuid, snark_receipt) = stark2snark(image_id, stark_uuid, stark_receipt)
                 .await
-                .map_err(|err| format!("Failed to convert STARK to SNARK: {:?}", err))?;
+                .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
 
-            traicing_info!("Validating SNARK uuid: {}", snark_uuid);
+            traicing_info!("Validating SNARK uuid: {snark_uuid}");
 
             verify_groth16_snark(image_id, snark_receipt)
                 .await
-                .map_err(|err| format!("Failed to verify SNARK: {:?}", err))?;
+                .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
         }
 
         to_proof(Ok(Risc0Response { proof: journal }))
@@ -111,7 +111,7 @@ pub async fn stark2snark(
     );
     // Load cached receipt if found
     if let Ok(Some(cached_data)) = load_receipt(&receipt_label) {
-        info!("Loaded locally cached snark receipt {:?}", receipt_label);
+        info!("Loaded locally cached snark receipt {receipt_label:?}");
         return Ok(cached_data);
     }
     // Otherwise compute on Bonsai
@@ -128,7 +128,7 @@ pub async fn stark2snark(
         let res = snark_uuid.status(&client)?;
 
         if res.status == "RUNNING" {
-            info!("Current status: {} - continue polling...", res.status,);
+            info!("Current status: {} - continue polling...", res.status);
             std::thread::sleep(std::time::Duration::from_secs(15));
         } else if res.status == "SUCCEEDED" {
             break res
@@ -171,7 +171,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     uuid: String,
     max_retries: usize,
 ) -> anyhow::Result<(String, Receipt)> {
-    info!("Tracking receipt uuid: {}", uuid);
+    info!("Tracking receipt uuid: {uuid}");
     let session = bonsai_sdk::alpha::SessionId { uuid };
 
     loop {
@@ -188,10 +188,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
                     if attempt == max_retries {
                         anyhow::bail!(err);
                     }
-                    warn!(
-                        "Attempt {}/{} for session status request: {:?}",
-                        attempt, max_retries, err
-                    );
+                    warn!("Attempt {attempt}/{max_retries} for session status request: {err:?}");
                     std::thread::sleep(std::time::Duration::from_secs(15));
                     continue;
                 }
@@ -224,8 +221,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
                 info!("Receipt validated!");
             } else {
                 error!(
-                    "Output mismatch! Receipt: {:?}, expected: {:?}",
-                    receipt_output, expected_output,
+                    "Output mismatch! Receipt: {receipt_output:?}, expected: {expected_output:?}",
                 );
             }
             return Ok((session.uuid, receipt));
@@ -261,7 +257,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     // get receipt
     let (mut receipt_uuid, receipt, cached) =
         if let Ok(Some(cached_data)) = load_receipt(&receipt_label) {
-            info!("Loaded locally cached stark receipt {:?}", receipt_label);
+            info!("Loaded locally cached stark receipt {receipt_label:?}");
             (cached_data.0, cached_data.1, true)
         } else if param.bonsai {
             // query bonsai service until it works
@@ -278,7 +274,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                         break (receipt_uuid, receipt, false);
                     }
                     Err(err) => {
-                        warn!("Failed to prove on Bonsai: {:?}", err);
+                        warn!("Failed to prove on Bonsai: {err:?}");
                         std::thread::sleep(std::time::Duration::from_secs(15));
                     }
                 }
@@ -299,7 +295,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             )
         };
 
-    info!("receipt: {:?}", receipt);
+    info!("receipt: {receipt:?}");
     info!("journal: {:?}", receipt.journal);
 
     // verify output
@@ -307,10 +303,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     if expected_output == &output_guest {
         info!("Prover succeeded");
     } else {
-        error!(
-            "Output mismatch! Prover: {:?}, expected: {:?}",
-            output_guest, expected_output,
-        );
+        error!("Output mismatch! Prover: {output_guest:?}, expected: {expected_output:?}");
     }
 
     // upload receipt to bonsai
@@ -373,7 +366,7 @@ pub fn prove_locally(
     assumptions: Vec<Assumption>,
     profile: bool,
 ) -> Receipt {
-    debug!("Proving with segment_limit_po2 = {:?}", segment_limit_po2);
+    debug!("Proving with segment_limit_po2 = {segment_limit_po2:?}");
     debug!(
         "Input size: {} words ( {} MB )",
         encoded_input.len(),
@@ -422,7 +415,7 @@ pub fn load_receipt<T: serde::de::DeserializeOwned>(
         Ok(receipt_serialized) => receipt_serialized,
         Err(err) => {
             debug!("Could not load cached receipt with label: {}", &file_name);
-            debug!("{:?}", err);
+            debug!("{err:?}");
             return Ok(None);
         }
     };
@@ -442,7 +435,7 @@ pub fn save_receipt<T: serde::Serialize>(receipt_label: &String, receipt_data: &
 
 fn zkp_cache_path(receipt_label: &String) -> String {
     Path::new("/tmp/risc0-cache")
-        .join(format!("{}.zkp", receipt_label))
+        .join(format!("{receipt_label}.zkp"))
         .to_str()
         .unwrap()
         .to_string()

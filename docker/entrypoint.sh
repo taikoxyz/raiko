@@ -9,6 +9,7 @@ RAIKO_DOCKER_VOLUME_SECRETS_PATH="$RAIKO_DOCKER_VOLUME_PATH/secrets"
 RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH="$RAIKO_DOCKER_VOLUME_SECRETS_PATH/priv.key"
 RAIKO_APP_DIR="/opt/raiko/bin"
 RAIKO_GUEST_APP_FILENAME="sgx-guest"
+RAIKO_GUEST_SETUP_FILENAME="raiko-setup"
 RAIKO_INPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.docker.manifest.template"
 RAIKO_OUTPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.manifest.sgx"
 RAIKO_SIGNED_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.sig"
@@ -28,6 +29,14 @@ function bootstrap() {
     cd -
 }
 
+function bootstrap_with_self_register() {
+    mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
+    cd "$RAIKO_APP_DIR"
+    echo "./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-rpc $L1_RPC --l1-chain-id $L1_CHAIN_ID --sgx-verifier-address $SGX_VERIFIER_ADDRESS"
+    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-rpc $L1_RPC --l1-chain-id $L1_CHAIN_ID --sgx-verifier-address $SGX_VERIFIER_ADDRESS
+    cd -
+}
+
 if [[ -z "${PCCS_HOST}" ]]; then
     MY_PCCS_HOST=pccs:8081
 else
@@ -35,19 +44,26 @@ else
 fi
 
 sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
-sed -i "s/123456/${SGX_INSTANCE_ID}/" /etc/raiko/config.sgx.json
 /restart_aesm.sh
 
 echo $#
 if [[ $# -eq 1 && $1 == "--init" ]]; then
     echo "start bootstrap"
     bootstrap
+elif [[ $# -eq 1 && $1 == "--init-self-register" ]]; then
+    echo "start bootstrap with self register"
+    bootstrap_with_self_register
 else
     echo "start proving"
     if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
         echo "Application was not bootstrapped. "\
              "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
         exit 1
+    fi
+
+    if [[ ! -z $SGX_INSTANCE_ID ]]; then
+        echo "sed -i "s/123456/${SGX_INSTANCE_ID}/" /etc/raiko/config.sgx.json"
+        sed -i "s/123456/${SGX_INSTANCE_ID}/" /etc/raiko/config.sgx.json
     fi
 
     /opt/raiko/bin/raiko-host "$@"

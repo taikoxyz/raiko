@@ -1728,6 +1728,7 @@ dependencies = [
  "flate2",
  "hashbrown 0.14.3",
  "hex",
+ "lazy_static",
  "libflate",
  "log",
  "once_cell",

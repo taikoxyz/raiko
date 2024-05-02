@@ -47,11 +47,7 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
         // Validate extra data
         let extra_data_bytes = block_builder.input.extra_data.len();
         if extra_data_bytes > MAX_EXTRA_DATA_BYTES {
-            bail!(
-                "Invalid extra data: expected <= {}, got {}",
-                MAX_EXTRA_DATA_BYTES,
-                extra_data_bytes,
-            )
+            bail!("Invalid extra data: expected <= {MAX_EXTRA_DATA_BYTES}, got {extra_data_bytes}")
         }
         // Derive header
         let number: u64 = block_builder.input.parent_header.number;
