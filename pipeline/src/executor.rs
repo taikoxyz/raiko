@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::ROOT_DIR;
 use regex::Regex;
 use std::fs::File;
 use std::io::BufRead;
@@ -60,8 +61,6 @@ impl Executor {
 
     #[cfg(feature = "sp1")]
     pub fn sp1_placement(&self, dest: &str) -> Result<()> {
-        use crate::ROOT_DIR;
-
         let root = ROOT_DIR.get().unwrap();
         let dest = PathBuf::from(dest);
         if !dest.exists() {
@@ -80,7 +79,7 @@ impl Executor {
 
     #[cfg(feature = "risc0")]
     pub fn risc0_placement(&self, dest: &str) -> Result<()> {
-        use crate::{risc0_util::GuestListEntry, ROOT_DIR};
+        use crate::risc0_util::GuestListEntry;
         let root = ROOT_DIR.get().unwrap();
         let dest = PathBuf::from(dest);
         if !dest.exists() {

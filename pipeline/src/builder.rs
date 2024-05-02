@@ -16,15 +16,32 @@ pub fn parse_metadata(path: &str) -> Metadata {
 
 pub trait GuestMetadata {
     // /// Kind of target ("bin", "example", "test", "bench", "lib", "custom-build")
+    fn get_tests(&self, names: &[&str]) -> Vec<String>;
+    fn get_bins(&self, names: &[&str]) -> Vec<String>;
     fn tests(&self) -> Vec<&Target>;
     fn bins(&self) -> Vec<&Target>;
-    fn examples(&self) -> Vec<&Target>;
     fn benchs(&self) -> Vec<&Target>;
     fn libs(&self) -> Vec<&Target>;
     fn build_scripts(&self) -> Vec<&Target>;
 }
 
 impl GuestMetadata for Metadata {
+    fn get_tests(&self, names: &[&str]) -> Vec<String> {
+        self.tests()
+            .iter()
+            .filter(|t| names.iter().any(|n| t.name.contains(n)))
+            .map(|t| t.name.clone())
+            .collect()
+    }
+
+    fn get_bins(&self, names: &[&str]) -> Vec<String> {
+        self.bins()
+            .iter()
+            .filter(|t| names.iter().any(|n| t.name.contains(n)))
+            .map(|t| t.name.clone())
+            .collect()
+    }
+
     fn tests(&self) -> Vec<&Target> {
         self.packages.iter().fold(Vec::new(), |mut packages, p| {
             packages.extend(p.targets.iter().filter(|t| t.test));
@@ -38,17 +55,6 @@ impl GuestMetadata for Metadata {
                 p.targets
                     .iter()
                     .filter(|t| t.kind.iter().any(|k| k == "bin")),
-            );
-            packages
-        })
-    }
-
-    fn examples(&self) -> Vec<&Target> {
-        self.packages.iter().fold(Vec::new(), |mut packages, p| {
-            packages.extend(
-                p.targets
-                    .iter()
-                    .filter(|t| t.kind.iter().any(|k| k == "example")),
             );
             packages
         })
@@ -89,7 +95,7 @@ impl GuestMetadata for Metadata {
 }
 
 #[derive(Clone)]
-pub struct GuestBuilder {
+pub struct CommandBuilder {
     pub meta: Metadata,
 
     pub target: String,
@@ -114,7 +120,7 @@ pub struct GuestBuilder {
     custom_env: HashMap<String, String>,
 }
 
-impl GuestBuilder {
+impl CommandBuilder {
     pub fn new(meta: &Metadata, target: &str, toolchain: &str) -> Self {
         let tools = ["cargo", "rustc"]
             .into_iter()
@@ -282,7 +288,7 @@ impl GuestBuilder {
         profile: &str,
         mut bins: Vec<String>,
     ) -> Command {
-        let GuestBuilder {
+        let CommandBuilder {
             meta,
             target,
             cargo,

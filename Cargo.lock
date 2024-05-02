@@ -1949,12 +1949,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
-name = "docker-generate"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccf673e0848ef09fa4aeeba78e681cf651c0c7d35f76ee38cec8e55bc32fa111"
-
-[[package]]
 name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4292,20 +4286,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
-name = "pipeline"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cargo_metadata 0.18.1",
- "cfg-if",
- "chrono",
- "dirs",
- "once_cell",
- "regex",
- "risc0-binfmt",
-]
-
-[[package]]
 name = "pkcs8"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4618,7 +4598,7 @@ dependencies = [
  "reqwest 0.11.27",
  "reqwest 0.12.4",
  "revm",
- "risc0-prover",
+ "risc0-driver",
  "rlp",
  "rstest",
  "serde",
@@ -4667,6 +4647,20 @@ dependencies = [
  "thiserror-no-std",
  "tokio",
  "url",
+]
+
+[[package]]
+name = "raiko-pipeline"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cargo_metadata 0.18.1",
+ "cfg-if",
+ "chrono",
+ "dirs",
+ "once_cell",
+ "regex",
+ "risc0-binfmt",
 ]
 
 [[package]]
@@ -5074,24 +5068,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "risc0-build"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a6a0138c9ae1d82eaa2ab6047535481a17641ba6c354890770bf94fbef8049"
-dependencies = [
- "anyhow",
- "cargo-platform",
- "cargo_metadata 0.17.0",
- "docker-generate",
- "risc0-binfmt",
- "risc0-zkp",
- "risc0-zkvm-platform",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "risc0-build-kernel"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5177,6 +5153,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "risc0-driver"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "anyhow",
+ "bincode",
+ "bonsai-sdk",
+ "bytemuck",
+ "ethers-contract",
+ "ethers-core",
+ "ethers-providers",
+ "hex",
+ "log",
+ "once_cell",
+ "raiko-lib",
+ "raiko-primitives",
+ "risc0-zkvm",
+ "serde",
+ "serde_with",
+ "tracing",
+ "typetag",
+]
+
+[[package]]
 name = "risc0-groth16"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5197,32 +5198,6 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tracing",
-]
-
-[[package]]
-name = "risc0-prover"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
- "anyhow",
- "bincode",
- "bonsai-sdk",
- "bytemuck",
- "ethers-contract",
- "ethers-core",
- "ethers-providers",
- "hex",
- "log",
- "once_cell",
- "raiko-lib",
- "raiko-primitives",
- "risc0-build",
- "risc0-zkvm",
- "serde",
- "serde_with",
- "tracing",
- "typetag",
 ]
 
 [[package]]
