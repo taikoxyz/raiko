@@ -10,7 +10,7 @@ name = "bar"
 path = "src/bar.rs"
 
 [[bin]]
-name = "foo"
+name = "foo-foo"
 path = "src/foo.rs"
 
 [dependencies]

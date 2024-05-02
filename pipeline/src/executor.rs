@@ -43,7 +43,7 @@ impl Executor {
                 if let Some(test) = extract_path(&line) {
                     self.artifacts
                         .iter_mut()
-                        .find(|a| file_name(&test).contains(&file_name(a)))
+                        .find(|a| file_name(&test).contains(&file_name(a).replace("-", "_")))
                         .map(|a| *a = test)
                         .expect("Failed to find test artifact");
                 }

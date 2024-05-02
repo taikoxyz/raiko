@@ -2,15 +2,14 @@
 use risc0_zkvm::guest::env;
 risc0_zkvm::guest::entry!(main);
 
+use raiko_lib::protocol_instance::assemble_protocol_instance;
+use raiko_lib::protocol_instance::EvidenceType;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, WrappedHeader},
 };
-use raiko_lib::protocol_instance::assemble_protocol_instance;
-use raiko_lib::protocol_instance::EvidenceType;
 
 fn main() {
-
     let input: GuestInput = env::read();
     let build_result = TaikoStrategy::build_from(&input);
 
@@ -20,12 +19,28 @@ fn main() {
             let pi = assemble_protocol_instance(&input, &header)
                 .expect("Failed to assemble protocol instance")
                 .instance_hash(EvidenceType::Risc0);
-            GuestOutput::Success((WrappedHeader {header: header.clone() }, pi))
+            GuestOutput::Success((
+                WrappedHeader {
+                    header: header.clone(),
+                },
+                pi,
+            ))
         }
-        Err(_) => {
-            GuestOutput::Failure
-        }
+        Err(_) => GuestOutput::Failure,
     };
 
     env::commit(&output);
+}
+
+#[test]
+fn test_fib() {
+    use harness::*;
+    let mut a = 1;
+    let mut b = 1;
+    for _ in 0..10 {
+        let c = a + b;
+        a = b;
+        b = c;
+    }
+    harness::assert_eq!(b, 144);
 }

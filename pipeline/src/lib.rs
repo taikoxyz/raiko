@@ -57,6 +57,9 @@ pub mod sp1 {
                 "executor: \n   ${:?}\ntargets: \n   {:?}",
                 executor.cmd, executor.artifacts
             );
+            if executor.artifacts.is_empty() {
+                panic!("No artifacts to build");
+            }
             executor
                 .execute()
                 .expect("Execution failed")
@@ -73,6 +76,9 @@ pub mod sp1 {
                 "executor: \n   ${:?}\ntargets: \n   {:?}",
                 executor.cmd, executor.artifacts
             );
+            if executor.artifacts.is_empty() {
+                panic!("No artifacts to build");
+            }
             executor
                 .execute()
                 .expect("Execution failed")
@@ -101,7 +107,7 @@ pub mod risc0 {
         }
 
         fn builder(&self) -> CommandBuilder {
-            CommandBuilder::new(&self.meta, "riscv32im-risc0-zkvm-elf", "risc0")
+            let mut builder = CommandBuilder::new(&self.meta, "riscv32im-risc0-zkvm-elf", "risc0")
                 .rust_flags(&[
                     "passes=loweratomic",
                     "link-arg=-Ttext=0x00200800",
@@ -113,7 +119,10 @@ pub mod risc0 {
                 //         .join("cpp/bin/riscv32-unknown-elf-gcc"),
                 // )
                 // .c_flags(&["-march=rv32im", "-nostdlib"]);
-                .custom_args(&["--ignore-rust-version"])
+                .custom_args(&["--ignore-rust-version"]);
+            // Cannot use /.rustup/toolchains/risc0/bin/cargo, use regular cargo
+            builder.unset_cargo();
+            builder
         }
 
         fn bins(&self, names: &[&str], dest: &str) {
@@ -125,6 +134,9 @@ pub mod risc0 {
                 "executor: \n   ${:?}\ntargets: \n   {:?}",
                 executor.cmd, executor.artifacts
             );
+            if executor.artifacts.is_empty() {
+                panic!("No artifacts to build");
+            }
             executor
                 .execute()
                 .expect("Execution failed")
@@ -141,6 +153,9 @@ pub mod risc0 {
                 "executor: \n   ${:?}\ntargets: \n   {:?}",
                 executor.cmd, executor.artifacts
             );
+            if executor.artifacts.is_empty() {
+                panic!("No artifacts to build");
+            }
             executor
                 .execute()
                 .expect("Execution failed")

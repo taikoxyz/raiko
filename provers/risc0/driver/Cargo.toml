@@ -1,0 +1,55 @@
+[package]
+name = "risc0-driver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-lib = { workspace = true, optional = true }
+raiko-primitives = { workspace = true, optional = true }
+
+risc0-zkvm = { workspace = true, optional = true }
+bonsai-sdk = { workspace = true, optional = true }
+
+alloy-primitives = { workspace = true, optional = true }
+alloy-sol-types = { workspace = true, optional = true}
+
+ethers-contract = { workspace = true, optional = true }
+ethers-core = { workspace = true, optional = true }
+ethers-providers = { workspace = true, optional = true }
+
+tracing = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+once_cell = { workspace = true, optional = true }
+anyhow = { workspace = true, optional = true }
+
+log = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+bytemuck = { workspace = true, optional = true }
+typetag = { workspace = true, optional = true }
+serde_with = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+
+[features]
+enable = [
+    "anyhow",
+    "risc0-zkvm",
+    "raiko-lib",
+    "raiko-primitives",
+    "bonsai-sdk",
+    "serde",
+    "serde_with",
+    "once_cell",
+    "log",
+    "tracing",
+    "alloy-primitives",
+    "alloy-sol-types",
+    "ethers-contract",
+    "ethers-core",
+    "ethers-providers",
+    "hex",
+    "bincode",
+    "bytemuck",
+    "typetag",
+]
+cuda = ["risc0-zkvm?/cuda"]
+metal = ["risc0-zkvm?/metal"]

@@ -263,7 +263,7 @@ impl Handler {
                     ProofType::Sp1 => execute::<sp1_prover::Sp1Prover>(&config, cached_input).await,
                     #[cfg(feature = "risc0")]
                     ProofType::Risc0 => {
-                        execute::<risc0_prover::Risc0Prover>(&config, cached_input).await
+                        execute::<risc0_driver::Risc0Prover>(&config, cached_input).await
                     }
                     #[cfg(feature = "sgx")]
                     ProofType::Sgx => execute::<sgx_prover::SgxProver>(&config, cached_input).await,

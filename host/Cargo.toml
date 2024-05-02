@@ -8,7 +8,7 @@ default-run = "raiko-host"
 
 # provers
 sp1-prover = { path = "../provers/sp1/prover", optional = true }
-risc0-prover = { path = "../provers/risc0", optional = true }
+risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
@@ -77,8 +77,8 @@ sp1 = [
   "sp1-prover/enable",
 ]
 risc0 = [
-  "dep:risc0-prover",
-  "risc0-prover/enable",
+  "dep:risc0-driver",
+  "risc0-driver/enable",
 ]
 sgx = [
   "dep:sgx-prover",
