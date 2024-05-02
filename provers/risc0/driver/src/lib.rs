@@ -1,5 +1,4 @@
 #![cfg(feature = "enable")]
-
 use std::{
     env,
     fmt::Debug,
@@ -32,7 +31,7 @@ pub mod methods;
 pub mod snarks;
 use crate::snarks::verify_groth16_snark;
 
-use methods::risc0_guest::*;
+use methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID};
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]

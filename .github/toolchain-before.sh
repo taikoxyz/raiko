@@ -14,7 +14,7 @@ elif [ "$1" == "risc0" ]; then
     CRATE_TOOLCHAIN="provers/risc0/rust-toolchain.toml"
     echo "rust-toolchain.toml has been copied from Risc0 prover to the workspace root."
 elif [ "$1" == "sp1" ]; then
-    CRATE_TOOLCHAIN="provers/sp1/prover/rust-toolchain.toml"
+    CRATE_TOOLCHAIN="provers/sp1/driver/rust-toolchain.toml"
     echo "rust-toolchain.toml has been copied from Sp1 prover to the workspace root."
 else
   echo "Skip toolchain modification"
