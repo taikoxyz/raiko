@@ -1,12 +1,10 @@
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [package]
-name = "raiko-host"
+name = "raiko-setup"
 version = "0.1.0"
 edition = "2021"
-default-run = "raiko-host"
 
 [dependencies]
-
-# provers
 sp1-prover = { path = "../provers/sp1/prover", optional = true }
 risc0-prover = { path = "../provers/risc0", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
@@ -27,18 +25,12 @@ alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
 
-# server
-axum = { workspace = true }
-tower-http = { workspace = true }
-tower = { workspace = true }
-utoipa-swagger-ui = { workspace = true }
-utoipa = { workspace = true }
-
 # misc
 anyhow = { workspace = true }
 bincode = { workspace = true }
 bytemuck = { workspace = true }
 clap = { workspace = true }
+structopt = { workspace = true }
 flate2 = { workspace = true }
 revm = { workspace = true }
 serde = { workspace = true }
@@ -51,6 +43,7 @@ env_logger = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
+tower = { workspace = true }
 lru_time_cache = { workspace = true }
 prometheus = { workspace = true }
 lazy_static = { workspace = true }
@@ -60,11 +53,11 @@ reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
 sha2 = { workspace = true }
 proptest = { workspace = true }
-c-kzg = { workspace = true }
 rlp = { workspace = true }
 url = { workspace = true }
 cfg-if = { workspace = true }
 cap = { workspace = true }
+dirs = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -75,16 +68,16 @@ ethers-core = { workspace = true }
 sp1-helper = { workspace = true }
 
 [features]
-default = []
-# powdr = ["dep:powdr"]
-sp1 = ["dep:sp1-prover", "sp1-prover/enable"]
-risc0 = ["dep:risc0-prover", "risc0-prover/enable"]
-sgx = ["dep:sgx-prover", "sgx-prover/enable"]
-
-[[bin]]
-name = "raiko-host"
-path = "src/main.rs"
-
-[[bin]]
-name = "docs"
-path = "src/docs.rs"
+default = ["sgx"]
+sp1 = [
+  "dep:sp1-prover",
+  "sp1-prover/enable",
+]
+risc0 = [
+  "dep:risc0-prover",
+  "risc0-prover/enable",
+]
+sgx = [
+  "dep:sgx-prover",
+  "sgx-prover/enable",
+]
