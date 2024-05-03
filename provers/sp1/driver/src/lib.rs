@@ -1,6 +1,4 @@
 #![cfg(feature = "enable")]
-
-use core::panic;
 use std::env;
 
 use alloy_primitives::B256;
