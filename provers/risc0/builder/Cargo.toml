@@ -1,5 +1,5 @@
 [package]
-name = "builder"
+name = "risc0-builder"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,4 @@ edition = "2021"
 
 [dependencies]
 raiko-pipeline = { path = "../../../pipeline", features = ["risc0"]}
-
-[workspace]
 

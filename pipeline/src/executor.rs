@@ -71,8 +71,8 @@ impl Executor {
             if self.test {
                 name = format!("test-{}", name.split('-').collect::<Vec<_>>()[0]);
             }
-            fs::copy(root.join(src.to_str().unwrap()), &dest.join(&name))?;
-            println!("Wrote elf from\n    {:?}\nto\n    {:?}", src, dest);
+            fs::copy(root.join(src.to_str().unwrap()), &dest.join(&name.replace("_", "-")))?;
+            println!("Write elf from\n    {:?}\nto\n    {:?}", src, dest);
         }
         Ok(())
     }
@@ -94,7 +94,7 @@ impl Executor {
                 File::create(dest.join(&format!("{}.rs", name.replace('-', "_")))).unwrap();
             let guest = GuestListEntry::build(&name, root.join(src).to_str().unwrap()).unwrap();
             dest.write_all(guest.codegen_consts().as_bytes())?;
-            println!("Wrote from\n  {:?}\nto\n  {:?}", src, dest);
+            println!("Write from\n  {:?}\nto\n  {:?}", src, dest);
         }
         Ok(())
     }

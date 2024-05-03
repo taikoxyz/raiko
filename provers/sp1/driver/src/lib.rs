@@ -71,3 +71,22 @@ impl Prover for Sp1Prover {
         hash.into()
     }
 }
+
+#[test]
+fn test_sp1_prover() {
+    let input = GuestInput {
+        input: SolValue::U256(42.into()),
+    };
+    let output = GuestOutput {
+        output: SolValue::U256(42.into()),
+    };
+
+    let config = ProverConfig {
+        timeout: 60,
+        memory: 1 << 30,
+        cores: 1,
+    };
+
+    let result = tokio_test::block_on(Sp1Prover::run(input, output, &config));
+    assert!(result.is_ok());
+}

@@ -37,12 +37,9 @@ jobs:
         cargo binstall -y --force cargo-risczero
         cargo risczero install
     - name: Build risc0 guest target
-      run: |
-        cd provers/risc0/builder/
-        cargo run
+      run: cargo run --bin risc0-builder
     - name: Build risc0 prover
       run: cargo build --release --features risc0
-
 
   build-test-sp1:
     name: Build and test sp1
@@ -61,9 +58,7 @@ jobs:
           echo "/root/.sp1/bin" >> $GITHUB_PATH
           /root/.sp1/bin/sp1up
       - name: Build sp1 guest target
-        run: |
-          cd provers/sp1/builder/
-          cargo build
+        run: cargo run --bin sp1-builder
       - name: Build sp1 prover
         run: cargo build --release --features sp1
 

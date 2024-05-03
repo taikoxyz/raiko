@@ -5315,6 +5315,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "risc0-builder"
+version = "0.1.0"
+dependencies = [
+ "raiko-pipeline",
+]
+
+[[package]]
 name = "risc0-circuit-recursion"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6245,6 +6252,13 @@ checksum = "05ffd9c0a93b7543e062e759284fcf5f5e3b098501104bfbdde4d404db792871"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "sp1-builder"
+version = "0.1.0"
+dependencies = [
+ "raiko-pipeline",
 ]
 
 [[package]]
