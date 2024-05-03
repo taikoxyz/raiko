@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
 
-const ELF: &[u8] = include_bytes!("../../guest/elf/riscv32im-succinct-zkvm-elf");
+const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {

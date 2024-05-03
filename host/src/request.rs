@@ -75,7 +75,7 @@ impl ProofType {
             ProofType::Native => Ok(NativeProver::instance_hash(pi)),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
-                return Ok(sp1_prover::Sp1Prover::instance_hash(pi));
+                return Ok(sp1_driver::Sp1Prover::instance_hash(pi));
 
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
@@ -107,7 +107,7 @@ impl ProofType {
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
-                return sp1_prover::Sp1Prover::run(input, output, config)
+                return sp1_driver::Sp1Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
 
