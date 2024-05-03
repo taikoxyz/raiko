@@ -49,6 +49,8 @@ pub struct ProviderDb {
     pub pending_block_hashes: HashSet<u64>,
 }
 
+type StorageProofs = HashMap<Address, EIP1186AccountProofResponse>;
+
 impl ProviderDb {
     pub fn new(
         provider: ReqwestProvider,
@@ -56,7 +58,7 @@ impl ProviderDb {
         block_number: u64,
     ) -> Result<Self, anyhow::Error> {
         let client = ClientBuilder::default()
-            .reqwest_http(reqwest::Url::parse(&provider.client().transport().url()).unwrap());
+            .reqwest_http(reqwest::Url::parse(provider.client().transport().url()).unwrap());
 
         let mut provider_db = ProviderDb {
             provider,
@@ -76,7 +78,7 @@ impl ProviderDb {
             // Get the 256 history block hashes from the provider at first time for anchor
             // transaction.
             let start = block_number.saturating_sub(255);
-            let block_numbers = (start..=block_number).collect();
+            let block_numbers = (start..=block_number).collect::<Vec<_>>();
             let initial_history_blocks = provider_db.fetch_blocks(&block_numbers)?;
             for block in initial_history_blocks {
                 let block_number: u64 = block.header.number.unwrap().try_into().unwrap();
@@ -92,7 +94,7 @@ impl ProviderDb {
         Ok(provider_db)
     }
 
-    fn fetch_blocks(&mut self, block_numbers: &Vec<u64>) -> Result<Vec<Block>, anyhow::Error> {
+    fn fetch_blocks(&mut self, block_numbers: &[u64]) -> Result<Vec<Block>, anyhow::Error> {
         let mut all_blocks = Vec::new();
 
         let max_batch_size = 32;
@@ -123,7 +125,7 @@ impl ProviderDb {
         Ok(all_blocks)
     }
 
-    fn fetch_accounts(&self, accounts: &Vec<Address>) -> Result<Vec<AccountInfo>, anyhow::Error> {
+    fn fetch_accounts(&self, accounts: &[Address]) -> Result<Vec<AccountInfo>, anyhow::Error> {
         let mut all_accounts = Vec::new();
 
         let max_batch_size = 250;
@@ -195,7 +197,7 @@ impl ProviderDb {
 
     fn fetch_storage_slots(
         &self,
-        accounts: &Vec<(Address, U256)>,
+        accounts: &[(Address, U256)],
     ) -> Result<Vec<U256>, anyhow::Error> {
         let mut all_values = Vec::new();
 
@@ -238,7 +240,7 @@ impl ProviderDb {
         accounts: HashMap<Address, Vec<U256>>,
         offset: usize,
         num_storage_proofs: usize,
-    ) -> Result<HashMap<Address, EIP1186AccountProofResponse>, anyhow::Error> {
+    ) -> Result<StorageProofs, anyhow::Error> {
         let mut storage_proofs: HashMap<Address, EIP1186AccountProofResponse> = HashMap::new();
         let mut idx = offset;
 
@@ -269,13 +271,13 @@ impl ProviderDb {
 
                     // If we can process all keys, remove the address from the map after the loop
                     if num_keys_to_process == keys.len() {
-                        address_to_remove = Some(address.clone());
+                        address_to_remove = Some(*address);
                     }
 
                     // Extract the keys to process
                     let keys_to_process = keys
                         .drain(0..num_keys_to_process)
-                        .map(|v| StorageKey::from(v))
+                        .map(StorageKey::from)
                         .collect::<Vec<_>>();
 
                     // Add the request
@@ -284,7 +286,7 @@ impl ProviderDb {
                             .add_call::<_, EIP1186AccountProofResponse>(
                                 "eth_getProof",
                                 &(
-                                    address.clone(),
+                                    address,
                                     keys_to_process.clone(),
                                     BlockId::from(block_number),
                                 ),
@@ -308,7 +310,7 @@ impl ProviderDb {
 
             // Collect the data from the batch
             for request in requests.into_iter() {
-                let mut proof = self.async_executor.block_on(async { request.await })?;
+                let mut proof = self.async_executor.block_on(request)?;
                 idx += proof.storage_proof.len();
                 if let Some(map_proof) = storage_proofs.get_mut(&proof.address) {
                     map_proof.storage_proof.append(&mut proof.storage_proof);
@@ -322,16 +324,7 @@ impl ProviderDb {
         Ok(storage_proofs)
     }
 
-    pub fn get_proofs(
-        &mut self,
-    ) -> Result<
-        (
-            HashMap<Address, EIP1186AccountProofResponse>,
-            HashMap<Address, EIP1186AccountProofResponse>,
-            usize,
-        ),
-        anyhow::Error,
-    > {
+    pub fn get_proofs(&mut self) -> Result<(StorageProofs, StorageProofs, usize), anyhow::Error> {
         // Latest proof keys
         let mut storage_keys = self.initial_db.storage_keys();
         for (address, mut indices) in self.current_db.storage_keys() {
@@ -436,7 +429,7 @@ impl Database for ProviderDb {
         }
 
         // Fetch the account
-        let account = self.fetch_accounts(&vec![address])?[0].clone();
+        let account = self.fetch_accounts(&[address])?[0].clone();
 
         // Insert the account into the initial database.
         self.initial_db
@@ -455,7 +448,7 @@ impl Database for ProviderDb {
         if let Ok(db_result) = self.staging_db.storage(address, index) {
             if self.is_valid_run() {
                 self.initial_db
-                    .insert_account_storage(&address, index, db_result.clone());
+                    .insert_account_storage(&address, index, db_result);
             }
             return Ok(db_result);
         }
@@ -471,7 +464,7 @@ impl Database for ProviderDb {
         self.initial_db.basic(address)?;
 
         // Fetch the storage value
-        let value = self.fetch_storage_slots(&vec![(address, index)])?[0].clone();
+        let value = self.fetch_storage_slots(&[(address, index)])?[0];
 
         self.initial_db
             .insert_account_storage(&address, index, value);
@@ -487,8 +480,7 @@ impl Database for ProviderDb {
         }
         if let Ok(db_result) = self.staging_db.block_hash(number) {
             if self.is_valid_run() {
-                self.initial_db
-                    .insert_block_hash(block_number, db_result.clone());
+                self.initial_db.insert_block_hash(block_number, db_result);
             }
             return Ok(db_result);
         }
@@ -500,7 +492,7 @@ impl Database for ProviderDb {
         }
 
         // Fetch the block hash
-        let block_hash = self.fetch_blocks(&vec![block_number])?[0]
+        let block_hash = self.fetch_blocks(&[block_number])?[0]
             .header
             .hash
             .unwrap()
@@ -532,34 +524,40 @@ impl OptimisticDatabase for ProviderDb {
         let valid_run = self.is_valid_run();
 
         let accounts = self
-            .fetch_accounts(&self.pending_accounts.iter().cloned().collect())
+            .fetch_accounts(&self.pending_accounts.iter().cloned().collect::<Vec<_>>())
             .unwrap();
         for (address, account) in take(&mut self.pending_accounts)
             .into_iter()
             .zip(accounts.iter())
         {
             self.staging_db
-                .insert_account_info(address.clone(), account.clone());
+                .insert_account_info(address, account.clone());
         }
 
         let slots = self
-            .fetch_storage_slots(&self.pending_slots.iter().cloned().collect())
+            .fetch_storage_slots(&self.pending_slots.iter().cloned().collect::<Vec<_>>())
             .unwrap();
         for ((address, index), value) in take(&mut self.pending_slots).into_iter().zip(slots.iter())
         {
             self.staging_db
-                .insert_account_storage(&address, index.clone(), value.clone());
+                .insert_account_storage(&address, index, *value);
         }
 
         let blocks = self
-            .fetch_blocks(&self.pending_block_hashes.iter().cloned().collect())
+            .fetch_blocks(
+                &self
+                    .pending_block_hashes
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            )
             .unwrap();
         for (block_number, block) in take(&mut self.pending_block_hashes)
             .into_iter()
             .zip(blocks.iter())
         {
             self.staging_db
-                .insert_block_hash(block_number, block.header.hash.unwrap().0.into());
+                .insert_block_hash(block_number, block.header.hash.unwrap());
             self.initial_headers
                 .insert(block_number, to_header(&block.header));
         }

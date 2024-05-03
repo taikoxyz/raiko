@@ -39,14 +39,14 @@ revm = { git = "https://github.com/taikoxyz/revm.git", branch = "fix-ecrecover",
 ] }
 
 # risc zero
-risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"]}
-bonsai-sdk = { version = "0.7.0", features = ["async"]}
+risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "0.7.0", features = ["async"] }
 risc0-build = { version = "0.21.0" }
 
 # SP1
-sp1-sdk ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-helper ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
 
 # alloy
 alloy-rlp = { version = "0.3", default-features = false }
@@ -58,10 +58,16 @@ alloy-primitives = { version = "0.7.0", default-features = false }
 alloy-sol-types = { version = "0.7.0", default-features = false }
 alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-rpc-client = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["serde"] }
-alloy-network = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["k256"] }
+alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+    "serde",
+] }
+alloy-network = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+    "k256",
+] }
 alloy-contract = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "175", features = ["serde"]  }
+alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+    "serde",
+] }
 alloy-provider = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-transport-http = { git = "https://github.com/brechtpd/alloy", branch = "175" }
 alloy-signer = { git = "https://github.com/brechtpd/alloy", branch = "175" }
@@ -73,7 +79,10 @@ ethers-core = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-c
 ethers-providers = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10" }
 
 # serde
-serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde = { version = "1.0", default-features = false, features = [
+    "derive",
+    "alloc",
+] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde_with = { version = "3.0" }
 
@@ -83,7 +92,16 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = "0.2"
 
 # memory
-cap = { git = "https://github.com/brechtpd/cap", branch = "more-stats", features = ["stats"] }
+cap = { git = "https://github.com/brechtpd/cap", branch = "more-stats", features = [
+    "stats",
+] }
+
+# server
+axum = { version = "0.7.4", features = ["macros"] }
+tower-http = { version = "0.5.2", features = ["full"] }
+tower = { version = "0.4.13", features = ["full"] }
+utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
+utoipa = { version = "4.2.0", features = ["axum_extras"] }
 
 # misc
 hashbrown = { version = "0.14", features = ["inline-more"] }
@@ -92,14 +110,12 @@ tempfile = "3.8"
 anyhow = "1.0"
 bincode = "1.3.3"
 bytemuck = "1.13"
-clap = { version = "4.4.6", features = ["derive", "string"] }
-structopt = "0.3.26"
+clap = { version = "4.4.6", features = ["derive", "string", "env"] }
 flate2 = "1.0.28"
 tokio = { version = "^1.23", features = ["full"] }
 hyper = { version = "0.14.27", features = ["server"] }
-tower = { version = "0.4.13", features = ["full"] }
 lru_time_cache = "0.11.11"
-prometheus = "0.13.3"
+prometheus = { version = "0.13.3", features = ["process"] }
 lazy_static = "1.4.0"
 once_cell = "1.8.0"
 thiserror = "1.0"
@@ -131,3 +147,7 @@ secp256k1 = { version = "0.27.0", features = [
     "rand",
     "recovery",
 ] }
+structopt = { version = "0.3.26" }
+
+[patch.crates-io]
+axum = { git = "https://github.com/petarvujovic98/axum", branch = "raiko" }

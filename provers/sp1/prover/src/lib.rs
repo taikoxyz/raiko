@@ -11,7 +11,7 @@ use raiko_lib::{
 };
 use serde::{Deserialize, Serialize};
 use sha3::{self, Digest};
-use sp1_sdk::{utils, ProverClient, SP1Stdin};
+use sp1_sdk::{ProverClient, SP1Stdin};
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/riscv32im-succinct-zkvm-elf");
 

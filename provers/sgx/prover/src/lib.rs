@@ -2,15 +2,14 @@
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command as StdCommand, Output, Stdio},
-    str::{self, FromStr},
+    str,
 };
 
 use alloy_sol_types::SolValue;
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    consts::{get_network_spec, Network},
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
@@ -86,7 +85,7 @@ impl Prover for SgxProver {
             .parent()
             .unwrap()
             .to_path_buf();
-        println!("Current directory: {:?}\n", cur_dir);
+        println!("Current directory: {cur_dir:?}\n");
         // Working paths
         PRIVATE_KEY
             .get_or_init(|| async { cur_dir.join("secrets").join(PRIV_KEY_FILENAME) })
@@ -125,7 +124,7 @@ impl Prover for SgxProver {
         };
 
         if sgx_param.prove {
-            // overwirte sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
+            // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             sgx_proof = prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
         }
 
@@ -147,7 +146,7 @@ impl Prover for SgxProver {
     }
 }
 
-async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String> {
+async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
     // Create required directories
     let directories = ["secrets", "config"];
     for dir in directories {
@@ -168,7 +167,7 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
     // Generate the manifest
     let mut cmd = Command::new("gramine-manifest");
     let output = cmd
-        .current_dir(cur_dir.clone())
+        .current_dir(cur_dir)
         .arg("-Dlog_level=error")
         .arg("-Darch_libdir=/lib/x86_64-linux-gnu/")
         .arg(format!(
@@ -186,7 +185,7 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
         // Generate a private key
         let mut cmd = Command::new("gramine-sgx-gen-private-key");
         let output = cmd
-            .current_dir(cur_dir.clone())
+            .current_dir(cur_dir)
             .arg("-f")
             .output()
             .await
@@ -196,7 +195,7 @@ async fn setup(cur_dir: &PathBuf, direct_mode: bool) -> ProverResult<(), String>
         // Sign the manifest
         let mut cmd = Command::new("gramine-sgx-sign");
         let output = cmd
-            .current_dir(cur_dir.clone())
+            .current_dir(cur_dir)
             .arg("--manifest")
             .arg("sgx-guest.manifest")
             .arg("--output")
@@ -247,7 +246,7 @@ pub async fn bootstrap(
         let path = secret_dir.join(PRIV_KEY_FILENAME);
         if path.exists() {
             if let Err(e) = remove_file(&path) {
-                println!("Error deleting file: {}", e);
+                println!("Error deleting file: {e}");
             }
         }
         let output = gramine_cmd
@@ -276,7 +275,7 @@ async fn prove(
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| format!("Could not spawn gramine cmd: {}", e))?;
+            .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         bincode::serialize_into(stdin, &input).expect("Unable to serialize input");
 
@@ -316,31 +315,19 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
 
 fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
     if let std::io::ErrorKind::NotFound = err.kind() {
-        format!(
-            "gramine could not be found, please install gramine first. ({})",
-            err
-        )
+        format!("gramine could not be found, please install gramine first. ({err})",)
     } else {
-        format!("{}: {}", context, err)
+        format!("{context}: {err}")
     }
 }
 
 fn handle_output(output: &Output, name: &str) -> ProverResult<(), String> {
-    println!(
-        "{} stderr: {}",
-        name,
-        str::from_utf8(&output.stderr).unwrap()
-    );
-    println!(
-        "{} stdout: {}",
-        name,
-        str::from_utf8(&output.stdout).unwrap()
-    );
+    println!("{name} stderr: {}", str::from_utf8(&output.stderr).unwrap());
+    println!("{name} stdout: {}", str::from_utf8(&output.stdout).unwrap());
     if !output.status.success() {
         return Err(format!(
-            "{} encountered an error ({}): {}",
-            name,
-            output.status.to_string(),
+            "{name} encountered an error ({}): {}",
+            output.status,
             String::from_utf8_lossy(&output.stderr),
         ));
     }

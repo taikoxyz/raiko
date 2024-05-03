@@ -792,7 +792,7 @@ impl MptNode {
     pub fn debug_rlp<T: alloy_rlp::Decodable + Debug>(&self) -> Vec<String> {
         // convert the nibs to hex
         let nibs: String = self.nibs().iter().fold(String::new(), |mut output, n| {
-            let _ = write!(output, "{:x}", n);
+            let _ = write!(output, "{n:x}");
             output
         });
 
@@ -807,22 +807,21 @@ impl MptNode {
                         None => vec!["None".to_string()],
                     }
                     .into_iter()
-                    .map(move |s| format!("{:x} {}", i, s))
+                    .map(move |s| format!("{i:x} {s}"))
                 })
                 .collect(),
             MptNodeData::Leaf(_, data) => {
                 vec![format!(
-                    "{} -> {:?}",
-                    nibs,
+                    "{nibs} -> {:?}",
                     T::decode(&mut &data[..]).unwrap()
                 )]
             }
             MptNodeData::Extension(_, node) => node
                 .debug_rlp::<T>()
                 .into_iter()
-                .map(|s| format!("{} {}", nibs, s))
+                .map(|s| format!("{nibs} {s}"))
                 .collect(),
-            MptNodeData::Digest(digest) => vec![format!("#{:#}", digest)],
+            MptNodeData::Digest(digest) => vec![format!("#{digest:#}")],
         }
     }
 
@@ -939,18 +938,18 @@ pub fn mpt_from_proof(proof_nodes: &[MptNode]) -> Result<MptNode> {
                 ) {
                     *child = Box::new(replacement);
                 } else {
-                    panic!("node {} does not reference the successor", i);
+                    panic!("node {i} does not reference the successor");
                 }
                 MptNodeData::Branch(children).into()
             }
             MptNodeData::Extension(prefix, child) => {
                 if !matches!(child.as_data(), MptNodeData::Digest(d) if d == child_ref) {
-                    panic!("node {} does not reference the successor", i);
+                    panic!("node {i} does not reference the successor");
                 }
                 MptNodeData::Extension(prefix, Box::new(replacement)).into()
             }
             MptNodeData::Null | MptNodeData::Leaf(_, _) | MptNodeData::Digest(_) => {
-                panic!("node {} has no children to replace", i);
+                panic!("node {i} has no children to replace");
             }
         };
 

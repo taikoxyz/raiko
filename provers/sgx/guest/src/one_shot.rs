@@ -79,11 +79,11 @@ fn save_bootstrap_details(
 
 pub enum BootStrapError {
     // file does not exist
-    FileNotExist,
+    NotExist,
     // file exists but has wrong permissions
-    FileWithWrongPermissions,
+    WithWrongPermissions,
     // file exists but could not be read normally due to mrenclave change
-    FileDecryptionError(String),
+    DecryptionError(String),
 }
 
 pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
@@ -170,18 +170,15 @@ pub fn load_bootstrap(secrets_dir: &Path) -> Result<SecretKey, BootStrapError> {
     let privkey_path = secrets_dir.join(PRIV_KEY_FILENAME);
     if privkey_path.is_file() && !privkey_path.metadata().unwrap().permissions().readonly() {
         load_private_key(&privkey_path).map_err(|e| {
-            BootStrapError::FileDecryptionError(format!(
-                "Failed to load private key from {}: {}",
+            BootStrapError::DecryptionError(format!(
+                "Failed to load private key from {}: {e}",
                 privkey_path.display(),
-                e
             ))
         })
+    } else if privkey_path.is_file() {
+        Err(BootStrapError::WithWrongPermissions)
     } else {
-        if privkey_path.is_file() {
-            Err(BootStrapError::FileWithWrongPermissions)
-        } else {
-            Err(BootStrapError::FileNotExist)
-        }
+        Err(BootStrapError::NotExist)
     }
 }
 
@@ -248,8 +245,7 @@ fn get_sgx_attestation_type() -> Result<String> {
         .is_err()
     {
         bail!(
-            "Cannot find `{}`; are you running under SGX, with remote attestation enabled?",
-            ATTESTATION_TYPE_DEVICE_FILE
+            "Cannot find `{ATTESTATION_TYPE_DEVICE_FILE}`; are you running under SGX, with remote attestation enabled?"
         );
     }
 
