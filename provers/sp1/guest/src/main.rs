@@ -7,7 +7,6 @@ use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, WrappedHeader},
 };
-
 use std::{
     alloc::{alloc, handle_alloc_error, Layout},
     ffi::c_void,
@@ -42,7 +41,7 @@ pub fn main() {
     let build_result = TaikoStrategy::build_from(&input);
 
     let output = match &build_result {
-        Ok((header, mpt_node)) => {
+        Ok((header, _mpt_node)) => {
             let pi = assemble_protocol_instance(&input, &header)
                 .expect("Failed to assemble protocol instance")
                 .instance_hash(EvidenceType::Succinct);
