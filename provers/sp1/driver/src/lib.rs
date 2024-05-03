@@ -82,7 +82,7 @@ fn test_example() {
     // Even though test itself desn't use it.
     let mut stdin = SP1Stdin::new();
     stdin.write(&GuestInput::default());
-    
+
     let mut proof = client.prove(TEST_ELF, stdin).expect("Sp1: proving failed");
     client
         .verify(TEST_ELF, &proof)

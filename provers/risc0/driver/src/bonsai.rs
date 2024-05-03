@@ -1,8 +1,3 @@
-use std::{
-    fmt::Debug,
-    fs,
-    path::{Path, PathBuf},
-};
 use log::{debug, error, info, warn};
 use raiko_lib::prover::Prover;
 use raiko_primitives::keccak::keccak;
@@ -11,6 +6,11 @@ use risc0_zkvm::{
     ExecutorImpl, Receipt,
 };
 use serde::{de::DeserializeOwned, Serialize};
+use std::{
+    fmt::Debug,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::Risc0Param;
 

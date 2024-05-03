@@ -71,7 +71,10 @@ impl Executor {
             if self.test {
                 name = format!("test-{}", name.split('-').collect::<Vec<_>>()[0]);
             }
-            fs::copy(root.join(src.to_str().unwrap()), &dest.join(&name.replace('_', "-")))?;
+            fs::copy(
+                root.join(src.to_str().unwrap()),
+                &dest.join(&name.replace('_', "-")),
+            )?;
             println!("Write elf from\n    {:?}\nto\n    {:?}", src, dest);
         }
         Ok(())

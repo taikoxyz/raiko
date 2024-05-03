@@ -7,6 +7,8 @@ use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, WrappedHeader},
 };
+#[cfg(test)]
+use harness::*;
 
 pub fn main() {
     let input = sp1_zkvm::io::read::<GuestInput>();
