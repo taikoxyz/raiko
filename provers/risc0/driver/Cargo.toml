@@ -27,6 +27,7 @@ bincode = { workspace = true, optional = true }
 bytemuck = { workspace = true, optional = true }
 typetag = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true  }
 hex = { workspace = true, optional = true }
 
 [features]
@@ -50,6 +51,7 @@ enable = [
     "bincode",
     "bytemuck",
     "typetag",
+    "serde_json",
 ]
 cuda = ["risc0-zkvm?/cuda"]
 metal = ["risc0-zkvm?/metal"]
