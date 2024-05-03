@@ -64,7 +64,7 @@ jobs:
       - name: Build sp1 prover
         run: cargo build --release --features sp1
       - name: Test sp1 prover
-        run: cargo test -p sp1-driver --features enable
+        run: cargo test -p sp1-driver --features enable --release
 
   build-test-sgx:
     name: Build and test sgx
@@ -80,7 +80,7 @@ jobs:
       - name: Setup and build
         run: |
           cargo build --features sgx
-          cargo test -p sgx-prover --features enable
+          cargo test -p sgx-prover --features enable --release
         shell: bash
 
   build-test-sgx-with-docker:
