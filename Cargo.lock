@@ -4785,7 +4785,6 @@ dependencies = [
  "sgx-prover",
  "sha2",
  "sp1-driver",
- "sp1-helper",
  "thiserror",
  "tokio",
  "tower",

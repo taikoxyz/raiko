@@ -32,26 +32,26 @@ hex = { workspace = true, optional = true }
 
 [features]
 enable = [
-    "anyhow",
-    "risc0-zkvm",
     "raiko-lib",
     "raiko-primitives",
+    "risc0-zkvm",
     "bonsai-sdk",
-    "serde",
-    "serde_with",
-    "once_cell",
-    "log",
-    "tracing",
     "alloy-primitives",
     "alloy-sol-types",
     "ethers-contract",
     "ethers-core",
     "ethers-providers",
-    "hex",
+    "tracing",
+    "serde",
+    "once_cell",
+    "anyhow",
+    "log",
     "bincode",
     "bytemuck",
     "typetag",
+    "serde_with",
     "serde_json",
+    "hex",
 ]
 cuda = ["risc0-zkvm?/cuda"]
 metal = ["risc0-zkvm?/metal"]

@@ -17,6 +17,5 @@ dirs = { workspace = true }
 risc0-binfmt = { workspace = true, optional = true }
 
 [features]
-default = ["risc0", "sp1"]
 risc0 = ["dep:risc0-binfmt"]
 sp1 = []

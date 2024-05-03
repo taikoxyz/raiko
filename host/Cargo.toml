@@ -71,11 +71,7 @@ assert_cmd = { workspace = true }
 rstest = { workspace = true }
 ethers-core = { workspace = true }
 
-[build-dependencies]
-sp1-helper = { workspace = true }
-
 [features]
-default = ["risc0"]
 # powdr = ["dep:powdr"]
 sp1 = ["dep:sp1-driver", "sp1-driver/enable"]
 risc0 = ["dep:risc0-driver", "risc0-driver/enable"]
