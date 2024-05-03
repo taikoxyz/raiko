@@ -40,6 +40,8 @@ jobs:
       run: cargo run --bin risc0-builder
     - name: Build risc0 prover
       run: cargo build --release --features risc0
+    - name: Test risc0 prover
+      run: cargo test -p risc0-driver --features enable
 
   build-test-sp1:
     name: Build and test sp1
@@ -61,6 +63,8 @@ jobs:
         run: cargo run --bin sp1-builder
       - name: Build sp1 prover
         run: cargo build --release --features sp1
+      - name: Test sp1 prover
+        run: cargo test -p sp1-driver --features enable
 
   build-test-sgx:
     name: Build and test sgx

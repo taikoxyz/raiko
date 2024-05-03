@@ -32,7 +32,7 @@ serde_json = { workspace = true, optional = true  }
 hex = { workspace = true, optional = true }
 
 [features]
-dummy-elf = []
+dummy-elf = [] # use dummy elf bytes to accelerate cargo check
 enable = [
     "raiko-lib",
     "raiko-primitives",
