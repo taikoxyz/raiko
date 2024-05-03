@@ -32,10 +32,17 @@ jobs:
     - uses: risc0/risc0/.github/actions/sccache@release-0.19
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
-    - run: cargo binstall -y --force cargo-risczero
-    - run: cargo risczero install
-    - run: cargo build -p risc0-driver --features enable
-    - run: cargo test -p risc0-driver --features enable
+    - name: Install cargo-risczero
+      run: |
+        cargo binstall -y --force cargo-risczero
+        cargo risczero install
+    - name: Build risc0 zkvm target
+      run: |
+        cd provers/risc0/builder/
+        cargo run
+    - name: Build risc0 prover
+      run: cargo run --release --features risc0
+
 
   build-test-sp1:
     name: Build and test sp1
