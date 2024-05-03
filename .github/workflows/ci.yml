@@ -36,12 +36,12 @@ jobs:
       run: |
         cargo binstall -y --force cargo-risczero
         cargo risczero install
-    - name: Build risc0 zkvm target
+    - name: Build risc0 guest target
       run: |
         cd provers/risc0/builder/
         cargo run
     - name: Build risc0 prover
-      run: cargo run --release --features risc0
+      run: cargo build --release --features risc0
 
 
   build-test-sp1:
@@ -55,13 +55,17 @@ jobs:
         with:
           profile: minimal
       - run: .github/toolchain-after.sh sp1
-      - name: Setup and build
+      - name: Install sp1
         run: |
           curl -L https://sp1.succinct.xyz | bash
-          /home/runner/.config/.sp1/bin/sp1up
-          cargo build -p sp1-driver --features enable
-          cargo test -p sp1-driver --features enable
-        shell: bash
+          echo "/root/.sp1/bin" >> $GITHUB_PATH
+          /root/.sp1/bin/sp1up
+      - name: Build sp1 guest target
+        run: |
+          cd provers/sp1/builder/
+          cargo build
+      - name: Build sp1 prover
+        run: cargo build --release --features sp1
 
   build-test-sgx:
     name: Build and test sgx
