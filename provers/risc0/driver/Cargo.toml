@@ -22,6 +22,7 @@ serde = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
 
+cfg-if = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
 bincode = { workspace = true, optional = true }
 bytemuck = { workspace = true, optional = true }
@@ -31,6 +32,7 @@ serde_json = { workspace = true, optional = true  }
 hex = { workspace = true, optional = true }
 
 [features]
+dummy-elf = []
 enable = [
     "raiko-lib",
     "raiko-primitives",
@@ -45,6 +47,7 @@ enable = [
     "serde",
     "once_cell",
     "anyhow",
+    "cfg-if",
     "log",
     "bincode",
     "bytemuck",

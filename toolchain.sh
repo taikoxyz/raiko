@@ -16,4 +16,9 @@ else
 	exit 1
 fi
 
-rm rust-toolchain
+# Check if the file exists
+if [ -f "rust-toolchain" ]; then
+    # If the file exists, remove it
+    rm "some-file"
+    echo "File removed successfully."
+fi

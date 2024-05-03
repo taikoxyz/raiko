@@ -9,7 +9,9 @@ edition = "2021"
 raiko-primitives = { path = "../../../primitives" }
 raiko-lib = { path = "../../../lib", features = ["std"] }
 risc0-zkvm = { version = "0.21.0", default-features = false, features = ['std', "getrandom"] }
-harness = {path = "../../../pipeline/harness" }
+
+[dev-dependencies]
+harness = { path = "../../../pipeline/harness" }
 
 [patch.crates-io]
 # use optimized risc0 circuit

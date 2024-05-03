@@ -1,5 +1,6 @@
 #![cfg(feature = "enable")]
 
+use core::panic;
 use std::env;
 
 use alloy_primitives::B256;
@@ -14,6 +15,7 @@ use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
+const TEST_ELF: &[u8] = include_bytes!("../../guest/elf/test-sp1-guest");
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
@@ -73,20 +75,16 @@ impl Prover for Sp1Prover {
 }
 
 #[test]
-fn test_sp1_prover() {
-    let input = GuestInput {
-        input: SolValue::U256(42.into()),
-    };
-    let output = GuestOutput {
-        output: SolValue::U256(42.into()),
-    };
+fn test_example() {
+    let mut client = ProverClient::new();
 
-    let config = ProverConfig {
-        timeout: 60,
-        memory: 1 << 30,
-        cores: 1,
-    };
-
-    let result = tokio_test::block_on(Sp1Prover::run(input, output, &config));
-    assert!(result.is_ok());
+    // Still need to write the same input requried by main binary
+    // Even though test itself desn't use it.
+    let mut stdin = SP1Stdin::new();
+    stdin.write(&GuestInput::default());
+    
+    let mut proof = client.prove(TEST_ELF, stdin).expect("Sp1: proving failed");
+    client
+        .verify(TEST_ELF, &proof)
+        .expect("Sp1: verification failed");
 }

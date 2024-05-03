@@ -5403,6 +5403,7 @@ dependencies = [
  "bincode",
  "bonsai-sdk",
  "bytemuck",
+ "cfg-if",
  "ethers-contract",
  "ethers-core",
  "ethers-providers",

@@ -8,6 +8,8 @@ use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, WrappedHeader},
 };
+#[cfg(test)]
+use harness::*;
 
 fn main() {
     let input: GuestInput = env::read();
@@ -30,10 +32,13 @@ fn main() {
     };
 
     env::commit(&output);
+
+    #[cfg(test)]
+    harness::zk_suits!(test_example);
 }
 
 #[test]
-fn test_fib() {
+fn test_example() {
     use harness::*;
     let mut a = 1;
     let mut b = 1;

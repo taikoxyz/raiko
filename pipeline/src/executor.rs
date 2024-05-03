@@ -43,7 +43,7 @@ impl Executor {
                 if let Some(test) = extract_path(&line) {
                     self.artifacts
                         .iter_mut()
-                        .find(|a| file_name(&test).contains(&file_name(a).replace("-", "_")))
+                        .find(|a| file_name(&test).contains(&file_name(a).replace('-', "_")))
                         .map(|a| *a = test)
                         .expect("Failed to find test artifact");
                 }
@@ -71,7 +71,7 @@ impl Executor {
             if self.test {
                 name = format!("test-{}", name.split('-').collect::<Vec<_>>()[0]);
             }
-            fs::copy(root.join(src.to_str().unwrap()), &dest.join(&name.replace("_", "-")))?;
+            fs::copy(root.join(src.to_str().unwrap()), &dest.join(&name.replace('_', "-")))?;
             println!("Write elf from\n    {:?}\nto\n    {:?}", src, dest);
         }
         Ok(())

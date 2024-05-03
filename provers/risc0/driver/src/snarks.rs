@@ -20,11 +20,14 @@ use bonsai_sdk::alpha::responses::SnarkReceipt;
 use ethers_contract::abigen;
 use ethers_core::types::H160;
 use ethers_providers::{Http, Provider, RetryClient};
+use log::{error, info};
 use risc0_zkvm::{
     sha::{Digest, Digestible},
     Groth16Seal,
 };
 use tracing::{error as tracing_err, info as tracing_info};
+
+use crate::save_receipt;
 
 sol!(
     /// A Groth16 seal over the claimed receipt claim.
@@ -80,6 +83,77 @@ impl From<Groth16Seal> for Seal {
             c: to_u256_arr(&val.c),
         }
     }
+}
+
+use raiko_primitives::keccak::keccak;
+use risc0_zkvm::Receipt;
+
+pub async fn stark2snark(
+    image_id: Digest,
+    stark_uuid: String,
+    stark_receipt: Receipt,
+) -> anyhow::Result<(String, SnarkReceipt)> {
+    info!("Submitting SNARK workload");
+    // Label snark output as journal digest
+    let receipt_label = format!(
+        "{}-{}",
+        hex::encode_upper(image_id),
+        hex::encode(keccak(stark_receipt.journal.bytes.digest()))
+    );
+    // Load cached receipt if found
+    if let Ok(Some(cached_data)) = crate::bonsai::load_receipt(&receipt_label) {
+        info!("Loaded locally cached snark receipt {receipt_label:?}");
+        return Ok(cached_data);
+    }
+    // Otherwise compute on Bonsai
+    let stark_uuid = if stark_uuid.is_empty() {
+        crate::bonsai::upload_receipt(&stark_receipt).await?
+    } else {
+        stark_uuid
+    };
+
+    let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+    let snark_uuid = client.create_snark(stark_uuid)?;
+
+    let snark_receipt = loop {
+        let res = snark_uuid.status(&client)?;
+
+        if res.status == "RUNNING" {
+            info!("Current status: {} - continue polling...", res.status);
+            std::thread::sleep(std::time::Duration::from_secs(15));
+        } else if res.status == "SUCCEEDED" {
+            break res
+                .output
+                .expect("Bonsai response is missing SnarkReceipt.");
+        } else {
+            panic!(
+                "Workflow exited: {} - | err: {}",
+                res.status,
+                res.error_msg.unwrap_or_default()
+            );
+        }
+    };
+
+    let stark_psd = stark_receipt.get_claim()?.post.digest();
+    let snark_psd = Digest::try_from(snark_receipt.post_state_digest.as_slice())?;
+
+    if stark_psd != snark_psd {
+        error!("SNARK/STARK Post State Digest mismatch!");
+        error!("STARK: {}", hex::encode(stark_psd));
+        error!("SNARK: {}", hex::encode(snark_psd));
+    }
+
+    if snark_receipt.journal != stark_receipt.journal.bytes {
+        error!("SNARK/STARK Receipt Journal mismatch!");
+        error!("STARK: {}", hex::encode(&stark_receipt.journal.bytes));
+        error!("SNARK: {}", hex::encode(&snark_receipt.journal));
+    };
+
+    let snark_data = (snark_uuid.uuid, snark_receipt);
+
+    save_receipt(&receipt_label, &snark_data);
+
+    Ok(snark_data)
 }
 
 pub async fn verify_groth16_snark(

@@ -10,6 +10,6 @@ raiko-pipeline = { workspace = true }
 
 
 [features]
-sp1 = []
-risc0 = []
+sp1 = ["raiko-pipeline/sp1"]
+risc0 = ["raiko-pipeline/risc0"]
 

@@ -28,4 +28,20 @@ pub fn main() {
     };
 
     sp1_zkvm::io::commit(&output);
+
+    #[cfg(test)]
+    harness::zk_suits!(test_example);
+}
+
+#[test]
+pub fn test_example() {
+    use harness::*;
+    let mut a = 1;
+    let mut b = 1;
+    for _ in 0..10 {
+        let c = a + b;
+        a = b;
+        b = c;
+    }
+    harness::assert_eq!(b, 144);
 }

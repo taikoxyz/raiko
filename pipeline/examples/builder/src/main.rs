@@ -9,9 +9,9 @@ fn main() {
 
 #[cfg(feature = "risc0")]
 fn main() {
-    let pipeline = raiko_pipeline::risc0::Risc0Pipeline::new("../risc0", "release");
+    let pipeline = raiko_pipeline::Risc0Pipeline::new("../risc0", "release");
     pipeline.bins(&["example", "foo-foo"], "../risc0/methods");
-    pipeline.tests(&["example", "foo-foo"], "../risc0/methodsf");
+    pipeline.tests(&["example", "foo-foo"], "../risc0/methods");
 }
 
 #[cfg(not(any(feature = "sp1", feature = "risc0")))]

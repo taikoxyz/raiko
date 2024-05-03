@@ -60,12 +60,10 @@ pub fn generate_transactions(
     let tx_list = &if is_blob_data {
         let compressed_tx_list = decode_blob_data(tx_list);
         zlib_decompress_blob(&compressed_tx_list).unwrap_or_default()
+    } else if validate_calldata_tx_list(tx_list) {
+        zlib_decompress_blob(tx_list).unwrap_or_default()
     } else {
-        if validate_calldata_tx_list(&tx_list) {
-            zlib_decompress_blob(&tx_list.to_owned()).unwrap_or_default()
-        } else {
-            vec![]
-        }
+        vec![]
     };
 
     // Decode the transactions from the tx list

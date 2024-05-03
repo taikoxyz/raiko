@@ -85,6 +85,9 @@ cfg_if::cfg_if! {
             let receipt = prover
                 .prove(env, TEST_FOO_ELF)
                 .unwrap();
+            receipt
+                .verify(TEST_FOO_ID)
+                .unwrap();
         }
 
         #[test]
@@ -94,6 +97,9 @@ cfg_if::cfg_if! {
             let prover = default_prover();
             let receipt = prover
                 .prove(env, TEST_BAR_ELF)
+                .unwrap();
+            receipt
+                .verify(TEST_BAR_ID)
                 .unwrap();
 
         }
