@@ -55,8 +55,8 @@ jobs:
       - name: Install sp1
         run: |
           curl -L https://sp1.succinct.xyz | bash
-          echo "/root/.sp1/bin" >> $GITHUB_PATH
-          /root/.sp1/bin/sp1up
+          echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
+          /home/runner/.config/.sp1/bin/sp1up
       - name: Build sp1 guest target
         run: cargo run --bin sp1-builder
       - name: Build sp1 prover
