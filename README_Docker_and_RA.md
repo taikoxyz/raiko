@@ -313,35 +313,31 @@ pnpm install
 pnpm compile
 ```
 
-3. Prepare your prover's private key
+3. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match
 
-```
-export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
-```
+`SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
+`ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
+`PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
 
-4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match
+4. Prepare variables for the script
 
-`SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
-`ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398 
-`PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E 
-
-5. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
-
-```
-"public_key": "0x02ab85f14dcdc93832f4bb9b40ad908a5becb840d36f64d21645550ba4a2b28892",
-"new_instance": "0xc369eedf4c69cacceda551390576ead2383e6f9e",
-"quote": "0x030002......f00939a7233f79c4ca......9434154452d2d2d2d2d0a00"
+```shell
+read -r -e -p "PRIVATE_KEY: " PRIVATE_KEY
 ```
 
-Take that quote and replace `V3_QUOTE_BYTES` in the `script/config_dcap_sgx_verifier.sh` script.
+```shell
+read -r -e -p "HOLESKY_RPC: " -i FORK_URL
+```
 
-6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with any Holesky RPC URL.
+5. Call the `config_dcap_sgx_verifier.sh` script.
 
-7. Call the script with `./script/config_dcap_sgx_verifier.sh`.
+```shell
+FORK_URL=${FORK_URL} PRIVATE_KEY=${PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote $(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(require('os').homedir() + '/.config/raiko/config/bootstrap.json', 'utf8')).quote)")
+```
 
 > **_NOTE:_**  If you already have QE/TCB/Enclave already configured you can change `export TASK_ENABLE="1,1,1,1,1"` to `export TASK_ENABLE="0,0,0,0,1"` to only register the SGX instance.
 
-8. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
+6. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
 It should look like this:
 
