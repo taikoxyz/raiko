@@ -4,10 +4,13 @@ members = [
     "lib",
     "host",
     "primitives",
-    "provers/sp1/prover",
-    "provers/risc0",
+    "provers/sp1/driver",
+    "provers/sp1/builder",
+    "provers/risc0/driver",
+    "provers/risc0/builder",
     "provers/sgx/prover",
-    "provers/sgx/guest",
+    "provers/sgx/guest", 
+    "pipeline",
     "setup",
 ]
 
@@ -42,6 +45,7 @@ revm = { git = "https://github.com/taikoxyz/revm.git", branch = "fix-ecrecover",
 risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
 bonsai-sdk = { version = "0.7.0", features = ["async"] }
 risc0-build = { version = "0.21.0" }
+risc0-binfmt = { version = "0.21.0" }
 
 # SP1
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
@@ -102,36 +106,45 @@ tower-http = { version = "0.5.2", features = ["full"] }
 tower = { version = "0.4.13", features = ["full"] }
 utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
 utoipa = { version = "4.2.0", features = ["axum_extras"] }
+structopt = "0.3.24"
+prometheus = { version = "0.13.3", features = ["process"] }
 
-# misc
-hashbrown = { version = "0.14", features = ["inline-more"] }
+# crypto
 c-kzg = "1.0.0"
 c-kzg-taiko = { git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
     "preload-kzg-settings",
 ] }
+sha3 = { version = "0.10", default-features = false }
+sha2 = "0.10.8"
+secp256k1 = { version = "0.27.0", features = [
+    'global-context',
+    "rand",
+    "recovery",
+] }
+
+# misc
+hashbrown = { version = "0.14", features = ["inline-more"] }
 tempfile = "3.8"
 anyhow = "1.0"
 bincode = "1.3.3"
 bytemuck = "1.13"
+cargo_metadata = "0.12.1"
 clap = { version = "4.4.6", features = ["derive", "string", "env"] }
 flate2 = "1.0.28"
 tokio = { version = "^1.23", features = ["full"] }
 hyper = { version = "0.14.27", features = ["server"] }
 lru_time_cache = "0.11.11"
-prometheus = { version = "0.13.3", features = ["process"] }
 lazy_static = "1.4.0"
 once_cell = "1.8.0"
 thiserror = "1.0"
 reqwest = { version = "0.11.22", features = ["json"] }
 reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
-sha2 = "0.10.8"
 proptest = "1.4.0"
 rlp = "0.5.2"
 url = "2.5.0"
 cfg-if = "1.0.0"
 libflate = { version = "2.0.0" }
-sha3 = { version = "0.10", default-features = false }
-log = { version = "0.4" }
+log = { version = "0.4.13" }
 env_logger = { version = "0.11.3" }
 typetag = { version = "0.2.15" }
 hex = { version = "0.4.3" }
@@ -139,18 +152,10 @@ thiserror-no-std = "2.0.2"
 chrono = { version = "0.4", default-features = false }
 hex-literal = "0.4"
 assert_cmd = "2.0"
+regex = "1.5.4"
 rstest = "0.18"
 rand = "0.8.5"
 rand_core = "0.6.4"
 base64-serde = "0.7.0"
 base64 = "0.21.7"
 dirs = "5.0.1"
-secp256k1 = { version = "0.27.0", features = [
-    'global-context',
-    "rand",
-    "recovery",
-] }
-structopt = { version = "0.3.26" }
-
-[patch.crates-io]
-axum = { git = "https://github.com/petarvujovic98/axum", branch = "raiko" }

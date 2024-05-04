@@ -7,6 +7,9 @@ use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, WrappedHeader},
 };
+#[cfg(test)]
+use harness::*;
+
 use std::{
     alloc::{alloc, handle_alloc_error, Layout},
     ffi::c_void,
@@ -36,6 +39,7 @@ unsafe extern "C" fn free(_size: *const c_void) {
     // Intentionally a no-op, since the zkvm allocator is a bump allocator
 }
 
+
 pub fn main() {
     let input = sp1_zkvm::io::read::<GuestInput>();
     let build_result = TaikoStrategy::build_from(&input);
@@ -56,4 +60,20 @@ pub fn main() {
     };
 
     sp1_zkvm::io::commit(&output);
+
+    #[cfg(test)]
+    harness::zk_suits!(test_example);
+}
+
+#[test]
+pub fn test_example() {
+    use harness::*;
+    let mut a = 1;
+    let mut b = 1;
+    for _ in 0..10 {
+        let c = a + b;
+        a = b;
+        b = c;
+    }
+    harness::assert_eq!(b, 144);
 }

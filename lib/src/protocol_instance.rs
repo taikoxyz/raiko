@@ -6,13 +6,13 @@ use c_kzg_taiko::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
 use sha2::{Digest as _, Sha256};
 
-use super::taiko_utils::ANCHOR_GAS_LIMIT;
+use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
     consts::get_network_spec,
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    taiko_utils::HeaderHasher,
+    utils::HeaderHasher,
 };
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
@@ -89,7 +89,6 @@ pub fn kzg_to_versioned_hash(commitment: KzgCommitment) -> B256 {
     B256::new(res.into())
 }
 
-// TODO(cecilia): rewrite
 pub fn assemble_protocol_instance(
     input: &GuestInput,
     header: &AlloyConsensusHeader,
