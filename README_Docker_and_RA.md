@@ -335,8 +335,6 @@ read -r -e -p "HOLESKY_RPC: " -i FORK_URL
 FORK_URL=${FORK_URL} PRIVATE_KEY=${PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote $(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(require('os').homedir() + '/.config/raiko/config/bootstrap.json', 'utf8')).quote)")
 ```
 
-> **_NOTE:_**  If you already have QE/TCB/Enclave already configured you can change `export TASK_ENABLE="1,1,1,1,1"` to `export TASK_ENABLE="0,0,0,0,1"` to only register the SGX instance.
-
 6. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
 It should look like this:
