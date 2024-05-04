@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This is a workaround tos set up cargo component in CI
 CRATE_TOOLCHAIN=""
