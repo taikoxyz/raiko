@@ -45,6 +45,8 @@ pub mod sp1 {
                     "link-arg=-Ttext=0x00200800",
                     "panic=abort",
                 ])
+                .cc_compiler("gcc".into())
+                .c_flags(&["/opt/riscv/bin/riscv32-unknown-elf-gcc"])
                 .custom_args(&["--ignore-rust-version"])
         }
 
@@ -113,12 +115,8 @@ pub mod risc0 {
                     "link-arg=-Ttext=0x00200800",
                     "panic=abort",
                 ])
-                // .cc_compiler(
-                //     risc0_data()
-                //         .unwrap()
-                //         .join("cpp/bin/riscv32-unknown-elf-gcc"),
-                // )
-                // .c_flags(&["-march=rv32im", "-nostdlib"]);
+                .cc_compiler("gcc".into())
+                .c_flags(&["/opt/riscv/bin/riscv32-unknown-elf-gcc"])
                 .custom_args(&["--ignore-rust-version"]);
             // Cannot use /.rustup/toolchains/risc0/bin/cargo, use regular cargo
             builder.unset_cargo();

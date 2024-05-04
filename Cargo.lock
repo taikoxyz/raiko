@@ -7939,3 +7939,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "axum"
+version = "0.7.5"
+source = "git+https://github.com/petarvujovic98/axum?branch=raiko#5fda00eef913526342e7b076a74b8a7c1f8d34d4"

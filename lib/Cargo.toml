@@ -42,6 +42,7 @@ lazy_static = { workspace = true }
 bincode = "1.3"
 
 [features]
+default = ["std"]
 std = [
   # always use no-std for revm since we use hashbrown in workspace
   # "revm/std",

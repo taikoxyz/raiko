@@ -4,8 +4,6 @@ risc0_zkvm::guest::entry!(main);
 
 use raiko_lib::protocol_instance::assemble_protocol_instance;
 use raiko_lib::protocol_instance::EvidenceType;
-use raiko_lib::protocol_instance::assemble_protocol_instance;
-use raiko_lib::protocol_instance::EvidenceType;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, WrappedHeader},

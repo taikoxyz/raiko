@@ -89,7 +89,6 @@ pub fn kzg_to_versioned_hash(commitment: KzgCommitment) -> B256 {
     B256::new(res.into())
 }
 
-// TODO(cecilia): rewrite
 pub fn assemble_protocol_instance(
     input: &GuestInput,
     header: &AlloyConsensusHeader,
