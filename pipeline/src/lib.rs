@@ -28,7 +28,7 @@ pub fn rerun_if_changed(env_vars: &[&str]) {
         root.join("Cargo.lock"),
     ]
     .iter()
-    .for_each(|p| println!("cargo:rerun-if-changed={}", p.display()));
+    .for_each(|p| println!("cargo::rerun-if-changed={}", p.display()));
     for v in env_vars {
         println!("cargo::rerun-if-env-changed={}", v);
     }
