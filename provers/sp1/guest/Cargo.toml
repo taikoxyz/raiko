@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-raiko-lib = { path = "../../../lib", features = ["std"] }
+raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
 sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
 
 [dev-dependencies]
