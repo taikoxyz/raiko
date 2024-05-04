@@ -33,7 +33,7 @@ jobs:
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
     - run: cargo binstall -y --force cargo-risczero
-    - run: cargo risczero install
+    - run: cargo risczero install --version v2024-04-22.0
     - run: cargo build -p risc0-prover --features enable
     - run: cargo test -p risc0-prover --features enable
 

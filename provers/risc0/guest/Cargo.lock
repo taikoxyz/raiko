@@ -1816,6 +1816,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 [[package]]
 name = "revm"
 version = "8.0.0"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko#f2cc49f87cb3bd2bc2b5be2e93f3a25aa930f414"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -1829,6 +1830,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "4.0.0"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko#f2cc49f87cb3bd2bc2b5be2e93f3a25aa930f414"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -1837,6 +1839,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "6.0.0"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko#f2cc49f87cb3bd2bc2b5be2e93f3a25aa930f414"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -1853,6 +1856,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.1"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko#f2cc49f87cb3bd2bc2b5be2e93f3a25aa930f414"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
