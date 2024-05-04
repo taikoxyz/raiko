@@ -40,10 +40,11 @@ pub async fn preflight<BDP: BlockDataProvider>(
 ) -> Result<GuestInput> {
     let measurement = Measurement::start("Fetching block data...", true);
 
-    let block = &provider.get_blocks(&vec![(block_number, true)]).await?[0];
-    let parent_block = &provider
-        .get_blocks(&vec![(block_number - 1, false)])
-        .await?[0];
+    // Get the block and the parent block
+    let blocks = provider
+        .get_blocks(&vec![(block_number, true), (block_number - 1, false)])
+        .await?;
+    let (block, parent_block) = (&blocks[0], &blocks[1]);
 
     println!("\nblock.hash: {:?}", block.header.hash.unwrap());
     println!("block.parent_hash: {:?}", block.header.parent_hash);
@@ -69,13 +70,16 @@ pub async fn preflight<BDP: BlockDataProvider>(
         println!("anchor L1 block id: {:?}", anchor_call.l1BlockId);
         println!("anchor L1 state root: {:?}", anchor_call.l1StateRoot);
 
-        // Get the L1 state block header so that we can prove the L1 state root
-        let l1_inclusion_block = &provider_l1
-            .get_blocks(&vec![(l1_inclusion_block_number, false)])
-            .await?[0];
-        let l1_state_block = &provider_l1
-            .get_blocks(&vec![(l1_state_block_number, false)])
-            .await?[0];
+        // Get the L1 block in which the L2 block was included so we can fetch the DA data.
+        // Also get the L1 state block header so that we can prove the L1 state root.
+        let l1_blocks = provider_l1
+            .get_blocks(&vec![
+                (l1_inclusion_block_number, false),
+                (l1_state_block_number, false),
+            ])
+            .await?;
+        let (l1_inclusion_block, l1_state_block) = (&l1_blocks[0], &l1_blocks[1]);
+
         println!(
             "l1_state_root_block hash: {:?}",
             l1_state_block.header.hash.unwrap()

@@ -210,7 +210,6 @@ mod tests {
     use crate::raiko::{ChainSpec, NativeResponse, Raiko};
     use crate::request::{ProofRequest, ProofType};
     use crate::rpc_provider::RpcBlockDataProvider;
-    use crate::HostError;
     use alloy_primitives::Address;
     use raiko_lib::{
         consts::{get_network_spec, Network},
@@ -234,7 +233,7 @@ mod tests {
             .expect("proof generation failed");
         let response: NativeResponse = serde_json::from_value(proof).unwrap();
         match response.output {
-            GuestOutput::Success((header, _)) => {}
+            GuestOutput::Success(_) => {}
             GuestOutput::Failure => unreachable!(),
         };
     }
