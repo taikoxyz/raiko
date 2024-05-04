@@ -9,3 +9,6 @@ sp1:
 	@cargo run --bin sp1-builder
 	cargo build --release --features sp1
 
+sgx:
+	@./toolchain.sh sgx
+	cargo build --release --features sgx
