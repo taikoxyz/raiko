@@ -26,8 +26,9 @@ jobs:
         submodules: recursive
     - run: scripts/toolchain-before.sh risc0
     - run: scripts/toolchain.sh risc0
-    - run: echo "export CC=gcc"  >> $GITHUB_ENV
-    - run: echo "export CC_riscv32im_risc0_zkvm_elf=/tmp/riscv/bin/riscv32-unknown-elf-gcc" >> $GITHUB_ENV
+    - env:
+      CC: gcc
+      CC_riscv32im_risc0_zkvm_elf: /tmp/riscv/bin/riscv32-unknown-elf-gcc
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
@@ -51,8 +52,9 @@ jobs:
         with:
           profile: minimal
       - run: scripts/toolchain.sh sp1
-      - run: echo "export CC=gcc"  >> $GITHUB_ENV
-      - run: echo "export CC_riscv32im_succinct_zkvm_elf=/tmp/riscv/bin/riscv32-unknown-elf-gcc" >> $GITHUB_ENV
+      - env:
+        CC: gcc
+        CC_riscv32im_succinct_zkvm_elf: /tmp/riscv/bin/riscv32-unknown-elf-gcc
       - run: scripts/toolchain-after.sh sp1
       - name: Setup and build
         run: |
