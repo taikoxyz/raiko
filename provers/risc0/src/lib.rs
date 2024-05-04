@@ -52,7 +52,7 @@ pub struct Risc0Prover;
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
-        output: GuestOutput,
+        output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();

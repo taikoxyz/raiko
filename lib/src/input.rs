@@ -26,7 +26,7 @@ use serde_with::serde_as;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::Network, serde_with::RlpBytes};
+use crate::{consts::ChainSpec, serde_with::RlpBytes};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -38,13 +38,16 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput {
     /// The network to generate the proof for
-    pub network: Network,
+    pub chain_spec: ChainSpec,
     /// Block number
     pub block_number: u64,
     /// Block gas used
     pub gas_used: u64,
     /// Block hash - for reference!
-    pub block_hash: B256,
+    pub block_hash_reference: B256,
+    /// Block header - for reference!
+    #[serde_as(as = "RlpBytes")]
+    pub block_header_reference: AlloyConsensusHeader,
     /// Previous block header
     #[serde_as(as = "RlpBytes")]
     pub parent_header: AlloyConsensusHeader,

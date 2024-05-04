@@ -26,7 +26,7 @@ pub struct Sp1Prover;
 impl Prover for Sp1Prover {
     async fn run(
         input: GuestInput,
-        _output: GuestOutput,
+        _output: &GuestOutput,
         _config: &ProverConfig,
     ) -> ProverResult<Proof> {
         // Write the input.

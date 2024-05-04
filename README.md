@@ -9,7 +9,7 @@
 ```console
 $ cargo install cargo-risczero
 $ cargo risczero install
-$ cargo risczero install --version v2024-02-08.1
+$ cargo risczero install --version v2024-04-22.0
 ```
 - Install the `cargo prove` tool and the `succinct` toolchain:
 

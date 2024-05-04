@@ -6,7 +6,10 @@ use alloy_signer::Signer;
 use alloy_sol_types::sol;
 use alloy_transport_http::Http;
 use pem::parse_many;
-use raiko_primitives::{hex, Address, Bytes, FixedBytes, U256};
+use raiko_primitives::{
+    alloy_eips::{BlockId, BlockNumberOrTag},
+    hex, Address, Bytes, FixedBytes, U256,
+};
 use url::Url;
 
 sol! {
@@ -244,20 +247,21 @@ pub async fn register_sgx_instance(
     // init rpc conn
     let http = Http::new(Url::parse(l1_rpc_url).expect("invalid rpc url"));
     let provider = ProviderBuilder::new()
+        .with_recommended_fillers()
         .signer(EthereumSigner::from(wallet.clone()))
-        .with_recommended_layers()
-        .provider(RootProvider::new(RpcClient::new(http, false)));
+        .on_provider(RootProvider::new(RpcClient::new(http, false)));
     let sgx_verifier_contract = SgxVerifier::new(sgx_verifier_addr, &provider);
 
     // init account
-    let balance = provider.get_balance(wallet.address(), None).await?;
+    let tag = BlockId::Number(BlockNumberOrTag::Latest);
+    let balance = provider.get_balance(wallet.address(), tag).await?;
     let nonce = provider
-        .get_transaction_count(wallet.address(), None)
+        .get_transaction_count(wallet.address(), tag)
         .await?;
     let gas_price = provider.get_gas_price().await?;
-    let gas_limit = U256::from(4000000u64);
+    let gas_limit = 4000000u128;
     assert!(
-        balance > gas_price * gas_limit,
+        balance > U256::from(gas_price * gas_limit),
         "insufficient balance to send tx"
     );
 
@@ -265,7 +269,7 @@ pub async fn register_sgx_instance(
     let call_builder = sgx_verifier_contract
         .registerInstance(parsed_quote)
         .from(wallet.address())
-        .nonce(nonce.as_limbs()[0])
+        .nonce(nonce)
         .value(U256::from(0))
         .gas_price(gas_price)
         .gas(gas_limit);
