@@ -20,15 +20,11 @@ jobs:
     name: Build and test risc0
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      CC: gcc
-      CC_riscv32im_risc0_zkvm_elf: /tmp/riscv/bin/riscv32-unknown-elf-gcc
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
     - run: scripts/toolchain-before.sh risc0
-    - run: scripts/toolchain.sh risc0
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
@@ -51,16 +47,13 @@ jobs:
     name: Build and test sp1
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      CC: gcc
-      CC_riscv32im_succinct_zkvm_elf: /tmp/riscv/bin/riscv32-unknown-elf-gcc
     steps:
       - uses: actions/checkout@v4
       - run: scripts/toolchain-before.sh sp1
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-      - run: .github/toolchain-after.sh sp1
+      - run: scripts/toolchain-after.sh sp1
       - name: Install sp1
         run: |
           curl -L https://sp1.succinct.xyz | bash
