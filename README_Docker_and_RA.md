@@ -314,7 +314,16 @@ source ~/.bashrc
 foundryup
 ```
 
+### You must register your SSH public key with GitHub before installing.
+Generate SSH public key on local machine
+```ssh-keygen -t ed25519 -C "your_email@example.com"```
+Add the public key you just generated to your SSH public key settings on GitHub
+Log in to the GitHub website
+Configure > SSH and GPG keys > Open New SSH key
+Copy and paste the contents of the public key
+
 Once you have installed them, run the following:
+
 
 ```
 pnpm install
