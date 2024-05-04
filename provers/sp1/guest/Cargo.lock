@@ -576,6 +576,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "c-kzg-taiko"
+version = "1.0.0"
+source = "git+https://github.com/smtmfft/c-kzg-4844?branch=for-alpha7#5c1ba94f98c2d9e0f68b550f7528c2f6cc2285a7"
+dependencies = [
+ "blst",
+ "cc",
+ "glob",
+ "hex",
+ "libc",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1557,6 +1569,7 @@ dependencies = [
  "alloy-rpc-types",
  "alloy-sol-types",
  "anyhow",
+ "c-kzg-taiko",
  "chrono",
  "flate2",
  "hashbrown 0.14.3",
@@ -1570,6 +1583,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "sha2",
  "thiserror",
  "thiserror-no-std",
  "url",

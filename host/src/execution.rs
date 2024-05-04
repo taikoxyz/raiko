@@ -8,7 +8,7 @@ use raiko_lib::{
     Measurement,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::{info, trace, warn};
 
 use crate::{
     error::HostResult,
@@ -126,10 +126,19 @@ pub struct NativeResponse {
 
 impl Prover for NativeProver {
     async fn run(
-        _input: GuestInput,
+        input: GuestInput,
         output: GuestOutput,
         _request: &serde_json::Value,
     ) -> ProverResult<Proof> {
+        trace!("Running the native prover for input {:?}", input);
+        match output.clone() {
+            GuestOutput::Success((wrapedheader, _)) => {
+                assemble_protocol_instance(&input, &wrapedheader.header)
+                    .map_err(|e| ProverError::GuestError(e.to_string()))?;
+            }
+            _ => return Err(ProverError::GuestError("Unexpected output".to_string())),
+        }
+
         to_proof(Ok(NativeResponse { output }))
     }
 

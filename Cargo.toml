@@ -111,6 +111,9 @@ prometheus = { version = "0.13.3", features = ["process"] }
 
 # crypto
 c-kzg = "1.0.0"
+c-kzg-taiko = { git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
+    "preload-kzg-settings",
+] }
 sha3 = { version = "0.10", default-features = false }
 sha2 = "0.10.8"
 secp256k1 = { version = "0.27.0", features = [
@@ -156,3 +159,6 @@ rand_core = "0.6.4"
 base64-serde = "0.7.0"
 base64 = "0.21.7"
 dirs = "5.0.1"
+
+[patch.crates-io]
+axum = { git = "https://github.com/petarvujovic98/axum", branch = "raiko" }
