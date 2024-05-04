@@ -718,6 +718,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "c-kzg-taiko"
+version = "1.0.0"
+source = "git+https://github.com/smtmfft/c-kzg-4844?branch=for-alpha7#5c1ba94f98c2d9e0f68b550f7528c2f6cc2285a7"
+dependencies = [
+ "blst",
+ "cc",
+ "glob",
+ "hex",
+ "libc",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1730,6 +1742,7 @@ dependencies = [
  "alloy-rpc-types",
  "alloy-sol-types",
  "anyhow",
+ "c-kzg-taiko",
  "chrono",
  "flate2",
  "hashbrown 0.14.3",
@@ -1743,6 +1756,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "sha2",
  "thiserror",
  "thiserror-no-std",
  "url",
@@ -2282,8 +2296,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.6"
-source = "git+https://github.com/risc0/RustCrypto-hashes?tag=sha2-v0.10.6-risczero.0#7fd6900c4f637bd15ee2642dfa77110f8f1ad065"
+version = "0.10.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -2901,3 +2916,8 @@ dependencies = [
  "quote",
  "syn 2.0.55",
 ]
+
+[[patch.unused]]
+name = "sha2"
+version = "0.10.6"
+source = "git+https://github.com/risc0/RustCrypto-hashes?tag=sha2-v0.10.6-risczero.0#7fd6900c4f637bd15ee2642dfa77110f8f1ad065"

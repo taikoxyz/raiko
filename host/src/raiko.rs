@@ -5,12 +5,12 @@ use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
 use raiko_lib::consts::ChainSpec;
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader};
 use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
-use raiko_lib::prover::{to_proof, Proof, Prover, ProverResult};
+use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::taiko_utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::warn;
+use tracing::{trace, warn};
 
 use crate::error::{self, HostError};
 use crate::preflight::preflight;
@@ -173,10 +173,19 @@ pub struct NativeResponse {
 
 impl Prover for NativeProver {
     async fn run(
-        _input: GuestInput,
+        input: GuestInput,
         output: &GuestOutput,
         _request: &serde_json::Value,
     ) -> ProverResult<Proof> {
+        trace!("Running the native prover for input {:?}", input);
+        match output.clone() {
+            GuestOutput::Success((wrapedheader, _)) => {
+                assemble_protocol_instance(&input, &wrapedheader.header)
+                    .map_err(|e| ProverError::GuestError(e.to_string()))?;
+            }
+            _ => return Err(ProverError::GuestError("Unexpected output".to_string())),
+        }
+
         to_proof(Ok(NativeResponse {
             output: output.clone(),
         }))

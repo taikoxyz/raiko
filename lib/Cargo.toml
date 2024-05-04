@@ -25,6 +25,8 @@ serde_with = { workspace = true, optional = true }
 thiserror-no-std = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
+c-kzg-taiko = { workspace = true }
+sha2 = { workspace = true }
 
 # [target.'cfg(feature = "std")'.dependencies]
 thiserror = { workspace = true, optional = true }

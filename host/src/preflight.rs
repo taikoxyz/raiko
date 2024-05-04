@@ -90,8 +90,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
         )
         .await?;
 
-        // Fetch the tx list
-        let (tx_list, tx_blob_hash) = if proposal_event.meta.blobUsed {
+        // Fetch the tx data from either calldata or blobdata
+        let (tx_data, tx_blob_hash) = if proposal_event.meta.blobUsed {
             println!("blob active");
             // Get the blob hashes attached to the propose tx
             let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
@@ -126,7 +126,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         // Create the transactions from the proposed tx list
         let transactions = generate_transactions(
             proposal_event.meta.blobUsed,
-            &tx_list,
+            &tx_data,
             Some(anchor_tx.clone()),
         );
         // Do a sanity check using the transactions returned by the node
@@ -138,7 +138,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         // Create the input struct without the block data set
         TaikoGuestInput {
             l1_header: to_header(&l1_state_block.header),
-            tx_list,
+            tx_data,
             anchor_tx: serde_json::to_string(&anchor_tx).unwrap(),
             tx_blob_hash,
             block_proposed: proposal_event,
@@ -148,7 +148,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
         TaikoGuestInput {
-            tx_list: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(&block)))?,
+            tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(&block)))?,
             ..Default::default()
         }
     };

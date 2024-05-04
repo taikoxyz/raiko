@@ -89,7 +89,7 @@ pub struct TaikoGuestInput {
     /// header
     #[serde_as(as = "RlpBytes")]
     pub l1_header: AlloyConsensusHeader,
-    pub tx_list: Vec<u8>,
+    pub tx_data: Vec<u8>,
     pub anchor_tx: String,
     pub block_proposed: BlockProposed,
     pub prover_data: TaikoProverData,
