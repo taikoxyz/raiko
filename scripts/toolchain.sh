@@ -13,7 +13,7 @@ fi
 
 # unzip to dest folder
 mkdir -p /tmp/riscv
-tar -xzvf riscv32-unknown-elf.gcc-13.2.0.tar.gz -C /tmp/riscv
+tar -xzvf /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz -C /tmp/riscv
 if [ $? -ne 0 ]; then
     echo "failed to unzip riscv-gcc-prebuilt"
     exit 1
