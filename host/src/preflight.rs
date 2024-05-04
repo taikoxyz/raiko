@@ -52,10 +52,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     println!("block transactions: {:?}", block.transactions.len());
 
     let taiko_guest_input = if chain_spec.is_taiko() {
-        let provider_l1 = Box::from(RpcBlockDataProvider::new(
-            &l1_rpc_url.clone().unwrap(),
-            block_number,
-        ));
+        let provider_l1 = RpcBlockDataProvider::new(&l1_rpc_url.clone().unwrap(), block_number);
 
         // Decode the anchor tx to find out which L1 blocks we need to fetch
         let anchor_tx = match &block.transactions {
