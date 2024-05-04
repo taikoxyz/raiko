@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# This is a workaround tos set up cargo component in CI
 CRATE_TOOLCHAIN=""
 ROOT_TOOLCHAIN="rust-toolchain"
 

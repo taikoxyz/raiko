@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# download & verify riscv-gcc-prebuilt
+if [ -f /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz ]; then
+    echo "riscv-gcc-prebuilt existed, please check the file manually"
+else
+    wget -O /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz https://github.com/stnolting/riscv-gcc-prebuilt/releases/download/rv32i-131023/riscv32-unknown-elf.gcc-13.2.0.tar.gz
+    if [ $? -ne 0 ]; then
+        echo "failed to download riscv-gcc-prebuilt"
+        exit 1
+    fi
+fi
+
+# This is a workaround tos set up cargo toolchain in CI
 CRATE_TOOLCHAIN=""
 ROOT_TOOLCHAIN="rust-toolchain"
 
