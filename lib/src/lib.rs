@@ -34,7 +34,7 @@ pub mod input;
 pub mod mem_db;
 pub mod protocol_instance;
 pub mod prover;
-pub mod taiko_utils;
+pub mod utils;
 
 #[cfg(not(target_os = "zkvm"))]
 mod time {

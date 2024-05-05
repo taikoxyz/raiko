@@ -1,14 +1,14 @@
-use alloy_consensus::Sealable;
 use alloy_primitives::B256;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader},
     protocol_instance::{assemble_protocol_instance, ProtocolInstance},
-    prover::{to_proof, Proof, Prover, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverError, ProverResult},
+    utils::HeaderHasher,
     Measurement,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::{info, trace, warn};
 
 use crate::{
     error::HostResult,
@@ -126,10 +126,19 @@ pub struct NativeResponse {
 
 impl Prover for NativeProver {
     async fn run(
-        _input: GuestInput,
+        input: GuestInput,
         output: GuestOutput,
         _request: &serde_json::Value,
     ) -> ProverResult<Proof> {
+        trace!("Running the native prover for input {:?}", input);
+        match output.clone() {
+            GuestOutput::Success((wraped_header, _)) => {
+                assemble_protocol_instance(&input, &wraped_header.header)
+                    .map_err(|e| ProverError::GuestError(e.to_string()))?;
+            }
+            _ => return Err(ProverError::GuestError("Unexpected output".to_string())),
+        }
+
         to_proof(Ok(NativeResponse { output }))
     }
 

@@ -8,7 +8,6 @@
 
 ```console
 $ cargo install cargo-risczero
-$ cargo risczero install
 $ cargo risczero install --version v2024-02-08.1
 ```
 - Install the `cargo prove` tool and the `succinct` toolchain:
@@ -52,12 +51,6 @@ You can also automatically sync with the tip of the chain and prove all new bloc
 
 ## Provers
 
-Before running you should set the rust toolchain in workspace to the desired prover's toolchain. If the script is not run, cargo will proceed with the defult `rust-toolchain` file which specifies "nightly". Assuming you want to run prover X:
-
-```
-./toolchain.sh X
-```
-
 Provers can be enabled using features. To compile with all of them (using standard options):
 
 ```
@@ -65,6 +58,12 @@ cargo run --release --features "risc0 sp1"
 ```
 
 ### risc zero
+
+Build using
+```
+make risc0
+```
+
 #### Testing
 ```
 RISC0_DEV_MODE=1 cargo run --release --features risc0
@@ -97,12 +96,13 @@ CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-
 
 ### SP1:
 ```
+make sp1
 cargo run --release --features sp1
 ```
 
 ### SGX:
 ```
-cargo build --release --features sgx
+make sgx
 cargo run --release --features sgx
 ```
 

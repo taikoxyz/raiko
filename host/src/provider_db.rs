@@ -21,7 +21,7 @@ use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofRespo
 use alloy_transport_http::Http;
 use raiko_lib::{
     builder::OptimisticDatabase, clear_line, consts::Network, inplace_print, mem_db::MemDb,
-    taiko_utils::to_header,
+    utils::to_header,
 };
 use raiko_primitives::{Address, B256, U256};
 use reqwest_alloy::Client;

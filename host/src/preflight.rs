@@ -21,7 +21,7 @@ use raiko_lib::{
         decode_anchor, proposeBlockCall, taiko_a6::BlockProposed as TestnetBlockProposed,
         BlockProposed, GuestInput, TaikoGuestInput, TaikoProverData,
     },
-    taiko_utils::{generate_transactions, to_header},
+    utils::{generate_transactions, to_header},
     Measurement,
 };
 use raiko_primitives::{
@@ -89,8 +89,8 @@ pub fn preflight(
             block_number,
         )?;
 
-        // Fetch the tx list
-        let (tx_list, tx_blob_hash) = if proposal_event.meta.blobUsed {
+        // Fetch the tx data from either calldata or blobdata
+        let (tx_data, tx_blob_hash) = if proposal_event.meta.blobUsed {
             println!("blob active");
             // Get the blob hashes attached to the propose tx
             let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
@@ -126,7 +126,7 @@ pub fn preflight(
         // Create the transactions from the proposed tx list
         let transactions = generate_transactions(
             proposal_event.meta.blobUsed,
-            &tx_list,
+            &tx_data,
             Some(anchor_tx.clone()),
         );
         // Do a sanity check using the transactions returned by the node
@@ -138,7 +138,7 @@ pub fn preflight(
         // Create the input struct without the block data set
         TaikoGuestInput {
             l1_header: to_header(&l1_state_block.header),
-            tx_list,
+            tx_data,
             anchor_tx: serde_json::to_string(&anchor_tx).unwrap(),
             tx_blob_hash,
             block_proposed: proposal_event,
@@ -148,7 +148,7 @@ pub fn preflight(
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
         TaikoGuestInput {
-            tx_list: alloy_rlp::encode(&get_transactions_from_block(&block)),
+            tx_data: alloy_rlp::encode(&get_transactions_from_block(&block)),
             ..Default::default()
         }
     };
@@ -510,7 +510,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
 #[cfg(test)]
 mod test {
     use ethers_core::types::Transaction;
-    use raiko_lib::taiko_utils::decode_transactions;
+    use raiko_lib::utils::decode_transactions;
     use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;

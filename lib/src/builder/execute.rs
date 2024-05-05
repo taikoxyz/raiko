@@ -38,8 +38,8 @@ use crate::{
     clear_line,
     consts::{get_network_spec, GWEI_TO_WEI},
     guest_mem_forget, inplace_print, print_duration,
-    taiko_utils::{check_anchor_tx, generate_transactions},
     time::{AddAssign, Duration, Instant},
+    utils::{check_anchor_tx, generate_transactions},
     Measurement,
 };
 
@@ -86,7 +86,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         };
         let mut transactions = generate_transactions(
             block_builder.input.taiko.block_proposed.meta.blobUsed,
-            &block_builder.input.taiko.tx_list,
+            &block_builder.input.taiko.tx_data,
             anchor_tx,
         );
 

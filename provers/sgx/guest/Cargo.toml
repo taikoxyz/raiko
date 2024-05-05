@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-raiko-lib = { workspace = true }
+raiko-lib = { workspace = true, features = ["sgx"] }
 raiko-primitives = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
