@@ -49,7 +49,7 @@ fi
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	curl -L https://sp1.succinct.xyz | bash
 	# Need to add sp1up to the path here
-	PROFILE=$HOME/.profile
+	PROFILE=$HOME/.bashrc
 	echo ${PROFILE}
 	source ${PROFILE}
 	$HOME/.profile/sp1up
