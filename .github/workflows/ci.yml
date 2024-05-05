@@ -27,7 +27,7 @@ jobs:
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
     - name: Install cargo-risczero
-      run: TARGET="sgx" make install
+      run: TARGET="risc0" make install
     - name: Build risc0 prover
       run: make risc0
   #  - name: Test risc0 prover
