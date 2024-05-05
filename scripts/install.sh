@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# toolchain necessary to compile c-kzg in SP1/risc0
 if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 	# Check if the RISC-V GCC prebuilt binary archive already exists
 	if [ -f /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz ]; then
@@ -34,14 +35,22 @@ if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 	fi
 fi
 
+# SGX
 if [ -z "$1" ] || [ "$1" == "sgx" ]; then
-	echo "TODO: install gramine"
+	wget -O /tmp/gramine.deb -https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
+	sudo apt install /tmp/gramine.deb
 fi
+# RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 	cargo install cargo-risczero
 	cargo risczero install --version v2024-02-08.1
 fi
+# SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	curl -L https://sp1.succinct.xyz | bash
-	sp1up
+	# Need to add sp1up to the path here
+	PROFILE=$HOME/.profile
+	echo ${PROFILE}
+	source ${PROFILE}
+	$HOME/.profile/sp1up
 fi

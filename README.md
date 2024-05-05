@@ -4,21 +4,19 @@
 
 ### Building
 
-- Install the `cargo risczero` tool and the `risc0` toolchain:
+To download all dependencies for all provers you can run
 
 ```console
-$ cargo install cargo-risczero
-$ cargo risczero install --version v2024-02-08.1
+$ make install
 ```
-- Install the `cargo prove` tool and the `succinct` toolchain:
+
+You can also download all required dependencies per prover:
 
 ```console
-$ curl -L https://sp1.succinct.xyz | bash
-$ sp1up
-$ cargo prove --version
+$ TARGET="sp1" make install
 ```
 
-- For SGX, install gramine: https://github.com/gramineproject/gramine. If you're running ubuntu 22.04 (or a compatible distro) you can just download and install this deb file: https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
+For SGX, install gramine: https://github.com/gramineproject/gramine. If you're running ubuntu 22.04 (or a compatible distro) you can just download and install this deb file: https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
 
 - Clone the repository and build with `cargo`:
 

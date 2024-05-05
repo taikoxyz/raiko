@@ -15,4 +15,4 @@ sp1:
 	cargo +nightly-2024-02-06 build $(FLAGS) --features sp1
 
 sgx:
-	cargo +nightly-2024-02-06 build $(FLAGS) --features sgx
+	cargo +stable build $(FLAGS) --features sgx
