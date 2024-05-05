@@ -37,7 +37,7 @@ fi
 
 # SGX
 if [ -z "$1" ] || [ "$1" == "sgx" ]; then
-	wget -O /tmp/gramine.deb -https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
+	wget -O /tmp/gramine.deb https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
 	sudo apt install /tmp/gramine.deb
 fi
 # RISC0
