@@ -26,12 +26,13 @@ jobs:
         submodules: recursive
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
-    - name: Install cargo-risczero
+    - name: Install risc0
       run: TARGET="risc0" make install
+    - uses: risc0/risc0/.github/actions/sccache@release-0.19
     - name: Build risc0 prover
       run: make risc0
   #  - name: Test risc0 prover
-  #    run: cargo test -p risc0-driver --features enable
+  #    run: RISC0_DEV_MODE=1 cargo test -p risc0-driver --features enable
 
   build-test-sp1:
     name: Build and test sp1
@@ -41,12 +42,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
+          toolchain: nightly-2024-02-06
           profile: minimal
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
       - name: Install sp1
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
-          /home/runner/.config/.sp1/bin/sp1up
+        run: TARGET="sp1" make install
       - name: Build sp1 prover
         run: make sp1
   #    - name: Test sp1 prover

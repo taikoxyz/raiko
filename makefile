@@ -1,8 +1,6 @@
 
-ifdef DEBUG
+ifndef DEBUG
 	FLAGS = --release
-else
-	FLAGS = --debug
 endif
 
 install:
