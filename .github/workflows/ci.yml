@@ -32,7 +32,7 @@ jobs:
       uses: cargo-bins/cargo-binstall@v1.6.4
     - uses: risc0/risc0/.github/actions/sccache@release-0.19
     - name: Install risc0
-      run: TARGET="risc0" make install
+      run: TARGET="risc0" CI=1 make install
     - name: Build risc0 prover
       run: make risc0
   #  - name: Test risc0 prover
@@ -53,7 +53,7 @@ jobs:
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
     - name: Install sp1
-      run: TARGET="sp1" make install
+      run: TARGET="sp1" CI=1 make install
     - name: Build sp1 prover
       run: make sp1
   #    - name: Test sp1 prover
@@ -74,7 +74,7 @@ jobs:
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@v1.6.4
       - name: Install sgx
-        run: TARGET="sgx" make install
+        run: TARGET="sgx" CI=1 make install
       - name: Build sgx prover
         run: make sgx
   #    - name: Test sgx prover

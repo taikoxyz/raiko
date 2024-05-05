@@ -37,6 +37,7 @@ fi
 
 # SGX
 if [ -z "$1" ] || [ "$1" == "sgx" ]; then
+	# For SGX, install gramine: https://github.com/gramineproject/gramine.
 	wget -O /tmp/gramine.deb https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
 	sudo apt install /tmp/gramine.deb
 fi
@@ -48,9 +49,15 @@ fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	curl -L https://sp1.succinct.xyz | bash
-	# Need to add sp1up to the path here
-	PROFILE=$HOME/.bashrc
-	echo ${PROFILE}
-	source ${PROFILE}
-	sp1up
+
+	if [ -z "${CI}" ]; then
+		echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
+		/home/runner/.config/.sp1/bin/sp1up
+	else
+		# Need to add sp1up to the path here
+		PROFILE=$HOME/.bashrc
+		echo ${PROFILE}
+		source ${PROFILE}
+		sp1up
+	fi
 fi
