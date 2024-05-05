@@ -51,13 +51,13 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	curl -L https://sp1.succinct.xyz | bash
 
 	if [ -z "${CI}" ]; then
-		echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
-		/home/runner/.config/.sp1/bin/sp1up
-	else
 		# Need to add sp1up to the path here
 		PROFILE=$HOME/.bashrc
 		echo ${PROFILE}
 		source ${PROFILE}
 		sp1up
+	else
+		echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
+		/home/runner/.config/.sp1/bin/sp1up
 	fi
 fi
