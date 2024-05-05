@@ -55,3 +55,6 @@ std = [
   "dep:serde_with",
   # "dep:tokio",
 ]
+sgx = []
+sp1 = []
+risc0 = []
