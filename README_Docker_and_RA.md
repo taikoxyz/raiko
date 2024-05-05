@@ -322,6 +322,8 @@ Log in to the GitHub website
 Configure > SSH and GPG keys > Open New SSH key
 Copy and paste the contents of the public key
 
+```ssh-keyscan github.com >> ~/.ssh/known_hosts```
+
 Once you have installed them, run the following:
 
 
