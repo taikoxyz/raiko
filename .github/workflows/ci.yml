@@ -35,8 +35,8 @@ jobs:
       run: TARGET="risc0" CI=1 make install
     - name: Build risc0 prover
       run: make risc0
-  #  - name: Test risc0 prover
-  #    run: RISC0_DEV_MODE=1 cargo test -p risc0-driver --features enable
+    - name: Test risc0 prover
+      run: make test_risc0
 
   build-test-sp1:
     name: Build and test sp1
@@ -56,8 +56,8 @@ jobs:
       run: TARGET="sp1" CI=1 make install
     - name: Build sp1 prover
       run: make sp1
-  #    - name: Test sp1 prover
-  #      run: cargo test -p sp1-driver --features enable --release
+    - name: Test sp1 prover
+      run: make test_sp1
 
   build-test-sgx:
     name: Build and test sgx
@@ -77,51 +77,51 @@ jobs:
         run: TARGET="sgx" CI=1 make install
       - name: Build sgx prover
         run: make sgx
-  #    - name: Test sgx prover
-  #      run: cargo test -p sgx-prover --features enable --release
+      - name: Test sgx prover
+        run: make test_sgx
 
-  # build-test-sgx-with-docker:
-  #   name: Build and test sgx with Docker
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 60
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Setup and build
-  #       run: |
-  #         cd docker
-  #         docker compose build --no-cache
-  #       shell: bash
+  build-test-sgx-with-docker:
+    name: Build and test sgx with Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup and build
+        run: |
+          cd docker
+          docker compose build --no-cache
+        shell: bash
 
-  # test-lib:
-  #   name: Test raiko-lib
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 60
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions-rs/toolchain@v1
-  #       with:
-  #         profile: minimal
-  #     - run: cargo test -p raiko-lib --features=std
+  test-lib:
+    name: Test raiko-lib
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+      - run: cargo test -p raiko-lib --features=std
 
-  # clippy:
-  #   name: clippy
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - uses: risc0/risc0/.github/actions/rustup@release-0.19
-  #   - uses: risc0/risc0/.github/actions/sccache@release-0.19
-  #   - uses: risc0/clippy-action@main
-  #     with:
-  #       reporter: 'github-pr-check'
-  #       fail_on_error: true
-  #       clippy_flags: --workspace --all-targets --all-features -- -Dwarnings
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - uses: risc0/risc0/.github/actions/rustup@release-0.19
+    - uses: risc0/risc0/.github/actions/sccache@release-0.19
+    - uses: risc0/clippy-action@main
+      with:
+        reporter: 'github-pr-check'
+        fail_on_error: true
+        clippy_flags: --workspace --all-targets --all-features -- -Dwarnings
 
-  # fmt:
-  #   name: fmt
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 10
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - uses: risc0/risc0/.github/actions/rustup@release-0.19
-  #   - run: cargo fmt --all --check
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: risc0/risc0/.github/actions/rustup@release-0.19
+    - run: cargo fmt --all --check

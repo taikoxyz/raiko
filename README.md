@@ -56,7 +56,7 @@ make risc0
 
 #### Testing
 ```
-RISC0_DEV_MODE=1 cargo run --release --features risc0
+RISC0_DEV_MODE=1 RUN=1 make risc0
 ```
 
 #### Bonsai
@@ -69,7 +69,7 @@ prove_block.sh taiko_a7 risc0-bonsai 10
 
 #### CPU
 ```
-cargo run --release --features risc0
+RUN=1 make risc0
 ```
 
 #### GPU
@@ -87,17 +87,22 @@ CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-
 ### SP1:
 ```
 make sp1
-cargo run --release --features sp1
+RUN=1 make sp1
+```
+
+#### Testing
+```
+RISC0_DEV_MODE=1 RUN=1 make risc0
 ```
 
 ### SGX:
 ```
 make sgx
-cargo run --release --features sgx
+RUN=1 make sgx
 ```
 
 If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
 
 ```
-SGX_DIRECT=1 cargo run --release --features sgx
+SGX_DIRECT=1 RUN=1 make sgx
 ```
