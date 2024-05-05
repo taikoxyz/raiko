@@ -6,7 +6,7 @@ else
 endif
 
 install:
-	./install.sh $(TARGET)
+	./scripts/install.sh $(TARGET)
 
 risc0:
 	@cargo +nightly-2024-02-06 run --bin risc0-builder
