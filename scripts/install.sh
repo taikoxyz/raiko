@@ -52,5 +52,5 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	PROFILE=$HOME/.bashrc
 	echo ${PROFILE}
 	source ${PROFILE}
-	$HOME/.profile/sp1up
+	sp1up
 fi
