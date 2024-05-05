@@ -326,13 +326,13 @@ read -r -e -p "PRIVATE_KEY: " PRIVATE_KEY
 ```
 
 ```shell
-read -r -e -p "HOLESKY_RPC: " -i FORK_URL
+read -r -e -p "HOLESKY_RPC: " HOLESKY_RPC
 ```
 
 5. Call the `config_dcap_sgx_verifier.sh` script.
 
 ```shell
-FORK_URL=${FORK_URL} PRIVATE_KEY=${PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote $(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(require('os').homedir() + '/.config/raiko/config/bootstrap.json', 'utf8')).quote)")
+FORK_URL=${HOLESKY_RPC} PRIVATE_KEY=${PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote $(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(require('os').homedir() + '/.config/raiko/config/bootstrap.json', 'utf8')).quote)")
 ```
 
 6. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
