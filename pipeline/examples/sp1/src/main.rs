@@ -75,7 +75,16 @@ pub fn main() {
     // #[cfg(test)]
     // harness::zk_suits!(test_fib, test_fail);
 
-    test_kzg();
+    println!("calloc, malloc");
+    unsafe {
+        let c = calloc(100);
+        let m = malloc(200);
+        free(c);
+        free(m);
+    }
+
+
+    // test_kzg();
 }
 
 #[test]
