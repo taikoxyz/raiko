@@ -6,7 +6,7 @@ use raiko_lib::consts::ChainSpec;
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader};
 use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
 use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
-use raiko_lib::taiko_utils::HeaderHasher;
+use raiko_lib::utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -179,8 +179,8 @@ impl Prover for NativeProver {
     ) -> ProverResult<Proof> {
         trace!("Running the native prover for input {:?}", input);
         match output.clone() {
-            GuestOutput::Success((wrapedheader, _)) => {
-                assemble_protocol_instance(&input, &wrapedheader.header)
+            GuestOutput::Success((wrapped_header, _)) => {
+                assemble_protocol_instance(&input, &wrapped_header.header)
                     .map_err(|e| ProverError::GuestError(e.to_string()))?;
             }
             _ => return Err(ProverError::GuestError("Unexpected output".to_string())),

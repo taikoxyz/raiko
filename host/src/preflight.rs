@@ -16,7 +16,7 @@ use raiko_lib::{
         decode_anchor, proposeBlockCall, taiko_a6::BlockProposed as TestnetBlockProposed,
         BlockProposed, GuestInput, TaikoGuestInput, TaikoProverData,
     },
-    taiko_utils::{generate_transactions, to_header, zlib_compress_data},
+    utils::{generate_transactions, to_header, zlib_compress_data},
     Measurement,
 };
 use raiko_primitives::{
@@ -291,6 +291,10 @@ async fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsRe
         let blob_response: GetBlobsResponse = response.json().await?;
         Ok(blob_response)
     } else {
+        println!(
+            "Request {url} failed with status code: {}",
+            response.status()
+        );
         Err(anyhow::anyhow!(
             "Request failed with status code: {}",
             response.status()
@@ -492,7 +496,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
 #[cfg(test)]
 mod test {
     use ethers_core::types::Transaction;
-    use raiko_lib::{consts::get_network_spec, taiko_utils::decode_transactions};
+    use raiko_lib::{consts::get_network_spec, utils::decode_transactions};
     use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;

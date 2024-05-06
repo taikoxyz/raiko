@@ -20,15 +20,11 @@ jobs:
     name: Build and test risc0
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      CC: gcc
-      CC_riscv32im_risc0_zkvm_elf: /tmp/riscv/bin/riscv32-unknown-elf-gcc
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
     - run: scripts/toolchain-before.sh risc0
-    - run: scripts/toolchain.sh risc0
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
@@ -36,33 +32,39 @@ jobs:
     - uses: risc0/risc0/.github/actions/sccache@release-0.19
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
-    - run: cargo binstall -y --force cargo-risczero
-    - run: cargo risczero install --version v2024-04-22.0
-    - run: cargo build -p risc0-prover --features enable
-    - run: cargo test -p risc0-prover --features enable
+    - name: Install cargo-risczero
+      run: |
+        cargo binstall -y --force cargo-risczero
+        cargo risczero install
+    - name: Build risc0 guest target
+      run: cargo run --bin risc0-builder
+    - name: Build risc0 prover
+      run: cargo build --release --features risc0
+    - name: Test risc0 prover
+      run: cargo test -p risc0-driver --features enable
 
   build-test-sp1:
     name: Build and test sp1
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      CC: gcc
-      CC_riscv32im_succinct_zkvm_elf: /tmp/riscv/bin/riscv32-unknown-elf-gcc
     steps:
       - uses: actions/checkout@v4
       - run: scripts/toolchain-before.sh sp1
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-      - run: scripts/toolchain.sh sp1
       - run: scripts/toolchain-after.sh sp1
-      - name: Setup and build
+      - name: Install sp1
         run: |
           curl -L https://sp1.succinct.xyz | bash
+          echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
           /home/runner/.config/.sp1/bin/sp1up
-          cargo build -p sp1-prover --features enable
-          cargo test -p sp1-prover --features enable
-        shell: bash
+      - name: Build sp1 guest target
+        run: cargo run --bin sp1-builder
+      - name: Build sp1 prover
+        run: cargo build --release --features sp1
+      - name: Test sp1 prover
+        run: cargo test -p sp1-driver --features enable --release
 
   build-test-sgx:
     name: Build and test sgx
@@ -78,7 +80,7 @@ jobs:
       - name: Setup and build
         run: |
           cargo build --features sgx
-          cargo test -p sgx-prover --features enable
+          cargo test -p sgx-prover --features enable --release
         shell: bash
 
   build-test-sgx-with-docker:

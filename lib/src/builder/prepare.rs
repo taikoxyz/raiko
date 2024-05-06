@@ -18,7 +18,7 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use anyhow::{bail, Context, Result};
 use revm::{Database, DatabaseCommit};
 
-use crate::{builder::BlockBuilder, consts::MAX_EXTRA_DATA_BYTES, taiko_utils::HeaderHasher};
+use crate::{builder::BlockBuilder, consts::MAX_EXTRA_DATA_BYTES, utils::HeaderHasher};
 
 pub trait HeaderPrepStrategy {
     fn prepare_header<D>(block_builder: BlockBuilder<D>) -> Result<BlockBuilder<D>>

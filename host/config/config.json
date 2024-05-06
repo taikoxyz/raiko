@@ -7,8 +7,8 @@
     "prover_args": {
         "sgx": {
             "instance_id": 456,
-            "setup": false,
-            "bootstrap": false,
+            "setup": true,
+            "bootstrap": true,
             "prove": true,
             "input_path": null
         },

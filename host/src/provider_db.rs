@@ -16,7 +16,7 @@ use std::{collections::HashSet, mem::take};
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::Bytes;
 use raiko_lib::{
-    builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb, taiko_utils::to_header,
+    builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb, utils::to_header,
 };
 use raiko_primitives::{Address, B256, U256};
 use revm::{
