@@ -95,8 +95,7 @@ pub fn assemble_protocol_instance(
 ) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
-        #[cfg(not(any(feature = "sgx", feature = "sp1")))]
-        {
+        if cfg!(not(feature = "sp1")) {
             println!("kzg check enabled!");
             let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
             let kzg_settings = KzgSettings::from_u8_slice(&mut data);
@@ -108,9 +107,7 @@ pub fn assemble_protocol_instance(
             let versioned_hash = kzg_to_versioned_hash(kzg_commit);
             assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
             versioned_hash
-        }
-        #[cfg(any(feature = "sgx", feature = "sp1"))]
-        {
+        } else {
             println!("kzg check disabled!");
             input.taiko.tx_blob_hash.unwrap()
         }
