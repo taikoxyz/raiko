@@ -181,7 +181,7 @@ sol! {
         bytes32 graffiti;
     }
 
-    #[derive(Debug, Default, Clone, Deserialize, Serialize)]
+    #[derive(Debug, Default, Deserialize, Serialize)]
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -264,7 +264,7 @@ pub mod taiko_a6 {
             bytes32 graffiti;
         }
 
-        #[derive(Debug, Default, Clone, Deserialize, Serialize)]
+        #[derive(Debug, Default, Deserialize, Serialize)]
         event BlockProposed(
             uint256 indexed blockId,
             address indexed assignedProver,
