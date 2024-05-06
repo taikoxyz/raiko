@@ -6,7 +6,7 @@ cfg_if::cfg_if! {
         const EXAMPLE: &[u8] = include_bytes!("../../sp1/elf/example");
         const FOO: &[u8] = include_bytes!("../../sp1/elf/foo");
         const TEST_EXAMPLE: &[u8] = include_bytes!("../../sp1/elf/test-example");
-        const TEST_FOO: &[u8] = include_bytes!("../../sp1/elf/test-foo");
+        const TEST_KZG: &[u8] = include_bytes!("../../sp1/elf/test-kzg");
 
         fn main() {
             // Setup a tracer for logging.
@@ -28,11 +28,11 @@ cfg_if::cfg_if! {
 
         #[test]
         #[should_panic]
-        fn test_foo() {
+        fn test_kzg() {
             // Generate the proof for the given program.
             let mut client = ProverClient::new();
             let stdin = SP1Stdin::new();
-            let (pk, vk) = client.setup(TEST_FOO);
+            let (pk, vk) = client.setup(TEST_KZG);
             let proof = client.prove(&pk, stdin).expect("proving failed");
             client.verify(&proof, &vk).expect("verification failed");
         }
@@ -53,9 +53,9 @@ cfg_if::cfg_if! {
 
         use methods::{
             example::{EXAMPLE_ELF, EXAMPLE_ID},
-            foo::{FOO_ELF, FOO_ID},
-            test_foo::{TEST_FOO_ELF, TEST_FOO_ID},
+            foo_foo::{FOO_ELF, FOO_ID},
             test_bar::{TEST_BAR_ELF, TEST_BAR_ID},
+            test_kzg::{TEST_KZG_ELF, TEST_KZG_ID},
         };
         use risc0_zkvm::{default_prover, ExecutorEnv};
 
@@ -79,14 +79,14 @@ cfg_if::cfg_if! {
 
         #[test]
         #[should_panic]
-        fn test_foo() {
+        fn test_kzg() {
             let env = ExecutorEnv::builder().build().unwrap();
             let prover = default_prover();
             let receipt = prover
-                .prove(env, TEST_FOO_ELF)
+                .prove(env, TEST_KZG_ELF)
                 .unwrap();
             receipt
-                .verify(TEST_FOO_ID)
+                .verify(TEST_KZG_ID)
                 .unwrap();
         }
 

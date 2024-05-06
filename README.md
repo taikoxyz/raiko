@@ -2,44 +2,43 @@
 
 ## Usage
 
-### Building
+### Installing
 
-- To download all dependencies for all provers you can run
+To download all dependencies for all provers you can run
 
 ```console
 $ make install
 ```
 
-You can also download all required dependencies for each prover separately, for example for SP1:
+You can also download all required dependencies for each prover separately, for example to install SP1:
 
 ```console
 $ TARGET="sp1" make install
 ```
+### Building
 
-- Clone the repository and build with `cargo`:
-
+After installing dependencies of selected prover, the following command internally calls cargo to build the prover's guest target with the `--release` profile by default, for example:
 ```console
-$ cargo build
+$ TARGET="sp1" make build
 ```
+If you set `DEBUG=1` then the target will be compiled without optimization (not recomended for ZkVM elfs).
 
 ### Running
 
-Run the host in a terminal that will listen to requests:
-
-Just for development with the native prover:
+Note that you have to `make build` first before running ZkVM provers, otherwise the guest elf may not be up to date and can result in poof failures.
+```console
+$ TARGET="sp1" make run
+```
+Just for development with the native prover which runs through the block execution without producing any ZK/SGX proof:
 ```
 cargo run
 ```
-
-Then in another terminal you can do requests like this:
-
+`run` camand will start the host service that listens to proof requests, then in another terminal you can do requests like this:
 ```
+// Prove the 10th block with native prover on Taiko A7 testnet
 ./prove_block.sh taiko_a7 native 10
 ```
-
-Look into `prove_block.sh` for the available options or run the script without inputs and it will tell you.
-
-You can also automatically sync with the tip of the chain and prove all new blocks:
+Look into `prove_block.sh` for the available options or run the script without inputs for hints. You can also automatically sync with the tip of the chain and prove all new blocks:
 
 ```
 ./prove_block.sh taiko_a7 native sync
@@ -50,8 +49,9 @@ You can also automatically sync with the tip of the chain and prove all new bloc
 ### risc zero
 
 Build using
-```
-TARGET="risc0" make build
+```console
+$ export TARGET="risc0" 
+$ make install && make build && make run
 ```
 
 #### Running

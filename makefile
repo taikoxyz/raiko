@@ -3,13 +3,14 @@ install:
 	./scripts/install.sh $(TARGET)
 
 build:
-	./scripts/run.sh $(TARGET)
+	./scripts/build.sh $(TARGET) 
 
 run:
-	RUN=1 ./scripts/run.sh $(TARGET)
+	RUN=1 ./scripts/build.sh $(TARGET)
 
 test:
-	TEST=1 ./scripts/run.sh $(TARGET)
+	TEST=1 ./scripts/build.sh $(TARGET)
+	TEST=1 RUN=1 ./scripts/build.sh $(TARGET)
 
 fmt:
 	@cargo fmt --all --check
