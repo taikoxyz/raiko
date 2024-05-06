@@ -16,8 +16,8 @@ use utoipa::ToSchema;
 
 use crate::{
     error::{HostError, HostResult},
-    execution::NativeProver,
     merge,
+    raiko::NativeProver,
 };
 
 #[derive(
@@ -98,7 +98,7 @@ impl ProofType {
     pub async fn run_prover(
         &self,
         input: GuestInput,
-        output: GuestOutput,
+        output: &GuestOutput,
         config: &Value,
     ) -> HostResult<Proof> {
         match self {

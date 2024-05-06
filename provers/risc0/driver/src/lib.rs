@@ -48,7 +48,7 @@ use serde_json::json;
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
-        output: GuestOutput,
+        output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
         println!("config: {:?}", config);

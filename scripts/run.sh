@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+set -e
 
-TOOLCHAIN_RISC0=+stable
-TOOLCHAIN_SP1=+nightly-2024-02-06
-TOOLCHAIN_SGX=+stable
+TOOLCHAIN_RISC0=+nightly-2024-04-17
+TOOLCHAIN_SP1=+nightly-2024-04-17
+TOOLCHAIN_SGX=+nightly-2024-04-17
 
 if [ -z "${DEBUG}" ]; then
 	FLAGS=--release
@@ -38,6 +39,6 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		cargo ${TOOLCHAIN_SP1} run --bin sp1-builder
 		cargo ${TOOLCHAIN_SP1} ${COMMAND} ${FLAGS} --features sp1
 	else
-		cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p sp1-driver --features enable
+		SP1_PROVER=mock cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p sp1-driver --features enable
 	fi
 fi

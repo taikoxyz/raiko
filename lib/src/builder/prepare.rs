@@ -57,15 +57,15 @@ impl HeaderPrepStrategy for TaikoHeaderPrepStrategy {
             number: number
                 .checked_add(1)
                 .with_context(|| "Invalid block number: too large")?,
-            base_fee_per_gas: Some(block_builder.input.base_fee_per_gas),
+            base_fee_per_gas: Some(block_builder.input.base_fee_per_gas.into()),
             // Initialize metadata from input
             beneficiary: block_builder.input.beneficiary,
-            gas_limit: block_builder.input.gas_limit,
+            gas_limit: block_builder.input.gas_limit.into(),
             timestamp: block_builder.input.timestamp,
             mix_hash: block_builder.input.mix_hash,
             extra_data: block_builder.input.extra_data.clone(),
-            blob_gas_used: block_builder.input.blob_gas_used,
-            excess_blob_gas: block_builder.input.excess_blob_gas,
+            blob_gas_used: block_builder.input.blob_gas_used.map(|b| b.into()),
+            excess_blob_gas: block_builder.input.excess_blob_gas.map(|b| b.into()),
             parent_beacon_block_root: block_builder.input.parent_beacon_block_root,
             // do not fill the remaining fields
             ..Default::default()

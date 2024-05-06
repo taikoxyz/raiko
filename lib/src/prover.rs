@@ -32,11 +32,11 @@ pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
 pub type ProverConfig = serde_json::Value;
 pub type Proof = serde_json::Value;
 
+#[allow(async_fn_in_trait)]
 pub trait Prover {
-    #[allow(async_fn_in_trait)]
     async fn run(
         input: GuestInput,
-        output: GuestOutput,
+        output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof>;
 
