@@ -90,11 +90,6 @@ make sp1
 RUN=1 make sp1
 ```
 
-#### Testing
-```
-RISC0_DEV_MODE=1 RUN=1 make risc0
-```
-
 ### SGX:
 ```
 make sgx

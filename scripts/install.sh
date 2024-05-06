@@ -25,14 +25,6 @@ if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 			exit 1
 		fi
 	fi
-
-	# unzip to dest folder
-	mkdir -p /tmp/riscv
-	tar -xzvf /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz -C /tmp/riscv
-	if [ $? -ne 0 ]; then
-		echo "failed to unzip riscv-gcc-prebuilt"
-		exit 1
-	fi
 fi
 
 # SGX
