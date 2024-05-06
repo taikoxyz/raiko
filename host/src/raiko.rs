@@ -75,8 +75,10 @@ impl Raiko {
                 println!("Verifying final state using provider data ...");
                 println!("Final block hash derived successfully. {}", header.hash());
                 println!("Final block header derived successfully. {:?}", header);
-                let pi = self.request
-                    .proof_type.instance_hash(assemble_protocol_instance(&input, &header)?)?;
+                let pi = self
+                    .request
+                    .proof_type
+                    .instance_hash(assemble_protocol_instance(&input, &header)?)?;
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;

@@ -82,8 +82,9 @@ fn test_example() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&GuestInput::default());
 
-    let mut proof = client.prove(TEST_ELF, stdin).expect("Sp1: proving failed");
+    let (pk, vk) = client.setup(TEST_ELF);
+    let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
     client
-        .verify(TEST_ELF, &proof)
+        .verify(&proof, &vk)
         .expect("Sp1: verification failed");
 }
