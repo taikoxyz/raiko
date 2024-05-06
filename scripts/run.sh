@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-TOOLCHAIN_RISC0=+stable
-TOOLCHAIN_SP1=+nightly-2024-02-06
-TOOLCHAIN_SGX=+stable
+TOOLCHAIN_RISC0=+nightly-2024-04-17
+TOOLCHAIN_SP1=+nightly-2024-04-17
+TOOLCHAIN_SGX=+nightly-2024-04-17
 
 if [ -z "${DEBUG}" ]; then
 	FLAGS=--release
