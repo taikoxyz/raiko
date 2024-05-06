@@ -54,10 +54,12 @@ Build using
 TARGET="risc0" make build
 ```
 
-#### Running
+#### CPU
 ```
 TARGET="risc0" make run
 ```
+
+Prepend `RISC0_DEV_MODE=1` to enable the mock prover.
 
 #### Bonsai
 ```
@@ -65,11 +67,6 @@ TARGET="risc0" make run
 run_bonsai.sh
 # then
 prove_block.sh taiko_a7 risc0-bonsai 10
-```
-
-#### CPU
-```
-TARGET="risc0" make run
 ```
 
 #### GPU
@@ -89,6 +86,8 @@ CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-
 TARGET="sp1" make build
 TARGET="sp1" make run
 ```
+
+Prepend `SP1_PROVER=mock` to enable the mock prover.
 
 ### SGX:
 ```
