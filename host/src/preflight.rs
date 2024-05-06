@@ -289,6 +289,10 @@ fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsResponse
             let blob_response: GetBlobsResponse = response.json().await?;
             Ok(blob_response)
         } else {
+            println!(
+                "Request {url} failed with status code: {}",
+                response.status()
+            );
             Err(anyhow::anyhow!(
                 "Request failed with status code: {}",
                 response.status()
