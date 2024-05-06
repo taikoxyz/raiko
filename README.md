@@ -51,12 +51,12 @@ You can also automatically sync with the tip of the chain and prove all new bloc
 
 Build using
 ```
-make risc0
+TARGET="risc0" make build
 ```
 
-#### Testing
+#### Running
 ```
-RISC0_DEV_MODE=1 RUN=1 make risc0
+TARGET="risc0" make run
 ```
 
 #### Bonsai
@@ -69,7 +69,7 @@ prove_block.sh taiko_a7 risc0-bonsai 10
 
 #### CPU
 ```
-RUN=1 make risc0
+TARGET="risc0" make run
 ```
 
 #### GPU
@@ -86,18 +86,18 @@ CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-
 
 ### SP1:
 ```
-make sp1
-RUN=1 make sp1
+TARGET="sp1" make build
+TARGET="sp1" make run
 ```
 
 ### SGX:
 ```
-make sgx
-RUN=1 make sgx
+TARGET="sgx" make build
+TARGET="sgx" make run
 ```
 
 If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
 
 ```
-SGX_DIRECT=1 RUN=1 make sgx
+SGX_DIRECT=1 TARGET="sgx" make run
 ```

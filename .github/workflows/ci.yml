@@ -34,9 +34,9 @@ jobs:
     - name: Install risc0
       run: TARGET="risc0" CI=1 make install
     - name: Build risc0 prover
-      run: make risc0
+      run: TARGET="risc0" make build
     - name: Test risc0 prover
-      run: make test_risc0
+      run: TARGET="risc0" make test
 
   build-test-sp1:
     name: Build and test sp1
@@ -55,9 +55,9 @@ jobs:
     - name: Install sp1
       run: TARGET="sp1" CI=1 make install
     - name: Build sp1 prover
-      run: make sp1
+      run: TARGET="sp1" make build
     - name: Test sp1 prover
-      run: make test_sp1
+      run: TARGET="risc0" make test
 
   build-test-sgx:
     name: Build and test sgx
@@ -76,9 +76,9 @@ jobs:
       - name: Install sgx
         run: TARGET="sgx" CI=1 make install
       - name: Build sgx prover
-        run: make sgx
+        run: TARGET="sgx" make build
       - name: Test sgx prover
-        run: make test_sgx
+        run: TARGET="sgx" make test
 
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker
@@ -124,4 +124,4 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: risc0/risc0/.github/actions/rustup@release-0.19
-    - run: cargo fmt --all --check
+    - run: make fmt
