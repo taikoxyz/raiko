@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 TOOLCHAIN_RISC0=+nightly-2024-04-17
 TOOLCHAIN_SP1=+nightly-2024-04-17
