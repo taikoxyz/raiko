@@ -24,47 +24,40 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - run: scripts/toolchain-before.sh risc0
     - uses: actions-rs/toolchain@v1
       with:
-        profile: minimal
-    - run: scripts/toolchain-after.sh risc0
-    - uses: risc0/risc0/.github/actions/sccache@release-0.19
+          toolchain: stable
+          profile: minimal
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
-    - name: Install cargo-risczero
-      run: |
-        cargo binstall -y --force cargo-risczero
-        cargo risczero install
-    - name: Build risc0 guest target
-      run: cargo run --bin risc0-builder
+    - uses: risc0/risc0/.github/actions/sccache@release-0.19
+    - name: Install risc0
+      run: TARGET="risc0" CI=1 make install
     - name: Build risc0 prover
-      run: cargo build --release --features risc0
+      run: TARGET="risc0" make build
     - name: Test risc0 prover
-      run: cargo test -p risc0-driver --features enable
+      run: TARGET="risc0" make test
 
   build-test-sp1:
     name: Build and test sp1
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - run: scripts/toolchain-before.sh sp1
-      - uses: actions-rs/toolchain@v1
-        with:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly-2024-02-06
           profile: minimal
-      - run: scripts/toolchain-after.sh sp1
-      - name: Install sp1
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
-          /home/runner/.config/.sp1/bin/sp1up
-      - name: Build sp1 guest target
-        run: cargo run --bin sp1-builder
-      - name: Build sp1 prover
-        run: cargo build --release --features sp1
-      - name: Test sp1 prover
-        run: cargo test -p sp1-driver --features enable --release
+    - name: Install cargo-binstall
+      uses: cargo-bins/cargo-binstall@v1.6.4
+    - name: Install sp1
+      run: TARGET="sp1" CI=1 make install
+    - name: Build sp1 prover
+      run: TARGET="sp1" make build
+    - name: Test sp1 prover
+      run: TARGET="risc0" make test
 
   build-test-sgx:
     name: Build and test sgx
@@ -72,16 +65,20 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - run: scripts/toolchain-before.sh sgx
+        with:
+          submodules: recursive
       - uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
-      - run: scripts/toolchain-after.sh sgx
-      - name: Setup and build
-        run: |
-          cargo build --features sgx
-          cargo test -p sgx-prover --features enable --release
-        shell: bash
+            toolchain: stable
+            profile: minimal
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
+      - name: Install sgx
+        run: TARGET="sgx" CI=1 make install
+      - name: Build sgx prover
+        run: TARGET="sgx" make build
+      - name: Test sgx prover
+        run: TARGET="sgx" make test
 
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker
@@ -127,4 +124,4 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: risc0/risc0/.github/actions/rustup@release-0.19
-    - run: cargo fmt --all --check
+    - run: make fmt
