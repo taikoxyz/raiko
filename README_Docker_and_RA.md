@@ -302,6 +302,7 @@ You've now prepared your machine for running Raiko through Docker. Now, you need
 
 ```
 git clone https://github.com/taikoxyz/taiko-mono.git
+git checkout hekla
 cd taiko-mono/packages/protocol
 ```
 
