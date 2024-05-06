@@ -5,8 +5,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sp1-prover = { path = "../provers/sp1/prover", optional = true }
-risc0-prover = { path = "../provers/risc0", optional = true }
+# sp1-driver = { path = "../provers/sp1/driver", optional = true }
+# risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
@@ -64,19 +64,19 @@ assert_cmd = { workspace = true }
 rstest = { workspace = true }
 ethers-core = { workspace = true }
 
-[build-dependencies]
-sp1-helper = { workspace = true }
+# [build-dependencies]
+# sp1-helper = { workspace = true }
 
 [features]
 default = ["sgx"]
-sp1 = [
-  "dep:sp1-prover",
-  "sp1-prover/enable",
-]
-risc0 = [
-  "dep:risc0-prover",
-  "risc0-prover/enable",
-]
+# sp1 = [
+#   "dep:sp1-driver",
+#   "sp1-driver/enable",
+# ]
+# risc0 = [
+#   "dep:risc0-driver",
+#   "risc0-driver/enable",
+# ]
 sgx = [
   "dep:sgx-prover",
   "sgx-prover/enable",

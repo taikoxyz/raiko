@@ -24,37 +24,40 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - run: .github/toolchain-before.sh risc0
     - uses: actions-rs/toolchain@v1
       with:
-        profile: minimal
-    - run: .github/toolchain-after.sh risc0
-    - uses: risc0/risc0/.github/actions/sccache@release-0.19
+          toolchain: stable
+          profile: minimal
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
-    - run: cargo binstall -y --force cargo-risczero
-    - run: cargo risczero install
-    - run: cargo build -p risc0-prover --features enable
-    - run: cargo test -p risc0-prover --features enable
+    - uses: risc0/risc0/.github/actions/sccache@release-0.19
+    - name: Install risc0
+      run: TARGET="risc0" CI=1 make install
+    - name: Build risc0 prover
+      run: TARGET="risc0" make build
+    - name: Test risc0 prover
+      run: TARGET="risc0" make test
 
   build-test-sp1:
     name: Build and test sp1
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - run: .github/toolchain-before.sh sp1
-      - uses: actions-rs/toolchain@v1
-        with:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly-2024-02-06
           profile: minimal
-      - run: .github/toolchain-after.sh sp1
-      - name: Setup and build
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          /home/runner/.config/.sp1/bin/sp1up
-          cargo build -p sp1-prover --features enable
-          cargo test -p sp1-prover --features enable
-        shell: bash
+    - name: Install cargo-binstall
+      uses: cargo-bins/cargo-binstall@v1.6.4
+    - name: Install sp1
+      run: TARGET="sp1" CI=1 make install
+    - name: Build sp1 prover
+      run: TARGET="sp1" make build
+    - name: Test sp1 prover
+      run: TARGET="risc0" make test
 
   build-test-sgx:
     name: Build and test sgx
@@ -62,16 +65,20 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - run: .github/toolchain-before.sh sgx
+        with:
+          submodules: recursive
       - uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
-      - run: .github/toolchain-after.sh sgx
-      - name: Setup and build
-        run: |
-          cargo build --features sgx
-          cargo test -p sgx-prover --features enable
-        shell: bash
+            toolchain: stable
+            profile: minimal
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
+      - name: Install sgx
+        run: TARGET="sgx" CI=1 make install
+      - name: Build sgx prover
+        run: TARGET="sgx" make build
+      - name: Test sgx prover
+        run: TARGET="sgx" make test
 
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker
@@ -117,4 +124,4 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: risc0/risc0/.github/actions/rustup@release-0.19
-    - run: cargo fmt --all --check
+    - run: make fmt

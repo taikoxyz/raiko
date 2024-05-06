@@ -1499,6 +1499,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "c-kzg-taiko"
+version = "1.0.0"
+source = "git+https://github.com/smtmfft/c-kzg-4844?branch=for-alpha7#5c1ba94f98c2d9e0f68b550f7528c2f6cc2285a7"
+dependencies = [
+ "blst",
+ "cc",
+ "glob",
+ "hex",
+ "libc",
+]
+
+[[package]]
 name = "camino"
 version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1519,6 +1531,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e34637b3140142bdf929fb439e8aa4ebad7651ebf7b1080b3930aa16ac1459ff"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "cargo_metadata"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7714a157da7991e23d90686b9524b9e12e0407a108647f52e9328f4b3d51ac7f"
+dependencies = [
+ "cargo-platform",
+ "semver 0.11.0",
+ "semver-parser",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2053,12 +2078,6 @@ name = "doc-comment"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
-
-[[package]]
-name = "docker-generate"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccf673e0848ef09fa4aeeba78e681cf651c0c7d35f76ee38cec8e55bc32fa111"
 
 [[package]]
 name = "dotenv"
@@ -4769,7 +4788,7 @@ dependencies = [
  "reqwest 0.11.27",
  "reqwest 0.12.4",
  "revm",
- "risc0-prover",
+ "risc0-driver",
  "rlp",
  "rstest",
  "serde",
@@ -4777,8 +4796,7 @@ dependencies = [
  "serde_with",
  "sgx-prover",
  "sha2",
- "sp1-helper",
- "sp1-prover",
+ "sp1-driver",
  "thiserror",
  "tokio",
  "tower",
@@ -4804,6 +4822,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "bincode",
+ "c-kzg-taiko",
  "chrono",
  "flate2",
  "hashbrown 0.14.3",
@@ -4817,10 +4836,25 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "sha2",
  "thiserror",
  "thiserror-no-std",
  "tokio",
  "url",
+]
+
+[[package]]
+name = "raiko-pipeline"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cargo_metadata 0.12.3",
+ "cfg-if",
+ "chrono",
+ "dirs",
+ "once_cell",
+ "regex",
+ "risc0-binfmt",
 ]
 
 [[package]]
@@ -4887,7 +4921,6 @@ dependencies = [
  "reqwest 0.11.27",
  "reqwest 0.12.4",
  "revm",
- "risc0-prover",
  "rlp",
  "rstest",
  "serde",
@@ -4895,8 +4928,6 @@ dependencies = [
  "serde_with",
  "sgx-prover",
  "sha2",
- "sp1-helper",
- "sp1-prover",
  "structopt",
  "thiserror",
  "tokio",
@@ -5285,24 +5316,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "risc0-build"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a6a0138c9ae1d82eaa2ab6047535481a17641ba6c354890770bf94fbef8049"
-dependencies = [
- "anyhow",
- "cargo-platform",
- "cargo_metadata 0.17.0",
- "docker-generate",
- "risc0-binfmt",
- "risc0-zkp",
- "risc0-zkvm-platform",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "risc0-build-kernel"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5313,6 +5326,13 @@ dependencies = [
  "hex",
  "sha2",
  "tempfile",
+]
+
+[[package]]
+name = "risc0-builder"
+version = "0.1.0"
+dependencies = [
+ "raiko-pipeline",
 ]
 
 [[package]]
@@ -5388,6 +5408,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "risc0-driver"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "anyhow",
+ "bincode",
+ "bonsai-sdk",
+ "bytemuck",
+ "cfg-if",
+ "ethers-contract",
+ "ethers-core",
+ "ethers-providers",
+ "hex",
+ "log",
+ "once_cell",
+ "raiko-lib",
+ "raiko-primitives",
+ "risc0-zkvm",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "tracing",
+ "typetag",
+]
+
+[[package]]
 name = "risc0-groth16"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5408,32 +5455,6 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tracing",
-]
-
-[[package]]
-name = "risc0-prover"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
- "anyhow",
- "bincode",
- "bonsai-sdk",
- "bytemuck",
- "ethers-contract",
- "ethers-core",
- "ethers-providers",
- "hex",
- "log",
- "once_cell",
- "raiko-lib",
- "raiko-primitives",
- "risc0-build",
- "risc0-zkvm",
- "serde",
- "serde_with",
- "tracing",
- "typetag",
 ]
 
 [[package]]
@@ -5940,6 +5961,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
 dependencies = [
  "semver-parser",
+ "serde",
 ]
 
 [[package]]
@@ -6248,6 +6270,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-builder"
+version = "0.1.0"
+dependencies = [
+ "raiko-pipeline",
+]
+
+[[package]]
 name = "sp1-core"
 version = "0.1.0"
 source = "git+https://github.com/succinctlabs/sp1.git?branch=main#12c841b29f596b3949d446ea923ee60efa0350f5"
@@ -6323,6 +6352,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-driver"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "anyhow",
+ "once_cell",
+ "raiko-lib",
+ "serde",
+ "serde_json",
+ "sha3",
+ "sp1-helper",
+ "sp1-sdk",
+]
+
+[[package]]
 name = "sp1-helper"
 version = "0.1.0"
 source = "git+https://github.com/succinctlabs/sp1.git?branch=main#12c841b29f596b3949d446ea923ee60efa0350f5"
@@ -6357,22 +6402,6 @@ dependencies = [
  "k256",
  "rand",
  "serde",
-]
-
-[[package]]
-name = "sp1-prover"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
- "anyhow",
- "once_cell",
- "raiko-lib",
- "serde",
- "serde_json",
- "sha3",
- "sp1-helper",
- "sp1-sdk",
 ]
 
 [[package]]
@@ -7910,8 +7939,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "axum"
-version = "0.7.5"
-source = "git+https://github.com/petarvujovic98/axum?branch=raiko#5fda00eef913526342e7b076a74b8a7c1f8d34d4"
