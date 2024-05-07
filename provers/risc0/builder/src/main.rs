@@ -8,7 +8,6 @@ fn main() {
     pipeline.bins(&["risc0-guest"], "provers/risc0/driver/src/methods");
     #[cfg(feature = "test")]
     pipeline.tests(&["risc0-guest"], "provers/risc0/driver/src/methods");
-
 }
 
 pub struct Risc0Pipeline {
