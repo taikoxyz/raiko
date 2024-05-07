@@ -57,7 +57,7 @@ jobs:
     - name: Build sp1 prover
       run: TARGET="sp1" make build
     - name: Test sp1 prover
-      run: TARGET="risc0" make test
+      run: TARGET="sp1" make test
 
   build-test-sgx:
     name: Build and test sgx
