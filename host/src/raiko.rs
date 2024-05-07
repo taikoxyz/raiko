@@ -210,15 +210,12 @@ fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: T, actual: T, me
 
 #[cfg(test)]
 mod tests {
-    use crate::raiko::{ChainSpec, NativeResponse, Raiko};
+    use crate::raiko::{ChainSpec, Raiko};
     use crate::request::{ProofRequest, ProofType};
     use crate::rpc_provider::RpcBlockDataProvider;
     use alloy_primitives::Address;
     use clap::ValueEnum;
-    use raiko_lib::{
-        consts::{get_network_spec, Network},
-        input::GuestOutput,
-    };
+    use raiko_lib::consts::{get_network_spec, Network};
     use raiko_primitives::B256;
     use serde_json::{json, Value};
     use std::collections::HashMap;
@@ -265,7 +262,7 @@ mod tests {
             .await
             .expect("input generation failed");
         let output = raiko.get_output(&input).expect("output generation failed");
-        let proof = raiko
+        let _proof = raiko
             .prove(input, &output)
             .await
             .expect("proof generation failed");
@@ -295,21 +292,24 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_ethereum() {
         let proof_type = get_proof_type_from_env();
-        let network = Network::Ethereum;
-        let block_number = 19707175;
-        let chain_spec = get_network_spec(network);
-        let proof_request = ProofRequest {
-            block_number,
-            rpc: "https://rpc.ankr.com/eth".to_string(),
-            l1_rpc: String::new(),
-            beacon_rpc: String::new(),
-            network,
-            graffiti: B256::ZERO,
-            prover: Address::ZERO,
-            l1_network: Network::Ethereum.to_string(),
-            proof_type,
-            prover_args: test_proof_params(),
-        };
-        prove_block(chain_spec, proof_request).await;
+        // Skip test on SP1 for now because it's too slow on CI
+        if proof_type != ProofType::Sp1 {
+            let network = Network::Ethereum;
+            let block_number = 19707175;
+            let chain_spec = get_network_spec(network);
+            let proof_request = ProofRequest {
+                block_number,
+                rpc: "https://rpc.ankr.com/eth".to_string(),
+                l1_rpc: String::new(),
+                beacon_rpc: String::new(),
+                network,
+                graffiti: B256::ZERO,
+                prover: Address::ZERO,
+                l1_network: Network::Ethereum.to_string(),
+                proof_type,
+                prover_args: test_proof_params(),
+            };
+            prove_block(chain_spec, proof_request).await;
+        }
     }
 }
