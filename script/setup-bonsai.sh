@@ -1,14 +1,34 @@
 #!/usr/bin/env bash
 
-export BONSAI_API_KEY="1234"
-export BONSAI_API_URL="https://api.bonsai.xyz/"
-# https://dev.risczero.com/api/blockchain-integration/contracts/verifier
-# RiscZeroGroth16Verifier.sol Sepolia	0x83C2e9CD64B2A16D3908E94C7654f3864212E2F8
-# export GROTH16_VERIFIER_ADDRESS="83C2e9CD64B2A16D3908E94C7654f3864212E2F8"
-export GROTH16_VERIFIER_ADDRESS="850EC3780CeDfdb116E38B009d0bf7a1ef1b8b38"
-# use your own if sth wrong due to infura limits.
-# export GROTH16_VERIFIER_RPC_URL="https://sepolia.infura.io/v3/4c76691f5f384d30bed910018c28ba1d"
-export GROTH16_VERIFIER_RPC_URL="https://l1rpc.internal.taiko.xyz"
-#export CC=gcc
-#export CC_riscv32im_risc0_zkvm_elf=/opt/riscv/bin/riscv32-unknown-elf-gcc 
-RUST_LOG="[executor]=info"
+# Environment variables
+BONSAI_API_KEY="1234"
+BONSAI_API_URL="https://api.bonsai.xyzz/"
+GROTH16_VERIFIER_ADDRESS="850EC3780CeDfdb116E38B009d0bf7a1ef1b8b38"
+GROTH16_VERIFIER_RPC_URL="https://sepolia.infura.io/v3/4c76691f5f384d30bed910018c28ba1d"
+
+# Function to set environment variable persistently
+set_persistent_env() {
+    local var_name="$1"
+    local var_value="$2"
+    local file="$HOME/.bashrc"
+
+    # Check if the variable assignment already exists in the file
+    if ! grep -q "export $var_name=" "$file"; then
+        # Append export to .bashrc if not already present
+        echo "export $var_name=\"$var_value\"" >> "$file"
+        echo "$var_name=$var_value"
+    else
+        # Update the existing entry
+        sed -i "/export $var_name=/c\export $var_name=\"$var_value\"" "$file"
+        echo "$var_name=$var_value"
+    fi
+}
+
+# Set each variable persistently
+set_persistent_env "BONSAI_API_KEY" "$BONSAI_API_KEY"
+set_persistent_env "BONSAI_API_URL" "$BONSAI_API_URL"
+set_persistent_env "GROTH16_VERIFIER_ADDRESS" "$GROTH16_VERIFIER_ADDRESS"
+set_persistent_env "GROTH16_VERIFIER_RPC_URL" "$GROTH16_VERIFIER_RPC_URL"
+
+# Reload .bashrc to apply changes
+source ~/.bashrc

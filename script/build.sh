@@ -57,6 +57,11 @@ fi
 # RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 	check_toolchain $TOOLCHAIN_RISC0
+	./script/setup-bonsai.sh
+	if [ "$MOCK" = "1" ]; then
+		export RISC0_DEV_MODE=1
+		echo "RISC0_DEV_MODE is set to $RISC0_DEV_MODE"
+	fi
 	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			echo "Building Risc0 prover"
@@ -80,6 +85,10 @@ fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	check_toolchain $TOOLCHAIN_SP1
+		if [ "$MOCK" = "1" ]; then
+		export SP1_PROVER=mock
+		echo "SP1_PROVER is set to $SP1_PROVER"
+	fi
 	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			echo "Building Sp1 prover"
