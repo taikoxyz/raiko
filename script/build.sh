@@ -1,8 +1,29 @@
 #!/usr/bin/env bash
 
-TOOLCHAIN_RISC0=+stable
+TOOLCHAIN_RISC0=+nightly-2024-02-06
 TOOLCHAIN_SP1=+nightly-2024-02-06
-TOOLCHAIN_SGX=+stable
+TOOLCHAIN_SGX=+nightly-2024-02-06
+
+
+check_toolchain() {
+	local TOOLCHAIN=$1
+
+	# Remove the plus sign from the toolchain name
+    TOOLCHAIN=${TOOLCHAIN#+}
+
+	# Function to check if the toolchain is installed
+	exist() {
+		rustup toolchain list | grep "$TOOLCHAIN" > /dev/null
+	}
+
+	# Main script logic
+	if exist; then
+		echo "Toolchain $TOOLCHAIN exists"
+	else
+		echo "Installing Rust toolchain: $TOOLCHAIN"
+		rustup install "$TOOLCHAIN"
+	fi
+} 
 
 if [ -z "${DEBUG}" ]; then
 	FLAGS=--release
@@ -18,6 +39,7 @@ fi
 
 # SGX
 if [ -z "$1" ] || [ "$1" == "sgx" ]; then
+	check_toolchain $TOOLCHAIN_SGX
 	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			cargo ${TOOLCHAIN_SGX} build ${FLAGS} --features sgx
@@ -34,6 +56,7 @@ if [ -z "$1" ] || [ "$1" == "sgx" ]; then
 fi
 # RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
+	check_toolchain $TOOLCHAIN_RISC0
 	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			echo "Building Risc0 prover"
@@ -56,6 +79,7 @@ fi
 
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
+	check_toolchain $TOOLCHAIN_SP1
 	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			echo "Building Sp1 prover"
