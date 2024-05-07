@@ -100,4 +100,3 @@ If your CPU doesn't support SGX, you can still run the SGX code through gramine 
 ```console
 $ SGX_DIRECT=1 TARGET="sgx" make run
 ```
-For more details 
