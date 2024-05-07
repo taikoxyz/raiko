@@ -1,6 +1,7 @@
 use core::str::FromStr;
 // TODO(Cecilia): fix for no-std
 use std::io::Read;
+use std::io::Write;
 
 use alloy_consensus::{Header as AlloyConsensusHeader, Signed, TxEip1559, TxEnvelope};
 use alloy_primitives::{uint, Address, Signature, TxKind, U256};
@@ -9,12 +10,13 @@ use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use lazy_static::lazy_static;
 use libflate::zlib::Decoder as zlibDecoder;
+use libflate::zlib::Encoder as zlibEncoder;
 use raiko_primitives::{keccak256, B256};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::{get_network_spec, Network},
+    consts::Network,
     input::{decode_anchor, GuestInput},
 };
 
@@ -59,9 +61,9 @@ pub fn generate_transactions(
     // Decode the tx list from the raw data posted onchain
     let tx_list = &if is_blob_data {
         let compressed_tx_list = decode_blob_data(tx_list);
-        zlib_decompress_blob(&compressed_tx_list).unwrap_or_default()
+        zlib_decompress_data(&compressed_tx_list).unwrap_or_default()
     } else if validate_calldata_tx_list(tx_list) {
-        zlib_decompress_blob(tx_list).unwrap_or_default()
+        zlib_decompress_data(tx_list).unwrap_or_default()
     } else {
         vec![]
     };
@@ -205,11 +207,18 @@ fn reassemble_bytes(
     opos
 }
 
-fn zlib_decompress_blob(blob: &[u8]) -> Result<Vec<u8>> {
-    let mut decoder = zlibDecoder::new(blob)?;
+pub fn zlib_decompress_data(data: &[u8]) -> Result<Vec<u8>> {
+    let mut decoder = zlibDecoder::new(data)?;
     let mut decoded_buf = Vec::new();
     decoder.read_to_end(&mut decoded_buf)?;
     Ok(decoded_buf)
+}
+
+pub fn zlib_compress_data(data: &[u8]) -> Result<Vec<u8>> {
+    let mut encoder = zlibEncoder::new(Vec::new())?;
+    encoder.write_all(data).unwrap();
+    let res = encoder.finish().into_result()?;
+    Ok(res.clone())
 }
 
 /// check the anchor signature with fixed K value
@@ -239,12 +248,7 @@ fn check_anchor_signature(anchor: &Signed<TxEip1559>) -> Result<()> {
     ))
 }
 
-pub fn check_anchor_tx(
-    input: &GuestInput,
-    anchor: &TxEnvelope,
-    from: &Address,
-    network: Network,
-) -> Result<()> {
+pub fn check_anchor_tx(input: &GuestInput, anchor: &TxEnvelope, from: &Address) -> Result<()> {
     match anchor {
         TxEnvelope::Eip1559(tx) => {
             // Check the signature
@@ -265,7 +269,7 @@ pub fn check_anchor_tx(
             );
             // Check that the L2 contract is being called
             ensure!(
-                to == get_network_spec(network).l2_contract.unwrap(),
+                to == input.chain_spec.l2_contract.unwrap(),
                 "anchor transaction to mismatch"
             );
             // Tx can't have any ETH attached
@@ -275,7 +279,7 @@ pub fn check_anchor_tx(
             );
             // Tx needs to have the expected gas limit
             ensure!(
-                tx.gas_limit == ANCHOR_GAS_LIMIT,
+                tx.gas_limit == ANCHOR_GAS_LIMIT.into(),
                 "anchor transaction gas price mismatch"
             );
             // Check needs to have the base fee set to the block base fee
@@ -291,7 +295,7 @@ pub fn check_anchor_tx(
                 anchor_call.l1Hash == input.taiko.l1_header.hash(),
                 "L1 hash mismatch"
             );
-            if network == Network::TaikoA7 {
+            if input.chain_spec.network().unwrap() == Network::TaikoA7 {
                 ensure!(
                     anchor_call.l1StateRoot == input.taiko.l1_header.state_root,
                     "L1 state root mismatch"
@@ -345,8 +349,14 @@ pub fn to_header(header: &AlloyHeader) -> AlloyConsensusHeader {
         timestamp: header.timestamp.try_into().unwrap(),
         extra_data: header.extra_data.clone(),
         mix_hash: header.mix_hash.unwrap(),
-        nonce: u64::from_be_bytes(header.nonce.unwrap().0),
-        base_fee_per_gas: Some(header.base_fee_per_gas.unwrap().try_into().unwrap()),
+        nonce: header.nonce.unwrap(),
+        base_fee_per_gas: Some(
+            header
+                .base_fee_per_gas
+                .unwrap_or_default()
+                .try_into()
+                .unwrap(),
+        ),
         withdrawals_root: header.withdrawals_root,
         blob_gas_used: header.blob_gas_used.map(|x| x.try_into().unwrap()),
         excess_blob_gas: header.excess_blob_gas.map(|x| x.try_into().unwrap()),

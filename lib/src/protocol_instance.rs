@@ -10,7 +10,6 @@ use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::get_network_spec,
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     utils::HeaderHasher,
 };
@@ -125,8 +124,7 @@ pub fn assemble_protocol_instance(
         })
         .collect::<Vec<_>>();
 
-    let chain_spec = get_network_spec(input.network);
-    let gas_limit: u64 = header.gas_limit;
+    let gas_limit: u64 = header.gas_limit.try_into().unwrap();
     let pi = ProtocolInstance {
         transition: Transition {
             parentHash: header.parent_hash,
@@ -142,7 +140,12 @@ pub fn assemble_protocol_instance(
             depositsHash: keccak(deposits.abi_encode()).into(),
             coinbase: header.beneficiary,
             id: header.number,
-            gasLimit: (gas_limit - ANCHOR_GAS_LIMIT) as u32,
+            gasLimit: (gas_limit
+                - if input.chain_spec.is_taiko() {
+                    ANCHOR_GAS_LIMIT
+                } else {
+                    0
+                }) as u32,
             timestamp: header.timestamp,
             l1Height: input.taiko.l1_header.number,
             minTier: input.taiko.block_proposed.meta.minTier,
@@ -151,12 +154,12 @@ pub fn assemble_protocol_instance(
             sender: input.taiko.block_proposed.meta.sender,
         },
         prover: input.taiko.prover_data.prover,
-        chain_id: chain_spec.chain_id,
-        sgx_verifier_address: chain_spec.sgx_verifier_address.unwrap_or_default(),
+        chain_id: input.chain_spec.chain_id,
+        sgx_verifier_address: input.chain_spec.sgx_verifier_address.unwrap_or_default(),
     };
 
     // Sanity check
-    if input.network.is_taiko() {
+    if input.chain_spec.is_taiko() {
         ensure!(
             pi.block_metadata.abi_encode() == input.taiko.block_proposed.meta.abi_encode(),
             format!(

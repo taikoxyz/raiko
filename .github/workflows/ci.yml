@@ -48,7 +48,7 @@ jobs:
         submodules: recursive
     - uses: actions-rs/toolchain@v1
       with:
-          toolchain: nightly-2024-02-06
+          toolchain: nightly-2024-04-17
           profile: minimal
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4

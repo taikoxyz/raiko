@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 # toolchain necessary to compile c-kzg in SP1/risc0
 if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then

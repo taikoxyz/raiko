@@ -16,5 +16,5 @@ fmt:
 	@cargo fmt --all --check
 
 clippy:
-	@cargo +nightly-2024-02-06 check --features "sgx,sp1,risc0"
-	@cargo +nightly-2024-02-06 clippy --workspace --features "sgx,sp1,risc0" --all-targets -- -Dwarnings
+	@cargo +nightly-2024-04-17 check --features "sgx,sp1,risc0"
+	@cargo +nightly-2024-04-17 clippy --workspace --features "sgx,sp1,risc0" --all-targets -- -Dwarnings

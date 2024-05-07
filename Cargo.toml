@@ -35,11 +35,12 @@ raiko-lib = { path = "./lib", features = ["std"] }
 raiko-primitives = { path = "./primitives" }
 
 # revm
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "fix-ecrecover", default-features = false }
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "fix-ecrecover", default-features = false, features = [
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko", default-features = false }
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko", default-features = false, features = [
     "serde",
+    "std",
     "taiko",
-] }
+]}
 
 # risc zero
 risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
@@ -53,29 +54,29 @@ sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
 
 # alloy
-alloy-rlp = { version = "0.3", default-features = false }
-alloy-rlp-derive = { version = "0.3", default-features = false }
-alloy-core = { version = "0.7.0", default-features = false }
-alloy-dyn-abi = { version = "0.7.0", default-features = false }
-alloy-json-abi = { version = "0.7.0", default-features = false }
-alloy-primitives = { version = "0.7.0", default-features = false }
-alloy-sol-types = { version = "0.7.0", default-features = false }
-alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-rpc-client = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+alloy-rlp = { version = "0.3.4", default-features = false }
+alloy-rlp-derive = { version = "0.3.4", default-features = false }
+alloy-core = { version = "0.7.1", default-features = false }
+alloy-dyn-abi = { version = "0.7.1", default-features = false }
+alloy-json-abi = { version = "0.7.1", default-features = false }
+alloy-primitives = { version = "0.7.1", default-features = false }
+alloy-sol-types = { version = "0.7.1", default-features = false }
+alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
+alloy-rpc-client = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
+alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e", features = [
     "serde",
 ] }
-alloy-network = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+alloy-network = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e", features = [
     "k256",
 ] }
-alloy-contract = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "175", features = [
+alloy-contract = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
+alloy-eips = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e", features = [
     "serde",
 ] }
-alloy-provider = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-transport-http = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-signer = { git = "https://github.com/brechtpd/alloy", branch = "175" }
-alloy-signer-wallet = { git = "https://github.com/brechtpd/alloy", branch = "175" }
+alloy-provider = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
+alloy-transport-http = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
+alloy-signer = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
+alloy-signer-wallet = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
 
 # ethers (TODO: remove)
 ethers-contract = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10" }

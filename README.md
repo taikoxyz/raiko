@@ -74,7 +74,7 @@ $ cargo run -F metal --release --features risc0
 
 Note that CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 
-### SP1
+### SP1 
 To install, build, and run in one step:
 ```console
 $ export TARGET="sp1" 
@@ -83,7 +83,6 @@ $ make install && make build && make run
 To build and run test on Sp1 Zkvm:
 ```console
 $ TARGET="sp1" make test
-```
 
 ### SGX:
 To install, build, and run in one step:

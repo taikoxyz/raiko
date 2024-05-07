@@ -26,7 +26,7 @@ pub struct Sp1Prover;
 impl Prover for Sp1Prover {
     async fn run(
         input: GuestInput,
-        _output: GuestOutput,
+        _output: &GuestOutput,
         _config: &ProverConfig,
     ) -> ProverResult<Proof> {
         // Write the input.
@@ -35,14 +35,15 @@ impl Prover for Sp1Prover {
 
         // Generate the proof for the given program.
         let client = ProverClient::new();
-        let mut proof = client.prove(ELF, stdin).expect("Sp1: proving failed");
+        let (pk, vk) = client.setup(ELF);
+        let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
 
         // Read the output.
         let output = proof.public_values.read::<GuestOutput>();
 
         // Verify proof.
         client
-            .verify(ELF, &proof)
+            .verify(&proof, &vk)
             .expect("Sp1: verification failed");
 
         // Save the proof.
@@ -81,8 +82,9 @@ fn test_example() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&GuestInput::default());
 
-    let mut proof = client.prove(TEST_ELF, stdin).expect("Sp1: proving failed");
+    let (pk, vk) = client.setup(TEST_ELF);
+    let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
     client
-        .verify(TEST_ELF, &proof)
+        .verify(&proof, &vk)
         .expect("Sp1: verification failed");
 }

@@ -46,6 +46,7 @@ lazy_static! {
     /// The Ethereum mainnet specification.
     pub static ref ETH_MAINNET_CHAIN_SPEC: ChainSpec =
         ChainSpec {
+            name: Network::Ethereum.to_string(),
             chain_id: 1,
             max_spec_id: SpecId::CANCUN,
             hard_forks: BTreeMap::from([
@@ -66,11 +67,13 @@ lazy_static! {
             sgx_verifier_address: None,
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
+            is_taiko: false,
         };
 
     /// The Ethereum testnet "holesky" specification.
     pub static ref ETH_HOLESKY_CHAIN_SPEC: ChainSpec =
         ChainSpec {
+            name: Network::Holesky.to_string(),
             chain_id: 17000,
             max_spec_id: SpecId::CANCUN,
             hard_forks: BTreeMap::from([
@@ -90,10 +93,12 @@ lazy_static! {
             sgx_verifier_address: None,
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
+            is_taiko: false,
         };
 
     /// The Taiko A6 specification.
     pub static ref TAIKO_A6_CHAIN_SPEC: ChainSpec = ChainSpec {
+        name: Network::TaikoA6.to_string(),
         chain_id: 167008,
         max_spec_id: SpecId::SHANGHAI,
         hard_forks: BTreeMap::from([
@@ -113,10 +118,12 @@ lazy_static! {
         ),
         genesis_time: 0u64,
         seconds_per_slot: 1u64,
+        is_taiko: true,
     };
 
     /// The Taiko A7 specification.
     pub static ref TAIKO_A7_CHAIN_SPEC: ChainSpec = ChainSpec {
+        name: Network::TaikoA7.to_string(),
         chain_id: 167009,
         max_spec_id: SpecId::SHANGHAI,
         hard_forks: BTreeMap::from([
@@ -136,6 +143,7 @@ lazy_static! {
         ),
         genesis_time: 1695902400u64,
         seconds_per_slot: 12u64,
+        is_taiko: true,
     };
 }
 
@@ -194,6 +202,7 @@ impl Default for Eip1559Constants {
 /// Specification of a specific chain.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ChainSpec {
+    pub name: String,
     pub chain_id: ChainId,
     pub max_spec_id: SpecId,
     pub hard_forks: BTreeMap<SpecId, ForkCondition>,
@@ -203,16 +212,20 @@ pub struct ChainSpec {
     pub sgx_verifier_address: Option<Address>,
     pub genesis_time: u64,
     pub seconds_per_slot: u64,
+    pub is_taiko: bool,
 }
 
 impl ChainSpec {
     /// Creates a new configuration consisting of only one specification ID.
     pub fn new_single(
+        name: String,
         chain_id: ChainId,
         spec_id: SpecId,
         eip_1559_constants: Eip1559Constants,
+        is_taiko: bool,
     ) -> Self {
         ChainSpec {
+            name,
             chain_id,
             max_spec_id: spec_id,
             hard_forks: BTreeMap::from([(spec_id, ForkCondition::Block(0))]),
@@ -222,6 +235,7 @@ impl ChainSpec {
             sgx_verifier_address: None,
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
+            is_taiko,
         }
     }
     /// Returns the network chain ID.
@@ -254,6 +268,14 @@ impl ChainSpec {
             }
         }
         None
+    }
+
+    pub fn is_taiko(&self) -> bool {
+        self.is_taiko
+    }
+
+    pub fn network(&self) -> Option<Network> {
+        Network::from_str(&self.name).ok()
     }
 }
 
