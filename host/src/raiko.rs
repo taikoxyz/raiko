@@ -10,31 +10,28 @@ use raiko_lib::utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{trace, warn};
+use tracing::{debug, info, trace, warn};
 
-use crate::error::{self, HostError};
+use crate::error::{self, HostError, HostResult};
 use crate::preflight::preflight;
 use crate::request::ProofRequest;
 use crate::MerkleProof;
 
 #[allow(async_fn_in_trait)]
 pub trait BlockDataProvider {
-    async fn get_blocks(
-        &self,
-        blocks_to_fetch: &[(u64, bool)],
-    ) -> Result<Vec<Block>, anyhow::Error>;
-    async fn get_accounts(&self, accounts: &[Address]) -> Result<Vec<AccountInfo>, anyhow::Error>;
-    async fn get_storage_values(
-        &self,
-        accounts: &[(Address, U256)],
-    ) -> Result<Vec<U256>, anyhow::Error>;
+    async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> HostResult<Vec<Block>>;
+
+    async fn get_accounts(&self, accounts: &[Address]) -> HostResult<Vec<AccountInfo>>;
+
+    async fn get_storage_values(&self, accounts: &[(Address, U256)]) -> HostResult<Vec<U256>>;
+
     async fn get_merkle_proofs(
         &self,
         block_number: u64,
         accounts: HashMap<Address, Vec<U256>>,
         offset: usize,
         num_storage_proofs: usize,
-    ) -> Result<MerkleProof, anyhow::Error>;
+    ) -> HostResult<MerkleProof>;
 }
 
 pub struct Raiko {
@@ -72,9 +69,9 @@ impl Raiko {
     pub fn get_output(&self, input: &GuestInput) -> Result<GuestOutput, HostError> {
         match TaikoStrategy::build_from(input) {
             Ok((header, _mpt_node)) => {
-                println!("Verifying final state using provider data ...");
-                println!("Final block hash derived successfully. {}", header.hash());
-                println!("Final block header derived successfully. {:?}", header);
+                info!("Verifying final state using provider data ...");
+                info!("Final block hash derived successfully. {}", header.hash());
+                info!("Final block header derived successfully. {header:?}");
                 let pi = self
                     .request
                     .proof_type
@@ -133,18 +130,13 @@ impl Raiko {
                     input.block_hash_reference,
                     "block hash unexpected"
                 );
-                let output = GuestOutput::Success((
-                    WrappedHeader {
-                        header: header.clone(),
-                    },
-                    pi,
-                ));
+                let output = GuestOutput::Success((WrappedHeader { header }, pi));
 
                 Ok(output)
             }
             Err(e) => {
                 warn!("Proving bad block construction!");
-                Err(HostError::GuestError(
+                Err(HostError::Guest(
                     raiko_lib::prover::ProverError::GuestError(e.to_string()),
                 ))
             }
@@ -180,13 +172,13 @@ impl Prover for NativeProver {
         output: &GuestOutput,
         _request: &serde_json::Value,
     ) -> ProverResult<Proof> {
-        trace!("Running the native prover for input {:?}", input);
+        trace!("Running the native prover for input {input:?}");
         match output.clone() {
             GuestOutput::Success((wrapped_header, _)) => {
                 assemble_protocol_instance(&input, &wrapped_header.header)
                     .map_err(|e| ProverError::GuestError(e.to_string()))?;
             }
-            _ => return Err(ProverError::GuestError("Unexpected output".to_string())),
+            _ => return Err(ProverError::GuestError("Unexpected output".to_owned())),
         }
 
         to_proof(Ok(NativeResponse {
@@ -201,10 +193,7 @@ impl Prover for NativeProver {
 
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: T, actual: T, message: &str) {
     if expected != actual {
-        println!(
-            "Assertion failed: {} - Expected: {:?}, Found: {:?}",
-            message, expected, actual
-        );
+        debug!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
     }
 }
 
