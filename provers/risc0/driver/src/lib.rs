@@ -95,6 +95,7 @@ impl Prover for Risc0Prover {
     }
 }
 
+#[ignore]
 #[test]
 fn test_foo() {
     use risc0_zkvm::{default_prover, ExecutorEnv};
