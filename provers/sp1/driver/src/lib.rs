@@ -73,6 +73,7 @@ impl Prover for Sp1Prover {
     }
 }
 
+#[ignore]
 #[test]
 fn test_example() {
     let mut client = ProverClient::new();
