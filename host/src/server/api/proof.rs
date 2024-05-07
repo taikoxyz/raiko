@@ -114,7 +114,7 @@ async fn proof_handler(
         memory::reset_stats();
         let measurement = Measurement::start("Generating input...", false);
         let provider =
-            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1);
+            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)?;
         let input = raiko.generate_input(provider).await?;
         let input_time = measurement.stop_with("=> Input generated");
         observe_prepare_input_time(proof_request.block_number, input_time.as_millis(), true);
@@ -132,9 +132,9 @@ async fn proof_handler(
         let total_time = total_time.stop_with("====> Proof generation failed");
         observe_total_time(proof_request.block_number, total_time.as_millis(), false);
         match e {
-            HostError::GuestError(e) => {
+            HostError::Guest(e) => {
                 inc_guest_error(&proof_request.proof_type, proof_request.block_number);
-                HostError::GuestError(e)
+                HostError::Guest(e)
             }
             e => {
                 inc_host_error(proof_request.block_number);
