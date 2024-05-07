@@ -4,19 +4,17 @@
     "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
     "proof_type": "risc0",
-    "prover_args": {
-        "sgx": {
-            "instance_id": 456,
-            "setup": true,
-            "bootstrap": true,
-            "prove": true,
-            "input_path": null
-        },
-        "risc0": {
-            "bonsai": true,
-            "snark": true,
-            "profile": false,
-            "execution_po2": 20
-        }
+    "sgx": {
+        "instance_id": 456,
+        "setup": true,
+        "bootstrap": true,
+        "prove": true,
+        "input_path": null
+    },
+    "risc0": {
+        "bonsai": true,
+        "snark": true,
+        "profile": false,
+        "execution_po2": 20
     }
 }

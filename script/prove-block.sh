@@ -52,38 +52,32 @@ elif [ "$proof" == "sp1" ]; then
 elif [ "$proof" == "sgx" ]; then
 	proofParam='
     "proof_type": "sgx",
-    "prover_args": {
-        "sgx" : {
-            "instance_id": 123,
-            "setup": false,
-            "bootstrap": false,
-            "prove": true,
-            "input_path": null
-        }
+    "sgx" : {
+        "instance_id": 123,
+        "setup": false,
+        "bootstrap": false,
+        "prove": true,
+        "input_path": null
     }
     '
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
-    "prover_args": {
-        "risc0": {
-            "bonsai": false,
-            "snark": false,
-            "profile": true,
-            "execution_po2": 18
-        }
+    "risc0": {
+        "bonsai": false,
+        "snark": false,
+        "profile": true,
+        "execution_po2": 18
     }
   '
 elif [ "$proof" == "risc0-bonsai" ]; then
 	proofParam='
     "proof_type": "risc0",
-    "prover_args": {
-        "risc0": {
-            "bonsai": true,
-            "snark": true,
-            "profile": false,
-            "execution_po2": 20
-        }
+    "risc0": {
+        "bonsai": true,
+        "snark": true,
+        "profile": false,
+        "execution_po2": 20
     }
   '
 else
