@@ -8,6 +8,9 @@ use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput, WrappedHeader},
 };
+#[cfg(test)]
+use harness::*;
+
 use std::{
     alloc::{alloc, handle_alloc_error, Layout},
     ffi::c_void,
@@ -58,4 +61,20 @@ fn main() {
     };
 
     env::commit(&output);
+
+    #[cfg(test)]
+    harness::zk_suits!(test_example);
+}
+
+#[test]
+fn test_example() {
+    use harness::*;
+    let mut a = 1;
+    let mut b = 1;
+    for _ in 0..10 {
+        let c = a + b;
+        a = b;
+        b = c;
+    }
+    harness::assert_eq!(b, 144);
 }

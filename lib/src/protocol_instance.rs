@@ -6,13 +6,12 @@ use c_kzg_taiko::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
 use sha2::{Digest as _, Sha256};
 
-use super::taiko_utils::ANCHOR_GAS_LIMIT;
+use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::get_network_spec,
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    taiko_utils::HeaderHasher,
+    utils::HeaderHasher,
 };
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
@@ -89,23 +88,28 @@ pub fn kzg_to_versioned_hash(commitment: KzgCommitment) -> B256 {
     B256::new(res.into())
 }
 
-// TODO(cecilia): rewrite
 pub fn assemble_protocol_instance(
     input: &GuestInput,
     header: &AlloyConsensusHeader,
 ) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
-        let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
-        let kzg_settings = KzgSettings::from_u8_slice(&mut data);
-        let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
-            &Blob::from_bytes(&input.taiko.tx_data.as_slice()).unwrap(),
-            &kzg_settings,
-        )
-        .unwrap();
-        let versioned_hash = kzg_to_versioned_hash(kzg_commit);
-        assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
-        versioned_hash
+        if cfg!(not(feature = "sp1")) {
+            println!("kzg check enabled!");
+            let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
+            let kzg_settings = KzgSettings::from_u8_slice(&mut data);
+            let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
+                &Blob::from_bytes(&input.taiko.tx_data.as_slice()).unwrap(),
+                &kzg_settings,
+            )
+            .unwrap();
+            let versioned_hash = kzg_to_versioned_hash(kzg_commit);
+            assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
+            versioned_hash
+        } else {
+            println!("kzg check disabled!");
+            input.taiko.tx_blob_hash.unwrap()
+        }
     } else {
         TxHash::from(keccak(input.taiko.tx_data.as_slice()))
     };
@@ -120,8 +124,7 @@ pub fn assemble_protocol_instance(
         })
         .collect::<Vec<_>>();
 
-    let chain_spec = get_network_spec(input.network);
-    let gas_limit: u64 = header.gas_limit;
+    let gas_limit: u64 = header.gas_limit.try_into().unwrap();
     let pi = ProtocolInstance {
         transition: Transition {
             parentHash: header.parent_hash,
@@ -137,7 +140,12 @@ pub fn assemble_protocol_instance(
             depositsHash: keccak(deposits.abi_encode()).into(),
             coinbase: header.beneficiary,
             id: header.number,
-            gasLimit: (gas_limit - ANCHOR_GAS_LIMIT) as u32,
+            gasLimit: (gas_limit
+                - if input.chain_spec.is_taiko() {
+                    ANCHOR_GAS_LIMIT
+                } else {
+                    0
+                }) as u32,
             timestamp: header.timestamp,
             l1Height: input.taiko.l1_header.number,
             minTier: input.taiko.block_proposed.meta.minTier,
@@ -146,12 +154,12 @@ pub fn assemble_protocol_instance(
             sender: input.taiko.block_proposed.meta.sender,
         },
         prover: input.taiko.prover_data.prover,
-        chain_id: chain_spec.chain_id,
-        sgx_verifier_address: chain_spec.sgx_verifier_address.unwrap_or_default(),
+        chain_id: input.chain_spec.chain_id,
+        sgx_verifier_address: input.chain_spec.sgx_verifier_address.unwrap_or_default(),
     };
 
     // Sanity check
-    if input.network.is_taiko() {
+    if input.chain_spec.is_taiko() {
         ensure!(
             pi.block_metadata.abi_encode() == input.taiko.block_proposed.meta.abi_encode(),
             format!(

@@ -1,7 +1,10 @@
 use std::{fs::File, path::PathBuf};
 
+use crate::metrics::observe_guest_time;
+use crate::metrics::observe_prepare_input_time;
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_lib::{
+    consts::get_network_spec,
     input::{get_input_path, GuestInput},
     Measurement,
 };
@@ -10,12 +13,14 @@ use utoipa::OpenApi;
 
 use crate::{
     error::{HostError, HostResult},
-    execution::execute,
+    memory,
     metrics::{
         dec_current_req, inc_current_req, inc_guest_error, inc_guest_success, inc_host_error,
         inc_host_req_count, observe_total_time,
     },
+    raiko::Raiko,
     request::ProofRequest,
+    rpc_provider::RpcBlockDataProvider,
     ProverState,
 };
 
@@ -96,9 +101,33 @@ async fn proof_handler(
         &proof_request.network.to_string(),
     );
 
+    let chain_spec = get_network_spec(proof_request.network);
+
     // Execute the proof generation.
     let total_time = Measurement::start("", false);
-    let (input, proof) = execute(&proof_request, cached_input).await.map_err(|e| {
+
+    let raiko = Raiko::new(chain_spec, proof_request.clone());
+    let input = if let Some(cached_input) = cached_input {
+        println!("Using cached input");
+        cached_input
+    } else {
+        memory::reset_stats();
+        let measurement = Measurement::start("Generating input...", false);
+        let provider =
+            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1);
+        let input = raiko.generate_input(provider).await?;
+        let input_time = measurement.stop_with("=> Input generated");
+        observe_prepare_input_time(proof_request.block_number, input_time.as_millis(), true);
+        memory::print_stats("Input generation peak memory used: ");
+        input
+    };
+    memory::reset_stats();
+    let output = raiko.get_output(&input)?;
+    memory::print_stats("Guest program peak memory used: ");
+
+    memory::reset_stats();
+    let measurement = Measurement::start("Generating proof...", false);
+    let proof = raiko.prove(input.clone(), &output).await.map_err(|e| {
         dec_current_req();
         let total_time = total_time.stop_with("====> Proof generation failed");
         observe_total_time(proof_request.block_number, total_time.as_millis(), false);
@@ -113,6 +142,15 @@ async fn proof_handler(
             }
         }
     })?;
+    let guest_time = measurement.stop_with("=> Proof generated");
+    observe_guest_time(
+        &proof_request.proof_type,
+        proof_request.block_number,
+        guest_time.as_millis(),
+        true,
+    );
+    memory::print_stats("Prover peak memory used: ");
+
     inc_guest_success(&proof_request.proof_type, proof_request.block_number);
     let total_time = total_time.stop_with("====> Complete proof generated");
     observe_total_time(proof_request.block_number, total_time.as_millis(), true);
