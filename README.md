@@ -83,6 +83,7 @@ $ make install && make build && make run
 To build and run test on Sp1 Zkvm:
 ```console
 $ TARGET="sp1" make test
+```
 
 ### SGX:
 To install, build, and run in one step:
