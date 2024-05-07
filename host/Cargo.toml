@@ -83,7 +83,3 @@ path = "src/main.rs"
 [[bin]]
 name = "docs"
 path = "src/docs.rs"
-
-
-[patch.crates-io]
-axum = { git = "https://github.com/petarvujovic98/axum", branch = "raiko" }
