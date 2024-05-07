@@ -72,11 +72,11 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                 let block_number: u64 = block
                     .header
                     .number
-                    .ok_or_else(|| Err(HostError::RPC("No block number".to_owned())))?;
+                    .ok_or_else(|| HostError::RPC("No block number".to_owned()))?;
                 let block_hash = block
                     .header
                     .hash
-                    .ok_or_else(|| Err(HostError::RPC("No block hash".to_owned())))?;
+                    .ok_or_else(|| HostError::RPC("No block hash".to_owned()))?;
                 provider_db
                     .initial_db
                     .insert_block_hash(block_number, block_hash);
@@ -209,7 +209,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
                 .block_on(self.provider.get_accounts(&[address]))
         })?
         .first()
-        .copied()
+        .cloned()
         .ok_or(HostError::RPC("No account".to_owned()))?;
 
         // Insert the account into the initial database.
@@ -288,7 +288,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         .ok_or(HostError::RPC("No block".to_owned()))?
         .header
         .hash
-        .ok_or_else(|| Err(HostError::RPC("No block hash".to_owned())))?
+        .ok_or_else(|| HostError::RPC("No block hash".to_owned()))?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
