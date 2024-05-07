@@ -35,9 +35,8 @@ Just for development with the native prover which runs through the block executi
 ```
 cargo run
 ```
-`run` camand will start the host service that listens to proof requests, then in another terminal you can do requests like this:
+`run` camand will start the host service that listens to proof requests, then in another terminal you can do requests like this, which proves the 10th block with native prover on Taiko A7 testnet:
 ```
-// Prove the 10th block with native prover on Taiko A7 testnet
 ./script/prove-block.sh taiko_a7 native 10
 ```
 Look into `prove-block.sh` for the available options or run the script without inputs for hints. You can also automatically sync with the tip of the chain and prove all new blocks:
@@ -58,7 +57,7 @@ To build and run test on Risc0 Zkvm:
 $ TARGET="risc0" make test
 ```
 #### Bonsai
-If you are using Bonsai service, edit `run_bonsai.sh` to setup your API key, endpoint and on-chain verifier address.
+If you are using Bonsai service, edit `run-bonsai.sh` to setup your API key, endpoint and on-chain verifier address.
 ```console
 $ ./script/setup-bonsai.sh
 $ ./script/prove-block.sh taiko_a7 risc0-bonsai 10
@@ -98,6 +97,7 @@ $ TARGET="sgx" make test
 ```
 If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
 
+```console
+$ SGX_DIRECT=1 TARGET="sgx" make run
 ```
-SGX_DIRECT=1 TARGET="sgx" make run
-```
+For more details 

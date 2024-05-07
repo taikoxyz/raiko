@@ -10,8 +10,8 @@ members = [
     "provers/risc0/builder",
     "provers/sgx/prover",
     "provers/sgx/guest", 
+    "provers/sgx/setup",
     "pipeline",
-    "setup",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

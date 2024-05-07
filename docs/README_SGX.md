@@ -1,31 +1,4 @@
-# Raiko
-
-> :warning: **DISCLAIMER**: This `README.md` hasn't been updated for a while and may be outdated. For a more current guide, please refer to `README_Docker.md`.
-
-This project is Taiko-specific, SGX-enabled fork of [Zeth][zeth] called _Raiko_. It consists of 2 'modules': `raiko-guest` and `host`.
-
-- `host` is capable of fetching relevant block data and saving it to the `*.json.gz` file. `host` is _not_ being run inside SGX enclave.
-- `raiko-guest` is responsible for generating public-private key pair and signing. It can run inside SGX enclave.
-
-[zeth]: https://github.com/risc0/zeth
-
-## Building
-
-To build the project make sure you have correct toolchain selected:
-
-```console
-ubuntu@ubuntu:~/zeth$ rustup default
-nightly-x86_64-unknown-linux-gnu (default)
-```
-
-and compile the project:
-
-```console
-ubuntu@ubuntu:~/zeth$ cargo build
-```
-
-The above command creates `/target` directory with `host` and `raiko-guest` compilation artifacts.
-
+# SGX
 ## Running
 
 You can either run `raiko-guest` directly, or indirectly by running `host` JSON-RPC server. In any case running it requires some [Gramine][gramine]-specific preconfiguration before you can run the binary. This can be automated in the future.
