@@ -51,18 +51,7 @@ impl Prover for Risc0Prover {
         output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        println!("config: {:?}", config);
-
-        let config_risc0 = json! {
-            {
-                "bonsai": false,
-                "snark": false,
-                "profile": true,
-                "execution_po2": 18
-            }
-        };
-
-        let config = Risc0Param::deserialize(config_risc0).unwrap();
+        let config = Risc0Param::deserialize(config).unwrap();
 
         println!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");

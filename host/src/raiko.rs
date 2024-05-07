@@ -214,12 +214,47 @@ mod tests {
     use crate::request::{ProofRequest, ProofType};
     use crate::rpc_provider::RpcBlockDataProvider;
     use alloy_primitives::Address;
+    use clap::ValueEnum;
     use raiko_lib::{
         consts::{get_network_spec, Network},
         input::GuestOutput,
     };
     use raiko_primitives::B256;
+    use serde_json::{json, Value};
     use std::collections::HashMap;
+    use std::env;
+
+    fn get_proof_type_from_env() -> ProofType {
+        let proof_type = env::var("TARGET").unwrap_or("native".to_string());
+        ProofType::from_str(&proof_type, true).unwrap()
+    }
+
+    fn test_proof_params() -> HashMap<String, Value> {
+        let mut prover_args = HashMap::new();
+        prover_args.insert(
+            "risc0".to_string(),
+            json! {
+                {
+                    "bonsai": false,
+                    "snark": false,
+                    "profile": true,
+                    "execution_po2": 18
+                }
+            },
+        );
+        prover_args.insert(
+            "sgx".to_string(),
+            json! {
+                {
+                    "instance_id": 121,
+                    "setup": true,
+                    "bootstrap": true,
+                    "prove": true,
+                }
+            },
+        );
+        prover_args
+    }
 
     async fn prove_block(chain_spec: ChainSpec, proof_request: ProofRequest) {
         let provider =
@@ -234,15 +269,11 @@ mod tests {
             .prove(input, &output)
             .await
             .expect("proof generation failed");
-        let response: NativeResponse = serde_json::from_value(proof).unwrap();
-        match response.output {
-            GuestOutput::Success(_) => {}
-            GuestOutput::Failure => unreachable!(),
-        };
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7() {
+        let proof_type = get_proof_type_from_env();
         let network = Network::TaikoA7;
         let block_number = 39367;
         let chain_spec = get_network_spec(network);
@@ -255,14 +286,15 @@ mod tests {
             graffiti: B256::ZERO,
             prover: Address::ZERO,
             l1_network: Network::Ethereum.to_string(),
-            proof_type: ProofType::Native,
-            prover_args: HashMap::new(),
+            proof_type,
+            prover_args: test_proof_params(),
         };
         prove_block(chain_spec, proof_request).await;
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_ethereum() {
+        let proof_type = get_proof_type_from_env();
         let network = Network::Ethereum;
         let block_number = 19707175;
         let chain_spec = get_network_spec(network);
@@ -275,8 +307,8 @@ mod tests {
             graffiti: B256::ZERO,
             prover: Address::ZERO,
             l1_network: Network::Ethereum.to_string(),
-            proof_type: ProofType::Native,
-            prover_args: HashMap::new(),
+            proof_type,
+            prover_args: test_proof_params(),
         };
         prove_block(chain_spec, proof_request).await;
     }

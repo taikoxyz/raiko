@@ -78,7 +78,7 @@ jobs:
       - name: Build sgx prover
         run: TARGET="sgx" make build
       - name: Test sgx prover
-        run: TARGET="sgx" make test
+        run: TARGET="sgx" SGX_DIRECT=1 make test
 
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker
