@@ -98,7 +98,6 @@ jobs:
       TARGET: sgx
       CI: 1
       MOCK: 1
-      SGX_DIRECT: 1
     steps:
       - uses: actions/checkout@v4
         with:

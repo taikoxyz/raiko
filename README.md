@@ -98,5 +98,5 @@ $ TARGET=sgx make test
 If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
 
 ```console
-$ SGX_DIRECT=1 TARGET=sgx make run
+$ MOCK=1 TARGET=sgx make run
 ```
