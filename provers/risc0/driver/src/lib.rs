@@ -109,9 +109,7 @@ impl Prover for Risc0Prover {
 #[test]
 fn test_foo() {
     use risc0_zkvm::{default_prover, ExecutorEnv};
-    let env = ExecutorEnv::builder()
-        .build()
-        .unwrap();
+    let env = ExecutorEnv::builder().build().unwrap();
     let prover = default_prover();
     let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
     receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
