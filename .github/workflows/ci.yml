@@ -18,6 +18,10 @@ jobs:
     name: Build and test native
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      TARGET: native
+      CI: 1
+      MOCK: 1
     steps:
     - uses: actions/checkout@v4
       with:
@@ -28,7 +32,6 @@ jobs:
           profile: minimal
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
-    - run: export TARGET=native CI=1 MOCK=1
     - name: Install native
       run: make install
     - name: Build native prover
@@ -40,6 +43,10 @@ jobs:
     name: Build and test risc0
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      TARGET: risc0
+      CI: 1
+      MOCK: 1
     steps:
     - uses: actions/checkout@v4
       with:
@@ -51,7 +58,6 @@ jobs:
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
     - uses: risc0/risc0/.github/actions/sccache@release-0.19
-    - run: export TARGET=risc0 CI=1 MOCK=1
     - name: Install risc0
       run: make install
     - name: Build risc0 prover
@@ -63,6 +69,10 @@ jobs:
     name: Build and test sp1
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      TARGET: sp1
+      CI: 1
+      MOCK: 1
     steps:
     - uses: actions/checkout@v4
       with:
@@ -73,7 +83,6 @@ jobs:
           profile: minimal
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
-    - run: export TARGET=sp1 CI=1 MOCK=1
     - name: Install sp1
       run: make install
     - name: Build sp1 prover
@@ -85,6 +94,11 @@ jobs:
     name: Build and test sgx
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      TARGET: sgx
+      CI: 1
+      MOCK: 1
+      SGX_DIRECT: 1
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,7 +109,6 @@ jobs:
             profile: minimal
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@v1.6.4
-      - run: export TARGET=sgx CI=1 MOCK=1 SGX_DIRECT=1
       - name: Install sgx
         run: make install
       - name: Build sgx prover
