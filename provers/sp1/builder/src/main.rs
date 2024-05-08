@@ -6,6 +6,7 @@ use std::path::PathBuf;
 fn main() {
     let pipeline = Sp1Pipeline::new("provers/sp1/guest", "release");
     pipeline.bins(&["sp1-guest"], "provers/sp1/guest/elf");
+    #[cfg(feature = "test")]
     pipeline.tests(&["sp1-guest"], "provers/sp1/guest/elf");
 }
 
@@ -31,7 +32,7 @@ impl Pipeline for Sp1Pipeline {
                 "panic=abort",
             ])
             .cc_compiler("gcc".into())
-            .c_flags(&["/opt/riscv/bin/riscv32-unknown-elf-gcc"])
+            .c_flags(&["/opt/riscv/bin/riscv32-unknown-elf-gcc", "-mstrict-align"])
             .custom_args(&["--ignore-rust-version"])
     }
 
