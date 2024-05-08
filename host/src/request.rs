@@ -195,6 +195,7 @@ pub struct ProofRequestOpt {
     /// The proof type.
     pub proof_type: Option<String>,
     #[command(flatten)]
+    #[serde(flatten)]
     /// Any additional prover params in JSON format.
     pub prover_args: ProverSpecificOpts,
 }
