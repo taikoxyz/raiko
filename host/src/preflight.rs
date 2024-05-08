@@ -25,7 +25,7 @@ use raiko_primitives::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{
     error::{HostError, HostResult},
@@ -438,7 +438,7 @@ async fn get_blob_data_beacon(
         assert!(tx_blob.is_some());
         Ok(blob_to_bytes(&tx_blob.unwrap().blob))
     } else {
-        println!(
+        warn!(
             "Request {url} failed with status code: {}",
             response.status()
         );

@@ -9,6 +9,7 @@ use raiko_lib::{
     Measurement,
 };
 use serde_json::Value;
+use tracing::{debug, info};
 use utoipa::OpenApi;
 
 use crate::{
@@ -50,7 +51,7 @@ fn set_cached_input(
         let path = get_input_path(dir, block_number, network);
         if !path.exists() {
             let file = File::create(&path).map_err(<std::io::Error as Into<HostError>>::into)?;
-            println!("caching input for {path:?}");
+            info!("caching input for {path:?}");
             bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
         }
     }
@@ -89,7 +90,7 @@ async fn proof_handler(
     })?;
     inc_host_req_count(proof_request.block_number);
 
-    println!(
+    debug!(
         "# Generating proof for block {} on {}",
         proof_request.block_number, proof_request.network
     );
@@ -108,7 +109,7 @@ async fn proof_handler(
 
     let raiko = Raiko::new(chain_spec, proof_request.clone());
     let input = if let Some(cached_input) = cached_input {
-        println!("Using cached input");
+        debug!("Using cached input");
         cached_input
     } else {
         memory::reset_stats();
