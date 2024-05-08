@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
+set -e
 
 TOOLCHAIN_RISC0=+nightly-2024-02-06
 TOOLCHAIN_SP1=+nightly-2024-02-06
 TOOLCHAIN_SGX=+nightly-2024-02-06
-
 
 check_toolchain() {
 	local TOOLCHAIN=$1
