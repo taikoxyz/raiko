@@ -169,7 +169,7 @@ Currently Supported FMSPCs:
 
 Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
 
-> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
+> **_NOTE:_** At the moment, we are aware of three cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
 
 [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 
@@ -180,6 +180,14 @@ You will need to clone our `raiko` repository and `taiko-mono` repository to run
 ### Docker
 
 You will need `docker` CLI installed, please find your respective distribution [here](https://docs.docker.com/engine/install/) and follow the install guide.
+
+### NodeJS
+You can install nodejs 18 or higher version : 
+```
+curl -s https://deb.nodesource.com/setup_18.x | sudo bash
+sudo apt install nodejs -y
+node -v
+```
 
 ### Gramine
 
@@ -218,17 +226,13 @@ rm csr.pem
 [pccs-readme]: https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/master/QuoteGeneration/pccs/README.md
 [pccs-cert-gen]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/master/QuoteGeneration/pccs/container#2-generate-certificates-to-use-with-pccs
 
-3. Install Intel lib & copy the config file
-
-> **_NOTE:_** The library requires nodejs 18, but regardless if installation succeeds or not, we just need the `default.json` file it comes with.
+3. Create the config file
 
 ```
-apt install sgx-dcap-pccs
-cd ~/.config/sgx-pccs
-cp /opt/intel/sgx-dcap-pccs/config/default.json  .
+curl -s https://raw.githubusercontent.com/intel/SGXDataCenterAttestationPrimitives/main/QuoteGeneration/pccs/config/default.json > ~/.config/sgx-pccs/default.json
 ```
 
-Make sure you've copied the `default.json` into the .config/sgx-pccs directory you created earlier. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
+The `raiko` container will mount this file as a volume. After create the file, open `~/.config/sgx-pccs/default.json` for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
 
 - `ApiKey`: The PCCS uses this API key to request collaterals from Intel's Provisioning Certificate Service. User needs to subscribe first to obtain an API key. Use either the primary or secondary key you obtained from the previous step `Subscribing to Intel PCS Service`.
 
@@ -241,7 +245,7 @@ Make sure you've copied the `default.json` into the .config/sgx-pccs directory y
 Ensure docker can use it by modifying permissions to the file:
  
 ```
-chmod 644 default.json
+chmod 644 ~/.config/sgx-pccs/default.json
 ```
 
 [pccs-cert-gen-config]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/master/QuoteGeneration/pccs/container#3-fill-up-configuration-file
@@ -257,7 +261,7 @@ mkdir ~/.config/raiko/secrets
 5. Now, clone raiko and check out the `taiko/alpha-7` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
 
 ```
-git clone -b taiko/alpha-7 https://github.com/taikoxyz/raiko.git
+cd ~ && git clone -b taiko/alpha-7 https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 docker compose build
 ```
@@ -303,7 +307,7 @@ You've now prepared your machine for running Raiko through Docker. Now, you need
 1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main) and navigate to the scripts
 
 ```
-git clone https://github.com/taikoxyz/taiko-mono.git
+cd ~ && git clone https://github.com/taikoxyz/taiko-mono.git
 cd taiko-mono/packages/protocol
 ```
 
@@ -323,35 +327,22 @@ pnpm install
 pnpm compile
 ```
 
-3. Prepare your prover's private key
-
-```
-export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
-```
-
-4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match
+3. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match
 
 `SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
 `ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398 
 `PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E 
 
-5. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
+4. Run script to do on-chain RA. You will need Holesky RPC to replace `replace_with_your_holesky_rpc` and rememmber add `0x` before your prover private key to replace `0xyour_prover_private_key` to able to run command below  :
 
 ```
-"public_key": "0x02ab85f14dcdc93832f4bb9b40ad908a5becb840d36f64d21645550ba4a2b28892",
-"new_instance": "0xc369eedf4c69cacceda551390576ead2383e6f9e",
-"quote": "0x030002......f00939a7233f79c4ca......9434154452d2d2d2d2d0a00"
+sudo apt install jq -y
+export FORK_URL=replace_with_your_holesky_rpc
+QUOTE=$(cat ~/.config/raiko/config/bootstrap.json | jq -r '.quote')
+PRIVATE_KEY=0xyour_prover_private_key ./script/config_dcap_sgx_verifier.sh --quote $QUOTE
 ```
 
-Take that quote and replace `V3_QUOTE_BYTES` in the `script/config_dcap_sgx_verifier.sh` script.
-
-6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with any Holesky RPC URL.
-
-7. Call the script with `./script/config_dcap_sgx_verifier.sh`.
-
-> **_NOTE:_**  If you already have QE/TCB/Enclave already configured you can change `export TASK_ENABLE="1,1,1,1,1"` to `export TASK_ENABLE="0,0,0,0,1"` to only register the SGX instance.
-
-8. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
+5. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
 It should look like this:
 
