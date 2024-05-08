@@ -1,3 +1,4 @@
+use alloy_primitives::FixedBytes;
 use axum::{
     body::HttpBody,
     extract::Request,
@@ -6,6 +7,8 @@ use axum::{
     response::Response,
     Router,
 };
+use raiko_lib::input::{GuestOutput, WrappedHeader};
+use serde::Serialize;
 use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
@@ -13,7 +16,7 @@ use tower_http::{
     set_header::SetResponseHeaderLayer,
     trace::TraceLayer,
 };
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::ProverState;
@@ -42,7 +45,10 @@ mod proof;
         schemas(
             crate::request::ProofRequestOpt,
             crate::error::HostError,
-            crate::request::ProverSpecificOpts
+            crate::request::ProverSpecificOpts,
+            WrappedHeaderDoc,
+            GuestOutputDoc,
+            ProofResponse,
         )
     ),
     tags(
@@ -53,6 +59,39 @@ mod proof;
 )]
 /// The root API struct which is generated from the `OpenApi` derive macro.
 pub struct Docs;
+
+#[derive(Debug, Serialize, ToSchema)]
+/// The response body of a proof request.
+pub enum ProofResponse {
+    Native {
+        #[schema(value_type = GuestOutputDoc)]
+        output: GuestOutput,
+    },
+    Sgx {
+        proof: String,
+        quote: String,
+    },
+    Sp1 {
+        proof: String,
+        #[schema(value_type = GuestOutputDoc)]
+        output: GuestOutput,
+    },
+    Risc0 {
+        proof: String,
+    },
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub enum GuestOutputDoc {
+    #[schema(value_type = (WrappedHeaderDoc, String))]
+    Success((WrappedHeader, FixedBytes<32>)),
+    Failure,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct WrappedHeaderDoc {
+    pub header: Vec<u8>,
+}
 
 #[must_use]
 pub fn create_docs() -> utoipa::openapi::OpenApi {
