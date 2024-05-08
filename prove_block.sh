@@ -53,31 +53,37 @@ elif [ "$proof" == "sgx" ]; then
 	proofParam='
     "proof_type": "sgx",
     "prover_args": {
-        "instance_id": 456,
-        "setup": true,
-        "bootstrap": true,
-        "prove": true,
-        "input_path": null
-      }
+        "sgx" : {
+            "instance_id": 123,
+            "setup": false,
+            "bootstrap": false,
+            "prove": true,
+            "input_path": null
+        }
+    }
     '
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
     "prover_args": {
-      "bonsai": false,
-      "snark": false,
-      "profile": true,
-      "execution_po2": 18
+        "risc0": {
+            "bonsai": false,
+            "snark": false,
+            "profile": true,
+            "execution_po2": 18
+        }
     }
   '
 elif [ "$proof" == "risc0-bonsai" ]; then
 	proofParam='
     "proof_type": "risc0",
     "prover_args": {
-      "bonsai": true,
-      "snark": true,
-      "profile": false,
-      "execution_po2": 20
+        "risc0": {
+            "bonsai": true,
+            "snark": true,
+            "profile": false,
+            "execution_po2": 20
+        }
     }
   '
 else
@@ -89,6 +95,7 @@ if [ "$rangeStart" == "sync" ]; then
 	sync="true"
 	rangeStart=$(getBlockNumber)
 	rangeEnd=$((rangeStart + 1000000))
+	sleep 1.0
 fi
 
 if [ "$rangeStart" == "" ]; then
@@ -112,6 +119,8 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 			sleep 0.1                      # Wait for 100ms
 			block_number=$(getBlockNumber) # Query again to get the updated block number
 		done
+		# Sleep a bit longer because sometimes the block data isn't available yet
+		sleep 1.0
 	fi
 
 	echo "- proving block $block"

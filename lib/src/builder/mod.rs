@@ -24,7 +24,7 @@ use crate::{
         initialize::{DbInitStrategy, MemDbInitStrategy},
         prepare::{HeaderPrepStrategy, TaikoHeaderPrepStrategy},
     },
-    consts::{get_network_spec, ChainSpec},
+    consts::ChainSpec,
     input::GuestInput,
     mem_db::MemDb,
 };
@@ -35,9 +35,10 @@ mod initialize;
 pub mod prepare;
 
 /// Optimistic database
+#[allow(async_fn_in_trait)]
 pub trait OptimisticDatabase {
     /// Handle post execution work
-    fn fetch_data(&mut self) -> bool;
+    async fn fetch_data(&mut self) -> bool;
 
     /// If the current database is optimistic
     fn is_optimistic(&self) -> bool;
@@ -60,7 +61,7 @@ where
     /// Creates a new block builder.
     pub fn new(input: &GuestInput) -> BlockBuilder<D> {
         BlockBuilder {
-            chain_spec: get_network_spec(input.network),
+            chain_spec: input.chain_spec.clone(),
             db: None,
             header: None,
             input: input.clone(),

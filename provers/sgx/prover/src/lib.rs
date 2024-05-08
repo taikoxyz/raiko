@@ -59,7 +59,7 @@ pub struct SgxProver;
 impl Prover for SgxProver {
     async fn run(
         input: GuestInput,
-        _output: GuestOutput,
+        _output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();

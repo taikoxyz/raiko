@@ -1,14 +1,19 @@
 
-risc0:
-	@./toolchain.sh risc0
-	@cargo run --bin risc0-builder
-	cargo build --release --features risc0
+install:
+	./scripts/install.sh $(TARGET)
 
-sp1:
-	@./toolchain.sh sp1
-	@cargo run --bin sp1-builder
-	cargo build --release --features sp1
+build:
+	./scripts/run.sh $(TARGET)
 
-sgx:
-	@./toolchain.sh sgx
-	cargo build --release --features sgx
+run:
+	RUN=1 ./scripts/run.sh $(TARGET)
+
+test:
+	TEST=1 ./scripts/run.sh $(TARGET)
+
+fmt:
+	@cargo fmt --all --check
+
+clippy:
+	@cargo +nightly-2024-04-17 check --features "sgx,sp1,risc0"
+	@cargo +nightly-2024-04-17 clippy --workspace --features "sgx,sp1,risc0" --all-targets -- -Dwarnings
