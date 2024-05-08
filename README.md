@@ -23,7 +23,7 @@ After installing dependencies of selected prover, the following command internal
 ```console
 $ TARGET=sp1 make build
 ```
-If you set `DEBUG=1` then the target will be compiled without optimization (not recomended for ZkVM elfs).
+If you set `DEBUG=1` then the target will be compiled without optimization (not recommended for ZkVM elfs).
 
 ### Running
 
