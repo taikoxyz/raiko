@@ -272,12 +272,12 @@ mod tests {
     async fn test_prove_block_taiko_a7() {
         let proof_type = get_proof_type_from_env();
         let network = Network::TaikoA7;
-        let block_number = 101368;
+        let block_number = 105987;
         let chain_spec = get_network_spec(network);
         let proof_request = ProofRequest {
             block_number,
-            rpc: "https://rpc.hekla.taiko.xyz/".to_string(),
-            l1_rpc: "https://l1rpc.hekla.taiko.xyz/".to_string(),
+            rpc: "https://rpc.hekla.taiko.xyz".to_string(),
+            l1_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             beacon_rpc: "https://l1beacon.hekla.taiko.xyz".to_string(),
             network,
             graffiti: B256::ZERO,

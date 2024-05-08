@@ -23,11 +23,11 @@ check_toolchain() {
 		echo "Installing Rust toolchain: $TOOLCHAIN"
 		rustup install "$TOOLCHAIN"
 	fi
-} 
+}
 
 if [ -z "${DEBUG}" ]; then
 	FLAGS=--release
-else 
+else
 	echo "Warning: in debug mode"
 fi
 
@@ -37,23 +37,49 @@ else
 	COMMAND=run
 fi
 
+# NATIVE
+if [ -z "$1" ] || [ "$1" == "native" ]; then
+	if [ -z "${RUN}" ]; then
+		if [ -z "${TEST}" ]; then
+			echo "Building native prover"
+			cargo build ${FLAGS}
+		else
+			echo "Building native tests"
+			cargo test --no-run
+		fi
+	else
+		if [ -z "${TEST}" ]; then
+			echo "Running native prover"
+			cargo run ${FLAGS}
+		else
+			echo "Running native tests"
+			cargo test ${FLAGS}
+		fi
+	fi
+fi
+
 # SGX
 if [ -z "$1" ] || [ "$1" == "sgx" ]; then
 	check_toolchain $TOOLCHAIN_SGX
 	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
+			echo "Building SGX prover"
 			cargo ${TOOLCHAIN_SGX} build ${FLAGS} --features sgx
 		else
-			cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p sgx-prover --features enable --no-run
+			echo "Building SGX tests"
+			cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p host -p sgx-prover --features enable --no-run
 		fi
 	else
 		if [ -z "${TEST}" ]; then
+			echo "Running SGX prover"
 			cargo ${TOOLCHAIN_SGX} run ${FLAGS} --features sgx
 		else
-			cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p sgx-prover --features enable
+			echo "Running SGX tests"
+			cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p host -p sgx-prover --features enable
 		fi
 	fi
 fi
+
 # RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 	check_toolchain $TOOLCHAIN_RISC0
@@ -77,7 +103,7 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 			cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --features risc0
 		else
 			echo "Running Sp1 tests"
-			RISC0_DEV_MODE=1 cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p risc0-driver --features enable
+			cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p host -p risc0-driver --features enable
 		fi
 	fi
 fi
@@ -104,7 +130,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1
 		else
 			echo "Running Sp1 tests"
-			cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p sp1-driver --features enable
+			cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p host -p sp1-driver --features enable
 		fi
 	fi
 fi

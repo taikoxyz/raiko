@@ -65,7 +65,6 @@ pub fn main() {
     harness::zk_suits!(test_example);
 }
 
-#[ignore]
 #[test]
 pub fn test_example() {
     use harness::*;

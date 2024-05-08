@@ -15,13 +15,13 @@ $ make install
 You can also download all required dependencies for each prover separately, for example to install SP1:
 
 ```console
-$ TARGET="sp1" make install
+$ TARGET=sp1 make install
 ```
 ### Building
 
 After installing dependencies of selected prover, the following command internally calls cargo to build the prover's guest target with the `--release` profile by default, for example:
 ```console
-$ TARGET="sp1" make build
+$ TARGET=sp1 make build
 ```
 If you set `DEBUG=1` then the target will be compiled without optimization (not recomended for ZkVM elfs).
 
@@ -29,7 +29,7 @@ If you set `DEBUG=1` then the target will be compiled without optimization (not 
 
 Note that you have to `make build` first before running ZkVM provers, otherwise the guest elf may not be up to date and can result in poof failures.
 ```console
-$ TARGET="sp1" make run
+$ TARGET=sp1 make run
 ```
 Just for development with the native prover which runs through the block execution without producing any ZK/SGX proof:
 ```
@@ -49,12 +49,12 @@ Look into `prove-block.sh` for the available options or run the script without i
 ### Risc zero
 To install, build, and run in one step:
 ```console
-$ export TARGET="risc0" 
+$ export TARGET=risc0
 $ make install && make build && make run
 ```
 To build and run test on Risc0 Zkvm:
 ```console
-$ TARGET="risc0" make test
+$ TARGET=risc0 make test
 ```
 #### Bonsai
 If you are using Bonsai service, edit `run-bonsai.sh` to setup your API key, endpoint and on-chain verifier address.
@@ -74,29 +74,29 @@ $ cargo run -F metal --release --features risc0
 
 Note that CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 
-### SP1 
+### SP1
 To install, build, and run in one step:
 ```console
-$ export TARGET="sp1" 
+$ export TARGET=sp1
 $ make install && make build && make run
 ```
 To build and run test on Sp1 Zkvm:
 ```console
-$ TARGET="sp1" make test
+$ TARGET=sp1 make test
 ```
 
 ### SGX:
 To install, build, and run in one step:
 ```console
-$ export TARGET="sgx" 
+$ export TARGET=sgx
 $ make install && make build && make run
 ```
 To build and run test related SGX provers:
 ```console
-$ TARGET="sgx" make test
+$ TARGET=sgx make test
 ```
 If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
 
 ```console
-$ SGX_DIRECT=1 TARGET="sgx" make run
+$ SGX_DIRECT=1 TARGET=sgx make run
 ```

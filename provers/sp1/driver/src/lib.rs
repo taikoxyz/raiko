@@ -73,7 +73,6 @@ impl Prover for Sp1Prover {
     }
 }
 
-#[ignore]
 #[test]
 fn test_example() {
     // TODO(Cecilia): imple GuestInput::mock() for unit test
