@@ -60,6 +60,7 @@ fn set_cached_input(
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",
+    request_body = ProofRequestOpt,
     responses (
         (status = 200, description = "Successfully created proof for request", body = ProofResponse)
     )

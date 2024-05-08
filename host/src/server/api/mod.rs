@@ -17,6 +17,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 use utoipa::{OpenApi, ToSchema};
+use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::ProverState;
@@ -142,6 +143,8 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
 
     let trace = TraceLayer::new_for_http();
 
+    let docs = create_docs();
+
     Router::new()
         // Only add the concurrency limit to the proof route. We want to still be able to call
         // healthchecks and metrics to have insight into the system.
@@ -155,7 +158,8 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
         .layer(middleware)
         .layer(middleware::from_fn(check_max_body_size))
         .layer(trace)
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", create_docs()))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
+        .merge(Scalar::with_url("/scalar", docs))
         .fallback(|uri: Uri| async move {
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
         })

@@ -203,9 +203,13 @@ pub struct ProofRequestOpt {
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
 pub struct ProverSpecificOpts {
+    /// Native prover specific options.
     pub native: Option<Value>,
+    /// SGX prover specific options.
     pub sgx: Option<Value>,
+    /// SP1 prover specific options.
     pub sp1: Option<Value>,
+    /// RISC0 prover specific options.
     pub risc0: Option<Value>,
 }
 
