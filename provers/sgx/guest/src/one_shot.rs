@@ -9,6 +9,7 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
+    input::GuestInput,
     protocol_instance::{assemble_protocol_instance, EvidenceType},
 };
 use raiko_primitives::Address;
@@ -121,7 +122,8 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
 
-    let input = bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
+    let input: GuestInput =
+        bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
     assert!(input.taiko.verify_blob);
 
     // Process the block
