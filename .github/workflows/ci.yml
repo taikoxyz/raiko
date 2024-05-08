@@ -20,15 +20,19 @@ jobs:
     name: Build and test risc0
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      CC: gcc
+      CC_riscv32im_risc0_zkvm_elf: /tmp/riscv/bin/riscv32-unknown-elf-gcc
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - run: .github/toolchain-before.sh risc0
+    - run: scripts/toolchain-before.sh risc0
+    - run: scripts/toolchain.sh risc0
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
-    - run: .github/toolchain-after.sh risc0
+    - run: scripts/toolchain-after.sh risc0
     - uses: risc0/risc0/.github/actions/sccache@release-0.19
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
@@ -41,13 +45,17 @@ jobs:
     name: Build and test sp1
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      CC: gcc
+      CC_riscv32im_succinct_zkvm_elf: /tmp/riscv/bin/riscv32-unknown-elf-gcc
     steps:
       - uses: actions/checkout@v4
-      - run: .github/toolchain-before.sh sp1
+      - run: scripts/toolchain-before.sh sp1
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-      - run: .github/toolchain-after.sh sp1
+      - run: scripts/toolchain.sh sp1
+      - run: scripts/toolchain-after.sh sp1
       - name: Setup and build
         run: |
           curl -L https://sp1.succinct.xyz | bash
@@ -62,11 +70,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - run: .github/toolchain-before.sh sgx
+      - run: scripts/toolchain-before.sh sgx
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-      - run: .github/toolchain-after.sh sgx
+      - run: scripts/toolchain-after.sh sgx
       - name: Setup and build
         run: |
           cargo build --features sgx
