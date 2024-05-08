@@ -80,7 +80,6 @@ fn test_example() {
 
     // // Still need to write the same input requried by main binary
     // // Even though test itself desn't use it.
-    // let mut stdin = SP1Stdin::new();
     // stdin.write(&GuestInput::default());
 
     // let (pk, vk) = client.setup(TEST_ELF);

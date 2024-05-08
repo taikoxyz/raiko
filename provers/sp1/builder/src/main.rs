@@ -32,7 +32,7 @@ impl Pipeline for Sp1Pipeline {
                 "panic=abort",
             ])
             .cc_compiler("gcc".into())
-            .c_flags(&["/opt/riscv/bin/riscv32-unknown-elf-gcc"])
+            .c_flags(&["/opt/riscv/bin/riscv32-unknown-elf-gcc", "-mstrict-align"])
             .custom_args(&["--ignore-rust-version"])
     }
 
