@@ -82,7 +82,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
         TaikoGuestInput {
-            tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(&block)))?,
+            tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(block)?))?,
             ..Default::default()
         }
     };
@@ -256,10 +256,8 @@ async fn prepare_taiko_chain_input(
     // Get the L1 block in which the L2 block was included so we can fetch the DA data.
     // Also get the L1 state block header so that we can prove the L1 state root.
     let l1_blocks = provider_l1
-        .get_blocks(&vec![
-            (l1_inclusion_block_number, false),
-            (l1_state_block_number, false),
-        ])
+        .get_blocks(&[(l1_inclusion_block_number, false),
+            (l1_state_block_number, false)])
         .await?;
     let (l1_inclusion_block, l1_state_block) = (&l1_blocks[0], &l1_blocks[1]);
 
@@ -524,7 +522,7 @@ async fn get_block_proposed_event(
         } else {
             let event = BlockProposed::decode_log(&log_struct, false)
                 .map_err(|_| HostError::Anyhow(anyhow!("Could not decode log")))?;
-            (event.blockId, event.data.into())
+            (event.blockId, event.data)
         };
         if block_id == raiko_primitives::U256::from(l2_block_number) {
             let Some(log_tx_hash) = log.transaction_hash else {

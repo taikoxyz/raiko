@@ -28,7 +28,6 @@ use cap::Cap;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::debug;
 
 use crate::{error::HostError, request::ProofRequestOpt};
 

@@ -23,7 +23,7 @@ pub struct RpcBlockDataProvider {
 impl RpcBlockDataProvider {
     pub fn new(url: &str, block_number: u64) -> HostResult<Self> {
         let url =
-            reqwest::Url::parse(&url).map_err(|_| HostError::RPC("Invalid RPC URL".to_owned()))?;
+            reqwest::Url::parse(url).map_err(|_| HostError::RPC("Invalid RPC URL".to_owned()))?;
         Ok(Self {
             provider: ProviderBuilder::new().on_provider(RootProvider::new_http(url.clone())),
             client: ClientBuilder::default().http(url),
