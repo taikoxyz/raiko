@@ -4,6 +4,7 @@ sp1_zkvm::entrypoint!(main);
 use harness::*;
 use std::hint::black_box;
 
+
 fn fibonacci(n: u32) -> u32 {
     let mut nums = vec![1, 1];
     for _ in 0..n {
