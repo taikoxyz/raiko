@@ -13,15 +13,18 @@
 // limitations under the License.
 
 pub mod error;
-pub mod execution;
 pub mod metrics;
 pub mod preflight;
 pub mod provider_db;
+pub mod raiko;
 pub mod request;
+pub mod rpc_provider;
 pub mod server;
 
-use std::{alloc, fmt::Debug, path::PathBuf};
+use std::{alloc, collections::HashMap, fmt::Debug, path::PathBuf};
 
+use alloy_primitives::Address;
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::{Context, Result};
 use cap::Cap;
 use clap::Parser;
@@ -29,6 +32,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{error::HostError, request::ProofRequestOpt};
+
+type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);

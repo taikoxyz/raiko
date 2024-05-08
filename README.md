@@ -1,115 +1,102 @@
 # raiko
 
+Taiko's multi-prover of Taiko & Etheruem block, currently supports Risc0, Sp1, and SGX.
+
 ## Usage
 
+### Installing
+
+To download all dependencies for all provers you can run
+
+```console
+$ make install
+```
+
+You can also download all required dependencies for each prover separately, for example to install SP1:
+
+```console
+$ TARGET="sp1" make install
+```
 ### Building
 
-- Install the `cargo risczero` tool and the `risc0` toolchain:
-
+After installing dependencies of selected prover, the following command internally calls cargo to build the prover's guest target with the `--release` profile by default, for example:
 ```console
-$ cargo install cargo-risczero
-$ cargo risczero install
-$ cargo risczero install --version v2024-02-08.1
+$ TARGET="sp1" make build
 ```
-- Install the `cargo prove` tool and the `succinct` toolchain:
-
-```console
-$ curl -L https://sp1.succinct.xyz | bash
-$ sp1up
-$ cargo prove --version
-```
-
-- For SGX, install gramine: https://github.com/gramineproject/gramine. If you're running ubuntu 22.04 (or a compatible distro) you can just download and install this deb file: https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
-
-- Clone the repository and build with `cargo`:
-
-```console
-$ cargo build
-```
+If you set `DEBUG=1` then the target will be compiled without optimization (not recomended for ZkVM elfs).
 
 ### Running
 
-Run the host in a terminal that will listen to requests:
-
-Just for development with the native prover:
+Note that you have to `make build` first before running ZkVM provers, otherwise the guest elf may not be up to date and can result in poof failures.
+```console
+$ TARGET="sp1" make run
+```
+Just for development with the native prover which runs through the block execution without producing any ZK/SGX proof:
 ```
 cargo run
 ```
-
-Then in another terminal you can do requests like this:
+`run` camand will start the host service that listens to proof requests, then in another terminal you can do requests like this, which proves the 10th block with native prover on Taiko A7 testnet:
+```
+./script/prove-block.sh taiko_a7 native 10
+```
+Look into `prove-block.sh` for the available options or run the script without inputs for hints. You can also automatically sync with the tip of the chain and prove all new blocks:
 
 ```
-./prove_block.sh taiko_a7 native 10
-```
-
-Look into `prove_block.sh` for the available options or run the script without inputs and it will tell you.
-
-You can also automatically sync with the tip of the chain and prove all new blocks:
-
-```
-./prove_block.sh taiko_a7 native sync
+./script/prove-block.sh taiko_a7 native sync
 ```
 
 ## Provers
-
-Before running you should set the rust toolchain in workspace to the desired prover's toolchain. If the script is not run, cargo will proceed with the defult `rust-toolchain` file which specifies "nightly". Assuming you want to run prover X:
-
+### Risc zero
+To install, build, and run in one step:
+```console
+$ export TARGET="risc0" 
+$ make install && make build && make run
 ```
-./toolchain.sh X
+To build and run test on Risc0 Zkvm:
+```console
+$ TARGET="risc0" make test
 ```
-
-Provers can be enabled using features. To compile with all of them (using standard options):
-
-```
-cargo run --release --features "risc0 sp1"
-```
-
-### risc zero
-#### Testing
-```
-RISC0_DEV_MODE=1 cargo run --release --features risc0
-```
-
 #### Bonsai
+If you are using Bonsai service, edit `run-bonsai.sh` to setup your API key, endpoint and on-chain verifier address.
+```console
+$ ./script/setup-bonsai.sh
+$ ./script/prove-block.sh taiko_a7 risc0-bonsai 10
 ```
-# edit run_bonsai.sh and run
-run_bonsai.sh
-# then
-prove_block.sh taiko_a7 risc0-bonsai 10
-```
-
-#### CPU
-```
-cargo run --release --features risc0
-```
-
 #### GPU
+If you have GPU with CUDA or Apple's GPU API to accelerate risc0 proof, you can do:
 
-```
-cargo run -F cuda --release --features risc0
-```
-OR
-```
-cargo run -F metal --release --features risc0
+```console
+// cuda
+$ cargo run -F cuda --release --features risc0
+// metal
+$ cargo run -F metal --release --features risc0
 ```
 
-CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
+Note that CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 
-### SP1:
+### SP1 
+To install, build, and run in one step:
+```console
+$ export TARGET="sp1" 
+$ make install && make build && make run
 ```
-cargo run --release --features sp1
+To build and run test on Sp1 Zkvm:
+```console
+$ TARGET="sp1" make test
 ```
 
 ### SGX:
+To install, build, and run in one step:
+```console
+$ export TARGET="sgx" 
+$ make install && make build && make run
 ```
-cargo build --release --features sgx
-cargo run --release --features sgx
+To build and run test related SGX provers:
+```console
+$ TARGET="sgx" make test
 ```
-
-Make sure to first do a cargo build because cargo run does not build the sgx binary!
-
 If your CPU doesn't support SGX, you can still run the SGX code through gramine like it would on an SGX machine:
 
-```
-SGX_DIRECT=1 cargo run --release --features sgx
+```console
+$ SGX_DIRECT=1 TARGET="sgx" make run
 ```

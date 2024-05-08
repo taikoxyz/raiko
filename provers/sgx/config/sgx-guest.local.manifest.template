@@ -49,3 +49,4 @@ sgx.max_threads = 16
 sgx.remote_attestation = "dcap"
 sys.enable_extra_runtime_domain_names_conf = true
 sys.insecure__allow_eventfd = true
+sys.stack.size = "8M"

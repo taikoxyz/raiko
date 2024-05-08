@@ -25,6 +25,8 @@ serde_with = { workspace = true, optional = true }
 thiserror-no-std = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
+c-kzg-taiko = { workspace = true }
+sha2 = { workspace = true }
 
 # [target.'cfg(feature = "std")'.dependencies]
 thiserror = { workspace = true, optional = true }
@@ -40,6 +42,7 @@ lazy_static = { workspace = true }
 bincode = "1.3"
 
 [features]
+default = ["std"]
 std = [
   # always use no-std for revm since we use hashbrown in workspace
   # "revm/std",
@@ -52,3 +55,6 @@ std = [
   "dep:serde_with",
   # "dep:tokio",
 ]
+sgx = []
+sp1 = []
+risc0 = []

@@ -1,0 +1,60 @@
+[package]
+name = "risc0-driver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-lib = { workspace = true, optional = true }
+raiko-primitives = { workspace = true, optional = true }
+
+risc0-zkvm = { workspace = true, optional = true }
+bonsai-sdk = { workspace = true, optional = true }
+
+alloy-primitives = { workspace = true, optional = true }
+alloy-sol-types = { workspace = true, optional = true}
+
+ethers-contract = { workspace = true, optional = true }
+ethers-core = { workspace = true, optional = true }
+ethers-providers = { workspace = true, optional = true }
+
+tracing = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+once_cell = { workspace = true, optional = true }
+anyhow = { workspace = true, optional = true }
+
+cfg-if = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+bytemuck = { workspace = true, optional = true }
+typetag = { workspace = true, optional = true }
+serde_with = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true  }
+hex = { workspace = true, optional = true }
+
+[features]
+dummy-elf = [] # use dummy elf bytes to accelerate cargo check
+enable = [
+    "raiko-lib",
+    "raiko-primitives",
+    "risc0-zkvm",
+    "bonsai-sdk",
+    "alloy-primitives",
+    "alloy-sol-types",
+    "ethers-contract",
+    "ethers-core",
+    "ethers-providers",
+    "tracing",
+    "serde",
+    "once_cell",
+    "anyhow",
+    "cfg-if",
+    "log",
+    "bincode",
+    "bytemuck",
+    "typetag",
+    "serde_with",
+    "serde_json",
+    "hex",
+]
+cuda = ["risc0-zkvm?/cuda"]
+metal = ["risc0-zkvm?/metal"]

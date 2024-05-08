@@ -16,8 +16,8 @@ use utoipa::ToSchema;
 
 use crate::{
     error::{HostError, HostResult},
-    execution::NativeProver,
     merge,
+    raiko::NativeProver,
 };
 
 #[derive(
@@ -75,13 +75,13 @@ impl ProofType {
             ProofType::Native => Ok(NativeProver::instance_hash(pi)),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
-                return Ok(sp1_prover::Sp1Prover::instance_hash(pi));
+                return Ok(sp1_driver::Sp1Prover::instance_hash(pi));
 
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                return Ok(risc0_prover::Risc0Prover::instance_hash(pi));
+                return Ok(risc0_driver::Risc0Prover::instance_hash(pi));
 
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
@@ -98,7 +98,7 @@ impl ProofType {
     pub async fn run_prover(
         &self,
         input: GuestInput,
-        output: GuestOutput,
+        output: &GuestOutput,
         config: &Value,
     ) -> HostResult<Proof> {
         match self {
@@ -107,7 +107,7 @@ impl ProofType {
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
-                return sp1_prover::Sp1Prover::run(input, output, config)
+                return sp1_driver::Sp1Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
 
@@ -115,7 +115,7 @@ impl ProofType {
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                return risc0_prover::Risc0Prover::run(input, output, config)
+                return risc0_driver::Risc0Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
 

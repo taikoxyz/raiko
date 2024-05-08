@@ -10,7 +10,9 @@
 !/primitives
 !/provers
 !/host
+!/pipeline
 !/rust-toolchain
 !/taiko.toml
 !/tests
-!/setup
+!/provers/sgx/setup
+!/kzg_settings_raw.bin

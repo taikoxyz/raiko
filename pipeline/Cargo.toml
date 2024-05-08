@@ -1,0 +1,21 @@
+[package]
+name = "raiko-pipeline"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+cargo_metadata = { workspace = true}
+chrono = { workspace = true }
+cfg-if = { workspace = true }
+regex = { workspace = true }
+once_cell = { workspace = true }
+anyhow = { workspace = true }
+dirs = { workspace = true }
+risc0-binfmt = { workspace = true, optional = true }
+
+[features]
+risc0 = ["dep:risc0-binfmt"]
+sp1 = []
