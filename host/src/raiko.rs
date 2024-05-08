@@ -267,7 +267,7 @@ mod tests {
             .await
             .expect("input generation failed");
         if is_ci() && proof_request.proof_type == ProofType::Sp1 {
-            input.taiko.verify_blob = false;
+            input.taiko.skip_verify_blob = true;
         }
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko

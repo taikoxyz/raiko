@@ -94,7 +94,7 @@ pub fn assemble_protocol_instance(
 ) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
-        if input.taiko.verify_blob {
+        if !input.taiko.skip_verify_blob {
             println!("kzg check enabled!");
             let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
             let kzg_settings = KzgSettings::from_u8_slice(&mut data);
