@@ -103,7 +103,9 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         // Calculate how many storage proofs we need
         let num_initial_values: usize = self
             .initial_db
-            .storage_keys().values().map(|keys| keys.len())
+            .storage_keys()
+            .values()
+            .map(|keys| keys.len())
             .sum();
         let num_latest_values: usize = storage_keys.values().map(|keys| keys.len()).sum();
         let num_storage_proofs = num_initial_values + num_latest_values;
@@ -143,11 +145,10 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
 
         let mut headers = Vec::with_capacity((self.block_number - *earliest_block) as usize);
         for block_number in (*earliest_block..self.block_number).rev() {
-            if let std::collections::hash_map::Entry::Vacant(e) = self.initial_headers.entry(block_number) {
-                let block = &self
-                    .provider
-                    .get_blocks(&[(block_number, false)])
-                    .await?[0];
+            if let std::collections::hash_map::Entry::Vacant(e) =
+                self.initial_headers.entry(block_number)
+            {
+                let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
                 e.insert(to_header(&block.header));
             }
             headers.push(
