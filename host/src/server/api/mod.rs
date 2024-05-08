@@ -61,35 +61,49 @@ mod proof;
 pub struct Docs;
 
 #[derive(Debug, Serialize, ToSchema)]
+#[serde(untagged)]
 /// The response body of a proof request.
 pub enum ProofResponse {
+    /// The response body of a proof request for the native prover.
     Native {
         #[schema(value_type = GuestOutputDoc)]
+        /// The output of the prover.
         output: GuestOutput,
     },
+    /// The response body of a proof request for the sgx prover.
     Sgx {
+        /// The proof.
         proof: String,
+        /// The quote.
         quote: String,
     },
+    /// The response body of a proof request for the sp1 prover.
     Sp1 {
+        /// The proof.
         proof: String,
         #[schema(value_type = GuestOutputDoc)]
+        /// The output of the prover.
         output: GuestOutput,
     },
+    /// The response body of a proof request for the risc0 prover.
     Risc0 {
+        /// The proof.
         proof: String,
     },
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub enum GuestOutputDoc {
-    #[schema(value_type = (WrappedHeaderDoc, String))]
+    #[schema(value_type = (WrappedHeaderDoc, String), example = json!([{"header": [0, 0, 0, 0]}, "0x0...0"]))]
+    /// The output of the prover when the proof generation was successful.
     Success((WrappedHeader, FixedBytes<32>)),
+    /// The output of the prover when the proof generation failed.
     Failure,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct WrappedHeaderDoc {
+    /// Header bytes.
     pub header: Vec<u8>,
 }
 
