@@ -8,8 +8,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  RISC0_VERSION: 0.20.1
-  RISC0_TOOLCHAIN_VERSION: test-release-2
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -19,7 +17,7 @@ jobs:
   build-test:
     name: Build and test native
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v4
       with:
@@ -41,7 +39,7 @@ jobs:
   build-test-risc0:
     name: Build and test risc0
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v4
       with:
@@ -64,7 +62,7 @@ jobs:
   build-test-sp1:
     name: Build and test sp1
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v4
       with:
@@ -86,7 +84,7 @@ jobs:
   build-test-sgx:
     name: Build and test sgx
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
