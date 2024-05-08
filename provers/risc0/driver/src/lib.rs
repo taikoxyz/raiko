@@ -110,8 +110,6 @@ impl Prover for Risc0Prover {
 fn test_guest() {
     use risc0_zkvm::{default_prover, ExecutorEnv};
     let env = ExecutorEnv::builder()
-        .write(&GuestInput::default())
-        .unwrap()
         .build()
         .unwrap();
     let prover = default_prover();
