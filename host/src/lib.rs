@@ -28,8 +28,7 @@ use cap::Cap;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::{alloc, fmt::Debug, path::PathBuf};
+use tracing::debug;
 
 use crate::{error::HostError, request::ProofRequestOpt};
 
@@ -83,7 +82,7 @@ pub struct Cli {
 
     #[arg(long, require_equals = true, default_value = "host/config/config.json")]
     #[serde(default = "default_config_path")]
-    /// Path to a config file that includes sufficent json args to request
+    /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
 
