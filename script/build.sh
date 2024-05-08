@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# Any error will result in failure
 set -e
 
 TOOLCHAIN_RISC0=+nightly-2024-02-06

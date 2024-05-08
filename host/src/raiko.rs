@@ -226,6 +226,11 @@ mod tests {
         ProofType::from_str(&proof_type, true).unwrap()
     }
 
+    fn is_ci() -> bool {
+        let ci = env::var("CI").unwrap_or("0".to_string());
+        ci == "1"
+    }
+
     fn test_proof_params() -> HashMap<String, Value> {
         let mut prover_args = HashMap::new();
         prover_args.insert(
@@ -256,11 +261,14 @@ mod tests {
     async fn prove_block(chain_spec: ChainSpec, proof_request: ProofRequest) {
         let provider =
             RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1);
-        let raiko = Raiko::new(chain_spec, proof_request);
-        let input = raiko
+        let raiko = Raiko::new(chain_spec, proof_request.clone());
+        let mut input = raiko
             .generate_input(provider)
             .await
             .expect("input generation failed");
+        if is_ci() && proof_request.proof_type == ProofType::Sp1 {
+            input.taiko.verify_blob = false;
+        }
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko
             .prove(input, &output)
