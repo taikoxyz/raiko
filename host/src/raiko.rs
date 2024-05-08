@@ -9,7 +9,7 @@ use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use tracing::{trace, warn};
 
 use crate::error::{self, HostError};
@@ -219,7 +219,7 @@ mod tests {
         input::GuestOutput,
     };
     use raiko_primitives::B256;
-    use std::collections::HashMap;
+    use hashbrown::HashMap;
 
     async fn prove_block(chain_spec: ChainSpec, proof_request: ProofRequest) {
         let provider =

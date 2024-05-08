@@ -7,7 +7,7 @@ use anyhow::Result;
 use raiko_lib::{clear_line, inplace_print};
 use reqwest_alloy::Client;
 use revm::primitives::{AccountInfo, Bytecode};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use crate::{raiko::BlockDataProvider, MerkleProof};
 

@@ -21,8 +21,8 @@ pub mod request;
 pub mod rpc_provider;
 pub mod server;
 
-use std::{alloc, collections::HashMap, fmt::Debug, path::PathBuf};
-
+use std::{alloc, fmt::Debug, path::PathBuf};
+use hashbrown::HashMap;
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::{Context, Result};

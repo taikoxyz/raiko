@@ -4594,9 +4594,9 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.6.9"
+version = "3.6.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "881331e34fa842a2fb61cc2db9643a8fedc615e47cfcc52597d1af0db9a7e8fe"
+checksum = "71508994082701f690764ea17a3cc9288b30d831556d540a3b7c14e5521634a2"
 dependencies = [
  "arrayvec",
  "bitvec",
@@ -5536,7 +5536,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "8.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#1c909c99b1b83887d4a767ab19199733baa45d8c"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#098be4c89a8004ffa1ac7fa0fb6da9d5a85dd116"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -5550,7 +5550,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "4.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#1c909c99b1b83887d4a767ab19199733baa45d8c"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#098be4c89a8004ffa1ac7fa0fb6da9d5a85dd116"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -5559,7 +5559,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "6.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#1c909c99b1b83887d4a767ab19199733baa45d8c"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#098be4c89a8004ffa1ac7fa0fb6da9d5a85dd116"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -5576,7 +5576,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.1"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#1c909c99b1b83887d4a767ab19199733baa45d8c"
+source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#098be4c89a8004ffa1ac7fa0fb6da9d5a85dd116"
 dependencies = [
  "alloy-primitives",
  "auto_impl",

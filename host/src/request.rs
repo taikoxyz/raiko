@@ -1,5 +1,6 @@
 use core::fmt::Debug;
-use std::{collections::HashMap, path::Path, str::FromStr};
+use std::{path::Path, str::FromStr};
+use hashbrown::HashMap;
 
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};

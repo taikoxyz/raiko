@@ -18,7 +18,7 @@ use revm::{
     Database, DatabaseCommit,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{hash_map::Entry, HashMap};
+use hashbrown::{hash_map::Entry, HashMap};
 use thiserror_no_std::Error as ThisError;
 
 use crate::builder::OptimisticDatabase;

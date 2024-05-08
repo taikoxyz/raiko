@@ -23,10 +23,6 @@ regex = "1.5.4"
 [dev-dependencies]
 criterion = "0.4"
 
-[[bench]]
-name = "benchmark"
-harness = false
-
 [features]
 enable = [
     "serde",
