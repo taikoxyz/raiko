@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 raiko-pipeline = { path = "../../../pipeline", features = ["sp1"]}
 
+[features]
+test = []

@@ -13,10 +13,20 @@ path = "src/bar.rs"
 name = "foo"
 path = "src/foo.rs"
 
+[[bin]]
+name = "kzg"
+path = "src/kzg.rs"
+
 
 [dependencies]
 sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
 harness = { path = "../../harness" }
 
+# kzg
+alloy-primitives = { version = "0.7.0", default-features = false }
+c-kzg-taiko = { git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
+    "preload-kzg-settings",
+] }
+sha2 = "0.10.8"
 
 [workspace]

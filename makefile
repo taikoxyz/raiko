@@ -1,15 +1,16 @@
 
 install:
-	./scripts/install.sh $(TARGET)
+	./script/install.sh $(TARGET)
 
 build:
-	./scripts/run.sh $(TARGET)
+	./script/build.sh $(TARGET) 
 
 run:
-	RUN=1 ./scripts/run.sh $(TARGET)
+	RUN=1 ./script/build.sh $(TARGET)
 
 test:
-	TEST=1 ./scripts/run.sh $(TARGET)
+	TEST=1 ./script/build.sh $(TARGET)
+	TEST=1 RUN=1 ./script/build.sh $(TARGET)
 
 fmt:
 	@cargo fmt --all --check

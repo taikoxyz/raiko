@@ -36,7 +36,7 @@ jobs:
     - name: Build risc0 prover
       run: TARGET="risc0" make build
     - name: Test risc0 prover
-      run: TARGET="risc0" make test
+      run: MOCK=1 TARGET="risc0" make test
 
   build-test-sp1:
     name: Build and test sp1
@@ -57,7 +57,7 @@ jobs:
     - name: Build sp1 prover
       run: TARGET="sp1" make build
     - name: Test sp1 prover
-      run: TARGET="risc0" make test
+      run: MOCK=1 TARGET="sp1" make test
 
   build-test-sgx:
     name: Build and test sgx
