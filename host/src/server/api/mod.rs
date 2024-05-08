@@ -42,10 +42,11 @@ mod proof;
         schemas(
             crate::request::ProofRequestOpt,
             crate::error::HostError,
+            crate::request::ProverSpecificOpts
         )
     ),
     tags(
-        (name = "Prooving", description = "Routes that handle prooving requests"),
+        (name = "Proving", description = "Routes that handle proving requests"),
         (name = "Health", description = "Routes that report the server health status"),
         (name = "Metrics", description = "Routes that give detailed insight into the server")
     )
