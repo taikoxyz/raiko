@@ -22,24 +22,31 @@ jobs:
       TARGET: native
       CI: 1
       MOCK: 1
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly-2024-04-17
-          profile: minimal
-    - name: Install cargo-binstall
-      uses: cargo-bins/cargo-binstall@v1.6.4
-    - name: Install native
-      run: make install
-    - name: Build native prover
-      run: make build
-    - name: Test native prover
-      run: make test
-    - name: Build with tracer
-      run: cargo build --features tracer
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly-2024-04-17
+            profile: minimal
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
+
+      - name: Install native
+        run: make install
+
+      - name: Build native prover
+        run: make build
+
+      - name: Test native prover
+        run: make test
+
+      - name: Build with tracer
+        run: cargo build --features tracer
 
   build-test-risc0:
     name: Build and test risc0
@@ -49,23 +56,30 @@ jobs:
       TARGET: risc0
       CI: 1
       MOCK: 1
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          profile: minimal
-    - name: Install cargo-binstall
-      uses: cargo-bins/cargo-binstall@v1.6.4
-    - uses: risc0/risc0/.github/actions/sccache@release-0.19
-    - name: Install risc0
-      run: make install
-    - name: Build risc0 prover
-      run: make build
-    - name: Test risc0 prover
-      run: make test
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            profile: minimal
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
+
+      - uses: risc0/risc0/.github/actions/sccache@release-0.19
+
+      - name: Install risc0
+        run: make install
+
+      - name: Build risc0 prover
+        run: make build
+
+      - name: Test risc0 prover
+        run: make test
 
   build-test-sp1:
     name: Build and test sp1
@@ -75,22 +89,28 @@ jobs:
       TARGET: sp1
       CI: 1
       MOCK: 1
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly-2024-04-17
-          profile: minimal
-    - name: Install cargo-binstall
-      uses: cargo-bins/cargo-binstall@v1.6.4
-    - name: Install sp1
-      run: make install
-    - name: Build sp1 prover
-      run: make build
-    - name: Test sp1 prover
-      run: make test
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly-2024-04-17
+            profile: minimal
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
+
+      - name: Install sp1
+        run: make install
+
+      - name: Build sp1 prover
+        run: make build
+
+      - name: Test sp1 prover
+        run: make test
 
   build-test-sgx:
     name: Build and test sgx
@@ -100,20 +120,26 @@ jobs:
       TARGET: sgx
       CI: 1
       MOCK: 1
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
       - uses: actions-rs/toolchain@v1
         with:
             toolchain: stable
             profile: minimal
+
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@v1.6.4
+
       - name: Install sgx
         run: make install
+
       - name: Build sgx prover
         run: make build
+
       - name: Test sgx prover
         run: make test
 
@@ -125,20 +151,26 @@ jobs:
       TARGET: sgx
       CI: 1
       EDMM: 0
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
+
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@v1.6.4
+
       - name: Install sgx
         run: make install
+
       - name: Build sgx prover
         run: make build
+
       - name: Test sgx prover
         run: make test
 
@@ -146,6 +178,7 @@ jobs:
     name: Build and test sgx with Docker
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
     steps:
       - uses: actions/checkout@v4
       - name: Setup and build
@@ -158,32 +191,42 @@ jobs:
     name: Test raiko-lib
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
+
       - run: cargo test -p raiko-lib --features=std
 
   clippy:
     name: clippy
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: risc0/risc0/.github/actions/rustup@release-0.19
-    - uses: risc0/risc0/.github/actions/sccache@release-0.19
-    - uses: risc0/clippy-action@main
-      with:
-        reporter: 'github-pr-check'
-        fail_on_error: true
-        clippy_flags: --workspace --all-targets --all-features -- -Dwarnings
+      - uses: actions/checkout@v4
+
+      - uses: risc0/risc0/.github/actions/rustup@release-0.19
+
+      - uses: risc0/risc0/.github/actions/sccache@release-0.19
+
+      - uses: risc0/clippy-action@main
+        with:
+          reporter: 'github-pr-check'
+          fail_on_error: true
+          clippy_flags: --workspace --all-targets --all-features -- -Dwarnings
 
   fmt:
     name: fmt
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: risc0/risc0/.github/actions/rustup@release-0.19
-    - run: make fmt
+      - uses: actions/checkout@v4
+
+      - uses: risc0/risc0/.github/actions/rustup@release-0.19
+
+      - run: make fmt
