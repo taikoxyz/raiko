@@ -88,7 +88,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         Ok(provider_db)
     }
 
-    pub async fn get_proofs(&mut self) -> Result<(MerkleProof, MerkleProof, usize), anyhow::Error> {
+    pub async fn get_proofs(&mut self) -> HostResult<(MerkleProof, MerkleProof, usize)> {
         // Latest proof keys
         let mut storage_keys = self.initial_db.storage_keys();
         for (address, mut indices) in self.current_db.storage_keys() {
@@ -133,9 +133,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         Ok((initial_proofs, latest_proofs, num_storage_proofs))
     }
 
-    pub async fn get_ancestor_headers(
-        &mut self,
-    ) -> Result<Vec<AlloyConsensusHeader>, anyhow::Error> {
+    pub async fn get_ancestor_headers(&mut self) -> HostResult<Vec<AlloyConsensusHeader>> {
         let earliest_block = self
             .initial_db
             .block_hashes
@@ -143,7 +141,10 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
             .min()
             .unwrap_or(&self.block_number);
 
-        let mut headers = Vec::with_capacity((self.block_number - *earliest_block) as usize);
+        let mut headers = Vec::with_capacity(
+            usize::try_from(self.block_number - *earliest_block)
+                .map_err(|_| HostError::Conversion("Could not convert u64 to usize".to_owned()))?,
+        );
         for block_number in (*earliest_block..self.block_number).rev() {
             if let std::collections::hash_map::Entry::Vacant(e) =
                 self.initial_headers.entry(block_number)
@@ -300,7 +301,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
 
 impl<BDP: BlockDataProvider> DatabaseCommit for ProviderDb<BDP> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
-        self.current_db.commit(changes)
+        self.current_db.commit(changes);
     }
 }
 
@@ -315,7 +316,7 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
 
         let Ok(accounts) = self
             .provider
-            .get_accounts(&self.pending_accounts.iter().cloned().collect::<Vec<_>>())
+            .get_accounts(&self.pending_accounts.iter().copied().collect::<Vec<_>>())
             .await
         else {
             return false;
@@ -330,7 +331,7 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
 
         let Ok(slots) = self
             .provider
-            .get_storage_values(&self.pending_slots.iter().cloned().collect::<Vec<_>>())
+            .get_storage_values(&self.pending_slots.iter().copied().collect::<Vec<_>>())
             .await
         else {
             return false;
@@ -347,7 +348,7 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
                 &self
                     .pending_block_hashes
                     .iter()
-                    .cloned()
+                    .copied()
                     .map(|block_number| (block_number, false))
                     .collect::<Vec<_>>(),
             )

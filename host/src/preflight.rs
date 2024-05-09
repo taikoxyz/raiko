@@ -132,7 +132,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
             )?,
             blob_gas_used: block.header.blob_gas_used.map_or_else(
                 || Ok(None),
-                |b: u128| -> Result<Option<u64>, HostError> {
+                |b: u128| -> HostResult<Option<u64>> {
                     b.try_into().map(Some).map_err(|_| {
                         HostError::Conversion("Failed converting blob gas used to u64".to_owned())
                     })
@@ -140,7 +140,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
             )?,
             excess_blob_gas: block.header.excess_blob_gas.map_or_else(
                 || Ok(None),
-                |b: u128| -> Result<Option<u64>, HostError> {
+                |b: u128| -> HostResult<Option<u64>> {
                     b.try_into().map(Some).map_err(|_| {
                         HostError::Conversion("Failed converting excess blob gas to u64".to_owned())
                     })
@@ -242,7 +242,7 @@ async fn prepare_taiko_chain_input(
 
     // Decode the anchor tx to find out which L1 blocks we need to fetch
     let anchor_tx = match &block.transactions {
-        BlockTransactions::Full(txs) => txs[0].to_owned(),
+        BlockTransactions::Full(txs) => txs[0].clone(),
         _ => unreachable!(),
     };
     let anchor_call = decode_anchor(anchor_tx.input.as_ref())?;

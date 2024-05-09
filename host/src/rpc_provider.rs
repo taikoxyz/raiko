@@ -45,7 +45,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
             let mut batch = self.client.new_batch();
             let mut requests = Vec::with_capacity(max_batch_size);
 
-            for (block_number, full) in blocks_to_fetch.iter() {
+            for (block_number, full) in blocks_to_fetch {
                 requests.push(Box::pin(
                     batch
                         .add_call(
@@ -67,7 +67,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
             let mut blocks = Vec::with_capacity(max_batch_size);
             // Collect the data from the batch
-            for request in requests.into_iter() {
+            for request in requests {
                 blocks.push(
                     request
                         .await
@@ -199,7 +199,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
             let mut values = Vec::with_capacity(max_batch_size);
             // Collect the data from the batch
-            for request in requests.into_iter() {
+            for request in requests {
                 values.push(
                     request
                         .await
@@ -296,7 +296,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                 .map_err(|_| HostError::RPC("Error sending batch request".to_owned()))?;
 
             // Collect the data from the batch
-            for request in requests.into_iter() {
+            for request in requests {
                 let mut proof = request
                     .await
                     .map_err(|_| HostError::RPC("Error collecting request data".to_owned()))?;

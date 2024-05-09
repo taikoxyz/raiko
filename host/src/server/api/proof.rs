@@ -45,14 +45,14 @@ fn set_cached_input(
     cache_path: &Option<PathBuf>,
     block_number: u64,
     network: &str,
-    input: GuestInput,
+    input: &GuestInput,
 ) -> HostResult<()> {
     if let Some(dir) = cache_path.as_ref() {
         let path = get_input_path(dir, block_number, network);
         if !path.exists() {
             let file = File::create(&path).map_err(<std::io::Error as Into<HostError>>::into)?;
             info!("caching input for {path:?}");
-            bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
+            bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))?;
         }
     }
     Ok(())
@@ -162,7 +162,7 @@ async fn proof_handler(
         &opts.cache_path,
         proof_request.block_number,
         &proof_request.network.to_string(),
-        input,
+        &input,
     )
     .map_err(|e| {
         dec_current_req();

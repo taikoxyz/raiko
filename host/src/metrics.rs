@@ -135,7 +135,7 @@ pub fn inc_guest_error(guest: &ProofType, block_id: u64) {
 /// let duration = Duration::from_nanos(1_234_567_891);
 /// assert_eq!(duration_to_f64(duration), 1.235);
 /// ```
-pub fn duration_to_f64(d: Duration) -> f64 {
+fn duration_to_f64(d: Duration) -> f64 {
     (d.as_secs_f64() * 1_000.0).round() / 1_000.0
 }
 

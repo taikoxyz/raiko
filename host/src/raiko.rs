@@ -50,7 +50,7 @@ impl Raiko {
     pub async fn generate_input<BDP: BlockDataProvider>(
         &self,
         provider: BDP,
-    ) -> Result<GuestInput, HostError> {
+    ) -> HostResult<GuestInput> {
         preflight(
             provider,
             self.request.block_number,
@@ -66,7 +66,7 @@ impl Raiko {
         .map_err(Into::<error::HostError>::into)
     }
 
-    pub fn get_output(&self, input: &GuestInput) -> Result<GuestOutput, HostError> {
+    pub fn get_output(&self, input: &GuestInput) -> HostResult<GuestOutput> {
         match TaikoStrategy::build_from(input) {
             Ok((header, _mpt_node)) => {
                 info!("Verifying final state using provider data ...");
@@ -79,48 +79,48 @@ impl Raiko {
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;
-                check_eq(exp.parent_hash, header.parent_hash, "base_fee_per_gas");
-                check_eq(exp.ommers_hash, header.ommers_hash, "ommers_hash");
-                check_eq(exp.beneficiary, header.beneficiary, "beneficiary");
-                check_eq(exp.state_root, header.state_root, "state_root");
+                check_eq(&exp.parent_hash, &header.parent_hash, "base_fee_per_gas");
+                check_eq(&exp.ommers_hash, &header.ommers_hash, "ommers_hash");
+                check_eq(&exp.beneficiary, &header.beneficiary, "beneficiary");
+                check_eq(&exp.state_root, &header.state_root, "state_root");
                 check_eq(
-                    exp.transactions_root,
-                    header.transactions_root,
+                    &exp.transactions_root,
+                    &header.transactions_root,
                     "transactions_root",
                 );
-                check_eq(exp.receipts_root, header.receipts_root, "receipts_root");
+                check_eq(&exp.receipts_root, &header.receipts_root, "receipts_root");
                 check_eq(
-                    exp.withdrawals_root,
-                    header.withdrawals_root,
+                    &exp.withdrawals_root,
+                    &header.withdrawals_root,
                     "withdrawals_root",
                 );
-                check_eq(exp.logs_bloom, header.logs_bloom, "logs_bloom");
-                check_eq(exp.difficulty, header.difficulty, "difficulty");
-                check_eq(exp.number, header.number, "number");
-                check_eq(exp.gas_limit, header.gas_limit, "gas_limit");
-                check_eq(exp.gas_used, header.gas_used, "gas_used");
-                check_eq(exp.timestamp, header.timestamp, "timestamp");
-                check_eq(exp.mix_hash, header.mix_hash, "mix_hash");
-                check_eq(exp.nonce, header.nonce, "nonce");
+                check_eq(&exp.logs_bloom, &header.logs_bloom, "logs_bloom");
+                check_eq(&exp.difficulty, &header.difficulty, "difficulty");
+                check_eq(&exp.number, &header.number, "number");
+                check_eq(&exp.gas_limit, &header.gas_limit, "gas_limit");
+                check_eq(&exp.gas_used, &header.gas_used, "gas_used");
+                check_eq(&exp.timestamp, &header.timestamp, "timestamp");
+                check_eq(&exp.mix_hash, &header.mix_hash, "mix_hash");
+                check_eq(&exp.nonce, &header.nonce, "nonce");
                 check_eq(
-                    exp.base_fee_per_gas,
-                    header.base_fee_per_gas,
+                    &exp.base_fee_per_gas,
+                    &header.base_fee_per_gas,
                     "base_fee_per_gas",
                 );
-                check_eq(exp.blob_gas_used, header.blob_gas_used, "blob_gas_used");
+                check_eq(&exp.blob_gas_used, &header.blob_gas_used, "blob_gas_used");
                 check_eq(
-                    exp.excess_blob_gas,
-                    header.excess_blob_gas,
+                    &exp.excess_blob_gas,
+                    &header.excess_blob_gas,
                     "excess_blob_gas",
                 );
                 check_eq(
-                    exp.parent_beacon_block_root,
-                    header.parent_beacon_block_root,
+                    &exp.parent_beacon_block_root,
+                    &header.parent_beacon_block_root,
                     "parent_beacon_block_root",
                 );
                 check_eq(
-                    exp.extra_data.clone(),
-                    header.extra_data.clone(),
+                    &exp.extra_data.clone(),
+                    &header.extra_data.clone(),
                     "extra_data",
                 );
 
@@ -147,7 +147,7 @@ impl Raiko {
         &self,
         input: GuestInput,
         output: &GuestOutput,
-    ) -> Result<serde_json::Value, HostError> {
+    ) -> HostResult<serde_json::Value> {
         self.request
             .proof_type
             .run_prover(
@@ -173,13 +173,13 @@ impl Prover for NativeProver {
         _request: &serde_json::Value,
     ) -> ProverResult<Proof> {
         trace!("Running the native prover for input {input:?}");
-        match output.clone() {
-            GuestOutput::Success((wrapped_header, _)) => {
-                assemble_protocol_instance(&input, &wrapped_header.header)
-                    .map_err(|e| ProverError::GuestError(e.to_string()))?;
-            }
-            _ => return Err(ProverError::GuestError("Unexpected output".to_owned())),
-        }
+
+        let GuestOutput::Success((wrapped_header, _)) = output.clone() else {
+            return Err(ProverError::GuestError("Unexpected output".to_owned()));
+        };
+
+        assemble_protocol_instance(&input, &wrapped_header.header)
+            .map_err(|e| ProverError::GuestError(e.to_string()))?;
 
         to_proof(Ok(NativeResponse {
             output: output.clone(),
@@ -191,7 +191,7 @@ impl Prover for NativeProver {
     }
 }
 
-fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: T, actual: T, message: &str) {
+fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
     if expected != actual {
         warn!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
     }

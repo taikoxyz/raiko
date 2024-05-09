@@ -213,24 +213,25 @@ pub struct ProverSpecificOpts {
     pub risc0: Option<Value>,
 }
 
-impl From<ProverSpecificOpts> for HashMap<String, Value> {
+impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificOpts>
+    for HashMap<String, Value, S>
+{
     fn from(value: ProverSpecificOpts) -> Self {
-        HashMap::from_iter(
-            [
-                ("native", value.native.clone()),
-                ("sgx", value.sgx.clone()),
-                ("sp1", value.sp1.clone()),
-                ("risc0", value.risc0.clone()),
-            ]
-            .into_iter()
-            .filter_map(|(name, value)| value.map(|v| (name.to_string(), v))),
-        )
+        [
+            ("native", value.native.clone()),
+            ("sgx", value.sgx.clone()),
+            ("sp1", value.sp1.clone()),
+            ("risc0", value.risc0.clone()),
+        ]
+        .into_iter()
+        .filter_map(|(name, value)| value.map(|v| (name.to_string(), v)))
+        .collect()
     }
 }
 
 impl ProofRequestOpt {
     /// Read a partial proof request config from a file.
-    pub fn from_file<T>(path: T) -> Result<Self, HostError>
+    pub fn from_file<T>(path: T) -> HostResult<Self>
     where
         T: AsRef<Path>,
     {
@@ -241,7 +242,7 @@ impl ProofRequestOpt {
     }
 
     /// Merge a partial proof request into current one.
-    pub fn merge(&mut self, other: &Value) -> Result<(), HostError> {
+    pub fn merge(&mut self, other: &Value) -> HostResult<()> {
         let mut this = serde_json::to_value(&self)?;
         merge(&mut this, other);
         *self = serde_json::from_value(this)?;

@@ -23,13 +23,13 @@ pub mod server;
 
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
-use anyhow::{Context, Result};
+use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{error::HostError, request::ProofRequestOpt};
+use crate::{error::HostResult, request::ProofRequestOpt};
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
@@ -102,7 +102,7 @@ pub struct Cli {
 
 impl Cli {
     /// Read the options from a file and merge it with the current options.
-    pub fn merge_from_file(&mut self) -> Result<(), HostError> {
+    pub fn merge_from_file(&mut self) -> HostResult<()> {
         let file = std::fs::File::open(&self.config_path)?;
         let reader = std::io::BufReader::new(file);
         let mut config: Value = serde_json::from_reader(reader)?;
@@ -133,7 +133,7 @@ pub struct ProverState {
 }
 
 impl ProverState {
-    pub fn init() -> Result<Self, HostError> {
+    pub fn init() -> HostResult<Self> {
         // Read the command line arguments;
         let mut opts = Cli::parse();
         // Read the config file.
