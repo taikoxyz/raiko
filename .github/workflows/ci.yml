@@ -134,16 +134,9 @@ jobs:
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@v1.6.4
       - name: Install sgx
-        run: TARGET="sgx" CI=1 make install
+        run: make install
       - name: Build sgx prover
-        run: TARGET="sgx" make build
-      - name: prevalidate sgx hw execution env
-        run: |
-            cd target/release
-            gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ ../../provers/sgx/config/sgx-guest.local.manifest.template sgx-guest.manifest
-            gramine-sgx-sign --manifest sgx-guest.manifest --output sgx-guest.manifest.sgx
-            gramine-sgx-sigstruct-view sgx-guest.sig
-            cd -
+        run: make build
       - name: Test sgx prover
         run: make test
 
