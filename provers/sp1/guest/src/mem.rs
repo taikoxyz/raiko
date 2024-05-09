@@ -8,7 +8,7 @@ use std::{
 /// due to the dependency of c-kzg. This modification also requires env var:
 ///     $ CC="gcc"
 ///     $ CC_riscv32im-risc0-zkvm-elf="/opt/riscv/bin/riscv32-unknown-elf-gcc"
-/// This is set in the build pipeline
+/// which is set in the build pipeline
 
 
 #[no_mangle]

@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use risc0_zkvm::{default_prover, ExecutorEnv};
 use methods::{
-    risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
-    test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID},
+    SHA256_ELF::{SHA256_ELF, SHA256_ID},
+    ecdsa::{ECDSA_ELF, ECDSA_ID},
 };
 
 fn sha256_benchmark(c: &mut Criterion) {
@@ -14,8 +14,8 @@ fn sha256_benchmark(c: &mut Criterion) {
            
             let env = ExecutorEnv::builder().build().unwrap();
             let prover = default_prover();
-            let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
-            receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+            let receipt = prover.prove(env, SHA256_ELF).unwrap();
+            receipt.verify(SHA256_ID).unwrap();
     
         });
     });
@@ -30,8 +30,8 @@ fn sha256_benchmark(c: &mut Criterion) {
            
             let env = ExecutorEnv::builder().build().unwrap();
             let prover = default_prover();
-            let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
-            receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+            let receipt = prover.prove(env, ECDSA_ELF).unwrap();
+            receipt.verify(ECDSA_ID).unwrap();
     
         });
     });
