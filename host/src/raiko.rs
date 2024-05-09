@@ -193,7 +193,7 @@ impl Prover for NativeProver {
 
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: T, actual: T, message: &str) {
     if expected != actual {
-        debug!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
+        warn!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
     }
 }
 
