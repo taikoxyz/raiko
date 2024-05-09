@@ -126,16 +126,6 @@ pub fn inc_guest_error(guest: &ProofType, block_id: u64) {
 }
 
 /// Convert a duration to a float with 3 decimal places (seconds,milliseconds).
-///
-/// # Examples
-///
-/// ```rust
-/// use std::time::Duration;
-/// use raiko_host::metrics::duration_to_f64;
-///
-/// let duration = Duration::from_nanos(1_234_567_891);
-/// assert_eq!(duration_to_f64(duration), 1.235);
-/// ```
 fn duration_to_f64(d: Duration) -> f64 {
     (d.as_secs_f64() * 1_000.0).round() / 1_000.0
 }
