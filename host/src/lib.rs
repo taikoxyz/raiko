@@ -57,8 +57,11 @@ fn default_log_level() -> String {
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]
-#[command(name = "raiko")]
-#[command(about = "The taiko prover host", long_about = None)]
+#[command(
+    name = "raiko", 
+    about = "The taiko prover host", 
+    long_about = None
+)]
 #[serde(default)]
 pub struct Cli {
     #[arg(long, require_equals = true, default_value = "0.0.0.0:8080")]
