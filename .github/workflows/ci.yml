@@ -115,6 +115,31 @@ jobs:
       - name: Test sgx prover
         run: make test
 
+  build-test-sgx-hardware:
+    name: Build and test sgx in hardware
+    runs-on: [self-hosted, sgx, linux]
+    timeout-minutes: 120
+    env:
+      TARGET: sgx
+      CI: 1
+      EDMM: 0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
+      - name: Install sgx
+        run: make install
+      - name: Build sgx prover
+        run: make build
+      - name: Test sgx prover
+        run: make test
+
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker
     runs-on: ubuntu-latest
