@@ -10,7 +10,7 @@ use raiko_lib::utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{debug, info, trace, warn};
+use tracing::{info, trace, warn};
 
 use crate::error::{self, HostError, HostResult};
 use crate::preflight::preflight;
