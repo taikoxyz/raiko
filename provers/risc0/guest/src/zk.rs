@@ -41,26 +41,24 @@ impl ZkvmOperator for Risc0Operator {
         mut recid: u8,
         msg: &[u8; 32],
     ) -> Result<[u8; 32], Error> {
-        use revm_primitives::{keccak256};
+
         use risc0_k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 
         // parse signature
         let mut sig = Signature::from_slice(sig.as_slice()).map_err(|_| {
             Error::ZkvmOperatrion("Patched k256 deserialize signature failed".to_string())
         })?;
-
         // normalize signature and flip recovery id if needed.
         if let Some(sig_normalized) = sig.normalize_s() {
             sig = sig_normalized;
             recid ^= 1;
         }
         let recid = RecoveryId::from_byte(recid).expect("recovery ID is valid");
-
         // recover key
         let recovered_key = VerifyingKey::recover_from_prehash(&msg[..], &sig, recid)
             .map_err(|_| Error::ZkvmOperatrion("Patched k256 recover key failed".to_string()))?;
         // hash it
-        let mut hash = keccak256(
+        let mut hash = revm_primitives::keccak256(
             &recovered_key
                 .to_encoded_point(/* compress = */ false)
                 .as_bytes()[1..],

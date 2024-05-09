@@ -11,8 +11,7 @@ use raiko_lib::{
 use revm_precompile::zk_op::ZkOperation;
 use zk::Risc0Operator;
 
-mod mem;
-mod zk;
+pub mod mem;
 
 #[cfg(test)]
 use harness::*;
@@ -47,5 +46,5 @@ fn main() {
     env::commit(&output);
 
     #[cfg(test)]
-    harness::zk_suits!(zk::test_example);
+    harness::zk_suits!(zk::test_sha256);
 }

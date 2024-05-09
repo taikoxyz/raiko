@@ -8,13 +8,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-nama = "sp1_zk"
+name = "zk"
 path = "src/zk.rs"
 
+[[bin]]
+name = "sha256"
+path = "src/benchmark/sha256.rs"
 
 [[bin]]
-name = "sp1-benchmark"
-path = "src/benchmark.rs"
+name = "ecdsa"
+path = "src/benchmark/ecdsa.rs"
 
 
 [dependencies]
@@ -32,8 +35,6 @@ sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", packa
 
 [dev-dependencies]
 substrate-bn = "0.6.0"
-
-[dev-dependencies]
 harness = { path = "../../../pipeline/harness" }
 
 [patch.crates-io]

@@ -1,9 +1,21 @@
+[workspace]
+
 [package]
 name = "risc0-guest"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
+[lib]
+name = "zk"
+path = "src/zk.rs"
+
+[[bin]]
+name = "sha256"
+path = "src/benchmark/sha256.rs"
+
+[[bin]]
+name = "ecdsa"
+path = "src/benchmark/ecdsa.rs"
 
 [dependencies]
 harness = { path = "../../../pipeline/harness" }

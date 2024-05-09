@@ -10,6 +10,7 @@ use std::{
 ///     $ CC_riscv32im-risc0-zkvm-elf="/opt/riscv/bin/riscv32-unknown-elf-gcc"
 /// This is set in the build pipeline
 
+
 #[no_mangle]
 // TODO ideally this is c_size_t, but not stabilized (not guaranteed to be usize on all archs)
 pub unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
