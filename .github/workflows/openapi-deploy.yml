@@ -15,8 +15,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy-docs:
     name: Generate OpenAPI docs
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
     steps:
@@ -31,19 +34,6 @@ jobs:
 
       - name: Run docs generation binary
         run: ./script/generate-docs.sh
-
-  deploy:
-    if: ${{ always() }}
-    needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    name: github pages deploy openapi docs
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
 
       - name: Setup Pages
         uses: actions/configure-pages@v3
