@@ -122,6 +122,7 @@ jobs:
     env:
       TARGET: sgx
       CI: 1
+      EDMM: 0
     steps:
       - uses: actions/checkout@v4
         with:
