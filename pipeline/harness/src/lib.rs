@@ -143,14 +143,14 @@ impl TestSuite {
 
 #[macro_export]
 macro_rules! zk_test {
-    ($suite:expr, $name:ident) => {
+    ($suite:expr, $name:path) => {
         $suite.add_test(stringify!($name), $name);
     };
 }
 
 #[macro_export]
 macro_rules! zk_suits {
-    ($($test:ident),*) => {
+    ($($test:path),*) => {
         let mut test_suite = TestSuite::new();
         $(
             zk_test!(test_suite, $test);
