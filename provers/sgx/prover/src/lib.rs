@@ -80,11 +80,17 @@ impl Prover for SgxProver {
         );
 
         // The working directory
-        let cur_dir = env::current_exe()
+        let mut cur_dir = env::current_exe()
             .expect("Fail to get current directory")
             .parent()
             .unwrap()
             .to_path_buf();
+
+        // When running in tests we might be in a child folder
+        if cur_dir.ends_with("deps") {
+            cur_dir = cur_dir.parent().unwrap().to_path_buf();
+        }
+
         println!("Current directory: {cur_dir:?}\n");
         // Working paths
         PRIVATE_KEY

@@ -144,6 +144,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
             tx_blob_hash,
             block_proposed: proposal_event,
             prover_data,
+            skip_verify_blob: false,
         }
     } else {
         // For Ethereum blocks we just convert the block transactions in a tx_list

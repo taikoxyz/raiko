@@ -30,11 +30,11 @@ elif [ "$chain" == "holesky" ]; then
 	rpc="https://ethereum-holesky-rpc.publicnode.com"
 elif [ "$chain" == "taiko_a6" ]; then
 	rpc="https://rpc.katla.taiko.xyz"
-	l1Rpc="https://l1rpc.katla.taiko.xyz"
+	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
 	beaconRpc="https://l1beacon.hekla.taiko.xyz"
 elif [ "$chain" == "taiko_a7" ]; then
-	rpc="https://rpc.hekla.taiko.xyz/"
-	l1Rpc="https://l1rpc.hekla.taiko.xyz/"
+	rpc="https://rpc.hekla.taiko.xyz"
+	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
 	beaconRpc="https://l1beacon.hekla.taiko.xyz"
 else
 	echo "Invalid chain name. Please use 'ethereum', 'taiko_a6' or 'taiko_a7'."
