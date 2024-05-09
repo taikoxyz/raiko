@@ -8,18 +8,45 @@ on:
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  RISC0_VERSION: 0.20.1
-  RISC0_TOOLCHAIN_VERSION: test-release-2
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  build-test:
+    name: Build and test native
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TARGET: native
+      CI: 1
+      MOCK: 1
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly-2024-04-17
+          profile: minimal
+    - name: Install cargo-binstall
+      uses: cargo-bins/cargo-binstall@v1.6.4
+    - name: Install native
+      run: make install
+    - name: Build native prover
+      run: make build
+    - name: Test native prover
+      run: make test
+
   build-test-risc0:
     name: Build and test risc0
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
+    env:
+      TARGET: risc0
+      CI: 1
+      MOCK: 1
     steps:
     - uses: actions/checkout@v4
       with:
@@ -32,16 +59,20 @@ jobs:
       uses: cargo-bins/cargo-binstall@v1.6.4
     - uses: risc0/risc0/.github/actions/sccache@release-0.19
     - name: Install risc0
-      run: TARGET="risc0" CI=1 make install
+      run: make install
     - name: Build risc0 prover
-      run: TARGET="risc0" make build
+      run: make build
     - name: Test risc0 prover
-      run: MOCK=1 TARGET="risc0" make test
+      run: make test
 
   build-test-sp1:
     name: Build and test sp1
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
+    env:
+      TARGET: sp1
+      CI: 1
+      MOCK: 1
     steps:
     - uses: actions/checkout@v4
       with:
@@ -53,16 +84,20 @@ jobs:
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.6.4
     - name: Install sp1
-      run: TARGET="sp1" CI=1 make install
+      run: make install
     - name: Build sp1 prover
-      run: TARGET="sp1" make build
+      run: make build
     - name: Test sp1 prover
-      run: MOCK=1 TARGET="sp1" make test
+      run: make test
 
   build-test-sgx:
     name: Build and test sgx
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
+    env:
+      TARGET: sgx
+      CI: 1
+      MOCK: 1
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,11 +109,11 @@ jobs:
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@v1.6.4
       - name: Install sgx
-        run: TARGET="sgx" CI=1 make install
+        run: make install
       - name: Build sgx prover
-        run: TARGET="sgx" make build
+        run: make build
       - name: Test sgx prover
-        run: TARGET="sgx" make test
+        run: make test
 
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker

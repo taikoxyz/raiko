@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# Any error will result in failure
 set -e
 
 # toolchain necessary to compile c-kzg in SP1/risc0
