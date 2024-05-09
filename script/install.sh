@@ -32,9 +32,15 @@ fi
 
 # SGX
 if [ -z "$1" ] || [ "$1" == "sgx" ]; then
-	# For SGX, install gramine: https://github.com/gramineproject/gramine.
-	wget -O /tmp/gramine.deb https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
-	sudo apt install /tmp/gramine.deb
+    # also check if sgx is already installed
+    if command -v gramine-sgx >/dev/null 2>&1; then
+        echo "gramine already installed"
+    else
+        echo "gramine not installed, installing..."
+        # For SGX, install gramine: https://github.com/gramineproject/gramine.
+        wget -O /tmp/gramine.deb https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
+        sudo apt install -y /tmp/gramine.deb
+    fi
 fi
 # RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
