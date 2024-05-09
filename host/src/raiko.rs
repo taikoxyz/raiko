@@ -249,7 +249,8 @@ mod tests {
 
     async fn prove_block(chain_spec: ChainSpec, proof_request: ProofRequest) {
         let provider =
-            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1);
+            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)
+                .expect("Could not create RpcBlockDataProvider");
         let raiko = Raiko::new(chain_spec, proof_request.clone());
         let mut input = raiko
             .generate_input(provider)
