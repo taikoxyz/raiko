@@ -167,8 +167,8 @@ mod memory {
         let max_memory = get_max_allocated();
         info!(
             "{title}{}.{:06} MB",
-            max_memory / 1000000,
-            max_memory % 1000000
+            max_memory / 1_000_000,
+            max_memory % 1_000_000
         );
     }
 }

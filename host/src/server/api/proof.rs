@@ -119,7 +119,7 @@ async fn proof_handler(
             RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)?;
         let input = raiko.generate_input(provider).await?;
         let input_time = measurement.stop_with("=> Input generated");
-        observe_prepare_input_time(proof_request.block_number, input_time.as_millis(), true);
+        observe_prepare_input_time(proof_request.block_number, input_time, true);
         memory::print_stats("Input generation peak memory used: ");
         input
     };
@@ -132,7 +132,7 @@ async fn proof_handler(
     let proof = raiko.prove(input.clone(), &output).await.map_err(|e| {
         dec_current_req();
         let total_time = total_time.stop_with("====> Proof generation failed");
-        observe_total_time(proof_request.block_number, total_time.as_millis(), false);
+        observe_total_time(proof_request.block_number, total_time, false);
         match e {
             HostError::Guest(e) => {
                 inc_guest_error(&proof_request.proof_type, proof_request.block_number);
@@ -148,14 +148,14 @@ async fn proof_handler(
     observe_guest_time(
         &proof_request.proof_type,
         proof_request.block_number,
-        guest_time.as_millis(),
+        guest_time,
         true,
     );
     memory::print_stats("Prover peak memory used: ");
 
     inc_guest_success(&proof_request.proof_type, proof_request.block_number);
     let total_time = total_time.stop_with("====> Complete proof generated");
-    observe_total_time(proof_request.block_number, total_time.as_millis(), true);
+    observe_total_time(proof_request.block_number, total_time, true);
 
     // Cache the input for future use.
     set_cached_input(
