@@ -9,7 +9,10 @@ fn main() {
     #[cfg(feature = "test")]
     pipeline.tests(&["sp1-guest"], "provers/sp1/guest/elf");
     #[cfg(feature = "bench")]
-    pipeline.bins(&["ecdsa", "sha256", "bn254_add", "bn254_mul"], "provers/sp1/guest/elf");
+    pipeline.bins(
+        &["ecdsa", "sha256", "bn254_add", "bn254_mul"],
+        "provers/sp1/guest/elf",
+    );
 }
 
 pub struct Sp1Pipeline {

@@ -1,8 +1,8 @@
 #![cfg(feature = "enable")]
 #![feature(test)]
 extern crate test;
-use test::Bencher;
 use test::bench::run_once;
+use test::Bencher;
 
 use sp1_sdk::{ProverClient, SP1Stdin};
 
