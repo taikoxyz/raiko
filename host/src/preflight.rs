@@ -105,19 +105,9 @@ pub async fn preflight<BDP: BlockDataProvider>(
                 chain_spec.genesis_time,
                 chain_spec.seconds_per_slot,
             )?;
-            let blobs = get_blob_data(&beacon_rpc_url.clone().unwrap(), slot_id).await?;
-            assert!(!blobs.data.is_empty(), "blob data not available anymore");
-            // Get the blob data for the blob storing the tx list
-            let tx_blob = blobs
-                .data
-                .iter()
-                .find(|blob| {
-                    // calculate from plain blob
-                    blob_hash == calc_blob_versioned_hash(&blob.blob)
-                })
-                .cloned();
-            assert!(tx_blob.is_some());
-            (blob_to_bytes(&tx_blob.unwrap().blob), Some(blob_hash))
+            // Fetch the blob data
+            let blob = get_blob_data(&beacon_rpc_url.clone().unwrap(), slot_id, blob_hash).await?;
+            (blob, Some(blob_hash))
         } else {
             // Get the tx list data directly from the propose transaction data
             let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false).unwrap();
@@ -282,15 +272,66 @@ fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     version_hash
 }
 
-async fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsResponse> {
+async fn get_blob_data(
+    beacon_rpc_url: &str,
+    block_id: u64,
+    blob_hash: FixedBytes<32>,
+) -> Result<Vec<u8>> {
+    if beacon_rpc_url.contains("blobscan.com") {
+        get_blob_data_blobscan(beacon_rpc_url, block_id, blob_hash).await
+    } else {
+        get_blob_data_beacon(beacon_rpc_url, block_id, blob_hash).await
+    }
+}
+
+async fn get_blob_data_beacon(
+    beacon_rpc_url: &str,
+    block_id: u64,
+    blob_hash: FixedBytes<32>,
+) -> Result<Vec<u8>> {
+    // Blob data from the beacon chain
+    // type Sidecar struct {
+    // Index                    string                   `json:"index"`
+    // Blob                     string                   `json:"blob"`
+    // SignedBeaconBlockHeader  *SignedBeaconBlockHeader `json:"signed_block_header"`
+    // KzgCommitment            string                   `json:"kzg_commitment"`
+    // KzgProof                 string                   `json:"kzg_proof"`
+    // CommitmentInclusionProof []string
+    // `json:"kzg_commitment_inclusion_proof"` }
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct GetBlobData {
+        pub index: String,
+        pub blob: String,
+        // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
+        pub kzg_commitment: String,
+        pub kzg_proof: String,
+        pub kzg_commitment_inclusion_proof: Vec<String>,
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct GetBlobsResponse {
+        pub data: Vec<GetBlobData>,
+    }
+
     let url = format!(
         "{}/eth/v1/beacon/blob_sidecars/{block_id}",
         beacon_rpc_url.trim_end_matches('/'),
     );
     let response = reqwest::get(url.clone()).await?;
     if response.status().is_success() {
-        let blob_response: GetBlobsResponse = response.json().await?;
-        Ok(blob_response)
+        let blobs: GetBlobsResponse = response.json().await?;
+        assert!(!blobs.data.is_empty(), "blob data not available anymore");
+        // Get the blob data for the blob storing the tx list
+        let tx_blob = blobs
+            .data
+            .iter()
+            .find(|blob| {
+                // calculate from plain blob
+                blob_hash == calc_blob_versioned_hash(&blob.blob)
+            })
+            .cloned();
+        assert!(tx_blob.is_some());
+        Ok(blob_to_bytes(&tx_blob.unwrap().blob))
     } else {
         println!(
             "Request {url} failed with status code: {}",
@@ -303,28 +344,33 @@ async fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsRe
     }
 }
 
-// Blob data from the beacon chain
-// type Sidecar struct {
-// Index                    string                   `json:"index"`
-// Blob                     string                   `json:"blob"`
-// SignedBeaconBlockHeader  *SignedBeaconBlockHeader `json:"signed_block_header"`
-// KzgCommitment            string                   `json:"kzg_commitment"`
-// KzgProof                 string                   `json:"kzg_proof"`
-// CommitmentInclusionProof []string
-// `json:"kzg_commitment_inclusion_proof"` }
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct GetBlobData {
-    pub index: String,
-    pub blob: String,
-    // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
-    pub kzg_commitment: String,
-    pub kzg_proof: String,
-    pub kzg_commitment_inclusion_proof: Vec<String>,
-}
+async fn get_blob_data_blobscan(
+    beacon_rpc_url: &str,
+    _block_id: u64,
+    blob_hash: FixedBytes<32>,
+) -> Result<Vec<u8>> {
+    // https://api.blobscan.com/#/
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct BlobScanData {
+        pub commitment: String,
+        pub data: String,
+    }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct GetBlobsResponse {
-    pub data: Vec<GetBlobData>,
+    let url = format!("{}/blobs/{blob_hash}", beacon_rpc_url.trim_end_matches('/'),);
+    let response = reqwest::get(url.clone()).await?;
+    if response.status().is_success() {
+        let blob: BlobScanData = response.json().await?;
+        Ok(blob_to_bytes(&blob.data))
+    } else {
+        println!(
+            "Request {url} failed with status code: {}",
+            response.status()
+        );
+        Err(anyhow::anyhow!(
+            "Request failed with status code: {}",
+            response.status()
+        ))
+    }
 }
 
 async fn get_block_proposed_event(
