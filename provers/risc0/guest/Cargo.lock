@@ -1146,7 +1146,19 @@ dependencies = [
 name = "harness"
 version = "0.1.0"
 dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "harness-core"
+version = "0.1.0"
+dependencies = [
  "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1975,6 +1987,7 @@ version = "0.1.0"
 dependencies = [
  "crypto-bigint",
  "harness",
+ "harness-core",
  "k256 0.13.3 (git+https://github.com/risc0/RustCrypto-elliptic-curves?tag=k256/v0.13.3-risczero.0)",
  "raiko-lib",
  "raiko-primitives",

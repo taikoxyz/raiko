@@ -44,7 +44,22 @@ fn main() {
     };
 
     env::commit(&output);
-
-    #[cfg(test)]
-    harness::zk_suits!(zk::test_sha256);
 }
+
+
+harness::zk_suits!(
+    pub mod tests {
+        #[test]
+        pub fn test1() {
+            assert_eq!(1, 2);
+        }
+        #[test]
+        pub fn test2() {
+            assert_eq!(1, 2);
+        }
+        #[test]
+        pub fn test3() {
+            assert_eq!(1, 2);
+        }
+    }
+);

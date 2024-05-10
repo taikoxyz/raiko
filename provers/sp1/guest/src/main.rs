@@ -1,5 +1,5 @@
 #![no_main]
-harness::entrypoint!(main, crate::tests, zk_op::tests);
+harness::entrypoint!(main);
 
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},

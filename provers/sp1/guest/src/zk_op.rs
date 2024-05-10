@@ -6,7 +6,6 @@ use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
 #[derive(Debug)]
 pub struct Sp1Operator;
 
-// TODO(Cecilia): test this shit
 impl ZkvmOperator for Sp1Operator {
     fn bn128_run_add(&self, input: &[u8]) -> Result<[u8; 64], Error> {
         let input = right_pad::<ADD_INPUT_LEN>(input);
