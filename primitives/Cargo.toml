@@ -1,7 +1,7 @@
 [package]
 name = "raiko-primitives"
 version = "0.1.0"
-edition = "2021"
+edition = { workspace = true }
 
 [dependencies]
 alloy-primitives = { workspace = true }

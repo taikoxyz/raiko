@@ -2,7 +2,7 @@
 [package]
 name = "raiko-setup"
 version = "0.1.0"
-edition = "2021"
+edition = { workspace = true }
 
 [dependencies]
 # sp1-driver = { path = "../provers/sp1/driver", optional = true }

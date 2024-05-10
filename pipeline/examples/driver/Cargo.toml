@@ -1,7 +1,7 @@
 [package]
 name = "driver"
 version = "0.1.0"
-edition = "2021"
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,4 +16,3 @@ methods = { path = "../risc0/methods", optional = true }
 # default = ["sp1", "risc0"]
 sp1 = ["dep:sp1-sdk"]
 risc0 = ["dep:risc0-zkvm", "dep:methods"]
-

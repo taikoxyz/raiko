@@ -1,7 +1,7 @@
 [package]
 name = "builder"
 version = "0.1.0"
-edition = "2021"
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,4 +12,3 @@ raiko-pipeline = { workspace = true }
 [features]
 sp1 = ["raiko-pipeline/sp1"]
 risc0 = ["raiko-pipeline/risc0"]
-

@@ -1,7 +1,7 @@
 [package]
 name = "powdr"
 version = "0.1.0"
-edition = "2021"
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -21,4 +21,3 @@ powdr-riscv-runtime ={ git = "https://github.com/ceciliaz030/powdr", branch = "+
 
 
 # cargo build --release -Z build-std=core,alloc --target riscv32imac-unknown-none-elf --lib
-
