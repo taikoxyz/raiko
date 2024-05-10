@@ -99,7 +99,7 @@ pub fn assemble_protocol_instance(
             let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
             let kzg_settings = KzgSettings::from_u8_slice(&mut data);
             let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
-                &Blob::from_bytes(&input.taiko.tx_data.as_slice()).unwrap(),
+                &Blob::from_bytes(input.taiko.tx_data.as_slice()).unwrap(),
                 &kzg_settings,
             )
             .unwrap();

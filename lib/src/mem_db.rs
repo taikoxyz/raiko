@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use anyhow::anyhow;
+use hashbrown::{hash_map::Entry, HashMap};
 use raiko_primitives::{Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode},
     Database, DatabaseCommit,
 };
 use serde::{Deserialize, Serialize};
-use hashbrown::{hash_map::Entry, HashMap};
 use thiserror_no_std::Error as ThisError;
 
 use crate::builder::OptimisticDatabase;

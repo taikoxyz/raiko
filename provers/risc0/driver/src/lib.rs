@@ -43,8 +43,6 @@ pub struct Risc0Response {
 }
 pub struct Risc0Prover;
 
-use serde_json::json;
-
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
@@ -60,7 +58,7 @@ impl Prover for Risc0Prover {
             &config,
             encoded_input,
             RISC0_GUEST_ELF,
-            &output,
+            output,
             Default::default(),
         )
         .await;
@@ -104,4 +102,3 @@ fn test_guest() {
     let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
     receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
 }
-

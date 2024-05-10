@@ -21,15 +21,15 @@ pub mod request;
 pub mod rpc_provider;
 pub mod server;
 
-use std::{alloc, fmt::Debug, path::PathBuf};
-use hashbrown::HashMap;
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::{Context, Result};
 use cap::Cap;
 use clap::Parser;
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::{alloc, fmt::Debug, path::PathBuf};
 
 use crate::{error::HostError, request::ProofRequestOpt};
 

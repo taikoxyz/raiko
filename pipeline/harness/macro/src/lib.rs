@@ -6,7 +6,7 @@ use syn::{parse_macro_input, punctuated::Punctuated, Ident, Item, ItemFn, ItemMo
 #[proc_macro]
 pub fn entrypoint(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as EntryArgs);
-    let main_entry = input.main_entry;
+    let _main_entry = input.main_entry;
     let mut tests_entry = quote! {
         fn run_tests() {}
     };
@@ -21,7 +21,7 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
             fn run_tests() {
                 #(#injections)*
             }
-        }.into();
+        };
     }
 
     #[cfg(feature = "sp1")]
@@ -93,13 +93,16 @@ impl syn::parse::Parse for EntryArgs {
         let main_entry: Ident = input.parse()?;
         let test_modules: Option<Punctuated<Path, Token![,]>> = if input.peek(Token![,]) {
             input.parse::<Token![,]>()?; // Parse and consume the comma
-            // Now parse a list of module paths if they are present
+                                         // Now parse a list of module paths if they are present
             Some(input.parse_terminated(Path::parse)?)
         } else {
             None
         };
 
-        Ok(EntryArgs { main_entry, test_modules })
+        Ok(EntryArgs {
+            main_entry,
+            test_modules,
+        })
     }
 }
 

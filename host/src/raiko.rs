@@ -1,6 +1,7 @@
 use alloy_primitives::{Address, FixedBytes, B256, U256};
 use alloy_rpc_types::Block;
 use anyhow::Result;
+use hashbrown::HashMap;
 use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
 use raiko_lib::consts::ChainSpec;
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader};
@@ -9,7 +10,6 @@ use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
-use hashbrown::HashMap;
 use tracing::{trace, warn};
 
 use crate::error::{self, HostError};
@@ -78,7 +78,7 @@ impl Raiko {
                 let pi = self
                     .request
                     .proof_type
-                    .instance_hash(assemble_protocol_instance(&input, &header)?)?;
+                    .instance_hash(assemble_protocol_instance(input, &header)?)?;
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;
@@ -215,9 +215,9 @@ mod tests {
     use crate::rpc_provider::RpcBlockDataProvider;
     use alloy_primitives::Address;
     use clap::ValueEnum;
+    use hashbrown::HashMap;
     use raiko_lib::consts::{get_network_spec, Network};
     use raiko_primitives::B256;
-    use hashbrown::HashMap;
     use serde_json::{json, Value};
     use std::env;
 

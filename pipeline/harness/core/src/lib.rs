@@ -1,9 +1,8 @@
 use once_cell::sync::OnceCell;
-use std::{sync::Mutex};
+use std::sync::Mutex;
 
 pub mod assert;
 pub use assert::*;
-
 
 // Static variable with Mutex for thread safety.
 pub static TESTS_SUITE: OnceCell<Mutex<TestSuite>> = OnceCell::new();

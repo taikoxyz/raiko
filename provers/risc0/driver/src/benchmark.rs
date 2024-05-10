@@ -2,14 +2,14 @@
 #![feature(test)]
 use std::env;
 extern crate test;
-use test::Bencher;
 use test::bench::run_once;
+use test::Bencher;
 
-use risc0_zkvm::{default_prover, ExecutorEnv, Prover};
 use risc0_driver::methods::{
-    sha256::{SHA256_ELF, SHA256_ID},
     ecdsa::{ECDSA_ELF, ECDSA_ID},
+    sha256::{SHA256_ELF, SHA256_ID},
 };
+use risc0_zkvm::{default_prover, ExecutorEnv, Prover};
 
 fn prove(elf: &[u8], id: [u32; 8]) {
     env::set_var("RISC0_PROVER", "local");

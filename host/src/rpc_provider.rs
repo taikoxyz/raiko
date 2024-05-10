@@ -4,10 +4,10 @@ use alloy_rpc_client::{ClientBuilder, RpcClient};
 use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofResponse};
 use alloy_transport_http::Http;
 use anyhow::Result;
+use hashbrown::HashMap;
 use raiko_lib::{clear_line, inplace_print};
 use reqwest_alloy::Client;
 use revm::primitives::{AccountInfo, Bytecode};
-use hashbrown::HashMap;
 
 use crate::{raiko::BlockDataProvider, MerkleProof};
 
@@ -19,7 +19,7 @@ pub struct RpcBlockDataProvider {
 
 impl RpcBlockDataProvider {
     pub fn new(url: &str, block_number: u64) -> Self {
-        let url = reqwest::Url::parse(&url).expect("invalid rpc url");
+        let url = reqwest::Url::parse(url).expect("invalid rpc url");
         Self {
             provider: ProviderBuilder::new().on_provider(RootProvider::new_http(url.clone())),
             client: ClientBuilder::default().http(url),
@@ -207,13 +207,13 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
                     // If we can process all keys, remove the address from the map after the loop
                     if num_keys_to_process == keys.len() {
-                        address_to_remove = Some(address.clone());
+                        address_to_remove = Some(*address);
                     }
 
                     // Extract the keys to process
                     let keys_to_process = keys
                         .drain(0..num_keys_to_process)
-                        .map(|v| StorageKey::from(v))
+                        .map(StorageKey::from)
                         .collect::<Vec<_>>();
 
                     // Add the request
@@ -222,7 +222,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                             .add_call::<_, EIP1186AccountProofResponse>(
                                 "eth_getProof",
                                 &(
-                                    address.clone(),
+                                    *address,
                                     keys_to_process.clone(),
                                     BlockId::from(block_number),
                                 ),
