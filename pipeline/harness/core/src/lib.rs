@@ -2,7 +2,6 @@ use once_cell::sync::OnceCell;
 use std::{sync::Mutex};
 
 pub mod assert;
-pub mod entry;
 pub use assert::*;
 
 
