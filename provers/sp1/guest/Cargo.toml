@@ -21,12 +21,12 @@ name = "ecdsa"
 path = "src/benchmark/ecdsa.rs"
 
 [[bin]]
-name = "bn256_add"
-path = "src/benchmark/bn256_add.rs"
+name = "bn254_add"
+path = "src/benchmark/bn254_add.rs"
 
 [[bin]]
-name = "bn256_mul"
-path = "src/benchmark/bn256_mul.rs"
+name = "bn254_mul"
+path = "src/benchmark/bn254_mul.rs"
 
 
 [dependencies]
