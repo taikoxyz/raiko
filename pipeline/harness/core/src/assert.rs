@@ -1,9 +1,6 @@
 use once_cell::sync::OnceCell;
 use std::{fmt::Debug, sync::Mutex};
 
-// Static variable with Mutex for thread safety.
-pub static ASSERTION_LOG: OnceCell<Mutex<AssertionLog>> = OnceCell::new();
-
 pub trait DynAssertion: Send + Sync {
     fn display(&self);
     fn failed(&self) -> bool;
@@ -40,11 +37,6 @@ pub struct AssertionLog {
     pub assertions: Vec<Box<dyn DynAssertion>>,
 }
 
-impl Default for AssertionLog {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl AssertionLog {
     pub fn new() -> Self {
@@ -82,6 +74,7 @@ impl AssertionLog {
         (passed, failed)
     }
 }
+
 
 pub fn eval_assert(cond: bool, file: &str, line: u32) -> bool {
     if !cond {
