@@ -1,11 +1,11 @@
 #![no_main]
-risc0_zkvm::guest::entry!(run);
+harness::entrypoint!(main);
 use risc0_zkvm::guest::env;
 use std::hint::black_box;
 use revm_precompile::zk_op::ZkvmOperator;
-use zk::Risc0Operator;
+use zk_op::Risc0Operator;
 
-fn run() {
+fn main() {
 
     let sig = black_box([
         0xb5, 0x0b, 0xb6, 0x79, 0x5f, 0x31, 0x74, 0x8a, 0x4d, 0x37, 0xc3, 0xa9, 0x7e, 0xbd, 0x06,

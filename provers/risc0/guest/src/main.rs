@@ -1,6 +1,6 @@
 #![no_main]
+harness::entrypoint!(main, tests, zk_op::tests);
 use risc0_zkvm::guest::env;
-risc0_zkvm::guest::entry!(main);
 
 use raiko_lib::protocol_instance::assemble_protocol_instance;
 use raiko_lib::protocol_instance::EvidenceType;
@@ -9,7 +9,7 @@ use raiko_lib::{
     input::{GuestInput, GuestOutput, WrappedHeader},
 };
 use revm_precompile::zk_op::ZkOperation;
-use zk::Risc0Operator;
+use zk_op::Risc0Operator;
 
 pub mod mem;
 

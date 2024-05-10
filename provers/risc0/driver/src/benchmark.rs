@@ -21,7 +21,7 @@ fn sha256_benchmark(c: &mut Criterion) {
     });
 }
 
-fn sha256_benchmark(c: &mut Criterion) {
+fn ecdsa_benchmark(c: &mut Criterion) {
     c.bench_function("ecdsa", |b| {
         b.iter(|| {
             let data = black_box("The quick brown fox jumps over the lazy dog");

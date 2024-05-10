@@ -6,7 +6,6 @@ edition = "2021"
 [dev-dependencies]
 criterion = { workspace = true }
 
-
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
 raiko-primitives = { workspace = true, optional = true }
