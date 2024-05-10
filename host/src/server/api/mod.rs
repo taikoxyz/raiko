@@ -62,35 +62,15 @@ mod proof;
 pub struct Docs;
 
 #[derive(Debug, Serialize, ToSchema)]
-#[serde(untagged)]
 /// The response body of a proof request.
-pub enum ProofResponse {
-    /// The response body of a proof request for the native prover.
-    Native {
-        #[schema(value_type = GuestOutputDoc)]
-        /// The output of the prover.
-        output: GuestOutput,
-    },
-    /// The response body of a proof request for the sgx prover.
-    Sgx {
-        /// The proof.
-        proof: String,
-        /// The quote.
-        quote: String,
-    },
-    /// The response body of a proof request for the sp1 prover.
-    Sp1 {
-        /// The proof.
-        proof: String,
-        #[schema(value_type = GuestOutputDoc)]
-        /// The output of the prover.
-        output: GuestOutput,
-    },
-    /// The response body of a proof request for the risc0 prover.
-    Risc0 {
-        /// The proof.
-        proof: String,
-    },
+pub struct ProofResponse {
+    #[schema(value_type = Option<GuestOutputDoc>)]
+    /// The output of the prover.
+    output: Option<GuestOutput>,
+    /// The proof.
+    proof: Option<String>,
+    /// The quote.
+    quote: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
