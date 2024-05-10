@@ -6,8 +6,8 @@ use test::Bencher;
 
 use sp1_sdk::{ProverClient, SP1Stdin};
 
-const BN256_ADD_ELF: &[u8] = include_bytes!("../../guest/elf/bn254-add");
-const BN256_MUL_ELF: &[u8] = include_bytes!("../../guest/elf/bn254-mul");
+const BN254_ADD_ELF: &[u8] = include_bytes!("../../guest/elf/bn254-add");
+const BN254_MUL_ELF: &[u8] = include_bytes!("../../guest/elf/bn254-mul");
 const ECDSA_ELF: &[u8] = include_bytes!("../../guest/elf/ecdsa");
 const SHA256_ELF: &[u8] = include_bytes!("../../guest/elf/sha256");
 
@@ -30,7 +30,7 @@ fn bench_sha256(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_some_computatio(b: &mut Bencher) {
+fn bench_ecdsa(b: &mut Bencher) {
     run_once(|b| {
         prove(ECDSA_ELF);
         Ok(())
@@ -38,17 +38,17 @@ fn bench_some_computatio(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_sha256(b: &mut Bencher) {
+fn bench_bn254_add(b: &mut Bencher) {
     run_once(|b| {
-        prove(BN256_ADD_ELF);
+        prove(BN254_ADD_ELF);
         Ok(())
     });
 }
 
 #[bench]
-fn bench_some_computatio(b: &mut Bencher) {
+fn bench_bn254_mul(b: &mut Bencher) {
     run_once(|b| {
-        prove(BN256_MUL_ELF);
+        prove(BN254_MUL_ELF);
         Ok(())
     });
 }

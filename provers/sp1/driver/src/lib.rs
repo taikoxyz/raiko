@@ -75,10 +75,10 @@ impl Prover for Sp1Prover {
 #[test]
 fn test_guest() {
     // TODO(Cecilia): imple GuestInput::mock() for unit test
-    let mut client = ProverClient::new();
-    let mut stdin = SP1Stdin::new();
+    let client = ProverClient::new();
+    let stdin = SP1Stdin::new();
     let (pk, vk) = client.setup(TEST_ELF);
-    let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
+    let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
     client
         .verify(&proof, &vk)
         .expect("Sp1: verification failed");

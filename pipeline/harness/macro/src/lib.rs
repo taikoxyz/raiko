@@ -6,7 +6,7 @@ use syn::{parse_macro_input, punctuated::Punctuated, Ident, Item, ItemFn, ItemMo
 #[proc_macro]
 pub fn entrypoint(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as EntryArgs);
-    let _main_entry = input.main_entry;
+    let main_entry = input.main_entry;
     let mut tests_entry = quote! {
         fn run_tests() {}
     };
