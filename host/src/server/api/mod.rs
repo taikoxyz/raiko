@@ -1,4 +1,3 @@
-use alloy_primitives::FixedBytes;
 use axum::{
     body::HttpBody,
     extract::Request,
@@ -7,7 +6,7 @@ use axum::{
     response::Response,
     Router,
 };
-use raiko_lib::input::{GuestOutput, WrappedHeader};
+use raiko_lib::input::GuestOutput;
 use serde::Serialize;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -47,7 +46,6 @@ mod proof;
             crate::request::ProofRequestOpt,
             crate::error::HostError,
             crate::request::ProverSpecificOpts,
-            WrappedHeaderDoc,
             GuestOutputDoc,
             ProofResponse,
         )
@@ -75,17 +73,16 @@ pub struct ProofResponse {
 
 #[derive(Debug, Serialize, ToSchema)]
 pub enum GuestOutputDoc {
-    #[schema(value_type = (WrappedHeaderDoc, String), example = json!([{"header": [0, 0, 0, 0]}, "0x0...0"]))]
+    #[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
     /// The output of the prover when the proof generation was successful.
-    Success((WrappedHeader, FixedBytes<32>)),
+    Success {
+        /// Header bytes.
+        header: Vec<u8>,
+        /// Instance hash.
+        hash: String,
+    },
     /// The output of the prover when the proof generation failed.
     Failure,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct WrappedHeaderDoc {
-    /// Header bytes.
-    pub header: Vec<u8>,
 }
 
 #[must_use]

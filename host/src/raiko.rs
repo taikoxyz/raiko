@@ -1,9 +1,8 @@
 use alloy_primitives::{Address, FixedBytes, B256, U256};
 use alloy_rpc_types::Block;
-use anyhow::Result;
 use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
 use raiko_lib::consts::ChainSpec;
-use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader};
+use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
 use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
 use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::utils::HeaderHasher;
@@ -130,7 +129,7 @@ impl Raiko {
                     input.block_hash_reference,
                     "block hash unexpected"
                 );
-                let output = GuestOutput::Success((WrappedHeader { header }, pi));
+                let output = GuestOutput::Success { header, hash: pi };
 
                 Ok(output)
             }
@@ -174,11 +173,11 @@ impl Prover for NativeProver {
     ) -> ProverResult<Proof> {
         trace!("Running the native prover for input {input:?}");
 
-        let GuestOutput::Success((wrapped_header, _)) = output.clone() else {
+        let GuestOutput::Success { header, .. } = output.clone() else {
             return Err(ProverError::GuestError("Unexpected output".to_owned()));
         };
 
-        assemble_protocol_instance(&input, &wrapped_header.header)
+        assemble_protocol_instance(&input, &header)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
 
         to_proof(Ok(NativeResponse {
