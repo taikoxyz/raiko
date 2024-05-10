@@ -20,7 +20,7 @@ pub trait Pipeline {
 pub fn rerun_if_changed(env_vars: &[&str]) {
     // Only work in build.rs
     // Tell cargo to rerun the script only if program/{src, Cargo.toml, Cargo.lock} changes
-    // Ref: https://doc.rust-lang.org/nightly/cargo/reference/build-scripts.html#rerun-if-changed
+    // Ref: https:3//doc.rust-lang.org/nightly/cargo/reference/build-scripts.html#rerun-if-changed
     let root = ROOT_DIR.get().unwrap();
     [
         root.join("src"),

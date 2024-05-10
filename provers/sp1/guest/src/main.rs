@@ -1,5 +1,5 @@
 #![no_main]
-sp1_zkvm::entrypoint!(main);
+harness::entrypoint!(main, crate::tests, zk_op::tests);
 
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
@@ -7,11 +7,9 @@ use raiko_lib::{
     protocol_instance::{assemble_protocol_instance, EvidenceType},
 };
 use revm_precompile::zk_op::ZkOperation;
-use zk::Sp1Operator;
-pub mod mem;
+use zk_op::Sp1Operator;
 
-#[cfg(test)]
-use harness::*;
+pub mod mem;
 pub use mem::*;
 
 pub fn main() {
@@ -30,7 +28,7 @@ pub fn main() {
 
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
-            let pi = assemble_protocol_instance(&input, &header)
+            let pi = assemble_protocol_instance(&input, header)
                 .expect("Failed to assemble protocol instance")
                 .instance_hash(EvidenceType::Succinct);
             GuestOutput::Success((
@@ -44,20 +42,21 @@ pub fn main() {
     };
 
     sp1_zkvm::io::commit(&output);
-
-    #[cfg(test)]
-    harness::zk_suits!(test_example);
 }
 
-#[test]
-pub fn test_example() {
-    use harness::*;
-    let mut a = 1;
-    let mut b = 1;
-    for _ in 0..10 {
-        let c = a + b;
-        a = b;
-        b = c;
+harness::zk_suits!(
+    pub mod tests {
+        #[test]
+        pub fn test1() {
+            assert_eq!(1, 2);
+        }
+        #[test]
+        pub fn test2() {
+            assert_eq!(1, 2);
+        }
+        #[test]
+        pub fn test3() {
+            assert_eq!(1, 2);
+        }
     }
-    harness::assert_eq!(b, 144);
-}
+);

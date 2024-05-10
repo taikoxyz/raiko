@@ -7,9 +7,9 @@ fn main() {
     let pipeline = Sp1Pipeline::new("provers/sp1/guest", "release");
     pipeline.bins(&["sp1-guest"], "provers/sp1/guest/elf");
     #[cfg(feature = "test")]
-    pipeline.tests(&["sp1-guest"], "provers/sp1/guest/elf");
+    pipeline.tests(&["sp1-guest", "zk"], "provers/sp1/guest/elf");
     #[cfg(feature = "bench")]
-    pipeline.bins(&["ecdsa", "sha256"], "provers/sp1/guest/elf");
+    pipeline.bins(&["ecdsa", "sha256", "bn"], "provers/sp1/guest/elf");
 }
 
 pub struct Sp1Pipeline {
