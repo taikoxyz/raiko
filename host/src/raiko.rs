@@ -286,7 +286,7 @@ mod tests {
             block_number,
             rpc: "https://rpc.hekla.taiko.xyz".to_string(),
             l1_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            beacon_rpc: "https://l1beacon.hekla.taiko.xyz".to_string(),
+            beacon_rpc: "https://api.holesky.blobscan.com".to_string(),
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
