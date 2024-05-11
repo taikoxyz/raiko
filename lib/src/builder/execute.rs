@@ -235,6 +235,9 @@ impl TxExecStrategy for TkoTxExecStrategy {
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
+                    // Clear the state for the next tx
+                    evm.context.evm.journaled_state = JournaledState::new(spec_id, HashSet::new());
+
                     if is_optimistic {
                         continue;
                     }
@@ -250,9 +253,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
                         EVMError::Transaction(invalid_transaction) => {
                             #[cfg(feature = "std")]
                             debug!("Invalid tx at {tx_no}: {invalid_transaction:?}");
-                            // Clear the state
-                            evm.context.evm.journaled_state =
-                                JournaledState::new(spec_id, HashSet::new());
                             // skip the tx
                             continue;
                         }
