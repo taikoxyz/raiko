@@ -17,6 +17,7 @@ use core::{fmt::Debug, mem::take, str::from_utf8};
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
 use alloy_primitives::{TxKind, U256};
 use anyhow::{anyhow, bail, ensure, Context, Error, Result};
+use hashbrown::HashSet;
 #[cfg(feature = "std")]
 use log::debug;
 use raiko_primitives::{
@@ -29,7 +30,7 @@ use revm::{
         Account, Address, EVMError, HandlerCfg, ResultAndState, SpecId, TransactTo, TxEnv,
         MAX_BLOB_GAS_PER_BLOCK,
     },
-    taiko, Database, DatabaseCommit, Evm,
+    taiko, Database, DatabaseCommit, Evm, JournaledState,
 };
 
 use super::{OptimisticDatabase, TxExecStrategy};
@@ -255,6 +256,9 @@ impl TxExecStrategy for TkoTxExecStrategy {
                         EVMError::Transaction(invalid_transaction) => {
                             #[cfg(feature = "std")]
                             debug!("Invalid tx at {}: {:?}", tx_no, invalid_transaction);
+                            // Clear the state
+                            evm.context.evm.journaled_state =
+                                JournaledState::new(spec_id, HashSet::new());
                             // skip the tx
                             continue;
                         }
