@@ -277,13 +277,22 @@ async fn prove(
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {}", e))?;
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        bincode::serialize_into(stdin, &input).expect("Unable to serialize input");
+        let input_success = bincode::serialize_into(stdin, &input);
+        let output_success = child.wait_with_output();
 
-        let output = child
-            .wait_with_output()
-            .map_err(|e| handle_gramine_error("Could not run SGX guest prover", e))?;
-        handle_output(&output, "SGX prove")?;
-        Ok(parse_sgx_result(output.stdout)?)
+        match (input_success, output_success) {
+            (Ok(_), Ok(output)) => {
+                handle_output(&output, "SGX prove")?;
+                Ok(parse_sgx_result(output.stdout)?)
+            }
+            (Err(i), output_success) => Err(ProverError::GuestError(format!(
+                "Can not serialize input for SGX {}, output is {:?}",
+                i, output_success
+            ))),
+            (Ok(_), Err(output_err)) => Err(ProverError::GuestError(
+                handle_gramine_error("Could not run SGX guest prover", output_err).to_string(),
+            )),
+        }
     })
     .await
     .map_err(|e| ProverError::GuestError(e.to_string()))?
