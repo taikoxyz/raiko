@@ -52,11 +52,11 @@ COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
 COPY --from=builder /opt/raiko/target/release/sgx-guest ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-setup ./bin/
+COPY --from=builder /opt/raiko/docker/enclave-key.pem /root/.config/gramine/enclave-key.pem
 
 ARG EDMM=0
 ENV EDMM=${EDMM}
 RUN cd ./bin && \
-    gramine-sgx-gen-private-key -f && \
     gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ ../provers/sgx/config/sgx-guest.local.manifest.template sgx-guest.manifest && \
     gramine-sgx-sign --manifest sgx-guest.manifest --output sgx-guest.manifest.sgx && \
     gramine-sgx-sigstruct-view "sgx-guest.sig"
