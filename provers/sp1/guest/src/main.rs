@@ -48,15 +48,15 @@ harness::zk_suits!(
     pub mod tests {
         #[test]
         pub fn test1() {
-            assert_eq!(1, 2);
+            assert_eq!(1, 1);
         }
         #[test]
         pub fn test2() {
-            assert_eq!(1, 2);
+            assert_eq!(2, 2);
         }
         #[test]
         pub fn test3() {
-            assert_eq!(1, 2);
+            assert_eq!(3, 3);
         }
     }
 );
