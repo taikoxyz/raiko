@@ -331,7 +331,7 @@ struct GetBlobData {
     // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
     pub kzg_commitment: String,
     pub kzg_proof: String,
-    pub kzg_commitment_inclusion_proof: Vec<String>,
+    // pub kzg_commitment_inclusion_proof: Vec<String>, // ignore for now
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

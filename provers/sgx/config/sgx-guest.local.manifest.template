@@ -45,7 +45,7 @@ sgx.trusted_files = [
   "file:/usr/lib/ssl/certs/",
   "file:sgx-guest",
 ]
-sgx.max_threads = 16
+sgx.max_threads = 32
 sgx.remote_attestation = "dcap"
 sys.enable_extra_runtime_domain_names_conf = true
 sys.insecure__allow_eventfd = true
