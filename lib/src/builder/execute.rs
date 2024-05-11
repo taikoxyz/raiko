@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use core::{fmt::Debug, mem::take, str::from_utf8};
+use std::collections::HashSet;
 
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
 use alloy_primitives::{TxKind, U256};
@@ -29,7 +30,7 @@ use revm::{
         Account, Address, EVMError, HandlerCfg, ResultAndState, SpecId, TransactTo, TxEnv,
         MAX_BLOB_GAS_PER_BLOCK,
     },
-    taiko, Database, DatabaseCommit, Evm,
+    taiko, Database, DatabaseCommit, Evm, JournaledState,
 };
 
 use super::{OptimisticDatabase, TxExecStrategy};
@@ -234,6 +235,9 @@ impl TxExecStrategy for TkoTxExecStrategy {
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
+                    // Clear the state for the next tx
+                    evm.context.evm.journaled_state = JournaledState::new(spec_id, HashSet::new());
+
                     if is_optimistic {
                         continue;
                     }
