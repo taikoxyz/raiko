@@ -321,23 +321,15 @@ pnpm compile
 `ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
 `PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
 
-4. Prepare variables for the script
+4. Call the `config_dcap_sgx_verifier.sh` script.
+
+Don't change command, just copy and paste it into your terminal. It will prompt you for your private key and holesky rpc.
 
 ```shell
-read -r -e -p "PRIVATE_KEY: " PRIVATE_KEY
+read -r -e -p "PRIVATE_KEY: " PRIVATE_KEY && read -r -e -p "HOLESKY_RPC: " -i "https://ethereum-holesky-rpc.publicnode.com" HOLESKY_RPC && FORK_URL=${HOLESKY_RPC} PRIVATE_KEY=${PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote $(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(require('os').homedir() + '/.config/raiko/config/bootstrap.json', 'utf8')).quote)")
 ```
 
-```shell
-read -r -e -p "HOLESKY_RPC: " HOLESKY_RPC
-```
-
-5. Call the `config_dcap_sgx_verifier.sh` script.
-
-```shell
-FORK_URL=${HOLESKY_RPC} PRIVATE_KEY=${PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote $(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(require('os').homedir() + '/.config/raiko/config/bootstrap.json', 'utf8')).quote)")
-```
-
-6. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
+5. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
 It should look like this:
 
