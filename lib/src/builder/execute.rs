@@ -243,7 +243,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 Err(err) => {
                     // Clear the state for the next tx
                     evm.context.evm.journaled_state = JournaledState::new(spec_id, HashSet::new());
-                    
+
                     if is_optimistic {
                         continue;
                     }
