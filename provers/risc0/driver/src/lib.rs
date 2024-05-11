@@ -23,10 +23,8 @@ pub mod snarks;
 use crate::snarks::verify_groth16_snark;
 use bonsai::maybe_prove;
 pub use bonsai::*;
-use methods::{
-    risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
-    test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID},
-};
+use methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID};
+
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -96,6 +94,7 @@ impl Prover for Risc0Prover {
 #[ignore]
 #[test]
 fn test_guest() {
+    use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
     use risc0_zkvm::{default_prover, ExecutorEnv};
     let env = ExecutorEnv::builder().build().unwrap();
     let prover = default_prover();

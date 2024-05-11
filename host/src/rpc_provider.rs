@@ -4,10 +4,10 @@ use alloy_rpc_client::{ClientBuilder, RpcClient};
 use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofResponse};
 use alloy_transport_http::Http;
 use anyhow::Result;
-use hashbrown::HashMap;
 use raiko_lib::{clear_line, inplace_print};
 use reqwest_alloy::Client;
 use revm::primitives::{AccountInfo, Bytecode};
+use std::collections::HashMap;
 
 use crate::{raiko::BlockDataProvider, MerkleProof};
 

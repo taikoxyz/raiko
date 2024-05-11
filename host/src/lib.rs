@@ -26,9 +26,9 @@ use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::{Context, Result};
 use cap::Cap;
 use clap::Parser;
-use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::{alloc, fmt::Debug, path::PathBuf};
 
 use crate::{error::HostError, request::ProofRequestOpt};

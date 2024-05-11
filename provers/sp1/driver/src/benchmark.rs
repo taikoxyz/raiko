@@ -12,10 +12,10 @@ const ECDSA_ELF: &[u8] = include_bytes!("../../guest/elf/ecdsa");
 const SHA256_ELF: &[u8] = include_bytes!("../../guest/elf/sha256");
 
 fn prove(elf: &[u8]) {
-    let mut client = ProverClient::new();
-    let mut stdin = SP1Stdin::new();
+    let client = ProverClient::new();
+    let stdin = SP1Stdin::new();
     let (pk, vk) = client.setup(elf);
-    let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
+    let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
     client
         .verify(&proof, &vk)
         .expect("Sp1: verification failed");
