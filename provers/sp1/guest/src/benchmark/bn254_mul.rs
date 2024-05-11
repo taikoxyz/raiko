@@ -16,6 +16,9 @@ fn main() {
     let op = Sp1Operator {};
     let res = op.bn128_run_mul(&input).unwrap();
     
-    // Longer than 32 bit register 
-    // sp1_zkvm::io::commit(&res);
+    let hi = res[32..].to_vec();
+    let lo = res[..32].to_vec();
+
+    sp1_zkvm::io::commit(&hi);
+    sp1_zkvm::io::commit(&lo);
 }

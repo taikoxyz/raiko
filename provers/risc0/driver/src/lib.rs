@@ -25,7 +25,6 @@ use bonsai::maybe_prove;
 pub use bonsai::*;
 use methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID};
 
-
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Risc0Param {

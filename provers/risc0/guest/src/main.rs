@@ -27,7 +27,6 @@ fn main() {
 
     let build_result = TaikoStrategy::build_from(&input);
 
-    // TODO: cherry-pick risc0 latest output
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
             let pi = assemble_protocol_instance(&input, header)
@@ -50,16 +49,9 @@ fn main() {
 harness::zk_suits!(
     pub mod tests {
         #[test]
-        pub fn test1() {
+        pub fn test_build_from_mock_input() {
+            // Todo: impl mock input for static unit test
             assert_eq!(1, 1);
-        }
-        #[test]
-        pub fn test2() {
-            assert_eq!(2, 2);
-        }
-        #[test]
-        pub fn test3() {
-            assert_eq!(3, 3);
         }
     }
 );

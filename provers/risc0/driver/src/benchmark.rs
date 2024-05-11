@@ -28,7 +28,7 @@ fn bench_sha256(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_some_computatio(b: &mut Bencher) {
+fn bench_ecdsa(b: &mut Bencher) {
     run_once(|b| {
         prove(ECDSA_ELF, ECDSA_ID);
         Ok(())
