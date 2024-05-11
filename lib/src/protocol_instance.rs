@@ -94,22 +94,22 @@ pub fn assemble_protocol_instance(
 ) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
-        if !input.taiko.skip_verify_blob {
-            println!("kzg check enabled!");
-            let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
-            let kzg_settings = KzgSettings::from_u8_slice(&mut data);
-            let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
-                &Blob::from_bytes(&input.taiko.tx_data.as_slice()).unwrap(),
-                &kzg_settings,
-            )
-            .unwrap();
-            let versioned_hash = kzg_to_versioned_hash(kzg_commit);
-            assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
-            versioned_hash
-        } else {
-            println!("kzg check disabled!");
-            input.taiko.tx_blob_hash.unwrap()
-        }
+        //if !input.taiko.skip_verify_blob {
+        println!("kzg check enabled!");
+        let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
+        let kzg_settings = KzgSettings::from_u8_slice(&mut data);
+        let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
+            &Blob::from_bytes(&input.taiko.tx_data.as_slice()).unwrap(),
+            &kzg_settings,
+        )
+        .unwrap();
+        let versioned_hash = kzg_to_versioned_hash(kzg_commit);
+        assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
+        versioned_hash
+        //} else {
+        //    println!("kzg check disabled!");
+        //    input.taiko.tx_blob_hash.unwrap()
+        //}
     } else {
         TxHash::from(keccak(input.taiko.tx_data.as_slice()))
     };

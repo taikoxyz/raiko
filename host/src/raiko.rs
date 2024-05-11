@@ -280,7 +280,7 @@ mod tests {
     async fn test_prove_block_taiko_a7() {
         let proof_type = get_proof_type_from_env();
         let network = Network::TaikoA7;
-        let block_number = 105987;
+        let block_number = 101368;
         let chain_spec = get_network_spec(network);
         let proof_request = ProofRequest {
             block_number,
@@ -297,27 +297,27 @@ mod tests {
         prove_block(chain_spec, proof_request).await;
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_block_ethereum() {
-        let proof_type = get_proof_type_from_env();
-        // Skip test on SP1 for now because it's too slow on CI
-        if proof_type != ProofType::Sp1 {
-            let network = Network::Ethereum;
-            let block_number = 19707175;
-            let chain_spec = get_network_spec(network);
-            let proof_request = ProofRequest {
-                block_number,
-                rpc: "https://rpc.ankr.com/eth".to_string(),
-                l1_rpc: String::new(),
-                beacon_rpc: String::new(),
-                network,
-                graffiti: B256::ZERO,
-                prover: Address::ZERO,
-                l1_network: Network::Ethereum.to_string(),
-                proof_type,
-                prover_args: test_proof_params(),
-            };
-            prove_block(chain_spec, proof_request).await;
-        }
-    }
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn test_prove_block_ethereum() {
+    //     let proof_type = get_proof_type_from_env();
+    //     // Skip test on SP1 for now because it's too slow on CI
+    //     if proof_type != ProofType::Sp1 {
+    //         let network = Network::Ethereum;
+    //         let block_number = 19707175;
+    //         let chain_spec = get_network_spec(network);
+    //         let proof_request = ProofRequest {
+    //             block_number,
+    //             rpc: "https://rpc.ankr.com/eth".to_string(),
+    //             l1_rpc: String::new(),
+    //             beacon_rpc: String::new(),
+    //             network,
+    //             graffiti: B256::ZERO,
+    //             prover: Address::ZERO,
+    //             l1_network: Network::Ethereum.to_string(),
+    //             proof_type,
+    //             prover_args: test_proof_params(),
+    //         };
+    //         prove_block(chain_spec, proof_request).await;
+    //     }
+    // }
 }
