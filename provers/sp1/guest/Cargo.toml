@@ -42,8 +42,8 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat
 ] }
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
 sp1-precompiles = { git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
-harness-core = { path = "../../../pipeline/harness/core" }
-harness = { path = "../../../pipeline/harness/macro", features = ["sp1"]}
+harness-core = { path = "../../../harness/core" }
+harness = { path = "../../../harness/macro", features = ["sp1"]}
 substrate-bn = "0.6.0"
 
 [patch.crates-io]
