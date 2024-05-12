@@ -21,4 +21,3 @@ powdr-riscv-runtime ={ git = "https://github.com/ceciliaz030/powdr", branch = "+
 
 
 # cargo build --release -Z build-std=core,alloc --target riscv32imac-unknown-none-elf --lib
-

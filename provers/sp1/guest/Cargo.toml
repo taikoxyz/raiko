@@ -21,4 +21,4 @@ sp1-precompiles = { git = "https://www.github.com/succinctlabs/sp1.git", branch 
 
 [workspace]
 
-# cargo prove build 
+# cargo prove build
