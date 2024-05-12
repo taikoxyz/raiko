@@ -97,7 +97,7 @@ mod test {
     use risc0_zkvm::{default_prover, ExecutorEnv};
 
     #[test]
-    fn run_risc0_test_elf() {
+    fn run_unittest_elf() {
         std::env::set_var("RISC0_PROVER", "local");
         let env = ExecutorEnv::builder().build().unwrap();
         let prover = default_prover();
