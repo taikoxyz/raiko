@@ -5,7 +5,7 @@ pub mod assert;
 pub use assert::*;
 
 // Static variable with Mutex for thread safety.
-pub static TESTS_SUITE: OnceCell<Mutex<TestSuite>> = OnceCell::new();
+pub static TESTS_SUIT: OnceCell<Mutex<TestSuite>> = OnceCell::new();
 pub static ASSERTION_LOG: OnceCell<Mutex<AssertionLog>> = OnceCell::new();
 
 struct Test {

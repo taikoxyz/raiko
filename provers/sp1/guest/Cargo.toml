@@ -29,6 +29,11 @@ name = "bn254_mul"
 path = "src/benchmark/bn254_mul.rs"
 
 
+# [[test]]
+# name = "main"
+# path = "src/main.rs"
+# harness = false
+
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
 sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }

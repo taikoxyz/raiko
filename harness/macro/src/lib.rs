@@ -19,6 +19,9 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
         });
         tests_entry = quote! {
             fn run_tests() {
+                use harness_core::*;
+                harness_core::ASSERTION_LOG.get_or_init(|| std::sync::Mutex::new(AssertionLog::new()));
+                harness_core::TESTS_SUIT.get_or_init(|| std::sync::Mutex::new(TestSuite::new()));
                 #(#injections)*
             }
         };
@@ -146,7 +149,9 @@ pub fn zk_suits(input: TokenStream) -> TokenStream {
     // Create the `inject` function inside the module
     let inject_fn = quote! {
         pub fn inject() {
-            let mut test_suite = harness_core::TESTS_SUITE.get().unwrap();
+            let mut test_suite = harness_core::TESTS_SUIT.get_or_init(
+                || std::sync::Mutex::new(harness_core::TestSuite::new())
+            );
             #(#registration_blocks)*
         }
     };
