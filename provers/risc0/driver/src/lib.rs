@@ -90,13 +90,18 @@ impl Prover for Risc0Prover {
     }
 }
 
-#[ignore]
-#[test]
-fn test_guest() {
+#[cfg(test)]
+mod test {
+    use super::*;
     use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
     use risc0_zkvm::{default_prover, ExecutorEnv};
-    let env = ExecutorEnv::builder().build().unwrap();
-    let prover = default_prover();
-    let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
-    receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+
+    #[test]
+    fn run_risc0_test_elf() {
+        std::env::set_var("RISC0_PROVER", "local");
+        let env = ExecutorEnv::builder().build().unwrap();
+        let prover = default_prover();
+        let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
+        receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+    }
 }

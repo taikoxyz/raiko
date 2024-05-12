@@ -13,7 +13,6 @@ use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
-const TEST_ELF: &[u8] = include_bytes!("../../guest/elf/test-sp1-guest");
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
@@ -72,14 +71,20 @@ impl Prover for Sp1Prover {
     }
 }
 
-#[test]
-fn test_guest() {
-    // TODO(Cecilia): imple GuestInput::mock() for unit test
-    let client = ProverClient::new();
-    let stdin = SP1Stdin::new();
-    let (pk, vk) = client.setup(TEST_ELF);
-    let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
-    client
-        .verify(&proof, &vk)
-        .expect("Sp1: verification failed");
+#[cfg(test)]
+mod test {
+    use super::*;
+    const TEST_ELF: &[u8] = include_bytes!("../../guest/elf/test-sp1-guest");
+
+    #[test]
+    fn run_sp1_test_elf() {
+        // TODO(Cecilia): imple GuestInput::mock() for unit test
+        let client = ProverClient::new();
+        let stdin = SP1Stdin::new();
+        let (pk, vk) = client.setup(TEST_ELF);
+        let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
+        client
+            .verify(&proof, &vk)
+            .expect("Sp1: verification failed");
+    }
 }
