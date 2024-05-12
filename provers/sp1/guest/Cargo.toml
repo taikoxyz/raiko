@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "sp1-guest"
 version = "0.1.0"
@@ -5,20 +7,50 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+name = "zk_op"
+path = "src/zk_op.rs"
+
+
+[[bin]]
+name = "sha256"
+path = "src/benchmark/sha256.rs"
+
+[[bin]]
+name = "ecdsa"
+path = "src/benchmark/ecdsa.rs"
+
+[[bin]]
+name = "bn254_add"
+path = "src/benchmark/bn254_add.rs"
+
+[[bin]]
+name = "bn254_mul"
+path = "src/benchmark/bn254_mul.rs"
+
+
+# [[test]]
+# name = "main"
+# path = "src/main.rs"
+# harness = false
+
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
 sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-
-[dev-dependencies]
-harness = { path = "../../../pipeline/harness" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
+    "taiko",
+    "std",
+] }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
+    "taiko",
+    "std",
+] }
+sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
+sp1-precompiles = { git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
+harness-core = { path = "../../../harness/core" }
+harness = { path = "../../../harness/macro", features = ["sp1"]}
+substrate-bn = "0.6.0"
 
 [patch.crates-io]
+# Cant's use ZkOp for keccak since it's not precompile
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
-sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
-
-[patch."https://github.com/succinctlabs/sp1.git"]
-sp1-precompiles = { git = "https://www.github.com/succinctlabs/sp1.git", branch = "main"}
-
-[workspace]
-
-# cargo prove build 

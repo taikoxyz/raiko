@@ -35,12 +35,12 @@ raiko-lib = { path = "./lib", features = ["std"] }
 raiko-primitives = { path = "./primitives" }
 
 # revm
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko", default-features = false }
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko", default-features = false, features = [
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false }
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
     "serde",
     "std",
     "taiko",
-]}
+] }
 
 # risc zero
 risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }

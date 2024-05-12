@@ -23,10 +23,7 @@ pub mod snarks;
 use crate::snarks::verify_groth16_snark;
 use bonsai::maybe_prove;
 pub use bonsai::*;
-use methods::{
-    risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
-    test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID},
-};
+use methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID};
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -43,8 +40,6 @@ pub struct Risc0Response {
 }
 pub struct Risc0Prover;
 
-use serde_json::json;
-
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
@@ -60,7 +55,7 @@ impl Prover for Risc0Prover {
             &config,
             encoded_input,
             RISC0_GUEST_ELF,
-            &output,
+            output,
             Default::default(),
         )
         .await;
@@ -95,12 +90,18 @@ impl Prover for Risc0Prover {
     }
 }
 
-#[ignore]
-#[test]
-fn test_guest() {
+#[cfg(test)]
+mod test {
+    use super::*;
+    use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
     use risc0_zkvm::{default_prover, ExecutorEnv};
-    let env = ExecutorEnv::builder().build().unwrap();
-    let prover = default_prover();
-    let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
-    receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+
+    #[test]
+    fn run_unittest_elf() {
+        std::env::set_var("RISC0_PROVER", "local");
+        let env = ExecutorEnv::builder().build().unwrap();
+        let prover = default_prover();
+        let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
+        receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+    }
 }

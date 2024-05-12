@@ -78,7 +78,7 @@ impl Raiko {
                 let pi = self
                     .request
                     .proof_type
-                    .instance_hash(assemble_protocol_instance(&input, &header)?)?;
+                    .instance_hash(assemble_protocol_instance(input, &header)?)?;
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;

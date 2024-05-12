@@ -97,10 +97,10 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         let num_initial_values: usize = self
             .initial_db
             .storage_keys()
-            .iter()
-            .map(|(_address, keys)| keys.len())
+            .values()
+            .map(|keys| keys.len())
             .sum();
-        let num_latest_values: usize = storage_keys.iter().map(|(_address, keys)| keys.len()).sum();
+        let num_latest_values: usize = storage_keys.values().map(|keys| keys.len()).sum();
         let num_storage_proofs = num_initial_values + num_latest_values;
 
         // Initial proofs
@@ -138,13 +138,11 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
 
         let mut headers = Vec::new();
         for block_number in (*earliest_block..self.block_number).rev() {
-            if !self.initial_headers.contains_key(&block_number) {
-                let block = &self
-                    .provider
-                    .get_blocks(&vec![(block_number, false)])
-                    .await?[0];
-                self.initial_headers
-                    .insert(block_number, to_header(&block.header));
+            if let std::collections::hash_map::Entry::Vacant(e) =
+                self.initial_headers.entry(block_number)
+            {
+                let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
+                e.insert(to_header(&block.header));
             }
             headers.push(self.initial_headers[&block_number].clone());
         }
@@ -194,7 +192,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         // Fetch the account
         let account = &tokio::task::block_in_place(|| {
             self.async_executor
-                .block_on(self.provider.get_accounts(&vec![address]))
+                .block_on(self.provider.get_accounts(&[address]))
         })?[0];
 
         // Insert the account into the initial database.
@@ -232,7 +230,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         // Fetch the storage value
         let value = tokio::task::block_in_place(|| {
             self.async_executor
-                .block_on(self.provider.get_storage_values(&vec![(address, index)]))
+                .block_on(self.provider.get_storage_values(&[(address, index)]))
         })?[0];
         self.initial_db
             .insert_account_storage(&address, index, value);
@@ -262,7 +260,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         // Get the block hash from the provider.
         let block_hash = tokio::task::block_in_place(|| {
             self.async_executor
-                .block_on(self.provider.get_blocks(&vec![(block_number, false)]))
+                .block_on(self.provider.get_blocks(&[(block_number, false)]))
         })
         .unwrap()[0]
             .header

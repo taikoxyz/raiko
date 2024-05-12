@@ -337,7 +337,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         header.transactions_root = tx_trie.hash();
         header.receipts_root = receipt_trie.hash();
         header.logs_bloom = logs_bloom;
-        header.gas_used = cumulative_gas_used.try_into().unwrap();
+        header.gas_used = cumulative_gas_used.into();
         if spec_id >= SpecId::SHANGHAI {
             header.withdrawals_root = Some(withdrawals_trie.hash());
         };

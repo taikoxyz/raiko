@@ -15,7 +15,6 @@ alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 
 anyhow = { workspace = true }
-hashbrown = { workspace = true }
 libflate = { workspace = true }
 once_cell = { workspace = true }
 revm = { workspace = true }

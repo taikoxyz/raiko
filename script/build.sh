@@ -109,6 +109,7 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 			cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --features risc0
 		else
 			echo "Running Sp1 tests"
+			cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib risc0-driver --features risc0 -- run_unittest_elf 
 			cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p raiko-host -p risc0-driver --features "risc0 enable"
 		fi
 	fi
@@ -136,7 +137,9 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1
 		else
 			echo "Running Sp1 tests"
+			cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf 
 			cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
 		fi
 	fi
 fi
+

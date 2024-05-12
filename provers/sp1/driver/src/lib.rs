@@ -13,7 +13,6 @@ use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
-const TEST_ELF: &[u8] = include_bytes!("../../guest/elf/test-sp1-guest");
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
@@ -40,7 +39,6 @@ impl Prover for Sp1Prover {
 
         // Read the output.
         let output = proof.public_values.read::<GuestOutput>();
-
         // Verify proof.
         client
             .verify(&proof, &vk)
@@ -73,18 +71,20 @@ impl Prover for Sp1Prover {
     }
 }
 
-#[test]
-fn test_example() {
-    // TODO(Cecilia): imple GuestInput::mock() for unit test
-    // let mut client = ProverClient::new();
+#[cfg(test)]
+mod test {
+    use super::*;
+    const TEST_ELF: &[u8] = include_bytes!("../../guest/elf/test-sp1-guest");
 
-    // // Still need to write the same input requried by main binary
-    // // Even though test itself desn't use it.
-    // stdin.write(&GuestInput::default());
-
-    // let (pk, vk) = client.setup(TEST_ELF);
-    // let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
-    // client
-    //     .verify(&proof, &vk)
-    //     .expect("Sp1: verification failed");
+    #[test]
+    fn run_unittest_elf() {
+        // TODO(Cecilia): imple GuestInput::mock() for unit test
+        let client = ProverClient::new();
+        let stdin = SP1Stdin::new();
+        let (pk, vk) = client.setup(TEST_ELF);
+        let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
+        client
+            .verify(&proof, &vk)
+            .expect("Sp1: verification failed");
+    }
 }

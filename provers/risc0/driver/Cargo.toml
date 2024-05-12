@@ -3,6 +3,11 @@ name = "risc0-driver"
 version = "0.1.0"
 edition = "2021"
 
+[[bench]]
+name = "benchmark"
+path = "src/benchmark.rs"
+harness = true
+
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
 raiko-primitives = { workspace = true, optional = true }
