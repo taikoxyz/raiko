@@ -305,7 +305,7 @@ async fn get_blob_data_beacon(
         // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
         pub kzg_commitment: String,
         pub kzg_proof: String,
-        pub kzg_commitment_inclusion_proof: Vec<String>,
+        //pub kzg_commitment_inclusion_proof: Vec<String>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
