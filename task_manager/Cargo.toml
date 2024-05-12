@@ -1,0 +1,19 @@
+[package]
+name = "task_manager"
+version = "0.1.0"
+authors = ["Mamy Ratsimbazafy <mamy $at$ taiko.xyz>"]
+edition = "2021" # { workspace = true }
+
+[dependencies]
+raiko-primitives = { workspace = true }
+rusqlite = { workspace = true }
+
+[dev-dependencies]
+rand = "0.9.0-alpha.1" # This is an alpha version, that has rng.gen_iter::<T>()
+rand_chacha = "0.9.0-alpha.1"
+tempfile = "3.10.1"
+alloy-primitives = { workspace = true, features = ["getrandom"] }
+
+[[test]]
+name = "task_manager_tests"
+path = "tests/main.rs"

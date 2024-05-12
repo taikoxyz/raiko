@@ -38,6 +38,10 @@ target/
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
+# SQLite
+# -----------------------------------------------------------------------------------------
+*.sqlite
+
 # Temp files, swap, debug, log, perf, cache
 # -----------------------------------------------------------------------------------------
 *.swp
