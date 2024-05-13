@@ -56,6 +56,10 @@ jobs:
 
       - name: Test ${{ matrix.VERSIONS.name }} prover
         run: make test
+        
+      - name: Build with tracer
+        if: ${{ matrx.VERSIONS.name }} == native
+        run: cargo build -F tracer
 
   build-test-sgx-hardware:
     name: Build and test sgx in hardware
