@@ -36,13 +36,16 @@ jobs:
         run: ./script/generate-docs.sh
 
       - name: Setup Pages
+        if: github.event_name == 'push'
         uses: actions/configure-pages@v3
 
       - name: Upload artifact
+        if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v2
         with:
             path: './openapi'
 
       - name: Deploy to GitHub Pages
+        if: github.event_name == 'push'
         id: deployment
         uses: actions/deploy-pages@v2
