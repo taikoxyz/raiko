@@ -517,6 +517,8 @@ fn set_trace_writer(
         write.expect("Failed to open file"),
     )));
     let writer = FlushWriter::new(Arc::clone(&trace));
+
+    // Set the writer inside the handler in revm
     tracer.set_writer(Box::new(writer));
 
     trace
