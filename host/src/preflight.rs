@@ -47,7 +47,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
     // Get the block and the parent block
     let blocks = provider
         .get_blocks(&[(block_number, true), (block_number - 1, false)])
-        .get_blocks(&[(block_number, true), (block_number - 1, false)])
         .await?;
     let (block, parent_block) = (
         blocks.first().ok_or_else(|| {
@@ -299,20 +298,8 @@ async fn prepare_taiko_chain_input(
         let beacon_rpc_url = beacon_rpc_url.ok_or_else(|| {
             HostError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
         })?;
-        let blobs = get_blob_data(&beacon_rpc_url, slot_id).await?;
-        assert!(!blobs.data.is_empty(), "blob data not available anymore");
-        // Get the blob data for the blob storing the tx list
-        let tx_blob = blobs
-            .data
-            .iter()
-            .find(|blob| {
-                // calculate from plain blob
-                blob_hash == calc_blob_versioned_hash(&blob.blob)
-            })
-            .cloned();
-        let tx_blob = tx_blob
-            .ok_or_else(|| HostError::Preflight("blob data not available anymore".to_owned()))?;
-        (blob_to_bytes(&tx_blob.blob), Some(blob_hash))
+        let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
+        (blob, Some(blob_hash))
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
@@ -577,7 +564,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
                     TxKind::Call(to)
                 } else {
                     TxKind::Create
-                }
+                },
                 value: tx.value,
                 input: tx.input.0.clone().into(),
             }
