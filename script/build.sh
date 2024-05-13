@@ -100,7 +100,7 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 			cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
 		else
 			echo "Building test elfs for Risc0 prover"
-			cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test
+			cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test,bench
 		fi
 		cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --features risc0
 	else
