@@ -25,7 +25,7 @@ pub enum HostError {
     Io(#[from] std::io::Error),
 
     /// For preflight errors.
-    #[error("There was a error running the preflight: {0}")]
+    #[error("There was an error running the preflight: {0}")]
     Preflight(String),
 
     /// For invalid type conversion.
@@ -33,7 +33,7 @@ pub enum HostError {
     Conversion(String),
 
     /// For RPC errors.
-    #[error("There was a error with the RPC provider: {0}")]
+    #[error("There was an error with the RPC provider: {0}")]
     RPC(String),
 
     /// For Serde errors.
@@ -47,12 +47,12 @@ pub enum HostError {
     JoinHandle(#[from] tokio::task::JoinError),
 
     /// For errors produced by the guest provers.
-    #[error("There was a error with a guest prover: {0}")]
+    #[error("There was an error with a guest prover: {0}")]
     #[schema(value_type = Value)]
     Guest(#[from] ProverError),
 
     /// For db errors.
-    #[error("There was a error with the db: {0}")]
+    #[error("There was an error with the db: {0}")]
     #[schema(value_type = Value)]
     Db(raiko_lib::mem_db::DbError),
 

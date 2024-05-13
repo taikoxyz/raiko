@@ -41,8 +41,11 @@ pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
     match Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]) {
         Ok(transactions) => transactions,
         Err(e) => {
-            // a empty vec
-            println!("decode_transactions error: {:?}, use empty tx_list", e);
+            // If decoding fails we need to make an empty block
+            println!(
+                "decode_transactions not successful: {:?}, use empty tx_list",
+                e
+            );
             vec![]
         }
     }
@@ -346,7 +349,7 @@ pub fn to_header(header: &AlloyHeader) -> AlloyConsensusHeader {
         extra_data: header.extra_data.clone(),
         mix_hash: header.mix_hash.unwrap(),
         nonce: header.nonce.unwrap(),
-        base_fee_per_gas: Some(header.base_fee_per_gas.unwrap_or_default()),
+        base_fee_per_gas: header.base_fee_per_gas,
         withdrawals_root: header.withdrawals_root,
         blob_gas_used: header.blob_gas_used,
         excess_blob_gas: header.excess_blob_gas,

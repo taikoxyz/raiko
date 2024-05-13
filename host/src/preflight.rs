@@ -42,7 +42,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     l1_rpc_url: Option<String>,
     beacon_rpc_url: Option<String>,
 ) -> HostResult<GuestInput> {
-    let measurement = Measurement::start("Fetching block data...", true);
+    let measurement = Measurement::start("Fetching block data...", false);
 
     // Get the block and the parent block
     let blocks = provider

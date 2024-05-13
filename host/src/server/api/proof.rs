@@ -91,7 +91,7 @@ async fn proof_handler(
     })?;
     inc_host_req_count(proof_request.block_number);
 
-    debug!(
+    info!(
         "# Generating proof for block {} on {}",
         proof_request.block_number, proof_request.network
     );

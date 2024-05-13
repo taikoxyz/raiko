@@ -9,7 +9,7 @@ use raiko_lib::utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, trace, warn};
+use tracing::{error, info, trace, warn};
 
 use crate::error::{self, HostError, HostResult};
 use crate::preflight::preflight;
@@ -192,7 +192,7 @@ impl Prover for NativeProver {
 
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
     if expected != actual {
-        warn!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
+        error!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
     }
 }
 
