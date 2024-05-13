@@ -9,7 +9,7 @@ members = [
     "provers/risc0/driver",
     "provers/risc0/builder",
     "provers/sgx/prover",
-    "provers/sgx/guest", 
+    "provers/sgx/guest",
     "provers/sgx/setup",
     "pipeline",
 ]
@@ -106,6 +106,7 @@ axum = { version = "0.7.4", features = ["macros"] }
 tower-http = { version = "0.5.2", features = ["full"] }
 tower = { version = "0.4.13", features = ["full"] }
 utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
+utoipa-scalar = { version = "0.1.0", features = ["axum"] }
 utoipa = { version = "4.2.0", features = ["axum_extras"] }
 structopt = "0.3.24"
 prometheus = { version = "0.13.3", features = ["process"] }

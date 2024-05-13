@@ -42,10 +42,10 @@ fn subscribe_log(
                 .max_log_files(max_log)
                 .build(log_path)
                 .expect("initializing rolling file appender failed");
-            let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
             let subscriber = subscriber_builder.json().with_writer(non_blocking).finish();
             tracing::subscriber::set_global_default(subscriber).unwrap();
-            Some(_guard)
+            Some(guard)
         }
         None => {
             let subscriber = subscriber_builder.finish();

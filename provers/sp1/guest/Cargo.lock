@@ -1579,6 +1579,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "c-kzg-taiko",
+ "cfg-if",
  "chrono",
  "flate2",
  "hex",

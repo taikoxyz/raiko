@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use lazy_static::lazy_static;
 use prometheus::{
     labels, register_histogram_vec, register_int_counter_vec, register_int_gauge, HistogramVec,
@@ -123,8 +125,13 @@ pub fn inc_guest_error(guest: &ProofType, block_id: u64) {
     GUEST_PROOF_ERROR_COUNT.with(&labels).inc();
 }
 
+/// Convert a duration to a float with 3 decimal places (seconds,milliseconds).
+fn duration_to_f64(d: Duration) -> f64 {
+    (d.as_secs_f64() * 1_000.0).round() / 1_000.0
+}
+
 /// Observe the time taken for the given guest to generate a proof.
-pub fn observe_guest_time(guest: &ProofType, block_id: u64, time: u128, success: bool) {
+pub fn observe_guest_time(guest: &ProofType, block_id: u64, time: Duration, success: bool) {
     let guest = guest.to_string();
     let block_id = block_id.to_string();
     let success = success.to_string();
@@ -133,27 +140,31 @@ pub fn observe_guest_time(guest: &ProofType, block_id: u64, time: u128, success:
         "block_id" => &block_id,
         "success" => &success,
     };
-    GUEST_PROOF_TIME.with(&labels).observe(time as f64);
+    GUEST_PROOF_TIME
+        .with(&labels)
+        .observe(duration_to_f64(time));
 }
 
 /// Observe the time taken for prepare input.
-pub fn observe_prepare_input_time(block_id: u64, time: u128, success: bool) {
+pub fn observe_prepare_input_time(block_id: u64, time: Duration, success: bool) {
     let block_id = block_id.to_string();
     let success = success.to_string();
     let labels = labels! {
         "block_id" => block_id.as_str(),
         "success" => &success,
     };
-    PREPARE_INPUT_TIME.with(&labels).observe(time as f64);
+    PREPARE_INPUT_TIME
+        .with(&labels)
+        .observe(duration_to_f64(time));
 }
 
 /// Observe the time taken for prepare input.
-pub fn observe_total_time(block_id: u64, time: u128, success: bool) {
+pub fn observe_total_time(block_id: u64, time: Duration, success: bool) {
     let block_id = block_id.to_string();
     let success = success.to_string();
     let labels = labels! {
         "block_id" => block_id.as_str(),
         "success" => &success,
     };
-    TOTAL_TIME.with(&labels).observe(time as f64);
+    TOTAL_TIME.with(&labels).observe(duration_to_f64(time));
 }

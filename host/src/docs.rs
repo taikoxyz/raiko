@@ -1,7 +1,6 @@
 use raiko_host::server::api::create_docs;
+use utoipa_scalar::Scalar;
 
 fn main() {
-    let docs = create_docs();
-    let json = docs.to_json().expect("Failed to serialize docs to json");
-    println!("{json}");
+    println!("{}", Scalar::new(create_docs()).to_html());
 }

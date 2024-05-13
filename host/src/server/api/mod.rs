@@ -6,6 +6,8 @@ use axum::{
     response::Response,
     Router,
 };
+use raiko_lib::input::GuestOutput;
+use serde::Serialize;
 use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
@@ -13,7 +15,8 @@ use tower_http::{
     set_header::SetResponseHeaderLayer,
     trace::TraceLayer,
 };
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
+use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::ProverState;
@@ -42,16 +45,45 @@ mod proof;
         schemas(
             crate::request::ProofRequestOpt,
             crate::error::HostError,
+            crate::request::ProverSpecificOpts,
+            GuestOutputDoc,
+            ProofResponse,
         )
     ),
     tags(
-        (name = "Prooving", description = "Routes that handle prooving requests"),
+        (name = "Proving", description = "Routes that handle proving requests"),
         (name = "Health", description = "Routes that report the server health status"),
         (name = "Metrics", description = "Routes that give detailed insight into the server")
     )
 )]
 /// The root API struct which is generated from the `OpenApi` derive macro.
 pub struct Docs;
+
+#[derive(Debug, Serialize, ToSchema)]
+/// The response body of a proof request.
+pub struct ProofResponse {
+    #[schema(value_type = Option<GuestOutputDoc>)]
+    /// The output of the prover.
+    output: Option<GuestOutput>,
+    /// The proof.
+    proof: Option<String>,
+    /// The quote.
+    quote: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub enum GuestOutputDoc {
+    #[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
+    /// The output of the prover when the proof generation was successful.
+    Success {
+        /// Header bytes.
+        header: Vec<u8>,
+        /// Instance hash.
+        hash: String,
+    },
+    /// The output of the prover when the proof generation failed.
+    Failure,
+}
 
 #[must_use]
 pub fn create_docs() -> utoipa::openapi::OpenApi {
@@ -88,6 +120,8 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
 
     let trace = TraceLayer::new_for_http();
 
+    let docs = create_docs();
+
     Router::new()
         // Only add the concurrency limit to the proof route. We want to still be able to call
         // healthchecks and metrics to have insight into the system.
@@ -101,7 +135,8 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
         .layer(middleware)
         .layer(middleware::from_fn(check_max_body_size))
         .layer(trace)
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", create_docs()))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
+        .merge(Scalar::with_url("/scalar", docs))
         .fallback(|uri: Uri| async move {
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
         })
