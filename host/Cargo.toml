@@ -75,7 +75,6 @@ ethers-core = { workspace = true }
 sp1 = ["dep:sp1-driver", "sp1-driver/enable"]
 risc0 = ["dep:risc0-driver", "risc0-driver/enable"]
 sgx = ["dep:sgx-prover", "sgx-prover/enable"]
-alpha-7 = [] # back compatible with a7
 
 [[bin]]
 name = "raiko-host"
