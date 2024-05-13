@@ -285,7 +285,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             debug!("  Ok: {result:?}");
 
             #[cfg(feature = "tracer")]
-            // Flush the trace file writer
+            // Flush the trace writer
             trace.lock().unwrap().flush().expect("Error flushing trace");
 
             tx_transact_duration.add_assign(start.elapsed());
