@@ -35,15 +35,25 @@ mod tests {
         let blockhash = B256::random();
         let proofsys = TaskProofsys::Risc0;
         let payload_length = rng.gen_range(20..200);
-        let payload: Vec<u8> = rng.gen_iter::<u8>().take(payload_length).collect();
         let submitter = "test_enqueue_task";
+        let block_number = rng.gen_range(1..4_000_000);
+        let parent_hash = B256::random();
+        let state_root = B256::random();
+        let num_transactions = rng.gen_range(0..1000);
+        let gas_used = rng.gen_range(0..100_000_000);
+        let payload: Vec<u8> = rng.gen_iter::<u8>().take(payload_length).collect();
 
         tama.enqueue_task(
             chain_id,
-            blockhash,
+            &blockhash,
             proofsys,
             &payload,
-            submitter
+            submitter,
+            block_number,
+            &parent_hash,
+            &state_root,
+            num_transactions,
+            gas_used
         ).unwrap();
     }
 }
