@@ -14,6 +14,8 @@ rand_chacha = "0.9.0-alpha.1"
 tempfile = "3.10.1"
 alloy-primitives = { workspace = true, features = ["getrandom"] }
 
+rusqlite = { workspace = true, features = ["trace"] }
+
 [[test]]
 name = "task_manager_tests"
 path = "tests/main.rs"

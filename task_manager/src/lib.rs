@@ -392,6 +392,14 @@ impl TaskDb {
         Ok(())
     }
 
+    /// Set a tracer to debug SQL execution
+    /// for example:
+    ///   db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
+    #[cfg(test)]
+    pub fn set_tracer(&mut self, trace_fn: Option<fn(_: &str)>) {
+        self.conn.trace(trace_fn);
+    }
+
     pub fn manage<'db>(&'db self) -> Result<TaskManager<'db>, TaskManagerError> {
         // To update all the tables with the task_id assigned by Sqlite
         // we require row IDs for the taskqueue table
@@ -489,15 +497,11 @@ impl TaskDb {
         let enqueue_task = conn.prepare(
             "
             INSERT INTO temp.enqueue_task(
-                    chain_id, blockhash, id_proofsys, id_status,
-                    payload, submitter,
-                    block_number, parent_hash, state_root,
-                    num_transactions, gas_used,
+                    chain_id, blockhash, id_proofsys, id_status, submitter,
+                    block_number, parent_hash, state_root, num_transactions, gas_used,
                     payload)
-                VALUES (:chain_id, :blockhash, :id_proofsys, :id_status,
-                    :payload, :submitter,
-                    :block_number, :parent_hash, :state_root,
-                    :num_transactions, :gas_used,
+                VALUES (:chain_id, :blockhash, :id_proofsys, :id_status, :submitter,
+                    :block_number, :parent_hash, :state_root, :num_transactions, :gas_used,
                     :payload);
             ")?;
 
@@ -511,13 +515,13 @@ impl<'db> TaskManager<'db> {
         chain_id: ChainId,
         blockhash: &B256,
         proof_system: TaskProofsys,
-        payload: &[u8],
         submitter: &str,
         block_number: BlockNumber,
         parent_hash: &B256,
         state_root: &B256,
         num_transactions: u64,
         gas_used: u64,
+        payload: &[u8],
     ) -> Result<(), TaskManagerError> {
 
         println!("{}", self.enqueue_task.expanded_sql().unwrap());
@@ -528,7 +532,7 @@ impl<'db> TaskManager<'db> {
             ":chain_id": chain_id as u64,
             ":blockhash": blockhash.as_slice(),
             ":id_proofsys": proof_system as u8,
-            ":id_status": status as u8,
+            ":id_status": status as u32,
             ":submitter": submitter,
             ":block_number": block_number,
             ":parent_hash": parent_hash.as_slice(),
