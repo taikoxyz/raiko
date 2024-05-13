@@ -26,7 +26,7 @@ pem = {version = "3.0.4", optional = true}
 url = { workspace = true }
 
 [features]
-default = ["enable", "pem"]
+default = ["dep:pem"]
 enable = [
     "raiko-lib",
     "raiko-primitives",
