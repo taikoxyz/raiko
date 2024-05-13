@@ -2,7 +2,7 @@ name: OpenAPI
 
 on:
   push:
-    branches: ["taiko/unstable"]
+    branches: ["main"]
   pull_request:
 
 permissions:
