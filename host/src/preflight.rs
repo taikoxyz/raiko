@@ -623,7 +623,10 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
 #[cfg(test)]
 mod test {
     use ethers_core::types::Transaction;
-    use raiko_lib::{consts::get_network_spec, utils::decode_transactions};
+    use raiko_lib::{
+        consts::{get_network_spec, Network},
+        utils::decode_transactions,
+    };
     use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;
