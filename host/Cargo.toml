@@ -32,6 +32,7 @@ axum = { workspace = true }
 tower-http = { workspace = true }
 tower = { workspace = true }
 utoipa-swagger-ui = { workspace = true }
+utoipa-scalar = { workspace = true }
 utoipa = { workspace = true }
 
 # misc
@@ -83,7 +84,3 @@ path = "src/main.rs"
 [[bin]]
 name = "docs"
 path = "src/docs.rs"
-
-
-[patch.crates-io]
-axum = { git = "https://github.com/petarvujovic98/axum", branch = "raiko" }

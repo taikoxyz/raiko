@@ -19,7 +19,7 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
-use raiko_primitives::{mpt::MptNode, Address, Bytes, FixedBytes, B256, U256};
+use raiko_primitives::{mpt::MptNode, Address, Bytes, B256, U256};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -103,17 +103,15 @@ pub struct TaikoProverData {
     pub graffiti: B256,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GuestOutput {
-    Success((WrappedHeader, FixedBytes<32>)),
-    Failure,
-}
-
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WrappedHeader {
-    #[serde_as(as = "RlpBytes")]
-    pub header: AlloyConsensusHeader,
+pub enum GuestOutput {
+    Success {
+        #[serde_as(as = "RlpBytes")]
+        header: AlloyConsensusHeader,
+        hash: B256,
+    },
+    Failure,
 }
 
 sol! {

@@ -21,17 +21,17 @@ pub mod request;
 pub mod rpc_provider;
 pub mod server;
 
+use std::{alloc, collections::HashMap, path::PathBuf};
+
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
-use anyhow::{Context, Result};
+use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::{alloc, fmt::Debug, path::PathBuf};
 
-use crate::{error::HostError, request::ProofRequestOpt};
+use crate::{error::HostResult, request::ProofRequestOpt};
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
@@ -59,8 +59,11 @@ fn default_log_level() -> String {
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]
-#[command(name = "raiko")]
-#[command(about = "The taiko prover host", long_about = None)]
+#[command(
+    name = "raiko", 
+    about = "The taiko prover host", 
+    long_about = None
+)]
 #[serde(default)]
 pub struct Cli {
     #[arg(long, require_equals = true, default_value = "0.0.0.0:8080")]
@@ -83,7 +86,7 @@ pub struct Cli {
 
     #[arg(long, require_equals = true, default_value = "host/config/config.json")]
     #[serde(default = "default_config_path")]
-    /// Path to a config file that includes sufficent json args to request
+    /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
 
@@ -104,7 +107,7 @@ pub struct Cli {
 
 impl Cli {
     /// Read the options from a file and merge it with the current options.
-    pub fn merge_from_file(&mut self) -> Result<(), HostError> {
+    pub fn merge_from_file(&mut self) -> HostResult<()> {
         let file = std::fs::File::open(&self.config_path)?;
         let reader = std::io::BufReader::new(file);
         let mut config: Value = serde_json::from_reader(reader)?;
@@ -135,7 +138,7 @@ pub struct ProverState {
 }
 
 impl ProverState {
-    pub fn init() -> Result<Self, HostError> {
+    pub fn init() -> HostResult<Self> {
         // Read the command line arguments;
         let mut opts = Cli::parse();
         // Read the config file.
@@ -153,6 +156,8 @@ impl ProverState {
 }
 
 mod memory {
+    use tracing::info;
+
     use crate::ALLOCATOR;
 
     pub(crate) fn reset_stats() {
@@ -165,10 +170,10 @@ mod memory {
 
     pub(crate) fn print_stats(title: &str) {
         let max_memory = get_max_allocated();
-        println!(
+        info!(
             "{title}{}.{:06} MB",
-            max_memory / 1000000,
-            max_memory % 1000000
+            max_memory / 1_000_000,
+            max_memory % 1_000_000
         );
     }
 }

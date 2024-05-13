@@ -9,6 +9,7 @@ use raiko_lib::{
     Measurement,
 };
 use serde_json::Value;
+use tracing::{debug, info};
 use utoipa::OpenApi;
 
 use crate::{
@@ -44,14 +45,14 @@ fn set_cached_input(
     cache_path: &Option<PathBuf>,
     block_number: u64,
     network: &str,
-    input: GuestInput,
+    input: &GuestInput,
 ) -> HostResult<()> {
     if let Some(dir) = cache_path.as_ref() {
         let path = get_input_path(dir, block_number, network);
         if !path.exists() {
             let file = File::create(&path).map_err(<std::io::Error as Into<HostError>>::into)?;
-            println!("caching input for {path:?}");
-            bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
+            info!("caching input for {path:?}");
+            bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))?;
         }
     }
     Ok(())
@@ -59,8 +60,9 @@ fn set_cached_input(
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",
+    request_body = ProofRequestOpt,
     responses (
-        (status = 200, description = "Successfully created proof for request")
+        (status = 200, description = "Successfully created proof for request", body = ProofResponse)
     )
 )]
 #[debug_handler(state = ProverState)]
@@ -89,7 +91,7 @@ async fn proof_handler(
     })?;
     inc_host_req_count(proof_request.block_number);
 
-    println!(
+    info!(
         "# Generating proof for block {} on {}",
         proof_request.block_number, proof_request.network
     );
@@ -108,16 +110,16 @@ async fn proof_handler(
 
     let raiko = Raiko::new(chain_spec, proof_request.clone());
     let input = if let Some(cached_input) = cached_input {
-        println!("Using cached input");
+        debug!("Using cached input");
         cached_input
     } else {
         memory::reset_stats();
         let measurement = Measurement::start("Generating input...", false);
         let provider =
-            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1);
+            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)?;
         let input = raiko.generate_input(provider).await?;
         let input_time = measurement.stop_with("=> Input generated");
-        observe_prepare_input_time(proof_request.block_number, input_time.as_millis(), true);
+        observe_prepare_input_time(proof_request.block_number, input_time, true);
         memory::print_stats("Input generation peak memory used: ");
         input
     };
@@ -130,11 +132,11 @@ async fn proof_handler(
     let proof = raiko.prove(input.clone(), &output).await.map_err(|e| {
         dec_current_req();
         let total_time = total_time.stop_with("====> Proof generation failed");
-        observe_total_time(proof_request.block_number, total_time.as_millis(), false);
+        observe_total_time(proof_request.block_number, total_time, false);
         match e {
-            HostError::GuestError(e) => {
+            HostError::Guest(e) => {
                 inc_guest_error(&proof_request.proof_type, proof_request.block_number);
-                HostError::GuestError(e)
+                HostError::Guest(e)
             }
             e => {
                 inc_host_error(proof_request.block_number);
@@ -146,21 +148,21 @@ async fn proof_handler(
     observe_guest_time(
         &proof_request.proof_type,
         proof_request.block_number,
-        guest_time.as_millis(),
+        guest_time,
         true,
     );
     memory::print_stats("Prover peak memory used: ");
 
     inc_guest_success(&proof_request.proof_type, proof_request.block_number);
     let total_time = total_time.stop_with("====> Complete proof generated");
-    observe_total_time(proof_request.block_number, total_time.as_millis(), true);
+    observe_total_time(proof_request.block_number, total_time, true);
 
     // Cache the input for future use.
     set_cached_input(
         &opts.cache_path,
         proof_request.block_number,
         &proof_request.network.to_string(),
-        input,
+        &input,
     )
     .map_err(|e| {
         dec_current_req();
