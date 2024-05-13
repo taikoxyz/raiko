@@ -17,10 +17,10 @@ concurrency:
 jobs:
   deploy-docs:
     name: Generate OpenAPI docs
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ (github.ref == 'refs/heads/main') && 'github-pages' || 'test-environment' }}
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout
@@ -36,16 +36,16 @@ jobs:
         run: ./script/generate-docs.sh
 
       - name: Setup Pages
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v3
 
       - name: Upload artifact
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v2
         with:
-            path: './openapi'
+          path: './openapi'
 
       - name: Deploy to GitHub Pages
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v2
