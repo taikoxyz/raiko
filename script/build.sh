@@ -39,6 +39,11 @@ else
 	COMMAND=run
 fi
 
+if [ "$CPU_OPT" = "1" ]; then
+	export RUSTFLAGS='-C target-cpu=native' 
+	echo "Enable cpu optimization with host RUSTFLAGS"
+fi
+
 # NATIVE
 if [ -z "$1" ] || [ "$1" == "native" ]; then
 	if [ -z "${RUN}" ]; then

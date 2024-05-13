@@ -46,6 +46,7 @@ Look into `prove-block.sh` for the available options or run the script without i
 ```
 
 ## Provers
+For all host program, you can enable CPU optimization through exporting `CPU_OPT=1`.
 ### Risc zero
 To install, build, and run in one step:
 ```console

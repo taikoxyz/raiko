@@ -1,7 +1,8 @@
+reference: https://succinctlabs.github.io/sp1/generating-proofs/advanced.html
 
 ## CPU Acceleration
 
-To enable CPU acceleration, you can use the `RUSTFLAGS` environment variable to enable the `target-cpu=native` flag when running your script. This will enable the compiler to generate code that is optimized for your CPU.
+To enable CPU acceleration, you can use the `RUSTFLAGS` environment variable to enable the `target-cpu=native` flag when running your script. This will enable the compiler to generate code that is optimized for your CPU. We encapsulate this with `CPU_OPT=1`
 
 ```bash
 RUSTFLAGS='-C target-cpu=native' cargo run --release
