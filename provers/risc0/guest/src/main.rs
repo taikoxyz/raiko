@@ -6,7 +6,7 @@ use raiko_lib::protocol_instance::assemble_protocol_instance;
 use raiko_lib::protocol_instance::EvidenceType;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::{GuestInput, GuestOutput, WrappedHeader},
+    input::{GuestInput, GuestOutput},
 };
 use revm_precompile::zk_op::ZkOperation;
 use zk_op::Risc0Operator;
@@ -32,19 +32,16 @@ fn main() {
             let pi = assemble_protocol_instance(&input, header)
                 .expect("Failed to assemble protocol instance")
                 .instance_hash(EvidenceType::Risc0);
-            GuestOutput::Success((
-                WrappedHeader {
-                    header: header.clone(),
-                },
-                pi,
-            ))
+            GuestOutput::Success {
+                header: header.clone(),
+                hash: pi,
+            }
         }
         Err(_) => GuestOutput::Failure,
     };
 
     env::commit(&output);
 }
-
 
 harness::zk_suits!(
     pub mod tests {

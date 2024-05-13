@@ -23,7 +23,7 @@ After installing dependencies of selected prover, the following command internal
 ```console
 $ TARGET=sp1 make build
 ```
-If you set `DEBUG=1` then the target will be compiled without optimization (not recomended for ZkVM elfs).
+If you set `DEBUG=1` then the target will be compiled without optimization (not recommended for ZkVM elfs).
 
 ### Running
 
@@ -114,3 +114,7 @@ $ cargo run --features tracer
 ```
 
 A `traces` folder will be created inside the root directory. This folder will contain json files with the trace of each valid transaction in the block.
+
+## OpenAPI
+
+When running any of the features/provers, OpenAPI UIs are available in both Swagger and Scalar flavors on `/swagger-ui` and `/scalar` respectively.
