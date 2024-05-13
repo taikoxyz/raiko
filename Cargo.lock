@@ -5011,6 +5011,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "c-kzg-taiko",
+ "cfg-if",
  "chrono",
  "flate2",
  "hex",

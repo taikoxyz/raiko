@@ -26,6 +26,7 @@ url = { workspace = true }
 hex = { workspace = true }
 c-kzg-taiko = { workspace = true }
 sha2 = { workspace = true }
+cfg-if = { workspace = true }
 
 # [target.'cfg(feature = "std")'.dependencies]
 thiserror = { workspace = true, optional = true }
@@ -53,6 +54,9 @@ std = [
   "dep:serde_json",
   "dep:serde_with",
   # "dep:tokio",
+]
+tracer = [
+  "revm/serde-json",
 ]
 sgx = []
 sp1 = []

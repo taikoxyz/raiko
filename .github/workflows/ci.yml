@@ -38,6 +38,8 @@ jobs:
       run: make build
     - name: Test native prover
       run: make test
+    - name: Build with tracer
+      run: cargo build --features tracer
 
   build-test-risc0:
     name: Build and test risc0

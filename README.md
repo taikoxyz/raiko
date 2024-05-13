@@ -100,3 +100,12 @@ If your CPU doesn't support SGX, you can still run the SGX code through gramine 
 ```console
 $ MOCK=1 TARGET=sgx make run
 ```
+
+### Execution Trace
+
+You can generate an execution trace for the block that is being proven by enabling the `tracer` feature:
+```console
+$ cargo run --features tracer
+```
+
+A `traces` folder will be created inside the root directory. This folder will contain json files with the trace of each valid transaction in the block.

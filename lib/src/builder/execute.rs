@@ -32,6 +32,12 @@ use revm::{
     },
     taiko, Database, DatabaseCommit, Evm, JournaledState,
 };
+cfg_if::cfg_if! {
+    if #[cfg(feature = "tracer")] {
+        use std::{fs::{OpenOptions, File}, io::{BufWriter, Write}, sync::{Arc, Mutex}};
+        use revm::{inspector_handle_register, inspectors::TracerEip3155};
+    }
+}
 
 use super::{OptimisticDatabase, TxExecStrategy};
 use crate::{
@@ -92,8 +98,10 @@ impl TxExecStrategy for TkoTxExecStrategy {
         );
 
         // Setup the EVM environment
-        let evm = Evm::builder()
-            .with_db(block_builder.db.take().unwrap())
+        let evm = Evm::builder().with_db(block_builder.db.take().unwrap());
+        #[cfg(feature = "tracer")]
+        let evm = evm.with_external_context(TracerEip3155::new(Box::new(std::io::stdout())));
+        let evm = evm
             .with_handler_cfg(HandlerCfg::new_with_taiko(spec_id, is_taiko))
             .modify_cfg_env(|cfg_env| {
                 // set the EVM configuration
@@ -117,6 +125,8 @@ impl TxExecStrategy for TkoTxExecStrategy {
         } else {
             evm
         };
+        #[cfg(feature = "tracer")]
+        let evm = evm.append_handler_register(inspector_handle_register);
         let mut evm = evm.build();
 
         // Set the beacon block root in the EVM
@@ -165,6 +175,14 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
             inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+
+            #[cfg(feature = "tracer")]
+            let trace = set_trace_writer(
+                &mut evm.context.external,
+                chain_id,
+                block_builder.input.block_number,
+                actual_tx_no,
+            );
 
             // anchor transaction always the first transaction
             let is_anchor = is_taiko && tx_no == 0;
@@ -265,6 +283,10 @@ impl TxExecStrategy for TkoTxExecStrategy {
             };
             #[cfg(feature = "std")]
             debug!("  Ok: {result:?}");
+
+            #[cfg(feature = "tracer")]
+            // Flush the trace writer
+            trace.lock().unwrap().flush().expect("Error flushing trace");
 
             tx_transact_duration.add_assign(start.elapsed());
 
@@ -454,4 +476,50 @@ where
     db.commit([(address, account)].into());
 
     Ok(())
+}
+
+#[cfg(feature = "tracer")]
+fn set_trace_writer(
+    tracer: &mut TracerEip3155,
+    chain_id: u64,
+    block_number: u64,
+    tx_no: usize,
+) -> Arc<Mutex<BufWriter<File>>> {
+    struct FlushWriter {
+        writer: Arc<Mutex<BufWriter<std::fs::File>>>,
+    }
+    impl FlushWriter {
+        fn new(writer: Arc<Mutex<BufWriter<std::fs::File>>>) -> Self {
+            Self { writer }
+        }
+    }
+    impl Write for FlushWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.writer.lock().unwrap().write(buf)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.writer.lock().unwrap().flush()
+        }
+    }
+
+    // Create the traces directory if it doesn't exist
+    std::fs::create_dir_all("traces").expect("Failed to create traces directory");
+
+    // Construct the file writer to write the trace to
+    let file_name = format!("traces/{}_{}_{}.json", chain_id, block_number, tx_no);
+    let write = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(file_name);
+    let trace = Arc::new(Mutex::new(BufWriter::new(
+        write.expect("Failed to open file"),
+    )));
+    let writer = FlushWriter::new(Arc::clone(&trace));
+
+    // Set the writer inside the handler in revm
+    tracer.set_writer(Box::new(writer));
+
+    trace
 }
