@@ -1,5 +1,9 @@
 use anyhow::Result;
-use std::{borrow::Cow, fs, path::{Path, PathBuf}};
+use std::{
+    borrow::Cow,
+    fs,
+    path::{Path, PathBuf},
+};
 
 pub const DIGEST_WORDS: usize = 8;
 
@@ -36,7 +40,7 @@ impl GuestListEntry {
     pub fn build(name: &str, elf_path: &str) -> Result<Self> {
         let elf = std::fs::read(elf_path)?;
         let image_id = risc0_binfmt::compute_image_id(&elf)?;
-        
+
         Ok(Self {
             name: Cow::Owned(name.to_owned()),
             elf: Cow::Owned(elf),
@@ -50,8 +54,8 @@ impl GuestListEntry {
             panic!("method path cannot include #: {}", self.path);
         }
         let relative_path = pathdiff::diff_paths(
-            fs::canonicalize(Path::new(&self.path.as_ref())).unwrap(), 
-            dest
+            fs::canonicalize(Path::new(&self.path.as_ref())).unwrap(),
+            dest,
         )
         .map(|p| String::from(p.to_str().unwrap()))
         .unwrap();

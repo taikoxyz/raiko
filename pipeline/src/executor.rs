@@ -96,7 +96,11 @@ impl Executor {
             let mut dest_file =
                 File::create(&dest_dir.join(&format!("{}.rs", name.replace('-', "_")))).unwrap();
             let guest = GuestListEntry::build(&name, root.join(src).to_str().unwrap()).unwrap();
-            dest_file.write_all(guest.codegen_consts(& fs::canonicalize(&dest_dir).unwrap()).as_bytes())?;
+            dest_file.write_all(
+                guest
+                    .codegen_consts(&fs::canonicalize(&dest_dir).unwrap())
+                    .as_bytes(),
+            )?;
             println!("Write from\n  {:?}\nto\n  {:?}", src, dest_file);
         }
         Ok(())
