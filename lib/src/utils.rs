@@ -62,10 +62,23 @@ pub fn generate_transactions(
     let tx_list = &if is_blob_data {
         let compressed_tx_list = decode_blob_data(tx_list);
         zlib_decompress_data(&compressed_tx_list).unwrap_or_default()
-    } else if validate_calldata_tx_list(tx_list) {
-        zlib_decompress_data(tx_list).unwrap_or_default()
     } else {
-        vec![]
+        if cfg!(feature="alpha-7") {
+            // decompress the tx list first to align with A7 client
+            let de_tx_list: Vec<u8> = zlib_decompress_data(&tx_list.to_owned()).unwrap_or_default();
+            if validate_calldata_tx_list(&de_tx_list) {
+                de_tx_list
+            } else {
+                println!("validate_calldata_tx_list failed, use empty tx_list");
+                vec![]
+            }
+        } else {
+            if validate_calldata_tx_list(tx_list) {
+                zlib_decompress_data(tx_list).unwrap_or_default()
+            } else {
+                vec![]
+            }
+        }
     };
 
     // Decode the transactions from the tx list
