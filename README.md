@@ -101,6 +101,10 @@ If your CPU doesn't support SGX, you can still run the SGX code through gramine 
 $ MOCK=1 TARGET=sgx make run
 ```
 
+## Misc
+[Docker & Remote Attestation Support](docs/README_Docker_and_RA.md)
+[Metrics](docs/README_Metrics.md)
+
 ### Execution Trace
 
 You can generate an execution trace for the block that is being proven by enabling the `tracer` feature:
