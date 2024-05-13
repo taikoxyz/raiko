@@ -84,6 +84,7 @@ To build and run test on Sp1 Zkvm:
 ```console
 $ TARGET=sp1 make test
 ```
+Some optimized configuration tailored to the host can be found [here](docs/README_Sp1.md)
 
 ### SGX:
 To install, build, and run in one step:

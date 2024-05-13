@@ -128,7 +128,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 			cargo ${TOOLCHAIN_SP1} run --bin sp1-builder
 		else
 			echo "Building test elfs for Sp1 prover"
-			cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test
+			cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench
 		fi
 		cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1
 	else
