@@ -60,5 +60,4 @@ sp1 = []
 risc0 = []
 tracer = [
   "revm/serde-json",
-  "revm/ethersdb",
 ]

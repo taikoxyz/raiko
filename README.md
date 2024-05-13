@@ -108,4 +108,4 @@ You can generate an execution trace for the block that is being proven by enabli
 $ cargo run --features tracer
 ```
 
-A folder called `traces` will be generated inside the root directory. This folder will contain json files with the trace of each valid transaction in the block.
+A `traces` folder will be created inside the root directory. This folder will contain json files with the trace of each valid transaction in the block.

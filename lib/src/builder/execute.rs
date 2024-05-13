@@ -177,7 +177,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
 
             #[cfg(feature = "tracer")]
-            let inner = set_trace_writer(
+            let trace = set_trace_writer(
                 &mut evm.context.external,
                 chain_id,
                 block_builder.input.block_number,
@@ -286,7 +286,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             #[cfg(feature = "tracer")]
             // Flush the trace file writer
-            inner.lock().unwrap().flush().expect("Error flushing trace");
+            trace.lock().unwrap().flush().expect("Error flushing trace");
 
             tx_transact_duration.add_assign(start.elapsed());
 
@@ -495,12 +495,10 @@ fn set_trace_writer(
     }
     impl Write for FlushWriter {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            //println!("writing");
             self.writer.lock().unwrap().write(buf)
         }
 
         fn flush(&mut self) -> std::io::Result<()> {
-            //println!("flushing");
             self.writer.lock().unwrap().flush()
         }
     }
@@ -515,11 +513,11 @@ fn set_trace_writer(
         .create(true)
         .truncate(true)
         .open(file_name);
-    let inner = Arc::new(Mutex::new(BufWriter::new(
+    let trace = Arc::new(Mutex::new(BufWriter::new(
         write.expect("Failed to open file"),
     )));
-    let writer = FlushWriter::new(Arc::clone(&inner));
+    let writer = FlushWriter::new(Arc::clone(&trace));
     tracer.set_writer(Box::new(writer));
 
-    inner
+    trace
 }
