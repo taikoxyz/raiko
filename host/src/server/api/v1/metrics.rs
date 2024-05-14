@@ -9,7 +9,7 @@ use crate::{error::HostResult, ProverState};
     path = "/metrics",
     tag = "Metrics",
     responses (
-        (status = 200, description = "The metrics have been captured successfuly"),
+        (status = 200, description = "The metrics have been captured successfully"),
     ),
 )]
 #[debug_handler(state = ProverState)]
