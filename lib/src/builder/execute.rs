@@ -92,6 +92,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
             None
         };
         let mut transactions = generate_transactions(
+            chain_spec,
             block_builder.input.taiko.block_proposed.meta.blobUsed,
             &block_builder.input.taiko.tx_data,
             anchor_tx,
