@@ -39,6 +39,11 @@ else
 	COMMAND=run
 fi
 
+if [ "$CPU_OPT" = "1" ]; then
+	export RUSTFLAGS='-C target-cpu=native' 
+	echo "Enable cpu optimization with host RUSTFLAGS"
+fi
+
 # NATIVE
 if [ -z "$1" ] || [ "$1" == "native" ]; then
 	if [ -z "${RUN}" ]; then
@@ -100,7 +105,7 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 			cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
 		else
 			echo "Building test elfs for Risc0 prover"
-			cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test
+			cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test,bench
 		fi
 		cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --features risc0
 	else
@@ -128,7 +133,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 			cargo ${TOOLCHAIN_SP1} run --bin sp1-builder
 		else
 			echo "Building test elfs for Sp1 prover"
-			cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test
+			cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench
 		fi
 		cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1
 	else

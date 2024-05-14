@@ -46,6 +46,7 @@ Look into `prove-block.sh` for the available options or run the script without i
 ```
 
 ## Provers
+For all host program, you can enable CPU optimization through exporting `CPU_OPT=1`.
 ### Risc zero
 To install, build, and run in one step:
 ```console
@@ -84,6 +85,7 @@ To build and run test on Sp1 Zkvm:
 ```console
 $ TARGET=sp1 make test
 ```
+Some optimized configuration tailored to the host can be found [here](docs/README_Sp1.md)
 
 ### SGX:
 To install, build, and run in one step:
@@ -100,6 +102,10 @@ If your CPU doesn't support SGX, you can still run the SGX code through gramine 
 ```console
 $ MOCK=1 TARGET=sgx make run
 ```
+
+## Misc
+[Docker & Remote Attestation Support](docs/README_Docker_and_RA.md)
+[Metrics](docs/README_Metrics.md)
 
 ### Execution Trace
 
