@@ -115,6 +115,7 @@ prometheus = { version = "0.13.3", features = ["process"] }
 c-kzg = "1.0.0"
 c-kzg-taiko = { git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
     "preload-kzg-settings",
+    "no-threads",
 ] }
 sha3 = { version = "0.10", default-features = false }
 sha2 = "0.10.8"
