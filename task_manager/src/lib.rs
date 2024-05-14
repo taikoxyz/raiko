@@ -189,6 +189,7 @@ pub struct TaskManager<'db> {
     enqueue_task: Statement<'db>,
     // dequeue_task: Statement<'db>,
     // get_block_proof_status: Statement<'db>,
+    get_db_size: Statement<'db>,
 }
 
 pub enum TaskProofsys {
@@ -500,7 +501,23 @@ impl TaskDb {
                     :payload);
             ")?;
 
-        Ok(TaskManager { enqueue_task })
+        // The requires sqlite to be compiled with dbstat support:
+        //      https://www.sqlite.org/dbstat.html
+        // which is the case for rusqlite
+        //      https://github.com/rusqlite/rusqlite/blob/v0.31.0/libsqlite3-sys/build.rs#L126
+        // but may not be the case for system-wide sqlite when debugging.
+        let get_db_size = conn.prepare(
+            "
+            SELECT
+                name as table_name,
+                SUM(pgsize) as table_size
+            FROM dbstat
+            GROUP BY table_name
+            ORDER BY SUM(pgsize) DESC
+            "
+        )?;
+
+        Ok(TaskManager { enqueue_task, get_db_size })
     }
 }
 
@@ -531,6 +548,14 @@ impl<'db> TaskManager<'db> {
             ":payload": payload,
         })?;
         Ok(())
+    }
+
+    /// Returns the total and detailed database size
+    pub fn get_db_size(&mut self) -> Result<(usize, Vec<(String, usize)>), TaskManagerError> {
+        let rows = self.get_db_size.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let details = rows.collect::<Result<Vec<_>, _>>()?;
+        let total = details.iter().fold(0, |acc, item| acc + item.1);
+        Ok((total, details))
     }
 }
 
