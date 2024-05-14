@@ -269,7 +269,9 @@ mod tests {
     async fn test_prove_block_taiko_a7() {
         let proof_type = get_proof_type_from_env();
         let network = Network::TaikoA7;
-        let block_number = 101368;
+        // Give the CI an simpler block to test because it doesn't have enough memory.
+        // Unfortunately that also means that kzg is not getting fully verified by CI.
+        let block_number = if is_ci() { 105987 } else { 101368 };
         let chain_spec = get_network_spec(network);
         let proof_request = ProofRequest {
             block_number,
