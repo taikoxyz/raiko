@@ -56,11 +56,11 @@ sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
 alloy-rlp-derive = { version = "0.3.4", default-features = false }
-alloy-core = { version = "0.7.1", default-features = false }
-alloy-dyn-abi = { version = "0.7.1", default-features = false }
-alloy-json-abi = { version = "0.7.1", default-features = false }
-alloy-primitives = { version = "0.7.1", default-features = false }
-alloy-sol-types = { version = "0.7.1", default-features = false }
+alloy-core = { version = "0.7.2", default-features = false }
+alloy-dyn-abi = { version = "0.7.2", default-features = false }
+alloy-json-abi = { version = "0.7.2", default-features = false }
+alloy-primitives = { version = "0.7.2", default-features = false }
+alloy-sol-types = { version = "0.7.2", default-features = false }
 alloy-rpc-types = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
 alloy-rpc-client = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e" }
 alloy-consensus = { git = "https://github.com/brechtpd/alloy", branch = "175_4e22b9e", features = [

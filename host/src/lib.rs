@@ -33,7 +33,7 @@ use serde_json::Value;
 
 use crate::{error::HostResult, request::ProofRequestOpt};
 
-type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
+pub type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
@@ -60,8 +60,8 @@ fn default_log_level() -> String {
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]
 #[command(
-    name = "raiko", 
-    about = "The taiko prover host", 
+    name = "raiko",
+    about = "The taiko prover host",
     long_about = None
 )]
 #[serde(default)]
