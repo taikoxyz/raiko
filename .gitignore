@@ -43,6 +43,7 @@ target/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.sqlite-journal
 
 # Temp files, swap, debug, log, perf, cache
 # -----------------------------------------------------------------------------------------

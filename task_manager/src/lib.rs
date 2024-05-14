@@ -43,7 +43,6 @@
 //! - KV-stores for (almost) immutable data
 //! - KV-store for large inputs and indistinguishable from random proofs
 //! - Tables for tasks and their metadata.
-//! - Prefixed with rts_ in-case the DB is co-located with other services.
 //!
 //!  __________________________
 //! | metadata                |
@@ -69,7 +68,8 @@
 //! | id_status   | Desc                             |
 //! |_____________|__________________________________|
 //! |     0       | Success                          |
-//! |  1000       | Work-in-progress                 |
+//! |  1000       | Registered                       |
+//! |  2000       | Work-in-progress                 |
 //! |             |                                  |
 //! | -1000       | Proof failure (prover - generic) |
 //! | -1100       | Proof failure (OOM)              |
@@ -97,7 +97,44 @@
 //!   They should not exist in the DB and a proper analysis
 //!   and eventually status code should be assigned.
 //!
-//!  ____________________________
+//!  ________________________________________________________________________________________________
+//! | Tasks metadata                                                                                 |
+//! |________________________________________________________________________________________________|
+//! | id_task | chain_id | block_number | blockhash | parent_hash | state_root | # of txs | gas_used |
+//! |_________|__________|______________|___________|_____________|____________|__________|__________|
+//!  ____________________________________
+//! | Task queue                        |
+//! |___________________________________|
+//! | id_task | blockhash | id_proofsys |
+//! |_________|___________|_____________|
+//!  ______________________________________
+//! | Task payloads                       |
+//! |_____________________________________|
+//! | id_task | inputs (serialized)       |
+//! |_________|___________________________|
+//!  _____________________________________
+//! | Task requests                      |
+//! |____________________________________|
+//! | id_task | id_submitter | timestamp |
+//! |_________|______________|___________|
+//!  ___________________________________________________________________________________
+//! | Task progress trail                                                              |
+//! |__________________________________________________________________________________|
+//! | id_task | third_party            | id_status               | timestamp           |
+//! |_________|________________________|_________________________|_____________________|
+//! |  101    | 'Based Proposer"       |  1000 (Registered)      | 2024-01-01 00:00:01 |
+//! |  101    | 'A Prover Network'     |  2000 (WIP)             | 2024-01-01 00:00:01 |
+//! |  101    | 'A Prover Network'     | -2000 (Network failure) | 2024-01-01 00:02:00 |
+//! |  101    | 'Proof in the Pudding' |  2000 (WIP)             | 2024-01-01 00:02:30 |
+//!·|  101    | 'Proof in the Pudding' |     0 (Success)         | 2024-01-01 01:02:30 |
+//!
+//! Rationale:
+//! - payloads are very large and warrant a dedicated table, with pruning
+//! - metadata is useful to audit block building and prover efficiency
+//! - Due to failures and retries, we may submit the same task to multiple fulfillers
+//!   or retry with the same fulfiller so we keep an audit trail of events.
+//!
+//! ____________________________
 //! | Proof cache               | A map: ID -> proof
 //! |___________________________|
 //! | id_task  | proof_value    |
@@ -112,38 +149,6 @@
 //!   dividing by 12, that's 216000 Ethereum slots.
 //!   Assuming 1kB of proofs per block (Stark-to-Groth16 Risc0 & SP1 + SGX, SGX size to be verified)
 //!   That's only 216MB per month.
-//!
-//!  ________________________________________________________________________________________________
-//! | Tasks metadata                                                                                 |
-//! |________________________________________________________________________________________________|
-//! | id_task | chain_id | block_number | blockhash | parent_hash | state_root | # of txs | gas_used |
-//! |_________|__________|______________|___________|_____________|____________|__________|__________|
-//!  ________________________________________________
-//! | Task queue                                    |
-//! |_______________________________________________|
-//! | id_task | blockhash | id_proofsys | id_status |
-//! |_________|___________|_____________|___________|
-//!  ______________________________________
-//! | Tasks inputs                        |
-//! |_____________________________________|
-//! | id_task | inputs (serialized)       |
-//! |_________|___________________________|
-//!  _____________________________________
-//! | Task requests                      |
-//! |____________________________________|
-//! | id_task | id_submitter | submit_dt |
-//! |_________|______________|___________|
-//!  ______________________________________
-//! | Task fulfillment                   |
-//! |_____________________________________|
-//! | id_task | id_fulfiller | fulfill_dt |
-//! |_________|______________|____________|
-//!
-//! Rationale:
-//! - When dealing with proof requests we don't need to touch the fullfillment table
-//! - and inversely when dealing with provers, we don't need to deal with the request table.
-//! - inputs are very large and warrant a dedicated table, with pruning
-//! - metadata is useful to audit block building and prover efficiency
 
 // Imports
 // ----------------------------------------------------------------
@@ -187,6 +192,9 @@ pub struct TaskDb {
 #[derive(Debug)]
 pub struct TaskManager<'db> {
     enqueue_task: Statement<'db>,
+    update_task_progress: Statement<'db>,
+    // get_task_status: Statement<'db>,
+    // get_task_proof: Statement<'db>,
     // dequeue_task: Statement<'db>,
     // get_block_proof_status: Statement<'db>,
     get_db_size: Statement<'db>,
@@ -332,23 +340,14 @@ impl TaskDb {
             --      has an implied index, see:
             --      - https://sqlite.org/lang_createtable.html#uniqueconst
             --      - https://www.sqlite.org/fileformat2.html#representation_of_sql_indices
-            CREATE TABLE taskqueue(
+            CREATE TABLE tasks(
                 id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
                 chain_id INTEGER NOT NULL,
                 blockhash BLOB NOT NULL,
                 id_proofsys INTEGER NOT NULL,
-                id_status INTEGER NOT NULL,
                 FOREIGN KEY(chain_id, blockhash) REFERENCES blocks(chain_id, blockhash)
                 FOREIGN KEY(id_proofsys) REFERENCES proofsys(id_proofsys)
-                FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
                 UNIQUE (chain_id, blockhash, id_proofsys)
-            );
-
-            CREATE TABLE task_requests(
-                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
-                submitter TEXT NOT NULL,
-                submit_date TEXT NOT NULL,
-                FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
             );
 
             -- Payloads will be very large, just the block would be 1.77MB on L1 in Jan 2024,
@@ -358,21 +357,29 @@ impl TaskDb {
             CREATE TABLE task_payloads(
                 id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
                 payload BLOB NOT NULL,
-                FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
-            );
-
-            CREATE TABLE task_fulfillment(
-                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
-                fulfiller TEXT NOT NULL,
-                fulfill_date TEXT NOT NULL,
-                FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
+                FOREIGN KEY(id_task) REFERENCES tasks(id_task)
             );
 
             -- Proofs might also be large, so we isolate them in a dedicated table
             CREATE TABLE task_proofs(
                 id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
                 proof BLOB NOT NULL,
-                FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
+                FOREIGN KEY(id_task) REFERENCES tasks(id_task)
+            );
+
+            CREATE TABLE third_parties(
+                id_thirdparty INTEGER UNIQUE NOT NULL PRIMARY KEY,
+                thirdparty_desc TEXT UNIQUE NOT NULL
+            );
+
+            CREATE TABLE task_status(
+                id_task INTEGER NOT NULL,
+                id_thirdparty INTEGER NOT NULL,
+                id_status INTEGER NOT NULL,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY(id_task) REFERENCES tasks(id_task)
+                FOREIGN KEY(id_thirdparty) REFERENCES third_parties(id_thirdparty)
+                FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
             );
 
             "#)?;
@@ -386,12 +393,13 @@ impl TaskDb {
             r#"
             CREATE VIEW enqueue_task AS
                 SELECT
-                    tq.id_task,
-                    tq.chain_id,
-                    tq.blockhash,
-                    tq.id_proofsys,
-                    tq.id_status,
-                    tr.submitter,
+                    t.id_task,
+                    t.chain_id,
+                    t.blockhash,
+                    t.id_proofsys,
+                    ts.id_status,
+                    ts.id_thirdparty AS submitter,
+                    t3p.thirdparty_desc,
                     b.block_number,
                     b.parent_hash,
                     b.state_root,
@@ -399,32 +407,34 @@ impl TaskDb {
                     b.gas_used,
                     tpl.payload
                 FROM
-                    taskqueue tq
+                    tasks t
                     LEFT JOIN
                         blocks b on (
-                            b.chain_id = tq.chain_id
-                            AND b.blockhash = tq.blockhash
+                            b.chain_id = t.chain_id
+                            AND b.blockhash = t.blockhash
                         )
                     LEFT JOIN
-                        task_requests tr on tr.id_task = tq.id_task
+                        task_status ts on ts.id_task = t.id_task
                     LEFT JOIN
-                        task_payloads tpl on tpl.id_task = tq.id_task;
+                        task_payloads tpl on tpl.id_task = t.id_task
+                    LEFT JOIN
+                        third_parties t3p on t3p.id_thirdparty = ts.id_thirdparty;
 
-            CREATE VIEW update_task AS
+            CREATE VIEW update_task_progress AS
                 SELECT
-                    tq.id_task,
-                    tq.chain_id,
-                    tq.blockhash,
-                    tq.id_proofsys,
-                    tq.id_status,
-                    tf.fulfiller,
+                    t.id_task,
+                    t.chain_id,
+                    t.blockhash,
+                    t.id_proofsys,
+                    ts.id_status,
+                    ts.id_thirdparty AS fulfiller,
                     tpf.proof
                 FROM
-                    taskqueue tq
+                    tasks t
                     LEFT JOIN
-                        task_fulfillment tf on tf.id_task = tq.id_task
+                        task_status ts on ts.id_task = t.id_task
                     LEFT JOIN
-                        task_proofs tpf on tpf.id_task = tq.id_task;
+                        task_proofs tpf on tpf.id_task = t.id_task;
             "#)?;
 
         Ok(())
@@ -440,7 +450,7 @@ impl TaskDb {
 
     pub fn manage<'db>(&'db self) -> Result<TaskManager<'db>, TaskManagerError> {
         // To update all the tables with the task_id assigned by Sqlite
-        // we require row IDs for the taskqueue table
+        // we require row IDs for the tasks table
         // and we use last_insert_rowid() which is not reentrant and need a transaction lock
         // and store them in a temporary table, configured to be in-memory.
         //
@@ -472,7 +482,7 @@ impl TaskDb {
 
         let conn = &self.conn;
         conn.execute_batch(
-            "
+            r#"
             -- PRAGMA temp_store = 'MEMORY';
 
             CREATE TEMPORARY TABLE temp.current_task(id_task INTEGER);
@@ -483,12 +493,11 @@ impl TaskDb {
                     INSERT INTO blocks(chain_id, blockhash, block_number, parent_hash, state_root, num_transactions, gas_used)
                         VALUES (new.chain_id, new.blockhash, new.block_number, new.parent_hash, new.state_root, new.num_transactions, new.gas_used);
 
-                    -- Tasks are initialized at status 1000 - registered
-                    INSERT INTO taskqueue(chain_id, blockhash, id_proofsys, id_status)
-                        VALUES (new.chain_id, new.blockhash, new.id_proofsys, 1000);
+                    INSERT INTO tasks(chain_id, blockhash, id_proofsys)
+                        VALUES (new.chain_id, new.blockhash, new.id_proofsys);
 
                     INSERT INTO current_task
-                        SELECT id_task FROM taskqueue
+                        SELECT id_task FROM tasks
                         WHERE rowid = last_insert_rowid()
                         LIMIT 1;
 
@@ -497,14 +506,53 @@ impl TaskDb {
                         FROM current_task tmp
                         LIMIT 1;
 
-                    INSERT INTO task_requests(id_task, submitter, submit_date)
-                        SELECT tmp.id_task, new.submitter, datetime('now')
+                    INSERT OR IGNORE INTO third_parties(thirdparty_desc)
+                        VALUES (new.submitter);
+
+                    -- Tasks are initialized at status 1000 - registered
+                    INSERT INTO task_status(id_task, id_thirdparty, id_status, timestamp)
+                        SELECT tmp.id_task, t3p.id_thirdparty, 1000, datetime('now')
                         FROM current_task tmp
+                        JOIN third_parties t3p
+                        WHERE t3p.thirdparty_desc = new.submitter
                         LIMIT 1;
 
                     DELETE FROM current_task;
                 END;
-            ")?;
+
+            CREATE TEMPORARY TRIGGER update_task_progress_trigger
+                INSTEAD OF INSERT ON update_task_progress
+                BEGIN
+                    INSERT INTO current_task
+                        SELECT id_task
+                        FROM tasks
+                        WHERE id_task = new.id_task
+                        LIMIT 1;
+
+                    -- If fulfiller is NULL, due to IGNORE and the NOT NULL requirement,
+                    -- table will be left as-is.
+                    INSERT OR IGNORE INTO third_parties(thirdparty_desc)
+                        VALUES (new.fulfiller);
+
+                    INSERT INTO task_status
+                        SELECT id_task, id_thirdparty, new.id_status, datetime('now')
+                        FROM current_task
+                        JOIN third_parties t3p
+                        WHERE 1=1
+                            AND new.fulfiller IS NOT NULL
+                            AND new.id_status IS NOT NULL
+                            AND new.fulfiller = t3p.thirdparty_desc
+                        LIMIT 1;
+
+                    INSERT OR REPLACE INTO task_proofs
+                        SELECT id_task, new.proof
+                        FROM current_task
+                        WHERE new.proof IS NOT NULL
+                        LIMIT 1;
+
+                    DELETE FROM current_task;
+                END;
+            "#)?;
 
         let enqueue_task = conn.prepare(
             "
@@ -516,6 +564,16 @@ impl TaskDb {
                     :chain_id, :blockhash, :id_proofsys, :submitter,
                     :block_number, :parent_hash, :state_root, :num_transactions, :gas_used,
                     :payload);
+            ")?;
+
+        let update_task_progress = conn.prepare(
+            "
+            INSERT INTO update_task_progress(
+                    chain_id, blockhash, id_proofsys,
+                    fulfiller, id_status, proof)
+                VALUES (
+                    :chain_id, :blockhash, :id_proofsys,
+                    :fulfiller, :id_status, :proof);
             ")?;
 
         // The requires sqlite to be compiled with dbstat support:
@@ -534,7 +592,7 @@ impl TaskDb {
             "
         )?;
 
-        Ok(TaskManager { enqueue_task, get_db_size })
+        Ok(TaskManager { enqueue_task, update_task_progress, get_db_size })
     }
 }
 
