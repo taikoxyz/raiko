@@ -25,7 +25,7 @@ pub unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
 
 #[no_mangle]
 // TODO shouldn't need to zero allocated bytes since the zkvm memory is zeroed, might want to zero anyway
-unsafe extern "C" fn calloc(nobj: usize, size: usize) -> *mut c_void {
+pub unsafe extern "C" fn calloc(nobj: usize, size: usize) -> *mut c_void {
     malloc(nobj * size)
 }
 
