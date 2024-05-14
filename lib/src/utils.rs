@@ -54,6 +54,7 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
 }
 
 pub fn generate_transactions(
+    network: Network,
     is_blob_data: bool,
     tx_list: &[u8],
     anchor_tx: Option<AlloyTransaction>,
@@ -63,7 +64,7 @@ pub fn generate_transactions(
         let compressed_tx_list = decode_blob_data(tx_list);
         zlib_decompress_data(&compressed_tx_list).unwrap_or_default()
     } else {
-        if cfg!(feature = "alpha-7") {
+        if network == Network::TaikoA7 {
             // decompress the tx list first to align with A7 client
             let de_tx_list: Vec<u8> = zlib_decompress_data(&tx_list.to_owned()).unwrap_or_default();
             if validate_calldata_tx_list(&de_tx_list) {

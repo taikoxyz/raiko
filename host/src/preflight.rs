@@ -116,6 +116,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
         // Create the transactions from the proposed tx list
         let transactions = generate_transactions(
+            chain_spec.network().unwrap(),
             proposal_event.meta.blobUsed,
             &tx_data,
             Some(anchor_tx.clone()),
