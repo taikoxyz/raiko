@@ -155,7 +155,7 @@ use std::path::Path;
 
 use raiko_primitives::{BlockNumber, ChainId, B256};
 
-use rusqlite::{named_params, params, Statement};
+use rusqlite::{named_params, Statement};
 use rusqlite::{Connection, OpenFlags};
 
 // Types
@@ -201,7 +201,8 @@ pub enum TaskProofsys {
 #[rustfmt::skip]
 pub enum TaskStatus {
     Success                   =     0,
-    WorkInProgress            =  1000,
+    Registered                =  1000,
+    WorkInProgress            =  2000,
     ProofFailure_Generic      = -1000,
     ProofFailure_OutOfMemory  = -1100,
     NetworkFailure            = -2000,
@@ -236,6 +237,7 @@ impl TaskDb {
 
         let conn = Self::open(path)?;
         Self::create_tables(&conn)?;
+        Self::create_views(&conn)?;
 
         Ok(conn)
     }
@@ -251,55 +253,50 @@ impl TaskDb {
         Ok(Self { conn })
     }
 
-    // Queries
+    // SQL
     // ----------------------------------------------------------------
 
     fn create_tables(conn: &Connection) -> Result<(), TaskManagerError> {
-        conn.execute(
-            "CREATE TABLE metadata(
+        // Change the task_db_version if backward compatibility is broken
+        // and introduce a migration on DB opening ... if conserving history is important.
+        conn.execute_batch(
+            r#"
+            -- Metadata and mappings
+            -----------------------------------------------
+
+            CREATE TABLE metadata(
                 key BLOB NOT NULL PRIMARY KEY,
                 value BLOB
-            );",
-            params![],
-        )?;
-        conn.execute(
-            "INSERT INTO
-                metadata(key, value)
-             VALUES
-                (?, ?);",
-            params!["task_db_version", 0u32],
-        )?;
+            );
 
-        conn.execute(
-            "CREATE TABLE proofsys(
+            INSERT INTO
+                metadata(key, value)
+            VALUES
+                ('task_db_version', 0);
+
+            CREATE TABLE proofsys(
                 id_proofsys INTEGER NOT NULL PRIMARY KEY,
                 desc TEXT NOT NULL
-            );",
-            params![],
-        )?;
-        conn.execute(
-            "INSERT INTO
+            );
+
+            INSERT INTO
                 proofsys(id_proofsys, desc)
-             VALUES
+            VALUES
                 (0, 'Risc0'),
                 (1, 'SP1'),
-                (2, 'SGX');",
-            params![],
-        )?;
+                (2, 'SGX');
 
-        conn.execute(
-            "CREATE TABLE status_codes(
+            CREATE TABLE status_codes(
                 id_status INTEGER NOT NULL PRIMARY KEY,
                 desc TEXT NOT NULL
-            );",
-            params![],
-        )?;
-        conn.execute(
-            "INSERT INTO
+            );
+
+            INSERT INTO
                 status_codes(id_status, desc)
-             VALUES
+            VALUES
                 (    0, 'Success'),
-                ( 1000, 'Work-in-progress'),
+                ( 1000, 'Registered'),
+                ( 2000, 'Work-in-progress'),
                 (-1000, 'Proof failure (generic)'),
                 (-1100, 'Proof failure (Out-Of-Memory)'),
                 (-2000, 'Network failure'),
@@ -308,27 +305,24 @@ impl TaskDb {
                 (-3200, 'Cancelled (aborted)'),
                 (-3210, 'Cancellation in progress'),
                 (-4000, 'Invalid or unsupported block'),
-                (-9999, 'Unspecified failure reason');",
-            params![],
-        )?;
+                (-9999, 'Unspecified failure reason');
 
-        conn.execute(
-            "CREATE TABLE proofs(
+            -- Data
+            -----------------------------------------------
+
+            CREATE TABLE proofs(
                 id_proof INTEGER NOT NULL PRIMARY KEY,
                 value BLOB NOT NULL
-            );",
-            params![],
-        )?;
+            );
 
-        // Notes:
-        //   1. a blockhash may appear as many times as there are prover backends.
-        //   2. For query speed over (chain_id, blockhash, id_proofsys)
-        //      there is no need to create an index as the UNIQUE constraint
-        //      has an implied index, see:
-        //      - https://sqlite.org/lang_createtable.html#uniqueconst
-        //      - https://www.sqlite.org/fileformat2.html#representation_of_sql_indices
-        conn.execute(
-            "CREATE TABLE taskqueue(
+            -- Notes:
+            --   1. a blockhash may appear as many times as there are prover backends.
+            --   2. For query speed over (chain_id, blockhash, id_proofsys)
+            --      there is no need to create an index as the UNIQUE constraint
+            --      has an implied index, see:
+            --      - https://sqlite.org/lang_createtable.html#uniqueconst
+            --      - https://www.sqlite.org/fileformat2.html#representation_of_sql_indices
+            CREATE TABLE taskqueue(
                 id_task INTEGER PRIMARY KEY UNIQUE NOT NULL,
                 chain_id INTEGER NOT NULL,
                 blockhash BLOB NOT NULL,
@@ -340,14 +334,12 @@ impl TaskDb {
                 FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
                 FOREIGN KEY(id_proof) REFERENCES proofs(id_proof)
                 UNIQUE (chain_id, blockhash, id_proofsys)
-            );",
-            params![],
-        )?;
-        // Different blockchains might have the same blockhash in case of a fork
-        // for example Ethereum and Ethereum Classic.
-        // As "GuestInput" refers to ChainID, the proving task would be different.
-        conn.execute(
-            "CREATE TABLE blocks(
+            );
+
+            -- Different blockchains might have the same blockhash in case of a fork
+            -- for example Ethereum and Ethereum Classic.
+            -- As "GuestInput" refers to ChainID, the proving task would be different.
+            CREATE TABLE blocks(
                 chain_id INTEGER NOT NULL,
                 blockhash BLOB NOT NULL,
                 block_number INTEGER NOT NULL,
@@ -356,38 +348,66 @@ impl TaskDb {
                 num_transactions INTEGER NOT NULL,
                 gas_used INTEGER NOT NULL,
                 PRIMARY KEY (chain_id, blockhash)
-            );",
-            params![],
-        )?;
-        // Payloads will be very large, 1.77MB on L1 in Jan 2024 (Before EIP-4844 blobs),
-        //   https://ethresear.ch/t/on-block-sizes-gas-limits-and-scalability/18444
-        // mandating ideally a separated high-performance KV-store to reduce IO.
-        conn.execute(
-            "CREATE TABLE task_payloads(
+            );
+
+            -- Payloads will be very large, just the block would be 1.77MB on L1 in Jan 2024,
+            --   https://ethresear.ch/t/on-block-sizes-gas-limits-and-scalability/18444
+            -- mandating ideally a separated high-performance KV-store to reduce IO.
+            -- This is without EIP-4844 blobs and the extra input for zkVMs.
+            CREATE TABLE task_payloads(
                 id_task INTEGER PRIMARY KEY UNIQUE NOT NULL,
                 payload BLOB NOT NULL,
                 FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
-            );",
-            params![],
-        )?;
-        conn.execute(
-            "CREATE TABLE task_requests(
+            );
+
+            CREATE TABLE task_requests(
                 id_task INTEGER PRIMARY KEY UNIQUE NOT NULL,
                 submitter TEXT NOT NULL,
                 submit_date TEXT NOT NULL,
                 FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
-            );",
-            params![],
-        )?;
-        conn.execute(
-            "CREATE TABLE task_fulfillment(
+            );
+
+            CREATE TABLE task_fulfillment(
                 id_task INTEGER PRIMARY KEY UNIQUE NOT NULL,
                 fulfiller TEXT NOT NULL,
                 fulfill_date TEXT NOT NULL,
                 FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
-            );",
-            params![],
-        )?;
+            );
+            "#)?;
+
+        Ok(())
+    }
+
+    fn create_views(conn: &Connection) -> Result<(), TaskManagerError> {
+        // By convention, views will use an action verb as name.
+        conn.execute_batch(
+            r#"
+            CREATE VIEW enqueue_task AS
+                SELECT
+                    tq.id_task,
+                    tq.chain_id,
+                    tq.blockhash,
+                    tq.id_proofsys,
+                    tq.id_status,
+                    tr.submitter,
+                    b.block_number,
+                    b.parent_hash,
+                    b.state_root,
+                    b.num_transactions,
+                    b.gas_used,
+                    tp.payload
+                FROM
+                    taskqueue tq
+                    LEFT JOIN
+                        blocks b on (
+                            b.chain_id = tq.chain_id
+                            AND b.blockhash = tq.blockhash
+                        )
+                    LEFT JOIN
+                        task_payloads tp on tp.id_task = tq.id_task
+                    LEFT JOIN
+                        task_requests tr on tr.id_task = tq.id_task;
+            "#)?;
 
         Ok(())
     }
@@ -437,43 +457,17 @@ impl TaskDb {
             "
             -- PRAGMA temp_store = 'MEMORY';
 
-            CREATE TEMPORARY VIEW temp.enqueue_task AS
-                SELECT
-                    tq.id_task,
-                    tq.chain_id,
-                    tq.blockhash,
-                    tq.id_proofsys,
-                    tq.id_status,
-                    tr.submitter,
-                    b.block_number,
-                    b.parent_hash,
-                    b.state_root,
-                    b.num_transactions,
-                    b.gas_used,
-                    tp.payload
-                FROM
-                    taskqueue tq
-                    LEFT JOIN
-                        blocks b on (
-                            b.chain_id = tq.chain_id
-                            AND b.blockhash = tq.blockhash
-                        )
-                    LEFT JOIN
-                        task_payloads tp on tp.id_task = tq.id_task
-                    LEFT JOIN
-                        task_requests tr on tr.id_task = tq.id_task;
-
             CREATE TEMPORARY TABLE temp.current_task(id_task INTEGER);
 
             CREATE TEMPORARY TRIGGER enqueue_task_insert_trigger
                 INSTEAD OF INSERT ON enqueue_task
                 BEGIN
-
                     INSERT INTO blocks(chain_id, blockhash, block_number, parent_hash, state_root, num_transactions, gas_used)
                         VALUES (new.chain_id, new.blockhash, new.block_number, new.parent_hash, new.state_root, new.num_transactions, new.gas_used);
 
+                    -- Tasks are initialized at status 1000 - registered
                     INSERT INTO taskqueue(chain_id, blockhash, id_proofsys, id_status)
-                        VALUES (new.chain_id, new.blockhash, new.id_proofsys, new.id_status);
+                        VALUES (new.chain_id, new.blockhash, new.id_proofsys, 1000);
 
                     INSERT INTO current_task
                         SELECT id_task FROM taskqueue
@@ -496,11 +490,12 @@ impl TaskDb {
 
         let enqueue_task = conn.prepare(
             "
-            INSERT INTO temp.enqueue_task(
-                    chain_id, blockhash, id_proofsys, id_status, submitter,
+            INSERT INTO enqueue_task(
+                    chain_id, blockhash, id_proofsys, submitter,
                     block_number, parent_hash, state_root, num_transactions, gas_used,
                     payload)
-                VALUES (:chain_id, :blockhash, :id_proofsys, :id_status, :submitter,
+                VALUES (
+                    :chain_id, :blockhash, :id_proofsys, :submitter,
                     :block_number, :parent_hash, :state_root, :num_transactions, :gas_used,
                     :payload);
             ")?;
@@ -523,16 +518,10 @@ impl<'db> TaskManager<'db> {
         gas_used: u64,
         payload: &[u8],
     ) -> Result<(), TaskManagerError> {
-
-        println!("{}", self.enqueue_task.expanded_sql().unwrap());
-
-        let status = TaskStatus::WorkInProgress;
-
         self.enqueue_task.execute(named_params! {
             ":chain_id": chain_id as u64,
             ":blockhash": blockhash.as_slice(),
             ":id_proofsys": proof_system as u8,
-            ":id_status": status as u32,
             ":submitter": submitter,
             ":block_number": block_number,
             ":parent_hash": parent_hash.as_slice(),

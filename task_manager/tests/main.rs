@@ -9,7 +9,6 @@
 mod tests {
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
-    use tempfile::tempdir;
 
     use raiko_primitives::B256;
     use task_manager::{TaskDb, TaskProofsys};
@@ -17,14 +16,15 @@ mod tests {
     #[test]
     fn test_enqueue_task() {
 
-        // Materialized local DB
+        // // Materialized local DB
         // let dir = std::env::current_dir().unwrap().join("tests");
         // let file = dir.as_path().join("test_enqueue_task.sqlite");
         // if file.exists() {
-        //     fs::remove_file(&file).unwrap()
+        //     std::fs::remove_file(&file).unwrap()
         // };
 
         // temp dir DB
+        use tempfile::tempdir;
         let dir = tempdir().unwrap();
         let file = dir.path().join("test_enqueue_task.sqlite");
 
