@@ -96,31 +96,6 @@ lazy_static! {
             is_taiko: false,
         };
 
-    /// The Taiko A6 specification.
-    pub static ref TAIKO_A6_CHAIN_SPEC: ChainSpec = ChainSpec {
-        name: Network::TaikoA6.to_string(),
-        chain_id: 167008,
-        max_spec_id: SpecId::SHANGHAI,
-        hard_forks: BTreeMap::from([
-            (SpecId::SHANGHAI, ForkCondition::Block(0)),
-            (SpecId::CANCUN, ForkCondition::TBD),
-        ]),
-        eip_1559_constants: Eip1559Constants {
-            base_fee_change_denominator: uint!(8_U256),
-            base_fee_max_increase_denominator: uint!(8_U256),
-            base_fee_max_decrease_denominator: uint!(8_U256),
-            elasticity_multiplier: uint!(2_U256),
-        },
-        l1_contract: Some(Address::from_str("0xB20BB9105e007Bd3E0F73d63D4D3dA2c8f736b77").unwrap()),
-        l2_contract: Some(Address::from_str("0x1670080000000000000000000000000000010001").unwrap()),
-        sgx_verifier_address: Some(
-            Address::from_str("0x558E38a3286916934Cb63ced04558A52F7Ce67a9").unwrap(),
-        ),
-        genesis_time: 0u64,
-        seconds_per_slot: 1u64,
-        is_taiko: true,
-    };
-
     /// The Taiko A7 specification.
     pub static ref TAIKO_A7_CHAIN_SPEC: ChainSpec = ChainSpec {
         name: Network::TaikoA7.to_string(),
@@ -151,7 +126,6 @@ pub fn get_network_spec(network: Network) -> ChainSpec {
     match network {
         Network::Ethereum => ETH_MAINNET_CHAIN_SPEC.clone(),
         Network::Holesky => ETH_HOLESKY_CHAIN_SPEC.clone(),
-        Network::TaikoA6 => TAIKO_A6_CHAIN_SPEC.clone(),
         Network::TaikoA7 => TAIKO_A7_CHAIN_SPEC.clone(),
     }
 }
@@ -286,8 +260,6 @@ pub enum Network {
     Ethereum,
     /// Ethereum testnet holesky
     Holesky,
-    /// Taiko A6 tesnet
-    TaikoA6,
     /// Taiko A7 tesnet
     TaikoA7,
 }
@@ -299,7 +271,6 @@ impl FromStr for Network {
         match s.to_lowercase().as_str() {
             "ethereum" => Ok(Network::Ethereum),
             "holesky" => Ok(Network::Holesky),
-            "taiko_a6" => Ok(Network::TaikoA6),
             "taiko_a7" => Ok(Network::TaikoA7),
             #[allow(clippy::needless_return)]
             _ => bail!("Unknown network"),
@@ -312,7 +283,6 @@ impl Display for Network {
         f.write_str(match self {
             Network::Ethereum => "ethereum",
             Network::Holesky => "holesky",
-            Network::TaikoA6 => "taiko_a6",
             Network::TaikoA7 => "taiko_a7",
         })
     }
@@ -323,7 +293,6 @@ impl Network {
         match self {
             Network::Ethereum => false,
             Network::Holesky => false,
-            Network::TaikoA6 => true,
             Network::TaikoA7 => true,
         }
     }
