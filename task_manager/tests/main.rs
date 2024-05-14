@@ -11,7 +11,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use raiko_primitives::B256;
-    use task_manager::{TaskDb, TaskProofsys};
+    use task_manager::{TaskDb, TaskProofsys, TaskStatus};
 
     #[test]
     fn test_enqueue_task() {
@@ -87,7 +87,7 @@ mod tests {
             let chain_id = 100;
             let blockhash = B256::random();
             let proofsys = TaskProofsys::Risc0;
-            let submitter = "test_get_db_size";
+            let submitter = format!("test_get_db_size/{}", rng.gen_range(1..10));
             let block_number = rng.gen_range(1..4_000_000);
             let parent_hash = B256::random();
             let state_root = B256::random();
@@ -100,7 +100,7 @@ mod tests {
                 chain_id,
                 &blockhash,
                 proofsys,
-                submitter,
+                &submitter,
                 block_number,
                 &parent_hash,
                 &state_root,
@@ -114,4 +114,121 @@ mod tests {
         println!("db_tables_size: {:?}", db_tables_size);
         assert!(db_size / 1024 / 1024 > 40);
     }
+
+    #[test]
+    fn test_update_task_progress() {
+
+        // Materialized local DB
+        let dir = std::env::current_dir().unwrap().join("tests");
+        let file = dir.as_path().join("test_update_task_progress.sqlite");
+        if file.exists() {
+            std::fs::remove_file(&file).unwrap()
+        };
+
+        // // temp dir DB
+        // use tempfile::tempdir;
+        // let dir = tempdir().unwrap();
+        // let file = dir.path().join("test_update_task_progress.sqlite");
+
+        #[allow(unused_mut)]
+        let mut db = TaskDb::open_or_create(&file).unwrap();
+        // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
+        let mut tama = db.manage().unwrap();
+
+        let mut rng = ChaCha8Rng::seed_from_u64(123);
+        let mut tasks = vec![];
+
+        for _ in 0..5 {
+            let chain_id = 100;
+            let blockhash = B256::random();
+            let proofsys = TaskProofsys::Risc0;
+            let submitter = format!("test_get_db_size/{}", rng.gen_range(1..10));
+            let block_number = rng.gen_range(1..4_000_000);
+            let parent_hash = B256::random();
+            let state_root = B256::random();
+            let num_transactions = rng.gen_range(0..1000);
+            let gas_used = rng.gen_range(0..100_000_000);
+            let payload_length = rng.gen_range(1_000_000..10_000_000);
+            let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
+
+            tama.enqueue_task(
+                chain_id,
+                &blockhash,
+                proofsys,
+                &submitter,
+                block_number,
+                &parent_hash,
+                &state_root,
+                num_transactions,
+                gas_used,
+                &payload,
+            ).unwrap();
+
+            tasks.push((
+                chain_id,
+                blockhash,
+                proofsys,
+            ));
+        }
+
+        tama.update_task_progress(
+            tasks[0].0,
+            &tasks[0].1,
+            tasks[0].2,
+            None,
+            TaskStatus::Cancelled_NeverStarted,
+            None
+        ).unwrap();
+
+        // -----------------------
+
+        tama.update_task_progress(
+            tasks[1].0,
+            &tasks[1].1,
+            tasks[1].2,
+            Some("A prover Network"),
+            TaskStatus::WorkInProgress,
+            None
+        ).unwrap();
+
+        tama.update_task_progress(
+            tasks[1].0,
+            &tasks[1].1,
+            tasks[1].2,
+            Some("A prover Network"),
+            TaskStatus::CancellationInProgress,
+            None
+        ).unwrap();
+
+        tama.update_task_progress(
+            tasks[1].0,
+            &tasks[1].1,
+            tasks[1].2,
+            Some("A prover Network"),
+            TaskStatus::Cancelled,
+            None
+        ).unwrap();
+
+        // -----------------------
+
+        tama.update_task_progress(
+            tasks[2].0,
+            &tasks[2].1,
+            tasks[2].2,
+            Some("A based prover"),
+            TaskStatus::WorkInProgress,
+            None
+        ).unwrap();
+
+        let proof: Vec<_> = (&mut rng).gen_iter::<u8>().take(128).collect();
+        tama.update_task_progress(
+            tasks[2].0,
+            &tasks[2].1,
+            tasks[2].2,
+            Some("A based prover"),
+            TaskStatus::WorkInProgress,
+            Some(&proof)
+        ).unwrap();
+    }
+
 }

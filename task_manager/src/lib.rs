@@ -200,6 +200,7 @@ pub struct TaskManager<'db> {
     get_db_size: Statement<'db>,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum TaskProofsys {
     Risc0 = 0,
     SP1 = 1,
@@ -208,6 +209,7 @@ pub enum TaskProofsys {
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
+#[derive(Debug, Copy, Clone)]
 pub enum TaskStatus {
     Success                   =     0,
     Registered                =  1000,
@@ -537,11 +539,12 @@ impl TaskDb {
                     INSERT INTO task_status
                         SELECT id_task, id_thirdparty, new.id_status, datetime('now')
                         FROM current_task
-                        JOIN third_parties t3p
+                        LEFT JOIN
+                            -- fulfiller can be NULL, for example
+                            -- for tasks Cancelled before they were ever sent to a prover.
+                            third_parties t3p ON new.fulfiller = t3p.thirdparty_desc
                         WHERE 1=1
-                            AND new.fulfiller IS NOT NULL
                             AND new.id_status IS NOT NULL
-                            AND new.fulfiller = t3p.thirdparty_desc
                         LIMIT 1;
 
                     INSERT OR REPLACE INTO task_proofs
@@ -621,6 +624,26 @@ impl<'db> TaskManager<'db> {
             ":num_transactions": num_transactions,
             ":gas_used": gas_used,
             ":payload": payload,
+        })?;
+        Ok(())
+    }
+
+    pub fn update_task_progress(
+        &mut self,
+        chain_id: ChainId,
+        blockhash: &B256,
+        proof_system: TaskProofsys,
+        fulfiller: Option<&str>,
+        status: TaskStatus,
+        proof: Option<&[u8]>,
+    ) -> Result<(), TaskManagerError> {
+        self.update_task_progress.execute(named_params! {
+            ":chain_id": chain_id as u64,
+            ":blockhash": blockhash.as_slice(),
+            ":id_proofsys": proof_system as u8,
+            ":fulfiller": fulfiller,
+            ":id_status": status as isize,
+            ":proof": proof
         })?;
         Ok(())
     }
