@@ -100,7 +100,7 @@
 //!  ____________________________
 //! | Proof cache               | A map: ID -> proof
 //! |___________________________|
-//! | id_proof | proof_value    |
+//! | id_task  | proof_value    |
 //! |__________|________________|  A Groth16 proof is 2G₁+1G₂ elements
 //! | 0        | 0xabcd...6789  |  On BN254: 2*(2*32)+1*(2*2*32) = 256 bytes
 //! | 1        | 0x1234...cdef  |
@@ -113,16 +113,16 @@
 //!   Assuming 1kB of proofs per block (Stark-to-Groth16 Risc0 & SP1 + SGX, SGX size to be verified)
 //!   That's only 216MB per month.
 //!
-//!  _____________________________________________________________________________________________
-//! | Tasks metadata                                                                              |
-//! |_____________________________________________________________________________________________|
+//!  ________________________________________________________________________________________________
+//! | Tasks metadata                                                                                 |
+//! |________________________________________________________________________________________________|
 //! | id_task | chain_id | block_number | blockhash | parent_hash | state_root | # of txs | gas_used |
-//! |_________|_________|______________|___________|____________|___________|__________|__________|
-//!  ___________________________________________________________
-//! | Task queue                                               |
-//! |__________________________________________________________|
-//! | id_task | blockhash | id_proofsys | id_status | id_proof |
-//! |_________|___________|_____________|___________|__________|
+//! |_________|__________|______________|___________|_____________|____________|__________|__________|
+//!  ________________________________________________
+//! | Task queue                                    |
+//! |_______________________________________________|
+//! | id_task | blockhash | id_proofsys | id_status |
+//! |_________|___________|_____________|___________|
 //!  ______________________________________
 //! | Tasks inputs                        |
 //! |_____________________________________|
@@ -266,7 +266,7 @@ impl TaskDb {
             -----------------------------------------------
 
             CREATE TABLE metadata(
-                key BLOB NOT NULL PRIMARY KEY,
+                key BLOB UNIQUE NOT NULL PRIMARY KEY,
                 value BLOB
             );
 
@@ -276,7 +276,7 @@ impl TaskDb {
                 ('task_db_version', 0);
 
             CREATE TABLE proofsys(
-                id_proofsys INTEGER NOT NULL PRIMARY KEY,
+                id_proofsys INTEGER UNIQUE NOT NULL PRIMARY KEY,
                 desc TEXT NOT NULL
             );
 
@@ -288,7 +288,7 @@ impl TaskDb {
                 (2, 'SGX');
 
             CREATE TABLE status_codes(
-                id_status INTEGER NOT NULL PRIMARY KEY,
+                id_status INTEGER UNIQUE NOT NULL PRIMARY KEY,
                 desc TEXT NOT NULL
             );
 
@@ -311,32 +311,6 @@ impl TaskDb {
             -- Data
             -----------------------------------------------
 
-            CREATE TABLE proofs(
-                id_proof INTEGER NOT NULL PRIMARY KEY,
-                value BLOB NOT NULL
-            );
-
-            -- Notes:
-            --   1. a blockhash may appear as many times as there are prover backends.
-            --   2. For query speed over (chain_id, blockhash, id_proofsys)
-            --      there is no need to create an index as the UNIQUE constraint
-            --      has an implied index, see:
-            --      - https://sqlite.org/lang_createtable.html#uniqueconst
-            --      - https://www.sqlite.org/fileformat2.html#representation_of_sql_indices
-            CREATE TABLE taskqueue(
-                id_task INTEGER PRIMARY KEY UNIQUE NOT NULL,
-                chain_id INTEGER NOT NULL,
-                blockhash BLOB NOT NULL,
-                id_proofsys INTEGER NOT NULL,
-                id_status INTEGER NOT NULL,
-                id_proof INTEGER,
-                FOREIGN KEY(chain_id, blockhash) REFERENCES blocks(chain_id, blockhash)
-                FOREIGN KEY(id_proofsys) REFERENCES proofsys(id_proofsys)
-                FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
-                FOREIGN KEY(id_proof) REFERENCES proofs(id_proof)
-                UNIQUE (chain_id, blockhash, id_proofsys)
-            );
-
             -- Different blockchains might have the same blockhash in case of a fork
             -- for example Ethereum and Ethereum Classic.
             -- As "GuestInput" refers to ChainID, the proving task would be different.
@@ -351,29 +325,56 @@ impl TaskDb {
                 PRIMARY KEY (chain_id, blockhash)
             );
 
-            -- Payloads will be very large, just the block would be 1.77MB on L1 in Jan 2024,
-            --   https://ethresear.ch/t/on-block-sizes-gas-limits-and-scalability/18444
-            -- mandating ideally a separated high-performance KV-store to reduce IO.
-            -- This is without EIP-4844 blobs and the extra input for zkVMs.
-            CREATE TABLE task_payloads(
-                id_task INTEGER PRIMARY KEY UNIQUE NOT NULL,
-                payload BLOB NOT NULL,
-                FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
+            -- Notes:
+            --   1. a blockhash may appear as many times as there are prover backends.
+            --   2. For query speed over (chain_id, blockhash, id_proofsys)
+            --      there is no need to create an index as the UNIQUE constraint
+            --      has an implied index, see:
+            --      - https://sqlite.org/lang_createtable.html#uniqueconst
+            --      - https://www.sqlite.org/fileformat2.html#representation_of_sql_indices
+            CREATE TABLE taskqueue(
+                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
+                chain_id INTEGER NOT NULL,
+                blockhash BLOB NOT NULL,
+                id_proofsys INTEGER NOT NULL,
+                id_status INTEGER NOT NULL,
+                FOREIGN KEY(chain_id, blockhash) REFERENCES blocks(chain_id, blockhash)
+                FOREIGN KEY(id_proofsys) REFERENCES proofsys(id_proofsys)
+                FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
+                UNIQUE (chain_id, blockhash, id_proofsys)
             );
 
             CREATE TABLE task_requests(
-                id_task INTEGER PRIMARY KEY UNIQUE NOT NULL,
+                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
                 submitter TEXT NOT NULL,
                 submit_date TEXT NOT NULL,
                 FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
             );
 
+            -- Payloads will be very large, just the block would be 1.77MB on L1 in Jan 2024,
+            --   https://ethresear.ch/t/on-block-sizes-gas-limits-and-scalability/18444
+            -- mandating ideally a separated high-performance KV-store to reduce IO.
+            -- This is without EIP-4844 blobs and the extra input for zkVMs.
+            CREATE TABLE task_payloads(
+                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
+                payload BLOB NOT NULL,
+                FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
+            );
+
             CREATE TABLE task_fulfillment(
-                id_task INTEGER PRIMARY KEY UNIQUE NOT NULL,
+                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
                 fulfiller TEXT NOT NULL,
                 fulfill_date TEXT NOT NULL,
                 FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
             );
+
+            -- Proofs might also be large, so we isolate them in a dedicated table
+            CREATE TABLE task_proofs(
+                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
+                proof BLOB NOT NULL,
+                FOREIGN KEY(id_task) REFERENCES taskqueue(id_task)
+            );
+
             "#)?;
 
         Ok(())
@@ -396,7 +397,7 @@ impl TaskDb {
                     b.state_root,
                     b.num_transactions,
                     b.gas_used,
-                    tp.payload
+                    tpl.payload
                 FROM
                     taskqueue tq
                     LEFT JOIN
@@ -405,9 +406,25 @@ impl TaskDb {
                             AND b.blockhash = tq.blockhash
                         )
                     LEFT JOIN
-                        task_payloads tp on tp.id_task = tq.id_task
+                        task_requests tr on tr.id_task = tq.id_task
                     LEFT JOIN
-                        task_requests tr on tr.id_task = tq.id_task;
+                        task_payloads tpl on tpl.id_task = tq.id_task;
+
+            CREATE VIEW update_task AS
+                SELECT
+                    tq.id_task,
+                    tq.chain_id,
+                    tq.blockhash,
+                    tq.id_proofsys,
+                    tq.id_status,
+                    tf.fulfiller,
+                    tpf.proof
+                FROM
+                    taskqueue tq
+                    LEFT JOIN
+                        task_fulfillment tf on tf.id_task = tq.id_task
+                    LEFT JOIN
+                        task_proofs tpf on tpf.id_task = tq.id_task;
             "#)?;
 
         Ok(())

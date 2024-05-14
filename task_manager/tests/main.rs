@@ -87,7 +87,7 @@ mod tests {
             let chain_id = 100;
             let blockhash = B256::random();
             let proofsys = TaskProofsys::Risc0;
-            let submitter = "test_enqueue_task";
+            let submitter = "test_get_db_size";
             let block_number = rng.gen_range(1..4_000_000);
             let parent_hash = B256::random();
             let state_root = B256::random();
