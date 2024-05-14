@@ -1,40 +1,36 @@
 use alloy_primitives::{Address, FixedBytes, B256, U256};
 use alloy_rpc_types::Block;
-use anyhow::Result;
 use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
 use raiko_lib::consts::ChainSpec;
-use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData, WrappedHeader};
+use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
 use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
 use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{trace, warn};
+use tracing::{error, info, trace, warn};
 
-use crate::error::{self, HostError};
+use crate::error::{self, HostError, HostResult};
 use crate::preflight::preflight;
 use crate::request::ProofRequest;
 use crate::MerkleProof;
 
 #[allow(async_fn_in_trait)]
 pub trait BlockDataProvider {
-    async fn get_blocks(
-        &self,
-        blocks_to_fetch: &[(u64, bool)],
-    ) -> Result<Vec<Block>, anyhow::Error>;
-    async fn get_accounts(&self, accounts: &[Address]) -> Result<Vec<AccountInfo>, anyhow::Error>;
-    async fn get_storage_values(
-        &self,
-        accounts: &[(Address, U256)],
-    ) -> Result<Vec<U256>, anyhow::Error>;
+    async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> HostResult<Vec<Block>>;
+
+    async fn get_accounts(&self, accounts: &[Address]) -> HostResult<Vec<AccountInfo>>;
+
+    async fn get_storage_values(&self, accounts: &[(Address, U256)]) -> HostResult<Vec<U256>>;
+
     async fn get_merkle_proofs(
         &self,
         block_number: u64,
         accounts: HashMap<Address, Vec<U256>>,
         offset: usize,
         num_storage_proofs: usize,
-    ) -> Result<MerkleProof, anyhow::Error>;
+    ) -> HostResult<MerkleProof>;
 }
 
 pub struct Raiko {
@@ -53,7 +49,7 @@ impl Raiko {
     pub async fn generate_input<BDP: BlockDataProvider>(
         &self,
         provider: BDP,
-    ) -> Result<GuestInput, HostError> {
+    ) -> HostResult<GuestInput> {
         preflight(
             provider,
             self.request.block_number,
@@ -69,12 +65,12 @@ impl Raiko {
         .map_err(Into::<error::HostError>::into)
     }
 
-    pub fn get_output(&self, input: &GuestInput) -> Result<GuestOutput, HostError> {
+    pub fn get_output(&self, input: &GuestInput) -> HostResult<GuestOutput> {
         match TaikoStrategy::build_from(input) {
             Ok((header, _mpt_node)) => {
-                println!("Verifying final state using provider data ...");
-                println!("Final block hash derived successfully. {}", header.hash());
-                println!("Final block header derived successfully. {:?}", header);
+                info!("Verifying final state using provider data ...");
+                info!("Final block hash derived successfully. {}", header.hash());
+                info!("Final block header derived successfully. {header:?}");
                 let pi = self
                     .request
                     .proof_type
@@ -82,48 +78,48 @@ impl Raiko {
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;
-                check_eq(exp.parent_hash, header.parent_hash, "base_fee_per_gas");
-                check_eq(exp.ommers_hash, header.ommers_hash, "ommers_hash");
-                check_eq(exp.beneficiary, header.beneficiary, "beneficiary");
-                check_eq(exp.state_root, header.state_root, "state_root");
+                check_eq(&exp.parent_hash, &header.parent_hash, "base_fee_per_gas");
+                check_eq(&exp.ommers_hash, &header.ommers_hash, "ommers_hash");
+                check_eq(&exp.beneficiary, &header.beneficiary, "beneficiary");
+                check_eq(&exp.state_root, &header.state_root, "state_root");
                 check_eq(
-                    exp.transactions_root,
-                    header.transactions_root,
+                    &exp.transactions_root,
+                    &header.transactions_root,
                     "transactions_root",
                 );
-                check_eq(exp.receipts_root, header.receipts_root, "receipts_root");
+                check_eq(&exp.receipts_root, &header.receipts_root, "receipts_root");
                 check_eq(
-                    exp.withdrawals_root,
-                    header.withdrawals_root,
+                    &exp.withdrawals_root,
+                    &header.withdrawals_root,
                     "withdrawals_root",
                 );
-                check_eq(exp.logs_bloom, header.logs_bloom, "logs_bloom");
-                check_eq(exp.difficulty, header.difficulty, "difficulty");
-                check_eq(exp.number, header.number, "number");
-                check_eq(exp.gas_limit, header.gas_limit, "gas_limit");
-                check_eq(exp.gas_used, header.gas_used, "gas_used");
-                check_eq(exp.timestamp, header.timestamp, "timestamp");
-                check_eq(exp.mix_hash, header.mix_hash, "mix_hash");
-                check_eq(exp.nonce, header.nonce, "nonce");
+                check_eq(&exp.logs_bloom, &header.logs_bloom, "logs_bloom");
+                check_eq(&exp.difficulty, &header.difficulty, "difficulty");
+                check_eq(&exp.number, &header.number, "number");
+                check_eq(&exp.gas_limit, &header.gas_limit, "gas_limit");
+                check_eq(&exp.gas_used, &header.gas_used, "gas_used");
+                check_eq(&exp.timestamp, &header.timestamp, "timestamp");
+                check_eq(&exp.mix_hash, &header.mix_hash, "mix_hash");
+                check_eq(&exp.nonce, &header.nonce, "nonce");
                 check_eq(
-                    exp.base_fee_per_gas,
-                    header.base_fee_per_gas,
+                    &exp.base_fee_per_gas,
+                    &header.base_fee_per_gas,
                     "base_fee_per_gas",
                 );
-                check_eq(exp.blob_gas_used, header.blob_gas_used, "blob_gas_used");
+                check_eq(&exp.blob_gas_used, &header.blob_gas_used, "blob_gas_used");
                 check_eq(
-                    exp.excess_blob_gas,
-                    header.excess_blob_gas,
+                    &exp.excess_blob_gas,
+                    &header.excess_blob_gas,
                     "excess_blob_gas",
                 );
                 check_eq(
-                    exp.parent_beacon_block_root,
-                    header.parent_beacon_block_root,
+                    &exp.parent_beacon_block_root,
+                    &header.parent_beacon_block_root,
                     "parent_beacon_block_root",
                 );
                 check_eq(
-                    exp.extra_data.clone(),
-                    header.extra_data.clone(),
+                    &exp.extra_data.clone(),
+                    &header.extra_data.clone(),
                     "extra_data",
                 );
 
@@ -133,18 +129,13 @@ impl Raiko {
                     input.block_hash_reference,
                     "block hash unexpected"
                 );
-                let output = GuestOutput::Success((
-                    WrappedHeader {
-                        header: header.clone(),
-                    },
-                    pi,
-                ));
+                let output = GuestOutput::Success { header, hash: pi };
 
                 Ok(output)
             }
             Err(e) => {
                 warn!("Proving bad block construction!");
-                Err(HostError::GuestError(
+                Err(HostError::Guest(
                     raiko_lib::prover::ProverError::GuestError(e.to_string()),
                 ))
             }
@@ -155,7 +146,7 @@ impl Raiko {
         &self,
         input: GuestInput,
         output: &GuestOutput,
-    ) -> Result<serde_json::Value, HostError> {
+    ) -> HostResult<serde_json::Value> {
         self.request
             .proof_type
             .run_prover(
@@ -180,14 +171,14 @@ impl Prover for NativeProver {
         output: &GuestOutput,
         _request: &serde_json::Value,
     ) -> ProverResult<Proof> {
-        trace!("Running the native prover for input {:?}", input);
-        match output.clone() {
-            GuestOutput::Success((wrapped_header, _)) => {
-                assemble_protocol_instance(&input, &wrapped_header.header)
-                    .map_err(|e| ProverError::GuestError(e.to_string()))?;
-            }
-            _ => return Err(ProverError::GuestError("Unexpected output".to_string())),
-        }
+        trace!("Running the native prover for input {input:?}");
+
+        let GuestOutput::Success { header, .. } = output.clone() else {
+            return Err(ProverError::GuestError("Unexpected output".to_owned()));
+        };
+
+        assemble_protocol_instance(&input, &header)
+            .map_err(|e| ProverError::GuestError(e.to_string()))?;
 
         to_proof(Ok(NativeResponse {
             output: output.clone(),
@@ -199,12 +190,9 @@ impl Prover for NativeProver {
     }
 }
 
-fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: T, actual: T, message: &str) {
+fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
     if expected != actual {
-        println!(
-            "Assertion failed: {} - Expected: {:?}, Found: {:?}",
-            message, expected, actual
-        );
+        error!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
     }
 }
 
@@ -260,7 +248,8 @@ mod tests {
 
     async fn prove_block(chain_spec: ChainSpec, proof_request: ProofRequest) {
         let provider =
-            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1);
+            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)
+                .expect("Could not create RpcBlockDataProvider");
         let raiko = Raiko::new(chain_spec, proof_request.clone());
         let mut input = raiko
             .generate_input(provider)

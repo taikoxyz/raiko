@@ -41,8 +41,11 @@ pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
     match Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]) {
         Ok(transactions) => transactions,
         Err(e) => {
-            // a empty vec
-            println!("decode_transactions error: {:?}, use empty tx_list", e);
+            // If decoding fails we need to make an empty block
+            println!(
+                "decode_transactions not successful: {:?}, use empty tx_list",
+                e
+            );
             vec![]
         }
     }
@@ -91,13 +94,9 @@ pub fn generate_transactions(
             TxEip1559 {
                 chain_id: anchor_tx.chain_id.unwrap(),
                 nonce: anchor_tx.nonce,
-                gas_limit: anchor_tx.gas.try_into().unwrap(),
-                max_fee_per_gas: anchor_tx.max_fee_per_gas.unwrap().try_into().unwrap(),
-                max_priority_fee_per_gas: anchor_tx
-                    .max_priority_fee_per_gas
-                    .unwrap()
-                    .try_into()
-                    .unwrap(),
+                gas_limit: anchor_tx.gas,
+                max_fee_per_gas: anchor_tx.max_fee_per_gas.unwrap(),
+                max_priority_fee_per_gas: anchor_tx.max_priority_fee_per_gas.unwrap(),
                 to: TxKind::Call(anchor_tx.to.unwrap()),
                 value: anchor_tx.value,
                 access_list: Default::default(),
@@ -357,23 +356,17 @@ pub fn to_header(header: &AlloyHeader) -> AlloyConsensusHeader {
         receipts_root: header.receipts_root,
         logs_bloom: header.logs_bloom,
         difficulty: header.difficulty,
-        number: header.number.unwrap().try_into().unwrap(),
-        gas_limit: header.gas_limit.try_into().unwrap(),
-        gas_used: header.gas_used.try_into().unwrap(),
-        timestamp: header.timestamp.try_into().unwrap(),
+        number: header.number.unwrap(),
+        gas_limit: header.gas_limit,
+        gas_used: header.gas_used,
+        timestamp: header.timestamp,
         extra_data: header.extra_data.clone(),
         mix_hash: header.mix_hash.unwrap(),
         nonce: header.nonce.unwrap(),
-        base_fee_per_gas: Some(
-            header
-                .base_fee_per_gas
-                .unwrap_or_default()
-                .try_into()
-                .unwrap(),
-        ),
+        base_fee_per_gas: header.base_fee_per_gas,
         withdrawals_root: header.withdrawals_root,
-        blob_gas_used: header.blob_gas_used.map(|x| x.try_into().unwrap()),
-        excess_blob_gas: header.excess_blob_gas.map(|x| x.try_into().unwrap()),
+        blob_gas_used: header.blob_gas_used,
+        excess_blob_gas: header.excess_blob_gas,
         parent_beacon_block_root: header.parent_beacon_block_root,
     }
 }

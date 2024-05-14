@@ -23,7 +23,11 @@ use revm::{
 };
 use tokio::runtime::Handle;
 
-use crate::{raiko::BlockDataProvider, MerkleProof};
+use crate::{
+    error::{HostError, HostResult},
+    raiko::BlockDataProvider,
+    MerkleProof,
+};
 
 pub struct ProviderDb<BDP: BlockDataProvider> {
     pub provider: BDP,
@@ -41,20 +45,17 @@ pub struct ProviderDb<BDP: BlockDataProvider> {
 }
 
 impl<BDP: BlockDataProvider> ProviderDb<BDP> {
-    pub async fn new(
-        provider: BDP,
-        chain_spec: ChainSpec,
-        block_number: u64,
-    ) -> Result<Self, anyhow::Error> {
+    pub async fn new(provider: BDP, chain_spec: ChainSpec, block_number: u64) -> HostResult<Self> {
         let mut provider_db = ProviderDb {
             provider,
             block_number,
+            async_executor: tokio::runtime::Handle::current(),
+            // defaults
+            optimistic: false,
+            staging_db: Default::default(),
             initial_db: Default::default(),
             initial_headers: Default::default(),
             current_db: Default::default(),
-            async_executor: tokio::runtime::Handle::current(),
-            optimistic: false,
-            staging_db: Default::default(),
             pending_accounts: HashSet::new(),
             pending_slots: HashSet::new(),
             pending_block_hashes: HashSet::new(),
@@ -68,8 +69,14 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                 .collect::<Vec<_>>();
             let initial_history_blocks = provider_db.provider.get_blocks(&block_numbers).await?;
             for block in initial_history_blocks {
-                let block_number: u64 = block.header.number.unwrap().try_into().unwrap();
-                let block_hash = block.header.hash.unwrap();
+                let block_number: u64 = block
+                    .header
+                    .number
+                    .ok_or_else(|| HostError::RPC("No block number".to_owned()))?;
+                let block_hash = block
+                    .header
+                    .hash
+                    .ok_or_else(|| HostError::RPC("No block hash".to_owned()))?;
                 provider_db
                     .initial_db
                     .insert_block_hash(block_number, block_hash);
@@ -81,7 +88,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         Ok(provider_db)
     }
 
-    pub async fn get_proofs(&mut self) -> Result<(MerkleProof, MerkleProof, usize), anyhow::Error> {
+    pub async fn get_proofs(&mut self) -> HostResult<(MerkleProof, MerkleProof, usize)> {
         // Latest proof keys
         let mut storage_keys = self.initial_db.storage_keys();
         for (address, mut indices) in self.current_db.storage_keys() {
@@ -126,9 +133,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         Ok((initial_proofs, latest_proofs, num_storage_proofs))
     }
 
-    pub async fn get_ancestor_headers(
-        &mut self,
-    ) -> Result<Vec<AlloyConsensusHeader>, anyhow::Error> {
+    pub async fn get_ancestor_headers(&mut self) -> HostResult<Vec<AlloyConsensusHeader>> {
         let earliest_block = self
             .initial_db
             .block_hashes
@@ -136,7 +141,10 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
             .min()
             .unwrap_or(&self.block_number);
 
-        let mut headers = Vec::new();
+        let mut headers = Vec::with_capacity(
+            usize::try_from(self.block_number - *earliest_block)
+                .map_err(|_| HostError::Conversion("Could not convert u64 to usize".to_owned()))?,
+        );
         for block_number in (*earliest_block..self.block_number).rev() {
             if let std::collections::hash_map::Entry::Vacant(e) =
                 self.initial_headers.entry(block_number)
@@ -144,7 +152,12 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                 let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
                 e.insert(to_header(&block.header));
             }
-            headers.push(self.initial_headers[&block_number].clone());
+            headers.push(
+                self.initial_headers
+                    .get(&block_number)
+                    .expect("The header is inserted if it was not present")
+                    .clone(),
+            );
         }
         Ok(headers)
     }
@@ -157,7 +170,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
 }
 
 impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
-    type Error = anyhow::Error;
+    type Error = HostError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         // Check if the account is in the current database.
@@ -193,7 +206,10 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let account = &tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_accounts(&[address]))
-        })?[0];
+        })?
+        .first()
+        .cloned()
+        .ok_or(HostError::RPC("No account".to_owned()))?;
 
         // Insert the account into the initial database.
         self.initial_db
@@ -231,14 +247,19 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let value = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_storage_values(&[(address, index)]))
-        })?[0];
+        })?
+        .first()
+        .copied()
+        .ok_or(HostError::RPC("No storage value".to_owned()))?;
         self.initial_db
             .insert_account_storage(&address, index, value);
         Ok(value)
     }
 
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        let block_number = u64::try_from(number).unwrap();
+        let block_number: u64 = number
+            .try_into()
+            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned()))?;
 
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
@@ -261,13 +282,14 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let block_hash = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_blocks(&[(block_number, false)]))
-        })
-        .unwrap()[0]
-            .header
-            .hash
-            .unwrap()
-            .0
-            .into();
+        })?
+        .first()
+        .ok_or(HostError::RPC("No block".to_owned()))?
+        .header
+        .hash
+        .ok_or_else(|| HostError::RPC("No block hash".to_owned()))?
+        .0
+        .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
         Ok(block_hash)
     }
@@ -279,7 +301,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
 
 impl<BDP: BlockDataProvider> DatabaseCommit for ProviderDb<BDP> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
-        self.current_db.commit(changes)
+        self.current_db.commit(changes);
     }
 }
 
@@ -292,11 +314,13 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
         // This run was valid when no pending work was scheduled
         let valid_run = self.is_valid_run();
 
-        let accounts = self
+        let Ok(accounts) = self
             .provider
-            .get_accounts(&self.pending_accounts.iter().cloned().collect::<Vec<_>>())
+            .get_accounts(&self.pending_accounts.iter().copied().collect::<Vec<_>>())
             .await
-            .unwrap();
+        else {
+            return false;
+        };
         for (address, account) in take(&mut self.pending_accounts)
             .into_iter()
             .zip(accounts.iter())
@@ -305,29 +329,33 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
                 .insert_account_info(address, account.clone());
         }
 
-        let slots = self
+        let Ok(slots) = self
             .provider
-            .get_storage_values(&self.pending_slots.iter().cloned().collect::<Vec<_>>())
+            .get_storage_values(&self.pending_slots.iter().copied().collect::<Vec<_>>())
             .await
-            .unwrap();
+        else {
+            return false;
+        };
         for ((address, index), value) in take(&mut self.pending_slots).into_iter().zip(slots.iter())
         {
             self.staging_db
                 .insert_account_storage(&address, index, *value);
         }
 
-        let blocks = self
+        let Ok(blocks) = self
             .provider
             .get_blocks(
                 &self
                     .pending_block_hashes
                     .iter()
-                    .cloned()
+                    .copied()
                     .map(|block_number| (block_number, false))
                     .collect::<Vec<_>>(),
             )
             .await
-            .unwrap();
+        else {
+            return false;
+        };
         for (block_number, block) in take(&mut self.pending_block_hashes)
             .into_iter()
             .zip(blocks.iter())
