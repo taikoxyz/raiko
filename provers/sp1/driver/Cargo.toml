@@ -36,3 +36,4 @@ enable = [
     "sp1-helper",
     "alloy-primitives",
 ]
+neon = ["sp1-sdk?/neon"]
