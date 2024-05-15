@@ -622,7 +622,10 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
 #[cfg(test)]
 mod test {
     use ethers_core::types::Transaction;
-    use raiko_lib::{consts::Network, utils::decode_transactions};
+    use raiko_lib::{
+        consts::{Network, SupportedChainSpecs},
+        utils::decode_transactions,
+    };
     use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;
@@ -861,8 +864,9 @@ mod test {
     #[ignore]
     #[test]
     fn test_slot_block_num_mapping() {
-        let chain_spec =
-            SupportedChainSpecs::default().get_network_spec(Network::TaikoA7.to_string());
+        let chain_spec = SupportedChainSpecs::default()
+            .get_network_spec(&Network::TaikoA7.to_string())
+            .unwrap();
         let expected_slot = 1000u64;
         let second_per_slot = 12u64;
         let block_time = chain_spec.genesis_time + expected_slot * second_per_slot;

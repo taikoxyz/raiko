@@ -189,7 +189,7 @@ mod tests {
     };
     use alloy_primitives::Address;
     use clap::ValueEnum;
-    use raiko_lib::consts::Network;
+    use raiko_lib::consts::{Network, SupportedChainSpecs};
     use raiko_primitives::B256;
     use serde_json::{json, Value};
     use std::{collections::HashMap, env};
@@ -257,7 +257,9 @@ mod tests {
         // Give the CI an simpler block to test because it doesn't have enough memory.
         // Unfortunately that also means that kzg is not getting fully verified by CI.
         let block_number = if is_ci() { 105987 } else { 101368 };
-        let chain_spec = get_network_spec(network);
+        let chain_spec = SupportedChainSpecs::default()
+            .get_network_spec(&network)
+            .unwrap();
         let proof_request = ProofRequest {
             block_number,
             rpc: "https://rpc.hekla.taiko.xyz".to_string(),
@@ -280,7 +282,9 @@ mod tests {
         if !(is_ci() && proof_type == ProofType::Sp1) {
             let network = Network::Ethereum.to_string();
             let block_number = 19707175;
-            let chain_spec = SupportedChainSpecs::default().get_network_spec(network);
+            let chain_spec = SupportedChainSpecs::default()
+                .get_network_spec(&network)
+                .unwrap();
             let proof_request = ProofRequest {
                 block_number,
                 rpc: "https://rpc.ankr.com/eth".to_string(),
