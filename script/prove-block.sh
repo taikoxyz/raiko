@@ -33,8 +33,10 @@ elif [ "$chain" == "taiko_a7" ]; then
 	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
 	beaconRpc="https://eth-holesky-beacon.public.blastapi.io"
 else
-	echo "Invalid chain name. Please use 'ethereum', 'holesky' or 'taiko_a7'."
-	exit 1
+	echo "Using customized chain name $1. Please double check the RPCs."
+	rpc="https://rpc.hekla.taiko.xyz"
+	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
+	beaconRpc="https://eth-holesky-beacon.public.blastapi.io"
 fi
 
 if [ "$proof" == "native" ]; then
