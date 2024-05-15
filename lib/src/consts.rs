@@ -131,7 +131,7 @@ pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 impl SupportedChainSpecs {
     pub fn default() -> Self {
         SupportedChainSpecs(
-            vec![
+            [
                 ETH_MAINNET_CHAIN_SPEC.clone(),
                 ETH_HOLESKY_CHAIN_SPEC.clone(),
                 TAIKO_A7_CHAIN_SPEC.clone(),
@@ -143,23 +143,20 @@ impl SupportedChainSpecs {
     }
 
     #[cfg(feature = "std")]
-    pub fn merge_from_file(file_path: PathBuf) -> Self {
-        fn load_and_merge(file_path: PathBuf) -> Result<SupportedChainSpecs> {
-            let mut known_chain_specs = SupportedChainSpecs::default();
-            let file = std::fs::File::open(&file_path)?;
-            let reader = std::io::BufReader::new(file);
-            let config: Value = serde_json::from_reader(reader)?;
-            let chain_spec_list: Vec<ChainSpec> = serde_json::from_value(config)?;
-            let new_chain_specs = chain_spec_list
-                .iter()
-                .map(|cs| (cs.name.clone(), cs.clone()))
-                .collect::<HashMap<String, ChainSpec>>();
+    pub fn merge_from_file(file_path: PathBuf) -> Result<SupportedChainSpecs> {
+        let mut known_chain_specs = SupportedChainSpecs::default();
+        let file = std::fs::File::open(&file_path)?;
+        let reader = std::io::BufReader::new(file);
+        let config: Value = serde_json::from_reader(reader)?;
+        let chain_spec_list: Vec<ChainSpec> = serde_json::from_value(config)?;
+        let new_chain_specs = chain_spec_list
+            .iter()
+            .map(|cs| (cs.name.clone(), cs.clone()))
+            .collect::<HashMap<String, ChainSpec>>();
 
-            // override known specs
-            known_chain_specs.0.extend(new_chain_specs);
-            Ok(known_chain_specs)
-        }
-        load_and_merge(file_path).unwrap_or(SupportedChainSpecs::default())
+        // override known specs
+        known_chain_specs.0.extend(new_chain_specs);
+        Ok(known_chain_specs)
     }
 
     pub fn supported_networks(&self) -> Vec<String> {
@@ -305,8 +302,8 @@ pub enum Network {
     TaikoA7,
 }
 
-impl Network {
-    pub fn to_string(&self) -> String {
+impl ToString for Network {
+    fn to_string(&self) -> String {
         match self {
             Network::Ethereum => "ethereum".to_string(),
             Network::Holesky => "holesky".to_string(),

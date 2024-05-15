@@ -111,7 +111,10 @@ async fn proof_handler(
 
     let chain_spec = support_chain_specs
         .get_chain_spec(&proof_request.network.to_string())
-        .expect("unknown network");
+        .ok_or_else(|| {
+            dec_current_req();
+            HostError::InvalidRequestConfig("Unsupported network".to_string())
+        })?;
 
     // Execute the proof generation.
     let total_time = Measurement::start("", false);
