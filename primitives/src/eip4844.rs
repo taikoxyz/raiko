@@ -12,7 +12,7 @@ use crate::B256;
 ///
 /// Specified in [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844#header-extension)
 #[cfg(feature = "c-kzg")]
-pub fn kzg_to_versioned_hash(commitment: c_kzg::KzgCommitment) -> B256 {
+pub fn kzg_to_versioned_hash(commitment: &c_kzg::KzgCommitment) -> B256 {
     let mut res = Sha256::digest(commitment.as_slice());
     res[0] = VERSIONED_HASH_VERSION_KZG;
     B256::new(res.into())

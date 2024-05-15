@@ -132,7 +132,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     // Calculate the public input hash
     let pi = assemble_protocol_instance(&input, &header)?;
-    let pi_hash = pi.instance_hash(EvidenceType::Sgx {
+    let pi_hash = pi.instance_hash(&EvidenceType::Sgx {
         new_pubkey: new_instance,
     });
 

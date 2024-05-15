@@ -31,7 +31,7 @@ pub fn main() {
         Ok((header, _mpt_node)) => {
             let pi = assemble_protocol_instance(&input, header)
                 .expect("Failed to assemble protocol instance")
-                .instance_hash(EvidenceType::Succinct);
+                .instance_hash(&EvidenceType::Succinct);
             GuestOutput::Success {
                 header: header.clone(),
                 hash: pi,

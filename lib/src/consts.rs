@@ -52,9 +52,9 @@ lazy_static! {
             hard_forks: BTreeMap::from([
                 (SpecId::FRONTIER, ForkCondition::Block(0)),
                 // previous versions not supported
-                (SpecId::MERGE, ForkCondition::Block(15537394)),
-                (SpecId::SHANGHAI, ForkCondition::Block(17034870)),
-                (SpecId::CANCUN, ForkCondition::Timestamp(1710338135)),
+                (SpecId::MERGE, ForkCondition::Block(15_537_394)),
+                (SpecId::SHANGHAI, ForkCondition::Block(17_034_870)),
+                (SpecId::CANCUN, ForkCondition::Timestamp(1_710_338_135)),
             ]),
             eip_1559_constants: Eip1559Constants {
                 base_fee_change_denominator: uint!(8_U256),
@@ -74,13 +74,13 @@ lazy_static! {
     pub static ref ETH_HOLESKY_CHAIN_SPEC: ChainSpec =
         ChainSpec {
             name: Network::Holesky.to_string(),
-            chain_id: 17000,
+            chain_id: 17_000,
             max_spec_id: SpecId::CANCUN,
             hard_forks: BTreeMap::from([
                 (SpecId::FRONTIER, ForkCondition::Block(0)),
                 // previous versions not supported
-                (SpecId::SHANGHAI, ForkCondition::Timestamp(1696000704)),
-                (SpecId::CANCUN, ForkCondition::Timestamp(1707305664)),
+                (SpecId::SHANGHAI, ForkCondition::Timestamp(1_696_000_704)),
+                (SpecId::CANCUN, ForkCondition::Timestamp(1_707_305_664)),
             ]),
             eip_1559_constants: Eip1559Constants {
                 base_fee_change_denominator: uint!(8_U256),
@@ -99,7 +99,7 @@ lazy_static! {
     /// The Taiko A7 specification.
     pub static ref TAIKO_A7_CHAIN_SPEC: ChainSpec = ChainSpec {
         name: Network::TaikoA7.to_string(),
-        chain_id: 167009,
+        chain_id: 167_009,
         max_spec_id: SpecId::SHANGHAI,
         hard_forks: BTreeMap::from([
             (SpecId::SHANGHAI, ForkCondition::Block(0)),
@@ -116,7 +116,7 @@ lazy_static! {
         sgx_verifier_address: Some(
             Address::from_str("0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9").unwrap(),
         ),
-        genesis_time: 1695902400u64,
+        genesis_time: 1_695_902_400u64,
         seconds_per_slot: 12u64,
         is_taiko: true,
     };
@@ -223,9 +223,8 @@ impl ChainSpec {
             Some(spec_id) => {
                 if spec_id > self.max_spec_id {
                     bail!("expected <= {:?}, got {spec_id:?}", self.max_spec_id);
-                } else {
-                    Ok(spec_id)
                 }
+                Ok(spec_id)
             }
             None => bail!("no supported fork for block {block_no}"),
         }
@@ -291,8 +290,7 @@ impl Display for Network {
 impl Network {
     pub fn is_taiko(&self) -> bool {
         match self {
-            Network::Ethereum => false,
-            Network::Holesky => false,
+            Network::Ethereum | Network::Holesky => false,
             Network::TaikoA7 => true,
         }
     }
@@ -304,17 +302,17 @@ mod tests {
 
     #[test]
     fn revm_spec_id() {
-        assert!(ETH_MAINNET_CHAIN_SPEC.spec_id(15537393, 0) < Some(SpecId::MERGE));
+        assert!(ETH_MAINNET_CHAIN_SPEC.spec_id(15_537_393, 0) < Some(SpecId::MERGE));
         assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(15537394, 0),
+            ETH_MAINNET_CHAIN_SPEC.spec_id(15_537_394, 0),
             Some(SpecId::MERGE)
         );
         assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(17034869, 0),
+            ETH_MAINNET_CHAIN_SPEC.spec_id(17_034_869, 0),
             Some(SpecId::MERGE)
         );
         assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(17034870, 0),
+            ETH_MAINNET_CHAIN_SPEC.spec_id(17_034_870, 0),
             Some(SpecId::SHANGHAI)
         );
     }
