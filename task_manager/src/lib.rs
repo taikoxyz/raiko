@@ -193,10 +193,9 @@ pub struct TaskDb {
 pub struct TaskManager<'db> {
     enqueue_task: Statement<'db>,
     update_task_progress: Statement<'db>,
-    // get_task_status: Statement<'db>,
-    // get_task_proof: Statement<'db>,
-    // dequeue_task: Statement<'db>,
-    // get_block_proof_status: Statement<'db>,
+    get_task_proof: Statement<'db>,
+    get_task_proving_status: Statement<'db>,
+    get_tasks_unfinished: Statement<'db>,
     get_db_size: Statement<'db>,
 }
 
@@ -369,18 +368,18 @@ impl TaskDb {
                 FOREIGN KEY(id_task) REFERENCES tasks(id_task)
             );
 
-            CREATE TABLE third_parties(
+            CREATE TABLE thirdparties(
                 id_thirdparty INTEGER UNIQUE NOT NULL PRIMARY KEY,
                 thirdparty_desc TEXT UNIQUE NOT NULL
             );
 
             CREATE TABLE task_status(
                 id_task INTEGER NOT NULL,
-                id_thirdparty INTEGER NOT NULL,
+                id_thirdparty INTEGER,
                 id_status INTEGER NOT NULL,
                 timestamp TEXT NOT NULL,
                 FOREIGN KEY(id_task) REFERENCES tasks(id_task)
-                FOREIGN KEY(id_thirdparty) REFERENCES third_parties(id_thirdparty)
+                FOREIGN KEY(id_thirdparty) REFERENCES thirdparties(id_thirdparty)
                 FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
             );
 
@@ -420,7 +419,7 @@ impl TaskDb {
                     LEFT JOIN
                         task_payloads tpl on tpl.id_task = t.id_task
                     LEFT JOIN
-                        third_parties t3p on t3p.id_thirdparty = ts.id_thirdparty;
+                        thirdparties t3p on t3p.id_thirdparty = ts.id_thirdparty;
 
             CREATE VIEW update_task_progress AS
                 SELECT
@@ -508,14 +507,14 @@ impl TaskDb {
                         FROM current_task tmp
                         LIMIT 1;
 
-                    INSERT OR IGNORE INTO third_parties(thirdparty_desc)
+                    INSERT OR IGNORE INTO thirdparties(thirdparty_desc)
                         VALUES (new.submitter);
 
                     -- Tasks are initialized at status 1000 - registered
                     INSERT INTO task_status(id_task, id_thirdparty, id_status, timestamp)
                         SELECT tmp.id_task, t3p.id_thirdparty, 1000, datetime('now')
                         FROM current_task tmp
-                        JOIN third_parties t3p
+                        JOIN thirdparties t3p
                         WHERE t3p.thirdparty_desc = new.submitter
                         LIMIT 1;
 
@@ -528,23 +527,24 @@ impl TaskDb {
                     INSERT INTO current_task
                         SELECT id_task
                         FROM tasks
-                        WHERE id_task = new.id_task
+                        WHERE 1=1
+                            AND chain_id = new.chain_id
+                            AND blockhash = new.blockhash
+                            AND id_proofsys = new.id_proofsys
                         LIMIT 1;
 
                     -- If fulfiller is NULL, due to IGNORE and the NOT NULL requirement,
                     -- table will be left as-is.
-                    INSERT OR IGNORE INTO third_parties(thirdparty_desc)
+                    INSERT OR IGNORE INTO thirdparties(thirdparty_desc)
                         VALUES (new.fulfiller);
 
-                    INSERT INTO task_status
-                        SELECT id_task, id_thirdparty, new.id_status, datetime('now')
-                        FROM current_task
-                        LEFT JOIN
+                    INSERT INTO task_status(id_task, id_thirdparty, id_status, timestamp)
+                        SELECT tmp.id_task, t3p.id_thirdparty, new.id_status, datetime('now')
+                        FROM current_task tmp
+                        LEFT JOIN thirdparties t3p
                             -- fulfiller can be NULL, for example
                             -- for tasks Cancelled before they were ever sent to a prover.
-                            third_parties t3p ON new.fulfiller = t3p.thirdparty_desc
-                        WHERE 1=1
-                            AND new.id_status IS NOT NULL
+                            ON t3p.thirdparty_desc = new.fulfiller
                         LIMIT 1;
 
                     INSERT OR REPLACE INTO task_proofs
@@ -591,11 +591,79 @@ impl TaskDb {
                 SUM(pgsize) as table_size
             FROM dbstat
             GROUP BY table_name
-            ORDER BY SUM(pgsize) DESC
+            ORDER BY SUM(pgsize) DESC;
             "
         )?;
 
-        Ok(TaskManager { enqueue_task, update_task_progress, get_db_size })
+        let get_task_proof = conn.prepare(
+            "
+            SELECT proof
+            FROM task_proofs tp
+            LEFT JOIN
+                tasks t ON tp.id_task = t.id_task
+            WHERE 1=1
+                AND t.chain_id = :chain_id
+                AND t.blockhash = :blockhash
+                AND t.id_proofsys = :id_proofsys
+            LIMIT 1;
+            ")?;
+
+        let get_task_proving_status = conn.prepare(
+            "
+            SELECT
+                thirdparty_desc,
+                id_status,
+                MAX(timestamp)
+            FROM
+                task_status ts
+            LEFT JOIN
+                tasks t ON ts.id_task = t.id_task
+            LEFT JOIN
+                thirdparties t3p ON ts.id_thirdparty = t3p.id_thirdparty
+            WHERE 1=1
+                AND t.chain_id = :chain_id
+                AND t.blockhash = :blockhash
+                AND t.id_proofsys = :id_proofsys
+            GROUP BY
+                ts.id_thirdparty
+            ORDER BY
+                ts.timestamp DESC;
+            ")?;
+
+        let get_tasks_unfinished = conn.prepare (
+            "
+            SELECT
+                t.chain_id,
+                t.blockhash,
+                t.id_proofsys,
+                t3p.thirdparty_desc,
+                ts.id_status,
+                MAX(timestamp)
+            FROM
+                task_status ts
+            LEFT JOIN
+                tasks t ON ts.id_task = t.id_task
+            LEFT JOIN
+                thirdparties t3p ON ts.id_thirdparty = t3p.id_thirdparty
+            WHERE 1=1
+                AND id_status NOT IN (
+                        0, -- Success
+                    -3000, -- Cancelled
+                    -3100, -- Cancelled (never started)
+                    -3200  -- Cancelled (aborted)
+                    -- What do we do with -4000 Invalid/unsupported blocks?
+                    -- And -9999 Unspecified failure reason?
+                    -- For now we return them until we know more of the failure modes
+                );
+            ")?;
+
+        Ok(TaskManager {
+                enqueue_task,
+                update_task_progress,
+                get_task_proof,
+                get_task_proving_status,
+                get_tasks_unfinished,
+                get_db_size })
     }
 }
 
@@ -648,6 +716,21 @@ impl<'db> TaskManager<'db> {
         Ok(())
     }
 
+    pub fn get_task_proof(
+        &mut self,
+        chain_id: ChainId,
+        blockhash: &B256,
+        proof_system: TaskProofsys,
+    ) -> Result<Vec<u8>, TaskManagerError> {
+        let proof = self.get_task_proof.query_row(named_params! {
+            ":chain_id": chain_id as u64,
+            ":blockhash": blockhash.as_slice(),
+            ":id_proofsys": proof_system as u8,
+        }, |r| r.get(0))?;
+
+        Ok(proof)
+    }
+
     /// Returns the total and detailed database size
     pub fn get_db_size(&mut self) -> Result<(usize, Vec<(String, usize)>), TaskManagerError> {
         let rows = self.get_db_size.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
@@ -655,6 +738,7 @@ impl<'db> TaskManager<'db> {
         let total = details.iter().fold(0, |acc, item| acc + item.1);
         Ok((total, details))
     }
+
 }
 
 #[cfg(test)]

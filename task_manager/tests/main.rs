@@ -116,11 +116,11 @@ mod tests {
     }
 
     #[test]
-    fn test_update_task_progress() {
+    fn test_update_query_tasks_progress() {
 
         // Materialized local DB
         let dir = std::env::current_dir().unwrap().join("tests");
-        let file = dir.as_path().join("test_update_task_progress.sqlite");
+        let file = dir.as_path().join("test_update_query_tasks_progress.sqlite");
         if file.exists() {
             std::fs::remove_file(&file).unwrap()
         };
@@ -148,7 +148,7 @@ mod tests {
             let state_root = B256::random();
             let num_transactions = rng.gen_range(0..1000);
             let gas_used = rng.gen_range(0..100_000_000);
-            let payload_length = rng.gen_range(1_000_000..10_000_000);
+            let payload_length = rng.gen_range(16..64);
             let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
 
             tama.enqueue_task(
@@ -226,9 +226,15 @@ mod tests {
             &tasks[2].1,
             tasks[2].2,
             Some("A based prover"),
-            TaskStatus::WorkInProgress,
+            TaskStatus::Success,
             Some(&proof)
         ).unwrap();
+
+        // -----------------------
+        assert_eq!(
+            proof,
+            tama.get_task_proof(tasks[2].0, &tasks[2].1, tasks[2].2).unwrap()
+        )
     }
 
 }
