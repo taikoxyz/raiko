@@ -160,9 +160,10 @@ use std::path::Path;
 
 use raiko_primitives::{BlockNumber, ChainId, B256};
 
-use rusqlite::{named_params, Statement};
+use rusqlite::{named_params, Statement, MappedRows};
 use rusqlite::{Connection, OpenFlags};
 
+use chrono::{DateTime, Utc};
 use num_enum::{IntoPrimitive, FromPrimitive};
 
 // Types
@@ -382,7 +383,7 @@ impl TaskDb {
                 id_task INTEGER NOT NULL,
                 id_thirdparty INTEGER,
                 id_status INTEGER NOT NULL,
-                timestamp TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
                 FOREIGN KEY(id_task) REFERENCES tasks(id_task)
                 FOREIGN KEY(id_thirdparty) REFERENCES thirdparties(id_thirdparty)
                 FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
@@ -516,8 +517,9 @@ impl TaskDb {
                         VALUES (new.submitter);
 
                     -- Tasks are initialized at status 1000 - registered
-                    INSERT INTO task_status(id_task, id_thirdparty, id_status, timestamp)
-                        SELECT tmp.id_task, t3p.id_thirdparty, 1000, datetime('now')
+                    -- timestamp is auto-filled with datetime('now'), see its field definition
+                    INSERT INTO task_status(id_task, id_thirdparty, id_status)
+                        SELECT tmp.id_task, t3p.id_thirdparty, 1000
                         FROM current_task tmp
                         JOIN thirdparties t3p
                         WHERE t3p.thirdparty_desc = new.submitter
@@ -543,8 +545,9 @@ impl TaskDb {
                     INSERT OR IGNORE INTO thirdparties(thirdparty_desc)
                         VALUES (new.fulfiller);
 
-                    INSERT INTO task_status(id_task, id_thirdparty, id_status, timestamp)
-                        SELECT tmp.id_task, t3p.id_thirdparty, new.id_status, datetime('now')
+                    -- timestamp is auto-filled with datetime('now'), see its field definition
+                    INSERT INTO task_status(id_task, id_thirdparty, id_status)
+                        SELECT tmp.id_task, t3p.id_thirdparty, new.id_status
                         FROM current_task tmp
                         LEFT JOIN thirdparties t3p
                             -- fulfiller can be NULL, for example
@@ -721,17 +724,23 @@ impl<'db> TaskManager<'db> {
         Ok(())
     }
 
+    /// Returns the latest triplet (submitter or fulfiller, status, last update time)
     pub fn get_task_proving_status(
         &mut self,
         chain_id: ChainId,
         blockhash: &B256,
         proof_system: TaskProofsys,
-    ) -> Result<TaskStatus, TaskManagerError> {
-        let proving_status = self.get_task_proving_status.query_row(named_params! {
+    ) -> Result<Vec<(Option<String>, TaskStatus, DateTime<Utc>)>, TaskManagerError> {
+        let rows = self.get_task_proving_status.query_map(named_params! {
             ":chain_id": chain_id as u64,
             ":blockhash": blockhash.as_slice(),
             ":id_proofsys": proof_system as u8,
-        }, |r| r.get::<_, i32>(0).map(TaskStatus::from))?;
+        }, |row| Ok((
+            row.get::<_, Option<String>>(0)?,
+            TaskStatus::from(row.get::<_, i32>(1)?),
+            row.get::<_, DateTime<Utc>>(2)?,
+        )))?;
+        let proving_status = rows.collect::<Result<Vec<_>, _>>()?;
 
         Ok(proving_status)
     }
