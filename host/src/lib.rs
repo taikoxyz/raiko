@@ -55,10 +55,6 @@ fn default_config_path() -> PathBuf {
     PathBuf::from("host/config/config.json")
 }
 
-fn default_chain_spec_path() -> PathBuf {
-    PathBuf::from("host/config/chain_spec_list_default.json")
-}
-
 fn default_log_level() -> String {
     "info".to_string()
 }
@@ -95,14 +91,9 @@ pub struct Cli {
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
 
-    #[arg(
-        long,
-        require_equals = true,
-        default_value = "host/config/chain_spec_list_default.json"
-    )]
-    #[serde(default = "default_chain_spec_path")]
+    #[arg(long, require_equals = true)]
     /// Path to a chain spec file that includes supported chain list
-    chain_spec_path: PathBuf,
+    chain_spec_path: Option<PathBuf>,
 
     #[arg(long, require_equals = true)]
     /// Use a local directory as a cache for input. Accepts a custom directory.
@@ -160,8 +151,13 @@ impl ProverState {
         // Read the config file.
         opts.merge_from_file()?;
 
-        let chain_specs = SupportedChainSpecs::merge_from_file(opts.chain_spec_path.clone());
-        info!("Supported chains: {:?}", chain_specs.supported_networks());
+        let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
+            let chain_specs = SupportedChainSpecs::merge_from_file(cs_path.clone());
+            info!("Supported chains: {:?}", chain_specs.supported_networks());
+            chain_specs
+        } else {
+            SupportedChainSpecs::default()
+        };
 
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {

@@ -148,7 +148,7 @@ impl SupportedChainSpecs {
             let mut known_chain_specs = SupportedChainSpecs::default();
             let file = std::fs::File::open(&file_path)?;
             let reader = std::io::BufReader::new(file);
-            let mut config: Value = serde_json::from_reader(reader)?;
+            let config: Value = serde_json::from_reader(reader)?;
             let chain_spec_list: Vec<ChainSpec> = serde_json::from_value(config)?;
             let new_chain_specs = chain_spec_list
                 .iter()
