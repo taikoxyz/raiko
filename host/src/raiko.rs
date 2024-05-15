@@ -258,7 +258,7 @@ mod tests {
         // Unfortunately that also means that kzg is not getting fully verified by CI.
         let block_number = if is_ci() { 105987 } else { 101368 };
         let chain_spec = SupportedChainSpecs::default()
-            .get_network_spec(&network)
+            .get_chain_spec(&network)
             .unwrap();
         let proof_request = ProofRequest {
             block_number,
@@ -283,7 +283,7 @@ mod tests {
             let network = Network::Ethereum.to_string();
             let block_number = 19707175;
             let chain_spec = SupportedChainSpecs::default()
-                .get_network_spec(&network)
+                .get_chain_spec(&network)
                 .unwrap();
             let proof_request = ProofRequest {
                 block_number,

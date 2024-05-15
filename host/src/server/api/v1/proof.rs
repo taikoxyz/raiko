@@ -110,7 +110,7 @@ async fn proof_handler(
     );
 
     let chain_spec = support_chain_specs
-        .get_network_spec(&proof_request.network.to_string())
+        .get_chain_spec(&proof_request.network.to_string())
         .expect("unknown network");
 
     // Execute the proof generation.

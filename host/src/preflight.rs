@@ -865,7 +865,7 @@ mod test {
     #[test]
     fn test_slot_block_num_mapping() {
         let chain_spec = SupportedChainSpecs::default()
-            .get_network_spec(&Network::TaikoA7.to_string())
+            .get_chain_spec(&Network::TaikoA7.to_string())
             .unwrap();
         let expected_slot = 1000u64;
         let second_per_slot = 12u64;

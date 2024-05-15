@@ -166,7 +166,7 @@ impl SupportedChainSpecs {
         self.0.keys().cloned().collect()
     }
 
-    pub fn get_network_spec(&self, network: &String) -> Option<ChainSpec> {
+    pub fn get_chain_spec(&self, network: &String) -> Option<ChainSpec> {
         self.0.get(network).cloned()
     }
 }
