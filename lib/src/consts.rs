@@ -231,35 +231,6 @@ pub struct ChainSpec {
 }
 
 impl ChainSpec {
-    // create from config json value
-    pub fn new(
-        name: String,
-        chain_id: ChainId,
-        max_spec_id: SpecId,
-        hard_forks: BTreeMap<SpecId, ForkCondition>,
-        eip_1559_constants: Eip1559Constants,
-        l1_contract: Option<Address>,
-        l2_contract: Option<Address>,
-        sgx_verifier_address: Option<Address>,
-        genesis_time: u64,
-        seconds_per_slot: u64,
-        is_taiko: bool,
-    ) -> Self {
-        ChainSpec {
-            name,
-            chain_id,
-            max_spec_id,
-            hard_forks,
-            eip_1559_constants,
-            l1_contract,
-            l2_contract,
-            sgx_verifier_address,
-            genesis_time,
-            seconds_per_slot,
-            is_taiko,
-        }
-    }
-
     /// Creates a new configuration consisting of only one specification ID.
     pub fn new_single(
         name: String,
