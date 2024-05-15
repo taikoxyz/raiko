@@ -1,0 +1,84 @@
+[
+    {
+        "name": "ethereum",
+        "chain_id": 1,
+        "max_spec_id": "CANCUN",
+        "hard_forks": {
+            "FRONTIER": {
+                "Block": 0
+            },
+            "MERGE": {
+                "Block": 15537394
+            },
+            "SHANGHAI": {
+                "Block": 17034870
+            },
+            "CANCUN": {
+                "Timestamp": 1710338135
+            }
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": null,
+        "l2_contract": null,
+        "sgx_verifier_address": null,
+        "genesis_time": 0,
+        "seconds_per_slot": 1,
+        "is_taiko": false
+    },
+    {
+        "name": "holesky",
+        "chain_id": 17000,
+        "max_spec_id": "CANCUN",
+        "hard_forks": {
+            "FRONTIER": {
+                "Block": 0
+            },
+            "SHANGHAI": {
+                "Timestamp": 1696000704
+            },
+            "CANCUN": {
+                "Timestamp": 1707305664
+            }
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": null,
+        "l2_contract": null,
+        "sgx_verifier_address": null,
+        "genesis_time": 0,
+        "seconds_per_slot": 1,
+        "is_taiko": false
+    },
+    {
+        "name": "taiko_a7",
+        "chain_id": 167009,
+        "max_spec_id": "SHANGHAI",
+        "hard_forks": {
+            "SHANGHAI": {
+                "Block": 0
+            },
+            "CANCUN": "TBD"
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": "0x79c9109b764609df928d16fc4a91e9081f7e87db",
+        "l2_contract": "0x1670090000000000000000000000000000010001",
+        "sgx_verifier_address": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
+        "genesis_time": 1695902400,
+        "seconds_per_slot": 12,
+        "is_taiko": true
+    }
+]

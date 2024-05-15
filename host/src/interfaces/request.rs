@@ -5,7 +5,6 @@ use std::{path::Path, str::FromStr};
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
-    consts::Network,
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
     prover::{Proof, Prover},
@@ -148,7 +147,7 @@ pub struct ProofRequest {
     /// The beacon node URL for retrieving data blobs.
     pub beacon_rpc: String,
     /// The network to generate the proof for.
-    pub network: Network,
+    pub network: String,
     /// The L1 network to grnerate the proof for.
     pub l1_network: String,
     /// Graffiti.
@@ -267,13 +266,9 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             beacon_rpc: value.beacon_rpc.ok_or(HostError::InvalidRequestConfig(
                 "Missing beacon_rpc".to_string(),
             ))?,
-            network: value
-                .network
-                .ok_or(HostError::InvalidRequestConfig(
-                    "Missing network".to_string(),
-                ))?
-                .parse()
-                .map_err(|_| HostError::InvalidRequestConfig("Invalid network".to_string()))?,
+            network: value.network.ok_or(HostError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?,
             l1_network: value.l1_network.ok_or(HostError::InvalidRequestConfig(
                 "Missing l1_network".to_string(),
             ))?,

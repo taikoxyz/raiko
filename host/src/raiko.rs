@@ -189,7 +189,7 @@ mod tests {
     };
     use alloy_primitives::Address;
     use clap::ValueEnum;
-    use raiko_lib::consts::{get_network_spec, Network};
+    use raiko_lib::consts::Network;
     use raiko_primitives::B256;
     use serde_json::{json, Value};
     use std::{collections::HashMap, env};
@@ -253,7 +253,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7() {
         let proof_type = get_proof_type_from_env();
-        let network = Network::TaikoA7;
+        let network = Network::TaikoA7.to_string();
         // Give the CI an simpler block to test because it doesn't have enough memory.
         // Unfortunately that also means that kzg is not getting fully verified by CI.
         let block_number = if is_ci() { 105987 } else { 101368 };
@@ -278,9 +278,9 @@ mod tests {
         let proof_type = get_proof_type_from_env();
         // Skip test on SP1 for now because it's too slow on CI
         if !(is_ci() && proof_type == ProofType::Sp1) {
-            let network = Network::Ethereum;
+            let network = Network::Ethereum.to_string();
             let block_number = 19707175;
-            let chain_spec = get_network_spec(network);
+            let chain_spec = SupportedChainSpecs::default().get_network_spec(network);
             let proof_request = ProofRequest {
                 block_number,
                 rpc: "https://rpc.ankr.com/eth".to_string(),

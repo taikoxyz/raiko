@@ -4,7 +4,6 @@ use crate::metrics::observe_guest_time;
 use crate::metrics::observe_prepare_input_time;
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_lib::{
-    consts::get_network_spec,
     input::{get_input_path, GuestInput},
     Measurement,
 };
@@ -82,7 +81,10 @@ fn dec_concurrent_req_count(e: HostError) -> HostError {
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
 async fn proof_handler(
-    State(ProverState { opts }): State<ProverState>,
+    State(ProverState {
+        opts,
+        chain_specs: support_chain_specs,
+    }): State<ProverState>,
     Json(req): Json<Value>,
 ) -> HostResult<Json<Value>> {
     inc_current_req();
@@ -107,7 +109,9 @@ async fn proof_handler(
         &proof_request.network.to_string(),
     );
 
-    let chain_spec = get_network_spec(proof_request.network);
+    let chain_spec = support_chain_specs
+        .get_network_spec(&proof_request.network.to_string())
+        .expect("unknown network");
 
     // Execute the proof generation.
     let total_time = Measurement::start("", false);

@@ -306,7 +306,7 @@ pub fn check_anchor_tx(input: &GuestInput, anchor: &TxEnvelope, from: &Address) 
                 anchor_call.l1Hash == input.taiko.l1_header.hash(),
                 "L1 hash mismatch"
             );
-            if input.chain_spec.network().unwrap() == Network::TaikoA7 {
+            if input.chain_spec.network() == Network::TaikoA7.to_string() {
                 ensure!(
                     anchor_call.l1StateRoot == input.taiko.l1_header.state_root,
                     "L1 state root mismatch"
