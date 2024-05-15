@@ -164,6 +164,11 @@ mod tests {
                 &payload,
             ).unwrap();
 
+            assert_eq!(
+                TaskStatus::Registered,
+                tama.get_task_proving_status(chain_id, &blockhash, proofsys).unwrap()
+            );
+
             tasks.push((
                 chain_id,
                 blockhash,
@@ -180,6 +185,11 @@ mod tests {
             None
         ).unwrap();
 
+        assert_eq!(
+            TaskStatus::Cancelled_NeverStarted,
+            tama.get_task_proving_status(tasks[0].0, &tasks[0].1, tasks[0].2).unwrap()
+        );
+
         // -----------------------
 
         tama.update_task_progress(
@@ -191,6 +201,11 @@ mod tests {
             None
         ).unwrap();
 
+        assert_eq!(
+            TaskStatus::WorkInProgress,
+            tama.get_task_proving_status(tasks[1].0, &tasks[1].1, tasks[1].2).unwrap()
+        );
+
         tama.update_task_progress(
             tasks[1].0,
             &tasks[1].1,
@@ -200,6 +215,11 @@ mod tests {
             None
         ).unwrap();
 
+        assert_eq!(
+            TaskStatus::CancellationInProgress,
+            tama.get_task_proving_status(tasks[1].0, &tasks[1].1, tasks[1].2).unwrap()
+        );
+
         tama.update_task_progress(
             tasks[1].0,
             &tasks[1].1,
@@ -208,6 +228,11 @@ mod tests {
             TaskStatus::Cancelled,
             None
         ).unwrap();
+
+        assert_eq!(
+            TaskStatus::Cancelled,
+            tama.get_task_proving_status(tasks[1].0, &tasks[1].1, tasks[1].2).unwrap()
+        );
 
         // -----------------------
 
@@ -219,6 +244,11 @@ mod tests {
             TaskStatus::WorkInProgress,
             None
         ).unwrap();
+
+        assert_eq!(
+            TaskStatus::WorkInProgress,
+            tama.get_task_proving_status(tasks[2].0, &tasks[2].1, tasks[2].2).unwrap()
+        );
 
         let proof: Vec<_> = (&mut rng).gen_iter::<u8>().take(128).collect();
         tama.update_task_progress(
@@ -230,11 +260,16 @@ mod tests {
             Some(&proof)
         ).unwrap();
 
-        // -----------------------
+        assert_eq!(
+            TaskStatus::Success,
+            tama.get_task_proving_status(tasks[2].0, &tasks[2].1, tasks[2].2).unwrap()
+        );
+
         assert_eq!(
             proof,
             tama.get_task_proof(tasks[2].0, &tasks[2].1, tasks[2].2).unwrap()
-        )
+        );
+
     }
 
 }

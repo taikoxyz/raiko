@@ -103,6 +103,7 @@ base64-serde = "0.7.0"
 base64 = "0.21.7"
 libflate = { version = "2.0.0" }
 typetag = { version = "0.2.15" }
+num_enum = "0.7.2"
 
 # tracing, logging
 tracing = "0.1"

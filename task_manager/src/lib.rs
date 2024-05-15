@@ -163,6 +163,8 @@ use raiko_primitives::{BlockNumber, ChainId, B256};
 use rusqlite::{named_params, Statement};
 use rusqlite::{Connection, OpenFlags};
 
+use num_enum::{IntoPrimitive, FromPrimitive};
+
 // Types
 // ----------------------------------------------------------------
 
@@ -208,7 +210,8 @@ pub enum TaskProofsys {
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
-#[derive(Debug, Copy, Clone)]
+#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive)]
+#[repr(i32)]
 pub enum TaskStatus {
     Success                   =     0,
     Registered                =  1000,
@@ -222,6 +225,8 @@ pub enum TaskStatus {
     CancellationInProgress    = -3210,
     InvalidOrUnsupportedBlock = -4000,
     UnspecifiedFailureReason  = -9999,
+    #[num_enum(default)]
+    SqlDbCorruption           = -99999,
 }
 
 // Implementation
@@ -611,8 +616,8 @@ impl TaskDb {
         let get_task_proving_status = conn.prepare(
             "
             SELECT
-                thirdparty_desc,
-                id_status,
+                t3p.thirdparty_desc,
+                ts.id_status,
                 MAX(timestamp)
             FROM
                 task_status ts
@@ -625,7 +630,7 @@ impl TaskDb {
                 AND t.blockhash = :blockhash
                 AND t.id_proofsys = :id_proofsys
             GROUP BY
-                ts.id_thirdparty
+                t3p.id_thirdparty
             ORDER BY
                 ts.timestamp DESC;
             ")?;
@@ -710,10 +715,25 @@ impl<'db> TaskManager<'db> {
             ":blockhash": blockhash.as_slice(),
             ":id_proofsys": proof_system as u8,
             ":fulfiller": fulfiller,
-            ":id_status": status as isize,
+            ":id_status": status as i32,
             ":proof": proof
         })?;
         Ok(())
+    }
+
+    pub fn get_task_proving_status(
+        &mut self,
+        chain_id: ChainId,
+        blockhash: &B256,
+        proof_system: TaskProofsys,
+    ) -> Result<TaskStatus, TaskManagerError> {
+        let proving_status = self.get_task_proving_status.query_row(named_params! {
+            ":chain_id": chain_id as u64,
+            ":blockhash": blockhash.as_slice(),
+            ":id_proofsys": proof_system as u8,
+        }, |r| r.get::<_, i32>(0).map(TaskStatus::from))?;
+
+        Ok(proving_status)
     }
 
     pub fn get_task_proof(
