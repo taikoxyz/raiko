@@ -10,6 +10,7 @@ raiko-lib = { workspace = true, features = ["sgx"] }
 raiko-primitives = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
+thiserror = { workspace = true }
 secp256k1 = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }

@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File, OpenOptions},
-    io::prelude::*,
+    io::{prelude::*, Write},
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
@@ -78,12 +78,16 @@ fn save_bootstrap_details(
     Ok(())
 }
 
+#[derive(Debug, thiserror::Error)]
 pub enum BootStrapError {
     // file does not exist
+    #[error("File does not exist")]
     NotExist,
     // file exists but has wrong permissions
+    #[error("File exists but has wrong permissions")]
     WithWrongPermissions,
     // file exists but could not be read normally due to mrenclave change
+    #[error("File exists but could not be read normally due to mrenclave change: {0}")]
     DecryptionError(String),
 }
 
