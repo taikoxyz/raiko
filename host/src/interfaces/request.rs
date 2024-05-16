@@ -139,13 +139,6 @@ impl ProofType {
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
-    /// RPC URL for retrieving block by block number.
-    pub rpc: String,
-    /// The L1 node URL for signal root verify and get txlist info from proposed
-    /// transaction.
-    pub l1_rpc: String,
-    /// The beacon node URL for retrieving data blobs.
-    pub beacon_rpc: String,
     /// The network to generate the proof for.
     pub network: String,
     /// The L1 network to grnerate the proof for.
@@ -169,16 +162,6 @@ pub struct ProofRequestOpt {
     #[arg(long, require_equals = true)]
     /// The block number for the block to generate a proof for.
     pub block_number: Option<u64>,
-    #[arg(long, require_equals = true)]
-    /// RPC URL for retrieving block by block number.
-    pub rpc: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The L1 node URL for signal root verify and get txlist info from proposed
-    /// transaction.
-    pub l1_rpc: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The beacon node URL for retrieving data blobs.
-    pub beacon_rpc: Option<String>,
     #[arg(long, require_equals = true)]
     /// The network to generate the proof for.
     pub network: Option<String>,
@@ -256,15 +239,6 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
         Ok(Self {
             block_number: value.block_number.ok_or(HostError::InvalidRequestConfig(
                 "Missing block number".to_string(),
-            ))?,
-            rpc: value
-                .rpc
-                .ok_or(HostError::InvalidRequestConfig("Missing rpc".to_string()))?,
-            l1_rpc: value.l1_rpc.ok_or(HostError::InvalidRequestConfig(
-                "Missing l1_rpc".to_string(),
-            ))?,
-            beacon_rpc: value.beacon_rpc.ok_or(HostError::InvalidRequestConfig(
-                "Missing beacon_rpc".to_string(),
             ))?,
             network: value.network.ok_or(HostError::InvalidRequestConfig(
                 "Missing network".to_string(),

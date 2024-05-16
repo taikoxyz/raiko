@@ -408,6 +408,7 @@ async fn get_blob_data_beacon(
         "{}/eth/v1/beacon/blob_sidecars/{block_id}",
         beacon_rpc_url.trim_end_matches('/'),
     );
+    info!("Retrieve blob from {url}.");
     let response = reqwest::get(url.clone()).await?;
     if response.status().is_success() {
         let blobs: GetBlobsResponse = response.json().await?;

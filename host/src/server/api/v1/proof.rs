@@ -109,17 +109,28 @@ async fn proof_handler(
         &proof_request.network.to_string(),
     );
 
-    let chain_spec = support_chain_specs
+    let l1_chain_spec = support_chain_specs
+        .get_chain_spec(&proof_request.l1_network.to_string())
+        .ok_or_else(|| {
+            dec_current_req();
+            HostError::InvalidRequestConfig("Unsupported l1 network".to_string())
+        })?;
+
+    let raiko_chain_spec = support_chain_specs
         .get_chain_spec(&proof_request.network.to_string())
         .ok_or_else(|| {
             dec_current_req();
-            HostError::InvalidRequestConfig("Unsupported network".to_string())
+            HostError::InvalidRequestConfig("Unsupported raiko network".to_string())
         })?;
 
     // Execute the proof generation.
     let total_time = Measurement::start("", false);
 
-    let raiko = Raiko::new(chain_spec, proof_request.clone());
+    let raiko = Raiko::new(
+        l1_chain_spec,
+        raiko_chain_spec.clone(),
+        proof_request.clone(),
+    );
     let input = if let Some(cached_input) = cached_input {
         debug!("Using cached input");
         cached_input
