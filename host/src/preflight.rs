@@ -28,10 +28,8 @@ use std::{collections::HashSet, sync::Arc};
 use tracing::{info, warn};
 
 use crate::{
-    error::{HostError, HostResult},
-    provider_db::ProviderDb,
-    raiko::BlockDataProvider,
-    rpc_provider::RpcBlockDataProvider,
+    interfaces::error::{HostError, HostResult},
+    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
 
 pub async fn preflight<BDP: BlockDataProvider>(

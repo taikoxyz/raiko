@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod error;
+pub mod interfaces;
 pub mod metrics;
 pub mod preflight;
-pub mod provider_db;
+pub mod provider;
 pub mod raiko;
-pub mod request;
-pub mod rpc_provider;
 pub mod server;
 
 use std::{alloc, collections::HashMap, path::PathBuf};
@@ -31,7 +29,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{error::HostResult, request::ProofRequestOpt};
+use crate::interfaces::{error::HostResult, request::ProofRequestOpt};
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 

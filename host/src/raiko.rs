@@ -1,37 +1,21 @@
-use alloy_primitives::{Address, FixedBytes, B256, U256};
-use alloy_rpc_types::Block;
+use alloy_primitives::{FixedBytes, B256};
 use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
 use raiko_lib::consts::ChainSpec;
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
 use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
 use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::utils::HeaderHasher;
-use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tracing::{error, info, trace, warn};
 
-use crate::error::{self, HostError, HostResult};
 use crate::preflight::preflight;
-use crate::request::ProofRequest;
-use crate::MerkleProof;
-
-#[allow(async_fn_in_trait)]
-pub trait BlockDataProvider {
-    async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> HostResult<Vec<Block>>;
-
-    async fn get_accounts(&self, accounts: &[Address]) -> HostResult<Vec<AccountInfo>>;
-
-    async fn get_storage_values(&self, accounts: &[(Address, U256)]) -> HostResult<Vec<U256>>;
-
-    async fn get_merkle_proofs(
-        &self,
-        block_number: u64,
-        accounts: HashMap<Address, Vec<U256>>,
-        offset: usize,
-        num_storage_proofs: usize,
-    ) -> HostResult<MerkleProof>;
-}
+use crate::{
+    interfaces::{
+        error::{self, HostError, HostResult},
+        request::ProofRequest,
+    },
+    provider::BlockDataProvider,
+};
 
 pub struct Raiko {
     chain_spec: ChainSpec,
@@ -198,16 +182,17 @@ fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, 
 
 #[cfg(test)]
 mod tests {
-    use crate::raiko::{ChainSpec, Raiko};
-    use crate::request::{ProofRequest, ProofType};
-    use crate::rpc_provider::RpcBlockDataProvider;
+    use crate::{
+        interfaces::request::{ProofRequest, ProofType},
+        provider::rpc::RpcBlockDataProvider,
+        raiko::{ChainSpec, Raiko},
+    };
     use alloy_primitives::Address;
     use clap::ValueEnum;
     use raiko_lib::consts::{get_network_spec, Network};
     use raiko_primitives::B256;
     use serde_json::{json, Value};
-    use std::collections::HashMap;
-    use std::env;
+    use std::{collections::HashMap, env};
 
     fn get_proof_type_from_env() -> ProofType {
         let proof_type = env::var("TARGET").unwrap_or("native".to_string());

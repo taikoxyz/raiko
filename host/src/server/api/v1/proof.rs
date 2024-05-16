@@ -13,15 +13,17 @@ use tracing::{debug, info};
 use utoipa::OpenApi;
 
 use crate::{
-    error::{HostError, HostResult},
+    interfaces::{
+        error::{HostError, HostResult},
+        request::ProofRequest,
+    },
     memory,
     metrics::{
         dec_current_req, inc_current_req, inc_guest_error, inc_guest_success, inc_host_error,
         inc_host_req_count, observe_total_time,
     },
+    provider::rpc::RpcBlockDataProvider,
     raiko::Raiko,
-    request::ProofRequest,
-    rpc_provider::RpcBlockDataProvider,
     ProverState,
 };
 
