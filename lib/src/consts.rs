@@ -19,7 +19,6 @@ use alloc::{collections::BTreeMap, str::FromStr};
 
 use alloy_primitives::Address;
 use anyhow::{bail, Result};
-use lazy_static::lazy_static;
 use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
@@ -293,25 +292,5 @@ mod tests {
         let json = std::fs::read_to_string("chain_spec.json").unwrap();
         let deserialized: ChainSpec = serde_json::from_str(&json).unwrap();
         assert_eq!(spec, deserialized);
-    }
-
-    #[ignore]
-    #[test]
-    fn serde_chain_spec_list() {
-        let chain_spec_list: Vec<ChainSpec> = vec![
-            ETH_MAINNET_CHAIN_SPEC.clone(),
-            ETH_HOLESKY_CHAIN_SPEC.clone(),
-            TAIKO_A7_CHAIN_SPEC.clone(),
-        ];
-        // write to json file
-        let json = serde_json::to_string(&chain_spec_list).unwrap();
-        std::fs::write("chain_spec_list.json", json).unwrap();
-
-        let json = std::fs::read_to_string("chain_spec_list.json").unwrap();
-        let deserialized: Vec<ChainSpec> = serde_json::from_str(&json).unwrap();
-
-        for (a, b) in chain_spec_list.iter().zip(deserialized.iter()) {
-            assert_eq!(a, b);
-        }
     }
 }
