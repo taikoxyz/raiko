@@ -240,8 +240,9 @@ mod tests {
 
     #[test]
     fn revm_spec_id() {
-        let eth_mainnet_spec =
-            SupportedChainSpecs::default().get_chain_spec(&Network::Ethereum.to_string()).unwrap();
+        let eth_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::Ethereum.to_string())
+            .unwrap();
         assert!(eth_mainnet_spec.spec_id(15_537_393, 0) < Some(SpecId::MERGE));
         assert_eq!(eth_mainnet_spec.spec_id(15_537_394, 0), Some(SpecId::MERGE));
         assert_eq!(eth_mainnet_spec.spec_id(17_034_869, 0), Some(SpecId::MERGE));
