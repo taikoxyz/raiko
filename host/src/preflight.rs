@@ -1,8 +1,6 @@
 use crate::{
-    error::{HostError, HostResult},
-    provider_db::ProviderDb,
-    raiko::BlockDataProvider,
-    rpc_provider::RpcBlockDataProvider,
+    interfaces::error::{HostError, HostResult},
+    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
 use alloy_consensus::{
     SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy,
@@ -36,10 +34,9 @@ use tracing::{debug, info, warn};
 pub async fn preflight<BDP: BlockDataProvider>(
     provider: BDP,
     block_number: u64,
-    chain_spec: ChainSpec,
+    l1_chain_spec: ChainSpec,
+    taiko_chain_spec: ChainSpec,
     prover_data: TaikoProverData,
-    l1_rpc_url: Option<String>,
-    beacon_rpc_url: Option<String>,
 ) -> HostResult<GuestInput> {
     let measurement = Measurement::start("Fetching block data...", false);
 
@@ -69,13 +66,12 @@ pub async fn preflight<BDP: BlockDataProvider>(
     debug!("block gas used: {:?}", block.header.gas_used);
     debug!("block transactions: {:?}", block.transactions.len());
 
-    let taiko_guest_input = if chain_spec.is_taiko() {
+    let taiko_guest_input = if taiko_chain_spec.is_taiko() {
         prepare_taiko_chain_input(
-            &chain_spec,
+            &l1_chain_spec,
+            &taiko_chain_spec,
             block_number,
             block,
-            l1_rpc_url,
-            beacon_rpc_url,
             prover_data,
         )
         .await?
@@ -91,7 +87,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
     let input =
         GuestInput {
-            chain_spec: chain_spec.clone(),
+            chain_spec: taiko_chain_spec.clone(),
             block_number,
             gas_used: block.header.gas_used.try_into().map_err(|_| {
                 HostError::Conversion("Failed converting gas used to u64".to_string())
@@ -154,7 +150,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
         provider,
-        chain_spec,
+        taiko_chain_spec,
         if let Some(parent_block_number) = parent_block.header.number {
             parent_block_number
         } else {
@@ -229,17 +225,13 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
 /// Prepare the input for a Taiko chain
 async fn prepare_taiko_chain_input(
-    chain_spec: &ChainSpec,
+    l1_chain_spec: &ChainSpec,
+    taiko_chain_spec: &ChainSpec,
     block_number: u64,
     block: &Block,
-    l1_rpc_url: Option<String>,
-    beacon_rpc_url: Option<String>,
     prover_data: TaikoProverData,
 ) -> HostResult<TaikoGuestInput> {
-    let l1_rpc_url = l1_rpc_url.ok_or_else(|| {
-        HostError::Preflight("L1 RPC URL is required for Taiko chains".to_owned())
-    })?;
-    let provider_l1 = RpcBlockDataProvider::new(&l1_rpc_url, block_number)?;
+    let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, block_number)?;
 
     // Decode the anchor tx to find out which L1 blocks we need to fetch
     let anchor_tx = match &block.transactions {
@@ -279,7 +271,7 @@ async fn prepare_taiko_chain_input(
     // Get the block proposal data
     let (proposal_tx, proposal_event) = get_block_proposed_event(
         provider_l1.provider(),
-        chain_spec.clone(),
+        taiko_chain_spec.clone(),
         l1_inclusion_block_hash,
         block_number,
     )
@@ -296,10 +288,10 @@ async fn prepare_taiko_chain_input(
         // Get the blob data for this block
         let slot_id = block_time_to_block_slot(
             l1_inclusion_block.header.timestamp,
-            chain_spec.genesis_time,
-            chain_spec.seconds_per_slot,
+            l1_chain_spec.genesis_time,
+            l1_chain_spec.seconds_per_slot,
         )?;
-        let beacon_rpc_url = beacon_rpc_url.ok_or_else(|| {
+        let beacon_rpc_url: String = l1_chain_spec.beacon_rpc.clone().ok_or_else(|| {
             HostError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
         })?;
         let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
@@ -313,7 +305,7 @@ async fn prepare_taiko_chain_input(
 
     // Create the transactions from the proposed tx list
     let transactions = generate_transactions(
-        &chain_spec,
+        &taiko_chain_spec,
         proposal_event.meta.blobUsed,
         &tx_data,
         Some(anchor_tx.clone()),
@@ -342,7 +334,11 @@ fn block_time_to_block_slot(
     genesis_time: u64,
     block_per_slot: u64,
 ) -> HostResult<u64> {
-    if block_time < genesis_time {
+    if genesis_time == 0u64 {
+        Err(HostError::Anyhow(anyhow!(
+            "genesis time is 0, please check chain spec"
+        )))
+    } else if block_time < genesis_time {
         Err(HostError::Anyhow(anyhow!(
             "provided block_time precedes genesis time",
         )))
@@ -365,7 +361,7 @@ fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
     let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings)
         .expect("Could not create kzg commitment from blob");
-    let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+    let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
     version_hash
 }
 
@@ -414,6 +410,7 @@ async fn get_blob_data_beacon(
         "{}/eth/v1/beacon/blob_sidecars/{block_id}",
         beacon_rpc_url.trim_end_matches('/'),
     );
+    info!("Retrieve blob from {url}.");
     let response = reqwest::get(url.clone()).await?;
     if response.status().is_success() {
         let blobs: GetBlobsResponse = response.json().await?;
@@ -629,7 +626,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
 mod test {
     use ethers_core::types::Transaction;
     use raiko_lib::{
-        consts::{get_network_spec, Network},
+        consts::{Network, SupportedChainSpecs},
         utils::decode_transactions,
     };
     use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
@@ -640,7 +637,7 @@ mod test {
     fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
         let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
         let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
-        let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+        let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
         version_hash
     }
 
@@ -682,7 +679,7 @@ mod test {
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
-            kzg_to_versioned_hash(kzg_commit).to_string(),
+            kzg_to_versioned_hash(&kzg_commit).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
     }
@@ -750,7 +747,7 @@ mod test {
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
-            kzg_to_versioned_hash(kzg_commit).to_string(),
+            kzg_to_versioned_hash(&kzg_commit).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
     }
@@ -870,7 +867,9 @@ mod test {
     #[ignore]
     #[test]
     fn test_slot_block_num_mapping() {
-        let chain_spec = get_network_spec(Network::TaikoA7);
+        let chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoA7.to_string())
+            .unwrap();
         let expected_slot = 1000u64;
         let second_per_slot = 12u64;
         let block_time = chain_spec.genesis_time + expected_slot * second_per_slot;

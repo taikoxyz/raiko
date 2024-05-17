@@ -32,7 +32,7 @@ impl ProtocolInstance {
     }
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
-    pub fn instance_hash(&self, evidence_type: EvidenceType) -> B256 {
+    pub fn instance_hash(&self, evidence_type: &EvidenceType) -> B256 {
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => keccak(
                 (
@@ -46,7 +46,7 @@ impl ProtocolInstance {
                 )
                     .abi_encode()
                     .iter()
-                    .cloned()
+                    .copied()
                     .skip(32) // TRICKY: skip the first dyn flag 0x00..20.
                     .collect::<Vec<u8>>(),
             )
@@ -70,7 +70,7 @@ impl ProtocolInstance {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum EvidenceType {
     Sgx {
         new_pubkey: Address, // the evidence signature public key
@@ -83,7 +83,7 @@ pub enum EvidenceType {
 }
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
-pub fn kzg_to_versioned_hash(commitment: KzgCommitment) -> B256 {
+pub fn kzg_to_versioned_hash(commitment: &KzgCommitment) -> B256 {
     let mut res = Sha256::digest(commitment.as_slice());
     res[0] = VERSIONED_HASH_VERSION_KZG;
     B256::new(res.into())
@@ -95,7 +95,10 @@ pub fn assemble_protocol_instance(
 ) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
-        if !input.taiko.skip_verify_blob {
+        if input.taiko.skip_verify_blob {
+            debug!("kzg check disabled!");
+            input.taiko.tx_blob_hash.unwrap()
+        } else {
             debug!("kzg check enabled!");
             let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
             let kzg_settings = KzgSettings::from_u8_slice(&mut data);
@@ -104,12 +107,9 @@ pub fn assemble_protocol_instance(
                 &kzg_settings,
             )
             .unwrap();
-            let versioned_hash = kzg_to_versioned_hash(kzg_commit);
+            let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
             assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
             versioned_hash
-        } else {
-            debug!("kzg check disabled!");
-            input.taiko.tx_blob_hash.unwrap()
         }
     } else {
         TxHash::from(keccak(input.taiko.tx_data.as_slice()))

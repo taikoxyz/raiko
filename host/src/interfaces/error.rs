@@ -2,7 +2,7 @@ use axum::{http::StatusCode, response::IntoResponse};
 use raiko_lib::prover::ProverError;
 use utoipa::ToSchema;
 
-use crate::request::ProofType;
+use crate::interfaces::request::ProofType;
 
 /// The standardized error returned by the Raiko host.
 #[derive(thiserror::Error, Debug, ToSchema)]

@@ -30,9 +30,9 @@ mod proof;
     ),
     components(
         schemas(
-            crate::request::ProofRequestOpt,
-            crate::error::HostError,
-            crate::request::ProverSpecificOpts,
+            crate::interfaces::request::ProofRequestOpt,
+            crate::interfaces::request::ProverSpecificOpts,
+            crate::interfaces::error::HostError,
             GuestOutputDoc,
             ProofResponse,
         )

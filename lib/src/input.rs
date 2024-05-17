@@ -26,7 +26,7 @@ use serde_with::serde_as;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, serde_with::RlpBytes};
+use crate::{consts::ChainSpec, serde_with::RlpBytes, serde_with::RlpHexBytes};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -107,7 +107,7 @@ pub struct TaikoProverData {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GuestOutput {
     Success {
-        #[serde_as(as = "RlpBytes")]
+        #[serde_as(as = "RlpHexBytes")]
         header: AlloyConsensusHeader,
         hash: B256,
     },
