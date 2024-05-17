@@ -58,6 +58,11 @@ fn set_cached_input(
     Ok(())
 }
 
+fn dec_concurrent_req_count(e: HostError) -> HostError {
+    dec_current_req();
+    e
+}
+
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",
     request_body = ProofRequestOpt,
@@ -82,13 +87,10 @@ async fn proof_handler(
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     let mut config = opts.proof_request_opt.clone();
-    config.merge(&req)?;
+    config.merge(&req).map_err(dec_concurrent_req_count)?;
 
     // Construct the actual proof request from the available configs.
-    let proof_request = ProofRequest::try_from(config).map_err(|e| {
-        dec_current_req();
-        e
-    })?;
+    let proof_request = ProofRequest::try_from(config).map_err(dec_concurrent_req_count)?;
     inc_host_req_count(proof_request.block_number);
 
     info!(
@@ -116,15 +118,19 @@ async fn proof_handler(
         memory::reset_stats();
         let measurement = Measurement::start("Generating input...", false);
         let provider =
-            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)?;
-        let input = raiko.generate_input(provider).await?;
+            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)
+                .map_err(dec_concurrent_req_count)?;
+        let input = raiko
+            .generate_input(provider)
+            .await
+            .map_err(dec_concurrent_req_count)?;
         let input_time = measurement.stop_with("=> Input generated");
         observe_prepare_input_time(proof_request.block_number, input_time, true);
         memory::print_stats("Input generation peak memory used: ");
         input
     };
     memory::reset_stats();
-    let output = raiko.get_output(&input)?;
+    let output = raiko.get_output(&input).map_err(dec_concurrent_req_count)?;
     memory::print_stats("Guest program peak memory used: ");
 
     memory::reset_stats();
