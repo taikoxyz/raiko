@@ -240,17 +240,13 @@ mod tests {
 
     #[test]
     fn revm_spec_id() {
-        assert!(ETH_MAINNET_CHAIN_SPEC.spec_id(15_537_393, 0) < Some(SpecId::MERGE));
+        let eth_mainnet_spec =
+            SupportedChainSpecs::default().get_chain_spec(&Network::Ethereum.to_string());
+        assert!(eth_mainnet_spec.spec_id(15_537_393, 0) < Some(SpecId::MERGE));
+        assert_eq!(eth_mainnet_spec.spec_id(15_537_394, 0), Some(SpecId::MERGE));
+        assert_eq!(eth_mainnet_spec.spec_id(17_034_869, 0), Some(SpecId::MERGE));
         assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(15_537_394, 0),
-            Some(SpecId::MERGE)
-        );
-        assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(17_034_869, 0),
-            Some(SpecId::MERGE)
-        );
-        assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(17_034_870, 0),
+            eth_mainnet_spec.spec_id(17_034_870, 0),
             Some(SpecId::SHANGHAI)
         );
     }
