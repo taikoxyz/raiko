@@ -116,7 +116,7 @@ async fn proof_handler(
             HostError::InvalidRequestConfig("Unsupported l1 network".to_string())
         })?;
 
-    let raiko_chain_spec = support_chain_specs
+    let taiko_chain_spec = support_chain_specs
         .get_chain_spec(&proof_request.network.to_string())
         .ok_or_else(|| {
             dec_current_req();
@@ -127,8 +127,8 @@ async fn proof_handler(
     let total_time = Measurement::start("", false);
 
     let raiko = Raiko::new(
-        l1_chain_spec,
-        raiko_chain_spec.clone(),
+        l1_chain_spec.clone(),
+        taiko_chain_spec.clone(),
         proof_request.clone(),
     );
     let input = if let Some(cached_input) = cached_input {
@@ -137,9 +137,11 @@ async fn proof_handler(
     } else {
         memory::reset_stats();
         let measurement = Measurement::start("Generating input...", false);
-        let provider =
-            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)
-                .map_err(dec_concurrent_req_count)?;
+        let provider = RpcBlockDataProvider::new(
+            &taiko_chain_spec.rpc.clone(),
+            proof_request.block_number - 1,
+        )
+        .map_err(dec_concurrent_req_count)?;
         let input = raiko
             .generate_input(provider)
             .await

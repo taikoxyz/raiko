@@ -21,7 +21,7 @@ pub mod server;
 
 use std::{alloc, collections::HashMap, path::PathBuf};
 
-use crate::{error::HostResult, request::ProofRequestOpt};
+use crate::interfaces::{error::HostResult, request::ProofRequestOpt};
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::Context;
@@ -30,8 +30,6 @@ use clap::Parser;
 use raiko_lib::consts::SupportedChainSpecs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::interfaces::{error::HostResult, request::ProofRequestOpt};
 use tracing::info;
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
