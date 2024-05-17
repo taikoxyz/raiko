@@ -1,5 +1,9 @@
 use anyhow::Result;
-use std::{borrow::Cow, path::PathBuf};
+use std::{
+    borrow::Cow,
+    fs,
+    path::{Path, PathBuf},
+};
 
 pub const DIGEST_WORDS: usize = 8;
 
@@ -45,21 +49,23 @@ impl GuestListEntry {
         })
     }
 
-    pub fn codegen_consts(&self) -> String {
-        // Quick check for '#' to avoid injection of arbitrary Rust code into the the
-        // method.rs file. This would not be a serious issue since it would only
-        // affect the user that set the path, but it's good to add a check.
+    pub fn codegen_consts(&self, dest: &PathBuf) -> String {
         if self.path.contains('#') {
             panic!("method path cannot include #: {}", self.path);
         }
+        let relative_path = pathdiff::diff_paths(
+            fs::canonicalize(Path::new(&self.path.as_ref())).unwrap(),
+            dest,
+        )
+        .map(|p| String::from(p.to_str().unwrap()))
+        .unwrap();
 
         let upper = self.name.to_uppercase().replace('-', "_");
         let image_id: [u32; DIGEST_WORDS] = self.image_id;
         let elf_path: &str = &self.path;
-        let elf_contents: &[u8] = &self.elf;
         format!(
             r##"
-pub const {upper}_ELF: &[u8] = &{elf_contents:?};
+pub const {upper}_ELF: &[u8] = include_bytes!("{relative_path}");
 pub const {upper}_ID: [u32; 8] = {image_id:?};
 pub const {upper}_PATH: &str = r#"{elf_path}"#;
 "##
