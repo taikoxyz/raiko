@@ -19,19 +19,19 @@ use crate::{
 
 pub struct Raiko {
     l1_chain_spec: ChainSpec,
-    raiko_chain_spec: ChainSpec,
+    taiko_chain_spec: ChainSpec,
     request: ProofRequest,
 }
 
 impl Raiko {
     pub fn new(
         l1_chain_spec: ChainSpec,
-        raiko_chain_spec: ChainSpec,
+        taiko_chain_spec: ChainSpec,
         request: ProofRequest,
     ) -> Self {
         Self {
             l1_chain_spec,
-            raiko_chain_spec,
+            taiko_chain_spec,
             request,
         }
     }
@@ -43,18 +43,12 @@ impl Raiko {
         preflight(
             provider,
             self.request.block_number,
-            self.raiko_chain_spec.clone(),
+            self.l1_chain_spec.clone(),
+            self.taiko_chain_spec.clone(),
             TaikoProverData {
                 graffiti: self.request.graffiti,
                 prover: self.request.prover,
             },
-            Some(self.l1_chain_spec.rpc.clone()),
-            Some(
-                self.l1_chain_spec
-                    .beacon_rpc
-                    .clone()
-                    .ok_or_else(|| error::HostError::Preflight("Missing beacon rpc".to_owned()))?,
-            ),
         )
         .await
         .map_err(Into::<error::HostError>::into)
@@ -244,13 +238,13 @@ mod tests {
 
     async fn prove_block(
         l1_chain_spec: ChainSpec,
-        raiko_chain_spec: ChainSpec,
+        taiko_chain_spec: ChainSpec,
         proof_request: ProofRequest,
     ) {
         let provider =
-            RpcBlockDataProvider::new(&raiko_chain_spec.rpc, proof_request.block_number - 1)
+            RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
-        let raiko = Raiko::new(l1_chain_spec, raiko_chain_spec, proof_request.clone());
+        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
         let mut input = raiko
             .generate_input(provider)
             .await
@@ -273,7 +267,7 @@ mod tests {
         // Give the CI an simpler block to test because it doesn't have enough memory.
         // Unfortunately that also means that kzg is not getting fully verified by CI.
         let block_number = if is_ci() { 105987 } else { 101368 };
-        let raiko_chain_spec = SupportedChainSpecs::default()
+        let taiko_chain_spec = SupportedChainSpecs::default()
             .get_chain_spec(&network)
             .unwrap();
         let l1_chain_spec = SupportedChainSpecs::default()
@@ -289,7 +283,7 @@ mod tests {
             proof_type,
             prover_args: test_proof_params(),
         };
-        prove_block(l1_chain_spec, raiko_chain_spec, proof_request).await;
+        prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -300,7 +294,7 @@ mod tests {
             let network = Network::Ethereum.to_string();
             let l1_network = Network::Ethereum.to_string();
             let block_number = 19707175;
-            let raiko_chain_spec = SupportedChainSpecs::default()
+            let taiko_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&network)
                 .unwrap();
             let l1_chain_spec = SupportedChainSpecs::default()
@@ -315,7 +309,7 @@ mod tests {
                 proof_type,
                 prover_args: test_proof_params(),
             };
-            prove_block(l1_chain_spec, raiko_chain_spec, proof_request).await;
+            prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
     }
 }

@@ -25,18 +25,14 @@ rangeEnd="$4"
 
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
-	rpc="https://rpc.ankr.com/eth"
+	l1_network="ethereum"
 elif [ "$chain" == "holesky" ]; then
-	rpc="https://ethereum-holesky-rpc.publicnode.com"
+	l1_network="holesky"
 elif [ "$chain" == "taiko_a7" ]; then
-	rpc="https://rpc.hekla.taiko.xyz"
-	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
-	beaconRpc="https://eth-holesky-beacon.public.blastapi.io"
+	l1_network="holesky"
 else
 	echo "Using customized chain name $1. Please double check the RPCs."
-	rpc="https://rpc.hekla.taiko.xyz"
-	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
-	beaconRpc="https://eth-holesky-beacon.public.blastapi.io"
+    l1_network="holesky"
 fi
 
 if [ "$proof" == "native" ]; then
@@ -120,9 +116,7 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 		--header 'Content-Type: application/json' \
 		--data-raw "{
          \"network\": \"$chain\",
-         \"rpc\": \"$rpc\",
-         \"l1_rpc\": \"$l1Rpc\",
-         \"beacon_rpc\": \"$beaconRpc\",
+         \"l1_network\": \"$l1_network\",
          \"block_number\": $block,
          \"prover\": \"$prover\",
          \"graffiti\": \"$graffiti\",

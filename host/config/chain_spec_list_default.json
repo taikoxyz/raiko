@@ -28,8 +28,8 @@
         "rpc": "https://rpc.ankr.com/eth",
         "beacon_rpc": "https://ethereum-beacon-api.publicnode.com",
         "sgx_verifier_address": null,
-        "genesis_time": 0,
-        "seconds_per_slot": 1,
+        "genesis_time": 1606824023,
+        "seconds_per_slot": 12,
         "is_taiko": false
     },
     {
@@ -58,8 +58,8 @@
         "rpc": "https://ethereum-holesky-rpc.publicnode.com",
         "beacon_rpc": " https://api.holesky.blobscan.com",
         "sgx_verifier_address": null,
-        "genesis_time": 0,
-        "seconds_per_slot": 1,
+        "genesis_time": 1695902400,
+        "seconds_per_slot": 12,
         "is_taiko": false
     },
     {
@@ -83,8 +83,8 @@
         "rpc": "https://rpc.hekla.taiko.xyz",
         "beacon_rpc": null,
         "sgx_verifier_address": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
-        "genesis_time": 1695902400,
-        "seconds_per_slot": 12,
+        "genesis_time": 0,
+        "seconds_per_slot": 1,
         "is_taiko": true
     }
 ]

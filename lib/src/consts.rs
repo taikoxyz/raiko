@@ -141,6 +141,7 @@ pub struct ChainSpec {
     pub l2_contract: Option<Address>,
     pub rpc: String,
     pub beacon_rpc: Option<String>,
+    // TRICKY: the sgx_verifier_addr is in l1, not in itself
     pub sgx_verifier_address: Option<Address>,
     pub genesis_time: u64,
     pub seconds_per_slot: u64,
