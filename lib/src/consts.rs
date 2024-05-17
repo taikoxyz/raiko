@@ -45,107 +45,19 @@ pub const MAX_BLOCK_HASH_AGE: u64 = 256;
 /// Multiplier for converting gwei to wei.
 pub const GWEI_TO_WEI: U256 = uint!(1_000_000_000_U256);
 
-lazy_static! {
-    /// The Ethereum mainnet specification.
-    pub static ref ETH_MAINNET_CHAIN_SPEC: ChainSpec =
-        ChainSpec {
-            name: Network::Ethereum.to_string(),
-            chain_id: 1,
-            max_spec_id: SpecId::CANCUN,
-            hard_forks: BTreeMap::from([
-                (SpecId::FRONTIER, ForkCondition::Block(0)),
-                // previous versions not supported
-                (SpecId::MERGE, ForkCondition::Block(15_537_394)),
-                (SpecId::SHANGHAI, ForkCondition::Block(17_034_870)),
-                (SpecId::CANCUN, ForkCondition::Timestamp(1_710_338_135)),
-            ]),
-            eip_1559_constants: Eip1559Constants {
-                base_fee_change_denominator: uint!(8_U256),
-                base_fee_max_increase_denominator: uint!(8_U256),
-                base_fee_max_decrease_denominator: uint!(8_U256),
-                elasticity_multiplier: uint!(2_U256),
-            },
-            l1_contract: None,
-            l2_contract: None,
-            rpc: "https://rpc.ankr.com/eth".to_string(),
-            beacon_rpc: Some("https://ethereum-beacon-api.publicnode.com".to_string()),
-            sgx_verifier_address: None,
-            genesis_time: 0u64,
-            seconds_per_slot: 1u64,
-            is_taiko: false,
-        };
-
-    /// The Ethereum testnet "holesky" specification.
-    pub static ref ETH_HOLESKY_CHAIN_SPEC: ChainSpec =
-        ChainSpec {
-            name: Network::Holesky.to_string(),
-            chain_id: 17_000,
-            max_spec_id: SpecId::CANCUN,
-            hard_forks: BTreeMap::from([
-                (SpecId::FRONTIER, ForkCondition::Block(0)),
-                // previous versions not supported
-                (SpecId::SHANGHAI, ForkCondition::Timestamp(1_696_000_704)),
-                (SpecId::CANCUN, ForkCondition::Timestamp(1_707_305_664)),
-            ]),
-            eip_1559_constants: Eip1559Constants {
-                base_fee_change_denominator: uint!(8_U256),
-                base_fee_max_increase_denominator: uint!(8_U256),
-                base_fee_max_decrease_denominator: uint!(8_U256),
-                elasticity_multiplier: uint!(2_U256),
-            },
-            l1_contract: None,
-            l2_contract: None,
-            rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            beacon_rpc: Some("https://api.holesky.blobscan.com".to_string()),
-            sgx_verifier_address: None,
-            genesis_time: 0u64,
-            seconds_per_slot: 1u64,
-            is_taiko: false,
-        };
-
-    /// The Taiko A7 specification.
-    pub static ref TAIKO_A7_CHAIN_SPEC: ChainSpec = ChainSpec {
-        name: Network::TaikoA7.to_string(),
-        chain_id: 167_009,
-        max_spec_id: SpecId::SHANGHAI,
-        hard_forks: BTreeMap::from([
-            (SpecId::SHANGHAI, ForkCondition::Block(0)),
-            (SpecId::CANCUN, ForkCondition::TBD),
-        ]),
-        eip_1559_constants: Eip1559Constants {
-            base_fee_change_denominator: uint!(8_U256),
-            base_fee_max_increase_denominator: uint!(8_U256),
-            base_fee_max_decrease_denominator: uint!(8_U256),
-            elasticity_multiplier: uint!(2_U256),
-        },
-        l1_contract: Some(Address::from_str("0x79C9109b764609df928d16fC4a91e9081F7e87DB").unwrap()),
-        l2_contract: Some(Address::from_str("0x1670090000000000000000000000000000010001").unwrap()),
-        rpc: "https://rpc.hekla.taiko.xyz".to_string(),
-        beacon_rpc: None,
-        sgx_verifier_address: Some(
-            Address::from_str("0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9").unwrap(),
-        ),
-        genesis_time: 1_695_902_400u64,
-        seconds_per_slot: 12u64,
-        is_taiko: true,
-    };
-}
+const DEFAULT_CHAIN_SPECS: &str = include_str!("../../host/config/chain_spec_list_default.json");
 
 #[derive(Clone, Debug)]
 pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 
 impl SupportedChainSpecs {
     pub fn default() -> Self {
-        SupportedChainSpecs(
-            [
-                ETH_MAINNET_CHAIN_SPEC.clone(),
-                ETH_HOLESKY_CHAIN_SPEC.clone(),
-                TAIKO_A7_CHAIN_SPEC.clone(),
-            ]
-            .into_iter()
-            .map(|cs| (cs.name.clone(), cs))
-            .collect(),
-        )
+        let deserialized: Vec<ChainSpec> = serde_json::from_str(&DEFAULT_CHAIN_SPECS).unwrap();
+        let chain_spec_list = deserialized
+            .iter()
+            .map(|cs| (cs.name.clone(), cs.clone()))
+            .collect::<HashMap<String, ChainSpec>>();
+        SupportedChainSpecs(chain_spec_list)
     }
 
     #[cfg(feature = "std")]
