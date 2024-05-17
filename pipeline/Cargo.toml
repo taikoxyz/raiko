@@ -15,7 +15,8 @@ once_cell = { workspace = true }
 anyhow = { workspace = true }
 dirs = { workspace = true }
 risc0-binfmt = { workspace = true, optional = true }
+pathdiff = { workspace = true, optional = true }
 
 [features]
-risc0 = ["dep:risc0-binfmt"]
+risc0 = ["dep:risc0-binfmt", "dep:pathdiff"]
 sp1 = []

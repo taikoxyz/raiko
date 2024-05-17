@@ -28,16 +28,12 @@ if [ "$chain" == "ethereum" ]; then
 	rpc="https://rpc.ankr.com/eth"
 elif [ "$chain" == "holesky" ]; then
 	rpc="https://ethereum-holesky-rpc.publicnode.com"
-elif [ "$chain" == "taiko_a6" ]; then
-	rpc="https://rpc.katla.taiko.xyz"
-	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
-	beaconRpc="https://l1beacon.hekla.taiko.xyz"
 elif [ "$chain" == "taiko_a7" ]; then
 	rpc="https://rpc.hekla.taiko.xyz"
 	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
 	beaconRpc="https://eth-holesky-beacon.public.blastapi.io"
 else
-	echo "Invalid chain name. Please use 'ethereum', 'taiko_a6' or 'taiko_a7'."
+	echo "Invalid chain name. Please use 'ethereum', 'holesky' or 'taiko_a7'."
 	exit 1
 fi
 

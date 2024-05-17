@@ -17,10 +17,10 @@ use raiko_lib::{
     builder::{
         prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, TkoTxExecStrategy,
     },
-    consts::{ChainSpec, Network},
+    consts::ChainSpec,
     input::{
-        decode_anchor, proposeBlockCall, taiko_a6::BlockProposed as TestnetBlockProposed,
-        BlockProposed, GuestInput, TaikoGuestInput, TaikoProverData,
+        decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
+        TaikoProverData,
     },
     utils::{generate_transactions, to_header, zlib_compress_data},
     Measurement,
@@ -313,6 +313,7 @@ async fn prepare_taiko_chain_input(
 
     // Create the transactions from the proposed tx list
     let transactions = generate_transactions(
+        &chain_spec,
         proposal_event.meta.blobUsed,
         &tx_data,
         Some(anchor_tx.clone()),
@@ -480,16 +481,8 @@ async fn get_block_proposed_event(
         bail!("No L1 contract address in the chain spec");
     };
 
-    let Some(network) = chain_spec.network() else {
-        bail!("No network in the chain spec");
-    };
-
     // Get the event signature (value can differ between chains)
-    let event_signature = if network == Network::TaikoA6 {
-        TestnetBlockProposed::SIGNATURE_HASH
-    } else {
-        BlockProposed::SIGNATURE_HASH
-    };
+    let event_signature = BlockProposed::SIGNATURE_HASH;
     // Setup the filter to get the relevant events
     let filter = Filter::new()
         .address(l1_address)
@@ -508,16 +501,9 @@ async fn get_block_proposed_event(
         ) else {
             bail!("Could not create log")
         };
-        let (block_id, data) = if network == Network::TaikoA6 {
-            let event = TestnetBlockProposed::decode_log(&log_struct, false)
-                .map_err(|_| HostError::Anyhow(anyhow!("Could not decode tesstnet log")))?;
-            (event.blockId, event.data.into())
-        } else {
-            let event = BlockProposed::decode_log(&log_struct, false)
-                .map_err(|_| HostError::Anyhow(anyhow!("Could not decode log")))?;
-            (event.blockId, event.data)
-        };
-        if block_id == raiko_primitives::U256::from(l2_block_number) {
+        let event = BlockProposed::decode_log(&log_struct, false)
+            .map_err(|_| HostError::Anyhow(anyhow!("Could not decode log")))?;
+        if event.blockId == raiko_primitives::U256::from(l2_block_number) {
             let Some(log_tx_hash) = log.transaction_hash else {
                 bail!("No transaction hash in the log")
             };
@@ -525,7 +511,7 @@ async fn get_block_proposed_event(
                 .get_transaction_by_hash(log_tx_hash)
                 .await
                 .expect("Could not find the propose tx");
-            return Ok((tx, data));
+            return Ok((tx, event.data));
         }
     }
     bail!("No BlockProposed event found for block {l2_block_number}");
@@ -642,7 +628,10 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
 #[cfg(test)]
 mod test {
     use ethers_core::types::Transaction;
-    use raiko_lib::{consts::get_network_spec, utils::decode_transactions};
+    use raiko_lib::{
+        consts::{get_network_spec, Network},
+        utils::decode_transactions,
+    };
     use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;
@@ -881,7 +870,7 @@ mod test {
     #[ignore]
     #[test]
     fn test_slot_block_num_mapping() {
-        let chain_spec = get_network_spec(Network::TaikoA6);
+        let chain_spec = get_network_spec(Network::TaikoA7);
         let expected_slot = 1000u64;
         let second_per_slot = 12u64;
         let block_time = chain_spec.genesis_time + expected_slot * second_per_slot;
