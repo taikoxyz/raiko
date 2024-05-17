@@ -106,29 +106,27 @@ impl ProofType {
                 .await
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
-                if cfg!(feature = "sp1") {
-                    sp1_driver::Sp1Prover::run(input, output, config)
-                        .await
-                        .map_err(|e| e.into())
-                } else {
-                    Err(HostError::FeatureNotSupportedError(self.clone()))
-                }
+                #[cfg(feature = "sp1")]
+                return sp1_driver::Sp1Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sp1"))]
+                Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
-                if cfg!(feature = "risc0") {
-                    risc0_driver::Risc0Prover::run(input, output, config)
-                        .await
-                        .map_err(|e| e.into())
-                } else {
-                    Err(HostError::FeatureNotSupportedError(self.clone()))
-                }
+                #[cfg(feature = "risc0")]
+                return risc0_driver::Risc0Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "risc0"))]
+                Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
                 return sgx_prover::SgxProver::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
+                #[cfg(not(feature = "sgx"))]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
         }

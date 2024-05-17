@@ -175,8 +175,11 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let mut actual_tx_no = 0usize;
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
-            #[cfg(debug_assertions)]
-            inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+            if cfg!(debug_assertions) {
+                inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+            } else {
+                trace!("\rprocessing tx {tx_no}/{num_transactions}...");
+            }
 
             #[cfg(feature = "tracer")]
             let trace = set_trace_writer(
