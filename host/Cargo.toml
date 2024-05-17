@@ -79,8 +79,8 @@ sgx = ["dep:sgx-prover", "sgx-prover/enable"]
 
 [[bin]]
 name = "raiko-host"
-path = "src/main.rs"
+path = "src/bin/main.rs"
 
 [[bin]]
 name = "docs"
-path = "src/docs.rs"
+path = "src/bin/docs.rs"

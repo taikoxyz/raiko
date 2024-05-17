@@ -16,7 +16,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use utoipa::ToSchema;
 
 use crate::{
-    error::{HostError, HostResult},
+    interfaces::error::{HostError, HostResult},
     merge,
     raiko::NativeProver,
 };
