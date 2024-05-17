@@ -202,4 +202,34 @@ pub mod serde_with {
             T::decode_bytes(bytes).map_err(serde::de::Error::custom)
         }
     }
+
+    pub struct RlpHexBytes {}
+
+    impl<T> SerializeAs<T> for RlpHexBytes
+    where
+        T: alloy_rlp::Encodable,
+    {
+        fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let bytes = alloy_rlp::encode(source);
+            let hex_str = hex::encode(bytes);
+            hex_str.serialize(serializer)
+        }
+    }
+
+    impl<'de, T> DeserializeAs<'de, T> for RlpHexBytes
+    where
+        T: alloy_rlp::Decodable,
+    {
+        fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let hex_str = <String>::deserialize(deserializer)?;
+            let bytes = hex::decode(hex_str).unwrap();
+            T::decode_bytes(bytes).map_err(serde::de::Error::custom)
+        }
+    }
 }

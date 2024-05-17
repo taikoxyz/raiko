@@ -21,15 +21,16 @@ pub mod server;
 
 use std::{alloc, collections::HashMap, path::PathBuf};
 
+use crate::interfaces::{error::HostResult, request::ProofRequestOpt};
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
+use raiko_lib::consts::SupportedChainSpecs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::interfaces::{error::HostResult, request::ProofRequestOpt};
+use tracing::info;
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
@@ -89,6 +90,10 @@ pub struct Cli {
     config_path: PathBuf,
 
     #[arg(long, require_equals = true)]
+    /// Path to a chain spec file that includes supported chain list
+    chain_spec_path: Option<PathBuf>,
+
+    #[arg(long, require_equals = true)]
     /// Use a local directory as a cache for input. Accepts a custom directory.
     cache_path: Option<PathBuf>,
 
@@ -111,6 +116,7 @@ impl Cli {
         let mut config: Value = serde_json::from_reader(reader)?;
         let this = serde_json::to_value(&self)?;
         merge(&mut config, &this);
+
         *self = serde_json::from_value(config)?;
         Ok(())
     }
@@ -133,6 +139,7 @@ fn merge(a: &mut Value, b: &Value) {
 #[derive(Debug, Clone)]
 pub struct ProverState {
     pub opts: Cli,
+    pub chain_specs: SupportedChainSpecs,
 }
 
 impl ProverState {
@@ -142,6 +149,15 @@ impl ProverState {
         // Read the config file.
         opts.merge_from_file()?;
 
+        let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
+            let chain_specs = SupportedChainSpecs::merge_from_file(cs_path.clone())
+                .unwrap_or(SupportedChainSpecs::default());
+            info!("Supported chains: {:?}", chain_specs.supported_networks());
+            chain_specs
+        } else {
+            SupportedChainSpecs::default()
+        };
+
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {
             if !cache_path.exists() {
@@ -149,7 +165,7 @@ impl ProverState {
             }
         }
 
-        Ok(Self { opts })
+        Ok(Self { opts, chain_specs })
     }
 }
 

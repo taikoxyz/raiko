@@ -14,19 +14,21 @@
 
 //! Constants for the Ethereum protocol.
 extern crate alloc;
-use core::fmt::Display;
 
-use alloc::{collections::BTreeMap, str::FromStr};
+use alloc::collections::BTreeMap;
 
 use alloy_primitives::Address;
 use anyhow::{bail, Result};
-use lazy_static::lazy_static;
 use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;
@@ -42,96 +44,49 @@ pub const MAX_BLOCK_HASH_AGE: u64 = 256;
 /// Multiplier for converting gwei to wei.
 pub const GWEI_TO_WEI: U256 = uint!(1_000_000_000_U256);
 
-lazy_static! {
-    /// The Ethereum mainnet specification.
-    pub static ref ETH_MAINNET_CHAIN_SPEC: ChainSpec =
-        ChainSpec {
-            name: Network::Ethereum.to_string(),
-            chain_id: 1,
-            max_spec_id: SpecId::CANCUN,
-            hard_forks: BTreeMap::from([
-                (SpecId::FRONTIER, ForkCondition::Block(0)),
-                // previous versions not supported
-                (SpecId::MERGE, ForkCondition::Block(15_537_394)),
-                (SpecId::SHANGHAI, ForkCondition::Block(17_034_870)),
-                (SpecId::CANCUN, ForkCondition::Timestamp(1_710_338_135)),
-            ]),
-            eip_1559_constants: Eip1559Constants {
-                base_fee_change_denominator: uint!(8_U256),
-                base_fee_max_increase_denominator: uint!(8_U256),
-                base_fee_max_decrease_denominator: uint!(8_U256),
-                elasticity_multiplier: uint!(2_U256),
-            },
-            l1_contract: None,
-            l2_contract: None,
-            sgx_verifier_address: None,
-            genesis_time: 0u64,
-            seconds_per_slot: 1u64,
-            is_taiko: false,
-        };
+const DEFAULT_CHAIN_SPECS: &str = include_str!("../../host/config/chain_spec_list_default.json");
 
-    /// The Ethereum testnet "holesky" specification.
-    pub static ref ETH_HOLESKY_CHAIN_SPEC: ChainSpec =
-        ChainSpec {
-            name: Network::Holesky.to_string(),
-            chain_id: 17_000,
-            max_spec_id: SpecId::CANCUN,
-            hard_forks: BTreeMap::from([
-                (SpecId::FRONTIER, ForkCondition::Block(0)),
-                // previous versions not supported
-                (SpecId::SHANGHAI, ForkCondition::Timestamp(1_696_000_704)),
-                (SpecId::CANCUN, ForkCondition::Timestamp(1_707_305_664)),
-            ]),
-            eip_1559_constants: Eip1559Constants {
-                base_fee_change_denominator: uint!(8_U256),
-                base_fee_max_increase_denominator: uint!(8_U256),
-                base_fee_max_decrease_denominator: uint!(8_U256),
-                elasticity_multiplier: uint!(2_U256),
-            },
-            l1_contract: None,
-            l2_contract: None,
-            sgx_verifier_address: None,
-            genesis_time: 0u64,
-            seconds_per_slot: 1u64,
-            is_taiko: false,
-        };
+#[derive(Clone, Debug)]
+pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 
-    /// The Taiko A7 specification.
-    pub static ref TAIKO_A7_CHAIN_SPEC: ChainSpec = ChainSpec {
-        name: Network::TaikoA7.to_string(),
-        chain_id: 167_009,
-        max_spec_id: SpecId::SHANGHAI,
-        hard_forks: BTreeMap::from([
-            (SpecId::SHANGHAI, ForkCondition::Block(0)),
-            (SpecId::CANCUN, ForkCondition::TBD),
-        ]),
-        eip_1559_constants: Eip1559Constants {
-            base_fee_change_denominator: uint!(8_U256),
-            base_fee_max_increase_denominator: uint!(8_U256),
-            base_fee_max_decrease_denominator: uint!(8_U256),
-            elasticity_multiplier: uint!(2_U256),
-        },
-        l1_contract: Some(Address::from_str("0x79C9109b764609df928d16fC4a91e9081F7e87DB").unwrap()),
-        l2_contract: Some(Address::from_str("0x1670090000000000000000000000000000010001").unwrap()),
-        sgx_verifier_address: Some(
-            Address::from_str("0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9").unwrap(),
-        ),
-        genesis_time: 1_695_902_400u64,
-        seconds_per_slot: 12u64,
-        is_taiko: true,
-    };
-}
+impl SupportedChainSpecs {
+    pub fn default() -> Self {
+        let deserialized: Vec<ChainSpec> = serde_json::from_str(&DEFAULT_CHAIN_SPECS).unwrap();
+        let chain_spec_list = deserialized
+            .iter()
+            .map(|cs| (cs.name.clone(), cs.clone()))
+            .collect::<HashMap<String, ChainSpec>>();
+        SupportedChainSpecs(chain_spec_list)
+    }
 
-pub fn get_network_spec(network: Network) -> ChainSpec {
-    match network {
-        Network::Ethereum => ETH_MAINNET_CHAIN_SPEC.clone(),
-        Network::Holesky => ETH_HOLESKY_CHAIN_SPEC.clone(),
-        Network::TaikoA7 => TAIKO_A7_CHAIN_SPEC.clone(),
+    #[cfg(feature = "std")]
+    pub fn merge_from_file(file_path: PathBuf) -> Result<SupportedChainSpecs> {
+        let mut known_chain_specs = SupportedChainSpecs::default();
+        let file = std::fs::File::open(&file_path)?;
+        let reader = std::io::BufReader::new(file);
+        let config: Value = serde_json::from_reader(reader)?;
+        let chain_spec_list: Vec<ChainSpec> = serde_json::from_value(config)?;
+        let new_chain_specs = chain_spec_list
+            .iter()
+            .map(|cs| (cs.name.clone(), cs.clone()))
+            .collect::<HashMap<String, ChainSpec>>();
+
+        // override known specs
+        known_chain_specs.0.extend(new_chain_specs);
+        Ok(known_chain_specs)
+    }
+
+    pub fn supported_networks(&self) -> Vec<String> {
+        self.0.keys().cloned().collect()
+    }
+
+    pub fn get_chain_spec(&self, network: &String) -> Option<ChainSpec> {
+        self.0.get(network).cloned()
     }
 }
 
 /// The condition at which a fork is activated.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ForkCondition {
     /// The fork is activated with a certain block.
     Block(BlockNumber),
@@ -174,7 +129,7 @@ impl Default for Eip1559Constants {
 }
 
 /// Specification of a specific chain.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct ChainSpec {
     pub name: String,
     pub chain_id: ChainId,
@@ -183,6 +138,9 @@ pub struct ChainSpec {
     pub eip_1559_constants: Eip1559Constants,
     pub l1_contract: Option<Address>,
     pub l2_contract: Option<Address>,
+    pub rpc: String,
+    pub beacon_rpc: Option<String>,
+    // TRICKY: the sgx_verifier_addr is in l1, not in itself
     pub sgx_verifier_address: Option<Address>,
     pub genesis_time: u64,
     pub seconds_per_slot: u64,
@@ -206,6 +164,8 @@ impl ChainSpec {
             eip_1559_constants,
             l1_contract: None,
             l2_contract: None,
+            rpc: "".to_string(),
+            beacon_rpc: None,
             sgx_verifier_address: None,
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
@@ -247,11 +207,12 @@ impl ChainSpec {
         self.is_taiko
     }
 
-    pub fn network(&self) -> Option<Network> {
-        Network::from_str(&self.name).ok()
+    pub fn network(&self) -> String {
+        self.name.clone()
     }
 }
 
+// network enum here either has fixed setting or need known patch fix
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Network {
     /// The Ethereum Mainnet
@@ -263,35 +224,12 @@ pub enum Network {
     TaikoA7,
 }
 
-impl FromStr for Network {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "ethereum" => Ok(Network::Ethereum),
-            "holesky" => Ok(Network::Holesky),
-            "taiko_a7" => Ok(Network::TaikoA7),
-            #[allow(clippy::needless_return)]
-            _ => bail!("Unknown network"),
-        }
-    }
-}
-
-impl Display for Network {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(match self {
-            Network::Ethereum => "ethereum",
-            Network::Holesky => "holesky",
-            Network::TaikoA7 => "taiko_a7",
-        })
-    }
-}
-
-impl Network {
-    pub fn is_taiko(&self) -> bool {
+impl ToString for Network {
+    fn to_string(&self) -> String {
         match self {
-            Network::Ethereum | Network::Holesky => false,
-            Network::TaikoA7 => true,
+            Network::Ethereum => "ethereum".to_string(),
+            Network::Holesky => "holesky".to_string(),
+            Network::TaikoA7 => "taiko_a7".to_string(),
         }
     }
 }
@@ -302,18 +240,54 @@ mod tests {
 
     #[test]
     fn revm_spec_id() {
-        assert!(ETH_MAINNET_CHAIN_SPEC.spec_id(15_537_393, 0) < Some(SpecId::MERGE));
+        let eth_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::Ethereum.to_string())
+            .unwrap();
+        assert!(eth_mainnet_spec.spec_id(15_537_393, 0) < Some(SpecId::MERGE));
+        assert_eq!(eth_mainnet_spec.spec_id(15_537_394, 0), Some(SpecId::MERGE));
+        assert_eq!(eth_mainnet_spec.spec_id(17_034_869, 0), Some(SpecId::MERGE));
         assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(15_537_394, 0),
-            Some(SpecId::MERGE)
-        );
-        assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(17_034_869, 0),
-            Some(SpecId::MERGE)
-        );
-        assert_eq!(
-            ETH_MAINNET_CHAIN_SPEC.spec_id(17_034_870, 0),
+            eth_mainnet_spec.spec_id(17_034_870, 0),
             Some(SpecId::SHANGHAI)
         );
+    }
+
+    #[ignore]
+    #[test]
+    fn serde_chain_spec() {
+        let spec = ChainSpec {
+            name: "test".to_string(),
+            chain_id: 1,
+            max_spec_id: SpecId::CANCUN,
+            hard_forks: BTreeMap::from([
+                (SpecId::FRONTIER, ForkCondition::Block(0)),
+                (SpecId::MERGE, ForkCondition::Block(15537394)),
+                (SpecId::SHANGHAI, ForkCondition::Block(17034870)),
+                (SpecId::CANCUN, ForkCondition::Timestamp(1710338135)),
+            ]),
+            eip_1559_constants: Eip1559Constants {
+                base_fee_change_denominator: uint!(8_U256),
+                base_fee_max_increase_denominator: uint!(8_U256),
+                base_fee_max_decrease_denominator: uint!(8_U256),
+                elasticity_multiplier: uint!(2_U256),
+            },
+            l1_contract: None,
+            l2_contract: None,
+            rpc: "".to_string(),
+            beacon_rpc: None,
+            sgx_verifier_address: None,
+            genesis_time: 0u64,
+            seconds_per_slot: 1u64,
+            is_taiko: false,
+        };
+
+        let json = serde_json::to_string(&spec).unwrap();
+        // write to a file called chain_specs.json
+        std::fs::write("chain_spec.json", json).unwrap();
+
+        // read back from the file
+        let json = std::fs::read_to_string("chain_spec.json").unwrap();
+        let deserialized: ChainSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(spec, deserialized);
     }
 }
