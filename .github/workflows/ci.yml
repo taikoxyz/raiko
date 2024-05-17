@@ -126,17 +126,30 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: risc0/risc0/.github/actions/rustup@release-0.19
-
-      - uses: risc0/risc0/.github/actions/sccache@release-0.19
-
-      - uses: risc0/clippy-action@main
         with:
-          reporter: 'github-pr-check'
-          fail_on_error: true
-          clippy_flags: --workspace --all-targets --all-features -- -D warnings
+          submodules: recursive
 
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            profile: minimal
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
+
+      - name: Install sp1
+        env:
+          TARGET: sp1
+        run: make install
+
+      - name: Install risc0
+        env:
+          TARGET: risc0
+        run: make install
+
+      - name: Run clippy
+        run: make clippy
+        
   fmt:
     name: fmt
     runs-on: ubuntu-latest
