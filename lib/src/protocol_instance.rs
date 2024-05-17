@@ -5,6 +5,7 @@ use anyhow::{ensure, Result};
 use c_kzg_taiko::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
 use sha2::{Digest as _, Sha256};
+use tracing::debug;
 
 use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
@@ -95,7 +96,7 @@ pub fn assemble_protocol_instance(
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
         if !input.taiko.skip_verify_blob {
-            println!("kzg check enabled!");
+            debug!("kzg check enabled!");
             let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
             let kzg_settings = KzgSettings::from_u8_slice(&mut data);
             let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
@@ -107,7 +108,7 @@ pub fn assemble_protocol_instance(
             assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
             versioned_hash
         } else {
-            println!("kzg check disabled!");
+            debug!("kzg check disabled!");
             input.taiko.tx_blob_hash.unwrap()
         }
     } else {
@@ -226,7 +227,6 @@ mod tests {
                 .skip(32)
                 .collect::<Vec<u8>>(),
         );
-        // println!("pi_hash: {:?}", hex::encode(pi_hash));
         assert_eq!(
             hex::encode(pi_hash),
             "4a7ba84010036277836eaf99acbbc10dc5d8ee9063e2e3c5be5e8be39ceba8ae"

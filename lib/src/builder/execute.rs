@@ -82,7 +82,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let chain_spec = &block_builder.input.chain_spec;
         let chain_id = chain_spec.chain_id();
         let is_taiko = chain_spec.is_taiko();
-        println!("spec_id: {spec_id:?}");
+        debug!("spec_id: {spec_id:?}");
 
         // generate the transactions from the tx list
         // For taiko blocks, insert the anchor tx as the first transaction

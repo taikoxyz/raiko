@@ -28,6 +28,8 @@ mod no_std {
     };
 }
 
+use tracing::debug;
+
 pub mod builder;
 pub mod consts;
 pub mod input;
@@ -91,11 +93,11 @@ pub struct Measurement {
 impl Measurement {
     pub fn start(title: &str, inplace: bool) -> Measurement {
         if inplace {
-            print!("{title}");
+            debug!("{title}");
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
         } else if !title.is_empty() {
-            println!("{title}");
+            debug!("{title}");
         }
 
         Self {
@@ -124,7 +126,7 @@ impl Measurement {
 }
 
 pub fn print_duration(title: &str, duration: time::Duration) {
-    println!(
+    debug!(
         "{title}{}.{:03} seconds",
         duration.as_secs(),
         duration.subsec_millis()
@@ -132,7 +134,7 @@ pub fn print_duration(title: &str, duration: time::Duration) {
 }
 
 pub fn inplace_print(title: &str) {
-    print!("\r{title}");
+    debug!("\r{title}");
     #[cfg(feature = "std")]
     io::stdout().flush().unwrap();
 }

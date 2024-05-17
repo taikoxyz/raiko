@@ -1,7 +1,6 @@
 #![allow(incomplete_features)]
-use std::path::PathBuf;
-
 use raiko_host::{error::HostResult, server::serve, ProverState};
+use std::{env, path::PathBuf};
 use tracing::debug;
 use tracing_appender::{
     non_blocking::WorkerGuard,
@@ -11,6 +10,10 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> HostResult<()> {
+    // defailt `info` level if nothing else defined
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info")
+    }
     env_logger::init();
     let state = ProverState::init()?;
     debug!("Start config:\n{:#?}", state.opts.proof_request_opt);

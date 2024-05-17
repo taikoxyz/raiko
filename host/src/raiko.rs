@@ -9,7 +9,7 @@ use raiko_lib::utils::HeaderHasher;
 use revm::primitives::AccountInfo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::error::{self, HostError, HostResult};
 use crate::preflight::preflight;
@@ -70,7 +70,7 @@ impl Raiko {
             Ok((header, _mpt_node)) => {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
-                info!("Final block header derived successfully. {header:?}");
+                debug!("Final block header derived successfully. {header:?}");
                 let pi = self
                     .request
                     .proof_type

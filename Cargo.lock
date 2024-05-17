@@ -4935,6 +4935,7 @@ dependencies = [
  "thiserror",
  "thiserror-no-std",
  "tokio",
+ "tracing",
  "url",
 ]
 

@@ -27,6 +27,7 @@ hex = { workspace = true }
 c-kzg-taiko = { workspace = true }
 sha2 = { workspace = true }
 cfg-if = { workspace = true }
+tracing = { workspace = true }
 
 # [target.'cfg(feature = "std")'.dependencies]
 thiserror = { workspace = true, optional = true }
