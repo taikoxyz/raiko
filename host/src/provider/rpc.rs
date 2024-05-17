@@ -9,8 +9,8 @@ use revm::primitives::{AccountInfo, Bytecode};
 use std::collections::HashMap;
 
 use crate::{
-    error::{HostError, HostResult},
-    raiko::BlockDataProvider,
+    interfaces::error::{HostError, HostResult},
+    provider::BlockDataProvider,
     MerkleProof,
 };
 

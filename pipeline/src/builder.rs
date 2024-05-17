@@ -222,9 +222,9 @@ impl CommandBuilder {
     //    ├── build/
     //    ├── main               --> this is the output (same)
     //    └── bin2               --> this is the output (same)
-    pub fn build_command(&self, profile: &str, bins: &Vec<String>) -> Executor {
+    pub fn build_command(&self, profile: &str, bins: &[String]) -> Executor {
         let args = vec!["build".to_string()];
-        let cmd = self.inner_command(args, profile, bins.clone());
+        let cmd = self.inner_command(args, profile, bins.to_owned());
         let target_path: PathBuf = self
             .meta
             .target_directory
@@ -362,7 +362,7 @@ fn to_strings(strs: &[&str]) -> Vec<String> {
     strs.iter().map(|s| s.to_string()).collect()
 }
 
-pub fn format_flags(flag: &str, items: &Vec<String>) -> Vec<String> {
+pub fn format_flags(flag: &str, items: &[String]) -> Vec<String> {
     let res = items.iter().fold(Vec::new(), |mut res, i| {
         res.extend([flag.to_owned(), i.to_owned()]);
         res

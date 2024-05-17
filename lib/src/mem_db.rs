@@ -103,7 +103,7 @@ impl MemDb {
     pub fn storage_keys(&self) -> HashMap<Address, Vec<U256>> {
         let mut out = HashMap::new();
         for (address, account) in &self.accounts {
-            out.insert(*address, account.storage.keys().cloned().collect());
+            out.insert(*address, account.storage.keys().copied().collect());
         }
 
         out
@@ -185,7 +185,7 @@ impl Database for MemDb {
         })?;
         self.block_hashes
             .get(&block_no)
-            .cloned()
+            .copied()
             .ok_or(DbError::BlockNotFound(block_no))
     }
 }

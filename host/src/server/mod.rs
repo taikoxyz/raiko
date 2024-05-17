@@ -1,4 +1,4 @@
-use crate::{error::HostError, server::api::create_router, ProverState};
+use crate::{interfaces::error::HostError, server::api::create_router, ProverState};
 use anyhow::Context;
 use std::{net::SocketAddr, str::FromStr};
 use tokio::net::TcpListener;

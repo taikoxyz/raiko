@@ -2,7 +2,6 @@ use anyhow::Result;
 
 use crate::ROOT_DIR;
 use regex::Regex;
-use std::fs::File;
 use std::io::BufRead;
 use std::{
     fs,
@@ -11,6 +10,7 @@ use std::{
     process::{Command, Stdio},
     thread,
 };
+use std::{fs::File, path::Path};
 
 #[derive(Debug)]
 pub struct Executor {
@@ -107,7 +107,7 @@ impl Executor {
     }
 }
 
-fn file_name(path: &PathBuf) -> String {
+fn file_name(path: &Path) -> String {
     String::from(path.file_name().unwrap().to_str().unwrap())
 }
 
