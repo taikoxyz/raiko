@@ -58,7 +58,7 @@ fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Ve
             return zlib_decompress_data(&compressed_tx_list).unwrap_or_default();
         }
 
-        if let Some(Network::TaikoA7) = chain_spec.network() {
+        if Network::TaikoA7.to_string() == chain_spec.network() {
             let de_tx_list: Vec<u8> = zlib_decompress_data(tx_list).unwrap_or_default();
 
             if validate_calldata_tx_list(&de_tx_list) {
@@ -73,7 +73,7 @@ fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Ve
             zlib_decompress_data(tx_list).unwrap_or_default()
         } else {
             println!("validate_calldata_tx_list failed, use empty tx_list");
-            vec![]            
+            vec![]
         }
     } else {
         // no limitation on non-taiko chains
