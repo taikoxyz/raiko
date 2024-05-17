@@ -38,19 +38,40 @@ lazy_static! {
 }
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
-    match Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]) {
-        Ok(transactions) => transactions,
-        Err(e) => {
-            // If decoding fails we need to make an empty block
-            println!("decode_transactions not successful: {e:?}, use empty tx_list");
-            vec![]
-        }
-    }
+    Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]).unwrap_or_else(|e| {
+        // If decoding fails we need to make an empty block
+        println!("decode_transactions not successful: {e:?}, use empty tx_list");
+        vec![]
+    })
 }
 
 // leave a simply fn in case of more checks in future
 fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
     tx_list.len() <= CALL_DATA_CAPACITY
+}
+
+fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Vec<u8> {
+    if is_blob_data {
+        let compressed_tx_list = decode_blob_data(tx_list);
+        return zlib_decompress_data(&compressed_tx_list).unwrap_or_default();
+    }
+
+    if let Some(Network::TaikoA7) = chain_spec.network() {
+        let de_tx_list: Vec<u8> = zlib_decompress_data(tx_list).unwrap_or_default();
+
+        if validate_calldata_tx_list(&de_tx_list) {
+            return de_tx_list;
+        }
+
+        println!("validate_calldata_tx_list failed, use empty tx_list");
+        return vec![];
+    }
+
+    if validate_calldata_tx_list(tx_list) {
+        return zlib_decompress_data(tx_list).unwrap_or_default();
+    }
+
+    vec![]
 }
 
 pub fn generate_transactions(
@@ -60,28 +81,7 @@ pub fn generate_transactions(
     anchor_tx: Option<AlloyTransaction>,
 ) -> Vec<TxEnvelope> {
     // Decode the tx list from the raw data posted onchain
-    let tx_list = match (
-        is_blob_data,
-        chain_spec.network(),
-        validate_calldata_tx_list(tx_list),
-    ) {
-        (true, _, _) => {
-            let compressed_tx_list = decode_blob_data(tx_list);
-            zlib_decompress_data(&compressed_tx_list).unwrap_or_default()
-        }
-        (_, Some(Network::TaikoA7), _) => {
-            // decompress the tx list first to align with A7 client
-            let de_tx_list: Vec<u8> = zlib_decompress_data(tx_list).unwrap_or_default();
-            if validate_calldata_tx_list(&de_tx_list) {
-                de_tx_list
-            } else {
-                println!("validate_calldata_tx_list failed, use empty tx_list");
-                vec![]
-            }
-        }
-        (_, _, true) => zlib_decompress_data(tx_list).unwrap_or_default(),
-        _ => vec![],
-    };
+    let tx_list = get_tx_list(chain_spec, is_blob_data, tx_list);
 
     // Decode the transactions from the tx list
     let mut transactions = decode_transactions(&tx_list);
