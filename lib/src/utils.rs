@@ -51,27 +51,34 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
 }
 
 fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Vec<u8> {
-    if is_blob_data {
-        let compressed_tx_list = decode_blob_data(tx_list);
-        return zlib_decompress_data(&compressed_tx_list).unwrap_or_default();
-    }
-
-    if let Some(Network::TaikoA7) = chain_spec.network() {
-        let de_tx_list: Vec<u8> = zlib_decompress_data(tx_list).unwrap_or_default();
-
-        if validate_calldata_tx_list(&de_tx_list) {
-            return de_tx_list;
+    if chain_spec.is_taiko() {
+        // taiko has some limiations to be aligned with taiko-client
+        if is_blob_data {
+            let compressed_tx_list = decode_blob_data(tx_list);
+            return zlib_decompress_data(&compressed_tx_list).unwrap_or_default();
         }
 
-        println!("validate_calldata_tx_list failed, use empty tx_list");
-        return vec![];
-    }
+        if let Some(Network::TaikoA7) = chain_spec.network() {
+            let de_tx_list: Vec<u8> = zlib_decompress_data(tx_list).unwrap_or_default();
 
-    if validate_calldata_tx_list(tx_list) {
-        return zlib_decompress_data(tx_list).unwrap_or_default();
-    }
+            if validate_calldata_tx_list(&de_tx_list) {
+                return de_tx_list;
+            }
 
-    vec![]
+            println!("validate_calldata_tx_list failed, use empty tx_list");
+            return vec![];
+        }
+
+        if validate_calldata_tx_list(tx_list) {
+            zlib_decompress_data(tx_list).unwrap_or_default()
+        } else {
+            println!("validate_calldata_tx_list failed, use empty tx_list");
+            vec![]            
+        }
+    } else {
+        // no limitation on non-taiko chains
+        zlib_decompress_data(tx_list).unwrap_or_default()
+    }
 }
 
 pub fn generate_transactions(
