@@ -235,10 +235,12 @@ impl Encodable for MptNode {
                     payload_length: self.payload_length(),
                 }
                 .encode(out);
-                nodes.iter().for_each(|child| match child {
-                    Some(node) => node.reference_encode(out),
-                    None => out.put_u8(alloy_rlp::EMPTY_STRING_CODE),
-                });
+                for child in nodes {
+                    match child {
+                        Some(node) => node.reference_encode(out),
+                        None => out.put_u8(alloy_rlp::EMPTY_STRING_CODE),
+                    }
+                }
                 // in the MPT reference, branches have values so always add empty value
                 out.put_u8(alloy_rlp::EMPTY_STRING_CODE);
             }
@@ -631,9 +633,7 @@ impl MptNode {
     /// the value and returns `false`.
     #[inline]
     pub fn insert(&mut self, key: &[u8], value: Vec<u8>) -> Result<bool, Error> {
-        if value.is_empty() {
-            panic!("value must not be empty");
-        }
+        assert!(value.is_empty(), "value must not be empty");
         self.insert_internal(&to_nibs(key), value)
     }
 
@@ -775,13 +775,12 @@ impl MptNode {
     /// trie.
     pub fn size(&self) -> usize {
         match self.as_data() {
-            MptNodeData::Null => 0,
+            MptNodeData::Null | MptNodeData::Digest(_) => 0,
             MptNodeData::Branch(children) => {
                 children.iter().flatten().map(|n| n.size()).sum::<usize>() + 1
             }
             MptNodeData::Leaf(_, _) => 1,
             MptNodeData::Extension(_, child) => child.size() + 1,
-            MptNodeData::Digest(_) => 0,
         }
     }
 
@@ -870,7 +869,7 @@ pub fn to_nibs(slice: &[u8]) -> Vec<u8> {
 /// a single byte. The resulting vector starts with the prefix, followed by the encoded
 /// bytes.
 pub fn to_encoded_path(mut nibs: &[u8], is_leaf: bool) -> Vec<u8> {
-    let mut prefix = (is_leaf as u8) * 0x20;
+    let mut prefix = u8::from(is_leaf) * 0x20;
     if nibs.len() % 2 != 0 {
         prefix += 0x10 + nibs[0];
         nibs = &nibs[1..];
@@ -895,7 +894,7 @@ fn prefix_nibs(prefix: &[u8]) -> Vec<u8> {
     // the first bit of the first nibble denotes the parity
     let is_odd = extension & (1 << 4) != 0;
 
-    let mut result = Vec::with_capacity(2 * tail.len() + is_odd as usize);
+    let mut result = Vec::with_capacity(2 * tail.len() + usize::from(is_odd));
     // for odd lengths, the second nibble contains the first element
     if is_odd {
         result.push(extension & 0xf);
@@ -943,9 +942,10 @@ pub fn mpt_from_proof(proof_nodes: &[MptNode]) -> Result<MptNode> {
                 MptNodeData::Branch(children).into()
             }
             MptNodeData::Extension(prefix, child) => {
-                if !matches!(child.as_data(), MptNodeData::Digest(d) if d == child_ref) {
-                    panic!("node {i} does not reference the successor");
-                }
+                assert!(
+                    matches!(child.as_data(), MptNodeData::Digest(d) if d == child_ref),
+                    "node {i} does not reference the successor"
+                );
                 MptNodeData::Extension(prefix, Box::new(replacement)).into()
             }
             MptNodeData::Null | MptNodeData::Leaf(_, _) | MptNodeData::Digest(_) => {
@@ -1013,7 +1013,9 @@ pub fn shorten_node_path(node: &MptNode) -> Vec<MptNode> {
         MptNodeData::Null | MptNodeData::Branch(_) | MptNodeData::Digest(_) => {}
         MptNodeData::Leaf(_, value) => {
             for i in 0..=nibs.len() {
-                res.push(MptNodeData::Leaf(to_encoded_path(&nibs[i..], true), value.clone()).into())
+                res.push(
+                    MptNodeData::Leaf(to_encoded_path(&nibs[i..], true), value.clone()).into(),
+                );
             }
         }
         MptNodeData::Extension(_, child) => {
@@ -1021,7 +1023,7 @@ pub fn shorten_node_path(node: &MptNode) -> Vec<MptNode> {
                 res.push(
                     MptNodeData::Extension(to_encoded_path(&nibs[i..], false), child.clone())
                         .into(),
-                )
+                );
             }
         }
     };
@@ -1051,9 +1053,9 @@ pub fn proofs_to_tries(
             state_root_node = node.clone();
         }
 
-        proof_nodes.into_iter().for_each(|node| {
+        for node in proof_nodes {
             state_nodes.insert(node.reference(), node);
-        });
+        }
 
         let fini_proofs = proofs.get(&address).unwrap();
 
@@ -1079,9 +1081,9 @@ pub fn proofs_to_tries(
                 storage_root_node = node.clone();
             }
 
-            proof_nodes.into_iter().for_each(|node| {
+            for node in proof_nodes {
                 storage_nodes.insert(node.reference(), node);
-            });
+            }
         }
 
         // assure that slots can be deleted from the storage trie
@@ -1121,9 +1123,9 @@ fn add_orphaned_leafs(
         if is_not_included(&keccak(key), &proof_nodes)? {
             // add the leaf node to the nodes
             let leaf = proof_nodes.last().unwrap();
-            shorten_node_path(leaf).into_iter().for_each(|node| {
+            for node in shorten_node_path(leaf) {
                 nodes_by_reference.insert(node.reference(), node);
-            });
+            }
         }
     }
 

@@ -309,7 +309,7 @@ async fn prepare_taiko_chain_input(
 
     // Create the transactions from the proposed tx list
     let transactions = generate_transactions(
-        &chain_spec,
+        chain_spec,
         proposal_event.meta.blobUsed,
         &tx_data,
         Some(anchor_tx.clone()),
@@ -361,7 +361,7 @@ fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
     let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings)
         .expect("Could not create kzg commitment from blob");
-    let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+    let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
     version_hash
 }
 
@@ -636,7 +636,7 @@ mod test {
     fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
         let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
         let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
-        let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+        let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
         version_hash
     }
 
@@ -678,7 +678,7 @@ mod test {
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
-            kzg_to_versioned_hash(kzg_commit).to_string(),
+            kzg_to_versioned_hash(&kzg_commit).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
     }
@@ -746,7 +746,7 @@ mod test {
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
-            kzg_to_versioned_hash(kzg_commit).to_string(),
+            kzg_to_versioned_hash(&kzg_commit).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
     }

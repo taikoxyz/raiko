@@ -135,7 +135,7 @@ jobs:
         with:
           reporter: 'github-pr-check'
           fail_on_error: true
-          clippy_flags: --workspace --all-targets --all-features -- -Dwarnings
+          clippy_flags: --workspace --all-targets --all-features -- -D warnings
 
   fmt:
     name: fmt

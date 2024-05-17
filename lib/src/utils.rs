@@ -5,7 +5,7 @@ use std::io::Write;
 
 use alloy_consensus::{Header as AlloyConsensusHeader, Signed, TxEip1559, TxEnvelope};
 use alloy_primitives::{uint, Address, Signature, TxKind, U256};
-use alloy_rlp::*;
+use alloy_rlp::{Decodable, Encodable};
 use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use lazy_static::lazy_static;
@@ -38,22 +38,40 @@ lazy_static! {
 }
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
-    match Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]) {
-        Ok(transactions) => transactions,
-        Err(e) => {
-            // If decoding fails we need to make an empty block
-            println!(
-                "decode_transactions not successful: {:?}, use empty tx_list",
-                e
-            );
-            vec![]
-        }
-    }
+    Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]).unwrap_or_else(|e| {
+        // If decoding fails we need to make an empty block
+        println!("decode_transactions not successful: {e:?}, use empty tx_list");
+        vec![]
+    })
 }
 
 // leave a simply fn in case of more checks in future
 fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
     tx_list.len() <= CALL_DATA_CAPACITY
+}
+
+fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Vec<u8> {
+    if is_blob_data {
+        let compressed_tx_list = decode_blob_data(tx_list);
+        return zlib_decompress_data(&compressed_tx_list).unwrap_or_default();
+    }
+
+    if let Some(Network::TaikoA7) = chain_spec.network() {
+        let de_tx_list: Vec<u8> = zlib_decompress_data(tx_list).unwrap_or_default();
+
+        if validate_calldata_tx_list(&de_tx_list) {
+            return de_tx_list;
+        }
+
+        println!("validate_calldata_tx_list failed, use empty tx_list");
+        return vec![];
+    }
+
+    if validate_calldata_tx_list(tx_list) {
+        return zlib_decompress_data(tx_list).unwrap_or_default();
+    }
+
+    vec![]
 }
 
 pub fn generate_transactions(
@@ -63,30 +81,10 @@ pub fn generate_transactions(
     anchor_tx: Option<AlloyTransaction>,
 ) -> Vec<TxEnvelope> {
     // Decode the tx list from the raw data posted onchain
-    let tx_list = &if is_blob_data {
-        let compressed_tx_list = decode_blob_data(tx_list);
-        zlib_decompress_data(&compressed_tx_list).unwrap_or_default()
-    } else {
-        if chain_spec.network() == Some(Network::TaikoA7) {
-            // decompress the tx list first to align with A7 client
-            let de_tx_list: Vec<u8> = zlib_decompress_data(&tx_list.to_owned()).unwrap_or_default();
-            if validate_calldata_tx_list(&de_tx_list) {
-                de_tx_list
-            } else {
-                println!("validate_calldata_tx_list failed, use empty tx_list");
-                vec![]
-            }
-        } else {
-            if validate_calldata_tx_list(tx_list) {
-                zlib_decompress_data(tx_list).unwrap_or_default()
-            } else {
-                vec![]
-            }
-        }
-    };
+    let tx_list = get_tx_list(chain_spec, is_blob_data, tx_list);
 
     // Decode the transactions from the tx list
-    let mut transactions = decode_transactions(tx_list);
+    let mut transactions = decode_transactions(&tx_list);
     if let Some(anchor_tx) = anchor_tx {
         // Create a tx from the anchor tx that has the same type as the transactions encoded from
         // the tx list
@@ -133,8 +131,10 @@ fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     }
 
     // decode the 3-byte big-endian length value into a 4-byte integer
-    let output_len =
-        ((blob_buf[2] as u32) << 16 | (blob_buf[3] as u32) << 8 | (blob_buf[4] as u32)) as usize;
+    let output_len = (u32::from(blob_buf[2]) << 16
+        | u32::from(blob_buf[3]) << 8
+        | u32::from(blob_buf[4])) as usize;
+
     if output_len > MAX_BLOB_DATA_SIZE {
         return Vec::new();
     }
@@ -150,13 +150,13 @@ fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     let mut encoded_byte: [u8; 4] = [0; 4]; // buffer for the 4 6-bit chunks
     encoded_byte[0] = blob_buf[0];
     for encoded_byte_i in encoded_byte.iter_mut().skip(1) {
-        (*encoded_byte_i, opos, ipos) =
-            match decode_field_element(blob_buf, opos, ipos, &mut output) {
-                Ok(res) => res,
-                Err(_) => return Vec::new(),
-            }
+        let Ok(res) = decode_field_element(blob_buf, opos, ipos, &mut output) else {
+            return Vec::new();
+        };
+
+        (*encoded_byte_i, opos, ipos) = res;
     }
-    opos = reassemble_bytes(opos, &encoded_byte, &mut output);
+    opos = reassemble_bytes(opos, encoded_byte, &mut output);
 
     // in each remaining round we decode 4 field elements (128 bytes) of the input into 127
     // bytes of output
@@ -164,13 +164,13 @@ fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
         if opos < output_len {
             for encoded_byte_j in &mut encoded_byte {
                 // save the first byte of each field element for later re-assembly
-                (*encoded_byte_j, opos, ipos) =
-                    match decode_field_element(blob_buf, opos, ipos, &mut output) {
-                        Ok(res) => res,
-                        Err(_) => return Vec::new(),
-                    }
+                let Ok(res) = decode_field_element(blob_buf, opos, ipos, &mut output) else {
+                    return Vec::new();
+                };
+
+                (*encoded_byte_j, opos, ipos) = res;
             }
-            opos = reassemble_bytes(opos, &encoded_byte, &mut output)
+            opos = reassemble_bytes(opos, encoded_byte, &mut output);
         }
     }
     for otailing in output.iter().skip(output_len) {
@@ -205,7 +205,7 @@ fn decode_field_element(
 
 fn reassemble_bytes(
     opos: usize,
-    encoded_byte: &[u8; 4],
+    encoded_byte: [u8; 4],
     output: &mut [u8; MAX_BLOB_DATA_SIZE],
 ) -> usize {
     // account for fact that we don't output a 128th byte
@@ -270,9 +270,7 @@ pub fn check_anchor_tx(input: &GuestInput, anchor: &TxEnvelope, from: &Address) 
             let tx = tx.tx();
 
             // Extract the `to` address
-            let to = if let TxKind::Call(to_addr) = tx.to {
-                to_addr
-            } else {
+            let TxKind::Call(to) = tx.to else {
                 panic!("anchor tx not a smart contract call")
             };
             // Check that it's from the golden touch address
@@ -344,7 +342,7 @@ impl HeaderHasher for AlloyConsensusHeader {
     }
 }
 
-/// Convert from an Alloy RPC header to an ALloy Consensus Header
+/// Convert from an Alloy RPC header to an Alloy Consensus Header
 /// which can be serialized and can be used to generate the block hash.
 pub fn to_header(header: &AlloyHeader) -> AlloyConsensusHeader {
     AlloyConsensusHeader {
