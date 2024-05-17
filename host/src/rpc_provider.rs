@@ -227,6 +227,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
         let batch_limit = 1000;
         while !accounts.is_empty() {
+            #[cfg(debug_assertions)]
             inplace_print(&format!(
                 "fetching storage proof {idx}/{num_storage_proofs}..."
             ));
