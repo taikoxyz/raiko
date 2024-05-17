@@ -130,5 +130,5 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
          \"graffiti\": \"$graffiti\",
          $proofParam
        }"
-	echo "\\n"
+	echo ""
 done
