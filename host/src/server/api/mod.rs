@@ -1,7 +1,7 @@
 use axum::{
     body::HttpBody,
     extract::Request,
-    http::{header, HeaderName, HeaderValue, Method, StatusCode, Uri},
+    http::{header, HeaderName, Method, StatusCode, Uri},
     middleware::{self, Next},
     response::Response,
     Router,
@@ -10,7 +10,6 @@ use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::{self, CorsLayer},
-    set_header::SetResponseHeaderLayer,
     trace::TraceLayer,
 };
 
@@ -30,12 +29,7 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
         .allow_origin(cors::Any);
     let compression = CompressionLayer::new();
 
-    let middleware = ServiceBuilder::new().layer(cors).layer(compression).layer(
-        SetResponseHeaderLayer::overriding(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json"),
-        ),
-    );
+    let middleware = ServiceBuilder::new().layer(cors).layer(compression);
 
     let trace = TraceLayer::new_for_http();
 

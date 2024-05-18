@@ -1,4 +1,4 @@
-use axum::Router;
+use axum::{response::IntoResponse, Router};
 use raiko_lib::input::GuestOutput;
 use serde::Serialize;
 use tower::ServiceBuilder;
@@ -35,6 +35,7 @@ mod proof;
             crate::interfaces::error::HostError,
             GuestOutputDoc,
             ProofResponse,
+            Status,
         )
     ),
     tags(
@@ -56,6 +57,24 @@ pub struct ProofResponse {
     proof: Option<String>,
     /// The quote.
     quote: Option<String>,
+}
+
+impl IntoResponse for ProofResponse {
+    fn into_response(self) -> axum::response::Response {
+        axum::Json(serde_json::json!({
+            "status": "ok",
+            "data": self
+        }))
+        .into_response()
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "lowercase")]
+#[allow(dead_code)]
+pub enum Status {
+    Ok { data: ProofResponse },
+    Error { error: String, message: String },
 }
 
 #[derive(Debug, Serialize, ToSchema)]
