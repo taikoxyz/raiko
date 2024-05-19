@@ -2,7 +2,7 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use c_kzg_taiko::{Blob, KzgCommitment, KzgSettings};
+use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
 use sha2::{Digest as _, Sha256};
 
@@ -10,6 +10,7 @@ use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
+    consts::SupportedChainSpecs,
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     utils::HeaderHasher,
 };
@@ -113,6 +114,42 @@ pub fn assemble_protocol_instance(
     } else {
         TxHash::from(keccak(input.taiko.tx_data.as_slice()))
     };
+
+    // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
+    // one we expect, because the prover could otherwise just fill in any values.
+    // The chain id is used because that is the value that is put onchain,
+    // and so all other chain data needs to be derived from it.
+    // For unknown chain ids we just skip this check so that tests using test data can still pass.
+    // TODO: we should probably split things up in critical and non-critical parts
+    // in the chain spec itself so we don't have to manually all the ones we have to care about.
+    if let Some(verified_chain_spec) =
+        SupportedChainSpecs::default().get_chain_spec_with_chain_id(input.chain_spec.chain_id)
+    {
+        assert_eq!(
+            input.chain_spec.max_spec_id, verified_chain_spec.max_spec_id,
+            "unexpected max_spec_id"
+        );
+        assert_eq!(
+            input.chain_spec.hard_forks, verified_chain_spec.hard_forks,
+            "unexpected hard_forks"
+        );
+        assert_eq!(
+            input.chain_spec.eip_1559_constants, verified_chain_spec.eip_1559_constants,
+            "unexpected eip_1559_constants"
+        );
+        assert_eq!(
+            input.chain_spec.l1_contract, verified_chain_spec.l1_contract,
+            "unexpected l1_contract"
+        );
+        assert_eq!(
+            input.chain_spec.l2_contract, verified_chain_spec.l2_contract,
+            "unexpected l2_contract"
+        );
+        assert_eq!(
+            input.chain_spec.is_taiko, verified_chain_spec.is_taiko,
+            "unexpected eip_1559_constants"
+        );
+    }
 
     let deposits = input
         .withdrawals

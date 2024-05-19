@@ -116,7 +116,8 @@ impl Raiko {
                 assert_eq!(
                     Into::<FixedBytes<32>>::into(header.hash().0),
                     input.block_hash_reference,
-                    "block hash unexpected"
+                    "block hash unexpected for block {}",
+                    input.block_number,
                 );
                 let output = GuestOutput::Success { header, hash: pi };
 
