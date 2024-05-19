@@ -1,12 +1,14 @@
 name: CI - SGX Docker
 
 on:
+  workflow_call:
   push:
     branches: ["main"]
     paths:
       - "docker/**"
   pull_request:
-
+    paths:
+      - "docker/**"
 
 jobs:
   build-test-sgx-with-docker:

@@ -6,7 +6,7 @@ on: workflow_call
 jobs:
     build-test-sgx:
       name: Build and test sgx with Docker
-      uses: ./.github/workflows/build-test.yml
+      uses: ./.github/workflows/ci-build-test-reusable.yml
       with:
         version_name: "native"
-        toolchain: "nightly-2024-04-17"
+        version_toolchain: "nightly-2024-04-17"

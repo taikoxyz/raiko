@@ -1,17 +1,20 @@
 name: CI - RISC0
 
-on:
+on: 
+  workflow_call:
   push:
     branches: ["main"]
     paths:
       - "provers/risc0/**"
   pull_request:
+    paths:
+      - "provers/risc0/**"
 
 
 jobs:
     build-test-sgx:
       name: Build and test sgx with Docker
-      uses: ./.github/workflows/build-test.yml
+      uses: ./.github/workflows/ci-build-test-reusable.yml
       with:
         version_name: "risc0"
-        toolchain: "stable"
+        version_toolchain: "stable"

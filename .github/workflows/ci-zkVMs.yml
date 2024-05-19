@@ -1,13 +1,16 @@
 name: CI - All zkVMs
 
 on:
+  workflow_call:
   push:
     branches: ["main"]
     paths:
       - "pipelines/**"
       - "harness/**"
   pull_request:
-
+    paths:
+      - "pipelines/**"
+      - "harness/**"
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -27,4 +30,4 @@ jobs:
     uses: ./.github/workflows/ci-sp1.yml
 
   build-test-sgx-all:
-    uses: ./.github/workflows/ci-ngx-all.yml
+    uses: ./.github/workflows/ci-sgx-all.yml

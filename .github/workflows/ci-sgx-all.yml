@@ -1,24 +1,26 @@
 name: CI - SGX ALL
 
 on:
+  workflow_call:
   push:
     branches: ["main"]
     paths:
       - "provers/sgx/**"
   pull_request:
-
+    paths:
+      - "provers/sgx/**"
 
 jobs:
     build-test-sgx:
       name: Build and test sgx with Docker
-      uses: ./.github/workflows/build-test.yml
+      uses: ./.github/workflows/ci-build-test-reusable.yml
       with:
         version_name: "sgx"
-        toolchain: "stable"
+        version_toolchain: "stable"
 
     build-test-sgx-docker:
       name: Build and test sgx with Docker
-      uses: ./.github/workflows/sgx-docker.yml
+      uses: ./.github/workflows/ci-sgx-docker.yml
         
     build-test-sgx-hardware:
       name: Build and test sgx in hardware

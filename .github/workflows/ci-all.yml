@@ -9,7 +9,11 @@ on:
       - "primitives/**"
       - "script/**"
   pull_request:
-
+    paths:
+      - "host/**"
+      - "lib/**"
+      - "primitives/**"
+      - "script/**"
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

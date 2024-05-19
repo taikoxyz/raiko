@@ -1,17 +1,19 @@
 name: CI - SP1
 
 on:
+  workflow_call:
   push:
     branches: ["main"]
     paths:
       - "provers/sp1/**"
   pull_request:
-
+    paths:
+      - "provers/sp1/**"
 
 jobs:
     build-test-sgx:
       name: Build and test sgx with Docker
-      uses: ./.github/workflows/build-test.yml
+      uses: ./.github/workflows/ci-build-test-reusable.yml
       with:
         version_name: "sp1"
-        toolchain: "nightly-2024-04-17"
+        version_toolchain: "nightly-2024-04-17"
