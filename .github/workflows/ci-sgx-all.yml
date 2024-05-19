@@ -1,0 +1,52 @@
+name: CI - SGX ALL
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "provers/sgx/**"
+  pull_request:
+
+
+jobs:
+    build-test-sgx:
+      name: Build and test sgx with Docker
+      uses: ./.github/workflows/build-test.yml
+      with:
+        version_name: "sgx"
+        toolchain: "stable"
+
+    build-test-sgx-docker:
+      name: Build and test sgx with Docker
+      uses: ./.github/workflows/sgx-docker.yml
+        
+    build-test-sgx-hardware:
+      name: Build and test sgx in hardware
+      runs-on: [self-hosted, sgx, linux]
+      timeout-minutes: 120
+      env:
+        TARGET: sgx
+        CI: 1
+        EDMM: 0
+    
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            submodules: recursive
+  
+        - uses: actions-rs/toolchain@v1
+          with:
+            toolchain: stable
+            profile: minimal
+    
+        - name: Install cargo-binstall
+          uses: cargo-bins/cargo-binstall@v1.6.4
+    
+        - name: Install sgx
+          run: make install
+    
+        - name: Build sgx prover
+          run: make build
+    
+        - name: Test sgx prover
+          run: make test

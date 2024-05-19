@@ -1,0 +1,23 @@
+name: CI - SGX Docker
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "docker/**"
+  pull_request:
+
+
+jobs:
+  build-test-sgx-with-docker:
+    name: Build and test sgx with Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup and build
+        run: |
+          cd docker
+          docker compose build --no-cache
+        shell: bash
