@@ -27,7 +27,7 @@ impl ZkvmOperator for Sp1Operator {
             .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
             .collect::<Vec<u32>>()
             .try_into()
-            .map_err(|e| Error::ZkvmOperatrion("Input point processing failed".to_string()))?;
+            .map_err(|e| Error::ZkvmOperation("Input point processing failed".to_string()))?;
 
         p.mul_assign(&k);
         Ok(point_to_be_bytes(p))
@@ -64,7 +64,7 @@ impl ZkvmOperator for Sp1Operator {
         sig_id[..64].copy_from_slice(sig);
         sig_id[64] = recid;
         let recovered_key = sp1_precompiles::secp256k1::ecrecover(&sig_id, msg)
-            .map_err(|e| Error::ZkvmOperatrion(e.to_string()))?;
+            .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
 
         let mut hash = keccak256(&recovered_key[1..]);
 

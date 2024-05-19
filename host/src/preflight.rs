@@ -177,7 +177,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
         }
         num_iterations += 1;
     }
-    builder = builder.prepare_header::<TaikoHeaderPrepStrategy>()?;
     let provider_db = builder.mut_db().unwrap();
 
     // Gather inclusion proofs for the initial and final state
