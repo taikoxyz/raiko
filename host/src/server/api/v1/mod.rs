@@ -71,7 +71,6 @@ impl IntoResponse for ProofResponse {
     }
 }
 
-// 实现 TryFrom<Value> trait
 impl TryFrom<Value> for ProofResponse {
     type Error = HostError;
 
