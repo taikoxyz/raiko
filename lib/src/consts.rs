@@ -83,6 +83,13 @@ impl SupportedChainSpecs {
     pub fn get_chain_spec(&self, network: &String) -> Option<ChainSpec> {
         self.0.get(network).cloned()
     }
+
+    pub fn get_chain_spec_with_chain_id(&self, chain_id: u64) -> Option<ChainSpec> {
+        self.0
+            .values()
+            .find(|spec| spec.chain_id == chain_id)
+            .map(|spec| spec.clone())
+    }
 }
 
 /// The condition at which a fork is activated.
