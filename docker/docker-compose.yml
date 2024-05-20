@@ -66,6 +66,8 @@ services:
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
+      - ETHEREUM_RPC=${ETHEREUM_RPC}
+      - ETHEREUM_CHAIN_ID=${ETHEREUM_CHAIN_ID}
       - HOLESKY_RPC=${HOLESKY_RPC}
       - HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
       - TAIKO_A7_RPC=${TAIKO_A7_RPC}
@@ -93,9 +95,14 @@ services:
       - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
     ports:
       - "8080:8080"
-    # environment:
+    environment:
       # you can use your own PCCS host
-      #- PCCS_HOST=host.docker.internal:8081
+      # - PCCS_HOST=host.docker.internal:8081
+      - ETHEREUM_RPC=${ETHEREUM_RPC}
+      - ETHEREUM_CHAIN_ID=${ETHEREUM_CHAIN_ID}
+      - HOLESKY_RPC=${HOLESKY_RPC}
+      - HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
+      - TAIKO_A7_RPC=${TAIKO_A7_RPC}
     # use the host's network to connect to the PCCS
     #extra_hosts:
     #  - "host.docker.internal:host-gateway"
