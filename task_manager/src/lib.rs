@@ -160,11 +160,11 @@ use std::path::Path;
 
 use raiko_primitives::{BlockNumber, ChainId, B256};
 
-use rusqlite::{named_params, Statement, MappedRows};
+use rusqlite::{named_params, MappedRows, Statement};
 use rusqlite::{Connection, OpenFlags};
 
 use chrono::{DateTime, Utc};
-use num_enum::{IntoPrimitive, FromPrimitive};
+use num_enum::{FromPrimitive, IntoPrimitive};
 
 // Types
 // ----------------------------------------------------------------
@@ -389,7 +389,8 @@ impl TaskDb {
                 FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
             );
 
-            "#)?;
+            "#,
+        )?;
 
         Ok(())
     }
@@ -442,7 +443,8 @@ impl TaskDb {
                         task_status ts on ts.id_task = t.id_task
                     LEFT JOIN
                         task_proofs tpf on tpf.id_task = t.id_task;
-            "#)?;
+            "#,
+        )?;
 
         Ok(())
     }
@@ -575,7 +577,8 @@ impl TaskDb {
                     :chain_id, :blockhash, :id_proofsys, :submitter,
                     :block_number, :parent_hash, :state_root, :num_transactions, :gas_used,
                     :payload);
-            ")?;
+            ",
+        )?;
 
         let update_task_progress = conn.prepare(
             "
@@ -585,7 +588,8 @@ impl TaskDb {
                 VALUES (
                     :chain_id, :blockhash, :id_proofsys,
                     :fulfiller, :id_status, :proof);
-            ")?;
+            ",
+        )?;
 
         // The requires sqlite to be compiled with dbstat support:
         //      https://www.sqlite.org/dbstat.html
@@ -600,7 +604,7 @@ impl TaskDb {
             FROM dbstat
             GROUP BY table_name
             ORDER BY SUM(pgsize) DESC;
-            "
+            ",
         )?;
 
         let get_task_proof = conn.prepare(
@@ -614,7 +618,8 @@ impl TaskDb {
                 AND t.blockhash = :blockhash
                 AND t.id_proofsys = :id_proofsys
             LIMIT 1;
-            ")?;
+            ",
+        )?;
 
         let get_task_proving_status = conn.prepare(
             "
@@ -636,9 +641,10 @@ impl TaskDb {
                 t3p.id_thirdparty
             ORDER BY
                 ts.timestamp DESC;
-            ")?;
+            ",
+        )?;
 
-        let get_tasks_unfinished = conn.prepare (
+        let get_tasks_unfinished = conn.prepare(
             "
             SELECT
                 t.chain_id,
@@ -663,15 +669,17 @@ impl TaskDb {
                     -- And -9999 Unspecified failure reason?
                     -- For now we return them until we know more of the failure modes
                 );
-            ")?;
+            ",
+        )?;
 
         Ok(TaskManager {
-                enqueue_task,
-                update_task_progress,
-                get_task_proof,
-                get_task_proving_status,
-                get_tasks_unfinished,
-                get_db_size })
+            enqueue_task,
+            update_task_progress,
+            get_task_proof,
+            get_task_proving_status,
+            get_tasks_unfinished,
+            get_db_size,
+        })
     }
 }
 
@@ -731,15 +739,20 @@ impl<'db> TaskManager<'db> {
         blockhash: &B256,
         proof_system: TaskProofsys,
     ) -> Result<Vec<(Option<String>, TaskStatus, DateTime<Utc>)>, TaskManagerError> {
-        let rows = self.get_task_proving_status.query_map(named_params! {
-            ":chain_id": chain_id as u64,
-            ":blockhash": blockhash.as_slice(),
-            ":id_proofsys": proof_system as u8,
-        }, |row| Ok((
-            row.get::<_, Option<String>>(0)?,
-            TaskStatus::from(row.get::<_, i32>(1)?),
-            row.get::<_, DateTime<Utc>>(2)?,
-        )))?;
+        let rows = self.get_task_proving_status.query_map(
+            named_params! {
+                ":chain_id": chain_id as u64,
+                ":blockhash": blockhash.as_slice(),
+                ":id_proofsys": proof_system as u8,
+            },
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    TaskStatus::from(row.get::<_, i32>(1)?),
+                    row.get::<_, DateTime<Utc>>(2)?,
+                ))
+            },
+        )?;
         let proving_status = rows.collect::<Result<Vec<_>, _>>()?;
 
         Ok(proving_status)
@@ -751,23 +764,27 @@ impl<'db> TaskManager<'db> {
         blockhash: &B256,
         proof_system: TaskProofsys,
     ) -> Result<Vec<u8>, TaskManagerError> {
-        let proof = self.get_task_proof.query_row(named_params! {
-            ":chain_id": chain_id as u64,
-            ":blockhash": blockhash.as_slice(),
-            ":id_proofsys": proof_system as u8,
-        }, |r| r.get(0))?;
+        let proof = self.get_task_proof.query_row(
+            named_params! {
+                ":chain_id": chain_id as u64,
+                ":blockhash": blockhash.as_slice(),
+                ":id_proofsys": proof_system as u8,
+            },
+            |r| r.get(0),
+        )?;
 
         Ok(proof)
     }
 
     /// Returns the total and detailed database size
     pub fn get_db_size(&mut self) -> Result<(usize, Vec<(String, usize)>), TaskManagerError> {
-        let rows = self.get_db_size.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let rows = self
+            .get_db_size
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
         let details = rows.collect::<Result<Vec<_>, _>>()?;
         let total = details.iter().fold(0, |acc, item| acc + item.1);
         Ok((total, details))
     }
-
 }
 
 #[cfg(test)]
