@@ -2,16 +2,6 @@ use std::{fs::File, path::PathBuf};
 
 use crate::metrics::observe_guest_time;
 use crate::metrics::observe_prepare_input_time;
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_lib::{
-    consts::get_network_spec,
-    input::{get_input_path, GuestInput},
-    Measurement,
-};
-use serde_json::Value;
-use tracing::{debug, info};
-use utoipa::OpenApi;
-
 use crate::{
     interfaces::{
         error::{HostError, HostResult},
@@ -24,8 +14,17 @@ use crate::{
     },
     provider::rpc::RpcBlockDataProvider,
     raiko::Raiko,
+    server::api::v1::ProofResponse,
     ProverState,
 };
+use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use raiko_lib::{
+    input::{get_input_path, GuestInput},
+    Measurement,
+};
+use serde_json::Value;
+use tracing::{debug, info};
+use utoipa::OpenApi;
 
 fn get_cached_input(
     cache_path: &Option<PathBuf>,
@@ -69,7 +68,7 @@ fn dec_concurrent_req_count(e: HostError) -> HostError {
     tag = "Proving",
     request_body = ProofRequestOpt,
     responses (
-        (status = 200, description = "Successfully created proof for request", body = ProofResponse)
+        (status = 200, description = "Successfully created proof for request", body = Status)
     )
 )]
 #[debug_handler(state = ProverState)]
@@ -82,9 +81,12 @@ fn dec_concurrent_req_count(e: HostError) -> HostError {
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
 async fn proof_handler(
-    State(ProverState { opts }): State<ProverState>,
+    State(ProverState {
+        opts,
+        chain_specs: support_chain_specs,
+    }): State<ProverState>,
     Json(req): Json<Value>,
-) -> HostResult<Json<Value>> {
+) -> HostResult<ProofResponse> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
@@ -107,21 +109,39 @@ async fn proof_handler(
         &proof_request.network.to_string(),
     );
 
-    let chain_spec = get_network_spec(proof_request.network);
+    let l1_chain_spec = support_chain_specs
+        .get_chain_spec(&proof_request.l1_network.to_string())
+        .ok_or_else(|| {
+            dec_current_req();
+            HostError::InvalidRequestConfig("Unsupported l1 network".to_string())
+        })?;
+
+    let taiko_chain_spec = support_chain_specs
+        .get_chain_spec(&proof_request.network.to_string())
+        .ok_or_else(|| {
+            dec_current_req();
+            HostError::InvalidRequestConfig("Unsupported raiko network".to_string())
+        })?;
 
     // Execute the proof generation.
     let total_time = Measurement::start("", false);
 
-    let raiko = Raiko::new(chain_spec, proof_request.clone());
+    let raiko = Raiko::new(
+        l1_chain_spec.clone(),
+        taiko_chain_spec.clone(),
+        proof_request.clone(),
+    );
     let input = if let Some(cached_input) = cached_input {
         debug!("Using cached input");
         cached_input
     } else {
         memory::reset_stats();
         let measurement = Measurement::start("Generating input...", false);
-        let provider =
-            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)
-                .map_err(dec_concurrent_req_count)?;
+        let provider = RpcBlockDataProvider::new(
+            &taiko_chain_spec.rpc.clone(),
+            proof_request.block_number - 1,
+        )
+        .map_err(dec_concurrent_req_count)?;
         let input = raiko
             .generate_input(provider)
             .await
@@ -179,7 +199,7 @@ async fn proof_handler(
 
     dec_current_req();
 
-    Ok(Json(proof))
+    ProofResponse::try_from(proof)
 }
 
 #[derive(OpenApi)]

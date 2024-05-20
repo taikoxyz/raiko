@@ -24,7 +24,7 @@ serde_with = { workspace = true, optional = true }
 thiserror-no-std = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
-c-kzg-taiko = { workspace = true }
+c-kzg = { workspace = true }
 sha2 = { workspace = true }
 cfg-if = { workspace = true }
 
