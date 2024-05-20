@@ -118,7 +118,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 blk_env.basefee = header.base_fee_per_gas.unwrap().try_into().unwrap();
                 blk_env.gas_limit = block_builder.input.gas_limit.try_into().unwrap();
                 if let Some(excess_blob_gas) = header.excess_blob_gas {
-                    blk_env.set_blob_excess_gas_and_price(excess_blob_gas.try_into().unwrap())
+                    blk_env.set_blob_excess_gas_and_price(excess_blob_gas.try_into().unwrap());
                 }
             });
         let evm = if is_taiko {

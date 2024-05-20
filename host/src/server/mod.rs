@@ -4,7 +4,7 @@ use anyhow::Context;
 use tokio::net::TcpListener;
 use tracing::debug;
 
-use crate::{error::HostError, server::api::create_router, ProverState};
+use crate::{interfaces::error::HostError, server::api::create_router, ProverState};
 
 pub mod api;
 

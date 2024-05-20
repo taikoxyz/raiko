@@ -7,6 +7,7 @@ use std::{
 
 pub const DIGEST_WORDS: usize = 8;
 
+#[allow(dead_code)]
 pub fn risc0_data() -> Result<PathBuf> {
     let dir = if let Ok(dir) = std::env::var("RISC0_DATA_DIR") {
         dir.into()
@@ -27,6 +28,7 @@ pub struct GuestListEntry {
     /// The name of the guest binary
     pub name: Cow<'static, str>,
     /// The compiled ELF guest binary
+    #[allow(dead_code)]
     pub elf: Cow<'static, [u8]>,
     /// The image id of the guest
     pub image_id: [u32; DIGEST_WORDS],

@@ -6,7 +6,7 @@ use prometheus::{
     IntCounterVec, IntGauge,
 };
 
-use crate::request::ProofType;
+use crate::interfaces::request::ProofType;
 
 lazy_static! {
     pub static ref HOST_REQ_COUNT: IntCounterVec = register_int_counter_vec!(

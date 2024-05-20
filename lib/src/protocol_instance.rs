@@ -2,7 +2,7 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use c_kzg_taiko::{Blob, KzgCommitment, KzgSettings};
+use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
 use sha2::{Digest as _, Sha256};
 
@@ -10,6 +10,7 @@ use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
+    consts::SupportedChainSpecs,
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     utils::HeaderHasher,
 };
@@ -31,7 +32,7 @@ impl ProtocolInstance {
     }
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
-    pub fn instance_hash(&self, evidence_type: EvidenceType) -> B256 {
+    pub fn instance_hash(&self, evidence_type: &EvidenceType) -> B256 {
         match evidence_type {
             EvidenceType::Sgx { new_pubkey } => keccak(
                 (
@@ -45,7 +46,7 @@ impl ProtocolInstance {
                 )
                     .abi_encode()
                     .iter()
-                    .cloned()
+                    .copied()
                     .skip(32) // TRICKY: skip the first dyn flag 0x00..20.
                     .collect::<Vec<u8>>(),
             )
@@ -69,7 +70,7 @@ impl ProtocolInstance {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum EvidenceType {
     Sgx {
         new_pubkey: Address, // the evidence signature public key
@@ -82,7 +83,7 @@ pub enum EvidenceType {
 }
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
-pub fn kzg_to_versioned_hash(commitment: KzgCommitment) -> B256 {
+pub fn kzg_to_versioned_hash(commitment: &KzgCommitment) -> B256 {
     let mut res = Sha256::digest(commitment.as_slice());
     res[0] = VERSIONED_HASH_VERSION_KZG;
     B256::new(res.into())
@@ -94,7 +95,10 @@ pub fn assemble_protocol_instance(
 ) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
-        if !input.taiko.skip_verify_blob {
+        if input.taiko.skip_verify_blob {
+            println!("kzg check disabled!");
+            input.taiko.tx_blob_hash.unwrap()
+        } else {
             println!("kzg check enabled!");
             let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
             let kzg_settings = KzgSettings::from_u8_slice(&mut data);
@@ -103,16 +107,49 @@ pub fn assemble_protocol_instance(
                 &kzg_settings,
             )
             .unwrap();
-            let versioned_hash = kzg_to_versioned_hash(kzg_commit);
+            let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
             assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
             versioned_hash
-        } else {
-            println!("kzg check disabled!");
-            input.taiko.tx_blob_hash.unwrap()
         }
     } else {
         TxHash::from(keccak(input.taiko.tx_data.as_slice()))
     };
+
+    // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
+    // one we expect, because the prover could otherwise just fill in any values.
+    // The chain id is used because that is the value that is put onchain,
+    // and so all other chain data needs to be derived from it.
+    // For unknown chain ids we just skip this check so that tests using test data can still pass.
+    // TODO: we should probably split things up in critical and non-critical parts
+    // in the chain spec itself so we don't have to manually all the ones we have to care about.
+    if let Some(verified_chain_spec) =
+        SupportedChainSpecs::default().get_chain_spec_with_chain_id(input.chain_spec.chain_id)
+    {
+        assert_eq!(
+            input.chain_spec.max_spec_id, verified_chain_spec.max_spec_id,
+            "unexpected max_spec_id"
+        );
+        assert_eq!(
+            input.chain_spec.hard_forks, verified_chain_spec.hard_forks,
+            "unexpected hard_forks"
+        );
+        assert_eq!(
+            input.chain_spec.eip_1559_constants, verified_chain_spec.eip_1559_constants,
+            "unexpected eip_1559_constants"
+        );
+        assert_eq!(
+            input.chain_spec.l1_contract, verified_chain_spec.l1_contract,
+            "unexpected l1_contract"
+        );
+        assert_eq!(
+            input.chain_spec.l2_contract, verified_chain_spec.l2_contract,
+            "unexpected l2_contract"
+        );
+        assert_eq!(
+            input.chain_spec.is_taiko, verified_chain_spec.is_taiko,
+            "unexpected eip_1559_constants"
+        );
+    }
 
     let deposits = input
         .withdrawals
