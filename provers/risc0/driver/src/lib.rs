@@ -21,7 +21,6 @@ pub mod bonsai;
 pub mod methods;
 pub mod snarks;
 use crate::snarks::verify_groth16_snark;
-use bonsai::maybe_prove;
 pub use bonsai::*;
 use methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID};
 
