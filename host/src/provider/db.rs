@@ -19,9 +19,12 @@ use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb, u
 use raiko_primitives::{Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
-    Database, DatabaseCommit,
+    Database, DatabaseRef, DatabaseCommit,
 };
 use tokio::runtime::Handle;
+use reth_provider::{
+    AccountReader, BlockHashReader, ProviderError, StateProvider, StateRootProvider,
+};
 
 use crate::{
     interfaces::error::{HostError, HostResult},
@@ -241,7 +244,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         }
 
         // Makes sure the account is also always loaded
-        self.initial_db.basic(address)?;
+        self.initial_db.basic(address).expect("Brecht");
 
         // Fetch the storage value
         let value = tokio::task::block_in_place(|| {
@@ -298,6 +301,67 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         unreachable!()
     }
 }
+
+impl<BDP: BlockDataProvider> DatabaseRef for ProviderDb<BDP> {
+    type Error = ProviderError;
+
+    fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+        //println!("address: {}", address);
+
+        // Fetch the account
+        let account = &tokio::task::block_in_place(|| {
+            self.async_executor
+                .block_on(self.provider.get_accounts(&[address]))
+        }).expect("brecht")
+        .first()
+        .cloned()
+        .ok_or(HostError::RPC("No account".to_owned())).expect("brecht");
+
+        // Insert the account into the initial database.
+        Ok(Some(account.clone()))
+        //self.basic(address).map_err(|err| ProviderError::FsPathError("hi".into()))
+    }
+
+    fn code_by_hash_ref(&self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
+        // We use basic_ref to get the code from the provider.
+        unimplemented!()
+    }
+
+    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+        //println!("storage: {} {}", address, index);
+
+        // Fetch the storage value
+        let value = tokio::task::block_in_place(|| {
+            self.async_executor
+                .block_on(self.provider.get_storage_values(&[(address, index)]))
+        }).expect("brecht")
+        .first()
+        .copied()
+        .ok_or(HostError::RPC("No storage value".to_owned())).expect("brecht");
+        Ok(value)
+    }
+
+    fn block_hash_ref(&self, number: U256) -> Result<B256, Self::Error> {
+        let block_number: u64 = number
+            .try_into()
+            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned())).expect("brecht");
+
+        // Get the block hash from the provider.
+        let block_hash = tokio::task::block_in_place(|| {
+            self.async_executor
+                .block_on(self.provider.get_blocks(&[(block_number, false)]))
+        }).expect("brecht")
+        .first()
+        .ok_or(HostError::RPC("No block".to_owned())).expect("brecht")
+        .header
+        .hash
+        .ok_or_else(|| HostError::RPC("No block hash".to_owned())).expect("brecht")
+        .0
+        .into();
+        Ok(block_hash)
+    }
+}
+
 
 impl<BDP: BlockDataProvider> DatabaseCommit for ProviderDb<BDP> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {

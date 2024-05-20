@@ -14,12 +14,12 @@
 use anyhow::anyhow;
 use raiko_primitives::{Address, B256, U256};
 use revm::{
-    primitives::{Account, AccountInfo, Bytecode},
-    Database, DatabaseCommit,
+    db::{AccountStatus, BundleState}, primitives::{Account, AccountInfo, Bytecode}, Database, DatabaseCommit
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use thiserror_no_std::Error as ThisError;
+use reth_provider::ProviderError;
 
 use crate::builder::OptimisticDatabase;
 #[cfg(not(feature = "std"))]
@@ -136,16 +136,101 @@ impl MemDb {
             }
         };
     }
+
+    pub fn commit_from_bundle(&mut self, bundle: BundleState) {
+        for (address, new_account) in bundle.state {
+            if new_account.was_destroyed() {
+                // get the account we are destroying
+                let db_account = match self.accounts.entry(address) {
+                    Entry::Occupied(entry) => entry.into_mut(),
+                    Entry::Vacant(_) => {
+                        // destruction of a non-existing account, so there is nothing to do
+                        // a) the account was created and destroyed in the same transaction
+                        // b) or it was destroyed without reading and thus not cached
+                        continue;
+                    }
+                };
+
+                // it is not possible to delete a deleted account
+                debug_assert!(db_account.state != AccountState::Deleted);
+
+                // clear the account and mark it as deleted
+                db_account.storage.clear();
+                db_account.state = AccountState::Deleted;
+                db_account.info = AccountInfo::default();
+
+                continue;
+            }
+
+            // empty accounts cannot have any non-zero storage
+            if new_account.info.clone().unwrap_or_default().is_empty() {
+                debug_assert!(new_account.storage.is_empty());
+            }
+
+            let is_newly_created = new_account.original_info.is_none();
+
+            // update account info
+            let db_account = match self.accounts.entry(address) {
+                Entry::Occupied(entry) => {
+                    let db_account = entry.into_mut();
+
+                    // the account was touched, but it is now empty, so it should be deleted
+                    // this also deletes empty accounts previously contained in the state trie
+                    if new_account.info.clone().unwrap_or_default().is_empty() {
+                        // if the account is empty, it must be deleted
+                        db_account.storage.clear();
+                        db_account.state = AccountState::Deleted;
+                        db_account.info = AccountInfo::default();
+
+                        continue;
+                    }
+
+                    // update the account info
+                    db_account.info = new_account.info.clone().unwrap_or_default();
+                    db_account
+                }
+                Entry::Vacant(entry) => {
+                    // create a new account only if it is not empty
+                    if new_account.info.clone().unwrap_or_default().is_empty() {
+                        continue;
+                    }
+
+                    // create new non-empty account
+                    entry.insert(DbAccount::new(new_account.info.clone().unwrap_or_default()))
+                }
+            };
+
+            // set the correct state
+            db_account.state = if is_newly_created {
+                db_account.storage.clear();
+                AccountState::StorageCleared
+            } else if db_account.state == AccountState::StorageCleared {
+                // when creating the storage trie, it must be cleared it first
+                AccountState::StorageCleared
+            } else {
+                AccountState::Touched
+            };
+
+            // update all changed storage values
+            db_account.storage.extend(
+                new_account
+                    .storage
+                    .into_iter()
+                    .filter(|(_, value)| value.is_changed())
+                    .map(|(key, value)| (key, value.present_value())),
+            );
+        }
+    }
 }
 
 impl Database for MemDb {
-    type Error = DbError;
+    type Error = ProviderError;
 
     /// Get basic account information.
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         match self.accounts.get(&address) {
             Some(db_account) => Ok(db_account.info()),
-            None => Err(DbError::AccountNotFound(address)),
+            None => Err(ProviderError::BestBlockNotFound),
         }
     }
 
@@ -167,11 +252,11 @@ impl Database for MemDb {
                     // if the account has been deleted or cleared, we must return 0
                     AccountState::StorageCleared => Ok(U256::ZERO),
                     // otherwise this is an uncached load
-                    _ => Err(DbError::SlotNotFound(address, index)),
+                    _ => Err(ProviderError::BestBlockNotFound),
                 },
             },
             // otherwise this is an uncached load
-            None => Err(DbError::AccountNotFound(address)),
+            None => Err(ProviderError::BestBlockNotFound),
         }
     }
 
@@ -182,11 +267,11 @@ impl Database for MemDb {
                 u64::MAX,
                 &number
             )
-        })?;
+        }).expect("Brecht");
         self.block_hashes
             .get(&block_no)
             .copied()
-            .ok_or(DbError::BlockNotFound(block_no))
+            .ok_or(ProviderError::BestBlockNotFound)
     }
 }
 

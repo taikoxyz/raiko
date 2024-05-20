@@ -24,6 +24,8 @@ use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
+use reth_primitives::Block as RethBlock;
+
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{consts::ChainSpec, serde_with::RlpBytes, serde_with::RlpHexBytes};
@@ -37,6 +39,8 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 #[serde_as]
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput {
+    /// Reth block
+    pub block: RethBlock,
     /// The network to generate the proof for
     pub chain_spec: ChainSpec,
     /// Block number
