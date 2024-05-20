@@ -30,7 +30,7 @@ use clap::Parser;
 use raiko_lib::consts::SupportedChainSpecs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::info;
+use tracing::{info, debug};
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
@@ -152,11 +152,11 @@ impl ProverState {
         let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
             let chain_specs = SupportedChainSpecs::merge_from_file(cs_path.clone())
                 .unwrap_or(SupportedChainSpecs::default());
-            info!("Supported chains: {:?}", chain_specs.supported_networks());
             chain_specs
         } else {
             SupportedChainSpecs::default()
         };
+        info!("Supported chains: {:?}", chain_specs);
 
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {

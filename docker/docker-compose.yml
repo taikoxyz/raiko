@@ -49,7 +49,7 @@ services:
       dockerfile: Dockerfile
     image: gcr.io/evmchain/raiko:latest
     container_name: raiko
-    command: --config-path=/etc/raiko/config.sgx.json
+    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -76,7 +76,7 @@ services:
       dockerfile: Dockerfile
     image: gcr.io/evmchain/raiko-self-register:latest
     container_name: raiko-self-register
-    command: --config-path=/etc/raiko/config.sgx.json
+    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
