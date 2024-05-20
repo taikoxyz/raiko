@@ -51,8 +51,8 @@ function update_docker_chain_specs() {
     fi
 
     if [ -n "${HOLESKY_BEACON_RPC}" ]; then
-        jq --arg beacon_rpc "$HOLESKY_L1_BEACON_RPC" 'map(if .name == "holesky" then .beacon_rpc = $beacon_rpc else . end)' $CONFIG_FILE > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
-        echo "Updated config.json with .beacon_rpc=$HOLESKY_L1_BEACON_RPC"
+        jq --arg beacon_rpc "$HOLESKY_BEACON_RPC" 'map(if .name == "holesky" then .beacon_rpc = $beacon_rpc else . end)' $CONFIG_FILE > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
+        echo "Updated config.json with .beacon_rpc=$HOLESKY_BEACON_RPC"
     fi
 
     if [ -n "${TAIKO_A7_RPC}" ]; then
