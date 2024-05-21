@@ -1,4 +1,4 @@
-use alloy_primitives::{FixedBytes};
+use alloy_primitives::FixedBytes;
 use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
 use raiko_lib::consts::{ChainSpec, VerifierType};
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};

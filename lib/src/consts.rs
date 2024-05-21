@@ -87,7 +87,8 @@ impl SupportedChainSpecs {
     pub fn get_chain_spec_with_chain_id(&self, chain_id: u64) -> Option<ChainSpec> {
         self.0
             .values()
-            .find(|spec| spec.chain_id == chain_id).cloned()
+            .find(|spec| spec.chain_id == chain_id)
+            .cloned()
     }
 }
 

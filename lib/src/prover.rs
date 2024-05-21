@@ -3,9 +3,7 @@ use std::fmt;
 use serde::Serialize;
 use thiserror::Error as ThisError;
 
-use crate::{
-    input::{GuestInput, GuestOutput},
-};
+use crate::input::{GuestInput, GuestOutput};
 
 #[derive(ThisError, Debug)]
 pub enum ProverError {
