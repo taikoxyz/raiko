@@ -51,7 +51,7 @@ pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 
 impl SupportedChainSpecs {
     pub fn default() -> Self {
-        let deserialized: Vec<ChainSpec> = serde_json::from_str(&DEFAULT_CHAIN_SPECS).unwrap();
+        let deserialized: Vec<ChainSpec> = serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap();
         let chain_spec_list = deserialized
             .iter()
             .map(|cs| (cs.name.clone(), cs.clone()))
@@ -62,7 +62,7 @@ impl SupportedChainSpecs {
     #[cfg(feature = "std")]
     pub fn merge_from_file(file_path: PathBuf) -> Result<SupportedChainSpecs> {
         let mut known_chain_specs = SupportedChainSpecs::default();
-        let file = std::fs::File::open(&file_path)?;
+        let file = std::fs::File::open(file_path)?;
         let reader = std::io::BufReader::new(file);
         let config: Value = serde_json::from_reader(reader)?;
         let chain_spec_list: Vec<ChainSpec> = serde_json::from_value(config)?;
@@ -87,8 +87,7 @@ impl SupportedChainSpecs {
     pub fn get_chain_spec_with_chain_id(&self, chain_id: u64) -> Option<ChainSpec> {
         self.0
             .values()
-            .find(|spec| spec.chain_id == chain_id)
-            .map(|spec| spec.clone())
+            .find(|spec| spec.chain_id == chain_id).cloned()
     }
 }
 
@@ -134,7 +133,6 @@ impl Default for Eip1559Constants {
         }
     }
 }
-
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

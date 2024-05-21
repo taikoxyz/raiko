@@ -1,11 +1,8 @@
 #![cfg(feature = "enable")]
 use std::env;
 
-use alloy_primitives::B256;
-use alloy_sol_types::SolValue;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use serde::{Deserialize, Serialize};
@@ -36,8 +33,6 @@ impl Prover for Sp1Prover {
         let client = ProverClient::new();
         let (pk, vk) = client.setup(ELF);
         let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
-
-
 
         // Read the output.
         let output = proof.public_values.read::<GuestOutput>();
@@ -76,11 +71,13 @@ mod test {
         let client = ProverClient::new();
         let stdin = SP1Stdin::new();
         let (pk, vk) = client.setup(TEST_ELF);
-        let proof = client.prove_groth16(&pk, stdin).expect("Sp1: proving failed");
+        let proof = client
+            .prove_groth16(&pk, stdin)
+            .expect("Sp1: proving failed");
         // client
         //     .verify(&proof, &vk)
         //     .expect("Sp1: verification failed");
-        
+
         let contract_dir = "../contract";
         sp1_sdk::artifacts::export_solidity_groth16_verifier(contract_dir)
             .expect("failed to export verifier");

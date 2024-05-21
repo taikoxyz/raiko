@@ -6,7 +6,6 @@ use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
     prover::{Proof, Prover},
 };
 use serde::{Deserialize, Serialize};

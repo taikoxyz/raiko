@@ -1,6 +1,6 @@
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
-use alloy_sol_types::{sol, SolValue};
+use alloy_sol_types::{SolValue};
 use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
@@ -10,7 +10,7 @@ use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::{VerifierType, SupportedChainSpecs},
+    consts::{SupportedChainSpecs, VerifierType},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     utils::HeaderHasher,
 };
@@ -28,7 +28,6 @@ pub struct ProtocolInstance {
 }
 
 impl ProtocolInstance {
-
     pub fn new(
         input: &GuestInput,
         header: &AlloyConsensusHeader,
@@ -55,7 +54,7 @@ impl ProtocolInstance {
         } else {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))
         };
-    
+
         // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
         // one we expect, because the prover could otherwise just fill in any values.
         // The chain id is used because that is the value that is put onchain,
@@ -91,7 +90,7 @@ impl ProtocolInstance {
                 "unexpected eip_1559_constants"
             );
         }
-    
+
         let deposits = input
             .withdrawals
             .iter()
@@ -101,13 +100,13 @@ impl ProtocolInstance {
                 id: w.index,
             })
             .collect::<Vec<_>>();
-    
+
         let gas_limit: u64 = header.gas_limit.try_into().unwrap();
         let verifier_address = input
             .chain_spec
             .verifier_address
             .get(&proof_type)
-            .expect(&format!("verifier_address not set for {:?}", proof_type))
+            .unwrap_or_else(|| panic!("verifier_address not set for {:?}", proof_type))
             .unwrap();
         let pi = ProtocolInstance {
             transition: Transition {
@@ -142,7 +141,7 @@ impl ProtocolInstance {
             chain_id: input.chain_spec.chain_id,
             verifier_address,
         };
-    
+
         // Sanity check
         if input.chain_spec.is_taiko() {
             ensure!(
@@ -153,7 +152,7 @@ impl ProtocolInstance {
                 )
             );
         }
-    
+
         Ok(pi)
     }
 
@@ -162,7 +161,6 @@ impl ProtocolInstance {
         self
     }
 
-    
     pub fn meta_hash(&self) -> B256 {
         keccak(self.block_metadata.abi_encode()).into()
     }
@@ -171,19 +169,19 @@ impl ProtocolInstance {
     pub fn instance_hash(&self) -> B256 {
         /// packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
         /// "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
-        keccak(	
-            (	
+        keccak(
+            (
                 "VERIFY_PROOF",
                 self.chain_id,
                 self.verifier_address,
-                self.transition.clone(),	
+                self.transition.clone(),
                 self.sgx_instance,
                 self.prover,
-                self.meta_hash(),	
-            )	                
-            .abi_encode()
-                  
-        ).into()            
+                self.meta_hash(),
+            )
+                .abi_encode(),
+        )
+        .into()
     }
 }
 
@@ -193,7 +191,6 @@ pub fn kzg_to_versioned_hash(commitment: &KzgCommitment) -> B256 {
     res[0] = VERSIONED_HASH_VERSION_KZG;
     B256::new(res.into())
 }
-
 
 fn bytes_to_bytes32(input: &[u8]) -> [u8; 32] {
     let mut bytes = [0u8; 32];
