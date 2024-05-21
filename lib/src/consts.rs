@@ -302,7 +302,6 @@ mod tests {
 
         let json = serde_json::to_string(&spec).unwrap();
         // write to a file called chain_specs.json
-
         std::fs::write("chain_spec.json", json).unwrap();
 
         // read back from the file
