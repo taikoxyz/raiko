@@ -8,9 +8,7 @@ use std::{
 use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
-    builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::GuestInput,
-    protocol_instance::{assemble_protocol_instance, EvidenceType},
+    builder::{BlockBuilderStrategy, TaikoStrategy}, consts::VerifierType, input::GuestInput, protocol_instance::{assemble_protocol_instance, EvidenceType}
 };
 use raiko_primitives::Address;
 use secp256k1::{KeyPair, SecretKey};
@@ -135,7 +133,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         TaikoStrategy::build_from(&input).expect("Failed to build the resulting block");
 
     // Calculate the public input hash
-    let pi = assemble_protocol_instance(&input, &header)?;
+    let pi = assemble_protocol_instance(&input, &header, VerifierType::SGX, Some(new_instance))?;
     let pi_hash = pi.instance_hash(&EvidenceType::Sgx {
         new_pubkey: new_instance,
     });

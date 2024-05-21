@@ -1,6 +1,6 @@
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
-use alloy_sol_types::SolValue;
+use alloy_sol_types::{sol, SolValue};
 use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
@@ -10,20 +10,23 @@ use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::SupportedChainSpecs,
+    consts::{VerifierType, SupportedChainSpecs},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     utils::HeaderHasher,
 };
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 
-#[derive(Debug)]
-pub struct ProtocolInstance {
-    pub transition: Transition,
-    pub block_metadata: BlockMetadata,
-    pub prover: Address,
-    pub chain_id: u64,
-    pub sgx_verifier_address: Address,
+sol! {
+    #[derive(Debug)]
+    struct ProtocolInstance {
+        Transition transition;
+        address verifier_address;
+        address new_instance;
+        BlockMetadata block_metadata;
+        address prover;
+        uint64 chain_id;
+    }
 }
 
 impl ProtocolInstance {
@@ -38,7 +41,7 @@ impl ProtocolInstance {
                 (
                     "VERIFY_PROOF",
                     self.chain_id,
-                    self.sgx_verifier_address,
+                    self.verifier_address,
                     self.transition.clone(),
                     new_pubkey,
                     self.prover,
@@ -88,6 +91,8 @@ pub fn kzg_to_versioned_hash(commitment: &KzgCommitment) -> B256 {
 pub fn assemble_protocol_instance(
     input: &GuestInput,
     header: &AlloyConsensusHeader,
+    proof_type: VerifierType,
+    sgx_instance: Option<Address>,
 ) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
@@ -158,6 +163,17 @@ pub fn assemble_protocol_instance(
         .collect::<Vec<_>>();
 
     let gas_limit: u64 = header.gas_limit.try_into().unwrap();
+    let new_instance = if proof_type == VerifierType::SGX {
+        sgx_instance.expect("sgx_instance not set")
+    } else {
+        Address::default()
+    };
+    let verifier_address = input
+        .chain_spec
+        .verifier_address
+        .get(&proof_type)
+        .expect(&format!("verifier_address not set for {:?}", proof_type))
+        .unwrap();
     let pi = ProtocolInstance {
         transition: Transition {
             parentHash: header.parent_hash,
@@ -186,9 +202,10 @@ pub fn assemble_protocol_instance(
             parentMetaHash: input.taiko.block_proposed.meta.parentMetaHash,
             sender: input.taiko.block_proposed.meta.sender,
         },
+        new_instance,
         prover: input.taiko.prover_data.prover,
         chain_id: input.chain_spec.chain_id,
-        sgx_verifier_address: input.chain_spec.sgx_verifier_address.unwrap_or_default(),
+        verifier_address,
     };
 
     // Sanity check

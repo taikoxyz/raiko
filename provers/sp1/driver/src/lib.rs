@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
 
-const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
+pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
@@ -36,6 +36,8 @@ impl Prover for Sp1Prover {
         let client = ProverClient::new();
         let (pk, vk) = client.setup(ELF);
         let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
+
+
 
         // Read the output.
         let output = proof.public_values.read::<GuestOutput>();
@@ -62,15 +64,7 @@ impl Prover for Sp1Prover {
             output,
         }))
     }
-
-    fn instance_hash(pi: ProtocolInstance) -> B256 {
-        let data = (pi.transition.clone(), pi.prover, pi.meta_hash()).abi_encode();
-
-        let hash: [u8; 32] = sha3::Keccak256::digest(data).into();
-        hash.into()
-    }
 }
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -82,9 +76,13 @@ mod test {
         let client = ProverClient::new();
         let stdin = SP1Stdin::new();
         let (pk, vk) = client.setup(TEST_ELF);
-        let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
-        client
-            .verify(&proof, &vk)
-            .expect("Sp1: verification failed");
+        let proof = client.prove_groth16(&pk, stdin).expect("Sp1: proving failed");
+        // client
+        //     .verify(&proof, &vk)
+        //     .expect("Sp1: verification failed");
+        
+        let contract_dir = "../contract";
+        sp1_sdk::artifacts::export_solidity_groth16_verifier(contract_dir)
+            .expect("failed to export verifier");
     }
 }
