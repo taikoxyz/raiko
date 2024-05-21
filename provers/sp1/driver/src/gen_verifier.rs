@@ -1,12 +1,13 @@
 #![cfg(feature = "enable")]
 use alloy_sol_types::{sol, SolType};
+use raiko_lib::input::{GuestInput, Transition};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::path::PathBuf;
 
 /// The public values encoded as a tuple that can be easily deserialized inside Solidity.
-type PublicValuesTuple = sol! {
-    tuple(uint32, uint32, uint32)
+type ProtocolInstanceTuple = sol! {
+    tuple(string, uint64, address, Transition, address, address, uint256)
 };
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
@@ -33,7 +34,7 @@ fn main() {
 
     // Setup the inputs.;
     let mut stdin = SP1Stdin::new();
-    stdin.write(&500000);
+    stdin.write(&GuestInput::default());
 
     // Generate the proof.
     let proof = client
