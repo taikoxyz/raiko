@@ -22,8 +22,9 @@ alloy-provider = { workspace = true }
 alloy-signer-wallet = { workspace = true }
 alloy-rpc-client = { workspace = true }
 alloy-transport-http = { workspace = true }
-pem = {version = "3.0.4", optional = true}
+pem = { version = "3.0.4", optional = true }
 url = { workspace = true }
+anyhow = { workspace = true }
 
 [features]
 default = ["dep:pem"]
