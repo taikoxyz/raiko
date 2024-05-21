@@ -134,7 +134,8 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         TaikoStrategy::build_from(&input).expect("Failed to build the resulting block");
 
     // Calculate the public input hash
-    let pi = ProtocolInstance::new(&input, &header, VerifierType::SGX, Some(new_instance))?;
+    let pi = ProtocolInstance::new(&input, &header, VerifierType::SGX)?
+        .sgx_instance(new_instance);
     let pi_hash = pi.instance_hash();
 
     println!(

@@ -17,16 +17,14 @@ use crate::{
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 
-sol! {
-    #[derive(Debug)]
-    struct ProtocolInstance {
-        Transition transition;
-        address verifier_address;
-        address new_instance; // only used for SGX
-        BlockMetadata block_metadata;
-        address prover;
-        uint64 chain_id;
-    }
+#[derive(Debug)]
+pub struct ProtocolInstance {
+    pub transition: Transition,
+    pub block_metadata: BlockMetadata,
+    pub prover: Address,
+    pub sgx_instance: Address, // only used for SGX
+    pub chain_id: u64,
+    pub verifier_address: Address,
 }
 
 impl ProtocolInstance {
@@ -35,7 +33,6 @@ impl ProtocolInstance {
         input: &GuestInput,
         header: &AlloyConsensusHeader,
         proof_type: VerifierType,
-        sgx_instance: Option<Address>,
     ) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.meta.blobUsed;
         let tx_list_hash = if blob_used {
@@ -106,11 +103,6 @@ impl ProtocolInstance {
             .collect::<Vec<_>>();
     
         let gas_limit: u64 = header.gas_limit.try_into().unwrap();
-        let new_instance = if proof_type == VerifierType::SGX {
-            sgx_instance.expect("sgx_instance not set")
-        } else {
-            Address::default()
-        };
         let verifier_address = input
             .chain_spec
             .verifier_address
@@ -145,7 +137,7 @@ impl ProtocolInstance {
                 parentMetaHash: input.taiko.block_proposed.meta.parentMetaHash,
                 sender: input.taiko.block_proposed.meta.sender,
             },
-            new_instance,
+            sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
@@ -165,6 +157,10 @@ impl ProtocolInstance {
         Ok(pi)
     }
 
+    pub fn sgx_instance(self, instance: Address) -> Self {
+        self.sgx_instance = instance;
+    }
+
     
     pub fn meta_hash(&self) -> B256 {
         keccak(self.block_metadata.abi_encode()).into()
@@ -172,7 +168,21 @@ impl ProtocolInstance {
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
     pub fn instance_hash(&self) -> B256 {
-        keccak(self.abi_encode()).into()
+        /// packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
+        /// "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
+        keccak(	
+            (	
+                "VERIFY_PROOF",
+                self.chain_id,
+                self.verifier_address,
+                self.transition.clone(),	
+                self.sgx_instance,
+                self.prover,
+                self.meta_hash(),	
+            )	                
+            .abi_encode()
+            .into()	       
+        )               
     }
 }
 

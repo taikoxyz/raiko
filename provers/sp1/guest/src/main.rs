@@ -29,7 +29,7 @@ pub fn main() {
 
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
-            let pi = ProtocolInstance::new(&input, header, VerifierType::SP1, None)
+            let pi = ProtocolInstance::new(&input, header, VerifierType::SP1)
                 .expect("Failed to assemble protocol instance")
                 .instance_hash();
             GuestOutput::Success {

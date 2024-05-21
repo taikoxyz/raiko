@@ -64,7 +64,6 @@ impl Raiko {
                     input, 
                     &header, 
                     VerifierType::None, 
-                    None
                 )?
                 .instance_hash();
 
@@ -170,7 +169,7 @@ impl Prover for NativeProver {
             return Err(ProverError::GuestError("Unexpected output".to_owned()));
         };
 
-        ProtocolInstance::new( &input, &header, VerifierType::None, None)
+        ProtocolInstance::new( &input, &header, VerifierType::None)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
 
         to_proof(Ok(NativeResponse {
