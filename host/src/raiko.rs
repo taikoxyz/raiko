@@ -2,7 +2,7 @@ use alloy_primitives::{FixedBytes, B256};
 use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
 use raiko_lib::consts::{ChainSpec, VerifierType};
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
-use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
+use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::utils::HeaderHasher;
 use serde::{Deserialize, Serialize};
@@ -60,10 +60,13 @@ impl Raiko {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
                 info!("Final block header derived successfully. {header:?}");
-                let pi = self
-                    .request
-                    .proof_type
-                    .instance_hash(assemble_protocol_instance( input, &header, VerifierType::None, None)?)?;
+                let pi = ProtocolInstance::new( 
+                    input, 
+                    &header, 
+                    VerifierType::None, 
+                    None
+                )?
+                .instance_hash();
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;
@@ -167,7 +170,7 @@ impl Prover for NativeProver {
             return Err(ProverError::GuestError("Unexpected output".to_owned()));
         };
 
-        assemble_protocol_instance( &input, &header, VerifierType::None, None)
+        ProtocolInstance::new( &input, &header, VerifierType::None, None)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
 
         to_proof(Ok(NativeResponse {

@@ -2,9 +2,9 @@
 harness::entrypoint!(main, tests, zk_op::tests);
 use risc0_zkvm::guest::env;
 
-use raiko_lib::protocol_instance::assemble_protocol_instance;
-use raiko_lib::protocol_instance::EvidenceType;
+use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::{
+    consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput},
 };
@@ -29,9 +29,9 @@ fn main() {
 
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
-            let pi = assemble_protocol_instance(&input, header)
+            let pi = ProtocolInstance::new(&input, header, VerifierType::Risc0, None)
                 .expect("Failed to assemble protocol instance")
-                .instance_hash(&EvidenceType::Risc0);
+                .instance_hash();
             GuestOutput::Success {
                 header: header.clone(),
                 hash: pi,

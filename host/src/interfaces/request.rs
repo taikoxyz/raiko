@@ -4,7 +4,6 @@ use std::{path::Path, str::FromStr};
 
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
-use raiko_lib::protocol_instance::EvidenceType;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
@@ -70,18 +69,6 @@ impl FromStr for ProofType {
 }
 
 impl ProofType {
-    /// Get the instance hash for the protocol instance depending on the proof type.
-    pub fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
-        match self {
-            ProofType::Native => Ok(pi.instance_hash(&EvidenceType::Native)),
-            ProofType::Sp1 => Ok(pi.instance_hash(&EvidenceType::Sp1)),
-            ProofType::Risc0 => Ok(pi.instance_hash(&EvidenceType::Risc0)),
-            ProofType::Sgx => Ok(pi.instance_hash(&EvidenceType::Sgx {
-                new_pubkey: Address::default(),
-            })),
-        }
-    }
-
     /// Run the prover driver depending on the proof type.
     pub async fn run_prover(
         &self,

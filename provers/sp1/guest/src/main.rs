@@ -5,7 +5,7 @@ harness::entrypoint!(main, tests, zk_op::tests);
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput},
-    protocol_instance::{assemble_protocol_instance, EvidenceType},
+    protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
 use zk_op::Sp1Operator;
@@ -29,9 +29,9 @@ pub fn main() {
 
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
-            let pi = assemble_protocol_instance(&input, header)
+            let pi = ProtocolInstance::new(&input, header, VerifierType::SP1, None)
                 .expect("Failed to assemble protocol instance")
-                .instance_hash(&EvidenceType::Succinct);
+                .instance_hash();
             GuestOutput::Success {
                 header: header.clone(),
                 hash: pi,
