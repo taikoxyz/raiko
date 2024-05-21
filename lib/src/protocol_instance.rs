@@ -106,8 +106,10 @@ impl ProtocolInstance {
             .chain_spec
             .verifier_address
             .get(&proof_type)
-            .unwrap_or_else(|| panic!("verifier_address not set for {:?}", proof_type))
+            .unwrap_or(&Some(Address::default()))
+            .clone()
             .unwrap();
+
         let pi = ProtocolInstance {
             transition: Transition {
                 parentHash: header.parent_hash,
@@ -167,8 +169,8 @@ impl ProtocolInstance {
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
     pub fn instance_hash(&self) -> B256 {
-        /// packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
-        /// "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
+        // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
+        // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
         keccak(
             (
                 "VERIFY_PROOF",
