@@ -51,9 +51,7 @@ impl ProtocolInstance {
                     .collect::<Vec<u8>>(),
             )
             .into(),
-            EvidenceType::PseZk => todo!(),
-            EvidenceType::Powdr => todo!(),
-            EvidenceType::Succinct => keccak(
+            EvidenceType::Sp1 => keccak(
                 (
                     self.transition.clone(),
                     // no pubkey since we don't need TEE to sign
@@ -75,9 +73,7 @@ pub enum EvidenceType {
     Sgx {
         new_pubkey: Address, // the evidence signature public key
     },
-    PseZk,
-    Powdr,
-    Succinct,
+    Sp1,
     Risc0,
     Native,
 }

@@ -39,8 +39,6 @@ pub trait Prover {
         output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof>;
-
-    fn instance_hash(pi: ProtocolInstance) -> B256;
 }
 
 pub fn to_proof(proof: ProverResult<impl Serialize>) -> ProverResult<Proof> {

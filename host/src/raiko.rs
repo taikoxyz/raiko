@@ -174,10 +174,6 @@ impl Prover for NativeProver {
             output: output.clone(),
         }))
     }
-
-    fn instance_hash(_pi: ProtocolInstance) -> B256 {
-        B256::default()
-    }
 }
 
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {

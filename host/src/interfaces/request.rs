@@ -4,6 +4,7 @@ use std::{path::Path, str::FromStr};
 
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
+use raiko_lib::protocol_instance::EvidenceType;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
@@ -72,25 +73,12 @@ impl ProofType {
     /// Get the instance hash for the protocol instance depending on the proof type.
     pub fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
         match self {
-            ProofType::Native => Ok(NativeProver::instance_hash(pi)),
-            ProofType::Sp1 => {
-                #[cfg(feature = "sp1")]
-                return Ok(sp1_driver::Sp1Prover::instance_hash(pi));
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Risc0 => {
-                #[cfg(feature = "risc0")]
-                return Ok(risc0_driver::Risc0Prover::instance_hash(pi));
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Sgx => {
-                #[cfg(feature = "sgx")]
-                return Ok(sgx_prover::SgxProver::instance_hash(pi));
-
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
+            ProofType::Native => Ok(pi.instance_hash(&EvidenceType::Native)),
+            ProofType::Sp1 => Ok(pi.instance_hash(&EvidenceType::Sp1)),
+            ProofType::Risc0 => Ok(pi.instance_hash(&EvidenceType::Risc0)),
+            ProofType::Sgx => Ok(pi.instance_hash(&EvidenceType::Sgx {
+                new_pubkey: Address::default(),
+            })),
         }
     }
 

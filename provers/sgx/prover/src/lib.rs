@@ -136,20 +136,6 @@ impl Prover for SgxProver {
 
         to_proof(sgx_proof)
     }
-
-    fn instance_hash(pi: ProtocolInstance) -> B256 {
-        let data = (
-            "VERIFY_PROOF",
-            pi.chain_id,
-            pi.transition.clone(),
-            // new_pubkey, TODO(cecilia)
-            pi.prover,
-            pi.meta_hash(),
-        )
-            .abi_encode();
-
-        keccak(data).into()
-    }
 }
 
 async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
