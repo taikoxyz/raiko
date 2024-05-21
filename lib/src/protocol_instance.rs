@@ -157,8 +157,9 @@ impl ProtocolInstance {
         Ok(pi)
     }
 
-    pub fn sgx_instance(self, instance: Address) -> Self {
+    pub fn sgx_instance(mut self, instance: Address) -> Self {
         self.sgx_instance = instance;
+        self
     }
 
     
@@ -181,8 +182,8 @@ impl ProtocolInstance {
                 self.meta_hash(),	
             )	                
             .abi_encode()
-            .into()	       
-        )               
+                  
+        ).into()            
     }
 }
 
