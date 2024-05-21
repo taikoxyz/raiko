@@ -633,7 +633,7 @@ impl MptNode {
     /// the value and returns `false`.
     #[inline]
     pub fn insert(&mut self, key: &[u8], value: Vec<u8>) -> Result<bool, Error> {
-        assert!(value.is_empty(), "value must not be empty");
+        assert!(!value.is_empty(), "value must not be empty");
         self.insert_internal(&to_nibs(key), value)
     }
 

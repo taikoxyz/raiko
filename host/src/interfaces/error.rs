@@ -1,4 +1,4 @@
-use axum::{http::StatusCode, response::IntoResponse};
+use axum::response::IntoResponse;
 use raiko_lib::prover::ProverError;
 use utoipa::ToSchema;
 
@@ -75,23 +75,25 @@ impl From<raiko_lib::mem_db::DbError> for HostError {
 
 impl IntoResponse for HostError {
     fn into_response(self) -> axum::response::Response {
-        use HostError::*;
-        match self {
-            InvalidProofType(e) | InvalidRequestConfig(e) | InvalidAddress(e) => {
-                (StatusCode::BAD_REQUEST, e.to_string()).into_response()
+        let (error, message) = match self {
+            HostError::InvalidProofType(e) => ("invalid_proof_type".to_string(), e),
+            HostError::InvalidRequestConfig(e) => ("invalid_request_config".to_string(), e),
+            HostError::InvalidAddress(e) => ("invalid_address".to_string(), e),
+            HostError::Io(e) => ("io_error".to_string(), e.to_string()),
+            HostError::Preflight(e) => ("preflight_error".to_string(), e),
+            HostError::Conversion(e) => ("conversion_error".to_string(), e),
+            HostError::RPC(e) => ("rpc_error".to_string(), e),
+            HostError::Serde(e) => ("serde_error".to_string(), e.to_string()),
+            HostError::JoinHandle(e) => ("join_handle_error".to_string(), e.to_string()),
+            HostError::Guest(e) => ("guest_error".to_string(), e.to_string()),
+            HostError::Db(e) => ("db_error".to_string(), e.to_string()),
+            HostError::FeatureNotSupportedError(t) => {
+                ("feature_not_supported_error".to_string(), t.to_string())
             }
-            Conversion(e) | Preflight(e) => (StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
-            Io(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-            Serde(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-            Anyhow(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-            JoinHandle(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-            Guest(e) => (StatusCode::FAILED_DEPENDENCY, e.to_string()).into_response(),
-            RPC(e) => (StatusCode::FAILED_DEPENDENCY, e.to_string()).into_response(),
-            Db(e) => (StatusCode::FAILED_DEPENDENCY, e.to_string()).into_response(),
-            FeatureNotSupportedError(e) => {
-                (StatusCode::METHOD_NOT_ALLOWED, e.to_string()).into_response()
-            }
-        }
+            HostError::Anyhow(e) => ("anyhow_error".to_string(), e.to_string()),
+        };
+        axum::Json(serde_json::json!({ "status": "error", "error": error, "message": message }))
+            .into_response()
     }
 }
 

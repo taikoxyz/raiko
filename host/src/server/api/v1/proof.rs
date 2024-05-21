@@ -2,15 +2,6 @@ use std::{fs::File, path::PathBuf};
 
 use crate::metrics::observe_guest_time;
 use crate::metrics::observe_prepare_input_time;
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_lib::{
-    input::{get_input_path, GuestInput},
-    Measurement,
-};
-use serde_json::Value;
-use tracing::{debug, info};
-use utoipa::OpenApi;
-
 use crate::{
     interfaces::{
         error::{HostError, HostResult},
@@ -23,8 +14,17 @@ use crate::{
     },
     provider::rpc::RpcBlockDataProvider,
     raiko::Raiko,
+    server::api::v1::ProofResponse,
     ProverState,
 };
+use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use raiko_lib::{
+    input::{get_input_path, GuestInput},
+    Measurement,
+};
+use serde_json::Value;
+use tracing::{debug, info};
+use utoipa::OpenApi;
 
 fn get_cached_input(
     cache_path: &Option<PathBuf>,
@@ -68,7 +68,7 @@ fn dec_concurrent_req_count(e: HostError) -> HostError {
     tag = "Proving",
     request_body = ProofRequestOpt,
     responses (
-        (status = 200, description = "Successfully created proof for request", body = ProofResponse)
+        (status = 200, description = "Successfully created proof for request", body = Status)
     )
 )]
 #[debug_handler(state = ProverState)]
@@ -86,7 +86,7 @@ async fn proof_handler(
         chain_specs: support_chain_specs,
     }): State<ProverState>,
     Json(req): Json<Value>,
-) -> HostResult<Json<Value>> {
+) -> HostResult<ProofResponse> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
@@ -199,7 +199,7 @@ async fn proof_handler(
 
     dec_current_req();
 
-    Ok(Json(proof))
+    ProofResponse::try_from(proof)
 }
 
 #[derive(OpenApi)]

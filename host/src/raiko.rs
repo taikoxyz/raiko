@@ -116,7 +116,8 @@ impl Raiko {
                 assert_eq!(
                     Into::<FixedBytes<32>>::into(header.hash().0),
                     input.block_hash_reference,
-                    "block hash unexpected"
+                    "block hash unexpected for block {}",
+                    input.block_number,
                 );
                 let output = GuestOutput::Success { header, hash: pi };
 
@@ -131,11 +132,7 @@ impl Raiko {
         }
     }
 
-    pub async fn prove(
-        &self,
-        input: GuestInput,
-        output: &GuestOutput,
-    ) -> HostResult<serde_json::Value> {
+    pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> HostResult<Proof> {
         self.request
             .proof_type
             .run_prover(

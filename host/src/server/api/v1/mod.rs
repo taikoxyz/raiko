@@ -1,6 +1,8 @@
-use axum::Router;
+use crate::interfaces::error::HostError;
+use axum::{response::IntoResponse, Router};
 use raiko_lib::input::GuestOutput;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tower::ServiceBuilder;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
@@ -35,6 +37,7 @@ mod proof;
             crate::interfaces::error::HostError,
             GuestOutputDoc,
             ProofResponse,
+            Status,
         )
     ),
     tags(
@@ -46,7 +49,7 @@ mod proof;
 /// The root API struct which is generated from the `OpenApi` derive macro.
 pub struct Docs;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, Deserialize)]
 /// The response body of a proof request.
 pub struct ProofResponse {
     #[schema(value_type = Option<GuestOutputDoc>)]
@@ -56,6 +59,32 @@ pub struct ProofResponse {
     proof: Option<String>,
     /// The quote.
     quote: Option<String>,
+}
+
+impl IntoResponse for ProofResponse {
+    fn into_response(self) -> axum::response::Response {
+        axum::Json(serde_json::json!({
+            "status": "ok",
+            "data": self
+        }))
+        .into_response()
+    }
+}
+
+impl TryFrom<Value> for ProofResponse {
+    type Error = HostError;
+
+    fn try_from(proof: Value) -> Result<Self, Self::Error> {
+        serde_json::from_value(proof).map_err(|err| HostError::Conversion(err.to_string()))
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "lowercase")]
+#[allow(dead_code)]
+pub enum Status {
+    Ok { data: ProofResponse },
+    Error { error: String, message: String },
 }
 
 #[derive(Debug, Serialize, ToSchema)]
