@@ -1545,6 +1545,7 @@ dependencies = [
  "glob",
  "hex",
  "libc",
+ "serde",
 ]
 
 [[package]]
@@ -4870,7 +4871,7 @@ dependencies = [
  "axum",
  "bincode",
  "bytemuck",
- "c-kzg",
+ "c-kzg-taiko",
  "cap",
  "cfg-if",
  "clap 4.5.4",
@@ -4972,7 +4973,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "bincode",
- "c-kzg",
+ "c-kzg-taiko",
  "hex-literal",
  "once_cell",
  "revm-primitives",
@@ -5294,7 +5295,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "8.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#2733b062c075d11f09b15138be9a47801fa3c775"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2#a5c01f345f4362f4d5d8bbddf37e9d8aeb27b0d3"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -5308,7 +5309,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "4.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#2733b062c075d11f09b15138be9a47801fa3c775"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2#a5c01f345f4362f4d5d8bbddf37e9d8aeb27b0d3"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -5317,10 +5318,10 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "6.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#2733b062c075d11f09b15138be9a47801fa3c775"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2#a5c01f345f4362f4d5d8bbddf37e9d8aeb27b0d3"
 dependencies = [
  "aurora-engine-modexp",
- "c-kzg",
+ "c-kzg-taiko",
  "cfg-if",
  "k256",
  "once_cell",
@@ -5334,13 +5335,13 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.1"
-source = "git+https://github.com/taikoxyz/revm.git?branch=feat/zk-op#2733b062c075d11f09b15138be9a47801fa3c775"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2#a5c01f345f4362f4d5d8bbddf37e9d8aeb27b0d3"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
  "bitflags 2.5.0",
  "bitvec",
- "c-kzg",
+ "c-kzg-taiko",
  "cfg-if",
  "derive_more",
  "dyn-clone",
@@ -6275,6 +6276,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
+ "thiserror",
  "tokio",
 ]
 
@@ -6289,6 +6291,7 @@ dependencies = [
  "alloy-signer-wallet 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
  "alloy-sol-types",
  "alloy-transport-http 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "anyhow",
  "bincode",
  "once_cell",
  "pem 3.0.4",

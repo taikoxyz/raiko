@@ -5,7 +5,6 @@ use std::{path::Path, str::FromStr};
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
-    consts::Network,
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
     prover::{Proof, Prover},
@@ -16,7 +15,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use utoipa::ToSchema;
 
 use crate::{
-    error::{HostError, HostResult},
+    interfaces::error::{HostError, HostResult},
     merge,
     raiko::NativeProver,
 };
@@ -140,15 +139,8 @@ impl ProofType {
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
-    /// RPC URL for retrieving block by block number.
-    pub rpc: String,
-    /// The L1 node URL for signal root verify and get txlist info from proposed
-    /// transaction.
-    pub l1_rpc: String,
-    /// The beacon node URL for retrieving data blobs.
-    pub beacon_rpc: String,
     /// The network to generate the proof for.
-    pub network: Network,
+    pub network: String,
     /// The L1 network to grnerate the proof for.
     pub l1_network: String,
     /// Graffiti.
@@ -170,16 +162,6 @@ pub struct ProofRequestOpt {
     #[arg(long, require_equals = true)]
     /// The block number for the block to generate a proof for.
     pub block_number: Option<u64>,
-    #[arg(long, require_equals = true)]
-    /// RPC URL for retrieving block by block number.
-    pub rpc: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The L1 node URL for signal root verify and get txlist info from proposed
-    /// transaction.
-    pub l1_rpc: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The beacon node URL for retrieving data blobs.
-    pub beacon_rpc: Option<String>,
     #[arg(long, require_equals = true)]
     /// The network to generate the proof for.
     pub network: Option<String>,
@@ -258,22 +240,9 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             block_number: value.block_number.ok_or(HostError::InvalidRequestConfig(
                 "Missing block number".to_string(),
             ))?,
-            rpc: value
-                .rpc
-                .ok_or(HostError::InvalidRequestConfig("Missing rpc".to_string()))?,
-            l1_rpc: value.l1_rpc.ok_or(HostError::InvalidRequestConfig(
-                "Missing l1_rpc".to_string(),
+            network: value.network.ok_or(HostError::InvalidRequestConfig(
+                "Missing network".to_string(),
             ))?,
-            beacon_rpc: value.beacon_rpc.ok_or(HostError::InvalidRequestConfig(
-                "Missing beacon_rpc".to_string(),
-            ))?,
-            network: value
-                .network
-                .ok_or(HostError::InvalidRequestConfig(
-                    "Missing network".to_string(),
-                ))?
-                .parse()
-                .map_err(|_| HostError::InvalidRequestConfig("Invalid network".to_string()))?,
             l1_network: value.l1_network.ok_or(HostError::InvalidRequestConfig(
                 "Missing l1_network".to_string(),
             ))?,

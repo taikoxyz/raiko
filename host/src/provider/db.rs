@@ -24,8 +24,8 @@ use revm::{
 use tokio::runtime::Handle;
 
 use crate::{
-    error::{HostError, HostResult},
-    raiko::BlockDataProvider,
+    interfaces::error::{HostError, HostResult},
+    provider::BlockDataProvider,
     MerkleProof,
 };
 
