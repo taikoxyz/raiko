@@ -129,11 +129,7 @@ impl Raiko {
         }
     }
 
-    pub async fn prove(
-        &self,
-        input: GuestInput,
-        output: &GuestOutput,
-    ) -> HostResult<serde_json::Value> {
+    pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> HostResult<Proof> {
         self.request
             .proof_type
             .run_prover(

@@ -10,7 +10,10 @@ use crate::app_args::BootstrapArgs;
 use alloy_primitives::Address;
 use anyhow::{Context, Result};
 use serde_json::{Number, Value};
-use sgx_prover::{bootstrap, check_bootstrap, register_sgx_instance, ELF_NAME};
+use sgx_prover::{
+    bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
+    set_instance_id, ELF_NAME,
+};
 use std::process::Command;
 use tracing::info;
 
@@ -31,19 +34,16 @@ pub(crate) async fn setup_bootstrap(
         cmd
     };
 
-    let registered_check_file = PathBuf::from(&bootstrap_args.config_path)
-        .parent()
-        .unwrap()
-        .join("registered");
-
+    let mut instance_id = get_instance_id(&bootstrap_args.config_path).ok();
     let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd())
         .await
         .is_err()
-        || fs::metadata(&registered_check_file).is_err();
+        || instance_id.is_none();
 
     if need_init {
         let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
-        match fs::remove_file(&registered_check_file) {
+        // clean check file
+        match remove_instance_id(&bootstrap_args.config_path) {
             Ok(_) => Ok(()),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
@@ -53,7 +53,7 @@ pub(crate) async fn setup_bootstrap(
                 }
             }
         }?;
-        let _register_res = register_sgx_instance(
+        let register_id = register_sgx_instance(
             &bootstrap_proof.quote,
             &bootstrap_args.l1_rpc,
             bootstrap_args.l1_chain_id,
@@ -61,25 +61,27 @@ pub(crate) async fn setup_bootstrap(
         )
         .await
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
-        //todo: update the config
-        // Config file has the lowest preference
-        let file = File::open(&bootstrap_args.config_path)?;
-        let reader = BufReader::new(file);
-        let mut file_config: Value = serde_json::from_reader(reader)?;
-        file_config["sgx"]["instance_id"] = Value::Number(Number::from(_register_res));
+        info!("Saving instance id {}", register_id,);
+        // set check file
+        set_instance_id(&bootstrap_args.config_path, register_id)?;
 
-        //save to the same file
-        info!(
-            "Saving bootstrap data file {}",
-            bootstrap_args.config_path.display()
-        );
-        let json = serde_json::to_string_pretty(&file_config)?;
-        fs::write(&bootstrap_args.config_path, json).context(format!(
-            "Saving bootstrap data file {} failed",
-            bootstrap_args.config_path.display()
-        ))?;
-        File::create(&registered_check_file)?;
+        instance_id = Some(register_id);
     }
+    // Always reset the configuration with a persistent instance ID upon restart.
+    let file = File::open(&bootstrap_args.config_path)?;
+    let reader = BufReader::new(file);
+    let mut file_config: Value = serde_json::from_reader(reader)?;
+    file_config["sgx"]["instance_id"] = Value::Number(Number::from(instance_id.unwrap()));
 
+    //save to the same file
+    info!(
+        "Saving bootstrap data file {}",
+        bootstrap_args.config_path.display()
+    );
+    let json = serde_json::to_string_pretty(&file_config)?;
+    fs::write(&bootstrap_args.config_path, json).context(format!(
+        "Saving bootstrap data file {} failed",
+        bootstrap_args.config_path.display()
+    ))?;
     Ok(())
 }
