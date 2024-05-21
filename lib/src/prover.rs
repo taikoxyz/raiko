@@ -1,12 +1,10 @@
 use std::fmt;
 
-use alloy_primitives::B256;
 use serde::Serialize;
 use thiserror::Error as ThisError;
 
 use crate::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
 };
 
 #[derive(ThisError, Debug)]
