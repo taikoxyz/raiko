@@ -1,9 +1,8 @@
 #![cfg(feature = "enable")]
-use std::path::PathBuf;
 use alloy_sol_types::{sol, SolType};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-
+use std::path::PathBuf;
 
 /// The public values encoded as a tuple that can be easily deserialized inside Solidity.
 type PublicValuesTuple = sol! {

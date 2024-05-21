@@ -1,6 +1,6 @@
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
-use alloy_sol_types::{SolValue};
+use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
