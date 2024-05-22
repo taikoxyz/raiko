@@ -24,7 +24,7 @@ services:
       args:
         ENABLE_SELF_REGISTER: "true"
       dockerfile: Dockerfile
-    image: gcr.io/evmchain/raiko-self-register:latest
+    image: gcr.io/evmchain/raiko:latest
     container_name: raiko-init-self-register
     command: --init-self-register
     devices:
@@ -82,7 +82,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: gcr.io/evmchain/raiko-self-register:latest
+    image: gcr.io/evmchain/raiko:latest
     container_name: raiko-self-register
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
     devices:
