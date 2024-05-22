@@ -23,16 +23,20 @@ pub enum Command {
 
 #[derive(Debug, Args)]
 pub struct BootstrapArgs {
-    #[clap(long, default_value = "http://localhost:8545")]
-    pub l1_rpc: String,
-    #[clap(long, default_value = "31337")]
-    pub l1_chain_id: u64,
-    #[clap(long, default_value = "0x4826533B4897376654Bb4d4AD88B7faFD0C98528")]
-    pub sgx_verifier_address: String,
-    #[clap(long, default_value = "config.sgx.json")]
+    #[clap(long, default_value = "/etc/raiko/config.sgx.json")]
     /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
-    pub config_filename: String,
+    pub config_path: PathBuf,
+
+    #[arg(long, default_value = "/etc/raiko/chain_spec_list.docker.json")]
+    /// Path to a chain spec file that includes supported chain list
+    pub chain_spec_path: PathBuf,
+
+    #[arg(long, default_value = "holesky")]
+    pub l1_network: String,
+
+    #[arg(long, default_value = "taiko_a7")]
+    pub network: String,
 }
 
 fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {
