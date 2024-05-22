@@ -30,7 +30,7 @@ for feature in "${features[@]}"; do
 	fi
 
 	echo "Build and push $1:$tag..."
-	docker buildx build ./ \
+	docker buildx build --no-cache ./ \
 		--platform linux/amd64 \
 		-t raiko:$tag \
 		$build_flags \
