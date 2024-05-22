@@ -1,9 +1,9 @@
 use std::{collections::HashSet, mem::take};
 
-use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::Bytes;
-use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb, utils::to_header};
+use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
 use raiko_primitives::{Address, B256, U256};
+use reth_primitives::Header;
 use revm::{
     db::BundleState, primitives::{Account, AccountInfo, Bytecode, HashMap}, Database, DatabaseCommit, DatabaseRef
 };
@@ -22,7 +22,7 @@ pub struct ProviderDb<BDP: BlockDataProvider> {
     pub provider: BDP,
     pub block_number: u64,
     pub initial_db: MemDb,
-    pub initial_headers: HashMap<u64, AlloyConsensusHeader>,
+    pub initial_headers: HashMap<u64, Header>,
     pub current_db: MemDb,
     async_executor: Handle,
 
@@ -71,7 +71,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                     .insert_block_hash(block_number, block_hash);
                 provider_db
                     .initial_headers
-                    .insert(block_number, to_header(&block.header));
+                    .insert(block_number, block.header.try_into().unwrap());
             }
         }
         Ok(provider_db)
@@ -122,7 +122,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         Ok((initial_proofs, latest_proofs, num_storage_proofs))
     }
 
-    pub async fn get_ancestor_headers(&mut self) -> HostResult<Vec<AlloyConsensusHeader>> {
+    pub async fn get_ancestor_headers(&mut self) -> HostResult<Vec<Header>> {
         let earliest_block = self
             .initial_db
             .block_hashes
@@ -139,7 +139,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                 self.initial_headers.entry(block_number)
             {
                 let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
-                e.insert(to_header(&block.header));
+                e.insert(block.header.clone().try_into().unwrap());
             }
             headers.push(
                 self.initial_headers
@@ -414,7 +414,7 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
             self.staging_db
                 .insert_block_hash(block_number, block.header.hash.unwrap());
             self.initial_headers
-                .insert(block_number, to_header(&block.header));
+                .insert(block_number, block.header.clone().try_into().unwrap());
         }
 
         // If this wasn't a valid run, clear the post execution database

@@ -1,9 +1,9 @@
-use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
+use reth_primitives::Header;
 use sha2::{Digest as _, Sha256};
 
 use super::utils::ANCHOR_GAS_LIMIT;
@@ -11,7 +11,6 @@ use super::utils::ANCHOR_GAS_LIMIT;
 use crate::no_std::*;
 use crate::{
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    utils::HeaderHasher,
 };
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
@@ -90,7 +89,7 @@ pub fn kzg_to_versioned_hash(commitment: &KzgCommitment) -> B256 {
 
 pub fn assemble_protocol_instance(
     input: &GuestInput,
-    header: &AlloyConsensusHeader,
+    header: &Header,
 ) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
@@ -128,12 +127,12 @@ pub fn assemble_protocol_instance(
     let pi = ProtocolInstance {
         transition: Transition {
             parentHash: header.parent_hash,
-            blockHash: header.hash(),
+            blockHash: header.hash_slow(),
             stateRoot: header.state_root,
             graffiti: input.taiko.prover_data.graffiti,
         },
         block_metadata: BlockMetadata {
-            l1Hash: input.taiko.l1_header.hash(),
+            l1Hash: input.taiko.l1_header.hash_slow(),
             difficulty: input.taiko.block_proposed.meta.difficulty,
             blobHash: tx_list_hash,
             extraData: bytes_to_bytes32(&header.extra_data).into(),

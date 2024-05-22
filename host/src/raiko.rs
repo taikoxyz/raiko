@@ -5,7 +5,6 @@ use raiko_lib::consts::ChainSpec;
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
 use raiko_lib::protocol_instance::{assemble_protocol_instance, EvidenceType, ProtocolInstance};
 use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
-use raiko_lib::utils::HeaderHasher;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, trace, warn};
 
@@ -66,7 +65,7 @@ impl Raiko {
         match result {
             Ok(header) => {
                 info!("Verifying final state using provider data ...");
-                info!("Final block hash derived successfully. {}", header.hash());
+                info!("Final block hash derived successfully. {}", header.hash_slow());
                 info!("Final block header derived successfully. {header:?}");
                 /*let pi = self
                     .request
@@ -78,7 +77,7 @@ impl Raiko {
                     .instance_hash(&EvidenceType::Sgx { new_pubkey: Address::ZERO } );
 
                 // Check against the expected value of all fields for easy debugability
-                let exp = &input.block_header_reference;
+                let exp = &input.block.header;
                 check_eq(&exp.parent_hash, &header.parent_hash, "base_fee_per_gas");
                 check_eq(&exp.ommers_hash, &header.ommers_hash, "ommers_hash");
                 check_eq(&exp.beneficiary, &header.beneficiary, "beneficiary");
@@ -126,7 +125,7 @@ impl Raiko {
 
                 // Make sure the blockhash from the node matches the one from the builder
                 assert_eq!(
-                    Into::<FixedBytes<32>>::into(header.hash().0),
+                    Into::<FixedBytes<32>>::into(header.hash_slow().0),
                     input.block_hash_reference,
                     "block hash unexpected"
                 );

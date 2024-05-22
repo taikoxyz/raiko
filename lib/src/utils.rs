@@ -3,7 +3,7 @@ use core::str::FromStr;
 use std::io::Read;
 use std::io::Write;
 
-use alloy_consensus::{Header as AlloyConsensusHeader, Signed, TxEip1559, TxEnvelope};
+use alloy_consensus::{Signed, TxEip1559, TxEnvelope};
 use alloy_primitives::{uint, Address, Signature, TxKind, U256};
 use alloy_rlp::{Decodable, Encodable};
 use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
@@ -310,7 +310,7 @@ pub fn check_anchor_tx(input: &GuestInput, anchor: &TxEnvelope, from: &Address) 
             let anchor_call = decode_anchor(&tx.input)?;
             // The L1 blockhash needs to match the expected value
             ensure!(
-                anchor_call.l1Hash == input.taiko.l1_header.hash(),
+                anchor_call.l1Hash == input.taiko.l1_header.hash_slow(),
                 "L1 hash mismatch"
             );
             if input.chain_spec.network() == Network::TaikoA7.to_string() {
@@ -335,43 +335,4 @@ pub fn check_anchor_tx(input: &GuestInput, anchor: &TxEnvelope, from: &Address) 
     }
 
     Ok(())
-}
-
-pub trait HeaderHasher {
-    fn hash(&self) -> B256;
-}
-
-impl HeaderHasher for AlloyConsensusHeader {
-    fn hash(&self) -> B256 {
-        let mut out = Vec::<u8>::new();
-        self.encode(&mut out);
-        keccak256(&out)
-    }
-}
-
-/// Convert from an Alloy RPC header to an Alloy Consensus Header
-/// which can be serialized and can be used to generate the block hash.
-pub fn to_header(header: &AlloyHeader) -> AlloyConsensusHeader {
-    AlloyConsensusHeader {
-        parent_hash: header.parent_hash,
-        ommers_hash: header.uncles_hash,
-        beneficiary: header.miner,
-        state_root: header.state_root,
-        transactions_root: header.transactions_root,
-        receipts_root: header.receipts_root,
-        logs_bloom: header.logs_bloom,
-        difficulty: header.difficulty,
-        number: header.number.unwrap(),
-        gas_limit: header.gas_limit,
-        gas_used: header.gas_used,
-        timestamp: header.timestamp,
-        extra_data: header.extra_data.clone(),
-        mix_hash: header.mix_hash.unwrap(),
-        nonce: header.nonce.unwrap(),
-        base_fee_per_gas: header.base_fee_per_gas,
-        withdrawals_root: header.withdrawals_root,
-        blob_gas_used: header.blob_gas_used,
-        excess_blob_gas: header.excess_blob_gas,
-        parent_beacon_block_root: header.parent_beacon_block_root,
-    }
 }

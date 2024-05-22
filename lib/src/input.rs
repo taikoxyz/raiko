@@ -2,7 +2,6 @@ use core::fmt::Debug;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
-use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
@@ -11,11 +10,11 @@ use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-use reth_primitives::Block as RethBlock;
+use reth_primitives::{Block as RethBlock, Header};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, serde_with::RlpBytes, serde_with::RlpHexBytes};
+use crate::{consts::ChainSpec, serde_with::RlpHexBytes};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -36,12 +35,8 @@ pub struct GuestInput {
     pub gas_used: u64,
     /// Block hash - for reference!
     pub block_hash_reference: B256,
-    /// Block header - for reference!
-    #[serde_as(as = "RlpBytes")]
-    pub block_header_reference: AlloyConsensusHeader,
     /// Previous block header
-    #[serde_as(as = "RlpBytes")]
-    pub parent_header: AlloyConsensusHeader,
+    pub parent_header: Header,
     /// Address to which all priority fees in this block are transferred.
     pub beneficiary: Address,
     /// Scalar equal to the current limit of gas expenditure per block.
@@ -61,8 +56,7 @@ pub struct GuestInput {
     /// The code of all unique contracts.
     pub contracts: Vec<Bytes>,
     /// List of at most 256 previous block headers
-    #[serde_as(as = "Vec<RlpBytes>")]
-    pub ancestor_headers: Vec<AlloyConsensusHeader>,
+    pub ancestor_headers: Vec<Header>,
     /// Base fee per gas
     pub base_fee_per_gas: u64,
 
@@ -78,8 +72,7 @@ pub struct GuestInput {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TaikoGuestInput {
     /// header
-    #[serde_as(as = "RlpBytes")]
-    pub l1_header: AlloyConsensusHeader,
+    pub l1_header: Header,
     pub tx_data: Vec<u8>,
     pub anchor_tx: String,
     pub block_proposed: BlockProposed,
@@ -98,8 +91,7 @@ pub struct TaikoProverData {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GuestOutput {
     Success {
-        #[serde_as(as = "RlpHexBytes")]
-        header: AlloyConsensusHeader,
+        header: Header,
         hash: B256,
     },
     Failure,

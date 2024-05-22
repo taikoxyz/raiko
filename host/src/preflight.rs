@@ -16,7 +16,7 @@ use raiko_lib::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
     },
-    utils::{generate_transactions, to_header, zlib_compress_data, HeaderHasher},
+    utils::{generate_transactions, zlib_compress_data},
     Measurement,
 };
 use raiko_primitives::{
@@ -95,7 +95,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
                 HostError::Conversion("Failed converting gas used to u64".to_string())
             })?,
             block_hash_reference: hash,
-            block_header_reference: to_header(&block.header),
             beneficiary: block.header.miner,
             gas_limit: block.header.gas_limit.try_into().map_err(|_| {
                 HostError::Conversion("Failed converting gas limit to u64".to_string())
@@ -113,7 +112,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
             parent_state_trie: Default::default(),
             parent_storage: Default::default(),
             contracts: Default::default(),
-            parent_header: to_header(&parent_block.header),
+            parent_header: parent_block.header.clone().try_into().unwrap(),
             ancestor_headers: Default::default(),
             base_fee_per_gas: block.header.base_fee_per_gas.map_or_else(
                 || {
@@ -245,7 +244,7 @@ fn verify(input: GuestInput) {
     let header = builder.finalize().expect("execute");
 
     // Check against the expected value of all fields for easy debugability
-    let exp = &input.block_header_reference;
+    let exp = &input.block.header;
     check_eq(&exp.parent_hash, &header.parent_hash, "base_fee_per_gas");
     check_eq(&exp.ommers_hash, &header.ommers_hash, "ommers_hash");
     check_eq(&exp.beneficiary, &header.beneficiary, "beneficiary");
@@ -293,12 +292,12 @@ fn verify(input: GuestInput) {
 
     // Make sure the blockhash from the node matches the one from the builder
     assert_eq!(
-        Into::<FixedBytes<32>>::into(header.hash().0),
+        Into::<FixedBytes<32>>::into(header.hash_slow().0),
         input.block_hash_reference,
         "block hash unexpected"
     );
 
-    assert_eq!(header, input.block_header_reference, "header wrong!");
+    assert_eq!(header, input.block.header, "header wrong!");
 }
 
 /// Prepare the input for a Taiko chain
@@ -394,7 +393,7 @@ async fn prepare_taiko_chain_input(
 
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {
-        l1_header: to_header(&l1_state_block.header),
+        l1_header: l1_state_block.header.clone().try_into().unwrap(),
         tx_data,
         anchor_tx: serde_json::to_string(&anchor_tx).map_err(HostError::Serde)?,
         tx_blob_hash,
