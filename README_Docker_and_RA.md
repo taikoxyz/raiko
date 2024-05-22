@@ -1,3 +1,10 @@
+# Simple raiko node
+
+[simple-raiko-node](https://github.com/lagunovsky/simple-raiko-node) is a project that includes a set of scripts and configurations to **easily** set up and manage a Raiko instance.
+
+<details>
+<summary>Raiko Docker Setup Tutorial</summary>
+
 # Raiko Docker Setup Tutorial
 
 This tutorial was created to assist you in setting up Raiko and its SGX dependencies using a Docker container. Configuring SGX can be complex without a detailed guide to walk you through each step. This tutorial strives to provide a comprehensive walkthrough, leaving no detail unaddressed.
@@ -416,3 +423,5 @@ The response should look like this:
 ```
 
 If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
+
+</details>
