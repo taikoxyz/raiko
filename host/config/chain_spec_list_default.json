@@ -88,7 +88,7 @@
         "is_taiko": true
     },
     {
-        "name": "taiko_b1",
+        "name": "taiko_mainnet",
         "chain_id": 167000,
         "max_spec_id": "SHANGHAI",
         "hard_forks": {
@@ -105,7 +105,7 @@
         },
         "l1_contract": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
         "l2_contract": "0x1670000000000000000000000000000000010001",
-        "rpc": "TBD",
+        "rpc": "https://rpc.mainnet.taiko.xyz",
         "beacon_rpc": null,
         "sgx_verifier_address": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
         "genesis_time": 0,
