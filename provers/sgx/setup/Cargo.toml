@@ -57,6 +57,7 @@ url = { workspace = true }
 cfg-if = { workspace = true }
 cap = { workspace = true }
 dirs = { workspace = true }
+file-lock = "2.1.11"
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -76,7 +77,4 @@ default = ["sgx"]
 #   "dep:risc0-driver",
 #   "risc0-driver/enable",
 # ]
-sgx = [
-  "dep:sgx-prover",
-  "sgx-prover/enable",
-]
+sgx = ["dep:sgx-prover", "sgx-prover/enable"]
