@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{fmt::Debug, mem::take, str::from_utf8};
-use std::collections::HashSet;
-
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
 use alloy_primitives::{TxKind, U256};
 use anyhow::{anyhow, bail, ensure, Context, Error, Result};
+use core::{fmt::Debug, mem::take, str::from_utf8};
 #[cfg(feature = "std")]
 use log::debug;
 use raiko_primitives::{
@@ -32,6 +30,8 @@ use revm::{
     },
     taiko, Database, DatabaseCommit, Evm, JournaledState,
 };
+use std::collections::HashSet;
+use tracing::trace;
 cfg_if::cfg_if! {
     if #[cfg(feature = "tracer")] {
         use std::{fs::{OpenOptions, File}, io::{BufWriter, Write}, sync::{Arc, Mutex}};
@@ -82,7 +82,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let chain_spec = &block_builder.input.chain_spec;
         let chain_id = chain_spec.chain_id();
         let is_taiko = chain_spec.is_taiko();
-        debug!("spec_id: {spec_id:?}");
+        trace!("spec_id: {spec_id:?}");
 
         // generate the transactions from the tx list
         // For taiko blocks, insert the anchor tx as the first transaction
@@ -175,7 +175,11 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let mut actual_tx_no = 0usize;
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
-            inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+            if cfg!(debug_assertions) {
+                inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+            } else {
+                trace!("\rprocessing tx {tx_no}/{num_transactions}...");
+            }
 
             #[cfg(feature = "tracer")]
             let trace = set_trace_writer(
@@ -283,7 +287,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 }
             };
             #[cfg(feature = "std")]
-            debug!("  Ok: {result:?}");
+            trace!("  Ok: {result:?}");
 
             #[cfg(feature = "tracer")]
             // Flush the trace writer
