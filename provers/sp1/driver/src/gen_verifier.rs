@@ -1,15 +1,10 @@
 #![cfg(feature = "enable")]
 use alloy_primitives::{Address, B256};
 use alloy_sol_types::{sol, SolType};
-use raiko_lib::input::{GuestInput, Transition};
+use raiko_lib::input::{GuestInput, RawGuestOutput, Transition};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::path::PathBuf;
-
-/// The public values encoded as a tuple that can be easily deserialized inside Solidity.
-type ProtocolInstanceTuple = sol! {
-    tuple(string, uint64, address, Transition, address, address, bytes32)
-};
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,7 +16,6 @@ struct RaikoProofFixture {
     pub sgx_instance: Address, // only used for SGX
     pub prover: Address,
     meta_hash: B256,
-    // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
     vkey: String,
     public_values: String,
     proof: String,
@@ -49,14 +43,13 @@ fn main() {
     // Deserialize the public values.
     let bytes = proof.public_values.as_slice();
     let (
-        verify_proof, 
         chain_id,
         verifier_address,
         transition, 
         sgx_instance, 
         prover, 
         meta_hash
-    ) = ProtocolInstanceTuple::abi_decode(bytes, false).unwrap();
+    ) = RawGuestOutput::abi_decode(bytes, false).unwrap();
 
     // Create the testing fixture so we can test things end-ot-end.
     let fixture = RaikoProofFixture {
