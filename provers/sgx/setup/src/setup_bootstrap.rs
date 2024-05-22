@@ -7,7 +7,7 @@ use std::{
 
 use crate::app_args::BootstrapArgs;
 use anyhow::{anyhow, Context, Result};
-use raiko_lib::consts::SupportedChainSpecs;
+use raiko_lib::consts::{SupportedChainSpecs, VerifierType};
 use serde_json::{Number, Value};
 use sgx_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
@@ -65,7 +65,7 @@ pub(crate) async fn setup_bootstrap(
             &bootstrap_proof.quote,
             &l1_chain_spec.rpc,
             l1_chain_spec.chain_id,
-            taiko_chain_spec.sgx_verifier_address.unwrap(),
+            taiko_chain_spec.verifier_address.get(&VerifierType::SGX).unwrap().unwrap(),
         )
         .await
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
