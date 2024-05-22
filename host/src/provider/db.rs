@@ -1,16 +1,3 @@
-// Copyright 2023 RISC Zero, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 use std::{collections::HashSet, mem::take};
 
 use alloy_consensus::Header as AlloyConsensusHeader;
@@ -18,8 +5,7 @@ use alloy_primitives::Bytes;
 use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb, utils::to_header};
 use raiko_primitives::{Address, B256, U256};
 use revm::{
-    primitives::{Account, AccountInfo, Bytecode, HashMap},
-    Database, DatabaseRef, DatabaseCommit,
+    db::BundleState, primitives::{Account, AccountInfo, Bytecode, HashMap}, Database, DatabaseCommit, DatabaseRef
 };
 use tokio::runtime::Handle;
 use reth_provider::{
@@ -173,9 +159,10 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
 }
 
 impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
-    type Error = HostError;
+    type Error = ProviderError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+        //println!("address: {:?}", address);
         // Check if the account is in the current database.
         if let Ok(db_result) = self.current_db.basic(address) {
             return Ok(db_result);
@@ -209,10 +196,10 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let account = &tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_accounts(&[address]))
-        })?
+        }).map_err(|e| ProviderError::BestBlockNotFound)?
         .first()
         .cloned()
-        .ok_or(HostError::RPC("No account".to_owned()))?;
+        .ok_or(HostError::RPC("No account".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?;
 
         // Insert the account into the initial database.
         self.initial_db
@@ -250,10 +237,10 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let value = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_storage_values(&[(address, index)]))
-        })?
+        }).map_err(|e| ProviderError::BestBlockNotFound)?
         .first()
         .copied()
-        .ok_or(HostError::RPC("No storage value".to_owned()))?;
+        .ok_or(HostError::RPC("No storage value".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?;
         self.initial_db
             .insert_account_storage(&address, index, value);
         Ok(value)
@@ -262,7 +249,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
         let block_number: u64 = number
             .try_into()
-            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned()))?;
+            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?;
 
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
@@ -285,12 +272,12 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let block_hash = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_blocks(&[(block_number, false)]))
-        })?
+        }).map_err(|e| ProviderError::BestBlockNotFound)?
         .first()
-        .ok_or(HostError::RPC("No block".to_owned()))?
+        .ok_or(HostError::RPC("No block".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?
         .header
         .hash
-        .ok_or_else(|| HostError::RPC("No block hash".to_owned()))?
+        .ok_or_else(|| HostError::RPC("No block hash".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
@@ -440,5 +427,9 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
 
     fn is_optimistic(&self) -> bool {
         self.optimistic
+    }
+
+    fn commit_from_bundle(&mut self, _bundle: BundleState) {
+        // nothing to do
     }
 }

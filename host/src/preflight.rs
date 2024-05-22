@@ -9,7 +9,7 @@ use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use raiko_lib::{
     builder::{
-        initialize::create_db, prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, RethBlockBuilder, TkoTxExecStrategy
+        create_mem_db, OptimisticDatabase, RethBlockBuilder
     },
     consts::ChainSpec,
     input::{
@@ -23,24 +23,15 @@ use raiko_primitives::{
     eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
     mpt::proofs_to_tries,
 };
-use reth_evm_ethereum::execute::EthExecutorProvider;
-use reth_interfaces::executor::BlockValidationError;
-use reth_provider::BundleStateWithReceipts;
-use revm::{db::CacheDB, Database};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fs::File, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 use tracing::{info, warn};
+use reth_primitives::Block as RethBlock;
 
 use crate::{
     interfaces::error::{HostError, HostResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
-
-use reth_primitives::{
-    trie::{AccountProof, StorageProof},
-    Account, Block as RethBlock, ChainSpecBuilder, Receipts, B256, MAINNET,
-};
-use reth_evm::execute::{EthBlockOutput, ExecutorProvider, Executor};
 
 pub async fn preflight<BDP: BlockDataProvider>(
     provider: BDP,
@@ -49,260 +40,189 @@ pub async fn preflight<BDP: BlockDataProvider>(
     taiko_chain_spec: ChainSpec,
     prover_data: TaikoProverData,
 ) -> HostResult<GuestInput> {
+    let measurement = Measurement::start("Fetching block data...", false);
 
-    let path = "./block_19899809.bin";
-    let input = if true {
-        let measurement = Measurement::start("Fetching block data...", false);
+    // Get the block and the parent block
+    let blocks = provider
+        .get_blocks(&[(block_number, true), (block_number - 1, false)])
+        .await?;
+    let (block, parent_block) = (
+        blocks.first().ok_or_else(|| {
+            HostError::Preflight("No block data for the requested block".to_owned())
+        })?,
+        &blocks.get(1).ok_or_else(|| {
+            HostError::Preflight("No parent block data for the requested block".to_owned())
+        })?,
+    );
 
-        println!("start");
+    let hash = block
+        .header
+        .hash
+        .ok_or_else(|| HostError::Preflight("No block hash for the requested block".to_string()))?;
 
-        // Get the block and the parent block
-        let blocks = provider
-            .get_blocks(&[(block_number, true), (block_number - 1, false)])
-            .await?;
-        let (block, parent_block) = (
-            blocks.first().ok_or_else(|| {
-                HostError::Preflight("No block data for the requested block".to_owned())
+    info!("\nblock.hash: {hash:?}");
+    info!("block.parent_hash: {:?}", block.header.parent_hash);
+    info!("block gas used: {:?}", block.header.gas_used);
+    info!("block transactions: {:?}", block.transactions.len());
+
+    let taiko_guest_input = if taiko_chain_spec.is_taiko() {
+        prepare_taiko_chain_input(
+            &l1_chain_spec,
+            &taiko_chain_spec,
+            block_number,
+            block,
+            prover_data,
+        )
+        .await?
+    } else {
+        // For Ethereum blocks we just convert the block transactions in a tx_list
+        // so that we don't have to supports separate paths.
+        TaikoGuestInput {
+            tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(block)?))?,
+            ..Default::default()
+        }
+    };
+    measurement.stop();
+
+    let reth_block = RethBlock::try_from(block.clone()).expect("block convert failed");
+
+    let input =
+        GuestInput {
+            block: reth_block.clone(),
+            chain_spec: taiko_chain_spec.clone(),
+            block_number,
+            gas_used: block.header.gas_used.try_into().map_err(|_| {
+                HostError::Conversion("Failed converting gas used to u64".to_string())
             })?,
-            &blocks.get(1).ok_or_else(|| {
-                HostError::Preflight("No parent block data for the requested block".to_owned())
+            block_hash_reference: hash,
+            block_header_reference: to_header(&block.header),
+            beneficiary: block.header.miner,
+            gas_limit: block.header.gas_limit.try_into().map_err(|_| {
+                HostError::Conversion("Failed converting gas limit to u64".to_string())
             })?,
-        );
-
-        let hash = block
-            .header
-            .hash
-            .ok_or_else(|| HostError::Preflight("No block hash for the requested block".to_string()))?;
-
-        println!("parent_beacon_block_root: {:?}", block.header.parent_beacon_block_root);
-
-        info!("\nblock.hash: {hash:?}");
-        info!("block.parent_hash: {:?}", block.header.parent_hash);
-        info!("block gas used: {:?}", block.header.gas_used);
-        info!("block transactions: {:?}", block.transactions.len());
-
-        let taiko_guest_input = if taiko_chain_spec.is_taiko() {
-            prepare_taiko_chain_input(
-                &l1_chain_spec,
-                &taiko_chain_spec,
-                block_number,
-                block,
-                prover_data,
-            )
-            .await?
-        } else {
-            // For Ethereum blocks we just convert the block transactions in a tx_list
-            // so that we don't have to supports separate paths.
-            TaikoGuestInput {
-                tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(block)?))?,
-                ..Default::default()
-            }
-        };
-        measurement.stop();
-
-        let reth_block = RethBlock::try_from(block.clone()).expect("block convert failed");
-
-        let input =
-            GuestInput {
-                block: reth_block.clone(),
-                chain_spec: taiko_chain_spec.clone(),
-                block_number,
-                gas_used: block.header.gas_used.try_into().map_err(|_| {
-                    HostError::Conversion("Failed converting gas used to u64".to_string())
-                })?,
-                block_hash_reference: hash,
-                block_header_reference: to_header(&block.header),
-                beneficiary: block.header.miner,
-                gas_limit: block.header.gas_limit.try_into().map_err(|_| {
-                    HostError::Conversion("Failed converting gas limit to u64".to_string())
-                })?,
-                timestamp: block.header.timestamp,
-                extra_data: block.header.extra_data.clone(),
-                mix_hash: if let Some(mix_hash) = block.header.mix_hash {
-                    mix_hash
-                } else {
-                    return Err(HostError::Preflight(
-                        "No mix hash for the requested block".to_owned(),
-                    ));
-                },
-                withdrawals: block.withdrawals.clone().unwrap_or_default(),
-                parent_state_trie: Default::default(),
-                parent_storage: Default::default(),
-                contracts: Default::default(),
-                parent_header: to_header(&parent_block.header),
-                ancestor_headers: Default::default(),
-                base_fee_per_gas: block.header.base_fee_per_gas.map_or_else(
-                    || {
-                        Err(HostError::Preflight(
-                            "No base fee per gas for the requested block".to_owned(),
-                        ))
-                    },
-                    |base_fee_per_gas| {
-                        base_fee_per_gas.try_into().map_err(|_| {
-                            HostError::Conversion(
-                                "Failed converting base fee per gas to u64".to_owned(),
-                            )
-                        })
-                    },
-                )?,
-                blob_gas_used: block.header.blob_gas_used.map_or_else(
-                    || Ok(None),
-                    |b: u128| -> HostResult<Option<u64>> {
-                        b.try_into().map(Some).map_err(|_| {
-                            HostError::Conversion("Failed converting blob gas used to u64".to_owned())
-                        })
-                    },
-                )?,
-                excess_blob_gas: block.header.excess_blob_gas.map_or_else(
-                    || Ok(None),
-                    |b: u128| -> HostResult<Option<u64>> {
-                        b.try_into().map(Some).map_err(|_| {
-                            HostError::Conversion("Failed converting excess blob gas to u64".to_owned())
-                        })
-                    },
-                )?,
-                parent_beacon_block_root: block.header.parent_beacon_block_root,
-                taiko: taiko_guest_input,
-            };
-
-
-        // Create the block builder, run the transactions and extract the DB
-        let mut provider_db = ProviderDb::new(
-            provider,
-            taiko_chain_spec,
-            if let Some(parent_block_number) = parent_block.header.number {
-                parent_block_number
+            timestamp: block.header.timestamp,
+            extra_data: block.header.extra_data.clone(),
+            mix_hash: if let Some(mix_hash) = block.header.mix_hash {
+                mix_hash
             } else {
                 return Err(HostError::Preflight(
-                    "No parent block number for the requested block".to_owned(),
+                    "No mix hash for the requested block".to_owned(),
                 ));
             },
-        )
-        .await?;
-
-        println!("Brecht 1");
-
-        let total_difficulty = U256::ZERO;
-
-        let chain_spec = ChainSpecBuilder::default()
-            .chain(MAINNET.chain)
-            .genesis(MAINNET.genesis.clone())
-            .cancun_activated()
-            .build();
-        //let provider_db = RpcDb::new(provider.clone(), (block_number - 1).into());
-        let db = CacheDB::new(provider_db);
-        println!("Instantiating executor");
-        let executor =
-            EthExecutorProvider::ethereum(chain_spec.clone().into()).eth_executor(db);
-        let EthBlockOutput { state, receipts, gas_used, db: full_state } = executor.execute(
-            (
-                &reth_block
-                    .clone()
-                    .with_recovered_senders()
-                    .ok_or(BlockValidationError::SenderRecoveryError).expect("brecht"),
-                total_difficulty.into(),
-            )
-                .into(),
-        ).expect("brecht");
-
-        //println!("full cached state:");
-        //println!("{:?}", full_state.cache);
-
-        // Pretty shitty:
-        let mut provider_db = full_state.database.db;
-        for (address, account) in full_state.cache.accounts {
-            provider_db.basic(address)?;
-
-            for (key, _value) in account.account.unwrap_or_default().storage {
-                provider_db.storage(address, key)?;
-            }
-        }
-        for (block_number, _block_hash) in full_state.block_hashes {
-            provider_db.block_hash(block_number.try_into().unwrap())?;
-        }
-
-        //println!("bundle state:");
-        //println!("{:?}", state);
-
-        /*let block_state = BundleStateWithReceipts::new(
-            state,
-            Receipts::from_block_receipt(receipts),
-            block.header.number,
-        );*/
-        //let mut provider_db = &executor.state_mut().database;
-
-
-
-        /*let mut builder = BlockBuilder::new(&input)
-            .with_db(provider_db)
-            .prepare_header::<TaikoHeaderPrepStrategy>()?;
-
-        // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-        let is_local = false;
-        let max_iterations = if is_local { 1 } else { 50 };
-        let mut done = false;
-        let mut num_iterations = 0;
-        while !done {
-            info!("Execution iteration {num_iterations}...");
-            builder.mut_db().unwrap().optimistic = num_iterations + 1 < max_iterations;
-            builder = builder.execute_transactions::<TkoTxExecStrategy>()?;
-            if builder.mut_db().unwrap().fetch_data().await {
-                done = true;
-            }
-            num_iterations += 1;
-        }
-        builder = builder.prepare_header::<TaikoHeaderPrepStrategy>()?;*/
-        //let provider_db = builder.mut_db().unwrap();
-
-        // Gather inclusion proofs for the initial and final state
-        let measurement = Measurement::start("Fetching storage proofs...", true);
-        let (parent_proofs, proofs, num_storage_proofs) = provider_db.get_proofs().await?;
-        measurement.stop_with_count(&format!(
-            "[{} Account/{num_storage_proofs} Storage]",
-            parent_proofs.len() + proofs.len(),
-        ));
-
-        // Construct the state trie and storage from the storage proofs.
-        let measurement = Measurement::start("Constructing MPT...", true);
-        let (state_trie, storage) =
-            proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
-        measurement.stop();
-
-        // Gather proofs for block history
-        let measurement = Measurement::start("Fetching historical block headers...", true);
-        let ancestor_headers = provider_db.get_ancestor_headers().await?;
-        measurement.stop();
-
-        // Get the contracts from the initial db.
-        let measurement = Measurement::start("Fetching contract code...", true);
-        let mut contracts = HashSet::new();
-        let initial_db = &provider_db.initial_db;
-        for account in initial_db.accounts.values() {
-            let code = &account.info.code;
-            if let Some(code) = code {
-                contracts.insert(code.bytecode.0.clone());
-            }
-        }
-        measurement.stop();
-
-        let input = GuestInput {
-            parent_state_trie: state_trie,
-            parent_storage: storage,
-            contracts: contracts.into_iter().map(Bytes).collect(),
-            ancestor_headers,
-            ..input
+            withdrawals: block.withdrawals.clone().unwrap_or_default(),
+            parent_state_trie: Default::default(),
+            parent_storage: Default::default(),
+            contracts: Default::default(),
+            parent_header: to_header(&parent_block.header),
+            ancestor_headers: Default::default(),
+            base_fee_per_gas: block.header.base_fee_per_gas.map_or_else(
+                || {
+                    Err(HostError::Preflight(
+                        "No base fee per gas for the requested block".to_owned(),
+                    ))
+                },
+                |base_fee_per_gas| {
+                    base_fee_per_gas.try_into().map_err(|_| {
+                        HostError::Conversion(
+                            "Failed converting base fee per gas to u64".to_owned(),
+                        )
+                    })
+                },
+            )?,
+            blob_gas_used: block.header.blob_gas_used.map_or_else(
+                || Ok(None),
+                |b: u128| -> HostResult<Option<u64>> {
+                    b.try_into().map(Some).map_err(|_| {
+                        HostError::Conversion("Failed converting blob gas used to u64".to_owned())
+                    })
+                },
+            )?,
+            excess_blob_gas: block.header.excess_blob_gas.map_or_else(
+                || Ok(None),
+                |b: u128| -> HostResult<Option<u64>> {
+                    b.try_into().map(Some).map_err(|_| {
+                        HostError::Conversion("Failed converting excess blob gas to u64".to_owned())
+                    })
+                },
+            )?,
+            parent_beacon_block_root: block.header.parent_beacon_block_root,
+            taiko: taiko_guest_input,
         };
 
-        let file = File::create(path).map_err(<std::io::Error as Into<HostError>>::into)?;
-        bincode::serialize_into(file, &input).map_err(|e| HostError::Anyhow(e.into()))?;
 
-        input
-    } else {
-        let input: GuestInput = File::open(path)
-                .map(|file| bincode::deserialize_from(file).ok())
-                .ok()
-                .flatten().unwrap();
-        input
+    // Create the block builder, run the transactions and extract the DB
+    let provider_db = ProviderDb::new(
+        provider,
+        taiko_chain_spec,
+        if let Some(parent_block_number) = parent_block.header.number {
+            parent_block_number
+        } else {
+            return Err(HostError::Preflight(
+                "No parent block number for the requested block".to_owned(),
+            ));
+        },
+    )
+    .await?;
+
+    let mut builder = RethBlockBuilder::new(&input, provider_db);
+    builder.prepare_header()?;
+
+    // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
+    let is_local = false;
+    let max_iterations = if is_local { 1 } else { 100 };
+    let mut done = false;
+    let mut num_iterations = 0;
+    while !done {
+        info!("Execution iteration {num_iterations}...");
+
+        let optimistic = num_iterations + 1 < max_iterations;
+        builder.db.as_mut().unwrap().optimistic = optimistic;
+
+        builder.execute_transactions(optimistic).expect("execute");
+        if builder.db.as_mut().unwrap().fetch_data().await {
+            done = true;
+        }
+        num_iterations += 1;
+    }
+    let provider_db = builder.db.as_mut().unwrap();
+
+    // Gather inclusion proofs for the initial and final state
+    let measurement = Measurement::start("Fetching storage proofs...", true);
+    let (parent_proofs, proofs, num_storage_proofs) = provider_db.get_proofs().await?;
+    measurement.stop_with_count(&format!(
+        "[{} Account/{num_storage_proofs} Storage]",
+        parent_proofs.len() + proofs.len(),
+    ));
+
+    // Construct the state trie and storage from the storage proofs.
+    let measurement = Measurement::start("Constructing MPT...", true);
+    let (state_trie, storage) =
+        proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
+    measurement.stop();
+
+    // Gather proofs for block history
+    let measurement = Measurement::start("Fetching historical block headers...", true);
+    let ancestor_headers = provider_db.get_ancestor_headers().await?;
+    measurement.stop();
+
+    // Get the contracts from the initial db.
+    let measurement = Measurement::start("Fetching contract code...", true);
+    let mut contracts = HashSet::new();
+    let initial_db = &provider_db.initial_db;
+    for account in initial_db.accounts.values() {
+        let code = &account.info.code;
+        if let Some(code) = code {
+            contracts.insert(code.bytecode.0.clone());
+        }
+    }
+    measurement.stop();
+
+    let input = GuestInput {
+        parent_state_trie: state_trie,
+        parent_storage: storage,
+        contracts: contracts.into_iter().map(Bytes).collect(),
+        ancestor_headers,
+        ..input
     };
 
     verify(input.clone());
@@ -318,9 +238,10 @@ fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, 
 }
 
 fn verify(input: GuestInput) {
-    let mut builder = RethBlockBuilder::new(&input);
+    let db = create_mem_db(&mut input.clone()).unwrap();
+    let mut builder = RethBlockBuilder::new(&input, db);
     builder.prepare_header().expect("prepare");
-    builder.execute_transactions().expect("execute");
+    builder.execute_transactions(false).expect("execute");
     let header = builder.finalize().expect("execute");
 
     // Check against the expected value of all fields for easy debugability

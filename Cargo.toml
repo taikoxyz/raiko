@@ -35,12 +35,25 @@ raiko-lib = { path = "./lib", features = ["std"] }
 raiko-primitives = { path = "./primitives" }
 
 # revm
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false }
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
-    "serde",
+#revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false }
+#revm = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
+#    "serde",
+#    "std",
+#    #"taiko",
+#] }
+
+revm = { path = "../../revm-taiko/revm/crates/revm", default-features = false, features = [
     "std",
+    "serde",
     "taiko",
-] }
+]}
+revm-primitives = { path = "../../revm-taiko/revm/crates/primitives", default-features = false }
+
+#revm = { git = "https://github.com/taikoxyz/revm.git", rev = "1640b8f6989d0d4a19dfeb343e7967d501f6e195", default-features = false, features = [
+#    "std",
+#    "serde",
+#]}
+#revm-primitives = { git = "https://github.com/taikoxyz/revm.git", rev = "1640b8f6989d0d4a19dfeb343e7967d501f6e195", default-features = false }
 
 # risc zero
 risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
@@ -130,8 +143,8 @@ reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 
 # crypto
-c-kzg = "1.0.0"
-c-kzg-taiko = { git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
+#c-kzg = "1.0.0"
+c-kzg = { package = "c-kzg-taiko", git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
     "preload-kzg-settings",
     "no-threads",
 ] }
@@ -166,3 +179,24 @@ rand = "0.8.5"
 rand_core = "0.6.4"
 dirs = "5.0.1"
 pathdiff = "0.2.1"
+
+[patch.crates-io]
+#revm = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false, features = [
+#    "std",
+#    "serde",
+#    #"taiko",
+#]}
+#revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "feat/zk-op", default-features = false }
+
+revm = { path = "../../revm-taiko/revm/crates/revm", default-features = false, features = [
+    "std",
+    "serde",
+    "taiko",
+]}
+revm-primitives = { path = "../../revm-taiko/revm/crates/primitives", default-features = false }
+
+#revm = { git = "https://github.com/taikoxyz/revm.git", rev = "1640b8f6989d0d4a19dfeb343e7967d501f6e195", default-features = false, features = [
+#    "std",
+#    "serde",
+#]}
+#revm-primitives = { git = "https://github.com/taikoxyz/revm.git", rev = "1640b8f6989d0d4a19dfeb343e7967d501f6e195", default-features = false }

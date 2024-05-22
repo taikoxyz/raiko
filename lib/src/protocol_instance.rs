@@ -2,7 +2,7 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use c_kzg_taiko::{Blob, KzgCommitment, KzgSettings};
+use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
 use sha2::{Digest as _, Sha256};
 

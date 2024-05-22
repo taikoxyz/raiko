@@ -348,7 +348,8 @@ impl CommandBuilder {
             cmd.env("CC", cc_compiler);
         }
         if let Some(c_flags) = c_flags {
-            cmd.env(format!("CC_{}", self.target), c_flags.join(" "));
+            //cmd.env(format!("CC_{}", self.target), c_flags.join(" "));
+            cmd.env(format!("CFLAGS_{}", self.target), c_flags.join(" "));
         }
 
         self.extend_custom(&mut cmd, &mut args);

@@ -6,6 +6,13 @@ edition = "2021"
 [dependencies]
 raiko-primitives = { workspace = true }
 
+# reth
+reth-primitives = { path = "../../../reth/reth/crates/primitives" }
+reth-evm-ethereum = { path = "../../../reth/reth/crates/ethereum/evm" }
+reth-provider = { path = "../../../reth/reth/crates/storage/provider" }
+reth-evm = { path = "../../../reth/reth/crates/evm" }
+reth-interfaces = { path = "../../../reth/reth/crates/interfaces" }
+
 alloy-rlp = { workspace = true }
 alloy-rlp-derive = { workspace = true }
 alloy-sol-types = { workspace = true }
@@ -24,7 +31,7 @@ serde_with = { workspace = true, optional = true }
 thiserror-no-std = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
-c-kzg-taiko = { workspace = true }
+c-kzg = { workspace = true }
 sha2 = { workspace = true }
 cfg-if = { workspace = true }
 

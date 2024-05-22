@@ -1,8 +1,9 @@
-use alloy_primitives::{FixedBytes, B256};
-use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
+use alloy_primitives::{FixedBytes, B256, Address};
+use raiko_lib::builder::create_mem_db;
+use raiko_lib::builder::RethBlockBuilder;
 use raiko_lib::consts::ChainSpec;
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
-use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
+use raiko_lib::protocol_instance::{assemble_protocol_instance, EvidenceType, ProtocolInstance};
 use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::utils::HeaderHasher;
 use serde::{Deserialize, Serialize};
@@ -55,15 +56,26 @@ impl Raiko {
     }
 
     pub fn get_output(&self, input: &GuestInput) -> HostResult<GuestOutput> {
-        match TaikoStrategy::build_from(input) {
-            Ok((header, _mpt_node)) => {
+
+        let db = create_mem_db(&mut input.clone()).unwrap();
+        let mut builder = RethBlockBuilder::new(&input, db);
+        builder.prepare_header().expect("prepare");
+        builder.execute_transactions(false).expect("execute");
+        let result = builder.finalize();
+
+        match result {
+            Ok(header) => {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
                 info!("Final block header derived successfully. {header:?}");
-                let pi = self
+                /*let pi = self
                     .request
                     .proof_type
-                    .instance_hash(assemble_protocol_instance(input, &header)?)?;
+                    .instance_hash(assemble_protocol_instance(input, &header)?)?;*/
+
+                let pi = assemble_protocol_instance(input, &header)
+                    .expect("Failed to assemble protocol instance")
+                    .instance_hash(&EvidenceType::Sgx { new_pubkey: Address::ZERO } );
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;
