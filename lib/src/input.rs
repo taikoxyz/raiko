@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
-use alloy_sol_types::{sol, SolCall};
+use alloy_sol_types::{sol, SolCall, SolType};
 use anyhow::{anyhow, Result};
 use raiko_primitives::{mpt::MptNode, Address, Bytes, B256, U256};
 use revm::primitives::HashMap;
@@ -101,6 +101,10 @@ pub struct TaikoProverData {
     pub graffiti: B256,
 }
 
+pub type RawGuestOutput =  sol! {
+    tuple(uint64, address, Transition, address, address, bytes32)
+};
+
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GuestOutput {
@@ -170,7 +174,7 @@ sol! {
         bytes data;
     }
 
-    #[derive(Debug)]
+    #[derive(Debug,  Deserialize, Serialize)]
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;

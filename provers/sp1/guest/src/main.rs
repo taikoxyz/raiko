@@ -32,13 +32,9 @@ pub fn main() {
         Ok((header, _mpt_node)) => {
             let pi = ProtocolInstance::new(&input, header, VerifierType::SP1)
                 .expect("Failed to assemble protocol instance")
-                .instance_hash();
-            GuestOutput::Success {
-                header: header.clone(),
-                hash: pi,
-            }
+                .instance_bytes()
         }
-        Err(_) => GuestOutput::Failure,
+        Err(_) => panic!("Failed to build protocol instance"),
     };
 
     sp1_zkvm::io::commit(&output);

@@ -167,23 +167,23 @@ impl ProtocolInstance {
         keccak(self.block_metadata.abi_encode()).into()
     }
 
-    // keccak256(abi.encode(tran, newInstance, prover, metaHash))
-    pub fn instance_hash(&self) -> B256 {
-        // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
-        // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
-        keccak(
-            (
-                "VERIFY_PROOF",
-                self.chain_id,
-                self.verifier_address,
-                self.transition.clone(),
-                self.sgx_instance,
-                self.prover,
-                self.meta_hash(),
-            )
-                .abi_encode(),
+    // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
+    // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
+    pub fn instance_bytes(&self) -> Vec<u8> {
+        (
+            "VERIFY_PROOF",
+            self.chain_id,
+            self.verifier_address,
+            self.transition.clone(),
+            self.sgx_instance,
+            self.prover,
+            self.meta_hash(),
         )
-        .into()
+            .abi_encode()
+    }
+
+    pub fn instance_hash(&self) -> B256 {
+        keccak(self.instance_bytes()).into()
     }
 }
 

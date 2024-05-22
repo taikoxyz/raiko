@@ -1,8 +1,9 @@
 #![cfg(feature = "enable")]
 use std::env;
 
+use alloy_sol_types::SolType;
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
+    input::{GuestInput, GuestOutput, RawGuestOutput},
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use serde::{Deserialize, Serialize};
@@ -14,7 +15,6 @@ pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
     pub proof: String,
-    pub output: GuestOutput,
 }
 
 pub struct Sp1Prover;
@@ -35,7 +35,8 @@ impl Prover for Sp1Prover {
         let mut proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
 
         // Read the output.
-        let output = proof.public_values.read::<GuestOutput>();
+        let output = RawGuestOutput::abi_decode(proof.public_values.as_slice(), false)
+            .expect("Sp1: decoding output failed");
         // Verify proof.
         client
             .verify(&proof, &vk)
@@ -56,7 +57,6 @@ impl Prover for Sp1Prover {
         println!("succesfully generated and verified proof for the program!");
         to_proof(Ok(Sp1Response {
             proof: serde_json::to_string(&proof).unwrap(),
-            output,
         }))
     }
 }
