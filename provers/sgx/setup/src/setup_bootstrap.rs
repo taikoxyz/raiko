@@ -8,8 +8,7 @@ use std::{
 
 use crate::app_args::BootstrapArgs;
 use alloy_primitives::Address;
-use anyhow::{anyhow, Context, Result};
-use raiko_lib::consts::SupportedChainSpecs;
+use anyhow::{Context, Result};
 use serde_json::{Number, Value};
 use sgx_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
@@ -23,12 +22,6 @@ pub(crate) async fn setup_bootstrap(
     config_dir: PathBuf,
     bootstrap_args: &BootstrapArgs,
 ) -> Result<()> {
-    let cs_path = config_dir.join(&bootstrap_args.chain_spec_filename);
-    let chain_specs = SupportedChainSpecs::merge_from_file(cs_path.clone())?;
-    let l1_chain_spec = chain_specs
-        .get_chain_spec(&bootstrap_args.l1_network)
-        .ok_or_else(|| anyhow!("Unsupported l1 network: {}", bootstrap_args.l1_network))?;
-
     let cur_dir = env::current_exe()
         .expect("Fail to get current directory")
         .parent()
@@ -63,9 +56,9 @@ pub(crate) async fn setup_bootstrap(
         }?;
         let register_id = register_sgx_instance(
             &bootstrap_proof.quote,
-            &l1_chain_spec.rpc,
-            l1_chain_spec.chain_id,
-            l1_chain_spec.sgx_verifier_address.unwrap(),
+            &bootstrap_args.l1_rpc,
+            bootstrap_args.l1_chain_id,
+            Address::from_str(&bootstrap_args.sgx_verifier_address).unwrap(),
         )
         .await
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
