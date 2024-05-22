@@ -65,7 +65,11 @@ pub(crate) async fn setup_bootstrap(
             &bootstrap_proof.quote,
             &l1_chain_spec.rpc,
             l1_chain_spec.chain_id,
-            taiko_chain_spec.verifier_address.get(&VerifierType::SGX).unwrap().unwrap(),
+            taiko_chain_spec
+                .verifier_address
+                .get(&VerifierType::SGX)
+                .unwrap()
+                .unwrap(),
         )
         .await
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
