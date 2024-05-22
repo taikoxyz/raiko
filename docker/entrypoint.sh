@@ -38,6 +38,20 @@ function bootstrap_with_self_register() {
     cd -
 }
 
+function update_chain_spec_json() {
+    CONFIG_FILE=$1
+    CHAIN_NAME=$2
+    KEY_NAME=$3
+    UPDATE_VALUE=$4
+    jq \
+    --arg update_value "$UPDATE_VALUE" \
+    --arg chain_name "$CHAIN_NAME" \
+    --arg key_name "$KEY_NAME" \
+    'map(if .name == $chain_name then .[$key_name] = $update_value else . end)' $CONFIG_FILE \
+    > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
+    echo "Updated $CONFIG_FILE $CHAIN_NAME.$KEY_NAME=$UPDATE_VALUE"
+}
+
 function update_docker_chain_specs() {
     CONFIG_FILE="$RAIKO_CONF_DIR/chain_spec_list.docker.json"
     if [ ! -f $CONFIG_FILE ]; then
@@ -45,19 +59,24 @@ function update_docker_chain_specs() {
         return 1
     fi
 
+    if [ -n "${ETHEREUM_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "ethereum" "rpc" $ETHEREUM_RPC
+    fi
+
+    if [ -n "${ETHEREUM_BEACON_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "ethereum" "beacon_rpc" $ETHEREUM_BEACON_RPC
+    fi
+
     if [ -n "${HOLESKY_RPC}" ]; then
-        jq --arg rpc "$HOLESKY_RPC" 'map(if .name == "holesky" then .rpc = $rpc else . end)' $CONFIG_FILE > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
-        echo "Updated config.json with .rpc=$HOLESKY_RPC"
+        update_chain_spec_json $CONFIG_FILE "holesky" "rpc" $HOLESKY_RPC
     fi
 
     if [ -n "${HOLESKY_BEACON_RPC}" ]; then
-        jq --arg beacon_rpc "$HOLESKY_BEACON_RPC" 'map(if .name == "holesky" then .beacon_rpc = $beacon_rpc else . end)' $CONFIG_FILE > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
-        echo "Updated config.json with .beacon_rpc=$HOLESKY_BEACON_RPC"
+        update_chain_spec_json $CONFIG_FILE "holesky" "beacon_rpc" $HOLESKY_BEACON_RPC
     fi
 
     if [ -n "${TAIKO_A7_RPC}" ]; then
-        jq --arg taiko_a7_rpc "$TAIKO_A7_RPC" 'map(if .name == "taiko_a7" then .rpc = $taiko_a7_rpc else . end)' $CONFIG_FILE > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
-        echo "Updated config.json with .taiko_a7_rpc=$TAIKO_A7_RPC"
+        update_chain_spec_json $CONFIG_FILE "taiko_a7" "rpc" $TAIKO_A7_RPC
     fi
 }
 
@@ -65,6 +84,11 @@ if [[ -z "${PCCS_HOST}" ]]; then
     MY_PCCS_HOST=pccs:8081
 else
     MY_PCCS_HOST=${PCCS_HOST}
+fi
+
+if [[ -n $TEST ]]; then
+    echo "TEST mode, to test bash functions."
+    return 0
 fi
 
 sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
