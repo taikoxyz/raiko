@@ -106,9 +106,9 @@ impl ProtocolInstance {
             .chain_spec
             .verifier_address
             .get(&proof_type)
-            .unwrap_or(&Some(Address::default()))
+            .unwrap_or(&None)
             .clone()
-            .unwrap();
+            .unwrap_or_default();
 
         let pi = ProtocolInstance {
             transition: Transition {
