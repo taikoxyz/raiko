@@ -174,7 +174,7 @@ sol! {
         bytes data;
     }
 
-    #[derive(Debug,  Deserialize, Serialize)]
+    #[derive(Debug, Default, Deserialize, Serialize)]
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
