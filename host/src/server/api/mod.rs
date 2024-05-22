@@ -11,13 +11,14 @@ use tower_http::{
     compression::CompressionLayer,
     cors::{self, CorsLayer},
     trace::TraceLayer,
+    validate_request::ValidateRequestHeaderLayer,
 };
 
 use crate::ProverState;
 
 mod v1;
 
-pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
+pub fn create_router(concurrency_limit: usize, jwt_secret: &str) -> Router<ProverState> {
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
@@ -33,6 +34,8 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
 
     let trace = TraceLayer::new_for_http();
 
+    let auth = ValidateRequestHeaderLayer::bearer(jwt_secret);
+
     let v1_api = v1::create_router(concurrency_limit);
 
     Router::new()
@@ -41,6 +44,7 @@ pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
         .layer(middleware)
         .layer(middleware::from_fn(check_max_body_size))
         .layer(trace)
+        .layer(auth)
         .fallback(|uri: Uri| async move {
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
         })
