@@ -62,13 +62,6 @@ impl Prover for Sp1Prover {
             output,
         }))
     }
-
-    fn instance_hash(pi: ProtocolInstance) -> B256 {
-        let data = (pi.transition.clone(), pi.prover, pi.meta_hash()).abi_encode();
-
-        let hash: [u8; 32] = sha3::Keccak256::digest(data).into();
-        hash.into()
-    }
 }
 
 #[cfg(test)]
