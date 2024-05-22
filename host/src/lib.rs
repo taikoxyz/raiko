@@ -109,7 +109,7 @@ pub struct Cli {
 
     #[arg(long, require_equals = true)]
     /// Set jwt secret for auth
-    jwt_secret: String,
+    jwt_secret: Option<String>,
 }
 
 impl Cli {

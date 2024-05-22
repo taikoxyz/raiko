@@ -18,7 +18,7 @@ use crate::ProverState;
 
 mod v1;
 
-pub fn create_router(concurrency_limit: usize, jwt_secret: &str) -> Router<ProverState> {
+pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Router<ProverState> {
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
@@ -34,20 +34,24 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: &str) -> Router<Prove
 
     let trace = TraceLayer::new_for_http();
 
-    let auth = ValidateRequestHeaderLayer::bearer(jwt_secret);
-
     let v1_api = v1::create_router(concurrency_limit);
 
-    Router::new()
+    let router = Router::new()
         .nest("/v1", v1_api.clone())
         .merge(v1_api)
         .layer(middleware)
         .layer(middleware::from_fn(check_max_body_size))
         .layer(trace)
-        .layer(auth)
         .fallback(|uri: Uri| async move {
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
-        })
+        });
+
+    if let Some(jwt_secret) = jwt_secret {
+        let auth = ValidateRequestHeaderLayer::bearer(jwt_secret);
+        router.layer(auth)
+    } else {
+        router
+    }
 }
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
