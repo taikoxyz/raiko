@@ -33,8 +33,8 @@ function bootstrap() {
 function bootstrap_with_self_register() {
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
-    echo "./$RAIKO_GUEST_SETUP_FILENAME bootstrap"
-    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap
+    echo "./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-rpc $L1_RPC --l1-chain-id $L1_CHAIN_ID --sgx-verifier-address $SGX_VERIFIER_ADDRESS"
+    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-rpc $L1_RPC --l1-chain-id $L1_CHAIN_ID --sgx-verifier-address $SGX_VERIFIER_ADDRESS
     cd -
 }
 
@@ -44,11 +44,11 @@ function update_chain_spec_json() {
     KEY_NAME=$3
     UPDATE_VALUE=$4
     jq \
-        --arg update_value "$UPDATE_VALUE" \
-        --arg chain_name "$CHAIN_NAME" \
-        --arg key_name "$KEY_NAME" \
-        'map(if .name == $chain_name then .[$key_name] = $update_value else . end)' $CONFIG_FILE \
-        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+    --arg update_value "$UPDATE_VALUE" \
+    --arg chain_name "$CHAIN_NAME" \
+    --arg key_name "$KEY_NAME" \
+    'map(if .name == $chain_name then .[$key_name] = $update_value else . end)' $CONFIG_FILE \
+    > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
     echo "Updated $CONFIG_FILE $CHAIN_NAME.$KEY_NAME=$UPDATE_VALUE"
 }
 
@@ -108,8 +108,8 @@ elif [[ $# -eq 1 && $1 == "--init-self-register" ]]; then
 else
     echo "start proving"
     if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
-        echo "Application was not bootstrapped. " \
-            "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
+        echo "Application was not bootstrapped. "\
+             "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
         exit 1
     fi
 

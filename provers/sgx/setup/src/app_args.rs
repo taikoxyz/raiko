@@ -28,7 +28,7 @@ pub struct BootstrapArgs {
     /// a proof of specified type. Curl json-rpc overrides its contents
     pub config_filename: String,
 
-    #[arg(long, default_value = "chain_spec_list.docker.json")]
+    #[arg(long, default_value = "chain_spec_list_default.json")]
     /// Path to a chain spec file that includes supported chain list
     pub chain_spec_filename: String,
 
