@@ -24,7 +24,7 @@ services:
       args:
         ENABLE_SELF_REGISTER: "true"
       dockerfile: Dockerfile
-    image: gcr.io/evmchain/raiko-self-register:latest
+    image: gcr.io/evmchain/raiko:latest
     container_name: raiko-init-self-register
     command: --init-self-register
     devices:
@@ -71,6 +71,7 @@ services:
       - HOLESKY_RPC=${HOLESKY_RPC}
       - HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
       - TAIKO_A7_RPC=${TAIKO_A7_RPC}
+      - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
       # you can use your own PCCS host
       #- PCCS_HOST=host.docker.internal:8081
     # use the host's network to connect to the PCCS
@@ -82,7 +83,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: gcr.io/evmchain/raiko-self-register:latest
+    image: gcr.io/evmchain/raiko:latest
     container_name: raiko-self-register
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
     devices:
@@ -104,6 +105,7 @@ services:
       - HOLESKY_RPC=${HOLESKY_RPC}
       - HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
       - TAIKO_A7_RPC=${TAIKO_A7_RPC}
+      - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
     # use the host's network to connect to the PCCS
     #extra_hosts:
     #  - "host.docker.internal:host-gateway"
