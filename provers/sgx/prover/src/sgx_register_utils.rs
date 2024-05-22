@@ -1,16 +1,37 @@
-use std::env;
-
 use alloy_provider::{network::EthereumSigner, Provider, ProviderBuilder, RootProvider};
 use alloy_rpc_client::RpcClient;
 use alloy_signer::Signer;
 use alloy_sol_types::sol;
 use alloy_transport_http::Http;
+use anyhow::Result;
 use pem::parse_many;
 use raiko_primitives::{
     alloy_eips::{BlockId, BlockNumberOrTag},
     hex, Address, Bytes, FixedBytes, U256,
 };
+use std::{env, path::Path};
+use std::{fs, io};
 use url::Url;
+
+const REGISTERED_FILE: &str = "registered";
+
+pub fn get_instance_id(dir: &Path) -> Result<u64> {
+    let file = dir.join(REGISTERED_FILE);
+    let id = fs::read_to_string(file)?.parse()?;
+    Ok(id)
+}
+
+pub fn set_instance_id(dir: &Path, id: u64) -> io::Result<()> {
+    let file = dir.join(REGISTERED_FILE);
+    fs::write(file, id.to_string())?;
+    Ok(())
+}
+
+pub fn remove_instance_id(dir: &Path) -> io::Result<()> {
+    let file = dir.join(REGISTERED_FILE);
+    fs::remove_file(file)?;
+    Ok(())
+}
 
 sol! {
     #[derive(Debug)]

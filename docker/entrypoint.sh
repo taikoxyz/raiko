@@ -8,6 +8,7 @@ RAIKO_DOCKER_VOLUME_CONFIG_PATH="$RAIKO_DOCKER_VOLUME_PATH/config"
 RAIKO_DOCKER_VOLUME_SECRETS_PATH="$RAIKO_DOCKER_VOLUME_PATH/secrets"
 RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH="$RAIKO_DOCKER_VOLUME_SECRETS_PATH/priv.key"
 RAIKO_APP_DIR="/opt/raiko/bin"
+RAIKO_CONF_DIR="/etc/raiko"
 RAIKO_GUEST_APP_FILENAME="sgx-guest"
 RAIKO_GUEST_SETUP_FILENAME="raiko-setup"
 RAIKO_INPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.docker.manifest.template"
@@ -37,10 +38,57 @@ function bootstrap_with_self_register() {
     cd -
 }
 
+function update_chain_spec_json() {
+    CONFIG_FILE=$1
+    CHAIN_NAME=$2
+    KEY_NAME=$3
+    UPDATE_VALUE=$4
+    jq \
+    --arg update_value "$UPDATE_VALUE" \
+    --arg chain_name "$CHAIN_NAME" \
+    --arg key_name "$KEY_NAME" \
+    'map(if .name == $chain_name then .[$key_name] = $update_value else . end)' $CONFIG_FILE \
+    > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
+    echo "Updated $CONFIG_FILE $CHAIN_NAME.$KEY_NAME=$UPDATE_VALUE"
+}
+
+function update_docker_chain_specs() {
+    CONFIG_FILE="$RAIKO_CONF_DIR/chain_spec_list.docker.json"
+    if [ ! -f $CONFIG_FILE ]; then
+        echo "chain_spec_list.docker.json file not found."
+        return 1
+    fi
+
+    if [ -n "${ETHEREUM_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "ethereum" "rpc" $ETHEREUM_RPC
+    fi
+
+    if [ -n "${ETHEREUM_BEACON_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "ethereum" "beacon_rpc" $ETHEREUM_BEACON_RPC
+    fi
+
+    if [ -n "${HOLESKY_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "holesky" "rpc" $HOLESKY_RPC
+    fi
+
+    if [ -n "${HOLESKY_BEACON_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "holesky" "beacon_rpc" $HOLESKY_BEACON_RPC
+    fi
+
+    if [ -n "${TAIKO_A7_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "taiko_a7" "rpc" $TAIKO_A7_RPC
+    fi
+}
+
 if [[ -z "${PCCS_HOST}" ]]; then
     MY_PCCS_HOST=pccs:8081
 else
     MY_PCCS_HOST=${PCCS_HOST}
+fi
+
+if [[ -n $TEST ]]; then
+    echo "TEST mode, to test bash functions."
+    return 0
 fi
 
 sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
@@ -65,6 +113,8 @@ else
         echo "sed -i "s/123456/${SGX_INSTANCE_ID}/" /etc/raiko/config.sgx.json"
         sed -i "s/123456/${SGX_INSTANCE_ID}/" /etc/raiko/config.sgx.json
     fi
+
+    update_docker_chain_specs
 
     /opt/raiko/bin/raiko-host "$@"
 fi

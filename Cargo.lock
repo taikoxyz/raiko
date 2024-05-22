@@ -6387,6 +6387,7 @@ dependencies = [
  "alloy-signer-wallet 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
  "alloy-sol-types",
  "alloy-transport-http 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "anyhow",
  "bincode",
  "once_cell",
  "pem 3.0.4",

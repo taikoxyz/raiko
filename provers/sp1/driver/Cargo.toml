@@ -8,10 +8,6 @@ name = "benchmark"
 path = "src/benchmark.rs"
 harness = true
 
-[[bin]]
-name = "gen-verifier"
-path = "src/gen_verifier.rs"
-
 
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
