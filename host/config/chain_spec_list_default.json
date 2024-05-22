@@ -152,7 +152,8 @@
             "SGX":"0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
             "SP1":null,
             "RISC0":"0x0000000000000000000000000000000000000000"
-        },        "genesis_time": 0,
+        },
+        "genesis_time": 0,
         "seconds_per_slot": 1,
         "is_taiko": true
     }
