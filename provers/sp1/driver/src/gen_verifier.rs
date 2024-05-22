@@ -3,8 +3,10 @@ use alloy_primitives::{Address, B256};
 use alloy_sol_types::{sol, SolType};
 use raiko_lib::input::{GuestInput, RawGuestOutput, Transition};
 use serde::{Deserialize, Serialize};
-use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
+use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
 use std::path::PathBuf;
+use sp1_sdk::Prover;
+use sp1_sdk::artifacts::export_solidity_groth16_verifier;
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,7 +76,21 @@ fn main() {
     )
     .expect("failed to write fixture");
 
-    let contracts_src_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../contracts/src");
-    sp1_sdk::artifacts::export_solidity_groth16_verifier(contracts_src_dir)
+    export_contract().expect("failed to export contract");
+}
+
+
+ fn export_contract() -> anyhow::Result<()> {
+    sp1_sdk::utils::setup_logger();
+
+    // Export the solidity verifier to the contracts/src directory.
+    export_solidity_groth16_verifier(PathBuf::from("../contracts/src"))
         .expect("failed to export verifier");
+
+    // Now generate the vkey digest to use in the contract.
+    let prover = MockProver::new();
+    let (_, vk) = prover.setup(sp1_driver::ELF);
+    println!("VKEY_DIGEST={}", vk.bytes32());
+
+    Ok(())
 }
