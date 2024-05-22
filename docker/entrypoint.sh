@@ -78,6 +78,10 @@ function update_docker_chain_specs() {
     if [ -n "${TAIKO_A7_RPC}" ]; then
         update_chain_spec_json $CONFIG_FILE "taiko_a7" "rpc" $TAIKO_A7_RPC
     fi
+
+    if [ -n "${TAIKO_MAINNET_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "taiko_mainnet" "rpc" $TAIKO_MAINNET_RPC
+    fi
 }
 
 if [[ -z "${PCCS_HOST}" ]]; then
