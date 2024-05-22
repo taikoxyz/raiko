@@ -13,7 +13,12 @@ pub async fn main() -> Result<()> {
     match args.command {
         Command::Bootstrap(sgx_bootstrap_args) => {
             println!("Setup bootstrapping: {:?}", sgx_bootstrap_args);
-            setup_bootstrap(args.global_opts.secrets_dir, &sgx_bootstrap_args).await?;
+            setup_bootstrap(
+                args.global_opts.secrets_dir,
+                args.global_opts.config_dir,
+                &sgx_bootstrap_args,
+            )
+            .await?;
         }
     }
 
