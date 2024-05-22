@@ -19,6 +19,7 @@ use tracing::info;
 
 pub(crate) async fn setup_bootstrap(
     secret_dir: PathBuf,
+    config_dir: PathBuf,
     bootstrap_args: &BootstrapArgs,
 ) -> Result<()> {
     let cur_dir = env::current_exe()
@@ -34,7 +35,7 @@ pub(crate) async fn setup_bootstrap(
         cmd
     };
 
-    let mut instance_id = get_instance_id(&bootstrap_args.config_path).ok();
+    let mut instance_id = get_instance_id(&config_dir).ok();
     let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd())
         .await
         .is_err()
@@ -43,7 +44,7 @@ pub(crate) async fn setup_bootstrap(
     if need_init {
         let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
         // clean check file
-        match remove_instance_id(&bootstrap_args.config_path) {
+        match remove_instance_id(&config_dir) {
             Ok(_) => Ok(()),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
@@ -63,25 +64,23 @@ pub(crate) async fn setup_bootstrap(
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
         info!("Saving instance id {}", register_id,);
         // set check file
-        set_instance_id(&bootstrap_args.config_path, register_id)?;
+        set_instance_id(&config_dir, register_id)?;
 
         instance_id = Some(register_id);
     }
     // Always reset the configuration with a persistent instance ID upon restart.
-    let file = File::open(&bootstrap_args.config_path)?;
+    let config_path = config_dir.join(&bootstrap_args.config_filename);
+    let file = File::open(&config_path)?;
     let reader = BufReader::new(file);
     let mut file_config: Value = serde_json::from_reader(reader)?;
     file_config["sgx"]["instance_id"] = Value::Number(Number::from(instance_id.unwrap()));
 
     //save to the same file
-    info!(
-        "Saving bootstrap data file {}",
-        bootstrap_args.config_path.display()
-    );
+    info!("Saving bootstrap data file {}", config_path.display());
     let json = serde_json::to_string_pretty(&file_config)?;
-    fs::write(&bootstrap_args.config_path, json).context(format!(
+    fs::write(&config_path, json).context(format!(
         "Saving bootstrap data file {} failed",
-        bootstrap_args.config_path.display()
+        config_path.display()
     ))?;
     Ok(())
 }

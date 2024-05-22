@@ -29,10 +29,10 @@ pub struct BootstrapArgs {
     pub l1_chain_id: u64,
     #[clap(long, default_value = "0x4826533B4897376654Bb4d4AD88B7faFD0C98528")]
     pub sgx_verifier_address: String,
-    #[clap(long, default_value = "/etc/raiko/config.sgx.json")]
+    #[clap(long, default_value = "config.sgx.json")]
     /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
-    pub config_path: PathBuf,
+    pub config_filename: String,
 }
 
 fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {
