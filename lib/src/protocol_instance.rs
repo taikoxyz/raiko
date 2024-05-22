@@ -183,7 +183,7 @@ impl ProtocolInstance {
             .abi_encode();
         if self.sgx_instance != Address::default() {
             data = data.iter().copied().skip(32).collect::<Vec<u8>>();
-        } 
+        }
         keccak(data).into()
     }
 }
