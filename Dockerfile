@@ -48,9 +48,9 @@ RUN mkdir -p \
 
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
 COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/config/sgx-guest.local.manifest.template
-# copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.
-COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
-COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list.docker.json
+# copy to /root/.config/raiko/config/, but if self register mode, the mounted one will overwrite it.
+COPY --from=builder /opt/raiko/host/config/config.sgx.json /root/.config/raiko/config/
+COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /root/.config/raiko/config/chain_spec_list.docker.json
 COPY --from=builder /opt/raiko/target/release/sgx-guest ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-setup ./bin/
