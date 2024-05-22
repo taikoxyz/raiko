@@ -171,19 +171,20 @@ impl ProtocolInstance {
     pub fn instance_hash(&self) -> B256 {
         // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
         // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
-        keccak(
-            (
-                "VERIFY_PROOF",
-                self.chain_id,
-                self.verifier_address,
-                self.transition.clone(),
-                self.sgx_instance,
-                self.prover,
-                self.meta_hash(),
-            )
-                .abi_encode(),
+        let mut data = (
+            "VERIFY_PROOF",
+            self.chain_id,
+            self.verifier_address,
+            self.transition.clone(),
+            self.sgx_instance,
+            self.prover,
+            self.meta_hash(),
         )
-        .into()
+            .abi_encode();
+        if self.sgx_instance != Address::default() {
+            data = data.iter().copied().skip(32).collect::<Vec<u8>>();
+        } 
+        keccak(data).into()
     }
 }
 
