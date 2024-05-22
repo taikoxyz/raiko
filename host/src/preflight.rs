@@ -8,9 +8,7 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use raiko_lib::{
-    builder::{
-        create_mem_db, OptimisticDatabase, RethBlockBuilder
-    },
+    builder::{create_mem_db, OptimisticDatabase, RethBlockBuilder},
     consts::ChainSpec,
     input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
@@ -23,10 +21,10 @@ use raiko_primitives::{
     eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
     mpt::proofs_to_tries,
 };
+use reth_primitives::Block as RethBlock;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{info, warn};
-use reth_primitives::Block as RethBlock;
 
 use crate::{
     interfaces::error::{HostError, HostResult},
@@ -147,7 +145,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
             parent_beacon_block_root: block.header.parent_beacon_block_root,
             taiko: taiko_guest_input,
         };
-
 
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
@@ -638,7 +635,7 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
             //let signer = ltx.recover_signer();
             //println!("signer: {:?}", signer);
             TxEnvelope::Legacy(ltx)
-        },
+        }
         1 => TxEnvelope::Eip2930(
             TxEip2930 {
                 chain_id: tx.chain_id.expect("No chain id for the transaction"),

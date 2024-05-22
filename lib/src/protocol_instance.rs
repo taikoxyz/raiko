@@ -7,11 +7,9 @@ use reth_primitives::Header;
 use sha2::{Digest as _, Sha256};
 
 use super::utils::ANCHOR_GAS_LIMIT;
+use crate::input::{BlockMetadata, EthDeposit, GuestInput, Transition};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{
-    input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-};
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 
@@ -87,10 +85,7 @@ pub fn kzg_to_versioned_hash(commitment: &KzgCommitment) -> B256 {
     B256::new(res.into())
 }
 
-pub fn assemble_protocol_instance(
-    input: &GuestInput,
-    header: &Header,
-) -> Result<ProtocolInstance> {
+pub fn assemble_protocol_instance(input: &GuestInput, header: &Header) -> Result<ProtocolInstance> {
     let blob_used = input.taiko.block_proposed.meta.blobUsed;
     let tx_list_hash = if blob_used {
         if input.taiko.skip_verify_blob {

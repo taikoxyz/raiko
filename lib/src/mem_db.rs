@@ -13,13 +13,15 @@
 // limitations under the License.
 use anyhow::anyhow;
 use raiko_primitives::{Address, B256, U256};
+use reth_provider::ProviderError;
 use revm::{
-    db::{AccountStatus, BundleState}, primitives::{Account, AccountInfo, Bytecode}, Database, DatabaseCommit
+    db::{AccountStatus, BundleState},
+    primitives::{Account, AccountInfo, Bytecode},
+    Database, DatabaseCommit,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use thiserror_no_std::Error as ThisError;
-use reth_provider::ProviderError;
 
 use crate::builder::OptimisticDatabase;
 #[cfg(not(feature = "std"))]
@@ -261,13 +263,16 @@ impl Database for MemDb {
     }
 
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        let block_no: u64 = number.try_into().map_err(|_| {
-            anyhow!(
-                "invalid block number: expected <= {}, got {}",
-                u64::MAX,
-                &number
-            )
-        }).expect("Brecht");
+        let block_no: u64 = number
+            .try_into()
+            .map_err(|_| {
+                anyhow!(
+                    "invalid block number: expected <= {}, got {}",
+                    u64::MAX,
+                    &number
+                )
+            })
+            .expect("Brecht");
         self.block_hashes
             .get(&block_no)
             .copied()

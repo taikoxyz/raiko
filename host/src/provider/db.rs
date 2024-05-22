@@ -4,13 +4,15 @@ use alloy_primitives::Bytes;
 use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
 use raiko_primitives::{Address, B256, U256};
 use reth_primitives::Header;
-use revm::{
-    db::BundleState, primitives::{Account, AccountInfo, Bytecode, HashMap}, Database, DatabaseCommit, DatabaseRef
-};
-use tokio::runtime::Handle;
 use reth_provider::{
     AccountReader, BlockHashReader, ProviderError, StateProvider, StateRootProvider,
 };
+use revm::{
+    db::BundleState,
+    primitives::{Account, AccountInfo, Bytecode, HashMap},
+    Database, DatabaseCommit, DatabaseRef,
+};
+use tokio::runtime::Handle;
 
 use crate::{
     interfaces::error::{HostError, HostResult},
@@ -196,10 +198,12 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let account = &tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_accounts(&[address]))
-        }).map_err(|e| ProviderError::BestBlockNotFound)?
+        })
+        .map_err(|e| ProviderError::BestBlockNotFound)?
         .first()
         .cloned()
-        .ok_or(HostError::RPC("No account".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?;
+        .ok_or(HostError::RPC("No account".to_owned()))
+        .map_err(|e| ProviderError::BestBlockNotFound)?;
 
         // Insert the account into the initial database.
         self.initial_db
@@ -237,10 +241,12 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let value = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_storage_values(&[(address, index)]))
-        }).map_err(|e| ProviderError::BestBlockNotFound)?
+        })
+        .map_err(|e| ProviderError::BestBlockNotFound)?
         .first()
         .copied()
-        .ok_or(HostError::RPC("No storage value".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?;
+        .ok_or(HostError::RPC("No storage value".to_owned()))
+        .map_err(|e| ProviderError::BestBlockNotFound)?;
         self.initial_db
             .insert_account_storage(&address, index, value);
         Ok(value)
@@ -249,7 +255,8 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
         let block_number: u64 = number
             .try_into()
-            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?;
+            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned()))
+            .map_err(|e| ProviderError::BestBlockNotFound)?;
 
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
@@ -272,12 +279,15 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let block_hash = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_blocks(&[(block_number, false)]))
-        }).map_err(|e| ProviderError::BestBlockNotFound)?
+        })
+        .map_err(|e| ProviderError::BestBlockNotFound)?
         .first()
-        .ok_or(HostError::RPC("No block".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?
+        .ok_or(HostError::RPC("No block".to_owned()))
+        .map_err(|e| ProviderError::BestBlockNotFound)?
         .header
         .hash
-        .ok_or_else(|| HostError::RPC("No block hash".to_owned())).map_err(|e| ProviderError::BestBlockNotFound)?
+        .ok_or_else(|| HostError::RPC("No block hash".to_owned()))
+        .map_err(|e| ProviderError::BestBlockNotFound)?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
@@ -299,10 +309,12 @@ impl<BDP: BlockDataProvider> DatabaseRef for ProviderDb<BDP> {
         let account = &tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_accounts(&[address]))
-        }).expect("brecht")
+        })
+        .expect("brecht")
         .first()
         .cloned()
-        .ok_or(HostError::RPC("No account".to_owned())).expect("brecht");
+        .ok_or(HostError::RPC("No account".to_owned()))
+        .expect("brecht");
 
         // Insert the account into the initial database.
         Ok(Some(account.clone()))
@@ -321,34 +333,39 @@ impl<BDP: BlockDataProvider> DatabaseRef for ProviderDb<BDP> {
         let value = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_storage_values(&[(address, index)]))
-        }).expect("brecht")
+        })
+        .expect("brecht")
         .first()
         .copied()
-        .ok_or(HostError::RPC("No storage value".to_owned())).expect("brecht");
+        .ok_or(HostError::RPC("No storage value".to_owned()))
+        .expect("brecht");
         Ok(value)
     }
 
     fn block_hash_ref(&self, number: U256) -> Result<B256, Self::Error> {
         let block_number: u64 = number
             .try_into()
-            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned())).expect("brecht");
+            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned()))
+            .expect("brecht");
 
         // Get the block hash from the provider.
         let block_hash = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_blocks(&[(block_number, false)]))
-        }).expect("brecht")
+        })
+        .expect("brecht")
         .first()
-        .ok_or(HostError::RPC("No block".to_owned())).expect("brecht")
+        .ok_or(HostError::RPC("No block".to_owned()))
+        .expect("brecht")
         .header
         .hash
-        .ok_or_else(|| HostError::RPC("No block hash".to_owned())).expect("brecht")
+        .ok_or_else(|| HostError::RPC("No block hash".to_owned()))
+        .expect("brecht")
         .0
         .into();
         Ok(block_hash)
     }
 }
-
 
 impl<BDP: BlockDataProvider> DatabaseCommit for ProviderDb<BDP> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {

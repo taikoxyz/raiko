@@ -1,4 +1,4 @@
-use alloy_primitives::{FixedBytes, B256, Address};
+use alloy_primitives::{Address, FixedBytes, B256};
 use raiko_lib::builder::create_mem_db;
 use raiko_lib::builder::RethBlockBuilder;
 use raiko_lib::consts::ChainSpec;
@@ -55,7 +55,6 @@ impl Raiko {
     }
 
     pub fn get_output(&self, input: &GuestInput) -> HostResult<GuestOutput> {
-
         let db = create_mem_db(&mut input.clone()).unwrap();
         let mut builder = RethBlockBuilder::new(&input, db);
         builder.prepare_header().expect("prepare");
@@ -65,16 +64,21 @@ impl Raiko {
         match result {
             Ok(header) => {
                 info!("Verifying final state using provider data ...");
-                info!("Final block hash derived successfully. {}", header.hash_slow());
+                info!(
+                    "Final block hash derived successfully. {}",
+                    header.hash_slow()
+                );
                 info!("Final block header derived successfully. {header:?}");
                 /*let pi = self
-                    .request
-                    .proof_type
-                    .instance_hash(assemble_protocol_instance(input, &header)?)?;*/
+                .request
+                .proof_type
+                .instance_hash(assemble_protocol_instance(input, &header)?)?;*/
 
                 let pi = assemble_protocol_instance(input, &header)
                     .expect("Failed to assemble protocol instance")
-                    .instance_hash(&EvidenceType::Sgx { new_pubkey: Address::ZERO } );
+                    .instance_hash(&EvidenceType::Sgx {
+                        new_pubkey: Address::ZERO,
+                    });
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block.header;

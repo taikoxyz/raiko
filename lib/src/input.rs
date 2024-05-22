@@ -90,10 +90,7 @@ pub struct TaikoProverData {
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GuestOutput {
-    Success {
-        header: Header,
-        hash: B256,
-    },
+    Success { header: Header, hash: B256 },
     Failure,
 }
 

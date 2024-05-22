@@ -1,23 +1,27 @@
 use core::mem;
 
+use crate::{
+    consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
+    guest_mem_forget,
+    input::GuestInput,
+    mem_db::{AccountState, DbAccount, MemDb},
+};
 use alloy_primitives::uint;
 use anyhow::{bail, Context, Error, Result};
-use raiko_primitives::{keccak::keccak, mpt::{MptNode, StateAccount}, RlpBytes};
+use raiko_primitives::{
+    keccak::keccak,
+    mpt::{MptNode, StateAccount},
+    RlpBytes,
+};
+use raiko_primitives::{keccak::KECCAK_EMPTY, Bytes};
 use reth_evm::execute::EthBlockOutput;
+use reth_evm::execute::Executor;
 use reth_evm_ethereum::execute::EthExecutorProvider;
 use reth_interfaces::executor::BlockValidationError;
 use reth_primitives::{BlockBody, ChainSpecBuilder, Header, Receipts, B256, MAINNET, U256};
 use reth_provider::{BundleStateWithReceipts, OriginalValuesKnown, ProviderError};
-use revm::{db::BundleState, Database, DatabaseCommit};
-use reth_evm::execute::Executor;
-use raiko_primitives::{
-    keccak::{KECCAK_EMPTY},
-    Bytes,
-};
 use revm::primitives::{AccountInfo, Bytecode, HashMap};
-use crate::{
-    consts::{MAX_BLOCK_HASH_AGE, ChainSpec}, guest_mem_forget, input::GuestInput, mem_db::{AccountState, DbAccount, MemDb},
-};
+use revm::{db::BundleState, Database, DatabaseCommit};
 
 /// Optimistic database
 #[allow(async_fn_in_trait)]
@@ -40,7 +44,9 @@ pub struct RethBlockBuilder<DB> {
     pub header: Option<Header>,
 }
 
-impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase> RethBlockBuilder<DB> {
+impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
+    RethBlockBuilder<DB>
+{
     /// Creates a new block builder.
     pub fn new(input: &GuestInput, db: DB) -> RethBlockBuilder<DB> {
         RethBlockBuilder {
@@ -103,20 +109,29 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase> 
             .cancun_activated()
             .build();
 
-        let executor =
-            EthExecutorProvider::ethereum(chain_spec.clone().into()).eth_executor(self.db.take().unwrap()).optimistic(optimistic);
-        let EthBlockOutput { state, receipts: _, gas_used, db: full_state } = executor.execute(
-            (
-                &self
-                .input
-                .block
-                    .clone()
-                    .with_recovered_senders()
-                    .ok_or(BlockValidationError::SenderRecoveryError).expect("brecht"),
-                total_difficulty.into(),
+        let executor = EthExecutorProvider::ethereum(chain_spec.clone().into())
+            .eth_executor(self.db.take().unwrap())
+            .optimistic(optimistic);
+        let EthBlockOutput {
+            state,
+            receipts: _,
+            gas_used,
+            db: full_state,
+        } = executor
+            .execute(
+                (
+                    &self
+                        .input
+                        .block
+                        .clone()
+                        .with_recovered_senders()
+                        .ok_or(BlockValidationError::SenderRecoveryError)
+                        .expect("brecht"),
+                    total_difficulty.into(),
+                )
+                    .into(),
             )
-                .into(),
-        ).expect("brecht");
+            .expect("brecht");
 
         self.db = Some(full_state.database);
 
@@ -225,9 +240,7 @@ impl RethBlockBuilder<MemDb> {
 
 pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
     // Verify state trie root
-    if input.parent_state_trie.hash()
-        != input.parent_header.state_root
-    {
+    if input.parent_state_trie.hash() != input.parent_header.state_root {
         bail!(
             "Invalid state trie: expected {}, got {}",
             input.parent_header.state_root,
@@ -298,12 +311,8 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
     guest_mem_forget(contracts);
 
     // prepare block hash history
-    let mut block_hashes =
-        HashMap::with_capacity(input.ancestor_headers.len() + 1);
-    block_hashes.insert(
-        input.parent_header.number,
-        input.parent_header.hash_slow(),
-    );
+    let mut block_hashes = HashMap::with_capacity(input.ancestor_headers.len() + 1);
+    block_hashes.insert(input.parent_header.number, input.parent_header.hash_slow());
     let mut prev = &input.parent_header;
     for current in &input.ancestor_headers {
         let current_hash = current.hash_slow();
