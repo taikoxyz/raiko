@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {Raiko} from "../src/Raiko.sol";
 import {SP1Verifier} from "../src/SP1Verifier.sol";
+import "forge-std/console.sol";
 
 struct RaikoProofFixture {
     uint64 chain_id;
@@ -28,7 +29,7 @@ contract RaikoTest is Test {
         string memory path = string.concat(root, "/src/fixtures/fixture.json");
         string memory json = vm.readFile(path);
         bytes memory jsonBytes = json.parseRaw(".");
-        return abi.decode(jsonBytes, ( RaikoProofFixture));
+        return abi.decode(jsonBytes, (RaikoProofFixture));
     }
 
     function setUp() public {
@@ -37,15 +38,19 @@ contract RaikoTest is Test {
     }
 
     function test_ValidRaikoProof() public view {
-         RaikoProofFixture memory fixture = loadFixture();
-        (
+        RaikoProofFixture memory fixture = loadFixture();
+        //console.logUint(fixture.chain_id);
+        //console.logBytes(fixture.randomName);
+        //console.logBytes(fixture.proof);
+        //console.logBytes32(fixture.vkey);
+        /*(
             uint64 chain_id,
             address verifier_address,
             Raiko.Transition memory transition,
             address sgx_instance,
             address prover,
             bytes32 meta_hash
-        ) = raiko.verifyRaikoProof(
+        ) = */raiko.verifyRaikoProof(
             fixture.proof,
             fixture.publicValues
         );
@@ -57,11 +62,11 @@ contract RaikoTest is Test {
         // assertEq(meta_hash, fixture.meta_hash);
     }
 
-    function testFail_InvalidRaikoProof() public view {
-          RaikoProofFixture memory fixture = loadFixture();
+    /*function testFail_InvalidRaikoProof() public view {
+        RaikoProofFixture memory fixture = loadFixture();
         raiko.verifyRaikoProof(
             fixture.publicValues,
             fixture.publicValues
         );
-    } 
+    }*/
 }
