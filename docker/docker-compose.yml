@@ -34,8 +34,8 @@ services:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
       - ${HOME}/.config/raiko:/root/.config/raiko
-      - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
-      - ${HOME}/.config/raiko/config/chain_spec_list.docker.json:/etc/raiko/chain_spec_list.docker.json
+      - ${HOME}/.config/raiko/config/config.sgx.json:/root/.config/raiko/config/config.sgx.json
+      - ${HOME}/.config/raiko/config/chain_spec_list.docker.json:/root/.config/raiko/config/chain_spec_list.docker.json
     environment:
       - SENDER_PRIV_KEY=${SENDER_PRIV_KEY}
       - HOLESKY_RPC=${HOLESKY_RPC}
@@ -50,7 +50,7 @@ services:
       dockerfile: Dockerfile
     image: gcr.io/evmchain/raiko:latest
     container_name: raiko
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    command: --config-path=/root/.config/raiko/config/config.sgx.json --chain-spec-path=/root/.config/raiko/config/chain_spec_list.docker.json
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -82,7 +82,7 @@ services:
       dockerfile: Dockerfile
     image: gcr.io/evmchain/raiko:latest
     container_name: raiko-self-register
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    command: --config-path=/root/.config/raiko/config/config.sgx.json --chain-spec-path=/root/.config/raiko/config/chain_spec_list.docker.json
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -90,8 +90,8 @@ services:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
       - ${HOME}/.config/raiko:/root/.config/raiko
-      - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
-      - ${HOME}/.config/raiko/config/chain_spec_list.docker.json:/etc/raiko/chain_spec_list.docker.json
+      - ${HOME}/.config/raiko/config/config.sgx.json:/root/.config/raiko/config/config.sgx.json
+      - ${HOME}/.config/raiko/config/chain_spec_list.docker.json:/root/.config/raiko/config/chain_spec_list.docker.json
     ports:
       - "8080:8080"
     environment:
