@@ -32,7 +32,7 @@ pub fn main() {
         Ok((header, _mpt_node)) => {
             ProtocolInstance::new(&input, header, VerifierType::SP1)
                 .expect("Failed to assemble protocol instance")
-                .instance_bytes()
+                .instance_hash()
         }
         Err(_) => panic!("Failed to build protocol instance"),
     };

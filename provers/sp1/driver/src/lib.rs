@@ -61,6 +61,10 @@ impl Prover for Sp1Prover {
     }
 }
 
+pub fn sp1_network() {
+    
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

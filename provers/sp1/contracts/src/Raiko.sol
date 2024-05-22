@@ -28,10 +28,10 @@ contract Raiko is SP1Verifier {
     function verifyRaikoProof(
         bytes memory proof,
         bytes memory publicValues
-    ) public view/* returns (uint64, address, Transition memory, address, address, bytes32)*/ {
+    ) public view returns (uint64, address, Transition memory, address, address, bytes32) {
 
         this.verifyProof(raikoProgramVkey, publicValues, proof);
-        /*(
+        (
             uint64 chain_id,
             address verifier_address,
             Transition memory transition,
@@ -40,6 +40,6 @@ contract Raiko is SP1Verifier {
             bytes32 meta_hash
         ) = abi.decode(publicValues, (uint64, address, Transition, address, address, bytes32));
 
-        return (chain_id, verifier_address, transition, sgx_instance, prover, meta_hash);*/
+        return (chain_id, verifier_address, transition, sgx_instance, prover, meta_hash);
     }
 }
