@@ -78,9 +78,13 @@ pub(crate) async fn setup_bootstrap(
     //save to the same file
     info!("Saving bootstrap data file {}", config_path.display());
     let json = serde_json::to_string_pretty(&file_config)?;
-    fs::write(&config_path, json).context(format!(
+    let new_config_path = config_path
+        .with_extension("")
+        .with_extension("new")
+        .with_extension("json");
+    fs::write(&new_config_path, json).context(format!(
         "Saving bootstrap data file {} failed",
-        config_path.display()
+        new_config_path.display()
     ))?;
     Ok(())
 }
