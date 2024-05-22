@@ -35,7 +35,6 @@ function bootstrap_with_self_register() {
     L2_NETWORK="${L2_NETWORK:-taiko_a7}"
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
-    echo "./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-network $L1_NETWORK --network $L2_NETWORK"
     ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-network $L1_NETWORK --network $L2_NETWORK
     cd -
 }
