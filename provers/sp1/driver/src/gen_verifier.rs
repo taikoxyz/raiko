@@ -8,6 +8,8 @@ use sp1_sdk::Prover;
 use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
 use std::path::PathBuf;
 
+pub const FIXUTRE_PATH: &str = "./provers/sp1/contracts/src/fixtures/fixture.json";
+
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,6 +51,7 @@ fn main() {
     let bytes = proof.public_values.as_slice();
     let (chain_id, verifier_address, transition, sgx_instance, prover, meta_hash) =
         RawGuestOutput::abi_decode(bytes, false).unwrap();
+    println!("===>bytes: {:?}", bytes);
 
     // Create the testing fixture so we can test things end-ot-end.
     let fixture = RaikoProofFixture {
@@ -62,9 +65,11 @@ fn main() {
         public_values: proof.public_values.bytes().to_string(),
         proof: proof.bytes().to_string(),
     };
+    println!("===>Fixture: {:#?}", fixture);
 
     // Save the fixture to a file.
-    let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures");
+    println!("Writing fixture to: {:?}", FIXUTRE_PATH);
+    let fixture_path = PathBuf::from(FIXUTRE_PATH);
     std::fs::create_dir_all(&fixture_path).expect("failed to create fixture path");
     std::fs::write(
         fixture_path.join("fixture.json"),

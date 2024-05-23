@@ -22,6 +22,8 @@ proof="$2"
 # Use the special value "sync" as the third parameter to follow the tip of the chain
 rangeStart="$3"
 rangeEnd="$4"
+# Use the fifth parameter as a custom proofParam
+customParam="$5"
 
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
@@ -45,7 +47,7 @@ elif [ "$proof" == "sp1" ]; then
 	"sp1": {
 		"recursion": "core",
 		"prover": "mock",
-		"save_test_input": false,
+		"save_test_input": true
 	}
   '
 elif [ "$proof" == "sgx" ]; then
@@ -82,6 +84,11 @@ elif [ "$proof" == "risc0-bonsai" ]; then
 else
 	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
 	exit 1
+fi
+
+# Ovwerride the proofParam if a custom one is provided
+if [ -n "$5" ]; then
+    proofParam=$customParam
 fi
 
 if [ "$rangeStart" == "sync" ]; then
