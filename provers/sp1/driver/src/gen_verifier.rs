@@ -3,10 +3,10 @@ use alloy_primitives::{Address, B256};
 use alloy_sol_types::{sol, SolType};
 use raiko_lib::input::{GuestInput, RawGuestOutput, Transition};
 use serde::{Deserialize, Serialize};
+use sp1_sdk::artifacts::export_solidity_groth16_verifier;
+use sp1_sdk::Prover;
 use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
 use std::path::PathBuf;
-use sp1_sdk::Prover;
-use sp1_sdk::artifacts::export_solidity_groth16_verifier;
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,28 +47,21 @@ fn main() {
 
     // Deserialize the public values.
     let bytes = proof.public_values.as_slice();
-    let (
-        chain_id,
-        verifier_address,
-        transition, 
-        sgx_instance, 
-        prover, 
-        meta_hash
-    ) = RawGuestOutput::abi_decode(bytes, false).unwrap();
+    let (chain_id, verifier_address, transition, sgx_instance, prover, meta_hash) =
+        RawGuestOutput::abi_decode(bytes, false).unwrap();
 
     // Create the testing fixture so we can test things end-ot-end.
     let fixture = RaikoProofFixture {
         chain_id,
         verifier_address,
-        transition, 
-        sgx_instance, 
-        prover, 
+        transition,
+        sgx_instance,
+        prover,
         meta_hash,
         vkey: vk.bytes32().to_string(),
         public_values: proof.public_values.bytes().to_string(),
         proof: proof.bytes().to_string(),
     };
-
 
     // Save the fixture to a file.
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures");
@@ -82,8 +75,7 @@ fn main() {
     export_contract().expect("failed to export contract");
 }
 
-
- fn export_contract() -> anyhow::Result<()> {
+fn export_contract() -> anyhow::Result<()> {
     sp1_sdk::utils::setup_logger();
 
     // Export the solidity verifier to the contracts/src directory.

@@ -7,12 +7,12 @@ use raiko_lib::{
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
-use serde_with::serde_as;
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
-pub const E2E_TEST_INPUT_PATH: &str = "./provers/sp1/contracts/src/fixtures/input.json";    
+pub const E2E_TEST_INPUT_PATH: &str = "./provers/sp1/contracts/src/fixtures/input.json";
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,7 +24,7 @@ pub struct Sp1Param {
 
 #[serde(rename_all = "lowercase")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-enum RecursionMode {
+pub enum RecursionMode {
     /// The proof mode for an SP1 core proof.
     Core,
     /// The proof mode for a compressed proof.
@@ -37,7 +37,7 @@ enum RecursionMode {
 
 #[serde(rename_all = "lowercase")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-enum ProverMode {
+pub enum ProverMode {
     Mock,
     Local,
     Remote,
@@ -85,7 +85,6 @@ impl Prover for Sp1Prover {
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 
-
         // Generate the proof for the given program.
         let client = match param.prover {
             ProverMode::Mock => ProverClient::mock(),
@@ -99,29 +98,31 @@ impl Prover for Sp1Prover {
             RecursionMode::Core => {
                 let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
                 save_and_return!(proof);
-            },
+            }
             RecursionMode::Compressed => {
-                let proof = client.prove_compressed(&pk, stdin).expect("Sp1: proving failed");
+                let proof = client
+                    .prove_compressed(&pk, stdin)
+                    .expect("Sp1: proving failed");
                 save_and_return!(proof);
-            },
+            }
             RecursionMode::Plonk => {
                 let proof = client.prove_plonk(&pk, stdin).expect("Sp1: proving failed");
                 save_and_return!(proof);
-            },
+            }
             RecursionMode::Groth16 => {
-                let proof = client.prove_groth16(&pk, stdin).expect("Sp1: proving failed");
+                let proof = client
+                    .prove_groth16(&pk, stdin)
+                    .expect("Sp1: proving failed");
                 save_and_return!(proof);
-            },
+            }
         };
     }
 }
-
 
 fn seriailize_input(input: &GuestInput, path: &str) {
     let input = serde_json::to_string(&input).expect("Sp1: serializing input failed");
     std::fs::write(path, input).expect("failed to write input");
 }
-
 
 #[cfg(test)]
 mod test {

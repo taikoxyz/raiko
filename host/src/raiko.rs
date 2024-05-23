@@ -227,8 +227,10 @@ mod tests {
             "sp1".to_string(),
             json! {
                 {
-                    "recursion": core,
-                    "remote": false,
+                    "recursion": "core",
+                    "prover": "mock",
+                    "save_test_input": false,
+                    
                 }
             },
         );

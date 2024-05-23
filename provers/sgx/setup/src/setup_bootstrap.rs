@@ -4,7 +4,6 @@ use std::{
     io::BufReader,
     path::PathBuf,
 };
-
 use crate::app_args::BootstrapArgs;
 use anyhow::{anyhow, Context, Result};
 use raiko_lib::consts::{SupportedChainSpecs, VerifierType};
@@ -13,6 +12,7 @@ use sgx_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
     set_instance_id, ELF_NAME,
 };
+use file_lock::FileOptions;
 use std::process::Command;
 
 pub(crate) async fn setup_bootstrap(
