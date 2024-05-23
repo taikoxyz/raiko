@@ -28,7 +28,7 @@ pub(crate) async fn setup_bootstrap(
     let _filelock = FileLock::lock(
         config_dir.join("bootstrap.lock"),
         true,
-        FileOptions::new().create(true),
+        FileOptions::new().create(true).write(true),
     )?;
     let chain_specs = SupportedChainSpecs::merge_from_file(bootstrap_args.chain_spec_path.clone())?;
     let l1_chain_spec = chain_specs
