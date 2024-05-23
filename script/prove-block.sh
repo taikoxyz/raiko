@@ -41,7 +41,12 @@ if [ "$proof" == "native" ]; then
   '
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
-    "proof_type": "sp1"
+    "proof_type": "sp1",
+	"sp1": {
+		"recursion": "core",
+		"prover": "mock",
+		"save_test_input": false,
+	}
   '
 elif [ "$proof" == "sgx" ]; then
 	proofParam='
@@ -53,7 +58,7 @@ elif [ "$proof" == "sgx" ]; then
         "prove": true,
         "input_path": null
     }
-    '
+	'
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",

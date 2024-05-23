@@ -35,7 +35,10 @@ fn main() {
 
     // Setup the inputs.;
     let mut stdin = SP1Stdin::new();
-    stdin.write(&GuestInput::default());
+    println!("Reading input from file");
+    let json = std::fs::read_to_string(sp1_driver::E2E_TEST_INPUT_PATH).unwrap();
+    let input: GuestInput = serde_json::from_str(&json).unwrap();
+    stdin.write(&input);
 
     // Generate the proof.
     let proof = client
