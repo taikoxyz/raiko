@@ -1,7 +1,7 @@
 use crate::app_args::BootstrapArgs;
 use anyhow::{anyhow, Context, Result};
 use file_lock::{FileLock, FileOptions};
-use raiko_lib::consts::SupportedChainSpecs;
+use raiko_lib::consts::{SupportedChainSpecs, VerifierType};
 use serde_json::{Number, Value};
 use sgx_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
