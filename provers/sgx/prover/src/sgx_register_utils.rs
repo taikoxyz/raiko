@@ -309,6 +309,7 @@ pub async fn register_sgx_instance(
         .get_receipt()
         .await?;
     println!("call return tx_hash: {:?}", tx_receipt.transaction_hash);
+    assert!(tx_receipt.status());
 
     let log = tx_receipt.inner.as_receipt().unwrap().logs.first().unwrap();
     let sgx_id: u64 = u64::from_be_bytes(log.topics()[1].0[24..].try_into().unwrap());
