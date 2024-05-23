@@ -7,11 +7,11 @@ edition = "2021"
 raiko-primitives = { workspace = true }
 
 # reth
-reth-primitives = { path = "../../../reth/reth/crates/primitives" }
-reth-evm-ethereum = { path = "../../../reth/reth/crates/ethereum/evm" }
-reth-provider = { path = "../../../reth/reth/crates/storage/provider" }
-reth-evm = { path = "../../../reth/reth/crates/evm" }
-reth-interfaces = { path = "../../../reth/reth/crates/interfaces" }
+reth-primitives.workspace = true
+reth-evm-ethereum.workspace = true
+reth-provider.workspace = true
+reth-evm.workspace = true
+reth-interfaces.workspace = true
 
 alloy-rlp = { workspace = true }
 alloy-rlp-derive = { workspace = true }

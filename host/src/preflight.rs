@@ -8,14 +8,10 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use raiko_lib::{
-    builder::{create_mem_db, OptimisticDatabase, RethBlockBuilder},
-    consts::ChainSpec,
-    input::{
+    builder::{create_mem_db, OptimisticDatabase, RethBlockBuilder}, clear_line, consts::ChainSpec, inplace_print, input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
-    },
-    utils::{generate_transactions, zlib_compress_data},
-    Measurement,
+    }, utils::{generate_transactions, zlib_compress_data}, Measurement
 };
 use raiko_primitives::{
     eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
@@ -169,7 +165,9 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let mut done = false;
     let mut num_iterations = 0;
     while !done {
-        info!("Execution iteration {num_iterations}...");
+        inplace_print(&format!(
+            "Execution iteration {num_iterations}..."
+        ));
 
         let optimistic = num_iterations + 1 < max_iterations;
         builder.db.as_mut().unwrap().optimistic = optimistic;
@@ -180,6 +178,9 @@ pub async fn preflight<BDP: BlockDataProvider>(
         }
         num_iterations += 1;
     }
+    clear_line();
+    println!("State data fetched in {num_iterations} iterations");
+
     let provider_db = builder.db.as_mut().unwrap();
 
     // Gather inclusion proofs for the initial and final state
@@ -612,13 +613,9 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
     let signature =
         Signature::from_rs_and_parity(signature.r, signature.s, signature.v.as_limbs()[0])
             .map_err(|_| HostError::Anyhow(anyhow!("Could not create signature")))?;
-    //let address = signature.recover_address_from_prehash(&tx.hash);
-    //println!("hash: {:?}", tx.hash);
-    //println!("signer: {:?}", address);
     Ok(match tx.transaction_type.unwrap_or_default() {
-        0 => {
-            println!("legacy tx: {:?}", signature);
-            let ltx = TxLegacy {
+        0 => TxEnvelope::Legacy(
+            TxLegacy {
                 chain_id: tx.chain_id,
                 nonce: tx.nonce,
                 gas_price: tx.gas_price.expect("No gas price for the transaction"),
@@ -631,11 +628,8 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
                 value: tx.value,
                 input: tx.input.0.clone().into(),
             }
-            .into_signed(signature);
-            //let signer = ltx.recover_signer();
-            //println!("signer: {:?}", signer);
-            TxEnvelope::Legacy(ltx)
-        }
+            .into_signed(signature),
+        ),
         1 => TxEnvelope::Eip2930(
             TxEip2930 {
                 chain_id: tx.chain_id.expect("No chain id for the transaction"),
