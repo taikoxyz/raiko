@@ -85,6 +85,35 @@ function update_docker_chain_specs() {
     fi
 }
 
+function update_config_json() {
+    CONFIG_FILE=$1
+    KEY_NAME=$2
+    UPDATE_VALUE=$3
+    jq \
+        --arg update_value "$UPDATE_VALUE" \
+        --arg key_name "$KEY_NAME" \
+        '.[$key_name] = $update_value' $CONFIG_FILE \
+        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+    echo "Updated $CONFIG_FILE $CHAIN_NAME.$KEY_NAME=$UPDATE_VALUE"
+}
+
+function update_raiko_network() {
+    CONFIG_FILE="$RAIKO_CONF_DIR/config.sgx.json"
+    if [ ! -f $CONFIG_FILE ]; then
+        echo "$CONFIG_FILE file not found."
+        return 1
+    fi
+
+    if [ -n "${L1_NETWORK}" ]; then
+        update_config_json $CONFIG_FILE "l1_network" $L1_NETWORK
+    fi
+
+    if [ -n "${L2_NETWORK}" ]; then
+        update_config_json $CONFIG_FILE "network" $L2_NETWORK
+    fi
+}
+
+
 if [[ -z "${PCCS_HOST}" ]]; then
     MY_PCCS_HOST=pccs:8081
 else
@@ -119,6 +148,8 @@ else
         sed -i "s/123456/${SGX_INSTANCE_ID}/" /etc/raiko/config.sgx.json
     fi
 
+    #update raiko server config
+    update_raiko_network
     update_docker_chain_specs
 
     /opt/raiko/bin/raiko-host "$@"
