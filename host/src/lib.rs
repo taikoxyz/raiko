@@ -106,6 +106,10 @@ pub struct Cli {
     #[serde(flatten)]
     /// Proof request options
     pub proof_request_opt: ProofRequestOpt,
+
+    #[arg(long, require_equals = true)]
+    /// Set jwt secret for auth
+    jwt_secret: Option<String>,
 }
 
 impl Cli {
