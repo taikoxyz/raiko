@@ -3,9 +3,9 @@ harness::entrypoint!(main, tests, zk_op::tests);
 // harness::entrypoint!(main, tests);
 
 use raiko_lib::{
-    consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::{GuestInput, GuestOutput},
+    consts::VerifierType,
+    input::{GuestInput},
     protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
@@ -29,11 +29,9 @@ pub fn main() {
     let build_result = TaikoStrategy::build_from(&input);
 
     let output = match &build_result {
-        Ok((header, _mpt_node)) => {
-            ProtocolInstance::new(&input, header, VerifierType::SP1)
-                .expect("Failed to assemble protocol instance")
-                .instance_hash()
-        }
+        Ok((header, _mpt_node)) => ProtocolInstance::new(&input, header, VerifierType::SP1)
+            .expect("Failed to assemble protocol instance")
+            .instance_hash(),
         Err(_) => panic!("Failed to build protocol instance"),
     };
 

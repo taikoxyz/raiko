@@ -98,7 +98,6 @@ fn point_to_be_bytes(p: AffinePoint<Bn254, 16>) -> [u8; 64] {
     ([x, y]).concat().try_into().unwrap()
 }
 
-
 harness::zk_suits!(
     pub mod tests {
         use revm_precompile::bn128;
