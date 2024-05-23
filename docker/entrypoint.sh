@@ -34,10 +34,10 @@ function bootstrap() {
 
 function bootstrap_with_self_register() {
     L1_NETWORK="${L1_NETWORK:-holesky}"
-    L2_NETWORK="${L2_NETWORK:-taiko_a7}"
+    NETWORK="${NETWORK:-taiko_a7}"
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
-    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-network $L1_NETWORK --network $L2_NETWORK
+    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-network $L1_NETWORK --network $NETWORK
     cd -
 }
 
@@ -105,8 +105,8 @@ function update_raiko_network() {
         update_config_json $CONFIG_FILE "l1_network" $L1_NETWORK
     fi
 
-    if [ -n "${L2_NETWORK}" ]; then
-        update_config_json $CONFIG_FILE "network" $L2_NETWORK
+    if [ -n "${NETWORK}" ]; then
+        update_config_json $CONFIG_FILE "network" $NETWORK
     fi
 }
 

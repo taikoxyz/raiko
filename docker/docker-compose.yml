@@ -73,7 +73,7 @@ services:
       - TAIKO_A7_RPC=${TAIKO_A7_RPC}
       - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
       - L1_NETWORK=${L1_NETWORK}
-      - L2_NETWORK=${L2_NETWORK}
+      - NETWORK=${NETWORK}
       # you can use your own PCCS host
       #- PCCS_HOST=host.docker.internal:8081
     # use the host's network to connect to the PCCS
@@ -109,7 +109,7 @@ services:
       - TAIKO_A7_RPC=${TAIKO_A7_RPC}
       - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
       - L1_NETWORK=${L1_NETWORK}
-      - L2_NETWORK=${L2_NETWORK}
+      - NETWORK=${NETWORK}
     # use the host's network to connect to the PCCS
     #extra_hosts:
     #  - "host.docker.internal:host-gateway"
