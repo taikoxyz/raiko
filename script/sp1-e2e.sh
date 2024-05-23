@@ -3,7 +3,7 @@
 # Any error will result in failure
 set -e
 
-TOOLCHAIN_SP1=+nightly-2024-02-06
+TOOLCHAIN_SP1=+nightly-2024-04-18
 block=$1
 
 # Make sure required artifacts are built
