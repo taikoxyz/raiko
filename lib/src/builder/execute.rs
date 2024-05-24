@@ -47,7 +47,6 @@ use crate::{
     guest_mem_forget, inplace_print, print_duration,
     time::{AddAssign, Duration, Instant},
     utils::{check_anchor_tx, generate_transactions},
-    Measurement,
 };
 
 /// Minimum supported protocol version: SHANGHAI
