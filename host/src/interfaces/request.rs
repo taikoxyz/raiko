@@ -71,11 +71,10 @@ impl ProofType {
     /// Run the prover driver depending on the proof type.
     pub async fn run_prover(
         &self,
-        mut input: GuestInput,
+        input: GuestInput,
         output: &GuestOutput,
         config: &Value,
     ) -> HostResult<Proof> {
-        input.taiko.skip_verify_blob = true;
         match self {
             ProofType::Native => NativeProver::run(input, output, config)
                 .await
