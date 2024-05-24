@@ -2,6 +2,8 @@
 
 set -xeo pipefail
 
+export IN_CONTAINER=1
+
 GRAMINE_PRIV_KEY="$HOME/.config/gramine/enclave-key.pem"
 RAIKO_DOCKER_VOLUME_PATH="/root/.config/raiko"
 RAIKO_DOCKER_VOLUME_CONFIG_PATH="$RAIKO_DOCKER_VOLUME_PATH/config"
@@ -46,17 +48,17 @@ function update_docker_chain_specs() {
     fi
 
     if [ -n "${HOLESKY_RPC}" ]; then
-        jq --arg rpc "$HOLESKY_RPC" 'map(if .name == "holesky" then .rpc = $rpc else . end)' $CONFIG_FILE > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
+        jq --arg rpc "$HOLESKY_RPC" 'map(if .name == "holesky" then .rpc = $rpc else . end)' $CONFIG_FILE >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Updated config.json with .rpc=$HOLESKY_RPC"
     fi
 
     if [ -n "${HOLESKY_BEACON_RPC}" ]; then
-        jq --arg beacon_rpc "$HOLESKY_BEACON_RPC" 'map(if .name == "holesky" then .beacon_rpc = $beacon_rpc else . end)' $CONFIG_FILE > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
+        jq --arg beacon_rpc "$HOLESKY_BEACON_RPC" 'map(if .name == "holesky" then .beacon_rpc = $beacon_rpc else . end)' $CONFIG_FILE >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Updated config.json with .beacon_rpc=$HOLESKY_BEACON_RPC"
     fi
 
     if [ -n "${TAIKO_A7_RPC}" ]; then
-        jq --arg taiko_a7_rpc "$TAIKO_A7_RPC" 'map(if .name == "taiko_a7" then .rpc = $taiko_a7_rpc else . end)' $CONFIG_FILE > /tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE;
+        jq --arg taiko_a7_rpc "$TAIKO_A7_RPC" 'map(if .name == "taiko_a7" then .rpc = $taiko_a7_rpc else . end)' $CONFIG_FILE >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Updated config.json with .taiko_a7_rpc=$TAIKO_A7_RPC"
     fi
 }
@@ -80,8 +82,8 @@ elif [[ $# -eq 1 && $1 == "--init-self-register" ]]; then
 else
     echo "start proving"
     if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
-        echo "Application was not bootstrapped. "\
-             "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
+        echo "Application was not bootstrapped. " \
+            "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
         exit 1
     fi
 

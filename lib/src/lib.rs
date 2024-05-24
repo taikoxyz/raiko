@@ -134,13 +134,19 @@ pub fn print_duration(title: &str, duration: time::Duration) {
 }
 
 pub fn inplace_print(title: &str) {
-    print!("\r{title}");
+    if consts::IN_CONTAINER.is_some() {
+        return;
+    }
+    print!("\r\n{title}");
     #[cfg(all(feature = "std", debug_assertions))]
     io::stdout().flush().unwrap();
 }
 
 pub fn clear_line() {
-    print!("\r\x1B[2K");
+    if consts::IN_CONTAINER.is_some() {
+        return;
+    }
+    print!("\r\n\x1B[2K");
 }
 
 /// call forget only if running inside the guest
