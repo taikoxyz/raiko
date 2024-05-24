@@ -10,21 +10,30 @@ use tracing::{debug, info};
 use utoipa::OpenApi;
 
 use crate::{
-    interfaces::{
-        error::{HostError, HostResult},
-        request::ProofRequest,
-    },
+    interfaces::{HostError, HostResult},
     memory,
     metrics::{
         dec_current_req, inc_current_req, inc_guest_error, inc_guest_req_count, inc_guest_success,
         inc_host_error, inc_host_req_count, observe_guest_time, observe_prepare_input_time,
         observe_total_time,
     },
-    provider::rpc::RpcBlockDataProvider,
-    raiko::Raiko,
+    metrics::{observe_guest_time, observe_prepare_input_time},
     server::api::v1::ProofResponse,
     ProverState,
 };
+use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use raiko_core::{
+    interfaces::{ProofRequest, RaikoError},
+    provider::rpc::RpcBlockDataProvider,
+    Raiko,
+};
+use raiko_lib::{
+    input::{get_input_path, GuestInput},
+    Measurement,
+};
+use serde_json::Value;
+use tracing::{debug, info};
+use utoipa::OpenApi;
 
 fn get_cached_input(
     cache_path: &Option<PathBuf>,
@@ -130,13 +139,13 @@ async fn handle_proof(
         let total_time = total_time.stop_with("====> Proof generation failed");
         observe_total_time(proof_request.block_number, total_time, false);
         match e {
-            HostError::Guest(e) => {
+            RaikoError::Guest(e) => {
                 inc_guest_error(&proof_request.proof_type, proof_request.block_number);
-                HostError::Guest(e)
+                HostError::Core(e.into())
             }
             e => {
                 inc_host_error(proof_request.block_number);
-                e
+                e.into()
             }
         }
     })?;

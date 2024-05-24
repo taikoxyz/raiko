@@ -1,7 +1,7 @@
 #![allow(incomplete_features)]
 use std::path::PathBuf;
 
-use raiko_host::{interfaces::error::HostResult, server::serve, ProverState};
+use raiko_host::{interfaces::HostResult, server::serve, ProverState};
 use tracing::info;
 use tracing_appender::{
     non_blocking::WorkerGuard,
