@@ -5,7 +5,7 @@ mod signature;
 extern crate rand;
 extern crate secp256k1;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use app_args::{App, Command};
 use clap::Parser;
 use one_shot::{bootstrap, load_bootstrap, one_shot};
@@ -26,7 +26,7 @@ pub async fn main() -> Result<()> {
         Command::Check => {
             println!("Checking if bootstrap is readable");
             load_bootstrap(&args.global_opts.secrets_dir)
-                .map_err(|_| anyhow::Error::msg("check booststrap failed"))?;
+                .map_err(|err| anyhow!("check booststrap failed: {}", err))?;
         }
     }
 
