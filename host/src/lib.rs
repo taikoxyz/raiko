@@ -160,7 +160,6 @@ impl ProverState {
         } else {
             SupportedChainSpecs::default()
         };
-        info!("Supported chains: {:?}", chain_specs);
 
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {
