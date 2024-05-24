@@ -46,11 +46,11 @@ while ! check_prove_block; do
 done
 
 # Generate solidity tests fixture
-cargo run -p sp1-driver --bin gen-verifier --release
+RUST_LOG=info cargo run -p sp1-driver --bin gen-verifier --release
 
-# # Run Smart Contract verification
-# cd $SCRIPT_DIR/../provers/sp1/contracts
-# forge test
+# Run Smart Contract verification
+cd $SCRIPT_DIR/../provers/sp1/contracts
+forge test
 
-# # Manually call cleanup at the end to stop the server
-# cleanup
+# Manually call cleanup at the end to stop the server
+cleanup
