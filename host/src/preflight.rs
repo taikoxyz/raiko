@@ -8,10 +8,16 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use raiko_lib::{
-    builder::{create_mem_db, OptimisticDatabase, RethBlockBuilder}, clear_line, consts::ChainSpec, inplace_print, input::{
+    builder::{create_mem_db, OptimisticDatabase, RethBlockBuilder},
+    clear_line,
+    consts::ChainSpec,
+    inplace_print,
+    input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
-    }, utils::{generate_transactions, zlib_compress_data}, Measurement
+    },
+    utils::{generate_transactions, zlib_compress_data},
+    Measurement,
 };
 use raiko_primitives::{
     eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
@@ -80,67 +86,63 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
     let reth_block = RethBlock::try_from(block.clone()).expect("block convert failed");
 
-    let input =
-        GuestInput {
-            block: reth_block.clone(),
-            chain_spec: taiko_chain_spec.clone(),
-            block_number,
-            gas_used: block.header.gas_used.try_into().map_err(|_| {
-                HostError::Conversion("Failed converting gas used to u64".to_string())
-            })?,
-            block_hash_reference: hash,
-            beneficiary: block.header.miner,
-            gas_limit: block.header.gas_limit.try_into().map_err(|_| {
-                HostError::Conversion("Failed converting gas limit to u64".to_string())
-            })?,
-            timestamp: block.header.timestamp,
-            extra_data: block.header.extra_data.clone(),
-            mix_hash: if let Some(mix_hash) = block.header.mix_hash {
-                mix_hash
-            } else {
-                return Err(HostError::Preflight(
-                    "No mix hash for the requested block".to_owned(),
-                ));
+    let input = GuestInput {
+        block: reth_block.clone(),
+        chain_spec: taiko_chain_spec.clone(),
+        block_number,
+        block_hash_reference: hash,
+        beneficiary: block.header.miner,
+        gas_limit: block
+            .header
+            .gas_limit
+            .try_into()
+            .map_err(|_| HostError::Conversion("Failed converting gas limit to u64".to_string()))?,
+        timestamp: block.header.timestamp,
+        extra_data: block.header.extra_data.clone(),
+        mix_hash: if let Some(mix_hash) = block.header.mix_hash {
+            mix_hash
+        } else {
+            return Err(HostError::Preflight(
+                "No mix hash for the requested block".to_owned(),
+            ));
+        },
+        withdrawals: block.withdrawals.clone().unwrap_or_default(),
+        parent_state_trie: Default::default(),
+        parent_storage: Default::default(),
+        contracts: Default::default(),
+        parent_header: parent_block.header.clone().try_into().unwrap(),
+        ancestor_headers: Default::default(),
+        base_fee_per_gas: block.header.base_fee_per_gas.map_or_else(
+            || {
+                Err(HostError::Preflight(
+                    "No base fee per gas for the requested block".to_owned(),
+                ))
             },
-            withdrawals: block.withdrawals.clone().unwrap_or_default(),
-            parent_state_trie: Default::default(),
-            parent_storage: Default::default(),
-            contracts: Default::default(),
-            parent_header: parent_block.header.clone().try_into().unwrap(),
-            ancestor_headers: Default::default(),
-            base_fee_per_gas: block.header.base_fee_per_gas.map_or_else(
-                || {
-                    Err(HostError::Preflight(
-                        "No base fee per gas for the requested block".to_owned(),
-                    ))
-                },
-                |base_fee_per_gas| {
-                    base_fee_per_gas.try_into().map_err(|_| {
-                        HostError::Conversion(
-                            "Failed converting base fee per gas to u64".to_owned(),
-                        )
-                    })
-                },
-            )?,
-            blob_gas_used: block.header.blob_gas_used.map_or_else(
-                || Ok(None),
-                |b: u128| -> HostResult<Option<u64>> {
-                    b.try_into().map(Some).map_err(|_| {
-                        HostError::Conversion("Failed converting blob gas used to u64".to_owned())
-                    })
-                },
-            )?,
-            excess_blob_gas: block.header.excess_blob_gas.map_or_else(
-                || Ok(None),
-                |b: u128| -> HostResult<Option<u64>> {
-                    b.try_into().map(Some).map_err(|_| {
-                        HostError::Conversion("Failed converting excess blob gas to u64".to_owned())
-                    })
-                },
-            )?,
-            parent_beacon_block_root: block.header.parent_beacon_block_root,
-            taiko: taiko_guest_input,
-        };
+            |base_fee_per_gas| {
+                base_fee_per_gas.try_into().map_err(|_| {
+                    HostError::Conversion("Failed converting base fee per gas to u64".to_owned())
+                })
+            },
+        )?,
+        blob_gas_used: block.header.blob_gas_used.map_or_else(
+            || Ok(None),
+            |b: u128| -> HostResult<Option<u64>> {
+                b.try_into().map(Some).map_err(|_| {
+                    HostError::Conversion("Failed converting blob gas used to u64".to_owned())
+                })
+            },
+        )?,
+        excess_blob_gas: block.header.excess_blob_gas.map_or_else(
+            || Ok(None),
+            |b: u128| -> HostResult<Option<u64>> {
+                b.try_into().map(Some).map_err(|_| {
+                    HostError::Conversion("Failed converting excess blob gas to u64".to_owned())
+                })
+            },
+        )?,
+        parent_beacon_block_root: block.header.parent_beacon_block_root,
+        taiko: taiko_guest_input,
+    };
 
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
@@ -165,9 +167,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let mut done = false;
     let mut num_iterations = 0;
     while !done {
-        inplace_print(&format!(
-            "Execution iteration {num_iterations}..."
-        ));
+        inplace_print(&format!("Execution iteration {num_iterations}..."));
 
         let optimistic = num_iterations + 1 < max_iterations;
         builder.db.as_mut().unwrap().optimistic = optimistic;

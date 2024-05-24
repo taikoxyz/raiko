@@ -66,8 +66,15 @@ impl SupportedChainSpecs {
         self.0.keys().cloned().collect()
     }
 
-    pub fn get_chain_spec(&self, network: &String) -> Option<ChainSpec> {
+    pub fn get_chain_spec(&self, network: &str) -> Option<ChainSpec> {
         self.0.get(network).cloned()
+    }
+
+    pub fn get_chain_spec_with_chain_id(&self, chain_id: u64) -> Option<ChainSpec> {
+        self.0
+            .values()
+            .find(|spec| spec.chain_id == chain_id)
+            .map(|spec| spec.clone())
     }
 }
 

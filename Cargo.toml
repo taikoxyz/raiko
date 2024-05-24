@@ -52,6 +52,7 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false, features = [
     "serde",
     "std",
+    "c-kzg",
     "taiko",
 ] }
 
@@ -143,7 +144,6 @@ reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 
 # crypto
-#c-kzg = "1.0.0"
 c-kzg = { package = "c-kzg-taiko", git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
     "preload-kzg-settings",
     "no-threads",

@@ -16,7 +16,11 @@ pub async fn serve(state: ProverState) -> anyhow::Result<()> {
 
     debug!("Listening on: {}", listener.local_addr()?);
 
-    let router = create_router(state.opts.concurrency_limit).with_state(state);
+    let router = create_router(
+        state.opts.concurrency_limit,
+        state.opts.jwt_secret.as_deref(),
+    )
+    .with_state(state);
     axum::serve(listener, router)
         .await
         .context("Server couldn't serve")?;

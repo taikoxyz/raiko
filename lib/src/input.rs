@@ -31,8 +31,6 @@ pub struct GuestInput {
     pub chain_spec: ChainSpec,
     /// Block number
     pub block_number: u64,
-    /// Block gas used
-    pub gas_used: u64,
     /// Block hash - for reference!
     pub block_hash_reference: B256,
     /// Previous block header

@@ -56,7 +56,7 @@
         "l1_contract": null,
         "l2_contract": null,
         "rpc": "https://ethereum-holesky-rpc.publicnode.com",
-        "beacon_rpc": "https://api.holesky.blobscan.com",
+        "beacon_rpc": "https://fabled-weathered-cherry.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/",
         "sgx_verifier_address": null,
         "genesis_time": 1695902400,
         "seconds_per_slot": 12,
@@ -83,6 +83,31 @@
         "rpc": "https://rpc.hekla.taiko.xyz",
         "beacon_rpc": null,
         "sgx_verifier_address": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
+        "genesis_time": 0,
+        "seconds_per_slot": 1,
+        "is_taiko": true
+    },
+    {
+        "name": "taiko_mainnet",
+        "chain_id": 167000,
+        "max_spec_id": "SHANGHAI",
+        "hard_forks": {
+            "SHANGHAI": {
+                "Block": 0
+            },
+            "CANCUN": "TBD"
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+        "l2_contract": "0x1670000000000000000000000000000000010001",
+        "rpc": "https://rpc.mainnet.taiko.xyz",
+        "beacon_rpc": null,
+        "sgx_verifier_address": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
         "genesis_time": 0,
         "seconds_per_slot": 1,
         "is_taiko": true
