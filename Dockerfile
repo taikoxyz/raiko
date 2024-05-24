@@ -24,7 +24,8 @@ RUN apt-get update && \
     libsgx-dcap-ql \
     libsgx-urts \
     sgx-pck-id-retrieval-tool \
-    jq &&\
+    jq \
+    sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
