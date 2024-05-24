@@ -12,7 +12,7 @@ on:
 
 jobs:
     build-test-sgx:
-      name: Build and test sgx with Docker
+      name: Build and test sgx
       uses: ./.github/workflows/ci-build-test-reusable.yml
       with:
         version_name: "sgx"
@@ -24,31 +24,4 @@ jobs:
         
     build-test-sgx-hardware:
       name: Build and test sgx in hardware
-      runs-on: [self-hosted, sgx, linux]
-      timeout-minutes: 120
-      env:
-        TARGET: sgx
-        CI: 1
-        EDMM: 0
-    
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            submodules: recursive
-  
-        - uses: actions-rs/toolchain@v1
-          with:
-            toolchain: stable
-            profile: minimal
-    
-        - name: Install cargo-binstall
-          uses: cargo-bins/cargo-binstall@v1.6.4
-    
-        - name: Install sgx
-          run: make install
-    
-        - name: Build sgx prover
-          run: make build
-    
-        - name: Test sgx prover
-          run: make test
+      uses: ./.github/workflows/ci-sgx-hardware.yml

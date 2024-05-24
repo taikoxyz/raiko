@@ -4,8 +4,8 @@ on: workflow_call
 
 
 jobs:
-    build-test-sgx:
-      name: Build and test sgx with Docker
+    build-test-native:
+      name: Build and test native
       uses: ./.github/workflows/ci-build-test-reusable.yml
       with:
         version_name: "native"

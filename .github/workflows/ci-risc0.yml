@@ -12,8 +12,8 @@ on:
 
 
 jobs:
-    build-test-sgx:
-      name: Build and test sgx with Docker
+    build-test-risc0:
+      name: Build and test risc0
       uses: ./.github/workflows/ci-build-test-reusable.yml
       with:
         version_name: "risc0"
