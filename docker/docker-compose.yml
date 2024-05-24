@@ -3,7 +3,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: gcr.io/evmchain/raiko:latest
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init
     command: --init
     devices:
@@ -24,7 +24,7 @@ services:
       args:
         ENABLE_SELF_REGISTER: "true"
       dockerfile: Dockerfile
-    image: gcr.io/evmchain/raiko:latest
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init-self-register
     command: --init-self-register
     devices:
@@ -50,7 +50,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: gcr.io/evmchain/raiko:latest
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
     devices:
@@ -85,7 +85,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: gcr.io/evmchain/raiko:latest
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-self-register
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
     devices:
@@ -119,7 +119,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile.pccs
-    image: gcr.io/evmchain/pccs:latest
+    image: us-docker.pkg.dev/evmchain/images/pccs:latest
     container_name: pccs
     volumes:
       - ${HOME}/.config/sgx-pccs/default.json:/opt/intel/pccs/config/default.json
