@@ -186,7 +186,6 @@ fn seriailize_input(input: &GuestInput, path: &str) {
     std::fs::write(path, input).expect("failed to write input");
 }
 
-
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
     if expected != actual {
         error!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
