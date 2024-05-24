@@ -167,7 +167,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let mut done = false;
     let mut num_iterations = 0;
     while !done {
-        debug!("Execution iteration {num_iterations}...");
+        inplace_print(&format!("Execution iteration {num_iterations}..."));
         builder.mut_db().unwrap().optimistic = num_iterations + 1 < max_iterations;
         builder = builder.execute_transactions::<TkoTxExecStrategy>()?;
         if builder.mut_db().unwrap().fetch_data().await {
@@ -175,6 +175,9 @@ pub async fn preflight<BDP: BlockDataProvider>(
         }
         num_iterations += 1;
     }
+    clear_line();
+    println!("State data fetched in {num_iterations} iterations");
+
     let provider_db = builder.mut_db().unwrap();
 
     // Gather inclusion proofs for the initial and final state
