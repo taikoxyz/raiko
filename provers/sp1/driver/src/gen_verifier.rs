@@ -2,6 +2,7 @@
 use alloy_primitives::{Address, B256};
 use alloy_sol_types::{sol, SolType};
 use raiko_lib::input::{GuestInput, RawGuestOutput, Transition};
+use raiko_lib::{print_duration, Measurement};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::artifacts::export_solidity_groth16_verifier;
 use sp1_sdk::Prover;
@@ -43,9 +44,11 @@ fn main() {
     stdin.write(&input);
 
     // Generate the proof.
+    let time = Measurement::start("prove_groth16", false);
     let proof = client
         .prove_groth16(&pk, stdin)
         .expect("failed to generate proof");
+    time.stop_with("==>Proof generated");
 
     // Deserialize the public values.
     let bytes = proof.public_values.as_slice();

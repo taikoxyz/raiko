@@ -6,6 +6,7 @@ use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
 use raiko_lib::utils::HeaderHasher;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use tracing::{error, info, trace, warn};
 
 use crate::preflight::preflight;
@@ -143,6 +144,12 @@ impl Raiko {
 
 pub struct NativeProver;
 
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NativeParam {
+    pub save_test_input: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NativeResponse {
     pub output: GuestOutput,
@@ -152,9 +159,14 @@ impl Prover for NativeProver {
     async fn run(
         input: GuestInput,
         output: &GuestOutput,
-        _request: &serde_json::Value,
+        request: &serde_json::Value,
     ) -> ProverResult<Proof> {
         trace!("Running the native prover for input {input:?}");
+        // Write the input.
+        let param = NativeParam::deserialize(request.get("native").unwrap()).unwrap();
+        if param.save_test_input {
+            seriailize_input(&input, "./provers/sp1/contracts/src/fixtures/input.json");
+        }
 
         let GuestOutput::Success { header, .. } = output.clone() else {
             return Err(ProverError::GuestError("Unexpected output".to_owned()));
@@ -168,6 +180,12 @@ impl Prover for NativeProver {
         }))
     }
 }
+
+fn seriailize_input(input: &GuestInput, path: &str) {
+    let input = serde_json::to_string(&input).expect("Sp1: serializing input failed");
+    std::fs::write(path, input).expect("failed to write input");
+}
+
 
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
     if expected != actual {

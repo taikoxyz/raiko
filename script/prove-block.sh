@@ -39,15 +39,17 @@ fi
 
 if [ "$proof" == "native" ]; then
 	proofParam='
-    "proof_type": "native"
+    "proof_type": "native",
+	"native": {
+		"save_test_input": false
+	}
   '
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
 	"sp1": {
 		"recursion": "core",
-		"prover": "mock",
-		"save_test_input": true
+		"prover": "mock"
 	}
   '
 elif [ "$proof" == "sgx" ]; then
@@ -135,5 +137,10 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
          \"graffiti\": \"$graffiti\",
          $proofParam
        }"
+	# Check if the curl command was successful
+	if [ $? -ne 0 ]; then
+		echo "Error: Failed to prove block $block"
+		exit 1
+	fi
 	echo "\\n"
 done

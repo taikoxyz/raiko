@@ -19,7 +19,6 @@ pub const E2E_TEST_INPUT_PATH: &str = "./provers/sp1/contracts/src/fixtures/inpu
 pub struct Sp1Param {
     pub recursion: RecursionMode,
     pub prover: ProverMode,
-    pub save_test_input: bool,
 }
 
 #[serde(rename_all = "lowercase")]
@@ -76,11 +75,7 @@ impl Prover for Sp1Prover {
         _output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        // Write the input.
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
-        if param.save_test_input {
-            seriailize_input(&input, E2E_TEST_INPUT_PATH);
-        }
 
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
@@ -117,11 +112,6 @@ impl Prover for Sp1Prover {
             }
         };
     }
-}
-
-fn seriailize_input(input: &GuestInput, path: &str) {
-    let input = serde_json::to_string(&input).expect("Sp1: serializing input failed");
-    std::fs::write(path, input).expect("failed to write input");
 }
 
 #[cfg(test)]
