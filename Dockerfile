@@ -10,9 +10,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # risc0 dependencies
-RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-RUN cargo binstall -y --force cargo-risczero
-RUN cargo risczero install
+# RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+# RUN cargo binstall -y --force cargo-risczero
+# RUN cargo risczero install
 
 WORKDIR /opt/raiko
 COPY . .
