@@ -73,11 +73,11 @@ impl AssertionLog {
     pub fn summarize(&self, start: usize, end: usize) -> (usize, usize) {
         (start..end).fold((0, 0), |(passed, failed), index| {
             if let Some(assertion) = self.assertions.get(index) {
-                if assertion.failed() {
+                return if assertion.failed() {
                     (passed, failed + 1)
                 } else {
                     (passed + 1, failed)
-                }
+                };
             }
             (passed, failed)
         })
