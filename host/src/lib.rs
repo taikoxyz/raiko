@@ -30,7 +30,6 @@ use clap::Parser;
 use raiko_lib::consts::SupportedChainSpecs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::info;
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
