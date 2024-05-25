@@ -30,7 +30,6 @@ use clap::Parser;
 use raiko_lib::consts::SupportedChainSpecs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::info;
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
@@ -106,6 +105,10 @@ pub struct Cli {
     #[serde(flatten)]
     /// Proof request options
     pub proof_request_opt: ProofRequestOpt,
+
+    #[arg(long, require_equals = true)]
+    /// Set jwt secret for auth
+    jwt_secret: Option<String>,
 }
 
 impl Cli {
@@ -152,7 +155,6 @@ impl ProverState {
         let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
             let chain_specs = SupportedChainSpecs::merge_from_file(cs_path.clone())
                 .unwrap_or(SupportedChainSpecs::default());
-            info!("Supported chains: {:?}", chain_specs.supported_networks());
             chain_specs
         } else {
             SupportedChainSpecs::default()
