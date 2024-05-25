@@ -4,7 +4,6 @@ use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
     prover::{Proof, Prover, ProverError},
 };
 use serde::{Deserialize, Serialize};
@@ -124,31 +123,6 @@ impl FromStr for ProofType {
 }
 
 impl ProofType {
-    /// Get the instance hash for the protocol instance depending on the proof type.
-    pub fn instance_hash(&self, pi: ProtocolInstance) -> RaikoResult<B256> {
-        match self {
-            ProofType::Native => Ok(NativeProver::instance_hash(pi)),
-            ProofType::Sp1 => {
-                #[cfg(feature = "sp1")]
-                return Ok(sp1_driver::Sp1Prover::instance_hash(pi));
-
-                Err(RaikoError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Risc0 => {
-                #[cfg(feature = "risc0")]
-                return Ok(risc0_driver::Risc0Prover::instance_hash(pi));
-
-                Err(RaikoError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Sgx => {
-                #[cfg(feature = "sgx")]
-                return Ok(sgx_prover::SgxProver::instance_hash(pi));
-
-                Err(RaikoError::FeatureNotSupportedError(self.clone()))
-            }
-        }
-    }
-
     /// Run the prover driver depending on the proof type.
     pub async fn run_prover(
         &self,

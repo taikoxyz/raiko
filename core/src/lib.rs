@@ -4,9 +4,9 @@ use alloy_primitives::{Address, FixedBytes};
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    consts::ChainSpec,
+    consts::{ChainSpec, VerifierType},
     input::{GuestInput, GuestOutput, TaikoProverData},
-    protocol_instance::assemble_protocol_instance,
+    protocol_instance::ProtocolInstance,
     prover::Proof,
     utils::HeaderHasher,
 };
@@ -69,10 +69,7 @@ impl Raiko {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
                 info!("Final block header derived successfully. {header:?}");
-                let pi = self
-                    .request
-                    .proof_type
-                    .instance_hash(assemble_protocol_instance(input, &header)?)?;
+                let pi = ProtocolInstance::new(input, &header, VerifierType::None)?.instance_hash();
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;

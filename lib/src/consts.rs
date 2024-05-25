@@ -49,8 +49,8 @@ const DEFAULT_CHAIN_SPECS: &str = include_str!("../../host/config/chain_spec_lis
 #[derive(Clone, Debug)]
 pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 
-impl SupportedChainSpecs {
-    pub fn default() -> Self {
+impl Default for SupportedChainSpecs {
+    fn default() -> Self {
         let deserialized: Vec<ChainSpec> = serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap();
         let chain_spec_list = deserialized
             .iter()
@@ -58,7 +58,9 @@ impl SupportedChainSpecs {
             .collect::<HashMap<String, ChainSpec>>();
         SupportedChainSpecs(chain_spec_list)
     }
+}
 
+impl SupportedChainSpecs {
     #[cfg(feature = "std")]
     pub fn merge_from_file(file_path: PathBuf) -> Result<SupportedChainSpecs> {
         let mut known_chain_specs = SupportedChainSpecs::default();

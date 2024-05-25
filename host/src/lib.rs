@@ -134,9 +134,7 @@ impl ProverState {
         opts.merge_from_file()?;
 
         let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
-            let chain_specs = SupportedChainSpecs::merge_from_file(cs_path.clone())
-                .unwrap_or(SupportedChainSpecs::default());
-            chain_specs
+            SupportedChainSpecs::merge_from_file(cs_path.clone()).unwrap_or_default()
         } else {
             SupportedChainSpecs::default()
         };
