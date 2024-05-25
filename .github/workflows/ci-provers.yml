@@ -1,4 +1,4 @@
-name: CI - All zkVMs
+name: CI - All Provers
 
 on:
   workflow_call:
