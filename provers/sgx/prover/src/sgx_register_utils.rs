@@ -15,9 +15,18 @@ use url::Url;
 
 const REGISTERED_FILE: &str = "registered";
 
-pub fn get_instance_id(dir: &Path) -> Result<u64> {
+pub fn get_instance_id(dir: &Path) -> Result<Option<u64>> {
     let file = dir.join(REGISTERED_FILE);
-    let id = fs::read_to_string(file)?.parse()?;
+    let id = match fs::read_to_string(file) {
+        Ok(t) => Some(t.parse()?),
+        Err(e) => {
+            if e.kind() == io::ErrorKind::NotFound {
+                None
+            } else {
+                return Err(e.into());
+            }
+        }
+    };
     Ok(id)
 }
 
@@ -29,7 +38,13 @@ pub fn set_instance_id(dir: &Path, id: u64) -> io::Result<()> {
 
 pub fn remove_instance_id(dir: &Path) -> io::Result<()> {
     let file = dir.join(REGISTERED_FILE);
-    fs::remove_file(file)?;
+    fs::remove_file(file).or_else(|e| {
+        if e.kind() == io::ErrorKind::NotFound {
+            Ok(())
+        } else {
+            Err(e)
+        }
+    })?;
     Ok(())
 }
 
