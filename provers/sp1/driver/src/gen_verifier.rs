@@ -8,6 +8,7 @@ use sp1_sdk::artifacts::export_solidity_groth16_verifier;
 use sp1_sdk::Prover;
 use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
 use std::path::PathBuf;
+use dotenv::dotenv;
 
 pub const FIXUTRE_PATH: &str = "./provers/sp1/contracts/src/fixtures/fixture.json";
 
@@ -29,6 +30,8 @@ struct RaikoProofFixture {
 fn main() {
     // Setup the logger.
     sp1_sdk::utils::setup_logger();
+
+    dotenv().ok();
 
     // Setup the prover client.
     let client = ProverClient::new();

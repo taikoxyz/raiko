@@ -6632,6 +6632,7 @@ dependencies = [
  "anyhow",
  "cargo_metadata 0.18.1",
  "chrono",
+ "dotenv",
  "once_cell",
  "raiko-lib",
  "regex",
