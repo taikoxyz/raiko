@@ -7,21 +7,28 @@ use crate::{executor::Executor, ROOT_DIR};
 pub fn parse_metadata(path: &str) -> Metadata {
     let manifest = std::path::Path::new(path).join("Cargo.toml");
     let mut metadata_cmd = cargo_metadata::MetadataCommand::new();
+
     metadata_cmd
         .no_deps()
         .manifest_path(manifest)
         .exec()
-        .unwrap()
+        .expect("Couldn't parse metadata")
 }
 
 pub trait GuestMetadata {
     // /// Kind of target ("bin", "example", "test", "bench", "lib", "custom-build")
     fn get_tests(&self, names: &[&str]) -> Vec<String>;
+
     fn get_bins(&self, names: &[&str]) -> Vec<String>;
+
     fn tests(&self) -> Vec<&Target>;
+
     fn bins(&self) -> Vec<&Target>;
+
     fn benchs(&self) -> Vec<&Target>;
+
     fn libs(&self) -> Vec<&Target>;
+
     fn build_scripts(&self) -> Vec<&Target>;
 }
 
@@ -103,7 +110,6 @@ pub struct CommandBuilder {
     pub sanitized_env: Vec<String>,
 
     pub cargo: Option<PathBuf>,
-
     // rustc compiler specific to toolchain
     pub rustc: Option<PathBuf>,
     // -C flags
@@ -121,27 +127,30 @@ pub struct CommandBuilder {
 }
 
 impl CommandBuilder {
+    fn get_path_buf(tool: &str, toolchain: &str) -> Option<PathBuf> {
+        let std::io::Result::Ok(std::process::Output { stdout, .. }) = sanitized_cmd("rustup")
+            .args([&format!("+{toolchain}"), "which", tool])
+            .output()
+        else {
+            return None;
+        };
+
+        let Ok(out) = String::from_utf8(stdout) else {
+            return None;
+        };
+
+        println!("Using {tool}: {}", out.trim());
+
+        Some(PathBuf::from(out))
+    }
+
     pub fn new(meta: &Metadata, target: &str, toolchain: &str) -> Self {
-        let tools = ["cargo", "rustc"]
-            .into_iter()
-            .map(|tool| {
-                let out = sanitized_cmd("rustup")
-                    .args([format!("+{toolchain}").as_str(), "which", tool])
-                    .output()
-                    .expect("rustup failed to find {toolchain} toolchain")
-                    .stdout;
-                let out = String::from_utf8(out).unwrap();
-                let out = out.trim();
-                println!("Using rustc: {out}");
-                PathBuf::from(out)
-            })
-            .collect::<Vec<_>>();
         Self {
             meta: meta.clone(),
             target: target.to_string(),
+            cargo: CommandBuilder::get_path_buf("cargo", toolchain),
+            rustc: CommandBuilder::get_path_buf("rustc", toolchain),
             sanitized_env: Vec::new(),
-            cargo: Some(tools[0].clone()),
-            rustc: Some(tools[1].clone()),
             rust_flags: None,
             z_flags: None,
             cc_compiler: None,
@@ -203,33 +212,34 @@ impl CommandBuilder {
 
     pub fn sanitize(&self, cmd: &mut Command, filter_cargo: bool) {
         if filter_cargo {
-            for (key, _val) in env::vars().filter(|x| x.0.starts_with("CARGO")) {
+            for (key, _val) in env::vars().filter(|(key, _)| key.starts_with("CARGO")) {
                 cmd.env_remove(key);
             }
         }
-        self.sanitized_env.iter().for_each(|e| {
-            cmd.env_remove(e);
-        });
+        for key in self.sanitized_env.iter() {
+            cmd.env_remove(key);
+        }
     }
 
     /// Runs cargo build and returns paths of the artifacts
-    // target/
-    // ├── debug/
-    //    ├── deps/
-    //    │   |── main-<hasha>   --> this is the output
-    //    │   |── main-<hashb>
-    //    │   └── bin2-<hashe>   --> this is the output
-    //    ├── build/
-    //    ├── main               --> this is the output (same)
-    //    └── bin2               --> this is the output (same)
+    /// target/
+    /// ├── debug/
+    ///    ├── deps/
+    ///    │   |── main-<hasha>   --> this is the output
+    ///    │   |── main-<hashb>
+    ///    │   └── bin2-<hashe>   --> this is the output
+    ///    ├── build/
+    ///    ├── main               --> this is the output (same)
+    ///    └── bin2               --> this is the output (same)
     pub fn build_command(&self, profile: &str, bins: &[String]) -> Executor {
-        let args = vec!["build".to_string()];
-        let cmd = self.inner_command(args, profile, bins.to_owned());
+        let cmd = self.inner_command(vec!["build".to_owned()], profile, bins.to_owned());
+
         let target_path: PathBuf = self
             .meta
             .target_directory
             .join(self.target.clone())
             .join(profile);
+
         let artifacts = self
             .meta
             .bins()
@@ -246,25 +256,31 @@ impl CommandBuilder {
     }
 
     /// Runs cargo test and returns *incomplete* paths of the artifacts
-    // target/
-    // ├── debug/
-    //    ├── deps/
-    //    │   |── main-<hasha>
-    //    │   |── main-<hashb>    --> this is the test
-    //    │   |── bin2-<hashe>
-    //    │   └── my-test-<hashe> --> this is the test
-    //    ├── build/
-    // Thus the test artifacts path are hypothetical because we don't know the hash yet
+    /// target/
+    /// ├── debug/
+    ///    ├── deps/
+    ///    │   |── main-<hasha>
+    ///    │   |── main-<hashb>    --> this is the test
+    ///    │   |── bin2-<hashe>
+    ///    │   └── my-test-<hashe> --> this is the test
+    ///    ├── build/
+    /// Thus the test artifacts path are hypothetical because we don't know the hash yet
     pub fn test_command(&self, profile: &str, bins: &Vec<String>) -> Executor {
-        let args = vec!["test".to_string(), "--no-run".to_string()];
-        let cmd = self.inner_command(args, profile, bins.clone());
+        let cmd = self.inner_command(
+            vec!["test".to_owned(), "--no-run".to_owned()],
+            profile,
+            bins.clone(),
+        );
+
         let target_path: PathBuf = self
             .meta
             .target_directory
             .join(self.target.clone())
             .join(profile)
             .join("deps");
-        println!("tests {:?}", bins);
+
+        println!("tests {bins:?}");
+
         let artifacts = self
             .meta
             .tests()
@@ -302,13 +318,15 @@ impl CommandBuilder {
         // `--{profile} {bin} --target {target} --locked -Z {z_flags}`
         if profile != "debug" {
             // error: unexpected argument '--debug' found; tip: `--debug` is the default
-            args.push(format!("--{}", profile));
+            args.push(format!("--{profile}"));
         }
+
         args.extend(vec![
-            "--target".to_string(),
-            target.clone(),
+            "--target".to_owned(),
+            target,
             // "--locked".to_string(),
         ]);
+
         if !bins.is_empty() {
             let libs = meta
                 .libs()
@@ -320,22 +338,28 @@ impl CommandBuilder {
             args.extend(format_flags("--lib", &libs));
             args.extend(format_flags("--bin", &bins));
         }
+
         if let Some(z_flags) = z_flags {
             args.extend(format_flags("-Z", &z_flags));
         }
 
         // Construct command from the toolchain-specific cargo
-        let mut cmd =
-            Command::new(cargo.map_or("cargo".to_string(), |c| String::from(c.to_str().unwrap())));
+        let mut cmd = Command::new(cargo.map_or("cargo".to_owned(), |c| {
+            String::from(c.to_str().expect("Output is not valid UTF-8"))
+        }));
+
         // Clear unwanted env vars
         self.sanitize(&mut cmd, true);
-        cmd.current_dir(ROOT_DIR.get().unwrap());
+        cmd.current_dir(ROOT_DIR.get().expect("No reference to ROOT_DIR"));
 
         // Set Rustc compiler path and flags
         cmd.env(
             "RUSTC",
-            rustc.map_or("rustc".to_string(), |c| String::from(c.to_str().unwrap())),
+            rustc.map_or("rustc".to_string(), |c| {
+                String::from(c.to_str().expect("Output is not valid UTF-8"))
+            }),
         );
+
         if let Some(rust_flags) = rust_flags {
             cmd.env(
                 "CARGO_ENCODED_RUSTFLAGS",
@@ -347,6 +371,7 @@ impl CommandBuilder {
         if let Some(cc_compiler) = cc_compiler {
             cmd.env("CC", cc_compiler);
         }
+
         if let Some(c_flags) = c_flags {
             cmd.env(format!("CC_{}", self.target), c_flags.join(" "));
         }
@@ -363,16 +388,15 @@ fn to_strings(strs: &[&str]) -> Vec<String> {
 }
 
 pub fn format_flags(flag: &str, items: &[String]) -> Vec<String> {
-    let res = items.iter().fold(Vec::new(), |mut res, i| {
+    items.iter().fold(Vec::new(), |mut res, i| {
         res.extend([flag.to_owned(), i.to_owned()]);
         res
-    });
-    res
+    })
 }
 
 fn sanitized_cmd(tool: &str) -> Command {
     let mut cmd = Command::new(tool);
-    for (key, _val) in env::vars().filter(|x| x.0.starts_with("CARGO")) {
+    for (key, _val) in env::vars().filter(|(key, _)| key.starts_with("CARGO")) {
         cmd.env_remove(key);
     }
     cmd.env_remove("RUSTUP_TOOLCHAIN");
