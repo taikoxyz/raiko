@@ -3,6 +3,7 @@ harness::entrypoint!(main, tests, zk_op::tests);
 // harness::entrypoint!(main, tests);
 
 use raiko_lib::{
+    consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::VerifierType,
     input::{GuestInput},

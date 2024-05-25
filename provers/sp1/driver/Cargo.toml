@@ -35,6 +35,7 @@ regex = "1.5.4"
 
 [features]
 default = ["enable"]
+default = ["enable"]
 enable = [
     "serde",
     "serde_json",

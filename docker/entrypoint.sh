@@ -115,7 +115,7 @@ function update_raiko_sgx_instance_id() {
     if [[ -n $SGX_INSTANCE_ID ]]; then
         jq \
         --arg update_value "$SGX_INSTANCE_ID" \
-        '.sgx.instance_id = $update_value' $CONFIG_FILE \
+        '.sgx.instance_id = ($update_value | tonumber)' $CONFIG_FILE \
         >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update old sgx instance id to $SGX_INSTANCE_ID"
     fi

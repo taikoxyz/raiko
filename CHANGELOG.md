@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 (2024-05-23)
+## 1.0.0 (2024-05-25)
 
 
 ### Features
@@ -33,10 +33,12 @@
 
 ### Bug Fixes
 
+* can't share setup between pods ([#253](https://github.com/taikoxyz/raiko/issues/253)) ([0d7be6b](https://github.com/taikoxyz/raiko/commit/0d7be6b2c8979f2eeedf458e71ee0f5a6787d14f))
 * different manifest in docker and local ([#117](https://github.com/taikoxyz/raiko/issues/117)) ([52999d6](https://github.com/taikoxyz/raiko/commit/52999d664a44ad86f4a69392f76353fc656821ff))
 * docker stuff ([#241](https://github.com/taikoxyz/raiko/issues/241)) ([6bb70b1](https://github.com/taikoxyz/raiko/commit/6bb70b15991060dba5620f7903a18008a02b43e3))
 * enable the mpt cache ([#62](https://github.com/taikoxyz/raiko/issues/62)) ([46825d6](https://github.com/taikoxyz/raiko/commit/46825d66a2edfc8ce0e2acfb2e6e272645d79956))
 * fetch history headers ([#100](https://github.com/taikoxyz/raiko/issues/100)) ([4fd70ee](https://github.com/taikoxyz/raiko/commit/4fd70eee7b5a64173549d3e466ab4bd7fbf2a33b))
+* install sudo for gramine ([#250](https://github.com/taikoxyz/raiko/issues/250)) ([4f78b0a](https://github.com/taikoxyz/raiko/commit/4f78b0ab264399c789bd98f51a3ea238a704146b))
 * let config_path in config_dir ([#233](https://github.com/taikoxyz/raiko/issues/233)) ([78a5844](https://github.com/taikoxyz/raiko/commit/78a584406dde604b73b74e8269a7017cf6fb0098))
 * **lib:** temporarily disable kzg check in sgx/sp1 provers ([#157](https://github.com/taikoxyz/raiko/issues/157)) ([039d2fa](https://github.com/taikoxyz/raiko/commit/039d2fae62a7ec7d66c40d73cc1a47c65bf87c23))
 * metrics docker fix ([#216](https://github.com/taikoxyz/raiko/issues/216)) ([86bbc55](https://github.com/taikoxyz/raiko/commit/86bbc5598ee58194951a86c1775dfb30a3fed31b))
@@ -44,6 +46,7 @@
 * **raiko:** fix sticky invalid tx state ([#184](https://github.com/taikoxyz/raiko/issues/184)) ([99f5580](https://github.com/taikoxyz/raiko/commit/99f558088437af32e76e04d0529ea0715a163d40))
 * **raiko:** make kzg work on SP1 ([#205](https://github.com/taikoxyz/raiko/issues/205)) ([027c3ae](https://github.com/taikoxyz/raiko/commit/027c3aee910a7a0cae1dec4eb19b7865d4aa5c0d))
 * revm bn254 mul issue + cancun support + misc issues ([#222](https://github.com/taikoxyz/raiko/issues/222)) ([d90acd0](https://github.com/taikoxyz/raiko/commit/d90acd00be42b6af4a7f0301882d8719be5fdf64))
+* use json num instead of string ([#252](https://github.com/taikoxyz/raiko/issues/252)) ([9bcb44a](https://github.com/taikoxyz/raiko/commit/9bcb44a19b8a99224c6e047ee02c6fd5e8b8c177))
 
 
 ### Performance Improvements
