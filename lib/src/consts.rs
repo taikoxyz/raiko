@@ -51,7 +51,7 @@ pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 
 impl SupportedChainSpecs {
     pub fn default() -> Self {
-        let deserialized: Vec<ChainSpec> = serde_json::from_str(&DEFAULT_CHAIN_SPECS).unwrap();
+        let deserialized: Vec<ChainSpec> = serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap();
         let chain_spec_list = deserialized
             .iter()
             .map(|cs| (cs.name.clone(), cs.clone()))
@@ -62,7 +62,7 @@ impl SupportedChainSpecs {
     #[cfg(feature = "std")]
     pub fn merge_from_file(file_path: PathBuf) -> Result<SupportedChainSpecs> {
         let mut known_chain_specs = SupportedChainSpecs::default();
-        let file = std::fs::File::open(&file_path)?;
+        let file = std::fs::File::open(file_path)?;
         let reader = std::io::BufReader::new(file);
         let config: Value = serde_json::from_reader(reader)?;
         let chain_spec_list: Vec<ChainSpec> = serde_json::from_value(config)?;
@@ -88,7 +88,7 @@ impl SupportedChainSpecs {
         self.0
             .values()
             .find(|spec| spec.chain_id == chain_id)
-            .map(|spec| spec.clone())
+            .cloned()
     }
 }
 
@@ -135,6 +135,15 @@ impl Default for Eip1559Constants {
     }
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum VerifierType {
+    None,
+    SGX,
+    SP1,
+    RISC0,
+}
+
 /// Specification of a specific chain.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct ChainSpec {
@@ -147,8 +156,7 @@ pub struct ChainSpec {
     pub l2_contract: Option<Address>,
     pub rpc: String,
     pub beacon_rpc: Option<String>,
-    // TRICKY: the sgx_verifier_addr is in l1, not in itself
-    pub sgx_verifier_address: Option<Address>,
+    pub verifier_address: BTreeMap<VerifierType, Option<Address>>,
     pub genesis_time: u64,
     pub seconds_per_slot: u64,
     pub is_taiko: bool,
@@ -173,7 +181,7 @@ impl ChainSpec {
             l2_contract: None,
             rpc: "".to_string(),
             beacon_rpc: None,
-            sgx_verifier_address: None,
+            verifier_address: BTreeMap::new(),
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
             is_taiko,
@@ -282,7 +290,11 @@ mod tests {
             l2_contract: None,
             rpc: "".to_string(),
             beacon_rpc: None,
-            sgx_verifier_address: None,
+            verifier_address: BTreeMap::from([
+                (VerifierType::SGX, Some(Address::default())),
+                (VerifierType::SP1, None),
+                (VerifierType::RISC0, Some(Address::default())),
+            ]),
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
             is_taiko: false,

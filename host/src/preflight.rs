@@ -296,7 +296,7 @@ async fn prepare_taiko_chain_input(
 
     // Create the transactions from the proposed tx list
     let transactions = generate_transactions(
-        &taiko_chain_spec,
+        taiko_chain_spec,
         proposal_event.meta.blobUsed,
         &tx_data,
         Some(anchor_tx.clone()),
