@@ -1,6 +1,7 @@
 #![cfg(feature = "enable")]
 use alloy_primitives::{Address, B256};
 use alloy_sol_types::{sol, SolType};
+use dotenv::dotenv;
 use raiko_lib::input::{GuestInput, RawGuestOutput, Transition};
 use raiko_lib::{print_duration, Measurement};
 use serde::{Deserialize, Serialize};
@@ -8,7 +9,6 @@ use sp1_sdk::artifacts::export_solidity_groth16_verifier;
 use sp1_sdk::Prover;
 use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
 use std::path::PathBuf;
-use dotenv::dotenv;
 
 pub const FIXUTRE_PATH: &str = "./provers/sp1/contracts/src/fixtures/fixture.json";
 
