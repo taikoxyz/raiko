@@ -139,7 +139,9 @@ impl CommandBuilder {
             return None;
         };
 
-        println!("Using {tool}: {}", out.trim());
+        let out = out.trim();
+
+        println!("Using {tool}: {out}");
 
         Some(PathBuf::from(out))
     }
