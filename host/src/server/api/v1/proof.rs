@@ -31,15 +31,13 @@ fn get_cached_input(
     block_number: u64,
     network: &str,
 ) -> Option<GuestInput> {
-    cache_path
-        .as_ref()
-        .map(|dir| get_input_path(dir, block_number, network))
-        .and_then(|path| {
-            File::open(path)
-                .map(|file| bincode::deserialize_from(file).ok())
-                .ok()
-                .flatten()
-        })
+    let dir = cache_path.as_ref()?;
+
+    let path = get_input_path(dir, block_number, network);
+
+    let file = File::open(path).ok()?;
+
+    bincode::deserialize_from(file).ok()
 }
 
 fn set_cached_input(
@@ -48,15 +46,21 @@ fn set_cached_input(
     network: &str,
     input: &GuestInput,
 ) -> HostResult<()> {
-    if let Some(dir) = cache_path.as_ref() {
-        let path = get_input_path(dir, block_number, network);
-        if !path.exists() {
-            let file = File::create(&path).map_err(<std::io::Error as Into<HostError>>::into)?;
-            info!("caching input for {path:?}");
-            bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))?;
-        }
+    let Some(dir) = cache_path.as_ref() else {
+        return Ok(());
+    };
+
+    let path = get_input_path(dir, block_number, network);
+
+    if path.exists() {
+        return Ok(());
     }
-    Ok(())
+
+    let file = File::create(&path).map_err(<std::io::Error as Into<HostError>>::into)?;
+
+    info!("caching input for {path:?}");
+
+    bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))
 }
 
 fn dec_concurrent_req_count(e: HostError) -> HostError {
