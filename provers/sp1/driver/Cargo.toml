@@ -3,6 +3,12 @@ version = "0.1.0"
 name = "sp1-driver"
 edition = "2021"
 
+[[bench]]
+name = "benchmark"
+path = "src/benchmark.rs"
+harness = true
+
+
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
 alloy-primitives = { workspace = true, optional = true }
@@ -11,13 +17,18 @@ serde = {  workspace = true , optional = true}
 serde_json = { workspace = true , optional = true }
 sp1-sdk = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
-once_cell = { workspace = true }
-sha3 = { workspace = true, default-features = false}
+once_cell = { workspace = true, optional = true }
+sha3 = { workspace = true, optional = true, default-features = false}
 
 [build-dependencies]
 sp1-helper = { workspace = true, optional = true }
+cargo_metadata = "0.18.1"
+chrono = { version = "0.4.34", default-features = false, features = ["clock"] }
+regex = "1.5.4"
+
 
 [features]
+default = ["enable"]
 enable = [
     "serde",
     "serde_json",
@@ -26,4 +37,7 @@ enable = [
     "anyhow",
     "sp1-helper",
     "alloy-primitives",
+    "once_cell",
+    "sha3",
 ]
+neon = ["sp1-sdk?/neon"]

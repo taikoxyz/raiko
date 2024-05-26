@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File, OpenOptions},
-    io::prelude::*,
+    io::{prelude::*, Write},
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
@@ -9,12 +9,14 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
+    consts::VerifierType,
     input::GuestInput,
-    protocol_instance::{assemble_protocol_instance, EvidenceType},
+    protocol_instance::ProtocolInstance,
 };
 use raiko_primitives::Address;
 use secp256k1::{KeyPair, SecretKey};
 use serde::Serialize;
+
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
 use crate::{
@@ -78,12 +80,16 @@ fn save_bootstrap_details(
     Ok(())
 }
 
+#[derive(Debug, thiserror::Error)]
 pub enum BootStrapError {
     // file does not exist
+    #[error("File does not exist")]
     NotExist,
     // file exists but has wrong permissions
+    #[error("File exists but has wrong permissions")]
     WithWrongPermissions,
     // file exists but could not be read normally due to mrenclave change
+    #[error("File exists but could not be read normally due to mrenclave change: {0}")]
     DecryptionError(String),
 }
 
@@ -131,10 +137,8 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         TaikoStrategy::build_from(&input).expect("Failed to build the resulting block");
 
     // Calculate the public input hash
-    let pi = assemble_protocol_instance(&input, &header)?;
-    let pi_hash = pi.instance_hash(EvidenceType::Sgx {
-        new_pubkey: new_instance,
-    });
+    let pi = ProtocolInstance::new(&input, &header, VerifierType::SGX)?.sgx_instance(new_instance);
+    let pi_hash = pi.instance_hash();
 
     println!(
         "Block {}. PI data to be signed: {pi_hash}",

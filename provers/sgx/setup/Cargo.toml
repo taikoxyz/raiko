@@ -38,7 +38,6 @@ serde_with = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 hyper = { workspace = true }
-hashbrown = { workspace = true }
 env_logger = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -77,7 +76,4 @@ default = ["sgx"]
 #   "dep:risc0-driver",
 #   "risc0-driver/enable",
 # ]
-sgx = [
-  "dep:sgx-prover",
-  "sgx-prover/enable",
-]
+sgx = ["dep:sgx-prover", "sgx-prover/enable"]

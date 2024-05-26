@@ -19,14 +19,14 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
-use raiko_primitives::{mpt::MptNode, Address, Bytes, FixedBytes, B256, U256};
+use raiko_primitives::{mpt::MptNode, Address, Bytes, B256, U256};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, serde_with::RlpBytes};
+use crate::{consts::ChainSpec, serde_with::RlpBytes, serde_with::RlpHexBytes};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -41,8 +41,6 @@ pub struct GuestInput {
     pub chain_spec: ChainSpec,
     /// Block number
     pub block_number: u64,
-    /// Block gas used
-    pub gas_used: u64,
     /// Block hash - for reference!
     pub block_hash_reference: B256,
     /// Block header - for reference!
@@ -103,17 +101,15 @@ pub struct TaikoProverData {
     pub graffiti: B256,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GuestOutput {
-    Success((WrappedHeader, FixedBytes<32>)),
-    Failure,
-}
-
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WrappedHeader {
-    #[serde_as(as = "RlpBytes")]
-    pub header: AlloyConsensusHeader,
+pub enum GuestOutput {
+    Success {
+        #[serde_as(as = "RlpHexBytes")]
+        header: AlloyConsensusHeader,
+        hash: B256,
+    },
+    Failure,
 }
 
 sol! {
@@ -205,131 +201,6 @@ sol! {
     {}
 
     function proveBlock(uint64 blockId, bytes calldata input) {}
-}
-
-pub mod taiko_a6 {
-    use alloy_sol_types::sol;
-    use serde::{Deserialize, Serialize};
-
-    sol! {
-        #[derive(Debug, Default, Deserialize, Serialize)]
-        struct EthDeposit {
-            address recipient;
-            uint96 amount;
-            uint64 id;
-        }
-
-        #[derive(Debug, Default, Deserialize, Serialize)]
-        struct BlockMetadata {
-            bytes32 l1Hash; // slot 1
-            bytes32 difficulty; // slot 2
-            bytes32 blobHash; //or txListHash (if Blob not yet supported), // slot 3
-            bytes32 extraData; // slot 4
-            bytes32 depositsHash; // slot 5
-            address coinbase; // L2 coinbase, // slot 6
-            uint64 id;
-            uint32 gasLimit;
-            uint64 timestamp; // slot 7
-            uint64 l1Height;
-            uint24 txListByteOffset;
-            uint24 txListByteSize;
-            uint16 minTier;
-            bool blobUsed;
-            bytes32 parentMetaHash; // slot 8
-        }
-
-        #[derive(Debug, Default, Deserialize, Serialize)]
-        struct BlockParams {
-            address assignedProver;
-            address coinbase;
-            bytes32 extraData;
-            bytes32 blobHash;
-            uint24 txListByteOffset;
-            uint24 txListByteSize;
-            bool cacheBlobForReuse;
-            bytes32 parentMetaHash;
-            HookCall[] hookCalls;
-        }
-
-        #[derive(Debug, Default, Deserialize, Serialize)]
-        struct HookCall {
-            address hook;
-            bytes data;
-        }
-
-        #[derive(Debug)]
-        struct Transition {
-            bytes32 parentHash;
-            bytes32 blockHash;
-            bytes32 signalRoot;
-            bytes32 graffiti;
-        }
-
-        #[derive(Debug, Default, Deserialize, Serialize)]
-        event BlockProposed(
-            uint256 indexed blockId,
-            address indexed assignedProver,
-            uint96 livenessBond,
-            BlockMetadata meta,
-            EthDeposit[] depositsProcessed
-        );
-
-        #[derive(Debug)]
-        struct TierProof {
-            uint16 tier;
-            bytes data;
-        }
-
-        #[derive(Debug)]
-        function proposeBlock(
-            bytes calldata params,
-            bytes calldata txList
-        )
-        {}
-
-        function proveBlock(uint64 blockId, bytes calldata input) {}
-    }
-}
-
-impl From<taiko_a6::EthDeposit> for EthDeposit {
-    fn from(item: taiko_a6::EthDeposit) -> Self {
-        EthDeposit {
-            recipient: item.recipient,
-            amount: item.amount,
-            id: item.id,
-        }
-    }
-}
-
-impl From<taiko_a6::BlockProposed> for BlockProposed {
-    fn from(item: taiko_a6::BlockProposed) -> Self {
-        BlockProposed {
-            blockId: item.blockId,
-            assignedProver: item.assignedProver,
-            livenessBond: item.livenessBond,
-            meta: BlockMetadata {
-                l1Hash: item.meta.l1Hash,
-                difficulty: item.meta.difficulty,
-                blobHash: item.meta.blobHash,
-                extraData: item.meta.extraData,
-                depositsHash: item.meta.depositsHash,
-                coinbase: item.meta.coinbase,
-                id: item.meta.id,
-                gasLimit: item.meta.gasLimit,
-                timestamp: item.meta.timestamp,
-                l1Height: item.meta.l1Height,
-                minTier: item.meta.minTier,
-                blobUsed: item.meta.blobUsed,
-                parentMetaHash: item.meta.parentMetaHash,
-                ..Default::default()
-            },
-            depositsProcessed: item
-                .depositsProcessed
-                .iter()
-                .map(|v| v.clone().into())
-                .collect(),
-        }
-    }
 }
 
 #[cfg(feature = "std")]

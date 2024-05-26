@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use core::{fmt::Debug, mem::take, str::from_utf8};
+use std::collections::HashSet;
 
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
 use alloy_primitives::{TxKind, U256};
@@ -29,8 +30,14 @@ use revm::{
         Account, Address, EVMError, HandlerCfg, ResultAndState, SpecId, TransactTo, TxEnv,
         MAX_BLOB_GAS_PER_BLOCK,
     },
-    taiko, Database, DatabaseCommit, Evm,
+    taiko, Database, DatabaseCommit, Evm, JournaledState,
 };
+cfg_if::cfg_if! {
+    if #[cfg(feature = "tracer")] {
+        use std::{fs::{OpenOptions, File}, io::{BufWriter, Write}, sync::{Arc, Mutex}};
+        use revm::{inspector_handle_register, inspectors::TracerEip3155};
+    }
+}
 
 use super::{OptimisticDatabase, TxExecStrategy};
 use crate::{
@@ -85,14 +92,17 @@ impl TxExecStrategy for TkoTxExecStrategy {
             None
         };
         let mut transactions = generate_transactions(
+            chain_spec,
             block_builder.input.taiko.block_proposed.meta.blobUsed,
             &block_builder.input.taiko.tx_data,
             anchor_tx,
         );
 
         // Setup the EVM environment
-        let evm = Evm::builder()
-            .with_db(block_builder.db.take().unwrap())
+        let evm = Evm::builder().with_db(block_builder.db.take().unwrap());
+        #[cfg(feature = "tracer")]
+        let evm = evm.with_external_context(TracerEip3155::new(Box::new(std::io::stdout())));
+        let evm = evm
             .with_handler_cfg(HandlerCfg::new_with_taiko(spec_id, is_taiko))
             .modify_cfg_env(|cfg_env| {
                 // set the EVM configuration
@@ -108,7 +118,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 blk_env.basefee = header.base_fee_per_gas.unwrap().try_into().unwrap();
                 blk_env.gas_limit = block_builder.input.gas_limit.try_into().unwrap();
                 if let Some(excess_blob_gas) = header.excess_blob_gas {
-                    blk_env.set_blob_excess_gas_and_price(excess_blob_gas.try_into().unwrap())
+                    blk_env.set_blob_excess_gas_and_price(excess_blob_gas.try_into().unwrap());
                 }
             });
         let evm = if is_taiko {
@@ -116,6 +126,8 @@ impl TxExecStrategy for TkoTxExecStrategy {
         } else {
             evm
         };
+        #[cfg(feature = "tracer")]
+        let evm = evm.append_handler_register(inspector_handle_register);
         let mut evm = evm.build();
 
         // Set the beacon block root in the EVM
@@ -164,6 +176,14 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
             inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+
+            #[cfg(feature = "tracer")]
+            let trace = set_trace_writer(
+                &mut evm.context.external,
+                chain_id,
+                block_builder.input.block_number,
+                actual_tx_no,
+            );
 
             // anchor transaction always the first transaction
             let is_anchor = is_taiko && tx_no == 0;
@@ -234,6 +254,9 @@ impl TxExecStrategy for TkoTxExecStrategy {
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
+                    // Clear the state for the next tx
+                    evm.context.evm.journaled_state = JournaledState::new(spec_id, HashSet::new());
+
                     if is_optimistic {
                         continue;
                     }
@@ -261,6 +284,10 @@ impl TxExecStrategy for TkoTxExecStrategy {
             };
             #[cfg(feature = "std")]
             debug!("  Ok: {result:?}");
+
+            #[cfg(feature = "tracer")]
+            // Flush the trace writer
+            trace.lock().unwrap().flush().expect("Error flushing trace");
 
             tx_transact_duration.add_assign(start.elapsed());
 
@@ -333,7 +360,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         header.transactions_root = tx_trie.hash();
         header.receipts_root = receipt_trie.hash();
         header.logs_bloom = logs_bloom;
-        header.gas_used = cumulative_gas_used.try_into().unwrap();
+        header.gas_used = cumulative_gas_used.into();
         if spec_id >= SpecId::SHANGHAI {
             header.withdrawals_root = Some(withdrawals_trie.hash());
         };
@@ -450,4 +477,50 @@ where
     db.commit([(address, account)].into());
 
     Ok(())
+}
+
+#[cfg(feature = "tracer")]
+fn set_trace_writer(
+    tracer: &mut TracerEip3155,
+    chain_id: u64,
+    block_number: u64,
+    tx_no: usize,
+) -> Arc<Mutex<BufWriter<File>>> {
+    struct FlushWriter {
+        writer: Arc<Mutex<BufWriter<std::fs::File>>>,
+    }
+    impl FlushWriter {
+        fn new(writer: Arc<Mutex<BufWriter<std::fs::File>>>) -> Self {
+            Self { writer }
+        }
+    }
+    impl Write for FlushWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.writer.lock().unwrap().write(buf)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.writer.lock().unwrap().flush()
+        }
+    }
+
+    // Create the traces directory if it doesn't exist
+    std::fs::create_dir_all("traces").expect("Failed to create traces directory");
+
+    // Construct the file writer to write the trace to
+    let file_name = format!("traces/{}_{}_{}.json", chain_id, block_number, tx_no);
+    let write = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(file_name);
+    let trace = Arc::new(Mutex::new(BufWriter::new(
+        write.expect("Failed to open file"),
+    )));
+    let writer = FlushWriter::new(Arc::clone(&trace));
+
+    // Set the writer inside the handler in revm
+    tracer.set_writer(Box::new(writer));
+
+    trace
 }

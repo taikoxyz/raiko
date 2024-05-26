@@ -15,7 +15,6 @@ alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 
 anyhow = { workspace = true }
-hashbrown = { workspace = true }
 libflate = { workspace = true }
 once_cell = { workspace = true }
 revm = { workspace = true }
@@ -25,8 +24,9 @@ serde_with = { workspace = true, optional = true }
 thiserror-no-std = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
-c-kzg-taiko = { workspace = true }
+c-kzg = { workspace = true }
 sha2 = { workspace = true }
+cfg-if = { workspace = true }
 
 # [target.'cfg(feature = "std")'.dependencies]
 thiserror = { workspace = true, optional = true }
@@ -54,6 +54,9 @@ std = [
   "dep:serde_json",
   "dep:serde_with",
   # "dep:tokio",
+]
+tracer = [
+  "revm/serde-json",
 ]
 sgx = []
 sp1 = []

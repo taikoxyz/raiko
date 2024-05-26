@@ -12,26 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod error;
+pub mod interfaces;
 pub mod metrics;
 pub mod preflight;
-pub mod provider_db;
+pub mod provider;
 pub mod raiko;
-pub mod request;
-pub mod rpc_provider;
 pub mod server;
 
-use std::{alloc, collections::HashMap, fmt::Debug, path::PathBuf};
+use std::{alloc, collections::HashMap, path::PathBuf};
 
+use crate::interfaces::{error::HostResult, request::ProofRequestOpt};
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
-use anyhow::{Context, Result};
+use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
+use raiko_lib::consts::SupportedChainSpecs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::{error::HostError, request::ProofRequestOpt};
 
 type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
@@ -59,8 +57,11 @@ fn default_log_level() -> String {
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]
-#[command(name = "raiko")]
-#[command(about = "The taiko prover host", long_about = None)]
+#[command(
+    name = "raiko", 
+    about = "The taiko prover host", 
+    long_about = None
+)]
 #[serde(default)]
 pub struct Cli {
     #[arg(long, require_equals = true, default_value = "0.0.0.0:8080")]
@@ -83,9 +84,13 @@ pub struct Cli {
 
     #[arg(long, require_equals = true, default_value = "host/config/config.json")]
     #[serde(default = "default_config_path")]
-    /// Path to a config file that includes sufficent json args to request
+    /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
+
+    #[arg(long, require_equals = true)]
+    /// Path to a chain spec file that includes supported chain list
+    chain_spec_path: Option<PathBuf>,
 
     #[arg(long, require_equals = true)]
     /// Use a local directory as a cache for input. Accepts a custom directory.
@@ -100,16 +105,21 @@ pub struct Cli {
     #[serde(flatten)]
     /// Proof request options
     pub proof_request_opt: ProofRequestOpt,
+
+    #[arg(long, require_equals = true)]
+    /// Set jwt secret for auth
+    jwt_secret: Option<String>,
 }
 
 impl Cli {
     /// Read the options from a file and merge it with the current options.
-    pub fn merge_from_file(&mut self) -> Result<(), HostError> {
+    pub fn merge_from_file(&mut self) -> HostResult<()> {
         let file = std::fs::File::open(&self.config_path)?;
         let reader = std::io::BufReader::new(file);
         let mut config: Value = serde_json::from_reader(reader)?;
         let this = serde_json::to_value(&self)?;
         merge(&mut config, &this);
+
         *self = serde_json::from_value(config)?;
         Ok(())
     }
@@ -132,14 +142,23 @@ fn merge(a: &mut Value, b: &Value) {
 #[derive(Debug, Clone)]
 pub struct ProverState {
     pub opts: Cli,
+    pub chain_specs: SupportedChainSpecs,
 }
 
 impl ProverState {
-    pub fn init() -> Result<Self, HostError> {
+    pub fn init() -> HostResult<Self> {
         // Read the command line arguments;
         let mut opts = Cli::parse();
         // Read the config file.
         opts.merge_from_file()?;
+
+        let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
+            let chain_specs = SupportedChainSpecs::merge_from_file(cs_path.clone())
+                .unwrap_or(SupportedChainSpecs::default());
+            chain_specs
+        } else {
+            SupportedChainSpecs::default()
+        };
 
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {
@@ -148,11 +167,13 @@ impl ProverState {
             }
         }
 
-        Ok(Self { opts })
+        Ok(Self { opts, chain_specs })
     }
 }
 
 mod memory {
+    use tracing::info;
+
     use crate::ALLOCATOR;
 
     pub(crate) fn reset_stats() {
@@ -165,10 +186,10 @@ mod memory {
 
     pub(crate) fn print_stats(title: &str) {
         let max_memory = get_max_allocated();
-        println!(
+        info!(
             "{title}{}.{:06} MB",
-            max_memory / 1000000,
-            max_memory % 1000000
+            max_memory / 1_000_000,
+            max_memory % 1_000_000
         );
     }
 }

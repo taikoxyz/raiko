@@ -8,6 +8,11 @@ fn main() {
     pipeline.bins(&["sp1-guest"], "provers/sp1/guest/elf");
     #[cfg(feature = "test")]
     pipeline.tests(&["sp1-guest"], "provers/sp1/guest/elf");
+    #[cfg(feature = "bench")]
+    pipeline.bins(
+        &["ecdsa", "sha256", "bn254_add", "bn254_mul"],
+        "provers/sp1/guest/elf",
+    );
 }
 
 pub struct Sp1Pipeline {
@@ -32,7 +37,12 @@ impl Pipeline for Sp1Pipeline {
                 "panic=abort",
             ])
             .cc_compiler("gcc".into())
-            .c_flags(&["/opt/riscv/bin/riscv32-unknown-elf-gcc", "-mstrict-align"])
+            .c_flags(&[
+                "/opt/riscv/bin/riscv32-unknown-elf-gcc",
+                "-march=rv32im",
+                "-mstrict-align",
+                "-falign-functions=2",
+            ])
             .custom_args(&["--ignore-rust-version"])
     }
 

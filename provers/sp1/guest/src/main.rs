@@ -1,79 +1,55 @@
 #![no_main]
-sp1_zkvm::entrypoint!(main);
+harness::entrypoint!(main, tests, zk_op::tests);
+// harness::entrypoint!(main, tests);
 
-use raiko_lib::protocol_instance::assemble_protocol_instance;
-use raiko_lib::protocol_instance::EvidenceType;
 use raiko_lib::{
+    consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::{GuestInput, GuestOutput, WrappedHeader},
+    input::{GuestInput, GuestOutput},
+    protocol_instance::ProtocolInstance,
 };
-#[cfg(test)]
-use harness::*;
+use revm_precompile::zk_op::ZkOperation;
+use zk_op::Sp1Operator;
 
-use std::{
-    alloc::{alloc, handle_alloc_error, Layout},
-    ffi::c_void,
-};
-
-#[no_mangle]
-// TODO ideally this is c_size_t, but not stabilized (not guaranteed to be usize on all archs)
-unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
-    let layout = Layout::from_size_align(size, 4).expect("unable to allocate more memory");
-    let ptr = alloc(layout);
-
-    if ptr.is_null() {
-        handle_alloc_error(layout);
-    }
-
-    ptr as *mut c_void
-}
-
-#[no_mangle]
-// TODO shouldn't need to zero allocated bytes since the zkvm memory is zeroed, might want to zero anyway
-unsafe extern "C" fn calloc(size: usize) -> *mut c_void {
-    malloc(size)
-}
-
-#[no_mangle]
-unsafe extern "C" fn free(_size: *const c_void) {
-    // Intentionally a no-op, since the zkvm allocator is a bump allocator
-}
-
+pub mod mem;
+pub use mem::*;
 
 pub fn main() {
     let input = sp1_zkvm::io::read::<GuestInput>();
+
+    revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Sp1Operator {}));
+    revm_precompile::zk_op::ZKVM_OPERATIONS
+        .set(Box::new(vec![
+            ZkOperation::Bn128Add,
+            ZkOperation::Bn128Mul,
+            ZkOperation::Secp256k1,
+        ]))
+        .expect("Failed to set ZkvmOperations");
+
     let build_result = TaikoStrategy::build_from(&input);
 
     let output = match &build_result {
         Ok((header, _mpt_node)) => {
-            let pi = assemble_protocol_instance(&input, &header)
+            let pi = ProtocolInstance::new(&input, header, VerifierType::SP1)
                 .expect("Failed to assemble protocol instance")
-                .instance_hash(EvidenceType::Succinct);
-            GuestOutput::Success((
-                WrappedHeader {
-                    header: header.clone(),
-                },
-                pi,
-            ))
+                .instance_hash();
+            GuestOutput::Success {
+                header: header.clone(),
+                hash: pi,
+            }
         }
         Err(_) => GuestOutput::Failure,
     };
 
     sp1_zkvm::io::commit(&output);
-
-    #[cfg(test)]
-    harness::zk_suits!(test_example);
 }
 
-#[test]
-pub fn test_example() {
-    use harness::*;
-    let mut a = 1;
-    let mut b = 1;
-    for _ in 0..10 {
-        let c = a + b;
-        a = b;
-        b = c;
+harness::zk_suits!(
+    pub mod tests {
+        #[test]
+        pub fn test_build_from_mock_input() {
+            // Todo: impl mock input for static unit test
+            assert_eq!(1, 1);
+        }
     }
-    harness::assert_eq!(b, 144);
-}
+);

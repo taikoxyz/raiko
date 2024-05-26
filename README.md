@@ -23,7 +23,7 @@ After installing dependencies of selected prover, the following command internal
 ```console
 $ TARGET=sp1 make build
 ```
-If you set `DEBUG=1` then the target will be compiled without optimization (not recomended for ZkVM elfs).
+If you set `DEBUG=1` then the target will be compiled without optimization (not recommended for ZkVM elfs).
 
 ### Running
 
@@ -46,6 +46,7 @@ Look into `prove-block.sh` for the available options or run the script without i
 ```
 
 ## Provers
+For all host program, you can enable CPU optimization through exporting `CPU_OPT=1`.
 ### Risc zero
 To install, build, and run in one step:
 ```console
@@ -84,6 +85,7 @@ To build and run test on Sp1 Zkvm:
 ```console
 $ TARGET=sp1 make test
 ```
+Some optimized configuration tailored to the host can be found [here](docs/README_Sp1.md)
 
 ### SGX:
 To install, build, and run in one step:
@@ -100,3 +102,20 @@ If your CPU doesn't support SGX, you can still run the SGX code through gramine 
 ```console
 $ MOCK=1 TARGET=sgx make run
 ```
+
+## Misc
+[Docker & Remote Attestation Support](docs/README_Docker_and_RA.md)
+[Metrics](docs/README_Metrics.md)
+
+### Execution Trace
+
+You can generate an execution trace for the block that is being proven by enabling the `tracer` feature:
+```console
+$ cargo run --features tracer
+```
+
+A `traces` folder will be created inside the root directory. This folder will contain json files with the trace of each valid transaction in the block.
+
+## OpenAPI
+
+When running any of the features/provers, OpenAPI UIs are available in both Swagger and Scalar flavors on `/swagger-ui` and `/scalar` respectively.

@@ -25,20 +25,16 @@ rangeEnd="$4"
 
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
-	rpc="https://rpc.ankr.com/eth"
+	l1_network="ethereum"
 elif [ "$chain" == "holesky" ]; then
-	rpc="https://ethereum-holesky-rpc.publicnode.com"
-elif [ "$chain" == "taiko_a6" ]; then
-	rpc="https://rpc.katla.taiko.xyz"
-	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
-	beaconRpc="https://l1beacon.hekla.taiko.xyz"
+	l1_network="holesky"
+elif [ "$chain" == "taiko_mainnet" ]; then
+	l1_network="ethereum"
 elif [ "$chain" == "taiko_a7" ]; then
-	rpc="https://rpc.hekla.taiko.xyz"
-	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
-	beaconRpc="https://l1beacon.hekla.taiko.xyz"
+	l1_network="holesky"
 else
-	echo "Invalid chain name. Please use 'ethereum', 'taiko_a6' or 'taiko_a7'."
-	exit 1
+	echo "Using customized chain name $1. Please double check the RPCs."
+	l1_network="holesky"
 fi
 
 if [ "$proof" == "native" ]; then
@@ -52,38 +48,32 @@ elif [ "$proof" == "sp1" ]; then
 elif [ "$proof" == "sgx" ]; then
 	proofParam='
     "proof_type": "sgx",
-    "prover_args": {
-        "sgx" : {
-            "instance_id": 123,
-            "setup": false,
-            "bootstrap": false,
-            "prove": true,
-            "input_path": null
-        }
+    "sgx" : {
+        "instance_id": 123,
+        "setup": false,
+        "bootstrap": false,
+        "prove": true,
+        "input_path": null
     }
     '
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
-    "prover_args": {
-        "risc0": {
-            "bonsai": false,
-            "snark": false,
-            "profile": true,
-            "execution_po2": 18
-        }
+    "risc0": {
+        "bonsai": false,
+        "snark": false,
+        "profile": true,
+        "execution_po2": 18
     }
   '
 elif [ "$proof" == "risc0-bonsai" ]; then
 	proofParam='
     "proof_type": "risc0",
-    "prover_args": {
-        "risc0": {
-            "bonsai": true,
-            "snark": true,
-            "profile": false,
-            "execution_po2": 20
-        }
+    "risc0": {
+        "bonsai": true,
+        "snark": true,
+        "profile": false,
+        "execution_po2": 20
     }
   '
 else
@@ -126,11 +116,10 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 	echo "- proving block $block"
 	curl --location --request POST 'http://localhost:8080/proof' \
 		--header 'Content-Type: application/json' \
+		--header 'Authorization: Bearer 4cbd753fbcbc2639de804f8ce425016a50e0ecd53db00cb5397912e83f5e570e' \
 		--data-raw "{
          \"network\": \"$chain\",
-         \"rpc\": \"$rpc\",
-         \"l1_rpc\": \"$l1Rpc\",
-         \"beacon_rpc\": \"$beaconRpc\",
+         \"l1_network\": \"$l1_network\",
          \"block_number\": $block,
          \"prover\": \"$prover\",
          \"graffiti\": \"$graffiti\",

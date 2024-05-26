@@ -5,16 +5,16 @@ pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use raiko_lib::{
     builder::{
         prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, TkoTxExecStrategy,
     },
-    consts::{ChainSpec, Network},
+    consts::ChainSpec,
     input::{
-        decode_anchor, proposeBlockCall, taiko_a6::BlockProposed as TestnetBlockProposed,
-        BlockProposed, GuestInput, TaikoGuestInput, TaikoProverData,
+        decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
+        TaikoProverData,
     },
     utils::{generate_transactions, to_header, zlib_compress_data},
     Measurement,
@@ -25,157 +25,118 @@ use raiko_primitives::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
+use tracing::{info, warn};
 
 use crate::{
-    provider_db::ProviderDb, raiko::BlockDataProvider, rpc_provider::RpcBlockDataProvider,
+    interfaces::error::{HostError, HostResult},
+    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
 
 pub async fn preflight<BDP: BlockDataProvider>(
     provider: BDP,
     block_number: u64,
-    chain_spec: ChainSpec,
+    l1_chain_spec: ChainSpec,
+    taiko_chain_spec: ChainSpec,
     prover_data: TaikoProverData,
-    l1_rpc_url: Option<String>,
-    beacon_rpc_url: Option<String>,
-) -> Result<GuestInput> {
-    let measurement = Measurement::start("Fetching block data...", true);
+) -> HostResult<GuestInput> {
+    let measurement = Measurement::start("Fetching block data...", false);
 
     // Get the block and the parent block
     let blocks = provider
-        .get_blocks(&vec![(block_number, true), (block_number - 1, false)])
+        .get_blocks(&[(block_number, true), (block_number - 1, false)])
         .await?;
-    let (block, parent_block) = (&blocks[0], &blocks[1]);
+    let (block, parent_block) = (
+        blocks.first().ok_or_else(|| {
+            HostError::Preflight("No block data for the requested block".to_owned())
+        })?,
+        &blocks.get(1).ok_or_else(|| {
+            HostError::Preflight("No parent block data for the requested block".to_owned())
+        })?,
+    );
 
-    println!("\nblock.hash: {:?}", block.header.hash.unwrap());
-    println!("block.parent_hash: {:?}", block.header.parent_hash);
-    println!("block gas used: {:?}", block.header.gas_used);
-    println!("block transactions: {:?}", block.transactions.len());
+    let hash = block
+        .header
+        .hash
+        .ok_or_else(|| HostError::Preflight("No block hash for the requested block".to_string()))?;
 
-    let taiko_guest_input = if chain_spec.is_taiko() {
-        let provider_l1 = RpcBlockDataProvider::new(&l1_rpc_url.clone().unwrap(), block_number);
+    info!("\nblock.hash: {hash:?}");
+    info!("block.parent_hash: {:?}", block.header.parent_hash);
+    info!("block gas used: {:?}", block.header.gas_used);
+    info!("block transactions: {:?}", block.transactions.len());
 
-        // Decode the anchor tx to find out which L1 blocks we need to fetch
-        let anchor_tx = match &block.transactions {
-            BlockTransactions::Full(txs) => txs[0].to_owned(),
-            _ => unreachable!(),
-        };
-        let anchor_call = decode_anchor(anchor_tx.input.as_ref())?;
-        // The L1 blocks we need
-        let l1_state_block_number = anchor_call.l1BlockId;
-        let l1_inclusion_block_number = l1_state_block_number + 1;
-
-        println!("anchor L1 block id: {:?}", anchor_call.l1BlockId);
-        println!("anchor L1 state root: {:?}", anchor_call.l1StateRoot);
-
-        // Get the L1 block in which the L2 block was included so we can fetch the DA data.
-        // Also get the L1 state block header so that we can prove the L1 state root.
-        let l1_blocks = provider_l1
-            .get_blocks(&vec![
-                (l1_inclusion_block_number, false),
-                (l1_state_block_number, false),
-            ])
-            .await?;
-        let (l1_inclusion_block, l1_state_block) = (&l1_blocks[0], &l1_blocks[1]);
-
-        println!(
-            "l1_state_root_block hash: {:?}",
-            l1_state_block.header.hash.unwrap()
-        );
-
-        // Get the block proposal data
-        let (proposal_tx, proposal_event) = get_block_proposed_event(
-            provider_l1.provider(),
-            chain_spec.clone(),
-            l1_inclusion_block.header.hash.unwrap(),
+    let taiko_guest_input = if taiko_chain_spec.is_taiko() {
+        prepare_taiko_chain_input(
+            &l1_chain_spec,
+            &taiko_chain_spec,
             block_number,
-        )
-        .await?;
-
-        // Fetch the tx data from either calldata or blobdata
-        let (tx_data, tx_blob_hash) = if proposal_event.meta.blobUsed {
-            println!("blob active");
-            // Get the blob hashes attached to the propose tx
-            let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-            assert!(!blob_hashes.is_empty());
-            // Currently the protocol enforces the first blob hash to be used
-            let blob_hash = blob_hashes[0];
-            // Get the blob data for this block
-            let slot_id = block_time_to_block_slot(
-                l1_inclusion_block.header.timestamp,
-                chain_spec.genesis_time,
-                chain_spec.seconds_per_slot,
-            )?;
-            let blobs = get_blob_data(&beacon_rpc_url.clone().unwrap(), slot_id).await?;
-            assert!(!blobs.data.is_empty(), "blob data not available anymore");
-            // Get the blob data for the blob storing the tx list
-            let tx_blob = blobs
-                .data
-                .iter()
-                .find(|blob| {
-                    // calculate from plain blob
-                    blob_hash == calc_blob_versioned_hash(&blob.blob)
-                })
-                .cloned();
-            assert!(tx_blob.is_some());
-            (blob_to_bytes(&tx_blob.unwrap().blob), Some(blob_hash))
-        } else {
-            // Get the tx list data directly from the propose transaction data
-            let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false).unwrap();
-            (proposal_call.txList.as_ref().to_owned(), None)
-        };
-
-        // Create the transactions from the proposed tx list
-        let transactions = generate_transactions(
-            proposal_event.meta.blobUsed,
-            &tx_data,
-            Some(anchor_tx.clone()),
-        );
-        // Do a sanity check using the transactions returned by the node
-        assert!(
-            transactions.len() >= block.transactions.len(),
-            "unexpected number of transactions"
-        );
-
-        // Create the input struct without the block data set
-        TaikoGuestInput {
-            l1_header: to_header(&l1_state_block.header),
-            tx_data,
-            anchor_tx: serde_json::to_string(&anchor_tx).unwrap(),
-            tx_blob_hash,
-            block_proposed: proposal_event,
+            block,
             prover_data,
-            skip_verify_blob: false,
-        }
+        )
+        .await?
     } else {
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
         TaikoGuestInput {
-            tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(&block)))?,
+            tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(block)?))?,
             ..Default::default()
         }
     };
     measurement.stop();
 
     let input = GuestInput {
-        chain_spec: chain_spec.clone(),
+        chain_spec: taiko_chain_spec.clone(),
         block_number,
-        gas_used: block.header.gas_used.try_into().unwrap(),
-        block_hash_reference: block.header.hash.unwrap(),
+        block_hash_reference: hash,
         block_header_reference: to_header(&block.header),
         beneficiary: block.header.miner,
-        gas_limit: block.header.gas_limit.try_into().unwrap(),
-        timestamp: block.header.timestamp.try_into().unwrap(),
+        gas_limit: block
+            .header
+            .gas_limit
+            .try_into()
+            .map_err(|_| HostError::Conversion("Failed converting gas limit to u64".to_string()))?,
+        timestamp: block.header.timestamp,
         extra_data: block.header.extra_data.clone(),
-        mix_hash: block.header.mix_hash.unwrap(),
+        mix_hash: if let Some(mix_hash) = block.header.mix_hash {
+            mix_hash
+        } else {
+            return Err(HostError::Preflight(
+                "No mix hash for the requested block".to_owned(),
+            ));
+        },
         withdrawals: block.withdrawals.clone().unwrap_or_default(),
         parent_state_trie: Default::default(),
         parent_storage: Default::default(),
         contracts: Default::default(),
         parent_header: to_header(&parent_block.header),
         ancestor_headers: Default::default(),
-        base_fee_per_gas: block.header.base_fee_per_gas.unwrap().try_into().unwrap(),
-        blob_gas_used: block.header.blob_gas_used.map(|b| b.try_into().unwrap()),
-        excess_blob_gas: block.header.excess_blob_gas.map(|b| b.try_into().unwrap()),
+        base_fee_per_gas: block.header.base_fee_per_gas.map_or_else(
+            || {
+                Err(HostError::Preflight(
+                    "No base fee per gas for the requested block".to_owned(),
+                ))
+            },
+            |base_fee_per_gas| {
+                base_fee_per_gas.try_into().map_err(|_| {
+                    HostError::Conversion("Failed converting base fee per gas to u64".to_owned())
+                })
+            },
+        )?,
+        blob_gas_used: block.header.blob_gas_used.map_or_else(
+            || Ok(None),
+            |b: u128| -> HostResult<Option<u64>> {
+                b.try_into().map(Some).map_err(|_| {
+                    HostError::Conversion("Failed converting blob gas used to u64".to_owned())
+                })
+            },
+        )?,
+        excess_blob_gas: block.header.excess_blob_gas.map_or_else(
+            || Ok(None),
+            |b: u128| -> HostResult<Option<u64>> {
+                b.try_into().map(Some).map_err(|_| {
+                    HostError::Conversion("Failed converting excess blob gas to u64".to_owned())
+                })
+            },
+        )?,
         parent_beacon_block_root: block.header.parent_beacon_block_root,
         taiko: taiko_guest_input,
     };
@@ -183,8 +144,14 @@ pub async fn preflight<BDP: BlockDataProvider>(
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
         provider,
-        chain_spec,
-        parent_block.header.number.unwrap().try_into().unwrap(),
+        taiko_chain_spec,
+        if let Some(parent_block_number) = parent_block.header.number {
+            parent_block_number
+        } else {
+            return Err(HostError::Preflight(
+                "No parent block number for the requested block".to_owned(),
+            ));
+        },
     )
     .await?;
 
@@ -198,7 +165,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let mut done = false;
     let mut num_iterations = 0;
     while !done {
-        println!("Execution iteration {num_iterations}...");
+        info!("Execution iteration {num_iterations}...");
         builder.mut_db().unwrap().optimistic = num_iterations + 1 < max_iterations;
         builder = builder.execute_transactions::<TkoTxExecStrategy>()?;
         if builder.mut_db().unwrap().fetch_data().await {
@@ -206,7 +173,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
         }
         num_iterations += 1;
     }
-    builder = builder.prepare_header::<TaikoHeaderPrepStrategy>()?;
     let provider_db = builder.mut_db().unwrap();
 
     // Gather inclusion proofs for the initial and final state
@@ -250,16 +216,123 @@ pub async fn preflight<BDP: BlockDataProvider>(
     })
 }
 
+/// Prepare the input for a Taiko chain
+async fn prepare_taiko_chain_input(
+    l1_chain_spec: &ChainSpec,
+    taiko_chain_spec: &ChainSpec,
+    block_number: u64,
+    block: &Block,
+    prover_data: TaikoProverData,
+) -> HostResult<TaikoGuestInput> {
+    let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, block_number)?;
+
+    // Decode the anchor tx to find out which L1 blocks we need to fetch
+    let anchor_tx = match &block.transactions {
+        BlockTransactions::Full(txs) => txs[0].clone(),
+        _ => unreachable!(),
+    };
+    let anchor_call = decode_anchor(anchor_tx.input.as_ref())?;
+    // The L1 blocks we need
+    let l1_state_block_number = anchor_call.l1BlockId;
+    let l1_inclusion_block_number = l1_state_block_number + 1;
+
+    info!("anchor L1 block id: {:?}", anchor_call.l1BlockId);
+    info!("anchor L1 state root: {:?}", anchor_call.l1StateRoot);
+
+    // Get the L1 block in which the L2 block was included so we can fetch the DA data.
+    // Also get the L1 state block header so that we can prove the L1 state root.
+    let l1_blocks = provider_l1
+        .get_blocks(&[
+            (l1_inclusion_block_number, false),
+            (l1_state_block_number, false),
+        ])
+        .await?;
+    let (l1_inclusion_block, l1_state_block) = (&l1_blocks[0], &l1_blocks[1]);
+
+    let l1_state_block_hash = l1_state_block.header.hash.ok_or_else(|| {
+        HostError::Preflight("No L1 state block hash for the requested block".to_owned())
+    })?;
+
+    info!("l1_state_root_block hash: {l1_state_block_hash:?}");
+
+    let l1_inclusion_block_hash = l1_inclusion_block.header.hash.ok_or_else(|| {
+        HostError::Preflight("No L1 inclusion block hash for the requested block".to_owned())
+    })?;
+
+    // Get the block proposal data
+    let (proposal_tx, proposal_event) = get_block_proposed_event(
+        provider_l1.provider(),
+        taiko_chain_spec.clone(),
+        l1_inclusion_block_hash,
+        block_number,
+    )
+    .await?;
+
+    // Fetch the tx data from either calldata or blobdata
+    let (tx_data, tx_blob_hash) = if proposal_event.meta.blobUsed {
+        info!("blob active");
+        // Get the blob hashes attached to the propose tx
+        let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
+        assert!(!blob_hashes.is_empty());
+        // Currently the protocol enforces the first blob hash to be used
+        let blob_hash = blob_hashes[0];
+        // Get the blob data for this block
+        let slot_id = block_time_to_block_slot(
+            l1_inclusion_block.header.timestamp,
+            l1_chain_spec.genesis_time,
+            l1_chain_spec.seconds_per_slot,
+        )?;
+        let beacon_rpc_url: String = l1_chain_spec.beacon_rpc.clone().ok_or_else(|| {
+            HostError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
+        })?;
+        let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
+        (blob, Some(blob_hash))
+    } else {
+        // Get the tx list data directly from the propose transaction data
+        let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
+            .map_err(|_| HostError::Preflight("Could not decode proposeBlockCall".to_owned()))?;
+        (proposal_call.txList.as_ref().to_owned(), None)
+    };
+
+    // Create the transactions from the proposed tx list
+    let transactions = generate_transactions(
+        taiko_chain_spec,
+        proposal_event.meta.blobUsed,
+        &tx_data,
+        Some(anchor_tx.clone()),
+    );
+    // Do a sanity check using the transactions returned by the node
+    assert!(
+        transactions.len() >= block.transactions.len(),
+        "unexpected number of transactions"
+    );
+
+    // Create the input struct without the block data set
+    Ok(TaikoGuestInput {
+        l1_header: to_header(&l1_state_block.header),
+        tx_data,
+        anchor_tx: serde_json::to_string(&anchor_tx).map_err(HostError::Serde)?,
+        tx_blob_hash,
+        block_proposed: proposal_event,
+        prover_data,
+        skip_verify_blob: false,
+    })
+}
+
 // block_time_to_block_slot returns the slots of the given timestamp.
 fn block_time_to_block_slot(
     block_time: u64,
     genesis_time: u64,
     block_per_slot: u64,
-) -> Result<u64> {
-    if block_time < genesis_time {
-        Err(anyhow::Error::msg(
+) -> HostResult<u64> {
+    if genesis_time == 0u64 {
+        Err(HostError::Anyhow(anyhow!(
+            "genesis time is 0, please check chain spec"
+        )))
+    } else if block_time < genesis_time {
+        Err(HostError::Anyhow(anyhow!(
             "provided block_time precedes genesis time",
-        ))
+        )))
     } else {
         Ok((block_time - genesis_time) / block_per_slot)
     }
@@ -273,24 +346,106 @@ fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
 }
 
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
-    let blob_bytes: Vec<u8> =
-        hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap();
+    let blob_bytes: Vec<u8> = hex::decode(blob_str.to_lowercase().trim_start_matches("0x"))
+        .expect("Could not decode blob");
     let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
-    let blob = Blob::from_bytes(&blob_bytes).unwrap();
-    let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
-    let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+    let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
+    let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings)
+        .expect("Could not create kzg commitment from blob");
+    let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
     version_hash
 }
 
-async fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsResponse> {
+async fn get_blob_data(
+    beacon_rpc_url: &str,
+    block_id: u64,
+    blob_hash: FixedBytes<32>,
+) -> Result<Vec<u8>> {
+    if beacon_rpc_url.contains("blobscan.com") {
+        get_blob_data_blobscan(beacon_rpc_url, block_id, blob_hash).await
+    } else {
+        get_blob_data_beacon(beacon_rpc_url, block_id, blob_hash).await
+    }
+}
+
+async fn get_blob_data_beacon(
+    beacon_rpc_url: &str,
+    block_id: u64,
+    blob_hash: FixedBytes<32>,
+) -> Result<Vec<u8>> {
+    // Blob data from the beacon chain
+    // type Sidecar struct {
+    // Index                    string                   `json:"index"`
+    // Blob                     string                   `json:"blob"`
+    // SignedBeaconBlockHeader  *SignedBeaconBlockHeader `json:"signed_block_header"`
+    // KzgCommitment            string                   `json:"kzg_commitment"`
+    // KzgProof                 string                   `json:"kzg_proof"`
+    // CommitmentInclusionProof []string
+    // `json:"kzg_commitment_inclusion_proof"` }
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct GetBlobData {
+        pub index: String,
+        pub blob: String,
+        // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
+        pub kzg_commitment: String,
+        pub kzg_proof: String,
+        //pub kzg_commitment_inclusion_proof: Vec<String>,
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct GetBlobsResponse {
+        pub data: Vec<GetBlobData>,
+    }
+
     let url = format!(
         "{}/eth/v1/beacon/blob_sidecars/{block_id}",
         beacon_rpc_url.trim_end_matches('/'),
     );
+    info!("Retrieve blob from {url}.");
     let response = reqwest::get(url.clone()).await?;
     if response.status().is_success() {
-        let blob_response: GetBlobsResponse = response.json().await?;
-        Ok(blob_response)
+        let blobs: GetBlobsResponse = response.json().await?;
+        assert!(!blobs.data.is_empty(), "blob data not available anymore");
+        // Get the blob data for the blob storing the tx list
+        let tx_blob = blobs
+            .data
+            .iter()
+            .find(|blob| {
+                // calculate from plain blob
+                blob_hash == calc_blob_versioned_hash(&blob.blob)
+            })
+            .cloned();
+        assert!(tx_blob.is_some());
+        Ok(blob_to_bytes(&tx_blob.unwrap().blob))
+    } else {
+        warn!(
+            "Request {url} failed with status code: {}",
+            response.status()
+        );
+        Err(anyhow::anyhow!(
+            "Request failed with status code: {}",
+            response.status()
+        ))
+    }
+}
+
+async fn get_blob_data_blobscan(
+    beacon_rpc_url: &str,
+    _block_id: u64,
+    blob_hash: FixedBytes<32>,
+) -> Result<Vec<u8>> {
+    // https://api.blobscan.com/#/
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct BlobScanData {
+        pub commitment: String,
+        pub data: String,
+    }
+
+    let url = format!("{}/blobs/{blob_hash}", beacon_rpc_url.trim_end_matches('/'),);
+    let response = reqwest::get(url.clone()).await?;
+    if response.status().is_success() {
+        let blob: BlobScanData = response.json().await?;
+        Ok(blob_to_bytes(&blob.data))
     } else {
         println!(
             "Request {url} failed with status code: {}",
@@ -303,47 +458,19 @@ async fn get_blob_data(beacon_rpc_url: &str, block_id: u64) -> Result<GetBlobsRe
     }
 }
 
-// Blob data from the beacon chain
-// type Sidecar struct {
-// Index                    string                   `json:"index"`
-// Blob                     string                   `json:"blob"`
-// SignedBeaconBlockHeader  *SignedBeaconBlockHeader `json:"signed_block_header"`
-// KzgCommitment            string                   `json:"kzg_commitment"`
-// KzgProof                 string                   `json:"kzg_proof"`
-// CommitmentInclusionProof []string
-// `json:"kzg_commitment_inclusion_proof"` }
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct GetBlobData {
-    pub index: String,
-    pub blob: String,
-    // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
-    pub kzg_commitment: String,
-    pub kzg_proof: String,
-    pub kzg_commitment_inclusion_proof: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct GetBlobsResponse {
-    pub data: Vec<GetBlobData>,
-}
-
 async fn get_block_proposed_event(
     provider: &ReqwestProvider,
     chain_spec: ChainSpec,
     block_hash: B256,
     l2_block_number: u64,
 ) -> Result<(AlloyRpcTransaction, BlockProposed)> {
-    // Get the address that emited the event
-    let l1_address = chain_spec.l1_contract.unwrap();
-
-    let network = chain_spec.network().unwrap();
+    // Get the address that emitted the event
+    let Some(l1_address) = chain_spec.l1_contract else {
+        bail!("No L1 contract address in the chain spec");
+    };
 
     // Get the event signature (value can differ between chains)
-    let event_signature = if network == Network::TaikoA6 {
-        TestnetBlockProposed::SIGNATURE_HASH
-    } else {
-        BlockProposed::SIGNATURE_HASH
-    };
+    let event_signature = BlockProposed::SIGNATURE_HASH;
     // Setup the filter to get the relevant events
     let filter = Filter::new()
         .address(l1_address)
@@ -355,54 +482,36 @@ async fn get_block_proposed_event(
     // Run over the logs returned to find the matching event for the specified L2 block number
     // (there can be multiple blocks proposed in the same block and even same tx)
     for log in logs {
-        if network == Network::TaikoA6 {
-            let event = TestnetBlockProposed::decode_log(
-                &Log::new(
-                    log.address(),
-                    log.topics().to_vec(),
-                    log.data().data.clone(),
-                )
-                .unwrap(),
-                false,
-            )
-            .unwrap();
-            if event.blockId == raiko_primitives::U256::from(l2_block_number) {
-                let tx = provider
-                    .get_transaction_by_hash(log.transaction_hash.unwrap())
-                    .await
-                    .expect("could not find the propose tx");
-                return Ok((tx, event.data.into()));
-            }
-        } else {
-            let event = BlockProposed::decode_log(
-                &Log::new(
-                    log.address(),
-                    log.topics().to_vec(),
-                    log.data().data.clone(),
-                )
-                .unwrap(),
-                false,
-            )
-            .unwrap();
-            if event.blockId == raiko_primitives::U256::from(l2_block_number) {
-                let tx = provider
-                    .get_transaction_by_hash(log.transaction_hash.unwrap())
-                    .await
-                    .expect("could not find the propose tx");
-                return Ok((tx, event.data));
-            }
+        let Some(log_struct) = Log::new(
+            log.address(),
+            log.topics().to_vec(),
+            log.data().data.clone(),
+        ) else {
+            bail!("Could not create log")
+        };
+        let event = BlockProposed::decode_log(&log_struct, false)
+            .map_err(|_| HostError::Anyhow(anyhow!("Could not decode log")))?;
+        if event.blockId == raiko_primitives::U256::from(l2_block_number) {
+            let Some(log_tx_hash) = log.transaction_hash else {
+                bail!("No transaction hash in the log")
+            };
+            let tx = provider
+                .get_transaction_by_hash(log_tx_hash)
+                .await
+                .expect("Could not find the propose tx");
+            return Ok((tx, event.data));
         }
     }
     bail!("No BlockProposed event found for block {l2_block_number}");
 }
 
-fn get_transactions_from_block(block: &Block) -> Vec<TxEnvelope> {
+fn get_transactions_from_block(block: &Block) -> HostResult<Vec<TxEnvelope>> {
     let mut transactions: Vec<TxEnvelope> = Vec::new();
     if !block.transactions.is_empty() {
         match &block.transactions {
             BlockTransactions::Full(txs) => {
                 for tx in txs {
-                    transactions.push(from_block_tx(tx));
+                    transactions.push(from_block_tx(tx)?);
                 }
             },
             _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
@@ -412,27 +521,27 @@ fn get_transactions_from_block(block: &Block) -> Vec<TxEnvelope> {
             "unexpected number of transactions"
         );
     }
-    transactions
+    Ok(transactions)
 }
 
-fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
-    let signature = Signature::from_rs_and_parity(
-        tx.signature.unwrap().r,
-        tx.signature.unwrap().s,
-        tx.signature.unwrap().v.as_limbs()[0],
-    )
-    .unwrap();
-    match tx.transaction_type.unwrap_or_default() {
+fn from_block_tx(tx: &AlloyRpcTransaction) -> HostResult<TxEnvelope> {
+    let Some(signature) = tx.signature else {
+        panic!("Transaction has no signature");
+    };
+    let signature =
+        Signature::from_rs_and_parity(signature.r, signature.s, signature.v.as_limbs()[0])
+            .map_err(|_| HostError::Anyhow(anyhow!("Could not create signature")))?;
+    Ok(match tx.transaction_type.unwrap_or_default() {
         0 => TxEnvelope::Legacy(
             TxLegacy {
                 chain_id: tx.chain_id,
                 nonce: tx.nonce,
-                gas_price: tx.gas_price.unwrap().try_into().unwrap(),
-                gas_limit: tx.gas.try_into().unwrap(),
-                to: if tx.to.is_none() {
-                    TxKind::Create
+                gas_price: tx.gas_price.expect("No gas price for the transaction"),
+                gas_limit: tx.gas,
+                to: if let Some(to) = tx.to {
+                    TxKind::Call(to)
                 } else {
-                    TxKind::Call(tx.to.unwrap())
+                    TxKind::Create
                 },
                 value: tx.value,
                 input: tx.input.0.clone().into(),
@@ -441,14 +550,14 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         ),
         1 => TxEnvelope::Eip2930(
             TxEip2930 {
-                chain_id: tx.chain_id.unwrap(),
+                chain_id: tx.chain_id.expect("No chain id for the transaction"),
                 nonce: tx.nonce,
-                gas_price: tx.gas_price.unwrap().try_into().unwrap(),
-                gas_limit: tx.gas.try_into().unwrap(),
-                to: if tx.to.is_none() {
-                    TxKind::Create
+                gas_price: tx.gas_price.expect("No gas price for the transaction"),
+                gas_limit: tx.gas,
+                to: if let Some(to) = tx.to {
+                    TxKind::Call(to)
                 } else {
-                    TxKind::Call(tx.to.unwrap())
+                    TxKind::Create
                 },
                 value: tx.value,
                 input: tx.input.clone(),
@@ -458,15 +567,19 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         ),
         2 => TxEnvelope::Eip1559(
             TxEip1559 {
-                chain_id: tx.chain_id.unwrap(),
+                chain_id: tx.chain_id.expect("No chain id for the transaction"),
                 nonce: tx.nonce,
-                gas_limit: tx.gas.try_into().unwrap(),
-                max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
-                max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
-                to: if tx.to.is_none() {
-                    TxKind::Create
+                gas_limit: tx.gas,
+                max_fee_per_gas: tx
+                    .max_fee_per_gas
+                    .expect("No max fee per gas for the transaction"),
+                max_priority_fee_per_gas: tx
+                    .max_priority_fee_per_gas
+                    .expect("No max priority fee per gas for the transaction"),
+                to: if let Some(to) = tx.to {
+                    TxKind::Call(to)
                 } else {
-                    TxKind::Call(tx.to.unwrap())
+                    TxKind::Create
                 },
                 value: tx.value,
                 access_list: tx.access_list.clone().unwrap_or_default(),
@@ -476,28 +589,37 @@ fn from_block_tx(tx: &AlloyRpcTransaction) -> TxEnvelope {
         ),
         3 => TxEnvelope::Eip4844(
             TxEip4844Variant::TxEip4844(TxEip4844 {
-                chain_id: tx.chain_id.unwrap(),
+                chain_id: tx.chain_id.expect("No chain id for the transaction"),
                 nonce: tx.nonce,
-                gas_limit: tx.gas.try_into().unwrap(),
-                max_fee_per_gas: tx.max_fee_per_gas.unwrap().try_into().unwrap(),
-                max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap().try_into().unwrap(),
-                to: tx.to.unwrap(),
+                gas_limit: tx.gas,
+                max_fee_per_gas: tx
+                    .max_fee_per_gas
+                    .expect("No max fee per gas for the transaction"),
+                max_priority_fee_per_gas: tx
+                    .max_priority_fee_per_gas
+                    .expect("No max priority fee per gas for the transaction"),
+                to: tx.to.expect("No to address for the transaction"),
                 value: tx.value,
                 access_list: tx.access_list.clone().unwrap_or_default(),
                 input: tx.input.clone(),
                 blob_versioned_hashes: tx.blob_versioned_hashes.clone().unwrap_or_default(),
-                max_fee_per_blob_gas: tx.max_fee_per_blob_gas.unwrap().try_into().unwrap(),
+                max_fee_per_blob_gas: tx
+                    .max_fee_per_blob_gas
+                    .expect("No max fee per blob gas for the transaction"),
             })
             .into_signed(signature),
         ),
         _ => unimplemented!(),
-    }
+    })
 }
 
 #[cfg(test)]
 mod test {
     use ethers_core::types::Transaction;
-    use raiko_lib::{consts::get_network_spec, utils::decode_transactions};
+    use raiko_lib::{
+        consts::{Network, SupportedChainSpecs},
+        utils::decode_transactions,
+    };
     use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;
@@ -506,7 +628,7 @@ mod test {
     fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
         let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
         let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
-        let version_hash: [u8; 32] = kzg_to_versioned_hash(kzg_commit).0;
+        let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
         version_hash
     }
 
@@ -548,7 +670,7 @@ mod test {
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
-            kzg_to_versioned_hash(kzg_commit).to_string(),
+            kzg_to_versioned_hash(&kzg_commit).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
     }
@@ -616,7 +738,7 @@ mod test {
         let blob = [0u8; 131072].into();
         let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
         assert_eq!(
-            kzg_to_versioned_hash(kzg_commit).to_string(),
+            kzg_to_versioned_hash(&kzg_commit).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
         );
     }
@@ -736,7 +858,9 @@ mod test {
     #[ignore]
     #[test]
     fn test_slot_block_num_mapping() {
-        let chain_spec = get_network_spec(Network::TaikoA6);
+        let chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoA7.to_string())
+            .unwrap();
         let expected_slot = 1000u64;
         let second_per_slot = 12u64;
         let block_time = chain_spec.genesis_time + expected_slot * second_per_slot;

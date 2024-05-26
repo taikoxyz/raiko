@@ -10,3 +10,4 @@ raiko-pipeline = { path = "../../../pipeline", features = ["sp1"]}
 
 [features]
 test = []
+bench = []

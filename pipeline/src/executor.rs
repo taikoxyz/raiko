@@ -2,7 +2,6 @@ use anyhow::Result;
 
 use crate::ROOT_DIR;
 use regex::Regex;
-use std::fs::File;
 use std::io::BufRead;
 use std::{
     fs,
@@ -11,6 +10,7 @@ use std::{
     process::{Command, Stdio},
     thread,
 };
+use std::{fs::File, path::Path};
 
 #[derive(Debug)]
 pub struct Executor {
@@ -84,26 +84,30 @@ impl Executor {
     pub fn risc0_placement(&self, dest: &str) -> Result<()> {
         use crate::risc0_util::GuestListEntry;
         let root = ROOT_DIR.get().unwrap();
-        let dest = PathBuf::from(dest);
-        if !dest.exists() {
-            fs::create_dir_all(&dest).unwrap();
+        let dest_dir = PathBuf::from(dest);
+        if !dest_dir.exists() {
+            fs::create_dir_all(&dest_dir).unwrap();
         }
         for src in &self.artifacts {
             let mut name = file_name(src);
             if self.test {
                 name = format!("test-{}", name.split('-').collect::<Vec<_>>()[0]).to_string();
             }
-            let mut dest =
-                File::create(dest.join(&format!("{}.rs", name.replace('-', "_")))).unwrap();
+            let mut dest_file =
+                File::create(&dest_dir.join(&format!("{}.rs", name.replace('-', "_")))).unwrap();
             let guest = GuestListEntry::build(&name, root.join(src).to_str().unwrap()).unwrap();
-            dest.write_all(guest.codegen_consts().as_bytes())?;
-            println!("Write from\n  {:?}\nto\n  {:?}", src, dest);
+            dest_file.write_all(
+                guest
+                    .codegen_consts(&fs::canonicalize(&dest_dir).unwrap())
+                    .as_bytes(),
+            )?;
+            println!("Write from\n  {:?}\nto\n  {:?}", src, dest_file);
         }
         Ok(())
     }
 }
 
-fn file_name(path: &PathBuf) -> String {
+fn file_name(path: &Path) -> String {
     String::from(path.file_name().unwrap().to_str().unwrap())
 }
 
