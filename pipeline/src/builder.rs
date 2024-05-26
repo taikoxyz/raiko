@@ -345,7 +345,7 @@ impl CommandBuilder {
 
         // Construct command from the toolchain-specific cargo
         let mut cmd = Command::new(cargo.map_or("cargo".to_owned(), |c| {
-            String::from(c.to_str().expect("Output is not valid UTF-8"))
+            c.to_str().expect("Output is not valid UTF-8").to_owned()
         }));
 
         // Clear unwanted env vars
@@ -356,7 +356,7 @@ impl CommandBuilder {
         cmd.env(
             "RUSTC",
             rustc.map_or("rustc".to_string(), |c| {
-                String::from(c.to_str().expect("Output is not valid UTF-8"))
+                c.to_str().expect("Output is not valid UTF-8").to_owned()
             }),
         );
 
