@@ -12,6 +12,7 @@ members = [
     "provers/sgx/guest",
     "provers/sgx/setup",
     "pipeline",
+    "core",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -33,6 +34,7 @@ opt-level = 3
 # raiko
 raiko-lib = { path = "./lib", features = ["std"] }
 raiko-primitives = { path = "./primitives" }
+raiko-core = { path = "./core" }
 
 # revm
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false }

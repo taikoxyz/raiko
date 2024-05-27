@@ -1,22 +1,30 @@
-use alloy_primitives::FixedBytes;
-use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
-use raiko_lib::consts::{ChainSpec, VerifierType};
-use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
-use raiko_lib::protocol_instance::ProtocolInstance;
-use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
-use raiko_lib::utils::HeaderHasher;
-use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
-use tracing::{error, info, trace, warn};
+use std::collections::HashMap;
 
-use crate::preflight::preflight;
+use alloy_primitives::{Address, FixedBytes};
+use alloy_rpc_types::EIP1186AccountProofResponse;
+use raiko_lib::{
+    builder::{BlockBuilderStrategy, TaikoStrategy},
+    consts::{ChainSpec, VerifierType},
+    input::{GuestInput, GuestOutput, TaikoProverData},
+    protocol_instance::ProtocolInstance,
+    prover::Proof,
+    utils::HeaderHasher,
+};
+use serde_json::Value;
+use tracing::{error, info, warn};
+
+pub mod interfaces;
+pub mod preflight;
+pub mod prover;
+pub mod provider;
+
 use crate::{
-    interfaces::{
-        error::{self, HostError, HostResult},
-        request::ProofRequest,
-    },
+    interfaces::{ProofRequest, RaikoError, RaikoResult},
+    preflight::preflight,
     provider::BlockDataProvider,
 };
+
+pub type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
 pub struct Raiko {
     l1_chain_spec: ChainSpec,
@@ -40,7 +48,7 @@ impl Raiko {
     pub async fn generate_input<BDP: BlockDataProvider>(
         &self,
         provider: BDP,
-    ) -> HostResult<GuestInput> {
+    ) -> RaikoResult<GuestInput> {
         preflight(
             provider,
             self.request.block_number,
@@ -52,10 +60,10 @@ impl Raiko {
             },
         )
         .await
-        .map_err(Into::<error::HostError>::into)
+        .map_err(Into::<RaikoError>::into)
     }
 
-    pub fn get_output(&self, input: &GuestInput) -> HostResult<GuestOutput> {
+    pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
         match TaikoStrategy::build_from(input) {
             Ok((header, _mpt_node)) => {
                 info!("Verifying final state using provider data ...");
@@ -123,14 +131,14 @@ impl Raiko {
             }
             Err(e) => {
                 warn!("Proving bad block construction!");
-                Err(HostError::Guest(
+                Err(RaikoError::Guest(
                     raiko_lib::prover::ProverError::GuestError(e.to_string()),
                 ))
             }
         }
     }
 
-    pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> HostResult<Proof> {
+    pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> RaikoResult<Proof> {
         self.request
             .proof_type
             .run_prover(
@@ -142,62 +150,32 @@ impl Raiko {
     }
 }
 
-pub struct NativeProver;
-
-#[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NativeParam {
-    pub save_test_input: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NativeResponse {
-    pub output: GuestOutput,
-}
-
-impl Prover for NativeProver {
-    async fn run(
-        input: GuestInput,
-        output: &GuestOutput,
-        request: &serde_json::Value,
-    ) -> ProverResult<Proof> {
-        trace!("Running the native prover for input {input:?}");
-        // Write the input.
-        let param = NativeParam::deserialize(request.get("native").unwrap()).unwrap();
-        if param.save_test_input {
-            seriailize_input(&input, "./provers/sp1/contracts/src/fixtures/input.json");
-        }
-
-        let GuestOutput::Success { header, .. } = output.clone() else {
-            return Err(ProverError::GuestError("Unexpected output".to_owned()));
-        };
-
-        ProtocolInstance::new(&input, &header, VerifierType::None)
-            .map_err(|e| ProverError::GuestError(e.to_string()))?;
-
-        to_proof(Ok(NativeResponse {
-            output: output.clone(),
-        }))
-    }
-}
-
-fn seriailize_input(input: &GuestInput, path: &str) {
-    let input = serde_json::to_string(&input).expect("Sp1: serializing input failed");
-    std::fs::write(path, input).expect("failed to write input");
-}
-
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
     if expected != actual {
         error!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
     }
 }
 
+/// Merges two json's together, overwriting `a` with the values of `b`
+pub fn merge(a: &mut Value, b: &Value) {
+    match (a, b) {
+        (Value::Object(a), Value::Object(b)) => {
+            for (k, v) in b {
+                merge(a.entry(k.clone()).or_insert(Value::Null), v);
+            }
+        }
+        (a, b) if !b.is_null() => *a = b.clone(),
+        // If b is null, just keep a (which means do nothing).
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        interfaces::request::{ProofRequest, ProofType},
+        interfaces::{ProofRequest, ProofType},
         provider::rpc::RpcBlockDataProvider,
-        raiko::{ChainSpec, Raiko},
+        ChainSpec, Raiko,
     };
     use alloy_primitives::Address;
     use clap::ValueEnum;
@@ -237,17 +215,6 @@ mod tests {
                     "setup": true,
                     "bootstrap": true,
                     "prove": true,
-                }
-            },
-        );
-        prover_args.insert(
-            "sp1".to_string(),
-            json! {
-                {
-                    "recursion": "core",
-                    "prover": "mock",
-                    "save_test_input": false,
-
                 }
             },
         );

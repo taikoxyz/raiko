@@ -4949,6 +4949,43 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
+name = "raiko-core"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "alloy-network 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "alloy-primitives",
+ "alloy-provider 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "alloy-rlp",
+ "alloy-rlp-derive",
+ "alloy-rpc-client 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "alloy-rpc-types 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "alloy-sol-types",
+ "alloy-transport-http 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "anyhow",
+ "assert_cmd",
+ "c-kzg-taiko",
+ "clap 4.5.4",
+ "ethers-core",
+ "raiko-lib",
+ "raiko-primitives",
+ "reqwest 0.11.27",
+ "reqwest 0.12.4",
+ "revm",
+ "risc0-driver",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sgx-prover",
+ "sp1-driver",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "utoipa",
+]
+
+[[package]]
 name = "raiko-host"
 version = "0.1.0"
 dependencies = [
@@ -4980,6 +5017,7 @@ dependencies = [
  "once_cell",
  "prometheus",
  "proptest",
+ "raiko-core",
  "raiko-lib",
  "raiko-primitives",
  "reqwest 0.11.27",
