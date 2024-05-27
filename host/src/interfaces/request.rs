@@ -77,19 +77,22 @@ impl ProofType {
                 #[cfg(feature = "sp1")]
                 return Ok(sp1_driver::Sp1Prover::instance_hash(pi));
 
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                #[cfg(not(feature = "sp1"))]
+                return Err(HostError::FeatureNotSupportedError(self.clone()));
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
                 return Ok(risc0_driver::Risc0Prover::instance_hash(pi));
 
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                #[cfg(not(feature = "risc0"))]
+                return Err(HostError::FeatureNotSupportedError(self.clone()));
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
                 return Ok(sgx_prover::SgxProver::instance_hash(pi));
 
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                #[cfg(not(feature = "sgx"))]
+                return Err(HostError::FeatureNotSupportedError(self.clone()));
             }
         }
     }
@@ -106,22 +109,20 @@ impl ProofType {
                 .await
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
-                if cfg!(feature = "sp1") {
-                    sp1_driver::Sp1Prover::run(input, output, config)
-                        .await
-                        .map_err(|e| e.into())
-                } else {
-                    Err(HostError::FeatureNotSupportedError(self.clone()))
-                }
+                #[cfg(feature = "sp1")]
+                return sp1_driver::Sp1Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sp1"))]
+                return Err(HostError::FeatureNotSupportedError(self.clone()));
             }
             ProofType::Risc0 => {
-                if cfg!(feature = "risc0") {
-                    risc0_driver::Risc0Prover::run(input, output, config)
-                        .await
-                        .map_err(|e| e.into())
-                } else {
-                    Err(HostError::FeatureNotSupportedError(self.clone()))
-                }
+                #[cfg(feature = "risc0")]
+                return risc0_driver::Risc0Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "risc0"))]
+                return Err(HostError::FeatureNotSupportedError(self.clone()));
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
@@ -129,7 +130,8 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
 
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                #[cfg(not(feature = "sgx"))]
+                return Err(HostError::FeatureNotSupportedError(self.clone()));
             }
         }
     }

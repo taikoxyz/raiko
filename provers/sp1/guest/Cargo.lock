@@ -1596,6 +1596,7 @@ dependencies = [
  "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "thiserror-no-std",
+ "tracing",
  "url",
 ]
 

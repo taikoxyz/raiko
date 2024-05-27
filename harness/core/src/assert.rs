@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::Mutex};
+use std::fmt::Debug;
 
 pub trait DynAssertion: Send + Sync {
     fn display(&self);
@@ -99,9 +99,7 @@ pub fn eval_assert_eq<T: PartialEq + std::fmt::Debug>(a: T, b: T, file: &str, li
 macro_rules! assert {
     ($cond:expr) => {
         let result = eval_assert(false, file!(), line!());
-        let log = $crate::ASSERTION_LOG.get_or_init(
-            || std::sync::Mutex::new(AssertionLog::new())
-        );
+        let log = $crate::ASSERTION_LOG.get_or_init(|| std::sync::Mutex::new(AssertionLog::new()));
         log.lock()
             .unwrap()
             .insert(Box::new(Assertion::<bool>::Cond(Assert { result })));
@@ -111,9 +109,7 @@ macro_rules! assert {
 macro_rules! assert_eq {
     ($a:expr, $b:expr) => {
         let result = eval_assert_eq($a, $b, file!(), line!());
-        let log = $crate::ASSERTION_LOG.get_or_init(
-            || std::sync::Mutex::new(AssertionLog::new())
-        );
+        let log = $crate::ASSERTION_LOG.get_or_init(|| std::sync::Mutex::new(AssertionLog::new()));
         log.lock()
             .unwrap()
             .insert(Box::new(Assertion::<i32>::Eq(AssertEQ {

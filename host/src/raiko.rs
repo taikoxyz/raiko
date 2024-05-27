@@ -113,11 +113,9 @@ impl Raiko {
                 );
 
                 // Make sure the blockhash from the node matches the one from the builder
-                check_eq(
-                    &Into::<FixedBytes<32>>::into(header.hash().0),
-                    &input.block_hash_reference,
-                    "block hash unexpected",
-                );
+                if &Into::<FixedBytes<32>>::into(header.hash().0) != &input.block_hash_reference {
+                    return Err(anyhow::Error::msg("block hash unexpected").into());
+                }
                 let output = GuestOutput::Success { header, hash: pi };
 
                 Ok(output)
