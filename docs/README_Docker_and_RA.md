@@ -437,7 +437,7 @@ Once your Raiko instance is running, you can verify if it was started properly a
 }'
 ```
 
-Or use `./script/prove-block` like `./script/prove-block.sh taiko_a7 native 99999` to check readiness.
+Or use `./script/prove-block.sh` like `./script/prove-block.sh taiko_a7 sgx 99999` to check readiness.
 
 
 The response should look like this:
