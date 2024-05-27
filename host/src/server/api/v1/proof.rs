@@ -1,22 +1,5 @@
 use std::{fs::File, path::PathBuf};
 
-use crate::metrics::observe_guest_time;
-use crate::metrics::observe_prepare_input_time;
-use crate::{
-    interfaces::{
-        error::{HostError, HostResult},
-        request::ProofRequest,
-    },
-    memory,
-    metrics::{
-        dec_current_req, inc_current_req, inc_guest_error, inc_guest_success, inc_host_error,
-        inc_host_req_count, observe_total_time,
-    },
-    provider::rpc::RpcBlockDataProvider,
-    raiko::Raiko,
-    server::api::v1::ProofResponse,
-    ProverState,
-};
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_lib::{
     input::{get_input_path, GuestInput},
@@ -25,6 +8,23 @@ use raiko_lib::{
 use serde_json::Value;
 use tracing::{debug, info};
 use utoipa::OpenApi;
+
+use crate::{
+    interfaces::{
+        error::{HostError, HostResult},
+        request::ProofRequest,
+    },
+    memory,
+    metrics::{
+        dec_current_req, inc_current_req, inc_guest_error, inc_guest_req_count, inc_guest_success,
+        inc_host_error, inc_host_req_count, observe_guest_time, observe_prepare_input_time,
+        observe_total_time,
+    },
+    provider::rpc::RpcBlockDataProvider,
+    raiko::Raiko,
+    server::api::v1::ProofResponse,
+    ProverState,
+};
 
 fn get_cached_input(
     cache_path: &Option<PathBuf>,
@@ -59,43 +59,22 @@ fn set_cached_input(
     Ok(())
 }
 
-fn dec_concurrent_req_count(e: HostError) -> HostError {
-    dec_current_req();
-    e
-}
-
-#[utoipa::path(post, path = "/proof",
-    tag = "Proving",
-    request_body = ProofRequestOpt,
-    responses (
-        (status = 200, description = "Successfully created proof for request", body = Status)
-    )
-)]
-#[debug_handler(state = ProverState)]
-/// Generate a proof for requested config.
-///
-/// Accepts a proof request and generates a proof with the specified guest prover.
-/// The guest provers currently available are:
-/// - native - constructs a block and checks for equality
-/// - sgx - uses the sgx environment to construct a block and produce proof of execution
-/// - sp1 - uses the sp1 prover
-/// - risc0 - uses the risc0 prover
-async fn proof_handler(
-    State(ProverState {
+async fn handle_proof(
+    ProverState {
         opts,
         chain_specs: support_chain_specs,
-    }): State<ProverState>,
-    Json(req): Json<Value>,
+    }: ProverState,
+    req: Value,
 ) -> HostResult<ProofResponse> {
-    inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     let mut config = opts.proof_request_opt.clone();
-    config.merge(&req).map_err(dec_concurrent_req_count)?;
+    config.merge(&req)?;
 
     // Construct the actual proof request from the available configs.
-    let proof_request = ProofRequest::try_from(config).map_err(dec_concurrent_req_count)?;
+    let proof_request = ProofRequest::try_from(config)?;
     inc_host_req_count(proof_request.block_number);
+    inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
     info!(
         "# Generating proof for block {} on {}",
@@ -111,17 +90,11 @@ async fn proof_handler(
 
     let l1_chain_spec = support_chain_specs
         .get_chain_spec(&proof_request.l1_network.to_string())
-        .ok_or_else(|| {
-            dec_current_req();
-            HostError::InvalidRequestConfig("Unsupported l1 network".to_string())
-        })?;
+        .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported l1 network".to_string()))?;
 
     let taiko_chain_spec = support_chain_specs
         .get_chain_spec(&proof_request.network.to_string())
-        .ok_or_else(|| {
-            dec_current_req();
-            HostError::InvalidRequestConfig("Unsupported raiko network".to_string())
-        })?;
+        .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported raiko network".to_string()))?;
 
     // Execute the proof generation.
     let total_time = Measurement::start("", false);
@@ -140,25 +113,20 @@ async fn proof_handler(
         let provider = RpcBlockDataProvider::new(
             &taiko_chain_spec.rpc.clone(),
             proof_request.block_number - 1,
-        )
-        .map_err(dec_concurrent_req_count)?;
-        let input = raiko
-            .generate_input(provider)
-            .await
-            .map_err(dec_concurrent_req_count)?;
+        )?;
+        let input = raiko.generate_input(provider).await?;
         let input_time = measurement.stop_with("=> Input generated");
         observe_prepare_input_time(proof_request.block_number, input_time, true);
         memory::print_stats("Input generation peak memory used: ");
         input
     };
     memory::reset_stats();
-    let output = raiko.get_output(&input).map_err(dec_concurrent_req_count)?;
+    let output = raiko.get_output(&input)?;
     memory::print_stats("Guest program peak memory used: ");
 
     memory::reset_stats();
     let measurement = Measurement::start("Generating proof...", false);
     let proof = raiko.prove(input.clone(), &output).await.map_err(|e| {
-        dec_current_req();
         let total_time = total_time.stop_with("====> Proof generation failed");
         observe_total_time(proof_request.block_number, total_time, false);
         match e {
@@ -191,15 +159,36 @@ async fn proof_handler(
         proof_request.block_number,
         &proof_request.network.to_string(),
         &input,
-    )
-    .map_err(|e| {
-        dec_current_req();
-        e
-    })?;
-
-    dec_current_req();
+    )?;
 
     ProofResponse::try_from(proof)
+}
+
+#[utoipa::path(post, path = "/proof",
+    tag = "Proving",
+    request_body = ProofRequestOpt,
+    responses (
+        (status = 200, description = "Successfully created proof for request", body = Status)
+    )
+)]
+#[debug_handler(state = ProverState)]
+/// Generate a proof for requested config.
+///
+/// Accepts a proof request and generates a proof with the specified guest prover.
+/// The guest provers currently available are:
+/// - native - constructs a block and checks for equality
+/// - sgx - uses the sgx environment to construct a block and produce proof of execution
+/// - sp1 - uses the sp1 prover
+/// - risc0 - uses the risc0 prover
+async fn proof_handler(
+    State(prover_state): State<ProverState>,
+    Json(req): Json<Value>,
+) -> HostResult<ProofResponse> {
+    inc_current_req();
+    handle_proof(prover_state, req).await.map_err(|e| {
+        dec_current_req();
+        e
+    })
 }
 
 #[derive(OpenApi)]
