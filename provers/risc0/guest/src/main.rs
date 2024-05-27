@@ -6,7 +6,6 @@ use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::{
     consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    consts::VerifierType,
     input::{GuestInput, GuestOutput},
 };
 use revm_precompile::zk_op::ZkOperation;
