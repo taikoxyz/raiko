@@ -4,7 +4,7 @@
 set -e
 
 TOOLCHAIN_RISC0=+nightly-2024-02-06
-TOOLCHAIN_SP1=+nightly-2024-04-18
+TOOLCHAIN_SP1=+nightly-2024-02-06
 TOOLCHAIN_SGX=+nightly-2024-02-06
 
 check_toolchain() {
@@ -141,9 +141,14 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 			echo "Running Sp1 prover"
 			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1
 		else
-			echo "Running Sp1 tests"
-			cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf 
-			cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
+			# echo "Running Sp1 unit tests"
+			# cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf 
+			# cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
+			
+			echo "Running Sp1 e2e tests"
+			# Get the directory of the current script 
+			SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+			"$SCRIPT_DIR/sp1-e2e.sh"
 		fi
 	fi
 fi

@@ -3,6 +3,9 @@
 # Any error will result in failure
 set -e
 
+# Build gen-verifier first
+cargo build -p sp1-driver --bin gen-verifier --release
+
 block=$1
 
 # Function to be called on script exit
@@ -46,7 +49,7 @@ while ! check_prove_block; do
 done
 
 # Generate solidity tests fixture
-RUST_LOG=info cargo run -p sp1-driver --bin gen-verifier --release
+RUST_LOG=info cargo run -p sp1-driver --bin gen-verifier --release --features enable
 
 # Run Smart Contract verification
 cd $SCRIPT_DIR/../provers/sp1/contracts
