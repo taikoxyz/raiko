@@ -43,23 +43,19 @@ impl Executor {
         }) {
             println!("[zkvm-stdout] {line}");
 
-            if !self.test || !line.contains("Executable unittests") {
-                continue;
+            if self.test && line.contains("Executable unittests") {
+                if let Some(test) = extract_path(&line) {
+                    let Some(artifact) = self
+                        .artifacts
+                        .iter_mut()
+                        .find(|a| file_name(&test).contains(&file_name(a).replace('-', "_")))
+                    else {
+                        bail!("Failed to find test artifact");
+                    };
+
+                    *artifact = test;
+                }
             }
-
-            let Some(test) = extract_path(&line) else {
-                continue;
-            };
-
-            let Some(artifact) = self
-                .artifacts
-                .iter_mut()
-                .find(|a| file_name(&test).contains(&file_name(a).replace('-', "_")))
-            else {
-                bail!("Failed to find test artifact");
-            };
-
-            *artifact = test;
         }
 
         stdout_handle
