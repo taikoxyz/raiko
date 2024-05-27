@@ -74,9 +74,8 @@ harness::zk_suits!(
     pub mod tests {
         #[test]
         pub fn test_sha256() {
-
             use harness::*;
-            use raiko_primitives::hex;
+            use raiko_lib::primitives::hex;
             use risc0_sha2::{Digest, Sha256};
 
             let test_ves = [

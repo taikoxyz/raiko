@@ -179,8 +179,10 @@ mod tests {
     };
     use alloy_primitives::Address;
     use clap::ValueEnum;
-    use raiko_lib::consts::{Network, SupportedChainSpecs};
-    use raiko_primitives::B256;
+    use raiko_lib::{
+        consts::{Network, SupportedChainSpecs},
+        primitives::B256,
+    };
     use serde_json::{json, Value};
     use std::{collections::HashMap, env};
 
