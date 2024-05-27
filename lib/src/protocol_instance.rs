@@ -102,13 +102,12 @@ impl ProtocolInstance {
             .collect::<Vec<_>>();
 
         let gas_limit: u64 = header.gas_limit.try_into().unwrap();
-        let verifier_address = input
+        let verifier_address = (*input
             .chain_spec
             .verifier_address
             .get(&proof_type)
-            .unwrap_or(&None)
-            .clone()
-            .unwrap_or_default();
+            .unwrap_or(&None))
+        .unwrap_or_default();
 
         let pi = ProtocolInstance {
             transition: Transition {
