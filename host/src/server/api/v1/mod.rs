@@ -1,4 +1,3 @@
-use crate::interfaces::error::HostError;
 use axum::{response::IntoResponse, Router};
 use raiko_lib::input::GuestOutput;
 use serde::{Deserialize, Serialize};
@@ -8,7 +7,7 @@ use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::ProverState;
+use crate::{interfaces::HostError, ProverState};
 
 mod health;
 mod metrics;
@@ -32,9 +31,9 @@ mod proof;
     ),
     components(
         schemas(
-            crate::interfaces::request::ProofRequestOpt,
-            crate::interfaces::request::ProverSpecificOpts,
-            crate::interfaces::error::HostError,
+            raiko_core::interfaces::ProofRequestOpt,
+            raiko_core::interfaces::ProverSpecificOpts,
+            crate::interfaces::HostError,
             GuestOutputDoc,
             ProofResponse,
             Status,

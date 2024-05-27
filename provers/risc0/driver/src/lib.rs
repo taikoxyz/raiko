@@ -82,12 +82,6 @@ impl Prover for Risc0Prover {
 
         to_proof(Ok(Risc0Response { proof: journal }))
     }
-
-    fn instance_hash(pi: ProtocolInstance) -> B256 {
-        let data = (pi.transition.clone(), pi.prover, pi.meta_hash()).abi_encode();
-
-        keccak(data).into()
-    }
 }
 
 #[cfg(test)]
