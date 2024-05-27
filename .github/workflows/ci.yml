@@ -21,8 +21,8 @@ jobs:
     strategy:
       matrix:
         VERSIONS: [
-          {name: native, toolchain: nightly-2024-04-17},
-          {name: sp1, toolchain: nightly-2024-04-17},
+          {name: native, toolchain: nightly-2024-04-18},
+          {name: sp1, toolchain: nightly-2024-04-18},
           {name: risc0, toolchain: stable},
           {name: sgx, toolchain: stable},
         ]

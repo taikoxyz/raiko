@@ -6658,6 +6658,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "cargo_metadata 0.18.1",
+ "cfg-if",
  "chrono",
  "dotenv",
  "once_cell",
