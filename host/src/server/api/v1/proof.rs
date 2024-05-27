@@ -1,6 +1,11 @@
 use std::{fs::File, path::PathBuf};
 
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use raiko_core::{
+    interfaces::{ProofRequest, RaikoError},
+    provider::rpc::RpcBlockDataProvider,
+    Raiko,
+};
 use raiko_lib::{
     input::{get_input_path, GuestInput},
     Measurement,
@@ -17,23 +22,9 @@ use crate::{
         inc_host_error, inc_host_req_count, observe_guest_time, observe_prepare_input_time,
         observe_total_time,
     },
-    metrics::{observe_guest_time, observe_prepare_input_time},
     server::api::v1::ProofResponse,
     ProverState,
 };
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::{
-    interfaces::{ProofRequest, RaikoError},
-    provider::rpc::RpcBlockDataProvider,
-    Raiko,
-};
-use raiko_lib::{
-    input::{get_input_path, GuestInput},
-    Measurement,
-};
-use serde_json::Value;
-use tracing::{debug, info};
-use utoipa::OpenApi;
 
 fn get_cached_input(
     cache_path: &Option<PathBuf>,
