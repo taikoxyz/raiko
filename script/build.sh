@@ -15,7 +15,7 @@ check_toolchain() {
 
 	# Function to check if the toolchain is installed
 	exist() {
-		rustup toolchain list | grep "$TOOLCHAIN" > /dev/null
+		rustup toolchain list | grep "$TOOLCHAIN" >/dev/null
 	}
 
 	# Main script logic
@@ -40,7 +40,7 @@ else
 fi
 
 if [ "$CPU_OPT" = "1" ]; then
-	export RUSTFLAGS='-C target-cpu=native' 
+	export RUSTFLAGS='-C target-cpu=native'
 	echo "Enable cpu optimization with host RUSTFLAGS"
 fi
 
@@ -110,11 +110,11 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --features risc0
 	else
 		if [ -z "${TEST}" ]; then
-			echo "Running Sp1 prover"
+			echo "Running Risc0 prover"
 			cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --features risc0
 		else
-			echo "Running Sp1 tests"
-			cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib risc0-driver --features risc0 -- run_unittest_elf 
+			echo "Running Risc0 tests"
+			cargo ${TOOLCHAIN_RISC0} test ${FLAGS} --lib risc0-driver --features risc0 -- run_unittest_elf
 			cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p raiko-host -p risc0-driver --features "risc0 enable"
 		fi
 	fi
@@ -141,9 +141,9 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 			echo "Running Sp1 prover"
 			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1
 		else
-			# echo "Running Sp1 unit tests"
-			# cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf 
-			# cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
+			echo "Running Sp1 unit tests"
+			cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf 
+			cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
 			
 			echo "Running Sp1 e2e tests"
 			# Get the directory of the current script 
@@ -152,4 +152,3 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		fi
 	fi
 fi
-
