@@ -14,24 +14,19 @@
 
 pub mod interfaces;
 pub mod metrics;
-pub mod preflight;
-pub mod provider;
-pub mod raiko;
 pub mod server;
 
-use std::{alloc, collections::HashMap, path::PathBuf};
+use std::{alloc, path::PathBuf};
 
-use crate::interfaces::{error::HostResult, request::ProofRequestOpt};
-use alloy_primitives::Address;
-use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
+use raiko_core::{interfaces::ProofRequestOpt, merge};
 use raiko_lib::consts::SupportedChainSpecs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
+use crate::interfaces::HostResult;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
@@ -125,20 +120,6 @@ impl Cli {
     }
 }
 
-/// Merges two json's together, overwriting `a` with the values of `b`
-fn merge(a: &mut Value, b: &Value) {
-    match (a, b) {
-        (Value::Object(a), Value::Object(b)) => {
-            for (k, v) in b {
-                merge(a.entry(k.clone()).or_insert(Value::Null), v);
-            }
-        }
-        (a, b) if !b.is_null() => *a = b.clone(),
-        // If b is null, just keep a (which means do nothing).
-        _ => {}
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ProverState {
     pub opts: Cli,
@@ -153,9 +134,7 @@ impl ProverState {
         opts.merge_from_file()?;
 
         let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
-            let chain_specs = SupportedChainSpecs::merge_from_file(cs_path.clone())
-                .unwrap_or(SupportedChainSpecs::default());
-            chain_specs
+            SupportedChainSpecs::merge_from_file(cs_path.clone()).unwrap_or_default()
         } else {
             SupportedChainSpecs::default()
         };
