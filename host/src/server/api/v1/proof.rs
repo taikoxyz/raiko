@@ -3,11 +3,12 @@ use std::{fs::File, path::PathBuf};
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{
     interfaces::{ProofRequest, RaikoError},
-    provider::rpc::RpcBlockDataProvider,
+    provider::{rpc::RpcBlockDataProvider, BlockDataProvider},
     Raiko,
 };
 use raiko_lib::{
     input::{get_input_path, GuestInput},
+    utils::{to_header, HeaderHasher},
     Measurement,
 };
 use serde_json::Value;
@@ -51,16 +52,54 @@ fn set_cached_input(
     };
 
     let path = get_input_path(dir, block_number, network);
-
-    if path.exists() {
-        return Ok(());
-    }
-
-    let file = File::create(&path).map_err(<std::io::Error as Into<HostError>>::into)?;
-
     info!("caching input for {path:?}");
 
+    let file = File::create(&path).map_err(<std::io::Error as Into<HostError>>::into)?;
     bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))
+}
+
+async fn generate_input_from_cache(
+    cached_input: Option<GuestInput>,
+    provider: &RpcBlockDataProvider,
+) -> HostResult<GuestInput> {
+    if let Some(cache_input) = cached_input {
+        debug!("Using cached input");
+        let blocks = provider
+            .get_blocks(&[(cache_input.block_number, false)])
+            .await?;
+        let block = blocks
+            .first()
+            .ok_or_else(|| RaikoError::RPC("No block data for the requested block".to_owned()))?;
+
+        // double check if cache is valid for now
+        debug!(
+            "cache_input.block_hash_reference = {:?}",
+            cache_input.block_hash_reference
+        );
+        debug!(
+            "block.header.hash.unwrap_or(to_header(&block.header).hash()) = {:?}",
+            block.header.hash.unwrap_or(to_header(&block.header).hash())
+        );
+        debug!(
+            "cache_input.block_header_reference.parent_hash = {:?}",
+            cache_input.block_header_reference.parent_hash
+        );
+        debug!("block.header.parent_hash = {:?}", block.header.parent_hash);
+        if cache_input.block_hash_reference
+            == block.header.hash.unwrap_or(to_header(&block.header).hash())
+            && cache_input.block_header_reference.parent_hash == block.header.parent_hash
+        {
+            return Ok(cache_input);
+        } else {
+            Err(HostError::InvalidRequestConfig(
+                "Cached input is not valid".to_owned(),
+            ))
+        }
+    } else {
+        Err(HostError::InvalidRequestConfig(
+            "Cached input is not enabled".to_owned(),
+        ))
+    }
 }
 
 async fn handle_proof(
@@ -108,21 +147,22 @@ async fn handle_proof(
         taiko_chain_spec.clone(),
         proof_request.clone(),
     );
-    let input = if let Some(cached_input) = cached_input {
-        debug!("Using cached input");
-        cached_input
-    } else {
-        memory::reset_stats();
-        let measurement = Measurement::start("Generating input...", false);
-        let provider = RpcBlockDataProvider::new(
-            &taiko_chain_spec.rpc.clone(),
-            proof_request.block_number - 1,
-        )?;
-        let input = raiko.generate_input(provider).await?;
-        let input_time = measurement.stop_with("=> Input generated");
-        observe_prepare_input_time(proof_request.block_number, input_time, true);
-        memory::print_stats("Input generation peak memory used: ");
-        input
+    let provider = RpcBlockDataProvider::new(
+        &taiko_chain_spec.rpc.clone(),
+        proof_request.block_number - 1,
+    )?;
+    let input = match generate_input_from_cache(cached_input, &provider).await {
+        Ok(cache_input) => cache_input,
+        Err(_) => {
+            // no valid cache
+            memory::reset_stats();
+            let measurement = Measurement::start("Generating input...", false);
+            let input = raiko.generate_input(provider).await?;
+            let input_time = measurement.stop_with("=> Input generated");
+            observe_prepare_input_time(proof_request.block_number, input_time, true);
+            memory::print_stats("Input generation peak memory used: ");
+            input
+        }
     };
     memory::reset_stats();
     let output = raiko.get_output(&input)?;
@@ -205,4 +245,76 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 
 pub fn create_router() -> Router<ProverState> {
     Router::new().route("/", post(proof_handler))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use raiko_core::interfaces::ProofType;
+    use raiko_lib::consts::{Network, SupportedChainSpecs};
+    use raiko_primitives::{Address, B256};
+
+    async fn create_cache_input(
+        l1_network: &String,
+        network: &String,
+        block_number: u64,
+    ) -> (GuestInput, RpcBlockDataProvider) {
+        let l1_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&l1_network)
+            .unwrap();
+        let taiko_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(network)
+            .unwrap();
+        let proof_request = ProofRequest {
+            block_number,
+            network: network.to_string(),
+            l1_network: l1_network.to_string(),
+            graffiti: B256::ZERO,
+            prover: Address::ZERO,
+            proof_type: ProofType::Native,
+            prover_args: Default::default(),
+        };
+        let raiko = Raiko::new(
+            l1_chain_spec.clone(),
+            taiko_chain_spec.clone(),
+            proof_request.clone(),
+        );
+        let provider = RpcBlockDataProvider::new(
+            &taiko_chain_spec.rpc.clone(),
+            proof_request.block_number - 1,
+        )
+        .expect("provider init ok");
+
+        let input = raiko
+            .generate_input(provider.clone())
+            .await
+            .expect("input generation failed");
+        (input, provider.clone())
+    }
+
+    #[tokio::test]
+    async fn test_generate_input_from_cache() {
+        let l1 = &Network::Holesky.to_string();
+        let l2 = &Network::TaikoA7.to_string();
+        let block_number: u64 = 7;
+        let (input, provider) = create_cache_input(l1, l2, block_number).await;
+        let cache_path = Some("./".into());
+        assert!(set_cached_input(&cache_path, block_number, l2, &input).is_ok());
+        let cached_input = get_cached_input(&cache_path, block_number, l2).expect("load cache");
+        assert!(generate_input_from_cache(Some(cached_input), &provider)
+            .await
+            .is_ok());
+
+        let new_l1 = &Network::Ethereum.to_string();
+        let new_l2 = &Network::TaikoMainnet.to_string();
+        let (new_input, _) = create_cache_input(new_l1, new_l2, block_number).await;
+        // save to old l2 cache slot
+        assert!(set_cached_input(&cache_path, block_number, l2, &new_input).is_ok());
+        let inv_cached_input = get_cached_input(&cache_path, block_number, l2).expect("load cache");
+
+        // should fail with old provider
+        assert!(generate_input_from_cache(Some(inv_cached_input), &provider)
+            .await
+            .is_err());
+    }
 }

@@ -9,7 +9,6 @@ use raiko_lib::{
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use serde::{Deserialize, Serialize};
-use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
