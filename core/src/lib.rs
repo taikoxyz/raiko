@@ -1,4 +1,9 @@
-use alloy_primitives::{Address, FixedBytes};
+use crate::{
+    interfaces::{ProofRequest, RaikoError, RaikoResult},
+    preflight::preflight,
+    provider::BlockDataProvider,
+};
+use alloy_primitives::{Address, B256};
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
@@ -16,21 +21,6 @@ pub mod interfaces;
 pub mod preflight;
 pub mod prover;
 pub mod provider;
-
-use crate::{
-    interfaces::{ProofRequest, RaikoError, RaikoResult},
-    preflight::preflight,
-    provider::BlockDataProvider,
-};
-use alloy_primitives::B256;
-use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
-use raiko_lib::consts::ChainSpec;
-use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
-use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
-use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
-use raiko_lib::utils::HeaderHasher;
-use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info, trace, warn};
 
 pub type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
