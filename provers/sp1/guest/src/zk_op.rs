@@ -27,7 +27,9 @@ impl ZkvmOperator for Sp1Operator {
             .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
             .collect::<Vec<u32>>()
             .try_into()
-            .map_err(|_| Error::ZkvmOperation("Input point processing failed".to_string()))?;
+            .map_err(|e| {
+                Error::ZkvmOperation(format!("Input point processing failed. Details: {:?}", e))
+            })?;
 
         p.mul_assign(&k);
         Ok(point_to_be_bytes(p))
