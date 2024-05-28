@@ -1,7 +1,7 @@
 #![allow(incomplete_features)]
-use raiko_host::{interfaces::error::HostResult, server::serve, ProverState};
+use raiko_host::{interfaces::HostResult, server::serve, ProverState};
 use std::path::PathBuf;
-use tracing::debug;
+use tracing::{debug, info};
 use tracing_appender::{
     non_blocking::WorkerGuard,
     rolling::{Builder, Rotation},
@@ -19,6 +19,10 @@ async fn main() -> HostResult<()> {
     );
     debug!("Start config:\n{:#?}", state.opts.proof_request_opt);
     debug!("Args:\n{:#?}", state.opts);
+
+    info!("Supported chains: {:?}", state.chain_specs);
+    info!("Start config:\n{:#?}", state.opts.proof_request_opt);
+    info!("Args:\n{:#?}", state.opts);
 
     serve(state).await?;
     Ok(())

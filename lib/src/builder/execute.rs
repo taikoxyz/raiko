@@ -47,7 +47,6 @@ use crate::{
     guest_mem_forget, inplace_print, print_duration,
     time::{AddAssign, Duration, Instant},
     utils::{check_anchor_tx, generate_transactions},
-    Measurement,
 };
 
 /// Minimum supported protocol version: SHANGHAI
@@ -175,7 +174,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let mut actual_tx_no = 0usize;
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
-            if cfg!(debug_assertions) {
+            if !is_optimistic {
                 inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
             } else {
                 trace!("\rprocessing tx {tx_no}/{num_transactions}...");
@@ -335,14 +334,15 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             tx_misc_duration.add_assign(start.elapsed());
         }
-        clear_line();
-        print_duration("Tx transact time: ", tx_transact_duration);
-        print_duration("Tx misc time: ", tx_misc_duration);
+        if !is_optimistic {
+            clear_line();
+            print_duration("Tx transact time: ", tx_transact_duration);
+            print_duration("Tx misc time: ", tx_misc_duration);
+        }
 
         let mut db = &mut evm.context.evm.db;
 
         // process withdrawals unconditionally after any transactions
-        let measurement = Measurement::start("Processing withdrawals...", true);
         let mut withdrawals_trie = MptNode::default();
         for (i, withdrawal) in block_builder.input.withdrawals.iter().enumerate() {
             // the withdrawal amount is given in Gwei
@@ -357,10 +357,8 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 .insert_rlp(&i.to_rlp(), withdrawal)
                 .with_context(|| "failed to insert withdrawal")?;
         }
-        measurement.stop();
 
         // Update result header with computed values
-        let measurement = Measurement::start("Generating block header...", true);
         header.transactions_root = tx_trie.hash();
         header.receipts_root = receipt_trie.hash();
         header.logs_bloom = logs_bloom;
@@ -371,7 +369,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
         if spec_id >= SpecId::CANCUN {
             header.blob_gas_used = Some(blob_gas_used.into());
         }
-        measurement.stop();
 
         // Leak memory, save cycles
         guest_mem_forget([tx_trie, receipt_trie, withdrawals_trie]);

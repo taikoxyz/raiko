@@ -15,9 +15,18 @@ use url::Url;
 
 const REGISTERED_FILE: &str = "registered";
 
-pub fn get_instance_id(dir: &Path) -> Result<u64> {
+pub fn get_instance_id(dir: &Path) -> Result<Option<u64>> {
     let file = dir.join(REGISTERED_FILE);
-    let id = fs::read_to_string(file)?.parse()?;
+    let id = match fs::read_to_string(file) {
+        Ok(t) => Some(t.parse()?),
+        Err(e) => {
+            if e.kind() == io::ErrorKind::NotFound {
+                None
+            } else {
+                return Err(e.into());
+            }
+        }
+    };
     Ok(id)
 }
 
@@ -29,7 +38,13 @@ pub fn set_instance_id(dir: &Path, id: u64) -> io::Result<()> {
 
 pub fn remove_instance_id(dir: &Path) -> io::Result<()> {
     let file = dir.join(REGISTERED_FILE);
-    fs::remove_file(file)?;
+    fs::remove_file(file).or_else(|e| {
+        if e.kind() == io::ErrorKind::NotFound {
+            Ok(())
+        } else {
+            Err(e)
+        }
+    })?;
     Ok(())
 }
 
@@ -309,6 +324,7 @@ pub async fn register_sgx_instance(
         .get_receipt()
         .await?;
     println!("call return tx_hash: {:?}", tx_receipt.transaction_hash);
+    assert!(tx_receipt.status());
 
     let log = tx_receipt.inner.as_receipt().unwrap().logs.first().unwrap();
     let sgx_id: u64 = u64::from_be_bytes(log.topics()[1].0[24..].try_into().unwrap());

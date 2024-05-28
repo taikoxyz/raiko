@@ -4,12 +4,14 @@ pub trait DynAssertion: Send + Sync {
     fn display(&self);
     fn failed(&self) -> bool;
 }
+
 #[derive(Debug)]
 pub struct AssertEQ<T> {
     pub left: T,
     pub right: T,
     pub result: bool,
 }
+
 #[derive(Debug)]
 pub struct Assert {
     pub result: bool,
@@ -32,6 +34,7 @@ impl<T: Debug + Clone + Send + Sync> DynAssertion for Assertion<T> {
         }
     }
 }
+
 pub struct AssertionLog {
     pub assertions: Vec<Box<dyn DynAssertion>>,
 }
@@ -59,36 +62,38 @@ impl AssertionLog {
 
     pub fn display_failures(&self, start: usize, end: usize) {
         for i in start..end {
-            if self.assertions[i].failed() {
-                self.assertions[i].display();
+            if let Some(assertion) = self.assertions.get(i) {
+                if assertion.failed() {
+                    assertion.display();
+                }
             }
         }
     }
 
     pub fn summarize(&self, start: usize, end: usize) -> (usize, usize) {
-        let mut passed = 0;
-        let mut failed = 0;
-        for i in start..end {
-            if self.assertions[i].failed() {
-                failed += 1;
-            } else {
-                passed += 1;
+        (start..end).fold((0, 0), |(passed, failed), index| {
+            if let Some(assertion) = self.assertions.get(index) {
+                return if assertion.failed() {
+                    (passed, failed + 1)
+                } else {
+                    (passed + 1, failed)
+                };
             }
-        }
-        (passed, failed)
+            (passed, failed)
+        })
     }
 }
 
 pub fn eval_assert(cond: bool, file: &str, line: u32) -> bool {
     if !cond {
-        println!("Assertion failed at {}:{}", file, line);
+        println!("Assertion failed at {file}:{line}");
     }
     cond
 }
 
 pub fn eval_assert_eq<T: PartialEq + std::fmt::Debug>(a: T, b: T, file: &str, line: u32) -> bool {
     if a != b {
-        println!("Assertion failed: {:?} != {:?} at {}:{}", a, b, file, line);
+        println!("Assertion failed: {a:?} != {b:?} at {file}:{line}");
         false
     } else {
         true
@@ -105,6 +110,7 @@ macro_rules! assert {
             .insert(Box::new(Assertion::<bool>::Cond(Assert { result })));
     };
 }
+
 #[macro_export]
 macro_rules! assert_eq {
     ($a:expr, $b:expr) => {
