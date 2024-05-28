@@ -1,13 +1,3 @@
-use alloy_primitives::{FixedBytes, B256};
-use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
-use raiko_lib::consts::ChainSpec;
-use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
-use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
-use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
-use raiko_lib::utils::HeaderHasher;
-use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info, trace, warn};
-
 use crate::preflight::preflight;
 use crate::{
     interfaces::{
@@ -16,6 +6,15 @@ use crate::{
     },
     provider::BlockDataProvider,
 };
+use alloy_primitives::B256;
+use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
+use raiko_lib::consts::ChainSpec;
+use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
+use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
+use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
+use raiko_lib::utils::HeaderHasher;
+use serde::{Deserialize, Serialize};
+use tracing::{debug, error, info, trace, warn};
 
 pub struct Raiko {
     l1_chain_spec: ChainSpec,
@@ -113,7 +112,7 @@ impl Raiko {
                 );
 
                 // Make sure the blockhash from the node matches the one from the builder
-                if &Into::<FixedBytes<32>>::into(header.hash().0) != &input.block_hash_reference {
+                if B256::from(header.hash().0) != input.block_hash_reference {
                     return Err(anyhow::Error::msg("block hash unexpected").into());
                 }
                 let output = GuestOutput::Success { header, hash: pi };
