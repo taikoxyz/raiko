@@ -10,7 +10,9 @@ sudo docker compose down  taiko_client_proposer taiko_client_driver l2_execution
 ```
 
 Update the repository:
-```git pull```
+```
+git pull
+```
 
 Change the branch to the new release:
 ```
