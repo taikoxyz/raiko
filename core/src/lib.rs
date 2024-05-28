@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, FixedBytes, B256};
+use alloy_primitives::{Address, FixedBytes};
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
@@ -8,10 +8,9 @@ use raiko_lib::{
     prover::Proof,
     utils::HeaderHasher,
 };
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 pub mod interfaces;
 pub mod preflight;

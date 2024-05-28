@@ -1,16 +1,11 @@
 #![cfg(feature = "enable")]
-use std::env;
-
-use alloy_primitives::B256;
-use alloy_sol_types::SolValue;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use serde::{Deserialize, Serialize};
-use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
+use std::env;
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 

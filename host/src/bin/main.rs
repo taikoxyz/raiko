@@ -1,7 +1,7 @@
 #![allow(incomplete_features)]
-use raiko_host::{interfaces::error::HostResult, server::serve, ProverState};
+use raiko_host::{interfaces::HostResult, server::serve, ProverState};
 use std::path::PathBuf;
-use tracing::debug;
+use tracing::{debug, info};
 use tracing_appender::{
     non_blocking::WorkerGuard,
     rolling::{Builder, Rotation},

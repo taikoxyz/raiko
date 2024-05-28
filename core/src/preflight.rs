@@ -1,5 +1,5 @@
 use crate::{
-    interfaces::error::{HostError, HostResult},
+    interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
 use alloy_consensus::{

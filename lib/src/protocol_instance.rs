@@ -5,7 +5,6 @@ use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use raiko_primitives::keccak::keccak;
 use sha2::{Digest as _, Sha256};
-use tracing::debug;
 
 use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]

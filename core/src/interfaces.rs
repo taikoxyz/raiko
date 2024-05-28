@@ -138,7 +138,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sp1"))]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
@@ -146,7 +146,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "risc0"))]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
@@ -154,7 +154,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
         }
     }
