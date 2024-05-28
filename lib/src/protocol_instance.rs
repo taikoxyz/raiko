@@ -11,7 +11,7 @@ use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::SupportedChainSpecs,
+    consts::{SupportedChainSpecs, VerifierType},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     utils::HeaderHasher,
 };
@@ -23,64 +23,169 @@ pub struct ProtocolInstance {
     pub transition: Transition,
     pub block_metadata: BlockMetadata,
     pub prover: Address,
+    pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
-    pub sgx_verifier_address: Address,
+    pub verifier_address: Address,
 }
 
 impl ProtocolInstance {
+    pub fn new(
+        input: &GuestInput,
+        header: &AlloyConsensusHeader,
+        proof_type: VerifierType,
+    ) -> Result<Self> {
+        let blob_used = input.taiko.block_proposed.meta.blobUsed;
+        let tx_list_hash = if blob_used {
+            if input.taiko.skip_verify_blob {
+                println!("kzg check disabled!");
+                input.taiko.tx_blob_hash.unwrap()
+            } else {
+                println!("kzg check enabled!");
+                let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
+                let kzg_settings = KzgSettings::from_u8_slice(&mut data);
+                let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
+                    &Blob::from_bytes(input.taiko.tx_data.as_slice()).unwrap(),
+                    &kzg_settings,
+                )
+                .unwrap();
+                let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
+                assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
+                versioned_hash
+            }
+        } else {
+            TxHash::from(keccak(input.taiko.tx_data.as_slice()))
+        };
+
+        // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
+        // one we expect, because the prover could otherwise just fill in any values.
+        // The chain id is used because that is the value that is put onchain,
+        // and so all other chain data needs to be derived from it.
+        // For unknown chain ids we just skip this check so that tests using test data can still pass.
+        // TODO: we should probably split things up in critical and non-critical parts
+        // in the chain spec itself so we don't have to manually all the ones we have to care about.
+        if let Some(verified_chain_spec) =
+            SupportedChainSpecs::default().get_chain_spec_with_chain_id(input.chain_spec.chain_id)
+        {
+            assert_eq!(
+                input.chain_spec.max_spec_id, verified_chain_spec.max_spec_id,
+                "unexpected max_spec_id"
+            );
+            assert_eq!(
+                input.chain_spec.hard_forks, verified_chain_spec.hard_forks,
+                "unexpected hard_forks"
+            );
+            assert_eq!(
+                input.chain_spec.eip_1559_constants, verified_chain_spec.eip_1559_constants,
+                "unexpected eip_1559_constants"
+            );
+            assert_eq!(
+                input.chain_spec.l1_contract, verified_chain_spec.l1_contract,
+                "unexpected l1_contract"
+            );
+            assert_eq!(
+                input.chain_spec.l2_contract, verified_chain_spec.l2_contract,
+                "unexpected l2_contract"
+            );
+            assert_eq!(
+                input.chain_spec.is_taiko, verified_chain_spec.is_taiko,
+                "unexpected eip_1559_constants"
+            );
+        }
+
+        let deposits = input
+            .withdrawals
+            .iter()
+            .map(|w| EthDeposit {
+                recipient: w.address,
+                amount: w.amount as u128,
+                id: w.index,
+            })
+            .collect::<Vec<_>>();
+
+        let gas_limit: u64 = header.gas_limit.try_into().unwrap();
+        let verifier_address = (*input
+            .chain_spec
+            .verifier_address
+            .get(&proof_type)
+            .unwrap_or(&None))
+        .unwrap_or_default();
+
+        let pi = ProtocolInstance {
+            transition: Transition {
+                parentHash: header.parent_hash,
+                blockHash: header.hash(),
+                stateRoot: header.state_root,
+                graffiti: input.taiko.prover_data.graffiti,
+            },
+            block_metadata: BlockMetadata {
+                l1Hash: input.taiko.l1_header.hash(),
+                difficulty: input.taiko.block_proposed.meta.difficulty,
+                blobHash: tx_list_hash,
+                extraData: bytes_to_bytes32(&header.extra_data).into(),
+                depositsHash: keccak(deposits.abi_encode()).into(),
+                coinbase: header.beneficiary,
+                id: header.number,
+                gasLimit: (gas_limit
+                    - if input.chain_spec.is_taiko() {
+                        ANCHOR_GAS_LIMIT
+                    } else {
+                        0
+                    }) as u32,
+                timestamp: header.timestamp,
+                l1Height: input.taiko.l1_header.number,
+                minTier: input.taiko.block_proposed.meta.minTier,
+                blobUsed: blob_used,
+                parentMetaHash: input.taiko.block_proposed.meta.parentMetaHash,
+                sender: input.taiko.block_proposed.meta.sender,
+            },
+            sgx_instance: Address::default(),
+            prover: input.taiko.prover_data.prover,
+            chain_id: input.chain_spec.chain_id,
+            verifier_address,
+        };
+
+        // Sanity check
+        if input.chain_spec.is_taiko() {
+            ensure!(
+                pi.block_metadata.abi_encode() == input.taiko.block_proposed.meta.abi_encode(),
+                format!(
+                    "block hash mismatch, expected: {:?}, got: {:?}",
+                    input.taiko.block_proposed.meta, pi.block_metadata
+                )
+            );
+        }
+
+        Ok(pi)
+    }
+
+    pub fn sgx_instance(mut self, instance: Address) -> Self {
+        self.sgx_instance = instance;
+        self
+    }
+
     pub fn meta_hash(&self) -> B256 {
         keccak(self.block_metadata.abi_encode()).into()
     }
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
-    pub fn instance_hash(&self, evidence_type: &EvidenceType) -> B256 {
-        match evidence_type {
-            EvidenceType::Sgx { new_pubkey } => keccak(
-                (
-                    "VERIFY_PROOF",
-                    self.chain_id,
-                    self.sgx_verifier_address,
-                    self.transition.clone(),
-                    new_pubkey,
-                    self.prover,
-                    self.meta_hash(),
-                )
-                    .abi_encode()
-                    .iter()
-                    .copied()
-                    .skip(32) // TRICKY: skip the first dyn flag 0x00..20.
-                    .collect::<Vec<u8>>(),
-            )
-            .into(),
-            EvidenceType::PseZk => todo!(),
-            EvidenceType::Powdr => todo!(),
-            EvidenceType::Succinct => keccak(
-                (
-                    self.transition.clone(),
-                    // no pubkey since we don't need TEE to sign
-                    self.prover,
-                    self.meta_hash(),
-                )
-                    .abi_encode(),
-            )
-            .into(),
-            EvidenceType::Risc0 | EvidenceType::Native => {
-                keccak((self.transition.clone(), self.prover, self.meta_hash()).abi_encode()).into()
-            }
+    pub fn instance_hash(&self) -> B256 {
+        // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
+        // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
+        let mut data = (
+            "VERIFY_PROOF",
+            self.chain_id,
+            self.verifier_address,
+            self.transition.clone(),
+            self.sgx_instance,
+            self.prover,
+            self.meta_hash(),
+        )
+            .abi_encode();
+        if self.sgx_instance != Address::default() {
+            data = data.iter().copied().skip(32).collect::<Vec<u8>>();
         }
+        keccak(data).into()
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum EvidenceType {
-    Sgx {
-        new_pubkey: Address, // the evidence signature public key
-    },
-    PseZk,
-    Powdr,
-    Succinct,
-    Risc0,
-    Native,
 }
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
@@ -88,126 +193,6 @@ pub fn kzg_to_versioned_hash(commitment: &KzgCommitment) -> B256 {
     let mut res = Sha256::digest(commitment.as_slice());
     res[0] = VERSIONED_HASH_VERSION_KZG;
     B256::new(res.into())
-}
-
-pub fn assemble_protocol_instance(
-    input: &GuestInput,
-    header: &AlloyConsensusHeader,
-) -> Result<ProtocolInstance> {
-    let blob_used = input.taiko.block_proposed.meta.blobUsed;
-    let tx_list_hash = if blob_used {
-        if input.taiko.skip_verify_blob {
-            debug!("kzg check disabled!");
-            input.taiko.tx_blob_hash.unwrap()
-        } else {
-            debug!("kzg check enabled!");
-            let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
-            let kzg_settings = KzgSettings::from_u8_slice(&mut data);
-            let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
-                &Blob::from_bytes(input.taiko.tx_data.as_slice()).unwrap(),
-                &kzg_settings,
-            )
-            .unwrap();
-            let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
-            assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
-            versioned_hash
-        }
-    } else {
-        TxHash::from(keccak(input.taiko.tx_data.as_slice()))
-    };
-
-    // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
-    // one we expect, because the prover could otherwise just fill in any values.
-    // The chain id is used because that is the value that is put onchain,
-    // and so all other chain data needs to be derived from it.
-    // For unknown chain ids we just skip this check so that tests using test data can still pass.
-    // TODO: we should probably split things up in critical and non-critical parts
-    // in the chain spec itself so we don't have to manually all the ones we have to care about.
-    if let Some(verified_chain_spec) =
-        SupportedChainSpecs::default().get_chain_spec_with_chain_id(input.chain_spec.chain_id)
-    {
-        assert_eq!(
-            input.chain_spec.max_spec_id, verified_chain_spec.max_spec_id,
-            "unexpected max_spec_id"
-        );
-        assert_eq!(
-            input.chain_spec.hard_forks, verified_chain_spec.hard_forks,
-            "unexpected hard_forks"
-        );
-        assert_eq!(
-            input.chain_spec.eip_1559_constants, verified_chain_spec.eip_1559_constants,
-            "unexpected eip_1559_constants"
-        );
-        assert_eq!(
-            input.chain_spec.l1_contract, verified_chain_spec.l1_contract,
-            "unexpected l1_contract"
-        );
-        assert_eq!(
-            input.chain_spec.l2_contract, verified_chain_spec.l2_contract,
-            "unexpected l2_contract"
-        );
-        assert_eq!(
-            input.chain_spec.is_taiko, verified_chain_spec.is_taiko,
-            "unexpected eip_1559_constants"
-        );
-    }
-
-    let deposits = input
-        .withdrawals
-        .iter()
-        .map(|w| EthDeposit {
-            recipient: w.address,
-            amount: w.amount as u128,
-            id: w.index,
-        })
-        .collect::<Vec<_>>();
-
-    let gas_limit: u64 = header.gas_limit.try_into().unwrap();
-    let pi = ProtocolInstance {
-        transition: Transition {
-            parentHash: header.parent_hash,
-            blockHash: header.hash(),
-            stateRoot: header.state_root,
-            graffiti: input.taiko.prover_data.graffiti,
-        },
-        block_metadata: BlockMetadata {
-            l1Hash: input.taiko.l1_header.hash(),
-            difficulty: input.taiko.block_proposed.meta.difficulty,
-            blobHash: tx_list_hash,
-            extraData: bytes_to_bytes32(&header.extra_data).into(),
-            depositsHash: keccak(deposits.abi_encode()).into(),
-            coinbase: header.beneficiary,
-            id: header.number,
-            gasLimit: (gas_limit
-                - if input.chain_spec.is_taiko() {
-                    ANCHOR_GAS_LIMIT
-                } else {
-                    0
-                }) as u32,
-            timestamp: header.timestamp,
-            l1Height: input.taiko.l1_header.number,
-            minTier: input.taiko.block_proposed.meta.minTier,
-            blobUsed: blob_used,
-            parentMetaHash: input.taiko.block_proposed.meta.parentMetaHash,
-            sender: input.taiko.block_proposed.meta.sender,
-        },
-        prover: input.taiko.prover_data.prover,
-        chain_id: input.chain_spec.chain_id,
-        sgx_verifier_address: input.chain_spec.sgx_verifier_address.unwrap_or_default(),
-    };
-
-    // Sanity check
-    if input.chain_spec.is_taiko() {
-        ensure!(
-            pi.block_metadata.abi_encode() == input.taiko.block_proposed.meta.abi_encode(),
-            format!(
-                "block hash mismatch, expected: {:?}, got: {:?}",
-                input.taiko.block_proposed.meta, pi.block_metadata
-            )
-        );
-    }
-
-    Ok(pi)
 }
 
 fn bytes_to_bytes32(input: &[u8]) -> [u8; 32] {

@@ -20,6 +20,10 @@ async fn main() -> HostResult<()> {
     debug!("Start config:\n{:#?}", state.opts.proof_request_opt);
     debug!("Args:\n{:#?}", state.opts);
 
+    info!("Supported chains: {:?}", state.chain_specs);
+    info!("Start config:\n{:#?}", state.opts.proof_request_opt);
+    info!("Args:\n{:#?}", state.opts);
+
     serve(state).await?;
     Ok(())
 }
