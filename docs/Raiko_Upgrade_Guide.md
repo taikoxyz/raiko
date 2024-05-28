@@ -61,6 +61,7 @@ PRIVATE_KEY=0xyour_prover_private_key ./script/config_dcap_sgx_verifier.sh --quo
 ```
 
 Then export SGX ID and run Raiko:
+(Export L1 and Beacon endpoints. Same format you have input your .env file)
 ```
 cd ~/raiko/docker
 export SGX_INSTANCE_ID={YOUR_INSTANCE_ID}
