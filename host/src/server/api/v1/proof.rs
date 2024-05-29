@@ -58,7 +58,7 @@ fn set_cached_input(
     bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))
 }
 
-async fn generate_input_from_cache(
+async fn validate_cache_input(
     cached_input: Option<GuestInput>,
     provider: &RpcBlockDataProvider,
 ) -> HostResult<GuestInput> {
@@ -80,14 +80,8 @@ async fn generate_input_from_cache(
             "block.header.hash.unwrap_or(to_header(&block.header).hash()) = {:?}",
             block.header.hash.unwrap_or(to_header(&block.header).hash())
         );
-        debug!(
-            "cache_input.block_header_reference.parent_hash = {:?}",
-            cache_input.block_header_reference.parent_hash
-        );
-        debug!("block.header.parent_hash = {:?}", block.header.parent_hash);
         if cache_input.block_hash_reference
             == block.header.hash.unwrap_or(to_header(&block.header).hash())
-            && cache_input.block_header_reference.parent_hash == block.header.parent_hash
         {
             return Ok(cache_input);
         } else {
@@ -151,7 +145,7 @@ async fn handle_proof(
         &taiko_chain_spec.rpc.clone(),
         proof_request.block_number - 1,
     )?;
-    let input = match generate_input_from_cache(cached_input, &provider).await {
+    let input = match validate_cache_input(cached_input, &provider).await {
         Ok(cache_input) => cache_input,
         Err(_) => {
             // no valid cache
@@ -301,7 +295,7 @@ mod test {
         let cache_path = Some("./".into());
         assert!(set_cached_input(&cache_path, block_number, l2, &input).is_ok());
         let cached_input = get_cached_input(&cache_path, block_number, l2).expect("load cache");
-        assert!(generate_input_from_cache(Some(cached_input), &provider)
+        assert!(validate_cache_input(Some(cached_input), &provider)
             .await
             .is_ok());
 
@@ -313,7 +307,7 @@ mod test {
         let inv_cached_input = get_cached_input(&cache_path, block_number, l2).expect("load cache");
 
         // should fail with old provider
-        assert!(generate_input_from_cache(Some(inv_cached_input), &provider)
+        assert!(validate_cache_input(Some(inv_cached_input), &provider)
             .await
             .is_err());
     }
