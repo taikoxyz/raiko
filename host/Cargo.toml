@@ -13,7 +13,8 @@ sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
 raiko-lib = { workspace = true }
-raiko-primitives = { workspace = true, features = ["c-kzg"] }
+# raiko-primitives = { workspace = true, features = ["c-kzg"] }
+raiko-primitives = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }

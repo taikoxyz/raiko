@@ -49,9 +49,12 @@ risc0-build = { version = "0.21.0" }
 risc0-binfmt = { version = "0.21.0" }
 
 # SP1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+# sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+# sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+# sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-sdk = { path = "../sp1/sdk" }
+sp1-zkvm = { path = "../sp1/zkvm" }
+sp1-helper = { path = "../sp1/helper" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
@@ -163,3 +166,4 @@ base64-serde = "0.7.0"
 base64 = "0.21.7"
 dirs = "5.0.1"
 pathdiff = "0.2.1"
+tokio-task-pool= "0.1.5"
