@@ -4,6 +4,7 @@ members = [
     "lib",
     "host",
     "primitives",
+    "provers/nitro/nitro-prover",
     "provers/sp1/driver",
     "provers/sp1/builder",
     "provers/risc0/driver",
