@@ -5,12 +5,11 @@ use alloy_sol_types::sol;
 use alloy_transport_http::Http;
 use anyhow::Result;
 use pem::parse_many;
-use raiko_primitives::{
+use raiko_lib::primitives::{
     alloy_eips::{BlockId, BlockNumberOrTag},
     hex, Address, Bytes, FixedBytes, U256,
 };
-use std::{env, path::Path};
-use std::{fs, io};
+use std::{env, fs, io, path::Path};
 use url::Url;
 
 const REGISTERED_FILE: &str = "registered";
@@ -335,8 +334,7 @@ pub async fn register_sgx_instance(
 
 #[cfg(test)]
 mod test {
-
-    use raiko_primitives::address;
+    use raiko_lib::primitives::address;
 
     use super::*;
 

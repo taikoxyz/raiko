@@ -11,13 +11,13 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 use lazy_static::lazy_static;
 use libflate::zlib::Decoder as zlibDecoder;
 use libflate::zlib::Encoder as zlibEncoder;
-use raiko_primitives::{keccak256, B256};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
     consts::{ChainSpec, Network},
     input::{decode_anchor, GuestInput},
+    primitives::{keccak256, B256},
 };
 
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
