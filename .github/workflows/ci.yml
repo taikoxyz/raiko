@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build-test:
     name: Build and test
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     timeout-minutes: 120
     strategy:
       matrix:
@@ -94,7 +94,7 @@ jobs:
 
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     timeout-minutes: 60
 
     steps:
@@ -107,7 +107,7 @@ jobs:
 
   test-lib:
     name: Test raiko-lib
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     timeout-minutes: 60
 
     steps:
@@ -121,7 +121,7 @@ jobs:
 
   clippy:
     name: clippy
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     timeout-minutes: 30
 
     steps:
@@ -139,7 +139,7 @@ jobs:
 
   fmt:
     name: fmt
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     timeout-minutes: 10
 
     steps:

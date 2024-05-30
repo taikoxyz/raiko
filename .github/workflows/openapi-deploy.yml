@@ -17,7 +17,7 @@ concurrency:
 jobs:
   deploy-docs:
     name: Generate OpenAPI docs
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     environment:
       name: ${{ (github.ref == 'refs/heads/main') && 'github-pages' || 'test-environment' }}
       url: ${{ steps.deployment.outputs.page_url }}
