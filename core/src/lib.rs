@@ -14,7 +14,7 @@ use raiko_lib::{
     utils::HeaderHasher,
 };
 use serde_json::Value;
-use std::collections::HashMap;
+use std::{collections::HashMap, hint::black_box};
 use tracing::{debug, error, info, warn};
 
 pub mod interfaces;
@@ -50,8 +50,8 @@ impl Raiko {
         preflight(
             provider,
             self.request.block_number,
-            self.l1_chain_spec.clone(),
-            self.taiko_chain_spec.clone(),
+            self.l1_chain_spec.to_owned(),
+            self.taiko_chain_spec.to_owned(),
             TaikoProverData {
                 graffiti: self.request.graffiti,
                 prover: self.request.prover,
@@ -111,16 +111,15 @@ impl Raiko {
                     &header.parent_beacon_block_root,
                     "parent_beacon_block_root",
                 );
-                check_eq(
-                    &exp.extra_data.clone(),
-                    &header.extra_data.clone(),
-                    "extra_data",
-                );
+                check_eq(&exp.extra_data, &header.extra_data, "extra_data");
 
                 // Make sure the blockhash from the node matches the one from the builder
-                if B256::from(header.hash().0) != input.block_hash_reference {
-                    return Err(anyhow::Error::msg("block hash unexpected").into());
-                }
+                require_eq(
+                    &B256::from(header.hash().0),
+                    &input.block_hash_reference,
+                    "block hash unexpected",
+                )?;
+
                 let output = GuestOutput::Success { header, hash: pi };
 
                 Ok(output)
@@ -135,21 +134,32 @@ impl Raiko {
     }
 
     pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> RaikoResult<Proof> {
+        let data = serde_json::to_value(&self.request)?;
         self.request
             .proof_type
-            .run_prover(
-                input.clone(),
-                output,
-                &serde_json::to_value(self.request.clone())?,
-            )
+            .run_prover(input, output, &data)
             .await
     }
 }
 
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
+    // printing out error, if any, but ignoring the result
+    // making sure it's not optimized out
+    let _ = black_box(require_eq(expected, actual, message));
+}
+
+fn require_eq<T: std::cmp::PartialEq + std::fmt::Debug>(
+    expected: &T,
+    actual: &T,
+    message: &str,
+) -> RaikoResult<()> {
     if expected != actual {
-        error!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
+        let msg =
+            format!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}",);
+        error!("{}", msg);
+        return Err(anyhow::Error::msg(msg).into());
     }
+    Ok(())
 }
 
 /// Merges two json's together, overwriting `a` with the values of `b`
@@ -157,10 +167,10 @@ pub fn merge(a: &mut Value, b: &Value) {
     match (a, b) {
         (Value::Object(a), Value::Object(b)) => {
             for (k, v) in b {
-                merge(a.entry(k.clone()).or_insert(Value::Null), v);
+                merge(a.entry(k).or_insert(Value::Null), v);
             }
         }
-        (a, b) if !b.is_null() => *a = b.clone(),
+        (a, b) if !b.is_null() => *a = b.to_owned(),
         // If b is null, just keep a (which means do nothing).
         _ => {}
     }
@@ -225,12 +235,13 @@ mod tests {
         let provider =
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
-        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
+        let proof_type = proof_request.proof_type.to_owned();
+        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
         let mut input = raiko
             .generate_input(provider)
             .await
             .expect("input generation failed");
-        if is_ci() && proof_request.proof_type == ProofType::Sp1 {
+        if is_ci() && proof_type == ProofType::Sp1 {
             input.taiko.skip_verify_blob = true;
         }
         let output = raiko.get_output(&input).expect("output generation failed");
