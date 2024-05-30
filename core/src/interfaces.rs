@@ -153,7 +153,6 @@ impl ProofType {
                 return sgx_prover::SgxProver::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
                 #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
