@@ -13,7 +13,7 @@ on:
 jobs:
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     timeout-minutes: 60
 
     steps:

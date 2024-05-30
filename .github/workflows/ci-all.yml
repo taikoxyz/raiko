@@ -37,7 +37,7 @@ jobs:
 
   test-lib:
     name: Test raiko-lib
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     timeout-minutes: 60
 
     steps:
