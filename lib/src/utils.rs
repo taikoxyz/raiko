@@ -45,6 +45,11 @@ pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
     })
 }
 
+// pub fn decode_transactions2(tx_list: &[u8]) -> Vec<AlloyTransaction> {
+//     let txs = decode_transactions(tx_list);
+//     txs.iter().map(|l| l.try_into().unwrap()).collect::<Vec<_>>()
+// }
+
 // leave a simply fn in case of more checks in future
 fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
     tx_list.len() <= CALL_DATA_CAPACITY
@@ -120,6 +125,22 @@ pub fn generate_transactions(
     }
     transactions
 }
+
+pub fn generate_transactions2(
+    chain_spec: &ChainSpec,
+    is_blob_data: bool,
+    tx_list: &[u8],
+    anchor_tx: Option<AlloyTransaction>,
+) -> Vec<AlloyTransaction> {
+    // Decode the tx list from the raw data posted onchain
+    let tx_list = get_tx_list(chain_spec, is_blob_data, tx_list);
+
+    // Decode the transactions from the tx list
+    //let mut transactions = decode_transactions(&tx_list);
+    //transactions
+    Vec::new()
+}
+
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
 const BLOB_FIELD_ELEMENT_BYTES: usize = 32;

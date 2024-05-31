@@ -18,10 +18,11 @@ use reth_evm::execute::EthBlockOutput;
 use reth_evm::execute::Executor;
 use reth_evm_ethereum::execute::EthExecutorProvider;
 use reth_interfaces::executor::BlockValidationError;
-use reth_primitives::{BlockBody, ChainSpecBuilder, Header, Receipts, B256, MAINNET, U256};
+use reth_primitives::{BlockBody, ChainSpecBuilder, Header, Receipts, B256, MAINNET, TAIKO_A7, U256};
 use reth_provider::{BundleStateWithReceipts, OriginalValuesKnown, ProviderError};
-use revm::primitives::{AccountInfo, Bytecode, HashMap};
+use revm::primitives::{AccountInfo, Bytecode, HashMap, SpecId};
 use revm::{db::BundleState, Database, DatabaseCommit};
+use crate::utils::generate_transactions;
 
 /// Optimistic database
 #[allow(async_fn_in_trait)]
@@ -43,6 +44,9 @@ pub struct RethBlockBuilder<DB> {
     pub db: Option<DB>,
     pub header: Option<Header>,
 }
+
+/// Minimum supported protocol version: SHANGHAI
+const MIN_SPEC_ID: SpecId = SpecId::SHANGHAI;
 
 impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
     RethBlockBuilder<DB>
@@ -102,14 +106,55 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 
     /// Executes all input transactions.
     pub fn execute_transactions(&mut self, optimistic: bool) -> Result<()> {
-        let total_difficulty = U256::ZERO;
-        let chain_spec = ChainSpecBuilder::default()
-            .chain(MAINNET.chain)
-            .genesis(MAINNET.genesis.clone())
-            .cancun_activated()
-            .build();
+        let chain_spec = &self.input.chain_spec;
+        let chain_id = chain_spec.chain_id();
+        let is_taiko = chain_spec.is_taiko();
 
-        let executor = EthExecutorProvider::ethereum(chain_spec.clone().into())
+        let total_difficulty = U256::ZERO;
+        let reth_chain_spec = if is_taiko {
+            ChainSpecBuilder::default()
+                .chain(TAIKO_A7.chain)
+                .genesis(TAIKO_A7.genesis.clone())
+                .shanghai_activated()
+                .build()
+        } else {
+            ChainSpecBuilder::default()
+                .chain(MAINNET.chain)
+                .genesis(MAINNET.genesis.clone())
+                .cancun_activated()
+                .build()
+        };
+
+        let header = self
+            .header
+            .as_mut()
+            .expect("Header is not initialized");
+        let spec_id = self.input
+            .chain_spec
+            .active_fork(header.number, header.timestamp)
+            .unwrap();
+        if !SpecId::enabled(spec_id, MIN_SPEC_ID) {
+            bail!("Invalid protocol version: expected >= {MIN_SPEC_ID:?}, got {spec_id:?}")
+        }
+
+        //println!("spec_id: {spec_id:?}");
+
+        // generate the transactions from the tx list
+        // For taiko blocks, insert the anchor tx as the first transaction
+        let anchor_tx = if chain_spec.is_taiko() {
+            Some(serde_json::from_str(&self.input.taiko.anchor_tx.clone()).unwrap())
+        } else {
+            None
+        };
+        let mut transactions = generate_transactions(
+            &self.input.chain_spec,
+            self.input.taiko.block_proposed.meta.blobUsed,
+            &self.input.taiko.tx_data,
+            anchor_tx,
+        );
+        // println!("transactions: {:?}", transactions);
+
+        let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone().into())
             .eth_executor(self.db.take().unwrap())
             .optimistic(optimistic);
         let EthBlockOutput {

@@ -186,4 +186,8 @@ revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", 
     "serde",
     "taiko",
 ]}
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false, features = [
+    "std",
+    "serde",
+    "taiko",
+]}
