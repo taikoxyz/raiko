@@ -68,7 +68,6 @@ impl Raiko {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
                 debug!("Final block header derived successfully. {header:?}");
-                info!("Final block header derived successfully. {header:?}");
                 let pi = ProtocolInstance::new(input, &header, VerifierType::None)?.instance_hash();
 
                 // Check against the expected value of all fields for easy debugability
