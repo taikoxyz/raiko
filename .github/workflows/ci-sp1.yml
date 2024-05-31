@@ -1,0 +1,19 @@
+name: CI - SP1
+
+on:
+  workflow_call:
+  push:
+    branches: ["main"]
+    paths:
+      - "provers/sp1/**"
+  pull_request:
+    paths:
+      - "provers/sp1/**"
+
+jobs:
+    build-test-sgx:
+      name: Build and test sp1
+      uses: ./.github/workflows/ci-build-test-reusable.yml
+      with:
+        version_name: "sp1"
+        version_toolchain: "nightly-2024-04-18"
