@@ -243,6 +243,8 @@ pub enum Network {
     Holesky,
     /// Taiko A7 tesnet
     TaikoA7,
+    /// Taiko Mainnet
+    TaikoMainnet,
 }
 
 impl ToString for Network {
@@ -251,6 +253,7 @@ impl ToString for Network {
             Network::Ethereum => "ethereum".to_string(),
             Network::Holesky => "holesky".to_string(),
             Network::TaikoA7 => "taiko_a7".to_string(),
+            Network::TaikoMainnet => "taiko_mainnet".to_string(),
         }
     }
 }

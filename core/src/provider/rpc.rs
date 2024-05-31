@@ -15,6 +15,7 @@ use crate::{
     MerkleProof,
 };
 
+#[derive(Clone)]
 pub struct RpcBlockDataProvider {
     pub provider: ReqwestProvider,
     pub client: RpcClient<Http<Client>>,
