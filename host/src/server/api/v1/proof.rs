@@ -71,18 +71,15 @@ async fn validate_cache_input(
             .first()
             .ok_or_else(|| RaikoError::RPC("No block data for the requested block".to_owned()))?;
 
-        // double check if cache is valid for now
+        let cached_block_hash = cache_input.block_hash_reference;
+        let real_block_hash = block.header.hash.unwrap_or(to_header(&block.header).hash());
         debug!(
-            "cache_input.block_hash_reference = {:?}",
-            cache_input.block_hash_reference
+            "cache_block_hash={:?}, real_block_hash={:?}",
+            cached_block_hash, real_block_hash
         );
-        debug!(
-            "block.header.hash.unwrap_or(to_header(&block.header).hash()) = {:?}",
-            block.header.hash.unwrap_or(to_header(&block.header).hash())
-        );
-        if cache_input.block_hash_reference
-            == block.header.hash.unwrap_or(to_header(&block.header).hash())
-        {
+
+        // double check if cache is valid
+        if cached_block_hash == real_block_hash {
             return Ok(cache_input);
         } else {
             Err(HostError::InvalidRequestConfig(
@@ -244,9 +241,9 @@ pub fn create_router() -> Router<ProverState> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use alloy_primitives::{Address, B256};
     use raiko_core::interfaces::ProofType;
     use raiko_lib::consts::{Network, SupportedChainSpecs};
-    use raiko_primitives::{Address, B256};
 
     async fn create_cache_input(
         l1_network: &String,
