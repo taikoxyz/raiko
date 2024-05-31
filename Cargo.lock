@@ -1811,12 +1811,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "critical-section"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
-
-[[package]]
 name = "crossbeam"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4040,10 +4034,6 @@ name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
-dependencies = [
- "critical-section",
- "portable-atomic",
-]
 
 [[package]]
 name = "open-fastrlp"
@@ -4872,7 +4862,6 @@ dependencies = [
  "clap 4.5.4",
  "ethers-core",
  "raiko-lib",
- "raiko-primitives",
  "reqwest 0.11.27",
  "reqwest 0.12.4",
  "revm",
@@ -4923,7 +4912,6 @@ dependencies = [
  "proptest",
  "raiko-core",
  "raiko-lib",
- "raiko-primitives",
  "reqwest 0.11.27",
  "reqwest 0.12.4",
  "revm",
@@ -4954,6 +4942,7 @@ name = "raiko-lib"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
+ "alloy-eips 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
  "alloy-network 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
  "alloy-primitives",
  "alloy-rlp",
@@ -4967,16 +4956,20 @@ dependencies = [
  "chrono",
  "flate2",
  "hex",
+ "hex-literal",
  "lazy_static",
  "libflate",
  "log",
  "once_cell",
- "raiko-primitives",
  "revm",
+ "revm-primitives",
+ "rlp",
  "serde",
  "serde_json",
  "serde_with",
  "sha2",
+ "sha3",
+ "tempfile",
  "thiserror",
  "thiserror-no-std",
  "tokio",
@@ -4996,32 +4989,6 @@ dependencies = [
  "pathdiff",
  "regex",
  "risc0-binfmt",
-]
-
-[[package]]
-name = "raiko-primitives"
-version = "0.1.0"
-dependencies = [
- "alloy-dyn-abi",
- "alloy-eips 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-rlp-derive",
- "alloy-rpc-types 0.1.0 (git+https://github.com/brechtpd/alloy?branch=175_4e22b9e)",
- "alloy-sol-types",
- "anyhow",
- "bincode",
- "c-kzg-taiko",
- "hex-literal",
- "once_cell",
- "revm-primitives",
- "rlp",
- "serde",
- "serde_json",
- "sha2",
- "sha3",
- "tempfile",
- "thiserror",
 ]
 
 [[package]]
@@ -5056,7 +5023,6 @@ dependencies = [
  "prometheus",
  "proptest",
  "raiko-lib",
- "raiko-primitives",
  "reqwest 0.11.27",
  "reqwest 0.12.4",
  "revm",
@@ -5563,7 +5529,6 @@ dependencies = [
  "log",
  "once_cell",
  "raiko-lib",
- "raiko-primitives",
  "risc0-zkvm",
  "serde",
  "serde_json",
@@ -6307,7 +6272,6 @@ dependencies = [
  "dirs",
  "hex",
  "raiko-lib",
- "raiko-primitives",
  "rand",
  "rand_core",
  "secp256k1 0.27.0",
@@ -6334,7 +6298,6 @@ dependencies = [
  "once_cell",
  "pem 3.0.4",
  "raiko-lib",
- "raiko-primitives",
  "serde",
  "serde_json",
  "serde_with",

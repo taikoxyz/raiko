@@ -11,8 +11,9 @@ permissions:
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: [taiko-runner]
     steps:
       - uses: googleapis/release-please-action@v4
         with:
           release-type: simple
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}

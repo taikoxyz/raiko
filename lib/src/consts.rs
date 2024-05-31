@@ -19,13 +19,13 @@ use alloc::collections::BTreeMap;
 
 use alloy_primitives::Address;
 use anyhow::{anyhow, bail, Result};
-use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+use crate::primitives::{uint, BlockNumber, ChainId, U256};
 
 use std::collections::HashMap;
 use std::path::PathBuf;

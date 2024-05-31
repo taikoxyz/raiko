@@ -15,8 +15,13 @@ use std::{collections::HashSet, mem::take};
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::Bytes;
-use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb, utils::to_header};
-use raiko_primitives::{Address, B256, U256};
+use raiko_lib::{
+    builder::OptimisticDatabase,
+    consts::ChainSpec,
+    mem_db::MemDb,
+    primitives::{Address, B256, U256},
+    utils::to_header,
+};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
