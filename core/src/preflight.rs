@@ -16,12 +16,12 @@ use raiko_lib::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
     },
+    primitives::{
+        eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
+        mpt::proofs_to_tries,
+    },
     utils::{generate_transactions, to_header, zlib_compress_data},
     Measurement,
-};
-use raiko_primitives::{
-    eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
-    mpt::proofs_to_tries,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
@@ -488,7 +488,7 @@ async fn get_block_proposed_event(
         };
         let event = BlockProposed::decode_log(&log_struct, false)
             .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
-        if event.blockId == raiko_primitives::U256::from(l2_block_number) {
+        if event.blockId == raiko_lib::primitives::U256::from(l2_block_number) {
             let Some(log_tx_hash) = log.transaction_hash else {
                 bail!("No transaction hash in the log")
             };
@@ -615,9 +615,9 @@ mod test {
     use ethers_core::types::Transaction;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
+        primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings},
         utils::decode_transactions,
     };
-    use raiko_primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings};
 
     use super::*;
 

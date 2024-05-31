@@ -11,9 +11,9 @@ use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::VerifierType,
     input::GuestInput,
+    primitives::Address,
     protocol_instance::ProtocolInstance,
 };
-use raiko_primitives::Address;
 use secp256k1::{KeyPair, SecretKey};
 use serde::Serialize;
 

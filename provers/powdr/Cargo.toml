@@ -12,13 +12,11 @@ path = "src/main.rs"
 
 
 [dependencies]
-raiko-primitives = { path = "../../primitives" }
 raiko-lib = { path = "../../lib", features = ["taiko"] }
-powdr-riscv-runtime ={ git = "https://github.com/ceciliaz030/powdr", branch = "+nightly" }
+powdr-riscv-runtime = { git = "https://github.com/ceciliaz030/powdr", branch = "+nightly" }
 
 
 [workspace]
 
 
 # cargo build --release -Z build-std=core,alloc --target riscv32imac-unknown-none-elf --lib
-
