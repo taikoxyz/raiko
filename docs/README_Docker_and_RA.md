@@ -51,6 +51,14 @@ If you're using Ubuntu and want to see the available Linux kernel versions, run 
 apt search linux-image
 ```
 
+Once you have determined the version of the kernel that you want to downgrade or upgrade, run the following command to install:
+
+```
+sudo apt-get install linux-image-{version}-generic
+```
+
+Then reboot the system
+
 [kernel-5.11]: https://www.intel.com/content/www/us/en/developer/tools/software-guard-extensions/linux-overview.html
 [edmm]: https://gramine.readthedocs.io/en/stable/manifest-syntax.html#edmm
 
