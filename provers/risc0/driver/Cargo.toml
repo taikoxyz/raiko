@@ -10,13 +10,12 @@ harness = true
 
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
-raiko-primitives = { workspace = true, optional = true }
 
 risc0-zkvm = { workspace = true, optional = true }
 bonsai-sdk = { workspace = true, optional = true }
 
 alloy-primitives = { workspace = true, optional = true }
-alloy-sol-types = { workspace = true, optional = true}
+alloy-sol-types = { workspace = true, optional = true }
 
 ethers-contract = { workspace = true, optional = true }
 ethers-core = { workspace = true, optional = true }
@@ -33,13 +32,12 @@ bincode = { workspace = true, optional = true }
 bytemuck = { workspace = true, optional = true }
 typetag = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true  }
+serde_json = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
 
 [features]
 enable = [
     "raiko-lib",
-    "raiko-primitives",
     "risc0-zkvm",
     "bonsai-sdk",
     "alloy-primitives",
@@ -62,3 +60,4 @@ enable = [
 ]
 cuda = ["risc0-zkvm?/cuda"]
 metal = ["risc0-zkvm?/metal"]
+

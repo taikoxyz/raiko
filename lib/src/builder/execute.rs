@@ -18,10 +18,6 @@ use anyhow::{anyhow, bail, ensure, Context, Error, Result};
 use core::{fmt::Debug, mem::take, str::from_utf8};
 #[cfg(feature = "std")]
 use log::debug;
-use raiko_primitives::{
-    alloy_eips::eip4788::SYSTEM_ADDRESS, mpt::MptNode, receipt::Receipt, Bloom, Rlp2718Bytes,
-    RlpBytes,
-};
 use revm::{
     interpreter::Host,
     primitives::{
@@ -44,7 +40,12 @@ use crate::{
     builder::BlockBuilder,
     clear_line,
     consts::GWEI_TO_WEI,
-    guest_mem_forget, inplace_print, print_duration,
+    guest_mem_forget, inplace_print,
+    primitives::{
+        alloy_eips::eip4788::SYSTEM_ADDRESS, mpt::MptNode, receipt::Receipt, Bloom, Rlp2718Bytes,
+        RlpBytes,
+    },
+    print_duration,
     time::{AddAssign, Duration, Instant},
     utils::{check_anchor_tx, generate_transactions},
 };

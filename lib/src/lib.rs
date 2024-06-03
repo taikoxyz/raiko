@@ -34,6 +34,7 @@ pub mod builder;
 pub mod consts;
 pub mod input;
 pub mod mem_db;
+pub mod primitives;
 pub mod protocol_instance;
 pub mod prover;
 pub mod utils;

@@ -19,13 +19,13 @@ use alloc::collections::BTreeMap;
 
 use alloy_primitives::Address;
 use anyhow::{anyhow, bail, Result};
-use raiko_primitives::{uint, BlockNumber, ChainId, U256};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+use crate::primitives::{uint, BlockNumber, ChainId, U256};
 
 use once_cell::sync::Lazy;
 use std::path::PathBuf;
@@ -246,6 +246,8 @@ pub enum Network {
     Holesky,
     /// Taiko A7 tesnet
     TaikoA7,
+    /// Taiko Mainnet
+    TaikoMainnet,
 }
 
 impl ToString for Network {
@@ -254,6 +256,7 @@ impl ToString for Network {
             Network::Ethereum => "ethereum".to_string(),
             Network::Holesky => "holesky".to_string(),
             Network::TaikoA7 => "taiko_a7".to_string(),
+            Network::TaikoMainnet => "taiko_mainnet".to_string(),
         }
     }
 }

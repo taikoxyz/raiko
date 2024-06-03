@@ -3,9 +3,9 @@
 # Any error will result in failure
 set -e
 
-TOOLCHAIN_RISC0=+nightly-2024-02-06
-TOOLCHAIN_SP1=+nightly-2024-02-06
-TOOLCHAIN_SGX=+nightly-2024-02-06
+TOOLCHAIN_RISC0=+nightly-2024-04-18
+TOOLCHAIN_SP1=+nightly-2024-04-18
+TOOLCHAIN_SGX=+nightly-2024-04-18
 
 check_toolchain() {
 	local TOOLCHAIN=$1

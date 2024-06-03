@@ -1,9 +1,4 @@
-use crate::{
-    interfaces::{ProofRequest, RaikoError, RaikoResult},
-    preflight::preflight,
-    provider::BlockDataProvider,
-};
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, FixedBytes};
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
@@ -67,7 +62,6 @@ impl Raiko {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
                 debug!("Final block header derived successfully. {header:?}");
-                info!("Final block header derived successfully. {header:?}");
                 let pi = ProtocolInstance::new(input, &header, VerifierType::None)?.instance_hash();
 
                 // Check against the expected value of all fields for easy debugability
@@ -185,8 +179,10 @@ mod tests {
     };
     use alloy_primitives::Address;
     use clap::ValueEnum;
-    use raiko_lib::consts::{Network, SupportedChainSpecs};
-    use raiko_primitives::B256;
+    use raiko_lib::{
+        consts::{Network, SupportedChainSpecs},
+        primitives::B256,
+    };
     use serde_json::{json, Value};
     use std::{collections::HashMap, env};
 

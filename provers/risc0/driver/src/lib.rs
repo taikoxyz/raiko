@@ -8,21 +8,24 @@ use hex::ToHex;
 
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
+    primitives::keccak::keccak,
     protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
-use raiko_primitives::keccak::keccak;
 use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::info as traicing_info;
 
+use crate::{
+    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
+    snarks::verify_groth16_snark,
+};
+pub use bonsai::*;
+
 pub mod bonsai;
 pub mod methods;
 pub mod snarks;
-use crate::snarks::verify_groth16_snark;
-pub use bonsai::*;
-use methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID};
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
