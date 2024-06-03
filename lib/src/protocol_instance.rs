@@ -250,7 +250,6 @@ mod tests {
                 .skip(32)
                 .collect::<Vec<u8>>(),
         );
-        // println!("pi_hash: {:?}", hex::encode(pi_hash));
         assert_eq!(
             hex::encode(pi_hash),
             "4a7ba84010036277836eaf99acbbc10dc5d8ee9063e2e3c5be5e8be39ceba8ae"

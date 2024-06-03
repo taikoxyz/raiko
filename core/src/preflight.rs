@@ -1,3 +1,7 @@
+use crate::{
+    interfaces::{RaikoError, RaikoResult},
+    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
+};
 use alloy_consensus::{
     SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy,
 };
@@ -11,7 +15,9 @@ use raiko_lib::{
     builder::{
         prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, TkoTxExecStrategy,
     },
+    clear_line,
     consts::ChainSpec,
+    inplace_print,
     input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
@@ -25,12 +31,7 @@ use raiko_lib::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
-use tracing::{info, warn};
-
-use crate::{
-    interfaces::{RaikoError, RaikoResult},
-    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
-};
+use tracing::{debug, info, warn};
 
 pub async fn preflight<BDP: BlockDataProvider>(
     provider: BDP,
@@ -58,10 +59,13 @@ pub async fn preflight<BDP: BlockDataProvider>(
         RaikoError::Preflight("No block hash for the requested block".to_string())
     })?;
 
-    info!("\nblock.hash: {hash:?}");
-    info!("block.parent_hash: {:?}", block.header.parent_hash);
-    info!("block gas used: {:?}", block.header.gas_used);
-    info!("block transactions: {:?}", block.transactions.len());
+    info!(
+        "Processing block {:?} with block.hash: {:?}",
+        block.header.number, block.header.hash
+    );
+    debug!("block.parent_hash: {:?}", block.header.parent_hash);
+    debug!("block gas used: {:?}", block.header.gas_used);
+    debug!("block transactions: {:?}", block.transactions.len());
 
     let taiko_guest_input = if taiko_chain_spec.is_taiko() {
         prepare_taiko_chain_input(
@@ -162,7 +166,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let mut done = false;
     let mut num_iterations = 0;
     while !done {
-        info!("Execution iteration {num_iterations}...");
+        inplace_print(&format!("Execution iteration {num_iterations}..."));
         builder.mut_db().unwrap().optimistic = num_iterations + 1 < max_iterations;
         builder = builder.execute_transactions::<TkoTxExecStrategy>()?;
         if builder.mut_db().unwrap().fetch_data().await {
@@ -170,6 +174,9 @@ pub async fn preflight<BDP: BlockDataProvider>(
         }
         num_iterations += 1;
     }
+    clear_line();
+    println!("State data fetched in {num_iterations} iterations");
+
     let provider_db = builder.mut_db().unwrap();
 
     // Gather inclusion proofs for the initial and final state
@@ -233,8 +240,10 @@ async fn prepare_taiko_chain_input(
     let l1_state_block_number = anchor_call.l1BlockId;
     let l1_inclusion_block_number = l1_state_block_number + 1;
 
-    info!("anchor L1 block id: {:?}", anchor_call.l1BlockId);
-    info!("anchor L1 state root: {:?}", anchor_call.l1StateRoot);
+    debug!(
+        "anchor L1 block id: {:?}\nanchor L1 state root: {:?}",
+        anchor_call.l1BlockId, anchor_call.l1StateRoot
+    );
 
     // Get the L1 block in which the L2 block was included so we can fetch the DA data.
     // Also get the L1 state block header so that we can prove the L1 state root.
@@ -250,7 +259,7 @@ async fn prepare_taiko_chain_input(
         RaikoError::Preflight("No L1 state block hash for the requested block".to_owned())
     })?;
 
-    info!("l1_state_root_block hash: {l1_state_block_hash:?}");
+    debug!("l1_state_root_block hash: {l1_state_block_hash:?}");
 
     let l1_inclusion_block_hash = l1_inclusion_block.header.hash.ok_or_else(|| {
         RaikoError::Preflight("No L1 inclusion block hash for the requested block".to_owned())
@@ -267,7 +276,7 @@ async fn prepare_taiko_chain_input(
 
     // Fetch the tx data from either calldata or blobdata
     let (tx_data, tx_blob_hash) = if proposal_event.meta.blobUsed {
-        info!("blob active");
+        debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
         assert!(!blob_hashes.is_empty());

@@ -2,6 +2,8 @@
 
 set -xeo pipefail
 
+export IN_CONTAINER=1
+
 GRAMINE_PRIV_KEY="$HOME/.config/gramine/enclave-key.pem"
 RAIKO_DOCKER_VOLUME_PATH="/root/.config/raiko"
 RAIKO_DOCKER_VOLUME_CONFIG_PATH="$RAIKO_DOCKER_VOLUME_PATH/config"

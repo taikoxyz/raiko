@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use alloy_primitives::{Address, FixedBytes};
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use raiko_lib::{
@@ -11,7 +9,8 @@ use raiko_lib::{
     utils::HeaderHasher,
 };
 use serde_json::Value;
-use tracing::{error, info, warn};
+use std::collections::HashMap;
+use tracing::{debug, error, info, warn};
 
 pub mod interfaces;
 pub mod preflight;
@@ -68,7 +67,7 @@ impl Raiko {
             Ok((header, _mpt_node)) => {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
-                info!("Final block header derived successfully. {header:?}");
+                debug!("Final block header derived successfully. {header:?}");
                 let pi = ProtocolInstance::new(input, &header, VerifierType::None)?.instance_hash();
 
                 // Check against the expected value of all fields for easy debugability

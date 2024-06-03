@@ -151,7 +151,7 @@ impl ProverState {
 }
 
 mod memory {
-    use tracing::info;
+    use tracing::debug;
 
     use crate::ALLOCATOR;
 
@@ -165,7 +165,7 @@ mod memory {
 
     pub(crate) fn print_stats(title: &str) {
         let max_memory = get_max_allocated();
-        info!(
+        debug!(
             "{title}{}.{:06} MB",
             max_memory / 1_000_000,
             max_memory % 1_000_000

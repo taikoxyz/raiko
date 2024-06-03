@@ -28,6 +28,8 @@ mod no_std {
     };
 }
 
+use tracing::debug;
+
 pub mod builder;
 pub mod consts;
 pub mod input;
@@ -92,11 +94,11 @@ pub struct Measurement {
 impl Measurement {
     pub fn start(title: &str, inplace: bool) -> Measurement {
         if inplace {
-            print!("{title}");
+            debug!("{title}");
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
         } else if !title.is_empty() {
-            println!("{title}");
+            debug!("{title}");
         }
 
         Self {
@@ -125,7 +127,7 @@ impl Measurement {
 }
 
 pub fn print_duration(title: &str, duration: time::Duration) {
-    println!(
+    debug!(
         "{title}{}.{:03} seconds",
         duration.as_secs(),
         duration.subsec_millis()
@@ -133,13 +135,19 @@ pub fn print_duration(title: &str, duration: time::Duration) {
 }
 
 pub fn inplace_print(title: &str) {
-    print!("\r{title}");
-    #[cfg(feature = "std")]
+    if consts::IN_CONTAINER.is_some() {
+        return;
+    }
+    print!("\r\n{title}");
+    #[cfg(all(feature = "std", debug_assertions))]
     io::stdout().flush().unwrap();
 }
 
 pub fn clear_line() {
-    print!("\r\x1B[2K");
+    if consts::IN_CONTAINER.is_some() {
+        return;
+    }
+    print!("\r\n\x1B[2K");
 }
 
 /// call forget only if running inside the guest
