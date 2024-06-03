@@ -134,7 +134,7 @@ pub fn print_duration(title: &str, duration: time::Duration) {
 
 pub fn inplace_print(title: &str) {
     print!("\r{title}");
-    #[cfg(feature = "std")]
+    // #[cfg(feature = "std")]
     io::stdout().flush().unwrap();
 }
 

@@ -62,6 +62,9 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
             .map(|bytes| (keccak(&bytes).into(), bytes))
             .collect();
 
+        let mut account_touched = 0;
+        let mut storage_touched = 0;
+
         // Load account data into db
         let mut accounts = HashMap::with_capacity(block_builder.input.parent_storage.len());
         for (address, (storage_trie, slots)) in &mut block_builder.input.parent_storage {
@@ -82,6 +85,7 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
                     storage_trie.hash()
                 );
             }
+            account_touched += 1;
 
             // load the corresponding code
             let code_hash = state_account.code_hash;
@@ -102,6 +106,7 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
                     .get_rlp(&keccak(slot.to_be_bytes::<32>()))?
                     .unwrap_or_default();
                 storage.insert(slot, value);
+                storage_touched += 1;
             }
 
             let mem_account = DbAccount {
@@ -118,6 +123,9 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
             accounts.insert(*address, mem_account);
         }
         guest_mem_forget(contracts);
+
+        println!("initialize_db Account touch {:?}", account_touched);
+        println!("initialize_db Storage touch {:?}", storage_touched);
 
         // prepare block hash history
         let mut block_hashes =

@@ -47,7 +47,7 @@ use crate::{
     },
     print_duration,
     time::{AddAssign, Duration, Instant},
-    utils::{check_anchor_tx, generate_transactions},
+    utils::{check_anchor_tx, generate_transactions, GOLDEN_TOUCH_ACCOUNT},
     Measurement,
 };
 
@@ -62,6 +62,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         D: Database + DatabaseCommit + OptimisticDatabase,
         <D as Database>::Error: Debug,
     {
+        println!("block no {}", block_builder.input.block_number);
         let mut tx_transact_duration = Duration::default();
         let mut tx_misc_duration = Duration::default();
 
@@ -175,8 +176,12 @@ impl TxExecStrategy for TkoTxExecStrategy {
         // track the actual tx number to use in the tx/receipt trees as the key
         let mut actual_tx_no = 0usize;
         let num_transactions = transactions.len();
+        println!("total Txs: {}", num_transactions);
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
-            inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+            println!(
+                "{:?}",
+                &format!("\rprocessing tx {tx_no}/{num_transactions}...")
+            );
 
             #[cfg(feature = "tracer")]
             let trace = set_trace_writer(
@@ -252,6 +257,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             // process the transaction
             let start = Instant::now();
+            println!("cycle-tracker-start: evm.transact()");
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
@@ -273,6 +279,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                         EVMError::Transaction(invalid_transaction) => {
                             #[cfg(feature = "std")]
                             debug!("Invalid tx at {tx_no}: {invalid_transaction:?}");
+                            println!("cycle-tracker-end: evm.transact()");
                             // skip the tx
                             continue;
                         }
@@ -283,6 +290,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     }
                 }
             };
+            println!("cycle-tracker-end: evm.transact()");
             #[cfg(feature = "std")]
             debug!("  Ok: {result:?}");
 
@@ -335,6 +343,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         clear_line();
         print_duration("Tx transact time: ", tx_transact_duration);
         print_duration("Tx misc time: ", tx_misc_duration);
+        println!("actual Tx: {}", actual_tx_no);
 
         let mut db = &mut evm.context.evm.db;
 
@@ -386,7 +395,10 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
     // TODO(Brecht): use optimized recover
     match tx {
         TxEnvelope::Legacy(tx) => {
+            println!("cycle-tracker-start: Legacy");
             tx_env.caller = tx.recover_signer().unwrap_or_default();
+            println!("cycle-tracker-end: Legacy");
+            //tx_env.caller = *GOLDEN_TOUCH_ACCOUNT;
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
@@ -403,7 +415,9 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list.clear();
         }
         TxEnvelope::Eip2930(tx) => {
+            println!("cycle-tracker-start: Eip2930");
             tx_env.caller = tx.recover_signer().unwrap_or_default();
+            println!("cycle-tracker-end: Eip2930");
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
@@ -420,7 +434,9 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list = tx.access_list.flattened();
         }
         TxEnvelope::Eip1559(tx) => {
+            println!("cycle-tracker-start: Eip1559");
             tx_env.caller = tx.recover_signer().unwrap_or_default();
+            println!("cycle-tracker-end: Eip1559");
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.max_fee_per_gas.try_into().unwrap();
@@ -437,7 +453,9 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list = tx.access_list.flattened();
         }
         TxEnvelope::Eip4844(tx) => {
+            println!("cycle-tracker-start: Eip1559");
             tx_env.caller = tx.recover_signer().unwrap_or_default();
+            println!("cycle-tracker-end: Eip4844");
             let tx = tx.tx().tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.max_fee_per_gas.try_into().unwrap();

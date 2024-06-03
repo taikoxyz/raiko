@@ -76,22 +76,41 @@ where
 
     /// Initializes the database from the input.
     pub fn initialize_database<T: DbInitStrategy<D>>(self) -> Result<Self> {
-        T::initialize_database(self)
+        // Already have accounts u need from Host DB
+        // Form sparse MPT from DB -> bunch of *keccaks* 🌟
+        println!("cycle-tracker-start: initialize_database");
+        let res = T::initialize_database(self);
+        println!("cycle-tracker-end: initialize_database");
+        res
     }
 
     /// Initializes the header. This must be called before executing transactions.
     pub fn prepare_header<T: HeaderPrepStrategy>(self) -> Result<Self> {
-        T::prepare_header(self)
+        // Form the Block header to be prover
+        // 1 *Keccak* of parent haader
+        println!("cycle-tracker-start: prepare_header");
+        let res = T::prepare_header(self);
+        println!("cycle-tracker-end: prepare_header");
+        res
     }
 
     /// Executes all input transactions.
     pub fn execute_transactions<T: TxExecStrategy>(self) -> Result<Self> {
-        T::execute_transactions(self)
+        // Tx *kaccak* hash, *ECDSA* recover
+        // Full evm (*precompiles*)
+        println!("cycle-tracker-start: execute_transactions");
+        let res = T::execute_transactions(self);
+        println!("cycle-tracker-end: execute_transactions");
+        res
     }
 
     /// Finalizes the block building and returns the header and the state trie.
     pub fn finalize<T: BlockFinalizeStrategy<D>>(self) -> Result<(AlloyConsensusHeader, MptNode)> {
-        T::finalize(self)
+        // MPT: many *keccaks*
+        println!("cycle-tracker-start: finalize");
+        let res = T::finalize(self);
+        println!("cycle-tracker-end: finalize");
+        res
     }
 
     /// Returns a reference to the database.
