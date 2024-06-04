@@ -172,7 +172,7 @@ harness::zk_suits!(
             let p = AffinePoint::<Bn254, 16>::from(p_x, p_y);
             let p_bytes_le = p.to_le_bytes();
 
-            // Reverse to x, y seperatly to big-endian bytes
+            // Reverse to x, y separately to big-endian bytes
             let mut p_bytes_be = [0; 64];
             p_bytes_be[..32]
                 .copy_from_slice(&p_bytes_le[..32].iter().rev().copied().collect::<Vec<_>>());

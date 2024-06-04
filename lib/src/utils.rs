@@ -52,7 +52,7 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
 
 fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Vec<u8> {
     if chain_spec.is_taiko() {
-        // taiko has some limiations to be aligned with taiko-client
+        // taiko has some limitations to be aligned with taiko-client
         if is_blob_data {
             let compressed_tx_list = decode_blob_data(tx_list);
             return zlib_decompress_data(&compressed_tx_list).unwrap_or_default();
