@@ -152,7 +152,7 @@ pub fn clear_line() {
 
 /// call forget only if running inside the guest
 pub fn guest_mem_forget<T>(_t: T) {
-    #[cfg(target_os = "zkvm")] // TODO: seperate for risc0
+    #[cfg(target_os = "zkvm")] // TODO: separate for risc0
     core::mem::forget(_t)
 }
 
