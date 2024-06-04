@@ -17,7 +17,7 @@ env:
 jobs:
     build-test:
       name: Build and test
-      runs-on: [taiko-runner]
+      runs-on: [ubuntu-latest]
       timeout-minutes: 120
 
       env:
