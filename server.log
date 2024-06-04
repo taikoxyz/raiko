@@ -1,0 +1,107 @@
+warning: skipping duplicate package `fibonacci-program` found at `/home/ubuntu/.cargo/git/checkouts/sp1-20c98843a1ffc860/6ee15b1/examples/aggregation/programs/fibonacci`
+warning: skipping duplicate package `fibonacci-program` found at `/home/ubuntu/.cargo/git/checkouts/sp1-20c98843a1ffc860/6ee15b1/examples/fibonacci/program`
+warning: skipping duplicate package `fibonacci-program` found at `/home/ubuntu/.cargo/git/checkouts/sp1-20c98843a1ffc860/19ef89a/examples/fibonacci/program`
+warning: unused import: `SolType`
+  --> lib/src/input.rs:20:37
+   |
+20 | use alloy_sol_types::{sol, SolCall, SolType};
+   |                                     ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `raiko-lib` (lib) generated 1 warning
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.33s
+     Running `target/debug/raiko-host`
+[2m2024-06-03T14:47:29.484795Z[0m [32m INFO[0m [2mraiko_host[0m[2m:[0m Supported chains: SupportedChainSpecs({"taiko_mainnet": ChainSpec { name: "taiko_mainnet", chain_id: 167000, max_spec_id: SHANGHAI, hard_forks: {SHANGHAI: Block(0), CANCUN: TBD}, eip_1559_constants: Eip1559Constants { base_fee_change_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, base_fee_max_increase_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, base_fee_max_decrease_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, elasticity_multiplier: 0x0000000000000000000000000000000000000000000000000000000000000002_U256 }, l1_contract: Some(0x06a9ab27c7e2255df1815e6cc0168d7755feb19a), l2_contract: Some(0x1670000000000000000000000000000000010001), rpc: "https://rpc.mainnet.taiko.xyz", beacon_rpc: None, verifier_address: {SGX: Some(0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9), SP1: None, RISC0: Some(0x0000000000000000000000000000000000000000)}, genesis_time: 0, seconds_per_slot: 1, is_taiko: true }, "holesky": ChainSpec { name: "holesky", chain_id: 17000, max_spec_id: CANCUN, hard_forks: {FRONTIER: Block(0), SHANGHAI: Timestamp(1696000704), CANCUN: Timestamp(1707305664)}, eip_1559_constants: Eip1559Constants { base_fee_change_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, base_fee_max_increase_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, base_fee_max_decrease_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, elasticity_multiplier: 0x0000000000000000000000000000000000000000000000000000000000000002_U256 }, l1_contract: None, l2_contract: None, rpc: "https://ethereum-holesky-rpc.publicnode.com", beacon_rpc: Some("https://fabled-weathered-cherry.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/"), verifier_address: {SGX: Some(0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9), SP1: None, RISC0: Some(0x0000000000000000000000000000000000000000)}, genesis_time: 1695902400, seconds_per_slot: 12, is_taiko: false }, "taiko_a7": ChainSpec { name: "taiko_a7", chain_id: 167009, max_spec_id: SHANGHAI, hard_forks: {SHANGHAI: Block(0), CANCUN: TBD}, eip_1559_constants: Eip1559Constants { base_fee_change_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, base_fee_max_increase_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, base_fee_max_decrease_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, elasticity_multiplier: 0x0000000000000000000000000000000000000000000000000000000000000002_U256 }, l1_contract: Some(0x79c9109b764609df928d16fc4a91e9081f7e87db), l2_contract: Some(0x1670090000000000000000000000000000010001), rpc: "https://rpc.hekla.taiko.xyz", beacon_rpc: None, verifier_address: {SGX: Some(0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9), SP1: None, RISC0: Some(0x0000000000000000000000000000000000000000)}, genesis_time: 0, seconds_per_slot: 1, is_taiko: true }, "ethereum": ChainSpec { name: "ethereum", chain_id: 1, max_spec_id: CANCUN, hard_forks: {FRONTIER: Block(0), MERGE: Block(15537394), SHANGHAI: Block(17034870), CANCUN: Timestamp(1710338135)}, eip_1559_constants: Eip1559Constants { base_fee_change_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, base_fee_max_increase_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, base_fee_max_decrease_denominator: 0x0000000000000000000000000000000000000000000000000000000000000008_U256, elasticity_multiplier: 0x0000000000000000000000000000000000000000000000000000000000000002_U256 }, l1_contract: None, l2_contract: None, rpc: "https://rpc.ankr.com/eth", beacon_rpc: Some("https://ethereum-beacon-api.publicnode.com"), verifier_address: {SGX: Some(0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9), SP1: None, RISC0: Some(0x0000000000000000000000000000000000000000)}, genesis_time: 1606824023, seconds_per_slot: 12, is_taiko: false }})
+[2m2024-06-03T14:47:29.484853Z[0m [32m INFO[0m [2mraiko_host[0m[2m:[0m Start config:
+ProofRequestOpt {
+    block_number: None,
+    network: Some(
+        "taiko_a7",
+    ),
+    l1_network: Some(
+        "holesky",
+    ),
+    graffiti: Some(
+        "8008500000000000000000000000000000000000000000000000000000000000",
+    ),
+    prover: Some(
+        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    ),
+    proof_type: Some(
+        "risc0",
+    ),
+    prover_args: ProverSpecificOpts {
+        native: None,
+        sgx: Some(
+            Object {
+                "bootstrap": Bool(true),
+                "input_path": Null,
+                "instance_id": Number(456),
+                "prove": Bool(true),
+                "setup": Bool(true),
+            },
+        ),
+        sp1: None,
+        risc0: Some(
+            Object {
+                "bonsai": Bool(true),
+                "execution_po2": Number(20),
+                "profile": Bool(false),
+                "snark": Bool(true),
+            },
+        ),
+    },
+}
+[2m2024-06-03T14:47:29.484871Z[0m [32m INFO[0m [2mraiko_host[0m[2m:[0m Args:
+Cli {
+    address: "0.0.0.0:8080",
+    concurrency_limit: 16,
+    log_path: None,
+    max_log: 7,
+    config_path: "host/config/config.json",
+    chain_spec_path: None,
+    cache_path: None,
+    log_level: "info",
+    proof_request_opt: ProofRequestOpt {
+        block_number: None,
+        network: Some(
+            "taiko_a7",
+        ),
+        l1_network: Some(
+            "holesky",
+        ),
+        graffiti: Some(
+            "8008500000000000000000000000000000000000000000000000000000000000",
+        ),
+        prover: Some(
+            "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        ),
+        proof_type: Some(
+            "risc0",
+        ),
+        prover_args: ProverSpecificOpts {
+            native: None,
+            sgx: Some(
+                Object {
+                    "bootstrap": Bool(true),
+                    "input_path": Null,
+                    "instance_id": Number(456),
+                    "prove": Bool(true),
+                    "setup": Bool(true),
+                },
+            ),
+            sp1: None,
+            risc0: Some(
+                Object {
+                    "bonsai": Bool(true),
+                    "execution_po2": Number(20),
+                    "profile": Bool(false),
+                    "snark": Bool(true),
+                },
+            ),
+        },
+    },
+    jwt_secret: None,
+}
+Error: Anyhow(Address already in use (os error 98))

@@ -7,16 +7,22 @@ use crate::input::{GuestInput, GuestOutput};
 
 #[derive(ThisError, Debug)]
 pub enum ProverError {
+    #[error("ProverError::GuestError `{0}`")]
     GuestError(String),
+    #[error("ProverError::FileIo `{0}`")]
+    FileIo(#[from] std::io::Error),
+    #[error("ProverError::Param `{0}`")]
+    Param(#[from] serde_json::Error),
 }
 
-impl fmt::Display for ProverError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ProverError::GuestError(e) => e.fmt(f),
-        }
-    }
-}
+// impl fmt::Display for ProverError {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             ProverError::GuestError(e) => e.fmt(f),
+//             ProverError::Serialization(e) => e.fmt(f),
+//         }
+//     }
+// }
 
 impl From<String> for ProverError {
     fn from(e: String) -> Self {

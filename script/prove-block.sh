@@ -41,15 +41,17 @@ fi
 
 if [ "$proof" == "native" ]; then
 	proofParam='
-    "proof_type": "native"
+    "proof_type": "native",
+	"native" : {
+        "write_guest_input_path": null
+	}
   '
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
 	"sp1": {
 		"recursion": "core",
-		"prover": "mock",
-		"save_test_input": false
+		"prover": "mock"
 	}
   '
 elif [ "$proof" == "sgx" ]; then

@@ -197,6 +197,23 @@ mod tests {
     fn test_proof_params() -> HashMap<String, Value> {
         let mut prover_args = HashMap::new();
         prover_args.insert(
+            "native".to_string(),
+            json! {
+                {
+                    "write_guest_input_path": "./provers/sp1/contracts/src/fixtures/input.json"
+                }
+            },
+        );
+        prover_args.insert(
+            "sp1".to_string(),
+            json! {
+                {
+                    "recursion": "core",
+                    "prover": "mock"
+                }
+            },
+        );
+        prover_args.insert(
             "risc0".to_string(),
             json! {
                 {
