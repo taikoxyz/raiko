@@ -21,7 +21,6 @@ use alloy_primitives::Address;
 use anyhow::{anyhow, bail, Result};
 use revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -56,29 +55,27 @@ impl Default for SupportedChainSpecs {
     fn default() -> Self {
         let deserialized: Vec<ChainSpec> =
             serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap_or_default();
-        let chain_spec_list = deserialized
-            .into_iter()
-            .map(|cs| (cs.name.clone(), cs))
-            .collect::<HashMap<String, ChainSpec>>();
-        SupportedChainSpecs(chain_spec_list)
+        SupportedChainSpecs(
+            deserialized
+                .into_iter()
+                .map(|cs| (cs.name.clone(), cs))
+                .collect(),
+        )
     }
 }
 
 impl SupportedChainSpecs {
     #[cfg(feature = "std")]
     pub fn merge_from_file(file_path: PathBuf) -> Result<SupportedChainSpecs> {
-        let mut known_chain_specs = SupportedChainSpecs::default();
         let file = std::fs::File::open(file_path)?;
         let reader = std::io::BufReader::new(file);
-        let config: Value = serde_json::from_reader(reader)?;
-        let chain_spec_list: Vec<ChainSpec> = serde_json::from_value(config)?;
-        let new_chain_specs = chain_spec_list
-            .into_iter()
-            .map(|cs| (cs.name.clone(), cs))
-            .collect::<HashMap<String, ChainSpec>>();
+        let chain_spec_list: Vec<ChainSpec> = serde_json::from_reader(reader)?;
 
         // override known specs
-        known_chain_specs.0.extend(new_chain_specs);
+        let mut known_chain_specs = Self::default();
+        known_chain_specs
+            .0
+            .extend(chain_spec_list.into_iter().map(|cs| (cs.name.clone(), cs)));
         Ok(known_chain_specs)
     }
 
@@ -250,14 +247,14 @@ pub enum Network {
     TaikoMainnet,
 }
 
-impl ToString for Network {
-    fn to_string(&self) -> String {
-        match self {
-            Network::Ethereum => "ethereum".to_string(),
-            Network::Holesky => "holesky".to_string(),
-            Network::TaikoA7 => "taiko_a7".to_string(),
-            Network::TaikoMainnet => "taiko_mainnet".to_string(),
-        }
+impl std::fmt::Display for Network {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Network::Ethereum => "ethereum",
+            Network::Holesky => "holesky",
+            Network::TaikoA7 => "taiko_a7",
+            Network::TaikoMainnet => "taiko_mainnet",
+        })
     }
 }
 

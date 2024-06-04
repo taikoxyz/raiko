@@ -133,11 +133,12 @@ impl ProverState {
         // Read the config file.
         opts.merge_from_file()?;
 
-        let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
-            SupportedChainSpecs::merge_from_file(cs_path.clone()).unwrap_or_default()
-        } else {
-            SupportedChainSpecs::default()
-        };
+        let chain_specs = opts
+            .chain_spec_path
+            .clone()
+            .map_or_else(SupportedChainSpecs::default, |cs_path| {
+                SupportedChainSpecs::merge_from_file(cs_path.clone()).unwrap_or_default()
+            });
 
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {
