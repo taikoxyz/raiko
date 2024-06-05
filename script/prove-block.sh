@@ -29,7 +29,7 @@ if [ "$chain" == "ethereum" ]; then
 elif [ "$chain" == "holesky" ]; then
 	l1_network="holesky"
 elif [ "$chain" == "taiko_mainnet" ]; then
-	l1_network="taiko_a7"
+	l1_network="ethereum"
 elif [ "$chain" == "taiko_a7" ]; then
 	l1_network="holesky"
 else

@@ -18,8 +18,6 @@ pub struct NativeParam {
     pub write_guest_input_path: Option<String>,
 }
 
-
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NativeResponse {
     pub output: GuestOutput,
@@ -31,18 +29,20 @@ impl Prover for NativeProver {
         output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        
-        let param = config.get("native")
+        let param = config
+            .get("native")
             .map(|v| NativeParam::deserialize(v))
-            .ok_or( ProverError::Param(serde_json::Error::custom("native param not provided")))??;
+            .ok_or(ProverError::Param(serde_json::Error::custom(
+                "native param not provided",
+            )))??;
 
         if let Some(path) = param.write_guest_input_path {
             let path = Path::new(&path);
             if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?; 
+                std::fs::create_dir_all(parent)?;
             }
             let json = serde_json::to_string(&input)?;
-            std::fs::write(path, json)?; 
+            std::fs::write(path, json)?;
         }
 
         trace!("Running the native prover for input {input:?}");
@@ -59,4 +59,3 @@ impl Prover for NativeProver {
         }))
     }
 }
-
