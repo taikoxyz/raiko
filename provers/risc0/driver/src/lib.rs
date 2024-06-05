@@ -2,14 +2,11 @@
 use std::fmt::Debug;
 
 use alloy_primitives::B256;
-use alloy_sol_types::SolValue;
 
 use hex::ToHex;
 
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    primitives::keccak::keccak,
-    protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use risc0_zkvm::{serde::to_vec, sha::Digest};
@@ -53,11 +50,11 @@ impl Prover for Risc0Prover {
         println!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
-        let result = maybe_prove::<GuestInput, GuestOutput>(
+        let result = maybe_prove::<GuestInput, B256>(
             &config,
             encoded_input,
             RISC0_GUEST_ELF,
-            output,
+            &output.hash,
             Default::default(),
         )
         .await;

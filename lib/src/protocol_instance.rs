@@ -17,7 +17,7 @@ use crate::{
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProtocolInstance {
     pub transition: Transition,
     pub block_metadata: BlockMetadata,
@@ -43,12 +43,12 @@ impl ProtocolInstance {
                 let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
                 let kzg_settings = KzgSettings::from_u8_slice(&mut data);
                 let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
-                    &Blob::from_bytes(input.taiko.tx_data.as_slice()).unwrap(),
+                    &Blob::from_bytes(input.taiko.tx_data.as_slice()).expect("Fail to form blob from tx bytes"),
                     &kzg_settings,
                 )
-                .unwrap();
+                .expect("Fail to calculate KZG commitment");
                 let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
-                assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap());
+                assert_eq!(versioned_hash, input.taiko.tx_blob_hash.unwrap(), "Blob version hash not matching");
                 versioned_hash
             }
         } else {

@@ -26,22 +26,12 @@ pub fn main() {
         ]))
         .expect("Failed to set ZkvmOperations");
 
-    let build_result = TaikoStrategy::build_from(&input);
+    let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
+    let pi = ProtocolInstance::new(&input, header, VerifierType::SP1)
+            .unwrap()
+            .instance_hash();
 
-    let output = match &build_result {
-        Ok((header, _mpt_node)) => {
-            let pi = ProtocolInstance::new(&input, header, VerifierType::SP1)
-                .expect("Failed to assemble protocol instance")
-                .instance_hash();
-            GuestOutput::Success {
-                header: header.clone(),
-                hash: pi,
-            }
-        }
-        Err(_) => GuestOutput::Failure,
-    };
-
-    sp1_zkvm::io::commit(&output);
+    sp1_zkvm::io::commit(&pi);
 }
 
 harness::zk_suits!(
