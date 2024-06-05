@@ -1,5 +1,3 @@
-use std::fmt;
-
 use serde::Serialize;
 use thiserror::Error as ThisError;
 
@@ -7,15 +5,12 @@ use crate::input::{GuestInput, GuestOutput};
 
 #[derive(ThisError, Debug)]
 pub enum ProverError {
+    #[error("ProverError::GuestError `{0}`")]
     GuestError(String),
-}
-
-impl fmt::Display for ProverError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ProverError::GuestError(e) => e.fmt(f),
-        }
-    }
+    #[error("ProverError::FileIo `{0}`")]
+    FileIo(#[from] std::io::Error),
+    #[error("ProverError::Param `{0}`")]
+    Param(#[from] serde_json::Error),
 }
 
 impl From<String> for ProverError {
