@@ -44,21 +44,7 @@ dependencies = [
  "c-kzg",
  "serde",
  "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "alloy-dyn-abi"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "545885d9b0b2c30fd344ae291439b4bfe59e48dd62fbc862f8503d98088967dc"
-dependencies = [
- "alloy-json-abi",
- "alloy-primitives",
- "alloy-sol-type-parser",
- "alloy-sol-types",
- "const-hex",
- "itoa",
- "winnow 0.6.8",
+ "sp1-derive",
 ]
 
 [[package]]
@@ -83,17 +69,6 @@ dependencies = [
  "alloy-serde",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "alloy-json-abi"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "786689872ec4e7d354810ab0dffd48bb40b838c047522eb031cbd47d15634849"
-dependencies = [
- "alloy-primitives",
- "alloy-sol-type-parser",
- "serde",
 ]
 
 [[package]]
@@ -241,15 +216,6 @@ dependencies = [
  "quote",
  "syn 2.0.61",
  "syn-solidity",
-]
-
-[[package]]
-name = "alloy-sol-type-parser"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7da8e71ea68e780cc203919e03f69f59e7afe92d2696fb1dcb6662f61e4031b6"
-dependencies = [
- "winnow 0.6.8",
 ]
 
 [[package]]
@@ -1572,6 +1538,7 @@ name = "raiko-lib"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus",
+ "alloy-eips",
  "alloy-network",
  "alloy-primitives",
  "alloy-rlp",
@@ -1588,35 +1555,18 @@ dependencies = [
  "libflate",
  "log",
  "once_cell",
- "raiko-primitives",
  "revm",
+ "revm-primitives",
+ "rlp",
  "serde",
  "serde_json",
  "serde_with",
  "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha3",
  "thiserror",
  "thiserror-no-std",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "raiko-primitives"
-version = "0.1.0"
-dependencies = [
- "alloy-dyn-abi",
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-rlp-derive",
- "alloy-rpc-types",
- "alloy-sol-types",
- "anyhow",
- "revm-primitives",
- "rlp",
- "serde",
- "sha3",
- "thiserror",
 ]
 
 [[package]]
@@ -2049,6 +1999,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-derive"
+version = "0.1.0"
+source = "git+https://github.com/succinctlabs/sp1.git#10495837c72f046aaccc81b81dc3c9055e3bf3a2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "sp1-guest"
 version = "0.1.0"
 dependencies = [
@@ -2314,7 +2274,7 @@ checksum = "6a8534fd7f78b5405e860340ad6575217ce99f38d4d5c8f2442cb5ecb50090e1"
 dependencies = [
  "indexmap 2.2.6",
  "toml_datetime",
- "winnow 0.5.40",
+ "winnow",
 ]
 
 [[package]]
@@ -2581,12 +2541,6 @@ checksum = "f593a95398737aeed53e489c785df13f3618e41dbcd6718c6addbf1395aa6876"
 dependencies = [
  "memchr",
 ]
-
-[[package]]
-name = "winnow"
-version = "0.6.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3c52e9c97a68071b23e836c9380edae937f17b9c4667bd021973efc689f618d"
 
 [[package]]
 name = "wyz"
