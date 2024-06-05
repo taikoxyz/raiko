@@ -2,10 +2,9 @@
 
 extern crate alloc;
 use alloc::{collections::BTreeMap, vec};
-use raiko_primitives::U256;
-use raiko_lib::consts::ChainSpec;
 use powdr_riscv_runtime;
+use raiko_lib::{consts::ChainSpec, primitives::U256};
 
 #[no_mangle]
-fn main() {
-}
+fn main() {}
+

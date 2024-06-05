@@ -171,7 +171,7 @@ Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channel
 
 > **_NOTE:_** At the moment, we are aware of three cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
 >
-> If you'd like to use Tencent Cloud, they have reserved compatible `M6ce` machines available; please register and reserve machines [here](https://resale.anchnet.com).
+> If you'd like to use Tencent Cloud, they have reserved compatible `M6ce` machines available for Taiko's community with a limited time special offer. Please register [here](https://resale.anchnet.com) to purchase `M6ce` machines with discount.
 
 [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 

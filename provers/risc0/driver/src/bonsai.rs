@@ -1,6 +1,5 @@
 use log::{debug, error, info, warn};
-use raiko_lib::prover::Prover;
-use raiko_primitives::keccak::keccak;
+use raiko_lib::{primitives::keccak::keccak, prover::Prover};
 use risc0_zkvm::{
     compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, ExecutorEnv,
     ExecutorImpl, Receipt,

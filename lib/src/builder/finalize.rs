@@ -16,16 +16,16 @@ use core::mem;
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use anyhow::Result;
-use raiko_primitives::{
-    keccak::keccak,
-    mpt::{MptNode, StateAccount},
-};
 use revm::{Database, DatabaseCommit};
 
 use crate::{
     builder::BlockBuilder,
     guest_mem_forget,
     mem_db::{AccountState, MemDb},
+    primitives::{
+        keccak::keccak,
+        mpt::{MptNode, StateAccount},
+    },
 };
 
 pub trait BlockFinalizeStrategy<D>

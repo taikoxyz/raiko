@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 raiko-lib = { workspace = true }
-raiko-primitives = { workspace = true }
 
 aws-nitro-enclaves-nsm-api = "0.4.0"
 serde_bytes = "0.11"

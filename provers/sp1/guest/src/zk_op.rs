@@ -27,7 +27,9 @@ impl ZkvmOperator for Sp1Operator {
             .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
             .collect::<Vec<u32>>()
             .try_into()
-            .map_err(|e| Error::ZkvmOperation("Input point processing failed".to_string()))?;
+            .map_err(|e| {
+                Error::ZkvmOperation(format!("Input point processing failed. Details: {:?}", e))
+            })?;
 
         p.mul_assign(&k);
         Ok(point_to_be_bytes(p))
@@ -97,7 +99,6 @@ fn point_to_be_bytes(p: AffinePoint<Bn254, 16>) -> [u8; 64] {
 
     ([x, y]).concat().try_into().unwrap()
 }
-
 
 harness::zk_suits!(
     pub mod tests {
@@ -172,7 +173,7 @@ harness::zk_suits!(
             let p = AffinePoint::<Bn254, 16>::from(p_x, p_y);
             let p_bytes_le = p.to_le_bytes();
 
-            // Reverse to x, y seperatly to big-endian bytes
+            // Reverse to x, y separately to big-endian bytes
             let mut p_bytes_be = [0; 64];
             p_bytes_be[..32]
                 .copy_from_slice(&p_bytes_le[..32].iter().rev().copied().collect::<Vec<_>>());

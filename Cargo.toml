@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "lib",
     "host",
-    "primitives",
     "provers/nitro/nitro-prover",
     "provers/sp1/driver",
     "provers/sp1/builder",
@@ -34,7 +33,6 @@ opt-level = 3
 
 # raiko
 raiko-lib = { path = "./lib", features = ["std"] }
-raiko-primitives = { path = "./primitives" }
 raiko-core = { path = "./core" }
 
 # revm

@@ -12,8 +12,7 @@ risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
-raiko-lib = { workspace = true }
-raiko-primitives = { workspace = true, features = ["c-kzg"] }
+raiko-lib = { workspace = true, features = ["c-kzg"] }
 raiko-core = { workspace = true }
 
 # alloy

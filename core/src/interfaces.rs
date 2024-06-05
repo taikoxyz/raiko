@@ -1,5 +1,4 @@
-use std::{collections::HashMap, path::Path, str::FromStr};
-
+use crate::{merge, prover::NativeProver};
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
@@ -9,9 +8,8 @@ use raiko_lib::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
+use std::{collections::HashMap, path::Path, str::FromStr};
 use utoipa::ToSchema;
-
-use crate::{merge, prover::NativeProver};
 
 #[derive(Debug, thiserror::Error, ToSchema)]
 pub enum RaikoError {
@@ -139,7 +137,7 @@ impl ProofType {
                 return sp1_driver::Sp1Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
+                #[cfg(not(feature = "sp1"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
@@ -147,7 +145,7 @@ impl ProofType {
                 return risc0_driver::Risc0Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
+                #[cfg(not(feature = "risc0"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sgx => {
@@ -155,7 +153,7 @@ impl ProofType {
                 return sgx_prover::SgxProver::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
+                #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
         }

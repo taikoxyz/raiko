@@ -1,16 +1,11 @@
 #![cfg(feature = "enable")]
-use std::env;
-
-use alloy_primitives::B256;
-use alloy_sol_types::SolValue;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use serde::{Deserialize, Serialize};
-use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
+use std::env;
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 
@@ -56,7 +51,7 @@ impl Prover for Sp1Prover {
             )
             .expect("Sp1: saving proof failed");
 
-        println!("succesfully generated and verified proof for the program!");
+        println!("successfully generated and verified proof for the program!");
         to_proof(Ok(Sp1Response {
             proof: serde_json::to_string(&proof).unwrap(),
             output,

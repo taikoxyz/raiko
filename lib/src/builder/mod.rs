@@ -14,7 +14,6 @@
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use anyhow::Result;
-use raiko_primitives::mpt::MptNode;
 use revm::{Database, DatabaseCommit};
 
 pub use self::execute::TkoTxExecStrategy;
@@ -27,6 +26,7 @@ use crate::{
     consts::ChainSpec,
     input::GuestInput,
     mem_db::MemDb,
+    primitives::mpt::MptNode,
 };
 
 pub mod execute;

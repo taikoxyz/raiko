@@ -3,7 +3,6 @@ use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
-use raiko_primitives::keccak::keccak;
 use sha2::{Digest as _, Sha256};
 
 use super::utils::ANCHOR_GAS_LIMIT;
@@ -12,6 +11,7 @@ use crate::no_std::*;
 use crate::{
     consts::{SupportedChainSpecs, VerifierType},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
+    primitives::keccak::keccak,
     utils::HeaderHasher,
 };
 
@@ -205,10 +205,12 @@ fn bytes_to_bytes32(input: &[u8]) -> [u8; 32] {
 mod tests {
     use alloy_primitives::{address, b256};
     use alloy_sol_types::SolCall;
-    use raiko_primitives::keccak;
 
     use super::*;
-    use crate::input::{proveBlockCall, TierProof};
+    use crate::{
+        input::{proveBlockCall, TierProof},
+        primitives::keccak,
+    };
 
     #[test]
     fn bytes_to_bytes32_test() {
@@ -248,7 +250,6 @@ mod tests {
                 .skip(32)
                 .collect::<Vec<u8>>(),
         );
-        // println!("pi_hash: {:?}", hex::encode(pi_hash));
         assert_eq!(
             hex::encode(pi_hash),
             "4a7ba84010036277836eaf99acbbc10dc5d8ee9063e2e3c5be5e8be39ceba8ae"

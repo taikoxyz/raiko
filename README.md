@@ -1,12 +1,12 @@
 # raiko
 
-Taiko's multi-prover of Taiko & Etheruem block, currently supports Risc0, Sp1, and SGX.
+Taiko's multi-prover for Taiko & Ethereum blocks. Currently supports Risc0, SP1, and SGX.
 
 ## Usage
 
 ### Installing
 
-To download all dependencies for all provers you can run
+To download all dependencies for all provers you can run:
 
 ```shell
 make install
@@ -20,17 +20,17 @@ TARGET=sp1 make install
 
 ### Building
 
-After installing dependencies of selected prover, the following command internally calls cargo to build the prover's guest target with the `--release` profile by default, for example:
+After installing dependencies of the selected prover, the following command internally calls cargo to build the prover's guest target with the `--release` profile by default, for example:
 
 ```shell
 TARGET=sp1 make build
 ```
 
-If you set `DEBUG=1` then the target will be compiled without optimization (not recommended for ZkVM elfs).
+If you set `DEBUG=1`, then the target will be compiled without optimization (not recommended for zkVM elfs).
 
 ### Running
 
-Note that you have to `make build` first before running ZkVM provers, otherwise the guest elf may not be up to date and can result in poof failures.
+Note that you have to run `make build` first before running zkVM provers, otherwise the guest elf may not be up to date and can result in proof failures.
 
 ```shell
 TARGET=sp1 make run
@@ -42,7 +42,7 @@ Just for development with the native prover which runs through the block executi
 cargo run
 ```
 
-`run` camand will start the host service that listens to proof requests, then in another terminal you can do requests like this, which proves the 10th block with native prover on Taiko A7 testnet:
+The `run` command will start the host service that listens to proof requests, then in another terminal you can do requests like this, which proves the 10th block with the native prover on Taiko's A7 testnet:
 
 ```shell
 ./script/prove-block.sh taiko_a7 native 10
@@ -56,7 +56,7 @@ Look into `prove-block.sh` for the available options or run the script without i
 
 ## Provers
 
-For all host program, you can enable CPU optimization through exporting `CPU_OPT=1`.
+For all host programs, you can enable CPU optimization through exporting `CPU_OPT=1`.
 
 ### Risc zero
 
@@ -67,7 +67,7 @@ export TARGET=risc0
 make install && make build && make run
 ```
 
-To build and run test on Risc0 Zkvm:
+To build and run tests on Risc0 zkVM:
 
 ```shell
 TARGET=risc0 make test
@@ -75,7 +75,7 @@ TARGET=risc0 make test
 
 #### Bonsai
 
-If you are using Bonsai service, edit `run-bonsai.sh` to setup your API key, endpoint and on-chain verifier address.
+If you are using the Bonsai service, edit `run-bonsai.sh` to setup your API key, endpoint, and on-chain verifier address.
 
 ```shell
 ./script/setup-bonsai.sh
@@ -84,7 +84,7 @@ If you are using Bonsai service, edit `run-bonsai.sh` to setup your API key, end
 
 #### GPU
 
-If you have GPU with CUDA or Apple's GPU API to accelerate risc0 proof, you can do:
+If you have a GPU with CUDA or Apple's GPU API to accelerate Risc0 proofs, you can do:
 
 ```shell
 // cuda
@@ -93,7 +93,7 @@ cargo run -F cuda --release --features risc0
 cargo run -F metal --release --features risc0
 ```
 
-Note that CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
+Note that CUDA needs to be installed when using `cuda`: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html.
 
 ### SP1
 
@@ -104,15 +104,15 @@ export TARGET=sp1
 make install && make build && make run
 ```
 
-To build and run test on Sp1 Zkvm:
+To build and run tests on the SP1 zkVM:
 
 ```shell
 TARGET=sp1 make test
 ```
 
-Some optimized configuration tailored to the host can be found [here](docs/README_Sp1.md)
+Some optimized configurations tailored to the host can be found [here](docs/README_SP1.md).
 
-### SGX:
+### SGX
 
 To install, build, and run in one step:
 
@@ -133,12 +133,12 @@ If your CPU doesn't support SGX, you can still run the SGX code through gramine 
 MOCK=1 TARGET=sgx make run
 ```
 
-## Misc
+## Misc docs
 
-[Docker & Remote Attestation Support](docs/README_Docker_and_RA.md)
-[Metrics](docs/README_Metrics.md)
+- [Docker & Remote Attestation Support](docs/README_Docker_and_RA.md)
+- [Metrics](docs/README_Metrics.md)
 
-### Execution Trace
+## Execution Trace
 
 You can generate an execution trace for the block that is being proven by enabling the `tracer` feature:
 
