@@ -170,11 +170,14 @@ impl Sp1DistributedProver {
                 .await
                 .unwrap();
 
-            results.push(partial_proof);
+            results.push((i, partial_proof));
         }
 
+        results.sort_by(|a, b| a.0.cmp(&b.0));
+
         let mut last_public_values = public_values;
-        for result in results {
+        for (i, result) in results {
+            println!("Extracting proof shards {}/{}", i + 1, nb_checkpoint);
             let partial_proof = result.await.unwrap().unwrap();
             let (partial_proof, public_values) =
                 serde_json::from_str::<(Vec<_>, SP1PublicValues)>(partial_proof.as_str().unwrap())
