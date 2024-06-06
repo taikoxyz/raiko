@@ -3849,7 +3849,6 @@ version = "0.1.0"
 dependencies = [
  "aws-nitro-enclaves-nsm-api",
  "bincode",
- "once_cell",
  "raiko-lib",
  "serde_bytes",
  "tokio",
