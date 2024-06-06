@@ -148,6 +148,7 @@ pub enum VerifierType {
     SGX,
     SP1,
     RISC0,
+    Nitro,
 }
 
 /// Specification of a specific chain.

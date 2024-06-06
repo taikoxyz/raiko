@@ -1,0 +1,12 @@
+[package]
+name = "nitro-guest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-lib = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+bincode = { workspace = true }

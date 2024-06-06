@@ -12,7 +12,7 @@ members = [
     "provers/sgx/guest",
     "provers/sgx/setup",
     "pipeline",
-    "core",
+    "core", "provers/nitro/guest",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

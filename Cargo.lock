@@ -3844,6 +3844,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nitro-guest"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "raiko-lib",
+ "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.18",
+]
+
+[[package]]
 name = "nitro-prover"
 version = "0.1.0"
 dependencies = [
@@ -4960,6 +4972,7 @@ dependencies = [
  "hyper 0.14.28",
  "lazy_static",
  "lru_time_cache",
+ "nitro-prover",
  "once_cell",
  "prometheus",
  "proptest",
