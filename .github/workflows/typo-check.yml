@@ -5,6 +5,7 @@ on: [pull_request]
 jobs:
   check-for-typos:
     runs-on: [taiko-runner]
+    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4

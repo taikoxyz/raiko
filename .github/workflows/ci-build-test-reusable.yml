@@ -18,6 +18,7 @@ jobs:
     build-test:
       name: Build and test
       runs-on: [taiko-runner]
+      if: github.event.pull_request.draft == false
       timeout-minutes: 120
 
       env:

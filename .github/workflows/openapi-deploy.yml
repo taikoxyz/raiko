@@ -18,6 +18,7 @@ jobs:
   deploy-docs:
     name: Generate OpenAPI docs
     runs-on: [taiko-runner]
+    if: github.event.pull_request.draft == false
     environment:
       name: ${{ (github.ref == 'refs/heads/main') && 'github-pages' || 'test-environment' }}
       url: ${{ steps.deployment.outputs.page_url }}
