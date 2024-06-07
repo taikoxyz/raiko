@@ -155,19 +155,27 @@ impl Sp1DistributedProver {
                         .await
                         .expect("Sp1: proving shard failed");
 
-                    let json_proof: Proof = res.json().await.unwrap();
+                    let json_proof: Sp1Response = res.json().await.unwrap();
+                    /* println!(
+                        "Received proof shard {}/{} {:#?}",
+                        i + 1,
+                        nb_checkpoint,
+                        json_proof
+                    ); */
 
                     /* let json_proof =
                     serde_json::from_str::<Proof>(&text).expect("Sp1: Cannot parse response"); */
+                    // let json_proof = json_proof.unwrap();
 
-                    let partial_proof = json_proof
-                        .as_object()
-                        .unwrap()
-                        .get("proof")
-                        .unwrap()
-                        .clone();
+                    /* let partial_proof = json_proof
+                    .as_object()
+                    .unwrap()
+                    .get("proof")
+                    .unwrap()
+                    .clone(); */
 
-                    partial_proof
+                    // partial_proof
+                    json_proof.proof
                 })
                 .await
                 .unwrap();
@@ -181,9 +189,9 @@ impl Sp1DistributedProver {
         for (i, result) in results {
             println!("Extracting proof shards {}/{}", i + 1, nb_checkpoint);
             let partial_proof = result.await.unwrap().unwrap();
+
             let (partial_proof, public_values) =
-                serde_json::from_str::<(Vec<_>, SP1PublicValues)>(partial_proof.as_str().unwrap())
-                    .unwrap();
+                serde_json::from_str::<(Vec<_>, SP1PublicValues)>(partial_proof.as_str()).unwrap();
 
             proofs.extend(partial_proof);
             last_public_values = public_values;
