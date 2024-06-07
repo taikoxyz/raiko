@@ -122,7 +122,6 @@ dependencies = [
  "c-kzg",
  "serde",
  "sha2",
- "sp1-derive 0.1.0 (git+https://github.com/succinctlabs/sp1.git)",
 ]
 
 [[package]]
@@ -6483,7 +6482,7 @@ dependencies = [
  "serial_test",
  "size",
  "snowbridge-amcl",
- "sp1-derive 0.1.0 (git+https://github.com/succinctlabs/sp1.git?branch=main)",
+ "sp1-derive",
  "sp1-primitives",
  "strum 0.26.2",
  "strum_macros 0.26.2",
@@ -6499,16 +6498,6 @@ dependencies = [
 name = "sp1-derive"
 version = "0.1.0"
 source = "git+https://github.com/succinctlabs/sp1.git?branch=main#2f57e1e77f7c88396b571bd961d3cbe4b1291c7a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "sp1-derive"
-version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git#10495837c72f046aaccc81b81dc3c9055e3bf3a2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6672,7 +6661,7 @@ dependencies = [
  "serde",
  "serde_with",
  "sp1-core",
- "sp1-derive 0.1.0 (git+https://github.com/succinctlabs/sp1.git?branch=main)",
+ "sp1-derive",
  "sp1-primitives",
  "static_assertions",
  "tracing",

@@ -27,7 +27,7 @@ pub fn main() {
         .expect("Failed to set ZkvmOperations");
 
     let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
-    let pi = ProtocolInstance::new(&input, header, VerifierType::SP1)
+    let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
             .unwrap()
             .instance_hash();
 
