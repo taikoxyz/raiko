@@ -122,8 +122,7 @@ impl Sp1DistributedProver {
         let ip_list = std::fs::read_to_string("distributed.json").unwrap();
         let ip_list: Vec<String> = serde_json::from_str(&ip_list).unwrap();
 
-        // let pool = Pool::bounded(ip_list.len());
-        let pool = Pool::bounded(1);
+        let pool = Pool::bounded(ip_list.len());
 
         let mut results = Vec::new();
         for i in 0..nb_checkpoint {
