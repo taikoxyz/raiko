@@ -147,7 +147,7 @@ impl Sp1DistributedProver {
                         }),
                     );
 
-                    /* let http_client = reqwest::Client::new();
+                    let http_client = reqwest::Client::new();
                     let res = http_client
                         .post(url)
                         .json(&config)
@@ -155,10 +155,10 @@ impl Sp1DistributedProver {
                         .await
                         .expect("Sp1: proving shard failed");
 
-                    let json_proof: Sp1Response = res.json().await.unwrap(); */
+                    let json_proof: Sp1Response = res.json().await.unwrap();
 
-                    let json_proof = Self::worker(input, &output, &config).await.unwrap();
-                    let json_proof: Sp1Response = serde_json::from_value(json_proof).unwrap();
+                    /* let json_proof = Self::worker(input, &output, &config).await.unwrap();
+                    let json_proof: Sp1Response = serde_json::from_value(json_proof).unwrap(); */
 
                     /* println!(
                         "Received proof shard {}/{} {:#?}",
