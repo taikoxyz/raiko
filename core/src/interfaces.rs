@@ -93,6 +93,10 @@ pub enum ProofType {
     ///
     /// Uses the RISC0 prover to build the block.
     Risc0,
+    /// # Nitro
+    ///
+    /// Uses Nitro enclave prover.
+    Nitro,
 }
 
 impl std::fmt::Display for ProofType {
@@ -102,6 +106,7 @@ impl std::fmt::Display for ProofType {
             ProofType::Sp1 => "sp1",
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
+            ProofType::Nitro => "nitro",
         })
     }
 }
@@ -154,6 +159,14 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
+            }
+            ProofType::Nitro => {
+                #[cfg(feature = "nitro")]
+                return nitro_prover::NitroProver::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "nitro"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
         }

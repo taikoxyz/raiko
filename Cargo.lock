@@ -4926,6 +4926,7 @@ dependencies = [
  "c-kzg-taiko",
  "clap 4.5.4",
  "ethers-core",
+ "nitro-prover",
  "raiko-lib",
  "reqwest 0.11.27",
  "reqwest 0.12.4",
