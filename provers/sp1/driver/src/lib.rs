@@ -82,11 +82,17 @@ impl Prover for Sp1DistributedProver {
     ) -> ProverResult<Proof> {
         println!("Running SP1 Distributed prover");
 
+        let mut config = config.clone();
+
+        let mut_config = config.as_object_mut().unwrap();
+        mut_config.insert("network".to_string(), "taiko_a7".into());
+        mut_config.insert("proof_type".to_string(), "sp1_distributed".into());
+
         if config.get("sp1").is_none() {
-            return Self::orchestrator(input, output, config).await;
+            return Self::orchestrator(input, output, &config).await;
         }
 
-        return Self::worker(input, output, config).await;
+        return Self::worker(input, output, &config).await;
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {
@@ -104,6 +110,11 @@ impl Sp1DistributedProver {
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
         println!("Running SP1 Distributed orchestrator");
+        std::fs::write(
+            "input_orchestrator.json",
+            serde_json::to_string(&input).unwrap(),
+        )
+        .unwrap();
 
         // Write the input.
         let mut stdin = SP1Stdin::new();
@@ -138,8 +149,6 @@ impl Sp1DistributedProver {
                     let mut config = config.clone();
 
                     let mut_config = config.as_object_mut().unwrap();
-                    mut_config.insert("network".to_string(), "taiko_a7".into());
-                    mut_config.insert("proof_type".to_string(), "sp1_distributed".into());
                     mut_config.insert(
                         "sp1".to_string(),
                         serde_json::json!({
@@ -159,6 +168,9 @@ impl Sp1DistributedProver {
 
                     /* let json_proof = Self::worker(input, &output, &config).await.unwrap();
                     let json_proof: Sp1Response = serde_json::from_value(json_proof).unwrap(); */
+
+                    /* std::fs::write("proof_local.json", json_proof_local.proof).unwrap();
+                    std::fs::write("proof_remote.json", &json_proof.proof).unwrap(); */
 
                     /* println!(
                         "Received proof shard {}/{} {:#?}",
@@ -239,6 +251,9 @@ impl Sp1DistributedProver {
         output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
+        // println!("CONFIG: {:#?}", config);
+        // println!("INPUT: {:?}", input);
+        std::fs::write("input_worker.json", serde_json::to_string(&input).unwrap()).unwrap();
         let checkpoint = config
             .get("sp1")
             .unwrap()

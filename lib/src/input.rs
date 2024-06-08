@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use core::fmt::Debug;
+use std::collections::BTreeMap;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
@@ -66,7 +67,7 @@ pub struct GuestInput {
     /// State trie of the parent block.
     pub parent_state_trie: MptNode,
     /// Maps each address with its storage trie and the used storage slots.
-    pub parent_storage: HashMap<Address, StorageEntry>,
+    pub parent_storage: BTreeMap<Address, StorageEntry>,
     /// The code of all unique contracts.
     pub contracts: Vec<Bytes>,
     /// List of at most 256 previous block headers

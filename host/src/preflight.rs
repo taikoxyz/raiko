@@ -24,7 +24,10 @@ use raiko_primitives::{
     mpt::proofs_to_tries,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{BTreeSet, HashSet},
+    sync::Arc,
+};
 use tracing::{info, warn};
 
 use crate::{
@@ -196,6 +199,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let measurement = Measurement::start("Constructing MPT...", true);
     let (state_trie, storage) =
         proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
+
     measurement.stop();
 
     // Gather proofs for block history
@@ -205,7 +209,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
     // Get the contracts from the initial db.
     let measurement = Measurement::start("Fetching contract code...", true);
-    let mut contracts = HashSet::new();
+    let mut contracts = BTreeSet::new();
     let initial_db = &provider_db.initial_db;
     for account in initial_db.accounts.values() {
         let code = &account.info.code;

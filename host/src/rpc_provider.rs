@@ -6,7 +6,7 @@ use alloy_transport_http::Http;
 use raiko_lib::{clear_line, inplace_print};
 use reqwest_alloy::Client;
 use revm::primitives::{AccountInfo, Bytecode};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     error::{HostError, HostResult},
@@ -220,7 +220,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
         offset: usize,
         num_storage_proofs: usize,
     ) -> HostResult<MerkleProof> {
-        let mut storage_proofs: MerkleProof = HashMap::new();
+        let mut storage_proofs: MerkleProof = BTreeMap::new();
         let mut idx = offset;
 
         let mut accounts = accounts.clone();
@@ -309,6 +309,13 @@ impl BlockDataProvider for RpcBlockDataProvider {
             }
         }
         clear_line();
+
+        // sort the vec values
+        for (_, storage_proof) in storage_proofs.iter_mut() {
+            storage_proof
+                .storage_proof
+                .sort_by(|a, b| a.value.cmp(&b.value));
+        }
 
         Ok(storage_proofs)
     }

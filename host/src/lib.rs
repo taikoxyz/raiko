@@ -21,7 +21,11 @@ pub mod request;
 pub mod rpc_provider;
 pub mod server;
 
-use std::{alloc, collections::HashMap, path::PathBuf};
+use std::{
+    alloc,
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
@@ -33,7 +37,7 @@ use serde_json::Value;
 
 use crate::{error::HostResult, request::ProofRequestOpt};
 
-type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
+type MerkleProof = BTreeMap<Address, EIP1186AccountProofResponse>;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);

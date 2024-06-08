@@ -11,7 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{collections::HashSet, mem::take};
+use std::{
+    collections::{BTreeSet, HashSet},
+    mem::take,
+};
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::Bytes;
@@ -39,9 +42,9 @@ pub struct ProviderDb<BDP: BlockDataProvider> {
 
     pub optimistic: bool,
     pub staging_db: MemDb,
-    pub pending_accounts: HashSet<Address>,
-    pub pending_slots: HashSet<(Address, U256)>,
-    pub pending_block_hashes: HashSet<u64>,
+    pub pending_accounts: BTreeSet<Address>,
+    pub pending_slots: BTreeSet<(Address, U256)>,
+    pub pending_block_hashes: BTreeSet<u64>,
 }
 
 impl<BDP: BlockDataProvider> ProviderDb<BDP> {
@@ -56,9 +59,9 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
             initial_db: Default::default(),
             initial_headers: Default::default(),
             current_db: Default::default(),
-            pending_accounts: HashSet::new(),
-            pending_slots: HashSet::new(),
-            pending_block_hashes: HashSet::new(),
+            pending_accounts: BTreeSet::new(),
+            pending_slots: BTreeSet::new(),
+            pending_block_hashes: BTreeSet::new(),
         };
         if chain_spec.is_taiko() {
             // Get the 256 history block hashes from the provider at first time for anchor

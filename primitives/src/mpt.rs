@@ -18,6 +18,7 @@ use core::{
     fmt::{Debug, Write},
     iter, mem,
 };
+use std::collections::BTreeMap;
 
 use alloy_primitives::{b256, TxNumber, B256, U256};
 use alloy_rlp::Encodable;
@@ -1030,15 +1031,15 @@ pub fn shorten_node_path(node: &MptNode) -> Vec<MptNode> {
 
 pub fn proofs_to_tries(
     state_root: B256,
-    parent_proofs: HashMap<Address, EIP1186AccountProofResponse>,
-    proofs: HashMap<Address, EIP1186AccountProofResponse>,
-) -> Result<(MptNode, HashMap<Address, StorageEntry>)> {
+    parent_proofs: BTreeMap<Address, EIP1186AccountProofResponse>,
+    proofs: BTreeMap<Address, EIP1186AccountProofResponse>,
+) -> Result<(MptNode, BTreeMap<Address, StorageEntry>)> {
     // if no addresses are provided, return the trie only consisting of the state root
     if parent_proofs.is_empty() {
-        return Ok((node_from_digest(state_root), HashMap::new()));
+        return Ok((node_from_digest(state_root), BTreeMap::new()));
     }
 
-    let mut storage: HashMap<Address, StorageEntry> = HashMap::with_capacity(parent_proofs.len());
+    let mut storage: BTreeMap<Address, StorageEntry> = BTreeMap::new();
 
     let mut state_nodes = HashMap::new();
     let mut state_root_node = MptNode::default();
@@ -1102,6 +1103,7 @@ pub fn proofs_to_tries(
             .iter()
             .map(|p| U256::from_be_bytes(p.key.0 .0))
             .collect();
+        println!("slots: {:#?}", slots);
         storage.insert(address, (storage_trie, slots));
     }
     let state_trie = resolve_nodes(&state_root_node, &state_nodes);
