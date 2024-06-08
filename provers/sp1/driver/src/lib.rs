@@ -109,12 +109,9 @@ impl Sp1DistributedProver {
         output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        println!("Running SP1 Distributed orchestrator");
-        std::fs::write(
-            "input_orchestrator.json",
-            serde_json::to_string(&input).unwrap(),
-        )
-        .unwrap();
+        let now = std::time::Instant::now();
+
+        log::info!("Running SP1 Distributed orchestrator");
 
         // Write the input.
         let mut stdin = SP1Stdin::new();
@@ -141,10 +138,17 @@ impl Sp1DistributedProver {
             let config = config.clone();
             let input = input.clone();
             let output = output.clone();
+            let url = url.clone();
+            let ip_list = ip_list.clone();
 
             let partial_proof = pool
                 .spawn(async move {
-                    println!("CHECKPOINT: {}/{}", i + 1, nb_checkpoint);
+                    log::info!(
+                        "Sending checkpoint {} to worker {}: {}",
+                        i,
+                        i % ip_list.len(),
+                        url
+                    );
 
                     let mut config = config.clone();
 
@@ -158,13 +162,22 @@ impl Sp1DistributedProver {
 
                     let http_client = reqwest::Client::new();
                     let res = http_client
-                        .post(url)
+                        .post(url.clone())
                         .json(&config)
                         .send()
                         .await
                         .expect("Sp1: proving shard failed");
 
                     let json_proof: Sp1Response = res.json().await.unwrap();
+
+                    log::info!(
+                        "Received proof shard {}/{} from worker {}: {} in {}s",
+                        i + 1,
+                        nb_checkpoint,
+                        i % ip_list.len(),
+                        url,
+                        now.elapsed().as_secs()
+                    );
 
                     /* let json_proof = Self::worker(input, &output, &config).await.unwrap();
                     let json_proof: Sp1Response = serde_json::from_value(json_proof).unwrap(); */
@@ -203,7 +216,6 @@ impl Sp1DistributedProver {
 
         let mut last_public_values = public_values;
         for (i, result) in results {
-            println!("Extracting proof shards {}/{}", i + 1, nb_checkpoint);
             let partial_proof = result.await.unwrap().unwrap();
 
             let (partial_proof, public_values) =
@@ -226,6 +238,11 @@ impl Sp1DistributedProver {
             .verify(&proof, &vk)
             .expect("Sp1: verification failed");
 
+        log::info!(
+            "Proof generation and verification took: {:?}s",
+            now.elapsed().as_secs()
+        );
+
         // Save the proof.
         let proof_dir = env::current_dir().expect("Sp1: dir error");
         proof
@@ -237,8 +254,6 @@ impl Sp1DistributedProver {
                     .unwrap(),
             )
             .expect("Sp1: saving proof failed");
-
-        println!("succesfully generated and verified proof for the program!");
 
         to_proof(Ok(Sp1Response {
             proof: serde_json::to_string(&proof).unwrap(),
@@ -253,7 +268,6 @@ impl Sp1DistributedProver {
     ) -> ProverResult<Proof> {
         // println!("CONFIG: {:#?}", config);
         // println!("INPUT: {:?}", input);
-        std::fs::write("input_worker.json", serde_json::to_string(&input).unwrap()).unwrap();
         let checkpoint = config
             .get("sp1")
             .unwrap()
