@@ -160,6 +160,8 @@ impl Sp1DistributedProver {
                         }),
                     );
 
+                    let now = std::time::Instant::now();
+
                     let http_client = reqwest::Client::new();
                     let res = http_client
                         .post(url.clone())
@@ -214,21 +216,20 @@ impl Sp1DistributedProver {
 
         results.sort_by(|a, b| a.0.cmp(&b.0));
 
-        let mut last_public_values = public_values;
+        // let mut last_public_values = public_values;
         for (i, result) in results {
             let partial_proof = result.await.unwrap().unwrap();
 
-            let (partial_proof, public_values) =
-                serde_json::from_str::<(Vec<_>, SP1PublicValues)>(partial_proof.as_str()).unwrap();
+            let partial_proof = serde_json::from_str::<Vec<_>>(partial_proof.as_str()).unwrap();
 
             proofs.extend(partial_proof);
-            last_public_values = public_values;
+            // last_public_values = public_values;
         }
 
         let mut proof = sp1_sdk::SP1ProofWithPublicValues {
             proof: proofs,
             stdin: stdin.clone(),
-            public_values: last_public_values,
+            public_values,
         };
 
         // Read the output.
@@ -292,7 +293,7 @@ impl Sp1DistributedProver {
             .expect("Sp1: proving failed");
 
         to_proof(Ok(Sp1Response {
-            proof: serde_json::to_string(&(partial_proof, public_values)).unwrap(),
+            proof: serde_json::to_string(&partial_proof).unwrap(),
             output: output.clone(),
         }))
     }
