@@ -144,9 +144,10 @@ impl Sp1DistributedProver {
             let partial_proof = pool
                 .spawn(async move {
                     log::info!(
-                        "Sending checkpoint {} to worker {}: {}",
-                        i,
-                        i % ip_list.len(),
+                        "Sending checkpoint {}/{} to worker {}: {}",
+                        i + 1,
+                        nb_checkpoint,
+                        i % ip_list.len() + 1,
                         url
                     );
 
@@ -176,36 +177,11 @@ impl Sp1DistributedProver {
                         "Received proof shard {}/{} from worker {}: {} in {}s",
                         i + 1,
                         nb_checkpoint,
-                        i % ip_list.len(),
+                        i % ip_list.len() + 1,
                         url,
                         now.elapsed().as_secs()
                     );
 
-                    /* let json_proof = Self::worker(input, &output, &config).await.unwrap();
-                    let json_proof: Sp1Response = serde_json::from_value(json_proof).unwrap(); */
-
-                    /* std::fs::write("proof_local.json", json_proof_local.proof).unwrap();
-                    std::fs::write("proof_remote.json", &json_proof.proof).unwrap(); */
-
-                    /* println!(
-                        "Received proof shard {}/{} {:#?}",
-                        i + 1,
-                        nb_checkpoint,
-                        json_proof
-                    ); */
-
-                    /* let json_proof =
-                    serde_json::from_str::<Proof>(&text).expect("Sp1: Cannot parse response"); */
-                    // let json_proof = json_proof.unwrap();
-
-                    /* let partial_proof = json_proof
-                    .as_object()
-                    .unwrap()
-                    .get("proof")
-                    .unwrap()
-                    .clone(); */
-
-                    // partial_proof
                     json_proof.proof
                 })
                 .await
