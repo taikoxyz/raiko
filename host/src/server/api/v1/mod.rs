@@ -88,17 +88,13 @@ pub enum Status {
 
 #[derive(Debug, Serialize, ToSchema)]
 #[allow(dead_code)]
-pub enum GuestOutputDoc {
-    #[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
-    /// The output of the prover when the proof generation was successful.
-    Success {
-        /// Header bytes.
-        header: Vec<u8>,
-        /// Instance hash.
-        hash: String,
-    },
-    /// The output of the prover when the proof generation failed.
-    Failure,
+#[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
+/// The output of the prover when the proof generation was successful.
+pub struct GuestOutputDoc {
+    /// Header bytes.
+    header: Vec<u8>,
+    /// Instance hash.
+    hash: String,
 }
 
 #[must_use]

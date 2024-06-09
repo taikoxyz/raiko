@@ -44,6 +44,7 @@ dependencies = [
  "c-kzg",
  "serde",
  "sha2 0.10.8",
+ "sp1-derive",
 ]
 
 [[package]]
@@ -2285,6 +2286,16 @@ checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
 dependencies = [
  "digest 0.10.7",
  "rand_core",
+]
+
+[[package]]
+name = "sp1-derive"
+version = "0.1.0"
+source = "git+https://github.com/succinctlabs/sp1.git#10495837c72f046aaccc81b81dc3c9055e3bf3a2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
