@@ -802,12 +802,12 @@ checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 [[package]]
 name = "ecdsa"
 version = "0.16.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee27f32b5c5292967d2d4a9d7f1e0b0aed2c15daded5a60300e4abb9d8020bca"
+source = "git+https://github.com/taikoxyz/signatures.git?branch=0.16.9#bb774a2595fcb07528930013e9306de5700f4a85"
 dependencies = [
  "der",
  "digest 0.10.7",
  "elliptic-curve",
+ "raiko-sp1-hack",
  "rfc6979",
  "signature",
  "spki",
@@ -1577,6 +1577,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "raiko-sp1-hack"
+version = "0.1.0"
+source = "git+https://github.com/taikoxyz/signatures.git?branch=0.16.9#bb774a2595fcb07528930013e9306de5700f4a85"
+dependencies = [
+ "bincode",
+ "serde",
+]
+
+[[package]]
 name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1684,8 +1693,7 @@ dependencies = [
 [[package]]
 name = "rfc6979"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
+source = "git+https://github.com/taikoxyz/signatures.git?branch=0.16.9#bb774a2595fcb07528930013e9306de5700f4a85"
 dependencies = [
  "hmac",
  "subtle",
