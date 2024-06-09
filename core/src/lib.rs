@@ -119,7 +119,7 @@ impl Raiko {
                     "block hash unexpected",
                 )?;
 
-                let output = GuestOutput::Success { header, hash: pi };
+                let output = GuestOutput { header, hash: pi };
 
                 Ok(output)
             }
