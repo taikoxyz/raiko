@@ -37,8 +37,8 @@ raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
 
 # revm
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2-cycls", default-features = false }
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2-cycls", default-features = false, features = [
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35-taiko", default-features = false }
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35-taiko", default-features = false, features = [
     "serde",
     "std",
     "c-kzg",
@@ -139,7 +139,7 @@ c-kzg = { package = "c-kzg-taiko", git = "https://github.com/smtmfft/c-kzg-4844"
 ] }
 sha3 = { version = "0.10", default-features = false }
 sha2 = "0.10.8"
-secp256k1 = { version = "0.27.0", features = [
+secp256k1 = { version = "0.28.2", features = [
     'global-context',
     "rand",
     "recovery",
