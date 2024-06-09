@@ -85,7 +85,7 @@ fn be_bytes_to_point(input: &[u8]) -> AffinePoint<Bn254, 16> {
     y.reverse();
 
     // Init AffinePoint for sp1
-    AffinePoint::<Bn254, 16>::from(x, y)
+    AffinePoint::<Bn254, 16>::from(&x, &y)
 }
 
 #[inline]
@@ -137,7 +137,7 @@ harness::zk_suits!(
                     le_chunk
                 })
                 .collect::<Vec<_>>();
-            let p = AffinePoint::<Bn254, 16>::from(p_bytes[0], p_bytes[1]);
+            let p = AffinePoint::<Bn254, 16>::from&p_bytes[0], &p_bytes[1]);
 
             let mut p_x_le = p.to_le_bytes()[..32].to_owned();
             let mut p_y_le = p.to_le_bytes()[32..].to_owned();
@@ -170,7 +170,7 @@ harness::zk_suits!(
             p_x.reverse();
             p_y.reverse();
 
-            let p = AffinePoint::<Bn254, 16>::from(p_x, p_y);
+            let p = AffinePoint::<Bn254, 16>::from(&p_x, &p_y);
             let p_bytes_le = p.to_le_bytes();
 
             // Reverse to x, y separately to big-endian bytes
