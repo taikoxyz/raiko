@@ -30,7 +30,7 @@ fn main() {
             .unwrap()
             .instance_hash();
 
-    sp1_zkvm::io::commit(&pi);
+    env::commit(&pi);
 }
 
 harness::zk_suits!(

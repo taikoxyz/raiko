@@ -9,7 +9,8 @@ extend-ignore-identifiers-re = [
     "(?i)groth",
     "leafs",
     "benchs",
-    "ba"
+    "ba",
+    "prover"
 ]
 
 [files]
