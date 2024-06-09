@@ -25,7 +25,7 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "https://node.onekey.so/eth",
+        "rpc": "https://rpc.ankr.com/eth",
         "beacon_rpc": "https://ethereum-beacon-api.publicnode.com",
         "sgx_verifier_address": null,
         "genesis_time": 1606824023,

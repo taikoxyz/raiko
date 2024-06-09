@@ -141,7 +141,6 @@ pub fn generate_transactions2(
     Vec::new()
 }
 
-
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
 const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
 const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
