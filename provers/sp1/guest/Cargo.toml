@@ -36,7 +36,7 @@ path = "src/benchmark/bn254_mul.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
-sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", tag = "main" }
+sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false, features = [
     "taiko",
     "std",
@@ -44,7 +44,7 @@ revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_
 ] }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false }
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
-sp1-precompiles = { git = "https://github.com/succinctlabs/sp1.git", tag = "main"}
+sp1-precompiles = { git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["sp1"]}
 substrate-bn = "0.6.0"
