@@ -25,7 +25,9 @@ impl Prover for NativeProver {
         let pi = ProtocolInstance::new(&input, &output.header, VerifierType::None)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
         if pi.instance_hash() != output.hash {
-            return Err(ProverError::GuestError("Protocol Instance hash not matched".to_string()));
+            return Err(ProverError::GuestError(
+                "Protocol Instance hash not matched".to_string(),
+            ));
         }
 
         to_proof(Ok(NativeResponse {
