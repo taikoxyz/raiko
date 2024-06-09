@@ -1,12 +1,11 @@
 #![no_main]
 harness::entrypoint!(main);
+use revm_precompile::zk_op::ZkvmOperator;
 use risc0_zkvm::guest::env;
 use std::hint::black_box;
-use revm_precompile::zk_op::ZkvmOperator;
 use zk_op::Risc0Operator;
 
 fn main() {
-
     let sig = black_box([
         0xb5, 0x0b, 0xb6, 0x79, 0x5f, 0x31, 0x74, 0x8a, 0x4d, 0x37, 0xc3, 0xa9, 0x7e, 0xbd, 0x06,
         0xa2, 0x2e, 0xa3, 0x37, 0x71, 0x04, 0x0f, 0x5c, 0x05, 0xd6, 0xe2, 0xbb, 0x2d, 0x38, 0xc6,
@@ -21,7 +20,7 @@ fn main() {
         0x6e, 0x61,
     ]);
 
-    let op = Risc0Operator{};
+    let op = Risc0Operator {};
     let res = op.secp256k1_ecrecover(&sig, recid, &msg).unwrap();
 
     env::commit::<[u8; 32]>(&res);

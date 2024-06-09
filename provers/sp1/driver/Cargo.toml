@@ -8,6 +8,10 @@ name = "benchmark"
 path = "src/benchmark.rs"
 harness = true
 
+[[bin]]
+name = "gen-verifier"
+path = "src/gen_verifier.rs"
+
 
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
@@ -19,6 +23,9 @@ sp1-sdk = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 sha3 = { workspace = true, optional = true, default-features = false}
+serde_with = { workspace = true, optional = true }
+dotenv = {workspace = true, optional = true}
+cfg-if = {workspace = true }
 
 [build-dependencies]
 sp1-helper = { workspace = true, optional = true }
@@ -28,7 +35,6 @@ regex = "1.5.4"
 
 
 [features]
-default = ["enable"]
 enable = [
     "serde",
     "serde_json",
@@ -39,5 +45,7 @@ enable = [
     "alloy-primitives",
     "once_cell",
     "sha3",
+    "dotenv",
+    "serde_with",
 ]
 neon = ["sp1-sdk?/neon"]

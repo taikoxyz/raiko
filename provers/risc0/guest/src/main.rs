@@ -13,8 +13,6 @@ use zk_op::Risc0Operator;
 
 pub mod mem;
 
-#[cfg(test)]
-use harness::*;
 pub use mem::*;
 
 fn main() {

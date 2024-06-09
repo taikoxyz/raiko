@@ -16,5 +16,12 @@
         "snark": true,
         "profile": false,
         "execution_po2": 20
-    }
+    },
+    "sp1": {
+		"recursion": "core",
+		"prover": "mock"
+	},
+    "native" : {
+        "write_guest_input_path": null
+	}
 }

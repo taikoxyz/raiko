@@ -5,7 +5,7 @@ harness::entrypoint!(main, tests, zk_op::tests);
 use raiko_lib::{
     consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::{GuestInput, GuestOutput},
+    input::{GuestInput},
     protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
