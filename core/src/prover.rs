@@ -47,12 +47,13 @@ impl Prover for NativeProver {
 
         trace!("Running the native prover for input {input:?}");
 
-        let GuestOutput::Success { header, .. } = output.clone() else {
-            return Err(ProverError::GuestError("Unexpected output".to_owned()));
-        };
-
-        ProtocolInstance::new(&input, &header, VerifierType::None)
+        let pi = ProtocolInstance::new(&input, &output.header, VerifierType::None)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        if pi.instance_hash() != output.hash {
+            return Err(ProverError::GuestError(
+                "Protocol Instance hash not matched".to_string(),
+            ));
+        }
 
         to_proof(Ok(NativeResponse {
             output: output.clone(),

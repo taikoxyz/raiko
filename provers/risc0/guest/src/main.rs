@@ -25,22 +25,12 @@ fn main() {
         .set(Box::new(vec![ZkOperation::Sha256, ZkOperation::Secp256k1]))
         .expect("Failed to set ZkvmOperations");
 
-    let build_result = TaikoStrategy::build_from(&input);
+    let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
+    let pi = ProtocolInstance::new(&input, &header, VerifierType::RISC0)
+            .unwrap()
+            .instance_hash();
 
-    let output = match &build_result {
-        Ok((header, _mpt_node)) => {
-            let pi = ProtocolInstance::new(&input, header, VerifierType::RISC0)
-                .expect("Failed to assemble protocol instance")
-                .instance_hash();
-            GuestOutput::Success {
-                header: header.clone(),
-                hash: pi,
-            }
-        }
-        Err(_) => GuestOutput::Failure,
-    };
-
-    env::commit(&output);
+    env::commit(&pi);
 }
 
 harness::zk_suits!(
