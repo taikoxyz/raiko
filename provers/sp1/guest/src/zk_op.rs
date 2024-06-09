@@ -137,7 +137,7 @@ harness::zk_suits!(
                     le_chunk
                 })
                 .collect::<Vec<_>>();
-            let p = AffinePoint::<Bn254, 16>::from&p_bytes[0], &p_bytes[1]);
+            let p = AffinePoint::<Bn254, 16>::from(&p_bytes[0], &p_bytes[1]);
 
             let mut p_x_le = p.to_le_bytes()[..32].to_owned();
             let mut p_y_le = p.to_le_bytes()[32..].to_owned();
