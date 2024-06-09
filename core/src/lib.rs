@@ -207,7 +207,7 @@ mod tests {
             "native".to_string(),
             json! {
                 {
-                    "write_guest_input_path": "./provers/sp1/contracts/src/fixtures/input.json"
+                    "write_guest_input_path": null
                 }
             },
         );

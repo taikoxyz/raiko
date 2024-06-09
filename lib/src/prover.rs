@@ -15,15 +15,6 @@ pub enum ProverError {
     Param(#[from] serde_json::Error),
 }
 
-// impl fmt::Display for ProverError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             ProverError::GuestError(e) => e.fmt(f),
-//             ProverError::Serialization(e) => e.fmt(f),
-//         }
-//     }
-// }
-
 impl From<String> for ProverError {
     fn from(e: String) -> Self {
         ProverError::GuestError(e)

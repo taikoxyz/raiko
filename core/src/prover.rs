@@ -59,4 +59,3 @@ impl Prover for NativeProver {
         }))
     }
 }
-
