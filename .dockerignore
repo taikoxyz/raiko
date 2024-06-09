@@ -12,6 +12,7 @@
 !/provers
 !/host
 !/pipeline
+!/harness
 !/rust-toolchain
 !/taiko.toml
 !/tests
