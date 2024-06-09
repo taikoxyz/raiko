@@ -115,7 +115,7 @@ checksum = "5c6cb57a04249c6480766f7f7cef5467412af1490f8d1e243141daddada3264f"
 [[package]]
 name = "alloy-consensus"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -129,7 +129,7 @@ dependencies = [
 [[package]]
 name = "alloy-contract"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
@@ -164,7 +164,7 @@ dependencies = [
 [[package]]
 name = "alloy-eips"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -177,7 +177,7 @@ dependencies = [
 [[package]]
 name = "alloy-genesis"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-primitives",
  "alloy-serde",
@@ -200,7 +200,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-rpc"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -212,7 +212,7 @@ dependencies = [
 [[package]]
 name = "alloy-network"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -251,7 +251,7 @@ dependencies = [
 [[package]]
 name = "alloy-provider"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-eips",
  "alloy-json-rpc",
@@ -301,7 +301,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-json-rpc",
  "alloy-transport",
@@ -321,7 +321,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -339,7 +339,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-trace"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types",
@@ -351,7 +351,7 @@ dependencies = [
 [[package]]
 name = "alloy-serde"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -361,7 +361,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -374,7 +374,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer-wallet"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -457,7 +457,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-json-rpc",
  "base64 0.22.1",
@@ -475,7 +475,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport-http"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/alloy?branch=175_4e22b9e#5f972199a8208969e838203c3db48f467c629d49"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
 dependencies = [
  "alloy-json-rpc",
  "alloy-transport",
@@ -5507,7 +5507,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "8.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2#a5c01f345f4362f4d5d8bbddf37e9d8aeb27b0d3"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2-cycls#d248be2d357f09f115813f8eecbced41351adfe8"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -5521,7 +5521,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "4.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2#a5c01f345f4362f4d5d8bbddf37e9d8aeb27b0d3"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2-cycls#d248be2d357f09f115813f8eecbced41351adfe8"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -5530,7 +5530,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "6.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2#a5c01f345f4362f4d5d8bbddf37e9d8aeb27b0d3"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2-cycls#d248be2d357f09f115813f8eecbced41351adfe8"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg-taiko",
@@ -5547,7 +5547,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.1"
-source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2#a5c01f345f4362f4d5d8bbddf37e9d8aeb27b0d3"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35_taiko_v2-cycls#d248be2d357f09f115813f8eecbced41351adfe8"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
