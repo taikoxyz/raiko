@@ -1,0 +1,17 @@
+[default]
+# False positives
+extend-ignore-identifiers-re = [
+    "MFowcDEiMCAGA1UEAwwZSW50ZWwgU0dYIFBDSyBDZXJ0aWZpY2F0ZTEaMBgGA1UE",
+    "VQQIDAJDQTELMAkGA1UEBhMCVVMwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQy",
+    "TGEB5zHBjzjv9kuWyUjUo4IDDjCCAwowHwYDVR0jBBgwFoAUlW9dzb0b4elAScnU",
+    "CAwCQ0ExCzAJBgNVBAYTAlVTMB4XDTI0MDExMDAyNDI0MFoXDTMxMDExMDAyNDI0",
+    "EUludGVsIENvcnBvcmF0aW9uMRQwEgYDVQQHDAtTYW50YSBDbGFyYTELMAkGA1UE",
+    "(?i)groth",
+    "leafs",
+    "benchs",
+    "ba",
+    "prover"
+]
+
+[files]
+extend-exclude = []

@@ -51,7 +51,7 @@ fi
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	curl -L https://sp1.succinct.xyz | bash
 
-	if [ -z "${CI}" ]; then
+	if [ -z "${CI}" ] || [ ! command -v sp1up &> /dev/null ]; then
 		# Need to add sp1up to the path here
 		PROFILE=$HOME/.bashrc
 		echo ${PROFILE}

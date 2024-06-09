@@ -27,8 +27,9 @@ use serde_json::Value;
 use crate::no_std::*;
 use crate::primitives::{uint, BlockNumber, ChainId, U256};
 
-use std::collections::HashMap;
+use once_cell::sync::Lazy;
 use std::path::PathBuf;
+use std::{collections::HashMap, env::var};
 
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;
@@ -45,6 +46,8 @@ pub const MAX_BLOCK_HASH_AGE: u64 = 256;
 pub const GWEI_TO_WEI: U256 = uint!(1_000_000_000_U256);
 
 const DEFAULT_CHAIN_SPECS: &str = include_str!("../../host/config/chain_spec_list_default.json");
+
+pub static IN_CONTAINER: Lazy<Option<()>> = Lazy::new(|| var("IN_CONTAINER").ok().map(|_| ()));
 
 #[derive(Clone, Debug)]
 pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);

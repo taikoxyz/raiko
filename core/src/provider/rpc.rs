@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-
 use alloy_primitives::{Address, Bytes, StorageKey, Uint, U256};
 use alloy_provider::{ProviderBuilder, ReqwestProvider, RootProvider};
 use alloy_rpc_client::{ClientBuilder, RpcClient};
 use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofResponse};
 use alloy_transport_http::Http;
-use raiko_lib::{clear_line, inplace_print};
+use raiko_lib::clear_line;
 use reqwest_alloy::Client;
 use revm::primitives::{AccountInfo, Bytecode};
+use std::collections::HashMap;
+use tracing::trace;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
@@ -229,9 +229,13 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
         let batch_limit = 1000;
         while !accounts.is_empty() {
-            inplace_print(&format!(
-                "fetching storage proof {idx}/{num_storage_proofs}..."
-            ));
+            if cfg!(debug_assertions) {
+                raiko_lib::inplace_print(&format!(
+                    "fetching storage proof {idx}/{num_storage_proofs}..."
+                ));
+            } else {
+                trace!("Fetching storage proof {idx}/{num_storage_proofs}...");
+            }
 
             // Create a batch for all storage proofs
             let mut batch = self.client.new_batch();
