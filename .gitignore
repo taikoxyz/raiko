@@ -54,3 +54,18 @@ perf.data.old
 # -----------------------------------------------------------------------------------------
 .idea/
 .vscode/
+
+# Compiler files
+cache/
+out/
+**/out/
+
+# Ignores development broadcast logs
+/broadcast
+/broadcast/*/11155111/
+/broadcast/*/31337/
+/broadcast/**/dry-run/
+
+
+# Dotenv file
+.env

@@ -151,3 +151,11 @@ A `traces` folder will be created inside the root directory. This folder will co
 ## OpenAPI
 
 When running any of the features/provers, OpenAPI UIs are available in both Swagger and Scalar flavors on `/swagger-ui` and `/scalar` respectively.
+
+## Smart Contract Verification
+
+Raiko block proof is avaliable through Sp1's recursive verifier. 
+```console
+$ ./script/sp1-e2e.sh 1234
+```
+By running this sciprt, you will pull data of block 1234, generate PK/VK and the proof, initiate the contract and verify the proof in Solidity test envoronment.
