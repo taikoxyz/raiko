@@ -84,15 +84,16 @@ impl Prover for Sp1DistributedProver {
 
         let mut config = config.clone();
 
+        // Fixing the network and proof type to be forwarded to the workers
         let mut_config = config.as_object_mut().unwrap();
         mut_config.insert("network".to_string(), "taiko_a7".into());
         mut_config.insert("proof_type".to_string(), "sp1_distributed".into());
 
-        if config.get("sp1").is_none() {
-            return Self::orchestrator(input, output, &config).await;
+        if config.get("sp1").map(|sp1| sp1.get("checkpoint")).is_some() {
+            return Self::worker(input, output, &config).await;
         }
 
-        return Self::worker(input, output, &config).await;
+        return Self::orchestrator(input, output, &config).await;
     }
 
     fn instance_hash(pi: ProtocolInstance) -> B256 {
@@ -132,7 +133,8 @@ impl Sp1DistributedProver {
 
         let pool = Pool::bounded(ip_list.len());
 
-        let mut results = Vec::new();
+        let mut futures = Vec::new();
+
         for i in 0..nb_checkpoint {
             let url = "http://".to_owned() + &ip_list[i % ip_list.len()] + "/proof";
             let config = config.clone();
@@ -163,15 +165,14 @@ impl Sp1DistributedProver {
 
                     let now = std::time::Instant::now();
 
-                    let http_client = reqwest::Client::new();
-                    let res = http_client
+                    let response = reqwest::Client::new()
                         .post(url.clone())
                         .json(&config)
                         .send()
                         .await
                         .expect("Sp1: proving shard failed");
 
-                    let json_proof: Sp1Response = res.json().await.unwrap();
+                    let sp1_response: Sp1Response = response.json().await.unwrap();
 
                     log::info!(
                         "Received proof shard {}/{} from worker {}: {} in {}s",
@@ -182,24 +183,22 @@ impl Sp1DistributedProver {
                         now.elapsed().as_secs()
                     );
 
-                    json_proof.proof
+                    sp1_response.proof
                 })
                 .await
                 .unwrap();
 
-            results.push((i, partial_proof));
+            futures.push(partial_proof);
         }
 
-        results.sort_by(|a, b| a.0.cmp(&b.0));
-
         // let mut last_public_values = public_values;
-        for (i, result) in results {
-            let partial_proof = result.await.unwrap().unwrap();
+        for future in futures {
+            let partial_proof_json = future.await.unwrap().unwrap();
 
-            let partial_proof = serde_json::from_str::<Vec<_>>(partial_proof.as_str()).unwrap();
+            let partial_proof =
+                serde_json::from_str::<Vec<_>>(partial_proof_json.as_str()).unwrap();
 
             proofs.extend(partial_proof);
-            // last_public_values = public_values;
         }
 
         let mut proof = sp1_sdk::SP1ProofWithPublicValues {
@@ -243,8 +242,6 @@ impl Sp1DistributedProver {
         output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        // println!("CONFIG: {:#?}", config);
-        // println!("INPUT: {:?}", input);
         let checkpoint = config
             .get("sp1")
             .unwrap()
