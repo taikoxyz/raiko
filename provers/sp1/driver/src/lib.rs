@@ -3,6 +3,7 @@ use std::env;
 
 use alloy_primitives::B256;
 use alloy_sol_types::SolValue;
+use async_channel::{Receiver, Sender};
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
@@ -11,7 +12,6 @@ use raiko_lib::{
 use serde::{Deserialize, Serialize};
 use sha3::{self, Digest};
 use sp1_sdk::{CoreSC, ProverClient, SP1CoreProof, SP1PublicValues, SP1Stdin};
-use tokio_task_pool::Pool;
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 
@@ -104,6 +104,100 @@ impl Prover for Sp1DistributedProver {
     }
 }
 
+struct Worker {
+    id: usize,
+    // The url of the worker
+    url: String,
+    // The config to send to the worker
+    config: ProverConfig,
+    // A queue to receive the checkpoint to compute the partial proof
+    queue: Receiver<usize>,
+    // A channel to send back the id of the checkpoint along with the json strings encoding the computed partial proofs
+    answer: Sender<(usize, String)>,
+    // if an error occured, send the checkpoint back in the queue for another worker to pick it up
+    queue_push_back: Sender<usize>,
+}
+
+impl Worker {
+    pub fn new(
+        id: usize,
+        url: String,
+        config: ProverConfig,
+        queue: Receiver<usize>,
+        answer: Sender<(usize, String)>,
+        queue_push_back: Sender<usize>,
+    ) -> Self {
+        Worker {
+            id,
+            url,
+            config,
+            queue,
+            answer,
+            queue_push_back,
+        }
+    }
+
+    pub async fn run(&self) {
+        while let Ok(checkpoint) = self.queue.recv().await {
+            // Compute the partial proof
+            let partial_proof_result = self.send_work(checkpoint).await;
+
+            match partial_proof_result {
+                Ok(partial_proof) => self.answer.send((checkpoint, partial_proof)).await.unwrap(),
+                Err(e) => {
+                    self.queue_push_back.send(checkpoint).await.unwrap();
+
+                    break;
+                }
+            }
+        }
+    }
+
+    async fn send_work(&self, checkpoint: usize) -> Result<String, reqwest::Error> {
+        log::info!(
+            "Sending checkpoint {} to worker {}: {}",
+            checkpoint,
+            self.id,
+            self.url
+        );
+
+        let mut config = self.config.clone();
+
+        let mut_config = config.as_object_mut().unwrap();
+        mut_config.insert(
+            "sp1".to_string(),
+            serde_json::json!({
+                "checkpoint": checkpoint,
+            }),
+        );
+
+        let now = std::time::Instant::now();
+
+        let response_result = reqwest::Client::new()
+            .post(&self.url)
+            .json(&config)
+            .send()
+            .await;
+
+        log::info!(
+            "Received proof for checkpoint {} from worker {}: {} in {}s",
+            checkpoint,
+            self.id,
+            self.url,
+            now.elapsed().as_secs()
+        );
+
+        match response_result {
+            Ok(response) => {
+                let sp1_response: Sp1Response = response.json().await.unwrap();
+
+                Ok(sp1_response.proof)
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
 impl Sp1DistributedProver {
     pub async fn orchestrator(
         input: GuestInput,
@@ -126,10 +220,57 @@ impl Sp1DistributedProver {
             .nb_checkpoints(ELF, stdin.clone())
             .expect("Sp1: execution failed");
 
+        log::info!("Number of checkpoints: {}", nb_checkpoint);
+
         let ip_list = std::fs::read_to_string("distributed.json").unwrap();
         let ip_list: Vec<String> = serde_json::from_str(&ip_list).unwrap();
 
-        let pool = Pool::bounded(ip_list.len());
+        let (queue_tx, queue_rx) = async_channel::unbounded();
+        let (answer_tx, answer_rx) = async_channel::unbounded();
+
+        for (i, url) in ip_list.iter().enumerate() {
+            let worker = Worker::new(
+                i,
+                url.clone(),
+                config.clone(),
+                queue_rx.clone(),
+                answer_tx.clone(),
+                queue_tx.clone(),
+            );
+
+            tokio::spawn(async move {
+                worker.run().await;
+            });
+        }
+
+        for i in 0..nb_checkpoint {
+            queue_tx.send(i).await.unwrap();
+        }
+
+        let mut proofs = Vec::new();
+
+        loop {
+            let (checkpoint_id, partial_proof_json) = answer_rx.recv().await.unwrap();
+
+            let partial_proof =
+                serde_json::from_str::<Vec<_>>(partial_proof_json.as_str()).unwrap();
+
+            proofs.push((checkpoint_id, partial_proof));
+
+            if proofs.len() == nb_checkpoint {
+                break;
+            }
+        }
+
+        proofs.sort_by_key(|(checkpoint_id, _)| *checkpoint_id);
+
+        let proofs = proofs
+            .into_iter()
+            .map(|(_, proof)| proof)
+            .flatten()
+            .collect();
+
+        /* let pool = Pool::bounded(ip_list.len());
 
         let mut futures = Vec::new();
 
@@ -191,7 +332,6 @@ impl Sp1DistributedProver {
 
         let mut proofs = Vec::new();
 
-        // let mut last_public_values = public_values;
         for future in futures {
             let partial_proof_json = future.await.unwrap().unwrap();
 
@@ -199,7 +339,7 @@ impl Sp1DistributedProver {
                 serde_json::from_str::<Vec<_>>(partial_proof_json.as_str()).unwrap();
 
             proofs.extend(partial_proof);
-        }
+        } */
 
         let mut proof = sp1_sdk::SP1ProofWithPublicValues {
             proof: proofs,
@@ -209,6 +349,7 @@ impl Sp1DistributedProver {
 
         // Read the output.
         let output = proof.public_values.read::<GuestOutput>();
+
         // Verify proof.
         client
             .verify(&proof, &vk)
