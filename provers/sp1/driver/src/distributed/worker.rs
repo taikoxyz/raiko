@@ -44,7 +44,7 @@ impl Worker {
 
             match partial_proof_result {
                 Ok(partial_proof) => self.answer.send((checkpoint, partial_proof)).await.unwrap(),
-                Err(e) => {
+                Err(_e) => {
                     self.queue_push_back.send(checkpoint).await.unwrap();
 
                     break;
