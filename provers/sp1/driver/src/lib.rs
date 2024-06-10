@@ -126,8 +126,6 @@ impl Sp1DistributedProver {
             .nb_checkpoints(ELF, stdin.clone())
             .expect("Sp1: execution failed");
 
-        let mut proofs = Vec::new();
-
         let ip_list = std::fs::read_to_string("distributed.json").unwrap();
         let ip_list: Vec<String> = serde_json::from_str(&ip_list).unwrap();
 
@@ -190,6 +188,8 @@ impl Sp1DistributedProver {
 
             futures.push(partial_proof);
         }
+
+        let mut proofs = Vec::new();
 
         // let mut last_public_values = public_values;
         for future in futures {
