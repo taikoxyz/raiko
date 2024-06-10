@@ -25,21 +25,24 @@ rangeEnd="$4"
 
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
-	rpc="https://rpc.ankr.com/eth"
+	l1_network="ethereum"
 elif [ "$chain" == "holesky" ]; then
-	rpc="https://ethereum-holesky-rpc.publicnode.com"
+	l1_network="holesky"
+elif [ "$chain" == "taiko_mainnet" ]; then
+	l1_network="ethereum"
 elif [ "$chain" == "taiko_a7" ]; then
-	rpc="https://rpc.hekla.taiko.xyz"
-	l1Rpc="https://ethereum-holesky-rpc.publicnode.com"
-	beaconRpc="https://eth-holesky-beacon.public.blastapi.io"
+	l1_network="holesky"
 else
-	echo "Invalid chain name. Please use 'ethereum', 'holesky' or 'taiko_a7'."
-	exit 1
+	echo "Using customized chain name $1. Please double check the RPCs."
+	l1_network="holesky"
 fi
 
 if [ "$proof" == "native" ]; then
 	proofParam='
-    "proof_type": "native"
+    "proof_type": "native",
+	"native" : {
+        "write_guest_input_path": null
+	}
   '
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
@@ -120,15 +123,14 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 	echo "- proving block $block"
 	curl --location --request POST 'http://localhost:8080/proof' \
 		--header 'Content-Type: application/json' \
+		--header 'Authorization: Bearer 4cbd753fbcbc2639de804f8ce425016a50e0ecd53db00cb5397912e83f5e570e' \
 		--data-raw "{
          \"network\": \"$chain\",
-         \"rpc\": \"$rpc\",
-         \"l1_rpc\": \"$l1Rpc\",
-         \"beacon_rpc\": \"$beaconRpc\",
+         \"l1_network\": \"$l1_network\",
          \"block_number\": $block,
          \"prover\": \"$prover\",
          \"graffiti\": \"$graffiti\",
          $proofParam
        }"
-	echo "\\n"
+	echo ""
 done

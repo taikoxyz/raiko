@@ -2,7 +2,7 @@ use axum::{body::Body, debug_handler, http::header, response::Response, routing:
 use prometheus::{Encoder, TextEncoder};
 use utoipa::OpenApi;
 
-use crate::{error::HostResult, ProverState};
+use crate::{interfaces::HostResult, ProverState};
 
 #[utoipa::path(
     get,

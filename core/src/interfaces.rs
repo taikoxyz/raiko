@@ -1,25 +1,76 @@
-use core::fmt::Debug;
-use std::collections::HashMap;
-use std::{path::Path, str::FromStr};
-
+use crate::{merge, prover::NativeProver};
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
-    consts::Network,
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
-    prover::{Proof, Prover},
+    prover::{Proof, Prover, ProverError},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
+use std::{collections::HashMap, path::Path, str::FromStr};
 use utoipa::ToSchema;
 
-use crate::{
-    error::{HostError, HostResult},
-    merge,
-    raiko::NativeProver,
-};
+#[derive(Debug, thiserror::Error, ToSchema)]
+pub enum RaikoError {
+    /// For invalid proof type generation request.
+    #[error("Unknown proof type: {0}")]
+    InvalidProofType(String),
+
+    /// For invalid proof request configuration.
+    #[error("Invalid proof request: {0}")]
+    InvalidRequestConfig(String),
+
+    /// For requesting a proof of a type that is not supported.
+    #[error("Feature not supported: {0}")]
+    #[schema(value_type = Value)]
+    FeatureNotSupportedError(ProofType),
+
+    /// For invalid type conversion.
+    #[error("Invalid conversion: {0}")]
+    Conversion(String),
+
+    /// For RPC errors.
+    #[error("There was an error with the RPC provider: {0}")]
+    RPC(String),
+
+    /// For preflight errors.
+    #[error("There was an error running the preflight: {0}")]
+    Preflight(String),
+
+    /// For errors produced by the guest provers.
+    #[error("There was an error with a guest prover: {0}")]
+    #[schema(value_type = Value)]
+    Guest(#[from] ProverError),
+
+    /// For db errors.
+    #[error("There was an error with the db: {0}")]
+    #[schema(value_type = Value)]
+    Db(raiko_lib::mem_db::DbError),
+
+    /// For I/O errors.
+    #[error("There was a I/O error: {0}")]
+    #[schema(value_type = Value)]
+    Io(#[from] std::io::Error),
+
+    /// For Serde errors.
+    #[error("There was a deserialization error: {0}")]
+    #[schema(value_type = Value)]
+    Serde(#[from] serde_json::Error),
+
+    /// A catch-all error for any other error type.
+    #[error("There was an unexpected error: {0}")]
+    #[schema(value_type = Value)]
+    Anyhow(#[from] anyhow::Error),
+}
+
+impl From<raiko_lib::mem_db::DbError> for RaikoError {
+    fn from(e: raiko_lib::mem_db::DbError) -> Self {
+        RaikoError::Db(e)
+    }
+}
+
+pub type RaikoResult<T> = Result<T, RaikoError>;
 
 #[derive(
     PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize, ToSchema, Hash, ValueEnum,
@@ -34,6 +85,9 @@ pub enum ProofType {
     ///
     /// Uses the SP1 prover to build the block.
     Sp1,
+    /// # Sp1Distributed
+    ///
+    /// Uses the SP1 prover to build the block in a distributed way.
     Sp1Distributed,
     /// # Sgx
     ///
@@ -58,7 +112,7 @@ impl std::fmt::Display for ProofType {
 }
 
 impl FromStr for ProofType {
-    type Err = HostError;
+    type Err = RaikoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_lowercase().as_str() {
@@ -67,54 +121,19 @@ impl FromStr for ProofType {
             "sp1_distributed" => Ok(ProofType::Sp1Distributed),
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
-            _ => Err(HostError::InvalidProofType(s.to_string())),
+            _ => Err(RaikoError::InvalidProofType(s.to_string())),
         }
     }
 }
 
 impl ProofType {
-    /// Get the instance hash for the protocol instance depending on the proof type.
-    pub fn instance_hash(&self, pi: ProtocolInstance) -> HostResult<B256> {
-        match self {
-            ProofType::Native => Ok(NativeProver::instance_hash(pi)),
-            ProofType::Sp1 => {
-                #[cfg(feature = "sp1")]
-                return Ok(sp1_driver::Sp1Prover::instance_hash(pi));
-
-                #[allow(unreachable_code)]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Sp1Distributed => {
-                #[cfg(feature = "sp1")]
-                return Ok(sp1_driver::Sp1DistributedProver::instance_hash(pi));
-
-                #[allow(unreachable_code)]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Risc0 => {
-                #[cfg(feature = "risc0")]
-                return Ok(risc0_driver::Risc0Prover::instance_hash(pi));
-
-                #[allow(unreachable_code)]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-            ProofType::Sgx => {
-                #[cfg(feature = "sgx")]
-                return Ok(sgx_prover::SgxProver::instance_hash(pi));
-
-                #[allow(unreachable_code)]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
-            }
-        }
-    }
-
     /// Run the prover driver depending on the proof type.
     pub async fn run_prover(
         &self,
         input: GuestInput,
         output: &GuestOutput,
         config: &Value,
-    ) -> HostResult<Proof> {
+    ) -> RaikoResult<Proof> {
         match self {
             ProofType::Native => NativeProver::run(input, output, config)
                 .await
@@ -124,36 +143,32 @@ impl ProofType {
                 return sp1_driver::Sp1Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
-                #[allow(unreachable_code)]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                #[cfg(not(feature = "sp1"))]
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sp1Distributed => {
                 #[cfg(feature = "sp1")]
                 return sp1_driver::Sp1DistributedProver::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
-                #[allow(unreachable_code)]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                #[cfg(not(feature = "sp1"))]
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
                 return risc0_driver::Risc0Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
-                #[allow(unreachable_code)]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                #[cfg(not(feature = "risc0"))]
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
                 return sgx_prover::SgxProver::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
-
-                #[allow(unreachable_code)]
-                Err(HostError::FeatureNotSupportedError(self.clone()))
+                #[cfg(not(feature = "sgx"))]
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
         }
     }
@@ -165,15 +180,8 @@ impl ProofType {
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
-    /// RPC URL for retrieving block by block number.
-    pub rpc: String,
-    /// The L1 node URL for signal root verify and get txlist info from proposed
-    /// transaction.
-    pub l1_rpc: String,
-    /// The beacon node URL for retrieving data blobs.
-    pub beacon_rpc: String,
     /// The network to generate the proof for.
-    pub network: Network,
+    pub network: String,
     /// The L1 network to grnerate the proof for.
     pub l1_network: String,
     /// Graffiti.
@@ -195,16 +203,6 @@ pub struct ProofRequestOpt {
     #[arg(long, require_equals = true)]
     /// The block number for the block to generate a proof for.
     pub block_number: Option<u64>,
-    #[arg(long, require_equals = true)]
-    /// RPC URL for retrieving block by block number.
-    pub rpc: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The L1 node URL for signal root verify and get txlist info from proposed
-    /// transaction.
-    pub l1_rpc: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The beacon node URL for retrieving data blobs.
-    pub beacon_rpc: Option<String>,
     #[arg(long, require_equals = true)]
     /// The network to generate the proof for.
     pub network: Option<String>,
@@ -256,7 +254,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
 
 impl ProofRequestOpt {
     /// Read a partial proof request config from a file.
-    pub fn from_file<T>(path: T) -> HostResult<Self>
+    pub fn from_file<T>(path: T) -> RaikoResult<Self>
     where
         T: AsRef<Path>,
     {
@@ -267,7 +265,7 @@ impl ProofRequestOpt {
     }
 
     /// Merge a partial proof request into current one.
-    pub fn merge(&mut self, other: &Value) -> HostResult<()> {
+    pub fn merge(&mut self, other: &Value) -> RaikoResult<()> {
         let mut this = serde_json::to_value(&self)?;
         merge(&mut this, other);
         *self = serde_json::from_value(this)?;
@@ -276,53 +274,40 @@ impl ProofRequestOpt {
 }
 
 impl TryFrom<ProofRequestOpt> for ProofRequest {
-    type Error = HostError;
+    type Error = RaikoError;
 
     fn try_from(value: ProofRequestOpt) -> Result<Self, Self::Error> {
         Ok(Self {
-            block_number: value.block_number.ok_or(HostError::InvalidRequestConfig(
+            block_number: value.block_number.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing block number".to_string(),
             ))?,
-            rpc: value
-                .rpc
-                .ok_or(HostError::InvalidRequestConfig("Missing rpc".to_string()))?,
-            l1_rpc: value.l1_rpc.ok_or(HostError::InvalidRequestConfig(
-                "Missing l1_rpc".to_string(),
+            network: value.network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
             ))?,
-            beacon_rpc: value.beacon_rpc.ok_or(HostError::InvalidRequestConfig(
-                "Missing beacon_rpc".to_string(),
-            ))?,
-            network: value
-                .network
-                .ok_or(HostError::InvalidRequestConfig(
-                    "Missing network".to_string(),
-                ))?
-                .parse()
-                .map_err(|_| HostError::InvalidRequestConfig("Invalid network".to_string()))?,
-            l1_network: value.l1_network.ok_or(HostError::InvalidRequestConfig(
+            l1_network: value.l1_network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing l1_network".to_string(),
             ))?,
             graffiti: value
                 .graffiti
-                .ok_or(HostError::InvalidRequestConfig(
+                .ok_or(RaikoError::InvalidRequestConfig(
                     "Missing graffiti".to_string(),
                 ))?
                 .parse()
-                .map_err(|_| HostError::InvalidRequestConfig("Invalid graffiti".to_string()))?,
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid graffiti".to_string()))?,
             prover: value
                 .prover
-                .ok_or(HostError::InvalidRequestConfig(
+                .ok_or(RaikoError::InvalidRequestConfig(
                     "Missing prover".to_string(),
                 ))?
                 .parse()
-                .map_err(|_| HostError::InvalidRequestConfig("Invalid prover".to_string()))?,
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid prover".to_string()))?,
             proof_type: value
                 .proof_type
-                .ok_or(HostError::InvalidRequestConfig(
+                .ok_or(RaikoError::InvalidRequestConfig(
                     "Missing proof_type".to_string(),
                 ))?
                 .parse()
-                .map_err(|_| HostError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
             prover_args: value.prover_args.into(),
         })
     }

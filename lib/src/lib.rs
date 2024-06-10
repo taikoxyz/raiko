@@ -28,10 +28,13 @@ mod no_std {
     };
 }
 
+use tracing::debug;
+
 pub mod builder;
 pub mod consts;
 pub mod input;
 pub mod mem_db;
+pub mod primitives;
 pub mod protocol_instance;
 pub mod prover;
 pub mod utils;
@@ -91,11 +94,11 @@ pub struct Measurement {
 impl Measurement {
     pub fn start(title: &str, inplace: bool) -> Measurement {
         if inplace {
-            print!("{title}");
+            debug!("{title}");
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
         } else if !title.is_empty() {
-            println!("{title}");
+            debug!("{title}");
         }
 
         Self {
@@ -124,7 +127,7 @@ impl Measurement {
 }
 
 pub fn print_duration(title: &str, duration: time::Duration) {
-    println!(
+    debug!(
         "{title}{}.{:03} seconds",
         duration.as_secs(),
         duration.subsec_millis()
@@ -132,18 +135,24 @@ pub fn print_duration(title: &str, duration: time::Duration) {
 }
 
 pub fn inplace_print(title: &str) {
-    print!("\r{title}");
-    #[cfg(feature = "std")]
+    if consts::IN_CONTAINER.is_some() {
+        return;
+    }
+    print!("\r\n{title}");
+    #[cfg(all(feature = "std", debug_assertions))]
     io::stdout().flush().unwrap();
 }
 
 pub fn clear_line() {
-    print!("\r\x1B[2K");
+    if consts::IN_CONTAINER.is_some() {
+        return;
+    }
+    print!("\r\n\x1B[2K");
 }
 
 /// call forget only if running inside the guest
 pub fn guest_mem_forget<T>(_t: T) {
-    #[cfg(target_os = "zkvm")] // TODO: seperate for risc0
+    #[cfg(target_os = "zkvm")] // TODO: separate for risc0
     core::mem::forget(_t)
 }
 
@@ -199,6 +208,36 @@ pub mod serde_with {
             D: Deserializer<'de>,
         {
             let bytes = <Vec<u8>>::deserialize(deserializer)?;
+            T::decode_bytes(bytes).map_err(serde::de::Error::custom)
+        }
+    }
+
+    pub struct RlpHexBytes {}
+
+    impl<T> SerializeAs<T> for RlpHexBytes
+    where
+        T: alloy_rlp::Encodable,
+    {
+        fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let bytes = alloy_rlp::encode(source);
+            let hex_str = hex::encode(bytes);
+            hex_str.serialize(serializer)
+        }
+    }
+
+    impl<'de, T> DeserializeAs<'de, T> for RlpHexBytes
+    where
+        T: alloy_rlp::Decodable,
+    {
+        fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let hex_str = <String>::deserialize(deserializer)?;
+            let bytes = hex::decode(hex_str).unwrap();
             T::decode_bytes(bytes).map_err(serde::de::Error::custom)
         }
     }

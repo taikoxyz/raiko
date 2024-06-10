@@ -46,7 +46,7 @@ impl ZkvmOperator for Risc0Operator {
 
         // parse signature
         let mut sig = Signature::from_slice(sig.as_slice()).map_err(|_| {
-            Error::ZkvmOperatrion("Patched k256 deserialize signature failed".to_string())
+            Error::ZkvmOperation("Patched k256 deserialize signature failed".to_string())
         })?;
         // normalize signature and flip recovery id if needed.
         if let Some(sig_normalized) = sig.normalize_s() {
@@ -56,7 +56,7 @@ impl ZkvmOperator for Risc0Operator {
         let recid = RecoveryId::from_byte(recid).expect("recovery ID is valid");
         // recover key
         let recovered_key = VerifyingKey::recover_from_prehash(&msg[..], &sig, recid)
-            .map_err(|_| Error::ZkvmOperatrion("Patched k256 recover key failed".to_string()))?;
+            .map_err(|_| Error::ZkvmOperation("Patched k256 recover key failed".to_string()))?;
         // hash it
         let mut hash = revm_primitives::keccak256(
             &recovered_key
@@ -74,14 +74,13 @@ harness::zk_suits!(
     pub mod tests {
         #[test]
         pub fn test_sha256() {
-            
             use harness::*;
-            use raiko_primitives::hex;
+            use raiko_lib::primitives::hex;
             use risc0_sha2::{Digest, Sha256};
 
             let test_ves = [
                 ("", hex!("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")),
-                (   "The quick brown fox jumps over the lazy dog", 
+                (   "The quick brown fox jumps over the lazy dog",
                     hex!("d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592")
                 ),
                 ("hello", hex!("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")),

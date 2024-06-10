@@ -1,12 +1,13 @@
-use axum::Router;
+use axum::{response::IntoResponse, Router};
 use raiko_lib::input::GuestOutput;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tower::ServiceBuilder;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::ProverState;
+use crate::{interfaces::HostError, ProverState};
 
 mod health;
 mod metrics;
@@ -30,11 +31,12 @@ mod proof;
     ),
     components(
         schemas(
-            crate::request::ProofRequestOpt,
-            crate::error::HostError,
-            crate::request::ProverSpecificOpts,
+            raiko_core::interfaces::ProofRequestOpt,
+            raiko_core::interfaces::ProverSpecificOpts,
+            crate::interfaces::HostError,
             GuestOutputDoc,
             ProofResponse,
+            Status,
         )
     ),
     tags(
@@ -46,7 +48,7 @@ mod proof;
 /// The root API struct which is generated from the `OpenApi` derive macro.
 pub struct Docs;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, Deserialize)]
 /// The response body of a proof request.
 pub struct ProofResponse {
     #[schema(value_type = Option<GuestOutputDoc>)]
@@ -58,19 +60,41 @@ pub struct ProofResponse {
     quote: Option<String>,
 }
 
+impl IntoResponse for ProofResponse {
+    fn into_response(self) -> axum::response::Response {
+        axum::Json(serde_json::json!({
+            "status": "ok",
+            "data": self
+        }))
+        .into_response()
+    }
+}
+
+impl TryFrom<Value> for ProofResponse {
+    type Error = HostError;
+
+    fn try_from(proof: Value) -> Result<Self, Self::Error> {
+        serde_json::from_value(proof).map_err(|err| HostError::Conversion(err.to_string()))
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "lowercase")]
+#[allow(dead_code)]
+pub enum Status {
+    Ok { data: ProofResponse },
+    Error { error: String, message: String },
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 #[allow(dead_code)]
-pub enum GuestOutputDoc {
-    #[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
-    /// The output of the prover when the proof generation was successful.
-    Success {
-        /// Header bytes.
-        header: Vec<u8>,
-        /// Instance hash.
-        hash: String,
-    },
-    /// The output of the prover when the proof generation failed.
-    Failure,
+#[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
+/// The output of the prover when the proof generation was successful.
+pub struct GuestOutputDoc {
+    /// Header bytes.
+    header: Vec<u8>,
+    /// Instance hash.
+    hash: String,
 }
 
 #[must_use]

@@ -7,20 +7,19 @@ use std::{
     str,
 };
 
-use alloy_sol_types::SolValue;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
-use raiko_primitives::{keccak::keccak, B256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::serde_as;
 use tokio::{process::Command, sync::OnceCell};
 
-pub use crate::sgx_register_utils::register_sgx_instance;
+pub use crate::sgx_register_utils::{
+    get_instance_id, register_sgx_instance, remove_instance_id, set_instance_id,
+};
 
 pub const PRIV_KEY_FILENAME: &str = "priv.key";
 
@@ -135,20 +134,6 @@ impl Prover for SgxProver {
         }
 
         to_proof(sgx_proof)
-    }
-
-    fn instance_hash(pi: ProtocolInstance) -> B256 {
-        let data = (
-            "VERIFY_PROOF",
-            pi.chain_id,
-            pi.transition.clone(),
-            // new_pubkey, TODO(cecilia)
-            pi.prover,
-            pi.meta_hash(),
-        )
-            .abi_encode();
-
-        keccak(data).into()
     }
 }
 

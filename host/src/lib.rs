@@ -12,28 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod error;
+pub mod interfaces;
 pub mod metrics;
-pub mod preflight;
-pub mod provider_db;
-pub mod raiko;
-pub mod request;
-pub mod rpc_provider;
 pub mod server;
 
 use std::{alloc, collections::BTreeMap, path::PathBuf};
 
-use alloy_primitives::Address;
-use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
+use raiko_core::{interfaces::ProofRequestOpt, merge};
+use raiko_lib::consts::SupportedChainSpecs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{error::HostResult, request::ProofRequestOpt};
-
-type MerkleProof = BTreeMap<Address, EIP1186AccountProofResponse>;
+use crate::interfaces::HostResult;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
@@ -91,6 +84,10 @@ pub struct Cli {
     config_path: PathBuf,
 
     #[arg(long, require_equals = true)]
+    /// Path to a chain spec file that includes supported chain list
+    chain_spec_path: Option<PathBuf>,
+
+    #[arg(long, require_equals = true)]
     /// Use a local directory as a cache for input. Accepts a custom directory.
     cache_path: Option<PathBuf>,
 
@@ -103,6 +100,10 @@ pub struct Cli {
     #[serde(flatten)]
     /// Proof request options
     pub proof_request_opt: ProofRequestOpt,
+
+    #[arg(long, require_equals = true)]
+    /// Set jwt secret for auth
+    jwt_secret: Option<String>,
 }
 
 impl Cli {
@@ -113,28 +114,16 @@ impl Cli {
         let mut config: Value = serde_json::from_reader(reader)?;
         let this = serde_json::to_value(&self)?;
         merge(&mut config, &this);
+
         *self = serde_json::from_value(config)?;
         Ok(())
-    }
-}
-
-/// Merges two json's together, overwriting `a` with the values of `b`
-fn merge(a: &mut Value, b: &Value) {
-    match (a, b) {
-        (Value::Object(a), Value::Object(b)) => {
-            for (k, v) in b {
-                merge(a.entry(k.clone()).or_insert(Value::Null), v);
-            }
-        }
-        (a, b) if !b.is_null() => *a = b.clone(),
-        // If b is null, just keep a (which means do nothing).
-        _ => {}
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct ProverState {
     pub opts: Cli,
+    pub chain_specs: SupportedChainSpecs,
 }
 
 impl ProverState {
@@ -144,6 +133,12 @@ impl ProverState {
         // Read the config file.
         opts.merge_from_file()?;
 
+        let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
+            SupportedChainSpecs::merge_from_file(cs_path.clone()).unwrap_or_default()
+        } else {
+            SupportedChainSpecs::default()
+        };
+
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {
             if !cache_path.exists() {
@@ -151,12 +146,12 @@ impl ProverState {
             }
         }
 
-        Ok(Self { opts })
+        Ok(Self { opts, chain_specs })
     }
 }
 
 mod memory {
-    use tracing::info;
+    use tracing::debug;
 
     use crate::ALLOCATOR;
 
@@ -170,7 +165,7 @@ mod memory {
 
     pub(crate) fn print_stats(title: &str) {
         let max_memory = get_max_allocated();
-        info!(
+        debug!(
             "{title}{}.{:06} MB",
             max_memory / 1_000_000,
             max_memory % 1_000_000

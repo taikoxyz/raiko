@@ -12,18 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{fmt::Debug, mem::take, str::from_utf8};
-use std::collections::HashSet;
-
 use alloy_consensus::{constants::BEACON_ROOTS_ADDRESS, TxEnvelope};
 use alloy_primitives::{TxKind, U256};
 use anyhow::{anyhow, bail, ensure, Context, Error, Result};
+use core::{fmt::Debug, mem::take, str::from_utf8};
 #[cfg(feature = "std")]
 use log::debug;
-use raiko_primitives::{
-    alloy_eips::eip4788::SYSTEM_ADDRESS, mpt::MptNode, receipt::Receipt, Bloom, Rlp2718Bytes,
-    RlpBytes,
-};
 use revm::{
     interpreter::Host,
     primitives::{
@@ -32,6 +26,8 @@ use revm::{
     },
     taiko, Database, DatabaseCommit, Evm, JournaledState,
 };
+use std::collections::HashSet;
+use tracing::trace;
 cfg_if::cfg_if! {
     if #[cfg(feature = "tracer")] {
         use std::{fs::{OpenOptions, File}, io::{BufWriter, Write}, sync::{Arc, Mutex}};
@@ -44,10 +40,14 @@ use crate::{
     builder::BlockBuilder,
     clear_line,
     consts::GWEI_TO_WEI,
-    guest_mem_forget, inplace_print, print_duration,
+    guest_mem_forget, inplace_print,
+    primitives::{
+        alloy_eips::eip4788::SYSTEM_ADDRESS, mpt::MptNode, receipt::Receipt, Bloom, Rlp2718Bytes,
+        RlpBytes,
+    },
+    print_duration,
     time::{AddAssign, Duration, Instant},
     utils::{check_anchor_tx, generate_transactions},
-    Measurement,
 };
 
 /// Minimum supported protocol version: SHANGHAI
@@ -82,7 +82,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let chain_spec = &block_builder.input.chain_spec;
         let chain_id = chain_spec.chain_id();
         let is_taiko = chain_spec.is_taiko();
-        println!("spec_id: {spec_id:?}");
+        trace!("spec_id: {spec_id:?}");
 
         // generate the transactions from the tx list
         // For taiko blocks, insert the anchor tx as the first transaction
@@ -118,7 +118,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 blk_env.basefee = header.base_fee_per_gas.unwrap().try_into().unwrap();
                 blk_env.gas_limit = block_builder.input.gas_limit.try_into().unwrap();
                 if let Some(excess_blob_gas) = header.excess_blob_gas {
-                    blk_env.set_blob_excess_gas_and_price(excess_blob_gas.try_into().unwrap())
+                    blk_env.set_blob_excess_gas_and_price(excess_blob_gas.try_into().unwrap());
                 }
             });
         let evm = if is_taiko {
@@ -175,7 +175,11 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let mut actual_tx_no = 0usize;
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
-            inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+            if !is_optimistic {
+                inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+            } else {
+                trace!("\rprocessing tx {tx_no}/{num_transactions}...");
+            }
 
             #[cfg(feature = "tracer")]
             let trace = set_trace_writer(
@@ -202,7 +206,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 ensure!(tx_env.blob_hashes.len() == 0);
             }
 
-            // if the sigature was not valid, the caller address will have been set to zero
+            // if the signature was not valid, the caller address will have been set to zero
             if tx_env.caller == Address::ZERO {
                 if is_anchor {
                     bail!("Error recovering anchor signature");
@@ -283,7 +287,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 }
             };
             #[cfg(feature = "std")]
-            debug!("  Ok: {result:?}");
+            trace!("  Ok: {result:?}");
 
             #[cfg(feature = "tracer")]
             // Flush the trace writer
@@ -331,14 +335,15 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             tx_misc_duration.add_assign(start.elapsed());
         }
-        clear_line();
-        print_duration("Tx transact time: ", tx_transact_duration);
-        print_duration("Tx misc time: ", tx_misc_duration);
+        if !is_optimistic {
+            clear_line();
+            print_duration("Tx transact time: ", tx_transact_duration);
+            print_duration("Tx misc time: ", tx_misc_duration);
+        }
 
         let mut db = &mut evm.context.evm.db;
 
         // process withdrawals unconditionally after any transactions
-        let measurement = Measurement::start("Processing withdrawals...", true);
         let mut withdrawals_trie = MptNode::default();
         for (i, withdrawal) in block_builder.input.withdrawals.iter().enumerate() {
             // the withdrawal amount is given in Gwei
@@ -353,10 +358,8 @@ impl TxExecStrategy for TkoTxExecStrategy {
                 .insert_rlp(&i.to_rlp(), withdrawal)
                 .with_context(|| "failed to insert withdrawal")?;
         }
-        measurement.stop();
 
         // Update result header with computed values
-        let measurement = Measurement::start("Generating block header...", true);
         header.transactions_root = tx_trie.hash();
         header.receipts_root = receipt_trie.hash();
         header.logs_bloom = logs_bloom;
@@ -367,7 +370,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
         if spec_id >= SpecId::CANCUN {
             header.blob_gas_used = Some(blob_gas_used.into());
         }
-        measurement.stop();
 
         // Leak memory, save cycles
         guest_mem_forget([tx_trie, receipt_trie, withdrawals_trie]);

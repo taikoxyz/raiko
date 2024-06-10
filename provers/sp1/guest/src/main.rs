@@ -3,9 +3,10 @@ harness::entrypoint!(main, tests, zk_op::tests);
 // harness::entrypoint!(main, tests);
 
 use raiko_lib::{
+    consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput},
-    protocol_instance::{assemble_protocol_instance, EvidenceType},
+    protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
 use zk_op::Sp1Operator;
@@ -25,22 +26,12 @@ pub fn main() {
         ]))
         .expect("Failed to set ZkvmOperations");
 
-    let build_result = TaikoStrategy::build_from(&input);
+    let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
+    let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
+            .unwrap()
+            .instance_hash();
 
-    let output = match &build_result {
-        Ok((header, _mpt_node)) => {
-            let pi = assemble_protocol_instance(&input, header)
-                .expect("Failed to assemble protocol instance")
-                .instance_hash(EvidenceType::Succinct);
-            GuestOutput::Success {
-                header: header.clone(),
-                hash: pi,
-            }
-        }
-        Err(_) => GuestOutput::Failure,
-    };
-
-    sp1_zkvm::io::commit(&output);
+    sp1_zkvm::io::commit(&pi);
 }
 
 harness::zk_suits!(

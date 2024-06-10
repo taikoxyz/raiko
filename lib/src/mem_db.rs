@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use anyhow::anyhow;
-use raiko_primitives::{Address, B256, U256};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode},
     Database, DatabaseCommit,
@@ -21,9 +20,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use thiserror_no_std::Error as ThisError;
 
-use crate::builder::OptimisticDatabase;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+use crate::{
+    builder::OptimisticDatabase,
+    primitives::{Address, B256, U256},
+};
 
 /// Error returned by the [MemDb].
 #[derive(Debug, ThisError)]
@@ -103,7 +105,7 @@ impl MemDb {
     pub fn storage_keys(&self) -> HashMap<Address, Vec<U256>> {
         let mut out = HashMap::new();
         for (address, account) in &self.accounts {
-            out.insert(*address, account.storage.keys().cloned().collect());
+            out.insert(*address, account.storage.keys().copied().collect());
         }
 
         out
@@ -185,7 +187,7 @@ impl Database for MemDb {
         })?;
         self.block_hashes
             .get(&block_no)
-            .cloned()
+            .copied()
             .ok_or(DbError::BlockNotFound(block_no))
     }
 }

@@ -1,19 +1,21 @@
-pub use alloy_primitives::*;
+use alloy_primitives::{Address, Bytes, StorageKey, Uint, U256};
 use alloy_provider::{ProviderBuilder, ReqwestProvider, RootProvider};
 use alloy_rpc_client::{ClientBuilder, RpcClient};
 use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofResponse};
 use alloy_transport_http::Http;
-use raiko_lib::{clear_line, inplace_print};
+use raiko_lib::clear_line;
 use reqwest_alloy::Client;
 use revm::primitives::{AccountInfo, Bytecode};
 use std::collections::{BTreeMap, HashMap};
+use tracing::trace;
 
 use crate::{
-    error::{HostError, HostResult},
-    raiko::BlockDataProvider,
+    interfaces::{RaikoError, RaikoResult},
+    provider::BlockDataProvider,
     MerkleProof,
 };
 
+#[derive(Clone)]
 pub struct RpcBlockDataProvider {
     pub provider: ReqwestProvider,
     pub client: RpcClient<Http<Client>>,
@@ -21,9 +23,9 @@ pub struct RpcBlockDataProvider {
 }
 
 impl RpcBlockDataProvider {
-    pub fn new(url: &str, block_number: u64) -> HostResult<Self> {
+    pub fn new(url: &str, block_number: u64) -> RaikoResult<Self> {
         let url =
-            reqwest::Url::parse(url).map_err(|_| HostError::RPC("Invalid RPC URL".to_owned()))?;
+            reqwest::Url::parse(url).map_err(|_| RaikoError::RPC("Invalid RPC URL".to_owned()))?;
         Ok(Self {
             provider: ProviderBuilder::new().on_provider(RootProvider::new_http(url.clone())),
             client: ClientBuilder::default().http(url),
@@ -37,7 +39,7 @@ impl RpcBlockDataProvider {
 }
 
 impl BlockDataProvider for RpcBlockDataProvider {
-    async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> HostResult<Vec<Block>> {
+    async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<Block>> {
         let mut all_blocks = Vec::with_capacity(blocks_to_fetch.len());
 
         let max_batch_size = 32;
@@ -53,7 +55,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                             &(BlockNumberOrTag::from(*block_number), full),
                         )
                         .map_err(|_| {
-                            HostError::RPC(
+                            RaikoError::RPC(
                                 "Failed adding eth_getBlockByNumber call to batch".to_owned(),
                             )
                         })?,
@@ -63,7 +65,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
             batch
                 .send()
                 .await
-                .map_err(|_| HostError::RPC("Error sending batch request".to_owned()))?;
+                .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
 
             let mut blocks = Vec::with_capacity(max_batch_size);
             // Collect the data from the batch
@@ -71,7 +73,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                 blocks.push(
                     request
                         .await
-                        .map_err(|_| HostError::RPC("Error collecting request data".to_owned()))?,
+                        .map_err(|_| RaikoError::RPC("Error collecting request data".to_owned()))?,
                 );
             }
 
@@ -81,7 +83,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
         Ok(all_blocks)
     }
 
-    async fn get_accounts(&self, accounts: &[Address]) -> HostResult<Vec<AccountInfo>> {
+    async fn get_accounts(&self, accounts: &[Address]) -> RaikoResult<Vec<AccountInfo>> {
         let mut all_accounts = Vec::with_capacity(accounts.len());
 
         let max_batch_size = 250;
@@ -100,7 +102,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                             &(address, Some(BlockId::from(self.block_number))),
                         )
                         .map_err(|_| {
-                            HostError::RPC(
+                            RaikoError::RPC(
                                 "Failed adding eth_getTransactionCount call to batch".to_owned(),
                             )
                         })?,
@@ -112,7 +114,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                             &(address, Some(BlockId::from(self.block_number))),
                         )
                         .map_err(|_| {
-                            HostError::RPC("Failed adding eth_getBalance call to batch".to_owned())
+                            RaikoError::RPC("Failed adding eth_getBalance call to batch".to_owned())
                         })?,
                 ));
                 code_requests.push(Box::pin(
@@ -122,7 +124,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                             &(address, Some(BlockId::from(self.block_number))),
                         )
                         .map_err(|_| {
-                            HostError::RPC("Failed adding eth_getCode call to batch".to_owned())
+                            RaikoError::RPC("Failed adding eth_getCode call to batch".to_owned())
                         })?,
                 ));
             }
@@ -130,7 +132,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
             batch
                 .send()
                 .await
-                .map_err(|_| HostError::RPC("Error sending batch request".to_owned()))?;
+                .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
 
             let mut accounts = vec![];
             // Collect the data from the batch
@@ -141,18 +143,18 @@ impl BlockDataProvider for RpcBlockDataProvider {
             {
                 let (nonce, balance, code) = (
                     nonce_request.await.map_err(|_| {
-                        HostError::RPC("Failed to collect nonce request".to_owned())
+                        RaikoError::RPC("Failed to collect nonce request".to_owned())
                     })?,
                     balance_request.await.map_err(|_| {
-                        HostError::RPC("Failed to collect balance request".to_owned())
+                        RaikoError::RPC("Failed to collect balance request".to_owned())
                     })?,
-                    code_request
-                        .await
-                        .map_err(|_| HostError::RPC("Failed to collect code request".to_owned()))?,
+                    code_request.await.map_err(|_| {
+                        RaikoError::RPC("Failed to collect code request".to_owned())
+                    })?,
                 );
 
                 let nonce = nonce.try_into().map_err(|_| {
-                    HostError::Conversion("Failed to convert nonce to u64".to_owned())
+                    RaikoError::Conversion("Failed to convert nonce to u64".to_owned())
                 })?;
 
                 let bytecode = Bytecode::new_raw(code);
@@ -168,7 +170,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
         Ok(all_accounts)
     }
 
-    async fn get_storage_values(&self, accounts: &[(Address, U256)]) -> HostResult<Vec<U256>> {
+    async fn get_storage_values(&self, accounts: &[(Address, U256)]) -> RaikoResult<Vec<U256>> {
         let mut all_values = Vec::with_capacity(accounts.len());
 
         let max_batch_size = 1000;
@@ -185,7 +187,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                             &(address, key, Some(BlockId::from(self.block_number))),
                         )
                         .map_err(|_| {
-                            HostError::RPC(
+                            RaikoError::RPC(
                                 "Failed adding eth_getStorageAt call to batch".to_owned(),
                             )
                         })?,
@@ -195,7 +197,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
             batch
                 .send()
                 .await
-                .map_err(|_| HostError::RPC("Error sending batch request".to_owned()))?;
+                .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
 
             let mut values = Vec::with_capacity(max_batch_size);
             // Collect the data from the batch
@@ -203,7 +205,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                 values.push(
                     request
                         .await
-                        .map_err(|_| HostError::RPC("Error collecting request data".to_owned()))?,
+                        .map_err(|_| RaikoError::RPC("Error collecting request data".to_owned()))?,
                 );
             }
 
@@ -219,7 +221,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
         accounts: HashMap<Address, Vec<U256>>,
         offset: usize,
         num_storage_proofs: usize,
-    ) -> HostResult<MerkleProof> {
+    ) -> RaikoResult<MerkleProof> {
         let mut storage_proofs: MerkleProof = BTreeMap::new();
         let mut idx = offset;
 
@@ -227,9 +229,13 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
         let batch_limit = 1000;
         while !accounts.is_empty() {
-            inplace_print(&format!(
-                "fetching storage proof {idx}/{num_storage_proofs}..."
-            ));
+            if cfg!(debug_assertions) {
+                raiko_lib::inplace_print(&format!(
+                    "fetching storage proof {idx}/{num_storage_proofs}..."
+                ));
+            } else {
+                trace!("Fetching storage proof {idx}/{num_storage_proofs}...");
+            }
 
             // Create a batch for all storage proofs
             let mut batch = self.client.new_batch();
@@ -272,7 +278,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                                 ),
                             )
                             .map_err(|_| {
-                                HostError::RPC(
+                                RaikoError::RPC(
                                     "Failed adding eth_getProof call to batch".to_owned(),
                                 )
                             })?,
@@ -293,13 +299,13 @@ impl BlockDataProvider for RpcBlockDataProvider {
             batch
                 .send()
                 .await
-                .map_err(|_| HostError::RPC("Error sending batch request".to_owned()))?;
+                .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
 
             // Collect the data from the batch
             for request in requests {
                 let mut proof = request
                     .await
-                    .map_err(|_| HostError::RPC("Error collecting request data".to_owned()))?;
+                    .map_err(|_| RaikoError::RPC("Error collecting request data".to_owned()))?;
                 idx += proof.storage_proof.len();
                 if let Some(map_proof) = storage_proofs.get_mut(&proof.address) {
                     map_proof.storage_proof.append(&mut proof.storage_proof);

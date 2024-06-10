@@ -1,47 +1,44 @@
-use alloy_primitives::{Address, FixedBytes, B256, U256};
-use alloy_rpc_types::Block;
-use raiko_lib::builder::{BlockBuilderStrategy, TaikoStrategy};
-use raiko_lib::consts::ChainSpec;
-use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
-use raiko_lib::protocol_instance::{assemble_protocol_instance, ProtocolInstance};
-use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
-use raiko_lib::utils::HeaderHasher;
-use revm::primitives::AccountInfo;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tracing::{error, info, trace, warn};
+use crate::{
+    interfaces::{ProofRequest, RaikoError, RaikoResult},
+    preflight::preflight,
+    provider::BlockDataProvider,
+};
+use alloy_primitives::{Address, B256};
+use alloy_rpc_types::EIP1186AccountProofResponse;
+use raiko_lib::{
+    builder::{BlockBuilderStrategy, TaikoStrategy},
+    consts::{ChainSpec, VerifierType},
+    input::{GuestInput, GuestOutput, TaikoProverData},
+    protocol_instance::ProtocolInstance,
+    prover::Proof,
+    utils::HeaderHasher,
+};
+use serde_json::Value;
+use std::{collections::HashMap, hint::black_box};
+use tracing::{debug, error, info, warn};
 
-use crate::error::{self, HostError, HostResult};
-use crate::preflight::preflight;
-use crate::request::ProofRequest;
-use crate::MerkleProof;
+pub mod interfaces;
+pub mod preflight;
+pub mod prover;
+pub mod provider;
 
-#[allow(async_fn_in_trait)]
-pub trait BlockDataProvider {
-    async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> HostResult<Vec<Block>>;
-
-    async fn get_accounts(&self, accounts: &[Address]) -> HostResult<Vec<AccountInfo>>;
-
-    async fn get_storage_values(&self, accounts: &[(Address, U256)]) -> HostResult<Vec<U256>>;
-
-    async fn get_merkle_proofs(
-        &self,
-        block_number: u64,
-        accounts: HashMap<Address, Vec<U256>>,
-        offset: usize,
-        num_storage_proofs: usize,
-    ) -> HostResult<MerkleProof>;
-}
+pub type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
 pub struct Raiko {
-    chain_spec: ChainSpec,
+    l1_chain_spec: ChainSpec,
+    taiko_chain_spec: ChainSpec,
     request: ProofRequest,
 }
 
 impl Raiko {
-    pub fn new(chain_spec: ChainSpec, request: ProofRequest) -> Self {
+    pub fn new(
+        l1_chain_spec: ChainSpec,
+        taiko_chain_spec: ChainSpec,
+        request: ProofRequest,
+    ) -> Self {
         Self {
-            chain_spec,
+            l1_chain_spec,
+            taiko_chain_spec,
             request,
         }
     }
@@ -49,32 +46,28 @@ impl Raiko {
     pub async fn generate_input<BDP: BlockDataProvider>(
         &self,
         provider: BDP,
-    ) -> HostResult<GuestInput> {
+    ) -> RaikoResult<GuestInput> {
         preflight(
             provider,
             self.request.block_number,
-            self.chain_spec.clone(),
+            self.l1_chain_spec.to_owned(),
+            self.taiko_chain_spec.to_owned(),
             TaikoProverData {
                 graffiti: self.request.graffiti,
                 prover: self.request.prover,
             },
-            Some(self.request.l1_rpc.clone()),
-            Some(self.request.beacon_rpc.clone()),
         )
         .await
-        .map_err(Into::<error::HostError>::into)
+        .map_err(Into::<RaikoError>::into)
     }
 
-    pub fn get_output(&self, input: &GuestInput) -> HostResult<GuestOutput> {
+    pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
         match TaikoStrategy::build_from(input) {
             Ok((header, _mpt_node)) => {
                 info!("Verifying final state using provider data ...");
                 info!("Final block hash derived successfully. {}", header.hash());
-                info!("Final block header derived successfully. {header:?}");
-                let pi = self
-                    .request
-                    .proof_type
-                    .instance_hash(assemble_protocol_instance(input, &header)?)?;
+                debug!("Final block header derived successfully. {header:?}");
+                let pi = ProtocolInstance::new(input, &header, VerifierType::None)?.instance_hash();
 
                 // Check against the expected value of all fields for easy debugability
                 let exp = &input.block_header_reference;
@@ -117,97 +110,86 @@ impl Raiko {
                     &header.parent_beacon_block_root,
                     "parent_beacon_block_root",
                 );
-                check_eq(
-                    &exp.extra_data.clone(),
-                    &header.extra_data.clone(),
-                    "extra_data",
-                );
+                check_eq(&exp.extra_data, &header.extra_data, "extra_data");
 
                 // Make sure the blockhash from the node matches the one from the builder
-                assert_eq!(
-                    Into::<FixedBytes<32>>::into(header.hash().0),
-                    input.block_hash_reference,
-                    "block hash unexpected"
-                );
-                let output = GuestOutput::Success { header, hash: pi };
+                require_eq(
+                    &B256::from(header.hash().0),
+                    &input.block_hash_reference,
+                    "block hash unexpected",
+                )?;
+
+                let output = GuestOutput { header, hash: pi };
 
                 Ok(output)
             }
             Err(e) => {
                 warn!("Proving bad block construction!");
-                Err(HostError::Guest(
+                Err(RaikoError::Guest(
                     raiko_lib::prover::ProverError::GuestError(e.to_string()),
                 ))
             }
         }
     }
 
-    pub async fn prove(
-        &self,
-        input: GuestInput,
-        output: &GuestOutput,
-    ) -> HostResult<serde_json::Value> {
+    pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> RaikoResult<Proof> {
+        let data = serde_json::to_value(&self.request)?;
         self.request
             .proof_type
-            .run_prover(
-                input.clone(),
-                output,
-                &serde_json::to_value(self.request.clone())?,
-            )
+            .run_prover(input, output, &data)
             .await
     }
 }
 
-pub struct NativeProver;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NativeResponse {
-    pub output: GuestOutput,
-}
-
-impl Prover for NativeProver {
-    async fn run(
-        input: GuestInput,
-        output: &GuestOutput,
-        _request: &serde_json::Value,
-    ) -> ProverResult<Proof> {
-        trace!("Running the native prover for input {input:?}");
-
-        let GuestOutput::Success { header, .. } = output.clone() else {
-            return Err(ProverError::GuestError("Unexpected output".to_owned()));
-        };
-
-        assemble_protocol_instance(&input, &header)
-            .map_err(|e| ProverError::GuestError(e.to_string()))?;
-
-        to_proof(Ok(NativeResponse {
-            output: output.clone(),
-        }))
-    }
-
-    fn instance_hash(_pi: ProtocolInstance) -> B256 {
-        B256::default()
-    }
-}
-
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
+    // printing out error, if any, but ignoring the result
+    // making sure it's not optimized out
+    let _ = black_box(require_eq(expected, actual, message));
+}
+
+fn require_eq<T: std::cmp::PartialEq + std::fmt::Debug>(
+    expected: &T,
+    actual: &T,
+    message: &str,
+) -> RaikoResult<()> {
     if expected != actual {
-        error!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
+        let msg =
+            format!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}",);
+        error!("{}", msg);
+        return Err(anyhow::Error::msg(msg).into());
+    }
+    Ok(())
+}
+
+/// Merges two json's together, overwriting `a` with the values of `b`
+pub fn merge(a: &mut Value, b: &Value) {
+    match (a, b) {
+        (Value::Object(a), Value::Object(b)) => {
+            for (k, v) in b {
+                merge(a.entry(k).or_insert(Value::Null), v);
+            }
+        }
+        (a, b) if !b.is_null() => *a = b.to_owned(),
+        // If b is null, just keep a (which means do nothing).
+        _ => {}
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::raiko::{ChainSpec, Raiko};
-    use crate::request::{ProofRequest, ProofType};
-    use crate::rpc_provider::RpcBlockDataProvider;
+    use crate::{
+        interfaces::{ProofRequest, ProofType},
+        provider::rpc::RpcBlockDataProvider,
+        ChainSpec, Raiko,
+    };
     use alloy_primitives::Address;
     use clap::ValueEnum;
-    use raiko_lib::consts::{get_network_spec, Network};
-    use raiko_primitives::B256;
+    use raiko_lib::{
+        consts::{Network, SupportedChainSpecs},
+        primitives::B256,
+    };
     use serde_json::{json, Value};
-    use std::collections::HashMap;
-    use std::env;
+    use std::{collections::HashMap, env};
 
     fn get_proof_type_from_env() -> ProofType {
         let proof_type = env::var("TARGET").unwrap_or("native".to_string());
@@ -221,6 +203,14 @@ mod tests {
 
     fn test_proof_params() -> HashMap<String, Value> {
         let mut prover_args = HashMap::new();
+        prover_args.insert(
+            "native".to_string(),
+            json! {
+                {
+                    "write_guest_input_path": null
+                }
+            },
+        );
         prover_args.insert(
             "risc0".to_string(),
             json! {
@@ -246,16 +236,21 @@ mod tests {
         prover_args
     }
 
-    async fn prove_block(chain_spec: ChainSpec, proof_request: ProofRequest) {
+    async fn prove_block(
+        l1_chain_spec: ChainSpec,
+        taiko_chain_spec: ChainSpec,
+        proof_request: ProofRequest,
+    ) {
         let provider =
-            RpcBlockDataProvider::new(&proof_request.rpc.clone(), proof_request.block_number - 1)
+            RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
-        let raiko = Raiko::new(chain_spec, proof_request.clone());
+        let proof_type = proof_request.proof_type.to_owned();
+        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
         let mut input = raiko
             .generate_input(provider)
             .await
             .expect("input generation failed");
-        if is_ci() && proof_request.proof_type == ProofType::Sp1 {
+        if is_ci() && proof_type == ProofType::Sp1 {
             input.taiko.skip_verify_blob = true;
         }
         let output = raiko.get_output(&input).expect("output generation failed");
@@ -268,24 +263,28 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7() {
         let proof_type = get_proof_type_from_env();
-        let network = Network::TaikoA7;
+        let l1_network = Network::Holesky.to_string();
+        let network = Network::TaikoA7.to_string();
         // Give the CI an simpler block to test because it doesn't have enough memory.
         // Unfortunately that also means that kzg is not getting fully verified by CI.
         let block_number = if is_ci() { 105987 } else { 101368 };
-        let chain_spec = get_network_spec(network);
+        let taiko_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&network)
+            .unwrap();
+        let l1_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&l1_network)
+            .unwrap();
+
         let proof_request = ProofRequest {
             block_number,
-            rpc: "https://rpc.hekla.taiko.xyz".to_string(),
-            l1_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            beacon_rpc: "https://eth-holesky-beacon.public.blastapi.io".to_string(),
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
-            l1_network: Network::Ethereum.to_string(),
+            l1_network,
             proof_type,
             prover_args: test_proof_params(),
         };
-        prove_block(chain_spec, proof_request).await;
+        prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -293,22 +292,25 @@ mod tests {
         let proof_type = get_proof_type_from_env();
         // Skip test on SP1 for now because it's too slow on CI
         if !(is_ci() && proof_type == ProofType::Sp1) {
-            let network = Network::Ethereum;
+            let network = Network::Ethereum.to_string();
+            let l1_network = Network::Ethereum.to_string();
             let block_number = 19707175;
-            let chain_spec = get_network_spec(network);
+            let taiko_chain_spec = SupportedChainSpecs::default()
+                .get_chain_spec(&network)
+                .unwrap();
+            let l1_chain_spec = SupportedChainSpecs::default()
+                .get_chain_spec(&l1_network)
+                .unwrap();
             let proof_request = ProofRequest {
                 block_number,
-                rpc: "https://rpc.ankr.com/eth".to_string(),
-                l1_rpc: String::new(),
-                beacon_rpc: String::new(),
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
-                l1_network: Network::Ethereum.to_string(),
+                l1_network,
                 proof_type,
                 prover_args: test_proof_params(),
             };
-            prove_block(chain_spec, proof_request).await;
+            prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
     }
 }
