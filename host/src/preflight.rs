@@ -24,10 +24,7 @@ use raiko_primitives::{
     mpt::proofs_to_tries,
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeSet, HashSet},
-    sync::Arc,
-};
+use std::{collections::BTreeSet, sync::Arc};
 use tracing::{info, warn};
 
 use crate::{

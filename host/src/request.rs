@@ -81,24 +81,28 @@ impl ProofType {
                 #[cfg(feature = "sp1")]
                 return Ok(sp1_driver::Sp1Prover::instance_hash(pi));
 
+                #[allow(unreachable_code)]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sp1Distributed => {
                 #[cfg(feature = "sp1")]
                 return Ok(sp1_driver::Sp1DistributedProver::instance_hash(pi));
 
+                #[allow(unreachable_code)]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
                 return Ok(risc0_driver::Risc0Prover::instance_hash(pi));
 
+                #[allow(unreachable_code)]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
                 return Ok(sgx_prover::SgxProver::instance_hash(pi));
 
+                #[allow(unreachable_code)]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
         }
@@ -121,6 +125,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
 
+                #[allow(unreachable_code)]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sp1Distributed => {
@@ -129,6 +134,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
 
+                #[allow(unreachable_code)]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
@@ -137,6 +143,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
 
+                #[allow(unreachable_code)]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sgx => {
@@ -145,6 +152,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
 
+                #[allow(unreachable_code)]
                 Err(HostError::FeatureNotSupportedError(self.clone()))
             }
         }

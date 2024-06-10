@@ -21,7 +21,6 @@ use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
 use raiko_primitives::{mpt::MptNode, Address, Bytes, B256, U256};
-use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 

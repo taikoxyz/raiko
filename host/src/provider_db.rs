@@ -11,10 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{
-    collections::{BTreeSet, HashSet},
-    mem::take,
-};
+use std::{collections::BTreeSet, mem::take};
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::Bytes;
