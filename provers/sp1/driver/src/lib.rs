@@ -231,7 +231,7 @@ impl Sp1DistributedProver {
         for (i, url) in ip_list.iter().enumerate() {
             let worker = Worker::new(
                 i,
-                url.clone(),
+                "http://".to_string() + url + "/proof".into(),
                 config.clone(),
                 queue_rx.clone(),
                 answer_tx.clone(),
