@@ -47,8 +47,7 @@ use crate::{
     },
     print_duration,
     time::{AddAssign, Duration, Instant},
-    utils::{check_anchor_tx, generate_transactions, GOLDEN_TOUCH_ACCOUNT},
-    Measurement,
+    utils::{check_anchor_tx, generate_transactions},
 };
 
 /// Minimum supported protocol version: SHANGHAI

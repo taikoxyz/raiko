@@ -102,13 +102,12 @@ impl BlockFinalizeStrategy<MemDb> for MemDbBlockFinalizeStrategy {
             };
             state_trie.insert_rlp(&state_trie_index, state_account)?;
         }
-        
+
         #[cfg(feature = "sp1-cycle-tracker")]
         {
             println!("finalize Account touched {:?}", account_touched);
             println!("finalize Storage touched {:?}", storage_touched);
         }
-
 
         // update result header with the new state root
         let mut header = block_builder.header.take().expect("Header not initialized");
