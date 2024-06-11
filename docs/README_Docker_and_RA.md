@@ -162,10 +162,16 @@ n7qROhU4OOJnVs9lqNxxi8AFrJJHU2E=
 
 </details>
 
-Currently Supported FMSPCs:
+Currently Supported FMSPCs (on Mainnet):
 - 00606A000000
 - 00A067110000
 - 00906ED50000
+
+Currently Supported FMSPCs (on Hekla):
+- 00606A000000
+- 00A067110000
+- 00906ED50000
+- 30606A000000
 
 Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
 
