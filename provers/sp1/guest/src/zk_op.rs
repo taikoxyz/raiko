@@ -1,5 +1,4 @@
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
-use revm_primitives::keccak256;
 use sha2_v0_10_8 as sp1_sha2;
 use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
 
@@ -68,7 +67,7 @@ impl ZkvmOperator for Sp1Operator {
         let recovered_key = sp1_precompiles::secp256k1::ecrecover(&sig_id, msg)
             .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
 
-        let mut hash = keccak256(&recovered_key[1..]);
+        let mut hash = revm_primitives::keccak256(&recovered_key[1..]);
 
         // truncate to 20 bytes
         hash[..12].fill(0);
