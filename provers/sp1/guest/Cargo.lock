@@ -35,7 +35,7 @@ checksum = "5c6cb57a04249c6480766f7f7cef5467412af1490f8d1e243141daddada3264f"
 [[package]]
 name = "alloy-consensus"
 version = "0.1.0"
-source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#e589f8f2e856d83ec7cfa4d297d59f2e2f121857"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -49,7 +49,7 @@ dependencies = [
 [[package]]
 name = "alloy-eips"
 version = "0.1.0"
-source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#e589f8f2e856d83ec7cfa4d297d59f2e2f121857"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -62,7 +62,7 @@ dependencies = [
 [[package]]
 name = "alloy-genesis"
 version = "0.1.0"
-source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#e589f8f2e856d83ec7cfa4d297d59f2e2f121857"
 dependencies = [
  "alloy-primitives",
  "alloy-serde",
@@ -73,7 +73,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-rpc"
 version = "0.1.0"
-source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#e589f8f2e856d83ec7cfa4d297d59f2e2f121857"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -85,7 +85,7 @@ dependencies = [
 [[package]]
 name = "alloy-network"
 version = "0.1.0"
-source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#e589f8f2e856d83ec7cfa4d297d59f2e2f121857"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -146,7 +146,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types"
 version = "0.1.0"
-source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#e589f8f2e856d83ec7cfa4d297d59f2e2f121857"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -164,7 +164,7 @@ dependencies = [
 [[package]]
 name = "alloy-serde"
 version = "0.1.0"
-source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#e589f8f2e856d83ec7cfa4d297d59f2e2f121857"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -174,7 +174,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer"
 version = "0.1.0"
-source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#6310be6f73bc998116a5f05713e49a324f4b7184"
+source = "git+https://github.com/ceciliaz030/alloy?branch=175_4e22b9e-cycle#e589f8f2e856d83ec7cfa4d297d59f2e2f121857"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -1770,7 +1770,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 [[package]]
 name = "revm"
 version = "8.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=v35-taiko#7d23b1c557cf3d0e93f859b6794e580b9f0381c2"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35-taiko#9a1e6db4b84c35e05308ec2d7dbb50a48aea6fed"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -1784,7 +1784,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "4.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=v35-taiko#7d23b1c557cf3d0e93f859b6794e580b9f0381c2"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35-taiko#9a1e6db4b84c35e05308ec2d7dbb50a48aea6fed"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -1793,7 +1793,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "6.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=v35-taiko#7d23b1c557cf3d0e93f859b6794e580b9f0381c2"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35-taiko#9a1e6db4b84c35e05308ec2d7dbb50a48aea6fed"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg-taiko",
@@ -1810,7 +1810,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.1"
-source = "git+https://github.com/taikoxyz/revm.git?branch=v35-taiko#7d23b1c557cf3d0e93f859b6794e580b9f0381c2"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v35-taiko#9a1e6db4b84c35e05308ec2d7dbb50a48aea6fed"
 dependencies = [
  "alloy-primitives",
  "auto_impl",
@@ -1986,9 +1986,8 @@ dependencies = [
 
 [[package]]
 name = "secp256k1"
-version = "0.28.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d24b59d129cdadea20aea4fb2352fa053712e5d713eee47d700cd4b2bc002f10"
+version = "0.29.0"
+source = "git+https://github.com/CeciliaZ030/rust-secp256k1?branch=sp1-patch#09fe6ec0c0f0de848da5e295022029f46e0389e3"
 dependencies = [
  "rand",
  "secp256k1-sys",
@@ -1996,9 +1995,8 @@ dependencies = [
 
 [[package]]
 name = "secp256k1-sys"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5d1746aae42c19d583c3c1a8c646bfad910498e2051c551a7f2e3c0c9fbb7eb"
+version = "0.10.0"
+source = "git+https://github.com/CeciliaZ030/rust-secp256k1?branch=sp1-patch#09fe6ec0c0f0de848da5e295022029f46e0389e3"
 dependencies = [
  "cc",
 ]
@@ -2160,6 +2158,7 @@ dependencies = [
 name = "sp1-guest"
 version = "0.1.0"
 dependencies = [
+ "alloy-consensus",
  "harness",
  "harness-core",
  "raiko-lib",
@@ -2826,8 +2825,3 @@ dependencies = [
  "quote",
  "syn 2.0.66",
 ]
-
-[[patch.unused]]
-name = "secp256k1"
-version = "0.29.0"
-source = "git+https://github.com/CeciliaZ030/rust-secp256k1?branch=sp1-patch#09fe6ec0c0f0de848da5e295022029f46e0389e3"
