@@ -1,14 +1,10 @@
 use std::env;
 
 use super::worker::Worker;
-use alloy_primitives::B256;
-use alloy_sol_types::SolValue;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
-use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
 
 use crate::{Sp1Response, ELF};
@@ -35,13 +31,6 @@ impl Prover for Sp1DistributedProver {
         }
 
         return Self::run_as_orchestrator(input, output, &config).await;
-    }
-
-    fn instance_hash(pi: ProtocolInstance) -> B256 {
-        let data = (pi.transition.clone(), pi.prover, pi.meta_hash()).abi_encode();
-
-        let hash: [u8; 32] = sha3::Keccak256::digest(data).into();
-        hash.into()
     }
 }
 

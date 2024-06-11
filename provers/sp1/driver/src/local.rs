@@ -1,13 +1,9 @@
 use std::env;
 
-use alloy_primitives::B256;
-use alloy_sol_types::SolValue;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
-use sha3::{self, Digest};
 use sp1_sdk::{ProverClient, SP1Stdin};
 
 use crate::{Sp1Response, ELF};
@@ -53,12 +49,5 @@ impl Prover for Sp1Prover {
             proof: serde_json::to_string(&proof).unwrap(),
             output,
         }))
-    }
-
-    fn instance_hash(pi: ProtocolInstance) -> B256 {
-        let data = (pi.transition.clone(), pi.prover, pi.meta_hash()).abi_encode();
-
-        let hash: [u8; 32] = sha3::Keccak256::digest(data).into();
-        hash.into()
     }
 }

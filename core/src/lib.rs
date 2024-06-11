@@ -14,7 +14,7 @@ use raiko_lib::{
     utils::HeaderHasher,
 };
 use serde_json::Value;
-use std::{collections::HashMap, hint::black_box};
+use std::{collections::BTreeMap, hint::black_box};
 use tracing::{debug, error, info, warn};
 
 pub mod interfaces;
@@ -22,7 +22,7 @@ pub mod preflight;
 pub mod prover;
 pub mod provider;
 
-pub type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
+pub type MerkleProof = BTreeMap<Address, EIP1186AccountProofResponse>;
 
 pub struct Raiko {
     l1_chain_spec: ChainSpec,

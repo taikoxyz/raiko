@@ -16,7 +16,7 @@ pub mod interfaces;
 pub mod metrics;
 pub mod server;
 
-use std::{alloc, collections::BTreeMap, path::PathBuf};
+use std::{alloc, path::PathBuf};
 
 use anyhow::Context;
 use cap::Cap;

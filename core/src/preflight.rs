@@ -30,7 +30,7 @@ use raiko_lib::{
     Measurement,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::{HashSet, BTreeSet}, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc};
 use tracing::{debug, info, warn};
 
 pub async fn preflight<BDP: BlockDataProvider>(
