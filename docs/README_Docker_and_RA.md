@@ -375,7 +375,7 @@ Raiko now supports more configurations, which need to be carefully checked to av
 
     - SGX_INSTANCE_ID: Your `SGX_INSTANCE_ID` is the one emitted in the `InstanceAdded` event above.
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
-    - ETHEREUM_CHAIN_ID: ethereum beacon node url, from which you query the ethereum data.
+    - ETHEREUM_BEACON_RPC: ethereum beacon node url, from which you query the ethereum data.
     - HOLESKY_RPC: ethereum holesky test node url.
     - HOLESKY_BEACON_RPC: ethereum holesky test beacon node url.
     - TAIKO_A7_RPC: taiko hekla(a7) testnet node url.
