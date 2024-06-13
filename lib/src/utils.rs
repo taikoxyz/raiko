@@ -11,13 +11,13 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 use lazy_static::lazy_static;
 use libflate::zlib::Decoder as zlibDecoder;
 use libflate::zlib::Encoder as zlibEncoder;
-use raiko_primitives::{keccak256, B256};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
     consts::{ChainSpec, Network},
     input::{decode_anchor, GuestInput},
+    primitives::{keccak256, B256},
 };
 
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
@@ -52,7 +52,7 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
 
 fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Vec<u8> {
     if chain_spec.is_taiko() {
-        // taiko has some limiations to be aligned with taiko-client
+        // taiko has some limitations to be aligned with taiko-client
         if is_blob_data {
             let compressed_tx_list = decode_blob_data(tx_list);
             return zlib_decompress_data(&compressed_tx_list).unwrap_or_default();

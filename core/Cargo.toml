@@ -1,0 +1,64 @@
+[package]
+name = "raiko-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+# provers
+sp1-driver = { path = "../provers/sp1/driver", optional = true }
+risc0-driver = { path = "../provers/risc0/driver", optional = true }
+sgx-prover = { path = "../provers/sgx/prover", optional = true }
+
+# raiko
+raiko-lib = { workspace = true, features = ["c-kzg"] }
+
+# alloy
+alloy-rlp = { workspace = true }
+alloy-rlp-derive = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-transport-http = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-network = { workspace = true }
+alloy-rpc-client = { workspace = true }
+revm = { workspace = true }
+
+# tracing and logging
+tracing = { workspace = true }
+
+# errors
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# serde
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+
+# c-kzg
+c-kzg = { workspace = true }
+
+# async
+tokio = { workspace = true }
+reqwest = { workspace = true }
+reqwest_alloy = { workspace = true }
+
+# docs
+utoipa = { workspace = true }
+
+# cli
+clap = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+rstest = { workspace = true }
+ethers-core = { workspace = true }
+
+[features]
+# powdr = ["dep:powdr"]
+sp1 = ["dep:sp1-driver", "sp1-driver/enable"]
+risc0 = ["dep:risc0-driver", "risc0-driver/enable"]
+sgx = ["dep:sgx-prover", "sgx-prover/enable"]

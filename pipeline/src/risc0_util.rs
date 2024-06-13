@@ -7,21 +7,6 @@ use std::{
 
 pub const DIGEST_WORDS: usize = 8;
 
-#[allow(dead_code)]
-pub fn risc0_data() -> Result<PathBuf> {
-    let dir = if let Ok(dir) = std::env::var("RISC0_DATA_DIR") {
-        dir.into()
-    } else if let Some(root) = dirs::data_dir() {
-        root.join("cargo-risczero")
-    } else if let Some(home) = dirs::home_dir() {
-        home.join(".cargo-risczero")
-    } else {
-        anyhow::bail!("Could not determine cargo-risczero data dir. Set RISC0_DATA_DIR env var.");
-    };
-
-    Ok(dir)
-}
-
 /// Represents an item in the generated list of compiled guest binaries
 #[derive(Debug, Clone)]
 pub struct GuestListEntry {
@@ -56,11 +41,11 @@ impl GuestListEntry {
             panic!("method path cannot include #: {}", self.path);
         }
         let relative_path = pathdiff::diff_paths(
-            fs::canonicalize(Path::new(&self.path.as_ref())).unwrap(),
+            fs::canonicalize(Path::new(&self.path.as_ref())).expect("Couldn't canonicalize path"),
             dest,
         )
-        .map(|p| String::from(p.to_str().unwrap()))
-        .unwrap();
+        .map(|p| String::from(p.to_str().expect("Path is not valid UTF-8")))
+        .expect("No relative path for destination");
 
         let upper = self.name.to_uppercase().replace('-', "_");
         let image_id: [u32; DIGEST_WORDS] = self.image_id;

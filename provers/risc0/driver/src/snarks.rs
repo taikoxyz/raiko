@@ -21,6 +21,8 @@ use ethers_contract::abigen;
 use ethers_core::types::H160;
 use ethers_providers::{Http, Provider, RetryClient};
 use log::{error, info};
+use raiko_lib::primitives::keccak::keccak;
+use risc0_zkvm::Receipt;
 use risc0_zkvm::{
     sha::{Digest, Digestible},
     Groth16Seal,
@@ -84,9 +86,6 @@ impl From<Groth16Seal> for Seal {
         }
     }
 }
-
-use raiko_primitives::keccak::keccak;
-use risc0_zkvm::Receipt;
 
 pub async fn stark2snark(
     image_id: Digest,

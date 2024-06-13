@@ -162,14 +162,22 @@ n7qROhU4OOJnVs9lqNxxi8AFrJJHU2E=
 
 </details>
 
-Currently Supported FMSPCs:
+Currently Supported FMSPCs (on Mainnet):
 - 00606A000000
 - 00A067110000
 - 00906ED50000
 
+Currently Supported FMSPCs (on Hekla):
+- 00606A000000
+- 00A067110000
+- 00906ED50000
+- 30606A000000
+
 Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
 
-> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
+> **_NOTE:_** At the moment, we are aware of three cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
+>
+> If you'd like to use Tencent Cloud, they have reserved compatible `M6ce` machines available for Taiko's community with a limited time special offer. Please register [here](https://resale.anchnet.com) to purchase `M6ce` machines with discount.
 
 [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 
@@ -361,11 +369,29 @@ emit InstanceAdded(id: 1, instance: 0xc369eedf4C69CacceDa551390576EAd2383E6f9E, 
 
 ## Running Raiko
 
-Once you've completed the above steps, you can actually run a prover. Your `SGX_INSTANCE_ID` is the one emitted in the `InstanceAdded` event above.
+Once you've completed the above steps, you can actually run a prover. 
 
+Raiko now supports more configurations, which need to be carefully checked to avoid errors.
+
+    - SGX_INSTANCE_ID: Your `SGX_INSTANCE_ID` is the one emitted in the `InstanceAdded` event above.
+    - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
+    - ETHEREUM_CHAIN_ID: ethereum beacon node url, from which you query the ethereum data.
+    - HOLESKY_RPC: ethereum holesky test node url.
+    - HOLESKY_BEACON_RPC: ethereum holesky test beacon node url.
+    - TAIKO_A7_RPC: taiko hekla(a7) testnet node url.
+    - TAIKO_MAINNET_RPC: taiko mainnet node url.
+    - L1_NETWORK: specify the l1 network if exist, default is "holesky".
+    - NETWORK: specify the network to be proven, could be one of ["taiko_a7", "taiko_mainnet", "ethereum", "holesky"], default is "taiko_a7". make sure both L1_NETWORK & NETWORK in chain_spec_list.docker.json
+
+A most common setup for hekla is:
 ```
 cd ~/raiko/docker
 export SGX_INSTANCE_ID={YOUR_INSTANCE_ID}
+export L1_NETWORK="holesky"
+export NETWORK="taiko_a7"
+export HOLESKY_RPC={YOUR_FAST_HOLESKY_NODE}
+export HOLESKY_BEACON_RPC={YOUR_FAST_HOLESKY_BEACON_NODE}
+export TAIKO_A7_RPC={YOUR_FAST_A7_NODE}
 docker compose up raiko -d
 ```
 
@@ -407,34 +433,32 @@ Once your Raiko instance is running, you can verify if it was started properly a
  curl --location 'http://localhost:8080' \
 --header 'Content-Type: application/json' \
 --data '{
-    "jsonrpc": "2.0",
-    "method": "proof",
-    "params": [
-        {
-            "proof_type": "sgx",
-            "block_number": 31991,
-            "rpc": "https://rpc.hekla.taiko.xyz/",
-            "l1_rpc": "{HOLESKY_RPC_URL}",
-            "beacon_rpc": "{HOLESKY_BEACON_RPC_URL}",
-            "prover": "0x7b399987d24fc5951f3e94a4cb16e87414bf2229",
-            "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "sgx": {
-                "setup": false,
-                "bootstrap": false,
-                "prove": true
-            }
-        }
-    ],
-    "id": 0
+    "proof_type": "sgx",
+    "block_number": 99999,
+    "prover": "0x7b399987d24fc5951f3e94a4cb16e87414bf2229",
+    "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "sgx": {
+        "setup": false,
+        "bootstrap": false,
+        "prove": true
+    }
 }'
 ```
 
-Replace `HOLESKY_RPC_URL` and `HOLESKY_BEACON_RPC_URL` with your Holesky RPC urls.
+Or use `./script/prove-block` like `./script/prove-block.sh taiko_a7 native 99999` to check readiness.
+
 
 The response should look like this:
 
 ```
-{"jsonrpc":"2.0","id":0,"result":{"proof":"0x000000149f....", "quote": "03000200000000000a"}}
+{
+    "data": {
+        "output": null,
+        "proof": "0x00000206c3694ecb5c....6e0e7a36546bf98caa7bb4ac2cd4f917c2102116167e42c54849f15044c032e1c",
+        "quote": "03000200000000000a000f00939a72....0a2d2d2d2d2d454e442043455254494649434154452d2d2d2d2d0a00"
+    },
+    "status": "ok"
+}
 ```
 
 If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!

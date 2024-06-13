@@ -15,11 +15,6 @@
 use core::mem;
 
 use anyhow::{bail, Result};
-use raiko_primitives::{
-    keccak::{keccak, KECCAK_EMPTY},
-    mpt::StateAccount,
-    Bytes,
-};
 use revm::{
     primitives::{AccountInfo, Bytecode, HashMap, B256},
     Database, DatabaseCommit,
@@ -30,6 +25,11 @@ use crate::{
     consts::MAX_BLOCK_HASH_AGE,
     guest_mem_forget,
     mem_db::{AccountState, DbAccount, MemDb},
+    primitives::{
+        keccak::{keccak, KECCAK_EMPTY},
+        mpt::StateAccount,
+        Bytes,
+    },
     utils::HeaderHasher,
 };
 
@@ -98,7 +98,7 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
             // load storage reads
             let mut storage = HashMap::with_capacity(slots.len());
             for slot in slots {
-                let value: raiko_primitives::U256 = storage_trie
+                let value: crate::primitives::U256 = storage_trie
                     .get_rlp(&keccak(slot.to_be_bytes::<32>()))?
                     .unwrap_or_default();
                 storage.insert(slot, value);
