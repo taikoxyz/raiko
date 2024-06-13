@@ -7074,6 +7074,7 @@ dependencies = [
  "rand_chacha 0.9.0-alpha.1",
  "rusqlite",
  "tempfile",
+ "thiserror",
 ]
 
 [[package]]

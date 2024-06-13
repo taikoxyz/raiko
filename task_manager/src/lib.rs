@@ -169,11 +169,15 @@ use num_enum::{FromPrimitive, IntoPrimitive};
 // Types
 // ----------------------------------------------------------------
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, thiserror::Error)]
 pub enum TaskManagerError {
+    #[error("IO Error {0}")]
     IOError(IOErrorKind),
+    #[error("SQL Error {0}")]
     SqlError(String),
 }
+
+pub type TaskManagerResult<T> = Result<T, TaskManagerError>;
 
 impl From<IOError> for TaskManagerError {
     fn from(error: IOError) -> TaskManagerError {
@@ -235,7 +239,7 @@ pub enum TaskStatus {
 // ----------------------------------------------------------------
 
 impl TaskDb {
-    fn open(path: &Path) -> Result<Connection, TaskManagerError> {
+    fn open(path: &Path) -> TaskManagerResult<Connection> {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
         conn.pragma_update(None, "foreign_keys", true)?;
         conn.pragma_update(None, "locking_mode", "EXCLUSIVE")?;
@@ -245,7 +249,7 @@ impl TaskDb {
         Ok(conn)
     }
 
-    fn create(path: &Path) -> Result<Connection, TaskManagerError> {
+    fn create(path: &Path) -> TaskManagerResult<Connection> {
         let _file = File::options()
             .write(true)
             .read(true)
@@ -261,7 +265,7 @@ impl TaskDb {
 
     /// Open an existing TaskDb database at "path"
     /// If a database does not exist at the path, one is created.
-    pub fn open_or_create(path: &Path) -> Result<Self, TaskManagerError> {
+    pub fn open_or_create(path: &Path) -> TaskManagerResult<Self> {
         let conn = if path.exists() {
             Self::open(path)
         } else {
@@ -273,7 +277,7 @@ impl TaskDb {
     // SQL
     // ----------------------------------------------------------------
 
-    fn create_tables(conn: &Connection) -> Result<(), TaskManagerError> {
+    fn create_tables(conn: &Connection) -> TaskManagerResult<()> {
         // Change the task_db_version if backward compatibility is broken
         // and introduce a migration on DB opening ... if conserving history is important.
         conn.execute_batch(
@@ -396,7 +400,7 @@ impl TaskDb {
         Ok(())
     }
 
-    fn create_views(conn: &Connection) -> Result<(), TaskManagerError> {
+    fn create_views(conn: &Connection) -> TaskManagerResult<()> {
         // By convention, views will use an action verb as name.
         conn.execute_batch(
             r#"
@@ -458,7 +462,7 @@ impl TaskDb {
         self.conn.trace(trace_fn);
     }
 
-    pub fn manage(&self) -> Result<TaskManager<'_>, TaskManagerError> {
+    pub fn manage(&self) -> TaskManagerResult<TaskManager<'_>> {
         // To update all the tables with the task_id assigned by Sqlite
         // we require row IDs for the tasks table
         // and we use last_insert_rowid() which is not reentrant and need a transaction lock
@@ -714,7 +718,7 @@ impl<'db> TaskManager<'db> {
             gas_used,
             payload,
         }: EnqueTaskParams,
-    ) -> Result<(), TaskManagerError> {
+    ) -> TaskManagerResult<()> {
         self.enqueue_task.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.as_slice(),
@@ -738,7 +742,7 @@ impl<'db> TaskManager<'db> {
         fulfiller: Option<&str>,
         status: TaskStatus,
         proof: Option<&[u8]>,
-    ) -> Result<(), TaskManagerError> {
+    ) -> TaskManagerResult<()> {
         self.update_task_progress.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.as_slice(),
@@ -756,7 +760,7 @@ impl<'db> TaskManager<'db> {
         chain_id: ChainId,
         blockhash: &B256,
         proof_system: TaskProofsys,
-    ) -> Result<TaskProvingStatus, TaskManagerError> {
+    ) -> TaskManagerResult<TaskProvingStatus> {
         let rows = self.get_task_proving_status.query_map(
             named_params! {
                 ":chain_id": chain_id,
@@ -781,7 +785,7 @@ impl<'db> TaskManager<'db> {
         chain_id: ChainId,
         blockhash: &B256,
         proof_system: TaskProofsys,
-    ) -> Result<Vec<u8>, TaskManagerError> {
+    ) -> TaskManagerResult<Vec<u8>> {
         let proof = self.get_task_proof.query_row(
             named_params! {
                 ":chain_id": chain_id,
@@ -795,7 +799,7 @@ impl<'db> TaskManager<'db> {
     }
 
     /// Returns the total and detailed database size
-    pub fn get_db_size(&mut self) -> Result<(usize, Vec<(String, usize)>), TaskManagerError> {
+    pub fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
         let rows = self
             .get_db_size
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
