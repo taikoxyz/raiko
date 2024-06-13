@@ -14,7 +14,7 @@ members = [
     "provers/sgx/setup",
     "pipeline",
     "core",
-    "task_manager"
+    "task_manager",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -178,4 +178,3 @@ rand = "0.8.5"
 rand_core = "0.6.4"
 dirs = "5.0.1"
 pathdiff = "0.2.1"
-

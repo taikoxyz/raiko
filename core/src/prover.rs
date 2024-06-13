@@ -29,12 +29,13 @@ impl Prover for NativeProver {
         output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        let param = config
-            .get("native")
-            .map(|v| NativeParam::deserialize(v))
-            .ok_or(ProverError::Param(serde_json::Error::custom(
-                "native param not provided",
-            )))??;
+        let param =
+            config
+                .get("native")
+                .map(NativeParam::deserialize)
+                .ok_or(ProverError::Param(serde_json::Error::custom(
+                    "native param not provided",
+                )))??;
 
         if let Some(path) = param.write_guest_input_path {
             let path = Path::new(&path);

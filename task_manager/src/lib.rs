@@ -158,9 +158,9 @@ use std::io::{Error as IOError, ErrorKind as IOErrorKind};
 use std::fs::File;
 use std::path::Path;
 
-use raiko_primitives::{BlockNumber, ChainId, B256};
+use raiko_lib::primitives::{BlockNumber, ChainId, B256};
 
-use rusqlite::{named_params, MappedRows, Statement};
+use rusqlite::{named_params, Statement};
 use rusqlite::{Connection, OpenFlags};
 
 use chrono::{DateTime, Utc};
@@ -198,6 +198,7 @@ pub struct TaskManager<'db> {
     update_task_progress: Statement<'db>,
     get_task_proof: Statement<'db>,
     get_task_proving_status: Statement<'db>,
+    #[allow(dead_code)]
     get_tasks_unfinished: Statement<'db>,
     get_db_size: Statement<'db>,
 }
@@ -457,7 +458,7 @@ impl TaskDb {
         self.conn.trace(trace_fn);
     }
 
-    pub fn manage<'db>(&'db self) -> Result<TaskManager<'db>, TaskManagerError> {
+    pub fn manage(&self) -> Result<TaskManager<'_>, TaskManagerError> {
         // To update all the tables with the task_id assigned by Sqlite
         // we require row IDs for the tasks table
         // and we use last_insert_rowid() which is not reentrant and need a transaction lock
@@ -683,22 +684,39 @@ impl TaskDb {
     }
 }
 
+pub struct EnqueTaskParams {
+    pub chain_id: ChainId,
+    pub blockhash: B256,
+    pub proof_system: TaskProofsys,
+    pub submitter: String,
+    pub block_number: BlockNumber,
+    pub parent_hash: B256,
+    pub state_root: B256,
+    pub num_transactions: u64,
+    pub gas_used: u64,
+    pub payload: Vec<u8>,
+}
+
+type TaskProvingStatus = Vec<(Option<String>, TaskStatus, DateTime<Utc>)>;
+
 impl<'db> TaskManager<'db> {
     pub fn enqueue_task(
         &mut self,
-        chain_id: ChainId,
-        blockhash: &B256,
-        proof_system: TaskProofsys,
-        submitter: &str,
-        block_number: BlockNumber,
-        parent_hash: &B256,
-        state_root: &B256,
-        num_transactions: u64,
-        gas_used: u64,
-        payload: &[u8],
+        EnqueTaskParams {
+            chain_id,
+            blockhash,
+            proof_system,
+            submitter,
+            block_number,
+            parent_hash,
+            state_root,
+            num_transactions,
+            gas_used,
+            payload,
+        }: EnqueTaskParams,
     ) -> Result<(), TaskManagerError> {
         self.enqueue_task.execute(named_params! {
-            ":chain_id": chain_id as u64,
+            ":chain_id": chain_id,
             ":blockhash": blockhash.as_slice(),
             ":id_proofsys": proof_system as u8,
             ":submitter": submitter,
@@ -722,7 +740,7 @@ impl<'db> TaskManager<'db> {
         proof: Option<&[u8]>,
     ) -> Result<(), TaskManagerError> {
         self.update_task_progress.execute(named_params! {
-            ":chain_id": chain_id as u64,
+            ":chain_id": chain_id,
             ":blockhash": blockhash.as_slice(),
             ":id_proofsys": proof_system as u8,
             ":fulfiller": fulfiller,
@@ -738,10 +756,10 @@ impl<'db> TaskManager<'db> {
         chain_id: ChainId,
         blockhash: &B256,
         proof_system: TaskProofsys,
-    ) -> Result<Vec<(Option<String>, TaskStatus, DateTime<Utc>)>, TaskManagerError> {
+    ) -> Result<TaskProvingStatus, TaskManagerError> {
         let rows = self.get_task_proving_status.query_map(
             named_params! {
-                ":chain_id": chain_id as u64,
+                ":chain_id": chain_id,
                 ":blockhash": blockhash.as_slice(),
                 ":id_proofsys": proof_system as u8,
             },
@@ -766,7 +784,7 @@ impl<'db> TaskManager<'db> {
     ) -> Result<Vec<u8>, TaskManagerError> {
         let proof = self.get_task_proof.query_row(
             named_params! {
-                ":chain_id": chain_id as u64,
+                ":chain_id": chain_id,
                 ":blockhash": blockhash.as_slice(),
                 ":id_proofsys": proof_system as u8,
             },

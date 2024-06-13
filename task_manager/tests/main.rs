@@ -12,8 +12,8 @@ mod tests {
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
-    use raiko_primitives::B256;
-    use task_manager::{TaskDb, TaskProofsys, TaskStatus};
+    use raiko_lib::primitives::B256;
+    use task_manager::{EnqueTaskParams, TaskDb, TaskProofsys, TaskStatus};
 
     #[test]
     fn test_enqueue_task() {
@@ -38,8 +38,8 @@ mod tests {
 
         let chain_id = 100;
         let blockhash = B256::random();
-        let proofsys = TaskProofsys::Risc0;
-        let submitter = "test_enqueue_task";
+        let proof_system = TaskProofsys::Risc0;
+        let submitter = "test_enqueue_task".to_owned();
         let block_number = rng.gen_range(1..4_000_000);
         let parent_hash = B256::random();
         let state_root = B256::random();
@@ -48,18 +48,18 @@ mod tests {
         let payload_length = rng.gen_range(20..200);
         let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
 
-        tama.enqueue_task(
+        tama.enqueue_task(EnqueTaskParams {
             chain_id,
-            &blockhash,
-            proofsys,
+            blockhash,
+            proof_system,
             submitter,
             block_number,
-            &parent_hash,
-            &state_root,
+            parent_hash,
+            state_root,
             num_transactions,
             gas_used,
-            &payload,
-        )
+            payload,
+        })
         .unwrap();
     }
 
@@ -87,7 +87,7 @@ mod tests {
         for _ in 0..42 {
             let chain_id = 100;
             let blockhash = B256::random();
-            let proofsys = TaskProofsys::Risc0;
+            let proof_system = TaskProofsys::Risc0;
             let submitter = format!("test_get_db_size/{}", rng.gen_range(1..10));
             let block_number = rng.gen_range(1..4_000_000);
             let parent_hash = B256::random();
@@ -97,18 +97,18 @@ mod tests {
             let payload_length = rng.gen_range(1_000_000..10_000_000);
             let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
 
-            tama.enqueue_task(
+            tama.enqueue_task(EnqueTaskParams {
                 chain_id,
-                &blockhash,
-                proofsys,
-                &submitter,
+                blockhash,
+                proof_system,
+                submitter,
                 block_number,
-                &parent_hash,
-                &state_root,
+                parent_hash,
+                state_root,
                 num_transactions,
                 gas_used,
-                &payload,
-            )
+                payload,
+            })
             .unwrap();
         }
 
@@ -144,7 +144,7 @@ mod tests {
         for _ in 0..5 {
             let chain_id = 100;
             let blockhash = B256::random();
-            let proofsys = TaskProofsys::Risc0;
+            let proof_system = TaskProofsys::Risc0;
             let submitter = format!("test_get_db_size/{}", rng.gen_range(1..10));
             let block_number = rng.gen_range(1..4_000_000);
             let parent_hash = B256::random();
@@ -154,28 +154,28 @@ mod tests {
             let payload_length = rng.gen_range(16..64);
             let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
 
-            tama.enqueue_task(
+            tama.enqueue_task(EnqueTaskParams {
                 chain_id,
-                &blockhash,
-                proofsys,
-                &submitter,
+                blockhash,
+                proof_system,
+                submitter: submitter.clone(),
                 block_number,
-                &parent_hash,
-                &state_root,
+                parent_hash,
+                state_root,
                 num_transactions,
                 gas_used,
-                &payload,
-            )
+                payload,
+            })
             .unwrap();
 
             let task_status = tama
-                .get_task_proving_status(chain_id, &blockhash, proofsys)
+                .get_task_proving_status(chain_id, &blockhash, proof_system)
                 .unwrap();
             assert_eq!(task_status.len(), 1);
             assert_eq!(task_status[0].0, Some(submitter.clone()));
             assert_eq!(task_status[0].1, TaskStatus::Registered);
 
-            tasks.push((chain_id, blockhash, proofsys, submitter));
+            tasks.push((chain_id, blockhash, proof_system, submitter));
         }
 
         std::thread::sleep(Duration::from_millis(1));
