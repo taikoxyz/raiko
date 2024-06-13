@@ -152,19 +152,18 @@
 
 // Imports
 // ----------------------------------------------------------------
-use rusqlite::Error as SqlError;
-use std::io::{Error as IOError, ErrorKind as IOErrorKind};
-
-use std::fs::File;
-use std::path::Path;
-
-use raiko_lib::primitives::{BlockNumber, ChainId, B256};
-
-use rusqlite::{named_params, Statement};
-use rusqlite::{Connection, OpenFlags};
+use std::{
+    fs::File,
+    io::{Error as IOError, ErrorKind as IOErrorKind},
+    path::Path,
+};
 
 use chrono::{DateTime, Utc};
 use num_enum::{FromPrimitive, IntoPrimitive};
+use raiko_lib::primitives::{BlockNumber, ChainId, B256};
+use rusqlite::{
+    Error as SqlError, {named_params, Statement}, {Connection, OpenFlags},
+};
 
 // Types
 // ----------------------------------------------------------------
@@ -688,7 +687,7 @@ impl TaskDb {
     }
 }
 
-pub struct EnqueTaskParams {
+pub struct EnqueueTaskParams {
     pub chain_id: ChainId,
     pub blockhash: B256,
     pub proof_system: TaskProofsys,
@@ -706,7 +705,7 @@ type TaskProvingStatus = Vec<(Option<String>, TaskStatus, DateTime<Utc>)>;
 impl<'db> TaskManager<'db> {
     pub fn enqueue_task(
         &mut self,
-        EnqueTaskParams {
+        EnqueueTaskParams {
             chain_id,
             blockhash,
             proof_system,
@@ -717,7 +716,7 @@ impl<'db> TaskManager<'db> {
             num_transactions,
             gas_used,
             payload,
-        }: EnqueTaskParams,
+        }: EnqueueTaskParams,
     ) -> TaskManagerResult<()> {
         self.enqueue_task.execute(named_params! {
             ":chain_id": chain_id,

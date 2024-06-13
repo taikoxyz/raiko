@@ -13,7 +13,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use raiko_lib::primitives::B256;
-    use task_manager::{EnqueTaskParams, TaskDb, TaskProofsys, TaskStatus};
+    use task_manager::{EnqueueTaskParams, TaskDb, TaskProofsys, TaskStatus};
 
     #[test]
     fn test_enqueue_task() {
@@ -48,7 +48,7 @@ mod tests {
         let payload_length = rng.gen_range(20..200);
         let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
 
-        tama.enqueue_task(EnqueTaskParams {
+        tama.enqueue_task(EnqueueTaskParams {
             chain_id,
             blockhash,
             proof_system,
@@ -97,7 +97,7 @@ mod tests {
             let payload_length = rng.gen_range(1_000_000..10_000_000);
             let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
 
-            tama.enqueue_task(EnqueTaskParams {
+            tama.enqueue_task(EnqueueTaskParams {
                 chain_id,
                 blockhash,
                 proof_system,
@@ -154,7 +154,7 @@ mod tests {
             let payload_length = rng.gen_range(16..64);
             let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
 
-            tama.enqueue_task(EnqueTaskParams {
+            tama.enqueue_task(EnqueueTaskParams {
                 chain_id,
                 blockhash,
                 proof_system,
