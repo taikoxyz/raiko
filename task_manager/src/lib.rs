@@ -687,6 +687,7 @@ impl TaskDb {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct EnqueueTaskParams {
     pub chain_id: ChainId,
     pub blockhash: B256,

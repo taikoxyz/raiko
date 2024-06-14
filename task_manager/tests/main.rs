@@ -15,6 +15,34 @@ mod tests {
     use raiko_lib::primitives::B256;
     use task_manager::{EnqueueTaskParams, TaskDb, TaskProofsys, TaskStatus};
 
+    fn create_random_task(submitter: String) -> EnqueueTaskParams {
+        let mut rng = ChaCha8Rng::seed_from_u64(123);
+
+        let chain_id = 100;
+        let blockhash = B256::random();
+        let proof_system = TaskProofsys::Risc0;
+        let block_number = rng.gen_range(1..4_000_000);
+        let parent_hash = B256::random();
+        let state_root = B256::random();
+        let num_transactions = rng.gen_range(0..1000);
+        let gas_used = rng.gen_range(0..100_000_000);
+        let payload_length = rng.gen_range(1_000_000..10_000_000);
+        let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
+
+        EnqueueTaskParams {
+            chain_id,
+            blockhash,
+            proof_system,
+            submitter,
+            block_number,
+            parent_hash,
+            state_root,
+            num_transactions,
+            gas_used,
+            payload,
+        }
+    }
+
     #[test]
     fn test_enqueue_task() {
         // // Materialized local DB
@@ -34,33 +62,8 @@ mod tests {
         // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
         let mut tama = db.manage().unwrap();
 
-        let mut rng = ChaCha8Rng::seed_from_u64(123);
-
-        let chain_id = 100;
-        let blockhash = B256::random();
-        let proof_system = TaskProofsys::Risc0;
-        let submitter = "test_enqueue_task".to_owned();
-        let block_number = rng.gen_range(1..4_000_000);
-        let parent_hash = B256::random();
-        let state_root = B256::random();
-        let num_transactions = rng.gen_range(0..1000);
-        let gas_used = rng.gen_range(0..100_000_000);
-        let payload_length = rng.gen_range(20..200);
-        let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
-
-        tama.enqueue_task(EnqueueTaskParams {
-            chain_id,
-            blockhash,
-            proof_system,
-            submitter,
-            block_number,
-            parent_hash,
-            state_root,
-            num_transactions,
-            gas_used,
-            payload,
-        })
-        .unwrap();
+        tama.enqueue_task(create_random_task("test_enqueue_task".to_owned()))
+            .unwrap();
     }
 
     #[test]
@@ -85,31 +88,9 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(123);
 
         for _ in 0..42 {
-            let chain_id = 100;
-            let blockhash = B256::random();
-            let proof_system = TaskProofsys::Risc0;
             let submitter = format!("test_get_db_size/{}", rng.gen_range(1..10));
-            let block_number = rng.gen_range(1..4_000_000);
-            let parent_hash = B256::random();
-            let state_root = B256::random();
-            let num_transactions = rng.gen_range(0..1000);
-            let gas_used = rng.gen_range(0..100_000_000);
-            let payload_length = rng.gen_range(1_000_000..10_000_000);
-            let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
 
-            tama.enqueue_task(EnqueueTaskParams {
-                chain_id,
-                blockhash,
-                proof_system,
-                submitter,
-                block_number,
-                parent_hash,
-                state_root,
-                num_transactions,
-                gas_used,
-                payload,
-            })
-            .unwrap();
+            tama.enqueue_task(create_random_task(submitter)).unwrap();
         }
 
         let (db_size, db_tables_size) = tama.get_db_size().unwrap();
@@ -142,40 +123,22 @@ mod tests {
         let mut tasks = vec![];
 
         for _ in 0..5 {
-            let chain_id = 100;
-            let blockhash = B256::random();
-            let proof_system = TaskProofsys::Risc0;
             let submitter = format!("test_get_db_size/{}", rng.gen_range(1..10));
-            let block_number = rng.gen_range(1..4_000_000);
-            let parent_hash = B256::random();
-            let state_root = B256::random();
-            let num_transactions = rng.gen_range(0..1000);
-            let gas_used = rng.gen_range(0..100_000_000);
-            let payload_length = rng.gen_range(16..64);
-            let payload: Vec<u8> = (&mut rng).gen_iter::<u8>().take(payload_length).collect();
+            let task = create_random_task(submitter.clone());
 
-            tama.enqueue_task(EnqueueTaskParams {
-                chain_id,
-                blockhash,
-                proof_system,
-                submitter: submitter.clone(),
-                block_number,
-                parent_hash,
-                state_root,
-                num_transactions,
-                gas_used,
-                payload,
-            })
-            .unwrap();
+            tama.enqueue_task(task.clone()).unwrap();
 
             let task_status = tama
-                .get_task_proving_status(chain_id, &blockhash, proof_system)
+                .get_task_proving_status(task.chain_id, &task.blockhash, task.proof_system)
                 .unwrap();
             assert_eq!(task_status.len(), 1);
-            assert_eq!(task_status[0].0, Some(submitter.clone()));
-            assert_eq!(task_status[0].1, TaskStatus::Registered);
+            let (submitter_name, status, _) = task_status
+                .first()
+                .expect("Already confirmed there is exactly 1 element");
+            assert_eq!(submitter_name, &Some(submitter.clone()));
+            assert_eq!(status, &TaskStatus::Registered);
 
-            tasks.push((chain_id, blockhash, proof_system, submitter));
+            tasks.push((task.chain_id, task.blockhash, task.proof_system, submitter));
         }
 
         std::thread::sleep(Duration::from_millis(1));
