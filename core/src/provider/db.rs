@@ -15,8 +15,13 @@ use std::{collections::HashSet, mem::take};
 
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::Bytes;
-use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb, utils::to_header};
-use raiko_primitives::{Address, B256, U256};
+use raiko_lib::{
+    builder::OptimisticDatabase,
+    consts::ChainSpec,
+    mem_db::MemDb,
+    primitives::{Address, B256, U256},
+    utils::to_header,
+};
 use revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
@@ -24,7 +29,7 @@ use revm::{
 use tokio::runtime::Handle;
 
 use crate::{
-    interfaces::error::{HostError, HostResult},
+    interfaces::{RaikoError, RaikoResult},
     provider::BlockDataProvider,
     MerkleProof,
 };
@@ -45,11 +50,11 @@ pub struct ProviderDb<BDP: BlockDataProvider> {
 }
 
 impl<BDP: BlockDataProvider> ProviderDb<BDP> {
-    pub async fn new(provider: BDP, chain_spec: ChainSpec, block_number: u64) -> HostResult<Self> {
+    pub async fn new(provider: BDP, chain_spec: ChainSpec, block_number: u64) -> RaikoResult<Self> {
         let mut provider_db = ProviderDb {
             provider,
             block_number,
-            async_executor: tokio::runtime::Handle::current(),
+            async_executor: Handle::current(),
             // defaults
             optimistic: false,
             staging_db: Default::default(),
@@ -72,11 +77,11 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                 let block_number: u64 = block
                     .header
                     .number
-                    .ok_or_else(|| HostError::RPC("No block number".to_owned()))?;
+                    .ok_or_else(|| RaikoError::RPC("No block number".to_owned()))?;
                 let block_hash = block
                     .header
                     .hash
-                    .ok_or_else(|| HostError::RPC("No block hash".to_owned()))?;
+                    .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?;
                 provider_db
                     .initial_db
                     .insert_block_hash(block_number, block_hash);
@@ -88,7 +93,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         Ok(provider_db)
     }
 
-    pub async fn get_proofs(&mut self) -> HostResult<(MerkleProof, MerkleProof, usize)> {
+    pub async fn get_proofs(&mut self) -> RaikoResult<(MerkleProof, MerkleProof, usize)> {
         // Latest proof keys
         let mut storage_keys = self.initial_db.storage_keys();
         for (address, mut indices) in self.current_db.storage_keys() {
@@ -133,7 +138,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         Ok((initial_proofs, latest_proofs, num_storage_proofs))
     }
 
-    pub async fn get_ancestor_headers(&mut self) -> HostResult<Vec<AlloyConsensusHeader>> {
+    pub async fn get_ancestor_headers(&mut self) -> RaikoResult<Vec<AlloyConsensusHeader>> {
         let earliest_block = self
             .initial_db
             .block_hashes
@@ -143,7 +148,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
 
         let mut headers = Vec::with_capacity(
             usize::try_from(self.block_number - *earliest_block)
-                .map_err(|_| HostError::Conversion("Could not convert u64 to usize".to_owned()))?,
+                .map_err(|_| RaikoError::Conversion("Could not convert u64 to usize".to_owned()))?,
         );
         for block_number in (*earliest_block..self.block_number).rev() {
             if let std::collections::hash_map::Entry::Vacant(e) =
@@ -170,7 +175,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
 }
 
 impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
-    type Error = HostError;
+    type Error = RaikoError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         // Check if the account is in the current database.
@@ -209,7 +214,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         })?
         .first()
         .cloned()
-        .ok_or(HostError::RPC("No account".to_owned()))?;
+        .ok_or(RaikoError::RPC("No account".to_owned()))?;
 
         // Insert the account into the initial database.
         self.initial_db
@@ -250,7 +255,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         })?
         .first()
         .copied()
-        .ok_or(HostError::RPC("No storage value".to_owned()))?;
+        .ok_or(RaikoError::RPC("No storage value".to_owned()))?;
         self.initial_db
             .insert_account_storage(&address, index, value);
         Ok(value)
@@ -259,7 +264,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
         let block_number: u64 = number
             .try_into()
-            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned()))?;
+            .map_err(|_| RaikoError::Conversion("Could not convert U256 to u64".to_owned()))?;
 
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
@@ -284,10 +289,10 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
                 .block_on(self.provider.get_blocks(&[(block_number, false)]))
         })?
         .first()
-        .ok_or(HostError::RPC("No block".to_owned()))?
+        .ok_or(RaikoError::RPC("No block".to_owned()))?
         .header
         .hash
-        .ok_or_else(|| HostError::RPC("No block hash".to_owned()))?
+        .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);

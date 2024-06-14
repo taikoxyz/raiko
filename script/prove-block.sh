@@ -28,16 +28,21 @@ if [ "$chain" == "ethereum" ]; then
 	l1_network="ethereum"
 elif [ "$chain" == "holesky" ]; then
 	l1_network="holesky"
+elif [ "$chain" == "taiko_mainnet" ]; then
+	l1_network="ethereum"
 elif [ "$chain" == "taiko_a7" ]; then
 	l1_network="holesky"
 else
 	echo "Using customized chain name $1. Please double check the RPCs."
-    l1_network="holesky"
+	l1_network="holesky"
 fi
 
 if [ "$proof" == "native" ]; then
 	proofParam='
-    "proof_type": "native"
+    "proof_type": "native",
+	"native" : {
+        "write_guest_input_path": null
+	}
   '
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
@@ -114,6 +119,7 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 	echo "- proving block $block"
 	curl --location --request POST 'http://localhost:8080/proof' \
 		--header 'Content-Type: application/json' \
+		--header 'Authorization: Bearer 4cbd753fbcbc2639de804f8ce425016a50e0ecd53db00cb5397912e83f5e570e' \
 		--data-raw "{
          \"network\": \"$chain\",
          \"l1_network\": \"$l1_network\",
@@ -122,5 +128,5 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
          \"graffiti\": \"$graffiti\",
          $proofParam
        }"
-	echo "\\n"
+	echo ""
 done

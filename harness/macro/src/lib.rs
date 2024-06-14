@@ -10,6 +10,7 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
     let mut tests_entry = quote! {
         fn run_tests() {}
     };
+
     if let Some(test_modules) = input.test_modules {
         let injections = test_modules.iter().map(|path| {
             quote! {
@@ -17,6 +18,7 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
                 #path::inject();
             }
         });
+
         tests_entry = quote! {
             fn run_tests() {
                 use harness_core::*;
@@ -29,7 +31,6 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
 
     #[cfg(feature = "sp1")]
     let output = quote! {
-
         // Set up a global allocator
         use sp1_zkvm::heap::SimpleAlloc;
         #[global_allocator]
@@ -49,12 +50,10 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
                 super::ZKVM_ENTRY()
             }
         }
-
     };
 
     #[cfg(feature = "risc0")]
     let output = quote! {
-
         #[cfg(test)]
         #tests_entry
 
@@ -69,7 +68,6 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
                 super::ZKVM_ENTRY()
             }
         }
-
     };
 
     #[cfg(all(not(feature = "sp1"), not(feature = "risc0")))]
@@ -118,9 +116,11 @@ pub fn zk_suits(input: TokenStream) -> TokenStream {
     let assert_import = syn::parse_quote! {
         use harness_core::{assert_eq, assert};
     };
+
     let harness_import = syn::parse_quote! {
         use harness_core::*;
     };
+
     mod_content.insert(0, Item::Use(assert_import));
     mod_content.insert(0, Item::Use(harness_import));
 
@@ -140,6 +140,7 @@ pub fn zk_suits(input: TokenStream) -> TokenStream {
     let registration_blocks = test_fns.iter().map(|ident| {
         let test_ident = ident;
         let stringified_name = ident.to_string();
+
         quote! {
             #[cfg(test)]
             test_suite.lock().unwrap().add_test(#stringified_name, #test_ident);

@@ -12,8 +12,8 @@ risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
-raiko-lib = { workspace = true }
-raiko-primitives = { workspace = true, features = ["c-kzg"] }
+raiko-lib = { workspace = true, features = ["c-kzg"] }
+raiko-core = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -73,9 +73,9 @@ ethers-core = { workspace = true }
 
 [features]
 # powdr = ["dep:powdr"]
-sp1 = ["dep:sp1-driver", "sp1-driver/enable"]
-risc0 = ["dep:risc0-driver", "risc0-driver/enable"]
-sgx = ["dep:sgx-prover", "sgx-prover/enable"]
+sp1 = ["raiko-core/sp1"]
+risc0 = ["raiko-core/risc0"]
+sgx = ["raiko-core/sgx"]
 
 [[bin]]
 name = "raiko-host"

@@ -30,14 +30,13 @@ for feature in "${features[@]}"; do
 	fi
 
 	echo "Build and push $1:$tag..."
-	docker buildx build --no-cache ./ \
+	docker buildx build ./ \
 		--platform linux/amd64 \
 		-t raiko:$tag \
 		$build_flags \
 		--build-arg TARGETPLATFORM=linux/amd64
 
-	docker tag raiko:$tag gcr.io/evmchain/raiko:$tag
-	#docker push gcr.io/evmchain/raiko:$tag
+	docker tag raiko:$tag us-docker.pkg.dev/evmchain/hekla/raiko:$tag
 
 	echo "Done"
 done

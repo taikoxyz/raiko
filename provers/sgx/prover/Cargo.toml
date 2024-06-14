@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
-raiko-primitives = { workspace = true, optional = true }
 
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
@@ -28,13 +27,5 @@ anyhow = { workspace = true }
 
 [features]
 default = ["dep:pem"]
-enable = [
-    "raiko-lib",
-    "raiko-primitives",
-    "serde",
-    "serde_json",
-    "serde_with",
-    "bincode",
-    "tokio",
-]
+enable = ["raiko-lib", "serde", "serde_json", "serde_with", "bincode", "tokio"]
 docker_build = []

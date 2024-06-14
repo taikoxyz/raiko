@@ -16,5 +16,8 @@
         "snark": true,
         "profile": false,
         "execution_po2": 20
-    }
+    },
+    "native" : {
+        "write_guest_input_path": null
+	}
 }

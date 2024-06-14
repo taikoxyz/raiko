@@ -12,8 +12,10 @@
 !/provers
 !/host
 !/pipeline
+!/harness
 !/rust-toolchain
 !/taiko.toml
 !/tests
 !/provers/sgx/setup
 !/kzg_settings_raw.bin
+!/core
