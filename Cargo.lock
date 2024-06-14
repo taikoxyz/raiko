@@ -6482,6 +6482,9 @@ dependencies = [
 name = "reth-evm-ethereum"
 version = "0.2.0-beta.6"
 dependencies = [
+ "alloy-sol-types",
+ "anyhow",
+ "lazy_static",
  "reth-evm",
  "reth-interfaces",
  "reth-primitives",

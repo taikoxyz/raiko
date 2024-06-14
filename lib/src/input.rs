@@ -12,9 +12,9 @@ use serde_with::serde_as;
 
 use reth_primitives::{Block as RethBlock, Header};
 
+use crate::consts::ChainSpec;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, serde_with::RlpHexBytes};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the

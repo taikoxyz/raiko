@@ -25,7 +25,6 @@ pub mod utils;
 
 #[cfg(not(target_os = "zkvm"))]
 mod time {
-    pub use core::ops::AddAssign;
     pub use std::time::{Duration, Instant};
 }
 

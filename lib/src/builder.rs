@@ -1,4 +1,5 @@
-use core::{any::Any, mem};
+use core::mem;
+use std::sync::Arc;
 
 use crate::utils::generate_transactions;
 use crate::{
@@ -8,24 +9,21 @@ use crate::{
     mem_db::{AccountState, DbAccount, MemDb},
 };
 use alloy_consensus::{Signed, Transaction, TxEnvelope};
-use alloy_primitives::uint;
-use alloy_rpc_types::{ConversionError, Parity, Signature, Transaction as AlloyTransaction};
+use alloy_rpc_types::{ConversionError, Parity, Transaction as AlloyTransaction};
 use anyhow::{bail, Context, Error, Result};
-use raiko_primitives::{
-    keccak::keccak,
-    mpt::{MptNode, StateAccount},
-    RlpBytes,
-};
+use raiko_primitives::{keccak::keccak, mpt::StateAccount};
 use raiko_primitives::{keccak::KECCAK_EMPTY, Bytes};
 use reth_evm::execute::EthBlockOutput;
 use reth_evm::execute::Executor;
 use reth_evm_ethereum::execute::EthExecutorProvider;
+use reth_evm_ethereum::taiko::TaikoData;
 use reth_interfaces::executor::BlockValidationError;
 use reth_primitives::transaction::Signature as RethSignature;
 use reth_primitives::{
-    BlockBody, ChainSpecBuilder, Header, Receipts, TransactionSigned, B256, MAINNET, TAIKO_A7, U256,
+    BlockBody, ChainSpecBuilder, Header, TransactionSigned, B256, HOLESKY, MAINNET, TAIKO_A7,
+    TAIKO_MAINNET, U256,
 };
-use reth_provider::{BundleStateWithReceipts, OriginalValuesKnown, ProviderError};
+use reth_provider::ProviderError;
 use revm::primitives::{AccountInfo, Bytecode, HashMap, SpecId};
 use revm::{db::BundleState, Database, DatabaseCommit};
 
@@ -112,22 +110,25 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
     /// Executes all input transactions.
     pub fn execute_transactions(&mut self, optimistic: bool) -> Result<()> {
         let chain_spec = &self.input.chain_spec;
-        let chain_id = chain_spec.chain_id();
         let is_taiko = chain_spec.is_taiko();
 
         let total_difficulty = U256::ZERO;
-        let reth_chain_spec = if is_taiko {
-            ChainSpecBuilder::default()
-                .chain(TAIKO_A7.chain)
-                .genesis(TAIKO_A7.genesis.clone())
-                .shanghai_activated()
-                .build()
-        } else {
-            ChainSpecBuilder::default()
-                .chain(MAINNET.chain)
-                .genesis(MAINNET.genesis.clone())
-                .cancun_activated()
-                .build()
+        let reth_chain_spec = match chain_spec.name.as_str() {
+            "taiko_a7" => TAIKO_A7.clone(),
+            "taiko_mainnet" => TAIKO_MAINNET.clone(),
+            "ethereum" => {
+                //MAINNET.clone()
+                // TODO(Brecht): for some reason using the spec directly doesn't work
+                Arc::new(
+                    ChainSpecBuilder::default()
+                        .chain(MAINNET.chain)
+                        .genesis(MAINNET.genesis.clone())
+                        .cancun_activated()
+                        .build(),
+                )
+            }
+            "holesky" => HOLESKY.clone(),
+            _ => unimplemented!(),
         };
 
         let header = self.header.as_mut().expect("Header is not initialized");
@@ -139,8 +140,6 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         if !SpecId::enabled(spec_id, MIN_SPEC_ID) {
             bail!("Invalid protocol version: expected >= {MIN_SPEC_ID:?}, got {spec_id:?}")
         }
-
-        //println!("spec_id: {spec_id:?}");
 
         // generate the transactions from the tx list
         // For taiko blocks, insert the anchor tx as the first transaction
@@ -161,12 +160,8 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 to_alloy_transaction(&tx).expect("can't convert to alloy");
             alloy_transactions.push(alloy_tx);
         }
-        //println!("transactions: {:?}", alloy_transactions);
 
         let mut block = self.input.block.clone();
-
-        //println!("tx_list: {:?}, block: {:?}", alloy_transactions.len(), block.body.len());
-
         // Convert alloy transactions to reth transactions and set them on the block
         block.body = alloy_transactions
             .into_iter()
@@ -191,25 +186,27 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone().into())
             .eth_executor(self.db.take().unwrap())
+            .taiko_data(TaikoData {
+                l1_header: self.input.taiko.l1_header.clone(),
+                parent_header: self.input.parent_header.clone(),
+                l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
+            })
             .optimistic(optimistic);
         let EthBlockOutput {
             state,
             receipts: _,
             gas_used,
             db: full_state,
-        } = executor
-            .execute(
-                (
-                    &block
-                        .clone()
-                        .with_recovered_senders()
-                        .ok_or(BlockValidationError::SenderRecoveryError)
-                        .expect("brecht"),
-                    total_difficulty.into(),
-                )
-                    .into(),
+        } = executor.execute(
+            (
+                &block
+                    .clone()
+                    .with_recovered_senders()
+                    .ok_or(BlockValidationError::SenderRecoveryError)?,
+                total_difficulty.into(),
             )
-            .expect("brecht");
+                .into(),
+        )?;
 
         self.db = Some(full_state.database);
 
@@ -507,13 +504,13 @@ pub fn to_alloy_transaction(tx: &TxEnvelope) -> Result<AlloyTransaction, Error> 
                 gas: tx.tx().gas_limit(),
                 max_fee_per_gas: Some(tx.tx().tx().max_fee_per_gas),
                 max_priority_fee_per_gas: Some(tx.tx().tx().max_priority_fee_per_gas),
-                max_fee_per_blob_gas: None,
+                max_fee_per_blob_gas: Some(tx.tx().tx().max_fee_per_blob_gas),
                 input: tx.tx().input().to_owned().into(),
                 signature: Some(to_alloy_signature(get_sig(tx))),
                 chain_id: tx.tx().chain_id(),
-                blob_versioned_hashes: None,
+                blob_versioned_hashes: Some(tx.tx().tx().blob_versioned_hashes.clone()),
                 access_list: Some(tx.tx().tx().access_list.clone()),
-                transaction_type: Some(3),
+                transaction_type: Some(tx.tx().tx_type() as u8),
                 ..Default::default()
             };
             Ok(alloy_tx)

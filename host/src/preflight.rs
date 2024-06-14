@@ -1,6 +1,4 @@
-use alloy_consensus::{
-    SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy,
-};
+use alloy_consensus::TxEnvelope;
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};

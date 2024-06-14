@@ -15,7 +15,7 @@ use anyhow::anyhow;
 use raiko_primitives::{Address, B256, U256};
 use reth_provider::ProviderError;
 use revm::{
-    db::{AccountStatus, BundleState},
+    db::BundleState,
     primitives::{Account, AccountInfo, Bytecode},
     Database, DatabaseCommit,
 };
@@ -272,7 +272,7 @@ impl Database for MemDb {
                     &number
                 )
             })
-            .expect("Brecht");
+            .expect("block hash not found");
         self.block_hashes
             .get(&block_no)
             .copied()

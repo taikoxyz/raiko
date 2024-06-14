@@ -4,13 +4,11 @@ use alloy_primitives::Bytes;
 use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
 use raiko_primitives::{Address, B256, U256};
 use reth_primitives::Header;
-use reth_provider::{
-    AccountReader, BlockHashReader, ProviderError, StateProvider, StateRootProvider,
-};
+use reth_provider::ProviderError;
 use revm::{
     db::BundleState,
     primitives::{Account, AccountInfo, Bytecode, HashMap},
-    Database, DatabaseCommit, DatabaseRef,
+    Database, DatabaseCommit,
 };
 use tokio::runtime::Handle;
 
@@ -164,7 +162,6 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
     type Error = ProviderError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        //println!("address: {:?}", address);
         // Check if the account is in the current database.
         if let Ok(db_result) = self.current_db.basic(address) {
             return Ok(db_result);
@@ -199,11 +196,11 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
             self.async_executor
                 .block_on(self.provider.get_accounts(&[address]))
         })
-        .map_err(|e| ProviderError::BestBlockNotFound)?
+        .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
         .cloned()
         .ok_or(HostError::RPC("No account".to_owned()))
-        .map_err(|e| ProviderError::BestBlockNotFound)?;
+        .map_err(|e| ProviderError::RPC(e.to_string()))?;
 
         // Insert the account into the initial database.
         self.initial_db
@@ -235,18 +232,18 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         }
 
         // Makes sure the account is also always loaded
-        self.initial_db.basic(address).expect("Brecht");
+        self.initial_db.basic(address)?;
 
         // Fetch the storage value
         let value = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_storage_values(&[(address, index)]))
         })
-        .map_err(|e| ProviderError::BestBlockNotFound)?
+        .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
         .copied()
         .ok_or(HostError::RPC("No storage value".to_owned()))
-        .map_err(|e| ProviderError::BestBlockNotFound)?;
+        .map_err(|e| ProviderError::RPC(e.to_string()))?;
         self.initial_db
             .insert_account_storage(&address, index, value);
         Ok(value)
@@ -256,7 +253,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let block_number: u64 = number
             .try_into()
             .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned()))
-            .map_err(|e| ProviderError::BestBlockNotFound)?;
+            .map_err(|e| ProviderError::RPC(e.to_string()))?;
 
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
@@ -280,14 +277,14 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
             self.async_executor
                 .block_on(self.provider.get_blocks(&[(block_number, false)]))
         })
-        .map_err(|e| ProviderError::BestBlockNotFound)?
+        .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
         .ok_or(HostError::RPC("No block".to_owned()))
-        .map_err(|e| ProviderError::BestBlockNotFound)?
+        .map_err(|e| ProviderError::RPC(e.to_string()))?
         .header
         .hash
         .ok_or_else(|| HostError::RPC("No block hash".to_owned()))
-        .map_err(|e| ProviderError::BestBlockNotFound)?
+        .map_err(|e| ProviderError::RPC(e.to_string()))?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
@@ -296,74 +293,6 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
 
     fn code_by_hash(&mut self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
         unreachable!()
-    }
-}
-
-impl<BDP: BlockDataProvider> DatabaseRef for ProviderDb<BDP> {
-    type Error = ProviderError;
-
-    fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        //println!("address: {}", address);
-
-        // Fetch the account
-        let account = &tokio::task::block_in_place(|| {
-            self.async_executor
-                .block_on(self.provider.get_accounts(&[address]))
-        })
-        .expect("brecht")
-        .first()
-        .cloned()
-        .ok_or(HostError::RPC("No account".to_owned()))
-        .expect("brecht");
-
-        // Insert the account into the initial database.
-        Ok(Some(account.clone()))
-        //self.basic(address).map_err(|err| ProviderError::FsPathError("hi".into()))
-    }
-
-    fn code_by_hash_ref(&self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
-        // We use basic_ref to get the code from the provider.
-        unimplemented!()
-    }
-
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
-        //println!("storage: {} {}", address, index);
-
-        // Fetch the storage value
-        let value = tokio::task::block_in_place(|| {
-            self.async_executor
-                .block_on(self.provider.get_storage_values(&[(address, index)]))
-        })
-        .expect("brecht")
-        .first()
-        .copied()
-        .ok_or(HostError::RPC("No storage value".to_owned()))
-        .expect("brecht");
-        Ok(value)
-    }
-
-    fn block_hash_ref(&self, number: U256) -> Result<B256, Self::Error> {
-        let block_number: u64 = number
-            .try_into()
-            .map_err(|_| HostError::Conversion("Could not convert U256 to u64".to_owned()))
-            .expect("brecht");
-
-        // Get the block hash from the provider.
-        let block_hash = tokio::task::block_in_place(|| {
-            self.async_executor
-                .block_on(self.provider.get_blocks(&[(block_number, false)]))
-        })
-        .expect("brecht")
-        .first()
-        .ok_or(HostError::RPC("No block".to_owned()))
-        .expect("brecht")
-        .header
-        .hash
-        .ok_or_else(|| HostError::RPC("No block hash".to_owned()))
-        .expect("brecht")
-        .0
-        .into();
-        Ok(block_hash)
     }
 }
 

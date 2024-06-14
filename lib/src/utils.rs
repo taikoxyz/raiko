@@ -1,17 +1,15 @@
 use core::str::FromStr;
-// TODO(Cecilia): fix for no-std
 use std::io::Read;
 use std::io::Write;
 
 use alloy_consensus::{Signed, TxEip1559, TxEnvelope};
 use alloy_primitives::{uint, Address, Signature, TxKind, U256};
-use alloy_rlp::{Decodable, Encodable};
-use alloy_rpc_types::{Header as AlloyHeader, Transaction as AlloyTransaction};
+use alloy_rlp::Decodable;
+use alloy_rpc_types::Transaction as AlloyTransaction;
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use lazy_static::lazy_static;
 use libflate::zlib::Decoder as zlibDecoder;
 use libflate::zlib::Encoder as zlibEncoder;
-use raiko_primitives::{keccak256, B256};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -124,21 +122,6 @@ pub fn generate_transactions(
         transactions.insert(0, TxEnvelope::from(signed_eip1559_tx));
     }
     transactions
-}
-
-pub fn generate_transactions2(
-    chain_spec: &ChainSpec,
-    is_blob_data: bool,
-    tx_list: &[u8],
-    anchor_tx: Option<AlloyTransaction>,
-) -> Vec<AlloyTransaction> {
-    // Decode the tx list from the raw data posted onchain
-    let tx_list = get_tx_list(chain_spec, is_blob_data, tx_list);
-
-    // Decode the transactions from the tx list
-    //let mut transactions = decode_transactions(&tx_list);
-    //transactions
-    Vec::new()
 }
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
