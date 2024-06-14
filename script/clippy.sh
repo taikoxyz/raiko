@@ -48,5 +48,6 @@ fi
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 	check_toolchain $TOOLCHAIN_RISC0
 	./script/setup-bonsai.sh
+	cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
 	cargo ${TOOLCHAIN_RISC0} clippy -p raiko-host -p risc0-builder -p risc0-driver -F "risc0 enable"
 fi
