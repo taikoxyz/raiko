@@ -17,15 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: risc0/risc0/.github/actions/rustup@release-0.19
-
-      - uses: risc0/risc0/.github/actions/sccache@release-0.19
-
-      - uses: risc0/clippy-action@main
-        with:
-          reporter: 'github-pr-check'
-          fail_on_error: true
-          clippy_flags: --workspace --all-targets --all-features -- -D warnings
+      - name: Run clippy check for all targets
+        run: make clippy
 
   fmt:
     name: fmt

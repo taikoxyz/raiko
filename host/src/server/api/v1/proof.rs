@@ -80,7 +80,7 @@ async fn validate_cache_input(
 
         // double check if cache is valid
         if cached_block_hash == real_block_hash {
-            return Ok(cache_input);
+            Ok(cache_input)
         } else {
             Err(HostError::InvalidRequestConfig(
                 "Cached input is not valid".to_owned(),
@@ -251,7 +251,7 @@ mod test {
         block_number: u64,
     ) -> (GuestInput, RpcBlockDataProvider) {
         let l1_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&l1_network)
+            .get_chain_spec(l1_network)
             .unwrap();
         let taiko_chain_spec = SupportedChainSpecs::default()
             .get_chain_spec(network)
