@@ -1,24 +1,22 @@
-FROM ubuntu:latest AS builder
-WORKDIR /root/raiko/
-ARG ARCH
+FROM rust:1.75.0 as builder
 
-COPY .. .
-RUN apt-get update && apt-get install gcc curl -y
+ENV DEBIAN_FRONTEND=noninteractive
+ARG BUILD_FLAGS=""
 
-# Get Rust
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+# risc0 dependencies
+# RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
+#     cargo binstall -y --force cargo-risczero && \
+#     cargo risczero install
 
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup target install x86_64-unknown-linux-musl
-
-# Build the Rust application
-RUN cargo build --release --target=x86_64-unknown-linux-musl --features nitro
+WORKDIR /opt/raiko
+COPY . .
+RUN cargo build --release --features "nitro" --features "docker_build"
 
 # Set up runtime
 FROM debian:bookworm-slim AS runner
 WORKDIR /raiko
 
 # Copy the Rust compiled binary from previous image
-COPY --from=builder /root/raiko/target/x86_64-unknown-linux-musl/release/raiko-host .
+COPY --from=builder /opt/raiko/target/release/raiko-host .
 
 CMD ["./raiko-host"]
