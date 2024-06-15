@@ -47,7 +47,7 @@ use crate::{
     },
     print_duration,
     time::{AddAssign, Duration, Instant},
-    utils::{check_anchor_tx, generate_transactions},
+    utils::{check_anchor_tx, generate_transactions}, CycleTracker,
 };
 
 /// Minimum supported protocol version: SHANGHAI
@@ -261,8 +261,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
 
             // process the transaction
             let start = Instant::now();
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-start: evm.transact()");
+            let cycle_tracker = CycleTracker::start("evm.transact()");
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(result) => result,
                 Err(err) => {
@@ -284,8 +283,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                         EVMError::Transaction(invalid_transaction) => {
                             #[cfg(feature = "std")]
                             debug!("Invalid tx at {tx_no}: {invalid_transaction:?}");
-                            #[cfg(feature = "sp1-cycle-tracker")]
-                            println!("cycle-tracker-end: evm.transact()");
+                            cycle_tracker.end();
                             // skip the tx
                             continue;
                         }
@@ -296,8 +294,7 @@ impl TxExecStrategy for TkoTxExecStrategy {
                     }
                 }
             };
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-end: evm.transact()");
+            cycle_tracker.end();
             #[cfg(feature = "std")]
             trace!("  Ok: {result:?}");
 
@@ -401,11 +398,9 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
     // TODO(Brecht): use optimized recover
     match tx {
         TxEnvelope::Legacy(tx) => {
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-start: Legacy");
+            let cycle_tracker = CycleTracker::start("Legacy");
             tx_env.caller = tx.recover_signer().unwrap_or_default();
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-end: Legacy");
+            cycle_tracker.end();
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
@@ -422,11 +417,9 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list.clear();
         }
         TxEnvelope::Eip2930(tx) => {
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-start: Eip2930");
+            let cycle_tracker = CycleTracker::start("Eip2930");
             tx_env.caller = tx.recover_signer().unwrap_or_default();
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-end: Eip2930");
+            cycle_tracker.end();
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
@@ -443,11 +436,9 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list = tx.access_list.flattened();
         }
         TxEnvelope::Eip1559(tx) => {
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-start: Eip1559");
+            let cycle_tracker = CycleTracker::start("Eip1559");
             tx_env.caller = tx.recover_signer().unwrap_or_default();
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-end: Eip1559");
+            cycle_tracker.end();
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.max_fee_per_gas.try_into().unwrap();
@@ -464,11 +455,9 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.access_list = tx.access_list.flattened();
         }
         TxEnvelope::Eip4844(tx) => {
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-start: Eip1559");
+            let cycle_tracker = CycleTracker::start("Eip1559");
             tx_env.caller = tx.recover_signer().unwrap_or_default();
-            #[cfg(feature = "sp1-cycle-tracker")]
-            println!("cycle-tracker-end: Eip4844");
+            cycle_tracker.end();
             let tx = tx.tx().tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.max_fee_per_gas.try_into().unwrap();

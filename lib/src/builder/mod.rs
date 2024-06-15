@@ -26,7 +26,7 @@ use crate::{
     consts::ChainSpec,
     input::GuestInput,
     mem_db::MemDb,
-    primitives::mpt::MptNode,
+    primitives::mpt::MptNode, CycleTracker,
 };
 
 pub mod execute;
@@ -76,41 +76,33 @@ where
 
     /// Initializes the database from the input.
     pub fn initialize_database<T: DbInitStrategy<D>>(self) -> Result<Self> {
-        #[cfg(feature = "sp1-cycle-tracker")]
-        println!("cycle-tracker-start: initialize_database");
+        let cycle_tracker = CycleTracker::start("initialize_database");
         let res = T::initialize_database(self);
-        #[cfg(feature = "sp1-cycle-tracker")]
-        println!("cycle-tracker-end: initialize_database");
+        cycle_tracker.end();
         res
     }
 
     /// Initializes the header. This must be called before executing transactions.
     pub fn prepare_header<T: HeaderPrepStrategy>(self) -> Result<Self> {
-        #[cfg(feature = "sp1-cycle-tracker")]
-        println!("cycle-tracker-start: prepare_header");
+        let cycle_tracker = CycleTracker::start("prepare_header");
         let res = T::prepare_header(self);
-        #[cfg(feature = "sp1-cycle-tracker")]
-        println!("cycle-tracker-end: prepare_header");
+        cycle_tracker.end();
         res
     }
 
     /// Executes all input transactions.
     pub fn execute_transactions<T: TxExecStrategy>(self) -> Result<Self> {
-        #[cfg(feature = "sp1-cycle-tracker")]
-        println!("cycle-tracker-start: execute_transactions");
+        let cycle_tracker = CycleTracker::start("execute_transactions");
         let res = T::execute_transactions(self);
-        #[cfg(feature = "sp1-cycle-tracker")]
-        println!("cycle-tracker-end: execute_transactions");
+        cycle_tracker.end();
         res
     }
 
     /// Finalizes the block building and returns the header and the state trie.
     pub fn finalize<T: BlockFinalizeStrategy<D>>(self) -> Result<(AlloyConsensusHeader, MptNode)> {
-        #[cfg(feature = "sp1-cycle-tracker")]
-        println!("cycle-tracker-start: finalize");
+        let cycle_tracker = CycleTracker::start("finalize");
         let res = T::finalize(self);
-        #[cfg(feature = "sp1-cycle-tracker")]
-        println!("cycle-tracker-end: finalize");
+        cycle_tracker.end();
         res
     }
 
