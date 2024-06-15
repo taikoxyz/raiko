@@ -5,16 +5,16 @@ use std::path::PathBuf;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
-use raiko_primitives::{mpt::MptNode, Address, Bytes, B256, U256};
 use revm::primitives::HashMap;
+use revm_primitives::{Address, Bytes, B256, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 use reth_primitives::{Block as RethBlock, Header};
 
-use crate::consts::ChainSpec;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+use crate::{consts::ChainSpec, primitives::mpt::MptNode};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -87,9 +87,9 @@ pub struct TaikoProverData {
 
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GuestOutput {
-    Success { header: Header, hash: B256 },
-    Failure,
+pub struct GuestOutput {
+    pub header: Header,
+    pub hash: B256,
 }
 
 sol! {

@@ -1,6 +1,8 @@
 use core::mem;
 use std::sync::Arc;
 
+use crate::primitives::keccak::keccak;
+use crate::primitives::mpt::StateAccount;
 use crate::utils::generate_transactions;
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
@@ -11,8 +13,6 @@ use crate::{
 use alloy_consensus::{Signed, Transaction, TxEnvelope};
 use alloy_rpc_types::{ConversionError, Parity, Transaction as AlloyTransaction};
 use anyhow::{bail, Context, Error, Result};
-use raiko_primitives::{keccak::keccak, mpt::StateAccount};
-use raiko_primitives::{keccak::KECCAK_EMPTY, Bytes};
 use reth_evm::execute::EthBlockOutput;
 use reth_evm::execute::Executor;
 use reth_evm_ethereum::execute::EthExecutorProvider;
@@ -20,12 +20,13 @@ use reth_evm_ethereum::taiko::TaikoData;
 use reth_interfaces::executor::BlockValidationError;
 use reth_primitives::transaction::Signature as RethSignature;
 use reth_primitives::{
-    BlockBody, ChainSpecBuilder, Header, TransactionSigned, B256, HOLESKY, MAINNET, TAIKO_A7,
-    TAIKO_MAINNET, U256,
+    BlockBody, ChainSpecBuilder, Header, TransactionSigned, B256, HOLESKY, KECCAK_EMPTY, MAINNET,
+    TAIKO_A7, TAIKO_MAINNET, U256,
 };
 use reth_provider::ProviderError;
 use revm::primitives::{AccountInfo, Bytecode, HashMap, SpecId};
 use revm::{db::BundleState, Database, DatabaseCommit};
+use revm_primitives::Bytes;
 
 /// Optimistic database
 #[allow(async_fn_in_trait)]
@@ -364,7 +365,7 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
         // load storage reads
         let mut storage = HashMap::with_capacity(slots.len());
         for slot in slots {
-            let value: raiko_primitives::U256 = storage_trie
+            let value: U256 = storage_trie
                 .get_rlp(&keccak(slot.to_be_bytes::<32>()))?
                 .unwrap_or_default();
             storage.insert(slot, value);

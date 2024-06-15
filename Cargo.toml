@@ -3,7 +3,8 @@ resolver = "2"
 members = [
     "lib",
     "host",
-    "primitives",
+    "harness/core",
+    "harness/macro",
     "provers/sp1/driver",
     "provers/sp1/builder",
     "provers/risc0/driver",
@@ -12,6 +13,7 @@ members = [
     "provers/sgx/guest",
     "provers/sgx/setup",
     "pipeline",
+    "core",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -32,7 +34,7 @@ opt-level = 3
 
 # raiko
 raiko-lib = { path = "./lib", features = ["std"] }
-raiko-primitives = { path = "./primitives" }
+raiko-core = { path = "./core" }
 
 # reth
 #reth-primitives = { path = "../../taiko-reth/taiko-reth/crates/primitives" }
@@ -155,6 +157,11 @@ secp256k1 = { version = "0.27.0", features = [
     "rand",
     "recovery",
 ] }
+
+# macro
+syn = { version = "1.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
 
 # Error model
 anyhow = "1.0"

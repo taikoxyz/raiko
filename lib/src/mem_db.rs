@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use anyhow::anyhow;
-use raiko_primitives::{Address, B256, U256};
 use reth_provider::ProviderError;
 use revm::{
     db::BundleState,
@@ -23,9 +22,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use thiserror_no_std::Error as ThisError;
 
-use crate::builder::OptimisticDatabase;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+use crate::{
+    builder::OptimisticDatabase,
+    primitives::{Address, B256, U256},
+};
 
 /// Error returned by the [MemDb].
 #[derive(Debug, ThisError)]

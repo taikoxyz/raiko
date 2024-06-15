@@ -7,8 +7,7 @@ use std::{
 
 use crate::app_args::BootstrapArgs;
 use anyhow::{anyhow, Context, Result};
-use file_lock::{FileLock, FileOptions};
-use raiko_lib::consts::SupportedChainSpecs;
+use raiko_lib::consts::{SupportedChainSpecs, VerifierType};
 use serde_json::{Number, Value};
 use sgx_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
@@ -21,15 +20,6 @@ pub(crate) async fn setup_bootstrap(
     config_dir: PathBuf,
     bootstrap_args: &BootstrapArgs,
 ) -> Result<()> {
-    // Lock the bootstrap process to prevent multiple instances from running concurrently.
-    // Block until the lock is acquired.
-    // Create the lock file if it does not exist.
-    // Drop the lock file when the lock goes out of scope by drop guard.
-    let _filelock = FileLock::lock(
-        config_dir.join("bootstrap.lock"),
-        true,
-        FileOptions::new().create(true).write(true),
-    )?;
     let chain_specs = SupportedChainSpecs::merge_from_file(bootstrap_args.chain_spec_path.clone())?;
     let l1_chain_spec = chain_specs
         .get_chain_spec(&bootstrap_args.l1_network)
@@ -52,30 +42,31 @@ pub(crate) async fn setup_bootstrap(
         cmd
     };
 
-    let mut instance_id = get_instance_id(&config_dir).ok();
+    let mut instance_id = get_instance_id(&config_dir)?;
     let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd())
         .await
+        .map_err(|e| {
+            println!("Error checking bootstrap: {:?}", e);
+            e
+        })
         .is_err()
         || instance_id.is_none();
 
+    println!("Instance ID: {:?}", instance_id);
+
     if need_init {
-        let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
         // clean check file
-        match remove_instance_id(&config_dir) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    Ok(())
-                } else {
-                    Err(e)
-                }
-            }
-        }?;
+        remove_instance_id(&config_dir)?;
+        let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
         let register_id = register_sgx_instance(
             &bootstrap_proof.quote,
             &l1_chain_spec.rpc,
             l1_chain_spec.chain_id,
-            taiko_chain_spec.sgx_verifier_address.unwrap(),
+            taiko_chain_spec
+                .verifier_address
+                .get(&VerifierType::SGX)
+                .unwrap()
+                .unwrap(),
         )
         .await
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
