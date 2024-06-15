@@ -26,7 +26,8 @@ use crate::{
     consts::ChainSpec,
     input::GuestInput,
     mem_db::MemDb,
-    primitives::mpt::MptNode, CycleTracker,
+    primitives::mpt::MptNode,
+    CycleTracker,
 };
 
 pub mod execute;

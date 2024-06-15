@@ -47,7 +47,8 @@ use crate::{
     },
     print_duration,
     time::{AddAssign, Duration, Instant},
-    utils::{check_anchor_tx, generate_transactions}, CycleTracker,
+    utils::{check_anchor_tx, generate_transactions},
+    CycleTracker,
 };
 
 /// Minimum supported protocol version: SHANGHAI
