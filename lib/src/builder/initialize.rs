@@ -124,7 +124,10 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
         }
         guest_mem_forget(contracts);
 
-        #[cfg(feature = "sp1-cycle-tracker")]
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
         {
             println!("initialize_db Account touch {:?}", account_touched);
             println!("initialize_db Storage touch {:?}", storage_touched);

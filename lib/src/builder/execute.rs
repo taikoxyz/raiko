@@ -176,13 +176,16 @@ impl TxExecStrategy for TkoTxExecStrategy {
         let num_transactions = transactions.len();
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
             if !is_optimistic {
-                #[cfg(not(feature = "sp1-cycle-tracker"))]
-                inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
-                #[cfg(feature = "sp1-cycle-tracker")]
-                println!(
-                    "{:?}",
-                    &format!("\rprocessing tx {tx_no}/{num_transactions}...")
-                );
+                cfg_if::cfg_if! {
+                    if #[cfg(all(all(target_os = "zkvm", target_vendor = "succinct"), feature = "sp1-cycle-tracker"))]{
+                        println!(
+                            "{:?}",
+                            &format!("\rprocessing tx {tx_no}/{num_transactions}...")
+                        );
+                    } else {
+                        inplace_print(&format!("\rprocessing tx {tx_no}/{num_transactions}..."));
+                    }
+                }
             } else {
                 trace!("\rprocessing tx {tx_no}/{num_transactions}...");
             }
