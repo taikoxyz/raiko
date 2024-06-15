@@ -61,7 +61,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
         D: Database + DatabaseCommit + OptimisticDatabase,
         <D as Database>::Error: Debug,
     {
-        println!("block no {}", block_builder.input.block_number);
         let mut tx_transact_duration = Duration::default();
         let mut tx_misc_duration = Duration::default();
 
@@ -175,7 +174,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
         // track the actual tx number to use in the tx/receipt trees as the key
         let mut actual_tx_no = 0usize;
         let num_transactions = transactions.len();
-        println!("total Txs: {}", num_transactions);
         for (tx_no, tx) in take(&mut transactions).into_iter().enumerate() {
             if !is_optimistic {
                 #[cfg(not(feature = "sp1-cycle-tracker"))]
@@ -355,8 +353,6 @@ impl TxExecStrategy for TkoTxExecStrategy {
             print_duration("Tx misc time: ", tx_misc_duration);
         }
         clear_line();
-        print_duration("Tx transact time: ", tx_transact_duration);
-        print_duration("Tx misc time: ", tx_misc_duration);
         println!("actual Tx: {}", actual_tx_no);
 
         let mut db = &mut evm.context.evm.db;
@@ -410,7 +406,6 @@ pub fn fill_eth_tx_env(tx_env: &mut TxEnv, tx: &TxEnvelope) -> Result<(), Error>
             tx_env.caller = tx.recover_signer().unwrap_or_default();
             #[cfg(feature = "sp1-cycle-tracker")]
             println!("cycle-tracker-end: Legacy");
-            //tx_env.caller = *GOLDEN_TOUCH_ACCOUNT;
             let tx = tx.tx();
             tx_env.gas_limit = tx.gas_limit.try_into().unwrap();
             tx_env.gas_price = tx.gas_price.try_into().unwrap();
