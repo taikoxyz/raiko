@@ -5,7 +5,7 @@ use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofRespo
 use alloy_transport_http::Http;
 use raiko_lib::clear_line;
 use reqwest_alloy::Client;
-use revm::primitives::{AccountInfo, Bytecode};
+use reth_primitives::revm_primitives::{AccountInfo, Bytecode};
 use std::collections::HashMap;
 use tracing::trace;
 

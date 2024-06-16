@@ -5,8 +5,7 @@ use std::path::PathBuf;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
-use revm::primitives::HashMap;
-use revm_primitives::{Address, Bytes, B256, U256};
+use reth_primitives::revm_primitives::{Address, Bytes, HashMap, B256, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 

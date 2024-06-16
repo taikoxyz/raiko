@@ -4,8 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# raiko-primitives = { workspace = true }
-
 # reth
 reth-primitives.workspace = true
 reth-evm-ethereum.workspace = true
@@ -13,7 +11,9 @@ reth-provider.workspace = true
 reth-evm.workspace = true
 reth-interfaces.workspace = true
 reth-rpc-types.workspace = true
+reth-revm.workspace = true
 
+# alloy
 alloy-rlp = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-rlp-derive = { workspace = true }
@@ -32,10 +32,6 @@ thiserror = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
-
-# revm
-revm = { workspace = true }
-revm-primitives = { workspace = true }
 
 libflate = { workspace = true }
 once_cell = { workspace = true }
@@ -77,8 +73,7 @@ std = [
   "dep:serde_with",
   # "dep:tokio",
 ]
-tracer = ["revm/serde-json"]
 sgx = []
 sp1 = []
 risc0 = []
-c-kzg = ["revm-primitives/c-kzg", "dep:tempfile"]
+c-kzg = ["dep:tempfile"]

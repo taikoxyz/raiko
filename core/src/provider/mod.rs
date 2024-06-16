@@ -1,6 +1,6 @@
 use alloy_primitives::{Address, U256};
 use alloy_rpc_types::Block;
-use revm::primitives::AccountInfo;
+use reth_primitives::revm_primitives::AccountInfo;
 use std::collections::HashMap;
 
 use crate::{interfaces::RaikoResult, MerkleProof};

@@ -19,6 +19,7 @@ reth-evm-ethereum.workspace = true
 reth-provider.workspace = true
 reth-evm.workspace = true
 reth-interfaces.workspace = true
+reth-revm.workspace = true
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -31,7 +32,6 @@ alloy-transport-http = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
-revm = { workspace = true }
 
 # tracing and logging
 tracing = { workspace = true }

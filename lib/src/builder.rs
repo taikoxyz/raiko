@@ -18,15 +18,15 @@ use reth_evm::execute::Executor;
 use reth_evm_ethereum::execute::EthExecutorProvider;
 use reth_evm_ethereum::taiko::TaikoData;
 use reth_interfaces::executor::BlockValidationError;
+use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
+use reth_primitives::revm_primitives::{AccountInfo, Bytecode, Bytes, HashMap, SpecId};
 use reth_primitives::transaction::Signature as RethSignature;
 use reth_primitives::{
     BlockBody, ChainSpecBuilder, Header, TransactionSigned, B256, HOLESKY, KECCAK_EMPTY, MAINNET,
     TAIKO_A7, TAIKO_MAINNET, U256,
 };
 use reth_provider::ProviderError;
-use revm::primitives::{AccountInfo, Bytecode, HashMap, SpecId};
-use revm::{db::BundleState, Database, DatabaseCommit};
-use revm_primitives::Bytes;
+use reth_revm::revm::db::BundleState;
 
 /// Optimistic database
 #[allow(async_fn_in_trait)]
@@ -210,24 +210,6 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         )?;
 
         self.db = Some(full_state.database);
-
-        /*let receipts = receipts.iter().map(|r| Some(r.clone())).collect::<Vec<_>>();
-        let bundle_state = BundleStateWithReceipts::new(
-            state.clone(),
-            Receipts { receipt_vec: vec![receipts] },
-            self.input.block_number,
-        );
-
-        let state = executor.take_output_state();
-
-        executor.execute_and_verify_receipt(&block_with_senders.clone().unseal(), U256::MAX)?;
-                let state = executor.take_output_state();
-                debug!(target: "reth::cli", ?state, "Executed block");*/
-
-        /*let hashed_state = bundle_state.hash_state_slow();
-        let (state_root, trie_updates) = bundle_state
-            .hash_state_slow()
-            .state_root_with_updates(provider_factory.provider()?.tx_ref())?;*/
 
         self.db.as_mut().unwrap().commit_from_bundle(state);
 

@@ -5,7 +5,7 @@ use alloc::collections::BTreeMap;
 
 use alloy_primitives::Address;
 use anyhow::{anyhow, bail, Result};
-use revm::primitives::SpecId;
+use reth_primitives::revm_primitives::SpecId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

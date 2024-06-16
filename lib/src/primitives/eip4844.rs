@@ -1,7 +1,9 @@
 //! Helpers for working with EIP-4844 blob fee.
 
 // re-exports from revm for calculating blob fee
-pub use revm_primitives::{calc_blob_gasprice, calc_excess_blob_gas as calculate_excess_blob_gas};
+pub use reth_primitives::revm_primitives::{
+    calc_blob_gasprice, calc_excess_blob_gas as calculate_excess_blob_gas,
+};
 #[cfg(feature = "c-kzg")]
 use sha2::{Digest, Sha256};
 
@@ -34,7 +36,7 @@ mod trusted_setup {
     use std::{io::Write, sync::Arc};
 
     use once_cell::sync::Lazy;
-    pub use revm_primitives::kzg::parse_kzg_trusted_setup;
+    pub use reth_primitives::revm_primitives::kzg::parse_kzg_trusted_setup;
 
     use crate::primitives::kzg::KzgSettings;
 
@@ -42,8 +44,8 @@ mod trusted_setup {
     pub static MAINNET_KZG_TRUSTED_SETUP: Lazy<Arc<KzgSettings>> = Lazy::new(|| {
         Arc::new(
             c_kzg::KzgSettings::load_trusted_setup(
-                &revm_primitives::kzg::G1_POINTS.0,
-                &revm_primitives::kzg::G2_POINTS.0,
+                &reth_primitives::revm_primitives::kzg::G1_POINTS.0,
+                &reth_primitives::revm_primitives::kzg::G2_POINTS.0,
             )
             .expect("failed to load trusted setup"),
         )

@@ -2,7 +2,7 @@ use alloy_primitives::{Address, Bytes, U256};
 use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
 use reth_primitives::{Header, B256};
 use reth_provider::ProviderError;
-use revm::{
+use reth_revm::{
     db::BundleState,
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
@@ -197,8 +197,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
         .cloned()
-        .ok_or(RaikoError::RPC("No account".to_owned()))
-        .map_err(|e| ProviderError::RPC(e.to_string()))?;
+        .ok_or(ProviderError::RPC("No account".to_owned()))?;
 
         // Insert the account into the initial database.
         self.initial_db

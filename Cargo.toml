@@ -37,26 +37,13 @@ raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
 
 # reth
-#reth-primitives = { path = "../../taiko-reth/taiko-reth/crates/primitives" }
-#reth-evm-ethereum = { path = "../../taiko-reth/taiko-reth/crates/ethereum/evm" }
-#reth-provider = { path = "../../taiko-reth/taiko-reth/crates/storage/provider" }
-#reth-evm = { path = "../../taiko-reth/taiko-reth/crates/evm" }
-#reth-interfaces = { path = "../../taiko-reth/taiko-reth/crates/interfaces" }
-
-reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "raiko-integration" }
+reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "raiko-integration", features = ["taiko"] }
 reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "raiko-integration" }
 reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "raiko-integration" }
 reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "raiko-integration" }
 reth-interfaces = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "raiko-integration" }
-
-# revm
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false }
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false, features = [
-    "serde",
-    "std",
-    "c-kzg",
-    "taiko",
-] }
+reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "raiko-integration" }
+reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "raiko-integration" }
 
 # risc zero
 risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
@@ -188,13 +175,14 @@ dirs = "5.0.1"
 pathdiff = "0.2.1"
 
 [patch.crates-io]
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false, features = [
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v35-taiko", default-features = false, features = [
     "std",
     "serde",
     "taiko",
 ]}
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false, features = [
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35-taiko", default-features = false, features = [
     "std",
     "serde",
+    "c-kzg",
     "taiko",
 ]}

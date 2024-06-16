@@ -33,4 +33,4 @@ serde_json = { version = "1.0", default-features = false }
 
 [features]
 std = ["anyhow/std", "rlp/std"]
-c-kzg = ["dep:c-kzg", "revm-primitives/c-kzg", "dep:sha2", "dep:tempfile", "dep:once_cell"]
+c-kzg = ["dep:c-kzg", "dep:sha2", "dep:tempfile", "dep:once_cell"]

@@ -31,7 +31,7 @@ pub use core::{
     result::{Result, Result::*},
 };
 
-use revm_primitives::Log as RevmLog;
+use reth_primitives::revm_primitives::Log as RevmLog;
 
 use crate::primitives::receipt::Log;
 
