@@ -287,7 +287,7 @@ mod test {
     async fn test_generate_input_from_cache() {
         let l1 = &Network::Holesky.to_string();
         let l2 = &Network::TaikoA7.to_string();
-        let block_number: u64 = 7;
+        let block_number: u64 = 329390;
         let (input, provider) = create_cache_input(l1, l2, block_number).await;
         let cache_path = Some("./".into());
         assert!(set_cached_input(&cache_path, block_number, l2, &input).is_ok());
