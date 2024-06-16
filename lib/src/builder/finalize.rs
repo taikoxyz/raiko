@@ -103,7 +103,10 @@ impl BlockFinalizeStrategy<MemDb> for MemDbBlockFinalizeStrategy {
             state_trie.insert_rlp(&state_trie_index, state_account)?;
         }
 
-        #[cfg(feature = "sp1-cycle-tracker")]
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
         {
             println!("finalize Account touched {:?}", account_touched);
             println!("finalize Storage touched {:?}", storage_touched);
