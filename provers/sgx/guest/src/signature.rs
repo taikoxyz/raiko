@@ -4,11 +4,11 @@ use raiko_lib::primitives::{keccak256, Address, Signature, B256};
 use rand_core::OsRng;
 use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
-    Error, KeyPair, Message, PublicKey, SecretKey, SECP256K1,
+    Error, Keypair, Message, PublicKey, SecretKey, SECP256K1,
 };
 
-pub fn generate_key() -> KeyPair {
-    KeyPair::new_global(&mut OsRng)
+pub fn generate_key() -> Keypair {
+    Keypair::new_global(&mut OsRng)
 }
 
 /// Recovers the address of the sender using secp256k1 pubkey recovery.

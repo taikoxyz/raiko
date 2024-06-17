@@ -3,9 +3,9 @@ harness::entrypoint!(main, tests, zk_op::tests);
 // harness::entrypoint!(main, tests);
 
 use raiko_lib::{
-    consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::{GuestInput, GuestOutput},
+    consts::VerifierType,
+    input::{GuestInput},
     protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
@@ -28,8 +28,8 @@ pub fn main() {
 
     let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
     let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
-            .unwrap()
-            .instance_hash();
+        .unwrap()
+        .instance_hash();
 
     sp1_zkvm::io::commit(&pi);
 }
