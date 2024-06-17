@@ -36,6 +36,7 @@ opt-level = 3
 # raiko
 raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
+raiko-task-manager = { path = "./task_manager" }
 
 # revm
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35-taiko", default-features = false }

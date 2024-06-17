@@ -16,15 +16,20 @@ pub mod interfaces;
 pub mod metrics;
 pub mod server;
 
-use std::{alloc, path::PathBuf};
+use std::{alloc, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
-use raiko_core::{interfaces::ProofRequestOpt, merge};
+use raiko_core::{
+    interfaces::{ProofRequest, ProofRequestOpt},
+    merge,
+};
 use raiko_lib::consts::SupportedChainSpecs;
+use raiko_task_manager::TaskDb;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::{mpsc, Mutex};
 
 use crate::interfaces::HostResult;
 
@@ -104,6 +109,10 @@ pub struct Cli {
     #[arg(long, require_equals = true)]
     /// Set jwt secret for auth
     jwt_secret: Option<String>,
+
+    #[arg(long, require_equals = true, default_value = "raiko.sqlite")]
+    /// Set the path to the sqlite db file
+    sqlite_file: PathBuf,
 }
 
 impl Cli {
@@ -124,6 +133,8 @@ impl Cli {
 pub struct ProverState {
     pub opts: Cli,
     pub chain_specs: SupportedChainSpecs,
+    pub task_db: Arc<Mutex<TaskDb>>,
+    pub tx: mpsc::Sender<(ProofRequest, Cli)>,
 }
 
 impl ProverState {
@@ -146,7 +157,25 @@ impl ProverState {
             }
         }
 
-        Ok(Self { opts, chain_specs })
+        let db = TaskDb::open_or_create(&opts.sqlite_file)?;
+        let task_db = Arc::new(Mutex::new(db));
+        // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
+
+        let (tx, mut rx) = mpsc::channel(opts.concurrency_limit);
+
+        tokio::spawn(async move {
+            while let Some(_proof_request_opt) = rx.recv().await {
+                // TODO:(petar) implement proof request handler here
+                todo!();
+            }
+        });
+
+        Ok(Self {
+            opts,
+            chain_specs,
+            task_db,
+            tx,
+        })
     }
 }
 

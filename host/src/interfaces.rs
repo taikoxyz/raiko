@@ -1,11 +1,20 @@
 use axum::response::IntoResponse;
 use raiko_core::interfaces::ProofType;
 use raiko_lib::prover::ProverError;
+use raiko_task_manager::TaskManagerError;
 use utoipa::ToSchema;
 
 /// The standardized error returned by the Raiko host.
 #[derive(thiserror::Error, Debug, ToSchema)]
 pub enum HostError {
+    /// For unexpectedly dropping task handle.
+    #[error("Task handle unexpectedly dropped")]
+    HandleDropped,
+
+    /// For full prover capacity.
+    #[error("Capacity full")]
+    CapacityFull,
+
     /// For invalid address.
     #[error("Invalid address: {0}")]
     InvalidAddress(String),
@@ -56,6 +65,10 @@ pub enum HostError {
     #[error("There was an unexpected error: {0}")]
     #[schema(value_type = Value)]
     Anyhow(#[from] anyhow::Error),
+
+    /// For task manager errors.
+    #[error("There was an error with the task manager: {0}")]
+    TaskManager(#[from] TaskManagerError),
 }
 
 impl IntoResponse for HostError {
@@ -74,6 +87,9 @@ impl IntoResponse for HostError {
                 ("feature_not_supported_error".to_string(), t.to_string())
             }
             HostError::Anyhow(e) => ("anyhow_error".to_string(), e.to_string()),
+            HostError::HandleDropped => ("handle_dropped".to_string(), "".to_string()),
+            HostError::CapacityFull => ("capacity_full".to_string(), "".to_string()),
+            HostError::TaskManager(e) => ("task_manager".to_string(), e.to_string()),
         };
         axum::Json(serde_json::json!({ "status": "error", "error": error, "message": message }))
             .into_response()

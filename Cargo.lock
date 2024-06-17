@@ -5293,6 +5293,7 @@ dependencies = [
  "proptest",
  "raiko-core",
  "raiko-lib",
+ "raiko-task-manager",
  "reqwest 0.11.27",
  "reqwest 0.12.4",
  "revm",
@@ -5423,6 +5424,21 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber 0.3.18",
  "url",
+]
+
+[[package]]
+name = "raiko-task-manager"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "chrono",
+ "num_enum 0.7.2",
+ "raiko-lib",
+ "rand 0.9.0-alpha.1",
+ "rand_chacha 0.9.0-alpha.1",
+ "rusqlite",
+ "tempfile",
+ "thiserror",
 ]
 
 [[package]]
@@ -7437,21 +7453,6 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
-
-[[package]]
-name = "task_manager"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "chrono",
- "num_enum 0.7.2",
- "raiko-lib",
- "rand 0.9.0-alpha.1",
- "rand_chacha 0.9.0-alpha.1",
- "rusqlite",
- "tempfile",
- "thiserror",
-]
 
 [[package]]
 name = "tempfile"

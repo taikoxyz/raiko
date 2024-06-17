@@ -1,5 +1,5 @@
 [package]
-name = "task_manager"
+name = "raiko-task-manager"
 version = "0.1.0"
 authors = ["Mamy Ratsimbazafy <mamy $at$ taiko.xyz>"]
 edition = "2021"                                      # { workspace = true }

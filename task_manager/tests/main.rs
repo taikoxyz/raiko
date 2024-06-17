@@ -13,7 +13,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use raiko_lib::primitives::B256;
-    use task_manager::{EnqueueTaskParams, TaskDb, TaskProofsys, TaskStatus};
+    use raiko_task_manager::{EnqueueTaskParams, TaskDb, TaskProofsys, TaskStatus};
 
     fn create_random_task(submitter: String) -> EnqueueTaskParams {
         let mut rng = ChaCha8Rng::seed_from_u64(123);
