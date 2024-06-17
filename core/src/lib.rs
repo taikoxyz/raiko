@@ -119,7 +119,7 @@ impl Raiko {
                     "block hash unexpected",
                 )?;
 
-                let output = GuestOutput::Success { header, hash: pi };
+                let output = GuestOutput { header, hash: pi };
 
                 Ok(output)
             }
@@ -203,6 +203,14 @@ mod tests {
 
     fn test_proof_params() -> HashMap<String, Value> {
         let mut prover_args = HashMap::new();
+        prover_args.insert(
+            "native".to_string(),
+            json! {
+                {
+                    "write_guest_input_path": null
+                }
+            },
+        );
         prover_args.insert(
             "risc0".to_string(),
             json! {

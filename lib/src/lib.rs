@@ -85,6 +85,32 @@ mod time {
     }
 }
 
+pub struct CycleTracker {
+    title: String,
+}
+
+impl CycleTracker {
+    pub fn start(title: &str) -> CycleTracker {
+        let ct = CycleTracker {
+            title: title.to_string(),
+        };
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
+        println!("cycle-tracker-start: {title}");
+        ct
+    }
+
+    pub fn end(&self) {
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
+        println!("cycle-tracker-end: {self.title}");
+    }
+}
+
 pub struct Measurement {
     start: time::Instant,
     title: String,

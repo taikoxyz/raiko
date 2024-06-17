@@ -1,5 +1,4 @@
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
-use revm_primitives::keccak256;
 use sha2_v0_10_8 as sp1_sha2;
 use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
 
@@ -68,7 +67,7 @@ impl ZkvmOperator for Sp1Operator {
         let recovered_key = sp1_precompiles::secp256k1::ecrecover(&sig_id, msg)
             .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
 
-        let mut hash = keccak256(&recovered_key[1..]);
+        let mut hash = revm_primitives::keccak256(&recovered_key[1..]);
 
         // truncate to 20 bytes
         hash[..12].fill(0);
@@ -85,7 +84,7 @@ fn be_bytes_to_point(input: &[u8]) -> AffinePoint<Bn254, 16> {
     y.reverse();
 
     // Init AffinePoint for sp1
-    AffinePoint::<Bn254, 16>::from(x, y)
+    AffinePoint::<Bn254, 16>::from(&x, &y)
 }
 
 #[inline]
@@ -137,7 +136,7 @@ harness::zk_suits!(
                     le_chunk
                 })
                 .collect::<Vec<_>>();
-            let p = AffinePoint::<Bn254, 16>::from(p_bytes[0], p_bytes[1]);
+            let p = AffinePoint::<Bn254, 16>::from(&p_bytes[0], &p_bytes[1]);
 
             let mut p_x_le = p.to_le_bytes()[..32].to_owned();
             let mut p_y_le = p.to_le_bytes()[32..].to_owned();
@@ -170,7 +169,7 @@ harness::zk_suits!(
             p_x.reverse();
             p_y.reverse();
 
-            let p = AffinePoint::<Bn254, 16>::from(p_x, p_y);
+            let p = AffinePoint::<Bn254, 16>::from(&p_x, &p_y);
             let p_bytes_le = p.to_le_bytes();
 
             // Reverse to x, y separately to big-endian bytes

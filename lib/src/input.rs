@@ -106,13 +106,10 @@ pub struct TaikoProverData {
 
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GuestOutput {
-    Success {
-        #[serde_as(as = "RlpHexBytes")]
-        header: AlloyConsensusHeader,
-        hash: B256,
-    },
-    Failure,
+pub struct GuestOutput {
+    #[serde_as(as = "RlpHexBytes")]
+    pub header: AlloyConsensusHeader,
+    pub hash: B256,
 }
 
 sol! {
