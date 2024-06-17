@@ -42,7 +42,7 @@ impl ProtocolInstance {
             } else {
                 println!("kzg check enabled!");
                 let data_size = KZG_TRUST_SETUP_DATA.len();
-                let aligned_data_size = data_size + (4 - (data_size % 4));
+                let aligned_data_size = (data_size + 3) / 4 * 4;
                 let layout = Layout::from_size_align(aligned_data_size, 4).unwrap();
                 // Allocate aligned memory
                 let raw_ptr = unsafe { alloc(layout) as *mut u8 };
