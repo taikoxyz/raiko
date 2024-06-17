@@ -4,17 +4,15 @@ use risc0_zkvm::guest::env;
 
 use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::{
-    consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::{GuestInput, GuestOutput},
+    consts::VerifierType,
+    input::GuestInput,
 };
 use revm_precompile::zk_op::ZkOperation;
 use zk_op::Risc0Operator;
 
 pub mod mem;
 
-#[cfg(test)]
-use harness::*;
 pub use mem::*;
 
 fn main() {
@@ -27,8 +25,8 @@ fn main() {
 
     let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
     let pi = ProtocolInstance::new(&input, &header, VerifierType::RISC0)
-            .unwrap()
-            .instance_hash();
+        .unwrap()
+        .instance_hash();
 
     env::commit(&pi);
 }

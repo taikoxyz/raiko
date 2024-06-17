@@ -27,6 +27,7 @@ use crate::{
     input::GuestInput,
     mem_db::MemDb,
     primitives::mpt::MptNode,
+    CycleTracker,
 };
 
 pub mod execute;
@@ -76,22 +77,34 @@ where
 
     /// Initializes the database from the input.
     pub fn initialize_database<T: DbInitStrategy<D>>(self) -> Result<Self> {
-        T::initialize_database(self)
+        let cycle_tracker = CycleTracker::start("initialize_database");
+        let res = T::initialize_database(self);
+        cycle_tracker.end();
+        res
     }
 
     /// Initializes the header. This must be called before executing transactions.
     pub fn prepare_header<T: HeaderPrepStrategy>(self) -> Result<Self> {
-        T::prepare_header(self)
+        let cycle_tracker = CycleTracker::start("prepare_header");
+        let res = T::prepare_header(self);
+        cycle_tracker.end();
+        res
     }
 
     /// Executes all input transactions.
     pub fn execute_transactions<T: TxExecStrategy>(self) -> Result<Self> {
-        T::execute_transactions(self)
+        let cycle_tracker = CycleTracker::start("execute_transactions");
+        let res = T::execute_transactions(self);
+        cycle_tracker.end();
+        res
     }
 
     /// Finalizes the block building and returns the header and the state trie.
     pub fn finalize<T: BlockFinalizeStrategy<D>>(self) -> Result<(AlloyConsensusHeader, MptNode)> {
-        T::finalize(self)
+        let cycle_tracker = CycleTracker::start("finalize");
+        let res = T::finalize(self);
+        cycle_tracker.end();
+        res
     }
 
     /// Returns a reference to the database.
