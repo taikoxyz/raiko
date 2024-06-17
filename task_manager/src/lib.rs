@@ -164,6 +164,7 @@ use raiko_lib::primitives::{BlockNumber, ChainId, B256};
 use rusqlite::{
     Error as SqlError, {named_params, Statement}, {Connection, OpenFlags},
 };
+use serde::Serialize;
 
 // Types
 // ----------------------------------------------------------------
@@ -200,7 +201,9 @@ pub struct TaskManager<'db> {
     enqueue_task: Statement<'db>,
     update_task_progress: Statement<'db>,
     get_task_proof: Statement<'db>,
+    get_task_proof_by_id: Statement<'db>,
     get_task_proving_status: Statement<'db>,
+    get_task_proving_status_by_id: Statement<'db>,
     #[allow(dead_code)]
     get_tasks_unfinished: Statement<'db>,
     get_db_size: Statement<'db>,
@@ -215,7 +218,7 @@ pub enum TaskProofsys {
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
-#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive)]
+#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Serialize)]
 #[repr(i32)]
 pub enum TaskStatus {
     Success                   =     0,
@@ -625,6 +628,18 @@ impl TaskDb {
             ",
         )?;
 
+        let get_task_proof_by_id = conn.prepare(
+            "
+            SELECT proof
+            FROM task_proofs tp
+            LEFT JOIN
+                tasks t ON tp.id_task = t.id_task
+            WHERE 1=1
+                AND t.id_task = :task_id
+            LIMIT 1;
+            ",
+        )?;
+
         let get_task_proving_status = conn.prepare(
             "
             SELECT
@@ -641,6 +656,27 @@ impl TaskDb {
                 AND t.chain_id = :chain_id
                 AND t.blockhash = :blockhash
                 AND t.id_proofsys = :id_proofsys
+            GROUP BY
+                t3p.id_thirdparty
+            ORDER BY
+                ts.timestamp DESC;
+            ",
+        )?;
+
+        let get_task_proving_status_by_id = conn.prepare(
+            "
+            SELECT
+                t3p.thirdparty_desc,
+                ts.id_status,
+                MAX(timestamp)
+            FROM
+                task_status ts
+            LEFT JOIN
+                tasks t ON ts.id_task = t.id_task
+            LEFT JOIN
+                thirdparties t3p ON ts.id_thirdparty = t3p.id_thirdparty
+            WHERE 1=1
+                AND t.id_task = :task_id
             GROUP BY
                 t3p.id_thirdparty
             ORDER BY
@@ -680,7 +716,9 @@ impl TaskDb {
             enqueue_task,
             update_task_progress,
             get_task_proof,
+            get_task_proof_by_id,
             get_task_proving_status,
+            get_task_proving_status_by_id,
             get_tasks_unfinished,
             get_db_size,
         })
@@ -701,7 +739,7 @@ pub struct EnqueueTaskParams {
     pub payload: Vec<u8>,
 }
 
-type TaskProvingStatus = Vec<(Option<String>, TaskStatus, DateTime<Utc>)>;
+pub type TaskProvingStatus = Vec<(Option<String>, TaskStatus, DateTime<Utc>)>;
 
 impl<'db> TaskManager<'db> {
     pub fn enqueue_task(
@@ -780,6 +818,28 @@ impl<'db> TaskManager<'db> {
         Ok(proving_status)
     }
 
+    /// Returns the latest triplet (submitter or fulfiller, status, last update time)
+    pub fn get_task_proving_status_by_id(
+        &mut self,
+        task_id: u64,
+    ) -> TaskManagerResult<TaskProvingStatus> {
+        let rows = self.get_task_proving_status_by_id.query_map(
+            named_params! {
+                ":task_id": task_id,
+            },
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    TaskStatus::from(row.get::<_, i32>(1)?),
+                    row.get::<_, DateTime<Utc>>(2)?,
+                ))
+            },
+        )?;
+        let proving_status = rows.collect::<Result<Vec<_>, _>>()?;
+
+        Ok(proving_status)
+    }
+
     pub fn get_task_proof(
         &mut self,
         chain_id: ChainId,
@@ -791,6 +851,17 @@ impl<'db> TaskManager<'db> {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.as_slice(),
                 ":id_proofsys": proof_system as u8,
+            },
+            |r| r.get(0),
+        )?;
+
+        Ok(proof)
+    }
+
+    pub fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
+        let proof = self.get_task_proof_by_id.query_row(
+            named_params! {
+                ":task_id": task_id,
             },
             |r| r.get(0),
         )?;

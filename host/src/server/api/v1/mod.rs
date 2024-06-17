@@ -9,9 +9,9 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{interfaces::HostError, ProverState};
 
-mod health;
-mod metrics;
-mod proof;
+pub mod health;
+pub mod metrics;
+pub mod proof;
 
 #[derive(OpenApi)]
 #[openapi(

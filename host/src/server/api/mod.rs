@@ -36,10 +36,12 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
     let trace = TraceLayer::new_for_http();
 
     let v1_api = v1::create_router(concurrency_limit);
+    let v2_api = v2::create_router(concurrency_limit);
 
     let router = Router::new()
-        .nest("/v1", v1_api.clone())
-        .merge(v1_api)
+        .nest("/v1", v1_api)
+        .nest("/v2", v2_api.clone())
+        .merge(v2_api)
         .layer(middleware)
         .layer(middleware::from_fn(check_max_body_size))
         .layer(trace)

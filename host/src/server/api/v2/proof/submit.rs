@@ -75,5 +75,5 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", post(submit_handler))
+    Router::new().route("/submit", post(submit_handler))
 }
