@@ -42,6 +42,9 @@ impl BlockFinalizeStrategy<MemDb> for MemDbBlockFinalizeStrategy {
     fn finalize(mut block_builder: BlockBuilder<MemDb>) -> Result<(AlloyConsensusHeader, MptNode)> {
         let db: MemDb = block_builder.db.take().expect("DB not initialized");
 
+        let mut account_touched = 0;
+        let mut storage_touched = 0;
+
         // apply state updates
         let mut state_trie = mem::take(&mut block_builder.input.parent_state_trie);
         for (address, account) in &db.accounts {
@@ -58,6 +61,8 @@ impl BlockFinalizeStrategy<MemDb> for MemDbBlockFinalizeStrategy {
                 state_trie.delete(&state_trie_index)?;
                 continue;
             }
+
+            account_touched += 1;
 
             // otherwise, compute the updated storage root for that account
             let state_storage = &account.storage;
@@ -82,6 +87,8 @@ impl BlockFinalizeStrategy<MemDb> for MemDbBlockFinalizeStrategy {
                     } else {
                         storage_trie.insert_rlp(&storage_trie_index, *value)?;
                     }
+
+                    storage_touched += 1;
                 }
 
                 storage_trie.hash()
@@ -94,6 +101,12 @@ impl BlockFinalizeStrategy<MemDb> for MemDbBlockFinalizeStrategy {
                 code_hash: account.info.code_hash,
             };
             state_trie.insert_rlp(&state_trie_index, state_account)?;
+        }
+
+        #[cfg(feature = "sp1-cycle-tracker")]
+        {
+            println!("finalize Account touched {:?}", account_touched);
+            println!("finalize Storage touched {:?}", storage_touched);
         }
 
         // update result header with the new state root

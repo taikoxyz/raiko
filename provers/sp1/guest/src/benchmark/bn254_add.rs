@@ -20,7 +20,7 @@ fn main() {
     let hi = res[..32].to_vec();
     let lo = res[32..].to_vec();
 
-    // Longer than 32 bit register 
+    // Longer than 32 bit register
     sp1_zkvm::io::commit(&hi);
     sp1_zkvm::io::commit(&lo);
 }

@@ -41,7 +41,6 @@ impl ZkvmOperator for Risc0Operator {
         mut recid: u8,
         msg: &[u8; 32],
     ) -> Result<[u8; 32], Error> {
-
         use risc0_k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 
         // parse signature
@@ -74,22 +73,29 @@ harness::zk_suits!(
     pub mod tests {
         #[test]
         pub fn test_sha256() {
+            use crate::risc0_sha2::{Digest, Sha256};
             use harness::*;
             use raiko_lib::primitives::hex;
-            use risc0_sha2::{Digest, Sha256};
 
             let test_ves = [
-                ("", hex!("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")),
-                (   "The quick brown fox jumps over the lazy dog",
-                    hex!("d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592")
+                (
+                    "",
+                    hex!("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
                 ),
-                ("hello", hex!("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")),
+                (
+                    "The quick brown fox jumps over the lazy dog",
+                    hex!("d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592"),
+                ),
+                (
+                    "hello",
+                    hex!("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"),
+                ),
             ];
 
             for v in test_ves.iter() {
                 let (input, expected) = *v;
                 let result: [u8; 32] = Sha256::digest(input.as_bytes()).into();
-                harness::assert_eq!(result, expected);
+                assert!(result == expected);
             }
         }
     }
