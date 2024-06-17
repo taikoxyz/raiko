@@ -146,10 +146,10 @@ impl BlockDataProvider for RpcBlockDataProvider {
                         RaikoError::RPC(format!("Failed to collect nonce request: {e}"))
                     })?,
                     balance_request.await.map_err(|e| {
-                        RaikoError::RPC(format!("Failed to collect balance reques: {e}"))
+                        RaikoError::RPC(format!("Failed to collect balance request: {e}"))
                     })?,
                     code_request.await.map_err(|e| {
-                        RaikoError::RPC(format!("Failed to collect code reques: {e}"))
+                        RaikoError::RPC(format!("Failed to collect code request: {e}"))
                     })?,
                 );
 
@@ -303,9 +303,9 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
             // Collect the data from the batch
             for request in requests {
-                let mut proof = request.await.map_err(|e| {
-                    RaikoError::RPC(format!("Error collecting request data: {e}"))
-                })?;
+                let mut proof = request
+                    .await
+                    .map_err(|e| RaikoError::RPC(format!("Error collecting request data: {e}")))?;
                 idx += proof.storage_proof.len();
                 if let Some(map_proof) = storage_proofs.get_mut(&proof.address) {
                     map_proof.storage_proof.append(&mut proof.storage_proof);
