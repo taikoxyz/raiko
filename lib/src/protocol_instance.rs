@@ -1,3 +1,4 @@
+use super::utils::ANCHOR_GAS_LIMIT;
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
@@ -5,7 +6,6 @@ use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use sha2::{Digest as _, Sha256};
 use std::alloc::{alloc, Layout};
-use super::utils::ANCHOR_GAS_LIMIT;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -50,9 +50,8 @@ impl ProtocolInstance {
                     panic!("Failed to allocate memory with aligned pointer");
                 }
                 // Convert to a Vec (unsafe because we are managing raw memory)
-                let mut aligned_vec = unsafe {
-                    Vec::from_raw_parts(raw_ptr, data_size, aligned_data_size)
-                };
+                let mut aligned_vec =
+                    unsafe { Vec::from_raw_parts(raw_ptr, data_size, aligned_data_size) };
                 // Copy data into aligned_vec
                 aligned_vec.copy_from_slice(KZG_TRUST_SETUP_DATA);
 
@@ -64,7 +63,6 @@ impl ProtocolInstance {
                 )
                 .expect("Fail to calculate KZG commitment");
                 let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
-                println!("kzg check !versioned_hash = {:?}", versioned_hash);
                 assert_eq!(
                     versioned_hash,
                     input.taiko.tx_blob_hash.unwrap(),
