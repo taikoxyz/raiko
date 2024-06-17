@@ -4,8 +4,9 @@ use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use sha2::{Digest as _, Sha256};
-
+use std::alloc::{alloc, Layout};
 use super::utils::ANCHOR_GAS_LIMIT;
+
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
@@ -40,8 +41,22 @@ impl ProtocolInstance {
                 input.taiko.tx_blob_hash.unwrap()
             } else {
                 println!("kzg check enabled!");
-                let mut data = Vec::from(KZG_TRUST_SETUP_DATA);
-                let kzg_settings = KzgSettings::from_u8_slice(&mut data);
+                let data_size = KZG_TRUST_SETUP_DATA.len();
+                let aligned_data_size = data_size + (4 - (data_size % 4));
+                let layout = Layout::from_size_align(aligned_data_size, 4).unwrap();
+                // Allocate aligned memory
+                let raw_ptr = unsafe { alloc(layout) as *mut u8 };
+                if raw_ptr.is_null() {
+                    panic!("Failed to allocate memory with aligned pointer");
+                }
+                // Convert to a Vec (unsafe because we are managing raw memory)
+                let mut aligned_vec = unsafe {
+                    Vec::from_raw_parts(raw_ptr, data_size, aligned_data_size)
+                };
+                // Copy data into aligned_vec
+                aligned_vec.copy_from_slice(KZG_TRUST_SETUP_DATA);
+
+                let kzg_settings = KzgSettings::from_u8_slice(&mut aligned_vec);
                 let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
                     &Blob::from_bytes(input.taiko.tx_data.as_slice())
                         .expect("Fail to form blob from tx bytes"),
@@ -49,11 +64,13 @@ impl ProtocolInstance {
                 )
                 .expect("Fail to calculate KZG commitment");
                 let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
+                println!("kzg check !versioned_hash = {:?}", versioned_hash);
                 assert_eq!(
                     versioned_hash,
                     input.taiko.tx_blob_hash.unwrap(),
                     "Blob version hash not matching"
                 );
+                drop(aligned_vec);
                 versioned_hash
             }
         } else {
