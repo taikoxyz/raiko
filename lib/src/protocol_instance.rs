@@ -45,7 +45,7 @@ impl ProtocolInstance {
                 let aligned_data_size = (data_size + 3) / 4 * 4;
                 let layout = Layout::from_size_align(aligned_data_size, 4).unwrap();
                 // Allocate aligned memory
-                let raw_ptr = unsafe { alloc(layout) as *mut u8 };
+                let raw_ptr = unsafe { alloc(layout) };
                 if raw_ptr.is_null() {
                     panic!("Failed to allocate memory with aligned pointer");
                 }
