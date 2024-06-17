@@ -18,7 +18,7 @@ pub fn create_docs() -> openapi::OpenApi {
 
 pub fn create_router() -> Router<ProverState> {
     Router::new()
-        .nest("", get::create_router())
-        .nest("", status::create_router())
-        .nest("", submit::create_router())
+        .merge(get::create_router())
+        .merge(status::create_router())
+        .merge(submit::create_router())
 }
