@@ -4,7 +4,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use raiko_task_manager::TaskProvingStatus;
+use raiko_task_manager::{TaskDb, TaskProvingStatus};
 use utoipa::OpenApi;
 
 use crate::{interfaces::HostResult, ProverState};
@@ -24,8 +24,8 @@ async fn status_handler(
     State(prover_state): State<ProverState>,
     Path(task_id): Path<u64>,
 ) -> HostResult<Json<TaskProvingStatus>> {
-    let task_db = prover_state.task_db.lock().await;
-    let mut manager = task_db.manage()?;
+    let db = TaskDb::open_or_create(&prover_state.opts.sqlite_file)?;
+    let mut manager = db.manage()?;
     let status = manager.get_task_proving_status_by_id(task_id)?;
     Ok(Json(status))
 }

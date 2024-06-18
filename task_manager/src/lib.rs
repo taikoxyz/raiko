@@ -160,6 +160,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use num_enum::{FromPrimitive, IntoPrimitive};
+use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{BlockNumber, ChainId, B256};
 use rusqlite::{
     Error as SqlError, {named_params, Statement}, {Connection, OpenFlags},
@@ -214,6 +215,17 @@ pub enum TaskProofsys {
     Risc0 = 0,
     SP1 = 1,
     SGX = 2,
+}
+
+impl From<ProofType> for TaskProofsys {
+    fn from(value: ProofType) -> Self {
+        match value {
+            ProofType::Sp1 => Self::SP1,
+            ProofType::Sgx => Self::SGX,
+            ProofType::Risc0 => Self::Risc0,
+            ProofType::Native => unreachable!(),
+        }
+    }
 }
 
 #[allow(non_camel_case_types)]

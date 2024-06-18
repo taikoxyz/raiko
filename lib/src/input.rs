@@ -96,6 +96,7 @@ pub struct TaikoGuestInput {
     pub prover_data: TaikoProverData,
     pub tx_blob_hash: Option<B256>,
     pub skip_verify_blob: bool,
+    pub tx_len: u64,
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]

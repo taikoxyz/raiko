@@ -2,6 +2,7 @@ use axum::response::IntoResponse;
 use raiko_core::interfaces::ProofType;
 use raiko_lib::prover::ProverError;
 use raiko_task_manager::TaskManagerError;
+use tokio::sync::mpsc::error::TrySendError;
 use utoipa::ToSchema;
 
 /// The standardized error returned by the Raiko host.
@@ -93,6 +94,15 @@ impl IntoResponse for HostError {
         };
         axum::Json(serde_json::json!({ "status": "error", "error": error, "message": message }))
             .into_response()
+    }
+}
+
+impl<T> From<TrySendError<T>> for HostError {
+    fn from(value: TrySendError<T>) -> Self {
+        match value {
+            TrySendError::Full(_) => HostError::CapacityFull,
+            TrySendError::Closed(_) => HostError::HandleDropped,
+        }
     }
 }
 

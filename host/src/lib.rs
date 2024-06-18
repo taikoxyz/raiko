@@ -133,7 +133,6 @@ impl Cli {
 pub struct ProverState {
     pub opts: Cli,
     pub chain_specs: SupportedChainSpecs,
-    pub task_db: Arc<Mutex<TaskDb>>,
     pub task_channel: mpsc::Sender<(ProofRequest, Cli)>,
 }
 
@@ -157,14 +156,10 @@ impl ProverState {
             }
         }
 
-        let db = TaskDb::open_or_create(&opts.sqlite_file)?;
-        let task_db = Arc::new(Mutex::new(db));
-        // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
-
-        let (tx, mut rx) = mpsc::channel(opts.concurrency_limit);
+        let (task_channel, mut receiver) = mpsc::channel(opts.concurrency_limit);
 
         tokio::spawn(async move {
-            while let Some(_proof_request_opt) = rx.recv().await {
+            while let Some(_proof_request_opt) = receiver.recv().await {
                 // TODO:(petar) implement proof request handler here
                 todo!();
             }
@@ -173,8 +168,7 @@ impl ProverState {
         Ok(Self {
             opts,
             chain_specs,
-            task_db,
-            task_channel: tx,
+            task_channel,
         })
     }
 }

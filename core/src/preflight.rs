@@ -322,6 +322,7 @@ async fn prepare_taiko_chain_input(
         block_proposed: proposal_event,
         prover_data,
         skip_verify_blob: false,
+        tx_len: transactions.len() as u64,
     })
 }
 
