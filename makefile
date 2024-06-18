@@ -16,5 +16,4 @@ fmt:
 	@cargo fmt --all --check
 
 clippy:
-	./script/install.sh $(TARGET)
 	CLIPPY=1 ./script/build.sh $(TARGET)
