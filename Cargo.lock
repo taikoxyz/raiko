@@ -5433,6 +5433,7 @@ dependencies = [
  "alloy-primitives",
  "chrono",
  "num_enum 0.7.2",
+ "raiko-core",
  "raiko-lib",
  "rand 0.9.0-alpha.1",
  "rand_chacha 0.9.0-alpha.1",
