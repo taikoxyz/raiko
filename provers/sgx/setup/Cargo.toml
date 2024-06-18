@@ -8,7 +8,7 @@ edition = "2021"
 sgx-prover = { path = "../prover", features = ["enable"] }
 
 # raiko
-raiko-lib = { workspace = true, features = ["c-kzg"] }
+raiko-lib = { workspace = true, features = ["kzg"] }
 
 # alloy
 alloy-rlp = { workspace = true }

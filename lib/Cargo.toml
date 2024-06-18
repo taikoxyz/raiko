@@ -32,6 +32,9 @@ once_cell = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
 c-kzg = { workspace = true }
+rust-kzg-zkcrypto = { workspace = true }≠∏
+kzg = { workspace = true }
+
 sha2 = { workspace = true }
 sha3 = { workspace = true }
 rlp = { workspace = true, features = ["std"] }
@@ -71,5 +74,5 @@ tracer = ["revm/serde-json"]
 sgx = []
 sp1 = []
 risc0 = []
-c-kzg = ["revm-primitives/c-kzg", "dep:tempfile"]
+kzg = ["revm-primitives/kzg", "dep:tempfile"]
 sp1-cycle-tracker = []
