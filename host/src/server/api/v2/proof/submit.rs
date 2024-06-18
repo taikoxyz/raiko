@@ -46,7 +46,7 @@ async fn submit_handler(
         proof_request.block_number, proof_request.network
     );
     prover_state
-        .tx
+        .task_channel
         .try_send((proof_request, prover_state.opts))
         .map_err(|e| match e {
             tokio::sync::mpsc::error::TrySendError::Full(_) => HostError::CapacityFull,

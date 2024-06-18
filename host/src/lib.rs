@@ -134,7 +134,7 @@ pub struct ProverState {
     pub opts: Cli,
     pub chain_specs: SupportedChainSpecs,
     pub task_db: Arc<Mutex<TaskDb>>,
-    pub tx: mpsc::Sender<(ProofRequest, Cli)>,
+    pub task_channel: mpsc::Sender<(ProofRequest, Cli)>,
 }
 
 impl ProverState {
@@ -174,7 +174,7 @@ impl ProverState {
             opts,
             chain_specs,
             task_db,
-            tx,
+            task_channel: tx,
         })
     }
 }
