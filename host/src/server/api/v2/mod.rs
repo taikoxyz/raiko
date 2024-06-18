@@ -58,7 +58,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     })
 }
 
-pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
+pub fn create_router() -> Router<ProverState> {
     let docs = create_docs();
 
     Router::new()
