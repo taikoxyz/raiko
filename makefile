@@ -17,4 +17,4 @@ fmt:
 
 clippy:
 	./script/install.sh $(TARGET)
-	./script/clippy.sh $(TARGET)
+	CLIPPY=1 ./script/build.sh $(TARGET)
