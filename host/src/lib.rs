@@ -11,12 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-pub mod interfaces;
-pub mod metrics;
-pub mod server;
-
-use std::{alloc, path::PathBuf, sync::Arc};
+use std::{alloc, path::PathBuf};
 
 use anyhow::Context;
 use cap::Cap;
@@ -26,12 +21,15 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_task_manager::TaskDb;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 
 use crate::interfaces::HostResult;
+
+pub mod interfaces;
+pub mod metrics;
+pub mod server;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);

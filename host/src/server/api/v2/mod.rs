@@ -1,4 +1,3 @@
-mod proof;
 use axum::Router;
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
@@ -8,6 +7,8 @@ use crate::{
     server::api::v1::{self, GuestOutputDoc, ProofResponse, Status},
     ProverState,
 };
+
+mod proof;
 
 #[derive(OpenApi)]
 #[openapi(
