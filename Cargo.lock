@@ -6886,25 +6886,12 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
- "cargo_metadata 0.18.1",
- "chrono",
  "once_cell",
  "raiko-lib",
- "regex",
  "serde",
  "serde_json",
  "sha3",
- "sp1-helper",
  "sp1-sdk",
-]
-
-[[package]]
-name = "sp1-helper"
-version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=main#8c0f5010606f9c2306effe60412d421c23e88afa"
-dependencies = [
- "cargo_metadata 0.18.1",
- "chrono",
 ]
 
 [[package]]
