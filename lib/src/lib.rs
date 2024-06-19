@@ -37,6 +37,7 @@ pub mod mem_db;
 pub mod primitives;
 pub mod protocol_instance;
 pub mod prover;
+pub mod signature;
 pub mod utils;
 
 #[cfg(not(target_os = "zkvm"))]

@@ -12,5 +12,3 @@ tokio = { workspace = true }
 bincode = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-k256 = { workspace = true }
-rand_core = { workspace = true }

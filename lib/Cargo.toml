@@ -27,6 +27,10 @@ serde_with = { workspace = true, optional = true }
 revm = { workspace = true }
 revm-primitives = { workspace = true }
 
+# crypto
+secp256k1 = { workspace = true }
+rand_core = { workspace = true }
+
 libflate = { workspace = true }
 once_cell = { workspace = true }
 url = { workspace = true }
@@ -56,16 +60,16 @@ hex-literal = { workspace = true }
 [features]
 default = ["std"]
 std = [
-  # always use no-std for revm since we use hashbrown in workspace
-  # "revm/std",
-  "dep:thiserror",
-  "anyhow/std",
-  "dep:chrono",
-  "dep:flate2",
-  "dep:log",
-  "dep:serde_json",
-  "dep:serde_with",
-  # "dep:tokio",
+    # always use no-std for revm since we use hashbrown in workspace
+    # "revm/std",
+    "dep:thiserror",
+    "anyhow/std",
+    "dep:chrono",
+    "dep:flate2",
+    "dep:log",
+    "dep:serde_json",
+    "dep:serde_with",
+    # "dep:tokio",
 ]
 tracer = ["revm/serde-json"]
 sgx = []

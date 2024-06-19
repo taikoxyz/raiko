@@ -19,10 +19,8 @@ use serde::Serialize;
 
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
-use crate::{
-    app_args::{GlobalOpts, OneShotArgs},
-    signature::*,
-};
+use crate::app_args::{GlobalOpts, OneShotArgs};
+use raiko_lib::signature::*;
 
 pub const ATTESTATION_QUOTE_DEVICE_FILE: &str = "/dev/attestation/quote";
 pub const ATTESTATION_TYPE_DEVICE_FILE: &str = "/dev/attestation/attestation_type";

@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use raiko_lib::primitives::{keccak256, Address, Signature, B256};
+use crate::primitives::{keccak256, Address, Signature, B256};
 use rand_core::OsRng;
 use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
