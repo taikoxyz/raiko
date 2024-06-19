@@ -25,7 +25,7 @@ pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Addres
         RecoveryId::from_i32(sig[64] as i32 - 27)?,
     )?;
 
-    let public = SECP256K1.recover_ecdsa(&Message::from_slice(&msg[..32])?, &sig)?;
+    let public = SECP256K1.recover_ecdsa(&Message::from_digest_slice(&msg[..32])?, &sig)?;
     Ok(public_key_to_address(&public))
 }
 
@@ -34,9 +34,13 @@ pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Addres
 pub fn sign_message(secret_key: &SecretKey, message: B256) -> Result<[u8; 65], Error> {
     let secret = B256::from_slice(&secret_key.secret_bytes()[..]);
     let sec = SecretKey::from_slice(secret.as_ref())?;
-    let s = SECP256K1.sign_ecdsa_recoverable(&Message::from_slice(&message[..])?, &sec);
+    let s = SECP256K1.sign_ecdsa_recoverable(&Message::from_digest_slice(&message[..])?, &sec);
     let (rec_id, data) = s.serialize_compact();
-    let signature = Signature::from_bytes_and_parity(&data, (rec_id.to_i32() != 0) as u64).unwrap();
+    let signature = Signature::from_bytes_and_parity(&data, (rec_id.to_i32() != 0) as u64)
+        .map_err(|e| {
+            println!("Failed to decode signature from bytes with details: {e}");
+            Error::InvalidSignature
+        })?;
     Ok(signature.as_bytes())
 }
 
@@ -50,7 +54,10 @@ pub fn public_key_to_address(public: &PublicKey) -> Address {
 }
 
 pub fn load_private_key<T: AsRef<Path>>(path: T) -> Result<SecretKey, Error> {
-    let data = fs::read(path).unwrap();
+    let data = fs::read(path).map_err(|e| {
+        println!("Failed to read private key from file with details: {e}");
+        Error::InvalidSecretKey
+    })?;
     SecretKey::from_slice(data.as_ref())
 }
 
