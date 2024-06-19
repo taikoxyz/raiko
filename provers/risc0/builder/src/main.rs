@@ -62,7 +62,7 @@ impl Pipeline for Risc0Pipeline {
             .execute()
             .expect("Execution failed")
             .risc0_placement(dest)
-            .expect("Failed to export Sp1 artifacts");
+            .expect("Failed to export Risc0 artifacts");
     }
 
     fn tests(&self, names: &[&str], dest: &str) {
@@ -81,6 +81,6 @@ impl Pipeline for Risc0Pipeline {
             .execute()
             .expect("Execution failed")
             .risc0_placement(dest)
-            .expect("Failed to export Sp1 artifacts");
+            .expect("Failed to export Risc0 artifacts");
     }
 }

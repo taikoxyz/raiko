@@ -1,8 +1,8 @@
 name: CI - Lint
 
 on:
-    pull_request:
-      types: [opened, reopened, edited, synchronize]
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,15 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: risc0/risc0/.github/actions/rustup@release-0.19
+      - name: Run install script for all targets
+        run: make install
 
-      - uses: risc0/risc0/.github/actions/sccache@release-0.19
-
-      - uses: risc0/clippy-action@main
-        with:
-          reporter: 'github-pr-check'
-          fail_on_error: true
-          clippy_flags: --workspace --all-targets --all-features -- -D warnings
+      - name: Run clippy check for all targets
+        run: make clippy
 
   fmt:
     name: fmt
@@ -35,6 +31,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: risc0/risc0/.github/actions/rustup@release-0.19
-
-      - run: make fmt
+      - name: Run format script for all targets
+        run: make fmt
