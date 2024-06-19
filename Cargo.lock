@@ -4160,26 +4160,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "nitro-guest"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "raiko-lib",
- "tokio",
- "tracing",
- "tracing-subscriber 0.3.18",
-]
-
-[[package]]
 name = "nitro-prover"
 version = "0.1.0"
 dependencies = [
  "aws-nitro-enclaves-nsm-api",
  "bincode",
+ "k256",
  "raiko-lib",
+ "rand_core",
  "serde_bytes",
  "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]

@@ -15,7 +15,6 @@ members = [
     "provers/sgx/setup",
     "pipeline",
     "core",
-    "provers/nitro/guest",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -146,6 +145,7 @@ secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "s
     "rand",
     "recovery",
 ] }
+k256 = { version = "^0.13", features = ["ecdsa", "sha256"] }
 
 # macro
 syn = { version = "1.0", features = ["full"] }
