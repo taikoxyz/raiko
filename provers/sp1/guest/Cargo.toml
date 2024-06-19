@@ -43,7 +43,7 @@ revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v35-
     "c-kzg",
 ] }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35-taiko", default-features = false }
-sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
+sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
 sp1-precompiles = { git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["sp1"]}
