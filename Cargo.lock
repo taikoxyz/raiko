@@ -5343,6 +5343,7 @@ dependencies = [
  "rand_chacha 0.9.0-alpha.1",
  "rusqlite",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
 ]

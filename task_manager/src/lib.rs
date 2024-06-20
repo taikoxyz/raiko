@@ -160,7 +160,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use num_enum::{FromPrimitive, IntoPrimitive};
-use raiko_core::interfaces::ProofType;
+use raiko_core::interfaces::{ProofRequest, ProofType};
 use raiko_lib::primitives::{BlockNumber, ChainId, B256};
 use rusqlite::{
     Error as SqlError, {named_params, Statement}, {Connection, OpenFlags},
@@ -170,12 +170,14 @@ use serde::Serialize;
 // Types
 // ----------------------------------------------------------------
 
-#[derive(PartialEq, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum TaskManagerError {
     #[error("IO Error {0}")]
     IOError(IOErrorKind),
     #[error("SQL Error {0}")]
     SqlError(String),
+    #[error("Serde Error {0}")]
+    SerdeError(#[from] serde_json::error::Error),
 }
 
 pub type TaskManagerResult<T> = Result<T, TaskManagerError>;
@@ -212,9 +214,10 @@ pub struct TaskManager<'db> {
 
 #[derive(Debug, Copy, Clone)]
 pub enum TaskProofsys {
-    Risc0 = 0,
-    SP1 = 1,
-    SGX = 2,
+    Native = 0,
+    Risc0 = 1,
+    SP1 = 2,
+    SGX = 3,
 }
 
 impl From<ProofType> for TaskProofsys {
@@ -223,7 +226,18 @@ impl From<ProofType> for TaskProofsys {
             ProofType::Sp1 => Self::SP1,
             ProofType::Sgx => Self::SGX,
             ProofType::Risc0 => Self::Risc0,
-            ProofType::Native => unreachable!(),
+            ProofType::Native => Self::Native,
+        }
+    }
+}
+
+impl From<TaskProofsys> for ProofType {
+    fn from(val: TaskProofsys) -> Self {
+        match val {
+            TaskProofsys::Native => ProofType::Native,
+            TaskProofsys::Risc0 => ProofType::Risc0,
+            TaskProofsys::SP1 => ProofType::Sp1,
+            TaskProofsys::SGX => ProofType::Sgx,
         }
     }
 }
@@ -298,116 +312,84 @@ impl TaskDb {
             r#"
             -- Metadata and mappings
             -----------------------------------------------
-
             CREATE TABLE metadata(
-                key BLOB UNIQUE NOT NULL PRIMARY KEY,
-                value BLOB
+              key BLOB UNIQUE NOT NULL PRIMARY KEY,
+              value BLOB
             );
-
+            
             INSERT INTO
-                metadata(key, value)
+              metadata(key, value)
             VALUES
-                ('task_db_version', 0);
-
+              ('task_db_version', 0);
+            
             CREATE TABLE proofsys(
-                id_proofsys INTEGER UNIQUE NOT NULL PRIMARY KEY,
-                desc TEXT NOT NULL
+              id INTEGER UNIQUE NOT NULL PRIMARY KEY,
+              desc TEXT NOT NULL
             );
-
+            
             INSERT INTO
-                proofsys(id_proofsys, desc)
+              proofsys(id, desc)
             VALUES
-                (0, 'Risc0'),
-                (1, 'SP1'),
-                (2, 'SGX');
-
+              (0, 'Native'),
+              (1, 'Risc0'),
+              (2, 'SP1'),
+              (3, 'SGX');
+            
             CREATE TABLE status_codes(
-                id_status INTEGER UNIQUE NOT NULL PRIMARY KEY,
-                desc TEXT NOT NULL
+              id INTEGER UNIQUE NOT NULL PRIMARY KEY,
+              desc TEXT NOT NULL
             );
-
+            
             INSERT INTO
-                status_codes(id_status, desc)
+              status_codes(id, desc)
             VALUES
-                (    0, 'Success'),
-                ( 1000, 'Registered'),
-                ( 2000, 'Work-in-progress'),
-                (-1000, 'Proof failure (generic)'),
-                (-1100, 'Proof failure (Out-Of-Memory)'),
-                (-2000, 'Network failure'),
-                (-3000, 'Cancelled'),
-                (-3100, 'Cancelled (never started)'),
-                (-3200, 'Cancelled (aborted)'),
-                (-3210, 'Cancellation in progress'),
-                (-4000, 'Invalid or unsupported block'),
-                (-9999, 'Unspecified failure reason');
-
+              (0, 'Success'),
+              (1000, 'Registered'),
+              (2000, 'Work-in-progress'),
+              (-1000, 'Proof failure (generic)'),
+              (-1100, 'Proof failure (Out-Of-Memory)'),
+              (-2000, 'Network failure'),
+              (-3000, 'Cancelled'),
+              (-3100, 'Cancelled (never started)'),
+              (-3200, 'Cancelled (aborted)'),
+              (-3210, 'Cancellation in progress'),
+              (-4000, 'Invalid or unsupported block'),
+              (-9999, 'Unspecified failure reason');
+            
             -- Data
             -----------------------------------------------
-
-            -- Different blockchains might have the same blockhash in case of a fork
-            -- for example Ethereum and Ethereum Classic.
-            -- As "GuestInput" refers to ChainID, the proving task would be different.
-            CREATE TABLE blocks(
-                chain_id INTEGER NOT NULL,
-                blockhash BLOB NOT NULL,
-                block_number INTEGER NOT NULL,
-                parent_hash BLOB NOT NULL,
-                state_root BLOB NOT NULL,
-                num_transactions INTEGER NOT NULL,
-                gas_used INTEGER NOT NULL,
-                PRIMARY KEY (chain_id, blockhash)
-            );
-
             -- Notes:
             --   1. a blockhash may appear as many times as there are prover backends.
-            --   2. For query speed over (chain_id, blockhash, id_proofsys)
+            --   2. For query speed over (chain_id, blockhash)
             --      there is no need to create an index as the UNIQUE constraint
             --      has an implied index, see:
             --      - https://sqlite.org/lang_createtable.html#uniqueconst
             --      - https://www.sqlite.org/fileformat2.html#representation_of_sql_indices
             CREATE TABLE tasks(
-                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
-                chain_id INTEGER NOT NULL,
-                blockhash BLOB NOT NULL,
-                id_proofsys INTEGER NOT NULL,
-                FOREIGN KEY(chain_id, blockhash) REFERENCES blocks(chain_id, blockhash)
-                FOREIGN KEY(id_proofsys) REFERENCES proofsys(id_proofsys)
-                UNIQUE (chain_id, blockhash, id_proofsys)
+              id INTEGER UNIQUE NOT NULL PRIMARY KEY,
+              chain_id INTEGER NOT NULL,
+              block_number INTEGER NOT NULL,
+              proofsys_id INTEGER NOT NULL,
+              request BLOB,
+              FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
+              UNIQUE (chain_id, block_number, proofsys_id)
             );
-
-            -- Payloads will be very large, just the block would be 1.77MB on L1 in Jan 2024,
-            --   https://ethresear.ch/t/on-block-sizes-gas-limits-and-scalability/18444
-            -- mandating ideally a separated high-performance KV-store to reduce IO.
-            -- This is without EIP-4844 blobs and the extra input for zkVMs.
-            CREATE TABLE task_payloads(
-                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
-                payload BLOB NOT NULL,
-                FOREIGN KEY(id_task) REFERENCES tasks(id_task)
-            );
-
+            
             -- Proofs might also be large, so we isolate them in a dedicated table
             CREATE TABLE task_proofs(
-                id_task INTEGER UNIQUE NOT NULL PRIMARY KEY,
-                proof BLOB NOT NULL,
-                FOREIGN KEY(id_task) REFERENCES tasks(id_task)
+              task_id INTEGER UNIQUE NOT NULL PRIMARY KEY,
+              proof BLOB NOT NULL,
+              FOREIGN KEY(task_id) REFERENCES tasks(id)
             );
-
-            CREATE TABLE thirdparties(
-                id_thirdparty INTEGER UNIQUE NOT NULL PRIMARY KEY,
-                thirdparty_desc TEXT UNIQUE NOT NULL
-            );
-
+            
             CREATE TABLE task_status(
-                id_task INTEGER NOT NULL,
-                id_thirdparty INTEGER,
-                id_status INTEGER NOT NULL,
-                timestamp TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
-                FOREIGN KEY(id_task) REFERENCES tasks(id_task)
-                FOREIGN KEY(id_thirdparty) REFERENCES thirdparties(id_thirdparty)
-                FOREIGN KEY(id_status) REFERENCES status_codes(id_status)
+              task_id INTEGER NOT NULL,
+              status_id INTEGER NOT NULL,
+              timestamp TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
+              FOREIGN KEY(task_id) REFERENCES tasks(id),
+              FOREIGN KEY(status_id) REFERENCES status_codes(id),
+              UNIQUE (task_id, timestamp)
             );
-
             "#,
         )?;
 
@@ -419,49 +401,28 @@ impl TaskDb {
         conn.execute_batch(
             r#"
             CREATE VIEW enqueue_task AS
-                SELECT
-                    t.id_task,
-                    t.chain_id,
-                    t.blockhash,
-                    t.id_proofsys,
-                    ts.id_status,
-                    ts.id_thirdparty AS submitter,
-                    t3p.thirdparty_desc,
-                    b.block_number,
-                    b.parent_hash,
-                    b.state_root,
-                    b.num_transactions,
-                    b.gas_used,
-                    tpl.payload
-                FROM
-                    tasks t
-                    LEFT JOIN
-                        blocks b on (
-                            b.chain_id = t.chain_id
-                            AND b.blockhash = t.blockhash
-                        )
-                    LEFT JOIN
-                        task_status ts on ts.id_task = t.id_task
-                    LEFT JOIN
-                        task_payloads tpl on tpl.id_task = t.id_task
-                    LEFT JOIN
-                        thirdparties t3p on t3p.id_thirdparty = ts.id_thirdparty;
-
+            SELECT
+              t.id,
+              t.chain_id,
+              t.block_number,
+              t.proofsys_id,
+              t.request
+            FROM
+              tasks t
+              LEFT JOIN task_status ts on ts.task_id = t.id;
+            
             CREATE VIEW update_task_progress AS
-                SELECT
-                    t.id_task,
-                    t.chain_id,
-                    t.blockhash,
-                    t.id_proofsys,
-                    ts.id_status,
-                    ts.id_thirdparty AS fulfiller,
-                    tpf.proof
-                FROM
-                    tasks t
-                    LEFT JOIN
-                        task_status ts on ts.id_task = t.id_task
-                    LEFT JOIN
-                        task_proofs tpf on tpf.id_task = t.id_task;
+            SELECT
+              t.id,
+              t.chain_id,
+              t.block_number,
+              t.proofsys_id,
+              ts.status_id,
+              tpf.proof
+            FROM
+              tasks t
+              LEFT JOIN task_status ts on ts.task_id = t.id
+              LEFT JOIN task_proofs tpf on tpf.task_id = t.id;
             "#,
         )?;
 
@@ -512,101 +473,130 @@ impl TaskDb {
         conn.execute_batch(
             r#"
             -- PRAGMA temp_store = 'MEMORY';
-
-            CREATE TEMPORARY TABLE temp.current_task(id_task INTEGER);
-
-            CREATE TEMPORARY TRIGGER enqueue_task_insert_trigger
-                INSTEAD OF INSERT ON enqueue_task
-                BEGIN
-                    INSERT INTO blocks(chain_id, blockhash, block_number, parent_hash, state_root, num_transactions, gas_used)
-                        VALUES (new.chain_id, new.blockhash, new.block_number, new.parent_hash, new.state_root, new.num_transactions, new.gas_used);
-
-                    INSERT INTO tasks(chain_id, blockhash, id_proofsys)
-                        VALUES (new.chain_id, new.blockhash, new.id_proofsys);
-
-                    INSERT INTO current_task
-                        SELECT id_task FROM tasks
-                        WHERE rowid = last_insert_rowid()
-                        LIMIT 1;
-
-                    INSERT INTO task_payloads(id_task, payload)
-                        SELECT tmp.id_task, new.payload
-                        FROM current_task tmp
-                        LIMIT 1;
-
-                    INSERT OR IGNORE INTO thirdparties(thirdparty_desc)
-                        VALUES (new.submitter);
-
-                    -- Tasks are initialized at status 1000 - registered
-                    -- timestamp is auto-filled with datetime('now'), see its field definition
-                    INSERT INTO task_status(id_task, id_thirdparty, id_status)
-                        SELECT tmp.id_task, t3p.id_thirdparty, 1000
-                        FROM current_task tmp
-                        JOIN thirdparties t3p
-                        WHERE t3p.thirdparty_desc = new.submitter
-                        LIMIT 1;
-
-                    DELETE FROM current_task;
-                END;
-
-            CREATE TEMPORARY TRIGGER update_task_progress_trigger
-                INSTEAD OF INSERT ON update_task_progress
-                BEGIN
-                    INSERT INTO current_task
-                        SELECT id_task
-                        FROM tasks
-                        WHERE 1=1
-                            AND chain_id = new.chain_id
-                            AND blockhash = new.blockhash
-                            AND id_proofsys = new.id_proofsys
-                        LIMIT 1;
-
-                    -- If fulfiller is NULL, due to IGNORE and the NOT NULL requirement,
-                    -- table will be left as-is.
-                    INSERT OR IGNORE INTO thirdparties(thirdparty_desc)
-                        VALUES (new.fulfiller);
-
-                    -- timestamp is auto-filled with datetime('now'), see its field definition
-                    INSERT INTO task_status(id_task, id_thirdparty, id_status)
-                        SELECT tmp.id_task, t3p.id_thirdparty, new.id_status
-                        FROM current_task tmp
-                        LEFT JOIN thirdparties t3p
-                            -- fulfiller can be NULL, for example
-                            -- for tasks Cancelled before they were ever sent to a prover.
-                            ON t3p.thirdparty_desc = new.fulfiller
-                        LIMIT 1;
-
-                    INSERT OR REPLACE INTO task_proofs
-                        SELECT id_task, new.proof
-                        FROM current_task
-                        WHERE new.proof IS NOT NULL
-                        LIMIT 1;
-
-                    DELETE FROM current_task;
-                END;
-            "#)?;
+            CREATE TEMPORARY TABLE temp.current_task(task_id INTEGER);
+            
+            CREATE TEMPORARY TRIGGER enqueue_task_insert_trigger INSTEAD OF
+            INSERT
+              ON enqueue_task
+            BEGIN
+                INSERT INTO
+                  tasks(chain_id, block_number, proofsys_id, request)
+                VALUES
+                  (
+                    new.chain_id,
+                    new.block_number,
+                    new.proofsys_id,
+                    new.request
+                  );
+                
+                INSERT INTO
+                  current_task
+                SELECT
+                  id
+                FROM
+                  tasks
+                WHERE
+                  rowid = last_insert_rowid()
+                LIMIT
+                  1;
+                
+                -- Tasks are initialized at status 1000 - registered
+                -- timestamp is auto-filled with datetime('now'), see its field definition
+                INSERT INTO
+                  task_status(task_id, status_id)
+                SELECT
+                  tmp.task_id,
+                  1000
+                FROM
+                  current_task tmp;
+                
+                DELETE FROM
+                  current_task;
+            END;
+            
+            CREATE TEMPORARY TRIGGER update_task_progress_trigger INSTEAD OF
+            INSERT
+              ON update_task_progress
+            BEGIN
+                INSERT INTO
+                  current_task
+                SELECT
+                  id
+                FROM
+                  tasks
+                WHERE
+                  chain_id = new.chain_id
+                  AND block_number = new.block_number
+                  AND proofsys_id = new.proofsys_id
+                LIMIT
+                  1;
+                
+                -- timestamp is auto-filled with datetime('now'), see its field definition
+                INSERT INTO
+                  task_status(task_id, status_id)
+                SELECT
+                  tmp.task_id,
+                  new.status_id
+                FROM
+                  current_task tmp
+                LIMIT
+                  1;
+                
+                INSERT
+                  OR REPLACE INTO task_proofs
+                SELECT
+                  task_id,
+                  new.proof
+                FROM
+                  current_task
+                WHERE
+                  new.proof IS NOT NULL
+                LIMIT
+                  1;
+                
+                DELETE FROM
+                  current_task;
+            END;
+            "#,
+        )?;
 
         let enqueue_task = conn.prepare(
             "
-            INSERT INTO enqueue_task(
-                    chain_id, blockhash, id_proofsys, submitter,
-                    block_number, parent_hash, state_root, num_transactions, gas_used,
-                    payload)
-                VALUES (
-                    :chain_id, :blockhash, :id_proofsys, :submitter,
-                    :block_number, :parent_hash, :state_root, :num_transactions, :gas_used,
-                    :payload);
+            INSERT INTO
+              enqueue_task(
+                chain_id,
+                block_number,
+                proofsys_id,
+                request
+              )
+            VALUES
+              (
+                :chain_id,
+                :block_number,
+                :proofsys_id,
+                :request
+              );
             ",
         )?;
 
         let update_task_progress = conn.prepare(
             "
-            INSERT INTO update_task_progress(
-                    chain_id, blockhash, id_proofsys,
-                    fulfiller, id_status, proof)
-                VALUES (
-                    :chain_id, :blockhash, :id_proofsys,
-                    :fulfiller, :id_status, :proof);
+            INSERT INTO
+              update_task_progress(
+                chain_id,
+                block_number,
+                proofsys_id,
+                status_id,
+                proof
+              )
+            VALUES
+              (
+                :chain_id,
+                :block_number,
+                :proofsys_id,
+                :status_id,
+                :proof
+              );
             ",
         )?;
 
@@ -618,109 +608,100 @@ impl TaskDb {
         let get_db_size = conn.prepare(
             "
             SELECT
-                name as table_name,
-                SUM(pgsize) as table_size
-            FROM dbstat
-            GROUP BY table_name
-            ORDER BY SUM(pgsize) DESC;
+              name as table_name,
+              SUM(pgsize) as table_size
+            FROM
+              dbstat
+            GROUP BY
+              table_name
+            ORDER BY
+              SUM(pgsize) DESC;
             ",
         )?;
 
         let get_task_proof = conn.prepare(
             "
-            SELECT proof
-            FROM task_proofs tp
-            LEFT JOIN
-                tasks t ON tp.id_task = t.id_task
-            WHERE 1=1
-                AND t.chain_id = :chain_id
-                AND t.blockhash = :blockhash
-                AND t.id_proofsys = :id_proofsys
-            LIMIT 1;
+            SELECT
+              proof
+            FROM
+              task_proofs tp
+              LEFT JOIN tasks t ON tp.task_id = t.id
+            WHERE
+              t.chain_id = :chain_id
+              AND t.block_number = :block_number
+              AND t.proofsys_id = :proofsys_id
+            LIMIT
+              1;
             ",
         )?;
 
         let get_task_proof_by_id = conn.prepare(
             "
-            SELECT proof
-            FROM task_proofs tp
-            LEFT JOIN
-                tasks t ON tp.id_task = t.id_task
-            WHERE 1=1
-                AND t.id_task = :task_id
-            LIMIT 1;
+            SELECT
+              proof
+            FROM
+              task_proofs tp
+              LEFT JOIN tasks t ON tp.task_id = t.id
+            WHERE
+              t.id= :task_id
+            LIMIT
+              1;
             ",
         )?;
 
         let get_task_proving_status = conn.prepare(
             "
             SELECT
-                t3p.thirdparty_desc,
-                ts.id_status,
-                MAX(timestamp)
+              ts.status_id,
+              timestamp
             FROM
-                task_status ts
-            LEFT JOIN
-                tasks t ON ts.id_task = t.id_task
-            LEFT JOIN
-                thirdparties t3p ON ts.id_thirdparty = t3p.id_thirdparty
-            WHERE 1=1
-                AND t.chain_id = :chain_id
-                AND t.blockhash = :blockhash
-                AND t.id_proofsys = :id_proofsys
-            GROUP BY
-                t3p.id_thirdparty
+              task_status ts
+              LEFT JOIN tasks t ON ts.task_id = t.id
+            WHERE
+              t.chain_id = :chain_id
+              AND t.block_number = :block_number
+              AND t.proofsys_id = :proofsys_id
             ORDER BY
-                ts.timestamp DESC;
+              ts.timestamp DESC;
             ",
         )?;
 
         let get_task_proving_status_by_id = conn.prepare(
             "
             SELECT
-                t3p.thirdparty_desc,
-                ts.id_status,
-                MAX(timestamp)
+              ts.status_id,
+              timestamp
             FROM
-                task_status ts
-            LEFT JOIN
-                tasks t ON ts.id_task = t.id_task
-            LEFT JOIN
-                thirdparties t3p ON ts.id_thirdparty = t3p.id_thirdparty
-            WHERE 1=1
-                AND t.id_task = :task_id
-            GROUP BY
-                t3p.id_thirdparty
+              task_status ts
+              LEFT JOIN tasks t ON ts.task_id = t.id
+            WHERE
+              t.id = :task_id
             ORDER BY
-                ts.timestamp DESC;
+              ts.timestamp DESC;
             ",
         )?;
 
         let get_tasks_unfinished = conn.prepare(
             "
             SELECT
-                t.chain_id,
-                t.blockhash,
-                t.id_proofsys,
-                t3p.thirdparty_desc,
-                ts.id_status,
-                MAX(timestamp)
+              t.chain_id,
+              t.block_number,
+              t.proofsys_id,
+              ts.status_id,
+              timestamp
             FROM
-                task_status ts
-            LEFT JOIN
-                tasks t ON ts.id_task = t.id_task
-            LEFT JOIN
-                thirdparties t3p ON ts.id_thirdparty = t3p.id_thirdparty
-            WHERE 1=1
-                AND id_status NOT IN (
-                        0, -- Success
-                    -3000, -- Cancelled
-                    -3100, -- Cancelled (never started)
-                    -3200  -- Cancelled (aborted)
-                    -- What do we do with -4000 Invalid/unsupported blocks?
-                    -- And -9999 Unspecified failure reason?
-                    -- For now we return them until we know more of the failure modes
-                );
+              task_status ts
+              LEFT JOIN tasks t ON ts.task_id = t.id
+            WHERE
+              status_id NOT IN (
+                0, -- Success
+                -3000, -- Cancelled
+                -3100, -- Cancelled (never started)
+                -3200 -- Cancelled (aborted)
+                -- What do we do with -4000 Invalid/unsupported blocks?
+                -- And -9999 Unspecified failure reason?
+                -- For now we return them until we know more of the failure modes
+              );
             ",
         )?;
 
@@ -751,54 +732,33 @@ pub struct EnqueueTaskParams {
     pub payload: Vec<u8>,
 }
 
-pub type TaskProvingStatus = Vec<(Option<String>, TaskStatus, DateTime<Utc>)>;
+pub type TaskProvingStatus = Vec<(TaskStatus, DateTime<Utc>)>;
 
 impl<'db> TaskManager<'db> {
-    pub fn enqueue_task(
-        &mut self,
-        EnqueueTaskParams {
-            chain_id,
-            blockhash,
-            proof_system,
-            submitter,
-            block_number,
-            parent_hash,
-            state_root,
-            num_transactions,
-            gas_used,
-            payload,
-        }: EnqueueTaskParams,
-    ) -> TaskManagerResult<()> {
+    pub fn enqueue_task(&mut self, chain_id: u64, request: &ProofRequest) -> TaskManagerResult<()> {
         self.enqueue_task.execute(named_params! {
             ":chain_id": chain_id,
-            ":blockhash": blockhash.as_slice(),
-            ":id_proofsys": proof_system as u8,
-            ":submitter": submitter,
-            ":block_number": block_number,
-            ":parent_hash": parent_hash.as_slice(),
-            ":state_root": state_root.as_slice(),
-            ":num_transactions": num_transactions,
-            ":gas_used": gas_used,
-            ":payload": payload,
+            ":block_number": request.block_number,
+            ":proofsys_id": TaskProofsys::from(request.proof_type) as u8,
+            ":request": serde_json::to_vec(&request)?,
         })?;
+
         Ok(())
     }
 
     pub fn update_task_progress(
         &mut self,
         chain_id: ChainId,
-        blockhash: &B256,
-        proof_system: TaskProofsys,
-        fulfiller: Option<&str>,
+        block_number: u64,
+        proof_type: ProofType,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
         self.update_task_progress.execute(named_params! {
             ":chain_id": chain_id,
-            ":blockhash": blockhash.as_slice(),
-            ":id_proofsys": proof_system as u8,
-            ":fulfiller": fulfiller,
-            ":id_status": status as i32,
+            ":block_number": block_number,
+            ":proofsys_id": TaskProofsys::from(proof_type) as u8,
+            ":status_id": status as i32,
             ":proof": proof
         })?;
         Ok(())
@@ -808,26 +768,24 @@ impl<'db> TaskManager<'db> {
     pub fn get_task_proving_status(
         &mut self,
         chain_id: ChainId,
-        blockhash: &B256,
-        proof_system: TaskProofsys,
+        block_number: u64,
+        proof_type: ProofType,
     ) -> TaskManagerResult<TaskProvingStatus> {
         let rows = self.get_task_proving_status.query_map(
             named_params! {
                 ":chain_id": chain_id,
-                ":blockhash": blockhash.as_slice(),
-                ":id_proofsys": proof_system as u8,
+                ":block_number": block_number,
+                ":proofsys_id": TaskProofsys::from(proof_type) as u8,
             },
             |row| {
                 Ok((
-                    row.get::<_, Option<String>>(0)?,
-                    TaskStatus::from(row.get::<_, i32>(1)?),
-                    row.get::<_, DateTime<Utc>>(2)?,
+                    TaskStatus::from(row.get::<_, i32>(0)?),
+                    row.get::<_, DateTime<Utc>>(1)?,
                 ))
             },
         )?;
-        let proving_status = rows.collect::<Result<Vec<_>, _>>()?;
 
-        Ok(proving_status)
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
@@ -841,9 +799,8 @@ impl<'db> TaskManager<'db> {
             },
             |row| {
                 Ok((
-                    row.get::<_, Option<String>>(0)?,
-                    TaskStatus::from(row.get::<_, i32>(1)?),
-                    row.get::<_, DateTime<Utc>>(2)?,
+                    TaskStatus::from(row.get::<_, i32>(0)?),
+                    row.get::<_, DateTime<Utc>>(1)?,
                 ))
             },
         )?;
@@ -855,14 +812,14 @@ impl<'db> TaskManager<'db> {
     pub fn get_task_proof(
         &mut self,
         chain_id: ChainId,
-        blockhash: &B256,
-        proof_system: TaskProofsys,
+        block_number: u64,
+        proof_type: ProofType,
     ) -> TaskManagerResult<Vec<u8>> {
         let proof = self.get_task_proof.query_row(
             named_params! {
                 ":chain_id": chain_id,
-                ":blockhash": blockhash.as_slice(),
-                ":id_proofsys": proof_system as u8,
+                ":block_number": block_number,
+                ":proofsys_id": TaskProofsys::from(proof_type) as u8,
             },
             |r| r.get(0),
         )?;

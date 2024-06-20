@@ -1,18 +1,13 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, Raiko};
-use raiko_lib::Measurement;
-use raiko_task_manager::{EnqueueTaskParams, TaskDb};
+use raiko_core::interfaces::ProofRequest;
+use raiko_task_manager::TaskDb;
 use serde_json::Value;
 use tracing::info;
 use utoipa::OpenApi;
 
 use crate::{
     interfaces::{HostError, HostResult},
-    memory,
-    metrics::{
-        inc_current_req, inc_guest_req_count, inc_host_req_count, observe_prepare_input_time,
-    },
-    server::api::v1::proof::{get_cached_input, validate_cache_input},
+    metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     ProverState,
 };
 
@@ -57,64 +52,15 @@ async fn submit_handler(
         .get_chain_spec(&proof_request.l1_network.to_string())
         .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported l1 network".to_string()))?;
 
-    let taiko_chain_spec = prover_state
-        .chain_specs
-        .get_chain_spec(&proof_request.network.to_string())
-        .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported raiko network".to_string()))?;
-
-    let cached_input = get_cached_input(
-        &prover_state.opts.cache_path,
-        proof_request.block_number,
-        &proof_request.network.to_string(),
-    );
-
-    let raiko = Raiko::new(
-        l1_chain_spec.clone(),
-        taiko_chain_spec.clone(),
-        proof_request.clone(),
-    );
-
-    let provider = RpcBlockDataProvider::new(
-        &taiko_chain_spec.rpc.clone(),
-        proof_request.block_number - 1,
-    )?;
-
-    let input = match validate_cache_input(cached_input, &provider).await {
-        Ok(cache_input) => cache_input,
-        Err(_) => {
-            // no valid cache
-            memory::reset_stats();
-            let measurement = Measurement::start("Generating input...", false);
-            let input = raiko.generate_input(provider).await?;
-            let input_time = measurement.stop_with("=> Input generated");
-            observe_prepare_input_time(proof_request.block_number, input_time, true);
-            memory::print_stats("Input generation peak memory used: ");
-            input
-        }
-    };
-
-    let params = EnqueueTaskParams {
-        chain_id: l1_chain_spec.chain_id,
-        proof_system: proof_request.proof_type.clone().into(),
-        block_number: proof_request.block_number,
-        submitter: proof_request.prover.to_string(),
-        blockhash: input.block_hash_reference,
-        parent_hash: input.block_header_reference.parent_hash,
-        state_root: input.block_header_reference.state_root,
-        gas_used: input.block_header_reference.gas_used as u64,
-        payload: input.taiko.tx_data,
-        num_transactions: input.taiko.tx_len,
-    };
-
     let db = TaskDb::open_or_create(&prover_state.opts.sqlite_file)?;
     // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
     let mut manager = db.manage()?;
 
     prover_state
         .task_channel
-        .try_send((proof_request, prover_state.opts))?;
+        .try_send((proof_request.clone(), prover_state.opts))?;
 
-    manager.enqueue_task(params)?;
+    manager.enqueue_task(l1_chain_spec.chain_id, &proof_request)?;
     Ok(Json(serde_json::json!("{}")))
 }
 
