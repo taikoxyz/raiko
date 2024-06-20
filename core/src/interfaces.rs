@@ -73,7 +73,18 @@ impl From<raiko_lib::mem_db::DbError> for RaikoError {
 pub type RaikoResult<T> = Result<T, RaikoError>;
 
 #[derive(
-    PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize, ToSchema, Hash, ValueEnum,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    ToSchema,
+    Hash,
+    ValueEnum,
+    Copy,
 )]
 /// Available proof types.
 pub enum ProofType {
