@@ -39,7 +39,9 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 
 # c-kzg
-c-kzg = { workspace = true }
+# c-kzg = { workspace = true }
+rust-kzg-zkcrypto = { workspace = true }
+kzg = { workspace = true }
 
 # async
 tokio = { workspace = true }

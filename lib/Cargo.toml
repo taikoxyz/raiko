@@ -31,7 +31,7 @@ libflate = { workspace = true }
 once_cell = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
-c-kzg = { workspace = true }
+# c-kzg = { workspace = true }
 rust-kzg-zkcrypto = { workspace = true }
 kzg = { workspace = true }
 
@@ -75,4 +75,3 @@ sgx = []
 sp1 = []
 risc0 = []
 kzg = ["revm-primitives/kzg", "dep:tempfile"]
-sp1-cycle-tracker = []

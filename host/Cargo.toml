@@ -60,7 +60,9 @@ reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
 sha2 = { workspace = true }
 proptest = { workspace = true }
-c-kzg = { workspace = true }
+# c-kzg = { workspace = true }
+rust-kzg-zkcrypto = { workspace = true }
+kzg = { workspace = true }
 rlp = { workspace = true }
 url = { workspace = true }
 cfg-if = { workspace = true }

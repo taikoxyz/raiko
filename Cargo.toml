@@ -133,13 +133,12 @@ reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 
 # crypto
-c-kzg = { package = "c-kzg-taiko", git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
-    "preload-kzg-settings",
-    "no-threads",
-] }
+# c-kzg = { package = "c-kzg-taiko", git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
+#     "preload-kzg-settings",
+#     "no-threads",
+# ] }
 rust-kzg-zkcrypto = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch" }
 kzg = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch" }
-
 
 sha3 = { version = "0.10", default-features = false }
 sha2 = "0.10.8"
