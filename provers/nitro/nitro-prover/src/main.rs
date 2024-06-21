@@ -1,5 +1,4 @@
-use nitro_prover::protocol_helper::*;
-use nitro_prover::NitroProver;
+use nitro_prover::{protocol_helper::*, NitroProver, BUF_MAX_LEN, PORT};
 use nix::sys::socket::listen as listen_vsock;
 use nix::sys::socket::Backlog;
 use nix::sys::socket::{accept, bind, socket};
@@ -8,8 +7,6 @@ use raiko_lib::{input::GuestInput, prover::Prover};
 use std::os::fd::AsRawFd;
 
 const VMADDR_CID_ANY: u32 = 0xFFFFFFFF;
-const BUF_MAX_LEN: usize = 8192;
-const PORT: u32 = 26000;
 // Maximum number of outstanding connections in the socket's
 // listen queue
 const BACKLOG: i32 = 128;

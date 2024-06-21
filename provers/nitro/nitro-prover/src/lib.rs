@@ -1,7 +1,15 @@
+use crate::protocol_helper::*;
 use aws_nitro_enclaves_nsm_api::{
     api::{Request, Response},
     driver::{nsm_exit, nsm_init, nsm_process_request},
 };
+use nix::{
+    sys::socket::{
+        connect, shutdown, socket, AddressFamily, Shutdown, SockFlag, SockType, VsockAddr,
+    },
+    unistd::close,
+};
+use protocol_helper::{recv_loop, recv_u64};
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput},
@@ -10,13 +18,36 @@ use raiko_lib::{
     signature::{generate_key, sign_message},
 };
 use serde_bytes::ByteBuf;
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::process;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
 pub mod protocol_helper;
 
+pub const CID: u32 = 16;
+pub const PORT: u32 = 26000;
+pub const BUF_MAX_LEN: usize = 8192;
+const MAX_CONNECTION_ATTEMPTS: u32 = 5;
+
 pub struct NitroProver;
+
+impl NitroProver {
+    pub fn prove(input: GuestInput) -> ProverResult<Proof> {
+        let vsocket = vsock_connect(CID, PORT)?;
+        let fd = vsocket.as_raw_fd();
+        let input_bytes = serde_json::to_vec(&input)?;
+        let len: u64 = input_bytes.len() as u64;
+        // send proof request
+        send_u64(fd, len)?;
+        send_loop(fd, &input_bytes, len)?;
+        // read proof response
+        let len = recv_u64(fd)?;
+        let mut buf = [0u8; BUF_MAX_LEN];
+        recv_loop(fd, &mut buf, len)?;
+        Ok(buf.to_vec().into())
+    }
+}
 
 impl Prover for NitroProver {
     async fn run(
@@ -72,5 +103,57 @@ impl Prover for NitroProver {
 
         nsm_exit(nsm_fd);
         Ok(result.into())
+    }
+}
+
+/// Initiate a connection on an AF_VSOCK socket
+fn vsock_connect(cid: u32, port: u32) -> Result<VsockSocket, String> {
+    let sockaddr = VsockAddr::new(cid, port);
+    let mut err_msg = String::new();
+
+    for i in 0..MAX_CONNECTION_ATTEMPTS {
+        let vsocket = VsockSocket::new(
+            socket(
+                AddressFamily::Vsock,
+                SockType::Stream,
+                SockFlag::empty(),
+                None,
+            )
+            .map_err(|err| format!("Failed to create the socket: {:?}", err))?
+            .as_raw_fd(),
+        );
+        match connect(vsocket.as_raw_fd(), &sockaddr) {
+            Ok(_) => return Ok(vsocket),
+            Err(e) => err_msg = format!("Failed to connect: {}", e),
+        }
+
+        // Exponentially backoff before retrying to connect to the socket
+        std::thread::sleep(std::time::Duration::from_secs(1 << i));
+    }
+
+    Err(err_msg)
+}
+
+struct VsockSocket {
+    socket_fd: RawFd,
+}
+
+impl VsockSocket {
+    fn new(socket_fd: RawFd) -> Self {
+        VsockSocket { socket_fd }
+    }
+}
+
+impl Drop for VsockSocket {
+    fn drop(&mut self) {
+        shutdown(self.socket_fd, Shutdown::Both)
+            .unwrap_or_else(|e| eprintln!("Failed to shut socket down: {:?}", e));
+        close(self.socket_fd).unwrap_or_else(|e| eprintln!("Failed to close socket: {:?}", e));
+    }
+}
+
+impl AsRawFd for VsockSocket {
+    fn as_raw_fd(&self) -> RawFd {
+        self.socket_fd
     }
 }

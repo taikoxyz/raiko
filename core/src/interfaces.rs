@@ -163,9 +163,7 @@ impl ProofType {
             }
             ProofType::Nitro => {
                 #[cfg(feature = "nitro")]
-                return nitro_prover::NitroProver::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
+                return nitro_prover::NitroProver::prove(input).map_err(|e| e.into());
                 #[cfg(not(feature = "nitro"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
