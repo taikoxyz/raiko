@@ -16,5 +16,4 @@ fmt:
 	@cargo fmt --all --check
 
 clippy:
-	@cargo +nightly-2024-04-18 check --features "sgx,sp1,risc0"
-	@cargo +nightly-2024-04-18 clippy --workspace --features "sgx,sp1,risc0" --all-targets -- -Dwarnings
+	CLIPPY=1 ./script/build.sh $(TARGET)

@@ -86,6 +86,7 @@ mod time {
 }
 
 pub struct CycleTracker {
+    #[allow(dead_code)]
     title: String,
 }
 
