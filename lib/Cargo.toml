@@ -32,7 +32,7 @@ once_cell = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
 c-kzg = { workspace = true }
-rust-kzg-zkcrypto = { workspace = true }≠∏
+rust-kzg-zkcrypto = { workspace = true }
 kzg = { workspace = true }
 
 sha2 = { workspace = true }
