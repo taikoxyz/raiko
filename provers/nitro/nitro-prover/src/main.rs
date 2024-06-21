@@ -2,12 +2,9 @@ use nitro_prover::protocol_helper::*;
 use nitro_prover::NitroProver;
 use nix::sys::socket::listen as listen_vsock;
 use nix::sys::socket::Backlog;
-use nix::sys::socket::{accept, bind, connect, shutdown, socket};
-use nix::sys::socket::{AddressFamily, Shutdown, SockFlag, SockType, VsockAddr};
-use nix::unistd::close;
-use raiko_lib::input::GuestOutput;
+use nix::sys::socket::{accept, bind, socket};
+use nix::sys::socket::{AddressFamily, SockFlag, SockType, VsockAddr};
 use raiko_lib::{input::GuestInput, prover::Prover};
-use serde_json::Value;
 use std::os::fd::AsRawFd;
 
 const VMADDR_CID_ANY: u32 = 0xFFFFFFFF;
@@ -46,7 +43,7 @@ async fn main() {
                     continue;
                 };
                 let mut buf = [0u8; BUF_MAX_LEN];
-                let Ok(guest_input) = recv_loop(fd, &mut buf, len) else {
+                let Ok(()) = recv_loop(fd, &mut buf, len) else {
                     println!("Failed to read whole GuestInput bytes from socket!");
                     continue;
                 };
