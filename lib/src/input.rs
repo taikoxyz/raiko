@@ -22,6 +22,7 @@ use anyhow::{anyhow, Result};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use crate::primitives::eip4844::TaikoKzgSettings;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -95,6 +96,7 @@ pub struct TaikoGuestInput {
     pub block_proposed: BlockProposed,
     pub prover_data: TaikoProverData,
     pub tx_blob_hash: Option<B256>,
+    pub kzg_setting: Option<TaikoKzgSettings>,
     pub skip_verify_blob: bool,
 }
 

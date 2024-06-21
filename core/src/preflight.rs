@@ -23,8 +23,7 @@ use raiko_lib::{
         TaikoProverData,
     },
     primitives::{
-        eip4844::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP},
-        mpt::proofs_to_tries,
+        self, eip4844::{get_kzg_proof, set_commitment_proof}, eip4844_::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries
     },
     utils::{generate_transactions, to_header, zlib_compress_data},
     Measurement,
@@ -275,7 +274,7 @@ async fn prepare_taiko_chain_input(
     .await?;
 
     // Fetch the tx data from either calldata or blobdata
-    let (tx_data, tx_blob_hash) = if proposal_event.meta.blobUsed {
+    let (tx_data, tx_blob_hash, kzg_settings) = if proposal_event.meta.blobUsed {
         debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
@@ -292,7 +291,16 @@ async fn prepare_taiko_chain_input(
             RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
         })?;
         let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
-        (blob, Some(blob_hash))
+
+        let kzg_settings = raiko_lib::primitives::eip4844::MAINNET_KZG_TRUSTED_SETUP.as_ref().clone();
+        let (proof, y) = raiko_lib::primitives::eip4844::get_kzg_proof(&blob, &kzg_settings)?;
+        set_commitment_proof(proof, y)?;
+
+        unsafe { raiko_lib::primitives::eip4844::VERSION_HASH_AND_PROOF
+            .try_write()
+            .map(|guard| *guard = get_kzg_proof(&blob, &kzg_settings)) };
+        
+        (blob, Some(blob_hash), Some(kzg_settings))
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
@@ -319,6 +327,7 @@ async fn prepare_taiko_chain_input(
         tx_data,
         anchor_tx: serde_json::to_string(&anchor_tx).map_err(RaikoError::Serde)?,
         tx_blob_hash,
+        kzg_setting,
         block_proposed: proposal_event,
         prover_data,
         skip_verify_blob: false,
@@ -624,7 +633,7 @@ mod test {
     use ethers_core::types::Transaction;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
-        primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings},
+        primitives::{eip4844_::parse_kzg_trusted_setup, kzg::KzgSettings},
         utils::decode_transactions,
     };
 

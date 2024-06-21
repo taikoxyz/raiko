@@ -66,21 +66,21 @@ alloy-primitives = { version = "0.7.1", default-features = false }
 alloy-sol-types = { version = "0.7.1", default-features = false }
 alloy-rpc-types = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
 alloy-rpc-client = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-alloy-consensus = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", features = [
+alloy-consensus = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", default-features = false, features = [
     "serde",
 ] }
-alloy-network = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", features = [
+alloy-network = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", default-features = false, features = [
     "k256",
 ] }
 alloy-contract = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-alloy-eips = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", features = [
+alloy-eips = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", default-features = false, features = [
     "serde",
 ] }
-alloy-provider = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-alloy-transport-http = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-alloy-signer = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-alloy-signer-wallet = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
+alloy-provider = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
+alloy-transport-http = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
+alloy-signer = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
+alloy-signer-wallet = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
+reqwest_alloy = { package = "reqwest", version = "0.12.4", default-features = false, eatures = ["json"] }
 
 
 # ethers (TODO: remove)
@@ -177,3 +177,5 @@ rand_core = "0.6.4"
 dirs = "5.0.1"
 pathdiff = "0.2.1"
 
+[patch.crates-io]
+blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "serialize", features = ["portable", "no-threads"]}
