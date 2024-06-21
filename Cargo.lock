@@ -6004,9 +6004,7 @@ dependencies = [
  "reth-evm-ethereum",
  "reth-interfaces",
  "reth-primitives",
- "reth-provider",
  "reth-revm",
- "reth-rpc-types",
  "rlp",
  "serde",
  "serde_json",
@@ -6693,6 +6691,8 @@ dependencies = [
  "reth-rpc-types",
  "secp256k1 0.28.2",
  "serde_with",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -6726,7 +6726,6 @@ dependencies = [
  "alloy-trie",
  "byteorder",
  "bytes",
- "c-kzg",
  "derive_more",
  "itertools 0.12.1",
  "modular-bitfield",
@@ -6742,11 +6741,8 @@ dependencies = [
  "secp256k1 0.28.2",
  "serde",
  "serde_json",
- "sha2",
  "strum 0.26.2",
- "tempfile",
  "thiserror",
- "zstd",
 ]
 
 [[package]]
@@ -6909,12 +6905,10 @@ dependencies = [
  "bitvec",
  "c-kzg-taiko",
  "cfg-if",
- "derive_more",
  "dyn-clone",
  "enumn",
  "hashbrown 0.14.5",
  "hex",
- "once_cell",
  "serde",
 ]
 

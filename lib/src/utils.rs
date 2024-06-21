@@ -16,7 +16,6 @@ use crate::no_std::*;
 use crate::{
     consts::{ChainSpec, Network},
     input::{decode_anchor, GuestInput},
-    primitives::{keccak256, B256},
 };
 
 pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
@@ -43,11 +42,6 @@ pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
         vec![]
     })
 }
-
-// pub fn decode_transactions2(tx_list: &[u8]) -> Vec<AlloyTransaction> {
-//     let txs = decode_transactions(tx_list);
-//     txs.iter().map(|l| l.try_into().unwrap()).collect::<Vec<_>>()
-// }
 
 // leave a simply fn in case of more checks in future
 fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {

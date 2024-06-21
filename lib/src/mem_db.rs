@@ -16,7 +16,7 @@ use reth_primitives::revm_primitives::{
     db::{Database, DatabaseCommit},
     Account, AccountInfo, Bytecode,
 };
-use reth_provider::ProviderError;
+use reth_interfaces::provider::ProviderError;
 use reth_revm::revm::db::BundleState;
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};

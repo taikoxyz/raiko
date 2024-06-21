@@ -10,7 +10,7 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use raiko_lib::{
-    builder::{create_mem_db, OptimisticDatabase, RethBlockBuilder},
+    builder::{calculate_block_header, create_mem_db, OptimisticDatabase, RethBlockBuilder},
     clear_line,
     consts::ChainSpec,
     inplace_print,
@@ -230,11 +230,7 @@ fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, 
 }
 
 fn verify(input: GuestInput) {
-    let db = create_mem_db(&mut input.clone()).unwrap();
-    let mut builder = RethBlockBuilder::new(&input, db);
-    builder.prepare_header().expect("prepare");
-    builder.execute_transactions(false).expect("execute");
-    let header = builder.finalize().expect("execute");
+    let header = calculate_block_header(&input);
 
     // Check against the expected value of all fields for easy debugability
     let exp = &input.block.header;

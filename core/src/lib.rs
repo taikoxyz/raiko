@@ -3,7 +3,7 @@ use crate::{
     preflight::preflight,
     provider::BlockDataProvider,
 };
-use alloy_primitives::{Address, FixedBytes, B256};
+use alloy_primitives::{Address, B256};
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use raiko_lib::builder::create_mem_db;
 use raiko_lib::builder::RethBlockBuilder;
@@ -11,11 +11,10 @@ use raiko_lib::consts::ChainSpec;
 use raiko_lib::consts::VerifierType;
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
 use raiko_lib::protocol_instance::ProtocolInstance;
-use raiko_lib::prover::{to_proof, Proof, Prover, ProverError, ProverResult};
-use serde::{Deserialize, Serialize};
+use raiko_lib::prover::Proof;
 use serde_json::Value;
 use std::{collections::HashMap, hint::black_box};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 pub mod interfaces;
 pub mod preflight;
@@ -126,7 +125,7 @@ impl Raiko {
                     &B256::from(header.hash_slow().0),
                     &input.block_hash_reference,
                     &format!("block hash unexpected for block {}", input.block_number),
-                );
+                )?;
                 let output = GuestOutput { header, hash: pi };
 
                 Ok(output)

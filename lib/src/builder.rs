@@ -25,8 +25,16 @@ use reth_primitives::{
     BlockBody, ChainSpecBuilder, Header, TransactionSigned, B256, HOLESKY, KECCAK_EMPTY, MAINNET,
     TAIKO_A7, TAIKO_MAINNET, U256,
 };
-use reth_provider::ProviderError;
+use reth_interfaces::provider::ProviderError;
 use reth_revm::revm::db::BundleState;
+
+pub fn calculate_block_header(input: &GuestInput) -> Header {
+    let db = create_mem_db(&mut input.clone()).unwrap();
+    let mut builder = RethBlockBuilder::new(&input, db);
+    builder.prepare_header().expect("prepare");
+    builder.execute_transactions(false).expect("execute");
+    builder.finalize().expect("execute")
+}
 
 /// Optimistic database
 #[allow(async_fn_in_trait)]

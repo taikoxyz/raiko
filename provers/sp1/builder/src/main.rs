@@ -36,48 +36,12 @@ impl Pipeline for Sp1Pipeline {
                 "link-arg=-Ttext=0x00200800",
                 "panic=abort",
             ])
-            /*.cc_compiler("gcc".into())
+            .cc_compiler("gcc".into())
             .c_flags(&[
                 "/opt/riscv/bin/riscv32-unknown-elf-gcc",
+                "-march=rv32im",
                 "-mstrict-align",
-                "-march=rv32im",
                 "-falign-functions=2",
-            ])
-            */
-            .cc_compiler("clang".into())
-            .c_flags(&[
-                /*"-target riscv32-unknown-elf",
-                "-mstrict-align",
-                "-march=rv32im",
-                "-falign-functions=2",
-                "--sysroot=/opt/riscv/riscv32-unknown-elf",
-                "--gcc-toolchain=/opt/riscv/",*/
-                "-Wstrict-aliasing",
-                //"-fconserve-stack",
-                "-mstrict-align",
-                "-march=rv32im",
-                "-falign-functions=2",
-                "-DRISCV=1",
-                "-mabi=ilp32",
-                "-march=rv32im",
-                "-ffreestanding",
-                "-fno-strict-aliasing",
-                "-fno-exceptions",
-                "-fno-non-call-exceptions",
-                //"-Wall",
-                "-Wunused-but-set-parameter",
-                "-Wno-error=pragmas",
-                "-Wno-unknown-pragmas",
-                "-Wno-strict-aliasing",
-                "-isystem",
-                "-fdata-sections",
-                "-ffunction-sections",
-                //"-findirect-inlining",
-                //"-finline-small-functions",
-                "-g0",
-                "-O0",
-                "--sysroot=/opt/riscv/riscv32-unknown-elf",
-                "--gcc-toolchain=/opt/riscv/",
             ])
             .custom_args(&["--ignore-rust-version"])
     }

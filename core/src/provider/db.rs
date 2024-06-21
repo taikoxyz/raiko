@@ -239,8 +239,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
         .copied()
-        .ok_or(RaikoError::RPC("No storage value".to_owned()))
-        .map_err(|e| ProviderError::RPC(e.to_string()))?;
+        .ok_or(ProviderError::RPC("No storage value".to_owned()))?;
         self.initial_db
             .insert_account_storage(&address, index, value);
         Ok(value)
@@ -249,8 +248,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
         let block_number: u64 = number
             .try_into()
-            .map_err(|_| RaikoError::Conversion("Could not convert U256 to u64".to_owned()))
-            .map_err(|e| ProviderError::RPC(e.to_string()))?;
+            .map_err(|_| ProviderError::BlockNumberOverflow(number))?;
 
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
@@ -276,12 +274,10 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         })
         .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
-        .ok_or(RaikoError::RPC("No block".to_owned()))
-        .map_err(|e| ProviderError::RPC(e.to_string()))?
+        .ok_or(ProviderError::RPC("No block".to_owned()))?
         .header
         .hash
-        .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))
-        .map_err(|e| ProviderError::RPC(e.to_string()))?
+        .ok_or_else(|| ProviderError::RPC("No block hash".to_owned()))?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
