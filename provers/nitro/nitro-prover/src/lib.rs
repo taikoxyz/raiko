@@ -14,6 +14,8 @@ use std::process;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
+pub mod protocol_helper;
+
 pub struct NitroProver;
 
 impl Prover for NitroProver {

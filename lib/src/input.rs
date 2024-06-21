@@ -105,7 +105,7 @@ pub struct TaikoProverData {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct GuestOutput {
     #[serde_as(as = "RlpHexBytes")]
     pub header: AlloyConsensusHeader,

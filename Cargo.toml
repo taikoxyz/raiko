@@ -156,6 +156,12 @@ anyhow = "1.0"
 thiserror = "1.0"
 thiserror-no-std = "2.0.2"
 
+# Nitro enclave
+nix = "0.29"
+byteorder = "1.3"
+serde_bytes = "0.11"
+aws-nitro-enclaves-nsm-api = "0.4.0"
+
 # misc
 hashbrown = { version = "0.14", features = ["inline-more"] }
 tempfile = "3.8"

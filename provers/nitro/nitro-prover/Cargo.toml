@@ -6,9 +6,12 @@ edition = "2021"
 [dependencies]
 raiko-lib = { workspace = true }
 
-aws-nitro-enclaves-nsm-api = "0.4.0"
-serde_bytes = "0.11"
-tokio = { workspace = true }
+aws-nitro-enclaves-nsm-api = { workspace = true }
+serde_bytes = { workspace = true }
 bincode = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+nix = { workspace = true, features = ["socket"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
+byteorder = { workspace = true }
