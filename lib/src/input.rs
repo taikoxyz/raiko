@@ -96,7 +96,7 @@ pub struct TaikoGuestInput {
     pub block_proposed: BlockProposed,
     pub prover_data: TaikoProverData,
     pub tx_blob_hash: Option<B256>,
-    pub kzg_setting: Option<TaikoKzgSettings>,
+    pub kzg_settings: Option<TaikoKzgSettings>,
     pub skip_verify_blob: bool,
 }
 
@@ -112,6 +112,7 @@ pub struct GuestOutput {
     #[serde_as(as = "RlpHexBytes")]
     pub header: AlloyConsensusHeader,
     pub hash: B256,
+    pub proof_of_equivalence: Option<Vec<u8>>
 }
 
 sol! {

@@ -76,7 +76,7 @@ alloy-contract = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4
 alloy-eips = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", default-features = false, features = [
     "serde",
 ] }
-alloy-provider = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
+alloy-provider = { git = "https://github.com/ceciliaz030/alloy", default-features = false, features = ["reqwest"], branch = "175_4e22b9e-cycle" }
 alloy-transport-http = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
 alloy-signer = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
 alloy-signer-wallet = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }

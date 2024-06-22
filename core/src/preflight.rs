@@ -10,7 +10,7 @@ use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
-use c_kzg::{Blob, KzgCommitment};
+use kzg::eip_4844::Blob;
 use raiko_lib::{
     builder::{
         prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, TkoTxExecStrategy,
@@ -23,7 +23,7 @@ use raiko_lib::{
         TaikoProverData,
     },
     primitives::{
-        self, eip4844::{get_kzg_proof, set_commitment_proof}, eip4844_::{kzg_to_versioned_hash, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries
+        self, eip4844::{self, get_kzg_proof, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries
     },
     utils::{generate_transactions, to_header, zlib_compress_data},
     Measurement,
@@ -292,20 +292,19 @@ async fn prepare_taiko_chain_input(
         })?;
         let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
 
-        let kzg_settings = raiko_lib::primitives::eip4844::MAINNET_KZG_TRUSTED_SETUP.as_ref().clone();
-        let (proof, y) = raiko_lib::primitives::eip4844::get_kzg_proof(&blob, &kzg_settings)?;
-        set_commitment_proof(proof, y)?;
-
-        unsafe { raiko_lib::primitives::eip4844::VERSION_HASH_AND_PROOF
-            .try_write()
-            .map(|guard| *guard = get_kzg_proof(&blob, &kzg_settings)) };
+        let kzg_settings = eip4844::MAINNET_KZG_TRUSTED_SETUP.as_ref().clone();
+        let (proof, y) = eip4844::get_kzg_proof(&blob, &kzg_settings)
+            .map_err(|e| anyhow!(e))?;
+        set_commitment_proof(proof, y)
+            .map_err(|e| anyhow!(e))?;
         
         (blob, Some(blob_hash), Some(kzg_settings))
+
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
             .map_err(|_| RaikoError::Preflight("Could not decode proposeBlockCall".to_owned()))?;
-        (proposal_call.txList.as_ref().to_owned(), None)
+        (proposal_call.txList.as_ref().to_owned(), None, None)
     };
 
     // Create the transactions from the proposed tx list
@@ -327,7 +326,7 @@ async fn prepare_taiko_chain_input(
         tx_data,
         anchor_tx: serde_json::to_string(&anchor_tx).map_err(RaikoError::Serde)?,
         tx_blob_hash,
-        kzg_setting,
+        kzg_settings,
         block_proposed: proposal_event,
         prover_data,
         skip_verify_blob: false,
@@ -363,11 +362,14 @@ fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     let blob_bytes: Vec<u8> = hex::decode(blob_str.to_lowercase().trim_start_matches("0x"))
         .expect("Could not decode blob");
-    let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
+    let kzg_settings = MAINNET_KZG_TRUSTED_SETUP.as_ref();
     let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
-    let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings)
+    let commitment = eip4844::blob_to_kzg_commitment_rust(
+        &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"), 
+        kzg_settings
+    )
         .expect("Could not create kzg commitment from blob");
-    let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
+    let version_hash: [u8; 32] = eip4844::commitment_to_version_hash(&bincode::serialize(&commitment).unwrap()).0;
     version_hash
 }
 

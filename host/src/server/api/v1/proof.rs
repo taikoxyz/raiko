@@ -156,12 +156,12 @@ async fn handle_proof(
         }
     };
     memory::reset_stats();
-    let output = raiko.get_output(&input)?;
+    let mut output = raiko.get_output(&input)?;
     memory::print_stats("Guest program peak memory used: ");
 
     memory::reset_stats();
     let measurement = Measurement::start("Generating proof...", false);
-    let proof = raiko.prove(input.clone(), &output).await.map_err(|e| {
+    let proof = raiko.prove(input.clone(), &mut output).await.map_err(|e| {
         let total_time = total_time.stop_with("====> Proof generation failed");
         observe_total_time(proof_request.block_number, total_time, false);
         match e {

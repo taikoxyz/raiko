@@ -119,7 +119,8 @@ impl Raiko {
                     "block hash unexpected",
                 )?;
 
-                let output = GuestOutput { header, hash: pi };
+                // proof_of_equivalence is generated depending on prover type
+                let output = GuestOutput { header, hash: pi, proof_of_equivalence: None };
 
                 Ok(output)
             }
@@ -132,7 +133,7 @@ impl Raiko {
         }
     }
 
-    pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> RaikoResult<Proof> {
+    pub async fn prove(&self, input: GuestInput, output: &mut GuestOutput) -> RaikoResult<Proof> {
         let data = serde_json::to_value(&self.request)?;
         self.request
             .proof_type

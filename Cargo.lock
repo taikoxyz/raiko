@@ -261,6 +261,7 @@ dependencies = [
  "alloy-rpc-types",
  "alloy-rpc-types-trace",
  "alloy-transport",
+ "alloy-transport-http",
  "async-stream",
  "async-trait",
  "auto_impl",
@@ -268,9 +269,11 @@ dependencies = [
  "futures",
  "futures-utils-wasm",
  "lru",
+ "reqwest 0.12.5",
  "serde_json",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]
@@ -5134,6 +5137,7 @@ dependencies = [
  "alloy-transport-http",
  "anyhow",
  "assert_cmd",
+ "bincode",
  "clap 4.5.7",
  "ethers-core 2.0.10",
  "kzg",

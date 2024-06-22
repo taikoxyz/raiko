@@ -7,13 +7,14 @@ use revm_primitives::{kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS}, B256};
 use sha2::{Digest as _, Sha256};
 use kzg::eip_4844::{
     compute_challenge, compute_kzg_proof_rust,
-    blob_to_kzg_commitment_rust, blob_to_polynomial, compute_blob_kzg_proof_rust, compute_kzg_proof_rust, evaluate_polynomial_in_evaluation_form, hash_to_bls_field, Blob
+    blob_to_polynomial, evaluate_polynomial_in_evaluation_form, hash_to_bls_field, Blob
 };
 
 #[cfg(feature = "kzg-zkcrypto")]
 mod backend_exports {
     pub use rust_kzg_zkcrypto::kzg_proofs::KZGSettings as TaikoKzgSettings;
     pub use rust_kzg_zkcrypto::eip_4844::deserialize_blob_rust;
+    pub use kzg::eip_4844::blob_to_kzg_commitment_rust;
 }
 
 pub use backend_exports::*;
@@ -53,7 +54,7 @@ pub fn proof_of_equivalence(input: &GuestInput) -> Result<Option<Vec<u8>>, Eip48
         return Ok(None);
     } else {
         let blob = &input.taiko.tx_data;
-        let kzg_settings = input.taiko.kzg_setting.as_ref().unwrap_or_else(|| {
+        let kzg_settings = input.taiko.kzg_settings.as_ref().unwrap_or_else(|| {
             // very costly, should not happen
             println!("initializing kzg settings in prover"); 
             &*MAINNET_KZG_TRUSTED_SETUP
@@ -67,7 +68,7 @@ pub fn proof_of_version_hash(input: &GuestInput) -> Result<Option<B256>, Eip4844
         return Ok(None);
     } else {
         let blob = &input.taiko.tx_data;
-        let kzg_settings = input.taiko.kzg_setting.as_ref().unwrap_or_else(|| &*MAINNET_KZG_TRUSTED_SETUP);
+        let kzg_settings = input.taiko.kzg_settings.as_ref().unwrap_or_else(|| &*MAINNET_KZG_TRUSTED_SETUP);
         let (_, y) = get_kzg_proof(blob, kzg_settings)?;
         Ok(Some(commitment_to_version_hash(&y)))
     }
@@ -101,6 +102,7 @@ pub fn get_kzg_proof(blob: &[u8], kzg_settings: &TaikoKzgSettings) -> Result<(Ve
 
     let evaluation_challenge_fr = compute_challenge(&blob_fields, &commitment);
     let (proof, y) = compute_kzg_proof_rust(&blob_fields, &evaluation_challenge_fr, kzg_settings)
+        // TODO: test here, bincode serialization might not work
         .map(|(proof, y)| (bincode::serialize(&proof).unwrap(), bincode::serialize(&y).unwrap()))
         .map_err(|e| Eip4844Error::ComputeKzgProofError(e))?;
 
