@@ -1,5 +1,4 @@
 use core::str::FromStr;
-// TODO(Cecilia): fix for no-std
 use std::io::Read;
 use std::io::Write;
 
