@@ -4,21 +4,18 @@ use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 // use c_kzg::{Blob, KzgCommitment, KzgSettings};
-use sha2::{Digest as _, Sha256};
-use core::primitive;
-use std::alloc::{alloc, Layout};
+use sha2::Digest as _;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
     consts::{SupportedChainSpecs, VerifierType},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    primitives::{keccak::keccak, eip4844::TaikoKzgSettings},
+    primitives::keccak::keccak,
     utils::HeaderHasher,
 };
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
-
 
 #[derive(Debug, Clone)]
 pub struct ProtocolInstance {

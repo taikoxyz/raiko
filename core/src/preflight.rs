@@ -23,14 +23,14 @@ use raiko_lib::{
         TaikoProverData,
     },
     primitives::{
-        self, eip4844::{self, get_kzg_proof_commitment, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP, KzgField, KzgGroup}, 
-        mpt::proofs_to_tries
+        eip4844::{self, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP},
+        mpt::proofs_to_tries,
     },
     utils::{generate_transactions, to_header, zlib_compress_data},
     Measurement,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, sync::Arc};
+use std::collections::HashSet;
 use tracing::{debug, info, warn};
 
 pub async fn preflight<BDP: BlockDataProvider>(
@@ -294,13 +294,11 @@ async fn prepare_taiko_chain_input(
         let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
 
         let kzg_settings = eip4844::MAINNET_KZG_TRUSTED_SETUP.as_ref().clone();
-        let (proof, commitment) = eip4844::get_kzg_proof_commitment(&blob, &kzg_settings)
-            .map_err(|e| anyhow!(e))?;
-        set_commitment_proof(&proof, &commitment)
-            .map_err(|e| anyhow!(e))?;
-        
-        (blob, Some(blob_hash), Some(kzg_settings))
+        let (proof, commitment) =
+            eip4844::get_kzg_proof_commitment(&blob, &kzg_settings).map_err(|e| anyhow!(e))?;
+        set_commitment_proof(&proof, &commitment).map_err(|e| anyhow!(e))?;
 
+        (blob, Some(blob_hash), Some(kzg_settings))
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
@@ -367,10 +365,10 @@ fn preflight_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     let kzg_settings = MAINNET_KZG_TRUSTED_SETUP.as_ref();
     let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
     let commitment = eip4844::blob_to_kzg_commitment_rust(
-        &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"), 
-        kzg_settings
+        &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"),
+        kzg_settings,
     )
-        .expect("Could not create kzg commitment from blob");
+    .expect("Could not create kzg commitment from blob");
     let version_hash: [u8; 32] = eip4844::commitment_to_version_hash(&commitment.to_bytes()).0;
     version_hash
 }

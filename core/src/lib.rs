@@ -120,7 +120,11 @@ impl Raiko {
                 )?;
 
                 // proof_of_equivalence is generated depending on prover type
-                let output = GuestOutput { header, hash: pi, proof_of_equivalence: None };
+                let output = GuestOutput {
+                    header,
+                    hash: pi,
+                    proof_of_equivalence: None,
+                };
 
                 Ok(output)
             }
@@ -293,9 +297,9 @@ mod tests {
         let proof_type = get_proof_type_from_env();
         // Skip test on SP1 for now because it's too slow on CI
         if !(is_ci() && proof_type == ProofType::Sp1) {
-            let network = Network::Ethereum.to_string();
+            let network = Network::TaikoMainnet.to_string();
             let l1_network = Network::Ethereum.to_string();
-            let block_number = 19707175;
+            let block_number = 88970;
             let taiko_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&network)
                 .unwrap();

@@ -15,6 +15,7 @@ use core::fmt::Debug;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
+use crate::primitives::eip4844::{KzgField, TaikoKzgSettings};
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
@@ -22,7 +23,6 @@ use anyhow::{anyhow, Result};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use crate::primitives::eip4844::{KzgField, TaikoKzgSettings};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -112,7 +112,7 @@ pub struct GuestOutput {
     #[serde_as(as = "RlpHexBytes")]
     pub header: AlloyConsensusHeader,
     pub hash: B256,
-    pub proof_of_equivalence: Option<KzgField>
+    pub proof_of_equivalence: Option<KzgField>,
 }
 
 sol! {

@@ -2,7 +2,8 @@ use crate::{merge, prover::NativeProver};
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
-    input::{GuestInput, GuestOutput}, primitives::eip4844::proof_of_equivalence, prover::{Proof, Prover, ProverError}
+    input::{GuestInput, GuestOutput},
+    prover::{Proof, Prover, ProverError},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -136,8 +137,8 @@ impl ProofType {
                 {
                     output.proof_of_equivalence = proof_of_equivalence(input);
                     return sp1_driver::Sp1Prover::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
+                        .await
+                        .map_err(|e| e.into());
                 }
                 #[cfg(not(feature = "sp1"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
@@ -147,8 +148,8 @@ impl ProofType {
                 {
                     output.proof_of_equivalence = proof_of_equivalence(input);
                     return risc0_driver::Risc0Prover::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
+                        .await
+                        .map_err(|e| e.into());
                 }
                 #[cfg(not(feature = "risc0"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
@@ -159,8 +160,8 @@ impl ProofType {
                     // Sgx guest runs proof_of_version_hash
                     output.proof_of_equivalence = None;
                     return sgx_prover::SgxProver::run(input, output, config)
-                    .await
-                    .map_err(|e| e.into());
+                        .await
+                        .map_err(|e| e.into());
                 }
                 #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))

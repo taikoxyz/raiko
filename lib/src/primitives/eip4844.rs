@@ -1,40 +1,40 @@
 // #![cfg(feature = "kzg")]
 
-use core::fmt::Display;
-use std::sync::{Arc, RwLock};
-use once_cell::sync::Lazy;
-use revm_primitives::{kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS}, B256};
-use sha2::{Digest as _, Sha256};
-use kzg::eip_4844::{
-    compute_challenge, compute_kzg_proof_rust,
-    blob_to_polynomial, evaluate_polynomial_in_evaluation_form, hash_to_bls_field, Blob
-};
-use kzg::{G1, Fr};
 use crate::input::GuestInput;
+use kzg::eip_4844::{
+    blob_to_polynomial, compute_challenge, compute_kzg_proof_rust,
+    evaluate_polynomial_in_evaluation_form, hash_to_bls_field, Blob,
+};
+use kzg::{Fr, G1};
+use once_cell::sync::Lazy;
+use revm_primitives::{
+    kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS},
+    B256,
+};
+use sha2::{Digest as _, Sha256};
+use std::sync::{Arc, RwLock};
 
 #[cfg(feature = "kzg-zkcrypto")]
 mod backend_exports {
-    pub use rust_kzg_zkcrypto::kzg_proofs::KZGSettings as TaikoKzgSettings;
-    pub use rust_kzg_zkcrypto::eip_4844::deserialize_blob_rust;
     pub use kzg::eip_4844::blob_to_kzg_commitment_rust;
+    pub use rust_kzg_zkcrypto::eip_4844::deserialize_blob_rust;
+    pub use rust_kzg_zkcrypto::kzg_proofs::KZGSettings as TaikoKzgSettings;
 }
 pub use backend_exports::*;
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
-pub static MAINNET_KZG_TRUSTED_SETUP: Lazy<Arc<TaikoKzgSettings>> = 
-    Lazy::new(|| {
-        Arc::new(
-            kzg::eip_4844::load_trusted_setup_rust(
-                G1Points::as_ref(&G1_POINTS).flatten(), 
-                G2Points::as_ref(&G2_POINTS).flatten()
-            )
-            .expect("failed to load trusted setup"),
+pub static MAINNET_KZG_TRUSTED_SETUP: Lazy<Arc<TaikoKzgSettings>> = Lazy::new(|| {
+    Arc::new(
+        kzg::eip_4844::load_trusted_setup_rust(
+            G1Points::as_ref(G1_POINTS).flatten(),
+            G2Points::as_ref(G2_POINTS).flatten(),
         )
-    });
+        .expect("failed to load trusted setup"),
+    )
+});
 
-pub static mut VERSION_HASH_AND_PROOF: Lazy<RwLock<(B256, KzgGroup)>> = 
-    Lazy::new(|| RwLock::new((B256::default(), [0u8; 48].into())));
-
+pub static mut VERSION_HASH_AND_PROOF: Lazy<RwLock<(B256, KzgGroup)>> =
+    Lazy::new(|| RwLock::new((B256::default(), [0u8; 48])));
 
 pub type KzgGroup = [u8; 48];
 pub type KzgField = [u8; 32];
@@ -53,12 +53,12 @@ pub enum Eip4844Error {
 
 pub fn proof_of_equivalence(input: &GuestInput) -> Result<Option<KzgField>, Eip4844Error> {
     if input.taiko.skip_verify_blob {
-        return Ok(None);
+        Ok(None)
     } else {
         let blob = &input.taiko.tx_data;
         let kzg_settings = input.taiko.kzg_settings.as_ref().unwrap_or_else(|| {
             // very costly, should not happen
-            println!("initializing kzg settings in prover"); 
+            println!("initializing kzg settings in prover");
             &*MAINNET_KZG_TRUSTED_SETUP
         });
         Ok(Some(proof_of_equivalence_eval(blob, kzg_settings)?))
@@ -67,61 +67,65 @@ pub fn proof_of_equivalence(input: &GuestInput) -> Result<Option<KzgField>, Eip4
 
 pub fn proof_of_version_hash(input: &GuestInput) -> Result<Option<B256>, Eip4844Error> {
     if input.taiko.skip_verify_blob {
-        return Ok(None);
+        Ok(None)
     } else {
         let blob_fields = Blob::from_bytes(&input.taiko.tx_data)
-            .map(|b| deserialize_blob_rust(&b))
-            .flatten()
+            .and_then(|b| deserialize_blob_rust(&b))
             .map_err(|_| Eip4844Error::DeserializeBlob)?;
 
-        let kzg_settings = input.taiko.kzg_settings.as_ref().unwrap_or_else(|| &*MAINNET_KZG_TRUSTED_SETUP);
+        let kzg_settings = input
+            .taiko
+            .kzg_settings
+            .as_ref()
+            .unwrap_or_else(|| &*MAINNET_KZG_TRUSTED_SETUP);
         let commitment = blob_to_kzg_commitment_rust(&blob_fields, kzg_settings)
-            .map_err(|e| Eip4844Error::ComputeKzgProof(e))?;
+            .map_err(Eip4844Error::ComputeKzgProof)?;
         Ok(Some(commitment_to_version_hash(&commitment.to_bytes())))
     }
 }
 
-pub fn proof_of_equivalence_eval(blob: &[u8], kzg_settings: &TaikoKzgSettings) -> Result<KzgField, Eip4844Error> {
-
+pub fn proof_of_equivalence_eval(
+    blob: &[u8],
+    kzg_settings: &TaikoKzgSettings,
+) -> Result<KzgField, Eip4844Error> {
     let blob_fields = Blob::from_bytes(blob)
-        .map(|b| deserialize_blob_rust(&b))
-        .flatten()
+        .and_then(|b| deserialize_blob_rust(&b))
         .map_err(|_| Eip4844Error::DeserializeBlob)?;
 
     let poly = blob_to_polynomial(&blob_fields).unwrap();
     let blob_hash = Sha256::digest(blob).into();
     let x = hash_to_bls_field(&blob_hash);
-    
+
     // y = poly(x)
     evaluate_polynomial_in_evaluation_form(&poly, &x, kzg_settings)
         .map(|fr| fr.to_bytes())
-        .map_err(|e| Eip4844Error::EvaluatePolynomial(e))
+        .map_err(Eip4844Error::EvaluatePolynomial)
 }
 
-pub fn get_kzg_proof_commitment(blob: &[u8], kzg_settings: &TaikoKzgSettings) -> Result<(KzgGroup, KzgGroup), Eip4844Error> {
+pub fn get_kzg_proof_commitment(
+    blob: &[u8],
+    kzg_settings: &TaikoKzgSettings,
+) -> Result<(KzgGroup, KzgGroup), Eip4844Error> {
     let blob_fields = Blob::from_bytes(blob)
-        .map(|b| deserialize_blob_rust(&b))
-        .flatten()
+        .and_then(|b| deserialize_blob_rust(&b))
         .map_err(|_| Eip4844Error::DeserializeBlob)?;
 
     let commitment = blob_to_kzg_commitment_rust(&blob_fields, kzg_settings)
-        .map_err(|e| Eip4844Error::ComputeKzgProof(e))?;
+        .map_err(Eip4844Error::ComputeKzgProof)?;
 
     let evaluation_challenge_fr = compute_challenge(&blob_fields, &commitment);
     let (proof, _) = compute_kzg_proof_rust(&blob_fields, &evaluation_challenge_fr, kzg_settings)
-        .map_err(|e| Eip4844Error::ComputeKzgProof(e))?;
+        .map_err(Eip4844Error::ComputeKzgProof)?;
 
     Ok((proof.to_bytes(), commitment.to_bytes()))
 }
 
-
 pub fn set_commitment_proof(proof: &KzgGroup, commitment: &KzgGroup) -> Result<(), Eip4844Error> {
-    let version_hash = commitment_to_version_hash(&commitment);
+    let version_hash = commitment_to_version_hash(commitment);
     unsafe {
         *VERSION_HASH_AND_PROOF
             .write()
-            .map_err(|e| Eip4844Error::SetCommitmentProof(e.to_string()))?
-        = (version_hash, *proof);
+            .map_err(|e| Eip4844Error::SetCommitmentProof(e.to_string()))? = (version_hash, *proof);
     }
     Ok(())
 }
@@ -132,17 +136,14 @@ pub fn commitment_to_version_hash(commitment: &KzgGroup) -> B256 {
     B256::new(hash.into())
 }
 
-
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use kzg::eip_4844::{
-        load_trusted_setup_rust, load_trusted_setup_string, verify_kzg_proof_rust, BYTES_PER_FIELD_ELEMENT};
-    use rust_kzg_zkcrypto::{kzg_types::ZG1, Fr};
-    use kzg::{G1, KZGSettings, G1Mul, G1GetFp};
-    use revm_primitives::kzg::parse_kzg_trusted_setup;
+    use kzg::eip_4844::{load_trusted_setup_rust, verify_kzg_proof_rust, BYTES_PER_FIELD_ELEMENT};
+    use kzg::G1;
     use lazy_static::lazy_static;
+    use revm_primitives::kzg::parse_kzg_trusted_setup;
+    use rust_kzg_zkcrypto::kzg_types::ZG1;
 
     lazy_static! {
         // "./lib/trusted_setup.txt"
@@ -153,27 +154,31 @@ mod test {
 
     #[test]
     fn test_parse_kzg_trusted_setup() {
-        
         println!("g1: {:?}", POINTS.0.len());
         println!("g2: {:?}", POINTS.1.len());
 
-        assert_eq!(POINTS.0.len(), MAINNET_KZG_TRUSTED_SETUP.as_ref().secret_g1.len());
-        assert_eq!(POINTS.1.len(), MAINNET_KZG_TRUSTED_SETUP.as_ref().secret_g2.len());
+        assert_eq!(
+            POINTS.0.len(),
+            MAINNET_KZG_TRUSTED_SETUP.as_ref().secret_g1.len()
+        );
+        assert_eq!(
+            POINTS.1.len(),
+            MAINNET_KZG_TRUSTED_SETUP.as_ref().secret_g2.len()
+        );
     }
 
     #[test]
     fn test_blob_to_kzg_commitment() {
         let kzg_settings: TaikoKzgSettings = load_trusted_setup_rust(
             G1Points::as_ref(&POINTS.0).flatten(),
-            G2Points::as_ref(&POINTS.1).flatten()
-        ).unwrap();
-        let blob = Blob::from_bytes(&[0u8; 131072]).unwrap();
-        let commitment = blob_to_kzg_commitment_rust(
-            &deserialize_blob_rust(&blob).unwrap(), 
-            &kzg_settings
+            G2Points::as_ref(&POINTS.1).flatten(),
         )
-            .map(|c| c.to_bytes())
-            .unwrap();
+        .unwrap();
+        let blob = Blob::from_bytes(&[0u8; 131072]).unwrap();
+        let commitment =
+            blob_to_kzg_commitment_rust(&deserialize_blob_rust(&blob).unwrap(), &kzg_settings)
+                .map(|c| c.to_bytes())
+                .unwrap();
         assert_eq!(
             commitment_to_version_hash(&commitment).to_string(),
             "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
@@ -184,31 +189,24 @@ mod test {
     fn test_verify_kzg_proof() {
         let kzg_settings: TaikoKzgSettings = load_trusted_setup_rust(
             G1Points::as_ref(&POINTS.0).flatten(),
-            G2Points::as_ref(&POINTS.1).flatten()
-        ).unwrap();
+            G2Points::as_ref(&POINTS.1).flatten(),
+        )
+        .unwrap();
         let blob = Blob::from_bytes(&[0u8; 131072]).unwrap();
         let blob_fields = deserialize_blob_rust(&blob).unwrap();
-        let (proof, commitment) = get_kzg_proof_commitment(
-            &blob.bytes, 
-            &kzg_settings
-        ).unwrap();
+        let (proof, commitment) = get_kzg_proof_commitment(&blob.bytes, &kzg_settings).unwrap();
         let poly = blob_to_polynomial(&blob_fields).unwrap();
-
 
         // Random number hash to field
         let x = hash_to_bls_field(&[5; BYTES_PER_FIELD_ELEMENT]);
-        let y = evaluate_polynomial_in_evaluation_form(
-            &poly, 
-            &x, 
-            &kzg_settings
-        ).unwrap();
+        let y = evaluate_polynomial_in_evaluation_form(&poly, &x, &kzg_settings).unwrap();
 
         verify_kzg_proof_rust(
-            &ZG1::from_bytes(&commitment).unwrap(), 
-            &x, 
-            &y, 
-            &&ZG1::from_bytes(&proof).unwrap(), 
-            &kzg_settings
+            &ZG1::from_bytes(&commitment).unwrap(),
+            &x,
+            &y,
+            &ZG1::from_bytes(&proof).unwrap(),
+            &kzg_settings,
         );
     }
 }
