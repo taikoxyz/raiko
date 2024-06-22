@@ -137,9 +137,10 @@ pub fn commitment_to_version_hash(commitment: &KzgGroup) -> B256 {
 #[cfg(test)]
 mod test {
     use super::*;
-    use kzg::eip_4844::{load_trusted_setup_rust, load_trusted_setup_string};
-    use rust_kzg_zkcrypto::kzg_types::ZG1;
-    use kzg::G1;
+    use kzg::eip_4844::{
+        load_trusted_setup_rust, load_trusted_setup_string, verify_kzg_proof_rust, BYTES_PER_FIELD_ELEMENT};
+    use rust_kzg_zkcrypto::{kzg_types::ZG1, Fr};
+    use kzg::{G1, KZGSettings, G1Mul, G1GetFp};
     use revm_primitives::kzg::parse_kzg_trusted_setup;
     use lazy_static::lazy_static;
 
@@ -179,15 +180,35 @@ mod test {
         );
     }
 
-    // #[test]
-    // fn test_c_kzg_lib_commitment() {
-    //     // check c-kzg mainnet trusted setup is ok
-    //     let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
-    //     let blob = [0u8; 131072].into();
-    //     let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
-    //     assert_eq!(
-    //         kzg_to_versioned_hash(&kzg_commit).to_string(),
-    //         "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
-    //     );
-    // }
+    #[test]
+    fn test_verify_kzg_proof() {
+        let kzg_settings: TaikoKzgSettings = load_trusted_setup_rust(
+            G1Points::as_ref(&POINTS.0).flatten(),
+            G2Points::as_ref(&POINTS.1).flatten()
+        ).unwrap();
+        let blob = Blob::from_bytes(&[0u8; 131072]).unwrap();
+        let blob_fields = deserialize_blob_rust(&blob).unwrap();
+        let (proof, commitment) = get_kzg_proof_commitment(
+            &blob.bytes, 
+            &kzg_settings
+        ).unwrap();
+        let poly = blob_to_polynomial(&blob_fields).unwrap();
+
+
+        // Random number hash to field
+        let x = hash_to_bls_field(&[5; BYTES_PER_FIELD_ELEMENT]);
+        let y = evaluate_polynomial_in_evaluation_form(
+            &poly, 
+            &x, 
+            &kzg_settings
+        ).unwrap();
+
+        verify_kzg_proof_rust(
+            &ZG1::from_bytes(&commitment).unwrap(), 
+            &x, 
+            &y, 
+            &&ZG1::from_bytes(&proof).unwrap(), 
+            &kzg_settings
+        );
+    }
 }
