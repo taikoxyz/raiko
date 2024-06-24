@@ -6,15 +6,13 @@ use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::{
     consts::VerifierType,
     builder::calculate_block_header,
-    input::{GuestInput, GuestOutput},
+    input::GuestInput,
 };
 use revm_precompile::zk_op::ZkOperation;
 use zk_op::Risc0Operator;
 
 pub mod mem;
 
-#[cfg(test)]
-use harness::*;
 pub use mem::*;
 
 fn main() {
@@ -27,8 +25,8 @@ fn main() {
 
     let header = calculate_block_header(&input);
     let pi = ProtocolInstance::new(&input, &header, VerifierType::RISC0)
-            .unwrap()
-            .instance_hash();
+        .unwrap()
+        .instance_hash();
 
     env::commit(&pi);
 }

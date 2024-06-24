@@ -79,7 +79,7 @@ async fn validate_cache_input(
 
         // double check if cache is valid
         if cached_block_hash == real_block_hash {
-            return Ok(cache_input);
+            Ok(cache_input)
         } else {
             Err(HostError::InvalidRequestConfig(
                 "Cached input is not valid".to_owned(),
@@ -250,7 +250,7 @@ mod test {
         block_number: u64,
     ) -> (GuestInput, RpcBlockDataProvider) {
         let l1_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&l1_network)
+            .get_chain_spec(l1_network)
             .unwrap();
         let taiko_chain_spec = SupportedChainSpecs::default()
             .get_chain_spec(network)
@@ -286,7 +286,7 @@ mod test {
     async fn test_generate_input_from_cache() {
         let l1 = &Network::Holesky.to_string();
         let l2 = &Network::TaikoA7.to_string();
-        let block_number: u64 = 7;
+        let block_number: u64 = 69627;
         let (input, provider) = create_cache_input(l1, l2, block_number).await;
         let cache_path = Some("./".into());
         assert!(set_cached_input(&cache_path, block_number, l2, &input).is_ok());

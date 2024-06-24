@@ -9,6 +9,7 @@ use crate::{
     guest_mem_forget,
     input::GuestInput,
     mem_db::{AccountState, DbAccount, MemDb},
+    CycleTracker,
 };
 use alloy_consensus::{Signed, Transaction, TxEnvelope};
 use alloy_rpc_types::{ConversionError, Parity, Transaction as AlloyTransaction};
@@ -24,13 +25,28 @@ use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{AccountInfo, Bytecode, Bytes, HashMap, SpecId};
 use reth_primitives::transaction::Signature as RethSignature;
 use reth_primitives::{BlockBody, Header, TransactionSigned, B256, KECCAK_EMPTY, U256};
+use tracing::debug;
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
+    let cycle_tracker = CycleTracker::start("initialize_database");
     let db = create_mem_db(&mut input.clone()).unwrap();
+    cycle_tracker.end();
+
     let mut builder = RethBlockBuilder::new(&input, db);
+
+    let cycle_tracker = CycleTracker::start("prepare_header");
     builder.prepare_header().expect("prepare");
+    cycle_tracker.end();
+
+    let cycle_tracker = CycleTracker::start("execute_transactions");
     builder.execute_transactions(false).expect("execute");
-    builder.finalize().expect("execute")
+    cycle_tracker.end();
+
+    let cycle_tracker = CycleTracker::start("finalize");
+    let header = builder.finalize().expect("execute");
+    cycle_tracker.end();
+
+    header
 }
 
 /// Optimistic database
@@ -245,6 +261,9 @@ impl RethBlockBuilder<MemDb> {
 
     /// Finalizes the block building and returns the header and the state trie.
     pub fn calculate_state_root(&mut self) -> Result<B256> {
+        let mut account_touched = 0;
+        let mut storage_touched = 0;
+
         // apply state updates
         let mut state_trie = mem::take(&mut self.input.parent_state_trie);
         for (address, account) in &self.db.as_ref().unwrap().accounts {
@@ -261,6 +280,8 @@ impl RethBlockBuilder<MemDb> {
                 state_trie.delete(&state_trie_index)?;
                 continue;
             }
+
+            account_touched += 1;
 
             // otherwise, compute the updated storage root for that account
             let state_storage = &account.storage;
@@ -287,6 +308,8 @@ impl RethBlockBuilder<MemDb> {
                     }
                 }
 
+                storage_touched += 1;
+
                 storage_trie.hash()
             };
 
@@ -298,6 +321,10 @@ impl RethBlockBuilder<MemDb> {
             };
             state_trie.insert_rlp(&state_trie_index, state_account)?;
         }
+
+        debug!("Accounts touched {:?}", account_touched);
+        debug!("Storages touched {:?}", storage_touched);
+
         Ok(state_trie.hash())
     }
 }
@@ -318,11 +345,16 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
         .map(|bytes| (keccak(&bytes).into(), bytes))
         .collect();
 
+    let mut account_touched = 0;
+    let mut storage_touched = 0;
+
     // Load account data into db
     let mut accounts = HashMap::with_capacity(input.parent_storage.len());
     for (address, (storage_trie, slots)) in &mut input.parent_storage {
         // consume the slots, as they are no longer needed afterwards
         let slots = mem::take(slots);
+
+        account_touched += 1;
 
         // load the account from the state trie or empty if it does not exist
         let state_account = input
@@ -357,6 +389,8 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
                 .get_rlp(&keccak(slot.to_be_bytes::<32>()))?
                 .unwrap_or_default();
             storage.insert(slot, value);
+
+            storage_touched += 1;
         }
 
         let mem_account = DbAccount {
@@ -373,6 +407,9 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
         accounts.insert(*address, mem_account);
     }
     guest_mem_forget(contracts);
+
+    debug!("Accounts touched: {account_touched:?}");
+    debug!("Storages touched: {storage_touched:?}");
 
     // prepare block hash history
     let mut block_hashes = HashMap::with_capacity(input.ancestor_headers.len() + 1);

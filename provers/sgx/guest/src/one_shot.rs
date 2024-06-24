@@ -11,7 +11,7 @@ use raiko_lib::{
     builder::calculate_block_header, consts::VerifierType, input::GuestInput, primitives::Address,
     protocol_instance::ProtocolInstance,
 };
-use secp256k1::{KeyPair, SecretKey};
+use secp256k1::{Keypair, SecretKey};
 use serde::Serialize;
 
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
@@ -34,7 +34,7 @@ struct BootstrapData {
     quote: String,
 }
 
-fn save_priv_key(key_pair: &KeyPair, privkey_path: &PathBuf) -> Result<()> {
+fn save_priv_key(key_pair: &Keypair, privkey_path: &PathBuf) -> Result<()> {
     let mut file = fs::File::create(privkey_path).with_context(|| {
         format!(
             "Failed to create private key file {}",
@@ -57,7 +57,7 @@ fn get_sgx_quote() -> Result<Vec<u8>> {
 }
 
 fn save_bootstrap_details(
-    key_pair: &KeyPair,
+    key_pair: &Keypair,
     new_instance: Address,
     quote: Vec<u8>,
     bootstrap_details_file_path: &Path,

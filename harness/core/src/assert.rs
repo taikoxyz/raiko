@@ -60,6 +60,10 @@ impl AssertionLog {
         self.assertions.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn display_failures(&self, start: usize, end: usize) {
         for i in start..end {
             if let Some(assertion) = self.assertions.get(i) {

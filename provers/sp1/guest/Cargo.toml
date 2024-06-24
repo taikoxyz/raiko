@@ -40,14 +40,17 @@ revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
     "taiko",
 ] }
 
-sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "v0.10.8" }
+sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
 sp1-precompiles = { git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["sp1"]}
 substrate-bn = "0.6.0"
-
+alloy-consensus = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", optional = true, features = [
+    "serde",
+] }
 [patch.crates-io]
 # Cant's use ZkOp for keccak since it's not precompile
+ecdsa = { git = "https://github.com/taikoxyz/signatures.git", branch = "0.16.9", package = "ecdsa", default-features = false, features = ["der"] }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
     "std",
@@ -62,9 +65,10 @@ c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7",
     "preload-kzg-settings",
     "no-threads",
 ] }
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch", default-features = false, features = [
-    "alloc",
-    "recovery",
-    "rand",
-    "global-context",
-] }
+secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch", features = ["recovery", "sp1"]}
+
+[features]
+sp1-cycle-tracker = [
+    "raiko-lib/sp1-cycle-tracker",
+    "revm-precompile/sp1-cycle-tracker"
+]

@@ -176,7 +176,7 @@ pub fn merge(a: &mut Value, b: &Value) {
                 merge(a.entry(k).or_insert(Value::Null), v);
             }
         }
-        (a, b) if !b.is_null() => *a = b.to_owned(),
+        (a, b) if !b.is_null() => b.clone_into(a),
         // If b is null, just keep a (which means do nothing).
         _ => {}
     }
