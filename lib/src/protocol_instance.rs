@@ -210,7 +210,6 @@ mod tests {
         );
     }
 
-    // TODO: update proof_of_equivalence
     #[test]
     fn test_calc_eip712_pi_hash() {
         let trans = Transition {
@@ -231,7 +230,7 @@ mod tests {
                 address!("741E45D08C70c1C232802711bBFe1B7C0E1acc55"),
                 address!("70997970C51812dc3A010C7d01b50e0d17dc79C8"),
                 meta_hash,
-                // proof_of_equivalence,
+                proof_of_equivalence,
             )
                 .abi_encode()
                 .iter()
@@ -241,7 +240,7 @@ mod tests {
         );
         assert_eq!(
             hex::encode(pi_hash),
-            "4a7ba84010036277836eaf99acbbc10dc5d8ee9063e2e3c5be5e8be39ceba8ae"
+            "dc1696a5289616fa5eaa9b6ce97d53765b79db948caedb6887f21a26e4c29511"
         );
     }
 
@@ -266,7 +265,7 @@ mod tests {
                 address!("4F3F0D5B22338f1f991a1a9686C7171389C97Ff7"),
                 address!("4F3F0D5B22338f1f991a1a9686C7171389C97Ff7"),
                 meta_hash,
-                // proof_of_equivalence,
+                proof_of_equivalence,
             )
                 .abi_encode()
                 .iter()
@@ -276,7 +275,9 @@ mod tests {
         );
         assert_eq!(
             hex::encode(pi_hash),
-            "e9a8ebed81fb2da780c79aef3739c64c485373250b6167719517157936a1501b"
+            "8b0e2833f7bae47f6886e5f172d90b12e330485bfe366d8ed4d53b2114d47e68"
         );
     }
+
+
 }

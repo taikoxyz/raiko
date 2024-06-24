@@ -11,7 +11,6 @@ use revm_primitives::{
     kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS},
     B256,
 };
-use rust_kzg_zkcrypto::kzg_types::ZFr;
 use sha2::{Digest as _, Sha256};
 use std::sync::{Arc, RwLock};
 
