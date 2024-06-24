@@ -1,5 +1,8 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::interfaces::ProofRequest;
+use raiko_core::{
+    interfaces::ProofRequest,
+    provider::{rpc::RpcBlockDataProvider, BlockDataProvider},
+};
 use raiko_task_manager::TaskDb;
 use serde_json::Value;
 use tracing::info;
@@ -47,10 +50,17 @@ async fn submit_handler(
         proof_request.block_number, proof_request.network
     );
 
-    let l1_chain_spec = prover_state
+    let taiko_chain_spec = prover_state
         .chain_specs
-        .get_chain_spec(&proof_request.l1_network.to_string())
-        .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported l1 network".to_string()))?;
+        .get_chain_spec(&proof_request.network.to_string())
+        .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported taiko network".to_string()))?;
+
+    let provider = RpcBlockDataProvider::new(
+        &taiko_chain_spec.rpc.clone(),
+        proof_request.block_number - 1,
+    )?;
+    let block = provider.get_block(proof_request.block_number).await?;
+    let _blockhash = block.header.hash;
 
     let db = TaskDb::open_or_create(&prover_state.opts.sqlite_file)?;
     // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
@@ -62,7 +72,7 @@ async fn submit_handler(
         prover_state.chain_specs,
     ))?;
 
-    manager.enqueue_task(l1_chain_spec.chain_id, &proof_request)?;
+    manager.enqueue_task(taiko_chain_spec.chain_id, &proof_request)?;
     Ok(Json(serde_json::json!("{}")))
 }
 

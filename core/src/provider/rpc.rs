@@ -39,6 +39,16 @@ impl RpcBlockDataProvider {
 }
 
 impl BlockDataProvider for RpcBlockDataProvider {
+    async fn get_block(&self, block_number: u64) -> RaikoResult<Block> {
+        self.client
+            .request(
+                "eth_getBlockByNumber",
+                &(BlockNumberOrTag::from(block_number), true),
+            )
+            .await
+            .map_err(|_| RaikoError::RPC("Failed calling eth_getBlockByNumber".to_owned()))
+    }
+
     async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<Block>> {
         let mut all_blocks = Vec::with_capacity(blocks_to_fetch.len());
 

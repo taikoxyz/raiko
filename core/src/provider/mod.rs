@@ -10,6 +10,8 @@ pub mod rpc;
 
 #[allow(async_fn_in_trait)]
 pub trait BlockDataProvider {
+    async fn get_block(&self, block_number: u64) -> RaikoResult<Block>;
+
     async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<Block>>;
 
     async fn get_accounts(&self, accounts: &[Address]) -> RaikoResult<Vec<AccountInfo>>;
