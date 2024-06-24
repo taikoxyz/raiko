@@ -53,11 +53,11 @@ pub struct Docs;
 pub struct ProofResponse {
     #[schema(value_type = Option<GuestOutputDoc>)]
     /// The output of the prover.
-    output: Option<GuestOutput>,
+    pub output: Option<GuestOutput>,
     /// The proof.
-    proof: Option<String>,
+    pub proof: Option<String>,
     /// The quote.
-    quote: Option<String>,
+    pub quote: Option<String>,
 }
 
 impl IntoResponse for ProofResponse {

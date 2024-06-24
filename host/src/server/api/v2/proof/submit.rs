@@ -56,9 +56,11 @@ async fn submit_handler(
     // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
     let mut manager = db.manage()?;
 
-    prover_state
-        .task_channel
-        .try_send((proof_request.clone(), prover_state.opts))?;
+    prover_state.task_channel.try_send((
+        proof_request.clone(),
+        prover_state.opts,
+        prover_state.chain_specs,
+    ))?;
 
     manager.enqueue_task(l1_chain_spec.chain_id, &proof_request)?;
     Ok(Json(serde_json::json!("{}")))

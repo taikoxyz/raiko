@@ -16,8 +16,8 @@ use tower_http::{
 
 use crate::ProverState;
 
-mod v1;
-mod v2;
+pub mod v1;
+pub mod v2;
 
 pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Router<ProverState> {
     let cors = CorsLayer::new()
