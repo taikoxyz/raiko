@@ -32,7 +32,7 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
     let db = create_mem_db(&mut input.clone()).unwrap();
     cycle_tracker.end();
 
-    let mut builder = RethBlockBuilder::new(&input, db);
+    let mut builder = RethBlockBuilder::new(input, db);
 
     let cycle_tracker = CycleTracker::start("prepare_header");
     builder.prepare_header().expect("prepare");
@@ -113,7 +113,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             number: number
                 .checked_add(1)
                 .with_context(|| "Invalid block number: too large")?,
-            base_fee_per_gas: Some(self.input.base_fee_per_gas.into()),
+            base_fee_per_gas: Some(self.input.base_fee_per_gas),
             // Initialize metadata from input
             beneficiary: self.input.beneficiary,
             gas_limit: self.input.gas_limit.into(),
@@ -487,7 +487,7 @@ pub fn to_alloy_transaction(tx: &TxEnvelope) -> Result<AlloyTransaction, Error> 
                 signature: Some(to_alloy_signature(get_sig(tx))),
                 chain_id: tx.tx().chain_id(),
                 blob_versioned_hashes: None,
-                access_list: None,
+                access_list: Some(tx.tx().access_list.clone()),
                 transaction_type: Some(1),
                 ..Default::default()
             };
