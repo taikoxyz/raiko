@@ -17,7 +17,7 @@ mod tests {
     use raiko_lib::primitives::B256;
     use raiko_task_manager::{TaskDb, TaskStatus};
 
-    fn create_random_task(rng: &mut ChaCha8Rng) -> (u64, ProofRequest) {
+    fn create_random_task(rng: &mut ChaCha8Rng) -> (u64, B256, ProofRequest) {
         let chain_id = 100;
         let proof_type = match rng.gen_range(0..4) {
             0 => ProofType::Native,
@@ -26,12 +26,14 @@ mod tests {
             _ => ProofType::Risc0,
         };
         let block_number = rng.gen_range(1..4_000_000);
+        let block_hash = B256::random();
         let graffiti = B256::random();
         let prover_args = HashMap::new();
         let prover = Address::random();
 
         (
             chain_id,
+            block_hash,
             ProofRequest {
                 block_number,
                 network: "network".to_string(),
@@ -63,8 +65,9 @@ mod tests {
         // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
         let mut tama = db.manage().unwrap();
 
-        let (chain_id, request) = create_random_task(&mut ChaCha8Rng::seed_from_u64(123));
-        tama.enqueue_task(chain_id, &request).unwrap();
+        let (chain_id, block_hash, request) =
+            create_random_task(&mut ChaCha8Rng::seed_from_u64(123));
+        tama.enqueue_task(chain_id, block_hash, &request).unwrap();
     }
 
     #[test]
@@ -92,12 +95,12 @@ mod tests {
         let mut tasks = vec![];
 
         for _ in 0..5 {
-            let (chain_id, request) = create_random_task(&mut rng);
+            let (chain_id, block_hash, request) = create_random_task(&mut rng);
 
-            tama.enqueue_task(chain_id, &request).unwrap();
+            tama.enqueue_task(chain_id, block_hash, &request).unwrap();
 
             let task_status = tama
-                .get_task_proving_status(chain_id, request.block_number, request.proof_type)
+                .get_task_proving_status(chain_id, block_hash, request.proof_type)
                 .unwrap();
             assert_eq!(task_status.len(), 1);
             let (status, _) = task_status
@@ -105,27 +108,32 @@ mod tests {
                 .expect("Already confirmed there is exactly 1 element");
             assert_eq!(status, &TaskStatus::Registered);
 
-            tasks.push((chain_id, request.block_number, request.proof_type));
+            tasks.push((
+                chain_id,
+                block_hash,
+                request.block_number,
+                request.proof_type,
+            ));
         }
 
         std::thread::sleep(Duration::from_millis(1));
 
         {
             let task_status = tama
-                .get_task_proving_status(tasks[0].0, tasks[0].1, tasks[0].2)
+                .get_task_proving_status(tasks[0].0, tasks[0].1, tasks[0].3)
                 .unwrap();
             println!("{task_status:?}");
             tama.update_task_progress(
                 tasks[0].0,
                 tasks[0].1,
-                tasks[0].2,
+                tasks[0].3,
                 TaskStatus::Cancelled_NeverStarted,
                 None,
             )
             .unwrap();
 
             let task_status = tama
-                .get_task_proving_status(tasks[0].0, tasks[0].1, tasks[0].2)
+                .get_task_proving_status(tasks[0].0, tasks[0].1, tasks[0].3)
                 .unwrap();
             println!("{task_status:?}");
             assert_eq!(task_status.len(), 2);
@@ -137,7 +145,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[1].0,
                 tasks[1].1,
-                tasks[1].2,
+                tasks[1].3,
                 TaskStatus::WorkInProgress,
                 None,
             )
@@ -145,7 +153,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[1].0, tasks[1].1, tasks[1].2)
+                    .get_task_proving_status(tasks[1].0, tasks[1].1, tasks[1].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
                 assert_eq!(task_status[0].0, TaskStatus::WorkInProgress);
@@ -157,7 +165,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[1].0,
                 tasks[1].1,
-                tasks[1].2,
+                tasks[1].3,
                 TaskStatus::CancellationInProgress,
                 None,
             )
@@ -165,7 +173,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[1].0, tasks[1].1, tasks[1].2)
+                    .get_task_proving_status(tasks[1].0, tasks[1].1, tasks[1].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
                 assert_eq!(task_status[0].0, TaskStatus::CancellationInProgress);
@@ -178,7 +186,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[1].0,
                 tasks[1].1,
-                tasks[1].2,
+                tasks[1].3,
                 TaskStatus::Cancelled,
                 None,
             )
@@ -186,7 +194,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[1].0, tasks[1].1, tasks[1].2)
+                    .get_task_proving_status(tasks[1].0, tasks[1].1, tasks[1].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 4);
                 assert_eq!(task_status[0].0, TaskStatus::Cancelled);
@@ -201,7 +209,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[2].0,
                 tasks[2].1,
-                tasks[2].2,
+                tasks[2].3,
                 TaskStatus::WorkInProgress,
                 None,
             )
@@ -209,7 +217,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[2].0, tasks[2].1, tasks[2].2)
+                    .get_task_proving_status(tasks[2].0, tasks[2].1, tasks[2].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
                 assert_eq!(task_status[0].0, TaskStatus::WorkInProgress);
@@ -222,7 +230,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[2].0,
                 tasks[2].1,
-                tasks[2].2,
+                tasks[2].3,
                 TaskStatus::Success,
                 Some(&proof),
             )
@@ -230,7 +238,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[2].0, tasks[2].1, tasks[2].2)
+                    .get_task_proving_status(tasks[2].0, tasks[2].1, tasks[2].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
                 assert_eq!(task_status[0].0, TaskStatus::Success);
@@ -240,7 +248,7 @@ mod tests {
 
             assert_eq!(
                 proof,
-                tama.get_task_proof(tasks[2].0, tasks[2].1, tasks[2].2)
+                tama.get_task_proof(tasks[2].0, tasks[2].1, tasks[2].3)
                     .unwrap()
             );
         }
@@ -250,7 +258,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[3].0,
                 tasks[3].1,
-                tasks[3].2,
+                tasks[3].3,
                 TaskStatus::WorkInProgress,
                 None,
             )
@@ -258,7 +266,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[3].0, tasks[3].1, tasks[3].2)
+                    .get_task_proving_status(tasks[3].0, tasks[3].1, tasks[3].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
                 assert_eq!(task_status[0].0, TaskStatus::WorkInProgress);
@@ -270,7 +278,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[3].0,
                 tasks[3].1,
-                tasks[3].2,
+                tasks[3].3,
                 TaskStatus::NetworkFailure,
                 None,
             )
@@ -278,7 +286,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[3].0, tasks[3].1, tasks[3].2)
+                    .get_task_proving_status(tasks[3].0, tasks[3].1, tasks[3].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
                 assert_eq!(task_status[0].0, TaskStatus::NetworkFailure);
@@ -291,7 +299,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[3].0,
                 tasks[3].1,
-                tasks[3].2,
+                tasks[3].3,
                 TaskStatus::WorkInProgress,
                 None,
             )
@@ -299,7 +307,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[3].0, tasks[3].1, tasks[3].2)
+                    .get_task_proving_status(tasks[3].0, tasks[3].1, tasks[3].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 4);
                 assert_eq!(task_status[0].0, TaskStatus::WorkInProgress);
@@ -314,7 +322,7 @@ mod tests {
             tama.update_task_progress(
                 tasks[3].0,
                 tasks[3].1,
-                tasks[3].2,
+                tasks[3].3,
                 TaskStatus::Success,
                 Some(&proof),
             )
@@ -322,7 +330,7 @@ mod tests {
 
             {
                 let task_status = tama
-                    .get_task_proving_status(tasks[3].0, tasks[3].1, tasks[3].2)
+                    .get_task_proving_status(tasks[3].0, tasks[3].1, tasks[3].3)
                     .unwrap();
                 assert_eq!(task_status.len(), 5);
                 assert_eq!(task_status[0].0, TaskStatus::Success);
@@ -334,7 +342,7 @@ mod tests {
 
             assert_eq!(
                 proof,
-                tama.get_task_proof(tasks[3].0, tasks[3].1, tasks[3].2)
+                tama.get_task_proof(tasks[3].0, tasks[3].1, tasks[3].3)
                     .unwrap()
             );
         }

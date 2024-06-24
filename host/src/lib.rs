@@ -19,7 +19,7 @@ use clap::Parser;
 use raiko_core::{
     interfaces::{ProofRequest, ProofRequestOpt, RaikoError},
     merge,
-    provider::rpc::RpcBlockDataProvider,
+    provider::{get_task_data, rpc::RpcBlockDataProvider},
     Raiko,
 };
 use raiko_lib::{consts::SupportedChainSpecs, Measurement};
@@ -177,22 +177,22 @@ impl ProverState {
                 let proof_request_clone = proof_request.clone();
                 let opts_clone = opts.clone();
                 let chain_specs_clone = chain_specs.clone();
+                let (chain_id, blockhash) = get_task_data(
+                    &proof_request.network,
+                    proof_request.block_number,
+                    &chain_specs,
+                )
+                .await
+                .unwrap();
 
                 let proof_result: HostResult<ProofResponse> = async move {
                     {
                         let db = TaskDb::open_or_create(&opts_clone.sqlite_file)?;
                         // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
                         let mut manager = db.manage()?;
-                        let taiko_chain_spec = chain_specs_clone
-                            .get_chain_spec(&proof_request_clone.network.to_string())
-                            .ok_or_else(|| {
-                                HostError::InvalidRequestConfig(
-                                    "Unsupported raiko network".to_string(),
-                                )
-                            })?;
                         manager.update_task_progress(
-                            taiko_chain_spec.chain_id,
-                            proof_request.block_number,
+                            chain_id,
+                            blockhash,
                             proof_request.proof_type,
                             TaskStatus::WorkInProgress,
                             None,
@@ -207,18 +207,11 @@ impl ProverState {
                             let db = TaskDb::open_or_create(&opts.sqlite_file)?;
                             // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
                             let mut manager = db.manage()?;
-                            let taiko_chain_spec = chain_specs
-                                .get_chain_spec(&proof_request.network.to_string())
-                                .ok_or_else(|| {
-                                    HostError::InvalidRequestConfig(
-                                        "Unsupported raiko network".to_string(),
-                                    )
-                                })?;
                             let proof = proof.proof.unwrap();
                             let proof = proof.as_bytes();
                             manager.update_task_progress(
-                                taiko_chain_spec.chain_id,
-                                proof_request.block_number,
+                                chain_id,
+                                blockhash,
                                 proof_request.proof_type,
                                 TaskStatus::WorkInProgress,
                                 Some(proof),
@@ -232,17 +225,9 @@ impl ProverState {
                             let db = TaskDb::open_or_create(&opts.sqlite_file)?;
                             // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
                             let mut manager = db.manage()?;
-                            let taiko_chain_spec = chain_specs
-                                .get_chain_spec(&proof_request.network.to_string())
-                                .ok_or_else(|| {
-                                    HostError::InvalidRequestConfig(
-                                        "Unsupported raiko network".to_string(),
-                                    )
-                                })?;
-
                             manager.update_task_progress(
-                                taiko_chain_spec.chain_id,
-                                proof_request.block_number,
+                                chain_id,
+                                blockhash,
                                 proof_request.proof_type,
                                 match error {
                                     HostError::HandleDropped

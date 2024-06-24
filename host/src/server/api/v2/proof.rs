@@ -1,20 +1,18 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::{
-    interfaces::ProofRequest,
-    provider::{rpc::RpcBlockDataProvider, BlockDataProvider},
-};
-use raiko_task_manager::TaskDb;
+use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
+use raiko_task_manager::{TaskDb, TaskStatus};
 use serde_json::Value;
 use tracing::info;
 use utoipa::OpenApi;
 
 use crate::{
-    interfaces::{HostError, HostResult},
+    interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
+    server::api::v1::ProofResponse,
     ProverState,
 };
 
-#[utoipa::path(post, path = "/proof/submit",
+#[utoipa::path(post, path = "/proof",
     tag = "Proving",
     request_body = ProofRequestOpt,
     responses (
@@ -22,7 +20,7 @@ use crate::{
     )
 )]
 #[debug_handler(state = ProverState)]
-/// Submit a proof task with requested config.
+/// Submit a proof task with requested config, get task status or get proof value.
 ///
 /// Accepts a proof request and creates a proving task with the specified guest prover.
 /// The guest provers currently available are:
@@ -30,7 +28,7 @@ use crate::{
 /// - sgx - uses the sgx environment to construct a block and produce proof of execution
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
-async fn submit_handler(
+async fn proof_handler(
     State(prover_state): State<ProverState>,
     Json(req): Json<Value>,
 ) -> HostResult<Json<Value>> {
@@ -50,34 +48,56 @@ async fn submit_handler(
         proof_request.block_number, proof_request.network
     );
 
-    let taiko_chain_spec = prover_state
-        .chain_specs
-        .get_chain_spec(&proof_request.network.to_string())
-        .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported taiko network".to_string()))?;
-
-    let provider = RpcBlockDataProvider::new(
-        &taiko_chain_spec.rpc.clone(),
-        proof_request.block_number - 1,
-    )?;
-    let block = provider.get_block(proof_request.block_number).await?;
-    let _blockhash = block.header.hash;
+    let (chain_id, block_hash) = get_task_data(
+        &proof_request.network,
+        proof_request.block_number,
+        &prover_state.chain_specs,
+    )
+    .await?;
 
     let db = TaskDb::open_or_create(&prover_state.opts.sqlite_file)?;
     // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
     let mut manager = db.manage()?;
 
-    prover_state.task_channel.try_send((
-        proof_request.clone(),
-        prover_state.opts,
-        prover_state.chain_specs,
-    ))?;
+    let status = manager.get_task_proving_status(chain_id, block_hash, proof_request.proof_type)?;
 
-    manager.enqueue_task(taiko_chain_spec.chain_id, &proof_request)?;
-    Ok(Json(serde_json::json!("{}")))
+    if status.is_empty() {
+        prover_state.task_channel.try_send((
+            proof_request.clone(),
+            prover_state.opts,
+            prover_state.chain_specs,
+        ))?;
+
+        manager.enqueue_task(chain_id, block_hash, &proof_request)?;
+        return Ok(Json(serde_json::json!("{}")));
+    }
+
+    let (status, _) = status.first().unwrap();
+
+    if matches!(status, TaskStatus::Success) {
+        let proof = manager.get_task_proof(chain_id, block_hash, proof_request.proof_type)?;
+
+        let response = ProofResponse {
+            proof: Some(String::from_utf8(proof).unwrap()),
+            output: None,
+            quote: None,
+        };
+
+        return Ok(Json(serde_json::to_value(response)?));
+    }
+
+    Ok(Json(serde_json::json!(
+        {
+            "status": "ok",
+            "data": {
+                "status": status
+            }
+        }
+    )))
 }
 
 #[derive(OpenApi)]
-#[openapi(paths(submit_handler))]
+#[openapi(paths(proof_handler))]
 struct Docs;
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
@@ -85,5 +105,5 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/submit", post(submit_handler))
+    Router::new().route("/proof", post(proof_handler))
 }

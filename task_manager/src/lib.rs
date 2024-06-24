@@ -161,7 +161,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use num_enum::{FromPrimitive, IntoPrimitive};
 use raiko_core::interfaces::{ProofRequest, ProofType};
-use raiko_lib::primitives::{BlockNumber, ChainId, B256};
+use raiko_lib::primitives::{ChainId, B256};
 use rusqlite::{
     Error as SqlError, {named_params, Statement}, {Connection, OpenFlags},
 };
@@ -368,11 +368,11 @@ impl TaskDb {
             CREATE TABLE tasks(
               id INTEGER UNIQUE NOT NULL PRIMARY KEY,
               chain_id INTEGER NOT NULL,
-              block_number INTEGER NOT NULL,
+              blockhash BLOB NOT NULL,
               proofsys_id INTEGER NOT NULL,
               request BLOB,
               FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
-              UNIQUE (chain_id, block_number, proofsys_id)
+              UNIQUE (chain_id, blockhash, proofsys_id)
             );
             
             -- Proofs might also be large, so we isolate them in a dedicated table
@@ -404,7 +404,7 @@ impl TaskDb {
             SELECT
               t.id,
               t.chain_id,
-              t.block_number,
+              t.blockhash,
               t.proofsys_id,
               t.request
             FROM
@@ -415,7 +415,7 @@ impl TaskDb {
             SELECT
               t.id,
               t.chain_id,
-              t.block_number,
+              t.blockhash,
               t.proofsys_id,
               ts.status_id,
               tpf.proof
@@ -480,11 +480,11 @@ impl TaskDb {
               ON enqueue_task
             BEGIN
                 INSERT INTO
-                  tasks(chain_id, block_number, proofsys_id, request)
+                  tasks(chain_id, blockhash, proofsys_id, request)
                 VALUES
                   (
                     new.chain_id,
-                    new.block_number,
+                    new.blockhash,
                     new.proofsys_id,
                     new.request
                   );
@@ -526,7 +526,7 @@ impl TaskDb {
                   tasks
                 WHERE
                   chain_id = new.chain_id
-                  AND block_number = new.block_number
+                  AND blockhash = new.blockhash
                   AND proofsys_id = new.proofsys_id
                 LIMIT
                   1;
@@ -565,14 +565,14 @@ impl TaskDb {
             INSERT INTO
               enqueue_task(
                 chain_id,
-                block_number,
+                blockhash,
                 proofsys_id,
                 request
               )
             VALUES
               (
                 :chain_id,
-                :block_number,
+                :blockhash,
                 :proofsys_id,
                 :request
               );
@@ -584,7 +584,7 @@ impl TaskDb {
             INSERT INTO
               update_task_progress(
                 chain_id,
-                block_number,
+                blockhash,
                 proofsys_id,
                 status_id,
                 proof
@@ -592,7 +592,7 @@ impl TaskDb {
             VALUES
               (
                 :chain_id,
-                :block_number,
+                :blockhash,
                 :proofsys_id,
                 :status_id,
                 :proof
@@ -628,7 +628,7 @@ impl TaskDb {
               LEFT JOIN tasks t ON tp.task_id = t.id
             WHERE
               t.chain_id = :chain_id
-              AND t.block_number = :block_number
+              AND t.blockhash = :blockhash
               AND t.proofsys_id = :proofsys_id
             LIMIT
               1;
@@ -659,7 +659,7 @@ impl TaskDb {
               LEFT JOIN tasks t ON ts.task_id = t.id
             WHERE
               t.chain_id = :chain_id
-              AND t.block_number = :block_number
+              AND t.blockhash = :blockhash
               AND t.proofsys_id = :proofsys_id
             ORDER BY
               ts.timestamp DESC;
@@ -685,7 +685,7 @@ impl TaskDb {
             "
             SELECT
               t.chain_id,
-              t.block_number,
+              t.blockhash,
               t.proofsys_id,
               ts.status_id,
               timestamp
@@ -724,7 +724,6 @@ pub struct EnqueueTaskParams {
     pub blockhash: B256,
     pub proof_system: TaskProofsys,
     pub submitter: String,
-    pub block_number: BlockNumber,
     pub parent_hash: B256,
     pub state_root: B256,
     pub num_transactions: u64,
@@ -735,10 +734,15 @@ pub struct EnqueueTaskParams {
 pub type TaskProvingStatus = Vec<(TaskStatus, DateTime<Utc>)>;
 
 impl<'db> TaskManager<'db> {
-    pub fn enqueue_task(&mut self, chain_id: u64, request: &ProofRequest) -> TaskManagerResult<()> {
+    pub fn enqueue_task(
+        &mut self,
+        chain_id: u64,
+        blockhash: B256,
+        request: &ProofRequest,
+    ) -> TaskManagerResult<()> {
         self.enqueue_task.execute(named_params! {
             ":chain_id": chain_id,
-            ":block_number": request.block_number,
+            ":blockhash": blockhash.to_vec(),
             ":proofsys_id": TaskProofsys::from(request.proof_type) as u8,
             ":request": serde_json::to_vec(&request)?,
         })?;
@@ -749,14 +753,14 @@ impl<'db> TaskManager<'db> {
     pub fn update_task_progress(
         &mut self,
         chain_id: ChainId,
-        block_number: u64,
+        blockhash: B256,
         proof_type: ProofType,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
         self.update_task_progress.execute(named_params! {
             ":chain_id": chain_id,
-            ":block_number": block_number,
+            ":blockhash": blockhash.to_vec(),
             ":proofsys_id": TaskProofsys::from(proof_type) as u8,
             ":status_id": status as i32,
             ":proof": proof
@@ -768,13 +772,13 @@ impl<'db> TaskManager<'db> {
     pub fn get_task_proving_status(
         &mut self,
         chain_id: ChainId,
-        block_number: u64,
+        blockhash: B256,
         proof_type: ProofType,
     ) -> TaskManagerResult<TaskProvingStatus> {
         let rows = self.get_task_proving_status.query_map(
             named_params! {
                 ":chain_id": chain_id,
-                ":block_number": block_number,
+                ":blockhash": blockhash.to_vec(),
                 ":proofsys_id": TaskProofsys::from(proof_type) as u8,
             },
             |row| {
@@ -812,13 +816,13 @@ impl<'db> TaskManager<'db> {
     pub fn get_task_proof(
         &mut self,
         chain_id: ChainId,
-        block_number: u64,
+        blockhash: B256,
         proof_type: ProofType,
     ) -> TaskManagerResult<Vec<u8>> {
         let proof = self.get_task_proof.query_row(
             named_params! {
                 ":chain_id": chain_id,
-                ":block_number": block_number,
+                ":blockhash": blockhash.to_vec(),
                 ":proofsys_id": TaskProofsys::from(proof_type) as u8,
             },
             |r| r.get(0),
