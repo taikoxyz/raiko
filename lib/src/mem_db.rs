@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use anyhow::anyhow;
+use reth_evm::{execute::ProviderError, BundleState};
 use reth_primitives::revm_primitives::{
     db::{Database, DatabaseCommit},
     Account, AccountInfo, Bytecode,
 };
-use reth_interfaces::provider::ProviderError;
-use reth_revm::revm::db::BundleState;
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use thiserror_no_std::Error as ThisError;
@@ -44,12 +43,6 @@ pub enum DbError {
     /// Unspecified error.
     #[error(transparent)]
     Unspecified(#[from] anyhow::Error),
-}
-
-impl From<DbError> for anyhow::Error {
-    fn from(error: DbError) -> Self {
-        anyhow!(error)
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

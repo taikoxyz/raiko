@@ -1,4 +1,5 @@
 use k256 as risc0_k256;
+use raiko_lib::primitives::keccak256;
 use revm_precompile::{zk_op::ZkvmOperator, Error};
 use sha2 as risc0_sha2;
 
@@ -58,7 +59,7 @@ impl ZkvmOperator for Risc0Operator {
         let recovered_key = VerifyingKey::recover_from_prehash(&msg[..], &sig, recid)
             .map_err(|_| Error::ZkvmOperation("Patched k256 recover key failed".to_string()))?;
         // hash it
-        let mut hash = revm_primitives::keccak256(
+        let mut hash = keccak256(
             &recovered_key
                 .to_encoded_point(/* compress = */ false)
                 .as_bytes()[1..],

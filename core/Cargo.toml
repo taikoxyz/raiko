@@ -16,10 +16,9 @@ raiko-lib = { workspace = true, features = ["c-kzg"] }
 # reth
 reth-primitives.workspace = true
 reth-evm-ethereum.workspace = true
-reth-provider.workspace = true
 reth-evm.workspace = true
-reth-interfaces.workspace = true
 reth-revm.workspace = true
+reth-provider.workspace = true
 
 # alloy
 alloy-rlp = { workspace = true }

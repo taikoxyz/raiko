@@ -13,20 +13,17 @@ use crate::{
 use alloy_consensus::{Signed, Transaction, TxEnvelope};
 use alloy_rpc_types::{ConversionError, Parity, Transaction as AlloyTransaction};
 use anyhow::{bail, Context, Error, Result};
-use reth_evm::execute::EthBlockOutput;
-use reth_evm::execute::Executor;
+use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_MAINNET};
+use reth_evm::{
+    execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError},
+    BundleState,
+};
 use reth_evm_ethereum::execute::EthExecutorProvider;
 use reth_evm_ethereum::taiko::TaikoData;
-use reth_interfaces::executor::BlockValidationError;
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{AccountInfo, Bytecode, Bytes, HashMap, SpecId};
 use reth_primitives::transaction::Signature as RethSignature;
-use reth_primitives::{
-    BlockBody, ChainSpecBuilder, Header, TransactionSigned, B256, HOLESKY, KECCAK_EMPTY, MAINNET,
-    TAIKO_A7, TAIKO_MAINNET, U256,
-};
-use reth_interfaces::provider::ProviderError;
-use reth_revm::revm::db::BundleState;
+use reth_primitives::{BlockBody, Header, TransactionSigned, B256, KECCAK_EMPTY, U256};
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
     let db = create_mem_db(&mut input.clone()).unwrap();
@@ -180,13 +177,13 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                     .ok_or(ConversionError::MissingSignature)
                     .expect("missing signature");
                 TransactionSigned::from_transaction_and_signature(
-                    tx.try_into().expect("invalid signature"),
+                    tx.try_into().expect("tx conversion failed"),
                     RethSignature {
                         r: signature.r,
                         s: signature.s,
                         odd_y_parity: signature
                             .y_parity
-                            .unwrap_or_else(|| reth_rpc_types::Parity(!signature.v.bit(0)))
+                            .unwrap_or_else(|| alloy_rpc_types::Parity(!signature.v.bit(0)))
                             .0,
                     },
                 )
@@ -201,9 +198,10 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
             })
             .optimistic(optimistic);
-        let EthBlockOutput {
+        let BlockExecutionOutput {
             state,
             receipts: _,
+            requests: _,
             gas_used,
             db: full_state,
         } = executor.execute(
@@ -518,7 +516,7 @@ pub fn to_alloy_signature(sig: alloy_primitives::Signature) -> alloy_rpc_types::
     alloy_rpc_types::Signature {
         r: sig.r(),
         s: sig.s(),
-        v: sig.v().to_parity_bool().y_parity_byte().try_into().unwrap(),
+        v: sig.v().to_u64().try_into().unwrap(),
         y_parity: Some(Parity(sig.v().to_parity_bool().y_parity())),
     }
 }

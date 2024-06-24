@@ -10,7 +10,7 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use c_kzg::{Blob, KzgCommitment};
 use raiko_lib::{
-    builder::{calculate_block_header, create_mem_db, OptimisticDatabase, RethBlockBuilder},
+    builder::{calculate_block_header, OptimisticDatabase, RethBlockBuilder},
     clear_line,
     consts::ChainSpec,
     inplace_print,
@@ -204,7 +204,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     for account in initial_db.accounts.values() {
         let code = &account.info.code;
         if let Some(code) = code {
-            contracts.insert(code.bytecode.0.clone());
+            contracts.insert(code.bytecode().0.clone());
         }
     }
     measurement.stop();
@@ -573,6 +573,7 @@ async fn get_block_proposed_event(
             let tx = provider
                 .get_transaction_by_hash(log_tx_hash)
                 .await
+                .expect("couldn't query the propose tx")
                 .expect("Could not find the propose tx");
             return Ok((tx, event.data));
         }

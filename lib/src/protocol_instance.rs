@@ -5,7 +5,6 @@ use c_kzg::{Blob, KzgCommitment, KzgSettings};
 use reth_primitives::Header;
 use sha2::{Digest as _, Sha256};
 
-use super::utils::ANCHOR_GAS_LIMIT;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
@@ -13,6 +12,7 @@ use crate::{
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     primitives::keccak::keccak,
 };
+use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 

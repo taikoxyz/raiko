@@ -5,7 +5,7 @@ use risc0_zkvm::guest::env;
 use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::{
     consts::VerifierType,
-    builder::{BlockBuilderStrategy, TaikoStrategy},
+    builder::calculate_block_header,
     input::{GuestInput, GuestOutput},
 };
 use revm_precompile::zk_op::ZkOperation;
@@ -25,7 +25,7 @@ fn main() {
         .set(Box::new(vec![ZkOperation::Sha256, ZkOperation::Secp256k1]))
         .expect("Failed to set ZkvmOperations");
 
-    let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
+    let header = calculate_block_header(&input);
     let pi = ProtocolInstance::new(&input, &header, VerifierType::RISC0)
             .unwrap()
             .instance_hash();

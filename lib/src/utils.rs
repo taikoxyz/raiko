@@ -1,39 +1,17 @@
-use core::str::FromStr;
 use std::io::Read;
 use std::io::Write;
 
 use alloy_consensus::{Signed, TxEip1559, TxEnvelope};
-use alloy_primitives::{uint, Address, Signature, TxKind, U256};
+use alloy_primitives::{Signature, TxKind};
 use alloy_rlp::Decodable;
 use alloy_rpc_types::Transaction as AlloyTransaction;
-use anyhow::{anyhow, bail, ensure, Context, Result};
-use lazy_static::lazy_static;
+use anyhow::Result;
 use libflate::zlib::Decoder as zlibDecoder;
 use libflate::zlib::Encoder as zlibEncoder;
 
+use crate::consts::{ChainSpec, Network};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{
-    consts::{ChainSpec, Network},
-    input::{decode_anchor, GuestInput},
-};
-
-pub const ANCHOR_GAS_LIMIT: u64 = 250_000;
-
-lazy_static! {
-    pub static ref GOLDEN_TOUCH_ACCOUNT: Address = {
-        Address::from_str("0x0000777735367b36bC9B61C50022d9D0700dB4Ec")
-            .expect("invalid golden touch account")
-    };
-    static ref GX1: U256 =
-        uint!(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798_U256);
-    static ref N: U256 =
-        uint!(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141_U256);
-    static ref GX1_MUL_PRIVATEKEY: U256 =
-        uint!(0x4341adf5a780b4a87939938fd7a032f6e6664c7da553c121d3b4947429639122_U256);
-    static ref GX2: U256 =
-        uint!(0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5_U256);
-}
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TxEnvelope> {
     Vec::<TxEnvelope>::decode(&mut &tx_list.to_owned()[..]).unwrap_or_else(|e| {
@@ -237,100 +215,4 @@ pub fn zlib_compress_data(data: &[u8]) -> Result<Vec<u8>> {
     encoder.write_all(data).unwrap();
     let res = encoder.finish().into_result()?;
     Ok(res.clone())
-}
-
-/// check the anchor signature with fixed K value
-fn check_anchor_signature(anchor: &Signed<TxEip1559>) -> Result<()> {
-    let sign = anchor.signature();
-    if sign.r() == *GX1 {
-        return Ok(());
-    }
-    let msg_hash = anchor.signature_hash();
-    let msg_hash: U256 = msg_hash.into();
-    if sign.r() == *GX2 {
-        // when r == GX2 require s == 0 if k == 1
-        // alias: when r == GX2 require N == msg_hash + *GX1_MUL_PRIVATEKEY
-        if *N != msg_hash + *GX1_MUL_PRIVATEKEY {
-            bail!(
-                "r == GX2, but N != msg_hash + *GX1_MUL_PRIVATEKEY, N: {}, msg_hash: {msg_hash}, *GX1_MUL_PRIVATEKEY: {}",
-                *N, *GX1_MUL_PRIVATEKEY
-            );
-        }
-        return Ok(());
-    }
-    Err(anyhow!(
-        "r != *GX1 && r != GX2, r: {}, *GX1: {}, GX2: {}",
-        sign.r(),
-        *GX1,
-        *GX2
-    ))
-}
-
-pub fn check_anchor_tx(input: &GuestInput, anchor: &TxEnvelope, from: &Address) -> Result<()> {
-    match anchor {
-        TxEnvelope::Eip1559(tx) => {
-            // Check the signature
-            check_anchor_signature(tx).context(anyhow!("failed to check anchor signature"))?;
-
-            let tx = tx.tx();
-
-            // Extract the `to` address
-            let TxKind::Call(to) = tx.to else {
-                panic!("anchor tx not a smart contract call")
-            };
-            // Check that it's from the golden touch address
-            ensure!(
-                *from == *GOLDEN_TOUCH_ACCOUNT,
-                "anchor transaction from mismatch"
-            );
-            // Check that the L2 contract is being called
-            ensure!(
-                to == input.chain_spec.l2_contract.unwrap(),
-                "anchor transaction to mismatch"
-            );
-            // Tx can't have any ETH attached
-            ensure!(
-                tx.value == U256::from(0),
-                "anchor transaction value mismatch"
-            );
-            // Tx needs to have the expected gas limit
-            ensure!(
-                tx.gas_limit == ANCHOR_GAS_LIMIT.into(),
-                "anchor transaction gas price mismatch"
-            );
-            // Check needs to have the base fee set to the block base fee
-            ensure!(
-                tx.max_fee_per_gas == input.base_fee_per_gas.into(),
-                "anchor transaction gas mismatch"
-            );
-
-            // Okay now let's decode the anchor tx to verify the inputs
-            let anchor_call = decode_anchor(&tx.input)?;
-            // The L1 blockhash needs to match the expected value
-            ensure!(
-                anchor_call.l1Hash == input.taiko.l1_header.hash_slow(),
-                "L1 hash mismatch"
-            );
-            if input.chain_spec.network() == Network::TaikoA7.to_string() {
-                ensure!(
-                    anchor_call.l1StateRoot == input.taiko.l1_header.state_root,
-                    "L1 state root mismatch"
-                );
-            }
-            ensure!(
-                anchor_call.l1BlockId == input.taiko.l1_header.number,
-                "L1 block number mismatch"
-            );
-            // The parent gas used input needs to match the gas used value of the parent block
-            ensure!(
-                anchor_call.parentGasUsed == input.parent_header.gas_used as u32,
-                "parentGasUsed mismatch"
-            );
-        }
-        _ => {
-            panic!("invalid anchor tx type");
-        }
-    }
-
-    Ok(())
 }

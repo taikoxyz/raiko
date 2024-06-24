@@ -7,11 +7,8 @@ edition = "2021"
 # reth
 reth-primitives.workspace = true
 reth-evm-ethereum.workspace = true
-reth-provider.workspace = true
 reth-evm.workspace = true
-reth-interfaces.workspace = true
-reth-rpc-types.workspace = true
-reth-revm.workspace = true
+reth-chainspec.workspace = true
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -21,7 +18,6 @@ alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-consensus = { workspace = true }
-alloy-network = { workspace = true }
 
 # errors
 anyhow = { workspace = true }

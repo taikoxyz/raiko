@@ -23,12 +23,11 @@ risc0-zkvm = { version = "0.21.0", default-features = false, features = [
     'std',
     "getrandom",
 ] }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false, features = [
-    "taiko",
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
     "std",
     "c-kzg",
+    "taiko",
 ] }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v35_taiko_v2", default-features = false }
 
 k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.3-risczero.0" }
 sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6-risczero.0" }
@@ -39,3 +38,22 @@ harness = { path = "../../../harness/macro", features = ["risc0"] }
 [patch.crates-io]
 # Can't use ZkOp since it's big int optimization used everywhere
 crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.2-risczero.0" }
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
+    "std",
+    "taiko",
+]}
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
+    "std",
+    "c-kzg",
+    "taiko",
+]}
+c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [
+    "preload-kzg-settings",
+    "no-threads",
+] }
+secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch", default-features = false, features = [
+    "alloc",
+    "recovery",
+    "rand",
+    "global-context",
+] }
