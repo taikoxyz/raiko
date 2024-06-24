@@ -116,12 +116,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             base_fee_per_gas: Some(self.input.base_fee_per_gas),
             // Initialize metadata from input
             beneficiary: self.input.beneficiary,
-            gas_limit: self.input.gas_limit.into(),
+            gas_limit: self.input.gas_limit,
             timestamp: self.input.timestamp,
             mix_hash: self.input.mix_hash,
             extra_data: self.input.extra_data.clone(),
-            blob_gas_used: self.input.blob_gas_used.map(|b| b.into()),
-            excess_blob_gas: self.input.excess_blob_gas.map(|b| b.into()),
+            blob_gas_used: self.input.blob_gas_used,
+            excess_blob_gas: self.input.excess_blob_gas,
             parent_beacon_block_root: self.input.parent_beacon_block_root,
             // do not fill the remaining fields
             ..Default::default()
@@ -206,7 +206,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             })
             .collect();
 
-        let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone().into())
+        let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
             .taiko_data(TaikoData {
                 l1_header: self.input.taiko.l1_header.clone(),
@@ -226,7 +226,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                     .clone()
                     .with_recovered_senders()
                     .ok_or(BlockValidationError::SenderRecoveryError)?,
-                total_difficulty.into(),
+                total_difficulty,
             )
                 .into(),
         )?;
@@ -237,7 +237,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 
         // Set the values verified in reth in execute
         let header = self.header.as_mut().unwrap();
-        header.gas_used = gas_used.into();
+        header.gas_used = gas_used;
         header.receipts_root = self.input.block.header.receipts_root;
         header.logs_bloom = self.input.block.header.logs_bloom;
 

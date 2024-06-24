@@ -116,7 +116,6 @@ impl ProtocolInstance {
             })
             .collect::<Vec<_>>();
 
-        let gas_limit: u64 = header.gas_limit.try_into().unwrap();
         let verifier_address = (*input
             .chain_spec
             .verifier_address
@@ -139,7 +138,7 @@ impl ProtocolInstance {
                 depositsHash: keccak(deposits.abi_encode()).into(),
                 coinbase: header.beneficiary,
                 id: header.number,
-                gasLimit: (gas_limit
+                gasLimit: (header.gas_limit
                     - if input.chain_spec.is_taiko() {
                         ANCHOR_GAS_LIMIT
                     } else {
