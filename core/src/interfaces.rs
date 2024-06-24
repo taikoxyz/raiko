@@ -79,6 +79,7 @@ pub type RaikoResult<T> = Result<T, RaikoError>;
     Ord,
     Clone,
     Debug,
+    Default,
     Deserialize,
     Serialize,
     ToSchema,
@@ -88,6 +89,7 @@ pub type RaikoResult<T> = Result<T, RaikoError>;
 )]
 /// Available proof types.
 pub enum ProofType {
+    #[default]
     /// # Native
     ///
     /// This builds the block the same way the node does and then runs the result.

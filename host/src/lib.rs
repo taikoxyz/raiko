@@ -23,7 +23,7 @@ use raiko_core::{
     Raiko,
 };
 use raiko_lib::{consts::SupportedChainSpecs, Measurement};
-use raiko_task_manager::{TaskDb, TaskStatus};
+use raiko_task_manager::{get_task_manager, TaskManager, TaskManagerOpts, TaskStatus};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -125,6 +125,9 @@ pub struct Cli {
     #[arg(long, require_equals = true, default_value = "raiko.sqlite")]
     /// Set the path to the sqlite db file
     sqlite_file: PathBuf,
+
+    #[arg(long, require_equals = true, default_value = "1048576")]
+    max_db_size: usize,
 }
 
 impl Cli {
@@ -184,16 +187,19 @@ impl ProverState {
                 )
                 .await
                 .unwrap();
-
+                let task_manager_opts = &TaskManagerOpts {
+                    sqlite_file: opts.sqlite_file.clone(),
+                    max_db_size: opts.max_db_size,
+                };
                 let proof_result: HostResult<ProofResponse> = async move {
                     {
-                        let db = TaskDb::open_or_create(&opts_clone.sqlite_file)?;
-                        // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
-                        let mut manager = db.manage()?;
+                        let manager_binding = get_task_manager(task_manager_opts);
+                        let mut manager = manager_binding.lock().unwrap();
                         manager.update_task_progress(
                             chain_id,
                             blockhash,
-                            proof_request.proof_type,
+                            proof_request.proof_type.into(),
+                            Some(proof_request.prover.to_string()),
                             TaskStatus::WorkInProgress,
                             None,
                         )?;
@@ -204,15 +210,15 @@ impl ProverState {
                 match proof_result {
                     Ok(proof) => {
                         let _: HostResult<()> = async move {
-                            let db = TaskDb::open_or_create(&opts.sqlite_file)?;
-                            // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
-                            let mut manager = db.manage()?;
                             let proof = proof.proof.unwrap();
                             let proof = proof.as_bytes();
+                            let manager_binding = get_task_manager(task_manager_opts);
+                            let mut manager = manager_binding.lock().unwrap();
                             manager.update_task_progress(
                                 chain_id,
                                 blockhash,
-                                proof_request.proof_type,
+                                proof_request.proof_type.into(),
+                                Some(proof_request.prover.to_string()),
                                 TaskStatus::WorkInProgress,
                                 Some(proof),
                             )?;
@@ -222,13 +228,13 @@ impl ProverState {
                     }
                     Err(error) => {
                         let _: HostResult<()> = async move {
-                            let db = TaskDb::open_or_create(&opts.sqlite_file)?;
-                            // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
-                            let mut manager = db.manage()?;
+                            let manager_binding = get_task_manager(task_manager_opts);
+                            let mut manager = manager_binding.lock().unwrap();
                             manager.update_task_progress(
                                 chain_id,
                                 blockhash,
                                 proof_request.proof_type,
+                                Some(proof_request.prover.to_string()),
                                 match error {
                                     HostError::HandleDropped
                                     | HostError::CapacityFull

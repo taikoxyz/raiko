@@ -5336,6 +5336,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "chrono",
+ "hex",
  "num_enum 0.7.2",
  "raiko-core",
  "raiko-lib",
