@@ -23,13 +23,13 @@ use anyhow::{anyhow, Result};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-
+use crate::serde_helper::option_array_48;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
     consts::ChainSpec,
     primitives::{mpt::MptNode, Address, Bytes, B256, U256},
-    serde_with::{RlpBytes, RlpHexBytes},
+    serde_helper::{RlpBytes, RlpHexBytes},
 };
 
 /// Represents the state of an account's storage.
@@ -95,7 +95,8 @@ pub struct TaikoGuestInput {
     pub anchor_tx: String,
     pub block_proposed: BlockProposed,
     pub prover_data: TaikoProverData,
-    pub tx_blob_hash: Option<B256>,
+    #[serde(with = "option_array_48")]
+    pub blob_commitment: Option<[u8; 48]>,
     pub kzg_settings: Option<TaikoKzgSettings>,
     pub skip_verify_blob: bool,
 }
@@ -112,7 +113,6 @@ pub struct GuestOutput {
     #[serde_as(as = "RlpHexBytes")]
     pub header: AlloyConsensusHeader,
     pub hash: B256,
-    pub proof_of_equivalence: Option<KzgField>,
 }
 
 sol! {

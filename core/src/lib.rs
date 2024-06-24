@@ -118,12 +118,9 @@ impl Raiko {
                     &input.block_hash_reference,
                     "block hash unexpected",
                 )?;
-
-                // proof_of_equivalence is generated depending on prover type
                 let output = GuestOutput {
                     header,
                     hash: pi,
-                    proof_of_equivalence: None,
                 };
 
                 Ok(output)

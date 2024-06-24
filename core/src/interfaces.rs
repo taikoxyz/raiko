@@ -125,7 +125,7 @@ impl ProofType {
     pub async fn run_prover(
         &self,
         input: GuestInput,
-        output: &mut GuestOutput,
+        output: &GuestOutput,
         config: &Value,
     ) -> RaikoResult<Proof> {
         match self {
@@ -133,37 +133,25 @@ impl ProofType {
                 .await
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
+                
                 #[cfg(feature = "sp1")]
-                {
-                    output.proof_of_equivalence = proof_of_equivalence(input);
-                    return sp1_driver::Sp1Prover::run(input, output, config)
-                        .await
-                        .map_err(|e| e.into());
-                }
-                #[cfg(not(feature = "sp1"))]
+                return sp1_driver::Sp1Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                {
-                    output.proof_of_equivalence = proof_of_equivalence(input);
-                    return risc0_driver::Risc0Prover::run(input, output, config)
-                        .await
-                        .map_err(|e| e.into());
-                }
-                #[cfg(not(feature = "risc0"))]
+                return risc0_driver::Risc0Prover::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
-                {
-                    // Sgx guest runs proof_of_version_hash
-                    output.proof_of_equivalence = None;
-                    return sgx_prover::SgxProver::run(input, output, config)
-                        .await
-                        .map_err(|e| e.into());
-                }
-                #[cfg(not(feature = "sgx"))]
+                return sgx_prover::SgxProver::run(input, output, config)
+                    .await
+                    .map_err(|e| e.into());
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
         }

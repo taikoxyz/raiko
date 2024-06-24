@@ -7,7 +7,6 @@ use raiko_lib::{
     consts::VerifierType,
     input::{GuestInput},
     protocol_instance::ProtocolInstance,
-    primitives::eip4844::proof_of_equivalence
 };
 use revm_precompile::zk_op::ZkOperation;
 use zk_op::Sp1Operator;
@@ -31,10 +30,8 @@ pub fn main() {
     let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
         .unwrap()
         .instance_hash();
-    let y = proof_of_equivalence(&input).unwrap();
     
     sp1_zkvm::io::commit(&pi);
-    sp1_zkvm::io::commit(&y);
 }
 
 harness::zk_suits!(

@@ -11,6 +11,7 @@ use revm_primitives::{
     kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS},
     B256,
 };
+use rust_kzg_zkcrypto::kzg_types::ZFr;
 use sha2::{Digest as _, Sha256};
 use std::sync::{Arc, RwLock};
 
@@ -51,18 +52,27 @@ pub enum Eip4844Error {
     SetCommitmentProof(String),
 }
 
-pub fn proof_of_equivalence(input: &GuestInput) -> Result<Option<KzgField>, Eip4844Error> {
-    if input.taiko.skip_verify_blob {
-        Ok(None)
-    } else {
-        let blob = &input.taiko.tx_data;
-        let kzg_settings = input.taiko.kzg_settings.as_ref().unwrap_or_else(|| {
-            // very costly, should not happen
-            println!("initializing kzg settings in prover");
-            &*MAINNET_KZG_TRUSTED_SETUP
-        });
-        Ok(Some(proof_of_equivalence_eval(blob, kzg_settings)?))
-    }
+pub fn proof_of_equivalence(input: &GuestInput) -> Result<(KzgField, KzgField), Eip4844Error> {
+    let blob = &input.taiko.tx_data;
+    let kzg_settings = input.taiko.kzg_settings.as_ref().unwrap_or_else(|| {
+        // very costly, should not happen
+        println!("initializing kzg settings in prover");
+        &*MAINNET_KZG_TRUSTED_SETUP
+    });
+
+    let blob_fields = Blob::from_bytes(blob)
+    .and_then(|b| deserialize_blob_rust(&b))
+    .map_err(|_| Eip4844Error::DeserializeBlob)?;
+
+    let poly = blob_to_polynomial(&blob_fields).unwrap();
+    let blob_hash = Sha256::digest(blob).into();
+
+    let x = hash_to_bls_field(&blob_hash);
+    let y = evaluate_polynomial_in_evaluation_form(&poly, &x, kzg_settings)
+        .map(|fr| fr.to_bytes())
+        .map_err(|e| Eip4844Error::EvaluatePolynomial(e.to_string()))?;
+    
+    Ok((x.to_bytes(), y))
 }
 
 pub fn proof_of_version_hash(input: &GuestInput) -> Result<Option<B256>, Eip4844Error> {
@@ -82,24 +92,6 @@ pub fn proof_of_version_hash(input: &GuestInput) -> Result<Option<B256>, Eip4844
             .map_err(Eip4844Error::ComputeKzgProof)?;
         Ok(Some(commitment_to_version_hash(&commitment.to_bytes())))
     }
-}
-
-pub fn proof_of_equivalence_eval(
-    blob: &[u8],
-    kzg_settings: &TaikoKzgSettings,
-) -> Result<KzgField, Eip4844Error> {
-    let blob_fields = Blob::from_bytes(blob)
-        .and_then(|b| deserialize_blob_rust(&b))
-        .map_err(|_| Eip4844Error::DeserializeBlob)?;
-
-    let poly = blob_to_polynomial(&blob_fields).unwrap();
-    let blob_hash = Sha256::digest(blob).into();
-    let x = hash_to_bls_field(&blob_hash);
-
-    // y = poly(x)
-    evaluate_polynomial_in_evaluation_form(&poly, &x, kzg_settings)
-        .map(|fr| fr.to_bytes())
-        .map_err(Eip4844Error::EvaluatePolynomial)
 }
 
 pub fn get_kzg_proof_commitment(

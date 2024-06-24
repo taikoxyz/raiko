@@ -50,11 +50,11 @@ impl Prover for Risc0Prover {
         println!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
-        let result = maybe_prove::<GuestInput, (B256, Option<Vec<u8>>)>(
+        let result = maybe_prove::<GuestInput, B256>(
             &config,
             encoded_input,
             RISC0_GUEST_ELF,
-            &(output.hash, output.proof_of_equivalence.clone()),
+            &output.hash,
             Default::default(),
         )
         .await;

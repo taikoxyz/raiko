@@ -111,6 +111,14 @@ impl CycleTracker {
         ))]
         println!("cycle-tracker-end: {self.title}");
     }
+
+    pub fn println(inner: impl Fn() -> ()) {
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
+        inner()
+    }
 }
 
 pub struct Measurement {
@@ -206,8 +214,10 @@ where
     }
 }
 
-pub mod serde_with {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+pub mod serde_helper {
+    use core::marker::PhantomData;
+
+    use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
 
     use super::RlpBytes as _;
@@ -269,4 +279,58 @@ pub mod serde_with {
             T::decode_bytes(bytes).map_err(serde::de::Error::custom)
         }
     }
+
+    pub mod option_array_48 {
+        use super::*;
+        use serde::{de, ser};
+        
+        pub fn serialize<S>(value: &Option<[u8; 48]>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            match value {
+                Some(arr) => arr.serialize(serializer),
+                None => serializer.serialize_none(),
+            }
+        }
+    
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<[u8; 48]>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            struct OptionArrayVisitor;
+    
+            impl<'de> de::Visitor<'de> for OptionArrayVisitor {
+                type Value = Option<[u8; 48]>;
+    
+                fn expecting(&self, formatter: &mut core::fmt::Formatter) -> std::fmt::Result {
+                    formatter.write_str("an option of a 48-byte array")
+                }
+    
+                fn visit_none<E>(self) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+                {
+                    Ok(None)
+                }
+    
+                fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+                where
+                    D: Deserializer<'de>,
+                {
+                    let vec = Vec::<u8>::deserialize(deserializer)?;
+                    if vec.len() == 48 {
+                        let mut array = [0u8; 48];
+                        array.copy_from_slice(&vec);
+                        Ok(Some(array))
+                    } else {
+                        Err(de::Error::custom("expected a 48-byte array"))
+                    }
+                }
+            }
+    
+            deserializer.deserialize_option(OptionArrayVisitor)
+        }
+    }
+    
 }

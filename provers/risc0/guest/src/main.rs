@@ -3,7 +3,6 @@ harness::entrypoint!(main, tests, zk_op::tests);
 use risc0_zkvm::guest::env;
 
 use raiko_lib::protocol_instance::ProtocolInstance;
-use raiko_lib::primitives::eip4844::proof_of_equivalence;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::VerifierType,
@@ -28,10 +27,8 @@ fn main() {
     let pi = ProtocolInstance::new(&input, &header, VerifierType::RISC0)
         .unwrap()
         .instance_hash();
-    let y = proof_of_equivalence(&input).unwrap();
 
     env::commit(&pi);
-    env::commit(&y);
 }
 
 harness::zk_suits!(

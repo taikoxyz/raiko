@@ -30,7 +30,7 @@ use crate::{
         mpt::StateAccount,
         Bytes,
     },
-    utils::HeaderHasher,
+    utils::HeaderHasher, CycleTracker,
 };
 
 pub trait DbInitStrategy<D>
@@ -62,15 +62,10 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
             .map(|bytes| (keccak(&bytes).into(), bytes))
             .collect();
 
-        #[cfg(all(
-            all(target_os = "zkvm", target_vendor = "succinct"),
-            feature = "sp1-cycle-tracker"
-        ))]
-        {
-            let mut account_touched = 0;
-            let mut storage_touched = 0;
-        }
 
+        // "sp1-cycle-tracker" debug fields
+        let mut account_touched = 0;
+        let mut storage_touched = 0;
         // Load account data into db
         let mut accounts = HashMap::with_capacity(block_builder.input.parent_storage.len());
         for (address, (storage_trie, slots)) in &mut block_builder.input.parent_storage {
@@ -91,13 +86,7 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
                     storage_trie.hash()
                 );
             }
-            #[cfg(all(
-                all(target_os = "zkvm", target_vendor = "succinct"),
-                feature = "sp1-cycle-tracker"
-            ))]
-            {
-                account_touched += 1;
-            }
+            account_touched += 1;
 
             // load the corresponding code
             let code_hash = state_account.code_hash;
@@ -118,13 +107,7 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
                     .get_rlp(&keccak(slot.to_be_bytes::<32>()))?
                     .unwrap_or_default();
                 storage.insert(slot, value);
-                #[cfg(all(
-                    all(target_os = "zkvm", target_vendor = "succinct"),
-                    feature = "sp1-cycle-tracker"
-                ))]
-                {
-                    storage_touched += 1;
-                }
+                storage_touched += 1;
             }
 
             let mem_account = DbAccount {
@@ -142,14 +125,10 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
         }
         guest_mem_forget(contracts);
 
-        #[cfg(all(
-            all(target_os = "zkvm", target_vendor = "succinct"),
-            feature = "sp1-cycle-tracker"
-        ))]
-        {
+        CycleTracker::println(|| {
             println!("initialize_db Account touch {account_touched:?}");
             println!("initialize_db Storage touch {storage_touched:?}");
-        }
+        });
 
         // prepare block hash history
         let mut block_hashes =

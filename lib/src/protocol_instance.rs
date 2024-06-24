@@ -11,7 +11,7 @@ use crate::no_std::*;
 use crate::{
     consts::{SupportedChainSpecs, VerifierType},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    primitives::keccak::keccak,
+    primitives::{eip4844::{self, KzgField}, keccak::keccak},
     utils::HeaderHasher,
 };
 
@@ -25,6 +25,7 @@ pub struct ProtocolInstance {
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
+    pub proof_of_equivalence: (KzgField, KzgField),
 }
 
 impl ProtocolInstance {
@@ -34,8 +35,12 @@ impl ProtocolInstance {
         proof_type: VerifierType,
     ) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.meta.blobUsed;
+        let mut proof_of_equivalence = (KzgField::default(), KzgField::default());
         let tx_list_hash = if blob_used {
-            input.taiko.tx_blob_hash.unwrap()
+            if input.taiko.skip_verify_blob {
+                proof_of_equivalence = eip4844::proof_of_equivalence(&input)?;
+            }
+            eip4844::commitment_to_version_hash(&input.taiko.blob_commitment.unwrap())
         } else {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))
         };
@@ -126,6 +131,7 @@ impl ProtocolInstance {
             prover: input.taiko.prover_data.prover,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
+            proof_of_equivalence,
         };
 
         // Sanity check
@@ -163,6 +169,7 @@ impl ProtocolInstance {
             self.sgx_instance,
             self.prover,
             self.meta_hash(),
+            self.proof_of_equivalence,
         )
             .abi_encode();
         if self.sgx_instance != Address::default() {
@@ -203,6 +210,7 @@ mod tests {
         );
     }
 
+    // TODO: update proof_of_equivalence
     #[test]
     fn test_calc_eip712_pi_hash() {
         let trans = Transition {
@@ -212,6 +220,8 @@ mod tests {
             graffiti: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
         };
         let meta_hash = b256!("9608088f69e586867154a693565b4f3234f26f82d44ef43fb99fd774e7266024");
+        let proof_of_equivalence = (KzgField::default(), KzgField::default());
+
         let pi_hash = keccak::keccak(
             (
                 "VERIFY_PROOF",
@@ -221,6 +231,7 @@ mod tests {
                 address!("741E45D08C70c1C232802711bBFe1B7C0E1acc55"),
                 address!("70997970C51812dc3A010C7d01b50e0d17dc79C8"),
                 meta_hash,
+                // proof_of_equivalence,
             )
                 .abi_encode()
                 .iter()
@@ -234,6 +245,7 @@ mod tests {
         );
     }
 
+    // TODO: update proof_of_equivalence
     #[test]
     fn test_eip712_pi_hash() {
         let input = "10d008bd000000000000000000000000000000000000000000000000000000000000004900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000340689c98d83627e8749504eb6effbc2b08408183f11211bbf8bd281727b16255e6b3f8ee61d80cd7d30cdde9aa49acac0b82264a6b0f992139398e95636e501fd80189249f72753bd6c715511cc61facdec4781d4ecb1d028dafdff4a0827d7d53302e31382e302d64657600000000000000000000000000000000000000000000569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd00000000000000000000000016700100000000000000000000000000000100010000000000000000000000000000000000000000000000000000000000000049000000000000000000000000000000000000000000000000000000000e4e1c000000000000000000000000000000000000000000000000000000000065f94010000000000000000000000000000000000000000000000000000000000000036000000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000000000000000000001fdbdc45da60168ddf29b246eb9e0a2e612a670f671c6d3aafdfdac21f86b4bca0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bcaf73b06ee94a454236314610c55e053df3af4402081df52c9ff2692349a6b497bc17a6706bc1cf4c363e800d2133d0d143363871d9c17b8fc5cf6d3cfd585bc80730a40cf8d8186241d45e19785c117956de919999d50e473aaa794b8fd4097000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000064ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000";
@@ -243,6 +255,8 @@ mod tests {
         let (meta, trans, _proof) =
             <(BlockMetadata, Transition, TierProof)>::abi_decode_params(&input, false).unwrap();
         let meta_hash: B256 = keccak::keccak(meta.abi_encode()).into();
+        let proof_of_equivalence = (KzgField::default(), KzgField::default());
+
         let pi_hash = keccak::keccak(
             (
                 "VERIFY_PROOF",
@@ -252,6 +266,7 @@ mod tests {
                 address!("4F3F0D5B22338f1f991a1a9686C7171389C97Ff7"),
                 address!("4F3F0D5B22338f1f991a1a9686C7171389C97Ff7"),
                 meta_hash,
+                // proof_of_equivalence,
             )
                 .abi_encode()
                 .iter()

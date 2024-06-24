@@ -275,7 +275,7 @@ async fn prepare_taiko_chain_input(
     .await?;
 
     // Fetch the tx data from either calldata or blobdata
-    let (tx_data, tx_blob_hash, kzg_settings) = if proposal_event.meta.blobUsed {
+    let (tx_data, blob_commitment, kzg_settings) = if proposal_event.meta.blobUsed {
         debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
@@ -298,7 +298,7 @@ async fn prepare_taiko_chain_input(
             eip4844::get_kzg_proof_commitment(&blob, &kzg_settings).map_err(|e| anyhow!(e))?;
         set_commitment_proof(&proof, &commitment).map_err(|e| anyhow!(e))?;
 
-        (blob, Some(blob_hash), Some(kzg_settings))
+        (blob, Some(commitment), Some(kzg_settings))
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
@@ -324,7 +324,7 @@ async fn prepare_taiko_chain_input(
         l1_header: to_header(&l1_state_block.header),
         tx_data,
         anchor_tx: serde_json::to_string(&anchor_tx).map_err(RaikoError::Serde)?,
-        tx_blob_hash,
+        blob_commitment,
         kzg_settings,
         block_proposed: proposal_event,
         prover_data,
