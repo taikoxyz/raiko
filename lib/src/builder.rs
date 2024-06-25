@@ -19,7 +19,7 @@ use reth_evm::{
     execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError},
     BundleState,
 };
-use reth_evm_ethereum::execute::EthExecutorProvider;
+use reth_evm_ethereum::execute::{validate_block_post_execution, EthExecutorProvider};
 use reth_evm_ethereum::taiko::TaikoData;
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{AccountInfo, Bytecode, Bytes, HashMap, SpecId};
@@ -206,6 +206,11 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             })
             .collect();
 
+        let block_with_senders = block
+            .clone()
+            .with_recovered_senders()
+            .ok_or(BlockValidationError::SenderRecoveryError)?;
+
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
             .taiko_data(TaikoData {
@@ -216,26 +221,26 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .optimistic(optimistic);
         let BlockExecutionOutput {
             state,
-            receipts: _,
-            requests: _,
+            receipts,
+            requests,
             gas_used,
             db: full_state,
-        } = executor.execute(
-            (
-                &block
-                    .clone()
-                    .with_recovered_senders()
-                    .ok_or(BlockValidationError::SenderRecoveryError)?,
-                total_difficulty,
-            )
-                .into(),
-        )?;
+        } = executor.execute((&block_with_senders, total_difficulty).into())?;
+
+        if !optimistic {
+            // Validates the gas used, the receipts root and the logs bloom
+            validate_block_post_execution(
+                &block_with_senders,
+                &reth_chain_spec.clone(),
+                &receipts,
+                &requests,
+            )?;
+        }
 
         self.db = Some(full_state.database);
-
         self.db.as_mut().unwrap().commit_from_bundle(state);
 
-        // Set the values verified in reth in execute
+        // Set the values verified in validate_block_post_execution
         let header = self.header.as_mut().unwrap();
         header.gas_used = gas_used;
         header.receipts_root = self.input.block.header.receipts_root;
