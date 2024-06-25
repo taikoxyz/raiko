@@ -38,6 +38,7 @@ raiko-core = { path = "./core" }
 
 # revm
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg", default-features = false }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg", default-features = false }
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg", default-features = false, features = [
     "serde",
     "std",

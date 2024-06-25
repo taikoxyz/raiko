@@ -53,6 +53,7 @@ tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true }
+revm-precompile = { workspace = true, features = ["kzg"]}
 
 [features]
 default = ["std", "kzg-zkcrypto"]

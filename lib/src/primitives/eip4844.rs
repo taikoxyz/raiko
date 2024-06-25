@@ -129,11 +129,14 @@ pub fn commitment_to_version_hash(commitment: &KzgGroup) -> B256 {
 
 #[cfg(test)]
 mod test {
+    use std::io::Read;
+
     use super::*;
     use kzg::eip_4844::{load_trusted_setup_rust, verify_kzg_proof_rust, BYTES_PER_FIELD_ELEMENT};
     use kzg::G1;
     use lazy_static::lazy_static;
     use revm_primitives::kzg::parse_kzg_trusted_setup;
+    use revm_primitives::Bytes;
     use rust_kzg_zkcrypto::kzg_types::ZG1;
 
     lazy_static! {
@@ -198,6 +201,40 @@ mod test {
             &y,
             &ZG1::from_bytes(&proof).unwrap(),
             &kzg_settings,
-        );
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_verify_kzg_proof_in_precompile() {
+        let kzg_settings: TaikoKzgSettings = load_trusted_setup_rust(
+            G1Points::as_ref(&POINTS.0).flatten(),
+            G2Points::as_ref(&POINTS.1).flatten(),
+        )
+        .unwrap();
+        let blob = Blob::from_bytes(&[0u8; 131072]).unwrap();
+        let blob_fields = deserialize_blob_rust(&blob).unwrap();
+        let (proof, commitment) = get_kzg_proof_commitment(&blob.bytes, &kzg_settings).unwrap();
+        let poly = blob_to_polynomial(&blob_fields).unwrap();
+
+        // Random number hash to field
+        let x = hash_to_bls_field(&[5; BYTES_PER_FIELD_ELEMENT]);
+        let y = evaluate_polynomial_in_evaluation_form(&poly, &x, &kzg_settings).unwrap();
+
+        // The input is encoded as follows:
+        // | versioned_hash |  z  |  y  | commitment | proof |
+        // |     32         | 32  | 32  |     48     |   48  |
+        let version_hash = commitment_to_version_hash(&commitment);
+        let mut input = [0u8; 192];
+        input[..32].copy_from_slice(&(*version_hash));
+        input[32..64].copy_from_slice(&x.to_bytes());
+        input[64..96].copy_from_slice(&y.to_bytes());
+        input[96..144].copy_from_slice(&commitment);
+        input[144..192].copy_from_slice(&proof);
+
+        revm_precompile::kzg_point_evaluation::run(
+            &Bytes::copy_from_slice(&input), 
+            u64::MAX, 
+            &revm_primitives::env::Env::default()
+        ).unwrap();
     }
 }
