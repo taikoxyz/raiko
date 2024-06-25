@@ -45,9 +45,9 @@ mod time {
         pub fn now() -> Instant {
             Instant::default()
         }
-        pub fn duration_since(&self, _instant: Instant) -> Duration {
-            Duration::default()
-        }
+        //pub fn duration_since(&self, _instant: Instant) -> Duration {
+        //    Duration::default()
+        //}
         pub fn elapsed(&self) -> Duration {
             Duration::default()
         }
