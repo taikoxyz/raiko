@@ -1,31 +1,12 @@
-// Copyright 2023 RISC Zero, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-use std::{collections::HashSet, mem::take};
-
-use alloy_consensus::Header as AlloyConsensusHeader;
-use alloy_primitives::Bytes;
-use raiko_lib::{
-    builder::OptimisticDatabase,
-    consts::ChainSpec,
-    mem_db::MemDb,
-    primitives::{Address, B256, U256},
-    utils::to_header,
-};
-use revm::{
+use alloy_primitives::{Address, Bytes, U256};
+use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
+use reth_primitives::{Header, B256};
+use reth_provider::ProviderError;
+use reth_revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
 };
+use std::{collections::HashSet, mem::take};
 use tokio::runtime::Handle;
 
 use crate::{
@@ -38,7 +19,7 @@ pub struct ProviderDb<BDP: BlockDataProvider> {
     pub provider: BDP,
     pub block_number: u64,
     pub initial_db: MemDb,
-    pub initial_headers: HashMap<u64, AlloyConsensusHeader>,
+    pub initial_headers: HashMap<u64, Header>,
     pub current_db: MemDb,
     async_executor: Handle,
 
@@ -87,7 +68,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                     .insert_block_hash(block_number, block_hash);
                 provider_db
                     .initial_headers
-                    .insert(block_number, to_header(&block.header));
+                    .insert(block_number, block.header.try_into().unwrap());
             }
         }
         Ok(provider_db)
@@ -138,7 +119,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         Ok((initial_proofs, latest_proofs, num_storage_proofs))
     }
 
-    pub async fn get_ancestor_headers(&mut self) -> RaikoResult<Vec<AlloyConsensusHeader>> {
+    pub async fn get_ancestor_headers(&mut self) -> RaikoResult<Vec<Header>> {
         let earliest_block = self
             .initial_db
             .block_hashes
@@ -155,7 +136,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                 self.initial_headers.entry(block_number)
             {
                 let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
-                e.insert(to_header(&block.header));
+                e.insert(block.header.clone().try_into().unwrap());
             }
             headers.push(
                 self.initial_headers
@@ -175,7 +156,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
 }
 
 impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
-    type Error = RaikoError;
+    type Error = ProviderError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         // Check if the account is in the current database.
@@ -211,10 +192,11 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let account = &tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_accounts(&[address]))
-        })?
+        })
+        .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
         .cloned()
-        .ok_or(RaikoError::RPC("No account".to_owned()))?;
+        .ok_or(ProviderError::RPC("No account".to_owned()))?;
 
         // Insert the account into the initial database.
         self.initial_db
@@ -252,10 +234,11 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let value = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_storage_values(&[(address, index)]))
-        })?
+        })
+        .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
         .copied()
-        .ok_or(RaikoError::RPC("No storage value".to_owned()))?;
+        .ok_or(ProviderError::RPC("No storage value".to_owned()))?;
         self.initial_db
             .insert_account_storage(&address, index, value);
         Ok(value)
@@ -264,7 +247,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
         let block_number: u64 = number
             .try_into()
-            .map_err(|_| RaikoError::Conversion("Could not convert U256 to u64".to_owned()))?;
+            .map_err(|_| ProviderError::BlockNumberOverflow(number))?;
 
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
@@ -287,12 +270,13 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         let block_hash = tokio::task::block_in_place(|| {
             self.async_executor
                 .block_on(self.provider.get_blocks(&[(block_number, false)]))
-        })?
+        })
+        .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
-        .ok_or(RaikoError::RPC("No block".to_owned()))?
+        .ok_or(ProviderError::RPC("No block".to_owned()))?
         .header
         .hash
-        .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?
+        .ok_or_else(|| ProviderError::RPC("No block hash".to_owned()))?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
@@ -368,7 +352,7 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
             self.staging_db
                 .insert_block_hash(block_number, block.header.hash.unwrap());
             self.initial_headers
-                .insert(block_number, to_header(&block.header));
+                .insert(block_number, block.header.clone().try_into().unwrap());
         }
 
         // If this wasn't a valid run, clear the post execution database

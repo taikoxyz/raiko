@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use anyhow::anyhow;
-use revm::{
-    primitives::{Account, AccountInfo, Bytecode},
-    Database, DatabaseCommit,
+use reth_evm::execute::ProviderError;
+use reth_primitives::revm_primitives::{
+    db::{Database, DatabaseCommit},
+    Account, AccountInfo, Bytecode,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
@@ -42,12 +43,6 @@ pub enum DbError {
     /// Unspecified error.
     #[error(transparent)]
     Unspecified(#[from] anyhow::Error),
-}
-
-impl From<DbError> for anyhow::Error {
-    fn from(error: DbError) -> Self {
-        anyhow!(error)
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,13 +136,13 @@ impl MemDb {
 }
 
 impl Database for MemDb {
-    type Error = DbError;
+    type Error = ProviderError;
 
     /// Get basic account information.
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         match self.accounts.get(&address) {
             Some(db_account) => Ok(db_account.info()),
-            None => Err(DbError::AccountNotFound(address)),
+            None => Err(ProviderError::BestBlockNotFound),
         }
     }
 
@@ -169,26 +164,29 @@ impl Database for MemDb {
                     // if the account has been deleted or cleared, we must return 0
                     AccountState::StorageCleared => Ok(U256::ZERO),
                     // otherwise this is an uncached load
-                    _ => Err(DbError::SlotNotFound(address, index)),
+                    _ => Err(ProviderError::BestBlockNotFound),
                 },
             },
             // otherwise this is an uncached load
-            None => Err(DbError::AccountNotFound(address)),
+            None => Err(ProviderError::BestBlockNotFound),
         }
     }
 
     fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        let block_no: u64 = number.try_into().map_err(|_| {
-            anyhow!(
-                "invalid block number: expected <= {}, got {}",
-                u64::MAX,
-                &number
-            )
-        })?;
+        let block_no: u64 = number
+            .try_into()
+            .map_err(|_| {
+                anyhow!(
+                    "invalid block number: expected <= {}, got {}",
+                    u64::MAX,
+                    &number
+                )
+            })
+            .expect("block hash not found");
         self.block_hashes
             .get(&block_no)
             .copied()
-            .ok_or(DbError::BlockNotFound(block_no))
+            .ok_or(ProviderError::BestBlockNotFound)
     }
 }
 

@@ -1,9 +1,8 @@
-use super::utils::ANCHOR_GAS_LIMIT;
-use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use c_kzg::{Blob, KzgCommitment, KzgSettings};
+use reth_primitives::Header;
 use sha2::{Digest as _, Sha256};
 use std::alloc::{alloc, Layout};
 
@@ -13,8 +12,8 @@ use crate::{
     consts::{SupportedChainSpecs, VerifierType},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
     primitives::keccak::keccak,
-    utils::HeaderHasher,
 };
+use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 
@@ -29,11 +28,7 @@ pub struct ProtocolInstance {
 }
 
 impl ProtocolInstance {
-    pub fn new(
-        input: &GuestInput,
-        header: &AlloyConsensusHeader,
-        proof_type: VerifierType,
-    ) -> Result<Self> {
+    pub fn new(input: &GuestInput, header: &Header, proof_type: VerifierType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.meta.blobUsed;
         let tx_list_hash = if blob_used {
             if input.taiko.skip_verify_blob {
@@ -121,7 +116,6 @@ impl ProtocolInstance {
             })
             .collect::<Vec<_>>();
 
-        let gas_limit: u64 = header.gas_limit.try_into().unwrap();
         let verifier_address = (*input
             .chain_spec
             .verifier_address
@@ -132,19 +126,19 @@ impl ProtocolInstance {
         let pi = ProtocolInstance {
             transition: Transition {
                 parentHash: header.parent_hash,
-                blockHash: header.hash(),
+                blockHash: header.hash_slow(),
                 stateRoot: header.state_root,
                 graffiti: input.taiko.prover_data.graffiti,
             },
             block_metadata: BlockMetadata {
-                l1Hash: input.taiko.l1_header.hash(),
+                l1Hash: input.taiko.l1_header.hash_slow(),
                 difficulty: input.taiko.block_proposed.meta.difficulty,
                 blobHash: tx_list_hash,
                 extraData: bytes_to_bytes32(&header.extra_data).into(),
                 depositsHash: keccak(deposits.abi_encode()).into(),
                 coinbase: header.beneficiary,
                 id: header.number,
-                gasLimit: (gas_limit
+                gasLimit: (header.gas_limit
                     - if input.chain_spec.is_taiko() {
                         ANCHOR_GAS_LIMIT
                     } else {
