@@ -3,18 +3,15 @@ use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-// use c_kzg::{Blob, KzgCommitment, KzgSettings};
-use sha2::Digest as _;
+use cfg_if::cfg_if;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
+    commitment_to_version_hash,
     consts::{SupportedChainSpecs, VerifierType},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    primitives::{
-        eip4844::{self, KzgField},
-        keccak::keccak,
-    },
+    primitives::keccak::keccak,
     utils::HeaderHasher,
 };
 
@@ -28,7 +25,7 @@ pub struct ProtocolInstance {
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
-    pub proof_of_equivalence: (KzgField, KzgField),
+    pub proof_of_equivalence: ([u8; 32], [u8; 32]),
 }
 
 impl ProtocolInstance {
@@ -38,12 +35,22 @@ impl ProtocolInstance {
         proof_type: VerifierType,
     ) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.meta.blobUsed;
-        let mut proof_of_equivalence = (KzgField::default(), KzgField::default());
+
+        // If blob is used, tx_list_hash is the commitment to the blob
+        // and we need to comput the proof of equivalence when not skipping with the kzg feature enabled
+        // Otherwise the proof_of_equivalence is 0
+        let mut proof_of_equivalence = ([0u8; 32], [0u8; 32]);
         let tx_list_hash = if blob_used {
-            if input.taiko.skip_verify_blob {
-                proof_of_equivalence = eip4844::proof_of_equivalence(input)?;
+            if !input.taiko.skip_verify_blob {
+                cfg_if::cfg_if!(
+                    if #[cfg(feature = "kzg")] {
+                        proof_of_equivalence = crate::primitives::eip4844::proof_of_equivalence(input)?;
+                    } else {
+                        return Err(anyhow::anyhow!("kzg feature is not enabled"));
+                    }
+                );
             }
-            eip4844::commitment_to_version_hash(&input.taiko.blob_commitment.unwrap())
+            commitment_to_version_hash(&input.taiko.blob_commitment.unwrap())
         } else {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))
         };
@@ -222,7 +229,7 @@ mod tests {
             graffiti: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
         };
         let meta_hash = b256!("9608088f69e586867154a693565b4f3234f26f82d44ef43fb99fd774e7266024");
-        let proof_of_equivalence = (KzgField::default(), KzgField::default());
+        let proof_of_equivalence = ([0u8; 32], [0u8; 32]);
 
         let pi_hash = keccak::keccak(
             (
@@ -257,7 +264,7 @@ mod tests {
         let (meta, trans, _proof) =
             <(BlockMetadata, Transition, TierProof)>::abi_decode_params(&input, false).unwrap();
         let meta_hash: B256 = keccak::keccak(meta.abi_encode()).into();
-        let proof_of_equivalence = (KzgField::default(), KzgField::default());
+        let proof_of_equivalence = ([0u8; 32], [0u8; 32]);
 
         let pi_hash = keccak::keccak(
             (

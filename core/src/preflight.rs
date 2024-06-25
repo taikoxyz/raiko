@@ -14,20 +14,13 @@ use kzg::eip_4844::Blob;
 use raiko_lib::{
     builder::{
         prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, TkoTxExecStrategy,
-    },
-    clear_line,
-    consts::ChainSpec,
-    inplace_print,
-    input::{
+    }, clear_line, commitment_to_version_hash, consts::ChainSpec, inplace_print, input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
-    },
-    primitives::{
+    }, primitives::{
         eip4844::{self, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP},
         mpt::proofs_to_tries,
-    },
-    utils::{generate_transactions, to_header, zlib_compress_data},
-    Measurement,
+    }, utils::{generate_transactions, to_header, zlib_compress_data}, Measurement
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -369,7 +362,7 @@ fn preflight_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
         kzg_settings,
     )
     .expect("Could not create kzg commitment from blob");
-    let version_hash: [u8; 32] = eip4844::commitment_to_version_hash(&commitment.to_bytes()).0;
+    let version_hash: [u8; 32] = commitment_to_version_hash(&commitment.to_bytes()).0;
     version_hash
 }
 

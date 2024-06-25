@@ -1,3 +1,4 @@
+use crate::commitment_to_version_hash;
 use crate::input::GuestInput;
 use kzg::eip_4844::{
     blob_to_polynomial, compute_challenge, compute_kzg_proof_rust,
@@ -117,12 +118,6 @@ pub fn set_commitment_proof(proof: &KzgGroup, commitment: &KzgGroup) -> Result<(
             .map_err(|e| Eip4844Error::SetCommitmentProof(e.to_string()))? = (version_hash, *proof);
     }
     Ok(())
-}
-
-pub fn commitment_to_version_hash(commitment: &KzgGroup) -> B256 {
-    let mut hash = Sha256::digest(commitment);
-    hash[0] = VERSIONED_HASH_VERSION_KZG;
-    B256::new(hash.into())
 }
 
 #[cfg(test)]

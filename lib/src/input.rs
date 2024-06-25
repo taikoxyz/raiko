@@ -17,7 +17,6 @@ use std::path::PathBuf;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::primitives::eip4844::TaikoKzgSettings;
 use crate::serde_helper::option_array_48;
 use crate::{
     consts::ChainSpec,
@@ -31,6 +30,9 @@ use anyhow::{anyhow, Result};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+
+#[cfg(feature = "kzg")]
+use crate::primitives::eip4844::TaikoKzgSettings;
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -97,6 +99,7 @@ pub struct TaikoGuestInput {
     pub prover_data: TaikoProverData,
     #[serde(with = "option_array_48")]
     pub blob_commitment: Option<[u8; 48]>,
+    #[cfg(feature = "kzg")]
     pub kzg_settings: Option<TaikoKzgSettings>,
     pub skip_verify_blob: bool,
 }
