@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::primitives::eip4844::{TaikoKzgSettings};
+use crate::primitives::eip4844::TaikoKzgSettings;
 use crate::serde_helper::option_array_48;
 use crate::{
     consts::ChainSpec,

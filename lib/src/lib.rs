@@ -215,7 +215,6 @@ where
 }
 
 pub mod serde_helper {
-    
 
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
@@ -282,7 +281,7 @@ pub mod serde_helper {
 
     pub mod option_array_48 {
         use super::*;
-        use serde::{de};
+        use serde::de;
 
         pub fn serialize<S>(value: &Option<[u8; 48]>, serializer: S) -> Result<S::Ok, S::Error>
         where
