@@ -587,7 +587,7 @@ fn get_transactions_from_block(block: &Block) -> RaikoResult<Vec<TxEnvelope>> {
         match &block.transactions {
             BlockTransactions::Full(txs) => {
                 for tx in txs {
-                    transactions.push(from_block_tx(tx)?);
+                    transactions.push(TxEnvelope::try_from(tx.clone()).unwrap());
                 }
             },
             _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
@@ -598,10 +598,6 @@ fn get_transactions_from_block(block: &Block) -> RaikoResult<Vec<TxEnvelope>> {
         );
     }
     Ok(transactions)
-}
-
-fn from_block_tx(tx: &AlloyRpcTransaction) -> RaikoResult<TxEnvelope> {
-    Ok(TxEnvelope::try_from(tx.clone()).unwrap())
 }
 
 #[cfg(test)]
