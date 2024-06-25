@@ -25,7 +25,8 @@ use crate::{
     primitives::{
         keccak::keccak,
         mpt::{MptNode, StateAccount},
-    }, CycleTracker,
+    },
+    CycleTracker,
 };
 
 pub trait BlockFinalizeStrategy<D>

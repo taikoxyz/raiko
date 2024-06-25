@@ -11,7 +11,10 @@ use crate::no_std::*;
 use crate::{
     consts::{SupportedChainSpecs, VerifierType},
     input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    primitives::{eip4844::{self, KzgField}, keccak::keccak},
+    primitives::{
+        eip4844::{self, KzgField},
+        keccak::keccak,
+    },
     utils::HeaderHasher,
 };
 
@@ -38,7 +41,7 @@ impl ProtocolInstance {
         let mut proof_of_equivalence = (KzgField::default(), KzgField::default());
         let tx_list_hash = if blob_used {
             if input.taiko.skip_verify_blob {
-                proof_of_equivalence = eip4844::proof_of_equivalence(&input)?;
+                proof_of_equivalence = eip4844::proof_of_equivalence(input)?;
             }
             eip4844::commitment_to_version_hash(&input.taiko.blob_commitment.unwrap())
         } else {
@@ -278,6 +281,4 @@ mod tests {
             "8b0e2833f7bae47f6886e5f172d90b12e330485bfe366d8ed4d53b2114d47e68"
         );
     }
-
-
 }

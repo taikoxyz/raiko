@@ -30,7 +30,8 @@ use crate::{
         mpt::StateAccount,
         Bytes,
     },
-    utils::HeaderHasher, CycleTracker,
+    utils::HeaderHasher,
+    CycleTracker,
 };
 
 pub trait DbInitStrategy<D>
@@ -61,7 +62,6 @@ impl DbInitStrategy<MemDb> for MemDbInitStrategy {
             .into_iter()
             .map(|bytes| (keccak(&bytes).into(), bytes))
             .collect();
-
 
         // "sp1-cycle-tracker" debug fields
         let mut account_touched = 0;

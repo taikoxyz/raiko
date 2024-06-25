@@ -138,8 +138,8 @@ url = "2.5.0"
 #     "preload-kzg-settings",
 #     "no-threads",
 # ] }
-rust-kzg-zkcrypto = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch" }
-kzg = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch" }
+rust-kzg-zkcrypto = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch", default-features = false }
+kzg = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch", default-features = false }
 
 sha3 = { version = "0.10", default-features = false }
 sha2 = "0.10.8"

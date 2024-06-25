@@ -118,10 +118,7 @@ impl Raiko {
                     &input.block_hash_reference,
                     "block hash unexpected",
                 )?;
-                let output = GuestOutput {
-                    header,
-                    hash: pi,
-                };
+                let output = GuestOutput { header, hash: pi };
 
                 Ok(output)
             }

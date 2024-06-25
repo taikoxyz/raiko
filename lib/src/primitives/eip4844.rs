@@ -60,8 +60,8 @@ pub fn proof_of_equivalence(input: &GuestInput) -> Result<(KzgField, KzgField), 
     });
 
     let blob_fields = Blob::from_bytes(blob)
-    .and_then(|b| deserialize_blob_rust(&b))
-    .map_err(|_| Eip4844Error::DeserializeBlob)?;
+        .and_then(|b| deserialize_blob_rust(&b))
+        .map_err(|_| Eip4844Error::DeserializeBlob)?;
 
     let poly = blob_to_polynomial(&blob_fields).unwrap();
     let blob_hash = Sha256::digest(blob).into();
@@ -70,7 +70,7 @@ pub fn proof_of_equivalence(input: &GuestInput) -> Result<(KzgField, KzgField), 
     let y = evaluate_polynomial_in_evaluation_form(&poly, &x, kzg_settings)
         .map(|fr| fr.to_bytes())
         .map_err(|e| Eip4844Error::EvaluatePolynomial(e.to_string()))?;
-    
+
     Ok((x.to_bytes(), y))
 }
 
@@ -201,7 +201,8 @@ mod test {
             &y,
             &ZG1::from_bytes(&proof).unwrap(),
             &kzg_settings,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     #[test]
@@ -232,9 +233,10 @@ mod test {
         input[144..192].copy_from_slice(&proof);
 
         revm_precompile::kzg_point_evaluation::run(
-            &Bytes::copy_from_slice(&input), 
-            u64::MAX, 
-            &revm_primitives::env::Env::default()
-        ).unwrap();
+            &Bytes::copy_from_slice(&input),
+            u64::MAX,
+            &revm_primitives::env::Env::default(),
+        )
+        .unwrap();
     }
 }

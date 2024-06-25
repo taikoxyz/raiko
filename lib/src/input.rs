@@ -15,7 +15,15 @@ use core::fmt::Debug;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
-use crate::primitives::eip4844::{KzgField, TaikoKzgSettings};
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
+use crate::primitives::eip4844::{TaikoKzgSettings};
+use crate::serde_helper::option_array_48;
+use crate::{
+    consts::ChainSpec,
+    primitives::{mpt::MptNode, Address, Bytes, B256, U256},
+    serde_helper::{RlpBytes, RlpHexBytes},
+};
 use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
@@ -23,14 +31,6 @@ use anyhow::{anyhow, Result};
 use revm::primitives::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use crate::serde_helper::option_array_48;
-#[cfg(not(feature = "std"))]
-use crate::no_std::*;
-use crate::{
-    consts::ChainSpec,
-    primitives::{mpt::MptNode, Address, Bytes, B256, U256},
-    serde_helper::{RlpBytes, RlpHexBytes},
-};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the

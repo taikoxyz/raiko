@@ -133,7 +133,6 @@ impl ProofType {
                 .await
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
-                
                 #[cfg(feature = "sp1")]
                 return sp1_driver::Sp1Prover::run(input, output, config)
                     .await
