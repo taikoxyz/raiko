@@ -8,7 +8,6 @@ use raiko_core::{
 };
 use raiko_lib::{
     input::{get_input_path, GuestInput},
-    utils::{to_header, HeaderHasher},
     Measurement,
 };
 use serde_json::Value;
@@ -72,7 +71,7 @@ async fn validate_cache_input(
             .ok_or_else(|| RaikoError::RPC("No block data for the requested block".to_owned()))?;
 
         let cached_block_hash = cache_input.block_hash_reference;
-        let real_block_hash = block.header.hash.unwrap_or(to_header(&block.header).hash());
+        let real_block_hash = block.header.hash.unwrap();
         debug!(
             "cache_block_hash={:?}, real_block_hash={:?}",
             cached_block_hash, real_block_hash

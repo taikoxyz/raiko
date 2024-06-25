@@ -2,9 +2,7 @@ use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
-use alloy_consensus::{
-    SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEnvelope, TxLegacy,
-};
+use alloy_consensus::TxEnvelope;
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};
@@ -12,16 +10,21 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use kzg::eip_4844::Blob;
 use raiko_lib::{
-    builder::{
-        prepare::TaikoHeaderPrepStrategy, BlockBuilder, OptimisticDatabase, TkoTxExecStrategy,
-    }, clear_line, commitment_to_version_hash, consts::ChainSpec, inplace_print, input::{
+    commitment_to_version_hash,
+    builder::{calculate_block_header, OptimisticDatabase, RethBlockBuilder},
+    clear_line,
+    consts::ChainSpec,
+    inplace_print,
+    input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
-    }, primitives::{
-        eip4844::{self, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP},
-        mpt::proofs_to_tries,
-    }, utils::{generate_transactions, to_header, zlib_compress_data}, Measurement
+    },
+    primitives::{eip4844::{self, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries},
+    protocol_instance::kzg_to_versioned_hash,
+    utils::{generate_transactions, zlib_compress_data},
+    Measurement,
 };
+use reth_primitives::Block as RethBlock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tracing::{debug, info, warn};
@@ -79,11 +82,13 @@ pub async fn preflight<BDP: BlockDataProvider>(
     };
     measurement.stop();
 
+    let reth_block = RethBlock::try_from(block.clone()).expect("block convert failed");
+
     let input = GuestInput {
+        block: reth_block.clone(),
         chain_spec: taiko_chain_spec.clone(),
         block_number,
         block_hash_reference: hash,
-        block_header_reference: to_header(&block.header),
         beneficiary: block.header.miner,
         gas_limit: block.header.gas_limit.try_into().map_err(|_| {
             RaikoError::Conversion("Failed converting gas limit to u64".to_string())
@@ -101,7 +106,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         parent_state_trie: Default::default(),
         parent_storage: Default::default(),
         contracts: Default::default(),
-        parent_header: to_header(&parent_block.header),
+        parent_header: parent_block.header.clone().try_into().unwrap(),
         ancestor_headers: Default::default(),
         base_fee_per_gas: block.header.base_fee_per_gas.map_or_else(
             || {
@@ -149,20 +154,22 @@ pub async fn preflight<BDP: BlockDataProvider>(
     )
     .await?;
 
-    let mut builder = BlockBuilder::new(&input)
-        .with_db(provider_db)
-        .prepare_header::<TaikoHeaderPrepStrategy>()?;
+    let mut builder = RethBlockBuilder::new(&input, provider_db);
+    builder.prepare_header()?;
 
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
     let is_local = false;
-    let max_iterations = if is_local { 1 } else { 50 };
+    let max_iterations = if is_local { 1 } else { 100 };
     let mut done = false;
     let mut num_iterations = 0;
     while !done {
         inplace_print(&format!("Execution iteration {num_iterations}..."));
-        builder.mut_db().unwrap().optimistic = num_iterations + 1 < max_iterations;
-        builder = builder.execute_transactions::<TkoTxExecStrategy>()?;
-        if builder.mut_db().unwrap().fetch_data().await {
+
+        let optimistic = num_iterations + 1 < max_iterations;
+        builder.db.as_mut().unwrap().optimistic = optimistic;
+
+        builder.execute_transactions(optimistic).expect("execute");
+        if builder.db.as_mut().unwrap().fetch_data().await {
             done = true;
         }
         num_iterations += 1;
@@ -170,7 +177,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     clear_line();
     println!("State data fetched in {num_iterations} iterations");
 
-    let provider_db = builder.mut_db().unwrap();
+    let provider_db = builder.db.as_mut().unwrap();
 
     // Gather inclusion proofs for the initial and final state
     let measurement = Measurement::start("Fetching storage proofs...", true);
@@ -198,19 +205,89 @@ pub async fn preflight<BDP: BlockDataProvider>(
     for account in initial_db.accounts.values() {
         let code = &account.info.code;
         if let Some(code) = code {
-            contracts.insert(code.bytecode.0.clone());
+            contracts.insert(code.bytecode().0.clone());
         }
     }
     measurement.stop();
 
-    // Add the collected data to the input
-    Ok(GuestInput {
+    let input = GuestInput {
         parent_state_trie: state_trie,
         parent_storage: storage,
         contracts: contracts.into_iter().map(Bytes).collect(),
         ancestor_headers,
         ..input
-    })
+    };
+
+    verify(input.clone());
+
+    // Add the collected data to the input
+    Ok(input)
+}
+
+fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
+    if expected != actual {
+        println!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
+    }
+}
+
+fn verify(input: GuestInput) {
+    let header = calculate_block_header(&input);
+
+    // Check against the expected value of all fields for easy debugability
+    let exp = &input.block.header;
+    check_eq(&exp.parent_hash, &header.parent_hash, "base_fee_per_gas");
+    check_eq(&exp.ommers_hash, &header.ommers_hash, "ommers_hash");
+    check_eq(&exp.beneficiary, &header.beneficiary, "beneficiary");
+    check_eq(&exp.state_root, &header.state_root, "state_root");
+    check_eq(
+        &exp.transactions_root,
+        &header.transactions_root,
+        "transactions_root",
+    );
+    check_eq(&exp.receipts_root, &header.receipts_root, "receipts_root");
+    check_eq(
+        &exp.withdrawals_root,
+        &header.withdrawals_root,
+        "withdrawals_root",
+    );
+    check_eq(&exp.logs_bloom, &header.logs_bloom, "logs_bloom");
+    check_eq(&exp.difficulty, &header.difficulty, "difficulty");
+    check_eq(&exp.number, &header.number, "number");
+    check_eq(&exp.gas_limit, &header.gas_limit, "gas_limit");
+    check_eq(&exp.gas_used, &header.gas_used, "gas_used");
+    check_eq(&exp.timestamp, &header.timestamp, "timestamp");
+    check_eq(&exp.mix_hash, &header.mix_hash, "mix_hash");
+    check_eq(&exp.nonce, &header.nonce, "nonce");
+    check_eq(
+        &exp.base_fee_per_gas,
+        &header.base_fee_per_gas,
+        "base_fee_per_gas",
+    );
+    check_eq(&exp.blob_gas_used, &header.blob_gas_used, "blob_gas_used");
+    check_eq(
+        &exp.excess_blob_gas,
+        &header.excess_blob_gas,
+        "excess_blob_gas",
+    );
+    check_eq(
+        &exp.parent_beacon_block_root,
+        &header.parent_beacon_block_root,
+        "parent_beacon_block_root",
+    );
+    check_eq(
+        &exp.extra_data.clone(),
+        &header.extra_data.clone(),
+        "extra_data",
+    );
+
+    // Make sure the blockhash from the node matches the one from the builder
+    assert_eq!(
+        Into::<FixedBytes<32>>::into(header.hash_slow().0),
+        input.block_hash_reference,
+        "block hash unexpected"
+    );
+
+    assert_eq!(header, input.block.header, "header wrong!");
 }
 
 /// Prepare the input for a Taiko chain
@@ -314,7 +391,7 @@ async fn prepare_taiko_chain_input(
 
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {
-        l1_header: to_header(&l1_state_block.header),
+        l1_header: l1_state_block.header.clone().try_into().unwrap(),
         tx_data,
         anchor_tx: serde_json::to_string(&anchor_tx).map_err(RaikoError::Serde)?,
         blob_commitment,
@@ -508,6 +585,7 @@ async fn get_block_proposed_event(
             let tx = provider
                 .get_transaction_by_hash(log_tx_hash)
                 .await
+                .expect("couldn't query the propose tx")
                 .expect("Could not find the propose tx");
             return Ok((tx, event.data));
         }
@@ -521,7 +599,7 @@ fn get_transactions_from_block(block: &Block) -> RaikoResult<Vec<TxEnvelope>> {
         match &block.transactions {
             BlockTransactions::Full(txs) => {
                 for tx in txs {
-                    transactions.push(from_block_tx(tx)?);
+                    transactions.push(TxEnvelope::try_from(tx.clone()).unwrap());
                 }
             },
             _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
@@ -532,95 +610,6 @@ fn get_transactions_from_block(block: &Block) -> RaikoResult<Vec<TxEnvelope>> {
         );
     }
     Ok(transactions)
-}
-
-fn from_block_tx(tx: &AlloyRpcTransaction) -> RaikoResult<TxEnvelope> {
-    let Some(signature) = tx.signature else {
-        panic!("Transaction has no signature");
-    };
-    let signature =
-        Signature::from_rs_and_parity(signature.r, signature.s, signature.v.as_limbs()[0])
-            .map_err(|_| RaikoError::Anyhow(anyhow!("Could not create signature")))?;
-    Ok(match tx.transaction_type.unwrap_or_default() {
-        0 => TxEnvelope::Legacy(
-            TxLegacy {
-                chain_id: tx.chain_id,
-                nonce: tx.nonce,
-                gas_price: tx.gas_price.expect("No gas price for the transaction"),
-                gas_limit: tx.gas,
-                to: if let Some(to) = tx.to {
-                    TxKind::Call(to)
-                } else {
-                    TxKind::Create
-                },
-                value: tx.value,
-                input: tx.input.0.clone().into(),
-            }
-            .into_signed(signature),
-        ),
-        1 => TxEnvelope::Eip2930(
-            TxEip2930 {
-                chain_id: tx.chain_id.expect("No chain id for the transaction"),
-                nonce: tx.nonce,
-                gas_price: tx.gas_price.expect("No gas price for the transaction"),
-                gas_limit: tx.gas,
-                to: if let Some(to) = tx.to {
-                    TxKind::Call(to)
-                } else {
-                    TxKind::Create
-                },
-                value: tx.value,
-                input: tx.input.clone(),
-                access_list: tx.access_list.clone().unwrap_or_default(),
-            }
-            .into_signed(signature),
-        ),
-        2 => TxEnvelope::Eip1559(
-            TxEip1559 {
-                chain_id: tx.chain_id.expect("No chain id for the transaction"),
-                nonce: tx.nonce,
-                gas_limit: tx.gas,
-                max_fee_per_gas: tx
-                    .max_fee_per_gas
-                    .expect("No max fee per gas for the transaction"),
-                max_priority_fee_per_gas: tx
-                    .max_priority_fee_per_gas
-                    .expect("No max priority fee per gas for the transaction"),
-                to: if let Some(to) = tx.to {
-                    TxKind::Call(to)
-                } else {
-                    TxKind::Create
-                },
-                value: tx.value,
-                access_list: tx.access_list.clone().unwrap_or_default(),
-                input: tx.input.clone(),
-            }
-            .into_signed(signature),
-        ),
-        3 => TxEnvelope::Eip4844(
-            TxEip4844Variant::TxEip4844(TxEip4844 {
-                chain_id: tx.chain_id.expect("No chain id for the transaction"),
-                nonce: tx.nonce,
-                gas_limit: tx.gas,
-                max_fee_per_gas: tx
-                    .max_fee_per_gas
-                    .expect("No max fee per gas for the transaction"),
-                max_priority_fee_per_gas: tx
-                    .max_priority_fee_per_gas
-                    .expect("No max priority fee per gas for the transaction"),
-                to: tx.to.expect("No to address for the transaction"),
-                value: tx.value,
-                access_list: tx.access_list.clone().unwrap_or_default(),
-                input: tx.input.clone(),
-                blob_versioned_hashes: tx.blob_versioned_hashes.clone().unwrap_or_default(),
-                max_fee_per_blob_gas: tx
-                    .max_fee_per_blob_gas
-                    .expect("No max fee per blob gas for the transaction"),
-            })
-            .into_signed(signature),
-        ),
-        _ => unimplemented!(),
-    })
 }
 
 #[cfg(test)]

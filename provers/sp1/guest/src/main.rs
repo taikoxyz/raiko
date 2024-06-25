@@ -3,8 +3,8 @@ harness::entrypoint!(main, tests, zk_op::tests);
 // harness::entrypoint!(main, tests);
 
 use raiko_lib::{
-    builder::{BlockBuilderStrategy, TaikoStrategy},
     consts::VerifierType,
+    builder::calculate_block_header,
     input::GuestInput,
     protocol_instance::ProtocolInstance,
 };
@@ -26,7 +26,7 @@ pub fn main() {
         ]))
         .expect("Failed to set ZkvmOperations");
 
-    let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
+    let header = calculate_block_header(&input);
     let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
         .unwrap()
         .instance_hash();

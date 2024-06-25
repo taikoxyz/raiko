@@ -1,16 +1,3 @@
-// Copyright 2023 RISC Zero, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 #![cfg_attr(any(not(feature = "std")), no_std)]
 #![feature(slice_flatten)]
 #![feature(result_flattening)]
@@ -44,7 +31,6 @@ pub mod utils;
 
 #[cfg(not(target_os = "zkvm"))]
 mod time {
-    pub use core::ops::AddAssign;
     pub use std::time::{Duration, Instant};
 }
 
@@ -62,9 +48,9 @@ mod time {
         pub fn now() -> Instant {
             Instant::default()
         }
-        pub fn duration_since(&self, _instant: Instant) -> Duration {
-            Duration::default()
-        }
+        //pub fn duration_since(&self, _instant: Instant) -> Duration {
+        //    Duration::default()
+        //}
         pub fn elapsed(&self) -> Duration {
             Duration::default()
         }
@@ -176,7 +162,7 @@ pub fn inplace_print(title: &str) {
     if consts::IN_CONTAINER.is_some() {
         return;
     }
-    print!("\r\n{title}");
+    print!("\r{title}");
     #[cfg(all(feature = "std", debug_assertions))]
     io::stdout().flush().unwrap();
 }
@@ -185,7 +171,7 @@ pub fn clear_line() {
     if consts::IN_CONTAINER.is_some() {
         return;
     }
-    print!("\r\n\x1B[2K");
+    print!("\r\x1B[2K");
 }
 
 /// call forget only if running inside the guest
@@ -200,92 +186,7 @@ pub fn commitment_to_version_hash(commitment: &[u8; 48]) -> B256 {
     B256::new(hash.into())
 }
 
-pub trait RlpBytes: Sized {
-    /// Decodes the blob into the appropriate type.
-    /// The input must contain exactly one value and no trailing data.
-    fn decode_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, alloy_rlp::Error>;
-}
-
-impl<T> RlpBytes for T
-where
-    T: alloy_rlp::Decodable,
-{
-    #[inline]
-    fn decode_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, alloy_rlp::Error> {
-        let mut buf = bytes.as_ref();
-        let this = T::decode(&mut buf)?;
-        if buf.is_empty() {
-            Ok(this)
-        } else {
-            Err(alloy_rlp::Error::Custom("Trailing data"))
-        }
-    }
-}
-
 pub mod serde_helper {
-
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use serde_with::{DeserializeAs, SerializeAs};
-
-    use super::RlpBytes as _;
-
-    pub struct RlpBytes {}
-
-    impl<T> SerializeAs<T> for RlpBytes
-    where
-        T: alloy_rlp::Encodable,
-    {
-        fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let bytes = alloy_rlp::encode(source);
-            bytes.serialize(serializer)
-        }
-    }
-
-    impl<'de, T> DeserializeAs<'de, T> for RlpBytes
-    where
-        T: alloy_rlp::Decodable,
-    {
-        fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let bytes = <Vec<u8>>::deserialize(deserializer)?;
-            T::decode_bytes(bytes).map_err(serde::de::Error::custom)
-        }
-    }
-
-    pub struct RlpHexBytes {}
-
-    impl<T> SerializeAs<T> for RlpHexBytes
-    where
-        T: alloy_rlp::Encodable,
-    {
-        fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let bytes = alloy_rlp::encode(source);
-            let hex_str = hex::encode(bytes);
-            hex_str.serialize(serializer)
-        }
-    }
-
-    impl<'de, T> DeserializeAs<'de, T> for RlpHexBytes
-    where
-        T: alloy_rlp::Decodable,
-    {
-        fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let hex_str = <String>::deserialize(deserializer)?;
-            let bytes = hex::decode(hex_str).unwrap();
-            T::decode_bytes(bytes).map_err(serde::de::Error::custom)
-        }
-    }
 
     pub mod option_array_48 {
         use super::*;

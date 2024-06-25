@@ -5,14 +5,13 @@ use crate::{
 };
 use alloy_primitives::{Address, B256};
 use alloy_rpc_types::EIP1186AccountProofResponse;
-use raiko_lib::{
-    builder::{BlockBuilderStrategy, TaikoStrategy},
-    consts::{ChainSpec, VerifierType},
-    input::{GuestInput, GuestOutput, TaikoProverData},
-    protocol_instance::ProtocolInstance,
-    prover::Proof,
-    utils::HeaderHasher,
-};
+use raiko_lib::builder::create_mem_db;
+use raiko_lib::builder::RethBlockBuilder;
+use raiko_lib::consts::ChainSpec;
+use raiko_lib::consts::VerifierType;
+use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
+use raiko_lib::protocol_instance::ProtocolInstance;
+use raiko_lib::prover::Proof;
 use serde_json::Value;
 use std::{collections::HashMap, hint::black_box};
 use tracing::{debug, error, info, warn};
@@ -62,15 +61,24 @@ impl Raiko {
     }
 
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
-        match TaikoStrategy::build_from(input) {
-            Ok((header, _mpt_node)) => {
+        let db = create_mem_db(&mut input.clone()).unwrap();
+        let mut builder = RethBlockBuilder::new(input, db);
+        builder.prepare_header().expect("prepare");
+        builder.execute_transactions(false).expect("execute");
+        let result = builder.finalize();
+
+        match result {
+            Ok(header) => {
                 info!("Verifying final state using provider data ...");
-                info!("Final block hash derived successfully. {}", header.hash());
+                info!(
+                    "Final block hash derived successfully. {}",
+                    header.hash_slow()
+                );
                 debug!("Final block header derived successfully. {header:?}");
                 let pi = ProtocolInstance::new(input, &header, VerifierType::None)?.instance_hash();
 
                 // Check against the expected value of all fields for easy debugability
-                let exp = &input.block_header_reference;
+                let exp = &input.block.header;
                 check_eq(&exp.parent_hash, &header.parent_hash, "base_fee_per_gas");
                 check_eq(&exp.ommers_hash, &header.ommers_hash, "ommers_hash");
                 check_eq(&exp.beneficiary, &header.beneficiary, "beneficiary");
@@ -114,9 +122,9 @@ impl Raiko {
 
                 // Make sure the blockhash from the node matches the one from the builder
                 require_eq(
-                    &B256::from(header.hash().0),
+                    &B256::from(header.hash_slow().0),
                     &input.block_hash_reference,
-                    "block hash unexpected",
+                    &format!("block hash unexpected for block {}", input.block_number),
                 )?;
                 let output = GuestOutput { header, hash: pi };
 

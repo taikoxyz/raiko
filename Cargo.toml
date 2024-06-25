@@ -36,15 +36,14 @@ opt-level = 3
 raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
 
-# revm
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg", default-features = false }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg", default-features = false }
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg", default-features = false, features = [
-    "serde",
-    "std",
-    "kzg",
-    "taiko",
-] }
+# reth
+reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = ["alloy-compat", "taiko"] }
+reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
+reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
+reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
+reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
+reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
+reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 
 # risc zero
 risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
@@ -60,29 +59,29 @@ sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
 alloy-rlp-derive = { version = "0.3.4", default-features = false }
-alloy-core = { version = "0.7.1", default-features = false }
-alloy-dyn-abi = { version = "0.7.1", default-features = false }
-alloy-json-abi = { version = "0.7.1", default-features = false }
-alloy-primitives = { version = "0.7.1", default-features = false }
-alloy-sol-types = { version = "0.7.1", default-features = false }
-alloy-rpc-types = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-alloy-rpc-client = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-alloy-consensus = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", default-features = false, features = [
+alloy-core = { version = "0.7.2", default-features = false }
+alloy-dyn-abi = { version = "0.7.2", default-features = false }
+alloy-json-abi = { version = "0.7.2", default-features = false }
+alloy-primitives = { version = "0.7.2", default-features = false }
+alloy-sol-types = { version = "0.7.2", default-features = false }
+reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
+
+alloy-rpc-types = { version = "0.1" }
+alloy-rpc-client = { version = "0.1" }
+alloy-consensus = { version = "0.1", features = [
     "serde",
 ] }
-alloy-network = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", default-features = false, features = [
+alloy-network = { version = "0.1", default-features = false, features = [
     "k256",
 ] }
-alloy-contract = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle" }
-alloy-eips = { git = "https://github.com/ceciliaz030/alloy", branch = "175_4e22b9e-cycle", default-features = false, features = [
+alloy-contract = { version = "0.1" }
+alloy-eips = { version = "0.1", default-features = false, features = [
     "serde",
 ] }
-alloy-provider = { git = "https://github.com/ceciliaz030/alloy", default-features = false, features = ["reqwest"], branch = "175_4e22b9e-cycle" }
-alloy-transport-http = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
-alloy-signer = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
-alloy-signer-wallet = { git = "https://github.com/ceciliaz030/alloy", default-features = false, branch = "175_4e22b9e-cycle" }
-reqwest_alloy = { package = "reqwest", version = "0.12.4", default-features = false, eatures = ["json"] }
-
+alloy-provider = { version = "0.1" }
+alloy-transport-http = { version = "0.1" }
+alloy-signer = { version = "0.1" }
+alloy-signer-local = { version = "0.1" }
 
 # ethers (TODO: remove)
 ethers-contract = { git = "https://github.com/smtmfft/ethers-rs", branch = "ethers-core-2.0.10" }
@@ -176,3 +175,6 @@ pathdiff = "0.2.1"
 
 [patch.crates-io]
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "serialize", features = ["portable", "no-threads"]}
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg" }
+secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }

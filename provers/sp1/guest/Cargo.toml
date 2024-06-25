@@ -5,12 +5,9 @@ name = "sp1-guest"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
 name = "zk_op"
 path = "src/zk_op.rs"
-
 
 [[bin]]
 name = "sha256"
@@ -42,7 +39,6 @@ revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "swap
     "std",
     "kzg",
 ] }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg", default-features = false }
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
 sp1-precompiles = { git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
 harness-core = { path = "../../../harness/core" }
@@ -52,13 +48,15 @@ substrate-bn = "0.6.0"
 [patch.crates-io]
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "serialize", features = ["portable", "no-threads"]}
 # Cant's use ZkOp for keccak since it's not precompile
-ecdsa = { git = "https://github.com/taikoxyz/signatures.git", branch = "0.16.9", package = "ecdsa", default-features = false, features = ["der"] }
+ecdsa = { git = "https://github.com/taikoxyz/signatures.git", branch = "0.16.9", package = "ecdsa" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch", features = ["recovery", "sp1"]}
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg" }
+c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" }
+secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
 
 [features]
 sp1-cycle-tracker = [
-    # "alloy-consensus/sp1-cycle-tracker",
-    "raiko-lib/sp1-cycle-tracker", 
+    "raiko-lib/sp1-cycle-tracker",
     "revm-precompile/sp1-cycle-tracker"
-    ]
+]
