@@ -120,6 +120,7 @@ impl FromStr for ProofType {
             "sp1" => Ok(ProofType::Sp1),
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
+            "nitro" => Ok(ProofType::Nitro),
             _ => Err(RaikoError::InvalidProofType(s.to_string())),
         }
     }
@@ -231,6 +232,8 @@ pub struct ProverSpecificOpts {
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
     pub risc0: Option<Value>,
+    /// Nitro enclave specific options.
+    pub nitro: Option<Value>,
 }
 
 impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificOpts>

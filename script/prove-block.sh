@@ -79,6 +79,12 @@ elif [ "$proof" == "risc0-bonsai" ]; then
         "execution_po2": 20
     }
   '
+elif [ "$proof" == "nitro" ]; then
+	proofParam='
+    "proof_type": "nitro",
+    "nitro": {
+    }
+  '
 else
 	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
 	exit 1
@@ -100,10 +106,10 @@ if [ "$rangeEnd" == "" ]; then
 	rangeEnd=$rangeStart
 fi
 
-proverHost = "http://localhost:8080"
+proverHost="http://localhost:8080"
 
 if [ $PROVER_HOST ]; then
-    proverHost = $PROVER_HOST
+    proverHost=$PROVER_HOST
 fi
 
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
