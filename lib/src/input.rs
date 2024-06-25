@@ -30,8 +30,6 @@ pub struct GuestInput {
     pub chain_spec: ChainSpec,
     /// Block number
     pub block_number: u64,
-    /// Block hash - for reference!
-    pub block_hash_reference: B256,
     /// Previous block header
     pub parent_header: Header,
     /// Address to which all priority fees in this block are transferred.
