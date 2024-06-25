@@ -23,7 +23,7 @@ risc0-zkvm = { version = "0.21.0", default-features = false, features = [
     'std',
     "getrandom",
 ] }
-revm-precompile = { path = "../../../../../revm-taiko/revm/crates/precompile", default-features = false, features = [
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
     "std",
     "c-kzg",
     "taiko",
