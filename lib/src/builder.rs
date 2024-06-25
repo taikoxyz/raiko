@@ -15,16 +15,15 @@ use alloy_consensus::{Signed, Transaction, TxEnvelope};
 use alloy_rpc_types::{ConversionError, Parity, Transaction as AlloyTransaction};
 use anyhow::{bail, Context, Error, Result};
 use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_MAINNET};
-use reth_evm::{
-    execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError},
-    BundleState,
-};
+use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
 use reth_evm_ethereum::execute::{validate_block_post_execution, EthExecutorProvider};
 use reth_evm_ethereum::taiko::TaikoData;
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
-use reth_primitives::revm_primitives::{AccountInfo, Bytecode, Bytes, HashMap, SpecId};
+use reth_primitives::revm_primitives::{
+    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap, SpecId,
+};
 use reth_primitives::transaction::Signature as RethSignature;
-use reth_primitives::{BlockBody, Header, TransactionSigned, B256, KECCAK_EMPTY, U256};
+use reth_primitives::{Address, BlockBody, Header, TransactionSigned, B256, KECCAK_EMPTY, U256};
 use tracing::debug;
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
@@ -54,9 +53,6 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
 pub trait OptimisticDatabase {
     /// Handle post execution work
     async fn fetch_data(&mut self) -> bool;
-
-    /// Commit changes to the database.
-    fn commit_from_bundle(&mut self, bundle: BundleState);
 
     /// If the current database is optimistic
     fn is_optimistic(&self) -> bool;
@@ -238,7 +234,27 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         }
 
         self.db = Some(full_state.database);
-        self.db.as_mut().unwrap().commit_from_bundle(state);
+
+        let changes: HashMap<Address, Account> = state
+            .state
+            .into_iter()
+            .map(|(address, bundle_account)| {
+                let mut account = Account {
+                    info: bundle_account.info.unwrap_or_default(),
+                    storage: bundle_account.storage,
+                    status: AccountStatus::default(),
+                };
+                account.mark_touch();
+                if bundle_account.status.was_destroyed() {
+                    account.mark_selfdestruct();
+                }
+                if bundle_account.original_info.is_none() {
+                    account.mark_created();
+                }
+                (address, account)
+            })
+            .collect();
+        self.db.as_mut().unwrap().commit(changes);
 
         // Set the values verified in validate_block_post_execution
         let header = self.header.as_mut().unwrap();

@@ -3,7 +3,6 @@ use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
 use reth_primitives::{Header, B256};
 use reth_provider::ProviderError;
 use reth_revm::{
-    db::BundleState,
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
 };
@@ -366,9 +365,5 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
 
     fn is_optimistic(&self) -> bool {
         self.optimistic
-    }
-
-    fn commit_from_bundle(&mut self, _bundle: BundleState) {
-        // nothing to do
     }
 }
