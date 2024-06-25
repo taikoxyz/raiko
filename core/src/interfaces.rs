@@ -137,6 +137,7 @@ impl ProofType {
                 return sp1_driver::Sp1Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
+                #[cfg(not(feature = "sp1"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Risc0 => {
@@ -144,6 +145,7 @@ impl ProofType {
                 return risc0_driver::Risc0Prover::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
+                #[cfg(not(feature = "risc0"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
             ProofType::Sgx => {
@@ -151,6 +153,7 @@ impl ProofType {
                 return sgx_prover::SgxProver::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
+                #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
         }

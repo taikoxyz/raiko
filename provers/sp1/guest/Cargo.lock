@@ -1639,6 +1639,7 @@ dependencies = [
  "serde_with 3.8.1",
  "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha3",
+ "tempfile",
  "thiserror",
  "thiserror-no-std",
  "tracing",
@@ -1702,7 +1703,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 [[package]]
 name = "revm"
 version = "8.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=swap-rust-kzg#b24c53d11f0bc4b1f0fbdc22159413f65becfdd3"
+source = "git+https://github.com/taikoxyz/revm.git?branch=swap-rust-kzg#542dd0fd3afc152d1fcf31270d9809a7d076f87e"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -1716,7 +1717,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "4.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=swap-rust-kzg#b24c53d11f0bc4b1f0fbdc22159413f65becfdd3"
+source = "git+https://github.com/taikoxyz/revm.git?branch=swap-rust-kzg#542dd0fd3afc152d1fcf31270d9809a7d076f87e"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -1725,7 +1726,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "6.0.0"
-source = "git+https://github.com/taikoxyz/revm.git?branch=swap-rust-kzg#b24c53d11f0bc4b1f0fbdc22159413f65becfdd3"
+source = "git+https://github.com/taikoxyz/revm.git?branch=swap-rust-kzg#542dd0fd3afc152d1fcf31270d9809a7d076f87e"
 dependencies = [
  "aurora-engine-modexp",
  "cfg-if",
@@ -1743,7 +1744,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.1"
-source = "git+https://github.com/taikoxyz/revm.git?branch=swap-rust-kzg#b24c53d11f0bc4b1f0fbdc22159413f65becfdd3"
+source = "git+https://github.com/taikoxyz/revm.git?branch=swap-rust-kzg#542dd0fd3afc152d1fcf31270d9809a7d076f87e"
 dependencies = [
  "alloy-primitives",
  "auto_impl",

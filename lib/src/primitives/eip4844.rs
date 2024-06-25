@@ -1,5 +1,3 @@
-// #![cfg(feature = "kzg")]
-
 use crate::input::GuestInput;
 use kzg::eip_4844::{
     blob_to_polynomial, compute_challenge, compute_kzg_proof_rust,
