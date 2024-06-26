@@ -7,7 +7,7 @@
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, f32::consts::E, time::Duration};
+    use std::{collections::HashMap, time::Duration};
 
     use alloy_primitives::Address;
     use raiko_core::interfaces::{ProofRequest, ProofType};
@@ -174,8 +174,8 @@ mod tests {
                 .unwrap();
             println!("{task_status:?}");
             assert_eq!(task_status.len(), 2);
-            assert_eq!(task_status[0].0, TaskStatus::Cancelled_NeverStarted);
-            assert_eq!(task_status[1].0, TaskStatus::Registered);
+            assert_eq!(task_status[1].0, TaskStatus::Cancelled_NeverStarted);
+            assert_eq!(task_status[0].0, TaskStatus::Registered);
         }
         // -----------------------
         {
@@ -199,8 +199,8 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
-                assert_eq!(task_status[0].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[1].0, TaskStatus::Registered);
+                assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
             std::thread::sleep(Duration::from_millis(1));
@@ -225,9 +225,9 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
-                assert_eq!(task_status[0].0, TaskStatus::CancellationInProgress);
+                assert_eq!(task_status[2].0, TaskStatus::CancellationInProgress);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[2].0, TaskStatus::Registered);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
             std::thread::sleep(Duration::from_millis(1));
@@ -252,10 +252,10 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 4);
-                assert_eq!(task_status[0].0, TaskStatus::Cancelled);
-                assert_eq!(task_status[1].0, TaskStatus::CancellationInProgress);
-                assert_eq!(task_status[2].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[3].0, TaskStatus::Registered);
+                assert_eq!(task_status[3].0, TaskStatus::Cancelled);
+                assert_eq!(task_status[2].0, TaskStatus::CancellationInProgress);
+                assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
         }
 
@@ -281,8 +281,8 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
-                assert_eq!(task_status[0].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[1].0, TaskStatus::Registered);
+                assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
             std::thread::sleep(Duration::from_millis(1));
@@ -308,9 +308,9 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
-                assert_eq!(task_status[0].0, TaskStatus::Success);
+                assert_eq!(task_status[2].0, TaskStatus::Success);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[2].0, TaskStatus::Registered);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
             assert_eq!(
@@ -347,8 +347,8 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
-                assert_eq!(task_status[0].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[1].0, TaskStatus::Registered);
+                assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
             std::thread::sleep(Duration::from_millis(1));
@@ -373,9 +373,9 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
-                assert_eq!(task_status[0].0, TaskStatus::NetworkFailure);
+                assert_eq!(task_status[2].0, TaskStatus::NetworkFailure);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[2].0, TaskStatus::Registered);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
             std::thread::sleep(Duration::from_millis(1));
@@ -400,10 +400,10 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 4);
-                assert_eq!(task_status[0].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[1].0, TaskStatus::NetworkFailure);
-                assert_eq!(task_status[2].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[3].0, TaskStatus::Registered);
+                assert_eq!(task_status[3].0, TaskStatus::WorkInProgress);
+                assert_eq!(task_status[2].0, TaskStatus::NetworkFailure);
+                assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
             std::thread::sleep(Duration::from_millis(1));
@@ -429,11 +429,11 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(task_status.len(), 5);
-                assert_eq!(task_status[0].0, TaskStatus::Success);
-                assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[2].0, TaskStatus::NetworkFailure);
+                assert_eq!(task_status[4].0, TaskStatus::Success);
                 assert_eq!(task_status[3].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[4].0, TaskStatus::Registered);
+                assert_eq!(task_status[2].0, TaskStatus::NetworkFailure);
+                assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
+                assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
             assert_eq!(

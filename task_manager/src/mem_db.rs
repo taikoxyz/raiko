@@ -7,13 +7,7 @@
 
 // Imports
 // ----------------------------------------------------------------
-use std::{
-    collections::HashMap,
-    fs::File,
-    hash::Hash,
-    io::{Error as IOError, ErrorKind as IOErrorKind},
-    path::Path,
-};
+use std::collections::HashMap;
 
 use crate::{
     EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
@@ -21,13 +15,9 @@ use crate::{
 };
 
 use chrono::Utc;
-use num_enum::IntoPrimitive;
 use raiko_core::interfaces::ProofType;
-use raiko_lib::primitives::{keccak::keccak, BlockNumber, ChainId, B256};
-// use rusqlite::{
-//     Error as SqlError, {named_params, Statement}, {Connection, OpenFlags},
-// };
-use serde::Serialize;
+use raiko_lib::primitives::{keccak::keccak, ChainId, B256};
+use tracing::{debug, info};
 
 #[derive(Debug)]
 pub struct InMemoryTaskManager {
@@ -52,16 +42,23 @@ impl InMemoryTaskDb {
 
     fn enqueue_task(&mut self, params: &EnqueueTaskParams) {
         let task_desc_data: Vec<u8> = TaskDescriptor::from(params).into();
-        let key: B256 = keccak(&task_desc_data).into();
+        let key: B256 = keccak(task_desc_data).into();
         let task_status = TaskProvingStatus(
             TaskStatus::Registered,
             Some(params.prover.clone()),
             Utc::now(),
         );
-        if !self.enqueue_task.contains_key(&key) {
-            self.enqueue_task.insert(key.into(), vec![task_status]);
-            self.task_id_desc.insert(self.task_id, key.into());
-            self.task_id += 1;
+
+        match self.enqueue_task.get(&key) {
+            Some(task_proving_records) => {
+                debug!("Task already exists: {:?}", task_proving_records.last().unwrap().0);
+            }, // do nothing
+            None => {
+                info!("Enqueue new task: {:?}", params);
+                self.enqueue_task.insert(key, vec![task_status]);
+                self.task_id_desc.insert(self.task_id, key);
+                self.task_id += 1;
+            }
         }
     }
 
@@ -75,24 +72,24 @@ impl InMemoryTaskDb {
         proof: Option<&[u8]>,
     ) {
         let td_data: Vec<u8> = TaskDescriptor {
-            chain_id: chain_id,
-            blockhash: blockhash.clone(),
-            proof_system: proof_system,
+            chain_id,
+            blockhash,
+            proof_system,
             prover: prover.clone().unwrap_or_default().to_owned(),
         }
         .into();
-        let key = keccak(&td_data).into();
+        let key = keccak(td_data).into();
         assert!(self.enqueue_task.contains_key(&key));
 
         let task_proving_records = self.enqueue_task.get(&key).unwrap();
         let task_status = task_proving_records.last().unwrap().0;
         if status != task_status {
             let new_records = task_proving_records
-                .to_owned()
-                .into_iter()
+                .iter()
+                .cloned()
                 .chain(std::iter::once(TaskProvingStatus(
                     status,
-                    prover,
+                    proof.map(hex::encode),
                     Utc::now(),
                 )))
                 .collect();
@@ -109,9 +106,9 @@ impl InMemoryTaskDb {
     ) -> Result<TaskProvingStatusRecords, TaskManagerError> {
         let key: B256 = keccak(
             TaskDescriptor {
-                chain_id: chain_id,
+                chain_id,
                 blockhash,
-                proof_system: proof_system,
+                proof_system,
                 prover: prover.unwrap_or_default().to_owned(),
             }
             .to_vec(),
@@ -143,9 +140,9 @@ impl InMemoryTaskDb {
     ) -> Result<Vec<u8>, TaskManagerError> {
         let key: B256 = keccak(
             TaskDescriptor {
-                chain_id: chain_id,
+                chain_id,
                 blockhash,
-                proof_system: proof_system,
+                proof_system,
                 prover: prover.unwrap_or_default().to_owned(),
             }
             .to_vec(),
@@ -180,6 +177,7 @@ impl InMemoryTaskDb {
         Ok((self.enqueue_task.len() + self.task_id_desc.len(), vec![]))
     }
 
+    #[allow(dead_code)]
     fn prune(&mut self) {
         todo!()
     }
@@ -204,7 +202,7 @@ impl TaskManager for InMemoryTaskManager {
         ) {
             Ok(proving_status)
         } else {
-            self.db.enqueue_task(&params);
+            self.db.enqueue_task(params);
             let proving_status = self.db.get_task_proving_status(
                 params.chain_id,
                 params.blockhash,

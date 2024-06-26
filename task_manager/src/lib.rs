@@ -1,10 +1,5 @@
-use std::{
-    cell::OnceCell,
-    fs::File,
-    io::{Error as IOError, ErrorKind as IOErrorKind},
-    path::Path,
-    time::Duration,
-};
+use std::io::{Error as IOError, ErrorKind as IOErrorKind};
+use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use mem_db::InMemoryTaskManager;
@@ -13,7 +8,6 @@ use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{ChainId, B256};
 use rusqlite::Error as SqlError;
 use serde::Serialize;
-use std::path::PathBuf;
 
 // mod adv_sqlite;
 mod mem_db;
@@ -93,13 +87,13 @@ impl TaskDescriptor {
     }
 }
 
-impl Into<Vec<u8>> for TaskDescriptor {
-    fn into(self) -> Vec<u8> {
+impl From<TaskDescriptor> for Vec<u8> {
+    fn from(val: TaskDescriptor) -> Self {
         let mut v = Vec::new();
-        v.extend_from_slice(&self.chain_id.to_be_bytes());
-        v.extend_from_slice(&self.blockhash.to_vec());
-        v.extend_from_slice(&(self.proof_system as u8).to_be_bytes());
-        v.extend_from_slice(self.prover.as_bytes());
+        v.extend_from_slice(&val.chain_id.to_be_bytes());
+        v.extend_from_slice(val.blockhash.as_ref());
+        v.extend_from_slice(&(val.proof_system as u8).to_be_bytes());
+        v.extend_from_slice(val.prover.as_bytes());
         v
     }
 }
@@ -189,7 +183,8 @@ pub fn get_task_manager(opts: &TaskManagerOpts) -> Arc<Mutex<InMemoryTaskManager
     static mut SHARED_TASK_MANAGER: Option<Arc<Mutex<InMemoryTaskManager>>> = None;
 
     INIT.call_once(|| {
-        let task_manager: Arc<Mutex<InMemoryTaskManager>> = Arc::new(Mutex::new(InMemoryTaskManager::new(opts)));
+        let task_manager: Arc<Mutex<InMemoryTaskManager>> =
+            Arc::new(Mutex::new(InMemoryTaskManager::new(opts)));
         unsafe {
             SHARED_TASK_MANAGER = Some(Arc::clone(&task_manager));
         }
@@ -212,14 +207,18 @@ mod test {
         let mut task_manager = binding.lock().unwrap();
         assert_eq!(task_manager.get_db_size().unwrap().0, 0);
 
-        assert_eq!(task_manager.enqueue_task(
-            &EnqueueTaskParams {
-                chain_id: 1,
-                blockhash: B256::default(),
-                proof_system: ProofType::Native,
-                prover: "test".to_string(),
-                block_number: 1
-            }
-        ).unwrap().len(), 1);
+        assert_eq!(
+            task_manager
+                .enqueue_task(&EnqueueTaskParams {
+                    chain_id: 1,
+                    blockhash: B256::default(),
+                    proof_system: ProofType::Native,
+                    prover: "test".to_string(),
+                    block_number: 1
+                })
+                .unwrap()
+                .len(),
+            1
+        );
     }
 }

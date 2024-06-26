@@ -198,7 +198,7 @@ impl ProverState {
                         manager.update_task_progress(
                             chain_id,
                             blockhash,
-                            proof_request.proof_type.into(),
+                            proof_request.proof_type,
                             Some(proof_request.prover.to_string()),
                             TaskStatus::WorkInProgress,
                             None,
@@ -217,7 +217,7 @@ impl ProverState {
                             manager.update_task_progress(
                                 chain_id,
                                 blockhash,
-                                proof_request.proof_type.into(),
+                                proof_request.proof_type,
                                 Some(proof_request.prover.to_string()),
                                 TaskStatus::WorkInProgress,
                                 Some(proof),

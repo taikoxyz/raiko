@@ -662,7 +662,7 @@ impl TaskDb {
               AND t.blockhash = :blockhash
               AND t.proofsys_id = :proofsys_id
             ORDER BY
-              ts.timestamp DESC;
+              ts.timestamp;
             ",
         )?;
 
@@ -677,7 +677,7 @@ impl TaskDb {
             WHERE
               t.id = :task_id
             ORDER BY
-              ts.timestamp DESC;
+              ts.timestamp;
             ",
         )?;
 
