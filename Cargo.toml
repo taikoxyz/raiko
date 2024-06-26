@@ -37,13 +37,15 @@ raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
 
 # reth
-reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = ["alloy-compat", "taiko"] }
-reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
-reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
-reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
-reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
-reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
+reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-kzg", default-features = false, features = ["alloy-compat", "taiko"] }
+reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-kzg" }
+reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-kzg", default-features = false }
+reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-kzg" }
+reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-kzg" }
+reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-kzg" }
+reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-kzg", default-features = false }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg", features = ["c-kzg"]}
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg" }
 
 # risc zero
 risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
@@ -174,7 +176,7 @@ dirs = "5.0.1"
 pathdiff = "0.2.1"
 
 [patch.crates-io]
-blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "serialize", features = ["portable", "no-threads"]}
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg" }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "swap-rust-kzg" }
+blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize", features = ["portable", "no-threads"]}
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg" }
 secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
