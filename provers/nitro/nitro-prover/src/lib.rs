@@ -43,9 +43,19 @@ impl NitroProver {
 
         let input_bytes = serde_json::to_string(&input)?;
         // send proof request
-        send_message(&mut stream, input_bytes)?;
+        send_message(&mut stream, input_bytes).map_err(|e| {
+            ProverError::GuestError(format!(
+                "Failed to send proof request to enclave with details {}",
+                e
+            ))
+        })?;
         // read proof response
-        let proof = recv_message(&mut stream)?;
+        let proof = recv_message(&mut stream).map_err(|e| {
+            ProverError::GuestError(format!(
+                "Failed to read proof from enclave with details {}",
+                e
+            ))
+        })?;
         Ok(proof.into())
     }
 }

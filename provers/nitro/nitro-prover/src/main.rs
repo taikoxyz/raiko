@@ -34,10 +34,12 @@ async fn main() {
     println!("Initializing");
     let listener = VsockListener::bind(&VsockAddr::new(libc::VMADDR_CID_ANY, PORT))
         .expect("bind and listen failed");
-
+    println!("Listener socket binded. Starting main loop");
     for stream in listener.incoming() {
+        println!("Received new proof request");
         match stream {
             Ok(mut v_stream) => {
+                println!("Reading message from the socket");
                 let Ok(data) = recv_message(&mut v_stream) else {
                     println!("Failed to read whole GuestInput bytes from socket!");
                     continue;
