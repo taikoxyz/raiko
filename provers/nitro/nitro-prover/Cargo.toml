@@ -11,7 +11,11 @@ serde_bytes = { workspace = true }
 bincode = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-nix = { workspace = true, features = ["socket"] }
+#nix = { workspace = true, features = ["socket"] }
+vsock = "0.5.0"
+libc = "0.2.155"
+anyhow = { workspace = true }
+hex = { workspace = true    }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 byteorder = { workspace = true }

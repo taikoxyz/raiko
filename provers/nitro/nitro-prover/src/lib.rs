@@ -3,13 +3,13 @@ use aws_nitro_enclaves_nsm_api::{
     api::{Request, Response},
     driver::{nsm_exit, nsm_init, nsm_process_request},
 };
-use nix::{
-    sys::socket::{
-        connect, shutdown, socket, AddressFamily, Shutdown, SockFlag, SockType, VsockAddr,
-    },
-    unistd::close,
-};
-use protocol_helper::{recv_loop, recv_u64};
+// use nix::{
+//     sys::socket::{
+//         connect, shutdown, socket, AddressFamily, Shutdown, SockFlag, SockType, VsockAddr,
+//     },
+//     unistd::close,
+// };
+use protocol_helper::*;
 use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput},
@@ -22,6 +22,7 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use std::process;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
+use vsock::{VsockAddr, VsockStream};
 
 pub mod protocol_helper;
 
@@ -34,18 +35,18 @@ pub struct NitroProver;
 
 impl NitroProver {
     pub fn prove(input: GuestInput) -> ProverResult<Proof> {
-        let vsocket = vsock_connect(CID, PORT)?;
-        let fd = vsocket.as_raw_fd();
-        let input_bytes = serde_json::to_vec(&input)?;
-        let len: u64 = input_bytes.len() as u64;
+        // let vsocket = vsock_connect(CID, PORT)?;
+        // let fd = vsocket.as_raw_fd();
+        let mut stream = VsockStream::connect(&VsockAddr::new(CID, PORT)).map_err(|e| {
+            ProverError::GuestError(format!("Connection to VSoc failed with details {}", e))
+        })?;
+
+        let input_bytes = serde_json::to_string(&input)?;
         // send proof request
-        send_u64(fd, len)?;
-        send_loop(fd, &input_bytes, len)?;
+        send_message(&mut stream, input_bytes)?;
         // read proof response
-        let len = recv_u64(fd)?;
-        let mut buf = [0u8; BUF_MAX_LEN];
-        recv_loop(fd, &mut buf, len)?;
-        Ok(buf.to_vec().into())
+        let proof = recv_message(&mut stream)?;
+        Ok(proof.into())
     }
 }
 
@@ -106,54 +107,54 @@ impl Prover for NitroProver {
     }
 }
 
-/// Initiate a connection on an AF_VSOCK socket
-fn vsock_connect(cid: u32, port: u32) -> Result<VsockSocket, String> {
-    let sockaddr = VsockAddr::new(cid, port);
-    let mut err_msg = String::new();
+// Initiate a connection on an AF_VSOCK socket
+// fn vsock_connect(cid: u32, port: u32) -> Result<VsockSocket, String> {
+//     let sockaddr = VsockAddr::new(cid, port);
+//     let mut err_msg = String::new();
 
-    for i in 0..MAX_CONNECTION_ATTEMPTS {
-        let vsocket = VsockSocket::new(
-            socket(
-                AddressFamily::Vsock,
-                SockType::Stream,
-                SockFlag::empty(),
-                None,
-            )
-            .map_err(|err| format!("Failed to create the socket: {:?}", err))?
-            .as_raw_fd(),
-        );
-        match connect(vsocket.as_raw_fd(), &sockaddr) {
-            Ok(_) => return Ok(vsocket),
-            Err(e) => err_msg = format!("Failed to connect: {}", e),
-        }
+//     for i in 0..MAX_CONNECTION_ATTEMPTS {
+//         let vsocket = VsockSocket::new(
+//             socket(
+//                 AddressFamily::Vsock,
+//                 SockType::Stream,
+//                 SockFlag::empty(),
+//                 None,
+//             )
+//             .map_err(|err| format!("Failed to create the socket: {:?}", err))?
+//             .as_raw_fd(),
+//         );
+//         match connect(vsocket.as_raw_fd(), &sockaddr) {
+//             Ok(_) => return Ok(vsocket),
+//             Err(e) => err_msg = format!("Failed to connect: {}", e),
+//         }
 
-        // Exponentially backoff before retrying to connect to the socket
-        std::thread::sleep(std::time::Duration::from_secs(1 << i));
-    }
+//         // Exponentially backoff before retrying to connect to the socket
+//         std::thread::sleep(std::time::Duration::from_secs(1 << i));
+//     }
 
-    Err(err_msg)
-}
+//     Err(err_msg)
+// }
 
-struct VsockSocket {
-    socket_fd: RawFd,
-}
+// struct VsockSocket {
+//     socket_fd: RawFd,
+// }
 
-impl VsockSocket {
-    fn new(socket_fd: RawFd) -> Self {
-        VsockSocket { socket_fd }
-    }
-}
+// impl VsockSocket {
+//     fn new(socket_fd: RawFd) -> Self {
+//         VsockSocket { socket_fd }
+//     }
+// }
 
-impl Drop for VsockSocket {
-    fn drop(&mut self) {
-        shutdown(self.socket_fd, Shutdown::Both)
-            .unwrap_or_else(|e| eprintln!("Failed to shut socket down: {:?}", e));
-        close(self.socket_fd).unwrap_or_else(|e| eprintln!("Failed to close socket: {:?}", e));
-    }
-}
+// impl Drop for VsockSocket {
+//     fn drop(&mut self) {
+//         shutdown(self.socket_fd, Shutdown::Both)
+//             .unwrap_or_else(|e| eprintln!("Failed to shut socket down: {:?}", e));
+//         close(self.socket_fd).unwrap_or_else(|e| eprintln!("Failed to close socket: {:?}", e));
+//     }
+// }
 
-impl AsRawFd for VsockSocket {
-    fn as_raw_fd(&self) -> RawFd {
-        self.socket_fd
-    }
-}
+// impl AsRawFd for VsockSocket {
+//     fn as_raw_fd(&self) -> RawFd {
+//         self.socket_fd
+//     }
+// }
