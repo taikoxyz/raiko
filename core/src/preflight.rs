@@ -10,10 +10,20 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use kzg::eip_4844::Blob;
 use raiko_lib::{
-    builder::{calculate_block_header, OptimisticDatabase, RethBlockBuilder}, clear_line, commitment_to_version_hash, consts::ChainSpec, inplace_print, input::{
+    builder::{OptimisticDatabase, RethBlockBuilder},
+    clear_line,
+    consts::ChainSpec,
+    inplace_print,
+    input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
-    }, primitives::{eip4844::{self, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries}, utils::{generate_transactions, zlib_compress_data}, Measurement
+    }, 
+    primitives::{
+        eip4844::{self, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP}, 
+        mpt::proofs_to_tries
+    }, 
+    utils::{generate_transactions, zlib_compress_data}, 
+    easurement
 };
 use reth_primitives::Block as RethBlock;
 use serde::{Deserialize, Serialize};
@@ -42,13 +52,10 @@ pub async fn preflight<BDP: BlockDataProvider>(
         })?,
     );
 
-    let hash = block.header.hash.ok_or_else(|| {
-        RaikoError::Preflight("No block hash for the requested block".to_string())
-    })?;
-
     info!(
-        "Processing block {:?} with block.hash: {:?}",
-        block.header.number, block.header.hash
+        "Processing block {:?} with hash: {:?}",
+        block.header.number,
+        block.header.hash.unwrap(),
     );
     debug!("block.parent_hash: {:?}", block.header.parent_hash);
     debug!("block gas used: {:?}", block.header.gas_used);
@@ -79,7 +86,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
         block: reth_block.clone(),
         chain_spec: taiko_chain_spec.clone(),
         block_number,
-        block_hash_reference: hash,
         beneficiary: block.header.miner,
         gas_limit: block.header.gas_limit.try_into().map_err(|_| {
             RaikoError::Conversion("Failed converting gas limit to u64".to_string())
@@ -209,76 +215,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
         ..input
     };
 
-    verify(input.clone());
-
     // Add the collected data to the input
     Ok(input)
-}
-
-fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
-    if expected != actual {
-        println!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}");
-    }
-}
-
-fn verify(input: GuestInput) {
-    let header = calculate_block_header(&input);
-
-    // Check against the expected value of all fields for easy debugability
-    let exp = &input.block.header;
-    check_eq(&exp.parent_hash, &header.parent_hash, "base_fee_per_gas");
-    check_eq(&exp.ommers_hash, &header.ommers_hash, "ommers_hash");
-    check_eq(&exp.beneficiary, &header.beneficiary, "beneficiary");
-    check_eq(&exp.state_root, &header.state_root, "state_root");
-    check_eq(
-        &exp.transactions_root,
-        &header.transactions_root,
-        "transactions_root",
-    );
-    check_eq(&exp.receipts_root, &header.receipts_root, "receipts_root");
-    check_eq(
-        &exp.withdrawals_root,
-        &header.withdrawals_root,
-        "withdrawals_root",
-    );
-    check_eq(&exp.logs_bloom, &header.logs_bloom, "logs_bloom");
-    check_eq(&exp.difficulty, &header.difficulty, "difficulty");
-    check_eq(&exp.number, &header.number, "number");
-    check_eq(&exp.gas_limit, &header.gas_limit, "gas_limit");
-    check_eq(&exp.gas_used, &header.gas_used, "gas_used");
-    check_eq(&exp.timestamp, &header.timestamp, "timestamp");
-    check_eq(&exp.mix_hash, &header.mix_hash, "mix_hash");
-    check_eq(&exp.nonce, &header.nonce, "nonce");
-    check_eq(
-        &exp.base_fee_per_gas,
-        &header.base_fee_per_gas,
-        "base_fee_per_gas",
-    );
-    check_eq(&exp.blob_gas_used, &header.blob_gas_used, "blob_gas_used");
-    check_eq(
-        &exp.excess_blob_gas,
-        &header.excess_blob_gas,
-        "excess_blob_gas",
-    );
-    check_eq(
-        &exp.parent_beacon_block_root,
-        &header.parent_beacon_block_root,
-        "parent_beacon_block_root",
-    );
-    check_eq(
-        &exp.extra_data.clone(),
-        &header.extra_data.clone(),
-        "extra_data",
-    );
-
-    // Make sure the blockhash from the node matches the one from the builder
-    assert_eq!(
-        Into::<FixedBytes<32>>::into(header.hash_slow().0),
-        input.block_hash_reference,
-        "block hash unexpected"
-    );
-
-    assert_eq!(header, input.block.header, "header wrong!");
 }
 
 /// Prepare the input for a Taiko chain
