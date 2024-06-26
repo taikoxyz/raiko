@@ -190,7 +190,7 @@ pub mod serde_helper {
 
     pub mod option_array_48 {
         use super::*;
-        use serde::de;
+        use serde::{de, Serializer, Deserializer, Serialize, Deserialize};
 
         pub fn serialize<S>(value: &Option<[u8; 48]>, serializer: S) -> Result<S::Ok, S::Error>
         where

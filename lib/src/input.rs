@@ -14,7 +14,7 @@ use reth_primitives::{Block as RethBlock, Header};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{consts::ChainSpec, primitives::mpt::MptNode};
-
+use crate::serde_helper::option_array_48;
 #[cfg(feature = "kzg")]
 use crate::primitives::eip4844::TaikoKzgSettings;
 

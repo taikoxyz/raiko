@@ -10,19 +10,10 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use kzg::eip_4844::Blob;
 use raiko_lib::{
-    commitment_to_version_hash,
-    builder::{calculate_block_header, OptimisticDatabase, RethBlockBuilder},
-    clear_line,
-    consts::ChainSpec,
-    inplace_print,
-    input::{
+    builder::{calculate_block_header, OptimisticDatabase, RethBlockBuilder}, clear_line, commitment_to_version_hash, consts::ChainSpec, inplace_print, input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
-    },
-    primitives::{eip4844::{self, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries},
-    protocol_instance::kzg_to_versioned_hash,
-    utils::{generate_transactions, zlib_compress_data},
-    Measurement,
+    }, primitives::{eip4844::{self, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP}, mpt::proofs_to_tries}, utils::{generate_transactions, zlib_compress_data}, Measurement
 };
 use reth_primitives::Block as RethBlock;
 use serde::{Deserialize, Serialize};
