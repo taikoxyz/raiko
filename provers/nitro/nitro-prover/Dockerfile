@@ -14,4 +14,4 @@ WORKDIR /raiko-nitro
 # Copy the Rust compiled binary from previous image
 COPY --from=builder /opt/raiko-nitro/target/release/nitro-prover .
 
-CMD ["./nitro-prover"]
+CMD ["/raiko-nitro/nitro-prover"]
