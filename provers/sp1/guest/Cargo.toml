@@ -34,25 +34,28 @@ path = "src/benchmark/bn254_mul.rs"
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
 sp1-zkvm ={ git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg", default-features = false, features = [
-    "taiko",
-    "std",
-    "c-kzg",
-] }
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
 sp1-precompiles = { git = "https://github.com/succinctlabs/sp1.git", branch = "main"}
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["sp1"]}
 substrate-bn = "0.6.0"
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg", default-features = false, features = [
+    "taiko",
+    "std",
+    "c-kzg",
+] }
 
 [patch.crates-io]
-blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "serialize", features = ["portable", "no-threads"]}
-# Cant's use ZkOp for keccak since it's not precompile
-ecdsa = { git = "https://github.com/taikoxyz/signatures.git", branch = "0.16.9", package = "ecdsa" }
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg" }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg" }
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
+blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize", features = ["portable", "no-threads"]}
+ecdsa = { git = "https://github.com/taikoxyz/signatures.git", branch = "0.16.9", package = "ecdsa" }
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
+secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch", features = [
+    'global-context',
+    "rand",
+    "recovery",
+] }
 
 [features]
 sp1-cycle-tracker = [

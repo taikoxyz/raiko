@@ -199,11 +199,13 @@ pub fn get_input_path(dir: &Path, block_number: u64, network: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
+    use crate::primitives::eip4844::MAINNET_KZG_TRUSTED_SETUP;
     use super::*;
 
     #[test]
     fn input_serde_roundtrip() {
-        let input = GuestInput::default();
+        let mut input = GuestInput::default();
+        input.taiko.kzg_settings = Some(MAINNET_KZG_TRUSTED_SETUP.as_ref().clone());
         let _: GuestInput = bincode::deserialize(&bincode::serialize(&input).unwrap()).unwrap();
     }
 }

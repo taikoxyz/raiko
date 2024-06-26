@@ -50,7 +50,6 @@ log = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
 lazy_static = { workspace = true }
-tempfile = { workspace = true, optional = true }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg", features = ["c-kzg"]}
 
 [dev-dependencies]
@@ -75,5 +74,5 @@ sgx = []
 sp1 = []
 risc0 = []
 sp1-cycle-tracker = []
-kzg = ["revm-primitives/c-kzg", "dep:tempfile"] #??
+kzg = ["revm-primitives/c-kzg"]
 kzg-zkcrypto = []

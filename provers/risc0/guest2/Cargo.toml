@@ -1,0 +1,31 @@
+[package]
+name = "guest2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-lib = { path = "../../../lib", features = ["std", "risc0"] }
+risc0-zkvm = { version = "0.21.0", default-features = false, features = [
+    'std',
+    "getrandom",
+] }
+k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.3-risczero.0" }
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6-risczero.0" }
+harness-core = { path = "../../../harness/core" }
+harness = { path = "../../../harness/macro", features = ["risc0"] }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg", default-features = false }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg", default-features = false, features = [
+    "taiko",
+    "std",
+    "c-kzg",
+] }
+
+[patch.crates-io]
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg" }
+blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize", features = ["portable", "no-threads"]}
+crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.2-risczero.0" }
+k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.3-risczero.0" }
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6-risczero.0" }
+
+[workspace]
