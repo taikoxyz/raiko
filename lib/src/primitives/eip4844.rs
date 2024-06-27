@@ -73,23 +73,19 @@ pub fn proof_of_equivalence(input: &GuestInput) -> Result<(KzgField, KzgField), 
     Ok((x.to_bytes(), y))
 }
 
-pub fn proof_of_version_hash(input: &GuestInput) -> Result<Option<B256>, Eip4844Error> {
-    if input.taiko.skip_verify_blob {
-        Ok(None)
-    } else {
-        let blob_fields = Blob::from_bytes(&input.taiko.tx_data)
+pub fn proof_of_commitment(input: &GuestInput) -> Result<KzgGroup, Eip4844Error> {
+    let blob_fields = Blob::from_bytes(&input.taiko.tx_data)
             .and_then(|b| deserialize_blob_rust(&b))
             .map_err(|_| Eip4844Error::DeserializeBlob)?;
 
-        let kzg_settings = input
-            .taiko
-            .kzg_settings
-            .as_ref()
-            .unwrap_or_else(|| &*MAINNET_KZG_TRUSTED_SETUP);
-        let commitment = blob_to_kzg_commitment_rust(&blob_fields, kzg_settings)
-            .map_err(Eip4844Error::ComputeKzgProof)?;
-        Ok(Some(commitment_to_version_hash(&commitment.to_bytes())))
-    }
+    let kzg_settings = input
+        .taiko
+        .kzg_settings
+        .as_ref()
+        .unwrap_or_else(|| &*MAINNET_KZG_TRUSTED_SETUP);
+    blob_to_kzg_commitment_rust(&blob_fields, kzg_settings)
+        .map(|commmitment| commmitment.to_bytes())
+        .map_err(Eip4844Error::ComputeKzgProof)
 }
 
 pub fn get_kzg_proof_commitment(

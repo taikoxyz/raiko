@@ -196,6 +196,7 @@ mod tests {
     use alloy_primitives::Address;
     use clap::ValueEnum;
     use raiko_lib::{
+        input::BlobProof,
         consts::{Network, SupportedChainSpecs},
         primitives::B256,
     };
@@ -256,14 +257,16 @@ mod tests {
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
         let proof_type = proof_request.proof_type.to_owned();
-        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
+        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
         let mut input = raiko
             .generate_input(provider)
             .await
             .expect("input generation failed");
-        if is_ci() && proof_type == ProofType::Sp1 {
-            input.taiko.skip_verify_blob = true;
-        }
+        // TODO: Remove this after Proof of Equivelence
+        // if is_ci() && proof_type == ProofType::Sp1 {
+        //     input.taiko.skip_verify_blob = true;
+        // }
+        input.taiko.blob_proof = proof_request.blob_proof.clone();
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko
             .prove(input, &output)
@@ -293,6 +296,7 @@ mod tests {
             prover: Address::ZERO,
             l1_network,
             proof_type,
+            blob_proof: Some(BlobProof::ProofOfEquivalence),
             prover_args: test_proof_params(),
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -319,6 +323,7 @@ mod tests {
                 prover: Address::ZERO,
                 l1_network,
                 proof_type,
+                blob_proof: Some(BlobProof::ProofOfEquivalence),
                 prover_args: test_proof_params(),
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -346,6 +351,7 @@ mod tests {
                 prover: Address::ZERO,
                 l1_network,
                 proof_type,
+                blob_proof: Some(BlobProof::ProofOfEquivalence),
                 prover_args: test_proof_params(),
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;

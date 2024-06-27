@@ -32,22 +32,33 @@ pub struct ProtocolInstance {
 impl ProtocolInstance {
     pub fn new(input: &GuestInput, header: &Header, proof_type: VerifierType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.meta.blobUsed;
-
         // If blob is used, tx_list_hash is the commitment to the blob
         // and we need to comput the proof of equivalence when not skipping with the kzg feature enabled
         // Otherwise the proof_of_equivalence is 0
         let mut proof_of_equivalence = ([0u8; 32], [0u8; 32]);
         let tx_list_hash = if blob_used {
-            if !input.taiko.skip_verify_blob {
+            if let (Some(blob_proof), Some(commitment)) = (input.taiko.blob_proof.as_ref(), input.taiko.blob_commitment.as_ref()) {
                 cfg_if::cfg_if!(
                     if #[cfg(feature = "kzg")] {
-                        proof_of_equivalence = crate::primitives::eip4844::proof_of_equivalence(input)?;
+                        use crate::primitives::eip4844;
+                        match blob_proof {
+                            crate::input::BlobProof::ProofOfEquivalence => {
+                                proof_of_equivalence = eip4844::proof_of_equivalence(input)?;
+                                println!("proof of equivalence: {:?}", proof_of_equivalence);
+                            },
+                            crate::input::BlobProof::ProofOfBlobHash => {
+                                assert_eq!(commitment, &eip4844::proof_of_commitment(input)?);
+                                println!("proof of commitment: {:?}", commitment);
+                            },
+                        };
                     } else {
                         return Err(anyhow::anyhow!("kzg feature is not enabled"));
                     }
                 );
+                commitment_to_version_hash(commitment)
+            } else {
+                return Err(anyhow::anyhow!("blob_proof and blob_commitment must be provided"))
             }
-            commitment_to_version_hash(&input.taiko.blob_commitment.unwrap())
         } else {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))
         };

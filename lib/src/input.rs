@@ -2,6 +2,7 @@ use core::fmt::Debug;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
+use alloy_consensus::Blob;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
@@ -79,7 +80,28 @@ pub struct TaikoGuestInput {
     pub blob_commitment: Option<[u8; 48]>,
     #[cfg(feature = "kzg")]
     pub kzg_settings: Option<TaikoKzgSettings>,
-    pub skip_verify_blob: bool,
+    pub blob_proof: Option<BlobProof>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum BlobProof {
+    /// Simpilified Proof of Equivalence with fiat input in non-aligned field
+    /// Referencing https://notes.ethereum.org/@dankrad/kzg_commitments_in_proofs
+    /// with impl details in https://github.com/taikoxyz/raiko/issues/292
+    /// Guest proves the KZG evaluation of the a fiat-shamir input x and output result y
+    ///      x = sha256(sha256(blob), kzg_commit(blob))
+    ///      y = f(x)
+    /// where f is the KZG polynomial
+    ProofOfEquivalence,
+    /// Guest runs through the entire computation from blob to Kzg commitment
+    /// then to version hash
+    ProofOfBlobHash,
+}
+
+impl Default for BlobProof {
+    fn default() -> Self {
+        BlobProof::ProofOfEquivalence
+    }
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
