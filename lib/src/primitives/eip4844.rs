@@ -19,13 +19,13 @@ mod backend_exports {
 }
 pub use backend_exports::*;
 
-/// The KZG settings under the concrete type of kzg backend
-/// We directly include the serialzed struct to avoid conversion cost in guest
-/// To generate the bytes, run:
-///
-///     cargo run --bin gen_kzg_settings
-///
-/// If TAIKO_KZG_SETTINGS_BIN does not eixst, convert from the revm trusted setup
+// The KZG settings under the concrete type of kzg backend
+// We directly include the serialzed struct to avoid conversion cost in guest
+// To generate the bytes, run:
+//
+//     cargo run --bin gen_kzg_settings
+//
+// If TAIKO_KZG_SETTINGS_BIN does not eixst, convert from the revm trusted setup
 pub static TAIKO_KZG_SETTINGS: Lazy<TaikoKzgSettings> = Lazy::new(|| {
     bincode::deserialize(TAIKO_KZG_SETTINGS_BIN).unwrap_or(
         kzg::eip_4844::load_trusted_setup_rust(
