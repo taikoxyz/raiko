@@ -1,5 +1,4 @@
 use byteorder::{ByteOrder, LittleEndian};
-use serde_json::{json, Map, Value};
 use std::io::{Read, Write};
 use std::mem::size_of;
 use vsock::VsockStream;

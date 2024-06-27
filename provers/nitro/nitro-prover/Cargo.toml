@@ -11,9 +11,8 @@ serde_bytes = { workspace = true }
 bincode = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-#nix = { workspace = true, features = ["socket"] }
-vsock = "0.5.0"
-libc = "0.2.155"
+vsock = { workspace = true }
+libc = { workspace = true }
 anyhow = { workspace = true }
 hex = { workspace = true    }
 serde_json = { workspace = true }
