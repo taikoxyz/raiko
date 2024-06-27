@@ -14,6 +14,7 @@ use crate::{
     TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskStatus,
 };
 
+use anyhow::ensure;
 use chrono::Utc;
 use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{keccak::keccak, ChainId, B256};
@@ -82,7 +83,7 @@ impl InMemoryTaskDb {
         }
         .into();
         let key = keccak(td_data).into();
-        assert!(self.enqueue_task.contains_key(&key));
+        ensure!(self.enqueue_task.contains_key(&key));
 
         let task_proving_records = self.enqueue_task.get(&key).unwrap();
         let task_status = task_proving_records.last().unwrap().0;
@@ -128,7 +129,7 @@ impl InMemoryTaskDb {
         &mut self,
         task_id: u64,
     ) -> Result<TaskProvingStatusRecords, TaskManagerError> {
-        assert!(self.task_id_desc.contains_key(&task_id));
+        ensure!(self.task_id_desc.contains_key(&task_id));
         let key = self.task_id_desc.get(&task_id).unwrap();
         let task_status = self.enqueue_task.get(key).unwrap();
         Ok(task_status.clone())
@@ -151,7 +152,7 @@ impl InMemoryTaskDb {
             .to_vec(),
         )
         .into();
-        assert!(self.enqueue_task.contains_key(&key));
+        ensure!(self.enqueue_task.contains_key(&key));
 
         let proving_status_records = self.enqueue_task.get(&key).unwrap();
         let task_status = proving_status_records.last().unwrap();
@@ -164,7 +165,7 @@ impl InMemoryTaskDb {
     }
 
     fn get_task_proof_by_id(&mut self, task_id: u64) -> Result<Vec<u8>, TaskManagerError> {
-        assert!(self.task_id_desc.contains_key(&task_id));
+        ensure!(self.task_id_desc.contains_key(&task_id));
         let key = self.task_id_desc.get(&task_id).unwrap();
         let task_records = self.enqueue_task.get(key).unwrap();
         let task_status = task_records.last().unwrap();

@@ -7,7 +7,7 @@ pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 use c_kzg::{Blob, KzgCommitment};
 use raiko_lib::{
     builder::{OptimisticDatabase, RethBlockBuilder},
@@ -276,7 +276,7 @@ async fn prepare_taiko_chain_input(
         debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-        assert!(!blob_hashes.is_empty());
+        ensure!(!blob_hashes.is_empty());
         // Currently the protocol enforces the first blob hash to be used
         let blob_hash = blob_hashes[0];
         // Get the blob data for this block
@@ -305,7 +305,7 @@ async fn prepare_taiko_chain_input(
         Some(anchor_tx.clone()),
     );
     // Do a sanity check using the transactions returned by the node
-    assert!(
+    ensure!(
         transactions.len() >= block.transactions.len(),
         "unexpected number of transactions"
     );
@@ -409,7 +409,7 @@ async fn get_blob_data_beacon(
     let response = reqwest::get(url.clone()).await?;
     if response.status().is_success() {
         let blobs: GetBlobsResponse = response.json().await?;
-        assert!(!blobs.data.is_empty(), "blob data not available anymore");
+        ensure!(!blobs.data.is_empty(), "blob data not available anymore");
         // Get the blob data for the blob storing the tx list
         let tx_blob = blobs
             .data
@@ -419,7 +419,7 @@ async fn get_blob_data_beacon(
                 blob_hash == calc_blob_versioned_hash(&blob.blob)
             })
             .cloned();
-        assert!(tx_blob.is_some());
+        ensure!(tx_blob.is_some());
         Ok(blob_to_bytes(&tx_blob.unwrap().blob))
     } else {
         warn!(
@@ -521,7 +521,7 @@ fn get_transactions_from_block(block: &Block) -> RaikoResult<Vec<TxEnvelope>> {
             },
             _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
         };
-        assert!(
+        ensure!(
             transactions.len() == block.transactions.len(),
             "unexpected number of transactions"
         );
