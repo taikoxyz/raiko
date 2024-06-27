@@ -14,7 +14,7 @@ use raiko_lib::{
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
-    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
     signature::{generate_key, sign_message},
 };
 use serde_bytes::ByteBuf;
@@ -115,7 +115,8 @@ impl Prover for NitroProver {
         };
 
         nsm_exit(nsm_fd);
-        Ok(result.into())
+        info!("Successfully generated proof for PI {}", pi_hash);
+        to_proof(Ok(result))
     }
 }
 
