@@ -10,13 +10,20 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use kzg::eip_4844::Blob;
 use raiko_lib::{
-    builder::{OptimisticDatabase, RethBlockBuilder}, clear_line, commitment_to_version_hash, consts::ChainSpec, inplace_print, input::{
+    builder::{OptimisticDatabase, RethBlockBuilder},
+    clear_line, commitment_to_version_hash,
+    consts::ChainSpec,
+    inplace_print,
+    input::{
         decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
-    }, primitives::{
-        eip4844::{self, set_commitment_proof, MAINNET_KZG_TRUSTED_SETUP}, 
-        mpt::proofs_to_tries
-    }, utils::{generate_transactions, zlib_compress_data}, Measurement
+    },
+    primitives::{
+        eip4844::{self, save_cur_blob_proof, TAIKO_KZG_SETTINGS},
+        mpt::proofs_to_tries,
+    },
+    utils::{generate_transactions, zlib_compress_data},
+    Measurement,
 };
 use reth_primitives::Block as RethBlock;
 use serde::{Deserialize, Serialize};
@@ -267,7 +274,7 @@ async fn prepare_taiko_chain_input(
     .await?;
 
     // Fetch the tx data from either calldata or blobdata
-    let (tx_data, blob_commitment, kzg_settings) = if proposal_event.meta.blobUsed {
+    let (tx_data, blob_commitment) = if proposal_event.meta.blobUsed {
         debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
@@ -284,18 +291,18 @@ async fn prepare_taiko_chain_input(
             RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
         })?;
         let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
-
-        let kzg_settings = eip4844::MAINNET_KZG_TRUSTED_SETUP.as_ref().clone();
         let (proof, commitment) =
-            eip4844::get_kzg_proof_commitment(&blob, &kzg_settings).map_err(|e| anyhow!(e))?;
-        set_commitment_proof(&proof, &commitment).map_err(|e| anyhow!(e))?;
+            eip4844::calc_kzg_proof_commitment(&blob, &TAIKO_KZG_SETTINGS.clone())
+                .map_err(|e| anyhow!(e))?;
+        // Save to sumit onchain for point evaluation verification
+        save_cur_blob_proof(&proof, &commitment).map_err(|e| anyhow!(e))?;
 
-        (blob, Some(commitment), Some(kzg_settings))
+        (blob, Some(commitment))
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
             .map_err(|_| RaikoError::Preflight("Could not decode proposeBlockCall".to_owned()))?;
-        (proposal_call.txList.as_ref().to_owned(), None, None)
+        (proposal_call.txList.as_ref().to_owned(), None)
     };
 
     // Create the transactions from the proposed tx list
@@ -317,7 +324,6 @@ async fn prepare_taiko_chain_input(
         tx_data,
         anchor_tx: serde_json::to_string(&anchor_tx).map_err(RaikoError::Serde)?,
         blob_commitment,
-        kzg_settings,
         block_proposed: proposal_event,
         prover_data,
         blob_proof: None,
@@ -354,11 +360,10 @@ fn preflight_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     use kzg::G1;
     let blob_bytes: Vec<u8> = hex::decode(blob_str.to_lowercase().trim_start_matches("0x"))
         .expect("Could not decode blob");
-    let kzg_settings = MAINNET_KZG_TRUSTED_SETUP.as_ref();
     let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
     let commitment = eip4844::blob_to_kzg_commitment_rust(
         &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"),
-        kzg_settings,
+        &TAIKO_KZG_SETTINGS.clone(),
     )
     .expect("Could not create kzg commitment from blob");
     let version_hash: [u8; 32] = commitment_to_version_hash(&commitment.to_bytes()).0;

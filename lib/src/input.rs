@@ -2,7 +2,6 @@ use core::fmt::Debug;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
-use alloy_consensus::Blob;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
@@ -14,10 +13,8 @@ use reth_primitives::{Block as RethBlock, Header};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, primitives::mpt::MptNode};
 use crate::serde_helper::option_array_48;
-#[cfg(feature = "kzg")]
-use crate::primitives::eip4844::TaikoKzgSettings;
+use crate::{consts::ChainSpec, primitives::mpt::MptNode};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -78,12 +75,10 @@ pub struct TaikoGuestInput {
     pub prover_data: TaikoProverData,
     #[serde(with = "option_array_48")]
     pub blob_commitment: Option<[u8; 48]>,
-    #[cfg(feature = "kzg")]
-    pub kzg_settings: Option<TaikoKzgSettings>,
     pub blob_proof: Option<BlobProof>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub enum BlobProof {
     /// Simpilified Proof of Equivalence with fiat input in non-aligned field
     /// Referencing https://notes.ethereum.org/@dankrad/kzg_commitments_in_proofs
@@ -92,16 +87,11 @@ pub enum BlobProof {
     ///      x = sha256(sha256(blob), kzg_commit(blob))
     ///      y = f(x)
     /// where f is the KZG polynomial
+    #[default]
     ProofOfEquivalence,
     /// Guest runs through the entire computation from blob to Kzg commitment
     /// then to version hash
-    ProofOfBlobHash,
-}
-
-impl Default for BlobProof {
-    fn default() -> Self {
-        BlobProof::ProofOfEquivalence
-    }
+    ProofOfCommitment,
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -219,13 +209,12 @@ pub fn get_input_path(dir: &Path, block_number: u64, network: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-    use crate::primitives::eip4844::MAINNET_KZG_TRUSTED_SETUP;
+
     use super::*;
 
     #[test]
     fn input_serde_roundtrip() {
-        let mut input = GuestInput::default();
-        input.taiko.kzg_settings = Some(MAINNET_KZG_TRUSTED_SETUP.as_ref().clone());
+        let input = GuestInput::default();
         let _: GuestInput = bincode::deserialize(&bincode::serialize(&input).unwrap()).unwrap();
     }
 }

@@ -1,10 +1,8 @@
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use cfg_if::cfg_if;
 use reth_primitives::Header;
-use sha2::{Digest as _, Sha256};
-use std::alloc::{alloc, Layout};
+use sha2::Digest as _;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -37,7 +35,10 @@ impl ProtocolInstance {
         // Otherwise the proof_of_equivalence is 0
         let mut proof_of_equivalence = ([0u8; 32], [0u8; 32]);
         let tx_list_hash = if blob_used {
-            if let (Some(blob_proof), Some(commitment)) = (input.taiko.blob_proof.as_ref(), input.taiko.blob_commitment.as_ref()) {
+            if let (Some(blob_proof), Some(commitment)) = (
+                input.taiko.blob_proof.as_ref(),
+                input.taiko.blob_commitment.as_ref(),
+            ) {
                 cfg_if::cfg_if!(
                     if #[cfg(feature = "kzg")] {
                         use crate::primitives::eip4844;
@@ -46,7 +47,7 @@ impl ProtocolInstance {
                                 proof_of_equivalence = eip4844::proof_of_equivalence(input)?;
                                 println!("proof of equivalence: {:?}", proof_of_equivalence);
                             },
-                            crate::input::BlobProof::ProofOfBlobHash => {
+                            crate::input::BlobProof::ProofOfCommitment => {
                                 assert_eq!(commitment, &eip4844::proof_of_commitment(input)?);
                                 println!("proof of commitment: {:?}", commitment);
                             },
@@ -57,7 +58,9 @@ impl ProtocolInstance {
                 );
                 commitment_to_version_hash(commitment)
             } else {
-                return Err(anyhow::anyhow!("blob_proof and blob_commitment must be provided"))
+                return Err(anyhow::anyhow!(
+                    "blob_proof and blob_commitment must be provided"
+                ));
             }
         } else {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))

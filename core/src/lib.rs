@@ -196,8 +196,8 @@ mod tests {
     use alloy_primitives::Address;
     use clap::ValueEnum;
     use raiko_lib::{
-        input::BlobProof,
         consts::{Network, SupportedChainSpecs},
+        input::BlobProof,
         primitives::B256,
     };
     use serde_json::{json, Value};
@@ -256,7 +256,6 @@ mod tests {
         let provider =
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
-        let proof_type = proof_request.proof_type.to_owned();
         let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
         let mut input = raiko
             .generate_input(provider)
@@ -266,7 +265,7 @@ mod tests {
         // if is_ci() && proof_type == ProofType::Sp1 {
         //     input.taiko.skip_verify_blob = true;
         // }
-        input.taiko.blob_proof = proof_request.blob_proof.clone();
+        input.taiko.blob_proof.clone_from(&proof_request.blob_proof);
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko
             .prove(input, &output)

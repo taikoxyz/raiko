@@ -27,6 +27,10 @@ alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
 
+# crypto
+rust-kzg-zkcrypto = { workspace = true }
+kzg = { workspace = true }
+
 # server
 axum = { workspace = true }
 tower-http = { workspace = true }
@@ -59,8 +63,6 @@ reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
 sha2 = { workspace = true }
 proptest = { workspace = true }
-rust-kzg-zkcrypto = { workspace = true }
-kzg = { workspace = true }
 rlp = { workspace = true }
 url = { workspace = true }
 cfg-if = { workspace = true }
@@ -78,10 +80,11 @@ rstest = { workspace = true }
 ethers-core = { workspace = true }
 
 [features]
-# powdr = ["dep:powdr"]
+default = ["kzg-zkcrypto"]
 sp1 = ["raiko-core/sp1"]
 risc0 = ["raiko-core/risc0"]
 sgx = ["raiko-core/sgx"]
+kzg-zkcrypto = []
 
 [[bin]]
 name = "raiko-host"
@@ -90,3 +93,8 @@ path = "src/bin/main.rs"
 [[bin]]
 name = "docs"
 path = "src/bin/docs.rs"
+
+[[bin]]
+name = "gen-kzg-settings"
+path = "src/bin/gen_kzg_settings.rs"
+

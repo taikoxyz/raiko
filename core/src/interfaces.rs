@@ -196,7 +196,7 @@ impl FromStr for _BlobProof {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_lowercase().as_str() {
             "proof_of_equivalence" => Ok(_BlobProof(Some(BlobProof::ProofOfEquivalence))),
-            "blob_hash" => Ok(_BlobProof(Some(BlobProof::ProofOfBlobHash))),
+            "blob_hash" => Ok(_BlobProof(Some(BlobProof::ProofOfCommitment))),
             _ => Ok(_BlobProof(None)),
         }
     }
@@ -321,11 +321,15 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 .map(|s| {
                     // If Blob option is empty or arbitrary string, it will be treated as None
                     // since we might use calldata or skip the blob proof
-                    let b: _BlobProof = s.parse()
-                        .map_err(|_| RaikoError::InvalidRequestConfig("Invalid blob_option".to_string()))
+                    let b: _BlobProof = s
+                        .parse()
+                        .map_err(|_| {
+                            RaikoError::InvalidRequestConfig("Invalid blob_option".to_string())
+                        })
                         .unwrap();
                     b.0
-                }).unwrap_or_default(),
+                })
+                .unwrap_or_default(),
             prover_args: value.prover_args.into(),
         })
     }
