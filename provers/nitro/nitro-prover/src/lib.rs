@@ -47,7 +47,7 @@ impl NitroProver {
             ))
         })?;
         debug!("Proof aquired. Returning it.");
-        Ok(proof.into())
+        Ok(serde_json::json!({"proof": hex::encode(proof)}))
     }
 }
 

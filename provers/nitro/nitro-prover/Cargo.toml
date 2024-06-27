@@ -15,4 +15,5 @@ libc = { workspace = true }
 anyhow = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
+hex = { workspace = true }
 byteorder = { workspace = true }
