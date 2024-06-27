@@ -44,11 +44,11 @@ async fn main() {
                         continue;
                     }
                     Ok(proof_value) => {
-                        let Ok(proof) = serde_json::from_value::<Vec<u8>>(proof_value) else {
+                        let Ok(proof) = serde_json::to_string(&proof_value) else {
                             info!("Proof type unexpected for block {}!", block);
                             continue;
                         };
-                        let Ok(_) = send_message(&mut v_stream, hex::encode(proof)) else {
+                        let Ok(_) = send_message(&mut v_stream, proof) else {
                             info!("Failed to write proof back into socket. Client disconnected?");
                             continue;
                         };
