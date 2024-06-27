@@ -51,8 +51,11 @@ impl InMemoryTaskDb {
 
         match self.enqueue_task.get(&key) {
             Some(task_proving_records) => {
-                debug!("Task already exists: {:?}", task_proving_records.last().unwrap().0);
-            }, // do nothing
+                debug!(
+                    "Task already exists: {:?}",
+                    task_proving_records.last().unwrap().0
+                );
+            } // do nothing
             None => {
                 info!("Enqueue new task: {:?}", params);
                 self.enqueue_task.insert(key, vec![task_status]);
