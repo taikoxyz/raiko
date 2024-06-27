@@ -50,7 +50,3 @@ jobs:
 
       - name: Test ${{ inputs.version_name }} prover
         run: make test
-
-      - name: Build with tracer
-        if: ${{ inputs.version_name }} == native
-        run: cargo build -F tracer
