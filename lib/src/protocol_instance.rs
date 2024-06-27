@@ -56,7 +56,8 @@ impl ProtocolInstance {
                         return Err(anyhow::anyhow!("kzg feature is not enabled"));
                     }
                 );
-                commitment_to_version_hash(commitment)
+                let commitment: [u8; 48] = commitment.clone().try_into().unwrap();
+                commitment_to_version_hash(&commitment)
             } else {
                 return Err(anyhow::anyhow!(
                     "blob_proof and blob_commitment must be provided"

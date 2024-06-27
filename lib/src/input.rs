@@ -13,7 +13,6 @@ use reth_primitives::{Block as RethBlock, Header};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::serde_helper::option_array_48;
 use crate::{consts::ChainSpec, primitives::mpt::MptNode};
 
 /// Represents the state of an account's storage.
@@ -73,8 +72,7 @@ pub struct TaikoGuestInput {
     pub anchor_tx: String,
     pub block_proposed: BlockProposed,
     pub prover_data: TaikoProverData,
-    #[serde(with = "option_array_48")]
-    pub blob_commitment: Option<[u8; 48]>,
+    pub blob_commitment: Option<Vec<u8>>,
     pub blob_proof: Option<BlobProof>,
 }
 
