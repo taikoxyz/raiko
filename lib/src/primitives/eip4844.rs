@@ -79,7 +79,7 @@ pub fn proof_of_commitment(input: &GuestInput) -> Result<KzgGroup, Eip4844Error>
         .map_err(|_| Eip4844Error::DeserializeBlob)?;
 
     blob_to_kzg_commitment_rust(&blob_fields, &TAIKO_KZG_SETTINGS.clone())
-        .map(|commmitment| commmitment.to_bytes())
+        .map(|commitment| commitment.to_bytes())
         .map_err(Eip4844Error::ComputeKzgProof)
 }
 

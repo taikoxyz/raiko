@@ -296,7 +296,7 @@ async fn prepare_taiko_chain_input(
                 .map_err(|e| anyhow!(e))?;
         // Save to sumit onchain for point evaluation verification
         save_cur_blob_proof(&proof, &commitment).map_err(|e| anyhow!(e))?;
-        
+
         (blob, Some(commitment.to_vec()))
     } else {
         // Get the tx list data directly from the propose transaction data
