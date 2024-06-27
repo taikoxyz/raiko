@@ -1,6 +1,7 @@
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
+    require, require_eq,
 };
 use alloy_consensus::TxEnvelope;
 pub use alloy_primitives::*;
@@ -276,7 +277,7 @@ async fn prepare_taiko_chain_input(
         debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-        ensure!(!blob_hashes.is_empty());
+        require(!blob_hashes.is_empty(), "blob hashes are empty")?;
         // Currently the protocol enforces the first blob hash to be used
         let blob_hash = blob_hashes[0];
         // Get the blob data for this block
@@ -305,10 +306,10 @@ async fn prepare_taiko_chain_input(
         Some(anchor_tx.clone()),
     );
     // Do a sanity check using the transactions returned by the node
-    ensure!(
+    require(
         transactions.len() >= block.transactions.len(),
-        "unexpected number of transactions"
-    );
+        "unexpected number of transactions",
+    )?;
 
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {
@@ -521,10 +522,11 @@ fn get_transactions_from_block(block: &Block) -> RaikoResult<Vec<TxEnvelope>> {
             },
             _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
         };
-        ensure!(
-            transactions.len() == block.transactions.len(),
-            "unexpected number of transactions"
-        );
+        require_eq(
+            &transactions.len(),
+            &block.transactions.len(),
+            "unexpected number of transactions",
+        )?;
     }
     Ok(transactions)
 }

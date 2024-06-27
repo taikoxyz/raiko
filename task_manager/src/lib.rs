@@ -20,6 +20,8 @@ pub enum TaskManagerError {
     IOError(IOErrorKind),
     #[error("SQL Error {0}")]
     SqlError(String),
+    #[error("Anyhow error: {0}")]
+    Anyhow(String),
 }
 
 pub type TaskManagerResult<T> = Result<T, TaskManagerError>;
@@ -39,6 +41,12 @@ impl From<SqlError> for TaskManagerError {
 impl From<serde_json::Error> for TaskManagerError {
     fn from(error: serde_json::Error) -> TaskManagerError {
         TaskManagerError::SqlError(error.to_string())
+    }
+}
+
+impl From<anyhow::Error> for TaskManagerError {
+    fn from(value: anyhow::Error) -> Self {
+        TaskManagerError::Anyhow(value.to_string())
     }
 }
 
@@ -173,6 +181,13 @@ pub trait TaskManager {
 
     /// Prune old tasks
     fn prune_db(&mut self) -> TaskManagerResult<()>;
+}
+
+pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
+    if !expression {
+        return Err(TaskManagerError::Anyhow(message.to_string()));
+    }
+    Ok(())
 }
 
 use std::sync::{Arc, Mutex, Once};

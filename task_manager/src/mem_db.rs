@@ -10,11 +10,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
+    ensure, EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
     TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskStatus,
 };
 
-use anyhow::ensure;
 use chrono::Utc;
 use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{keccak::keccak, ChainId, B256};
@@ -74,7 +73,7 @@ impl InMemoryTaskDb {
         prover: Option<String>,
         status: TaskStatus,
         proof: Option<&[u8]>,
-    ) {
+    ) -> TaskManagerResult<()> {
         let td_data: Vec<u8> = TaskDescriptor {
             chain_id,
             blockhash,
@@ -83,7 +82,7 @@ impl InMemoryTaskDb {
         }
         .into();
         let key = keccak(td_data).into();
-        ensure!(self.enqueue_task.contains_key(&key));
+        ensure(self.enqueue_task.contains_key(&key), "no task found")?;
 
         let task_proving_records = self.enqueue_task.get(&key).unwrap();
         let task_status = task_proving_records.last().unwrap().0;
@@ -99,6 +98,7 @@ impl InMemoryTaskDb {
                 .collect();
             self.enqueue_task.insert(key, new_records);
         }
+        Ok(())
     }
 
     fn get_task_proving_status(
@@ -107,7 +107,7 @@ impl InMemoryTaskDb {
         blockhash: B256,
         proof_system: ProofType,
         prover: Option<String>,
-    ) -> Result<TaskProvingStatusRecords, TaskManagerError> {
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let key: B256 = keccak(
             TaskDescriptor {
                 chain_id,
@@ -128,8 +128,8 @@ impl InMemoryTaskDb {
     fn get_task_proving_status_by_id(
         &mut self,
         task_id: u64,
-    ) -> Result<TaskProvingStatusRecords, TaskManagerError> {
-        ensure!(self.task_id_desc.contains_key(&task_id));
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        ensure(self.task_id_desc.contains_key(&task_id), "no task found")?;
         let key = self.task_id_desc.get(&task_id).unwrap();
         let task_status = self.enqueue_task.get(key).unwrap();
         Ok(task_status.clone())
@@ -141,7 +141,7 @@ impl InMemoryTaskDb {
         blockhash: B256,
         proof_system: ProofType,
         prover: Option<String>,
-    ) -> Result<Vec<u8>, TaskManagerError> {
+    ) -> TaskManagerResult<Vec<u8>> {
         let key: B256 = keccak(
             TaskDescriptor {
                 chain_id,
@@ -152,7 +152,7 @@ impl InMemoryTaskDb {
             .to_vec(),
         )
         .into();
-        ensure!(self.enqueue_task.contains_key(&key));
+        ensure(self.enqueue_task.contains_key(&key), "no task found")?;
 
         let proving_status_records = self.enqueue_task.get(&key).unwrap();
         let task_status = proving_status_records.last().unwrap();
@@ -164,8 +164,8 @@ impl InMemoryTaskDb {
         }
     }
 
-    fn get_task_proof_by_id(&mut self, task_id: u64) -> Result<Vec<u8>, TaskManagerError> {
-        ensure!(self.task_id_desc.contains_key(&task_id));
+    fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
+        ensure(self.task_id_desc.contains_key(&task_id), "no task found")?;
         let key = self.task_id_desc.get(&task_id).unwrap();
         let task_records = self.enqueue_task.get(key).unwrap();
         let task_status = task_records.last().unwrap();
@@ -227,7 +227,7 @@ impl TaskManager for InMemoryTaskManager {
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
         self.db
-            .update_task_progress(chain_id, blockhash, proof_system, prover, status, proof);
+            .update_task_progress(chain_id, blockhash, proof_system, prover, status, proof)?;
         Ok(())
     }
 
