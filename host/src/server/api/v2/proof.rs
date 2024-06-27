@@ -1,6 +1,9 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_task_manager::{TaskDb, TaskStatus};
+use raiko_core::interfaces::ProofRequest;
+use raiko_core::provider::get_task_data;
+use raiko_task_manager::{
+    get_task_manager, EnqueueTaskParams, TaskManager, TaskManagerOpts, TaskStatus,
+};
 use serde_json::Value;
 use tracing::info;
 use utoipa::OpenApi;
@@ -55,11 +58,17 @@ async fn proof_handler(
     )
     .await?;
 
-    let db = TaskDb::open_or_create(&prover_state.opts.sqlite_file)?;
-    // db.set_tracer(Some(|stmt| println!("sqlite:\n-------\n{}\n=======", stmt)));
-    let mut manager = db.manage()?;
-
-    let status = manager.get_task_proving_status(chain_id, block_hash, proof_request.proof_type)?;
+    let manager_binding = get_task_manager(&TaskManagerOpts {
+        sqlite_file: prover_state.opts.sqlite_file.clone(),
+        max_db_size: prover_state.opts.max_db_size,
+    });
+    let mut manager = manager_binding.lock().unwrap();
+    let status = manager.get_task_proving_status(
+        chain_id,
+        block_hash,
+        proof_request.proof_type,
+        Some(proof_request.prover.to_string()),
+    )?;
 
     if status.is_empty() {
         prover_state.task_channel.try_send((
@@ -68,14 +77,25 @@ async fn proof_handler(
             prover_state.chain_specs,
         ))?;
 
-        manager.enqueue_task(chain_id, block_hash, &proof_request)?;
+        manager.enqueue_task(&EnqueueTaskParams {
+            chain_id,
+            blockhash: block_hash,
+            proof_system: proof_request.proof_type,
+            prover: proof_request.prover.to_string(),
+            block_number: proof_request.block_number,
+        })?;
         return Ok(Json(serde_json::json!("{}")));
     }
 
-    let (status, _) = status.first().unwrap();
+    let status = status.first().unwrap().0;
 
     if matches!(status, TaskStatus::Success) {
-        let proof = manager.get_task_proof(chain_id, block_hash, proof_request.proof_type)?;
+        let proof = manager.get_task_proof(
+            chain_id,
+            block_hash,
+            proof_request.proof_type,
+            Some(proof_request.prover.to_string()),
+        )?;
 
         let response = ProofResponse {
             proof: Some(String::from_utf8(proof).unwrap()),
@@ -90,7 +110,7 @@ async fn proof_handler(
         {
             "status": "ok",
             "data": {
-                "status": status
+                "status": status,
             }
         }
     )))
