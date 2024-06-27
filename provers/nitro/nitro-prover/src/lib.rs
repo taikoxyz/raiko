@@ -75,9 +75,11 @@ impl Prover for NitroProver {
         // read and validate inputs
         info!("Starting Nitro guest and proof generation");
         // read and validate inputs
-        if !input.taiko.skip_verify_blob {
+        if input.taiko.skip_verify_blob {
             warn!("blob verification skip. terminating");
-            process::exit(1);
+            return Err(ProverError::GuestError(
+                "Skip verify blob present. Doing nothing.".into(),
+            ));
         }
         // process the block
         let (header, _mpt_node) = TaikoStrategy::build_from(&input)
