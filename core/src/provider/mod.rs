@@ -1,7 +1,7 @@
 use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types::Block;
 use raiko_lib::consts::SupportedChainSpecs;
-use revm::primitives::AccountInfo;
+use reth_primitives::revm_primitives::AccountInfo;
 use std::collections::HashMap;
 
 use crate::{

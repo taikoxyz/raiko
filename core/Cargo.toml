@@ -13,6 +13,13 @@ sgx-prover = { path = "../provers/sgx/prover", optional = true }
 # raiko
 raiko-lib = { workspace = true, features = ["c-kzg"] }
 
+# reth
+reth-primitives.workspace = true
+reth-evm-ethereum.workspace = true
+reth-evm.workspace = true
+reth-revm.workspace = true
+reth-provider.workspace = true
+
 # alloy
 alloy-rlp = { workspace = true }
 alloy-rlp-derive = { workspace = true }
@@ -24,7 +31,6 @@ alloy-transport-http = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
-revm = { workspace = true }
 
 # tracing and logging
 tracing = { workspace = true }
