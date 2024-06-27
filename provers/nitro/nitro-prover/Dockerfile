@@ -5,7 +5,7 @@ ARG BUILD_FLAGS=""
 
 WORKDIR /opt/raiko-nitro
 COPY . .
-RUN cargo build --release
+RUN cargo build --release -p nitro-prover
 
 # Set up runtime
 FROM debian:bookworm-slim AS runner
