@@ -2,7 +2,6 @@ use std::io::{Error as IOError, ErrorKind as IOErrorKind};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-use mem_db::InMemoryTaskManager;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{ChainId, B256};
@@ -50,7 +49,6 @@ pub enum TaskStatus {
     Success                   =     0,
     Registered                =  1000,
     WorkInProgress            =  2000,
-    WorkReported              =  3000,
     ProofFailure_Generic      = -1000,
     ProofFailure_OutOfMemory  = -1100,
     NetworkFailure            = -2000,
@@ -68,7 +66,7 @@ pub enum TaskStatus {
 pub struct EnqueueTaskParams {
     pub chain_id: ChainId,
     pub blockhash: B256,
-    pub proof_system: ProofType,
+    pub proof_type: ProofType,
     pub prover: String,
     pub block_number: u64,
 }
@@ -104,7 +102,7 @@ impl From<&EnqueueTaskParams> for TaskDescriptor {
         TaskDescriptor {
             chain_id: params.chain_id,
             blockhash: params.blockhash,
-            proof_system: params.proof_system,
+            proof_system: params.proof_type,
             prover: params.prover.clone(),
         }
     }
@@ -177,7 +175,31 @@ pub trait TaskManager {
 
 use std::sync::{Arc, Mutex, Once};
 
-// todo: use feature to switch between sqlite and memory db
+#[cfg(feature = "sqlite")]
+mod adv_sqlite;
+#[cfg(feature = "sqlite")]
+use adv_sqlite::{SqliteTaskManager, TaskDb};
+
+#[cfg(feature = "sqlite")]
+pub fn get_task_manager<'db>(opts: &TaskManagerOpts) -> Arc<Mutex<SqliteTaskManager<'db>>> {
+    static INIT: Once = Once::new();
+    static mut SHARED_SQLITE_DB: Option<Arc<TaskDb>> = None;
+
+    INIT.call_once(|| {
+        let db = Arc::new(TaskDb::open_or_create(opts.sqlite_file.as_path()).unwrap());
+        unsafe {
+            SHARED_SQLITE_DB = Some(Arc::clone(&db));
+        }
+
+    });
+
+    Arc::new(Mutex::new(unsafe { SHARED_SQLITE_DB.as_ref().unwrap().manage().unwrap() }))
+}
+
+#[cfg(feature = "in-memory")]
+use mem_db::InMemoryTaskManager;
+
+#[cfg(feature = "in-memory")]
 pub fn get_task_manager(opts: &TaskManagerOpts) -> Arc<Mutex<InMemoryTaskManager>> {
     static INIT: Once = Once::new();
     static mut SHARED_TASK_MANAGER: Option<Arc<Mutex<InMemoryTaskManager>>> = None;
@@ -195,16 +217,25 @@ pub fn get_task_manager(opts: &TaskManagerOpts) -> Arc<Mutex<InMemoryTaskManager
 
 #[cfg(test)]
 mod test {
+    use std::path::Path;
     use super::*;
 
     #[test]
     fn test_new_taskmanager() {
+        let sqlite_file: &Path = Path::new("test.db");
+        // remove existed one
+        if sqlite_file.exists() {
+            std::fs::remove_file(&sqlite_file).unwrap();
+        }
+
         let opts = TaskManagerOpts {
-            sqlite_file: "test.db".to_string().into(),
-            max_db_size: 1024,
+            sqlite_file: sqlite_file.to_path_buf(),
+            max_db_size: 1024 * 1024,
         };
         let binding = get_task_manager(&opts);
         let mut task_manager = binding.lock().unwrap();
+
+        #[cfg(feature = "in-memory")]
         assert_eq!(task_manager.get_db_size().unwrap().0, 0);
 
         assert_eq!(
@@ -212,7 +243,7 @@ mod test {
                 .enqueue_task(&EnqueueTaskParams {
                     chain_id: 1,
                     blockhash: B256::default(),
-                    proof_system: ProofType::Native,
+                    proof_type: ProofType::Native,
                     prover: "test".to_string(),
                     block_number: 1
                 })

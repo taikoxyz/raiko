@@ -21,8 +21,12 @@ rand = "0.9.0-alpha.1"                                            # This is an a
 rand_chacha = "0.9.0-alpha.1"
 tempfile = "3.10.1"
 alloy-primitives = { workspace = true, features = ["getrandom"] }
-
 rusqlite = { workspace = true, features = ["trace"] }
+
+[features]
+default = ["sqlite"]
+sqlite = []
+in-memory = []
 
 [[test]]
 name = "task_manager_tests"

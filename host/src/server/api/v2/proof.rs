@@ -80,7 +80,7 @@ async fn proof_handler(
         manager.enqueue_task(&EnqueueTaskParams {
             chain_id,
             blockhash: block_hash,
-            proof_system: proof_request.proof_type,
+            proof_type: proof_request.proof_type,
             prover: proof_request.prover.to_string(),
             block_number: proof_request.block_number,
         })?;

@@ -74,7 +74,7 @@ mod tests {
         tama.enqueue_task(&EnqueueTaskParams {
             chain_id,
             blockhash: block_hash,
-            proof_system: request.proof_type,
+            proof_type: request.proof_type,
             prover: request.prover.to_string(),
             block_number: request.block_number,
         })
@@ -113,7 +113,7 @@ mod tests {
             tama.enqueue_task(&EnqueueTaskParams {
                 chain_id,
                 blockhash: block_hash,
-                proof_system: request.proof_type,
+                proof_type: request.proof_type,
                 prover: request.prover.to_string(),
                 block_number: request.block_number,
             })
