@@ -158,18 +158,22 @@ fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, 
     let _ = black_box(require_eq(expected, actual, message));
 }
 
+fn require(expression: bool, message: &str) -> RaikoResult<()> {
+    if !expression {
+        let msg = format!("Assertion failed: {message}");
+        error!("{msg}");
+        return Err(anyhow::Error::msg(msg).into());
+    }
+    Ok(())
+}
+
 fn require_eq<T: std::cmp::PartialEq + std::fmt::Debug>(
     expected: &T,
     actual: &T,
     message: &str,
 ) -> RaikoResult<()> {
-    if expected != actual {
-        let msg =
-            format!("Assertion failed: {message} - Expected: {expected:?}, Found: {actual:?}",);
-        error!("{}", msg);
-        return Err(anyhow::Error::msg(msg).into());
-    }
-    Ok(())
+    let msg = format!("{message} - Expected: {expected:?}, Found: {actual:?}");
+    require(expected == actual, &msg)
 }
 
 /// Merges two json's together, overwriting `a` with the values of `b`

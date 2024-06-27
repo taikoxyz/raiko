@@ -14,6 +14,7 @@ members = [
     "provers/sgx/setup",
     "pipeline",
     "core",
+    "task_manager",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -35,6 +36,7 @@ opt-level = 3
 # raiko
 raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
+raiko-task-manager = { path = "./task_manager" }
 
 # reth
 reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = ["alloy-compat", "taiko"] }
@@ -105,6 +107,7 @@ base64-serde = "0.7.0"
 base64 = "0.21.7"
 libflate = { version = "2.0.0" }
 typetag = { version = "0.2.15" }
+num_enum = "0.7.2"
 
 # tracing, logging
 tracing = "0.1"
@@ -154,6 +157,9 @@ proc-macro2 = "1.0"
 anyhow = "1.0"
 thiserror = "1.0"
 thiserror-no-std = "2.0.2"
+
+# SQLite
+rusqlite = { version = "0.31.0", features = ["bundled"] }
 
 # misc
 hashbrown = { version = "0.14", features = ["inline-more"] }

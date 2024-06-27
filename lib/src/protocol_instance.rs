@@ -58,9 +58,8 @@ impl ProtocolInstance {
                 )
                 .expect("Fail to calculate KZG commitment");
                 let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
-                assert_eq!(
-                    versioned_hash,
-                    input.taiko.tx_blob_hash.unwrap(),
+                ensure!(
+                    versioned_hash == input.taiko.tx_blob_hash.unwrap(),
                     "Blob version hash not matching"
                 );
                 drop(aligned_vec);
@@ -80,28 +79,28 @@ impl ProtocolInstance {
         if let Some(verified_chain_spec) =
             SupportedChainSpecs::default().get_chain_spec_with_chain_id(input.chain_spec.chain_id)
         {
-            assert_eq!(
-                input.chain_spec.max_spec_id, verified_chain_spec.max_spec_id,
+            ensure!(
+                input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
                 "unexpected max_spec_id"
             );
-            assert_eq!(
-                input.chain_spec.hard_forks, verified_chain_spec.hard_forks,
+            ensure!(
+                input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
                 "unexpected hard_forks"
             );
-            assert_eq!(
-                input.chain_spec.eip_1559_constants, verified_chain_spec.eip_1559_constants,
+            ensure!(
+                input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
                 "unexpected eip_1559_constants"
             );
-            assert_eq!(
-                input.chain_spec.l1_contract, verified_chain_spec.l1_contract,
+            ensure!(
+                input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
                 "unexpected l1_contract"
             );
-            assert_eq!(
-                input.chain_spec.l2_contract, verified_chain_spec.l2_contract,
+            ensure!(
+                input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
                 "unexpected l2_contract"
             );
-            assert_eq!(
-                input.chain_spec.is_taiko, verified_chain_spec.is_taiko,
+            ensure!(
+                input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
                 "unexpected eip_1559_constants"
             );
         }
