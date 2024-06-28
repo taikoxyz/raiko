@@ -100,12 +100,12 @@ impl CycleTracker {
         println!("cycle-tracker-end: {self.title}");
     }
 
-    pub fn println(inner: impl Fn()) {
+    pub fn println(_inner: impl Fn()) {
         #[cfg(all(
             all(target_os = "zkvm", target_vendor = "succinct"),
             feature = "sp1-cycle-tracker"
         ))]
-        inner()
+        _inner()
     }
 }
 

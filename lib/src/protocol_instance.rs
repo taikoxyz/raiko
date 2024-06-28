@@ -2,7 +2,6 @@ use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use reth_primitives::Header;
-use sha2::Digest as _;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -14,6 +13,7 @@ use crate::{
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
+#[allow(dead_code)]
 const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 
 #[derive(Debug, Clone)]
