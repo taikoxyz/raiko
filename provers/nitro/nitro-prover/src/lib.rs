@@ -4,8 +4,9 @@ use aws_nitro_enclaves_nsm_api::{
     driver::{nsm_exit, nsm_init, nsm_process_request},
 };
 use raiko_lib::{
-    builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::{GuestInput, GuestOutput},
+    builder::calculate_block_header,
+    input::GuestInput,
+    input::GuestOutput,
     protocol_instance::ProtocolInstance,
     prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
     signature::{generate_key, sign_message},
@@ -67,8 +68,7 @@ impl Prover for NitroProver {
             ));
         }
         // process the block
-        let (header, _mpt_node) = TaikoStrategy::build_from(&input)
-            .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        let header = calculate_block_header(&input);
         // calculate the public input hash
         let pi = ProtocolInstance::new(&input, &header, raiko_lib::consts::VerifierType::Nitro)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;

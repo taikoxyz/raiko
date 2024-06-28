@@ -1,9 +1,39 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, punctuated::Punctuated, Ident, Item, ItemFn, ItemMod, Path, Token};
+use syn::{parse_macro_input, Item, ItemFn, ItemMod};
+
+#[cfg(any(feature = "sp1", feature = "risc0"))]
+use syn::{punctuated::Punctuated, Ident, Path, Token};
+
+// Helper struct to parse input
+#[cfg(any(feature = "sp1", feature = "risc0"))]
+struct EntryArgs {
+    main_entry: Ident,
+    test_modules: Option<Punctuated<Path, Token![,]>>,
+}
+
+#[cfg(any(feature = "sp1", feature = "risc0"))]
+impl syn::parse::Parse for EntryArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let main_entry: Ident = input.parse()?;
+        let test_modules: Option<Punctuated<Path, Token![,]>> = if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?; // Parse and consume the comma
+                                         // Now parse a list of module paths if they are present
+            Some(input.parse_terminated(Path::parse)?)
+        } else {
+            None
+        };
+
+        Ok(EntryArgs {
+            main_entry,
+            test_modules,
+        })
+    }
+}
 
 #[proc_macro]
+#[cfg(any(feature = "sp1", feature = "risc0"))]
 pub fn entrypoint(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as EntryArgs);
     let main_entry = input.main_entry;
@@ -70,41 +100,21 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
         }
     };
 
-    #[cfg(all(not(feature = "sp1"), not(feature = "risc0")))]
-    let output = quote! {
+    output.into()
+}
+
+#[proc_macro]
+#[cfg(not(any(feature = "sp1", feature = "risc0")))]
+pub fn entrypoint(_input: TokenStream) -> TokenStream {
+    quote! {
         mod generated_main {
             #[no_mangle]
             fn main() {
                 super::ENTRY()
             }
         }
-    };
-
-    output.into()
-}
-
-// Helper struct to parse input
-struct EntryArgs {
-    main_entry: Ident,
-    test_modules: Option<Punctuated<Path, Token![,]>>,
-}
-
-impl syn::parse::Parse for EntryArgs {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let main_entry: Ident = input.parse()?;
-        let test_modules: Option<Punctuated<Path, Token![,]>> = if input.peek(Token![,]) {
-            input.parse::<Token![,]>()?; // Parse and consume the comma
-                                         // Now parse a list of module paths if they are present
-            Some(input.parse_terminated(Path::parse)?)
-        } else {
-            None
-        };
-
-        Ok(EntryArgs {
-            main_entry,
-            test_modules,
-        })
     }
+    .into()
 }
 
 #[proc_macro]

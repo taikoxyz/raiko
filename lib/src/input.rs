@@ -1,35 +1,19 @@
-// Copyright 2023 RISC Zero, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 use core::fmt::Debug;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
-use alloy_consensus::Header as AlloyConsensusHeader;
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
 use anyhow::{anyhow, Result};
-use revm::primitives::HashMap;
+use reth_primitives::revm_primitives::{Address, Bytes, HashMap, B256, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
+use reth_primitives::{Block as RethBlock, Header};
+
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{
-    consts::ChainSpec,
-    primitives::{mpt::MptNode, Address, Bytes, B256, U256},
-    serde_with::{RlpBytes, RlpHexBytes},
-};
+use crate::{consts::ChainSpec, primitives::mpt::MptNode};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -40,18 +24,14 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 #[serde_as]
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput {
+    /// Reth block
+    pub block: RethBlock,
     /// The network to generate the proof for
     pub chain_spec: ChainSpec,
     /// Block number
     pub block_number: u64,
-    /// Block hash - for reference!
-    pub block_hash_reference: B256,
-    /// Block header - for reference!
-    #[serde_as(as = "RlpBytes")]
-    pub block_header_reference: AlloyConsensusHeader,
     /// Previous block header
-    #[serde_as(as = "RlpBytes")]
-    pub parent_header: AlloyConsensusHeader,
+    pub parent_header: Header,
     /// Address to which all priority fees in this block are transferred.
     pub beneficiary: Address,
     /// Scalar equal to the current limit of gas expenditure per block.
@@ -71,8 +51,7 @@ pub struct GuestInput {
     /// The code of all unique contracts.
     pub contracts: Vec<Bytes>,
     /// List of at most 256 previous block headers
-    #[serde_as(as = "Vec<RlpBytes>")]
-    pub ancestor_headers: Vec<AlloyConsensusHeader>,
+    pub ancestor_headers: Vec<Header>,
     /// Base fee per gas
     pub base_fee_per_gas: u64,
 
@@ -88,8 +67,7 @@ pub struct GuestInput {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TaikoGuestInput {
     /// header
-    #[serde_as(as = "RlpBytes")]
-    pub l1_header: AlloyConsensusHeader,
+    pub l1_header: Header,
     pub tx_data: Vec<u8>,
     pub anchor_tx: String,
     pub block_proposed: BlockProposed,
@@ -107,8 +85,7 @@ pub struct TaikoProverData {
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct GuestOutput {
-    #[serde_as(as = "RlpHexBytes")]
-    pub header: AlloyConsensusHeader,
+    pub header: Header,
     pub hash: B256,
 }
 

@@ -6,13 +6,11 @@ on:
     paths:
       - "host/**"
       - "lib/**"
-      - "primitives/**"
       - "script/**"
   pull_request:
     paths:
       - "host/**"
       - "lib/**"
-      - "primitives/**"
       - "script/**"
 env:
   CARGO_TERM_COLOR: always
