@@ -26,26 +26,34 @@ async fn main() {
             Ok(mut v_stream) => {
                 info!("Reading message from the socket");
                 let Ok(data) = recv_message(&mut v_stream) else {
-                    info!("Failed to read whole GuestInput bytes from socket!");
+                    let msg = "Failed to read whole GuestInput bytes from socket!";
+                    info!(msg);
+                    send_message(&mut v_stream, msg.to_string());
                     continue;
                 };
                 let Ok(guest_input) = serde_json::from_slice::<GuestInput>(&data) else {
-                    info!("Provided bytes are not json serialized GuestInput");
+                    let msg = "Provided bytes are not json serialized GuestInput";
+                    info!(msg);
+                    send_message(&mut v_stream, msg.to_string());
                     continue;
                 };
                 let block = guest_input.block_number;
                 match NitroProver::run(guest_input, &Default::default(), &Default::default()).await
                 {
                     Err(e) => {
-                        info!(
+                        let msg = format!(
                             "Failed to generate nitro proof for block {} with details {}",
                             block, e
                         );
+                        info!(msg);
+                        send_message(&mut v_stream, msg);
                         continue;
                     }
                     Ok(proof_value) => {
                         let Ok(proof) = serde_json::to_string(&proof_value) else {
-                            info!("Proof type unexpected for block {}!", block);
+                            let msg = format!("Proof type unexpected for block {}!", block);
+                            info!(msg);
+                            send_message(&mut v_stream, msg);
                             continue;
                         };
                         let Ok(_) = send_message(&mut v_stream, proof) else {
@@ -55,7 +63,7 @@ async fn main() {
                     }
                 }
             }
-
+            // Nothing else we can do from enclave side...
             Err(err) => info!("Accept failed: {:?}", err),
         }
     }
