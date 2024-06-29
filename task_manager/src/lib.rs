@@ -180,21 +180,43 @@ mod adv_sqlite;
 #[cfg(feature = "sqlite")]
 use adv_sqlite::{SqliteTaskManager, TaskDb};
 
-#[cfg(feature = "sqlite")]
 pub fn get_task_manager<'db>(opts: &TaskManagerOpts) -> Arc<Mutex<SqliteTaskManager<'db>>> {
-    static INIT: Once = Once::new();
-    static mut SHARED_SQLITE_DB: Option<Arc<TaskDb>> = None;
-
-    INIT.call_once(|| {
-        let db = Arc::new(TaskDb::open_or_create(opts.sqlite_file.as_path()).unwrap());
-        unsafe {
-            SHARED_SQLITE_DB = Some(Arc::clone(&db));
-        }
-
-    });
-
-    Arc::new(Mutex::new(unsafe { SHARED_SQLITE_DB.as_ref().unwrap().manage().unwrap() }))
+    let db = TaskDb::open_or_create(opts.sqlite_file.as_path()).expect("Failed to open db");
+    db.manage().expect("Failed to manage db");
+    Arc::new(Mutex::new(SqliteTaskManager { arc_task_db: Arc::new(Mutex::new(db)) }))
 }
+
+
+// #[cfg(feature = "sqlite")]
+// pub fn get_task_manager<'db>(opts: &TaskManagerOpts) -> Arc<Mutex<SqliteTaskManager<'db>>> {
+//     static INIT: Once = Once::new();
+//     static mut SHARED_TASK_DB: Option<Arc<Mutex<TaskDb>>> = None;
+
+//     INIT.call_once(|| {
+//         // let mut task_db = TaskDb::open_or_create(opts.sqlite_file.as_path()).expect("Failed to open db");
+//         // task_db.manage().expect("Failed to manage db");
+//         // unsafe {
+//         //     SHARED_TASK_DB = Some(Arc::new(Mutex::new(task_db)));
+//         // }
+
+//         let task_db: Arc<Mutex<TaskDb>> = Arc::new(Mutex::new(
+//             TaskDb::open_or_create(opts.sqlite_file.as_path()).expect("Failed to open db"),
+//         ));
+//         task_db
+//             .lock()
+//             .unwrap()
+//             .manage()
+//             .expect("Failed to manage db");
+//         unsafe {
+//             SHARED_TASK_DB = Some(Arc::clone(&task_db));
+//         }
+//     });
+//     Arc::new(Mutex::new(unsafe {
+//         SqliteTaskManager {
+//             arc_task_db: SHARED_TASK_DB.unwrap(),
+//         }
+//     }))
+// }
 
 #[cfg(feature = "in-memory")]
 use mem_db::InMemoryTaskManager;
@@ -217,8 +239,8 @@ pub fn get_task_manager(opts: &TaskManagerOpts) -> Arc<Mutex<InMemoryTaskManager
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn test_new_taskmanager() {
