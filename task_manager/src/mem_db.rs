@@ -181,9 +181,8 @@ impl InMemoryTaskDb {
         Ok((self.enqueue_task.len() + self.task_id_desc.len(), vec![]))
     }
 
-    #[allow(dead_code)]
-    fn prune(&mut self) {
-        todo!()
+    fn prune(&mut self) -> TaskManagerResult<()> {
+        Ok(())
     }
 }
 
@@ -201,7 +200,7 @@ impl TaskManager for InMemoryTaskManager {
         if let Ok(proving_status) = self.db.get_task_proving_status(
             params.chain_id,
             params.blockhash,
-            params.proof_system,
+            params.proof_type,
             Some(params.prover.to_string()),
         ) {
             Ok(proving_status)
@@ -210,7 +209,7 @@ impl TaskManager for InMemoryTaskManager {
             let proving_status = self.db.get_task_proving_status(
                 params.chain_id,
                 params.blockhash,
-                params.proof_system,
+                params.proof_type,
                 Some(params.prover.clone()),
             )?;
             Ok(proving_status)
@@ -276,7 +275,7 @@ impl TaskManager for InMemoryTaskManager {
     }
 
     fn prune_db(&mut self) -> TaskManagerResult<()> {
-        todo!()
+        self.db.prune()
     }
 }
 
@@ -296,7 +295,7 @@ mod tests {
         let params = EnqueueTaskParams {
             chain_id: 1,
             blockhash: B256::default(),
-            proof_system: ProofType::Native,
+            proof_type: ProofType::Native,
             prover: "0x1234".to_owned(),
             ..Default::default()
         };
@@ -304,7 +303,7 @@ mod tests {
         let status = db.get_task_proving_status(
             params.chain_id,
             params.blockhash,
-            params.proof_system,
+            params.proof_type,
             Some(params.prover.clone()),
         );
         assert!(status.is_ok());

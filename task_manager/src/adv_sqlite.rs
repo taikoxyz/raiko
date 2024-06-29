@@ -154,44 +154,36 @@
 // ----------------------------------------------------------------
 use std::{
     fs::File,
-    io::{Error as IOError, ErrorKind as IOErrorKind},
     path::Path,
+    sync::{Arc, Mutex, Once},
 };
 
 use chrono::{DateTime, Utc};
-use num_enum::{FromPrimitive, IntoPrimitive};
-use raiko_core::interfaces::{ProofRequest, ProofType};
+use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{ChainId, B256};
 use rusqlite::{
-    Error as SqlError, {named_params, Statement}, {Connection, OpenFlags},
+    {named_params, Statement}, {Connection, OpenFlags},
 };
-use serde::Serialize;
+
+use crate::{
+    EnqueueTaskParams, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
+    TaskProvingStatus, TaskProvingStatusRecords, TaskStatus,
+};
 
 // Types
 // ----------------------------------------------------------------
+#[derive(Debug)]
+pub(crate) struct DbQueries<'db> {
+    enqueue_task: Statement<'db>,
+    update_task_progress: Statement<'db>,
+    get_task_proof: Statement<'db>,
+    get_task_proof_by_id: Statement<'db>,
+    get_task_proving_status: Statement<'db>,
+    get_task_proving_status_by_id: Statement<'db>,
 
-#[derive(Debug, thiserror::Error)]
-pub enum TaskManagerError {
-    #[error("IO Error {0}")]
-    IOError(IOErrorKind),
-    #[error("SQL Error {0}")]
-    SqlError(String),
-    #[error("Serde Error {0}")]
-    SerdeError(#[from] serde_json::error::Error),
-}
-
-pub type TaskManagerResult<T> = Result<T, TaskManagerError>;
-
-impl From<IOError> for TaskManagerError {
-    fn from(error: IOError) -> TaskManagerError {
-        TaskManagerError::IOError(error.kind())
-    }
-}
-
-impl From<SqlError> for TaskManagerError {
-    fn from(error: SqlError) -> TaskManagerError {
-        TaskManagerError::SqlError(error.to_string())
-    }
+    #[allow(dead_code)]
+    get_tasks_unfinished: Statement<'db>,
+    get_db_size: Statement<'db>,
 }
 
 #[derive(Debug)]
@@ -199,68 +191,8 @@ pub struct TaskDb {
     conn: Connection,
 }
 
-#[derive(Debug)]
-pub struct TaskManager<'db> {
-    enqueue_task: Statement<'db>,
-    update_task_progress: Statement<'db>,
-    get_task_proof: Statement<'db>,
-    get_task_proof_by_id: Statement<'db>,
-    get_task_proving_status: Statement<'db>,
-    get_task_proving_status_by_id: Statement<'db>,
-    #[allow(dead_code)]
-    get_tasks_unfinished: Statement<'db>,
-    get_db_size: Statement<'db>,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum TaskProofsys {
-    Native = 0,
-    Risc0 = 1,
-    SP1 = 2,
-    SGX = 3,
-}
-
-impl From<ProofType> for TaskProofsys {
-    fn from(value: ProofType) -> Self {
-        match value {
-            ProofType::Sp1 => Self::SP1,
-            ProofType::Sgx => Self::SGX,
-            ProofType::Risc0 => Self::Risc0,
-            ProofType::Native => Self::Native,
-        }
-    }
-}
-
-impl From<TaskProofsys> for ProofType {
-    fn from(val: TaskProofsys) -> Self {
-        match val {
-            TaskProofsys::Native => ProofType::Native,
-            TaskProofsys::Risc0 => ProofType::Risc0,
-            TaskProofsys::SP1 => ProofType::Sp1,
-            TaskProofsys::SGX => ProofType::Sgx,
-        }
-    }
-}
-
-#[allow(non_camel_case_types)]
-#[rustfmt::skip]
-#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Serialize)]
-#[repr(i32)]
-pub enum TaskStatus {
-    Success                   =     0,
-    Registered                =  1000,
-    WorkInProgress            =  2000,
-    ProofFailure_Generic      = -1000,
-    ProofFailure_OutOfMemory  = -1100,
-    NetworkFailure            = -2000,
-    Cancelled                 = -3000,
-    Cancelled_NeverStarted    = -3100,
-    Cancelled_Aborted         = -3200,
-    CancellationInProgress    = -3210,
-    InvalidOrUnsupportedBlock = -4000,
-    UnspecifiedFailureReason  = -9999,
-    #[num_enum(default)]
-    SqlDbCorruption           = -99999,
+pub struct SqliteTaskManager {
+    arc_task_db: Arc<Mutex<TaskDb>>,
 }
 
 // Implementation
@@ -370,7 +302,7 @@ impl TaskDb {
               chain_id INTEGER NOT NULL,
               blockhash BLOB NOT NULL,
               proofsys_id INTEGER NOT NULL,
-              request BLOB,
+              prover TEXT NOT NULL,
               FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
               UNIQUE (chain_id, blockhash, proofsys_id)
             );
@@ -406,7 +338,7 @@ impl TaskDb {
               t.chain_id,
               t.blockhash,
               t.proofsys_id,
-              t.request
+              t.prover
             FROM
               tasks t
               LEFT JOIN task_status ts on ts.task_id = t.id;
@@ -417,6 +349,7 @@ impl TaskDb {
               t.chain_id,
               t.blockhash,
               t.proofsys_id,
+              t.prover,
               ts.status_id,
               tpf.proof
             FROM
@@ -437,7 +370,7 @@ impl TaskDb {
         self.conn.trace(trace_fn);
     }
 
-    pub fn manage(&self) -> TaskManagerResult<TaskManager<'_>> {
+    pub fn manage(&self) -> TaskManagerResult<DbQueries<'_>> {
         // To update all the tables with the task_id assigned by Sqlite
         // we require row IDs for the tasks table
         // and we use last_insert_rowid() which is not reentrant and need a transaction lock
@@ -473,20 +406,20 @@ impl TaskDb {
         conn.execute_batch(
             r#"
             -- PRAGMA temp_store = 'MEMORY';
-            CREATE TEMPORARY TABLE temp.current_task(task_id INTEGER);
+            CREATE TEMPORARY TABLE IF NOT EXISTS temp.current_task(task_id INTEGER);
             
-            CREATE TEMPORARY TRIGGER enqueue_task_insert_trigger INSTEAD OF
+            CREATE TEMPORARY TRIGGER IF NOT EXISTS enqueue_task_insert_trigger INSTEAD OF
             INSERT
               ON enqueue_task
             BEGIN
                 INSERT INTO
-                  tasks(chain_id, blockhash, proofsys_id, request)
+                  tasks(chain_id, blockhash, proofsys_id, prover)
                 VALUES
                   (
                     new.chain_id,
                     new.blockhash,
                     new.proofsys_id,
-                    new.request
+                    new.prover
                   );
                 
                 INSERT INTO
@@ -514,7 +447,7 @@ impl TaskDb {
                   current_task;
             END;
             
-            CREATE TEMPORARY TRIGGER update_task_progress_trigger INSTEAD OF
+            CREATE TEMPORARY TRIGGER IF NOT EXISTS update_task_progress_trigger INSTEAD OF
             INSERT
               ON update_task_progress
             BEGIN
@@ -567,14 +500,14 @@ impl TaskDb {
                 chain_id,
                 blockhash,
                 proofsys_id,
-                request
+                prover
               )
             VALUES
               (
                 :chain_id,
                 :blockhash,
                 :proofsys_id,
-                :request
+                :prover
               );
             ",
         )?;
@@ -587,6 +520,7 @@ impl TaskDb {
                 blockhash,
                 proofsys_id,
                 status_id,
+                prover,
                 proof
               )
             VALUES
@@ -595,6 +529,7 @@ impl TaskDb {
                 :blockhash,
                 :proofsys_id,
                 :status_id,
+                :prover,
                 :proof
               );
             ",
@@ -628,6 +563,7 @@ impl TaskDb {
               LEFT JOIN tasks t ON tp.task_id = t.id
             WHERE
               t.chain_id = :chain_id
+              AND t.prover = :prover
               AND t.blockhash = :blockhash
               AND t.proofsys_id = :proofsys_id
             LIMIT
@@ -661,6 +597,7 @@ impl TaskDb {
               t.chain_id = :chain_id
               AND t.blockhash = :blockhash
               AND t.proofsys_id = :proofsys_id
+              AND t.prover = :prover
             ORDER BY
               ts.timestamp;
             ",
@@ -705,7 +642,7 @@ impl TaskDb {
             ",
         )?;
 
-        Ok(TaskManager {
+        Ok(DbQueries {
             enqueue_task,
             update_task_progress,
             get_task_proof,
@@ -718,72 +655,91 @@ impl TaskDb {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct EnqueueTaskParams {
-    pub chain_id: ChainId,
-    pub blockhash: B256,
-    pub proof_system: TaskProofsys,
-    pub submitter: String,
-    pub parent_hash: B256,
-    pub state_root: B256,
-    pub num_transactions: u64,
-    pub gas_used: u64,
-    pub payload: Vec<u8>,
-}
-
-pub type TaskProvingStatus = Vec<(TaskStatus, DateTime<Utc>)>;
-
-impl<'db> TaskManager<'db> {
-    pub fn enqueue_task(
-        &mut self,
-        chain_id: u64,
-        blockhash: B256,
-        request: &ProofRequest,
-    ) -> TaskManagerResult<()> {
-        self.enqueue_task.execute(named_params! {
-            ":chain_id": chain_id,
-            ":blockhash": blockhash.to_vec(),
-            ":proofsys_id": TaskProofsys::from(request.proof_type) as u8,
-            ":request": serde_json::to_vec(&request)?,
-        })?;
-
-        Ok(())
+impl TaskManager for SqliteTaskManager {
+    fn new(opts: &TaskManagerOpts) -> Self {
+        static INIT: Once = Once::new();
+        static mut CONN: Option<Arc<Mutex<TaskDb>>> = None;
+        INIT.call_once(|| {
+            unsafe {
+                CONN = Some(Arc::new(Mutex::new(
+                    TaskDb::open_or_create(&opts.sqlite_file).unwrap(),
+                )))
+            };
+        });
+        Self {
+            arc_task_db: unsafe { CONN.clone().unwrap() },
+        }
     }
 
-    pub fn update_task_progress(
+    fn enqueue_task(
+        &mut self,
+        EnqueueTaskParams {
+            chain_id,
+            blockhash,
+            proof_type,
+            prover,
+            block_number: _,
+        }: &EnqueueTaskParams,
+    ) -> Result<Vec<TaskProvingStatus>, TaskManagerError> {
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
+        query.enqueue_task.execute(named_params! {
+            ":chain_id": chain_id,
+            ":blockhash": blockhash.to_vec(),
+            ":proofsys_id": *proof_type as u8,
+            ":prover": prover,
+        })?;
+
+        Ok(vec![TaskProvingStatus(
+            TaskStatus::Registered,
+            None,
+            Utc::now(),
+        )])
+    }
+
+    fn update_task_progress(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
         proof_type: ProofType,
+        prover: Option<String>,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
-        self.update_task_progress.execute(named_params! {
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
+        query.update_task_progress.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
-            ":proofsys_id": TaskProofsys::from(proof_type) as u8,
+            ":proofsys_id": proof_type as u8,
             ":status_id": status as i32,
+            ":prover": prover.unwrap_or_default(),
             ":proof": proof
         })?;
         Ok(())
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    pub fn get_task_proving_status(
+    fn get_task_proving_status(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
         proof_type: ProofType,
-    ) -> TaskManagerResult<TaskProvingStatus> {
-        let rows = self.get_task_proving_status.query_map(
+        prover: Option<String>,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
+        let rows = query.get_task_proving_status.query_map(
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
-                ":proofsys_id": TaskProofsys::from(proof_type) as u8,
+                ":proofsys_id": proof_type as u8,
+                ":prover": prover.unwrap_or_default(),
             },
             |row| {
-                Ok((
+                Ok(TaskProvingStatus(
                     TaskStatus::from(row.get::<_, i32>(0)?),
+                    None,
                     row.get::<_, DateTime<Utc>>(1)?,
                 ))
             },
@@ -793,17 +749,20 @@ impl<'db> TaskManager<'db> {
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    pub fn get_task_proving_status_by_id(
+    fn get_task_proving_status_by_id(
         &mut self,
         task_id: u64,
-    ) -> TaskManagerResult<TaskProvingStatus> {
-        let rows = self.get_task_proving_status_by_id.query_map(
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
+        let rows = query.get_task_proving_status_by_id.query_map(
             named_params! {
                 ":task_id": task_id,
             },
             |row| {
-                Ok((
+                Ok(TaskProvingStatus(
                     TaskStatus::from(row.get::<_, i32>(0)?),
+                    None,
                     row.get::<_, DateTime<Utc>>(1)?,
                 ))
             },
@@ -813,17 +772,21 @@ impl<'db> TaskManager<'db> {
         Ok(proving_status)
     }
 
-    pub fn get_task_proof(
+    fn get_task_proof(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
         proof_type: ProofType,
+        prover: Option<String>,
     ) -> TaskManagerResult<Vec<u8>> {
-        let proof = self.get_task_proof.query_row(
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
+        let proof = query.get_task_proof.query_row(
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
-                ":proofsys_id": TaskProofsys::from(proof_type) as u8,
+                ":proofsys_id": proof_type as u8,
+                ":prover": prover.unwrap_or_default(),
             },
             |r| r.get(0),
         )?;
@@ -831,8 +794,10 @@ impl<'db> TaskManager<'db> {
         Ok(proof)
     }
 
-    pub fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
-        let proof = self.get_task_proof_by_id.query_row(
+    fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
+        let proof = query.get_task_proof_by_id.query_row(
             named_params! {
                 ":task_id": task_id,
             },
@@ -843,13 +808,19 @@ impl<'db> TaskManager<'db> {
     }
 
     /// Returns the total and detailed database size
-    pub fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
-        let rows = self
+    fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
+        let rows = query
             .get_db_size
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
         let details = rows.collect::<Result<Vec<_>, _>>()?;
         let total = details.iter().fold(0, |acc, item| acc + item.1);
         Ok((total, details))
+    }
+
+    fn prune_db(&mut self) -> TaskManagerResult<()> {
+        todo!()
     }
 }
 
@@ -875,6 +846,7 @@ mod tests {
 
         let _db = TaskDb::create(&file).unwrap();
         assert!(TaskDb::open(&file).is_err());
+        std::fs::remove_file(&file).unwrap();
     }
 
     #[test]
@@ -884,5 +856,6 @@ mod tests {
 
         let _db = TaskDb::create(&file).unwrap();
         assert!(TaskDb::create(&file).is_err());
+        std::fs::remove_file(&file).unwrap();
     }
 }
