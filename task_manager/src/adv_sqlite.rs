@@ -155,7 +155,7 @@
 use std::{
     fs::File,
     path::Path,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Once},
 };
 
 use chrono::{DateTime, Utc};
@@ -173,7 +173,7 @@ use crate::{
 // Types
 // ----------------------------------------------------------------
 #[derive(Debug)]
-struct DbQueries<'db> {
+pub(crate) struct DbQueries<'db> {
     enqueue_task: Statement<'db>,
     update_task_progress: Statement<'db>,
     get_task_proof: Statement<'db>,
@@ -187,21 +187,18 @@ struct DbQueries<'db> {
 }
 
 #[derive(Debug)]
-pub struct TaskDb<'db> {
+pub struct TaskDb {
     conn: Connection,
-
-    // statements
-    queries: Option<DbQueries<'db>>,
 }
 
-pub struct SqliteTaskManager<'db> {
-    pub(crate) arc_task_db: Arc<Mutex<TaskDb<'db>>>,
+pub struct SqliteTaskManager {
+    arc_task_db: Arc<Mutex<TaskDb>>,
 }
 
 // Implementation
 // ----------------------------------------------------------------
 
-impl<'db> TaskDb<'db> {
+impl TaskDb {
     fn open(path: &Path) -> TaskManagerResult<Connection> {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
         conn.pragma_update(None, "foreign_keys", true)?;
@@ -234,10 +231,7 @@ impl<'db> TaskDb<'db> {
         } else {
             Self::create(path)
         }?;
-        Ok(Self {
-            conn,
-            queries: None,
-        })
+        Ok(Self { conn })
     }
 
     // SQL
@@ -376,7 +370,7 @@ impl<'db> TaskDb<'db> {
         self.conn.trace(trace_fn);
     }
 
-    pub fn manage(&'db mut self) -> TaskManagerResult<()> {
+    pub fn manage(&self) -> TaskManagerResult<DbQueries<'_>> {
         // To update all the tables with the task_id assigned by Sqlite
         // we require row IDs for the tasks table
         // and we use last_insert_rowid() which is not reentrant and need a transaction lock
@@ -412,9 +406,9 @@ impl<'db> TaskDb<'db> {
         conn.execute_batch(
             r#"
             -- PRAGMA temp_store = 'MEMORY';
-            CREATE TEMPORARY TABLE temp.current_task(task_id INTEGER);
+            CREATE TEMPORARY TABLE IF NOT EXISTS temp.current_task(task_id INTEGER);
             
-            CREATE TEMPORARY TRIGGER enqueue_task_insert_trigger INSTEAD OF
+            CREATE TEMPORARY TRIGGER IF NOT EXISTS enqueue_task_insert_trigger INSTEAD OF
             INSERT
               ON enqueue_task
             BEGIN
@@ -453,7 +447,7 @@ impl<'db> TaskDb<'db> {
                   current_task;
             END;
             
-            CREATE TEMPORARY TRIGGER update_task_progress_trigger INSTEAD OF
+            CREATE TEMPORARY TRIGGER IF NOT EXISTS update_task_progress_trigger INSTEAD OF
             INSERT
               ON update_task_progress
             BEGIN
@@ -648,7 +642,7 @@ impl<'db> TaskDb<'db> {
             ",
         )?;
 
-        self.queries = Some(DbQueries {
+        Ok(DbQueries {
             enqueue_task,
             update_task_progress,
             get_task_proof,
@@ -657,14 +651,24 @@ impl<'db> TaskDb<'db> {
             get_task_proving_status_by_id,
             get_tasks_unfinished,
             get_db_size,
-        });
-        Ok(())
+        })
     }
 }
 
-impl<'db> TaskManager for SqliteTaskManager<'db> {
-    fn new(_opts: &TaskManagerOpts) -> Self {
-        unimplemented!("SqliteTaskManager::new")
+impl TaskManager for SqliteTaskManager {
+    fn new(opts: &TaskManagerOpts) -> Self {
+        static INIT: Once = Once::new();
+        static mut CONN: Option<Arc<Mutex<TaskDb>>> = None;
+        INIT.call_once(|| {
+            unsafe {
+                CONN = Some(Arc::new(Mutex::new(
+                    TaskDb::open_or_create(&opts.sqlite_file).unwrap(),
+                )))
+            };
+        });
+        Self {
+            arc_task_db: unsafe { CONN.clone().unwrap() },
+        }
     }
 
     fn enqueue_task(
@@ -677,8 +681,8 @@ impl<'db> TaskManager for SqliteTaskManager<'db> {
             block_number: _,
         }: &EnqueueTaskParams,
     ) -> Result<Vec<TaskProvingStatus>, TaskManagerError> {
-        let mut binding = self.arc_task_db.lock().unwrap();
-        let query = binding.queries.as_mut().unwrap();
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
         query.enqueue_task.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
@@ -702,8 +706,8 @@ impl<'db> TaskManager for SqliteTaskManager<'db> {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
-        let mut binding = self.arc_task_db.lock().unwrap();
-        let query = binding.queries.as_mut().unwrap();
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
         query.update_task_progress.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
@@ -723,8 +727,8 @@ impl<'db> TaskManager for SqliteTaskManager<'db> {
         proof_type: ProofType,
         prover: Option<String>,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        let mut binding = self.arc_task_db.lock().unwrap();
-        let query = binding.queries.as_mut().unwrap();
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
         let rows = query.get_task_proving_status.query_map(
             named_params! {
                 ":chain_id": chain_id,
@@ -749,8 +753,8 @@ impl<'db> TaskManager for SqliteTaskManager<'db> {
         &mut self,
         task_id: u64,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        let mut binding = self.arc_task_db.lock().unwrap();
-        let query = binding.queries.as_mut().unwrap();
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
         let rows = query.get_task_proving_status_by_id.query_map(
             named_params! {
                 ":task_id": task_id,
@@ -775,8 +779,8 @@ impl<'db> TaskManager for SqliteTaskManager<'db> {
         proof_type: ProofType,
         prover: Option<String>,
     ) -> TaskManagerResult<Vec<u8>> {
-        let mut binding = self.arc_task_db.lock().unwrap();
-        let query = binding.queries.as_mut().unwrap();
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
         let proof = query.get_task_proof.query_row(
             named_params! {
                 ":chain_id": chain_id,
@@ -791,8 +795,8 @@ impl<'db> TaskManager for SqliteTaskManager<'db> {
     }
 
     fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
-        let mut binding = self.arc_task_db.lock().unwrap();
-        let query = binding.queries.as_mut().unwrap();
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
         let proof = query.get_task_proof_by_id.query_row(
             named_params! {
                 ":task_id": task_id,
@@ -805,8 +809,8 @@ impl<'db> TaskManager for SqliteTaskManager<'db> {
 
     /// Returns the total and detailed database size
     fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
-        let mut binding = self.arc_task_db.lock().unwrap();
-        let query = binding.queries.as_mut().unwrap();
+        let binding = self.arc_task_db.lock().unwrap();
+        let mut query = binding.manage().unwrap();
         let rows = query
             .get_db_size
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;

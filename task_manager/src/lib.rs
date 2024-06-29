@@ -173,50 +173,19 @@ pub trait TaskManager {
     fn prune_db(&mut self) -> TaskManagerResult<()>;
 }
 
-use std::sync::{Arc, Mutex, Once};
-
+#[cfg(feature = "sqlite")]
+use std::sync::{Arc, Mutex};
 #[cfg(feature = "sqlite")]
 mod adv_sqlite;
 #[cfg(feature = "sqlite")]
-use adv_sqlite::{SqliteTaskManager, TaskDb};
+use adv_sqlite::SqliteTaskManager;
 
-pub fn get_task_manager<'db>(opts: &TaskManagerOpts) -> Arc<Mutex<SqliteTaskManager<'db>>> {
-    let db = TaskDb::open_or_create(opts.sqlite_file.as_path()).expect("Failed to open db");
-    db.manage().expect("Failed to manage db");
-    Arc::new(Mutex::new(SqliteTaskManager { arc_task_db: Arc::new(Mutex::new(db)) }))
+pub fn get_task_manager(opts: &TaskManagerOpts) -> Arc<Mutex<SqliteTaskManager>> {
+    Arc::new(Mutex::new(SqliteTaskManager::new(opts)))
 }
 
-
-// #[cfg(feature = "sqlite")]
-// pub fn get_task_manager<'db>(opts: &TaskManagerOpts) -> Arc<Mutex<SqliteTaskManager<'db>>> {
-//     static INIT: Once = Once::new();
-//     static mut SHARED_TASK_DB: Option<Arc<Mutex<TaskDb>>> = None;
-
-//     INIT.call_once(|| {
-//         // let mut task_db = TaskDb::open_or_create(opts.sqlite_file.as_path()).expect("Failed to open db");
-//         // task_db.manage().expect("Failed to manage db");
-//         // unsafe {
-//         //     SHARED_TASK_DB = Some(Arc::new(Mutex::new(task_db)));
-//         // }
-
-//         let task_db: Arc<Mutex<TaskDb>> = Arc::new(Mutex::new(
-//             TaskDb::open_or_create(opts.sqlite_file.as_path()).expect("Failed to open db"),
-//         ));
-//         task_db
-//             .lock()
-//             .unwrap()
-//             .manage()
-//             .expect("Failed to manage db");
-//         unsafe {
-//             SHARED_TASK_DB = Some(Arc::clone(&task_db));
-//         }
-//     });
-//     Arc::new(Mutex::new(unsafe {
-//         SqliteTaskManager {
-//             arc_task_db: SHARED_TASK_DB.unwrap(),
-//         }
-//     }))
-// }
+#[cfg(feature = "in-memory")]
+use std::sync::{Arc, Mutex, Once};
 
 #[cfg(feature = "in-memory")]
 use mem_db::InMemoryTaskManager;
