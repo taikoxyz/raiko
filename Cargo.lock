@@ -5895,6 +5895,7 @@ name = "raiko-task-manager"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "anyhow",
  "chrono",
  "hex",
  "num_enum 0.7.2",
