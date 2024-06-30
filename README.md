@@ -133,6 +133,17 @@ If your CPU doesn't support SGX, you can still run the SGX code through gramine 
 MOCK=1 TARGET=sgx make run
 ```
 
+### Nitro enclave prover
+
+First, set up KMS, refer to this [guide](https://github.com/aws/aws-nitro-enclaves-sdk-c/blob/main/docs/kmstool.md#set-up-kms)
+
+Using given provers/nitro/nitro-prover/test-enclave-kms-policy.json create enclave key:
+
+```bash
+KMS_KEY_ARN=$(aws kms create-key --description "Nitro Enclaves Test Key" --policy file://test-enclave-kms-policy.json --query KeyMetadata.Arn --output text)
+echo $KMS_KEY_ARN
+```
+
 ## Misc docs
 
 - [Docker & Remote Attestation Support](docs/README_Docker_and_RA.md)

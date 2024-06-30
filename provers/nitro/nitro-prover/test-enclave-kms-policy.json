@@ -1,0 +1,53 @@
+{
+    "Version": "2012-10-17",
+    "Id": "key-default-1",
+    "Statement": [
+        {
+            "Sid": "Enable decrypt from enclave",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:ec2:us-east-2: 891376927649:instance/i-08abe0ebe41feb2dc"
+            },
+            "Action": "kms:Decrypt",
+            "Resource": "*",
+            "Condition": {
+                "StringEqualsIgnoreCase": {
+                    "kms:RecipientAttestation:ImageSha384": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                }
+            }
+        },
+        {
+            "Sid": "Enable encrypt from instance",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:ec2:us-east-2:891376927649:instance/i-08abe0ebe41feb2dc"
+            },
+            "Action": "kms:Encrypt",
+            "Resource": "*"
+        },
+        {
+            "Sid": "Allow access for Key Administrators",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:ec2:us-east-2:891376927649:instance/i-08abe0ebe41feb2dc"
+            },
+            "Action": [
+                "kms:Create*",
+                "kms:Describe*",
+                "kms:Enable*",
+                "kms:List*",
+                "kms:Put*",
+                "kms:Update*",
+                "kms:Revoke*",
+                "kms:Disable*",
+                "kms:Get*",
+                "kms:Delete*",
+                "kms:TagResource",
+                "kms:UntagResource",
+                "kms:ScheduleKeyDeletion",
+                "kms:CancelKeyDeletion"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

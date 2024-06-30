@@ -93,6 +93,10 @@ pub enum ProofType {
     ///
     /// Uses the RISC0 prover to build the block.
     Risc0,
+    /// # Nitro
+    ///
+    /// Uses Nitro enclave prover.
+    Nitro,
 }
 
 impl std::fmt::Display for ProofType {
@@ -102,6 +106,7 @@ impl std::fmt::Display for ProofType {
             ProofType::Sp1 => "sp1",
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
+            ProofType::Nitro => "nitro",
         })
     }
 }
@@ -115,6 +120,7 @@ impl FromStr for ProofType {
             "sp1" => Ok(ProofType::Sp1),
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
+            "nitro" => Ok(ProofType::Nitro),
             _ => Err(RaikoError::InvalidProofType(s.to_string())),
         }
     }
@@ -154,6 +160,12 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
+            }
+            ProofType::Nitro => {
+                #[cfg(feature = "nitro")]
+                return nitro_prover::NitroProver::prove(input).map_err(|e| e.into());
+                #[cfg(not(feature = "nitro"))]
                 Err(RaikoError::FeatureNotSupportedError(self.clone()))
             }
         }
@@ -220,6 +232,8 @@ pub struct ProverSpecificOpts {
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
     pub risc0: Option<Value>,
+    /// Nitro enclave specific options.
+    pub nitro: Option<Value>,
 }
 
 impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificOpts>

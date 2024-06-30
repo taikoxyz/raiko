@@ -1,6 +1,5 @@
 mod app_args;
 mod one_shot;
-mod signature;
 
 extern crate rand;
 extern crate secp256k1;

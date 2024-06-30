@@ -10,6 +10,7 @@ default-run = "raiko-host"
 sp1-driver = { path = "../provers/sp1/driver", optional = true }
 risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
+nitro-prover = { path = "../provers/nitro/nitro-prover", optional = true }
 
 # raiko
 raiko-lib = { workspace = true, features = ["c-kzg"] }
