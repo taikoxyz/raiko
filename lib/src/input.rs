@@ -1,10 +1,10 @@
-use core::fmt::Debug;
+use core::{fmt::Debug, str::FromStr};
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
 use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
 use alloy_sol_types::{sol, SolCall};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Error, Result};
 use reth_primitives::revm_primitives::{Address, Bytes, HashMap, B256, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -72,8 +72,36 @@ pub struct TaikoGuestInput {
     pub anchor_tx: String,
     pub block_proposed: BlockProposed,
     pub prover_data: TaikoProverData,
-    pub tx_blob_hash: Option<B256>,
-    pub skip_verify_blob: bool,
+    pub blob_commitment: Option<Vec<u8>>,
+    pub blob_proof_type: BlobProofType,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub enum BlobProofType {
+    /// Simplified Proof of Equivalence with fiat input in non-aligned field
+    /// Referencing https://notes.ethereum.org/@dankrad/kzg_commitments_in_proofs
+    /// with impl details in https://github.com/taikoxyz/raiko/issues/292
+    /// Guest proves the KZG evaluation of the a fiat-shamir input x and output result y
+    ///      x = sha256(sha256(blob), kzg_commit(blob))
+    ///      y = f(x)
+    /// where f is the KZG polynomial
+    #[default]
+    ProofOfEquivalence,
+    /// Guest runs through the entire computation from blob to Kzg commitment
+    /// then to version hash
+    ProofOfCommitment,
+}
+
+impl FromStr for BlobProofType {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim() {
+            "ProofOfEquivalence" => Ok(BlobProofType::ProofOfEquivalence),
+            "ProofOfCommitment" => Ok(BlobProofType::ProofOfCommitment),
+            _ => Err(anyhow!("invalid blob proof type")),
+        }
+    }
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]

@@ -127,7 +127,6 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let input: GuestInput =
         bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
-    assert!(!input.taiko.skip_verify_blob);
 
     // Process the block
     let header = calculate_block_header(&input);

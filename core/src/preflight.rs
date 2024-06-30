@@ -8,24 +8,29 @@ use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
-use c_kzg::{Blob, KzgCommitment};
+use kzg_traits::{
+    eip_4844::{blob_to_kzg_commitment_rust, Blob},
+    G1,
+};
 use raiko_lib::{
     builder::{OptimisticDatabase, RethBlockBuilder},
     clear_line,
     consts::ChainSpec,
     inplace_print,
     input::{
-        decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
+        decode_anchor, proposeBlockCall, BlobProofType, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
     },
-    primitives::{eip4844::MAINNET_KZG_TRUSTED_SETUP, mpt::proofs_to_tries},
-    protocol_instance::kzg_to_versioned_hash,
+    primitives::{
+        eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
+        mpt::proofs_to_tries,
+    },
     utils::{generate_transactions, zlib_compress_data},
     Measurement,
 };
 use reth_primitives::Block as RethBlock;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, sync::Arc};
+use std::collections::HashSet;
 use tracing::{debug, info, warn};
 
 pub async fn preflight<BDP: BlockDataProvider>(
@@ -34,6 +39,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     l1_chain_spec: ChainSpec,
     taiko_chain_spec: ChainSpec,
     prover_data: TaikoProverData,
+    blob_proof_type: BlobProofType,
 ) -> RaikoResult<GuestInput> {
     let measurement = Measurement::start("Fetching block data...", false);
 
@@ -66,6 +72,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
             block_number,
             block,
             prover_data,
+            blob_proof_type,
         )
         .await?
     } else {
@@ -224,6 +231,7 @@ async fn prepare_taiko_chain_input(
     block_number: u64,
     block: &Block,
     prover_data: TaikoProverData,
+    blob_proof_type: BlobProofType,
 ) -> RaikoResult<TaikoGuestInput> {
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, block_number)?;
 
@@ -272,7 +280,7 @@ async fn prepare_taiko_chain_input(
     .await?;
 
     // Fetch the tx data from either calldata or blobdata
-    let (tx_data, tx_blob_hash) = if proposal_event.meta.blobUsed {
+    let (tx_data, blob_commitment) = if proposal_event.meta.blobUsed {
         debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
@@ -289,7 +297,9 @@ async fn prepare_taiko_chain_input(
             RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
         })?;
         let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
-        (blob, Some(blob_hash))
+        let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
+
+        (blob, Some(commitment.to_vec()))
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
@@ -315,10 +325,10 @@ async fn prepare_taiko_chain_input(
         l1_header: l1_state_block.header.clone().try_into().unwrap(),
         tx_data,
         anchor_tx: serde_json::to_string(&anchor_tx).map_err(RaikoError::Serde)?,
-        tx_blob_hash,
+        blob_commitment,
         block_proposed: proposal_event,
         prover_data,
-        skip_verify_blob: false,
+        blob_proof_type,
     })
 }
 
@@ -351,11 +361,13 @@ fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     let blob_bytes: Vec<u8> = hex::decode(blob_str.to_lowercase().trim_start_matches("0x"))
         .expect("Could not decode blob");
-    let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
     let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
-    let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings)
-        .expect("Could not create kzg commitment from blob");
-    let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
+    let commitment = blob_to_kzg_commitment_rust(
+        &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"),
+        &KZG_SETTINGS.clone(),
+    )
+    .expect("Could not create kzg commitment from blob");
+    let version_hash: [u8; 32] = commitment_to_version_hash(&commitment.to_bytes()).0;
     version_hash
 }
 
@@ -533,62 +545,10 @@ mod test {
     use ethers_core::types::Transaction;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
-        primitives::{eip4844::parse_kzg_trusted_setup, kzg::KzgSettings},
         utils::decode_transactions,
     };
 
     use super::*;
-
-    #[allow(dead_code)]
-    fn calc_commit_versioned_hash(commitment: &str) -> [u8; 32] {
-        let commit_bytes = hex::decode(commitment.to_lowercase().trim_start_matches("0x")).unwrap();
-        let kzg_commit = c_kzg::KzgCommitment::from_bytes(&commit_bytes).unwrap();
-        let version_hash: [u8; 32] = kzg_to_versioned_hash(&kzg_commit).0;
-        version_hash
-    }
-
-    // TODO(Cecilia): "../kzg_parsed_trust_setup" does not exist
-    #[ignore]
-    #[test]
-    fn test_parse_kzg_trusted_setup() {
-        // check if file exists
-        let b_file_exists = std::path::Path::new("../kzg_parsed_trust_setup").exists();
-        assert!(b_file_exists);
-        // open file as lines of strings
-        let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
-        let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
-            .map_err(|e| {
-                println!("error: {e:?}");
-                e
-            })
-            .unwrap();
-        println!("g1: {:?}", g1.0.len());
-        println!("g2: {:?}", g2.0.len());
-    }
-
-    // TODO(Cecilia): "../kzg_parsed_trust_setup" does not exist
-    #[ignore]
-    #[test]
-    fn test_blob_to_kzg_commitment() {
-        // check if file exists
-        let b_file_exists = std::path::Path::new("../kzg_parsed_trust_setup").exists();
-        assert!(b_file_exists);
-        // open file as lines of strings
-        let kzg_trust_setup_str = std::fs::read_to_string("../kzg_parsed_trust_setup").unwrap();
-        let (g1, g2) = parse_kzg_trusted_setup(&kzg_trust_setup_str)
-            .map_err(|e| {
-                println!("error: {e:?}");
-                e
-            })
-            .unwrap();
-        let kzg_settings = KzgSettings::load_trusted_setup(&g1.0, &g2.0).unwrap();
-        let blob = [0u8; 131072].into();
-        let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
-        assert_eq!(
-            kzg_to_versioned_hash(&kzg_commit).to_string(),
-            "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
-        );
-    }
 
     #[test]
     fn test_new_blob_decode() {
@@ -637,138 +597,12 @@ mod test {
             0000000000000000000000000000000000000000000000000000000000000000\
             0000000000000000000000000000000000000000000000000000000000000000\
             00000000000000000000000000000000";
-        // println!("valid blob: {:?}", valid_blob_str);
         let blob_str = format!("{:0<262144}", valid_blob_str);
         let dec_blob = blob_to_bytes(&blob_str);
         println!("dec blob tx len: {:?}", dec_blob.len());
         let txs = decode_transactions(&dec_blob);
         println!("dec blob tx: {txs:?}");
-        // assert_eq!(hex::encode(dec_blob), expected_dec_blob);
     }
-
-    #[test]
-    fn test_c_kzg_lib_commitment() {
-        // check c-kzg mainnet trusted setup is ok
-        let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
-        let blob = [0u8; 131072].into();
-        let kzg_commit = KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
-        assert_eq!(
-            kzg_to_versioned_hash(&kzg_commit).to_string(),
-            "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
-        );
-    }
-
-    // #[ignore]
-    // #[tokio::test]
-    // async fn test_propose_block() {
-    // tokio::task::spawn_blocking(|| {
-    // let l2_chain_spec = get_taiko_chain_spec("internal_devnet_a");
-    // let mut l1_provider = new_provider(
-    // None,
-    // Some("https://localhost:8545".to_owned()),
-    // Some("https://localhost:3500/".to_owned()),
-    // )
-    // .expect("bad provider");
-    // let (propose_tx, block_metadata) = l1_provider
-    // .get_propose(&ProposeQuery {
-    // l1_contract: H160::from_slice(l2_chain_spec.l1_contract.unwrap().as_slice()),
-    // l1_block_no: 6093,
-    // l2_block_no: 1000,
-    // })
-    // .expect("bad get_propose");
-    // println!("propose_tx: {:?}", propose_tx);
-    // println!("block_metadata: {:?}", block_metadata);
-    // })
-    // .await
-    // .unwrap();
-    // }
-    //
-    // #[ignore]
-    // #[tokio::test]
-    // async fn test_fetch_blob_data_and_hash() {
-    // tokio::task::spawn_blocking(|| {
-    // let mut provider = new_provider(
-    // None,
-    // Some("https://l1rpc.internal.taiko.xyz/".to_owned()),
-    // Some("https://l1beacon.internal.taiko.xyz/".to_owned()),
-    // )
-    // .expect("bad provider");
-    // let blob_data = fetch_blob_data("http://localhost:3500".to_string(), 5).unwrap();
-    // let blob_data = provider.get_blob_data(17138).unwrap();
-    // println!("blob len: {:?}", blob_data.data[0].blob.len());
-    // let dec_blob = decode_blob_data(&blob_data.data[0].blob);
-    // println!("dec blob tx: {:?}", dec_blob.len());
-    //
-    // println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
-    // let blob_hash = calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment);
-    // println!("blob hash {:?}", hex::encode(blob_hash));
-    // })
-    // .await
-    // .unwrap();
-    // }
-    //
-    // #[ignore]
-    // #[tokio::test]
-    // async fn test_fetch_and_verify_blob_data() {
-    // tokio::task::spawn_blocking(|| {
-    // let mut provider = new_provider(
-    // None,
-    // Some("https://l1rpc.internal.taiko.xyz".to_owned()),
-    // Some("https://l1beacon.internal.taiko.xyz".to_owned()),
-    // )
-    // .expect("bad provider");
-    // let blob_data = provider.get_blob_data(168).unwrap();
-    // let blob_bytes: [u8; 4096 * 32] = hex::decode(
-    // blob_data.data[0]
-    // .blob
-    // .to_lowercase()
-    // .trim_start_matches("0x"),
-    // )
-    // .unwrap()
-    // .try_into()
-    // .unwrap();
-    // let blob: Blob = blob_bytes.into();
-    // let kzg_settings = Arc::clone(&*MAINNET_KZG_TRUSTED_SETUP);
-    // let kzg_commit: KzgCommitment =
-    // KzgCommitment::blob_to_kzg_commitment(&blob, &kzg_settings).unwrap();
-    // assert_eq!(
-    // "0x".to_owned() + &kzg_commit.as_hex_string(),
-    // blob_data.data[0].kzg_commitment
-    // );
-    // println!("blob commitment: {:?}", blob_data.data[0].kzg_commitment);
-    // let calc_versioned_hash =
-    // calc_commit_versioned_hash(&blob_data.data[0].kzg_commitment); println!("blob hash
-    // {:?}", hex::encode(calc_versioned_hash)); })
-    // .await
-    // .unwrap();
-    // }
-    //
-    // #[ignore]
-    // #[tokio::test]
-    // async fn test_fetch_and_decode_blob_tx() {
-    // let block_num = std::env::var("TAIKO_L2_BLOCK_NO")
-    // .unwrap_or("94".to_owned())
-    // .parse::<u64>()
-    // .unwrap();
-    // tokio::task::spawn_blocking(move || {
-    // let mut provider = new_provider(
-    // None,
-    // Some("http://35.202.137.144:8545".to_owned()),
-    // Some("http://35.202.137.144:3500".to_owned()),
-    // )
-    // .expect("bad provider");
-    // let blob_data = provider.get_blob_data(block_num).unwrap();
-    // println!("blob str len: {:?}", blob_data.data[0].blob.len());
-    // let blob_bytes = decode_blob_data(&blob_data.data[0].blob);
-    // println!("blob byte len: {:?}", blob_bytes.len());
-    // println!("blob bytes {:?}", blob_bytes);
-    // rlp decode blob tx
-    // let txs: Vec<Transaction> = rlp_decode_list(&blob_bytes).unwrap();
-    // println!("blob tx: {:?}", txs);
-    // })
-    // .await
-    // .unwrap();
-    // }
 
     #[ignore]
     #[test]
