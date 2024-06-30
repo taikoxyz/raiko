@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.0](https://github.com/taikoxyz/raiko/compare/v1.0.0...v1.1.0) (2024-06-30)
+
+
+### Features
+
+* **ci:** fix make clippy script and clippy CI job ([#220](https://github.com/taikoxyz/raiko/issues/220)) ([62158a0](https://github.com/taikoxyz/raiko/commit/62158a097221f3676ad3bed61070a9e967966e81))
+* **docs:** update tencent link ([#269](https://github.com/taikoxyz/raiko/issues/269)) ([1e2a254](https://github.com/taikoxyz/raiko/commit/1e2a2541111d70352aaefc4c629f9daea58ce6e4))
+* **harness:** make harness part of the root workspace ([#285](https://github.com/taikoxyz/raiko/issues/285)) ([e3d2403](https://github.com/taikoxyz/raiko/commit/e3d2403b643e87093a547837234d9bf13dfb03ce))
+* **misc:** remove sp1-helper from builder ([#293](https://github.com/taikoxyz/raiko/issues/293)) ([fd474e3](https://github.com/taikoxyz/raiko/commit/fd474e3304edd896305260feec47641a826e1521))
+* prove blocks using reth ([#226](https://github.com/taikoxyz/raiko/issues/226)) ([546ab19](https://github.com/taikoxyz/raiko/commit/546ab19cbc12e58a10ede52076d5b6bbcd093f1a))
+* **prover:** change GuestOutput and the zk committed value for onchain verification ([#282](https://github.com/taikoxyz/raiko/issues/282)) ([37f6c49](https://github.com/taikoxyz/raiko/commit/37f6c4970924ebb9d53941498ba69123ab304c48))
+* **prover:** enable GuestInput serialization in native path ([#281](https://github.com/taikoxyz/raiko/issues/281)) ([0ba89ae](https://github.com/taikoxyz/raiko/commit/0ba89aecf846e2aeda41ff0c65410b9beb0d77f6))
+* **prover:** track cycles of sp1 guest & patch Secp256k1 ([#288](https://github.com/taikoxyz/raiko/issues/288)) ([927e697](https://github.com/taikoxyz/raiko/commit/927e6973ae2ba8c68b18cb7e53a719c1eaee5896))
+* **raiko-lib:** unify protocol instance for on chain verification ([#230](https://github.com/taikoxyz/raiko/issues/230)) ([ed37856](https://github.com/taikoxyz/raiko/commit/ed37856906bf27433418e7a781d4138b180da550))
+
+
+### Bug Fixes
+
+* **host:** add guest request count and make concurrent request decrementation more ergonomic ([#261](https://github.com/taikoxyz/raiko/issues/261)) ([d660a17](https://github.com/taikoxyz/raiko/commit/d660a17c9fef9ce9fa58558a4d3da115d134dad6))
+* **raiko:** double check if cached file is valid. ([#271](https://github.com/taikoxyz/raiko/issues/271)) ([39bdc11](https://github.com/taikoxyz/raiko/commit/39bdc11d46814f6f9876c54df29c631ad2127b74))
+* **raiko:** removed panic stabilization ([#232](https://github.com/taikoxyz/raiko/issues/232)) ([254ff6a](https://github.com/taikoxyz/raiko/commit/254ff6a90d1ea17672d2cf6352cb6a9af98f0ec0))
+* **raiko:** unsafe align vec to avoid unalign mem access ([#291](https://github.com/taikoxyz/raiko/issues/291)) ([5e9dbe8](https://github.com/taikoxyz/raiko/commit/5e9dbe82c798c2e48051b5976a459cec6c700385))
+
 ## 1.0.0 (2024-05-25)
 
 
