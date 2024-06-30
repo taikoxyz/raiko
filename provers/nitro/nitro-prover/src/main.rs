@@ -1,6 +1,6 @@
 use nitro_prover::{protocol_helper::*, NitroProver, PORT};
 use raiko_lib::{input::GuestInput, prover::Prover};
-use tracing::{info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 use vsock::{VsockAddr, VsockListener};
 
@@ -28,13 +28,17 @@ async fn main() {
                 let Ok(data) = recv_message(&mut v_stream) else {
                     let msg = "Failed to read whole GuestInput bytes from socket!";
                     info!(msg);
-                    send_message(&mut v_stream, msg.to_string());
+                    if let Err(e) = send_message(&mut v_stream, msg.to_string()) {
+                        error!("Failed to write error message back into socket. Client disconnected?, Details: {}", e);
+                    }
                     continue;
                 };
                 let Ok(guest_input) = serde_json::from_slice::<GuestInput>(&data) else {
                     let msg = "Provided bytes are not json serialized GuestInput";
                     info!(msg);
-                    send_message(&mut v_stream, msg.to_string());
+                    if let Err(e) = send_message(&mut v_stream, msg.to_string()) {
+                        error!("Failed to write error message back into socket. Client disconnected?, Details: {}", e);
+                    }
                     continue;
                 };
                 let block = guest_input.block_number;
@@ -46,14 +50,18 @@ async fn main() {
                             block, e
                         );
                         info!(msg);
-                        send_message(&mut v_stream, msg);
+                        if let Err(e) = send_message(&mut v_stream, msg) {
+                            error!("Failed to write error message back into socket. Client disconnected?, Details: {}", e);
+                        }
                         continue;
                     }
                     Ok(proof_value) => {
                         let Ok(proof) = serde_json::to_string(&proof_value) else {
                             let msg = format!("Proof type unexpected for block {}!", block);
                             info!(msg);
-                            send_message(&mut v_stream, msg);
+                            if let Err(e) = send_message(&mut v_stream, msg) {
+                                error!("Failed to write error message back into socket. Client disconnected?, Details: {}", e);
+                            }
                             continue;
                         };
                         let Ok(_) = send_message(&mut v_stream, proof) else {
