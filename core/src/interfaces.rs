@@ -171,7 +171,7 @@ impl ProofType {
                 &commitment_to_version_hash(&blob_commitment.try_into().unwrap()),
             )
             .unwrap();
-            let kzg_proof_hex = hex::encode(kzg_proof_to_bytes(&kzg_proof).to_vec());
+            let kzg_proof_hex = hex::encode(kzg_proof_to_bytes(&kzg_proof));
             proof
                 .as_object_mut()
                 .unwrap()
