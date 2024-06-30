@@ -16,8 +16,6 @@ mod no_std {
     };
 }
 
-use revm_primitives::{B256, VERSIONED_HASH_VERSION_KZG};
-use sha2::{Digest, Sha256};
 use tracing::debug;
 
 pub mod builder;
@@ -100,12 +98,12 @@ impl CycleTracker {
         println!("cycle-tracker-end: {self.title}");
     }
 
-    pub fn println(inner: impl Fn()) {
+    pub fn println(_inner: impl Fn()) {
         #[cfg(all(
             all(target_os = "zkvm", target_vendor = "succinct"),
             feature = "sp1-cycle-tracker"
         ))]
-        inner()
+        _inner()
     }
 }
 
@@ -178,10 +176,4 @@ pub fn clear_line() {
 pub fn guest_mem_forget<T>(_t: T) {
     #[cfg(target_os = "zkvm")] // TODO: separate for risc0
     core::mem::forget(_t)
-}
-
-pub fn commitment_to_version_hash(commitment: &[u8; 48]) -> B256 {
-    let mut hash = Sha256::digest(commitment);
-    hash[0] = VERSIONED_HASH_VERSION_KZG;
-    B256::new(hash.into())
 }

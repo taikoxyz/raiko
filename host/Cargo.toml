@@ -12,7 +12,7 @@ risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
-raiko-lib = { workspace = true, features = ["kzg"] }
+raiko-lib = { workspace = true }
 raiko-core = { workspace = true }
 
 # alloy
@@ -28,8 +28,8 @@ alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
 
 # crypto
-rust-kzg-zkcrypto = { workspace = true }
 kzg = { workspace = true }
+kzg_traits = { workspace = true }
 
 # server
 axum = { workspace = true }
@@ -80,11 +80,10 @@ rstest = { workspace = true }
 ethers-core = { workspace = true }
 
 [features]
-default = ["kzg-zkcrypto"]
+default = []
 sp1 = ["raiko-core/sp1"]
 risc0 = ["raiko-core/risc0"]
 sgx = ["raiko-core/sgx"]
-kzg-zkcrypto = []
 
 [[bin]]
 name = "raiko-host"
@@ -97,4 +96,3 @@ path = "src/bin/docs.rs"
 [[bin]]
 name = "gen-kzg-settings"
 path = "src/bin/gen_kzg_settings.rs"
-

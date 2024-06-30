@@ -11,8 +11,7 @@ risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
-raiko-lib = { workspace = true, features = ["kzg"] }
-revm = { workspace = true }
+raiko-lib = { workspace = true }
 
 # reth
 reth-primitives.workspace = true
@@ -47,8 +46,8 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 
 # c-kzg
-rust-kzg-zkcrypto = { workspace = true }
 kzg = { workspace = true }
+kzg_traits = { workspace = true }
 
 # async
 tokio = { workspace = true }

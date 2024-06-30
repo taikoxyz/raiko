@@ -243,7 +243,7 @@ mod test {
     use alloy_primitives::{Address, B256};
     use raiko_core::interfaces::ProofType;
     use raiko_lib::consts::{Network, SupportedChainSpecs};
-    use raiko_lib::input::BlobProof;
+    use raiko_lib::input::BlobProofType;
 
     async fn create_cache_input(
         l1_network: &String,
@@ -263,7 +263,7 @@ mod test {
             graffiti: B256::ZERO,
             prover: Address::ZERO,
             proof_type: ProofType::Native,
-            blob_proof: Some(BlobProof::ProofOfCommitment),
+            blob_proof_type: BlobProofType::ProofOfCommitment,
             prover_args: Default::default(),
         };
         let raiko = Raiko::new(

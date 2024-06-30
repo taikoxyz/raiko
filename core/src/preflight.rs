@@ -8,18 +8,21 @@ use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
-use kzg::eip_4844::Blob;
+use kzg_traits::{
+    eip_4844::{blob_to_kzg_commitment_rust, Blob},
+    G1,
+};
 use raiko_lib::{
     builder::{OptimisticDatabase, RethBlockBuilder},
-    clear_line, commitment_to_version_hash,
+    clear_line,
     consts::ChainSpec,
     inplace_print,
     input::{
-        decode_anchor, proposeBlockCall, BlockProposed, GuestInput, TaikoGuestInput,
+        decode_anchor, proposeBlockCall, BlobProofType, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
     },
     primitives::{
-        eip4844::{self, save_cur_blob_proof, TAIKO_KZG_SETTINGS},
+        eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
         mpt::proofs_to_tries,
     },
     utils::{generate_transactions, zlib_compress_data},
@@ -36,6 +39,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     l1_chain_spec: ChainSpec,
     taiko_chain_spec: ChainSpec,
     prover_data: TaikoProverData,
+    blob_proof_type: BlobProofType,
 ) -> RaikoResult<GuestInput> {
     let measurement = Measurement::start("Fetching block data...", false);
 
@@ -68,6 +72,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
             block_number,
             block,
             prover_data,
+            blob_proof_type,
         )
         .await?
     } else {
@@ -226,6 +231,7 @@ async fn prepare_taiko_chain_input(
     block_number: u64,
     block: &Block,
     prover_data: TaikoProverData,
+    blob_proof_type: BlobProofType,
 ) -> RaikoResult<TaikoGuestInput> {
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, block_number)?;
 
@@ -291,11 +297,7 @@ async fn prepare_taiko_chain_input(
             RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
         })?;
         let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
-        let (proof, commitment) =
-            eip4844::calc_kzg_proof_commitment(&blob, &TAIKO_KZG_SETTINGS.clone())
-                .map_err(|e| anyhow!(e))?;
-        // Save to sumit onchain for point evaluation verification
-        save_cur_blob_proof(&proof, &commitment).map_err(|e| anyhow!(e))?;
+        let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
 
         (blob, Some(commitment.to_vec()))
     } else {
@@ -326,7 +328,7 @@ async fn prepare_taiko_chain_input(
         blob_commitment,
         block_proposed: proposal_event,
         prover_data,
-        blob_proof: None,
+        blob_proof_type,
     })
 }
 
@@ -356,14 +358,13 @@ fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
     }
 }
 
-fn preflight_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
-    use kzg::G1;
+fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
     let blob_bytes: Vec<u8> = hex::decode(blob_str.to_lowercase().trim_start_matches("0x"))
         .expect("Could not decode blob");
     let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
-    let commitment = eip4844::blob_to_kzg_commitment_rust(
+    let commitment = blob_to_kzg_commitment_rust(
         &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"),
-        &TAIKO_KZG_SETTINGS.clone(),
+        &KZG_SETTINGS.clone(),
     )
     .expect("Could not create kzg commitment from blob");
     let version_hash: [u8; 32] = commitment_to_version_hash(&commitment.to_bytes()).0;
@@ -426,7 +427,7 @@ async fn get_blob_data_beacon(
             .iter()
             .find(|blob| {
                 // calculate from plain blob
-                blob_hash == preflight_blob_versioned_hash(&blob.blob)
+                blob_hash == calc_blob_versioned_hash(&blob.blob)
             })
             .cloned();
         assert!(tx_blob.is_some());

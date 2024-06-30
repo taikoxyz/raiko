@@ -1,16 +1,12 @@
 #![feature(slice_flatten)]
 use std::{fs, path::PathBuf};
 
+use kzg::kzg_proofs::KZGSettings;
 use reth_primitives::revm_primitives::kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS};
-cfg_if::cfg_if! {
-    if #[cfg(feature = "kzg-zkcrypto")] {
-        use rust_kzg_zkcrypto::kzg_proofs::KZGSettings as TaikoKzgSettings;
-        static FILE_NAME: &str = "zkcrypto_kzg_settings.bin";
-    }
-}
+static FILE_NAME: &str = "zkcrypto_kzg_settings.bin";
 
 fn main() {
-    let kzg_setting: TaikoKzgSettings = kzg::eip_4844::load_trusted_setup_rust(
+    let kzg_setting: KZGSettings = kzg_traits::eip_4844::load_trusted_setup_rust(
         G1Points::as_ref(G1_POINTS).flatten(),
         G2Points::as_ref(G2_POINTS).flatten(),
     )

@@ -1,20 +1,19 @@
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use reth_primitives::Header;
-use sha2::Digest as _;
+use reth_primitives::{Header, U256};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    commitment_to_version_hash,
     consts::{SupportedChainSpecs, VerifierType},
-    input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    primitives::keccak::keccak,
+    input::{BlobProofType, BlockMetadata, EthDeposit, GuestInput, Transition},
+    primitives::{
+        eip4844::{self, commitment_to_version_hash},
+        keccak::keccak,
+    },
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
-
-const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 
 #[derive(Debug, Clone)]
 pub struct ProtocolInstance {
@@ -24,45 +23,39 @@ pub struct ProtocolInstance {
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
-    pub proof_of_equivalence: ([u8; 32], [u8; 32]),
+    pub proof_of_equivalence: (U256, U256),
 }
 
 impl ProtocolInstance {
     pub fn new(input: &GuestInput, header: &Header, proof_type: VerifierType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.meta.blobUsed;
         // If blob is used, tx_list_hash is the commitment to the blob
-        // and we need to comput the proof of equivalence when not skipping with the kzg feature enabled
+        // and we need to verify the blob hash matches the blob data.
+        // If we need to compute the proof of equivalence this data will be set.
         // Otherwise the proof_of_equivalence is 0
-        let mut proof_of_equivalence = ([0u8; 32], [0u8; 32]);
+        let mut proof_of_equivalence = (U256::ZERO, U256::ZERO);
         let tx_list_hash = if blob_used {
-            if let (Some(blob_proof), Some(commitment)) = (
-                input.taiko.blob_proof.as_ref(),
-                input.taiko.blob_commitment.as_ref(),
-            ) {
-                cfg_if::cfg_if!(
-                    if #[cfg(feature = "kzg")] {
-                        use crate::primitives::eip4844;
-                        match blob_proof {
-                            crate::input::BlobProof::ProofOfEquivalence => {
-                                proof_of_equivalence = eip4844::proof_of_equivalence(input)?;
-                                println!("proof of equivalence: {:?}", proof_of_equivalence);
-                            },
-                            crate::input::BlobProof::ProofOfCommitment => {
-                                assert_eq!(commitment, &eip4844::proof_of_commitment(input)?);
-                                println!("proof of commitment: {:?}", commitment);
-                            },
-                        };
-                    } else {
-                        return Err(anyhow::anyhow!("kzg feature is not enabled"));
-                    }
-                );
-                let commitment: [u8; 48] = commitment.clone().try_into().unwrap();
-                commitment_to_version_hash(&commitment)
-            } else {
-                return Err(anyhow::anyhow!(
-                    "blob_proof and blob_commitment must be provided"
-                ));
-            }
+            let commitment = input
+                .taiko
+                .blob_commitment
+                .as_ref()
+                .expect("no blob commitment");
+            let versioned_hash =
+                commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+            match get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()) {
+                crate::input::BlobProofType::ProofOfEquivalence => {
+                    let points =
+                        eip4844::proof_of_equivalence(&input.taiko.tx_data, &versioned_hash)?;
+                    proof_of_equivalence =
+                        (U256::from_le_bytes(points.0), U256::from_le_bytes(points.1));
+                }
+                crate::input::BlobProofType::ProofOfCommitment => {
+                    ensure!(
+                        commitment == &eip4844::calc_kzg_proof_commitment(&input.taiko.tx_data)?
+                    );
+                }
+            };
+            versioned_hash
         } else {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))
         };
@@ -197,6 +190,19 @@ impl ProtocolInstance {
             data = data.iter().copied().skip(32).collect::<Vec<u8>>();
         }
         keccak(data).into()
+    }
+}
+
+// Make sure the verifier supports the blob proof type
+fn get_blob_proof_type(
+    proof_type: VerifierType,
+    blob_proof_type_hint: BlobProofType,
+) -> BlobProofType {
+    match proof_type {
+        VerifierType::None => blob_proof_type_hint,
+        VerifierType::SGX => BlobProofType::ProofOfCommitment,
+        VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
+        VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
     }
 }
 

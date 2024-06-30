@@ -54,6 +54,7 @@ impl Raiko {
                 graffiti: self.request.graffiti,
                 prover: self.request.prover,
             },
+            self.request.blob_proof_type.clone(),
         )
         .await
         .map_err(Into::<RaikoError>::into)
@@ -197,7 +198,7 @@ mod tests {
     use clap::ValueEnum;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
-        input::BlobProof,
+        input::BlobProofType,
         primitives::B256,
     };
     use serde_json::{json, Value};
@@ -257,15 +258,10 @@ mod tests {
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
         let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
-        let mut input = raiko
+        let input = raiko
             .generate_input(provider)
             .await
             .expect("input generation failed");
-        // TODO: Remove this after Proof of Equivelence
-        // if is_ci() && proof_type == ProofType::Sp1 {
-        //     input.taiko.skip_verify_blob = true;
-        // }
-        input.taiko.blob_proof.clone_from(&proof_request.blob_proof);
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko
             .prove(input, &output)
@@ -295,7 +291,7 @@ mod tests {
             prover: Address::ZERO,
             l1_network,
             proof_type,
-            blob_proof: Some(BlobProof::ProofOfEquivalence),
+            blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(),
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -322,7 +318,7 @@ mod tests {
                 prover: Address::ZERO,
                 l1_network,
                 proof_type,
-                blob_proof: Some(BlobProof::ProofOfEquivalence),
+                blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(),
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -350,7 +346,7 @@ mod tests {
                 prover: Address::ZERO,
                 l1_network,
                 proof_type,
-                blob_proof: Some(BlobProof::ProofOfEquivalence),
+                blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(),
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;

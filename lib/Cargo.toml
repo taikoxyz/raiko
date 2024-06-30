@@ -33,8 +33,8 @@ libflate = { workspace = true }
 once_cell = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
-rust-kzg-zkcrypto = { workspace = true }
 kzg = { workspace = true }
+kzg_traits = { workspace = true }
 sha2 = { workspace = true }
 sha3 = { workspace = true }
 rlp = { workspace = true, features = ["std"] }
@@ -50,14 +50,12 @@ log = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
 lazy_static = { workspace = true }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-kzg", features = ["c-kzg"]}
 
 [dev-dependencies]
 hex-literal = { workspace = true }
-revm-precompile = { workspace = true, features = ["c-kzg"]}
 
 [features]
-default = ["std", "kzg", "kzg-zkcrypto"]
+default = ["std"]
 std = [
   # always use no-std for revm since we use hashbrown in workspace
   # "revm/std",
@@ -74,5 +72,3 @@ sgx = []
 sp1 = []
 risc0 = []
 sp1-cycle-tracker = []
-kzg = ["revm-primitives/c-kzg"]
-kzg-zkcrypto = []
