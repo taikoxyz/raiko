@@ -747,6 +747,7 @@ impl TaskDb {
     }
 }
 
+#[async_trait::async_trait]
 impl TaskManager for SqliteTaskManager {
     fn new(opts: &TaskManagerOpts) -> Self {
         static INIT: Once = Once::new();
