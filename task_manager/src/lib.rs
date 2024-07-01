@@ -354,6 +354,7 @@ mod test {
                     prover: "test".to_string(),
                     block_number: 1
                 })
+                .await
                 .unwrap()
                 .len(),
             1
