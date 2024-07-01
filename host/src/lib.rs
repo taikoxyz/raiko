@@ -180,16 +180,17 @@ impl ProverState {
                 };
                 let proof_result: HostResult<ProofResponse> = async move {
                     {
-                        let manager_binding = get_task_manager(task_manager_opts);
-                        let mut manager = manager_binding.lock().unwrap();
-                        manager.update_task_progress(
-                            chain_id,
-                            blockhash,
-                            proof_request.proof_type,
-                            Some(proof_request.prover.to_string()),
-                            TaskStatus::WorkInProgress,
-                            None,
-                        )?;
+                        let mut manager = get_task_manager(task_manager_opts);
+                        manager
+                            .update_task_progress(
+                                chain_id,
+                                blockhash,
+                                proof_request.proof_type,
+                                Some(proof_request.prover.to_string()),
+                                TaskStatus::WorkInProgress,
+                                None,
+                            )
+                            .await?;
                     }
                     handle_proof(&proof_request_clone, &opts_clone, &chain_specs_clone).await
                 }
@@ -199,47 +200,49 @@ impl ProverState {
                         let _: HostResult<()> = async move {
                             let proof = proof.proof.unwrap();
                             let proof = proof.as_bytes();
-                            let manager_binding = get_task_manager(task_manager_opts);
-                            let mut manager = manager_binding.lock().unwrap();
-                            manager.update_task_progress(
-                                chain_id,
-                                blockhash,
-                                proof_request.proof_type,
-                                Some(proof_request.prover.to_string()),
-                                TaskStatus::WorkInProgress,
-                                Some(proof),
-                            )?;
+                            let mut manager = get_task_manager(task_manager_opts);
+                            manager
+                                .update_task_progress(
+                                    chain_id,
+                                    blockhash,
+                                    proof_request.proof_type,
+                                    Some(proof_request.prover.to_string()),
+                                    TaskStatus::WorkInProgress,
+                                    Some(proof),
+                                )
+                                .await?;
                             Ok(())
                         }
                         .await;
                     }
                     Err(error) => {
                         let _: HostResult<()> = async move {
-                            let manager_binding = get_task_manager(task_manager_opts);
-                            let mut manager = manager_binding.lock().unwrap();
-                            manager.update_task_progress(
-                                chain_id,
-                                blockhash,
-                                proof_request.proof_type,
-                                Some(proof_request.prover.to_string()),
-                                match error {
-                                    HostError::HandleDropped
-                                    | HostError::CapacityFull
-                                    | HostError::JoinHandle(_)
-                                    | HostError::InvalidAddress(_)
-                                    | HostError::InvalidRequestConfig(_) => unreachable!(),
-                                    HostError::Conversion(_)
-                                    | HostError::Serde(_)
-                                    | HostError::Core(_)
-                                    | HostError::Anyhow(_)
-                                    | HostError::FeatureNotSupportedError(_)
-                                    | HostError::Io(_) => TaskStatus::UnspecifiedFailureReason,
-                                    HostError::RPC(_) => TaskStatus::NetworkFailure,
-                                    HostError::Guest(_) => TaskStatus::ProofFailure_Generic,
-                                    HostError::TaskManager(_) => TaskStatus::SqlDbCorruption,
-                                },
-                                None,
-                            )?;
+                            let mut manager = get_task_manager(task_manager_opts);
+                            manager
+                                .update_task_progress(
+                                    chain_id,
+                                    blockhash,
+                                    proof_request.proof_type,
+                                    Some(proof_request.prover.to_string()),
+                                    match error {
+                                        HostError::HandleDropped
+                                        | HostError::CapacityFull
+                                        | HostError::JoinHandle(_)
+                                        | HostError::InvalidAddress(_)
+                                        | HostError::InvalidRequestConfig(_) => unreachable!(),
+                                        HostError::Conversion(_)
+                                        | HostError::Serde(_)
+                                        | HostError::Core(_)
+                                        | HostError::Anyhow(_)
+                                        | HostError::FeatureNotSupportedError(_)
+                                        | HostError::Io(_) => TaskStatus::UnspecifiedFailureReason,
+                                        HostError::RPC(_) => TaskStatus::NetworkFailure,
+                                        HostError::Guest(_) => TaskStatus::ProofFailure_Generic,
+                                        HostError::TaskManager(_) => TaskStatus::SqlDbCorruption,
+                                    },
+                                    None,
+                                )
+                                .await?;
                             Ok(())
                         }
                         .await;

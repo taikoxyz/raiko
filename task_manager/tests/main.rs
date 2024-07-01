@@ -48,8 +48,8 @@ mod tests {
         )
     }
 
-    #[test]
-    fn test_enqueue_task() {
+    #[tokio::test]
+    async fn test_enqueue_task() {
         // // Materialized local DB
         // let dir = std::env::current_dir().unwrap().join("tests");
         // let file = dir.as_path().join("test_enqueue_task.sqlite");
@@ -62,27 +62,26 @@ mod tests {
         let dir = tempdir().unwrap();
         let file = dir.path().join("test_enqueue_task.sqlite");
 
-        let binding = get_task_manager(&TaskManagerOpts {
+        let mut tama = get_task_manager(&TaskManagerOpts {
             sqlite_file: file,
             max_db_size: 1_000_000,
         });
-        #[allow(unused_mut)]
-        let mut tama = binding.lock().unwrap();
 
         let (chain_id, block_hash, request) =
             create_random_task(&mut ChaCha8Rng::seed_from_u64(123));
         tama.enqueue_task(&EnqueueTaskParams {
             chain_id,
             blockhash: block_hash,
-            proof_system: request.proof_type,
+            proof_type: request.proof_type,
             prover: request.prover.to_string(),
             block_number: request.block_number,
         })
+        .await
         .unwrap();
     }
 
-    #[test]
-    fn test_update_query_tasks_progress() {
+    #[tokio::test]
+    async fn test_update_query_tasks_progress() {
         // Materialized local DB
         let dir = std::env::current_dir().unwrap().join("tests");
         let file = dir
@@ -97,12 +96,10 @@ mod tests {
         // let dir = tempdir().unwrap();
         // let file = dir.path().join("test_update_task_progress.sqlite");
 
-        let binding = get_task_manager(&TaskManagerOpts {
+        let mut tama = get_task_manager(&TaskManagerOpts {
             sqlite_file: file,
             max_db_size: 1_000_000,
         });
-        #[allow(unused_mut)]
-        let mut tama = binding.lock().unwrap();
 
         let mut rng = ChaCha8Rng::seed_from_u64(123);
         let mut tasks = vec![];
@@ -113,10 +110,11 @@ mod tests {
             tama.enqueue_task(&EnqueueTaskParams {
                 chain_id,
                 blockhash: block_hash,
-                proof_system: request.proof_type,
+                proof_type: request.proof_type,
                 prover: request.prover.to_string(),
                 block_number: request.block_number,
             })
+            .await
             .unwrap();
 
             let task_status = tama
@@ -126,6 +124,7 @@ mod tests {
                     request.proof_type,
                     Some(request.prover.to_string()),
                 )
+                .await
                 .unwrap();
             assert_eq!(task_status.len(), 1);
             let status = task_status
@@ -152,6 +151,7 @@ mod tests {
                     tasks[0].3,
                     Some(tasks[0].4.to_string()),
                 )
+                .await
                 .unwrap();
             println!("{task_status:?}");
             tama.update_task_progress(
@@ -162,6 +162,7 @@ mod tests {
                 TaskStatus::Cancelled_NeverStarted,
                 None,
             )
+            .await
             .unwrap();
 
             let task_status = tama
@@ -171,6 +172,7 @@ mod tests {
                     tasks[0].3,
                     Some(tasks[0].4.to_string()),
                 )
+                .await
                 .unwrap();
             println!("{task_status:?}");
             assert_eq!(task_status.len(), 2);
@@ -187,6 +189,7 @@ mod tests {
                 TaskStatus::WorkInProgress,
                 None,
             )
+            .await
             .unwrap();
 
             {
@@ -197,6 +200,7 @@ mod tests {
                         tasks[1].3,
                         Some(tasks[1].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
@@ -213,6 +217,7 @@ mod tests {
                 TaskStatus::CancellationInProgress,
                 None,
             )
+            .await
             .unwrap();
 
             {
@@ -223,6 +228,7 @@ mod tests {
                         tasks[1].3,
                         Some(tasks[1].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
                 assert_eq!(task_status[2].0, TaskStatus::CancellationInProgress);
@@ -240,6 +246,7 @@ mod tests {
                 TaskStatus::Cancelled,
                 None,
             )
+            .await
             .unwrap();
 
             {
@@ -250,6 +257,7 @@ mod tests {
                         tasks[1].3,
                         Some(tasks[1].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 4);
                 assert_eq!(task_status[3].0, TaskStatus::Cancelled);
@@ -269,6 +277,7 @@ mod tests {
                 TaskStatus::WorkInProgress,
                 None,
             )
+            .await
             .unwrap();
 
             {
@@ -279,6 +288,7 @@ mod tests {
                         tasks[2].3,
                         Some(tasks[2].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
@@ -296,6 +306,7 @@ mod tests {
                 TaskStatus::Success,
                 Some(&proof),
             )
+            .await
             .unwrap();
 
             {
@@ -306,6 +317,7 @@ mod tests {
                         tasks[2].3,
                         Some(tasks[2].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
                 assert_eq!(task_status[2].0, TaskStatus::Success);
@@ -321,6 +333,7 @@ mod tests {
                     tasks[2].3,
                     Some(tasks[2].4.to_string())
                 )
+                .await
                 .unwrap()
             );
         }
@@ -335,6 +348,7 @@ mod tests {
                 TaskStatus::WorkInProgress,
                 None,
             )
+            .await
             .unwrap();
 
             {
@@ -345,6 +359,7 @@ mod tests {
                         tasks[3].3,
                         Some(tasks[3].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 2);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
@@ -361,6 +376,7 @@ mod tests {
                 TaskStatus::NetworkFailure,
                 None,
             )
+            .await
             .unwrap();
 
             {
@@ -371,6 +387,7 @@ mod tests {
                         tasks[3].3,
                         Some(tasks[3].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 3);
                 assert_eq!(task_status[2].0, TaskStatus::NetworkFailure);
@@ -388,6 +405,7 @@ mod tests {
                 TaskStatus::WorkInProgress,
                 None,
             )
+            .await
             .unwrap();
 
             {
@@ -398,6 +416,7 @@ mod tests {
                         tasks[3].3,
                         Some(tasks[3].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 4);
                 assert_eq!(task_status[3].0, TaskStatus::WorkInProgress);
@@ -417,6 +436,7 @@ mod tests {
                 TaskStatus::Success,
                 Some(proof.as_slice()),
             )
+            .await
             .unwrap();
 
             {
@@ -427,6 +447,7 @@ mod tests {
                         tasks[3].3,
                         Some(tasks[3].4.to_string()),
                     )
+                    .await
                     .unwrap();
                 assert_eq!(task_status.len(), 5);
                 assert_eq!(task_status[4].0, TaskStatus::Success);
@@ -444,6 +465,7 @@ mod tests {
                     tasks[3].3,
                     Some(tasks[3].4.to_string())
                 )
+                .await
                 .unwrap()
             );
         }
