@@ -134,6 +134,7 @@ tokio = { version = "^1.23", features = ["full"] }
 hyper = { version = "0.14.27", features = ["server"] }
 reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
+async-trait = "0.1.80"
 
 # crypto
 c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [

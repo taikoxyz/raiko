@@ -7,7 +7,10 @@
 
 // Imports
 // ----------------------------------------------------------------
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Once},
+};
 
 use crate::{
     ensure, EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
@@ -17,11 +20,12 @@ use crate::{
 use chrono::Utc;
 use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{keccak::keccak, ChainId, B256};
+use tokio::sync::Mutex;
 use tracing::{debug, info};
 
 #[derive(Debug)]
 pub struct InMemoryTaskManager {
-    db: InMemoryTaskDb,
+    db: Arc<Mutex<InMemoryTaskDb>>,
 }
 
 #[derive(Debug)]
@@ -188,16 +192,28 @@ impl InMemoryTaskDb {
 
 impl TaskManager for InMemoryTaskManager {
     fn new(_opts: &TaskManagerOpts) -> Self {
+        static INIT: Once = Once::new();
+        static mut SHARED_TASK_MANAGER: Option<Arc<Mutex<InMemoryTaskDb>>> = None;
+
+        INIT.call_once(|| {
+            let task_manager: Arc<Mutex<InMemoryTaskDb>> =
+                Arc::new(Mutex::new(InMemoryTaskDb::new()));
+            unsafe {
+                SHARED_TASK_MANAGER = Some(Arc::clone(&task_manager));
+            }
+        });
+
         InMemoryTaskManager {
-            db: InMemoryTaskDb::new(),
+            db: unsafe { SHARED_TASK_MANAGER.clone().unwrap() },
         }
     }
 
-    fn enqueue_task(
+    async fn enqueue_task(
         &mut self,
         params: &EnqueueTaskParams,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        if let Ok(proving_status) = self.db.get_task_proving_status(
+        let db = self.db.lock().await;
+        if let Ok(proving_status) = db.get_task_proving_status(
             params.chain_id,
             params.blockhash,
             params.proof_type,
@@ -205,8 +221,8 @@ impl TaskManager for InMemoryTaskManager {
         ) {
             Ok(proving_status)
         } else {
-            self.db.enqueue_task(params);
-            let proving_status = self.db.get_task_proving_status(
+            db.enqueue_task(params);
+            let proving_status = db.get_task_proving_status(
                 params.chain_id,
                 params.blockhash,
                 params.proof_type,
@@ -216,7 +232,7 @@ impl TaskManager for InMemoryTaskManager {
         }
     }
 
-    fn update_task_progress(
+    async fn update_task_progress(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
@@ -225,21 +241,21 @@ impl TaskManager for InMemoryTaskManager {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
-        self.db
-            .update_task_progress(chain_id, blockhash, proof_system, prover, status, proof)?;
+        let db = self.db.lock().await;
+        db.update_task_progress(chain_id, blockhash, proof_system, prover, status, proof)?;
         Ok(())
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    fn get_task_proving_status(
+    async fn get_task_proving_status(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
         proof_system: ProofType,
         prover: Option<String>,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        self.db
-            .get_task_proving_status(chain_id, blockhash, proof_system, prover)
+        let db = self.db.lock().await;
+        db.get_task_proving_status(chain_id, blockhash, proof_system, prover)
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
@@ -247,35 +263,38 @@ impl TaskManager for InMemoryTaskManager {
         &mut self,
         task_id: u64,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        let proving_status = self.db.get_task_proving_status_by_id(task_id)?;
+        let db = self.db.lock().await;
+        let proving_status = db.get_task_proving_status_by_id(task_id)?;
         Ok(proving_status)
     }
 
-    fn get_task_proof(
+    async fn get_task_proof(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
         proof_system: ProofType,
         prover: Option<String>,
     ) -> TaskManagerResult<Vec<u8>> {
-        let proof = self
-            .db
-            .get_task_proof(chain_id, blockhash, proof_system, prover)?;
+        let db = self.db.lock().await;
+        let proof = db.get_task_proof(chain_id, blockhash, proof_system, prover)?;
         Ok(proof)
     }
 
-    fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
-        let proof = self.db.get_task_proof_by_id(task_id)?;
+    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
+        let db = self.db.lock().await;
+        let proof = db.get_task_proof_by_id(task_id)?;
         Ok(proof)
     }
 
     /// Returns the total and detailed database size
-    fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
-        self.db.size()
+    async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
+        let db = self.db.lock().await;
+        db.size()
     }
 
-    fn prune_db(&mut self) -> TaskManagerResult<()> {
-        self.db.prune()
+    async fn prune_db(&mut self) -> TaskManagerResult<()> {
+        let db = self.db.lock().await;
+        db.prune()
     }
 }
 

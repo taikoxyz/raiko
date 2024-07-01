@@ -155,7 +155,7 @@
 use std::{
     fs::File,
     path::Path,
-    sync::{Arc, Mutex, Once},
+    sync::{Arc, Once},
 };
 
 use chrono::{DateTime, Utc};
@@ -164,6 +164,7 @@ use raiko_lib::primitives::{ChainId, B256};
 use rusqlite::{
     named_params, {Connection, OpenFlags},
 };
+use tokio::sync::Mutex;
 
 use crate::{
     EnqueueTaskParams, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
@@ -764,15 +765,15 @@ impl TaskManager for SqliteTaskManager {
         }
     }
 
-    fn enqueue_task(
+    async fn enqueue_task(
         &mut self,
         params: &EnqueueTaskParams,
     ) -> Result<Vec<TaskProvingStatus>, TaskManagerError> {
-        let task_db = self.arc_task_db.lock().unwrap();
+        let task_db = self.arc_task_db.lock().await;
         task_db.enqueue_task(params)
     }
 
-    fn update_task_progress(
+    async fn update_task_progress(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
@@ -781,55 +782,55 @@ impl TaskManager for SqliteTaskManager {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
-        let task_db = self.arc_task_db.lock().unwrap();
+        let task_db = self.arc_task_db.lock().await;
         task_db.update_task_progress(chain_id, blockhash, proof_type, prover, status, proof)
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    fn get_task_proving_status(
+    async fn get_task_proving_status(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
         proof_type: ProofType,
         prover: Option<String>,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        let task_db = self.arc_task_db.lock().unwrap();
+        let task_db = self.arc_task_db.lock().await;
         task_db.get_task_proving_status(chain_id, blockhash, proof_type, prover)
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    fn get_task_proving_status_by_id(
+    async fn get_task_proving_status_by_id(
         &mut self,
         task_id: u64,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        let task_db = self.arc_task_db.lock().unwrap();
+        let task_db = self.arc_task_db.lock().await;
         task_db.get_task_proving_status_by_id(task_id)
     }
 
-    fn get_task_proof(
+    async fn get_task_proof(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
         proof_type: ProofType,
         prover: Option<String>,
     ) -> TaskManagerResult<Vec<u8>> {
-        let task_db = self.arc_task_db.lock().unwrap();
+        let task_db = self.arc_task_db.lock().await;
         task_db.get_task_proof(chain_id, blockhash, proof_type, prover)
     }
 
-    fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
-        let task_db = self.arc_task_db.lock().unwrap();
+    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
+        let task_db = self.arc_task_db.lock().await;
         task_db.get_task_proof_by_id(task_id)
     }
 
     /// Returns the total and detailed database size
-    fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
-        let task_db = self.arc_task_db.lock().unwrap();
+    async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
+        let task_db = self.arc_task_db.lock().await;
         task_db.get_db_size()
     }
 
-    fn prune_db(&mut self) -> TaskManagerResult<()> {
-        let task_db = self.arc_task_db.lock().unwrap();
+    async fn prune_db(&mut self) -> TaskManagerResult<()> {
+        let task_db = self.arc_task_db.lock().await;
         task_db.prune_db()
     }
 }
