@@ -1,7 +1,7 @@
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
-    require, require_eq,
+    require,
 };
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
