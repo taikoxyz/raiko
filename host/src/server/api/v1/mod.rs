@@ -60,13 +60,18 @@ pub struct ProofResponse {
     pub quote: Option<String>,
 }
 
-impl IntoResponse for ProofResponse {
-    fn into_response(self) -> axum::response::Response {
-        axum::Json(serde_json::json!({
+impl ProofResponse {
+    pub fn to_response(&self) -> Value {
+        serde_json::json!({
             "status": "ok",
             "data": self
-        }))
-        .into_response()
+        })
+    }
+}
+
+impl IntoResponse for ProofResponse {
+    fn into_response(self) -> axum::response::Response {
+        axum::Json(self.to_response()).into_response()
     }
 }
 

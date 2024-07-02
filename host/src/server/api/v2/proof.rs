@@ -83,7 +83,14 @@ async fn proof_handler(
             prover_state.chain_specs,
         ))?;
 
-        return Ok(Json(serde_json::json!("{}")));
+        return Ok(Json(serde_json::json!(
+            {
+                "status": "ok",
+                "data": {
+                    "status": TaskStatus::Registered,
+                }
+            }
+        )));
     }
 
     let status = status.last().unwrap().0;
@@ -104,7 +111,7 @@ async fn proof_handler(
             quote: None,
         };
 
-        return Ok(Json(serde_json::to_value(response)?));
+        return Ok(Json(response.to_response()));
     }
 
     Ok(Json(serde_json::json!(
