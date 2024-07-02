@@ -1,15 +1,18 @@
-use std::io::{Error as IOError, ErrorKind as IOErrorKind};
-use std::path::PathBuf;
+use std::{
+    io::{Error as IOError, ErrorKind as IOErrorKind},
+    path::PathBuf,
+};
 
 use chrono::{DateTime, Utc};
-use mem_db::InMemoryTaskManager;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{ChainId, B256};
 use rusqlite::Error as SqlError;
 use serde::Serialize;
 
-// mod adv_sqlite;
+use crate::{adv_sqlite::SqliteTaskManager, mem_db::InMemoryTaskManager};
+
+mod adv_sqlite;
 mod mem_db;
 
 // Types
@@ -58,7 +61,6 @@ pub enum TaskStatus {
     Success                   =     0,
     Registered                =  1000,
     WorkInProgress            =  2000,
-    WorkReported              =  3000,
     ProofFailure_Generic      = -1000,
     ProofFailure_OutOfMemory  = -1100,
     NetworkFailure            = -2000,
@@ -76,7 +78,7 @@ pub enum TaskStatus {
 pub struct EnqueueTaskParams {
     pub chain_id: ChainId,
     pub blockhash: B256,
-    pub proof_system: ProofType,
+    pub proof_type: ProofType,
     pub prover: String,
     pub block_number: u64,
 }
@@ -112,7 +114,7 @@ impl From<&EnqueueTaskParams> for TaskDescriptor {
         TaskDescriptor {
             chain_id: params.chain_id,
             blockhash: params.blockhash,
-            proof_system: params.proof_system,
+            proof_system: params.proof_type,
             prover: params.prover.clone(),
         }
     }
@@ -129,18 +131,19 @@ pub struct TaskManagerOpts {
     pub max_db_size: usize,
 }
 
+#[async_trait::async_trait]
 pub trait TaskManager {
     /// new a task manager
     fn new(opts: &TaskManagerOpts) -> Self;
 
     /// enqueue_task
-    fn enqueue_task(
+    async fn enqueue_task(
         &mut self,
         request: &EnqueueTaskParams,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
     /// Update the task progress
-    fn update_task_progress(
+    async fn update_task_progress(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
@@ -151,7 +154,7 @@ pub trait TaskManager {
     ) -> TaskManagerResult<()>;
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    fn get_task_proving_status(
+    async fn get_task_proving_status(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
@@ -160,13 +163,13 @@ pub trait TaskManager {
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    fn get_task_proving_status_by_id(
+    async fn get_task_proving_status_by_id(
         &mut self,
         task_id: u64,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
     /// Returns the proof for the given task
-    fn get_task_proof(
+    async fn get_task_proof(
         &mut self,
         chain_id: ChainId,
         blockhash: B256,
@@ -174,13 +177,13 @@ pub trait TaskManager {
         prover: Option<String>,
     ) -> TaskManagerResult<Vec<u8>>;
 
-    fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>>;
+    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>>;
 
     /// Returns the total and detailed database size
-    fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)>;
+    async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)>;
 
     /// Prune old tasks
-    fn prune_db(&mut self) -> TaskManagerResult<()>;
+    async fn prune_db(&mut self) -> TaskManagerResult<()>;
 }
 
 pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
@@ -190,47 +193,175 @@ pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
     Ok(())
 }
 
-use std::sync::{Arc, Mutex, Once};
+enum TaskManagerInstance {
+    InMemory(InMemoryTaskManager),
+    Sqlite(SqliteTaskManager),
+}
 
-// todo: use feature to switch between sqlite and memory db
-pub fn get_task_manager(opts: &TaskManagerOpts) -> Arc<Mutex<InMemoryTaskManager>> {
-    static INIT: Once = Once::new();
-    static mut SHARED_TASK_MANAGER: Option<Arc<Mutex<InMemoryTaskManager>>> = None;
+pub struct TaskManagerWrapper {
+    manager: TaskManagerInstance,
+}
 
-    INIT.call_once(|| {
-        let task_manager: Arc<Mutex<InMemoryTaskManager>> =
-            Arc::new(Mutex::new(InMemoryTaskManager::new(opts)));
-        unsafe {
-            SHARED_TASK_MANAGER = Some(Arc::clone(&task_manager));
+#[async_trait::async_trait]
+impl TaskManager for TaskManagerWrapper {
+    fn new(opts: &TaskManagerOpts) -> Self {
+        let manager = if cfg!(feature = "sqlite") {
+            TaskManagerInstance::Sqlite(SqliteTaskManager::new(opts))
+        } else {
+            TaskManagerInstance::InMemory(InMemoryTaskManager::new(opts))
+        };
+
+        Self { manager }
+    }
+
+    async fn enqueue_task(
+        &mut self,
+        request: &EnqueueTaskParams,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => manager.enqueue_task(request).await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.enqueue_task(request).await,
         }
-    });
+    }
 
-    unsafe { SHARED_TASK_MANAGER.as_ref().unwrap().clone() }
+    async fn update_task_progress(
+        &mut self,
+        chain_id: ChainId,
+        blockhash: B256,
+        proof_system: ProofType,
+        prover: Option<String>,
+        status: TaskStatus,
+        proof: Option<&[u8]>,
+    ) -> TaskManagerResult<()> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager
+                    .update_task_progress(chain_id, blockhash, proof_system, prover, status, proof)
+                    .await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager
+                    .update_task_progress(chain_id, blockhash, proof_system, prover, status, proof)
+                    .await
+            }
+        }
+    }
+
+    async fn get_task_proving_status(
+        &mut self,
+        chain_id: ChainId,
+        blockhash: B256,
+        proof_system: ProofType,
+        prover: Option<String>,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager
+                    .get_task_proving_status(chain_id, blockhash, proof_system, prover)
+                    .await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager
+                    .get_task_proving_status(chain_id, blockhash, proof_system, prover)
+                    .await
+            }
+        }
+    }
+
+    async fn get_task_proving_status_by_id(
+        &mut self,
+        task_id: u64,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager.get_task_proving_status_by_id(task_id).await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager.get_task_proving_status_by_id(task_id).await
+            }
+        }
+    }
+
+    async fn get_task_proof(
+        &mut self,
+        chain_id: ChainId,
+        blockhash: B256,
+        proof_system: ProofType,
+        prover: Option<String>,
+    ) -> TaskManagerResult<Vec<u8>> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager
+                    .get_task_proof(chain_id, blockhash, proof_system, prover)
+                    .await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager
+                    .get_task_proof(chain_id, blockhash, proof_system, prover)
+                    .await
+            }
+        }
+    }
+
+    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager.get_task_proof_by_id(task_id).await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager.get_task_proof_by_id(task_id).await
+            }
+        }
+    }
+
+    async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => manager.get_db_size().await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.get_db_size().await,
+        }
+    }
+
+    async fn prune_db(&mut self) -> TaskManagerResult<()> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => manager.prune_db().await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.prune_db().await,
+        }
+    }
+}
+
+pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapper {
+    TaskManagerWrapper::new(opts)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::path::Path;
 
-    #[test]
-    fn test_new_taskmanager() {
+    #[tokio::test]
+    async fn test_new_taskmanager() {
+        let sqlite_file: &Path = Path::new("test.db");
+        // remove existed one
+        if sqlite_file.exists() {
+            std::fs::remove_file(sqlite_file).unwrap();
+        }
+
         let opts = TaskManagerOpts {
-            sqlite_file: "test.db".to_string().into(),
-            max_db_size: 1024,
+            sqlite_file: sqlite_file.to_path_buf(),
+            max_db_size: 1024 * 1024,
         };
-        let binding = get_task_manager(&opts);
-        let mut task_manager = binding.lock().unwrap();
-        assert_eq!(task_manager.get_db_size().unwrap().0, 0);
+        let mut task_manager = get_task_manager(&opts);
 
         assert_eq!(
             task_manager
                 .enqueue_task(&EnqueueTaskParams {
                     chain_id: 1,
                     blockhash: B256::default(),
-                    proof_system: ProofType::Native,
+                    proof_type: ProofType::Native,
                     prover: "test".to_string(),
                     block_number: 1
                 })
+                .await
                 .unwrap()
                 .len(),
             1
