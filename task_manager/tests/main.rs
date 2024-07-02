@@ -14,7 +14,7 @@ mod tests {
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
-    use raiko_lib::primitives::B256;
+    use raiko_lib::{input::BlobProofType, primitives::B256};
     use raiko_task_manager::{
         get_task_manager, EnqueueTaskParams, TaskManager, TaskManagerOpts, TaskStatus,
     };
@@ -44,6 +44,7 @@ mod tests {
                 prover,
                 proof_type,
                 prover_args,
+                blob_proof_type: BlobProofType::ProofOfEquivalence,
             },
         )
     }
