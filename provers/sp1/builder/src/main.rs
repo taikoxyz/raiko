@@ -38,7 +38,7 @@ impl Pipeline for Sp1Pipeline {
             ])
             .cc_compiler("gcc".into())
             .c_flags(&[
-                "/opt/riscv/bin/riscv32-unknown-elf-gcc",
+                "riscv32-unknown-elf-gcc",
                 "-march=rv32im",
                 "-mstrict-align",
                 "-falign-functions=2",
