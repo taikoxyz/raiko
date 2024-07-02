@@ -2,10 +2,9 @@ use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
-use alloy_consensus::TxEnvelope;
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};
+use alloy_rpc_types::{Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use kzg_traits::{
@@ -29,7 +28,7 @@ use raiko_lib::{
     Measurement,
 };
 use reth_evm_ethereum::taiko::decode_anchor;
-use reth_primitives::Block as RethBlock;
+use reth_primitives::Block;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tracing::{debug, info, warn};
@@ -52,7 +51,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         blocks.first().ok_or_else(|| {
             RaikoError::Preflight("No block data for the requested block".to_owned())
         })?,
-        &blocks.get(1).ok_or_else(|| {
+        blocks.get(1).ok_or_else(|| {
             RaikoError::Preflight("No parent block data for the requested block".to_owned())
         })?,
     );
@@ -66,12 +65,17 @@ pub async fn preflight<BDP: BlockDataProvider>(
     debug!("block gas used: {:?}", block.header.gas_used);
     debug!("block transactions: {:?}", block.transactions.len());
 
+    // Convert the alloy block to a reth block
+    let block = Block::try_from(block.clone()).map_err(|e| {
+        RaikoError::Conversion(format!("Failed converting to reth block: {}", e).to_owned())
+    })?;
+
     let taiko_guest_input = if taiko_chain_spec.is_taiko() {
         prepare_taiko_chain_input(
             &l1_chain_spec,
             &taiko_chain_spec,
             block_number,
-            block,
+            &block,
             prover_data,
             blob_proof_type,
         )
@@ -80,17 +84,15 @@ pub async fn preflight<BDP: BlockDataProvider>(
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
         TaikoGuestInput {
-            tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(block)?))?,
+            tx_data: zlib_compress_data(&alloy_rlp::encode(&block.body))?,
             ..Default::default()
         }
     };
     measurement.stop();
 
-    let reth_block = RethBlock::try_from(block.clone()).map_err(|e| {
-        RaikoError::Conversion(format!("Failed converting to reth block: {}", e).to_owned())
-    })?;
+    // Create the guest input
     let input = GuestInput {
-        block: reth_block.clone(),
+        block: block.clone(),
         chain_spec: taiko_chain_spec.clone(),
         parent_state_trie: Default::default(),
         parent_storage: Default::default(),
@@ -114,8 +116,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
     )
     .await?;
 
+    // Now re-execute the transactions in the block to collect all required data
     let mut builder = RethBlockBuilder::new(&input, provider_db);
-
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
     let is_local = false;
     let max_iterations = if is_local { 1 } else { 100 };
@@ -169,6 +171,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     }
     measurement.stop();
 
+    // Fill in remaining generated guest input data
     let input = GuestInput {
         parent_state_trie: state_trie,
         parent_storage: storage,
@@ -177,7 +180,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
         ..input
     };
 
-    // Add the collected data to the input
     Ok(input)
 }
 
@@ -193,11 +195,8 @@ async fn prepare_taiko_chain_input(
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, block_number)?;
 
     // Decode the anchor tx to find out which L1 blocks we need to fetch
-    let anchor_tx = match &block.transactions {
-        BlockTransactions::Full(txs) => txs[0].clone(),
-        _ => unreachable!(),
-    };
-    let anchor_call = decode_anchor(anchor_tx.input.as_ref())?;
+    let anchor_tx = &block.body[0].clone();
+    let anchor_call = decode_anchor(anchor_tx.input())?;
     // The L1 blocks we need
     let l1_state_block_number = anchor_call.l1BlockId;
     let l1_inclusion_block_number = l1_state_block_number + 1;
@@ -268,7 +267,7 @@ async fn prepare_taiko_chain_input(
     Ok(TaikoGuestInput {
         l1_header: l1_state_block.header.clone().try_into().unwrap(),
         tx_data,
-        anchor_tx: Some(anchor_tx.try_into().unwrap()),
+        anchor_tx: Some(anchor_tx.clone()),
         blob_commitment,
         block_proposed: proposal_event,
         prover_data,
@@ -463,25 +462,6 @@ async fn get_block_proposed_event(
         }
     }
     bail!("No BlockProposed event found for block {l2_block_number}");
-}
-
-fn get_transactions_from_block(block: &Block) -> RaikoResult<Vec<TxEnvelope>> {
-    let mut transactions: Vec<TxEnvelope> = Vec::new();
-    if !block.transactions.is_empty() {
-        match &block.transactions {
-            BlockTransactions::Full(txs) => {
-                for tx in txs {
-                    transactions.push(TxEnvelope::try_from(tx.clone()).unwrap());
-                }
-            },
-            _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
-        };
-        assert!(
-            transactions.len() == block.transactions.len(),
-            "unexpected number of transactions"
-        );
-    }
-    Ok(transactions)
 }
 
 #[cfg(test)]

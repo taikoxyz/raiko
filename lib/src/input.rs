@@ -11,7 +11,7 @@ use reth_primitives::{
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-use reth_primitives::{Block as RethBlock, Header};
+use reth_primitives::{Block, Header};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -27,7 +27,7 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput {
     /// Reth block
-    pub block: RethBlock,
+    pub block: Block,
     /// The network to generate the proof for
     pub chain_spec: ChainSpec,
     /// Previous block header
