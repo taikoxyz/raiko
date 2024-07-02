@@ -262,6 +262,8 @@ pub async fn handle_message(
             }
         }
     }
+
+    Ok(())
 }
 
 pub async fn handle_proof(
