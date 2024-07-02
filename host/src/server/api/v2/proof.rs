@@ -1,9 +1,7 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::ProofRequest;
 use raiko_core::provider::get_task_data;
-use raiko_task_manager::{
-    get_task_manager, EnqueueTaskParams, TaskManager, TaskManagerOpts, TaskStatus,
-};
+use raiko_task_manager::{get_task_manager, EnqueueTaskParams, TaskManager, TaskStatus};
 use serde_json::Value;
 use tracing::info;
 use utoipa::OpenApi;
@@ -58,10 +56,7 @@ async fn proof_handler(
     )
     .await?;
 
-    let mut manager = get_task_manager(&TaskManagerOpts {
-        sqlite_file: prover_state.opts.sqlite_file.clone(),
-        max_db_size: prover_state.opts.max_db_size,
-    });
+    let mut manager = get_task_manager(&(&prover_state.opts).into());
     let status = manager
         .get_task_proving_status(
             chain_id,

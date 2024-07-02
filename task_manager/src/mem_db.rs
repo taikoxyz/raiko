@@ -125,7 +125,7 @@ impl InMemoryTaskDb {
 
         match self.enqueue_task.get(&key) {
             Some(proving_status_records) => Ok(proving_status_records.clone()),
-            None => Err(TaskManagerError::SqlError("Key not found".to_owned())),
+            None => Ok(vec![]),
         }
     }
 

@@ -140,6 +140,24 @@ pub struct ProverState {
     pub task_channel: mpsc::Sender<TaskChannelOpts>,
 }
 
+impl From<Cli> for TaskManagerOpts {
+    fn from(val: Cli) -> Self {
+        Self {
+            sqlite_file: val.sqlite_file,
+            max_db_size: val.max_db_size,
+        }
+    }
+}
+
+impl From<&Cli> for TaskManagerOpts {
+    fn from(val: &Cli) -> Self {
+        Self {
+            sqlite_file: val.sqlite_file.clone(),
+            max_db_size: val.max_db_size,
+        }
+    }
+}
+
 impl ProverState {
     pub fn init() -> HostResult<Self> {
         // Read the command line arguments;
@@ -174,10 +192,7 @@ impl ProverState {
                 )
                 .await
                 .unwrap();
-                let task_manager_opts = &TaskManagerOpts {
-                    sqlite_file: opts.sqlite_file.clone(),
-                    max_db_size: opts.max_db_size,
-                };
+                let task_manager_opts = &opts.into();
                 let proof_result: HostResult<ProofResponse> = async move {
                     {
                         let mut manager = get_task_manager(task_manager_opts);
