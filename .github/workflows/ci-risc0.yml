@@ -11,12 +11,10 @@ on:
       - "provers/risc0/**"
   merge_group:
 
-
-==== BASE ====
 jobs:
-    build-test-risc0:
-      name: Build and test risc0
-      uses: ./.github/workflows/ci-build-test-reusable.yml
-      with:
-        version_name: "risc0"
-        version_toolchain: "stable"
+  build-test-risc0:
+    name: Build and test risc0
+    uses: ./.github/workflows/ci-build-test-reusable.yml
+    with:
+      version_name: "risc0"
+      version_toolchain: "stable"
