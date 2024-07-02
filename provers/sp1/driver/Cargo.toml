@@ -21,7 +21,6 @@ once_cell = { workspace = true, optional = true }
 sha3 = { workspace = true, optional = true, default-features = false }
 tracing = { workspace = true, optional = true }
 
-
 [features]
 enable = [
     "serde",

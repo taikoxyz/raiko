@@ -150,8 +150,13 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1
 	else
 		if [ -z "${TEST}" ]; then
+			if [ -n "$ORCHESTRATOR" ]; then
+				export ARGS="--sp1-orchestrator-address $ORCHESTRATOR"
+				echo "Running in worker mode with orchestrator address $ORCHESTRATOR"
+			fi
+
 			echo "Running Sp1 prover"
-			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1
+			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1 -- ${ARGS}
 		else
 			echo "Running Sp1 tests"
 			cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf

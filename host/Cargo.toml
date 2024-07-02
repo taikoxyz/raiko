@@ -82,7 +82,7 @@ ethers-core = { workspace = true }
 
 [features]
 default = []
-sp1 = ["raiko-core/sp1"]
+sp1 = ["raiko-core/sp1", "sp1-driver"]
 risc0 = ["raiko-core/risc0"]
 sgx = ["raiko-core/sgx"]
 
