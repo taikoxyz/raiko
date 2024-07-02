@@ -206,6 +206,8 @@ pub async fn handle_message(
     )
     .await?;
     let mut manager = get_task_manager(&opts.clone().into());
+    // If we cannot track progress with the task manager we can still do the work so we only trace
+    // the error
     if manager
         .update_task_progress(
             chain_id,
@@ -220,10 +222,13 @@ pub async fn handle_message(
     {
         error!("Could not update task to work in progress via task manager");
     }
+
     match handle_proof(&proof_request, &opts, &chain_specs).await {
         Ok(result) => {
             let proof_string = result.proof.unwrap_or_default();
             let proof = proof_string.as_bytes();
+            // We don't need to fail here even if we cannot store it with task manager because the
+            // work has already been done
             if manager
                 .update_task_progress(
                     chain_id,
@@ -240,6 +245,7 @@ pub async fn handle_message(
             }
         }
         Err(error) => {
+            // If we fail to track the with the task manager the work will be repeated anyway
             if manager
                 .update_task_progress(
                     chain_id,

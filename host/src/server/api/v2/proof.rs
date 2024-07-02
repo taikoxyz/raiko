@@ -13,6 +13,8 @@ use crate::{
     ProverState,
 };
 
+mod cancel;
+
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",
     request_body = ProofRequestOpt,
@@ -129,9 +131,13 @@ async fn proof_handler(
 struct Docs;
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    Docs::openapi()
+    let mut docs = Docs::openapi();
+    docs.merge(cancel::create_docs());
+    docs
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", post(proof_handler))
+    Router::new()
+        .route("/", post(proof_handler))
+        .nest("/cancel", cancel::create_router())
 }
