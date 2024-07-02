@@ -1,17 +1,10 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::interfaces::ProofRequest;
-use raiko_core::provider::get_task_data;
-use raiko_task_manager::{get_task_manager, EnqueueTaskParams, TaskManager, TaskStatus};
+use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
+use raiko_task_manager::{get_task_manager, TaskManager, TaskStatus};
 use serde_json::Value;
-use tracing::info;
 use utoipa::OpenApi;
 
-use crate::{
-    interfaces::HostResult,
-    metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
-    server::api::v1::ProofResponse,
-    ProverState,
-};
+use crate::{interfaces::HostResult, ProverState};
 
 #[utoipa::path(post, path = "/proof/cancel",
     tag = "Proving",
