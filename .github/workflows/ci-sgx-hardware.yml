@@ -11,7 +11,7 @@ jobs:
       TARGET: sgx
       CI: 1
       EDMM: 0
-  
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,15 +21,15 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-  
+
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@v1.6.4
-  
+
       - name: Install sgx
         run: make install
-  
+
       - name: Build sgx prover
         run: make build
-  
+
       - name: Test sgx prover
         run: make test

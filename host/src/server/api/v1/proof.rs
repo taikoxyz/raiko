@@ -26,7 +26,7 @@ use crate::{
     ProverState,
 };
 
-fn get_cached_input(
+pub fn get_cached_input(
     cache_path: &Option<PathBuf>,
     block_number: u64,
     network: &str,
@@ -40,7 +40,7 @@ fn get_cached_input(
     bincode::deserialize_from(file).ok()
 }
 
-fn set_cached_input(
+pub fn set_cached_input(
     cache_path: &Option<PathBuf>,
     block_number: u64,
     network: &str,
@@ -57,7 +57,7 @@ fn set_cached_input(
     bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))
 }
 
-async fn validate_cache_input(
+pub async fn validate_cache_input(
     cached_input: Option<GuestInput>,
     provider: &RpcBlockDataProvider,
 ) -> HostResult<GuestInput> {
@@ -92,10 +92,11 @@ async fn validate_cache_input(
     }
 }
 
-async fn handle_proof(
+pub async fn handle_proof(
     ProverState {
         opts,
         chain_specs: support_chain_specs,
+        ..
     }: ProverState,
     req: Value,
 ) -> HostResult<ProofResponse> {

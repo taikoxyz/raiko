@@ -14,6 +14,7 @@ sgx-prover = { path = "../provers/sgx/prover", optional = true }
 # raiko
 raiko-lib = { workspace = true }
 raiko-core = { workspace = true }
+raiko-task-manager = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }

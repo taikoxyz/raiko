@@ -1,12 +1,13 @@
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
+    require,
 };
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 use kzg_traits::{
     eip_4844::{blob_to_kzg_commitment_rust, Blob},
     G1,
@@ -240,7 +241,7 @@ async fn prepare_taiko_chain_input(
         debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-        assert!(!blob_hashes.is_empty());
+        require(!blob_hashes.is_empty(), "blob hashes are empty")?;
         // Currently the protocol enforces the first blob hash to be used
         let blob_hash = blob_hashes[0];
         // Get the blob data for this block
@@ -363,7 +364,7 @@ async fn get_blob_data_beacon(
     let response = reqwest::get(url.clone()).await?;
     if response.status().is_success() {
         let blobs: GetBlobsResponse = response.json().await?;
-        assert!(!blobs.data.is_empty(), "blob data not available anymore");
+        ensure!(!blobs.data.is_empty(), "blob data not available anymore");
         // Get the blob data for the blob storing the tx list
         let tx_blob = blobs
             .data
@@ -373,7 +374,7 @@ async fn get_blob_data_beacon(
                 blob_hash == calc_blob_versioned_hash(&blob.blob)
             })
             .cloned();
-        assert!(tx_blob.is_some());
+        ensure!(tx_blob.is_some());
         Ok(blob_to_bytes(&tx_blob.unwrap().blob))
     } else {
         warn!(

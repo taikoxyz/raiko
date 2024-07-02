@@ -79,10 +79,23 @@ impl From<raiko_lib::mem_db::DbError> for RaikoError {
 pub type RaikoResult<T> = Result<T, RaikoError>;
 
 #[derive(
-    PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Deserialize, Serialize, ToSchema, Hash, ValueEnum,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    ToSchema,
+    Hash,
+    ValueEnum,
+    Copy,
 )]
 /// Available proof types.
 pub enum ProofType {
+    #[default]
     /// # Native
     ///
     /// This builds the block the same way the node does and then runs the result.
@@ -144,7 +157,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sp1"))]
-                Err(RaikoError::FeatureNotSupportedError(self.clone()))
+                Err(RaikoError::FeatureNotSupportedError(*self))
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
@@ -152,7 +165,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "risc0"))]
-                Err(RaikoError::FeatureNotSupportedError(self.clone()))
+                Err(RaikoError::FeatureNotSupportedError(*self))
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
@@ -160,7 +173,7 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
-                Err(RaikoError::FeatureNotSupportedError(self.clone()))
+                Err(RaikoError::FeatureNotSupportedError(*self))
             }
         }?;
 
