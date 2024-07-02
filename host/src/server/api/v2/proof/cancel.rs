@@ -55,7 +55,7 @@ async fn cancel_handler(
             chain_id,
             block_hash,
             proof_request.proof_type,
-            proof_request.prover,
+            Some(proof_request.prover.to_string()),
             TaskStatus::Cancelled,
             None,
         )
