@@ -96,16 +96,6 @@ impl ProtocolInstance {
             );
         }
 
-        let deposits = input
-            .withdrawals
-            .iter()
-            .map(|w| EthDeposit {
-                recipient: w.address,
-                amount: w.amount as u128,
-                id: w.index,
-            })
-            .collect::<Vec<_>>();
-
         let verifier_address = (*input
             .chain_spec
             .verifier_address
@@ -125,7 +115,7 @@ impl ProtocolInstance {
                 difficulty: input.taiko.block_proposed.meta.difficulty,
                 blobHash: tx_list_hash,
                 extraData: bytes_to_bytes32(&header.extra_data).into(),
-                depositsHash: keccak(deposits.abi_encode()).into(),
+                depositsHash: keccak(Vec::<EthDeposit>::new().abi_encode()).into(),
                 coinbase: header.beneficiary,
                 id: header.number,
                 gasLimit: (header.gas_limit

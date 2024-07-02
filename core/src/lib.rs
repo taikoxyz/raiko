@@ -63,7 +63,6 @@ impl Raiko {
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
         let db = create_mem_db(&mut input.clone()).unwrap();
         let mut builder = RethBlockBuilder::new(input, db);
-        builder.prepare_header().expect("prepare");
         builder.execute_transactions(false).expect("execute");
         let result = builder.finalize();
 
