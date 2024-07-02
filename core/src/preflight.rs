@@ -2,10 +2,9 @@ use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
-use alloy_consensus::TxEnvelope;
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{Block, BlockTransactions, Filter, Transaction as AlloyRpcTransaction};
+use alloy_rpc_types::{Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, Result};
 use kzg_traits::{
@@ -18,17 +17,18 @@ use raiko_lib::{
     consts::ChainSpec,
     inplace_print,
     input::{
-        decode_anchor, proposeBlockCall, BlobProofType, BlockProposed, GuestInput, TaikoGuestInput,
+        proposeBlockCall, BlobProofType, BlockProposed, GuestInput, TaikoGuestInput,
         TaikoProverData,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
         mpt::proofs_to_tries,
     },
-    utils::{generate_transactions, zlib_compress_data},
+    utils::zlib_compress_data,
     Measurement,
 };
-use reth_primitives::Block as RethBlock;
+use reth_evm_ethereum::taiko::decode_anchor;
+use reth_primitives::Block;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tracing::{debug, info, warn};
@@ -51,7 +51,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         blocks.first().ok_or_else(|| {
             RaikoError::Preflight("No block data for the requested block".to_owned())
         })?,
-        &blocks.get(1).ok_or_else(|| {
+        blocks.get(1).ok_or_else(|| {
             RaikoError::Preflight("No parent block data for the requested block".to_owned())
         })?,
     );
@@ -65,12 +65,17 @@ pub async fn preflight<BDP: BlockDataProvider>(
     debug!("block gas used: {:?}", block.header.gas_used);
     debug!("block transactions: {:?}", block.transactions.len());
 
+    // Convert the alloy block to a reth block
+    let block = Block::try_from(block.clone()).map_err(|e| {
+        RaikoError::Conversion(format!("Failed converting to reth block: {}", e).to_owned())
+    })?;
+
     let taiko_guest_input = if taiko_chain_spec.is_taiko() {
         prepare_taiko_chain_input(
             &l1_chain_spec,
             &taiko_chain_spec,
             block_number,
-            block,
+            &block,
             prover_data,
             blob_proof_type,
         )
@@ -79,66 +84,21 @@ pub async fn preflight<BDP: BlockDataProvider>(
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
         TaikoGuestInput {
-            tx_data: zlib_compress_data(&alloy_rlp::encode(&get_transactions_from_block(block)?))?,
+            tx_data: zlib_compress_data(&alloy_rlp::encode(&block.body))?,
             ..Default::default()
         }
     };
     measurement.stop();
 
-    let reth_block = RethBlock::try_from(block.clone()).expect("block convert failed");
-
+    // Create the guest input
     let input = GuestInput {
-        block: reth_block.clone(),
+        block: block.clone(),
         chain_spec: taiko_chain_spec.clone(),
-        block_number,
-        beneficiary: block.header.miner,
-        gas_limit: block.header.gas_limit.try_into().map_err(|_| {
-            RaikoError::Conversion("Failed converting gas limit to u64".to_string())
-        })?,
-        timestamp: block.header.timestamp,
-        extra_data: block.header.extra_data.clone(),
-        mix_hash: if let Some(mix_hash) = block.header.mix_hash {
-            mix_hash
-        } else {
-            return Err(RaikoError::Preflight(
-                "No mix hash for the requested block".to_owned(),
-            ));
-        },
-        withdrawals: block.withdrawals.clone().unwrap_or_default(),
         parent_state_trie: Default::default(),
         parent_storage: Default::default(),
         contracts: Default::default(),
         parent_header: parent_block.header.clone().try_into().unwrap(),
         ancestor_headers: Default::default(),
-        base_fee_per_gas: block.header.base_fee_per_gas.map_or_else(
-            || {
-                Err(RaikoError::Preflight(
-                    "No base fee per gas for the requested block".to_owned(),
-                ))
-            },
-            |base_fee_per_gas| {
-                base_fee_per_gas.try_into().map_err(|_| {
-                    RaikoError::Conversion("Failed converting base fee per gas to u64".to_owned())
-                })
-            },
-        )?,
-        blob_gas_used: block.header.blob_gas_used.map_or_else(
-            || Ok(None),
-            |b: u128| -> RaikoResult<Option<u64>> {
-                b.try_into().map(Some).map_err(|_| {
-                    RaikoError::Conversion("Failed converting blob gas used to u64".to_owned())
-                })
-            },
-        )?,
-        excess_blob_gas: block.header.excess_blob_gas.map_or_else(
-            || Ok(None),
-            |b: u128| -> RaikoResult<Option<u64>> {
-                b.try_into().map(Some).map_err(|_| {
-                    RaikoError::Conversion("Failed converting excess blob gas to u64".to_owned())
-                })
-            },
-        )?,
-        parent_beacon_block_root: block.header.parent_beacon_block_root,
         taiko: taiko_guest_input,
     };
 
@@ -156,9 +116,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
     )
     .await?;
 
+    // Now re-execute the transactions in the block to collect all required data
     let mut builder = RethBlockBuilder::new(&input, provider_db);
-    builder.prepare_header()?;
-
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
     let is_local = false;
     let max_iterations = if is_local { 1 } else { 100 };
@@ -212,6 +171,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     }
     measurement.stop();
 
+    // Fill in remaining generated guest input data
     let input = GuestInput {
         parent_state_trie: state_trie,
         parent_storage: storage,
@@ -220,7 +180,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
         ..input
     };
 
-    // Add the collected data to the input
     Ok(input)
 }
 
@@ -236,11 +195,8 @@ async fn prepare_taiko_chain_input(
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, block_number)?;
 
     // Decode the anchor tx to find out which L1 blocks we need to fetch
-    let anchor_tx = match &block.transactions {
-        BlockTransactions::Full(txs) => txs[0].clone(),
-        _ => unreachable!(),
-    };
-    let anchor_call = decode_anchor(anchor_tx.input.as_ref())?;
+    let anchor_tx = &block.body[0].clone();
+    let anchor_call = decode_anchor(anchor_tx.input())?;
     // The L1 blocks we need
     let l1_state_block_number = anchor_call.l1BlockId;
     let l1_inclusion_block_number = l1_state_block_number + 1;
@@ -307,24 +263,11 @@ async fn prepare_taiko_chain_input(
         (proposal_call.txList.as_ref().to_owned(), None)
     };
 
-    // Create the transactions from the proposed tx list
-    let transactions = generate_transactions(
-        taiko_chain_spec,
-        proposal_event.meta.blobUsed,
-        &tx_data,
-        Some(anchor_tx.clone()),
-    );
-    // Do a sanity check using the transactions returned by the node
-    assert!(
-        transactions.len() >= block.transactions.len(),
-        "unexpected number of transactions"
-    );
-
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {
         l1_header: l1_state_block.header.clone().try_into().unwrap(),
         tx_data,
-        anchor_tx: serde_json::to_string(&anchor_tx).map_err(RaikoError::Serde)?,
+        anchor_tx: Some(anchor_tx.clone()),
         blob_commitment,
         block_proposed: proposal_event,
         prover_data,
@@ -519,25 +462,6 @@ async fn get_block_proposed_event(
         }
     }
     bail!("No BlockProposed event found for block {l2_block_number}");
-}
-
-fn get_transactions_from_block(block: &Block) -> RaikoResult<Vec<TxEnvelope>> {
-    let mut transactions: Vec<TxEnvelope> = Vec::new();
-    if !block.transactions.is_empty() {
-        match &block.transactions {
-            BlockTransactions::Full(txs) => {
-                for tx in txs {
-                    transactions.push(TxEnvelope::try_from(tx.clone()).unwrap());
-                }
-            },
-            _ => unreachable!("Block is too old, please connect to an archive node or use a block that is at most 128 blocks old."),
-        };
-        assert!(
-            transactions.len() == block.transactions.len(),
-            "unexpected number of transactions"
-        );
-    }
-    Ok(transactions)
 }
 
 #[cfg(test)]

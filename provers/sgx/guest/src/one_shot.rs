@@ -136,7 +136,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     println!(
         "Block {}. PI data to be signed: {pi_hash}",
-        input.block_number
+        input.block.number
     );
 
     // Sign the public input hash which contains all required block inputs and outputs
