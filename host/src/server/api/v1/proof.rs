@@ -64,7 +64,7 @@ async fn validate_cache_input(
     if let Some(cache_input) = cached_input {
         debug!("Using cached input");
         let blocks = provider
-            .get_blocks(&[(cache_input.block_number, false)])
+            .get_blocks(&[(cache_input.block.number, false)])
             .await?;
         let block = blocks
             .first()
