@@ -181,69 +181,9 @@ impl ProverState {
         let (task_channel, mut receiver) = mpsc::channel::<TaskChannelOpts>(opts.concurrency_limit);
 
         let _spawn = tokio::spawn(async move {
-            while let Some((proof_request, opts, chain_specs)) = receiver.recv().await {
-                let Ok((chain_id, blockhash)) = get_task_data(
-                    &proof_request.network,
-                    proof_request.block_number,
-                    &chain_specs,
-                )
-                .await
-                else {
-                    error!("Could not retrieve chain ID and blockhash");
-                    continue;
-                };
-                let mut manager = get_task_manager(&opts.clone().into());
-                if manager
-                    .update_task_progress(
-                        chain_id,
-                        blockhash,
-                        proof_request.proof_type,
-                        Some(proof_request.prover.to_string()),
-                        TaskStatus::WorkInProgress,
-                        None,
-                    )
-                    .await
-                    .is_err()
-                {
-                    error!("Could not update task to work in progress via task manager");
-                }
-                match handle_proof(&proof_request, &opts, &chain_specs).await {
-                    Ok(proof) => {
-                        let proof = proof.proof.unwrap_or_default();
-                        let proof = proof.as_bytes();
-                        if manager
-                            .update_task_progress(
-                                chain_id,
-                                blockhash,
-                                proof_request.proof_type,
-                                Some(proof_request.prover.to_string()),
-                                TaskStatus::Success,
-                                Some(proof),
-                            )
-                            .await
-                            .is_err()
-                        {
-                            error!("Could not update task progress to success via task manager");
-                        }
-                    }
-                    Err(error) => {
-                        if manager
-                            .update_task_progress(
-                                chain_id,
-                                blockhash,
-                                proof_request.proof_type,
-                                Some(proof_request.prover.to_string()),
-                                error.into(),
-                                None,
-                            )
-                            .await
-                            .is_err()
-                        {
-                            error!(
-                                "Could not update task progress to error state via task manager"
-                            );
-                        }
-                    }
+            while let Some(message) = receiver.recv().await {
+                if let Err(error) = handle_message(message).await {
+                    error!("Worker failed due to: {error:?}");
                 }
             }
         });
@@ -253,6 +193,68 @@ impl ProverState {
             chain_specs,
             task_channel,
         })
+    }
+}
+
+pub async fn handle_message(
+    (proof_request, opts, chain_specs): (ProofRequest, Cli, SupportedChainSpecs),
+) -> HostResult<()> {
+    let (chain_id, blockhash) = get_task_data(
+        &proof_request.network,
+        proof_request.block_number,
+        &chain_specs,
+    )
+    .await?;
+    let mut manager = get_task_manager(&opts.clone().into());
+    if manager
+        .update_task_progress(
+            chain_id,
+            blockhash,
+            proof_request.proof_type,
+            Some(proof_request.prover.to_string()),
+            TaskStatus::WorkInProgress,
+            None,
+        )
+        .await
+        .is_err()
+    {
+        error!("Could not update task to work in progress via task manager");
+    }
+    match handle_proof(&proof_request, &opts, &chain_specs).await {
+        Ok(result) => {
+            let proof_string = result.proof.unwrap_or_default();
+            let proof = proof_string.as_bytes();
+            if manager
+                .update_task_progress(
+                    chain_id,
+                    blockhash,
+                    proof_request.proof_type,
+                    Some(proof_request.prover.to_string()),
+                    TaskStatus::Success,
+                    Some(proof),
+                )
+                .await
+                .is_err()
+            {
+                error!("Could not update task progress to success via task manager");
+            }
+        }
+        Err(error) => {
+            if manager
+                .update_task_progress(
+                    chain_id,
+                    blockhash,
+                    proof_request.proof_type,
+                    Some(proof_request.prover.to_string()),
+                    error.into(),
+                    None,
+                )
+                .await
+                .is_err()
+            {
+                error!("Could not update task progress to error state via task manager");
+            }
+        }
     }
 }
 
