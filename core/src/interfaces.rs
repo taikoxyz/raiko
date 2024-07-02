@@ -91,6 +91,10 @@ pub enum ProofType {
     ///
     /// Uses the SP1 prover to build the block.
     Sp1,
+    /// # Sp1Distributed
+    ///
+    /// Uses the SP1 prover to build the block in a distributed way.
+    Sp1Distributed,
     /// # Sgx
     ///
     /// Builds the block on a SGX supported CPU to create a proof.
@@ -106,6 +110,7 @@ impl std::fmt::Display for ProofType {
         f.write_str(match self {
             ProofType::Native => "native",
             ProofType::Sp1 => "sp1",
+            ProofType::Sp1Distributed => "sp1_distributed",
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
         })
@@ -119,6 +124,7 @@ impl FromStr for ProofType {
         match s.trim().to_lowercase().as_str() {
             "native" => Ok(ProofType::Native),
             "sp1" => Ok(ProofType::Sp1),
+            "sp1_distributed" => Ok(ProofType::Sp1Distributed),
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
             _ => Err(RaikoError::InvalidProofType(s.to_string())),
@@ -141,6 +147,14 @@ impl ProofType {
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
                 return sp1_driver::Sp1Prover::run(input.clone(), output, config)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sp1"))]
+                Err(RaikoError::FeatureNotSupportedError(self.clone()))
+            }
+            ProofType::Sp1Distributed => {
+                #[cfg(feature = "sp1")]
+                return sp1_driver::Sp1DistributedProver::run(input, output, config)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sp1"))]

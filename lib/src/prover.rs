@@ -11,6 +11,8 @@ pub enum ProverError {
     FileIo(#[from] std::io::Error),
     #[error("ProverError::Param `{0}`")]
     Param(#[from] serde_json::Error),
+    #[error("ProverError::Worker `{0}`")]
+    Worker(#[from] WorkerError),
 }
 
 impl From<String> for ProverError {
@@ -36,4 +38,20 @@ pub fn to_proof(proof: ProverResult<impl Serialize>) -> ProverResult<Proof> {
     proof.and_then(|res| {
         serde_json::to_value(res).map_err(|err| ProverError::GuestError(err.to_string()))
     })
+}
+
+#[derive(ThisError, Debug)]
+pub enum WorkerError {
+    #[error("All workers failed")]
+    AllWorkersFailed,
+    #[error("Worker IO error: {0}")]
+    IO(#[from] std::io::Error),
+    #[error("Worker Serde error: {0}")]
+    Serde(#[from] bincode::Error),
+    #[error("Worker invalid magic number")]
+    InvalidMagicNumber,
+    #[error("Worker invalid request")]
+    InvalidRequest,
+    #[error("Worker invalid response")]
+    InvalidResponse,
 }

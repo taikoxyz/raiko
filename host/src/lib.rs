@@ -21,6 +21,10 @@ fn default_address() -> String {
     "0.0.0.0:8080".to_string()
 }
 
+fn default_worker_address() -> String {
+    "0.0.0.0:8081".to_string()
+}
+
 fn default_concurrency_limit() -> usize {
     16
 }
@@ -50,6 +54,17 @@ pub struct Cli {
     /// Server bind address
     /// [default: 0.0.0.0:8080]
     address: String,
+
+    #[arg(long, require_equals = true, default_value = "0.0.0.0:8081")]
+    #[serde(default = "default_worker_address")]
+    /// Distributed SP1 worker listening address
+    /// [default: 0.0.0.0:8081]
+    worker_address: String,
+
+    #[arg(long, default_value = None)]
+    /// Distributed SP1 worker orchestrator address
+    /// [default: None]
+    orchestrator_address: Option<String>,
 
     #[arg(long, require_equals = true, default_value = "16")]
     #[serde(default = "default_concurrency_limit")]

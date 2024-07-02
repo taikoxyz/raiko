@@ -5,9 +5,14 @@ use tokio::net::TcpListener;
 use tracing::info;
 
 pub mod api;
+#[cfg(feature = "sp1")]
+pub mod worker;
 
 /// Starts the proverd server.
 pub async fn serve(state: ProverState) -> anyhow::Result<()> {
+    #[cfg(feature = "sp1")]
+    worker::serve(state.clone()).await;
+
     let addr = SocketAddr::from_str(&state.opts.address)
         .map_err(|_| HostError::InvalidAddress(state.opts.address.clone()))?;
     let listener = TcpListener::bind(addr).await?;

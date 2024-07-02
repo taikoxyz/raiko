@@ -48,6 +48,10 @@ elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1"
   '
+elif [ "$proof" == "sp1_distributed" ]; then
+	proofParam='
+    "proof_type": "sp1_distributed"
+  '
 elif [ "$proof" == "sgx" ]; then
 	proofParam='
     "proof_type": "sgx",

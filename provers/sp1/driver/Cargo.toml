@@ -16,9 +16,23 @@ alloy-sol-types = { workspace = true }
 serde = {  workspace = true , optional = true}
 serde_json = { workspace = true , optional = true }
 sp1-sdk = { workspace = true, optional = true }
+sp1-core = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 sha3 = { workspace = true, optional = true, default-features = false}
+
+log = { workspace = true }
+tokio = { workspace = true }
+async-channel = { workspace = true }
+tracing = { workspace = true }
+tempfile = { workspace = true }
+bincode = { workspace = true }
+
+p3-field = { workspace = true }
+p3-challenger = { workspace = true }
+p3-poseidon2 = { workspace = true }
+p3-baby-bear = { workspace = true }
+p3-symmetric = { workspace = true }
 
 
 [features]
@@ -27,6 +41,7 @@ enable = [
     "serde_json",
     "raiko-lib",
     "sp1-sdk",
+    "sp1-core",
     "anyhow",
     "alloy-primitives",
     "once_cell",
