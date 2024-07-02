@@ -120,6 +120,19 @@ impl From<&EnqueueTaskParams> for TaskDescriptor {
     }
 }
 
+impl From<(ChainId, B256, ProofType, Option<String>)> for TaskDescriptor {
+    fn from(
+        (chain_id, blockhash, proof_system, prover): (ChainId, B256, ProofType, Option<String>),
+    ) -> Self {
+        TaskDescriptor {
+            chain_id,
+            blockhash,
+            proof_system,
+            prover: prover.unwrap_or_default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TaskProvingStatus(pub TaskStatus, pub Option<String>, pub DateTime<Utc>);
 

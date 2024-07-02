@@ -44,11 +44,6 @@ async fn proof_handler(
     inc_host_req_count(proof_request.block_number);
     inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
-    info!(
-        "# Generating proof for block {} on {}",
-        proof_request.block_number, proof_request.network
-    );
-
     let (chain_id, block_hash) = get_task_data(
         &proof_request.network,
         proof_request.block_number,
@@ -67,11 +62,10 @@ async fn proof_handler(
         .await?;
 
     if status.is_empty() {
-        prover_state.task_channel.try_send((
-            proof_request.clone(),
-            prover_state.opts,
-            prover_state.chain_specs,
-        ))?;
+        info!(
+            "# Generating proof for block {} on {}",
+            proof_request.block_number, proof_request.network
+        );
 
         manager
             .enqueue_task(&EnqueueTaskParams {
@@ -82,10 +76,17 @@ async fn proof_handler(
                 block_number: proof_request.block_number,
             })
             .await?;
+
+        prover_state.task_channel.try_send((
+            proof_request.clone(),
+            prover_state.opts,
+            prover_state.chain_specs,
+        ))?;
+
         return Ok(Json(serde_json::json!("{}")));
     }
 
-    let status = status.first().unwrap().0;
+    let status = status.last().unwrap().0;
 
     if matches!(status, TaskStatus::Success) {
         let proof = manager

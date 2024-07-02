@@ -1,7 +1,7 @@
 use axum::response::IntoResponse;
 use raiko_core::interfaces::ProofType;
 use raiko_lib::prover::ProverError;
-use raiko_task_manager::TaskManagerError;
+use raiko_task_manager::{TaskManagerError, TaskStatus};
 use tokio::sync::mpsc::error::TrySendError;
 use utoipa::ToSchema;
 
@@ -108,3 +108,24 @@ impl<T> From<TrySendError<T>> for HostError {
 
 /// A type alias for the standardized result type returned by the Raiko host.
 pub type HostResult<T> = axum::response::Result<T, HostError>;
+
+impl From<HostError> for TaskStatus {
+    fn from(value: HostError) -> Self {
+        match value {
+            HostError::HandleDropped
+            | HostError::CapacityFull
+            | HostError::JoinHandle(_)
+            | HostError::InvalidAddress(_)
+            | HostError::InvalidRequestConfig(_) => unreachable!(),
+            HostError::Conversion(_)
+            | HostError::Serde(_)
+            | HostError::Core(_)
+            | HostError::Anyhow(_)
+            | HostError::FeatureNotSupportedError(_)
+            | HostError::Io(_) => TaskStatus::UnspecifiedFailureReason,
+            HostError::RPC(_) => TaskStatus::NetworkFailure,
+            HostError::Guest(_) => TaskStatus::ProofFailure_Generic,
+            HostError::TaskManager(_) => TaskStatus::SqlDbCorruption,
+        }
+    }
+}
