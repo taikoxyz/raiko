@@ -1,6 +1,6 @@
 name: CI - RISC0
 
-on: 
+on:
   workflow_call:
   push:
     branches: ["main"]
@@ -9,7 +9,7 @@ on:
   pull_request:
     paths:
       - "provers/risc0/**"
-
+  merge_group:
 
 jobs:
     build-test-risc0:

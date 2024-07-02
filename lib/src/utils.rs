@@ -12,6 +12,7 @@ use crate::consts::{ChainSpec, Network};
 use crate::no_std::*;
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TransactionSigned> {
+    #[allow(clippy::useless_asref)]
     Vec::<TransactionSigned>::decode(&mut tx_list.as_ref()).unwrap_or_else(|e| {
         // If decoding fails we need to make an empty block
         println!("decode_transactions not successful: {e:?}, use empty tx_list");
@@ -25,6 +26,7 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
 }
 
 fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Vec<u8> {
+    #[allow(clippy::collapsible_else_if)]
     if chain_spec.is_taiko() {
         // taiko has some limitations to be aligned with taiko-client
         if is_blob_data {
