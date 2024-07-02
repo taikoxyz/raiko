@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - "provers/sp1/**"
+  merge_group:
 
 jobs:
     build-test-sgx:
