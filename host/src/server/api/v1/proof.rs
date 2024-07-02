@@ -64,7 +64,7 @@ pub async fn validate_cache_input(
     if let Some(cache_input) = cached_input {
         debug!("Using cached input");
         let blocks = provider
-            .get_blocks(&[(cache_input.block_number, false)])
+            .get_blocks(&[(cache_input.block.number, false)])
             .await?;
         let block = blocks
             .first()
@@ -244,6 +244,7 @@ mod test {
     use alloy_primitives::{Address, B256};
     use raiko_core::interfaces::ProofType;
     use raiko_lib::consts::{Network, SupportedChainSpecs};
+    use raiko_lib::input::BlobProofType;
 
     async fn create_cache_input(
         l1_network: &String,
@@ -263,6 +264,7 @@ mod test {
             graffiti: B256::ZERO,
             prover: Address::ZERO,
             proof_type: ProofType::Native,
+            blob_proof_type: BlobProofType::ProofOfCommitment,
             prover_args: Default::default(),
         };
         let raiko = Raiko::new(

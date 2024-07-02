@@ -2,9 +2,11 @@ use crate::{merge, prover::NativeProver};
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
+    input::{BlobProofType, GuestInput, GuestOutput},
+    primitives::eip4844::{calc_kzg_proof, commitment_to_version_hash, kzg_proof_to_bytes},
     prover::{Proof, Prover, ProverError},
 };
+use reth_primitives::hex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
@@ -16,6 +18,10 @@ pub enum RaikoError {
     /// For invalid proof type generation request.
     #[error("Unknown proof type: {0}")]
     InvalidProofType(String),
+
+    /// For invalid proof type generation request.
+    #[error("Unknown proof type: {0}")]
+    InvalidBlobOption(String),
 
     /// For invalid proof request configuration.
     #[error("Invalid proof request: {0}")]
@@ -141,13 +147,13 @@ impl ProofType {
         output: &GuestOutput,
         config: &Value,
     ) -> RaikoResult<Proof> {
-        match self {
-            ProofType::Native => NativeProver::run(input, output, config)
+        let mut proof = match self {
+            ProofType::Native => NativeProver::run(input.clone(), output, config)
                 .await
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
-                return sp1_driver::Sp1Prover::run(input, output, config)
+                return sp1_driver::Sp1Prover::run(input.clone(), output, config)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sp1"))]
@@ -155,7 +161,7 @@ impl ProofType {
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                return risc0_driver::Risc0Prover::run(input, output, config)
+                return risc0_driver::Risc0Prover::run(input.clone(), output, config)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "risc0"))]
@@ -163,13 +169,29 @@ impl ProofType {
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
-                return sgx_prover::SgxProver::run(input, output, config)
+                return sgx_prover::SgxProver::run(input.clone(), output, config)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
             }
+        }?;
+
+        // Add the kzg proof to the proof if needed
+        if let Some(blob_commitment) = input.taiko.blob_commitment.clone() {
+            let kzg_proof = calc_kzg_proof(
+                &input.taiko.tx_data,
+                &commitment_to_version_hash(&blob_commitment.try_into().unwrap()),
+            )
+            .unwrap();
+            let kzg_proof_hex = hex::encode(kzg_proof_to_bytes(&kzg_proof));
+            proof
+                .as_object_mut()
+                .unwrap()
+                .insert("kzg_proof".to_string(), Value::String(kzg_proof_hex));
         }
+
+        Ok(proof)
     }
 }
 
@@ -181,7 +203,7 @@ pub struct ProofRequest {
     pub block_number: u64,
     /// The network to generate the proof for.
     pub network: String,
-    /// The L1 network to grnerate the proof for.
+    /// The L1 network to generate the proof for.
     pub l1_network: String,
     /// Graffiti.
     pub graffiti: B256,
@@ -190,6 +212,8 @@ pub struct ProofRequest {
     pub prover: Address,
     /// The proof type.
     pub proof_type: ProofType,
+    /// Blob proof type.
+    pub blob_proof_type: BlobProofType,
     #[serde(flatten)]
     /// Additional prover params.
     pub prover_args: HashMap<String, Value>,
@@ -217,6 +241,8 @@ pub struct ProofRequestOpt {
     #[arg(long, require_equals = true)]
     /// The proof type.
     pub proof_type: Option<String>,
+    /// Blob proof type.
+    pub blob_proof_type: Option<String>,
     #[command(flatten)]
     #[serde(flatten)]
     /// Any additional prover params in JSON format.
@@ -307,6 +333,13 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 ))?
                 .parse()
                 .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
+            blob_proof_type: value
+                .blob_proof_type
+                .unwrap_or("ProofOfCommitment".to_string())
+                .parse()
+                .map_err(|_| {
+                    RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
+                })?,
             prover_args: value.prover_args.into(),
         })
     }

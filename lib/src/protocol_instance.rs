@@ -1,21 +1,19 @@
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use c_kzg::{Blob, KzgCommitment, KzgSettings};
-use reth_primitives::Header;
-use sha2::{Digest as _, Sha256};
-use std::alloc::{alloc, Layout};
+use reth_primitives::{Header, U256};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
     consts::{SupportedChainSpecs, VerifierType},
-    input::{BlockMetadata, EthDeposit, GuestInput, Transition},
-    primitives::keccak::keccak,
+    input::{BlobProofType, BlockMetadata, EthDeposit, GuestInput, Transition},
+    primitives::{
+        eip4844::{self, commitment_to_version_hash},
+        keccak::keccak,
+    },
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
-
-const KZG_TRUST_SETUP_DATA: &[u8] = include_bytes!("../../kzg_settings_raw.bin");
 
 #[derive(Debug, Clone)]
 pub struct ProtocolInstance {
@@ -25,46 +23,39 @@ pub struct ProtocolInstance {
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
+    pub proof_of_equivalence: (U256, U256),
 }
 
 impl ProtocolInstance {
     pub fn new(input: &GuestInput, header: &Header, proof_type: VerifierType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.meta.blobUsed;
+        // If blob is used, tx_list_hash is the commitment to the blob
+        // and we need to verify the blob hash matches the blob data.
+        // If we need to compute the proof of equivalence this data will be set.
+        // Otherwise the proof_of_equivalence is 0
+        let mut proof_of_equivalence = (U256::ZERO, U256::ZERO);
         let tx_list_hash = if blob_used {
-            if input.taiko.skip_verify_blob {
-                println!("kzg check disabled!");
-                input.taiko.tx_blob_hash.unwrap()
-            } else {
-                println!("kzg check enabled!");
-                let data_size = KZG_TRUST_SETUP_DATA.len();
-                let aligned_data_size = (data_size + 3) / 4 * 4;
-                let layout = Layout::from_size_align(aligned_data_size, 4).unwrap();
-                // Allocate aligned memory
-                let raw_ptr = unsafe { alloc(layout) };
-                if raw_ptr.is_null() {
-                    panic!("Failed to allocate memory with aligned pointer");
+            let commitment = input
+                .taiko
+                .blob_commitment
+                .as_ref()
+                .expect("no blob commitment");
+            let versioned_hash =
+                commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+            match get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()) {
+                crate::input::BlobProofType::ProofOfEquivalence => {
+                    let points =
+                        eip4844::proof_of_equivalence(&input.taiko.tx_data, &versioned_hash)?;
+                    proof_of_equivalence =
+                        (U256::from_le_bytes(points.0), U256::from_le_bytes(points.1));
                 }
-                // Convert to a Vec (unsafe because we are managing raw memory)
-                let mut aligned_vec =
-                    unsafe { Vec::from_raw_parts(raw_ptr, data_size, aligned_data_size) };
-                // Copy data into aligned_vec
-                aligned_vec.copy_from_slice(KZG_TRUST_SETUP_DATA);
-
-                let kzg_settings = KzgSettings::from_u8_slice(&mut aligned_vec);
-                let kzg_commit = KzgCommitment::blob_to_kzg_commitment(
-                    &Blob::from_bytes(input.taiko.tx_data.as_slice())
-                        .expect("Fail to form blob from tx bytes"),
-                    &kzg_settings,
-                )
-                .expect("Fail to calculate KZG commitment");
-                let versioned_hash = kzg_to_versioned_hash(&kzg_commit);
-                ensure!(
-                    versioned_hash == input.taiko.tx_blob_hash.unwrap(),
-                    "Blob version hash not matching"
-                );
-                drop(aligned_vec);
-                versioned_hash
-            }
+                crate::input::BlobProofType::ProofOfCommitment => {
+                    ensure!(
+                        commitment == &eip4844::calc_kzg_proof_commitment(&input.taiko.tx_data)?
+                    );
+                }
+            };
+            versioned_hash
         } else {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))
         };
@@ -105,16 +96,6 @@ impl ProtocolInstance {
             );
         }
 
-        let deposits = input
-            .withdrawals
-            .iter()
-            .map(|w| EthDeposit {
-                recipient: w.address,
-                amount: w.amount as u128,
-                id: w.index,
-            })
-            .collect::<Vec<_>>();
-
         let verifier_address = (*input
             .chain_spec
             .verifier_address
@@ -134,7 +115,7 @@ impl ProtocolInstance {
                 difficulty: input.taiko.block_proposed.meta.difficulty,
                 blobHash: tx_list_hash,
                 extraData: bytes_to_bytes32(&header.extra_data).into(),
-                depositsHash: keccak(deposits.abi_encode()).into(),
+                depositsHash: keccak(Vec::<EthDeposit>::new().abi_encode()).into(),
                 coinbase: header.beneficiary,
                 id: header.number,
                 gasLimit: (header.gas_limit
@@ -154,6 +135,7 @@ impl ProtocolInstance {
             prover: input.taiko.prover_data.prover,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
+            proof_of_equivalence,
         };
 
         // Sanity check
@@ -191,6 +173,7 @@ impl ProtocolInstance {
             self.sgx_instance,
             self.prover,
             self.meta_hash(),
+            self.proof_of_equivalence,
         )
             .abi_encode();
         if self.sgx_instance != Address::default() {
@@ -200,11 +183,17 @@ impl ProtocolInstance {
     }
 }
 
-pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
-pub fn kzg_to_versioned_hash(commitment: &KzgCommitment) -> B256 {
-    let mut res = Sha256::digest(commitment.as_slice());
-    res[0] = VERSIONED_HASH_VERSION_KZG;
-    B256::new(res.into())
+// Make sure the verifier supports the blob proof type
+fn get_blob_proof_type(
+    proof_type: VerifierType,
+    blob_proof_type_hint: BlobProofType,
+) -> BlobProofType {
+    match proof_type {
+        VerifierType::None => blob_proof_type_hint,
+        VerifierType::SGX => BlobProofType::ProofOfCommitment,
+        VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
+        VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+    }
 }
 
 fn bytes_to_bytes32(input: &[u8]) -> [u8; 32] {
@@ -247,6 +236,8 @@ mod tests {
             graffiti: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
         };
         let meta_hash = b256!("9608088f69e586867154a693565b4f3234f26f82d44ef43fb99fd774e7266024");
+        let proof_of_equivalence = ([0u8; 32], [0u8; 32]);
+
         let pi_hash = keccak::keccak(
             (
                 "VERIFY_PROOF",
@@ -256,6 +247,7 @@ mod tests {
                 address!("741E45D08C70c1C232802711bBFe1B7C0E1acc55"),
                 address!("70997970C51812dc3A010C7d01b50e0d17dc79C8"),
                 meta_hash,
+                proof_of_equivalence,
             )
                 .abi_encode()
                 .iter()
@@ -265,10 +257,11 @@ mod tests {
         );
         assert_eq!(
             hex::encode(pi_hash),
-            "4a7ba84010036277836eaf99acbbc10dc5d8ee9063e2e3c5be5e8be39ceba8ae"
+            "dc1696a5289616fa5eaa9b6ce97d53765b79db948caedb6887f21a26e4c29511"
         );
     }
 
+    // TODO: update proof_of_equivalence
     #[test]
     fn test_eip712_pi_hash() {
         let input = "10d008bd000000000000000000000000000000000000000000000000000000000000004900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000340689c98d83627e8749504eb6effbc2b08408183f11211bbf8bd281727b16255e6b3f8ee61d80cd7d30cdde9aa49acac0b82264a6b0f992139398e95636e501fd80189249f72753bd6c715511cc61facdec4781d4ecb1d028dafdff4a0827d7d53302e31382e302d64657600000000000000000000000000000000000000000000569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd00000000000000000000000016700100000000000000000000000000000100010000000000000000000000000000000000000000000000000000000000000049000000000000000000000000000000000000000000000000000000000e4e1c000000000000000000000000000000000000000000000000000000000065f94010000000000000000000000000000000000000000000000000000000000000036000000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000000000000000000001fdbdc45da60168ddf29b246eb9e0a2e612a670f671c6d3aafdfdac21f86b4bca0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bcaf73b06ee94a454236314610c55e053df3af4402081df52c9ff2692349a6b497bc17a6706bc1cf4c363e800d2133d0d143363871d9c17b8fc5cf6d3cfd585bc80730a40cf8d8186241d45e19785c117956de919999d50e473aaa794b8fd4097000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000064ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000";
@@ -278,6 +271,8 @@ mod tests {
         let (meta, trans, _proof) =
             <(BlockMetadata, Transition, TierProof)>::abi_decode_params(&input, false).unwrap();
         let meta_hash: B256 = keccak::keccak(meta.abi_encode()).into();
+        let proof_of_equivalence = ([0u8; 32], [0u8; 32]);
+
         let pi_hash = keccak::keccak(
             (
                 "VERIFY_PROOF",
@@ -287,6 +282,7 @@ mod tests {
                 address!("4F3F0D5B22338f1f991a1a9686C7171389C97Ff7"),
                 address!("4F3F0D5B22338f1f991a1a9686C7171389C97Ff7"),
                 meta_hash,
+                proof_of_equivalence,
             )
                 .abi_encode()
                 .iter()
@@ -296,7 +292,7 @@ mod tests {
         );
         assert_eq!(
             hex::encode(pi_hash),
-            "e9a8ebed81fb2da780c79aef3739c64c485373250b6167719517157936a1501b"
+            "8b0e2833f7bae47f6886e5f172d90b12e330485bfe366d8ed4d53b2114d47e68"
         );
     }
 }

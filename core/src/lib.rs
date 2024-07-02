@@ -54,6 +54,7 @@ impl Raiko {
                 graffiti: self.request.graffiti,
                 prover: self.request.prover,
             },
+            self.request.blob_proof_type.clone(),
         )
         .await
         .map_err(Into::<RaikoError>::into)
@@ -62,7 +63,6 @@ impl Raiko {
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
         let db = create_mem_db(&mut input.clone()).unwrap();
         let mut builder = RethBlockBuilder::new(input, db);
-        builder.prepare_header().expect("prepare");
         builder.execute_transactions(false).expect("execute");
         let result = builder.finalize();
 
@@ -201,6 +201,7 @@ mod tests {
     use clap::ValueEnum;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
+        input::BlobProofType,
         primitives::B256,
     };
     use serde_json::{json, Value};
@@ -259,15 +260,11 @@ mod tests {
         let provider =
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
-        let proof_type = proof_request.proof_type.to_owned();
-        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
-        let mut input = raiko
+        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
+        let input = raiko
             .generate_input(provider)
             .await
             .expect("input generation failed");
-        if is_ci() && proof_type == ProofType::Sp1 {
-            input.taiko.skip_verify_blob = true;
-        }
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko
             .prove(input, &output)
@@ -297,6 +294,7 @@ mod tests {
             prover: Address::ZERO,
             l1_network,
             proof_type,
+            blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(),
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -323,6 +321,35 @@ mod tests {
                 prover: Address::ZERO,
                 l1_network,
                 proof_type,
+                blob_proof_type: BlobProofType::ProofOfEquivalence,
+                prover_args: test_proof_params(),
+            };
+            prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_prove_block_taiko_mainnet() {
+        let proof_type = get_proof_type_from_env();
+        // Skip test on SP1 for now because it's too slow on CI
+        if !(is_ci() && proof_type == ProofType::Sp1) {
+            let network = Network::TaikoMainnet.to_string();
+            let l1_network = Network::Ethereum.to_string();
+            let block_number = 88970;
+            let taiko_chain_spec = SupportedChainSpecs::default()
+                .get_chain_spec(&network)
+                .unwrap();
+            let l1_chain_spec = SupportedChainSpecs::default()
+                .get_chain_spec(&l1_network)
+                .unwrap();
+            let proof_request = ProofRequest {
+                block_number,
+                network,
+                graffiti: B256::ZERO,
+                prover: Address::ZERO,
+                l1_network,
+                proof_type,
+                blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(),
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;

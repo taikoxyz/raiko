@@ -1,15 +1,17 @@
-use core::fmt::Debug;
+use core::{fmt::Debug, str::FromStr};
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
-use alloy_rpc_types::Withdrawal as AlloyWithdrawal;
-use alloy_sol_types::{sol, SolCall};
-use anyhow::{anyhow, Result};
-use reth_primitives::revm_primitives::{Address, Bytes, HashMap, B256, U256};
+use alloy_sol_types::sol;
+use anyhow::{anyhow, Error, Result};
+use reth_primitives::{
+    revm_primitives::{Address, Bytes, HashMap, B256, U256},
+    TransactionSigned,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-use reth_primitives::{Block as RethBlock, Header};
+use reth_primitives::{Block, Header};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -25,25 +27,11 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput {
     /// Reth block
-    pub block: RethBlock,
+    pub block: Block,
     /// The network to generate the proof for
     pub chain_spec: ChainSpec,
-    /// Block number
-    pub block_number: u64,
     /// Previous block header
     pub parent_header: Header,
-    /// Address to which all priority fees in this block are transferred.
-    pub beneficiary: Address,
-    /// Scalar equal to the current limit of gas expenditure per block.
-    pub gas_limit: u64,
-    /// Scalar corresponding to the seconds since Epoch at this block's inception.
-    pub timestamp: u64,
-    /// Arbitrary byte array containing data relevant for this block.
-    pub extra_data: Bytes,
-    /// Hash previously used for the PoW now containing the RANDAO value.
-    pub mix_hash: B256,
-    /// List of stake withdrawals for execution
-    pub withdrawals: Vec<AlloyWithdrawal>,
     /// State trie of the parent block.
     pub parent_state_trie: MptNode,
     /// Maps each address with its storage trie and the used storage slots.
@@ -52,13 +40,6 @@ pub struct GuestInput {
     pub contracts: Vec<Bytes>,
     /// List of at most 256 previous block headers
     pub ancestor_headers: Vec<Header>,
-    /// Base fee per gas
-    pub base_fee_per_gas: u64,
-
-    pub blob_gas_used: Option<u64>,
-    pub excess_blob_gas: Option<u64>,
-    pub parent_beacon_block_root: Option<B256>,
-
     /// Taiko specific data
     pub taiko: TaikoGuestInput,
 }
@@ -69,12 +50,39 @@ pub struct TaikoGuestInput {
     /// header
     pub l1_header: Header,
     pub tx_data: Vec<u8>,
-    pub anchor_tx: String,
+    pub anchor_tx: Option<TransactionSigned>,
     pub block_proposed: BlockProposed,
     pub prover_data: TaikoProverData,
-    pub tx_blob_hash: Option<B256>,
-    pub skip_verify_blob: bool,
-    pub tx_len: u64,
+    pub blob_commitment: Option<Vec<u8>>,
+    pub blob_proof_type: BlobProofType,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub enum BlobProofType {
+    /// Simplified Proof of Equivalence with fiat input in non-aligned field
+    /// Referencing https://notes.ethereum.org/@dankrad/kzg_commitments_in_proofs
+    /// with impl details in https://github.com/taikoxyz/raiko/issues/292
+    /// Guest proves the KZG evaluation of the a fiat-shamir input x and output result y
+    ///      x = sha256(sha256(blob), kzg_commit(blob))
+    ///      y = f(x)
+    /// where f is the KZG polynomial
+    #[default]
+    ProofOfEquivalence,
+    /// Guest runs through the entire computation from blob to Kzg commitment
+    /// then to version hash
+    ProofOfCommitment,
+}
+
+impl FromStr for BlobProofType {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim() {
+            "ProofOfEquivalence" => Ok(BlobProofType::ProofOfEquivalence),
+            "ProofOfCommitment" => Ok(BlobProofType::ProofOfCommitment),
+            _ => Err(anyhow!("invalid blob proof type")),
+        }
+    }
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -88,23 +96,6 @@ pub struct TaikoProverData {
 pub struct GuestOutput {
     pub header: Header,
     pub hash: B256,
-}
-
-sol! {
-    function anchor(
-        bytes32 l1Hash,
-        bytes32 l1StateRoot,
-        uint64 l1BlockId,
-        uint32 parentGasUsed
-    )
-        external
-    {}
-}
-
-#[inline]
-pub fn decode_anchor(bytes: &[u8]) -> Result<anchorCall> {
-    anchorCall::abi_decode(bytes, true).map_err(|e| anyhow!(e))
-    // .context("Invalid anchor call")
 }
 
 sol! {
