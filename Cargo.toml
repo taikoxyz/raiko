@@ -135,7 +135,6 @@ utoipa = { version = "4.2.0", features = ["axum_extras"] }
 structopt = "0.3.24"
 prometheus = { version = "0.13.3", features = ["process"] }
 tokio = { version = "^1.23", features = ["full"] }
-hyper = { version = "0.14.27", features = ["server"] }
 reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 async-trait = "0.1.80"
