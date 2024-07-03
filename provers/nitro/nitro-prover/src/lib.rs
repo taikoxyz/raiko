@@ -12,7 +12,7 @@ use raiko_lib::{
     signature::{generate_key, sign_message},
 };
 use serde_bytes::ByteBuf;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use vsock::{VsockAddr, VsockStream};
 
 pub mod protocol_helper;
@@ -67,13 +67,6 @@ impl Prover for NitroProver {
     ) -> ProverResult<Proof> {
         // read and validate inputs
         info!("Starting Nitro guest and proof generation");
-        // read and validate inputs
-        if input.taiko.skip_verify_blob {
-            warn!("blob verification skip. terminating");
-            return Err(ProverError::GuestError(
-                "Skip verify blob present. Doing nothing.".into(),
-            ));
-        }
         // process the block
         let header = calculate_block_header(&input);
         // calculate the public input hash
@@ -82,7 +75,7 @@ impl Prover for NitroProver {
         let pi_hash = pi.instance_hash();
         info!(
             "Block {}. PI data to be signed {}",
-            input.block_number, pi_hash
+            input.block.header.number, pi_hash
         );
 
         // Nitro prove of processed block

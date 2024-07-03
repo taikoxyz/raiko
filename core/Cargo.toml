@@ -12,7 +12,7 @@ sgx-prover = { path = "../provers/sgx/prover", optional = true }
 nitro-prover = { path = "../provers/nitro/nitro-prover", optional = true }
 
 # raiko
-raiko-lib = { workspace = true, features = ["c-kzg"] }
+raiko-lib = { workspace = true }
 
 # reth
 reth-primitives.workspace = true
@@ -35,6 +35,7 @@ alloy-rpc-client = { workspace = true }
 
 # tracing and logging
 tracing = { workspace = true }
+bincode = { workspace = true }
 
 # errors
 anyhow = { workspace = true }
@@ -46,7 +47,8 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 
 # c-kzg
-c-kzg = { workspace = true }
+kzg = { workspace = true }
+kzg_traits = { workspace = true }
 
 # async
 tokio = { workspace = true }

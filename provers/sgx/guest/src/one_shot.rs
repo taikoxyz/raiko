@@ -125,7 +125,6 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let input: GuestInput =
         bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
-    assert!(!input.taiko.skip_verify_blob);
 
     // Process the block
     let header = calculate_block_header(&input);
@@ -135,7 +134,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     println!(
         "Block {}. PI data to be signed: {pi_hash}",
-        input.block_number
+        input.block.number
     );
 
     // Sign the public input hash which contains all required block inputs and outputs

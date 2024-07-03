@@ -1,9 +1,14 @@
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types::Block;
+use raiko_lib::consts::SupportedChainSpecs;
 use reth_primitives::revm_primitives::AccountInfo;
 use std::collections::HashMap;
 
-use crate::{interfaces::RaikoResult, MerkleProof};
+use crate::{
+    interfaces::{RaikoError, RaikoResult},
+    provider::rpc::RpcBlockDataProvider,
+    MerkleProof,
+};
 
 pub mod db;
 pub mod rpc;
@@ -23,4 +28,24 @@ pub trait BlockDataProvider {
         offset: usize,
         num_storage_proofs: usize,
     ) -> RaikoResult<MerkleProof>;
+}
+
+pub async fn get_task_data(
+    network: &str,
+    block_number: u64,
+    chain_specs: &SupportedChainSpecs,
+) -> RaikoResult<(u64, B256)> {
+    let taiko_chain_spec = chain_specs
+        .get_chain_spec(network)
+        .ok_or_else(|| RaikoError::InvalidRequestConfig("Unsupported raiko network".to_string()))?;
+    let provider = RpcBlockDataProvider::new(&taiko_chain_spec.rpc.clone(), block_number - 1)?;
+    let blocks = provider.get_blocks(&[(block_number, true)]).await?;
+    let block = blocks
+        .first()
+        .ok_or_else(|| RaikoError::RPC("No block for requested block number".to_string()))?;
+    let blockhash = block
+        .header
+        .hash
+        .ok_or_else(|| RaikoError::RPC("No block hash for requested block".to_string()))?;
+    Ok((taiko_chain_spec.chain_id, blockhash))
 }

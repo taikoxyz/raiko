@@ -116,7 +116,7 @@ dependencies = [
  "getrandom 0.2.15",
  "once_cell",
  "version_check",
- "zerocopy",
+ "zerocopy 0.7.35",
 ]
 
 [[package]]
@@ -171,7 +171,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-serde",
- "c-kzg",
+ "c-kzg 1.0.2",
  "serde",
 ]
 
@@ -220,7 +220,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-serde",
- "c-kzg",
+ "c-kzg 1.0.2",
  "derive_more",
  "once_cell",
  "serde",
@@ -340,9 +340,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rlp"
-version = "0.3.5"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b155716bab55763c95ba212806cf43d05bcc70e5f35b02bad20cf5ec7fe11fed"
+checksum = "a43b18702501396fa9bcdeecd533bc85fac75150d308fc0f6800a01e6234a003"
 dependencies = [
  "alloy-rlp-derive",
  "arrayvec",
@@ -351,9 +351,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rlp-derive"
-version = "0.3.5"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8037e03c7f462a063f28daec9fda285a9a89da003c552f8637a80b9c8fd96241"
+checksum = "d83524c1f6162fcb5b0decf775498a125066c86dda6066ed609531b0e912f85a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -425,7 +425,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-engine",
  "serde",
- "serde_with",
+ "serde_with 3.8.2",
  "thiserror",
 ]
 
@@ -1141,7 +1141,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "hyper-util",
  "itoa",
  "matchit",
@@ -1206,7 +1206,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "miniz_oxide",
- "object 0.36.0",
+ "object 0.36.1",
  "rustc-demangle",
  "serde",
 ]
@@ -1422,19 +1422,32 @@ checksum = "a3c196a77437e7cc2fb515ce413a6401291578b5afc8ecb29a3c7ab957f05941"
 dependencies = [
  "ff 0.12.1",
  "group 0.12.1",
- "pairing",
+ "pairing 0.22.0",
  "rand_core 0.6.4",
+ "subtle",
+]
+
+[[package]]
+name = "bls12_381"
+version = "0.8.0"
+source = "git+https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd1fa9ae4133e04d5edf6eaabf86acac3a"
+dependencies = [
+ "ff 0.13.0",
+ "group 0.13.0",
+ "pairing 0.23.0",
+ "rand_core 0.6.4",
+ "serde",
  "subtle",
 ]
 
 [[package]]
 name = "blst"
 version = "0.3.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62dc83a094a71d43eeadd254b1ec2d24cb6a0bb6cadce00df51f0db594711a32"
+source = "git+https://github.com/CeciliaZ030/blst.git?branch=v0.3.12-serialize#063b5206470c6ea4204d3f520a9d7c5490947fa8"
 dependencies = [
  "cc",
  "glob",
+ "serde",
  "threadpool",
  "zeroize",
 ]
@@ -1555,6 +1568,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "c-kzg"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdf100c4cea8f207e883ff91ca886d621d8a166cb04971dfaa9bb8fd99ed95df"
+dependencies = [
+ "blst",
+ "cc",
+ "glob",
+ "hex",
+ "libc",
+ "serde",
+]
+
+[[package]]
 name = "camino"
 version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1620,9 +1647,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.101"
+version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac367972e516d45567c7eafc73d24e1c193dcf200a8d94e9db7b3d38b349572d"
+checksum = "74b6a57f98764a267ff415d50a25e6e166f3831a5071af4995296ea97d210490"
 dependencies = [
  "jobserver",
  "libc",
@@ -2309,7 +2336,7 @@ dependencies = [
  "enr 0.12.1",
  "fnv",
  "futures",
- "hashlink",
+ "hashlink 0.8.4",
  "hex",
  "hkdf",
  "lazy_static",
@@ -2971,6 +2998,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
+
+[[package]]
 name = "fastrand"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3528,6 +3561,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashlink"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba4ff7128dee98c7dc9794b6a411377e1404dba1c97deb8d1a55297bd25d8af"
+dependencies = [
+ "hashbrown 0.14.5",
+]
+
+[[package]]
 name = "hdrhistogram"
 version = "7.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3727,9 +3769,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe575dd17d0862a9a33781c8c4696a55c320909004a67a00fb286ba8b1bc496d"
+checksum = "c4fe55fb7a772d59a5ff1dfbff4fe0258d19b89fec4b233e75d35d5d2316badc"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3768,7 +3810,7 @@ checksum = "5ee4be2c948921a1a5320b629c4193916ed787a7f7f293fd3f7f5a6c9de74155"
 dependencies = [
  "futures-util",
  "http 1.1.0",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "hyper-util",
  "rustls 0.23.10",
  "rustls-pki-types",
@@ -3799,7 +3841,7 @@ checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
 dependencies = [
  "bytes",
  "http-body-util",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "hyper-util",
  "native-tls",
  "tokio",
@@ -3809,16 +3851,16 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b875924a60b96e5d7b9ae7b066540b1dd1cbd90d1828f54c92e02a283351c56"
+checksum = "3ab92f4f49ee4fb4f997c784b7a2e0fa70050211e0b6a287f898c3c9785ca956"
 dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "pin-project-lite",
  "socket2 0.5.7",
  "tokio",
@@ -4092,7 +4134,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a575df5f985fe1cd5b2b05664ff6accfc46559032b954529fd225a2168d27b0f"
 dependencies = [
  "bitvec",
- "bls12_381",
+ "bls12_381 0.7.1",
  "ff 0.12.1",
  "group 0.12.1",
  "rand_core 0.6.4",
@@ -4130,6 +4172,18 @@ checksum = "47a3633291834c4fbebf8673acbc1b04ec9d151418ff9b8e26dcd79129928758"
 dependencies = [
  "digest 0.10.7",
  "sha3-asm",
+]
+
+[[package]]
+name = "kzg"
+version = "0.1.0"
+source = "git+https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd1fa9ae4133e04d5edf6eaabf86acac3a"
+dependencies = [
+ "bincode",
+ "blst",
+ "serde",
+ "sha2",
+ "siphasher",
 ]
 
 [[package]]
@@ -4236,6 +4290,17 @@ checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
 dependencies = [
  "bitflags 2.6.0",
  "libc",
+]
+
+[[package]]
+name = "libsqlite3-sys"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c10584274047cb335c23d3e61bcef8e323adae7c5c8c760540f73610177fc3f"
+dependencies = [
+ "cc",
+ "pkg-config",
+ "vcpkg",
 ]
 
 [[package]]
@@ -4408,9 +4473,9 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "mime_guess"
-version = "2.0.4"
+version = "2.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4192263c238a5f0d0c6bfd21f336a313a4ce1c450542449ca191bb657b4642ef"
+checksum = "f7c44f8e672c00fe5308fa235f821cb4198414e1c77935c1ab6948d3fd78550e"
 dependencies = [
  "mime",
  "unicase",
@@ -4806,9 +4871,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.36.0"
+version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "576dfe1fc8f9df304abb159d767a29d0476f7750fbf8aa7ad07816004a207434"
+checksum = "081b846d1d56ddfc18fdf1a922e4f6e07a11768ea1b92dec44e42b72712ccfce"
 dependencies = [
  "memchr",
 ]
@@ -5162,6 +5227,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pairing"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81fec4625e73cf41ef4bb6846cafa6d44736525f442ba45e407c4a000a13996f"
+dependencies = [
+ "group 0.13.0",
+]
+
+[[package]]
 name = "parity-scale-codec"
 version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5324,9 +5398,9 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "pest"
-version = "2.7.10"
+version = "2.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "560131c633294438da9f7c4b08189194b20946c8274c6b9e38881a7874dc8ee8"
+checksum = "cd53dff83f26735fdc1ca837098ccf133605d794cdae66acfc2bfac3ec809d95"
 dependencies = [
  "memchr",
  "thiserror",
@@ -5759,9 +5833,10 @@ dependencies = [
  "alloy-transport-http",
  "anyhow",
  "assert_cmd",
- "c-kzg",
+ "bincode",
  "clap 4.5.8",
  "ethers-core 2.0.10",
+ "kzg",
  "nitro-prover",
  "raiko-lib",
  "reqwest 0.11.27",
@@ -5773,9 +5848,10 @@ dependencies = [
  "reth-revm",
  "risc0-driver",
  "rstest",
+ "rust-kzg-zkcrypto",
  "serde",
  "serde_json",
- "serde_with",
+ "serde_with 3.8.2",
  "sgx-prover",
  "sp1-driver",
  "thiserror",
@@ -5803,7 +5879,6 @@ dependencies = [
  "axum",
  "bincode",
  "bytemuck",
- "c-kzg",
  "cap",
  "cfg-if",
  "clap 4.5.8",
@@ -5811,6 +5886,7 @@ dependencies = [
  "ethers-core 2.0.10",
  "flate2",
  "hyper 0.14.29",
+ "kzg",
  "lazy_static",
  "lru_time_cache",
  "nitro-prover",
@@ -5819,6 +5895,7 @@ dependencies = [
  "proptest",
  "raiko-core",
  "raiko-lib",
+ "raiko-task-manager",
  "reqwest 0.11.27",
  "reqwest 0.12.5",
  "reth-evm",
@@ -5828,9 +5905,10 @@ dependencies = [
  "risc0-driver",
  "rlp",
  "rstest",
+ "rust-kzg-zkcrypto",
  "serde",
  "serde_json",
- "serde_with",
+ "serde_with 3.8.2",
  "sgx-prover",
  "sha2",
  "sp1-driver",
@@ -5860,12 +5938,12 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "bincode",
- "c-kzg",
  "cfg-if",
  "chrono",
  "flate2",
  "hex",
  "hex-literal",
+ "kzg",
  "lazy_static",
  "libflate",
  "log",
@@ -5876,13 +5954,13 @@ dependencies = [
  "reth-evm-ethereum",
  "reth-primitives",
  "rlp",
+ "rust-kzg-zkcrypto",
  "secp256k1",
  "serde",
  "serde_json",
- "serde_with",
+ "serde_with 3.8.2",
  "sha2",
  "sha3",
- "tempfile",
  "thiserror",
  "thiserror-no-std",
  "tokio",
@@ -5943,7 +6021,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "serde_with",
+ "serde_with 3.8.2",
  "sgx-prover",
  "sha2",
  "structopt",
@@ -5954,6 +6032,29 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber 0.3.18",
  "url",
+]
+
+[[package]]
+name = "raiko-task-manager"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "hex",
+ "num_enum 0.7.2",
+ "raiko-core",
+ "raiko-lib",
+ "rand 0.9.0-alpha.1",
+ "rand_chacha 0.9.0-alpha.1",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -5981,6 +6082,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand"
+version = "0.9.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d31e63ea85be51c423e52ba8f2e68a3efd53eed30203ee029dd09947333693e"
+dependencies = [
+ "rand_chacha 0.9.0-alpha.1",
+ "rand_core 0.9.0-alpha.1",
+ "zerocopy 0.8.0-alpha.6",
+]
+
+[[package]]
 name = "rand_chacha"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6001,6 +6113,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_chacha"
+version = "0.9.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78674ef918c19451dbd250f8201f8619b494f64c9aa6f3adb28fd8a0f1f6da46"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.9.0-alpha.1",
+]
+
+[[package]]
 name = "rand_core"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6016,6 +6138,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom 0.2.15",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.9.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc89dffba8377c5ec847d12bb41492bda235dba31a25e8b695cd0fe6589eb8c9"
+dependencies = [
+ "getrandom 0.2.15",
+ "zerocopy 0.8.0-alpha.6",
 ]
 
 [[package]]
@@ -6209,7 +6341,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "hyper-rustls 0.27.2",
  "hyper-tls 0.6.0",
  "hyper-util",
@@ -6262,7 +6394,7 @@ dependencies = [
 [[package]]
 name = "reth-blockchain-tree-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "reth-consensus",
  "reth-execution-errors",
@@ -6274,7 +6406,7 @@ dependencies = [
 [[package]]
 name = "reth-chainspec"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-chains",
  "alloy-eips",
@@ -6293,7 +6425,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6308,7 +6440,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs-derive"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -6319,7 +6451,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "auto_impl",
  "reth-primitives",
@@ -6329,7 +6461,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus-common"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "reth-chainspec",
  "reth-consensus",
@@ -6339,7 +6471,7 @@ dependencies = [
 [[package]]
 name = "reth-db"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "bytes",
  "derive_more",
@@ -6365,7 +6497,7 @@ dependencies = [
 [[package]]
 name = "reth-db-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "bytes",
  "derive_more",
@@ -6384,7 +6516,7 @@ dependencies = [
 [[package]]
 name = "reth-discv4"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -6408,7 +6540,7 @@ dependencies = [
 [[package]]
 name = "reth-ecies"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "aes 0.8.4",
  "alloy-primitives",
@@ -6439,7 +6571,7 @@ dependencies = [
 [[package]]
 name = "reth-errors"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "reth-blockchain-tree-api",
  "reth-consensus",
@@ -6452,7 +6584,7 @@ dependencies = [
 [[package]]
 name = "reth-eth-wire"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-rlp",
  "bytes",
@@ -6479,7 +6611,7 @@ dependencies = [
 [[package]]
 name = "reth-eth-wire-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-rlp",
  "bytes",
@@ -6494,7 +6626,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-consensus"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "reth-chainspec",
  "reth-consensus",
@@ -6506,7 +6638,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-forks"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -6519,7 +6651,7 @@ dependencies = [
 [[package]]
 name = "reth-evm"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "auto_impl",
  "futures-util",
@@ -6536,13 +6668,14 @@ dependencies = [
 [[package]]
 name = "reth-evm-ethereum"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-eips",
  "alloy-sol-types",
  "anyhow",
  "lazy_static",
  "reth-chainspec",
+ "reth-consensus",
  "reth-ethereum-consensus",
  "reth-evm",
  "reth-execution-types",
@@ -6555,7 +6688,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-errors"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -6569,7 +6702,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "reth-execution-errors",
  "reth-primitives",
@@ -6580,7 +6713,7 @@ dependencies = [
 [[package]]
 name = "reth-fs-util"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "serde_json",
  "thiserror",
@@ -6589,7 +6722,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "metrics",
  "reth-metrics-derive",
@@ -6598,7 +6731,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics-derive"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "once_cell",
  "proc-macro2",
@@ -6610,7 +6743,7 @@ dependencies = [
 [[package]]
 name = "reth-net-common"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-primitives",
  "tokio",
@@ -6619,11 +6752,11 @@ dependencies = [
 [[package]]
 name = "reth-net-nat"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "futures-util",
  "reqwest 0.12.5",
- "serde_with",
+ "serde_with 3.8.2",
  "thiserror",
  "tokio",
 ]
@@ -6631,7 +6764,7 @@ dependencies = [
 [[package]]
 name = "reth-network-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-primitives",
  "enr 0.12.1",
@@ -6646,7 +6779,7 @@ dependencies = [
 [[package]]
 name = "reth-network-p2p"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "auto_impl",
  "futures",
@@ -6664,13 +6797,13 @@ dependencies = [
 [[package]]
 name = "reth-network-peers"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "enr 0.12.1",
  "secp256k1",
- "serde_with",
+ "serde_with 3.8.2",
  "thiserror",
  "tokio",
  "url",
@@ -6679,7 +6812,7 @@ dependencies = [
 [[package]]
 name = "reth-nippy-jar"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6699,7 +6832,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6709,7 +6842,7 @@ dependencies = [
  "alloy-rpc-types",
  "byteorder",
  "bytes",
- "c-kzg",
+ "c-kzg 1.0.2",
  "derive_more",
  "modular-bitfield",
  "once_cell",
@@ -6721,6 +6854,7 @@ dependencies = [
  "reth-static-file-types",
  "reth-trie-common",
  "revm",
+ "revm-precompile",
  "revm-primitives",
  "roaring",
  "secp256k1",
@@ -6732,7 +6866,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives-traits"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6751,7 +6885,7 @@ dependencies = [
 [[package]]
 name = "reth-provider"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-rpc-types-engine",
  "auto_impl",
@@ -6789,7 +6923,7 @@ dependencies = [
 [[package]]
 name = "reth-prune-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-primitives",
  "bytes",
@@ -6803,7 +6937,7 @@ dependencies = [
 [[package]]
 name = "reth-revm"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-eips",
  "alloy-rlp",
@@ -6821,7 +6955,7 @@ dependencies = [
 [[package]]
 name = "reth-rpc-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types",
@@ -6840,7 +6974,7 @@ dependencies = [
 [[package]]
 name = "reth-stages-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-primitives",
  "bytes",
@@ -6853,7 +6987,7 @@ dependencies = [
 [[package]]
 name = "reth-static-file-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-primitives",
  "derive_more",
@@ -6864,7 +6998,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "auto_impl",
  "reth-chainspec",
@@ -6881,7 +7015,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-errors"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "reth-fs-util",
  "reth-primitives",
@@ -6891,7 +7025,7 @@ dependencies = [
 [[package]]
 name = "reth-tracing"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "clap 4.5.8",
  "eyre",
@@ -6906,7 +7040,7 @@ dependencies = [
 [[package]]
 name = "reth-trie"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-rlp",
  "auto_impl",
@@ -6927,7 +7061,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-common"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#d20c700ca296f7e4227b4c8c254a8d0f948bbd36"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
 dependencies = [
  "alloy-consensus",
  "alloy-genesis",
@@ -6974,7 +7108,7 @@ source = "git+https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e80d35
 dependencies = [
  "aurora-engine-modexp",
  "blst",
- "c-kzg",
+ "c-kzg 1.0.0",
  "k256",
  "once_cell",
  "revm-primitives",
@@ -6993,7 +7127,7 @@ dependencies = [
  "auto_impl",
  "bitflags 2.6.0",
  "bitvec",
- "c-kzg",
+ "c-kzg 1.0.0",
  "cfg-if",
  "derive_more",
  "dyn-clone",
@@ -7180,7 +7314,7 @@ dependencies = [
  "risc0-zkvm",
  "serde",
  "serde_json",
- "serde_with",
+ "serde_with 3.8.2",
  "tracing",
  "typetag",
 ]
@@ -7341,9 +7475,9 @@ dependencies = [
 
 [[package]]
 name = "roaring"
-version = "0.10.5"
+version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7699249cc2c7d71939f30868f47e9d7add0bdc030d90ee10bfd16887ff8bb1c8"
+checksum = "8f4b84ba6e838ceb47b41de5194a60244fac43d9fe03b71dbe8c5a201081d6d1"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -7438,6 +7572,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 
 [[package]]
+name = "rusqlite"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b838eba278d213a8beaf485bd313fd580ca4505a00d5871caeb1457c55322cae"
+dependencies = [
+ "bitflags 2.6.0",
+ "chrono",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink 0.9.1",
+ "libsqlite3-sys",
+ "smallvec",
+]
+
+[[package]]
 name = "rust-embed"
 version = "8.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7469,6 +7618,23 @@ checksum = "38c74a686185620830701348de757fd36bef4aa9680fd23c49fc539ddcc1af32"
 dependencies = [
  "sha2",
  "walkdir",
+]
+
+[[package]]
+name = "rust-kzg-zkcrypto"
+version = "0.1.0"
+source = "git+https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd1fa9ae4133e04d5edf6eaabf86acac3a"
+dependencies = [
+ "bls12_381 0.8.0",
+ "blst",
+ "byteorder",
+ "ff 0.13.0",
+ "hex",
+ "kzg",
+ "libc",
+ "serde",
+ "serde_with 2.3.3",
+ "subtle",
 ]
 
 [[package]]
@@ -7868,9 +8034,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.118"
+version = "1.0.120"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d947f6b3163d8857ea16c4fa0dd4840d52f3041039a85decd46867eb1abef2e4"
+checksum = "4e0d21c9a8cae1235ad58a00c11cb40d4b1e5c784f1ef2c537876ed6ffd8b7c5"
 dependencies = [
  "indexmap 2.2.6",
  "itoa",
@@ -7911,9 +8077,25 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.8.1"
+version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ad483d2ab0149d5a5ebcd9972a3852711e0153d863bf5a5d0391d28883c4a20"
+checksum = "07ff71d2c147a7b57362cead5e22f772cd52f6ab31cfcd9edcd7f6aeb2a0afbe"
+dependencies = [
+ "base64 0.13.1",
+ "chrono",
+ "hex",
+ "indexmap 1.9.3",
+ "serde",
+ "serde_json",
+ "serde_with_macros 2.3.3",
+ "time",
+]
+
+[[package]]
+name = "serde_with"
+version = "3.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "079f3a42cd87588d924ed95b533f8d30a483388c4e400ab736a7058e34f16169"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -7923,15 +8105,27 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_with_macros",
+ "serde_with_macros 3.8.2",
  "time",
 ]
 
 [[package]]
 name = "serde_with_macros"
-version = "3.8.1"
+version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65569b702f41443e8bc8bbb1c5779bd0450bbe723b56198980e80ec45780bce2"
+checksum = "881b6f881b17d13214e5d494c939ebab463d01264ce1811e9d4ac3a882e7695f"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.68",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "3.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc03aad67c1d26b7de277d51c86892e7d9a0110a2fe44bf6b26cc569fba302d6"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -8005,7 +8199,7 @@ dependencies = [
  "raiko-lib",
  "serde",
  "serde_json",
- "serde_with",
+ "serde_with 3.8.2",
  "tokio",
  "url",
 ]
@@ -8097,6 +8291,12 @@ dependencies = [
  "thiserror",
  "time",
 ]
+
+[[package]]
+name = "siphasher"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "size"
@@ -8209,7 +8409,7 @@ dependencies = [
  "rayon-scan",
  "rrs-lib 0.1.0 (git+https://github.com/GregAC/rrs.git)",
  "serde",
- "serde_with",
+ "serde_with 3.8.2",
  "size",
  "snowbridge-amcl",
  "sp1-derive",
@@ -8380,7 +8580,7 @@ dependencies = [
  "p3-symmetric",
  "p3-util",
  "serde",
- "serde_with",
+ "serde_with 3.8.2",
  "sp1-core",
  "sp1-derive",
  "sp1-primitives",
@@ -9287,7 +9487,7 @@ dependencies = [
  "futures",
  "http 1.1.0",
  "http-body-util",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "prost",
  "reqwest 0.12.5",
  "serde",
@@ -10024,18 +10224,38 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.7.34"
+version = "0.7.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae87e3fcd617500e5d106f0380cf7b77f3c6092aae37191433159dda23cfb087"
+checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
 dependencies = [
- "zerocopy-derive",
+ "zerocopy-derive 0.7.35",
+]
+
+[[package]]
+name = "zerocopy"
+version = "0.8.0-alpha.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db678a6ee512bd06adf35c35be471cae2f9c82a5aed2b5d15e03628c98bddd57"
+dependencies = [
+ "zerocopy-derive 0.8.0-alpha.6",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.7.34"
+version = "0.7.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15e934569e47891f7d9411f1a451d947a60e000ab3bd24fbb970f000387d1b3b"
+checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.68",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.8.0-alpha.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "201585ea96d37ee69f2ac769925ca57160cef31acb137c16f38b02b76f4c1e62"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10083,7 +10303,7 @@ dependencies = [
  "ark-std 0.4.0",
  "bitvec",
  "blake2",
- "bls12_381",
+ "bls12_381 0.7.1",
  "byteorder",
  "cfg-if",
  "group 0.12.1",

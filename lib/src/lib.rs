@@ -1,5 +1,6 @@
 #![cfg_attr(any(not(feature = "std")), no_std)]
-
+#![feature(slice_flatten)]
+#![feature(result_flattening)]
 #[cfg(feature = "std")]
 use std::io::{self, Write};
 
@@ -96,6 +97,14 @@ impl CycleTracker {
             feature = "sp1-cycle-tracker"
         ))]
         println!("cycle-tracker-end: {self.title}");
+    }
+
+    pub fn println(_inner: impl Fn()) {
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
+        _inner()
     }
 }
 

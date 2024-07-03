@@ -3,6 +3,7 @@ name: CI - Lint
 on:
   pull_request:
     types: [opened, reopened, edited, synchronize]
+  merge_group:
 
 env:
   CARGO_TERM_COLOR: always

@@ -11,19 +11,18 @@ use crate::{
     mem_db::{AccountState, DbAccount, MemDb},
     CycleTracker,
 };
-use alloy_consensus::{Signed, Transaction, TxEnvelope};
-use alloy_rpc_types::{ConversionError, Parity, Transaction as AlloyTransaction};
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{bail, ensure, Result};
 use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_MAINNET};
 use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
-use reth_evm_ethereum::execute::{validate_block_post_execution, EthExecutorProvider};
+use reth_evm_ethereum::execute::{
+    validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
+};
 use reth_evm_ethereum::taiko::TaikoData;
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{
-    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap, SpecId,
+    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap,
 };
-use reth_primitives::transaction::Signature as RethSignature;
-use reth_primitives::{Address, BlockBody, Header, TransactionSigned, B256, KECCAK_EMPTY, U256};
+use reth_primitives::{Address, BlockWithSenders, Header, B256, KECCAK_EMPTY, U256};
 use tracing::debug;
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
@@ -32,10 +31,6 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
     cycle_tracker.end();
 
     let mut builder = RethBlockBuilder::new(input, db);
-
-    let cycle_tracker = CycleTracker::start("prepare_header");
-    builder.prepare_header().expect("prepare");
-    cycle_tracker.end();
 
     let cycle_tracker = CycleTracker::start("execute_transactions");
     builder.execute_transactions(false).expect("execute");
@@ -63,11 +58,7 @@ pub struct RethBlockBuilder<DB> {
     pub chain_spec: ChainSpec,
     pub input: GuestInput,
     pub db: Option<DB>,
-    pub header: Option<Header>,
 }
-
-/// Minimum supported protocol version: SHANGHAI
-const MIN_SPEC_ID: SpecId = SpecId::SHANGHAI;
 
 impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
     RethBlockBuilder<DB>
@@ -77,59 +68,14 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         RethBlockBuilder {
             chain_spec: input.chain_spec.clone(),
             db: Some(db),
-            header: None,
             input: input.clone(),
         }
     }
 
-    /// Initializes the header. This must be called before executing transactions.
-    pub fn prepare_header(&mut self) -> Result<()> {
-        /// Maximum size of extra data.
-        pub const MAX_EXTRA_DATA_BYTES: usize = 32;
-
-        // Validate timestamp
-        let timestamp: u64 = self.input.timestamp;
-        if timestamp < self.input.parent_header.timestamp {
-            bail!(
-                "Invalid timestamp: expected >= {}, got {}",
-                self.input.parent_header.timestamp,
-                self.input.timestamp,
-            );
-        }
-        // Validate extra data
-        let extra_data_bytes = self.input.extra_data.len();
-        if extra_data_bytes > MAX_EXTRA_DATA_BYTES {
-            bail!("Invalid extra data: expected <= {MAX_EXTRA_DATA_BYTES}, got {extra_data_bytes}")
-        }
-        // Derive header
-        let number: u64 = self.input.parent_header.number;
-        self.header = Some(Header {
-            // Initialize fields that we can compute from the parent
-            parent_hash: self.input.parent_header.hash_slow(),
-            number: number
-                .checked_add(1)
-                .with_context(|| "Invalid block number: too large")?,
-            base_fee_per_gas: Some(self.input.base_fee_per_gas),
-            // Initialize metadata from input
-            beneficiary: self.input.beneficiary,
-            gas_limit: self.input.gas_limit,
-            timestamp: self.input.timestamp,
-            mix_hash: self.input.mix_hash,
-            extra_data: self.input.extra_data.clone(),
-            blob_gas_used: self.input.blob_gas_used,
-            excess_blob_gas: self.input.excess_blob_gas,
-            parent_beacon_block_root: self.input.parent_beacon_block_root,
-            // do not fill the remaining fields
-            ..Default::default()
-        });
-        Ok(())
-    }
-
     /// Executes all input transactions.
     pub fn execute_transactions(&mut self, optimistic: bool) -> Result<()> {
+        // Get the chain spec
         let chain_spec = &self.input.chain_spec;
-        let is_taiko = chain_spec.is_taiko();
-
         let total_difficulty = U256::ZERO;
         let reth_chain_spec = match chain_spec.name.as_str() {
             "taiko_a7" => TAIKO_A7.clone(),
@@ -149,64 +95,20 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             _ => unimplemented!(),
         };
 
-        let header = self.header.as_mut().expect("Header is not initialized");
-        let spec_id = self
-            .input
-            .chain_spec
-            .active_fork(header.number, header.timestamp)
-            .unwrap();
-        if !SpecId::enabled(spec_id, MIN_SPEC_ID) {
-            bail!("Invalid protocol version: expected >= {MIN_SPEC_ID:?}, got {spec_id:?}")
-        }
-
-        // generate the transactions from the tx list
-        // For taiko blocks, insert the anchor tx as the first transaction
-        let anchor_tx = if is_taiko {
-            Some(serde_json::from_str(&self.input.taiko.anchor_tx.clone()).unwrap())
-        } else {
-            None
-        };
-        let transactions = generate_transactions(
+        // Generate the transactions from the tx list
+        let mut block = self.input.block.clone();
+        block.body = generate_transactions(
             &self.input.chain_spec,
             self.input.taiko.block_proposed.meta.blobUsed,
             &self.input.taiko.tx_data,
-            anchor_tx,
+            &self.input.taiko.anchor_tx,
         );
-        let mut alloy_transactions = Vec::new();
-        for tx in transactions {
-            let alloy_tx: AlloyTransaction =
-                to_alloy_transaction(&tx).expect("can't convert to alloy");
-            alloy_transactions.push(alloy_tx);
-        }
-
-        let mut block = self.input.block.clone();
-        // Convert alloy transactions to reth transactions and set them on the block
-        block.body = alloy_transactions
-            .into_iter()
-            .map(|tx| {
-                let signature = tx
-                    .signature
-                    .ok_or(ConversionError::MissingSignature)
-                    .expect("missing signature");
-                TransactionSigned::from_transaction_and_signature(
-                    tx.try_into().expect("tx conversion failed"),
-                    RethSignature {
-                        r: signature.r,
-                        s: signature.s,
-                        odd_y_parity: signature
-                            .y_parity
-                            .unwrap_or_else(|| alloy_rpc_types::Parity(!signature.v.bit(0)))
-                            .0,
-                    },
-                )
-            })
-            .collect();
-
-        let block_with_senders = block
-            .clone()
+        // Recover senders
+        let mut block = block
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
+        // Execute transactions
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
             .taiko_data(TaikoData {
@@ -219,22 +121,45 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             state,
             receipts,
             requests,
-            gas_used,
+            gas_used: _,
             db: full_state,
-        } = executor.execute((&block_with_senders, total_difficulty).into())?;
+            valid_transaction_indices,
+        } = executor.execute((&block, total_difficulty).into())?;
+        // Filter out the valid transactions so that the header checks only take these into account
+        block.body = valid_transaction_indices
+            .iter()
+            .map(|&i| block.body[i].clone())
+            .collect();
 
+        // Header validation
+        let block = block.seal_slow();
         if !optimistic {
+            let consensus = EthBeaconConsensus::new(reth_chain_spec.clone());
+            // Validates extra data
+            consensus.validate_header_with_total_difficulty(&block.header, total_difficulty)?;
+            // Validates if some values are set that should not be set for the current HF
+            consensus.validate_header(&block.header)?;
+            // Validates parent block hash, block number and timestamp
+            consensus.validate_header_against_parent(
+                &block.header,
+                &self.input.parent_header.clone().seal_slow(),
+            )?;
+            // Validates ommers hash, transaction root, withdrawals root
+            consensus.validate_block_pre_execution(&block)?;
             // Validates the gas used, the receipts root and the logs bloom
             validate_block_post_execution(
-                &block_with_senders,
+                &BlockWithSenders {
+                    block: block.block.unseal(),
+                    senders: block.senders,
+                },
                 &reth_chain_spec.clone(),
                 &receipts,
                 &requests,
             )?;
         }
 
+        // Apply DB changes
         self.db = Some(full_state.database);
-
         let changes: HashMap<Address, Account> = state
             .state
             .into_iter()
@@ -256,31 +181,19 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .collect();
         self.db.as_mut().unwrap().commit(changes);
 
-        // Set the values verified in validate_block_post_execution
-        let header = self.header.as_mut().unwrap();
-        header.gas_used = gas_used;
-        header.receipts_root = self.input.block.header.receipts_root;
-        header.logs_bloom = self.input.block.header.logs_bloom;
-
         Ok(())
     }
 }
 
 impl RethBlockBuilder<MemDb> {
-    /// Finalizes the block building and returns the header and the state trie.
+    /// Finalizes the block building and returns the header
     pub fn finalize(&mut self) -> Result<Header> {
-        let mut header = self.header.take().expect("Header not initialized");
-        let block_body = BlockBody::from(self.input.block.clone());
-
-        header.state_root = self.calculate_state_root()?;
-        header.transactions_root = block_body.calculate_tx_root();
-        header.withdrawals_root = block_body.calculate_withdrawals_root();
-        header.ommers_hash = block_body.calculate_ommers_root();
-
-        Ok(header)
+        let state_root = self.calculate_state_root()?;
+        ensure!(self.input.block.state_root == state_root);
+        Ok(self.input.block.header.clone())
     }
 
-    /// Finalizes the block building and returns the header and the state trie.
+    /// Calculates the state root of the block
     pub fn calculate_state_root(&mut self) -> Result<B256> {
         let mut account_touched = 0;
         let mut storage_touched = 0;
@@ -462,119 +375,4 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
         accounts,
         block_hashes,
     })
-}
-
-pub fn to_alloy_transaction(tx: &TxEnvelope) -> Result<AlloyTransaction, Error> {
-    match tx {
-        TxEnvelope::Legacy(tx) => {
-            let alloy_tx = AlloyTransaction {
-                hash: *tx.hash(),
-                nonce: tx.tx().nonce(),
-                block_hash: None,
-                block_number: None,
-                transaction_index: None,
-                to: tx.tx().to().to().copied(),
-                value: tx.tx().value(),
-                gas_price: tx.tx().gas_price(),
-                gas: tx.tx().gas_limit(),
-                max_fee_per_gas: None,
-                max_priority_fee_per_gas: None,
-                max_fee_per_blob_gas: None,
-                input: tx.tx().input().to_owned().into(),
-                signature: Some(to_alloy_signature(get_sig(tx))),
-                chain_id: tx.tx().chain_id(),
-                blob_versioned_hashes: None,
-                access_list: None,
-                transaction_type: Some(0),
-                ..Default::default()
-            };
-            Ok(alloy_tx)
-        }
-        TxEnvelope::Eip2930(tx) => {
-            let alloy_tx = AlloyTransaction {
-                hash: *tx.hash(),
-                nonce: tx.tx().nonce(),
-                block_hash: None,
-                block_number: None,
-                transaction_index: None,
-                to: tx.tx().to().to().copied(),
-                value: tx.tx().value(),
-                gas_price: tx.tx().gas_price(),
-                gas: tx.tx().gas_limit(),
-                max_fee_per_gas: None,
-                max_priority_fee_per_gas: None,
-                max_fee_per_blob_gas: None,
-                input: tx.tx().input().to_owned().into(),
-                signature: Some(to_alloy_signature(get_sig(tx))),
-                chain_id: tx.tx().chain_id(),
-                blob_versioned_hashes: None,
-                access_list: Some(tx.tx().access_list.clone()),
-                transaction_type: Some(1),
-                ..Default::default()
-            };
-            Ok(alloy_tx)
-        }
-        TxEnvelope::Eip1559(tx) => {
-            let alloy_tx = AlloyTransaction {
-                hash: *tx.hash(),
-                nonce: tx.tx().nonce(),
-                block_hash: None,
-                block_number: None,
-                transaction_index: None,
-                to: tx.tx().to().to().copied(),
-                value: tx.tx().value(),
-                gas_price: tx.tx().gas_price(),
-                gas: tx.tx().gas_limit(),
-                max_fee_per_gas: Some(tx.tx().max_fee_per_gas),
-                max_priority_fee_per_gas: Some(tx.tx().max_priority_fee_per_gas),
-                max_fee_per_blob_gas: None,
-                input: tx.tx().input().to_owned().into(),
-                signature: Some(to_alloy_signature(get_sig(tx))),
-                chain_id: tx.tx().chain_id(),
-                blob_versioned_hashes: None,
-                access_list: Some(tx.tx().access_list.clone()),
-                transaction_type: Some(2),
-                ..Default::default()
-            };
-            Ok(alloy_tx)
-        }
-        TxEnvelope::Eip4844(tx) => {
-            let alloy_tx = AlloyTransaction {
-                hash: *tx.hash(),
-                nonce: tx.tx().nonce(),
-                block_hash: None,
-                block_number: None,
-                transaction_index: None,
-                to: tx.tx().to().to().copied(),
-                value: tx.tx().value(),
-                gas_price: tx.tx().gas_price(),
-                gas: tx.tx().gas_limit(),
-                max_fee_per_gas: Some(tx.tx().tx().max_fee_per_gas),
-                max_priority_fee_per_gas: Some(tx.tx().tx().max_priority_fee_per_gas),
-                max_fee_per_blob_gas: Some(tx.tx().tx().max_fee_per_blob_gas),
-                input: tx.tx().input().to_owned().into(),
-                signature: Some(to_alloy_signature(get_sig(tx))),
-                chain_id: tx.tx().chain_id(),
-                blob_versioned_hashes: Some(tx.tx().tx().blob_versioned_hashes.clone()),
-                access_list: Some(tx.tx().tx().access_list.clone()),
-                transaction_type: Some(tx.tx().tx_type() as u8),
-                ..Default::default()
-            };
-            Ok(alloy_tx)
-        }
-        _ => todo!(),
-    }
-}
-
-pub fn get_sig<T, Sig: Clone>(tx: &Signed<T, Sig>) -> Sig {
-    tx.signature().clone()
-}
-
-pub fn to_alloy_signature(sig: alloy_primitives::Signature) -> alloy_rpc_types::Signature {
-    alloy_rpc_types::Signature {
-        r: sig.r(),
-        s: sig.s(),
-        v: sig.v().to_u64().try_into().unwrap(),
-        y_parity: Some(Parity(sig.v().to_parity_bool().y_parity())),
-    }
 }

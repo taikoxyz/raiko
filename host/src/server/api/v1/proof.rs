@@ -26,7 +26,7 @@ use crate::{
     ProverState,
 };
 
-fn get_cached_input(
+pub fn get_cached_input(
     cache_path: &Option<PathBuf>,
     block_number: u64,
     network: &str,
@@ -40,7 +40,7 @@ fn get_cached_input(
     bincode::deserialize_from(file).ok()
 }
 
-fn set_cached_input(
+pub fn set_cached_input(
     cache_path: &Option<PathBuf>,
     block_number: u64,
     network: &str,
@@ -57,14 +57,14 @@ fn set_cached_input(
     bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))
 }
 
-async fn validate_cache_input(
+pub async fn validate_cache_input(
     cached_input: Option<GuestInput>,
     provider: &RpcBlockDataProvider,
 ) -> HostResult<GuestInput> {
     if let Some(cache_input) = cached_input {
         debug!("Using cached input");
         let blocks = provider
-            .get_blocks(&[(cache_input.block_number, false)])
+            .get_blocks(&[(cache_input.block.number, false)])
             .await?;
         let block = blocks
             .first()
@@ -92,10 +92,11 @@ async fn validate_cache_input(
     }
 }
 
-async fn handle_proof(
+pub async fn handle_proof(
     ProverState {
         opts,
         chain_specs: support_chain_specs,
+        ..
     }: ProverState,
     req: Value,
 ) -> HostResult<ProofResponse> {
@@ -244,6 +245,7 @@ mod test {
     use alloy_primitives::{Address, B256};
     use raiko_core::interfaces::ProofType;
     use raiko_lib::consts::{Network, SupportedChainSpecs};
+    use raiko_lib::input::BlobProofType;
 
     async fn create_cache_input(
         l1_network: &String,
@@ -263,6 +265,7 @@ mod test {
             graffiti: B256::ZERO,
             prover: Address::ZERO,
             proof_type: ProofType::Native,
+            blob_proof_type: BlobProofType::ProofOfCommitment,
             prover_args: Default::default(),
         };
         let raiko = Raiko::new(
