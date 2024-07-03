@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use raiko_core::{
     interfaces::{ProofRequest, RaikoError},
     provider::{get_task_data, rpc::RpcBlockDataProvider},
@@ -5,7 +7,7 @@ use raiko_core::{
 };
 use raiko_lib::{consts::SupportedChainSpecs, Measurement};
 use raiko_task_manager::{get_task_manager, TaskManager, TaskStatus};
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::{mpsc::Receiver, Semaphore};
 use tracing::{error, info};
 
 use crate::{
@@ -24,16 +26,20 @@ use crate::{
 
 pub struct ProofActor {
     rx: Receiver<TaskChannelOpts>,
+    task_count: usize,
 }
 
 impl ProofActor {
-    pub fn new(rx: Receiver<TaskChannelOpts>) -> Self {
-        Self { rx }
+    pub fn new(rx: Receiver<TaskChannelOpts>, task_count: usize) -> Self {
+        Self { rx, task_count }
     }
 
     pub async fn run(&mut self) {
+        let semaphore = Arc::new(Semaphore::new(self.task_count));
         while let Some(message) = self.rx.recv().await {
+            let permit = Arc::clone(&semaphore).acquire_owned().await;
             tokio::spawn(async move {
+                let _permit = permit;
                 if let Err(error) = Self::handle_message(message).await {
                     error!("Worker failed due to: {error:?}");
                 }
