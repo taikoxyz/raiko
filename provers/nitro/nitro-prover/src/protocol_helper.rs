@@ -24,7 +24,7 @@ pub fn send_message(stream: &mut VsockStream, msg: String) -> Result<(), anyhow:
     Ok(())
 }
 
-pub fn recv_message(stream: &mut VsockStream) -> Result<Vec<u8>, anyhow::Error> {
+pub fn recv_message(stream: &mut VsockStream) -> Result<String, anyhow::Error> {
     // Buffer to hold the size of the incoming data
     let mut size_buf = [0; size_of::<u64>()];
     stream.read_exact(&mut size_buf).unwrap();
@@ -36,5 +36,5 @@ pub fn recv_message(stream: &mut VsockStream) -> Result<Vec<u8>, anyhow::Error> 
     let mut payload_buffer = vec![0; size as usize];
     stream.read_exact(&mut payload_buffer).unwrap();
 
-    Ok(payload_buffer)
+    Ok(String::from_utf8(payload_buffer)?)
 }

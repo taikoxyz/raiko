@@ -19,7 +19,7 @@ pub mod protocol_helper;
 
 pub const CID: u32 = 16;
 pub const PORT: u32 = 26000;
-pub const BUF_MAX_LEN: usize = 8192;
+pub const NON_HEX_PREFIX: &str = "XYZ";
 
 pub struct NitroProver;
 
@@ -41,14 +41,21 @@ impl NitroProver {
         })?;
         // read proof response
         debug!("Reading proof from enclave");
-        let proof = recv_message(&mut stream).map_err(|e| {
+        let proving_result = recv_message(&mut stream).map_err(|e| {
             ProverError::GuestError(format!(
                 "Failed to read proof from enclave with details {}",
                 e
             ))
         })?;
+        if proving_result.starts_with(NON_HEX_PREFIX) {
+            return Err(ProverError::GuestError(
+                proving_result
+                    .trim_start_matches(NON_HEX_PREFIX)
+                    .to_string(),
+            ));
+        }
         debug!("Proof aquired. Returning it.");
-        Ok(serde_json::json!({"proof": hex::encode(proof)}))
+        Ok(serde_json::json!({"proof": proving_result}))
     }
 }
 

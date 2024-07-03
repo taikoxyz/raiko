@@ -1,4 +1,4 @@
-use nitro_prover::{protocol_helper::*, NitroProver, PORT};
+use nitro_prover::{protocol_helper::*, NitroProver, NON_HEX_PREFIX, PORT};
 use raiko_lib::{input::GuestInput, prover::Prover};
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -26,17 +26,23 @@ async fn main() {
             Ok(mut v_stream) => {
                 info!("Reading message from the socket");
                 let Ok(data) = recv_message(&mut v_stream) else {
-                    let msg = "Failed to read whole GuestInput bytes from socket!";
+                    let msg = format!(
+                        "{}Failed to read whole GuestInput bytes from socket!",
+                        NON_HEX_PREFIX
+                    );
                     info!(msg);
-                    if let Err(e) = send_message(&mut v_stream, msg.to_string()) {
+                    if let Err(e) = send_message(&mut v_stream, msg) {
                         error!("Failed to write error message back into socket. Client disconnected?, Details: {}", e);
                     }
                     continue;
                 };
-                let Ok(guest_input) = serde_json::from_slice::<GuestInput>(&data) else {
-                    let msg = "Provided bytes are not json serialized GuestInput";
+                let Ok(guest_input) = serde_json::from_str::<GuestInput>(&data) else {
+                    let msg = format!(
+                        "{}provided bytes are not json serialized guestinput",
+                        NON_HEX_PREFIX
+                    );
                     info!(msg);
-                    if let Err(e) = send_message(&mut v_stream, msg.to_string()) {
+                    if let Err(e) = send_message(&mut v_stream, msg) {
                         error!("Failed to write error message back into socket. Client disconnected?, Details: {}", e);
                     }
                     continue;
@@ -46,8 +52,8 @@ async fn main() {
                 {
                     Err(e) => {
                         let msg = format!(
-                            "Failed to generate nitro proof for block {} with details {}",
-                            block, e
+                            "{}Failed to generate nitro proof for block {} with details {}",
+                            NON_HEX_PREFIX, block, e
                         );
                         info!(msg);
                         if let Err(e) = send_message(&mut v_stream, msg) {
@@ -56,14 +62,8 @@ async fn main() {
                         continue;
                     }
                     Ok(proof_value) => {
-                        let Ok(proof) = serde_json::to_string(&proof_value) else {
-                            let msg = format!("Proof type unexpected for block {}!", block);
-                            info!(msg);
-                            if let Err(e) = send_message(&mut v_stream, msg) {
-                                error!("Failed to write error message back into socket. Client disconnected?, Details: {}", e);
-                            }
-                            continue;
-                        };
+                        // safe unwrap - can't fail as is a `Value`
+                        let proof = hex::encode(&serde_json::to_vec(&proof_value).unwrap());
                         let Ok(_) = send_message(&mut v_stream, proof) else {
                             info!("Failed to write proof back into socket. Client disconnected?");
                             continue;
