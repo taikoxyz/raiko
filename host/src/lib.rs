@@ -168,9 +168,8 @@ impl ProverState {
 
         let (task_channel, receiver) = mpsc::channel::<TaskChannelOpts>(opts.concurrency_limit);
 
-        let mut actor = ProofActor::new(receiver);
-        let _spawn = tokio::spawn(async move {
-            actor.run().await;
+        tokio::spawn(async move {
+            ProofActor::new(receiver).run().await;
         });
 
         Ok(Self {
