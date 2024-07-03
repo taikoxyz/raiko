@@ -1,8 +1,3 @@
-pub mod interfaces;
-pub mod metrics;
-pub mod proof;
-pub mod server;
-
 use std::{alloc, path::PathBuf};
 
 use anyhow::Context;
@@ -17,32 +12,16 @@ use raiko_task_manager::TaskManagerOpts;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
-use tracing::error;
 
-use crate::{interfaces::HostResult, proof::handle_message};
+use crate::{interfaces::HostResult, proof::ProofActor};
+
+pub mod interfaces;
+pub mod metrics;
+pub mod proof;
+pub mod server;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
-
-fn default_address() -> String {
-    "0.0.0.0:8080".to_string()
-}
-
-fn default_concurrency_limit() -> usize {
-    16
-}
-
-fn default_max_log() -> usize {
-    16
-}
-
-fn default_config_path() -> PathBuf {
-    PathBuf::from("host/config/config.json")
-}
-
-fn default_log_level() -> String {
-    "info".to_string()
-}
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]
 #[command(
@@ -51,15 +30,15 @@ fn default_log_level() -> String {
     long_about = None
 )]
 #[serde(default)]
-pub struct Cli {
+pub struct Opts {
     #[arg(long, require_equals = true, default_value = "0.0.0.0:8080")]
-    #[serde(default = "default_address")]
+    #[serde(default = "Opts::default_address")]
     /// Server bind address
     /// [default: 0.0.0.0:8080]
     address: String,
 
     #[arg(long, require_equals = true, default_value = "16")]
-    #[serde(default = "default_concurrency_limit")]
+    #[serde(default = "Opts::default_concurrency_limit")]
     /// Limit the max number of in-flight requests
     pub concurrency_limit: usize,
 
@@ -67,11 +46,11 @@ pub struct Cli {
     pub log_path: Option<PathBuf>,
 
     #[arg(long, require_equals = true, default_value = "7")]
-    #[serde(default = "default_max_log")]
+    #[serde(default = "Opts::default_max_log")]
     pub max_log: usize,
 
     #[arg(long, require_equals = true, default_value = "host/config/config.json")]
-    #[serde(default = "default_config_path")]
+    #[serde(default = "Opts::default_config_path")]
     /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
     config_path: PathBuf,
@@ -85,7 +64,7 @@ pub struct Cli {
     cache_path: Option<PathBuf>,
 
     #[arg(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
-    #[serde(default = "default_log_level")]
+    #[serde(default = "Opts::default_log_level")]
     /// Set the log level
     pub log_level: String,
 
@@ -106,7 +85,27 @@ pub struct Cli {
     max_db_size: usize,
 }
 
-impl Cli {
+impl Opts {
+    fn default_address() -> String {
+        "0.0.0.0:8080".to_string()
+    }
+
+    fn default_concurrency_limit() -> usize {
+        16
+    }
+
+    fn default_max_log() -> usize {
+        16
+    }
+
+    fn default_config_path() -> PathBuf {
+        PathBuf::from("host/config/config.json")
+    }
+
+    fn default_log_level() -> String {
+        "info".to_string()
+    }
+
     /// Read the options from a file and merge it with the current options.
     pub fn merge_from_file(&mut self) -> HostResult<()> {
         let file = std::fs::File::open(&self.config_path)?;
@@ -120,17 +119,8 @@ impl Cli {
     }
 }
 
-type TaskChannelOpts = (ProofRequest, Cli, SupportedChainSpecs);
-
-#[derive(Debug, Clone)]
-pub struct ProverState {
-    pub opts: Cli,
-    pub chain_specs: SupportedChainSpecs,
-    pub task_channel: mpsc::Sender<TaskChannelOpts>,
-}
-
-impl From<Cli> for TaskManagerOpts {
-    fn from(val: Cli) -> Self {
+impl From<Opts> for TaskManagerOpts {
+    fn from(val: Opts) -> Self {
         Self {
             sqlite_file: val.sqlite_file,
             max_db_size: val.max_db_size,
@@ -138,8 +128,8 @@ impl From<Cli> for TaskManagerOpts {
     }
 }
 
-impl From<&Cli> for TaskManagerOpts {
-    fn from(val: &Cli) -> Self {
+impl From<&Opts> for TaskManagerOpts {
+    fn from(val: &Opts) -> Self {
         Self {
             sqlite_file: val.sqlite_file.clone(),
             max_db_size: val.max_db_size,
@@ -147,10 +137,19 @@ impl From<&Cli> for TaskManagerOpts {
     }
 }
 
+pub type TaskChannelOpts = (ProofRequest, Opts, SupportedChainSpecs);
+
+#[derive(Debug, Clone)]
+pub struct ProverState {
+    pub opts: Opts,
+    pub chain_specs: SupportedChainSpecs,
+    pub task_channel: mpsc::Sender<TaskChannelOpts>,
+}
+
 impl ProverState {
     pub fn init() -> HostResult<Self> {
         // Read the command line arguments;
-        let mut opts = Cli::parse();
+        let mut opts = Opts::parse();
         // Read the config file.
         opts.merge_from_file()?;
 
@@ -167,14 +166,11 @@ impl ProverState {
             }
         }
 
-        let (task_channel, mut receiver) = mpsc::channel::<TaskChannelOpts>(opts.concurrency_limit);
+        let (task_channel, receiver) = mpsc::channel::<TaskChannelOpts>(opts.concurrency_limit);
 
+        let mut actor = ProofActor::new(receiver);
         let _spawn = tokio::spawn(async move {
-            while let Some(message) = receiver.recv().await {
-                if let Err(error) = handle_message(message).await {
-                    error!("Worker failed due to: {error:?}");
-                }
-            }
+            actor.run().await;
         });
 
         Ok(Self {

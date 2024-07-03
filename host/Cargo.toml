@@ -70,10 +70,10 @@ cfg-if = { workspace = true }
 cap = { workspace = true }
 
 # reth
-reth-primitives.workspace = true
-reth-evm.workspace = true
-reth-evm-ethereum.workspace = true
-reth-provider.workspace = true
+reth-primitives = { workspace = true }
+reth-evm = { workspace = true }
+reth-evm-ethereum = { workspace = true }
+reth-provider = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

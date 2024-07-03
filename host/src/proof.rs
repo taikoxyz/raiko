@@ -5,6 +5,7 @@ use raiko_core::{
 };
 use raiko_lib::{consts::SupportedChainSpecs, Measurement};
 use raiko_task_manager::{get_task_manager, TaskManager, TaskStatus};
+use tokio::sync::mpsc::Receiver;
 use tracing::{error, info};
 
 use crate::{
@@ -18,82 +19,102 @@ use crate::{
         proof::{get_cached_input, set_cached_input, validate_cache_input},
         ProofResponse,
     },
-    Cli,
+    Opts, TaskChannelOpts,
 };
 
-pub async fn handle_message(
-    (proof_request, opts, chain_specs): (ProofRequest, Cli, SupportedChainSpecs),
-) -> HostResult<()> {
-    let (chain_id, blockhash) = get_task_data(
-        &proof_request.network,
-        proof_request.block_number,
-        &chain_specs,
-    )
-    .await?;
-    let mut manager = get_task_manager(&opts.clone().into());
-    // If we cannot track progress with the task manager we can still do the work so we only trace
-    // the error
-    if manager
-        .update_task_progress(
-            chain_id,
-            blockhash,
-            proof_request.proof_type,
-            Some(proof_request.prover.to_string()),
-            TaskStatus::WorkInProgress,
-            None,
+pub struct ProofActor {
+    rx: Receiver<TaskChannelOpts>,
+}
+
+impl ProofActor {
+    pub fn new(rx: Receiver<TaskChannelOpts>) -> Self {
+        Self { rx }
+    }
+
+    pub async fn run(&mut self) {
+        while let Some(message) = self.rx.recv().await {
+            tokio::spawn(async move {
+                if let Err(error) = Self::handle_message(message).await {
+                    error!("Worker failed due to: {error:?}");
+                }
+            });
+        }
+    }
+
+    pub async fn handle_message(
+        (proof_request, opts, chain_specs): TaskChannelOpts,
+    ) -> HostResult<()> {
+        let (chain_id, blockhash) = get_task_data(
+            &proof_request.network,
+            proof_request.block_number,
+            &chain_specs,
         )
-        .await
-        .is_err()
-    {
-        error!("Could not update task to work in progress via task manager");
-    }
+        .await?;
+        let mut manager = get_task_manager(&opts.clone().into());
+        // If we cannot track progress with the task manager we can still do the work so we only trace
+        // the error
+        if manager
+            .update_task_progress(
+                chain_id,
+                blockhash,
+                proof_request.proof_type,
+                Some(proof_request.prover.to_string()),
+                TaskStatus::WorkInProgress,
+                None,
+            )
+            .await
+            .is_err()
+        {
+            error!("Could not update task to work in progress via task manager");
+        }
 
-    match handle_proof(&proof_request, &opts, &chain_specs).await {
-        Ok(result) => {
-            let proof_string = result.proof.unwrap_or_default();
-            let proof = proof_string.as_bytes();
-            // We don't need to fail here even if we cannot store it with task manager because the
-            // work has already been done
-            if manager
-                .update_task_progress(
-                    chain_id,
-                    blockhash,
-                    proof_request.proof_type,
-                    Some(proof_request.prover.to_string()),
-                    TaskStatus::Success,
-                    Some(proof),
-                )
-                .await
-                .is_err()
-            {
-                error!("Could not update task progress to success via task manager");
+        match handle_proof(&proof_request, &opts, &chain_specs).await {
+            Ok(result) => {
+                let proof_string = result.proof.unwrap_or_default();
+                let proof = proof_string.as_bytes();
+                // We don't need to fail here even if we cannot store it with task manager because the
+                // work has already been done
+                if manager
+                    .update_task_progress(
+                        chain_id,
+                        blockhash,
+                        proof_request.proof_type,
+                        Some(proof_request.prover.to_string()),
+                        TaskStatus::Success,
+                        Some(proof),
+                    )
+                    .await
+                    .is_err()
+                {
+                    error!("Could not update task progress to success via task manager");
+                }
+            }
+            Err(error) => {
+                // If we fail to track the with the task manager the work will be repeated anyway
+                if manager
+                    .update_task_progress(
+                        chain_id,
+                        blockhash,
+                        proof_request.proof_type,
+                        Some(proof_request.prover.to_string()),
+                        error.into(),
+                        None,
+                    )
+                    .await
+                    .is_err()
+                {
+                    error!("Could not update task progress to error state via task manager");
+                }
             }
         }
-        Err(error) => {
-            // If we fail to track the with the task manager the work will be repeated anyway
-            if manager
-                .update_task_progress(
-                    chain_id,
-                    blockhash,
-                    proof_request.proof_type,
-                    Some(proof_request.prover.to_string()),
-                    error.into(),
-                    None,
-                )
-                .await
-                .is_err()
-            {
-                error!("Could not update task progress to error state via task manager");
-            }
-        }
-    }
 
-    Ok(())
+        Ok(())
+    }
 }
 
 pub async fn handle_proof(
     proof_request: &ProofRequest,
-    opts: &Cli,
+    opts: &Opts,
     chain_specs: &SupportedChainSpecs,
 ) -> HostResult<ProofResponse> {
     inc_host_req_count(proof_request.block_number);
