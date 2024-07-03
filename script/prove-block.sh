@@ -86,7 +86,7 @@ elif [ "$proof" == "nitro" ]; then
     }
   '
 else
-	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
+	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'nitro' or 'sgx'."
 	exit 1
 fi
 
