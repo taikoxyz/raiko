@@ -31,6 +31,13 @@ lto = true
 [profile.release.build-override]
 opt-level = 3
 
+[workspace.metadata.cross.target.x86_64-unknown-linux-gnu]
+# Install libssl-dev:amd64, see <https://github.com/cross-rs/cross/blob/main/docs/custom_images.md#adding-dependencies-to-existing-images>
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update && apt-get --assume-yes install libssl-dev:$CROSS_DEB_ARCH",
+]
+
 [workspace.dependencies]
 
 # raiko
@@ -38,7 +45,10 @@ raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
 
 # reth
-reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = ["alloy-compat", "taiko"] }
+reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
+    "alloy-compat",
+    "taiko",
+] }
 reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
 reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko" }
@@ -69,16 +79,12 @@ reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
 
 alloy-rpc-types = { version = "0.1" }
 alloy-rpc-client = { version = "0.1" }
-alloy-consensus = { version = "0.1", features = [
-    "serde",
-] }
+alloy-consensus = { version = "0.1", features = ["serde"] }
 alloy-network = { version = "0.1", default-features = false, features = [
     "k256",
 ] }
 alloy-contract = { version = "0.1" }
-alloy-eips = { version = "0.1", default-features = false, features = [
-    "serde",
-] }
+alloy-eips = { version = "0.1", default-features = false, features = ["serde"] }
 alloy-provider = { version = "0.1" }
 alloy-transport-http = { version = "0.1" }
 alloy-signer = { version = "0.1" }
