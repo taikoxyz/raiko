@@ -68,7 +68,8 @@ impl Prover for NitroProver {
         // read and validate inputs
         info!("Starting Nitro guest and proof generation");
         // process the block
-        let header = calculate_block_header(&input);
+        let header =
+            calculate_block_header(&input).map_err(|e| ProverError::GuestError(e.to_string()))?;
         // calculate the public input hash
         let pi = ProtocolInstance::new(&input, &header, raiko_lib::consts::VerifierType::Nitro)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;

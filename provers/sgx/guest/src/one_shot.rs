@@ -127,7 +127,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
 
     // Process the block
-    let header = calculate_block_header(&input);
+    let header = calculate_block_header(&input)?;
     // Calculate the public input hash
     let pi = ProtocolInstance::new(&input, &header, VerifierType::SGX)?.sgx_instance(new_instance);
     let pi_hash = pi.instance_hash();

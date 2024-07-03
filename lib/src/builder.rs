@@ -1,6 +1,3 @@
-use core::mem;
-use std::sync::Arc;
-
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
 use crate::utils::generate_transactions;
@@ -12,6 +9,7 @@ use crate::{
     CycleTracker,
 };
 use anyhow::{bail, ensure, Result};
+use core::mem;
 use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_MAINNET};
 use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
 use reth_evm_ethereum::execute::{
@@ -23,24 +21,38 @@ use reth_primitives::revm_primitives::{
     Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap,
 };
 use reth_primitives::{Address, BlockWithSenders, Header, B256, KECCAK_EMPTY, U256};
+use std::sync::Arc;
 use tracing::debug;
 
-pub fn calculate_block_header(input: &GuestInput) -> Header {
+pub fn calculate_block_header(input: &GuestInput) -> Result<Header> {
+    let block = input.block.header.number;
     let cycle_tracker = CycleTracker::start("initialize_database");
-    let db = create_mem_db(&mut input.clone()).unwrap();
+    let Ok(db) = create_mem_db(&mut input.clone()) else {
+        bail!(
+            "Failed to instantiate in-memory state database for block {}",
+            block
+        );
+    };
     cycle_tracker.end();
 
     let mut builder = RethBlockBuilder::new(input, db);
 
     let cycle_tracker = CycleTracker::start("execute_transactions");
-    builder.execute_transactions(false).expect("execute");
+    if builder.execute_transactions(false).is_err() {
+        bail!(
+            "Falide to execute non-optimistic transaction for block {}",
+            block
+        );
+    }
     cycle_tracker.end();
 
     let cycle_tracker = CycleTracker::start("finalize");
-    let header = builder.finalize().expect("execute");
+    let Ok(header) = builder.finalize() else {
+        bail!("Failed to execute finalize for block {}", block);
+    };
     cycle_tracker.end();
 
-    header
+    Ok(header)
 }
 
 /// Optimistic database
