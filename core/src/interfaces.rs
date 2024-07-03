@@ -284,6 +284,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
             ("sgx", value.sgx.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
+            ("nitro", value.nitro.clone()),
         ]
         .into_iter()
         .filter_map(|(name, value)| value.map(|v| (name.to_string(), v)))
