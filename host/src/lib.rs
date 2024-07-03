@@ -20,9 +20,6 @@ pub mod metrics;
 pub mod proof;
 pub mod server;
 
-#[global_allocator]
-static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
-
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]
 #[command(
     name = "raiko",
@@ -182,6 +179,9 @@ impl ProverState {
     }
 }
 
+#[global_allocator]
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
+
 mod memory {
     use tracing::debug;
 
@@ -197,10 +197,8 @@ mod memory {
 
     pub(crate) fn print_stats(title: &str) {
         let max_memory = get_max_allocated();
-        debug!(
-            "{title}{}.{:06} MB",
-            max_memory / 1_000_000,
-            max_memory % 1_000_000
-        );
+        let mbs = max_memory / 1_000_000;
+        let kbs = max_memory % 1_000_000;
+        debug!("{title}{mbs}.{kbs:06} MB");
     }
 }
