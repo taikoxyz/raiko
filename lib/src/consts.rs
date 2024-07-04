@@ -293,6 +293,7 @@ mod tests {
                 (VerifierType::SGX, Some(Address::default())),
                 (VerifierType::SP1, None),
                 (VerifierType::RISC0, Some(Address::default())),
+                (VerifierType::Nitro, Some(Address::default())),
             ]),
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
