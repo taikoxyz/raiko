@@ -14,8 +14,8 @@ use crate::{
     interfaces::{HostError, HostResult},
     memory,
     metrics::{
-        inc_guest_error, inc_guest_req_count, inc_guest_success, inc_host_error,
-        inc_host_req_count, observe_guest_time, observe_prepare_input_time, observe_total_time,
+        inc_guest_error, inc_guest_success, inc_host_error, observe_guest_time,
+        observe_prepare_input_time, observe_total_time,
     },
     server::api::v1::{
         proof::{get_cached_input, set_cached_input, validate_cache_input},
@@ -123,9 +123,6 @@ pub async fn handle_proof(
     opts: &Opts,
     chain_specs: &SupportedChainSpecs,
 ) -> HostResult<ProofResponse> {
-    inc_host_req_count(proof_request.block_number);
-    inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
-
     info!(
         "# Generating proof for block {} on {}",
         proof_request.block_number, proof_request.network
