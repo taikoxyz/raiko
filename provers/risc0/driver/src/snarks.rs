@@ -177,12 +177,12 @@ pub async fn verify_groth16_snark(image_id: Digest, snark_receipt: SnarkReceipt)
         "Post State Digest: {}",
         hex::encode(&snark_receipt.post_state_digest)
     );
-    tracing_info!("Journal Digest: {}", hex::encode(journal_digest.clone()));
+    tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
     let verify_call_res = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
         .verify(
             seal.into(),
             image_id.as_bytes().try_into().unwrap(),
-            journal_digest.try_into().unwrap(),
+            journal_digest.into(),
         )
         .await;
 
