@@ -36,6 +36,7 @@ mod proof;
             GuestOutputDoc,
             ProofResponse,
             TaskStatus,
+            CancelStatus,
             Status,
         )
     ),
@@ -98,6 +99,23 @@ impl From<TaskStatus> for Status {
 }
 
 impl IntoResponse for Status {
+    fn into_response(self) -> axum::response::Response {
+        Json(serde_json::to_value(self).unwrap()).into_response()
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "lowercase")]
+/// Status of cancellation request.
+/// Can be `ok` for a successful cancellation or `error` with message and error type for errors.
+pub enum CancelStatus {
+    /// Cancellation was successful.
+    Ok,
+    /// Cancellation failed.
+    Error { error: String, message: String },
+}
+
+impl IntoResponse for CancelStatus {
     fn into_response(self) -> axum::response::Response {
         Json(serde_json::to_value(self).unwrap()).into_response()
     }

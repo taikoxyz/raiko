@@ -4,13 +4,13 @@ use raiko_task_manager::{get_task_manager, TaskManager, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, ProverState};
+use crate::{interfaces::HostResult, server::api::v2::CancelStatus, ProverState};
 
 #[utoipa::path(post, path = "/proof/cancel",
     tag = "Proving",
     request_body = ProofRequestOpt,
     responses (
-        (status = 200, description = "Successfully cancelled proof task", body = Status)
+        (status = 200, description = "Successfully cancelled proof task", body = CancelStatus)
     )
 )]
 #[debug_handler(state = ProverState)]
@@ -25,7 +25,7 @@ use crate::{interfaces::HostResult, ProverState};
 async fn cancel_handler(
     State(prover_state): State<ProverState>,
     Json(req): Json<Value>,
-) -> HostResult<Json<Value>> {
+) -> HostResult<CancelStatus> {
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     let mut config = prover_state.opts.proof_request_opt.clone();
@@ -54,7 +54,7 @@ async fn cancel_handler(
         )
         .await?;
 
-    Ok(Json(serde_json::json!({ "status": "ok" })))
+    Ok(CancelStatus::Ok)
 }
 
 #[derive(OpenApi)]
