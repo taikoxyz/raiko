@@ -3,7 +3,8 @@ use std::io::{Read, Write};
 use std::mem::size_of;
 use vsock::VsockStream;
 
-pub fn send_message(stream: &mut VsockStream, msg: String) -> Result<(), anyhow::Error> {
+pub fn send_message(stream: &mut VsockStream, msg: impl AsRef<str>) -> Result<(), anyhow::Error> {
+    let msg = msg.as_ref();
     // write message length
     let payload_len: u64 = msg
         .len()
