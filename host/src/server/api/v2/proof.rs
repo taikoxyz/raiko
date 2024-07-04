@@ -19,7 +19,7 @@ mod cancel;
     tag = "Proving",
     request_body = ProofRequestOpt,
     responses (
-        (status = 200, description = "Successfully submitted proof task, queried tasks in progress or retreived proof.", body = Status)
+        (status = 200, description = "Successfully submitted proof task, queried tasks in progress or retrieved proof.", body = Status)
     )
 )]
 #[debug_handler(state = ProverState)]
