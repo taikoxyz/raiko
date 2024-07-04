@@ -273,6 +273,15 @@ docker compose build
 
 > **_NOTE:_** This step will take some time, sometimes ~5 minutes.
 
+**Currently, it is not possible to build the image locally due to a dependency being privated. Please pull the docker images needed to run raiko as follows:**
+
+```
+docker pull us-docker.pkg.dev/evmchain/images/raiko:1.0.0
+docker pull us-docker.pkg.dev/evmchain/images/pccs:1.0.0
+```
+
+You can continue on with the following steps as usual after this.
+
 6. Check that the images have been built
 
 ```
