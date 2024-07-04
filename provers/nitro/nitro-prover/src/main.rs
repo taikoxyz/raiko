@@ -64,10 +64,11 @@ async fn main() {
                     Ok(proof_value) => {
                         // safe unwrap - can't fail as is a `Value`
                         let proof = hex::encode(&serde_json::to_vec(&proof_value).unwrap());
-                        let Ok(_) = send_message(&mut v_stream, proof) else {
+                        let Ok(_) = send_message(&mut v_stream, &proof) else {
                             info!("Failed to write proof back into socket. Client disconnected?");
                             continue;
                         };
+                        info!("Proved block {} with resulting proof {}", block, proof);
                     }
                 }
             }
