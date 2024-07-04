@@ -46,6 +46,10 @@ fi
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 	# cargo install cargo-risczero
 	# cargo risczero install --version v2024-02-08.1
+    if [ -z "$TERM" ]; then
+        # Set TERM to xterm
+        export TERM=xterm
+    fi
     curl -L https://risczero.com/install | bash
     rzup -v 1.0.1
 fi
