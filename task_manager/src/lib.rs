@@ -146,6 +146,15 @@ pub struct TaskManagerOpts {
     pub max_db_size: usize,
 }
 
+#[derive(Debug, Serialize, ToSchema)]
+pub struct TaskReport {
+    pub chain_id: u64,
+    pub blockhash: B256,
+    pub prover_type: ProofType,
+    pub prover: Option<String>,
+    pub status: TaskStatus,
+}
+
 #[async_trait::async_trait]
 pub trait TaskManager {
     /// new a task manager
@@ -199,6 +208,8 @@ pub trait TaskManager {
 
     /// Prune old tasks
     async fn prune_db(&mut self) -> TaskManagerResult<()>;
+
+    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>>;
 }
 
 pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
@@ -340,6 +351,13 @@ impl TaskManager for TaskManagerWrapper {
         match &mut self.manager {
             TaskManagerInstance::InMemory(ref mut manager) => manager.prune_db().await,
             TaskManagerInstance::Sqlite(ref mut manager) => manager.prune_db().await,
+        }
+    }
+
+    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => manager.list_all_tasks().await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.list_all_tasks().await,
         }
     }
 }

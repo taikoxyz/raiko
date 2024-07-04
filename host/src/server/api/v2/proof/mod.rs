@@ -14,6 +14,8 @@ use crate::{
 };
 
 mod cancel;
+mod prune;
+mod report;
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",
@@ -131,13 +133,22 @@ async fn proof_handler(
 struct Docs;
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    let mut docs = Docs::openapi();
-    docs.merge(cancel::create_docs());
-    docs
+    [
+        cancel::create_docs(),
+        report::create_docs(),
+        prune::create_docs(),
+    ]
+    .into_iter()
+    .fold(Docs::openapi(), |mut docs, curr| {
+        docs.merge(curr);
+        docs
+    })
 }
 
 pub fn create_router() -> Router<ProverState> {
     Router::new()
         .route("/", post(proof_handler))
         .nest("/cancel", cancel::create_router())
+        .nest("/report", report::create_router())
+        .nest("/prune", prune::create_router())
 }

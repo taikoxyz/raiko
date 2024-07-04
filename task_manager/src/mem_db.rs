@@ -14,7 +14,7 @@ use std::{
 
 use crate::{
     ensure, EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
-    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskStatus,
+    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 use chrono::Utc;
@@ -171,6 +171,10 @@ impl InMemoryTaskDb {
     fn prune(&mut self) -> TaskManagerResult<()> {
         Ok(())
     }
+
+    fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
+        Ok(vec![])
+    }
 }
 
 #[async_trait::async_trait]
@@ -275,6 +279,11 @@ impl TaskManager for InMemoryTaskManager {
     async fn prune_db(&mut self) -> TaskManagerResult<()> {
         let mut db = self.db.lock().await;
         db.prune()
+    }
+
+    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
+        let mut db = self.db.lock().await;
+        db.list_all_tasks()
     }
 }
 

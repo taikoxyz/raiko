@@ -168,7 +168,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     EnqueueTaskParams, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatus, TaskProvingStatusRecords, TaskStatus,
+    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 // Types
@@ -251,9 +251,9 @@ impl TaskDb {
               proofsys(id, desc)
             VALUES
               (0, 'Native'),
-              (1, 'Risc0'),
-              (2, 'SP1'),
-              (3, 'SGX');
+              (1, 'SP1'),
+              (2, 'SGX'),
+              (3, 'Risc0');
             
             CREATE TABLE status_codes(
               id INTEGER UNIQUE NOT NULL PRIMARY KEY,
@@ -745,6 +745,45 @@ impl TaskDb {
 
         Ok(())
     }
+
+    pub fn list_all_tasks(&self) -> TaskManagerResult<Vec<TaskReport>> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            SELECT
+              chain_id,
+              blockhash,
+              proofsys_id,
+              prover,
+              status_id
+            FROM
+              tasks
+              LEFT JOIN task_status on task.id = task_status.task_id
+              JOIN (
+                SELECT
+                  task_id,
+                  MAX(timestamp) as latest_timestamp
+                FROM
+                  task_status
+                GROUP BY
+                  task_id
+              ) latest_ts ON task_status.task_id = latest_ts.task_id
+              AND task_status.timestamp = latest_ts.latest_timestamp
+            "#,
+        )?;
+        let query = statement
+            .query_map([], |row| {
+                Ok(TaskReport {
+                    chain_id: row.get(0)?,
+                    blockhash: B256::from_slice(&row.get::<_, Vec<u8>>(1)?),
+                    prover_type: row.get::<_, u8>(2)?.try_into().unwrap(),
+                    prover: row.get(3)?,
+                    status: TaskStatus::from(row.get::<_, i32>(4)?),
+                })
+            })?
+            .collect::<Result<Vec<TaskReport>, _>>()?;
+
+        Ok(query)
+    }
 }
 
 #[async_trait::async_trait]
@@ -833,6 +872,11 @@ impl TaskManager for SqliteTaskManager {
     async fn prune_db(&mut self) -> TaskManagerResult<()> {
         let task_db = self.arc_task_db.lock().await;
         task_db.prune_db()
+    }
+
+    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.list_all_tasks()
     }
 }
 
