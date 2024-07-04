@@ -44,8 +44,10 @@ if [ -z "$1" ] || [ "$1" == "sgx" ]; then
 fi
 # RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
-	cargo install cargo-risczero
-	cargo risczero install --version v2024-02-08.1
+	# cargo install cargo-risczero
+	# cargo risczero install --version v2024-02-08.1
+    curl -L https://risczero.com/install | bash
+    rzup -v 1.0.1
 fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then

@@ -3,7 +3,7 @@
 # Environment variables
 BONSAI_API_KEY="1234"
 BONSAI_API_URL="https://api.bonsai.xyzz/"
-GROTH16_VERIFIER_ADDRESS="850EC3780CeDfdb116E38B009d0bf7a1ef1b8b38"
+GROTH16_VERIFIER_ADDRESS="3d24C84FC1A2B26f9229e58ddDf11A8dfba802d0"
 GROTH16_VERIFIER_RPC_URL="https://sepolia.infura.io/v3/4c76691f5f384d30bed910018c28ba1d"
 
 # Function to set environment variable persistently
