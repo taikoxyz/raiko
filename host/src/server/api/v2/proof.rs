@@ -9,7 +9,7 @@ use utoipa::OpenApi;
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
-    server::api::v1::ProofResponse,
+    server::api::v2::Status,
     ProverState,
 };
 
@@ -19,7 +19,7 @@ mod cancel;
     tag = "Proving",
     request_body = ProofRequestOpt,
     responses (
-        (status = 200, description = "Successfully submitted proof task", body = Status)
+        (status = 200, description = "Successfully submitted proof task, queried tasks in progress or retreived proof.", body = Status)
     )
 )]
 #[debug_handler(state = ProverState)]
@@ -34,7 +34,7 @@ mod cancel;
 async fn proof_handler(
     State(prover_state): State<ProverState>,
     Json(req): Json<Value>,
-) -> HostResult<Json<Value>> {
+) -> HostResult<Status> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
@@ -81,7 +81,7 @@ async fn proof_handler(
             prover_state.chain_specs,
         ))?;
 
-        return Ok(status_into_response(TaskStatus::Registered));
+        return Ok(TaskStatus::Registered.into());
     };
 
     match latest_status {
@@ -106,7 +106,7 @@ async fn proof_handler(
                 prover_state.chain_specs,
             ))?;
 
-            Ok(status_into_response(TaskStatus::Registered))
+            Ok(TaskStatus::Registered.into())
         }
         // If the task has succeeded, return the proof.
         TaskStatus::Success => {
@@ -119,27 +119,11 @@ async fn proof_handler(
                 )
                 .await?;
 
-            Ok(Json(
-                ProofResponse {
-                    proof: Some(String::from_utf8(proof).unwrap()),
-                    output: None,
-                    quote: None,
-                }
-                .to_response(),
-            ))
+            Ok(proof.into())
         }
         // For all other statuses just return the status.
-        _ => Ok(status_into_response(*latest_status)),
+        status => Ok((*status).into()),
     }
-}
-
-pub fn status_into_response(status: TaskStatus) -> Json<Value> {
-    Json(serde_json::json!({
-        "status": "ok",
-        "data": {
-            "status": status,
-        }
-    }))
 }
 
 #[derive(OpenApi)]
