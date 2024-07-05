@@ -52,7 +52,7 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
     fi
     curl -L https://risczero.com/install | bash
 
-	if [ -z "${CI}" ] || [ ! command -v sp1up &> /dev/null ]; then
+	if [ -z "${CI}" ] || [ ! command -v rzup &> /dev/null ]; then
 		PROFILE=$HOME/.bashrc
 		echo ${PROFILE}
 		source ${PROFILE}
