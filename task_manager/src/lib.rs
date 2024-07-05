@@ -85,7 +85,7 @@ pub struct EnqueueTaskParams {
     pub block_number: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct TaskDescriptor {
     pub chain_id: ChainId,
     pub blockhash: B256,
@@ -180,12 +180,6 @@ pub trait TaskManager {
         prover: Option<String>,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
-    /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    async fn get_task_proving_status_by_id(
-        &mut self,
-        task_id: u64,
-    ) -> TaskManagerResult<TaskProvingStatusRecords>;
-
     /// Returns the proof for the given task
     async fn get_task_proof(
         &mut self,
@@ -194,8 +188,6 @@ pub trait TaskManager {
         proof_system: ProofType,
         prover: Option<String>,
     ) -> TaskManagerResult<Vec<u8>>;
-
-    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>>;
 
     /// Returns the total and detailed database size
     async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)>;
@@ -288,20 +280,6 @@ impl TaskManager for TaskManagerWrapper {
         }
     }
 
-    async fn get_task_proving_status_by_id(
-        &mut self,
-        task_id: u64,
-    ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.get_task_proving_status_by_id(task_id).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.get_task_proving_status_by_id(task_id).await
-            }
-        }
-    }
-
     async fn get_task_proof(
         &mut self,
         chain_id: ChainId,
@@ -319,17 +297,6 @@ impl TaskManager for TaskManagerWrapper {
                 manager
                     .get_task_proof(chain_id, blockhash, proof_system, prover)
                     .await
-            }
-        }
-    }
-
-    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.get_task_proof_by_id(task_id).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.get_task_proof_by_id(task_id).await
             }
         }
     }
