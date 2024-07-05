@@ -2,22 +2,22 @@ use axum::{debug_handler, extract::State, routing::post, Router};
 use raiko_task_manager::{get_task_manager, TaskManager};
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, server::api::v2::CancelStatus, ProverState};
+use crate::{interfaces::HostResult, server::api::v2::PruneStatus, ProverState};
 
 #[utoipa::path(post, path = "/proof/prune",
     tag = "Proving",
     responses (
-        (status = 200, description = "Successfully pruned tasks", body = CancelStatus)
+        (status = 200, description = "Successfully pruned tasks", body = PruneStatus)
     )
 )]
 #[debug_handler(state = ProverState)]
 /// Prune all tasks.
-async fn prune_handler(State(prover_state): State<ProverState>) -> HostResult<CancelStatus> {
+async fn prune_handler(State(prover_state): State<ProverState>) -> HostResult<PruneStatus> {
     let mut manager = get_task_manager(&(&prover_state.opts).into());
 
     manager.prune_db().await?;
 
-    Ok(CancelStatus::Ok)
+    Ok(PruneStatus::Ok)
 }
 
 #[derive(OpenApi)]

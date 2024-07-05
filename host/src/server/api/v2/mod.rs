@@ -25,7 +25,7 @@ mod proof;
         ),
         license(
             name = "MIT",
-            url = "https://github.com/taikoxyz/raiko/blob/taiko/unstable/LICENSE"
+            url = "https://github.com/taikoxyz/raiko/blob/main/LICENSE"
         ),
     ),
     components(
@@ -37,6 +37,7 @@ mod proof;
             ProofResponse,
             TaskStatus,
             CancelStatus,
+            PruneStatus,
             Status,
         )
     ),
@@ -116,6 +117,23 @@ pub enum CancelStatus {
 }
 
 impl IntoResponse for CancelStatus {
+    fn into_response(self) -> axum::response::Response {
+        Json(serde_json::to_value(self).unwrap()).into_response()
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "lowercase")]
+/// Status of prune request.
+/// Can be `ok` for a successful prune or `error` with message and error type for errors.
+pub enum PruneStatus {
+    /// Prune was successful.
+    Ok,
+    /// Prune failed.
+    Error { error: String, message: String },
+}
+
+impl IntoResponse for PruneStatus {
     fn into_response(self) -> axum::response::Response {
         Json(serde_json::to_value(self).unwrap()).into_response()
     }
