@@ -49,12 +49,10 @@ impl GuestListEntry {
 
         let upper = self.name.to_uppercase().replace('-', "_");
         let image_id: [u32; DIGEST_WORDS] = self.image_id;
-        let elf_path: &str = &self.path;
         format!(
             r##"
 pub const {upper}_ELF: &[u8] = include_bytes!("{relative_path}");
 pub const {upper}_ID: [u32; 8] = {image_id:?};
-pub const {upper}_PATH: &str = r#"{elf_path}"#;
 "##
         )
     }

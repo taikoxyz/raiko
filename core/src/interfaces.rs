@@ -164,7 +164,7 @@ impl ProofType {
         let mut proof = match self {
             ProofType::Native => NativeProver::run(input.clone(), output, config)
                 .await
-                .map_err(|e| e.into()),
+                .map_err(<ProverError as Into<RaikoError>>::into),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
                 return sp1_driver::Sp1Prover::run(input.clone(), output, config)

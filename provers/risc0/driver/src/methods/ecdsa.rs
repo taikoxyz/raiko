@@ -1,7 +1,5 @@
 pub const ECDSA_ELF: &[u8] =
     include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/ecdsa");
 pub const ECDSA_ID: [u32; 8] = [
-    2112349872, 662412126, 2552816809, 3712154546, 3455470029, 3928252579, 3471286672, 2002692558,
+    3688490884, 2127892678, 3137078981, 1193344426, 4105663218, 3901516424, 3225864022, 13950036,
 ];
-pub const ECDSA_PATH: &str =
-    r#"/home/ubuntu/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/ecdsa"#;

@@ -248,7 +248,7 @@ pub fn prove_locally(
 
         exec.run().unwrap()
     };
-    session.prove().unwrap()
+    session.prove().unwrap().receipt
 }
 
 pub fn load_receipt<T: serde::de::DeserializeOwned>(

@@ -307,7 +307,7 @@ mod tests {
         if !(is_ci() && proof_type == ProofType::Sp1) {
             let network = Network::Ethereum.to_string();
             let l1_network = Network::Ethereum.to_string();
-            let block_number = 19707175;
+            let block_number = 19907175;
             let taiko_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&network)
                 .unwrap();
