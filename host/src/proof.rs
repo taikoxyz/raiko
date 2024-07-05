@@ -57,9 +57,22 @@ impl ProofActor {
         )
         .await?;
         let mut manager = get_task_manager(&opts.clone().into());
-        // If we cannot track progress with the task manager we can still do the work so we only trace
-        // the error
-        if manager
+        let status = manager
+            .get_task_proving_status(
+                chain_id,
+                blockhash,
+                proof_request.proof_type,
+                Some(proof_request.prover.clone().to_string()),
+            )
+            .await?;
+
+        if let Some(latest_status) = status.iter().last() {
+            if !matches!(latest_status.0, TaskStatus::Registered) {
+                return Ok(());
+            }
+        }
+
+        manager
             .update_task_progress(
                 chain_id,
                 blockhash,
@@ -68,19 +81,14 @@ impl ProofActor {
                 TaskStatus::WorkInProgress,
                 None,
             )
-            .await
-            .is_err()
-        {
-            error!("Could not update task to work in progress via task manager");
-        }
+            .await?;
 
         match handle_proof(&proof_request, &opts, &chain_specs).await {
             Ok(result) => {
                 let proof_string = result.proof.unwrap_or_default();
                 let proof = proof_string.as_bytes();
-                // We don't need to fail here even if we cannot store it with task manager because the
-                // work has already been done
-                if manager
+
+                manager
                     .update_task_progress(
                         chain_id,
                         blockhash,
@@ -89,15 +97,10 @@ impl ProofActor {
                         TaskStatus::Success,
                         Some(proof),
                     )
-                    .await
-                    .is_err()
-                {
-                    error!("Could not update task progress to success via task manager");
-                }
+                    .await?;
             }
             Err(error) => {
-                // If we fail to track the with the task manager the work will be repeated anyway
-                if manager
+                manager
                     .update_task_progress(
                         chain_id,
                         blockhash,
@@ -106,11 +109,7 @@ impl ProofActor {
                         error.into(),
                         None,
                     )
-                    .await
-                    .is_err()
-                {
-                    error!("Could not update task progress to error state via task manager");
-                }
+                    .await?;
             }
         }
 
