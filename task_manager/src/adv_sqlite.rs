@@ -167,8 +167,8 @@ use rusqlite::{
 use tokio::sync::Mutex;
 
 use crate::{
-    EnqueueTaskParams, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
+    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 // Types
@@ -772,13 +772,15 @@ impl TaskDb {
         )?;
         let query = statement
             .query_map([], |row| {
-                Ok(TaskReport {
-                    chain_id: row.get(0)?,
-                    blockhash: B256::from_slice(&row.get::<_, Vec<u8>>(1)?),
-                    prover_type: row.get::<_, u8>(2)?.try_into().unwrap(),
-                    prover: row.get(3)?,
-                    status: TaskStatus::from(row.get::<_, i32>(4)?),
-                })
+                Ok(TaskReport(
+                    TaskDescriptor {
+                        chain_id: row.get(0)?,
+                        blockhash: B256::from_slice(&row.get::<_, Vec<u8>>(1)?),
+                        proof_system: row.get::<_, u8>(2)?.try_into().unwrap(),
+                        prover: row.get(3)?,
+                    },
+                    TaskStatus::from(row.get::<_, i32>(4)?),
+                ))
             })?
             .collect::<Result<Vec<TaskReport>, _>>()?;
 

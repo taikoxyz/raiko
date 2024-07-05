@@ -147,13 +147,7 @@ pub struct TaskManagerOpts {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct TaskReport {
-    pub chain_id: u64,
-    pub blockhash: B256,
-    pub prover_type: ProofType,
-    pub prover: Option<String>,
-    pub status: TaskStatus,
-}
+pub struct TaskReport(pub TaskDescriptor, pub TaskStatus);
 
 #[async_trait::async_trait]
 pub trait TaskManager {
