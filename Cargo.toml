@@ -48,10 +48,10 @@ reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = 
 reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 
 # risc zero
-risc0-zkvm = { version = "0.21.0", features = ["prove", "getrandom"] }
-bonsai-sdk = { version = "0.7.0", features = ["async"] }
-risc0-build = { version = "0.21.0" }
-risc0-binfmt = { version = "0.21.0" }
+risc0-zkvm = { version = "1.0.1", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "0.8.0", features = ["async"] }
+risc0-build = { version = "1.0.1" }
+risc0-binfmt = { version = "1.0.1" }
 
 # SP1
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }

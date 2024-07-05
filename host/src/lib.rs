@@ -18,7 +18,7 @@ use raiko_task_manager::{get_task_manager, TaskManager, TaskManagerOpts, TaskSta
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     interfaces::{HostError, HostResult},
@@ -211,6 +211,10 @@ impl ProverState {
                     Ok(proof) => {
                         let proof = proof.proof.unwrap_or_default();
                         let proof = proof.as_bytes();
+                        debug!(
+                            "Proof generated for block {} on {} is {:?}",
+                            proof_request.block_number, proof_request.network, proof
+                        );
                         if manager
                             .update_task_progress(
                                 chain_id,
