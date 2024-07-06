@@ -20,22 +20,14 @@ anyhow = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 sha3 = { workspace = true, optional = true, default-features = false}
 
-[build-dependencies]
-sp1-helper = { workspace = true, optional = true }
-cargo_metadata = "0.18.1"
-chrono = { version = "0.4.34", default-features = false, features = ["clock"] }
-regex = "1.5.4"
-
 
 [features]
-default = ["enable"]
 enable = [
     "serde",
     "serde_json",
     "raiko-lib",
     "sp1-sdk",
     "anyhow",
-    "sp1-helper",
     "alloy-primitives",
     "once_cell",
     "sha3",

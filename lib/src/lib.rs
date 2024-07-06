@@ -1,18 +1,6 @@
-// Copyright 2023 RISC Zero, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 #![cfg_attr(any(not(feature = "std")), no_std)]
-
+#![feature(slice_flatten)]
+#![feature(result_flattening)]
 #[cfg(feature = "std")]
 use std::io::{self, Write};
 
@@ -28,17 +16,19 @@ mod no_std {
     };
 }
 
+use tracing::debug;
+
 pub mod builder;
 pub mod consts;
 pub mod input;
 pub mod mem_db;
+pub mod primitives;
 pub mod protocol_instance;
 pub mod prover;
 pub mod utils;
 
 #[cfg(not(target_os = "zkvm"))]
 mod time {
-    pub use core::ops::AddAssign;
     pub use std::time::{Duration, Instant};
 }
 
@@ -56,9 +46,9 @@ mod time {
         pub fn now() -> Instant {
             Instant::default()
         }
-        pub fn duration_since(&self, _instant: Instant) -> Duration {
-            Duration::default()
-        }
+        //pub fn duration_since(&self, _instant: Instant) -> Duration {
+        //    Duration::default()
+        //}
         pub fn elapsed(&self) -> Duration {
             Duration::default()
         }
@@ -82,6 +72,41 @@ mod time {
     }
 }
 
+pub struct CycleTracker {
+    #[allow(dead_code)]
+    title: String,
+}
+
+impl CycleTracker {
+    pub fn start(title: &str) -> CycleTracker {
+        let ct = CycleTracker {
+            title: title.to_string(),
+        };
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
+        println!("cycle-tracker-start: {title}");
+        ct
+    }
+
+    pub fn end(&self) {
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
+        println!("cycle-tracker-end: {self.title}");
+    }
+
+    pub fn println(_inner: impl Fn()) {
+        #[cfg(all(
+            all(target_os = "zkvm", target_vendor = "succinct"),
+            feature = "sp1-cycle-tracker"
+        ))]
+        _inner()
+    }
+}
+
 pub struct Measurement {
     start: time::Instant,
     title: String,
@@ -91,11 +116,11 @@ pub struct Measurement {
 impl Measurement {
     pub fn start(title: &str, inplace: bool) -> Measurement {
         if inplace {
-            print!("{title}");
+            debug!("{title}");
             #[cfg(feature = "std")]
             io::stdout().flush().unwrap();
         } else if !title.is_empty() {
-            println!("{title}");
+            debug!("{title}");
         }
 
         Self {
@@ -124,7 +149,7 @@ impl Measurement {
 }
 
 pub fn print_duration(title: &str, duration: time::Duration) {
-    println!(
+    debug!(
         "{title}{}.{:03} seconds",
         duration.as_secs(),
         duration.subsec_millis()
@@ -132,104 +157,23 @@ pub fn print_duration(title: &str, duration: time::Duration) {
 }
 
 pub fn inplace_print(title: &str) {
+    if consts::IN_CONTAINER.is_some() {
+        return;
+    }
     print!("\r{title}");
-    #[cfg(feature = "std")]
+    #[cfg(all(feature = "std", debug_assertions))]
     io::stdout().flush().unwrap();
 }
 
 pub fn clear_line() {
+    if consts::IN_CONTAINER.is_some() {
+        return;
+    }
     print!("\r\x1B[2K");
 }
 
 /// call forget only if running inside the guest
 pub fn guest_mem_forget<T>(_t: T) {
-    #[cfg(target_os = "zkvm")] // TODO: seperate for risc0
+    #[cfg(target_os = "zkvm")] // TODO: separate for risc0
     core::mem::forget(_t)
-}
-
-pub trait RlpBytes: Sized {
-    /// Decodes the blob into the appropriate type.
-    /// The input must contain exactly one value and no trailing data.
-    fn decode_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, alloy_rlp::Error>;
-}
-
-impl<T> RlpBytes for T
-where
-    T: alloy_rlp::Decodable,
-{
-    #[inline]
-    fn decode_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, alloy_rlp::Error> {
-        let mut buf = bytes.as_ref();
-        let this = T::decode(&mut buf)?;
-        if buf.is_empty() {
-            Ok(this)
-        } else {
-            Err(alloy_rlp::Error::Custom("Trailing data"))
-        }
-    }
-}
-
-pub mod serde_with {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use serde_with::{DeserializeAs, SerializeAs};
-
-    use super::RlpBytes as _;
-
-    pub struct RlpBytes {}
-
-    impl<T> SerializeAs<T> for RlpBytes
-    where
-        T: alloy_rlp::Encodable,
-    {
-        fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let bytes = alloy_rlp::encode(source);
-            bytes.serialize(serializer)
-        }
-    }
-
-    impl<'de, T> DeserializeAs<'de, T> for RlpBytes
-    where
-        T: alloy_rlp::Decodable,
-    {
-        fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let bytes = <Vec<u8>>::deserialize(deserializer)?;
-            T::decode_bytes(bytes).map_err(serde::de::Error::custom)
-        }
-    }
-
-    pub struct RlpHexBytes {}
-
-    impl<T> SerializeAs<T> for RlpHexBytes
-    where
-        T: alloy_rlp::Encodable,
-    {
-        fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let bytes = alloy_rlp::encode(source);
-            let hex_str = hex::encode(bytes);
-            hex_str.serialize(serializer)
-        }
-    }
-
-    impl<'de, T> DeserializeAs<'de, T> for RlpHexBytes
-    where
-        T: alloy_rlp::Decodable,
-    {
-        fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let hex_str = <String>::deserialize(deserializer)?;
-            let bytes = hex::decode(hex_str).unwrap();
-            T::decode_bytes(bytes).map_err(serde::de::Error::custom)
-        }
-    }
 }

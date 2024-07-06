@@ -162,14 +162,23 @@ n7qROhU4OOJnVs9lqNxxi8AFrJJHU2E=
 
 </details>
 
-Currently Supported FMSPCs:
+Currently Supported FMSPCs (on Mainnet):
 - 00606A000000
 - 00A067110000
 - 00906ED50000
 
+Currently Supported FMSPCs (on Hekla):
+- 00606A000000
+- 00A067110000
+- 00906ED50000
+- 30606A000000
+- 00706A100000
+
 Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
 
-> **_NOTE:_** At the moment, we are aware of two cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
+> **_NOTE:_** At the moment, we are aware of three cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
+>
+> If you'd like to use Tencent Cloud, they have reserved compatible `M6ce` machines available for Taiko's community with a limited time special offer. Please register [here](https://resale.anchnet.com) to purchase `M6ce` machines with discount.
 
 [sgx-pck-id-retrieval-tool]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/main/tools/PCKRetrievalTool
 
@@ -263,6 +272,15 @@ docker compose build
 ```
 
 > **_NOTE:_** This step will take some time, sometimes ~5 minutes.
+
+**Currently, it is not possible to build the image locally due to a dependency being privated. Please pull the docker images needed to run raiko as follows:**
+
+```
+docker pull us-docker.pkg.dev/evmchain/images/raiko:1.0.0
+docker pull us-docker.pkg.dev/evmchain/images/pccs:1.0.0
+```
+
+You can continue on with the following steps as usual after this.
 
 6. Check that the images have been built
 
@@ -367,7 +385,7 @@ Raiko now supports more configurations, which need to be carefully checked to av
 
     - SGX_INSTANCE_ID: Your `SGX_INSTANCE_ID` is the one emitted in the `InstanceAdded` event above.
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
-    - ETHEREUM_CHAIN_ID: ethereum beacon node url, from which you query the ethereum data.
+    - ETHEREUM_BEACON_RPC: ethereum beacon node url, from which you query the ethereum data.
     - HOLESKY_RPC: ethereum holesky test node url.
     - HOLESKY_BEACON_RPC: ethereum holesky test beacon node url.
     - TAIKO_A7_RPC: taiko hekla(a7) testnet node url.

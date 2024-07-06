@@ -43,17 +43,15 @@ impl TestSuite {
             let log = ASSERTION_LOG.get_or_init(|| Mutex::new(AssertionLog::new()));
             let log = log.lock().unwrap();
             let start = log.len();
-            drop(log);
+
             let result = std::panic::catch_unwind(test.test_fn);
             let log = ASSERTION_LOG.get().unwrap().lock().unwrap();
             let end = log.len();
+
             match result {
                 Ok(_) => {
                     let (pass, fail) = log.summarize(start, end);
-                    println!(
-                        "==> {} ASSERTIONS {} passed {} failed",
-                        test.name, pass, fail
-                    );
+                    println!("==> {} ASSERTIONS {pass} passed {fail} failed", test.name);
                     if fail > 0 {
                         log.display_failures(start, end);
                         fails += fail;
@@ -67,7 +65,7 @@ impl TestSuite {
         }
         println!("--———————— 🎉Custom Test Harness🎉——————————");
         if fails > 0 {
-            panic!("        {} tests failed", fails);
+            panic!("        {fails} tests failed");
         }
     }
 }

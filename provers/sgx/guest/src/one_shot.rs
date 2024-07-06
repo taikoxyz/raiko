@@ -8,13 +8,10 @@ use std::{
 use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
-    builder::{BlockBuilderStrategy, TaikoStrategy},
-    consts::VerifierType,
-    input::GuestInput,
+    builder::calculate_block_header, consts::VerifierType, input::GuestInput, primitives::Address,
     protocol_instance::ProtocolInstance,
 };
-use raiko_primitives::Address;
-use secp256k1::{KeyPair, SecretKey};
+use secp256k1::{Keypair, SecretKey};
 use serde::Serialize;
 
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
@@ -37,7 +34,7 @@ struct BootstrapData {
     quote: String,
 }
 
-fn save_priv_key(key_pair: &KeyPair, privkey_path: &PathBuf) -> Result<()> {
+fn save_priv_key(key_pair: &Keypair, privkey_path: &PathBuf) -> Result<()> {
     let mut file = fs::File::create(privkey_path).with_context(|| {
         format!(
             "Failed to create private key file {}",
@@ -60,7 +57,7 @@ fn get_sgx_quote() -> Result<Vec<u8>> {
 }
 
 fn save_bootstrap_details(
-    key_pair: &KeyPair,
+    key_pair: &Keypair,
     new_instance: Address,
     quote: Vec<u8>,
     bootstrap_details_file_path: &Path,
@@ -130,19 +127,16 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let input: GuestInput =
         bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
-    assert!(!input.taiko.skip_verify_blob);
 
     // Process the block
-    let (header, _mpt_node) =
-        TaikoStrategy::build_from(&input).expect("Failed to build the resulting block");
-
+    let header = calculate_block_header(&input);
     // Calculate the public input hash
     let pi = ProtocolInstance::new(&input, &header, VerifierType::SGX)?.sgx_instance(new_instance);
     let pi_hash = pi.instance_hash();
 
     println!(
         "Block {}. PI data to be signed: {pi_hash}",
-        input.block_number
+        input.block.number
     );
 
     // Sign the public input hash which contains all required block inputs and outputs

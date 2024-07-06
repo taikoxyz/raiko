@@ -14,17 +14,19 @@
 
 use std::{str::FromStr, sync::Arc};
 
-use alloy_primitives::U256;
-use alloy_sol_types::{sol, SolValue};
+use alloy_sol_types::sol;
+use anyhow::Result;
 use bonsai_sdk::alpha::responses::SnarkReceipt;
 use ethers_contract::abigen;
 use ethers_core::types::H160;
 use ethers_providers::{Http, Provider, RetryClient};
 use log::{error, info};
+use raiko_lib::primitives::keccak::keccak;
 use risc0_zkvm::{
     sha::{Digest, Digestible},
-    Groth16Seal,
+    Groth16ReceiptVerifierParameters, Receipt,
 };
+
 use tracing::{error as tracing_err, info as tracing_info};
 
 use crate::save_receipt;
@@ -63,36 +65,32 @@ sol!(
 abigen!(
     IRiscZeroVerifier,
     r#"[
-        function verify(bytes calldata seal, bytes32 imageId, bytes32 postStateDigest, bytes32 journalDigest) external view returns (bool)
+        function verify(bytes calldata seal, bytes32 imageId, bytes32 journalDigest) external view
     ]"#
 );
 
-fn to_u256_arr<const N: usize>(be_vecs: &[Vec<u8>]) -> [U256; N] {
-    let tmp: Vec<_> = be_vecs
-        .iter()
-        .map(|v| U256::from_be_slice(v.as_slice()))
-        .collect();
-    tmp.try_into().unwrap()
-}
+// /// ABI encoding of the seal.
+// pub fn abi_encode(seal: Vec<u8>) -> Result<Vec<u8>> {
+//     Ok(encode(seal)?.abi_encode())
+// }
 
-impl From<Groth16Seal> for Seal {
-    fn from(val: Groth16Seal) -> Self {
-        Seal {
-            a: to_u256_arr(&val.a),
-            b: [to_u256_arr(&val.b[0]), to_u256_arr(&val.b[1])],
-            c: to_u256_arr(&val.c),
-        }
-    }
-}
+/// encoding of the seal with selector.
+pub fn encode(seal: Vec<u8>) -> Result<Vec<u8>> {
+    let verifier_parameters_digest = Groth16ReceiptVerifierParameters::default().digest();
+    let selector = &verifier_parameters_digest.as_bytes()[..4];
+    // Create a new vector with the capacity to hold both selector and seal
+    let mut selector_seal = Vec::with_capacity(selector.len() + seal.len());
+    selector_seal.extend_from_slice(selector);
+    selector_seal.extend_from_slice(&seal);
 
-use raiko_primitives::keccak::keccak;
-use risc0_zkvm::Receipt;
+    Ok(selector_seal)
+}
 
 pub async fn stark2snark(
     image_id: Digest,
     stark_uuid: String,
     stark_receipt: Receipt,
-) -> anyhow::Result<(String, SnarkReceipt)> {
+) -> Result<(String, SnarkReceipt)> {
     info!("Submitting SNARK workload");
     // Label snark output as journal digest
     let receipt_label = format!(
@@ -134,7 +132,7 @@ pub async fn stark2snark(
         }
     };
 
-    let stark_psd = stark_receipt.get_claim()?.post.digest();
+    let stark_psd = stark_receipt.claim()?.as_value().unwrap().post.digest();
     let snark_psd = Digest::try_from(snark_receipt.post_state_digest.as_slice())?;
 
     if stark_psd != snark_psd {
@@ -156,10 +154,7 @@ pub async fn stark2snark(
     Ok(snark_data)
 }
 
-pub async fn verify_groth16_snark(
-    image_id: Digest,
-    snark_receipt: SnarkReceipt,
-) -> anyhow::Result<()> {
+pub async fn verify_groth16_snark(image_id: Digest, snark_receipt: SnarkReceipt) -> Result<()> {
     let verifier_rpc_url =
         std::env::var("GROTH16_VERIFIER_RPC_URL").expect("env GROTH16_VERIFIER_RPC_URL");
     let groth16_verifier_addr = {
@@ -173,7 +168,7 @@ pub async fn verify_groth16_snark(
         500,
     )?);
 
-    let seal = <Groth16Seal as Into<Seal>>::into(snark_receipt.snark).abi_encode();
+    let seal = encode(snark_receipt.snark.to_vec())?;
     let journal_digest = snark_receipt.journal.digest();
     tracing_info!("Verifying SNARK:");
     tracing_info!("Seal: {}", hex::encode(&seal));
@@ -182,24 +177,19 @@ pub async fn verify_groth16_snark(
         "Post State Digest: {}",
         hex::encode(&snark_receipt.post_state_digest)
     );
-    tracing_info!("Journal Digest: {}", hex::encode(journal_digest.as_bytes()));
-    let verification: bool = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
+    tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
+    let verify_call_res = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
         .verify(
             seal.into(),
             image_id.as_bytes().try_into().unwrap(),
-            snark_receipt
-                .post_state_digest
-                .as_slice()
-                .try_into()
-                .unwrap(),
-            journal_digest.as_bytes().try_into().unwrap(),
+            journal_digest.into(),
         )
-        .await?;
+        .await;
 
-    if verification {
+    if verify_call_res.is_ok() {
         tracing_info!("SNARK verified successfully using {groth16_verifier_addr:?}!");
     } else {
-        tracing_err!("SNARK verification failed!");
+        tracing_err!("SNARK verification failed: {:?}!", verify_call_res);
     }
 
     Ok(())

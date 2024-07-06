@@ -1,34 +1,21 @@
-// Copyright 2023 RISC Zero, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! Constants for the Ethereum protocol.
 extern crate alloc;
 
 use alloc::collections::BTreeMap;
 
 use alloy_primitives::Address;
-use anyhow::{bail, Result};
-use raiko_primitives::{uint, BlockNumber, ChainId, U256};
-use revm::primitives::SpecId;
+use anyhow::{anyhow, bail, Result};
+use reth_primitives::revm_primitives::SpecId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+use crate::primitives::{uint, BlockNumber, ChainId, U256};
 
-use std::collections::HashMap;
+use once_cell::sync::Lazy;
 use std::path::PathBuf;
+use std::{collections::HashMap, env::var};
 
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;
@@ -46,19 +33,24 @@ pub const GWEI_TO_WEI: U256 = uint!(1_000_000_000_U256);
 
 const DEFAULT_CHAIN_SPECS: &str = include_str!("../../host/config/chain_spec_list_default.json");
 
+pub static IN_CONTAINER: Lazy<Option<()>> = Lazy::new(|| var("IN_CONTAINER").ok().map(|_| ()));
+
 #[derive(Clone, Debug)]
 pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 
-impl SupportedChainSpecs {
-    pub fn default() -> Self {
-        let deserialized: Vec<ChainSpec> = serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap();
+impl Default for SupportedChainSpecs {
+    fn default() -> Self {
+        let deserialized: Vec<ChainSpec> =
+            serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap_or_default();
         let chain_spec_list = deserialized
-            .iter()
-            .map(|cs| (cs.name.clone(), cs.clone()))
+            .into_iter()
+            .map(|cs| (cs.name.clone(), cs))
             .collect::<HashMap<String, ChainSpec>>();
         SupportedChainSpecs(chain_spec_list)
     }
+}
 
+impl SupportedChainSpecs {
     #[cfg(feature = "std")]
     pub fn merge_from_file(file_path: PathBuf) -> Result<SupportedChainSpecs> {
         let mut known_chain_specs = SupportedChainSpecs::default();
@@ -67,8 +59,8 @@ impl SupportedChainSpecs {
         let config: Value = serde_json::from_reader(reader)?;
         let chain_spec_list: Vec<ChainSpec> = serde_json::from_value(config)?;
         let new_chain_specs = chain_spec_list
-            .iter()
-            .map(|cs| (cs.name.clone(), cs.clone()))
+            .into_iter()
+            .map(|cs| (cs.name.clone(), cs))
             .collect::<HashMap<String, ChainSpec>>();
 
         // override known specs
@@ -187,10 +179,12 @@ impl ChainSpec {
             is_taiko,
         }
     }
+
     /// Returns the network chain ID.
     pub fn chain_id(&self) -> ChainId {
         self.chain_id
     }
+
     /// Returns the [SpecId] for a given block number and timestamp or an error if not
     /// supported.
     pub fn active_fork(&self, block_no: BlockNumber, timestamp: u64) -> Result<SpecId> {
@@ -201,9 +195,10 @@ impl ChainSpec {
                 }
                 Ok(spec_id)
             }
-            None => bail!("no supported fork for block {block_no}"),
+            None => Err(anyhow!("no supported fork for block {block_no}")),
         }
     }
+
     /// Returns the Eip1559 constants
     pub fn gas_constants(&self) -> &Eip1559Constants {
         &self.eip_1559_constants
@@ -237,15 +232,18 @@ pub enum Network {
     Holesky,
     /// Taiko A7 tesnet
     TaikoA7,
+    /// Taiko Mainnet
+    TaikoMainnet,
 }
 
-impl ToString for Network {
-    fn to_string(&self) -> String {
-        match self {
-            Network::Ethereum => "ethereum".to_string(),
-            Network::Holesky => "holesky".to_string(),
-            Network::TaikoA7 => "taiko_a7".to_string(),
-        }
+impl std::fmt::Display for Network {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Network::Ethereum => "ethereum",
+            Network::Holesky => "holesky",
+            Network::TaikoA7 => "taiko_a7",
+            Network::TaikoMainnet => "taiko_mainnet",
+        })
     }
 }
 

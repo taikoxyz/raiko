@@ -1,4 +1,3 @@
-use crate::interfaces::error::HostError;
 use axum::{response::IntoResponse, Router};
 use raiko_lib::input::GuestOutput;
 use serde::{Deserialize, Serialize};
@@ -8,11 +7,11 @@ use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::ProverState;
+use crate::{interfaces::HostError, ProverState};
 
-mod health;
-mod metrics;
-mod proof;
+pub mod health;
+pub mod metrics;
+pub mod proof;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -32,9 +31,9 @@ mod proof;
     ),
     components(
         schemas(
-            crate::interfaces::request::ProofRequestOpt,
-            crate::interfaces::request::ProverSpecificOpts,
-            crate::interfaces::error::HostError,
+            raiko_core::interfaces::ProofRequestOpt,
+            raiko_core::interfaces::ProverSpecificOpts,
+            crate::interfaces::HostError,
             GuestOutputDoc,
             ProofResponse,
             Status,
@@ -54,20 +53,25 @@ pub struct Docs;
 pub struct ProofResponse {
     #[schema(value_type = Option<GuestOutputDoc>)]
     /// The output of the prover.
-    output: Option<GuestOutput>,
+    pub output: Option<GuestOutput>,
     /// The proof.
-    proof: Option<String>,
+    pub proof: Option<String>,
     /// The quote.
-    quote: Option<String>,
+    pub quote: Option<String>,
+}
+
+impl ProofResponse {
+    pub fn to_response(&self) -> Value {
+        serde_json::json!({
+            "status": "ok",
+            "data": self
+        })
+    }
 }
 
 impl IntoResponse for ProofResponse {
     fn into_response(self) -> axum::response::Response {
-        axum::Json(serde_json::json!({
-            "status": "ok",
-            "data": self
-        }))
-        .into_response()
+        axum::Json(self.to_response()).into_response()
     }
 }
 
@@ -89,17 +93,13 @@ pub enum Status {
 
 #[derive(Debug, Serialize, ToSchema)]
 #[allow(dead_code)]
-pub enum GuestOutputDoc {
-    #[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
-    /// The output of the prover when the proof generation was successful.
-    Success {
-        /// Header bytes.
-        header: Vec<u8>,
-        /// Instance hash.
-        hash: String,
-    },
-    /// The output of the prover when the proof generation failed.
-    Failure,
+#[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
+/// The output of the prover when the proof generation was successful.
+pub struct GuestOutputDoc {
+    /// Header bytes.
+    header: Vec<u8>,
+    /// Instance hash.
+    hash: String,
 }
 
 #[must_use]

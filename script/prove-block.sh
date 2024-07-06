@@ -39,7 +39,10 @@ fi
 
 if [ "$proof" == "native" ]; then
 	proofParam='
-    "proof_type": "native"
+    "proof_type": "native",
+	"native" : {
+        "write_guest_input_path": null
+	}
   '
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
@@ -125,5 +128,5 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
          \"graffiti\": \"$graffiti\",
          $proofParam
        }"
-	echo "\\n"
+	echo ""
 done

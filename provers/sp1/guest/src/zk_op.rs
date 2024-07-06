@@ -1,5 +1,5 @@
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
-use revm_primitives::keccak256;
+use raiko_lib::primitives::keccak256;
 use sha2_v0_10_8 as sp1_sha2;
 use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
 
@@ -27,7 +27,9 @@ impl ZkvmOperator for Sp1Operator {
             .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
             .collect::<Vec<u32>>()
             .try_into()
-            .map_err(|e| Error::ZkvmOperation("Input point processing failed".to_string()))?;
+            .map_err(|e| {
+                Error::ZkvmOperation(format!("Input point processing failed. Details: {:?}", e))
+            })?;
 
         p.mul_assign(&k);
         Ok(point_to_be_bytes(p))
@@ -83,7 +85,7 @@ fn be_bytes_to_point(input: &[u8]) -> AffinePoint<Bn254, 16> {
     y.reverse();
 
     // Init AffinePoint for sp1
-    AffinePoint::<Bn254, 16>::from(x, y)
+    AffinePoint::<Bn254, 16>::from(&x, &y)
 }
 
 #[inline]
@@ -98,11 +100,9 @@ fn point_to_be_bytes(p: AffinePoint<Bn254, 16>) -> [u8; 64] {
     ([x, y]).concat().try_into().unwrap()
 }
 
-
 harness::zk_suits!(
     pub mod tests {
         use revm_precompile::bn128;
-        use revm_primitives::hex;
         use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
         use substrate_bn::Group;
 
@@ -136,7 +136,7 @@ harness::zk_suits!(
                     le_chunk
                 })
                 .collect::<Vec<_>>();
-            let p = AffinePoint::<Bn254, 16>::from(p_bytes[0], p_bytes[1]);
+            let p = AffinePoint::<Bn254, 16>::from(&p_bytes[0], &p_bytes[1]);
 
             let mut p_x_le = p.to_le_bytes()[..32].to_owned();
             let mut p_y_le = p.to_le_bytes()[32..].to_owned();
@@ -169,10 +169,10 @@ harness::zk_suits!(
             p_x.reverse();
             p_y.reverse();
 
-            let p = AffinePoint::<Bn254, 16>::from(p_x, p_y);
+            let p = AffinePoint::<Bn254, 16>::from(&p_x, &p_y);
             let p_bytes_le = p.to_le_bytes();
 
-            // Reverse to x, y seperatly to big-endian bytes
+            // Reverse to x, y separately to big-endian bytes
             let mut p_bytes_be = [0; 64];
             p_bytes_be[..32]
                 .copy_from_slice(&p_bytes_le[..32].iter().rev().copied().collect::<Vec<_>>());
