@@ -1,4 +1,5 @@
 #![cfg(feature = "enable")]
+
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
@@ -277,8 +278,7 @@ async fn prove(
                 Ok(parse_sgx_result(output.stdout)?)
             }
             (Err(i), output_success) => Err(ProverError::GuestError(format!(
-                "Can not serialize input for SGX {}, output is {:?}",
-                i, output_success
+                "Can not serialize input for SGX {i}, output is {output_success:?}"
             ))),
             (Ok(_), Err(output_err)) => Err(ProverError::GuestError(
                 handle_gramine_error("Could not run SGX guest prover", output_err).to_string(),
@@ -315,7 +315,7 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
 
 fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
     if let std::io::ErrorKind::NotFound = err.kind() {
-        format!("gramine could not be found, please install gramine first. ({err})",)
+        format!("gramine could not be found, please install gramine first. ({err})")
     } else {
         format!("{context}: {err}")
     }

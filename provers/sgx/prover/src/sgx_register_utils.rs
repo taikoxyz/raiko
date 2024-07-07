@@ -14,17 +14,16 @@ const REGISTERED_FILE: &str = "registered";
 
 pub fn get_instance_id(dir: &Path) -> Result<Option<u64>> {
     let file = dir.join(REGISTERED_FILE);
-    let id = match fs::read_to_string(file) {
-        Ok(t) => Some(t.parse()?),
+    match fs::read_to_string(file) {
+        Ok(t) => Ok(Some(t.parse()?)),
         Err(e) => {
             if e.kind() == io::ErrorKind::NotFound {
-                None
+                Ok(None)
             } else {
                 return Err(e.into());
             }
         }
-    };
-    Ok(id)
+    }
 }
 
 pub fn set_instance_id(dir: &Path, id: u64) -> io::Result<()> {
@@ -276,7 +275,7 @@ pub async fn register_sgx_instance(
     let sender_priv_key = env::var("SENDER_PRIV_KEY").expect("SENDER_PRIV_KEY is not set");
     let mut wallet: PrivateKeySigner = sender_priv_key.as_str().parse().unwrap();
     wallet.set_chain_id(Some(chain_id));
-    println!("wallet: {:?}", wallet);
+    println!("wallet: {wallet:?}");
 
     // init rpc conn
     let http = Http::new(Url::parse(l1_rpc_url).expect("invalid rpc url"));
@@ -321,7 +320,7 @@ pub async fn register_sgx_instance(
 
     let log = tx_receipt.inner.as_receipt().unwrap().logs.first().unwrap();
     let sgx_id: u64 = u64::from_be_bytes(log.topics()[1].0[24..].try_into().unwrap());
-    println!("register sgx instance id: {:?}", sgx_id);
+    println!("register sgx instance id: {sgx_id:?}");
 
     Ok(sgx_id)
 }
@@ -341,7 +340,7 @@ mod test {
     #[test]
     fn test_parse_quote() {
         let parsed_quote = parse_quote(SAMPLE_QUOTE[1]);
-        println!("{:?}", parsed_quote);
+        println!("{parsed_quote:?}");
     }
 
     #[ignore = "anvil test"]
@@ -351,7 +350,7 @@ mod test {
         let res = rt
             .block_on(simple_test_register_sgx_instance(SAMPLE_QUOTE[0]))
             .unwrap();
-        println!("test_tx_call_register {:?}", res);
+        println!("test_tx_call_register {res:?}");
     }
 
     async fn simple_test_register_sgx_instance(

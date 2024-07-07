@@ -3,9 +3,9 @@ use std::{
     fs::{self, File},
     io::BufReader,
     path::PathBuf,
+    process::Command,
 };
 
-use crate::app_args::BootstrapArgs;
 use anyhow::{anyhow, Context, Result};
 use raiko_lib::consts::{SupportedChainSpecs, VerifierType};
 use serde_json::{Number, Value};
@@ -13,7 +13,8 @@ use sgx_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
     set_instance_id, ELF_NAME,
 };
-use std::process::Command;
+
+use crate::app_args::BootstrapArgs;
 
 pub(crate) async fn setup_bootstrap(
     secret_dir: PathBuf,
@@ -46,13 +47,13 @@ pub(crate) async fn setup_bootstrap(
     let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd())
         .await
         .map_err(|e| {
-            println!("Error checking bootstrap: {:?}", e);
+            println!("Error checking bootstrap: {e:?}");
             e
         })
         .is_err()
         || instance_id.is_none();
 
-    println!("Instance ID: {:?}", instance_id);
+    println!("Instance ID: {instance_id:?}");
 
     if need_init {
         // clean check file
@@ -70,7 +71,7 @@ pub(crate) async fn setup_bootstrap(
         )
         .await
         .map_err(|e| anyhow::Error::msg(e.to_string()))?;
-        println!("Saving instance id {}", register_id,);
+        println!("Saving instance id {register_id}");
         // set check file
         set_instance_id(&config_dir, register_id)?;
 

@@ -1,23 +1,22 @@
 #![cfg(feature = "enable")]
-use std::fmt::Debug;
 
 use alloy_primitives::B256;
-
 use hex::ToHex;
-
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use tracing::info as traicing_info;
+use std::fmt::Debug;
+use tracing::{debug, info as traicing_info};
 
 use crate::{
     methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
     snarks::verify_groth16_snark,
 };
+
 pub use bonsai::*;
 
 pub mod bonsai;
@@ -47,7 +46,7 @@ impl Prover for Risc0Prover {
     ) -> ProverResult<Proof> {
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
 
-        println!("elf code length: {}", RISC0_GUEST_ELF.len());
+        debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
         let result = maybe_prove::<GuestInput, B256>(
@@ -59,12 +58,12 @@ impl Prover for Risc0Prover {
         )
         .await;
 
-        let journal: String = result.clone().unwrap().1.journal.encode_hex();
+        let proof: String = result.clone().unwrap().1.journal.encode_hex();
 
         // Create/verify Groth16 SNARK
         if config.snark {
             let Some((stark_uuid, stark_receipt)) = result else {
-                panic!("No STARK data to snarkify!");
+                return ProverError::GuestError("No STARK data to snarkify!".to_owned());
             };
             let image_id = Digest::from(RISC0_GUEST_ID);
             let (snark_uuid, snark_receipt) =
@@ -79,7 +78,7 @@ impl Prover for Risc0Prover {
                 .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
         }
 
-        to_proof(Ok(Risc0Response { proof: journal }))
+        to_proof(Ok(Risc0Response { proof }))
     }
 }
 

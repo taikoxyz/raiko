@@ -96,7 +96,7 @@ harness::zk_suits!(
             for v in test_ves.iter() {
                 let (input, expected) = *v;
                 let result: [u8; 32] = Sha256::digest(input.as_bytes()).into();
-                assert!(result == expected);
+                assert_eq!(result, expected);
             }
         }
     }

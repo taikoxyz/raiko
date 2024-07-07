@@ -1,10 +1,8 @@
 #![cfg(feature = "enable")]
 #![feature(test)]
 extern crate test;
-use test::bench::run_once;
-use test::Bencher;
-
 use sp1_sdk::{ProverClient, SP1Stdin};
+use test::{bench::run_once, Bencher};
 
 const BN254_ADD_ELF: &[u8] = include_bytes!("../../guest/elf/bn254-add");
 const BN254_MUL_ELF: &[u8] = include_bytes!("../../guest/elf/bn254-mul");
