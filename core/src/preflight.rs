@@ -32,7 +32,7 @@ use reth_evm_ethereum::taiko::decode_anchor;
 use reth_primitives::Block;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub async fn preflight<BDP: BlockDataProvider>(
     provider: BDP,
@@ -137,7 +137,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         num_iterations += 1;
     }
     clear_line();
-    println!("State data fetched in {num_iterations} iterations");
+    info!("State data fetched in {num_iterations} iterations");
 
     let provider_db = builder.db.as_mut().unwrap();
 
@@ -406,7 +406,7 @@ async fn get_blob_data_blobscan(
         let blob: BlobScanData = response.json().await?;
         Ok(blob_to_bytes(&blob.data))
     } else {
-        println!(
+        error!(
             "Request {url} failed with status code: {}",
             response.status()
         );

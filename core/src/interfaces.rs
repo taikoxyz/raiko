@@ -139,6 +139,20 @@ impl FromStr for ProofType {
     }
 }
 
+impl TryFrom<u8> for ProofType {
+    type Error = RaikoError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Native),
+            1 => Ok(Self::Sp1),
+            2 => Ok(Self::Sgx),
+            3 => Ok(Self::Risc0),
+            _ => Err(RaikoError::Conversion("Invalid u8".to_owned())),
+        }
+    }
+}
+
 impl ProofType {
     /// Run the prover driver depending on the proof type.
     pub async fn run_prover(

@@ -108,7 +108,7 @@ rlp = "0.5.2"
 hex = { version = "0.4.3" }
 hex-literal = "0.4"
 base64-serde = "0.7.0"
-base64 = "0.21.7"
+base64 = "0.22.1"
 libflate = { version = "2.0.0" }
 typetag = { version = "0.2.15" }
 num_enum = "0.7.2"
@@ -129,13 +129,12 @@ cap = { git = "https://github.com/brechtpd/cap", branch = "more-stats", features
 axum = { version = "0.7.4", features = ["macros"] }
 tower-http = { version = "0.5.2", features = ["full"] }
 tower = { version = "0.4.13", features = ["full"] }
-utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
+utoipa-swagger-ui = { version = "7.1.0", features = ["axum"] }
 utoipa-scalar = { version = "0.1.0", features = ["axum"] }
 utoipa = { version = "4.2.0", features = ["axum_extras"] }
 structopt = "0.3.24"
 prometheus = { version = "0.13.3", features = ["process"] }
 tokio = { version = "^1.23", features = ["full"] }
-hyper = { version = "0.14.27", features = ["server"] }
 reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 async-trait = "0.1.80"
@@ -151,7 +150,7 @@ secp256k1 = { version = "0.29", default-features = false, features = [
 ] }
 
 # macro
-syn = { version = "1.0", features = ["full"] }
+syn = { version = "2.0.68", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 
@@ -166,7 +165,7 @@ rusqlite = { version = "0.31.0", features = ["bundled"] }
 # misc
 hashbrown = { version = "0.14", features = ["inline-more"] }
 tempfile = "3.8"
-cargo_metadata = "0.12.1"
+cargo_metadata = "0.18.1"
 clap = { version = "4.4.6", features = ["derive", "string", "env"] }
 lru_time_cache = "0.11.11"
 lazy_static = "1.4.0"
@@ -176,7 +175,7 @@ cfg-if = "1.0.0"
 chrono = { version = "0.4", default-features = false }
 assert_cmd = "2.0"
 regex = "1.5.4"
-rstest = "0.18"
+rstest = "0.21"
 rand = "0.8.5"
 rand_core = "0.6.4"
 dirs = "5.0.1"

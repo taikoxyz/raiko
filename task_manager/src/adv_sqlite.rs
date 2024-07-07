@@ -167,8 +167,8 @@ use rusqlite::{
 use tokio::sync::Mutex;
 
 use crate::{
-    EnqueueTaskParams, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatus, TaskProvingStatusRecords, TaskStatus,
+    EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
+    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 // Types
@@ -251,9 +251,9 @@ impl TaskDb {
               proofsys(id, desc)
             VALUES
               (0, 'Native'),
-              (1, 'Risc0'),
-              (2, 'SP1'),
-              (3, 'SGX');
+              (1, 'SP1'),
+              (2, 'SGX'),
+              (3, 'Risc0');
             
             CREATE TABLE status_codes(
               id INTEGER UNIQUE NOT NULL PRIMARY KEY,
@@ -612,41 +612,6 @@ impl TaskDb {
         Ok(query.collect::<Result<Vec<_>, _>>()?)
     }
 
-    pub fn get_task_proving_status_by_id(
-        &self,
-        task_id: u64,
-    ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        let mut statement = self.conn.prepare_cached(
-            r#"
-            SELECT
-              ts.status_id,
-              t.prover,
-              timestamp
-            FROM
-              task_status ts
-              LEFT JOIN tasks t ON ts.task_id = t.id
-            WHERE
-              t.id = :task_id
-            ORDER BY
-              ts.timestamp;
-            "#,
-        )?;
-        let query = statement.query_map(
-            named_params! {
-                ":task_id": task_id,
-            },
-            |row| {
-                Ok(TaskProvingStatus(
-                    TaskStatus::from(row.get::<_, i32>(0)?),
-                    Some(row.get::<_, String>(1)?),
-                    row.get::<_, DateTime<Utc>>(2)?,
-                ))
-            },
-        )?;
-
-        Ok(query.collect::<Result<Vec<_>, _>>()?)
-    }
-
     pub fn get_task_proof(
         &self,
         chain_id: ChainId,
@@ -676,30 +641,6 @@ impl TaskDb {
                 ":blockhash": blockhash.to_vec(),
                 ":proofsys_id": proof_type as u8,
                 ":prover": prover.unwrap_or_default(),
-            },
-            |row| row.get(0),
-        )?;
-
-        Ok(query)
-    }
-
-    pub fn get_task_proof_by_id(&self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
-        let mut statement = self.conn.prepare_cached(
-            r#"
-            SELECT
-              proof
-            FROM
-              task_proofs tp
-              LEFT JOIN tasks t ON tp.task_id = t.id
-            WHERE
-              t.id = :task_id
-            LIMIT
-              1;
-            "#,
-        )?;
-        let query = statement.query_row(
-            named_params! {
-                ":task_id": task_id,
             },
             |row| row.get(0),
         )?;
@@ -744,6 +685,47 @@ impl TaskDb {
         statement.execute([])?;
 
         Ok(())
+    }
+
+    pub fn list_all_tasks(&self) -> TaskManagerResult<Vec<TaskReport>> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            SELECT
+              chain_id,
+              blockhash,
+              proofsys_id,
+              prover,
+              status_id
+            FROM
+              tasks
+              LEFT JOIN task_status on task.id = task_status.task_id
+              JOIN (
+                SELECT
+                  task_id,
+                  MAX(timestamp) as latest_timestamp
+                FROM
+                  task_status
+                GROUP BY
+                  task_id
+              ) latest_ts ON task_status.task_id = latest_ts.task_id
+              AND task_status.timestamp = latest_ts.latest_timestamp
+            "#,
+        )?;
+        let query = statement
+            .query_map([], |row| {
+                Ok(TaskReport(
+                    TaskDescriptor {
+                        chain_id: row.get(0)?,
+                        blockhash: B256::from_slice(&row.get::<_, Vec<u8>>(1)?),
+                        proof_system: row.get::<_, u8>(2)?.try_into().unwrap(),
+                        prover: row.get(3)?,
+                    },
+                    TaskStatus::from(row.get::<_, i32>(4)?),
+                ))
+            })?
+            .collect::<Result<Vec<TaskReport>, _>>()?;
+
+        Ok(query)
     }
 }
 
@@ -799,15 +781,6 @@ impl TaskManager for SqliteTaskManager {
         task_db.get_task_proving_status(chain_id, blockhash, proof_type, prover)
     }
 
-    /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    async fn get_task_proving_status_by_id(
-        &mut self,
-        task_id: u64,
-    ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        let task_db = self.arc_task_db.lock().await;
-        task_db.get_task_proving_status_by_id(task_id)
-    }
-
     async fn get_task_proof(
         &mut self,
         chain_id: ChainId,
@@ -819,11 +792,6 @@ impl TaskManager for SqliteTaskManager {
         task_db.get_task_proof(chain_id, blockhash, proof_type, prover)
     }
 
-    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
-        let task_db = self.arc_task_db.lock().await;
-        task_db.get_task_proof_by_id(task_id)
-    }
-
     /// Returns the total and detailed database size
     async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
         let task_db = self.arc_task_db.lock().await;
@@ -833,6 +801,11 @@ impl TaskManager for SqliteTaskManager {
     async fn prune_db(&mut self) -> TaskManagerResult<()> {
         let task_db = self.arc_task_db.lock().await;
         task_db.prune_db()
+    }
+
+    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.list_all_tasks()
     }
 }
 
