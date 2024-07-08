@@ -32,5 +32,6 @@ enable = [
     "alloy-primitives",
     "once_cell",
     "sha3",
+    "tracing",
 ]
 neon = ["sp1-sdk?/neon"]
