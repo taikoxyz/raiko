@@ -63,7 +63,9 @@ impl Prover for Risc0Prover {
         // Create/verify Groth16 SNARK
         if config.snark {
             let Some((stark_uuid, stark_receipt)) = result else {
-                return ProverError::GuestError("No STARK data to snarkify!".to_owned());
+                return Err(ProverError::GuestError(
+                    "No STARK data to snarkify!".to_owned(),
+                ));
             };
             let image_id = Digest::from(RISC0_GUEST_ID);
             let (snark_uuid, snark_receipt) =
