@@ -16,13 +16,8 @@ pub fn get_instance_id(dir: &Path) -> Result<Option<u64>> {
     let file = dir.join(REGISTERED_FILE);
     match fs::read_to_string(file) {
         Ok(t) => Ok(Some(t.parse()?)),
-        Err(e) => {
-            if e.kind() == io::ErrorKind::NotFound {
-                Ok(None)
-            } else {
-                return Err(e.into());
-            }
-        }
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.into()),
     }
 }
 
