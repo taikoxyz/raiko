@@ -50,7 +50,7 @@ impl Prover for Sp1Prover {
                     .to_str()
                     .unwrap(),
             )
-            .map_err(|_| ProverError::GuestEror("Sp1: saving proof failed".to_owned()))?;
+            .map_err(|_| ProverError::GuestError("Sp1: saving proof failed".to_owned()))?;
 
         tracing_info!("successfully generated and verified proof for the program!");
         to_proof(Ok(Sp1Response {
