@@ -51,7 +51,6 @@ serde = { workspace = true }
 serde_with = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-hyper = { workspace = true }
 env_logger = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -71,10 +70,10 @@ cfg-if = { workspace = true }
 cap = { workspace = true }
 
 # reth
-reth-primitives.workspace = true
-reth-evm.workspace = true
-reth-evm-ethereum.workspace = true
-reth-provider.workspace = true
+reth-primitives = { workspace = true }
+reth-evm = { workspace = true }
+reth-evm-ethereum = { workspace = true }
+reth-provider = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

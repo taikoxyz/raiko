@@ -240,7 +240,8 @@ impl CommandBuilder {
             .meta
             .target_directory
             .join(self.target.clone())
-            .join(profile);
+            .join(profile)
+            .into();
 
         let artifacts = self
             .meta
@@ -279,7 +280,8 @@ impl CommandBuilder {
             .target_directory
             .join(self.target.clone())
             .join(profile)
-            .join("deps");
+            .join("deps")
+            .into();
 
         println!("tests {bins:?}");
 

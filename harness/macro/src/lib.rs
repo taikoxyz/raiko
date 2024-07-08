@@ -20,7 +20,7 @@ impl syn::parse::Parse for EntryArgs {
         let test_modules: Option<Punctuated<Path, Token![,]>> = if input.peek(Token![,]) {
             input.parse::<Token![,]>()?; // Parse and consume the comma
                                          // Now parse a list of module paths if they are present
-            Some(input.parse_terminated(Path::parse)?)
+            Some(input.parse_terminated(Path::parse, Token![,])?)
         } else {
             None
         };

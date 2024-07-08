@@ -9,6 +9,7 @@ use raiko_core::interfaces::ProofType;
 use raiko_lib::primitives::{ChainId, B256};
 use rusqlite::Error as SqlError;
 use serde::Serialize;
+use utoipa::ToSchema;
 
 use crate::{adv_sqlite::SqliteTaskManager, mem_db::InMemoryTaskManager};
 
@@ -55,8 +56,9 @@ impl From<anyhow::Error> for TaskManagerError {
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
-#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Serialize)]
+#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Serialize, ToSchema)]
 #[repr(i32)]
+#[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
     Success                   =     0,
     Registered                =  1000,
@@ -83,7 +85,7 @@ pub struct EnqueueTaskParams {
     pub block_number: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct TaskDescriptor {
     pub chain_id: ChainId,
     pub blockhash: B256,
@@ -144,6 +146,9 @@ pub struct TaskManagerOpts {
     pub max_db_size: usize,
 }
 
+#[derive(Debug, Serialize, ToSchema)]
+pub struct TaskReport(pub TaskDescriptor, pub TaskStatus);
+
 #[async_trait::async_trait]
 pub trait TaskManager {
     /// new a task manager
@@ -175,12 +180,6 @@ pub trait TaskManager {
         prover: Option<String>,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
-    /// Returns the latest triplet (submitter or fulfiller, status, last update time)
-    async fn get_task_proving_status_by_id(
-        &mut self,
-        task_id: u64,
-    ) -> TaskManagerResult<TaskProvingStatusRecords>;
-
     /// Returns the proof for the given task
     async fn get_task_proof(
         &mut self,
@@ -190,13 +189,13 @@ pub trait TaskManager {
         prover: Option<String>,
     ) -> TaskManagerResult<Vec<u8>>;
 
-    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>>;
-
     /// Returns the total and detailed database size
     async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)>;
 
     /// Prune old tasks
     async fn prune_db(&mut self) -> TaskManagerResult<()>;
+
+    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>>;
 }
 
 pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
@@ -281,20 +280,6 @@ impl TaskManager for TaskManagerWrapper {
         }
     }
 
-    async fn get_task_proving_status_by_id(
-        &mut self,
-        task_id: u64,
-    ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.get_task_proving_status_by_id(task_id).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.get_task_proving_status_by_id(task_id).await
-            }
-        }
-    }
-
     async fn get_task_proof(
         &mut self,
         chain_id: ChainId,
@@ -316,17 +301,6 @@ impl TaskManager for TaskManagerWrapper {
         }
     }
 
-    async fn get_task_proof_by_id(&mut self, task_id: u64) -> TaskManagerResult<Vec<u8>> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.get_task_proof_by_id(task_id).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.get_task_proof_by_id(task_id).await
-            }
-        }
-    }
-
     async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
         match &mut self.manager {
             TaskManagerInstance::InMemory(ref mut manager) => manager.get_db_size().await,
@@ -338,6 +312,13 @@ impl TaskManager for TaskManagerWrapper {
         match &mut self.manager {
             TaskManagerInstance::InMemory(ref mut manager) => manager.prune_db().await,
             TaskManagerInstance::Sqlite(ref mut manager) => manager.prune_db().await,
+        }
+    }
+
+    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => manager.list_all_tasks().await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.list_all_tasks().await,
         }
     }
 }

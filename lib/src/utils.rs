@@ -1,11 +1,10 @@
-use std::io::Read;
-use std::io::Write;
+use std::io::{Read, Write};
 
 use alloy_rlp::Decodable;
 use anyhow::Result;
-use libflate::zlib::Decoder as zlibDecoder;
-use libflate::zlib::Encoder as zlibEncoder;
+use libflate::zlib::{Decoder as zlibDecoder, Encoder as zlibEncoder};
 use reth_primitives::TransactionSigned;
+use tracing::warn;
 
 use crate::consts::{ChainSpec, Network};
 #[cfg(not(feature = "std"))]
@@ -15,7 +14,7 @@ pub fn decode_transactions(tx_list: &[u8]) -> Vec<TransactionSigned> {
     #[allow(clippy::useless_asref)]
     Vec::<TransactionSigned>::decode(&mut tx_list.as_ref()).unwrap_or_else(|e| {
         // If decoding fails we need to make an empty block
-        println!("decode_transactions not successful: {e:?}, use empty tx_list");
+        warn!("decode_transactions not successful: {e:?}, use empty tx_list");
         vec![]
     })
 }
@@ -38,14 +37,14 @@ fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Ve
                 if validate_calldata_tx_list(&tx_list) {
                     tx_list
                 } else {
-                    println!("validate_calldata_tx_list failed, use empty tx_list");
+                    warn!("validate_calldata_tx_list failed, use empty tx_list");
                     vec![]
                 }
             } else {
                 if validate_calldata_tx_list(tx_list) {
                     zlib_decompress_data(tx_list).unwrap_or_default()
                 } else {
-                    println!("validate_calldata_tx_list failed, use empty tx_list");
+                    warn!("validate_calldata_tx_list failed, use empty tx_list");
                     vec![]
                 }
             }
