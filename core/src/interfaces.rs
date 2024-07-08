@@ -199,7 +199,7 @@ impl ProofType {
                 #[cfg(feature = "nitro")]
                 return nitro_prover::NitroProver::prove(input).map_err(|e| e.into());
                 #[cfg(not(feature = "nitro"))]
-                Err(RaikoError::FeatureNotSupportedError(self.clone()))
+                Err(RaikoError::FeatureNotSupportedError(self))
             }
         }?;
 
