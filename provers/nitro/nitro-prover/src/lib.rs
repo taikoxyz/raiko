@@ -54,7 +54,7 @@ impl NitroProver {
                     .to_string(),
             ));
         }
-        debug!("Proof aquired. Returning it.");
+        debug!("Proof acquired. Returning it.");
         Ok(serde_json::json!({"proof": proving_result}))
     }
 }
@@ -90,7 +90,7 @@ impl Prover for NitroProver {
 
         let request = Request::Attestation {
             user_data: Some(user_data),
-            nonce: None, // FIXME: shold this be some?
+            nonce: None, // FIXME: should this be some?
             public_key: Some(ByteBuf::from(public.serialize_uncompressed())), // use this provided key in doc to verify
         };
         let Response::Attestation { document: result } = nsm_process_request(nsm_fd, request)
