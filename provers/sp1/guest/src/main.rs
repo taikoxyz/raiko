@@ -1,11 +1,7 @@
 #![no_main]
 harness::entrypoint!(main, tests, zk_op::tests);
-// harness::entrypoint!(main, tests);
-
 use raiko_lib::{
-    consts::VerifierType,
-    builder::calculate_block_header,
-    input::GuestInput,
+    builder::calculate_block_header, consts::VerifierType, input::GuestInput,
     protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;

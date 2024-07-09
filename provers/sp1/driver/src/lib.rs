@@ -1,11 +1,12 @@
 #![cfg(feature = "enable")]
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{ProverClient, SP1Stdin};
 use std::env;
+use tracing::info as tracing_info;
 
 const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 
@@ -29,15 +30,18 @@ impl Prover for Sp1Prover {
         // Generate the proof for the given program.
         let client = ProverClient::new();
         let (pk, vk) = client.setup(ELF);
-        let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
+        let proof = client
+            .prove(&pk, stdin)
+            .map_err(|_| ProverError::GuestError("Sp1: proving failed".to_owned()))?;
 
         // Verify proof.
         client
             .verify(&proof, &vk)
-            .expect("Sp1: verification failed");
+            .map_err(|_| ProverError::GuestError("Sp1: verification failed".to_owned()))?;
 
         // Save the proof.
-        let proof_dir = env::current_dir().expect("Sp1: dir error");
+        let proof_dir =
+            env::current_dir().map_err(|_| ProverError::GuestError("Sp1: dir error".to_owned()))?;
         proof
             .save(
                 proof_dir
@@ -46,9 +50,9 @@ impl Prover for Sp1Prover {
                     .to_str()
                     .unwrap(),
             )
-            .expect("Sp1: saving proof failed");
+            .map_err(|_| ProverError::GuestError("Sp1: saving proof failed".to_owned()))?;
 
-        println!("successfully generated and verified proof for the program!");
+        tracing_info!("successfully generated and verified proof for the program!");
         to_proof(Ok(Sp1Response {
             proof: serde_json::to_string(&proof).unwrap(),
         }))

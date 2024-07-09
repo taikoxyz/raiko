@@ -1,5 +1,5 @@
-use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
 use raiko_lib::primitives::keccak256;
+use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
 use sha2_v0_10_8 as sp1_sha2;
 use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
 

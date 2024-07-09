@@ -8314,6 +8314,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "sp1-sdk",
+ "tracing",
 ]
 
 [[package]]
