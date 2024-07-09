@@ -41,6 +41,15 @@ async fn cancel_handler(
     )
     .await?;
 
+    let key = (
+        chain_id,
+        block_hash,
+        proof_request.proof_type,
+        Some(proof_request.prover.clone().to_string()),
+    );
+
+    prover_state.cancel_channel.try_send(key)?;
+
     let mut manager = get_task_manager(&(&prover_state.opts).into());
 
     manager

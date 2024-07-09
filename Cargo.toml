@@ -39,7 +39,10 @@ raiko-core = { path = "./core" }
 raiko-task-manager = { path = "./task_manager" }
 
 # reth
-reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = ["alloy-compat", "taiko"] }
+reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
+    "alloy-compat",
+    "taiko",
+] }
 reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
@@ -77,16 +80,14 @@ alloy-network = { version = "0.1", default-features = false, features = [
     "k256",
 ] }
 alloy-contract = { version = "0.1", default-features = false }
-alloy-eips = { version = "0.1", default-features = false, features = [
-    "serde",
-] }
+alloy-eips = { version = "0.1", default-features = false, features = ["serde"] }
 alloy-provider = { version = "0.1", default-features = false, features = [
     "reqwest",
 ] }
-alloy-transport-http = { version = "0.1",default-features = false, features = [
+alloy-transport-http = { version = "0.1", default-features = false, features = [
     "reqwest",
 ] }
-alloy-signer = { version = "0.1", default-features = false}
+alloy-signer = { version = "0.1", default-features = false }
 alloy-signer-local = { version = "0.1", default-features = false }
 
 # ethers (TODO: remove)
@@ -135,6 +136,7 @@ utoipa = { version = "4.2.0", features = ["axum_extras"] }
 structopt = "0.3.24"
 prometheus = { version = "0.13.3", features = ["process"] }
 tokio = { version = "^1.23", features = ["full"] }
+tokio-util = { version = "0.7.11" }
 reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 async-trait = "0.1.80"

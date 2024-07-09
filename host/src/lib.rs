@@ -4,11 +4,12 @@ use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
 use raiko_core::{
-    interfaces::{ProofRequest, ProofRequestOpt},
+    interfaces::{ProofRequest, ProofRequestOpt, ProofType},
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
 use raiko_task_manager::TaskManagerOpts;
+use reth_primitives::{ChainId, B256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -136,11 +137,14 @@ impl From<&Opts> for TaskManagerOpts {
 
 pub type TaskChannelOpts = (ProofRequest, Opts, SupportedChainSpecs);
 
+pub type CancelChannelOpts = (ChainId, B256, ProofType, Option<String>);
+
 #[derive(Debug, Clone)]
 pub struct ProverState {
     pub opts: Opts,
     pub chain_specs: SupportedChainSpecs,
     pub task_channel: mpsc::Sender<TaskChannelOpts>,
+    pub cancel_channel: mpsc::Sender<CancelChannelOpts>,
 }
 
 impl ProverState {
@@ -164,9 +168,11 @@ impl ProverState {
         }
 
         let (task_channel, receiver) = mpsc::channel::<TaskChannelOpts>(opts.concurrency_limit);
+        let (cancel_channel, cancel_rx) =
+            mpsc::channel::<CancelChannelOpts>(opts.concurrency_limit);
 
         tokio::spawn(async move {
-            ProofActor::new(receiver, opts.concurrency_limit)
+            ProofActor::new(receiver, cancel_rx, opts.concurrency_limit)
                 .run()
                 .await;
         });
@@ -175,6 +181,7 @@ impl ProverState {
             opts,
             chain_specs,
             task_channel,
+            cancel_channel,
         })
     }
 }
