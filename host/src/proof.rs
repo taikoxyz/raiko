@@ -43,14 +43,28 @@ impl ProofActor {
         let tasks = Arc::new(Mutex::new(
             HashMap::<CancelChannelOpts, CancellationToken>::new(),
         ));
-        let cloned = tasks.clone();
 
+        Self::spawn_cancel_listener(cancel_rx, tasks.clone());
+
+        Self {
+            rx,
+            tasks,
+            task_count,
+        }
+    }
+
+    /// Spawn a task that listens to the cancel channel to send the cancel signal to the correct
+    /// cancellation token.
+    pub fn spawn_cancel_listener(
+        cancel_rx: Receiver<CancelChannelOpts>,
+        tasks: Arc<Mutex<HashMap<CancelChannelOpts, CancellationToken>>>,
+    ) {
         tokio::spawn(async move {
             let mut cancel_rx = cancel_rx;
 
             while let Some(key) = cancel_rx.recv().await {
-                let tasks = cloned.lock().await;
-                let Some(task) = tasks.get(&key) else {
+                let tasks_map = tasks.lock().await;
+                let Some(task) = tasks_map.get(&key) else {
                     warn!("No task with those keys to cancel");
                     continue;
                 };
@@ -58,12 +72,6 @@ impl ProofActor {
                 task.cancel();
             }
         });
-
-        Self {
-            rx,
-            tasks,
-            task_count,
-        }
     }
 
     pub async fn run(&mut self) {

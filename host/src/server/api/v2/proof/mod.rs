@@ -93,13 +93,14 @@ async fn proof_handler(
         | TaskStatus::Cancelled_NeverStarted
         | TaskStatus::CancellationInProgress => {
             manager
-                .enqueue_task(&EnqueueTaskParams {
+                .update_task_progress(
                     chain_id,
-                    blockhash: block_hash,
-                    proof_type: proof_request.proof_type,
-                    prover: proof_request.prover.to_string(),
-                    block_number: proof_request.block_number,
-                })
+                    block_hash,
+                    proof_request.proof_type,
+                    Some(proof_request.prover.to_string()),
+                    TaskStatus::Registered,
+                    None,
+                )
                 .await?;
 
             prover_state.task_channel.try_send((
