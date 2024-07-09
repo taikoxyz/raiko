@@ -58,7 +58,7 @@ impl Prover for Risc0Prover {
         )
         .await;
 
-        let proof: String = result.clone().unwrap().1.journal.encode_hex();
+        let journal: String = result.clone().unwrap().1.journal.encode_hex();
 
         // Create/verify Groth16 SNARK
         if config.snark {
@@ -80,7 +80,7 @@ impl Prover for Risc0Prover {
                 .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
         }
 
-        to_proof(Ok(Risc0Response { proof }))
+        to_proof(Ok(Risc0Response { proof: journal }))
     }
 }
 
