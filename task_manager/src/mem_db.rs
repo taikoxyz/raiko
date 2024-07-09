@@ -119,6 +119,7 @@ impl InMemoryTaskDb {
     }
 
     fn prune(&mut self) -> TaskManagerResult<()> {
+        self.enqueue_task.clear();
         Ok(())
     }
 
