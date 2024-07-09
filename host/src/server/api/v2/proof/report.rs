@@ -1,4 +1,4 @@
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use axum::{debug_handler, extract::State, routing::get, Json, Router};
 use raiko_task_manager::{get_task_manager, TaskManager};
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -32,5 +32,5 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", post(report_handler))
+    Router::new().route("/", get(report_handler))
 }
