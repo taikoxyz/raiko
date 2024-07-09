@@ -76,50 +76,12 @@ pub enum TaskStatus {
     SqlDbCorruption           = -99999,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct EnqueueTaskParams {
-    pub chain_id: ChainId,
-    pub blockhash: B256,
-    pub proof_type: ProofType,
-    pub prover: String,
-    pub block_number: u64,
-}
-
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct TaskDescriptor {
     pub chain_id: ChainId,
     pub blockhash: B256,
     pub proof_system: ProofType,
     pub prover: String,
-}
-
-impl TaskDescriptor {
-    pub fn to_vec(self) -> Vec<u8> {
-        self.into()
-    }
-}
-
-impl From<TaskDescriptor> for Vec<u8> {
-    fn from(val: TaskDescriptor) -> Self {
-        let mut v = Vec::new();
-        v.extend_from_slice(&val.chain_id.to_be_bytes());
-        v.extend_from_slice(val.blockhash.as_ref());
-        v.extend_from_slice(&(val.proof_system as u8).to_be_bytes());
-        v.extend_from_slice(val.prover.as_bytes());
-        v
-    }
-}
-
-// Taskkey from EnqueueTaskParams
-impl From<&EnqueueTaskParams> for TaskDescriptor {
-    fn from(params: &EnqueueTaskParams) -> TaskDescriptor {
-        TaskDescriptor {
-            chain_id: params.chain_id,
-            blockhash: params.blockhash,
-            proof_system: params.proof_type,
-            prover: params.prover.clone(),
-        }
-    }
 }
 
 impl From<(ChainId, B256, ProofType, Option<String>)> for TaskDescriptor {
@@ -157,7 +119,7 @@ pub trait TaskManager {
     /// enqueue_task
     async fn enqueue_task(
         &mut self,
-        request: &EnqueueTaskParams,
+        request: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
     /// Update the task progress
@@ -228,7 +190,7 @@ impl TaskManager for TaskManagerWrapper {
 
     async fn enqueue_task(
         &mut self,
-        request: &EnqueueTaskParams,
+        request: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         match &mut self.manager {
             TaskManagerInstance::InMemory(ref mut manager) => manager.enqueue_task(request).await,
@@ -348,12 +310,11 @@ mod test {
 
         assert_eq!(
             task_manager
-                .enqueue_task(&EnqueueTaskParams {
+                .enqueue_task(&TaskDescriptor {
                     chain_id: 1,
                     blockhash: B256::default(),
-                    proof_type: ProofType::Native,
+                    proof_system: ProofType::Native,
                     prover: "test".to_string(),
-                    block_number: 1
                 })
                 .await
                 .unwrap()

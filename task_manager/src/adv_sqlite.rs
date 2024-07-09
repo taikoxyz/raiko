@@ -167,8 +167,8 @@ use rusqlite::{
 use tokio::sync::Mutex;
 
 use crate::{
-    EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
-    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
+    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 // Types
@@ -485,13 +485,12 @@ impl TaskDb {
 
     pub fn enqueue_task(
         &self,
-        EnqueueTaskParams {
+        TaskDescriptor {
             chain_id,
             blockhash,
-            proof_type,
+            proof_system,
             prover,
-            ..
-        }: &EnqueueTaskParams,
+        }: &TaskDescriptor,
     ) -> TaskManagerResult<Vec<TaskProvingStatus>> {
         let mut statement = self.conn.prepare_cached(
             r#"
@@ -514,7 +513,7 @@ impl TaskDb {
         statement.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
-            ":proofsys_id": *proof_type as u8,
+            ":proofsys_id": *proof_system as u8,
             ":prover": prover,
         })?;
 
@@ -750,7 +749,7 @@ impl TaskManager for SqliteTaskManager {
 
     async fn enqueue_task(
         &mut self,
-        params: &EnqueueTaskParams,
+        params: &TaskDescriptor,
     ) -> Result<Vec<TaskProvingStatus>, TaskManagerError> {
         let task_db = self.arc_task_db.lock().await;
         task_db.enqueue_task(params)

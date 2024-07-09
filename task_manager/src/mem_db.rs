@@ -13,8 +13,8 @@ use std::{
 };
 
 use crate::{
-    ensure, EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
-    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    ensure, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
+    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 use chrono::Utc;
@@ -40,15 +40,11 @@ impl InMemoryTaskDb {
         }
     }
 
-    fn enqueue_task(&mut self, params: &EnqueueTaskParams) {
-        let key = TaskDescriptor::from(params);
-        let task_status = TaskProvingStatus(
-            TaskStatus::Registered,
-            Some(params.prover.clone()),
-            Utc::now(),
-        );
+    fn enqueue_task(&mut self, key: &TaskDescriptor) {
+        let task_status =
+            TaskProvingStatus(TaskStatus::Registered, Some(key.prover.clone()), Utc::now());
 
-        match self.enqueue_task.get(&key) {
+        match self.enqueue_task.get(key) {
             Some(task_proving_records) => {
                 debug!(
                     "Task already exists: {:?}",
@@ -56,8 +52,8 @@ impl InMemoryTaskDb {
                 );
             } // do nothing
             None => {
-                info!("Enqueue new task: {:?}", params);
-                self.enqueue_task.insert(key, vec![task_status]);
+                info!("Enqueue new task: {key:?}");
+                self.enqueue_task.insert(key.clone(), vec![task_status]);
             }
         }
     }
@@ -165,13 +161,13 @@ impl TaskManager for InMemoryTaskManager {
 
     async fn enqueue_task(
         &mut self,
-        params: &EnqueueTaskParams,
+        params: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut db = self.db.lock().await;
         let status = db.get_task_proving_status(
             params.chain_id,
             params.blockhash,
-            params.proof_type,
+            params.proof_system,
             Some(params.prover.to_string()),
         )?;
         if status.is_empty() {
@@ -179,7 +175,7 @@ impl TaskManager for InMemoryTaskManager {
             db.get_task_proving_status(
                 params.chain_id,
                 params.blockhash,
-                params.proof_type,
+                params.proof_system,
                 Some(params.prover.clone()),
             )
         } else {
@@ -253,18 +249,17 @@ mod tests {
     #[test]
     fn test_db_enqueue() {
         let mut db = InMemoryTaskDb::new();
-        let params = EnqueueTaskParams {
+        let params = TaskDescriptor {
             chain_id: 1,
             blockhash: B256::default(),
-            proof_type: ProofType::Native,
+            proof_system: ProofType::Native,
             prover: "0x1234".to_owned(),
-            ..Default::default()
         };
         db.enqueue_task(&params);
         let status = db.get_task_proving_status(
             params.chain_id,
             params.blockhash,
-            params.proof_type,
+            params.proof_system,
             Some(params.prover.clone()),
         );
         assert!(status.is_ok());

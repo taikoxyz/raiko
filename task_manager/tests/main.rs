@@ -15,9 +15,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use raiko_lib::{input::BlobProofType, primitives::B256};
-    use raiko_task_manager::{
-        get_task_manager, EnqueueTaskParams, TaskManager, TaskManagerOpts, TaskStatus,
-    };
+    use raiko_task_manager::{get_task_manager, TaskManager, TaskManagerOpts, TaskStatus};
 
     fn create_random_task(rng: &mut ChaCha8Rng) -> (u64, B256, ProofRequest) {
         let chain_id = 100;
@@ -68,15 +66,17 @@ mod tests {
             max_db_size: 1_000_000,
         });
 
-        let (chain_id, block_hash, request) =
+        let (chain_id, blockhash, request) =
             create_random_task(&mut ChaCha8Rng::seed_from_u64(123));
-        tama.enqueue_task(&EnqueueTaskParams {
-            chain_id,
-            blockhash: block_hash,
-            proof_type: request.proof_type,
-            prover: request.prover.to_string(),
-            block_number: request.block_number,
-        })
+        tama.enqueue_task(
+            &(
+                chain_id,
+                blockhash,
+                request.proof_type,
+                Some(request.prover.to_string()),
+            )
+                .into(),
+        )
         .await
         .unwrap();
     }
@@ -106,22 +106,24 @@ mod tests {
         let mut tasks = vec![];
 
         for _ in 0..5 {
-            let (chain_id, block_hash, request) = create_random_task(&mut rng);
+            let (chain_id, blockhash, request) = create_random_task(&mut rng);
 
-            tama.enqueue_task(&EnqueueTaskParams {
-                chain_id,
-                blockhash: block_hash,
-                proof_type: request.proof_type,
-                prover: request.prover.to_string(),
-                block_number: request.block_number,
-            })
+            tama.enqueue_task(
+                &(
+                    chain_id,
+                    blockhash,
+                    request.proof_type,
+                    Some(request.prover.to_string()),
+                )
+                    .into(),
+            )
             .await
             .unwrap();
 
             let task_status = tama
                 .get_task_proving_status(
                     chain_id,
-                    block_hash,
+                    blockhash,
                     request.proof_type,
                     Some(request.prover.to_string()),
                 )
@@ -135,7 +137,7 @@ mod tests {
 
             tasks.push((
                 chain_id,
-                block_hash,
+                blockhash,
                 request.block_number,
                 request.proof_type,
                 request.prover,

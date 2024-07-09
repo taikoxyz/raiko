@@ -1,8 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_task_manager::{
-    get_task_manager, EnqueueTaskParams, TaskManager, TaskProvingStatus, TaskStatus,
-};
+use raiko_task_manager::{get_task_manager, TaskManager, TaskProvingStatus, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -48,7 +46,7 @@ async fn proof_handler(
     inc_host_req_count(proof_request.block_number);
     inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
-    let (chain_id, block_hash) = get_task_data(
+    let (chain_id, blockhash) = get_task_data(
         &proof_request.network,
         proof_request.block_number,
         &prover_state.chain_specs,
@@ -59,7 +57,7 @@ async fn proof_handler(
     let status = manager
         .get_task_proving_status(
             chain_id,
-            block_hash,
+            blockhash,
             proof_request.proof_type,
             Some(proof_request.prover.to_string()),
         )
@@ -68,13 +66,15 @@ async fn proof_handler(
     let Some(TaskProvingStatus(latest_status, ..)) = status.last() else {
         // If there are no tasks with provided config, create a new one.
         manager
-            .enqueue_task(&EnqueueTaskParams {
-                chain_id,
-                blockhash: block_hash,
-                proof_type: proof_request.proof_type,
-                prover: proof_request.prover.to_string(),
-                block_number: proof_request.block_number,
-            })
+            .enqueue_task(
+                &(
+                    chain_id,
+                    blockhash,
+                    proof_request.proof_type,
+                    Some(proof_request.prover.to_string()),
+                )
+                    .into(),
+            )
             .await?;
 
         prover_state.task_channel.try_send((
@@ -95,7 +95,7 @@ async fn proof_handler(
             manager
                 .update_task_progress(
                     chain_id,
-                    block_hash,
+                    blockhash,
                     proof_request.proof_type,
                     Some(proof_request.prover.to_string()),
                     TaskStatus::Registered,
@@ -116,7 +116,7 @@ async fn proof_handler(
             let proof = manager
                 .get_task_proof(
                     chain_id,
-                    block_hash,
+                    blockhash,
                     proof_request.proof_type,
                     Some(proof_request.prover.to_string()),
                 )
