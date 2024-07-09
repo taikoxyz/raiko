@@ -517,7 +517,7 @@ impl TaskDb {
             ":prover": prover,
         })?;
 
-        Ok(vec![TaskProvingStatus(
+        Ok(vec![(
             TaskStatus::Registered,
             Some(prover.clone()),
             Utc::now(),
@@ -600,7 +600,7 @@ impl TaskDb {
                 ":prover": prover.unwrap_or_default(),
             },
             |row| {
-                Ok(TaskProvingStatus(
+                Ok((
                     TaskStatus::from(row.get::<_, i32>(0)?),
                     Some(row.get::<_, String>(1)?),
                     row.get::<_, DateTime<Utc>>(2)?,

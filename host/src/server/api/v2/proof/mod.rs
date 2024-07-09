@@ -1,6 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_task_manager::{get_task_manager, TaskManager, TaskProvingStatus, TaskStatus};
+use raiko_task_manager::{get_task_manager, TaskManager, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -63,7 +63,7 @@ async fn proof_handler(
         )
         .await?;
 
-    let Some(TaskProvingStatus(latest_status, ..)) = status.last() else {
+    let Some((latest_status, ..)) = status.last() else {
         // If there are no tasks with provided config, create a new one.
         manager
             .enqueue_task(

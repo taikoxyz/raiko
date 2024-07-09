@@ -97,8 +97,7 @@ impl From<(ChainId, B256, ProofType, Option<String>)> for TaskDescriptor {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct TaskProvingStatus(pub TaskStatus, pub Option<String>, pub DateTime<Utc>);
+pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
 
 pub type TaskProvingStatusRecords = Vec<TaskProvingStatus>;
 

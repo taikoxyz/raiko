@@ -14,7 +14,7 @@ use std::{
 
 use crate::{
     ensure, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 use chrono::Utc;
@@ -41,8 +41,7 @@ impl InMemoryTaskDb {
     }
 
     fn enqueue_task(&mut self, key: &TaskDescriptor) {
-        let task_status =
-            TaskProvingStatus(TaskStatus::Registered, Some(key.prover.clone()), Utc::now());
+        let task_status = (TaskStatus::Registered, Some(key.prover.clone()), Utc::now());
 
         match self.enqueue_task.get(key) {
             Some(task_proving_records) => {
@@ -73,11 +72,7 @@ impl InMemoryTaskDb {
         self.enqueue_task.entry(key).and_modify(|entry| {
             if let Some(latest) = entry.last() {
                 if latest.0 != status {
-                    entry.push(TaskProvingStatus(
-                        status,
-                        proof.map(hex::encode),
-                        Utc::now(),
-                    ));
+                    entry.push((status, proof.map(hex::encode), Utc::now()));
                 }
             }
         });
