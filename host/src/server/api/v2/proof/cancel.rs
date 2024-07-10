@@ -54,10 +54,13 @@ async fn cancel_handler(
 
     manager
         .update_task_progress(
-            chain_id,
-            block_hash,
-            proof_request.proof_type,
-            Some(proof_request.prover.to_string()),
+            (
+                chain_id,
+                block_hash,
+                proof_request.proof_type,
+                proof_request.prover.to_string(),
+            )
+                .into(),
             TaskStatus::Cancelled,
             None,
         )

@@ -56,10 +56,13 @@ async fn proof_handler(
     let mut manager = get_task_manager(&(&prover_state.opts).into());
     let status = manager
         .get_task_proving_status(
-            chain_id,
-            blockhash,
-            proof_request.proof_type,
-            Some(proof_request.prover.to_string()),
+            &(
+                chain_id,
+                blockhash,
+                proof_request.proof_type,
+                proof_request.prover.to_string(),
+            )
+                .into(),
         )
         .await?;
 
@@ -71,7 +74,7 @@ async fn proof_handler(
                     chain_id,
                     blockhash,
                     proof_request.proof_type,
-                    Some(proof_request.prover.to_string()),
+                    proof_request.prover.to_string(),
                 )
                     .into(),
             )
@@ -94,10 +97,13 @@ async fn proof_handler(
         | TaskStatus::CancellationInProgress => {
             manager
                 .update_task_progress(
-                    chain_id,
-                    blockhash,
-                    proof_request.proof_type,
-                    Some(proof_request.prover.to_string()),
+                    (
+                        chain_id,
+                        blockhash,
+                        proof_request.proof_type,
+                        proof_request.prover.to_string(),
+                    )
+                        .into(),
                     TaskStatus::Registered,
                     None,
                 )
@@ -115,10 +121,13 @@ async fn proof_handler(
         TaskStatus::Success => {
             let proof = manager
                 .get_task_proof(
-                    chain_id,
-                    blockhash,
-                    proof_request.proof_type,
-                    Some(proof_request.prover.to_string()),
+                    &(
+                        chain_id,
+                        blockhash,
+                        proof_request.proof_type,
+                        proof_request.prover.to_string(),
+                    )
+                        .into(),
                 )
                 .await?;
 

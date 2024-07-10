@@ -159,8 +159,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use raiko_core::interfaces::ProofType;
-use raiko_lib::primitives::{ChainId, B256};
+use raiko_lib::primitives::B256;
 use rusqlite::{
     named_params, {Connection, OpenFlags},
 };
@@ -526,10 +525,12 @@ impl TaskDb {
 
     pub fn update_task_progress(
         &self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        TaskDescriptor {
+            chain_id,
+            blockhash,
+            proof_system,
+            prover,
+        }: TaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
@@ -558,9 +559,9 @@ impl TaskDb {
         statement.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
-            ":proofsys_id": proof_type as u8,
+            ":proofsys_id": proof_system as u8,
+            ":prover": prover,
             ":status_id": status as i32,
-            ":prover": prover.unwrap_or_default(),
             ":proof": proof
         })?;
 
@@ -569,10 +570,12 @@ impl TaskDb {
 
     pub fn get_task_proving_status(
         &self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        TaskDescriptor {
+            chain_id,
+            blockhash,
+            proof_system,
+            prover,
+        }: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut statement = self.conn.prepare_cached(
             r#"
@@ -596,8 +599,8 @@ impl TaskDb {
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
-                ":proofsys_id": proof_type as u8,
-                ":prover": prover.unwrap_or_default(),
+                ":proofsys_id": *proof_system as u8,
+                ":prover": prover,
             },
             |row| {
                 Ok((
@@ -613,10 +616,12 @@ impl TaskDb {
 
     pub fn get_task_proof(
         &self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        TaskDescriptor {
+            chain_id,
+            blockhash,
+            proof_system,
+            prover,
+        }: &TaskDescriptor,
     ) -> TaskManagerResult<Vec<u8>> {
         let mut statement = self.conn.prepare_cached(
             r#"
@@ -638,8 +643,8 @@ impl TaskDb {
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
-                ":proofsys_id": proof_type as u8,
-                ":prover": prover.unwrap_or_default(),
+                ":proofsys_id": *proof_system as u8,
+                ":prover": prover,
             },
             |row| row.get(0),
         )?;
@@ -757,38 +762,26 @@ impl TaskManager for SqliteTaskManager {
 
     async fn update_task_progress(
         &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        key: TaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
         let task_db = self.arc_task_db.lock().await;
-        task_db.update_task_progress(chain_id, blockhash, proof_type, prover, status, proof)
+        task_db.update_task_progress(key, status, proof)
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
     async fn get_task_proving_status(
         &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let task_db = self.arc_task_db.lock().await;
-        task_db.get_task_proving_status(chain_id, blockhash, proof_type, prover)
+        task_db.get_task_proving_status(key)
     }
 
-    async fn get_task_proof(
-        &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
-    ) -> TaskManagerResult<Vec<u8>> {
+    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         let task_db = self.arc_task_db.lock().await;
-        task_db.get_task_proof(chain_id, blockhash, proof_type, prover)
+        task_db.get_task_proof(key)
     }
 
     /// Returns the total and detailed database size

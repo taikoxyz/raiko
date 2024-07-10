@@ -133,10 +133,13 @@ impl ProofActor {
         let mut manager = get_task_manager(&opts.clone().into());
         let status = manager
             .get_task_proving_status(
-                chain_id,
-                blockhash,
-                proof_request.proof_type,
-                Some(proof_request.prover.clone().to_string()),
+                &(
+                    chain_id,
+                    blockhash,
+                    proof_request.proof_type,
+                    proof_request.prover.clone().to_string(),
+                )
+                    .into(),
             )
             .await?;
 
@@ -148,10 +151,13 @@ impl ProofActor {
 
         manager
             .update_task_progress(
-                chain_id,
-                blockhash,
-                proof_request.proof_type,
-                Some(proof_request.prover.to_string()),
+                (
+                    chain_id,
+                    blockhash,
+                    proof_request.proof_type,
+                    proof_request.prover.clone().to_string(),
+                )
+                    .into(),
                 TaskStatus::WorkInProgress,
                 None,
             )
@@ -164,10 +170,13 @@ impl ProofActor {
 
                 manager
                     .update_task_progress(
-                        chain_id,
-                        blockhash,
-                        proof_request.proof_type,
-                        Some(proof_request.prover.to_string()),
+                        (
+                            chain_id,
+                            blockhash,
+                            proof_request.proof_type,
+                            proof_request.prover.clone().to_string(),
+                        )
+                            .into(),
                         TaskStatus::Success,
                         Some(proof),
                     )
@@ -176,10 +185,13 @@ impl ProofActor {
             Err(error) => {
                 manager
                     .update_task_progress(
-                        chain_id,
-                        blockhash,
-                        proof_request.proof_type,
-                        Some(proof_request.prover.to_string()),
+                        (
+                            chain_id,
+                            blockhash,
+                            proof_request.proof_type,
+                            proof_request.prover.clone().to_string(),
+                        )
+                            .into(),
                         error.into(),
                         None,
                     )

@@ -84,15 +84,15 @@ pub struct TaskDescriptor {
     pub prover: String,
 }
 
-impl From<(ChainId, B256, ProofType, Option<String>)> for TaskDescriptor {
+impl From<(ChainId, B256, ProofType, String)> for TaskDescriptor {
     fn from(
-        (chain_id, blockhash, proof_system, prover): (ChainId, B256, ProofType, Option<String>),
+        (chain_id, blockhash, proof_system, prover): (ChainId, B256, ProofType, String),
     ) -> Self {
         TaskDescriptor {
             chain_id,
             blockhash,
             proof_system,
-            prover: prover.unwrap_or_default(),
+            prover,
         }
     }
 }
@@ -124,10 +124,7 @@ pub trait TaskManager {
     /// Update the task progress
     async fn update_task_progress(
         &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_system: ProofType,
-        prover: Option<String>,
+        key: TaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()>;
@@ -135,20 +132,11 @@ pub trait TaskManager {
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
     async fn get_task_proving_status(
         &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_system: ProofType,
-        prover: Option<String>,
+        key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
     /// Returns the proof for the given task
-    async fn get_task_proof(
-        &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_system: ProofType,
-        prover: Option<String>,
-    ) -> TaskManagerResult<Vec<u8>>;
+    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>>;
 
     /// Returns the total and detailed database size
     async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)>;
@@ -199,66 +187,38 @@ impl TaskManager for TaskManagerWrapper {
 
     async fn update_task_progress(
         &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_system: ProofType,
-        prover: Option<String>,
+        key: TaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
         match &mut self.manager {
             TaskManagerInstance::InMemory(ref mut manager) => {
-                manager
-                    .update_task_progress(chain_id, blockhash, proof_system, prover, status, proof)
-                    .await
+                manager.update_task_progress(key, status, proof).await
             }
             TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager
-                    .update_task_progress(chain_id, blockhash, proof_system, prover, status, proof)
-                    .await
+                manager.update_task_progress(key, status, proof).await
             }
         }
     }
 
     async fn get_task_proving_status(
         &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_system: ProofType,
-        prover: Option<String>,
+        key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         match &mut self.manager {
             TaskManagerInstance::InMemory(ref mut manager) => {
-                manager
-                    .get_task_proving_status(chain_id, blockhash, proof_system, prover)
-                    .await
+                manager.get_task_proving_status(key).await
             }
             TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager
-                    .get_task_proving_status(chain_id, blockhash, proof_system, prover)
-                    .await
+                manager.get_task_proving_status(key).await
             }
         }
     }
 
-    async fn get_task_proof(
-        &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_system: ProofType,
-        prover: Option<String>,
-    ) -> TaskManagerResult<Vec<u8>> {
+    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager
-                    .get_task_proof(chain_id, blockhash, proof_system, prover)
-                    .await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager
-                    .get_task_proof(chain_id, blockhash, proof_system, prover)
-                    .await
-            }
+            TaskManagerInstance::InMemory(ref mut manager) => manager.get_task_proof(key).await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.get_task_proof(key).await,
         }
     }
 
