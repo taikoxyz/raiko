@@ -160,15 +160,15 @@ impl ProofActor {
                 manager
                     .update_task_progress(key.clone(), TaskStatus::Success, Some(proof))
                     .await?;
+                Ok(())
             }
             Err(error) => {
                 manager
-                    .update_task_progress(key, error.into(), None)
+                    .update_task_progress(key, (&error).into(), None)
                     .await?;
+                Err(error)
             }
         }
-
-        Ok(())
     }
 }
 
