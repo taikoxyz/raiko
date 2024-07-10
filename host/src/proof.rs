@@ -6,7 +6,7 @@ use raiko_core::{
     Raiko,
 };
 use raiko_lib::{consts::SupportedChainSpecs, Measurement};
-use raiko_task_manager::{get_task_manager, TaskManager, TaskStatus};
+use raiko_task_manager::{get_task_manager, TaskDescriptor, TaskManager, TaskStatus};
 use tokio::{
     select,
     sync::{mpsc::Receiver, Mutex, Semaphore},
@@ -25,23 +25,25 @@ use crate::{
         proof::{get_cached_input, set_cached_input, validate_cache_input},
         ProofResponse,
     },
-    CancelChannelOpts, Opts, TaskChannelOpts,
+    Opts,
 };
 
 pub struct ProofActor {
-    rx: Receiver<TaskChannelOpts>,
-    tasks: Arc<Mutex<HashMap<CancelChannelOpts, CancellationToken>>>,
-    task_count: usize,
+    rx: Receiver<ProofRequest>,
+    opts: Opts,
+    chain_specs: SupportedChainSpecs,
+    tasks: Arc<Mutex<HashMap<TaskDescriptor, CancellationToken>>>,
 }
 
 impl ProofActor {
     pub fn new(
-        rx: Receiver<TaskChannelOpts>,
-        cancel_rx: Receiver<CancelChannelOpts>,
-        task_count: usize,
+        rx: Receiver<ProofRequest>,
+        cancel_rx: Receiver<TaskDescriptor>,
+        opts: Opts,
+        chain_specs: SupportedChainSpecs,
     ) -> Self {
         let tasks = Arc::new(Mutex::new(
-            HashMap::<CancelChannelOpts, CancellationToken>::new(),
+            HashMap::<TaskDescriptor, CancellationToken>::new(),
         ));
 
         Self::spawn_cancel_listener(cancel_rx, tasks.clone());
@@ -49,15 +51,16 @@ impl ProofActor {
         Self {
             rx,
             tasks,
-            task_count,
+            opts,
+            chain_specs,
         }
     }
 
     /// Spawn a task that listens to the cancel channel to send the cancel signal to the correct
     /// cancellation token.
     pub fn spawn_cancel_listener(
-        cancel_rx: Receiver<CancelChannelOpts>,
-        tasks: Arc<Mutex<HashMap<CancelChannelOpts, CancellationToken>>>,
+        cancel_rx: Receiver<TaskDescriptor>,
+        tasks: Arc<Mutex<HashMap<TaskDescriptor, CancellationToken>>>,
     ) {
         tokio::spawn(async move {
             let mut cancel_rx = cancel_rx;
@@ -75,28 +78,33 @@ impl ProofActor {
     }
 
     pub async fn run(&mut self) {
-        let semaphore = Arc::new(Semaphore::new(self.task_count));
+        let semaphore = Arc::new(Semaphore::new(self.opts.concurrency_limit));
 
-        while let Some(message) = self.rx.recv().await {
+        while let Some(proof_request) = self.rx.recv().await {
             let permit = Arc::clone(&semaphore).acquire_owned().await;
             let cancel_token = CancellationToken::new();
 
-            let (chain_id, blockhash) =
-                get_task_data(&message.0.network, message.0.block_number, &message.2)
-                    .await
-                    .unwrap();
+            let (chain_id, blockhash) = get_task_data(
+                &proof_request.network,
+                proof_request.block_number,
+                &self.chain_specs,
+            )
+            .await
+            .unwrap();
 
-            let key = (
+            let key = TaskDescriptor::from((
                 chain_id,
                 blockhash,
-                message.0.proof_type,
-                Some(message.0.prover.clone().to_string()),
-            );
+                proof_request.proof_type,
+                proof_request.prover.clone().to_string(),
+            ));
 
             let mut tasks = self.tasks.lock().await;
             tasks.insert(key.clone(), cancel_token.clone());
 
             let tasks = self.tasks.clone();
+            let opts = self.opts.clone();
+            let chain_specs = self.chain_specs.clone();
 
             tokio::spawn(async move {
                 let _permit = permit;
@@ -104,7 +112,7 @@ impl ProofActor {
                     _ = cancel_token.cancelled() => {
                         info!("Task cancelled");
                     }
-                    result = Self::handle_message(message) => {
+                    result = Self::handle_message(proof_request, key.clone(), &opts, &chain_specs) => {
                         match result {
                             Ok(()) => {
                                 info!("Proof generated");
@@ -122,26 +130,14 @@ impl ProofActor {
     }
 
     pub async fn handle_message(
-        (proof_request, opts, chain_specs): TaskChannelOpts,
+        proof_request: ProofRequest,
+        key: TaskDescriptor,
+        opts: &Opts,
+        chain_specs: &SupportedChainSpecs,
     ) -> HostResult<()> {
-        let (chain_id, blockhash) = get_task_data(
-            &proof_request.network,
-            proof_request.block_number,
-            &chain_specs,
-        )
-        .await?;
         let mut manager = get_task_manager(&opts.clone().into());
-        let status = manager
-            .get_task_proving_status(
-                &(
-                    chain_id,
-                    blockhash,
-                    proof_request.proof_type,
-                    proof_request.prover.clone().to_string(),
-                )
-                    .into(),
-            )
-            .await?;
+
+        let status = manager.get_task_proving_status(&key).await?;
 
         if let Some(latest_status) = status.iter().last() {
             if !matches!(latest_status.0, TaskStatus::Registered) {
@@ -150,51 +146,21 @@ impl ProofActor {
         }
 
         manager
-            .update_task_progress(
-                (
-                    chain_id,
-                    blockhash,
-                    proof_request.proof_type,
-                    proof_request.prover.clone().to_string(),
-                )
-                    .into(),
-                TaskStatus::WorkInProgress,
-                None,
-            )
+            .update_task_progress(key.clone(), TaskStatus::WorkInProgress, None)
             .await?;
 
-        match handle_proof(&proof_request, &opts, &chain_specs).await {
-            Ok(result) => {
-                let proof_string = result.proof.unwrap_or_default();
+        match handle_proof(&proof_request, opts, chain_specs).await {
+            Ok(ProofResponse { proof, .. }) => {
+                let proof_string = proof.unwrap_or_default();
                 let proof = proof_string.as_bytes();
 
                 manager
-                    .update_task_progress(
-                        (
-                            chain_id,
-                            blockhash,
-                            proof_request.proof_type,
-                            proof_request.prover.clone().to_string(),
-                        )
-                            .into(),
-                        TaskStatus::Success,
-                        Some(proof),
-                    )
+                    .update_task_progress(key.clone(), TaskStatus::Success, Some(proof))
                     .await?;
             }
             Err(error) => {
                 manager
-                    .update_task_progress(
-                        (
-                            chain_id,
-                            blockhash,
-                            proof_request.proof_type,
-                            proof_request.prover.clone().to_string(),
-                        )
-                            .into(),
-                        error.into(),
-                        None,
-                    )
+                    .update_task_progress(key, error.into(), None)
                     .await?;
             }
         }

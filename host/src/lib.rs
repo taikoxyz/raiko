@@ -4,12 +4,11 @@ use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
 use raiko_core::{
-    interfaces::{ProofRequest, ProofRequestOpt, ProofType},
+    interfaces::{ProofRequest, ProofRequestOpt},
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_task_manager::TaskManagerOpts;
-use reth_primitives::{ChainId, B256};
+use raiko_task_manager::{TaskDescriptor, TaskManagerOpts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -135,16 +134,12 @@ impl From<&Opts> for TaskManagerOpts {
     }
 }
 
-pub type TaskChannelOpts = (ProofRequest, Opts, SupportedChainSpecs);
-
-pub type CancelChannelOpts = (ChainId, B256, ProofType, Option<String>);
-
 #[derive(Debug, Clone)]
 pub struct ProverState {
     pub opts: Opts,
     pub chain_specs: SupportedChainSpecs,
-    pub task_channel: mpsc::Sender<TaskChannelOpts>,
-    pub cancel_channel: mpsc::Sender<CancelChannelOpts>,
+    pub task_channel: mpsc::Sender<ProofRequest>,
+    pub cancel_channel: mpsc::Sender<TaskDescriptor>,
 }
 
 impl ProverState {
@@ -167,12 +162,14 @@ impl ProverState {
             }
         }
 
-        let (task_channel, receiver) = mpsc::channel::<TaskChannelOpts>(opts.concurrency_limit);
-        let (cancel_channel, cancel_rx) =
-            mpsc::channel::<CancelChannelOpts>(opts.concurrency_limit);
+        let (task_channel, receiver) = mpsc::channel::<ProofRequest>(opts.concurrency_limit);
+        let (cancel_channel, cancel_rx) = mpsc::channel::<TaskDescriptor>(opts.concurrency_limit);
+
+        let opts_clone = opts.clone();
+        let chain_specs_clone = chain_specs.clone();
 
         tokio::spawn(async move {
-            ProofActor::new(receiver, cancel_rx, opts.concurrency_limit)
+            ProofActor::new(receiver, cancel_rx, opts_clone, chain_specs_clone)
                 .run()
                 .await;
         });

@@ -1,6 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_task_manager::{get_task_manager, TaskManager, TaskStatus};
+use raiko_task_manager::{get_task_manager, TaskDescriptor, TaskManager, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -53,38 +53,21 @@ async fn proof_handler(
     )
     .await?;
 
+    let key = TaskDescriptor::from((
+        chain_id,
+        blockhash,
+        proof_request.proof_type,
+        proof_request.prover.to_string(),
+    ));
+
     let mut manager = get_task_manager(&(&prover_state.opts).into());
-    let status = manager
-        .get_task_proving_status(
-            &(
-                chain_id,
-                blockhash,
-                proof_request.proof_type,
-                proof_request.prover.to_string(),
-            )
-                .into(),
-        )
-        .await?;
+    let status = manager.get_task_proving_status(&key).await?;
 
     let Some((latest_status, ..)) = status.last() else {
         // If there are no tasks with provided config, create a new one.
-        manager
-            .enqueue_task(
-                &(
-                    chain_id,
-                    blockhash,
-                    proof_request.proof_type,
-                    proof_request.prover.to_string(),
-                )
-                    .into(),
-            )
-            .await?;
+        manager.enqueue_task(&key).await?;
 
-        prover_state.task_channel.try_send((
-            proof_request.clone(),
-            prover_state.opts,
-            prover_state.chain_specs,
-        ))?;
+        prover_state.task_channel.try_send(proof_request.clone())?;
 
         return Ok(TaskStatus::Registered.into());
     };
@@ -96,40 +79,16 @@ async fn proof_handler(
         | TaskStatus::Cancelled_NeverStarted
         | TaskStatus::CancellationInProgress => {
             manager
-                .update_task_progress(
-                    (
-                        chain_id,
-                        blockhash,
-                        proof_request.proof_type,
-                        proof_request.prover.to_string(),
-                    )
-                        .into(),
-                    TaskStatus::Registered,
-                    None,
-                )
+                .update_task_progress(key, TaskStatus::Registered, None)
                 .await?;
 
-            prover_state.task_channel.try_send((
-                proof_request.clone(),
-                prover_state.opts,
-                prover_state.chain_specs,
-            ))?;
+            prover_state.task_channel.try_send(proof_request.clone())?;
 
             Ok(TaskStatus::Registered.into())
         }
         // If the task has succeeded, return the proof.
         TaskStatus::Success => {
-            let proof = manager
-                .get_task_proof(
-                    &(
-                        chain_id,
-                        blockhash,
-                        proof_request.proof_type,
-                        proof_request.prover.to_string(),
-                    )
-                        .into(),
-                )
-                .await?;
+            let proof = manager.get_task_proof(&key).await?;
 
             Ok(proof.into())
         }
