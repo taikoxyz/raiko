@@ -84,13 +84,16 @@ impl ProofActor {
             let permit = Arc::clone(&semaphore).acquire_owned().await;
             let cancel_token = CancellationToken::new();
 
-            let (chain_id, blockhash) = get_task_data(
+            let Ok((chain_id, blockhash)) = get_task_data(
                 &proof_request.network,
                 proof_request.block_number,
                 &self.chain_specs,
             )
             .await
-            .unwrap();
+            else {
+                error!("Could not get task data for {proof_request:?}");
+                continue;
+            };
 
             let key = TaskDescriptor::from((
                 chain_id,
