@@ -25,7 +25,6 @@ use raiko_lib::{
         eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
         mpt::proofs_to_tries,
     },
-    utils::zlib_compress_data,
     Measurement,
 };
 use reth_evm_ethereum::taiko::decode_anchor;
@@ -48,14 +47,17 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let blocks = provider
         .get_blocks(&[(block_number, true), (block_number - 1, false)])
         .await?;
-    let (block, parent_block) = (
-        blocks.first().ok_or_else(|| {
-            RaikoError::Preflight("No block data for the requested block".to_owned())
-        })?,
-        blocks.get(1).ok_or_else(|| {
-            RaikoError::Preflight("No parent block data for the requested block".to_owned())
-        })?,
-    );
+    let mut blocks = blocks.iter();
+    let Some(block) = blocks.next() else {
+        return Err(RaikoError::Preflight(
+            "No block data for the requested block".to_owned(),
+        ));
+    };
+    let Some(parent_block) = blocks.next() else {
+        return Err(RaikoError::Preflight(
+            "No parent block data for the requested block".to_owned(),
+        ));
+    };
 
     info!(
         "Processing block {:?} with hash: {:?}",
@@ -67,9 +69,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
     debug!("block transactions: {:?}", block.transactions.len());
 
     // Convert the alloy block to a reth block
-    let block = Block::try_from(block.clone()).map_err(|e| {
-        RaikoError::Conversion(format!("Failed converting to reth block: {}", e).to_owned())
-    })?;
+    let block = Block::try_from(block.clone())
+        .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
 
     let taiko_guest_input = if taiko_chain_spec.is_taiko() {
         prepare_taiko_chain_input(
@@ -84,66 +85,66 @@ pub async fn preflight<BDP: BlockDataProvider>(
     } else {
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
-        TaikoGuestInput {
-            tx_data: zlib_compress_data(&alloy_rlp::encode(&block.body))?,
-            ..Default::default()
-        }
+        TaikoGuestInput::try_from(block.body.clone()).map_err(|e| RaikoError::Conversion(e.0))?
     };
     measurement.stop();
 
     // Create the guest input
-    let input = GuestInput {
-        block: block.clone(),
-        chain_spec: taiko_chain_spec.clone(),
-        parent_state_trie: Default::default(),
-        parent_storage: Default::default(),
-        contracts: Default::default(),
-        parent_header: parent_block.header.clone().try_into().unwrap(),
-        ancestor_headers: Default::default(),
-        taiko: taiko_guest_input,
-    };
+    let input = GuestInput::from((
+        block.clone(),
+        parent_block
+            .header
+            .clone()
+            .try_into()
+            .expect("Couldn't transform alloy header to reth header"),
+        taiko_chain_spec.clone(),
+        taiko_guest_input,
+    ));
 
     // Create the block builder, run the transactions and extract the DB
-    let provider_db = ProviderDb::new(
-        provider,
-        taiko_chain_spec,
-        if let Some(parent_block_number) = parent_block.header.number {
-            parent_block_number
-        } else {
-            return Err(RaikoError::Preflight(
-                "No parent block number for the requested block".to_owned(),
-            ));
-        },
-    )
-    .await?;
+    let Some(parent_block_number) = parent_block.header.number else {
+        return Err(RaikoError::Preflight(
+            "No parent block number for the requested block".to_owned(),
+        ));
+    };
+    let provider_db = ProviderDb::new(provider, taiko_chain_spec, parent_block_number).await?;
 
     // Now re-execute the transactions in the block to collect all required data
     let mut builder = RethBlockBuilder::new(&input, provider_db);
+
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-    let is_local = false;
-    let max_iterations = if is_local { 1 } else { 100 };
-    let mut done = false;
-    let mut num_iterations = 0;
-    while !done {
+    let max_iterations = 100;
+    for num_iterations in 0.. {
         inplace_print(&format!("Execution iteration {num_iterations}..."));
 
-        let optimistic = num_iterations + 1 < max_iterations;
-        builder.db.as_mut().unwrap().optimistic = optimistic;
+        let Some(db) = builder.db.as_mut() else {
+            return Err(RaikoError::Preflight("No db in builder".to_owned()));
+        };
+        db.optimistic = num_iterations + 1 < max_iterations;
 
-        builder.execute_transactions(optimistic).expect("execute");
-        if builder.db.as_mut().unwrap().fetch_data().await {
-            done = true;
+        builder
+            .execute_transactions(num_iterations + 1 < max_iterations)
+            .map_err(|_| {
+                RaikoError::Preflight("Executing transactions in builder failed".to_owned())
+            })?;
+
+        let Some(db) = builder.db.as_mut() else {
+            return Err(RaikoError::Preflight("No db in builder".to_owned()));
+        };
+        if db.fetch_data().await {
+            clear_line();
+            info!("State data fetched in {num_iterations} iterations");
+            break;
         }
-        num_iterations += 1;
     }
-    clear_line();
-    info!("State data fetched in {num_iterations} iterations");
 
-    let provider_db = builder.db.as_mut().unwrap();
+    let Some(db) = builder.db.as_mut() else {
+        return Err(RaikoError::Preflight("No db in builder".to_owned()));
+    };
 
     // Gather inclusion proofs for the initial and final state
     let measurement = Measurement::start("Fetching storage proofs...", true);
-    let (parent_proofs, proofs, num_storage_proofs) = provider_db.get_proofs().await?;
+    let (parent_proofs, proofs, num_storage_proofs) = db.get_proofs().await?;
     measurement.stop_with_count(&format!(
         "[{} Account/{num_storage_proofs} Storage]",
         parent_proofs.len() + proofs.len(),
@@ -151,32 +152,34 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
     // Construct the state trie and storage from the storage proofs.
     let measurement = Measurement::start("Constructing MPT...", true);
-    let (state_trie, storage) =
+    let (parent_state_trie, parent_storage) =
         proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
     measurement.stop();
 
     // Gather proofs for block history
     let measurement = Measurement::start("Fetching historical block headers...", true);
-    let ancestor_headers = provider_db.get_ancestor_headers().await?;
+    let ancestor_headers = db.get_ancestor_headers().await?;
     measurement.stop();
 
     // Get the contracts from the initial db.
     let measurement = Measurement::start("Fetching contract code...", true);
-    let mut contracts = HashSet::new();
-    let initial_db = &provider_db.initial_db;
-    for account in initial_db.accounts.values() {
-        let code = &account.info.code;
-        if let Some(code) = code {
-            contracts.insert(code.bytecode().0.clone());
-        }
-    }
+    let contracts =
+        HashSet::<Bytes>::from_iter(db.initial_db.accounts.values().filter_map(|account| {
+            account
+                .info
+                .code
+                .clone()
+                .map(|code| Bytes(code.bytecode().0.clone()))
+        }))
+        .into_iter()
+        .collect::<Vec<Bytes>>();
     measurement.stop();
 
     // Fill in remaining generated guest input data
     let input = GuestInput {
-        parent_state_trie: state_trie,
-        parent_storage: storage,
-        contracts: contracts.into_iter().map(Bytes).collect(),
+        parent_state_trie,
+        parent_storage,
+        contracts,
         ancestor_headers,
         ..input
     };
@@ -282,7 +285,7 @@ fn block_time_to_block_slot(
     genesis_time: u64,
     block_per_slot: u64,
 ) -> RaikoResult<u64> {
-    if genesis_time == 0u64 {
+    if genesis_time == 0 {
         Err(RaikoError::Anyhow(anyhow!(
             "genesis time is 0, please check chain spec"
         )))
@@ -296,10 +299,7 @@ fn block_time_to_block_slot(
 }
 
 fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
-    match hex::decode(blob_str.to_lowercase().trim_start_matches("0x")) {
-        Ok(b) => b,
-        Err(_) => Vec::new(),
-    }
+    hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap_or_default()
 }
 
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
