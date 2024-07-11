@@ -59,6 +59,10 @@ pub struct TaikoGuestInput {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub enum BlobProofType {
+    /// Guest runs through the entire computation from blob to Kzg commitment
+    /// then to version hash
+    #[default]
+    ProofOfCommitment,
     /// Simplified Proof of Equivalence with fiat input in non-aligned field
     /// Referencing https://notes.ethereum.org/@dankrad/kzg_commitments_in_proofs
     /// with impl details in https://github.com/taikoxyz/raiko/issues/292
@@ -66,11 +70,7 @@ pub enum BlobProofType {
     ///      x = sha256(sha256(blob), kzg_commit(blob))
     ///      y = f(x)
     /// where f is the KZG polynomial
-    #[default]
     ProofOfEquivalence,
-    /// Guest runs through the entire computation from blob to Kzg commitment
-    /// then to version hash
-    ProofOfCommitment,
 }
 
 impl FromStr for BlobProofType {
