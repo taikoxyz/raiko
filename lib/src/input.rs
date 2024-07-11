@@ -71,14 +71,14 @@ pub struct TaikoGuestInput {
     pub blob_proof_type: BlobProofType,
 }
 
-pub struct ZlibComressError(pub String);
+pub struct ZlibCompressError(pub String);
 
 impl TryFrom<Vec<TransactionSigned>> for TaikoGuestInput {
-    type Error = ZlibComressError;
+    type Error = ZlibCompressError;
 
     fn try_from(value: Vec<TransactionSigned>) -> Result<Self, Self::Error> {
         let tx_data = zlib_compress_data(&alloy_rlp::encode(&value))
-            .map_err(|e| ZlibComressError(e.to_string()))?;
+            .map_err(|e| ZlibCompressError(e.to_string()))?;
         Ok(Self {
             tx_data,
             ..Self::default()
