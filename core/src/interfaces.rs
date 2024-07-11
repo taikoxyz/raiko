@@ -164,7 +164,7 @@ impl ProofType {
         let mut proof = match self {
             ProofType::Native => NativeProver::run(input.clone(), output, config)
                 .await
-                .map_err(<ProverError as Into<RaikoError>>::into),
+                .map_err(|e| e.into()),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
                 return sp1_driver::Sp1Prover::run(input.clone(), output, config)
@@ -195,13 +195,17 @@ impl ProofType {
         if let Some(blob_commitment) = input.taiko.blob_commitment.clone() {
             let kzg_proof = calc_kzg_proof(
                 &input.taiko.tx_data,
-                &commitment_to_version_hash(&blob_commitment.try_into().unwrap()),
+                &commitment_to_version_hash(&blob_commitment.try_into().map_err(|_| {
+                    RaikoError::Conversion(
+                        "Could not convert blob commitment to version hash".to_owned(),
+                    )
+                })?),
             )
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!(e))?;
             let kzg_proof_hex = hex::encode(kzg_proof_to_bytes(&kzg_proof));
             proof
                 .as_object_mut()
-                .unwrap()
+                .ok_or_else(|| anyhow::anyhow!("Could not get mutable ref to proof response"))?
                 .insert("kzg_proof".to_string(), Value::String(kzg_proof_hex));
         }
 
