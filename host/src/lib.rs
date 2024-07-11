@@ -185,6 +185,10 @@ impl ProverState {
     pub fn task_manager(&self) -> TaskManagerWrapper {
         get_task_manager(&(&self.opts).into())
     }
+
+    pub fn request_config(&self) -> ProofRequestOpt {
+        self.opts.proof_request_opt.clone()
+    }
 }
 
 #[global_allocator]

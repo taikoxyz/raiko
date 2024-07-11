@@ -28,7 +28,7 @@ async fn cancel_handler(
 ) -> HostResult<CancelStatus> {
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
-    let mut config = prover_state.opts.proof_request_opt.clone();
+    let mut config = prover_state.request_config();
     config.merge(&req)?;
 
     // Construct the actual proof request from the available configs.

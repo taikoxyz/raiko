@@ -92,17 +92,10 @@ pub async fn validate_cache_input(
     }
 }
 
-pub async fn handle_proof(
-    ProverState {
-        opts,
-        chain_specs: support_chain_specs,
-        ..
-    }: ProverState,
-    req: Value,
-) -> HostResult<ProofResponse> {
+pub async fn handle_proof(prover_state: ProverState, req: Value) -> HostResult<ProofResponse> {
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
-    let mut config = opts.proof_request_opt.clone();
+    let mut config = prover_state.request_config();
     config.merge(&req)?;
 
     // Construct the actual proof request from the available configs.
@@ -117,16 +110,18 @@ pub async fn handle_proof(
 
     // Check for a cached input for the given request config.
     let cached_input = get_cached_input(
-        &opts.cache_path,
+        &prover_state.opts.cache_path,
         proof_request.block_number,
         &proof_request.network.to_string(),
     );
 
-    let l1_chain_spec = support_chain_specs
+    let l1_chain_spec = prover_state
+        .chain_specs
         .get_chain_spec(&proof_request.l1_network.to_string())
         .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported l1 network".to_string()))?;
 
-    let taiko_chain_spec = support_chain_specs
+    let taiko_chain_spec = prover_state
+        .chain_specs
         .get_chain_spec(&proof_request.network.to_string())
         .ok_or_else(|| HostError::InvalidRequestConfig("Unsupported raiko network".to_string()))?;
 
@@ -190,7 +185,7 @@ pub async fn handle_proof(
 
     // Cache the input for future use.
     set_cached_input(
-        &opts.cache_path,
+        &prover_state.opts.cache_path,
         proof_request.block_number,
         &proof_request.network.to_string(),
         &input,
