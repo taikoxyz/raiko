@@ -15,6 +15,7 @@ use tokio::sync::mpsc;
 
 use crate::{interfaces::HostResult, proof::ProofActor};
 
+pub mod cache;
 pub mod interfaces;
 pub mod metrics;
 pub mod proof;

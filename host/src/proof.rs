@@ -15,16 +15,14 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
 use crate::{
+    cache,
     interfaces::{HostError, HostResult},
     memory,
     metrics::{
         inc_guest_error, inc_guest_success, inc_host_error, observe_guest_time,
         observe_prepare_input_time, observe_total_time,
     },
-    server::api::v1::{
-        proof::{get_cached_input, set_cached_input, validate_cache_input},
-        ProofResponse,
-    },
+    server::api::v1::ProofResponse,
     Opts,
 };
 
@@ -183,7 +181,7 @@ pub async fn handle_proof(
     );
 
     // Check for a cached input for the given request config.
-    let cached_input = get_cached_input(
+    let cached_input = cache::get_input(
         &opts.cache_path,
         proof_request.block_number,
         &proof_request.network.to_string(),
@@ -209,7 +207,7 @@ pub async fn handle_proof(
         &taiko_chain_spec.rpc.clone(),
         proof_request.block_number - 1,
     )?;
-    let input = match validate_cache_input(cached_input, &provider).await {
+    let input = match cache::validate_input(cached_input, &provider).await {
         Ok(cache_input) => cache_input,
         Err(_) => {
             // no valid cache
@@ -256,7 +254,7 @@ pub async fn handle_proof(
     observe_total_time(proof_request.block_number, total_time, true);
 
     // Cache the input for future use.
-    set_cached_input(
+    cache::set_input(
         &opts.cache_path,
         proof_request.block_number,
         &proof_request.network.to_string(),
