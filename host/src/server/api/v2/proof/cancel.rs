@@ -1,6 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_task_manager::{get_task_manager, TaskDescriptor, TaskManager, TaskStatus};
+use raiko_task_manager::{TaskDescriptor, TaskManager, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -50,7 +50,7 @@ async fn cancel_handler(
 
     prover_state.cancel_channel.try_send(key.clone())?;
 
-    let mut manager = get_task_manager(&(&prover_state.opts).into());
+    let mut manager = prover_state.task_manager();
 
     manager
         .update_task_progress(key, TaskStatus::Cancelled, None)

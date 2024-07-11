@@ -8,7 +8,7 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_task_manager::{TaskDescriptor, TaskManagerOpts};
+use raiko_task_manager::{get_task_manager, TaskDescriptor, TaskManagerOpts, TaskManagerWrapper};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -180,6 +180,10 @@ impl ProverState {
             task_channel,
             cancel_channel,
         })
+    }
+
+    pub fn task_manager(&self) -> TaskManagerWrapper {
+        get_task_manager(&(&self.opts).into())
     }
 }
 

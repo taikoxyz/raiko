@@ -1,6 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_task_manager::{get_task_manager, TaskDescriptor, TaskManager, TaskStatus};
+use raiko_task_manager::{TaskDescriptor, TaskManager, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -60,7 +60,7 @@ async fn proof_handler(
         proof_request.prover.to_string(),
     ));
 
-    let mut manager = get_task_manager(&(&prover_state.opts).into());
+    let mut manager = prover_state.task_manager();
     let status = manager.get_task_proving_status(&key).await?;
 
     let Some((latest_status, ..)) = status.last() else {

@@ -1,5 +1,5 @@
 use axum::{debug_handler, extract::State, routing::post, Router};
-use raiko_task_manager::{get_task_manager, TaskManager};
+use raiko_task_manager::TaskManager;
 use utoipa::OpenApi;
 
 use crate::{interfaces::HostResult, server::api::v2::PruneStatus, ProverState};
@@ -13,7 +13,7 @@ use crate::{interfaces::HostResult, server::api::v2::PruneStatus, ProverState};
 #[debug_handler(state = ProverState)]
 /// Prune all tasks.
 async fn prune_handler(State(prover_state): State<ProverState>) -> HostResult<PruneStatus> {
-    let mut manager = get_task_manager(&(&prover_state.opts).into());
+    let mut manager = prover_state.task_manager();
 
     manager.prune_db().await?;
 
