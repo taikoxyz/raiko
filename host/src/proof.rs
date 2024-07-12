@@ -150,23 +150,17 @@ impl ProofActor {
             .update_task_progress(key.clone(), TaskStatus::WorkInProgress, None)
             .await?;
 
-        match handle_proof(&proof_request, opts, chain_specs).await {
+        let (status, proof) = match handle_proof(&proof_request, opts, chain_specs).await {
+            Err(error) => (error.into(), None),
             Ok(ProofResponse { proof, .. }) => {
-                let proof_string = proof.unwrap_or_default();
-                let proof = proof_string.as_bytes();
+                (TaskStatus::Success, proof.map(|string| string.into_bytes()))
+            }
+        };
 
-                manager
-                    .update_task_progress(key.clone(), TaskStatus::Success, Some(proof))
-                    .await?;
-                Ok(())
-            }
-            Err(error) => {
-                manager
-                    .update_task_progress(key, (&error).into(), None)
-                    .await?;
-                Err(error)
-            }
-        }
+        manager
+            .update_task_progress(key, status, proof.as_deref())
+            .await
+            .map_err(|e| e.into())
     }
 }
 
