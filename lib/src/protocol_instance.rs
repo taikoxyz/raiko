@@ -165,7 +165,7 @@ impl ProtocolInstance {
     pub fn instance_hash(&self) -> B256 {
         // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
         // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
-        let mut data = (
+        let data = (
             "VERIFY_PROOF",
             self.chain_id,
             self.verifier_address,
@@ -173,12 +173,14 @@ impl ProtocolInstance {
             self.sgx_instance,
             self.prover,
             self.meta_hash(),
+            #[cfg(feature = "proof_of_equivalence")]
             self.proof_of_equivalence,
         )
-            .abi_encode();
-        if self.sgx_instance != Address::default() {
-            data = data.iter().copied().skip(32).collect::<Vec<u8>>();
-        }
+            .abi_encode()
+            .iter()
+            .skip(32)
+            .copied()
+            .collect::<Vec<u8>>();
         keccak(data).into()
     }
 }
@@ -188,11 +190,15 @@ fn get_blob_proof_type(
     proof_type: VerifierType,
     blob_proof_type_hint: BlobProofType,
 ) -> BlobProofType {
-    match proof_type {
-        VerifierType::None => blob_proof_type_hint,
-        VerifierType::SGX => BlobProofType::ProofOfCommitment,
-        VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
-        VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+    if cfg!(feature = "proof_of_equivalence") {
+        match proof_type {
+            VerifierType::None => blob_proof_type_hint,
+            VerifierType::SGX => BlobProofType::ProofOfCommitment,
+            VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
+            VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+        }
+    } else {
+        BlobProofType::ProofOfCommitment
     }
 }
 
