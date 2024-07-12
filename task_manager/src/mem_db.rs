@@ -78,25 +78,25 @@ impl InMemoryTaskDb {
         &mut self,
         key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        match self.enqueue_task.get(key) {
-            Some(proving_status_records) => Ok(proving_status_records.clone()),
-            None => Ok(vec![]),
-        }
+        Ok(self.enqueue_task.get(key).cloned().unwrap_or_default())
     }
 
     fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         ensure(self.enqueue_task.contains_key(key), "no task found")?;
 
-        let Some(proving_status_records) = self.enqueue_task.get(key) else {
-            return Err(TaskManagerError::SqlError("no task in db".to_owned()));
-        };
+        let proving_status_records = self
+            .enqueue_task
+            .get(key)
+            .ok_or_else(TaskManagerError::SqlError("no task in db".to_owned()))?;
 
-        let Some((_, proof, ..)) = proving_status_records.last() else {
-            return Err(TaskManagerError::SqlError("no task in db".to_owned()));
-        };
+        let (_, proof, ..) = proving_status_records
+            .into_iter()
+            .filter(|(status, ..)| (status == &TaskStatus::Success))
+            .last()
+            .ok_or_else(|| TaskManagerError::SqlError("no successful task in db".to_owned()))?;
 
         let Some(proof) = proof else {
-            return Err(TaskManagerError::SqlError("working in progress".to_owned()));
+            return Ok(vec![]);
         };
 
         hex::decode(proof)
@@ -150,12 +150,12 @@ impl TaskManager for InMemoryTaskManager {
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut db = self.db.lock().await;
         let status = db.get_task_proving_status(params)?;
-        if status.is_empty() {
-            db.enqueue_task(params);
-            db.get_task_proving_status(params)
-        } else {
-            Ok(status)
+        if !status.is_empty() {
+            return Ok(status);
         }
+
+        db.enqueue_task(params);
+        db.get_task_proving_status(params)
     }
 
     async fn update_task_progress(
