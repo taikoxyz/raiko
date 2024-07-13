@@ -8,7 +8,6 @@ use raiko_core::{
 };
 use raiko_lib::{
     input::{get_input_path, GuestInput},
-    utils::{to_header, HeaderHasher},
     Measurement,
 };
 use serde_json::Value;
@@ -27,7 +26,7 @@ use crate::{
     ProverState,
 };
 
-fn get_cached_input(
+pub fn get_cached_input(
     cache_path: &Option<PathBuf>,
     block_number: u64,
     network: &str,
@@ -41,7 +40,7 @@ fn get_cached_input(
     bincode::deserialize_from(file).ok()
 }
 
-fn set_cached_input(
+pub fn set_cached_input(
     cache_path: &Option<PathBuf>,
     block_number: u64,
     network: &str,
@@ -58,21 +57,21 @@ fn set_cached_input(
     bincode::serialize_into(file, input).map_err(|e| HostError::Anyhow(e.into()))
 }
 
-async fn validate_cache_input(
+pub async fn validate_cache_input(
     cached_input: Option<GuestInput>,
     provider: &RpcBlockDataProvider,
 ) -> HostResult<GuestInput> {
     if let Some(cache_input) = cached_input {
         debug!("Using cached input");
         let blocks = provider
-            .get_blocks(&[(cache_input.block_number, false)])
+            .get_blocks(&[(cache_input.block.number, false)])
             .await?;
         let block = blocks
             .first()
             .ok_or_else(|| RaikoError::RPC("No block data for the requested block".to_owned()))?;
 
-        let cached_block_hash = cache_input.block_hash_reference;
-        let real_block_hash = block.header.hash.unwrap_or(to_header(&block.header).hash());
+        let cached_block_hash = cache_input.block.header.hash_slow();
+        let real_block_hash = block.header.hash.unwrap();
         debug!(
             "cache_block_hash={:?}, real_block_hash={:?}",
             cached_block_hash, real_block_hash
@@ -80,7 +79,7 @@ async fn validate_cache_input(
 
         // double check if cache is valid
         if cached_block_hash == real_block_hash {
-            return Ok(cache_input);
+            Ok(cache_input)
         } else {
             Err(HostError::InvalidRequestConfig(
                 "Cached input is not valid".to_owned(),
@@ -93,10 +92,11 @@ async fn validate_cache_input(
     }
 }
 
-async fn handle_proof(
+pub async fn handle_proof(
     ProverState {
         opts,
         chain_specs: support_chain_specs,
+        ..
     }: ProverState,
     req: Value,
 ) -> HostResult<ProofResponse> {
@@ -244,6 +244,7 @@ mod test {
     use alloy_primitives::{Address, B256};
     use raiko_core::interfaces::ProofType;
     use raiko_lib::consts::{Network, SupportedChainSpecs};
+    use raiko_lib::input::BlobProofType;
 
     async fn create_cache_input(
         l1_network: &String,
@@ -251,7 +252,7 @@ mod test {
         block_number: u64,
     ) -> (GuestInput, RpcBlockDataProvider) {
         let l1_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&l1_network)
+            .get_chain_spec(l1_network)
             .unwrap();
         let taiko_chain_spec = SupportedChainSpecs::default()
             .get_chain_spec(network)
@@ -263,6 +264,7 @@ mod test {
             graffiti: B256::ZERO,
             prover: Address::ZERO,
             proof_type: ProofType::Native,
+            blob_proof_type: BlobProofType::ProofOfCommitment,
             prover_args: Default::default(),
         };
         let raiko = Raiko::new(
@@ -287,7 +289,7 @@ mod test {
     async fn test_generate_input_from_cache() {
         let l1 = &Network::Holesky.to_string();
         let l2 = &Network::TaikoA7.to_string();
-        let block_number: u64 = 7;
+        let block_number: u64 = 123456;
         let (input, provider) = create_cache_input(l1, l2, block_number).await;
         let cache_path = Some("./".into());
         assert!(set_cached_input(&cache_path, block_number, l2, &input).is_ok());

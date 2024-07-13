@@ -33,3 +33,8 @@ pub unsafe extern "C" fn calloc(nobj: usize, size: usize) -> *mut c_void {
 pub unsafe extern "C" fn free(_size: *const c_void) {
     // Intentionally a no-op, since the zkvm allocator is a bump allocator
 }
+
+#[no_mangle]
+pub extern "C" fn __ctzsi2(x: u32) -> u32 {
+    x.trailing_zeros()
+}

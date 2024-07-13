@@ -1,56 +1,52 @@
 name: CI Build and Test - Reusable
 
 on:
-    workflow_call:
-      inputs:
-        version_name:
-          type: string
-          required: true
-        version_toolchain:
-          type: string
-          required: true
+  workflow_call:
+    inputs:
+      version_name:
+        type: string
+        required: true
+      version_toolchain:
+        type: string
+        required: true
 
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-    build-test:
-      name: Build and test
-      runs-on: [taiko-runner]
-      timeout-minutes: 120
+  build-test:
+    name: Build and test
+    runs-on: [taiko-runner]
+    timeout-minutes: 120
 
-      env:
-        TARGET: ${{ inputs.version_name}}
-        CI: 1
-        MOCK: 1
-  
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            submodules: recursive
-  
-        - uses: actions-rs/toolchain@v1
-          with:
-              toolchain: ${{ inputs.version_toolchain }}
-              profile: minimal
-  
-        - name: Install cargo-binstall
-          uses: cargo-bins/cargo-binstall@v1.6.4
-  
-        - name: Setup sccache
-          if: ${{ inputs.version_name }} == risc0
-          uses: risc0/risc0/.github/actions/sccache@release-0.19
-  
-        - name: Install ${{ inputs.version_name }}
-          run: make install
-  
-        - name: Build ${{ inputs.version_name }} prover
-          run: make build
-  
-        - name: Test ${{ inputs.version_name }} prover
-          run: make test
-          
-        - name: Build with tracer
-          if: ${{ inputs.version_name }} == native
-          run: cargo build -F tracer
+    env:
+      TARGET: ${{ inputs.version_name }}
+      CI: 1
+      MOCK: 1
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ inputs.version_toolchain }}
+          profile: minimal
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.6.4
+
+      - name: Setup sccache
+        if: ${{ inputs.version_name }} == risc0
+        uses: risc0/risc0/.github/actions/sccache@release-0.19
+
+      - name: Install ${{ inputs.version_name }}
+        run: make install
+
+      - name: Build ${{ inputs.version_name }} prover
+        run: make build
+
+      - name: Test ${{ inputs.version_name }} prover
+        run: make test

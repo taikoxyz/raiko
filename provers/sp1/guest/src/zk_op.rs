@@ -1,5 +1,5 @@
+use raiko_lib::primitives::keccak256;
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
-use revm_primitives::keccak256;
 use sha2_v0_10_8 as sp1_sha2;
 use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
 
@@ -103,7 +103,6 @@ fn point_to_be_bytes(p: AffinePoint<Bn254, 16>) -> [u8; 64] {
 harness::zk_suits!(
     pub mod tests {
         use revm_precompile::bn128;
-        use revm_primitives::hex;
         use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
         use substrate_bn::Group;
 

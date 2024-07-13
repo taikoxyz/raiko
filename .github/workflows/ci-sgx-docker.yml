@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - "docker/**"
+  merge_group:
 
 jobs:
   build-test-sgx-with-docker:

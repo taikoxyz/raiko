@@ -1,23 +1,22 @@
 #![cfg(feature = "enable")]
-use std::fmt::Debug;
 
 use alloy_primitives::B256;
-
 use hex::ToHex;
-
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use tracing::info as traicing_info;
+use std::fmt::Debug;
+use tracing::{debug, info as traicing_info};
 
 use crate::{
     methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
     snarks::verify_groth16_snark,
 };
+
 pub use bonsai::*;
 
 pub mod bonsai;
@@ -47,7 +46,7 @@ impl Prover for Risc0Prover {
     ) -> ProverResult<Proof> {
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
 
-        println!("elf code length: {}", RISC0_GUEST_ELF.len());
+        debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
         let result = maybe_prove::<GuestInput, B256>(
@@ -64,7 +63,9 @@ impl Prover for Risc0Prover {
         // Create/verify Groth16 SNARK
         if config.snark {
             let Some((stark_uuid, stark_receipt)) = result else {
-                panic!("No STARK data to snarkify!");
+                return Err(ProverError::GuestError(
+                    "No STARK data to snarkify!".to_owned(),
+                ));
             };
             let image_id = Digest::from(RISC0_GUEST_ID);
             let (snark_uuid, snark_receipt) =
@@ -95,6 +96,6 @@ mod test {
         let env = ExecutorEnv::builder().build().unwrap();
         let prover = default_prover();
         let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
-        receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+        receipt.receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
     }
 }

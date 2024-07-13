@@ -1,4 +1,5 @@
 use k256 as risc0_k256;
+use raiko_lib::primitives::keccak256;
 use revm_precompile::{zk_op::ZkvmOperator, Error};
 use sha2 as risc0_sha2;
 
@@ -57,7 +58,7 @@ impl ZkvmOperator for Risc0Operator {
         let recovered_key = VerifyingKey::recover_from_prehash(&msg[..], &sig, recid)
             .map_err(|_| Error::ZkvmOperation("Patched k256 recover key failed".to_string()))?;
         // hash it
-        let mut hash = revm_primitives::keccak256(
+        let mut hash = keccak256(
             &recovered_key
                 .to_encoded_point(/* compress = */ false)
                 .as_bytes()[1..],
@@ -73,9 +74,9 @@ harness::zk_suits!(
     pub mod tests {
         #[test]
         pub fn test_sha256() {
+            use crate::risc0_sha2::{Digest, Sha256};
             use harness::*;
             use raiko_lib::primitives::hex;
-            use risc0_sha2::{Digest, Sha256};
 
             let test_ves = [
                 (
@@ -95,7 +96,7 @@ harness::zk_suits!(
             for v in test_ves.iter() {
                 let (input, expected) = *v;
                 let result: [u8; 32] = Sha256::digest(input.as_bytes()).into();
-                assert!(result == expected);
+                assert_eq!(result, expected);
             }
         }
     }

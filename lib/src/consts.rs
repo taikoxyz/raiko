@@ -1,17 +1,3 @@
-// Copyright 2023 RISC Zero, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! Constants for the Ethereum protocol.
 extern crate alloc;
 
@@ -19,7 +5,7 @@ use alloc::collections::BTreeMap;
 
 use alloy_primitives::Address;
 use anyhow::{anyhow, bail, Result};
-use revm::primitives::SpecId;
+use reth_primitives::revm_primitives::SpecId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -250,14 +236,14 @@ pub enum Network {
     TaikoMainnet,
 }
 
-impl ToString for Network {
-    fn to_string(&self) -> String {
-        match self {
-            Network::Ethereum => "ethereum".to_string(),
-            Network::Holesky => "holesky".to_string(),
-            Network::TaikoA7 => "taiko_a7".to_string(),
-            Network::TaikoMainnet => "taiko_mainnet".to_string(),
-        }
+impl std::fmt::Display for Network {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Network::Ethereum => "ethereum",
+            Network::Holesky => "holesky",
+            Network::TaikoA7 => "taiko_a7",
+            Network::TaikoMainnet => "taiko_mainnet",
+        })
     }
 }
 

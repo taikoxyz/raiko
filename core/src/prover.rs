@@ -1,4 +1,4 @@
-use std::{fmt::Debug, fs, path::Path};
+use std::path::Path;
 
 use raiko_lib::{
     consts::VerifierType,
@@ -18,7 +18,6 @@ pub struct NativeParam {
     pub write_guest_input_path: Option<String>,
 }
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NativeResponse {
     pub output: GuestOutput,
@@ -30,18 +29,21 @@ impl Prover for NativeProver {
         output: &GuestOutput,
         config: &ProverConfig,
     ) -> ProverResult<Proof> {
-        
-        let param = config.get("native")
-            .map(|v| NativeParam::deserialize(v))
-            .ok_or( ProverError::Param(serde_json::Error::custom("native param not provided")))??;
+        let param =
+            config
+                .get("native")
+                .map(NativeParam::deserialize)
+                .ok_or(ProverError::Param(serde_json::Error::custom(
+                    "native param not provided",
+                )))??;
 
         if let Some(path) = param.write_guest_input_path {
             let path = Path::new(&path);
             if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent)?; 
+                std::fs::create_dir_all(parent)?;
             }
             let json = serde_json::to_string(&input)?;
-            fs::write(path, json)?; 
+            std::fs::write(path, json)?;
         }
 
         trace!("Running the native prover for input {input:?}");

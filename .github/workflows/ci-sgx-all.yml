@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - "provers/sgx/**"
+  merge_group:
 
 jobs:
     build-test-sgx:
@@ -21,7 +22,7 @@ jobs:
     build-test-sgx-docker:
       name: Build and test sgx with Docker
       uses: ./.github/workflows/ci-sgx-docker.yml
-        
+
     build-test-sgx-hardware:
       name: Build and test sgx in hardware
       uses: ./.github/workflows/ci-sgx-hardware.yml

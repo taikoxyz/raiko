@@ -1,14 +1,12 @@
-use alloy_provider::{network::EthereumSigner, Provider, ProviderBuilder, RootProvider};
+use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rpc_client::RpcClient;
 use alloy_signer::Signer;
+use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::sol;
 use alloy_transport_http::Http;
 use anyhow::Result;
 use pem::parse_many;
-use raiko_lib::primitives::{
-    alloy_eips::{BlockId, BlockNumberOrTag},
-    hex, Address, Bytes, FixedBytes, U256,
-};
+use raiko_lib::primitives::{hex, Address, Bytes, FixedBytes, U256};
 use std::{env, fs, io, path::Path};
 use url::Url;
 
@@ -16,17 +14,11 @@ const REGISTERED_FILE: &str = "registered";
 
 pub fn get_instance_id(dir: &Path) -> Result<Option<u64>> {
     let file = dir.join(REGISTERED_FILE);
-    let id = match fs::read_to_string(file) {
-        Ok(t) => Some(t.parse()?),
-        Err(e) => {
-            if e.kind() == io::ErrorKind::NotFound {
-                None
-            } else {
-                return Err(e.into());
-            }
-        }
-    };
-    Ok(id)
+    match fs::read_to_string(file) {
+        Ok(t) => Ok(Some(t.parse()?)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.into()),
+    }
 }
 
 pub fn set_instance_id(dir: &Path, id: u64) -> io::Result<()> {
@@ -276,24 +268,20 @@ pub async fn register_sgx_instance(
 ) -> Result<u64, Box<dyn std::error::Error>> {
     // prepare wallet
     let sender_priv_key = env::var("SENDER_PRIV_KEY").expect("SENDER_PRIV_KEY is not set");
-    let mut wallet: alloy_signer_wallet::LocalWallet = sender_priv_key.as_str().parse().unwrap();
+    let mut wallet: PrivateKeySigner = sender_priv_key.as_str().parse().unwrap();
     wallet.set_chain_id(Some(chain_id));
-    println!("wallet: {:?}", wallet);
+    println!("wallet: {wallet:?}");
 
     // init rpc conn
     let http = Http::new(Url::parse(l1_rpc_url).expect("invalid rpc url"));
     let provider = ProviderBuilder::new()
         .with_recommended_fillers()
-        .signer(EthereumSigner::from(wallet.clone()))
         .on_provider(RootProvider::new(RpcClient::new(http, false)));
     let sgx_verifier_contract = SgxVerifier::new(sgx_verifier_addr, &provider);
 
     // init account
-    let tag = BlockId::Number(BlockNumberOrTag::Latest);
-    let balance = provider.get_balance(wallet.address(), tag).await?;
-    let nonce = provider
-        .get_transaction_count(wallet.address(), tag)
-        .await?;
+    let balance = provider.get_balance(wallet.address()).await?;
+    let nonce = provider.get_transaction_count(wallet.address()).await?;
     let gas_price = provider.get_gas_price().await?;
     let gas_limit = 4000000u128;
     assert!(
@@ -327,7 +315,7 @@ pub async fn register_sgx_instance(
 
     let log = tx_receipt.inner.as_receipt().unwrap().logs.first().unwrap();
     let sgx_id: u64 = u64::from_be_bytes(log.topics()[1].0[24..].try_into().unwrap());
-    println!("register sgx instance id: {:?}", sgx_id);
+    println!("register sgx instance id: {sgx_id:?}");
 
     Ok(sgx_id)
 }
@@ -347,7 +335,7 @@ mod test {
     #[test]
     fn test_parse_quote() {
         let parsed_quote = parse_quote(SAMPLE_QUOTE[1]);
-        println!("{:?}", parsed_quote);
+        println!("{parsed_quote:?}");
     }
 
     #[ignore = "anvil test"]
@@ -357,7 +345,7 @@ mod test {
         let res = rt
             .block_on(simple_test_register_sgx_instance(SAMPLE_QUOTE[0]))
             .unwrap();
-        println!("test_tx_call_register {:?}", res);
+        println!("test_tx_call_register {res:?}");
     }
 
     async fn simple_test_register_sgx_instance(

@@ -44,8 +44,24 @@ if [ -z "$1" ] || [ "$1" == "sgx" ]; then
 fi
 # RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
-	cargo install cargo-risczero
-	cargo risczero install --version v2024-02-08.1
+    echo "Current TERM: $TERM"
+    if [ -z "$TERM" ] || [ "$TERM" = "dumb" ]; then
+        # Set TERM to xterm-color256
+        echo "Setting TERM to xterm"
+        export TERM=xterm
+    fi
+    curl -L https://risczero.com/install | bash
+
+	if [ -z "${CI}" ] || [ ! command -v rzup &> /dev/null ]; then
+		PROFILE=$HOME/.bashrc
+		echo ${PROFILE}
+		source ${PROFILE}
+		rzup -v 1.0.1
+	else
+		echo "/home/runner/.config/.risc0/bin" >> $GITHUB_PATH
+        echo $GITHUB_PATH
+		/home/runner/.config/.risc0/bin/rzup -v 1.0.1
+	fi
 fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then

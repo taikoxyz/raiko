@@ -1,5 +1,3 @@
-use std::fmt;
-
 use serde::Serialize;
 use thiserror::Error as ThisError;
 

@@ -1,11 +1,10 @@
 #![no_main]
 harness::entrypoint!(main, tests, zk_op::tests);
-// harness::entrypoint!(main, tests);
-
 use raiko_lib::{
     consts::VerifierType,
     builder::{BlockBuilderStrategy, TaikoStrategy},
     input::{GuestInput},
+    builder::calculate_block_header, consts::VerifierType, input::GuestInput,
     protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
@@ -26,10 +25,10 @@ pub fn main() {
         ]))
         .expect("Failed to set ZkvmOperations");
 
-    let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
+    let header = calculate_block_header(&input);
     let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
-            .unwrap()
-            .instance_hash();
+        .unwrap()
+        .instance_hash();
 
     sp1_zkvm::io::commit(&pi);
 }

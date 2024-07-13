@@ -1,14 +1,11 @@
 #![no_main]
 harness::entrypoint!(main, tests, zk_op::tests);
-use risc0_zkvm::guest::env;
-
-use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::{
-    consts::VerifierType,
-    builder::{BlockBuilderStrategy, TaikoStrategy},
-    input::{GuestInput, GuestOutput},
+    builder::calculate_block_header, consts::VerifierType, input::GuestInput,
+    protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
+use risc0_zkvm::guest::env;
 use zk_op::Risc0Operator;
 
 pub mod mem;
@@ -23,10 +20,10 @@ fn main() {
         .set(Box::new(vec![ZkOperation::Sha256, ZkOperation::Secp256k1]))
         .expect("Failed to set ZkvmOperations");
 
-    let (header, _mpt_node) = TaikoStrategy::build_from(&input).unwrap();
+    let header = calculate_block_header(&input);
     let pi = ProtocolInstance::new(&input, &header, VerifierType::RISC0)
-            .unwrap()
-            .instance_hash();
+        .unwrap()
+        .instance_hash();
 
     env::commit(&pi);
 }

@@ -4,6 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# reth
+reth-primitives.workspace = true
+reth-evm-ethereum.workspace = true
+reth-evm.workspace = true
+reth-chainspec.workspace = true
+
+# alloy
 alloy-rlp = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-rlp-derive = { workspace = true }
@@ -11,7 +18,6 @@ alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-consensus = { workspace = true }
-alloy-network = { workspace = true }
 
 # errors
 anyhow = { workspace = true }
@@ -23,34 +29,29 @@ serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
 
-# revm
-revm = { workspace = true }
-revm-primitives = { workspace = true }
-
 libflate = { workspace = true }
 once_cell = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
-c-kzg = { workspace = true }
+kzg = { workspace = true }
+kzg_traits = { workspace = true }
 sha2 = { workspace = true }
 sha3 = { workspace = true }
 rlp = { workspace = true, features = ["std"] }
+
+# misc
 cfg-if = { workspace = true }
 tracing = { workspace = true }
+bincode = { workspace = true }
 
 # [target.'cfg(feature = "std")'.dependencies]
 flate2 = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
-
 tokio = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
-
 lazy_static = { workspace = true }
 
-tempfile = { workspace = true, optional = true }
-
 [dev-dependencies]
-bincode = "1.3"
 hex-literal = { workspace = true }
 
 [features]
@@ -67,8 +68,8 @@ std = [
   "dep:serde_with",
   # "dep:tokio",
 ]
-tracer = ["revm/serde-json"]
 sgx = []
 sp1 = []
 risc0 = []
-c-kzg = ["revm-primitives/c-kzg", "dep:tempfile"]
+sp1-cycle-tracker = []
+proof_of_equivalence = []

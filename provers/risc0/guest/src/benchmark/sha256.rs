@@ -1,9 +1,8 @@
 #![no_main]
 harness::entrypoint!(main);
+use revm_precompile::zk_op::ZkvmOperator;
 use risc0_zkvm::guest::env;
 use std::hint::black_box;
-
-use revm_precompile::zk_op::ZkvmOperator;
 use zk_op::Risc0Operator;
 
 fn main() {

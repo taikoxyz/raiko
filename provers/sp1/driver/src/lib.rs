@@ -4,7 +4,7 @@ use std::{env, path::PathBuf};
 use alloy_sol_types::SolType;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;

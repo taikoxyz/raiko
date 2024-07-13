@@ -1,6 +1,6 @@
 name: CI - RISC0
 
-on: 
+on:
   workflow_call:
   push:
     branches: ["main"]
@@ -9,12 +9,12 @@ on:
   pull_request:
     paths:
       - "provers/risc0/**"
-
+  merge_group:
 
 jobs:
-    build-test-risc0:
-      name: Build and test risc0
-      uses: ./.github/workflows/ci-build-test-reusable.yml
-      with:
-        version_name: "risc0"
-        version_toolchain: "stable"
+  build-test-risc0:
+    name: Build and test risc0
+    uses: ./.github/workflows/ci-build-test-reusable.yml
+    with:
+      version_name: "risc0"
+      version_toolchain: "stable"

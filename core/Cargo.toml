@@ -11,7 +11,14 @@ risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
-raiko-lib = { workspace = true, features = ["c-kzg"] }
+raiko-lib = { workspace = true }
+
+# reth
+reth-primitives.workspace = true
+reth-evm-ethereum.workspace = true
+reth-evm.workspace = true
+reth-revm.workspace = true
+reth-provider.workspace = true
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -24,10 +31,10 @@ alloy-transport-http = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
-revm = { workspace = true }
 
 # tracing and logging
 tracing = { workspace = true }
+bincode = { workspace = true }
 
 # errors
 anyhow = { workspace = true }
@@ -39,7 +46,8 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 
 # c-kzg
-c-kzg = { workspace = true }
+kzg = { workspace = true }
+kzg_traits = { workspace = true }
 
 # async
 tokio = { workspace = true }

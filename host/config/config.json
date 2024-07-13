@@ -4,6 +4,7 @@
     "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
     "proof_type": "risc0",
+    "blob_option": "proof_of_equivalence",
     "sgx": {
         "instance_id": 456,
         "setup": true,

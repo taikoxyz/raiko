@@ -24,7 +24,7 @@ use alloy_rlp::Encodable;
 use alloy_rlp_derive::{RlpDecodable, RlpEncodable, RlpMaxEncodedLen};
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::{Context, Result};
-use revm_primitives::{Address, HashMap};
+use reth_primitives::revm_primitives::{Address, HashMap};
 use rlp::{Decodable, DecoderError, Prototype, Rlp};
 use serde::{Deserialize, Serialize};
 use thiserror::Error as ThisError;

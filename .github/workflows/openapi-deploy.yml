@@ -4,6 +4,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -43,7 +44,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v2
         with:
-          path: './openapi'
+          path: "./openapi"
 
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/main'
