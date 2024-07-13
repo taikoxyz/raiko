@@ -7,7 +7,6 @@ cfg_if::cfg_if! {
         use raiko_lib::input::{GuestInput, RawGuestOutput, Transition};
         use raiko_lib::{print_duration, Measurement};
         use serde::{Deserialize, Serialize};
-        use sp1_sdk::artifacts::export_solidity_groth16_verifier;
         use sp1_sdk::Prover;
         use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
         use std::path::PathBuf;
@@ -18,12 +17,8 @@ cfg_if::cfg_if! {
         #[derive(Debug, Clone, Serialize, Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RaikoProofFixture {
-            pub chain_id: u64,
-            pub verifier_address: Address,
-            pub transition: Transition,
-            pub sgx_instance: Address, // only used for SGX
-            pub prover: Address,
-            meta_hash: B256,
+            /// Protocoal Instance hash.
+            pub pi_hash: B256,
             vkey: String,
             public_values: String,
             proof: String,
@@ -51,24 +46,17 @@ cfg_if::cfg_if! {
             // Generate the proof.
             let time = Measurement::start("prove_groth16", false);
             let proof = client
-                .prove_groth16(&pk, stdin)
+                .prove_plonk(&pk, stdin)
                 .expect("failed to generate proof");
             time.stop_with("==>Proof generated");
 
             // Deserialize the public values.
-            let bytes = proof.public_values.as_slice();
-            let (chain_id, verifier_address, transition, sgx_instance, prover, meta_hash) =
-                RawGuestOutput::abi_decode(bytes, false).unwrap();
-            println!("===>bytes: {:?}", bytes);
+            let pi_hash = B256::from_slice(proof.public_values.as_slice());
+            println!("===> pi: {:?}", pi_hash);
 
             // Create the testing fixture so we can test things end-ot-end.
             let fixture = RaikoProofFixture {
-                chain_id,
-                verifier_address,
-                transition,
-                sgx_instance,
-                prover,
-                meta_hash,
+                pi_hash,
                 vkey: vk.bytes32().to_string(),
                 public_values: proof.public_values.bytes().to_string(),
                 proof: proof.bytes().to_string(),
@@ -84,23 +72,6 @@ cfg_if::cfg_if! {
                 serde_json::to_string_pretty(&fixture).unwrap(),
             )
             .expect("failed to write fixture");
-
-            export_contract().expect("failed to export contract");
-        }
-
-        fn export_contract() -> anyhow::Result<()> {
-            sp1_sdk::utils::setup_logger();
-
-            // Export the solidity verifier to the contracts/src directory.
-            export_solidity_groth16_verifier(PathBuf::from("../contracts/src"))
-                .expect("failed to export verifier");
-
-            // Now generate the vkey digest to use in the contract.
-            let prover = MockProver::new();
-            let (_, vk) = prover.setup(sp1_driver::ELF);
-            println!("VKEY_DIGEST={}", vk.bytes32());
-
-            Ok(())
         }
     }
     else {

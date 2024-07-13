@@ -29,8 +29,6 @@ pub enum RecursionMode {
     Compressed,
     /// The proof mode for a PlonK proof.
     Plonk,
-    /// The proof mode for a Groth16 proof.
-    Groth16,
 }
 
 #[serde(rename_all = "lowercase")]
@@ -38,7 +36,7 @@ pub enum RecursionMode {
 pub enum ProverMode {
     Mock,
     Local,
-    Remote,
+    Network,
 }
 
 macro_rules! save_and_return {
@@ -83,7 +81,7 @@ impl Prover for Sp1Prover {
         let client = match param.prover {
             ProverMode::Mock => ProverClient::mock(),
             ProverMode::Local => ProverClient::local(),
-            ProverMode::Remote => ProverClient::remote(),
+            ProverMode::Network => ProverClient::network(),
         };
 
         let (pk, vk) = client.setup(ELF);
@@ -101,12 +99,6 @@ impl Prover for Sp1Prover {
             }
             RecursionMode::Plonk => {
                 let proof = client.prove_plonk(&pk, stdin).expect("Sp1: proving failed");
-                save_and_return!(proof);
-            }
-            RecursionMode::Groth16 => {
-                let proof = client
-                    .prove_groth16(&pk, stdin)
-                    .expect("Sp1: proving failed");
                 save_and_return!(proof);
             }
         };

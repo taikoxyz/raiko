@@ -180,6 +180,7 @@ rand = "0.8.5"
 rand_core = "0.6.4"
 dirs = "5.0.1"
 pathdiff = "0.2.1"
+dotenv = "0.15.0"
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }

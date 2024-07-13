@@ -8,12 +8,7 @@ import {SP1Verifier} from "../src/SP1Verifier.sol";
 import "forge-std/console.sol";
 
 struct RaikoProofFixture {
-    uint64 chain_id;
-    address verifier_address;
-    Raiko.Transition transition;
-    address sgx_instance;
-    address prover;
-    bytes32 meta_hash;
+    bytes32 pi_hash;
     bytes32 vkey;
     bytes proof;
     bytes publicValues;
@@ -22,6 +17,7 @@ struct RaikoProofFixture {
 contract RaikoTest is Test {
     using stdJson for string;
 
+    address verifier;
     Raiko public raiko;
 
     function loadFixture() public view returns (RaikoProofFixture memory) {
@@ -34,32 +30,18 @@ contract RaikoTest is Test {
 
     function setUp() public {
         RaikoProofFixture memory fixture = loadFixture();
-        raiko = new Raiko(fixture.vkey);
+        verifier = address(new SP1VerifierGateway(address(1)));
+
+        raiko = new Raiko(verifier, fixture.vkey);
     }
 
-    function test_ValidRaikoProof() public view {
-        RaikoProofFixture memory fixture = loadFixture();
-        //console.logUint(fixture.chain_id);
-        //console.logBytes(fixture.randomName);
-        console.logBytes(fixture.proof);
-        console.logBytes32(fixture.vkey);
-        (
-            uint64 chain_id,
-            address verifier_address,
-            Raiko.Transition memory transition,
-            address sgx_instance,
-            address prover,
-            bytes32 meta_hash
-        ) = raiko.verifyRaikoProof(
-            fixture.proof,
-            fixture.publicValues
-        );
-        // assertEq(chain_id, fixture.chain_id);
-        // assertEq(verifier_address, fixture.verifier_address);
-        // assertEq(transition, fixture.transition);
-        // assertEq(sgx_instance, fixture.sgx_instance);
-        // assertEq(prover, fixture.prover);
-        // assertEq(meta_hash, fixture.meta_hash);
+    function test_ValidRaikoProof() public {
+        SP1ProofFixtureJson memory fixture = loadFixture();
+
+        vm.mockCall(verifier, abi.encodeWithSelector(SP1VerifierGateway.verifyProof.selector), abi.encode(true));
+
+        bytes32 pi_hash = raiko.verifyRaikoProof(fixture.proof, fixture.publicValues);
+        assert(pi_hash == fixture.pi_hash);
     }
 
     function testFail_InvalidRaikoProof() public view {
@@ -68,5 +50,14 @@ contract RaikoTest is Test {
             fixture.publicValues,
             fixture.publicValues
         );
+    }
+
+    function testFail_InvalidRaikoProof() public view {
+        RaikoProofFixtureJson memory fixture = loadFixture();
+
+        // Create a fake proof.
+        bytes memory fakeProof = new bytes(fixture.proof.length);
+
+        fibonacci.verifyFibonacciProof(fakeProof, fixture.publicValues);
     }
 }
