@@ -8,7 +8,7 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_task_manager::TaskManagerOpts;
+use raiko_tasks::TaskManagerOpts;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;

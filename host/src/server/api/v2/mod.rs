@@ -1,5 +1,5 @@
 use axum::{response::IntoResponse, Json, Router};
-use raiko_task_manager::TaskStatus;
+use raiko_tasks::TaskStatus;
 use serde::{Serialize, Serializer};
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};

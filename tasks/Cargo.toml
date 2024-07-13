@@ -1,7 +1,7 @@
 [package]
-name = "raiko-task-manager"
+name = "raiko-tasks"
 version = "0.1.0"
-authors = ["Mamy Ratsimbazafy <mamy $at$ taiko.xyz>"]
+authors = "Taiko Labs"
 edition = "2021"                                      # { workspace = true }
 
 [dependencies]
@@ -33,5 +33,5 @@ sqlite = []
 in-memory = []
 
 [[test]]
-name = "task_manager_tests"
+name = "tasks_tests"
 path = "tests/main.rs"
