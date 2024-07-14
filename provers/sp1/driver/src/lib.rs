@@ -44,6 +44,26 @@ pub struct Sp1Response {
     pub proof: String,
 }
 
+macro_rules! save_and_return {
+    ($proof:ident) => {
+        // Save the proof.
+        let proof_dir = std::env::current_dir().expect("Sp1: dir error");
+        $proof
+            .save(
+                proof_dir
+                    .as_path()
+                    .join("proof-with-io.json")
+                    .to_str()
+                    .unwrap(),
+            )
+            .expect("Sp1: saving proof failed");
+        println!("Successfully generated and verified proof for the program!");
+        return to_proof(Ok(Sp1Response {
+            proof: serde_json::to_string(&$proof).unwrap(),
+        }));
+    };
+}
+
 pub struct Sp1Prover;
 
 impl Prover for Sp1Prover {
@@ -83,26 +103,6 @@ impl Prover for Sp1Prover {
             }
         };
     }
-}
-
-macro_rules! save_and_return {
-    ($proof:ident) => {
-        // Save the proof.
-        let proof_dir = std::env::current_dir().expect("Sp1: dir error");
-        $proof
-            .save(
-                proof_dir
-                    .as_path()
-                    .join("proof-with-io.json")
-                    .to_str()
-                    .unwrap(),
-            )
-            .expect("Sp1: saving proof failed");
-        println!("Successfully generated and verified proof for the program!");
-        return to_proof(Ok(Sp1Response {
-            proof: serde_json::to_string(&$proof).unwrap(),
-        }));
-    };
 }
 
 #[cfg(test)]
