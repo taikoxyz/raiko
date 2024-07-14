@@ -1,0 +1,3 @@
+[submodule "provers/sp1/contracts/lib/sp1-contracts"]
+	path = provers/sp1/contracts/lib/sp1-contracts
+	url = https://github.com/succinctlabs/sp1-contracts
