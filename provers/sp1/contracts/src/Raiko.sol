@@ -30,7 +30,7 @@ contract Raiko {
     function verifyRaikoProof(bytes calldata proof, bytes calldata publicValues)
         public
         view
-        returns bytes32
+        returns (bytes32)
     {
         ISP1Verifier(verifier).verifyProof(RaikoProgramVkey, publicValues, proof);
         bytes32 pi_hash = abi.decode(publicValues, bytes32);
