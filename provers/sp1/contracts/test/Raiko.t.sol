@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {Raiko} from "../src/Raiko.sol";
-import {SP1Verifier} from "../src/SP1Verifier.sol";
-import "forge-std/console.sol";
+import {SP1VerifierGateway} from "@sp1-contracts/SP1VerifierGateway.sol";
 
 struct RaikoProofFixture {
     bytes32 pi_hash;
-    bytes32 vkey;
     bytes proof;
     bytes publicValues;
+    bytes32 vkey;
 }
+
+struct SP1ProofFixtureJson {
+    uint32 a;
+    uint32 b;
+    uint32 n;
+    bytes proof;
+    bytes publicValues;
+    bytes32 vkey;
+}
+
 
 contract RaikoTest is Test {
     using stdJson for string;
@@ -36,7 +45,7 @@ contract RaikoTest is Test {
     }
 
     function test_ValidRaikoProof() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
+        RaikoProofFixture memory fixture = loadFixture();
 
         vm.mockCall(verifier, abi.encodeWithSelector(SP1VerifierGateway.verifyProof.selector), abi.encode(true));
 
@@ -46,18 +55,10 @@ contract RaikoTest is Test {
 
     function testFail_InvalidRaikoProof() public view {
         RaikoProofFixture memory fixture = loadFixture();
-        raiko.verifyRaikoProof(
-            fixture.publicValues,
-            fixture.publicValues
-        );
-    }
-
-    function testFail_InvalidRaikoProof() public view {
-        RaikoProofFixtureJson memory fixture = loadFixture();
 
         // Create a fake proof.
         bytes memory fakeProof = new bytes(fixture.proof.length);
 
-        fibonacci.verifyFibonacciProof(fakeProof, fixture.publicValues);
+        raiko.verifyRaikoProof(fakeProof, fixture.publicValues);
     }
 }

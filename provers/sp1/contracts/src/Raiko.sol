@@ -32,8 +32,8 @@ contract Raiko {
         view
         returns (bytes32)
     {
-        ISP1Verifier(verifier).verifyProof(RaikoProgramVkey, publicValues, proof);
-        bytes32 pi_hash = abi.decode(publicValues, bytes32);
+        ISP1Verifier(verifier).verifyProof(raikoProgramVkey, publicValues, proof);
+        bytes32 pi_hash = abi.decode(publicValues, (bytes32));
         return pi_hash;
     }
 }
