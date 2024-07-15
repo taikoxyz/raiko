@@ -224,7 +224,7 @@ mod tests {
             "native".to_string(),
             json! {
                 {
-                    "write_guest_input_path": null
+                    "json_guest_input": null
                 }
             },
         );

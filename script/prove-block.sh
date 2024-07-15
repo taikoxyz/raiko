@@ -43,7 +43,7 @@ if [ "$proof" == "native" ]; then
 	proofParam='
     "proof_type": "native",
 	"native" : {
-        "write_guest_input_path": null
+        "json_guest_input": "./provers/sp1/contracts/src/fixtures/input.json"
 	}
   '
 elif [ "$proof" == "sp1" ]; then

@@ -33,7 +33,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 proofParam='
     "proof_type": "native",
     "native": {
-        "write_guest_input_path": "./provers/sp1/contracts/src/fixtures/input.json"
+        "json_guest_input": "./provers/sp1/contracts/src/fixtures/input.json"
     }
 '
 # Function to check if prove-block.sh is successful

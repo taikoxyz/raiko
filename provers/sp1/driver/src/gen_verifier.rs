@@ -16,7 +16,7 @@ pub const FIXUTRE_PATH: &str = "./provers/sp1/contracts/src/fixtures/fixture.jso
 #[serde(rename_all = "camelCase")]
 struct RaikoProofFixture {
     /// Protocoal Instance hash.
-    pub pi_hash: B256,
+    pi_hash: String,
     vkey: String,
     public_values: String,
     proof: String,
@@ -54,7 +54,7 @@ fn main() {
 
     // Create the testing fixture so we can test things end-ot-end.
     let fixture = RaikoProofFixture {
-        pi_hash,
+        pi_hash: pi_hash.to_string(),
         vkey: vk.bytes32().to_string(),
         public_values: proof.public_values.bytes().to_string(),
         proof: proof.bytes().to_string(),
