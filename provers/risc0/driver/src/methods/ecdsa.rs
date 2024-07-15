@@ -1,5 +1,3 @@
-pub const ECDSA_ELF: &[u8] =
-    include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/ecdsa");
-pub const ECDSA_ID: [u32; 8] = [
-    3688490884, 2127892678, 3137078981, 1193344426, 4105663218, 3901516424, 3225864022, 13950036,
-];
+
+pub const ECDSA_ELF: &[u8] = include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/ecdsa");
+pub const ECDSA_ID: [u32; 8] = [2403615864, 3944723361, 1721066448, 3334617775, 1874245592, 1853933074, 3347288103, 3484988018];
