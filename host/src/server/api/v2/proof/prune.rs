@@ -1,5 +1,5 @@
 use axum::{debug_handler, extract::State, routing::post, Router};
-use raiko_task_manager::{get_task_manager, TaskManager};
+use raiko_tasks::{get_task_manager, TaskManager};
 use utoipa::OpenApi;
 
 use crate::{interfaces::HostResult, server::api::v2::PruneStatus, ProverState};

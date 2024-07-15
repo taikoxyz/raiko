@@ -1,6 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_task_manager::{
+use raiko_tasks::{
     get_task_manager, EnqueueTaskParams, TaskManager, TaskProvingStatus, TaskStatus,
 };
 use serde_json::Value;
