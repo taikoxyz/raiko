@@ -6,6 +6,7 @@ edition = "2021"
 [[bench]]
 name = "benchmark"
 path = "src/benchmark.rs"
+required-features = ["enable"]
 harness = true
 
 [[bin]]
@@ -36,7 +37,6 @@ regex = "1.5.4"
 
 
 [features]
-default = ["enable"]
 enable = [
     "serde",
     "serde_json",

@@ -48,9 +48,19 @@ The `run` command will start the host service that listens to proof requests, th
 ./script/prove-block.sh taiko_a7 native 10
 ```
 
+### Task Management
+The script `prove-block.sh` always sends a POST request to Raiko server and enqueue a proving task. If you repeately send the same request, it will pull the latest status of the task and return the proof if ready. To check the progress of all tasks:
+```shell
+ curl --location --request POST 'http://localhost:8080/proof/report'
+```
+To prune all tasks (the cancellation feature that kills prover is stil WIP):
+```shell
+ curl --location --request POST 'http://localhost:8080/proof/prune'
+```
+
 Look into `prove-block.sh` for the available options or run the script without inputs for hints. You can also automatically sync with the tip of the chain and prove all new blocks:
 
-```
+```shell
 ./script/prove-block.sh taiko_a7 native sync
 ```
 
