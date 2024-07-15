@@ -7,5 +7,5 @@ pub mod risc0_guest;
 pub mod ecdsa;
 #[cfg(feature = "bench")]
 pub mod sha256;
-#[cfg(feature = "test")]
+#[cfg(test)]
 pub mod test_risc0_guest;
