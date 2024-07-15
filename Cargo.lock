@@ -5800,7 +5800,7 @@ dependencies = [
  "proptest",
  "raiko-core",
  "raiko-lib",
- "raiko-task-manager",
+ "raiko-tasks",
  "reqwest 0.11.27",
  "reqwest 0.12.5",
  "reth-evm",
@@ -5937,7 +5937,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "raiko-task-manager"
+name = "raiko-tasks"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",

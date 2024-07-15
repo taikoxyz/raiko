@@ -15,7 +15,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use raiko_lib::{input::BlobProofType, primitives::B256};
-    use raiko_task_manager::{
+    use raiko_tasks::{
         get_task_manager, EnqueueTaskParams, TaskManager, TaskManagerOpts, TaskStatus,
     };
 

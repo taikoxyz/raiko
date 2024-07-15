@@ -136,7 +136,7 @@ impl InMemoryTaskDb {
             .enqueue_task
             .iter()
             .flat_map(|(descriptor, statuses)| {
-                // list only the latest status
+                // Return the latest status
                 statuses
                     .last()
                     .map(|status| TaskReport(descriptor.clone(), status.0))

@@ -6,7 +6,7 @@ use raiko_core::{
     Raiko,
 };
 use raiko_lib::{consts::SupportedChainSpecs, Measurement};
-use raiko_task_manager::{get_task_manager, TaskManager, TaskStatus};
+use raiko_tasks::{get_task_manager, TaskManager, TaskStatus};
 use tokio::sync::{mpsc::Receiver, Semaphore};
 use tracing::{error, info};
 
