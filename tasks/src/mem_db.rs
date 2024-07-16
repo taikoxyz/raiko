@@ -12,14 +12,14 @@ use std::{
     sync::{Arc, Once},
 };
 
+use chrono::Utc;
+use tokio::sync::Mutex;
+use tracing::{debug, info};
+
 use crate::{
     ensure, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
     TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
-
-use chrono::Utc;
-use tokio::sync::Mutex;
-use tracing::{debug, info};
 
 #[derive(Debug)]
 pub struct InMemoryTaskManager {
@@ -39,7 +39,7 @@ impl InMemoryTaskDb {
     }
 
     fn enqueue_task(&mut self, key: &TaskDescriptor) {
-        let task_status = (TaskStatus::Registered, Some(key.prover.clone()), Utc::now());
+        let task_status = (TaskStatus::Registered, None, Utc::now());
 
         match self.enqueue_task.get(key) {
             Some(task_proving_records) => {

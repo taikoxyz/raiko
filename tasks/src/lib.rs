@@ -97,6 +97,7 @@ impl From<(ChainId, B256, ProofType, String)> for TaskDescriptor {
     }
 }
 
+/// Task status triplet (status, proof, timestamp).
 pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
 
 pub type TaskProvingStatusRecords = Vec<TaskProvingStatus>;
@@ -112,16 +113,16 @@ pub struct TaskReport(pub TaskDescriptor, pub TaskStatus);
 
 #[async_trait::async_trait]
 pub trait TaskManager {
-    /// new a task manager
+    /// Create a new task manager.
     fn new(opts: &TaskManagerOpts) -> Self;
 
-    /// enqueue_task
+    /// Enqueue a new task to the tasks database.
     async fn enqueue_task(
         &mut self,
         request: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
-    /// Update the task progress
+    /// Update a specific tasks progress.
     async fn update_task_progress(
         &mut self,
         key: TaskDescriptor,
@@ -129,21 +130,22 @@ pub trait TaskManager {
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()>;
 
-    /// Returns the latest triplet (submitter or fulfiller, status, last update time)
+    /// Returns the latest triplet (status, proof - if any, last update time).
     async fn get_task_proving_status(
         &mut self,
         key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
-    /// Returns the proof for the given task
+    /// Returns the proof for the given task.
     async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>>;
 
-    /// Returns the total and detailed database size
+    /// Returns the total and detailed database size.
     async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)>;
 
-    /// Prune old tasks
+    /// Prune old tasks.
     async fn prune_db(&mut self) -> TaskManagerResult<()>;
 
+    /// List all tasks in the db.
     async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>>;
 }
 

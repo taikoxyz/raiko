@@ -297,7 +297,7 @@ impl TaskDb {
             -- Proofs might also be large, so we isolate them in a dedicated table
             CREATE TABLE task_proofs(
               task_id INTEGER UNIQUE NOT NULL PRIMARY KEY,
-              proof BLOB NOT NULL,
+              proof TEXT,
               FOREIGN KEY(task_id) REFERENCES tasks(id)
             );
             
@@ -562,7 +562,7 @@ impl TaskDb {
             ":proofsys_id": proof_system as u8,
             ":prover": prover,
             ":status_id": status as i32,
-            ":proof": proof
+            ":proof": proof.map(hex::encode)
         })?;
 
         Ok(())
@@ -581,11 +581,12 @@ impl TaskDb {
             r#"
             SELECT
               ts.status_id,
-              t.prover,
+              tp.proof,
               timestamp
             FROM
               task_status ts
               LEFT JOIN tasks t ON ts.task_id = t.id
+              LEFT JOIN task_proofs tp ON tp.task_id = t.id
             WHERE
               t.chain_id = :chain_id
               AND t.blockhash = :blockhash
@@ -605,7 +606,7 @@ impl TaskDb {
             |row| {
                 Ok((
                     TaskStatus::from(row.get::<_, i32>(0)?),
-                    Some(row.get::<_, String>(1)?),
+                    row.get::<_, Option<String>>(1)?,
                     row.get::<_, DateTime<Utc>>(2)?,
                 ))
             },
@@ -646,10 +647,15 @@ impl TaskDb {
                 ":proofsys_id": *proof_system as u8,
                 ":prover": prover,
             },
-            |row| row.get(0),
+            |row| row.get::<_, Option<String>>(0),
         )?;
 
-        Ok(query)
+        let Some(proof) = query else {
+            return Ok(vec![]);
+        };
+
+        hex::decode(proof)
+            .map_err(|_| TaskManagerError::SqlError("couldn't decode from hex".to_owned()))
     }
 
     pub fn get_db_size(&self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
