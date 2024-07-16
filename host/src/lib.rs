@@ -139,8 +139,25 @@ impl From<&Opts> for TaskManagerOpts {
 pub struct ProverState {
     pub opts: Opts,
     pub chain_specs: SupportedChainSpecs,
-    pub task_channel: mpsc::Sender<ProofRequest>,
-    pub cancel_channel: mpsc::Sender<TaskDescriptor>,
+    pub task_channel: mpsc::Sender<Message>,
+}
+
+#[derive(Debug, Serialize)]
+pub enum Message {
+    Cancel(TaskDescriptor),
+    Task(ProofRequest),
+}
+
+impl From<&ProofRequest> for Message {
+    fn from(value: &ProofRequest) -> Self {
+        Self::Task(value.clone())
+    }
+}
+
+impl From<&TaskDescriptor> for Message {
+    fn from(value: &TaskDescriptor) -> Self {
+        Self::Cancel(value.clone())
+    }
 }
 
 impl ProverState {
@@ -163,14 +180,13 @@ impl ProverState {
             }
         }
 
-        let (task_channel, receiver) = mpsc::channel::<ProofRequest>(opts.concurrency_limit);
-        let (cancel_channel, cancel_rx) = mpsc::channel::<TaskDescriptor>(opts.concurrency_limit);
+        let (task_channel, receiver) = mpsc::channel::<Message>(opts.concurrency_limit);
 
         let opts_clone = opts.clone();
         let chain_specs_clone = chain_specs.clone();
 
         tokio::spawn(async move {
-            ProofActor::new(receiver, cancel_rx, opts_clone, chain_specs_clone)
+            ProofActor::new(receiver, opts_clone, chain_specs_clone)
                 .run()
                 .await;
         });
@@ -179,7 +195,6 @@ impl ProverState {
             opts,
             chain_specs,
             task_channel,
-            cancel_channel,
         })
     }
 

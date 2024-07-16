@@ -9,7 +9,7 @@ use raiko_lib::{consts::SupportedChainSpecs, prover::Proof, Measurement};
 use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskStatus};
 use tokio::{
     select,
-    sync::{mpsc::Receiver, Mutex, Semaphore},
+    sync::{mpsc::Receiver, Mutex, OwnedSemaphorePermit, Semaphore},
 };
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
@@ -22,110 +22,103 @@ use crate::{
         inc_guest_error, inc_guest_success, inc_host_error, observe_guest_time,
         observe_prepare_input_time, observe_total_time,
     },
-    Opts,
+    Message, Opts,
 };
 
 pub struct ProofActor {
-    rx: Receiver<ProofRequest>,
     opts: Opts,
     chain_specs: SupportedChainSpecs,
     tasks: Arc<Mutex<HashMap<TaskDescriptor, CancellationToken>>>,
+    receiver: Receiver<Message>,
 }
 
 impl ProofActor {
-    pub fn new(
-        rx: Receiver<ProofRequest>,
-        cancel_rx: Receiver<TaskDescriptor>,
-        opts: Opts,
-        chain_specs: SupportedChainSpecs,
-    ) -> Self {
+    pub fn new(receiver: Receiver<Message>, opts: Opts, chain_specs: SupportedChainSpecs) -> Self {
         let tasks = Arc::new(Mutex::new(
             HashMap::<TaskDescriptor, CancellationToken>::new(),
         ));
 
-        Self::spawn_cancel_listener(cancel_rx, tasks.clone());
-
         Self {
-            rx,
             tasks,
             opts,
             chain_specs,
+            receiver,
         }
     }
 
-    /// Spawn a task that listens to the cancel channel to send the cancel signal to the correct
-    /// cancellation token.
-    pub fn spawn_cancel_listener(
-        cancel_rx: Receiver<TaskDescriptor>,
-        tasks: Arc<Mutex<HashMap<TaskDescriptor, CancellationToken>>>,
-    ) {
+    pub async fn cancel_task(&mut self, key: TaskDescriptor) {
+        let tasks_map = self.tasks.lock().await;
+        let Some(task) = tasks_map.get(&key) else {
+            warn!("No task with those keys to cancel");
+            return;
+        };
+
+        task.cancel();
+    }
+
+    pub async fn run_task(&mut self, proof_request: ProofRequest, _permit: OwnedSemaphorePermit) {
+        let cancel_token = CancellationToken::new();
+
+        let Ok((chain_id, blockhash)) = get_task_data(
+            &proof_request.network,
+            proof_request.block_number,
+            &self.chain_specs,
+        )
+        .await
+        else {
+            error!("Could not get task data for {proof_request:?}");
+            return;
+        };
+
+        let key = TaskDescriptor::from((
+            chain_id,
+            blockhash,
+            proof_request.proof_type,
+            proof_request.prover.clone().to_string(),
+        ));
+
+        let mut tasks = self.tasks.lock().await;
+        tasks.insert(key.clone(), cancel_token.clone());
+
+        let tasks = self.tasks.clone();
+        let opts = self.opts.clone();
+        let chain_specs = self.chain_specs.clone();
+
         tokio::spawn(async move {
-            let mut cancel_rx = cancel_rx;
-
-            while let Some(key) = cancel_rx.recv().await {
-                let tasks_map = tasks.lock().await;
-                let Some(task) = tasks_map.get(&key) else {
-                    warn!("No task with those keys to cancel");
-                    continue;
-                };
-
-                task.cancel();
+            select! {
+                _ = cancel_token.cancelled() => {
+                    info!("Task cancelled");
+                }
+                result = Self::handle_message(proof_request, key.clone(), &opts, &chain_specs) => {
+                    match result {
+                        Ok(()) => {
+                            info!("Proof generated");
+                        }
+                        Err(error) => {
+                            error!("Worker failed due to: {error:?}");
+                        }
+                    };
+                }
             }
+            let mut tasks = tasks.lock().await;
+            tasks.remove(&key);
         });
     }
 
     pub async fn run(&mut self) {
         let semaphore = Arc::new(Semaphore::new(self.opts.concurrency_limit));
 
-        while let Some(proof_request) = self.rx.recv().await {
-            let permit = Arc::clone(&semaphore).acquire_owned().await;
-            let cancel_token = CancellationToken::new();
-
-            let Ok((chain_id, blockhash)) = get_task_data(
-                &proof_request.network,
-                proof_request.block_number,
-                &self.chain_specs,
-            )
-            .await
-            else {
-                error!("Could not get task data for {proof_request:?}");
-                continue;
-            };
-
-            let key = TaskDescriptor::from((
-                chain_id,
-                blockhash,
-                proof_request.proof_type,
-                proof_request.prover.clone().to_string(),
-            ));
-
-            let mut tasks = self.tasks.lock().await;
-            tasks.insert(key.clone(), cancel_token.clone());
-
-            let tasks = self.tasks.clone();
-            let opts = self.opts.clone();
-            let chain_specs = self.chain_specs.clone();
-
-            tokio::spawn(async move {
-                let _permit = permit;
-                select! {
-                    _ = cancel_token.cancelled() => {
-                        info!("Task cancelled");
-                    }
-                    result = Self::handle_message(proof_request, key.clone(), &opts, &chain_specs) => {
-                        match result {
-                            Ok(()) => {
-                                info!("Proof generated");
-                            }
-                            Err(error) => {
-                                error!("Worker failed due to: {error:?}");
-                            }
-                        };
-                    }
+        while let Some(message) = self.receiver.recv().await {
+            match message {
+                Message::Cancel(key) => self.cancel_task(key).await,
+                Message::Task(proof_request) => {
+                    let permit = Arc::clone(&semaphore)
+                        .acquire_owned()
+                        .await
+                        .expect("Couldn't acquire permit");
+                    self.run_task(proof_request, permit).await;
                 }
-                let mut tasks = tasks.lock().await;
-                tasks.remove(&key);
-            });
+            }
         }
     }
 

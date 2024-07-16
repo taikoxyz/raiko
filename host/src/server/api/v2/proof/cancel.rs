@@ -4,7 +4,7 @@ use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, server::api::v2::CancelStatus, ProverState};
+use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, ProverState};
 
 #[utoipa::path(post, path = "/proof/cancel",
     tag = "Proving",
@@ -48,7 +48,7 @@ async fn cancel_handler(
         proof_request.prover.clone().to_string(),
     ));
 
-    prover_state.cancel_channel.try_send(key.clone())?;
+    prover_state.task_channel.try_send(Message::from(&key))?;
 
     let mut manager = prover_state.task_manager();
 

@@ -8,7 +8,7 @@ use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::api::v2::Status,
-    ProverState,
+    Message, ProverState,
 };
 
 mod cancel;
@@ -67,7 +67,9 @@ async fn proof_handler(
         // If there are no tasks with provided config, create a new one.
         manager.enqueue_task(&key).await?;
 
-        prover_state.task_channel.try_send(proof_request.clone())?;
+        prover_state
+            .task_channel
+            .try_send(Message::from(&proof_request))?;
 
         return Ok(TaskStatus::Registered.into());
     };
@@ -82,7 +84,9 @@ async fn proof_handler(
                 .update_task_progress(key, TaskStatus::Registered, None)
                 .await?;
 
-            prover_state.task_channel.try_send(proof_request.clone())?;
+            prover_state
+                .task_channel
+                .try_send(Message::from(&proof_request))?;
 
             Ok(TaskStatus::Registered.into())
         }
