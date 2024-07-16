@@ -52,7 +52,7 @@ async fn proof_handler(
         dec_current_req();
         e
     })
-    .map(|proof| Json(proof))
+    .map(Json)
 }
 
 #[derive(OpenApi)]
