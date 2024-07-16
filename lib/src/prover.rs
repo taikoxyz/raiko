@@ -12,6 +12,8 @@ pub enum ProverError {
     FileIo(#[from] std::io::Error),
     #[error("ProverError::Param `{0}`")]
     Param(#[from] serde_json::Error),
+    #[error("Store error `{0}`")]
+    StoreError(String),
 }
 
 impl From<String> for ProverError {
@@ -35,16 +37,14 @@ pub struct Proof {
     pub kzg_proof: Option<String>,
 }
 
-#[allow(async_fn_in_trait)]
 pub trait IdWrite {
-    async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()>;
+    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()>;
 
-    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()>;
+    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()>;
 }
 
-#[allow(async_fn_in_trait)]
 pub trait IdStore: IdWrite {
-    async fn read_id(&self, key: ProofKey) -> ProverResult<String>;
+    fn read_id(&self, key: ProofKey) -> ProverResult<String>;
 }
 
 #[allow(async_fn_in_trait)]

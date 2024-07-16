@@ -8,7 +8,7 @@ use num_enum::{FromPrimitive, IntoPrimitive};
 use raiko_core::interfaces::ProofType;
 use raiko_lib::{
     primitives::{ChainId, B256},
-    prover::{IdStore, IdWrite, ProofKey},
+    prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
 use rusqlite::Error as SqlError;
 use serde::Serialize;
@@ -180,26 +180,26 @@ pub struct TaskManagerWrapper {
 }
 
 impl IdWrite for TaskManagerWrapper {
-    async fn store_id(&self, key: ProofKey, id: String) -> TaskManagerResult<()> {
-        match &self.manager {
-            TaskManagerInstance::InMemory(manager) => manager.store_id(key, id).await,
-            TaskManagerInstance::Sqlite(manager) => manager.store_id(key, id).await,
+    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => manager.store_id(key, id),
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.store_id(key, id),
         }
     }
 
-    async fn remove_id(&mut self, key: ProofKey) -> raiko_lib::prover::ProverResult<()> {
+    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
         match &mut self.manager {
-            TaskManagerInstance::InMemory(manager) => manager.remove_id(key).await,
-            TaskManagerInstance::Sqlite(manager) => manager.remove_id(key).await,
+            TaskManagerInstance::InMemory(ref mut manager) => manager.remove_id(key),
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.remove_id(key),
         }
     }
 }
 
 impl IdStore for TaskManagerWrapper {
-    async fn read_id(&self, key: ProofKey) -> TaskManagerResult<String> {
+    fn read_id(&self, key: ProofKey) -> ProverResult<String> {
         match &self.manager {
-            TaskManagerInstance::InMemory(manager) => manager.read_id(key).await,
-            TaskManagerInstance::Sqlite(manager) => manager.read_id(key).await,
+            TaskManagerInstance::InMemory(manager) => manager.read_id(key),
+            TaskManagerInstance::Sqlite(manager) => manager.read_id(key),
         }
     }
 }

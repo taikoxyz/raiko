@@ -161,12 +161,12 @@ use std::{
 use chrono::{DateTime, Utc};
 use raiko_lib::{
     primitives::B256,
-    prover::{IdStore, IdWrite, ProofKey, ProverResult},
+    prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult},
 };
 use rusqlite::{
     named_params, {Connection, OpenFlags},
 };
-use tokio::sync::Mutex;
+use tokio::{runtime::Builder, sync::Mutex};
 
 use crate::{
     TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
@@ -750,7 +750,7 @@ impl TaskDb {
         Ok(query)
     }
 
-    async fn store_id(&self, (chain_id, blockhash): ProofKey, id: String) -> TaskManagerResult<()> {
+    fn store_id(&self, (chain_id, blockhash): ProofKey, id: String) -> TaskManagerResult<()> {
         let mut statement = self.conn.prepare_cached(
             r#"
             INSERT INTO
@@ -776,7 +776,7 @@ impl TaskDb {
         Ok(())
     }
 
-    async fn remove_id(&self, (chain_id, blockhash): ProofKey) -> TaskManagerResult<()> {
+    fn remove_id(&self, (chain_id, blockhash): ProofKey) -> TaskManagerResult<()> {
         let mut statement = self.conn.prepare_cached(
             r#"
             DELETE FROM
@@ -794,7 +794,7 @@ impl TaskDb {
         Ok(())
     }
 
-    async fn read_id(&self, (chain_id, blockhash): ProofKey) -> TaskManagerResult<String> {
+    fn read_id(&self, (chain_id, blockhash): ProofKey) -> TaskManagerResult<String> {
         let mut statement = self.conn.prepare_cached(
             r#"
             SELECT
@@ -821,21 +821,33 @@ impl TaskDb {
 }
 
 impl IdWrite for SqliteTaskManager {
-    async fn store_id(&self, key: ProofKey, id: String) -> ProverResult<()> {
-        let task_db = self.arc_task_db.lock().await;
-        task_db.store_id(key, id)
+    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
+        let rt = Builder::new_current_thread().enable_all().build()?;
+        rt.block_on(async move {
+            let task_db = self.arc_task_db.lock().await;
+            task_db.store_id(key, id)
+        })
+        .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 
-    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
-        let task_db = self.arc_task_db.lock().await;
-        task_db.remove_id(key)
+    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+        let rt = Builder::new_current_thread().enable_all().build()?;
+        rt.block_on(async move {
+            let task_db = self.arc_task_db.lock().await;
+            task_db.remove_id(key)
+        })
+        .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
 
 impl IdStore for SqliteTaskManager {
-    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
-        let task_db = self.arc_task_db.lock().await;
-        task_db.read_id(key)
+    fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+        let rt = Builder::new_current_thread().enable_all().build()?;
+        rt.block_on(async move {
+            let task_db = self.arc_task_db.lock().await;
+            task_db.read_id(key)
+        })
+        .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
 

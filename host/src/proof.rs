@@ -50,11 +50,11 @@ impl ProofActor {
         }
     }
 
-    pub async fn cancel_task(&mut self, key: TaskDescriptor) {
+    pub async fn cancel_task(&mut self, key: TaskDescriptor) -> HostResult<()> {
         let tasks_map = self.tasks.lock().await;
         let Some(task) = tasks_map.get(&key) else {
             warn!("No task with those keys to cancel");
-            return;
+            return Ok(());
         };
 
         let mut manager = get_task_manager(&self.opts.clone().into());
@@ -62,6 +62,7 @@ impl ProofActor {
             .cancel_proof((key.chain_id, key.blockhash), &mut manager)
             .await?;
         task.cancel();
+        Ok(())
     }
 
     pub async fn run_task(&mut self, proof_request: ProofRequest, _permit: OwnedSemaphorePermit) {
@@ -118,7 +119,9 @@ impl ProofActor {
 
         while let Some(message) = self.receiver.recv().await {
             match message {
-                Message::Cancel(key) => self.cancel_task(key).await,
+                Message::Cancel(key) => {
+                    self.cancel_task(key).await;
+                }
                 Message::Task(proof_request) => {
                     let permit = Arc::clone(&semaphore)
                         .acquire_owned()
