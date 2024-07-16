@@ -5,7 +5,11 @@ use raiko_core::{
     provider::{get_task_data, rpc::RpcBlockDataProvider},
     Raiko,
 };
-use raiko_lib::{consts::SupportedChainSpecs, prover::Proof, Measurement};
+use raiko_lib::{
+    consts::SupportedChainSpecs,
+    prover::{IdWrite, Proof},
+    Measurement,
+};
 use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskStatus};
 use tokio::{
     select,
@@ -53,6 +57,10 @@ impl ProofActor {
             return;
         };
 
+        let mut manager = get_task_manager(&self.opts.clone().into());
+        key.proof_system
+            .cancel_proof((key.chain_id, key.blockhash), &mut manager)
+            .await?;
         task.cancel();
     }
 
@@ -142,13 +150,14 @@ impl ProofActor {
             .update_task_progress(key.clone(), TaskStatus::WorkInProgress, None)
             .await?;
 
-        let (status, proof) = match handle_proof(&proof_request, opts, chain_specs).await {
-            Err(error) => {
-                error!("{error}");
-                (error.into(), None)
-            }
-            Ok(proof) => (TaskStatus::Success, Some(serde_json::to_vec(&proof)?)),
-        };
+        let (status, proof) =
+            match handle_proof(&proof_request, opts, chain_specs, &mut manager).await {
+                Err(error) => {
+                    error!("{error}");
+                    (error.into(), None)
+                }
+                Ok(proof) => (TaskStatus::Success, Some(serde_json::to_vec(&proof)?)),
+            };
 
         manager
             .update_task_progress(key, status, proof.as_deref())
@@ -161,6 +170,7 @@ pub async fn handle_proof(
     proof_request: &ProofRequest,
     opts: &Opts,
     chain_specs: &SupportedChainSpecs,
+    store: &mut dyn IdWrite,
 ) -> HostResult<Proof> {
     info!(
         "# Generating proof for block {} on {}",
@@ -213,20 +223,23 @@ pub async fn handle_proof(
 
     memory::reset_stats();
     let measurement = Measurement::start("Generating proof...", false);
-    let proof = raiko.prove(input.clone(), &output).await.map_err(|e| {
-        let total_time = total_time.stop_with("====> Proof generation failed");
-        observe_total_time(proof_request.block_number, total_time, false);
-        match e {
-            RaikoError::Guest(e) => {
-                inc_guest_error(&proof_request.proof_type, proof_request.block_number);
-                HostError::Core(e.into())
+    let proof = raiko
+        .prove(input.clone(), &output, store)
+        .await
+        .map_err(|e| {
+            let total_time = total_time.stop_with("====> Proof generation failed");
+            observe_total_time(proof_request.block_number, total_time, false);
+            match e {
+                RaikoError::Guest(e) => {
+                    inc_guest_error(&proof_request.proof_type, proof_request.block_number);
+                    HostError::Core(e.into())
+                }
+                e => {
+                    inc_host_error(proof_request.block_number);
+                    e.into()
+                }
             }
-            e => {
-                inc_host_error(proof_request.block_number);
-                e.into()
-            }
-        }
-    })?;
+        })?;
     let guest_time = measurement.stop_with("=> Proof generated");
     observe_guest_time(
         &proof_request.proof_type,

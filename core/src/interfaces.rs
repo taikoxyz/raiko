@@ -4,7 +4,7 @@ use clap::{Args, ValueEnum};
 use raiko_lib::{
     input::{BlobProofType, GuestInput, GuestOutput},
     primitives::eip4844::{calc_kzg_proof, commitment_to_version_hash, kzg_proof_to_bytes},
-    prover::{Proof, Prover, ProverError},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
 };
 use reth_primitives::hex;
 use serde::{Deserialize, Serialize};
@@ -160,14 +160,15 @@ impl ProofType {
         input: GuestInput,
         output: &GuestOutput,
         config: &Value,
+        store: &mut dyn IdWrite,
     ) -> RaikoResult<Proof> {
         let mut proof = match self {
-            ProofType::Native => NativeProver::run(input.clone(), output, config)
+            ProofType::Native => NativeProver::run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
-                return sp1_driver::Sp1Prover::run(input.clone(), output, config)
+                return sp1_driver::Sp1Prover::run(input.clone(), output, config, store)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sp1"))]
@@ -175,7 +176,7 @@ impl ProofType {
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                return risc0_driver::Risc0Prover::run(input.clone(), output, config)
+                return risc0_driver::Risc0Prover::run(input.clone(), output, config, store)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "risc0"))]
@@ -183,7 +184,7 @@ impl ProofType {
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
-                return sgx_prover::SgxProver::run(input.clone(), output, config)
+                return sgx_prover::SgxProver::run(input.clone(), output, config, store)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
@@ -206,6 +207,43 @@ impl ProofType {
         }
 
         Ok(proof)
+    }
+
+    pub async fn cancel_proof(
+        &self,
+        proof_key: ProofKey,
+        read: &mut dyn IdStore,
+    ) -> RaikoResult<()> {
+        let _ = match self {
+            ProofType::Native => NativeProver::cancel(proof_key.clone(), read)
+                .await
+                .map_err(|e| e.into()),
+            ProofType::Sp1 => {
+                #[cfg(feature = "sp1")]
+                return sp1_driver::Sp1Driver::cancel(proof_key.clone(), read)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sp1"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Risc0 => {
+                #[cfg(feature = "risc0")]
+                return risc0_driver::Risc0Driver::cancel(proof_key.clone(), read)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "risc0"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Sgx => {
+                #[cfg(feature = "sgx")]
+                return sgx_prover::SgxProver::cancel(proof_key.clone(), read)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sgx"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+        }?;
+        Ok(())
     }
 }
 

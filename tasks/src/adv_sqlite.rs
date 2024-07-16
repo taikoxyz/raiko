@@ -159,7 +159,10 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use raiko_lib::primitives::B256;
+use raiko_lib::{
+    primitives::B256,
+    prover::{IdStore, IdWrite, ProofKey, ProverResult},
+};
 use rusqlite::{
     named_params, {Connection, OpenFlags},
 };
@@ -229,6 +232,15 @@ impl TaskDb {
         // and introduce a migration on DB opening ... if conserving history is important.
         conn.execute_batch(
             r#"
+            -- Key value store
+            -----------------------------------------------
+            CREATE TABLE store(
+              chain_id INTEGER NOT NULL,
+              blockhash BLOB NOT NULL,
+              id TEXT NOT NULL,
+              UNIQUE (chain_id, blockhash)
+            );
+
             -- Metadata and mappings
             -----------------------------------------------
             CREATE TABLE metadata(
@@ -736,6 +748,94 @@ impl TaskDb {
             .collect::<Result<Vec<TaskReport>, _>>()?;
 
         Ok(query)
+    }
+
+    async fn store_id(&self, (chain_id, blockhash): ProofKey, id: String) -> TaskManagerResult<()> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            INSERT INTO
+              store(
+                chain_id,
+                blockhash,
+                id
+              )
+            VALUES
+              (
+                :chain_id,
+                :blockhash,
+                :id
+              );
+            "#,
+        )?;
+        statement.execute(named_params! {
+            ":chain_id": chain_id,
+            ":blockhash": blockhash.to_vec(),
+            ":id": id,
+        })?;
+
+        Ok(())
+    }
+
+    async fn remove_id(&self, (chain_id, blockhash): ProofKey) -> TaskManagerResult<()> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            DELETE FROM
+              store
+            WHERE
+              chain_id = :chain_id
+              AND blockhash = :blockhash;
+            "#,
+        )?;
+        statement.execute(named_params! {
+            ":chain_id": chain_id,
+            ":blockhash": blockhash.to_vec(),
+        })?;
+
+        Ok(())
+    }
+
+    async fn read_id(&self, (chain_id, blockhash): ProofKey) -> TaskManagerResult<String> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            SELECT
+              id
+            FROM
+              store
+            WHERE
+              chain_id = :chain_id
+              AND blockhash = :blockhash
+            LIMIT
+              1;
+            "#,
+        )?;
+        let query = statement.query_row(
+            named_params! {
+                ":chain_id": chain_id,
+                ":blockhash": blockhash.to_vec(),
+            },
+            |row| row.get::<_, String>(0),
+        )?;
+
+        Ok(query)
+    }
+}
+
+impl IdWrite for SqliteTaskManager {
+    async fn store_id(&self, key: ProofKey, id: String) -> ProverResult<()> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.store_id(key, id)
+    }
+
+    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.remove_id(key)
+    }
+}
+
+impl IdStore for SqliteTaskManager {
+    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.read_id(key)
     }
 }
 

@@ -4,7 +4,7 @@ use raiko_lib::{
     consts::VerifierType,
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
-    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{de::Error, Deserialize, Serialize};
 use serde_with::serde_as;
@@ -28,6 +28,7 @@ impl Prover for NativeProver {
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
+        _store: &mut dyn IdWrite,
     ) -> ProverResult<Proof> {
         let param =
             config
@@ -61,5 +62,9 @@ impl Prover for NativeProver {
             quote: None,
             kzg_proof: None,
         })
+    }
+
+    async fn cancel(_proof_key: ProofKey, _read: &mut dyn IdStore) -> ProverResult<()> {
+        Ok(())
     }
 }

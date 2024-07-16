@@ -4,7 +4,7 @@ use alloy_primitives::B256;
 use hex::ToHex;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
@@ -54,6 +54,7 @@ impl Prover for Risc0Prover {
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
+        write: &mut dyn IdWrite,
     ) -> ProverResult<Proof> {
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
 
@@ -92,6 +93,10 @@ impl Prover for Risc0Prover {
         }
 
         Ok(Risc0Response { proof: journal }.into())
+    }
+
+    async fn cancel(key: &str, store: &mut dyn IdStore) -> ProverResult<()> {
+        Ok(())
     }
 }
 

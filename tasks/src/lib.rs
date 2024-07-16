@@ -6,7 +6,10 @@ use std::{
 use chrono::{DateTime, Utc};
 use num_enum::{FromPrimitive, IntoPrimitive};
 use raiko_core::interfaces::ProofType;
-use raiko_lib::primitives::{ChainId, B256};
+use raiko_lib::{
+    primitives::{ChainId, B256},
+    prover::{IdStore, IdWrite, ProofKey},
+};
 use rusqlite::Error as SqlError;
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -97,6 +100,18 @@ impl From<(ChainId, B256, ProofType, String)> for TaskDescriptor {
     }
 }
 
+impl From<TaskDescriptor> for (ChainId, B256) {
+    fn from(
+        TaskDescriptor {
+            chain_id,
+            blockhash,
+            ..
+        }: TaskDescriptor,
+    ) -> Self {
+        (chain_id, blockhash)
+    }
+}
+
 /// Task status triplet (status, proof, timestamp).
 pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
 
@@ -111,7 +126,7 @@ pub struct TaskManagerOpts {
 }
 
 #[async_trait::async_trait]
-pub trait TaskManager {
+pub trait TaskManager: IdStore + IdWrite {
     /// Create a new task manager.
     fn new(opts: &TaskManagerOpts) -> Self;
 
@@ -162,6 +177,31 @@ enum TaskManagerInstance {
 
 pub struct TaskManagerWrapper {
     manager: TaskManagerInstance,
+}
+
+impl IdWrite for TaskManagerWrapper {
+    async fn store_id(&self, key: ProofKey, id: String) -> TaskManagerResult<()> {
+        match &self.manager {
+            TaskManagerInstance::InMemory(manager) => manager.store_id(key, id).await,
+            TaskManagerInstance::Sqlite(manager) => manager.store_id(key, id).await,
+        }
+    }
+
+    async fn remove_id(&mut self, key: ProofKey) -> raiko_lib::prover::ProverResult<()> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(manager) => manager.remove_id(key).await,
+            TaskManagerInstance::Sqlite(manager) => manager.remove_id(key).await,
+        }
+    }
+}
+
+impl IdStore for TaskManagerWrapper {
+    async fn read_id(&self, key: ProofKey) -> TaskManagerResult<String> {
+        match &self.manager {
+            TaskManagerInstance::InMemory(manager) => manager.read_id(key).await,
+            TaskManagerInstance::Sqlite(manager) => manager.read_id(key).await,
+        }
+    }
 }
 
 #[async_trait::async_trait]

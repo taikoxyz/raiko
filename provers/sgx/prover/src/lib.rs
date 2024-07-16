@@ -11,7 +11,7 @@ use std::{
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -71,6 +71,7 @@ impl Prover for SgxProver {
         input: GuestInput,
         _output: &GuestOutput,
         config: &ProverConfig,
+        _store: &mut dyn IdWrite,
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
@@ -145,6 +146,10 @@ impl Prover for SgxProver {
         }
 
         sgx_proof.map(|r| r.into())
+    }
+
+    async fn cancel(_proof_key: ProofKey, _read: &mut dyn IdStore) -> ProverResult<()> {
+        Ok(())
     }
 }
 

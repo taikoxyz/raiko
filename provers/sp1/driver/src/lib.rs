@@ -1,7 +1,7 @@
 #![cfg(feature = "enable")]
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{ProverClient, SP1Stdin};
@@ -32,6 +32,7 @@ impl Prover for Sp1Prover {
         input: GuestInput,
         _output: &GuestOutput,
         _config: &ProverConfig,
+        write: &mut dyn IdWrite,
     ) -> ProverResult<Proof> {
         // Write the input.
         let mut stdin = SP1Stdin::new();
@@ -67,6 +68,10 @@ impl Prover for Sp1Prover {
             proof: serde_json::to_string(&proof).unwrap(),
         }
         .into())
+    }
+
+    async fn cancel(_key: &str, _store: &mut dyn IdStore) -> ProverResult<()> {
+        Ok(())
     }
 }
 

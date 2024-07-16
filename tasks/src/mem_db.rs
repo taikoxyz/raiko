@@ -13,6 +13,7 @@ use std::{
 };
 
 use chrono::Utc;
+use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverResult};
 use tokio::sync::Mutex;
 use tracing::{debug, info};
 
@@ -29,12 +30,14 @@ pub struct InMemoryTaskManager {
 #[derive(Debug)]
 pub struct InMemoryTaskDb {
     enqueue_task: HashMap<TaskDescriptor, TaskProvingStatusRecords>,
+    store: HashMap<ProofKey, String>,
 }
 
 impl InMemoryTaskDb {
     fn new() -> InMemoryTaskDb {
         InMemoryTaskDb {
             enqueue_task: HashMap::new(),
+            store: HashMap::new(),
         }
     }
 
@@ -120,6 +123,42 @@ impl InMemoryTaskDb {
                 statuses.last().map(|status| (descriptor.clone(), status.0))
             })
             .collect())
+    }
+
+    fn store_id(&mut self, key: ProofKey, id: String) -> TaskManagerResult<()> {
+        self.store.insert(key, id);
+        Ok(())
+    }
+
+    fn remove_id(&mut self, key: ProofKey) -> TaskManagerResult<()> {
+        self.store.remove(&key);
+        Ok(())
+    }
+
+    fn read_id(&mut self, key: ProofKey) -> TaskManagerResult<String> {
+        self.store
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| TaskManagerError::SqlError("no id found".to_owned()))
+    }
+}
+
+impl IdWrite for InMemoryTaskManager {
+    async fn store_id(&self, key: ProofKey, id: String) -> ProverResult<()> {
+        let mut db = self.db.lock().await;
+        db.store_id(key, id)
+    }
+
+    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+        let mut db = self.db.lock().await;
+        db.remove_id(key)
+    }
+}
+
+impl IdStore for InMemoryTaskManager {
+    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+        let mut db = self.db.lock().await;
+        db.read_id(key)
     }
 }
 

@@ -1,3 +1,4 @@
+use reth_primitives::{ChainId, B256};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -21,6 +22,7 @@ impl From<String> for ProverError {
 
 pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
 pub type ProverConfig = serde_json::Value;
+pub type ProofKey = (ChainId, B256);
 
 #[derive(Debug, Serialize, ToSchema, Deserialize, Default)]
 /// The response body of a proof request.
@@ -34,10 +36,25 @@ pub struct Proof {
 }
 
 #[allow(async_fn_in_trait)]
+pub trait IdWrite {
+    async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()>;
+
+    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()>;
+}
+
+#[allow(async_fn_in_trait)]
+pub trait IdStore: IdWrite {
+    async fn read_id(&self, key: ProofKey) -> ProverResult<String>;
+}
+
+#[allow(async_fn_in_trait)]
 pub trait Prover {
     async fn run(
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
+        store: &mut dyn IdWrite,
     ) -> ProverResult<Proof>;
+
+    async fn cancel(proof_key: ProofKey, read: &mut dyn IdStore) -> ProverResult<()>;
 }

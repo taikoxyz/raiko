@@ -5,11 +5,20 @@ use crate::{
 };
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
-use raiko_lib::builder::{create_mem_db, RethBlockBuilder};
-use raiko_lib::consts::{ChainSpec, VerifierType};
-use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
 use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::prover::Proof;
+use raiko_lib::{
+    builder::{create_mem_db, RethBlockBuilder},
+    prover::ProofKey,
+};
+use raiko_lib::{
+    consts::{ChainSpec, VerifierType},
+    prover::IdStore,
+};
+use raiko_lib::{
+    input::{GuestInput, GuestOutput, TaikoProverData},
+    prover::IdWrite,
+};
 use reth_primitives::Header;
 use serde_json::Value;
 use std::{collections::HashMap, hint::black_box};
@@ -92,12 +101,21 @@ impl Raiko {
         }
     }
 
-    pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> RaikoResult<Proof> {
-        let data = serde_json::to_value(&self.request)?;
+    pub async fn prove(
+        &self,
+        input: GuestInput,
+        output: &GuestOutput,
+        store: &mut dyn IdWrite,
+    ) -> RaikoResult<Proof> {
+        let config = serde_json::to_value(&self.request)?;
         self.request
             .proof_type
-            .run_prover(input, output, &data)
+            .run_prover(input, output, &config, store)
             .await
+    }
+
+    pub async fn cancel(&self, proof_key: ProofKey, read: &mut dyn IdStore) -> RaikoResult<()> {
+        self.request.proof_type.cancel_proof(proof_key, read).await
     }
 }
 
@@ -204,6 +222,7 @@ mod tests {
         consts::{Network, SupportedChainSpecs},
         input::BlobProofType,
         primitives::B256,
+        prover::{IdWrite, ProofKey, ProverResult},
     };
     use serde_json::{json, Value};
     use std::{collections::HashMap, env};
@@ -258,6 +277,19 @@ mod tests {
         taiko_chain_spec: ChainSpec,
         proof_request: ProofRequest,
     ) {
+        struct Store {
+            map: HashMap<ProofKey, String>,
+        }
+        impl IdWrite for Store {
+            async fn store_id(&self, key: ProofKey, id: String) -> ProverResult<()> {
+                self.map.insert(key, id);
+                Ok(())
+            }
+            async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+                self.map.remove(&key);
+                Ok(())
+            }
+        }
         let provider =
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
@@ -268,7 +300,13 @@ mod tests {
             .expect("input generation failed");
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko
-            .prove(input, &output)
+            .prove(
+                input,
+                &output,
+                &Store {
+                    map: HashMap::new(),
+                },
+            )
             .await
             .expect("proof generation failed");
     }
