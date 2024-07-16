@@ -7,6 +7,7 @@ use raiko_lib::{print_duration, Measurement};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::Prover;
 use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
+use std::env;
 use std::path::PathBuf;
 
 pub const FIXUTRE_PATH: &str = "./provers/sp1/contracts/src/fixtures/fixture.json";
@@ -23,10 +24,9 @@ struct RaikoProofFixture {
 }
 
 fn main() {
+    dotenv::from_path("./provers/sp1/driver/.env").ok();
     // Setup the logger.
     sp1_sdk::utils::setup_logger();
-
-    dotenv().ok();
 
     // Setup the prover client.
     let client = ProverClient::new();
@@ -43,13 +43,13 @@ fn main() {
 
     // Generate the proof.
     let time = Measurement::start("prove_groth16", false);
-    let proof = client
+    let mut proof = client
         .prove_plonk(&pk, stdin)
         .expect("failed to generate proof");
     time.stop_with("==> Proof generated");
 
     // Deserialize the public values.
-    let pi_hash = B256::from_slice(proof.public_values.as_slice());
+    let pi_hash = proof.public_values.read::<B256>();
     println!("===> pi: {:?}", pi_hash);
 
     // Create the testing fixture so we can test things end-ot-end.

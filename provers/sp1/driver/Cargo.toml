@@ -18,7 +18,7 @@ required-features = ["enable"]
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
 alloy-primitives = { workspace = true, optional = true }
-alloy-sol-types = { workspace = true }
+alloy-sol-types = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 sp1-sdk = { workspace = true, optional = true }
@@ -37,6 +37,7 @@ regex = "1.5.4"
 
 
 [features]
+default =  ["enable"]
 enable = [
     "serde",
     "serde_json",
@@ -44,6 +45,7 @@ enable = [
     "sp1-sdk",
     "anyhow",
     "alloy-primitives",
+    "alloy-sol-types",
     "once_cell",
     "sha3",
     "dotenv",
