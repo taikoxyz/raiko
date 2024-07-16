@@ -13,16 +13,6 @@ struct RaikoProofFixture {
     bytes32 vkey;
 }
 
-struct SP1ProofFixtureJson {
-    uint32 a;
-    uint32 b;
-    uint32 n;
-    bytes proof;
-    bytes publicValues;
-    bytes32 vkey;
-}
-
-
 contract RaikoTest is Test {
     using stdJson for string;
 
