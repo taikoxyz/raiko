@@ -62,7 +62,7 @@ To check the progress of all tasks:
  curl --location --request POST 'http://localhost:8080/proof/report'
 ```
 
-To prune all tasks (the cancellation feature that kills prover is stil WIP):
+To prune all tasks (the cancellation feature that kills prover is still WIP):
 
 ```shell
  curl --location --request POST 'http://localhost:8080/proof/prune'
