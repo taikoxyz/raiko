@@ -87,10 +87,10 @@ impl InMemoryTaskDb {
         let proving_status_records = self
             .enqueue_task
             .get(key)
-            .ok_or_else(TaskManagerError::SqlError("no task in db".to_owned()))?;
+            .ok_or_else(|| TaskManagerError::SqlError("no task in db".to_owned()))?;
 
         let (_, proof, ..) = proving_status_records
-            .into_iter()
+            .iter()
             .filter(|(status, ..)| (status == &TaskStatus::Success))
             .last()
             .ok_or_else(|| TaskManagerError::SqlError("no successful task in db".to_owned()))?;
