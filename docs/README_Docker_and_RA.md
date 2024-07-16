@@ -263,10 +263,10 @@ mkdir ~/.config/raiko/config
 mkdir ~/.config/raiko/secrets
 ```
 
-5. Now, clone raiko and check out the `taiko/alpha-7` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
+5. Now, clone raiko and check out the `release/v1.0.0` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
 
 ```
-git clone -b taiko/alpha-7 https://github.com/taikoxyz/raiko.git
+git clone -b release/v1.0.0 https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 docker compose build
 ```
@@ -455,8 +455,8 @@ Once your Raiko instance is running, you can verify if it was started properly a
 }'
 ```
 
-Or use `./script/prove-block` like `./script/prove-block.sh taiko_a7 native 99999` to check readiness.
-
+Or use `./script/prove-block` like `./script/prove-block.sh taiko_a7 sgx 99999` to check readiness.
+You need to change to the latest block number and change from native to sgx if you are using sgx.
 
 The response should look like this:
 
