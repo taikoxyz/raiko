@@ -150,7 +150,10 @@ impl ProofActor {
             .await?;
 
         let (status, proof) = match handle_proof(&proof_request, opts, chain_specs).await {
-            Err(error) => (error.into(), None),
+            Err(error) => {
+                error!("{error}");
+                (error.into(), None)
+            }
             Ok(proof) => (TaskStatus::Success, Some(serde_json::to_vec(&proof)?)),
         };
 
