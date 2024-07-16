@@ -102,13 +102,13 @@ pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
 
 pub type TaskProvingStatusRecords = Vec<TaskProvingStatus>;
 
+pub type TaskReport = (TaskDescriptor, TaskStatus);
+
 #[derive(Debug, Clone)]
 pub struct TaskManagerOpts {
     pub sqlite_file: PathBuf,
     pub max_db_size: usize,
 }
-
-pub type TaskReport = (TaskDescriptor, TaskStatus);
 
 #[async_trait::async_trait]
 pub trait TaskManager {
