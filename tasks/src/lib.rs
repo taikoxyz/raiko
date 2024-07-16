@@ -108,8 +108,7 @@ pub struct TaskManagerOpts {
     pub max_db_size: usize,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
-pub struct TaskReport(pub TaskDescriptor, pub TaskStatus);
+pub type TaskReport = (TaskDescriptor, TaskStatus);
 
 #[async_trait::async_trait]
 pub trait TaskManager {

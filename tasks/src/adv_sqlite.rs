@@ -723,7 +723,7 @@ impl TaskDb {
         )?;
         let query = statement
             .query_map([], |row| {
-                Ok(TaskReport(
+                Ok((
                     TaskDescriptor {
                         chain_id: row.get(0)?,
                         blockhash: B256::from_slice(&row.get::<_, Vec<u8>>(1)?),
