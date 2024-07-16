@@ -198,6 +198,7 @@ mod tests {
         ChainSpec, Raiko,
     };
     use alloy_primitives::Address;
+    use alloy_provider::Provider;
     use clap::ValueEnum;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
@@ -300,6 +301,12 @@ mod tests {
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
 
+    async fn get_recent_block_num(chain_spec: &ChainSpec) -> u64 {
+        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
+        let height = provider.provider.get_block_number().await.unwrap();
+        height - 100
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_ethereum() {
         let proof_type = get_proof_type_from_env();
@@ -307,13 +314,17 @@ mod tests {
         if !(is_ci() && proof_type == ProofType::Sp1) {
             let network = Network::Ethereum.to_string();
             let l1_network = Network::Ethereum.to_string();
-            let block_number = 19907175;
             let taiko_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&network)
                 .unwrap();
             let l1_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&l1_network)
                 .unwrap();
+            let block_number = get_recent_block_num(&taiko_chain_spec).await;
+            println!(
+                "test_prove_block_ethereum in block_number: {}",
+                block_number
+            );
             let proof_request = ProofRequest {
                 block_number,
                 network,
@@ -335,13 +346,17 @@ mod tests {
         if !(is_ci() && proof_type == ProofType::Sp1) {
             let network = Network::TaikoMainnet.to_string();
             let l1_network = Network::Ethereum.to_string();
-            let block_number = 88970;
             let taiko_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&network)
                 .unwrap();
             let l1_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&l1_network)
                 .unwrap();
+            let block_number = get_recent_block_num(&taiko_chain_spec).await;
+            println!(
+                "test_prove_block_taiko_mainnet in block_number: {}",
+                block_number
+            );
             let proof_request = ProofRequest {
                 block_number,
                 network,

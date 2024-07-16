@@ -15,7 +15,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use raiko_lib::{input::BlobProofType, primitives::B256};
-    use raiko_task_manager::{get_task_manager, TaskManager, TaskManagerOpts, TaskStatus};
+    use raiko_tasks::{get_task_manager, TaskManager, TaskManagerOpts, TaskStatus};
 
     fn create_random_task(rng: &mut ChaCha8Rng) -> (u64, B256, ProofRequest) {
         let chain_id = 100;

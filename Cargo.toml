@@ -14,7 +14,7 @@ members = [
     "provers/sgx/setup",
     "pipeline",
     "core",
-    "task_manager",
+    "tasks",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -36,7 +36,7 @@ opt-level = 3
 # raiko
 raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
-raiko-task-manager = { path = "./task_manager" }
+raiko-tasks = { path = "./tasks" }
 
 # reth
 reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
