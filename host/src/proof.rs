@@ -5,7 +5,7 @@ use raiko_core::{
     provider::{get_task_data, rpc::RpcBlockDataProvider},
     Raiko,
 };
-use raiko_lib::{consts::SupportedChainSpecs, Measurement};
+use raiko_lib::{consts::SupportedChainSpecs, prover::Proof, Measurement};
 use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskStatus};
 use tokio::{
     select,
@@ -22,7 +22,6 @@ use crate::{
         inc_guest_error, inc_guest_success, inc_host_error, observe_guest_time,
         observe_prepare_input_time, observe_total_time,
     },
-    server::api::v1::ProofResponse,
     Opts,
 };
 
@@ -152,9 +151,7 @@ impl ProofActor {
 
         let (status, proof) = match handle_proof(&proof_request, opts, chain_specs).await {
             Err(error) => (error.into(), None),
-            Ok(ProofResponse { proof, .. }) => {
-                (TaskStatus::Success, proof.map(|string| string.into_bytes()))
-            }
+            Ok(proof) => (TaskStatus::Success, Some(serde_json::to_vec(&proof)?)),
         };
 
         manager
@@ -168,7 +165,7 @@ pub async fn handle_proof(
     proof_request: &ProofRequest,
     opts: &Opts,
     chain_specs: &SupportedChainSpecs,
-) -> HostResult<ProofResponse> {
+) -> HostResult<Proof> {
     info!(
         "# Generating proof for block {} on {}",
         proof_request.block_number, proof_request.network
@@ -255,5 +252,5 @@ pub async fn handle_proof(
         &input,
     )?;
 
-    ProofResponse::try_from(proof)
+    Ok(proof)
 }

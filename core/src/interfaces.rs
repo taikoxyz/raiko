@@ -202,11 +202,7 @@ impl ProofType {
                 })?),
             )
             .map_err(|e| anyhow::anyhow!(e))?;
-            let kzg_proof_hex = hex::encode(kzg_proof_to_bytes(&kzg_proof));
-            proof
-                .as_object_mut()
-                .ok_or_else(|| anyhow::anyhow!("Could not get mutable ref to proof response"))?
-                .insert("kzg_proof".to_string(), Value::String(kzg_proof_hex));
+            proof.kzg_proof = Some(hex::encode(kzg_proof_to_bytes(&kzg_proof)));
         }
 
         Ok(proof)

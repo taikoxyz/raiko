@@ -1,7 +1,7 @@
 #![cfg(feature = "enable")]
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{ProverClient, SP1Stdin};
@@ -13,6 +13,16 @@ const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
     pub proof: String,
+}
+
+impl From<Sp1Response> for Proof {
+    fn from(value: Sp1Response) -> Self {
+        Self {
+            proof: Some(value.proof),
+            quote: None,
+            kzg_proof: None,
+        }
+    }
 }
 
 pub struct Sp1Prover;
@@ -53,9 +63,10 @@ impl Prover for Sp1Prover {
             .map_err(|_| ProverError::GuestError("Sp1: saving proof failed".to_owned()))?;
 
         tracing_info!("successfully generated and verified proof for the program!");
-        to_proof(Ok(Sp1Response {
+        Ok(Sp1Response {
             proof: serde_json::to_string(&proof).unwrap(),
-        }))
+        }
+        .into())
     }
 }
 

@@ -11,7 +11,7 @@ use std::{
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -42,6 +42,16 @@ pub struct SgxResponse {
     /// proof format: 4b(id)+20b(pubkey)+65b(signature)
     pub proof: String,
     pub quote: String,
+}
+
+impl From<SgxResponse> for Proof {
+    fn from(value: SgxResponse) -> Self {
+        Self {
+            proof: Some(value.proof),
+            quote: Some(value.quote),
+            kzg_proof: None,
+        }
+    }
 }
 
 pub const ELF_NAME: &str = "sgx-guest";
@@ -134,7 +144,7 @@ impl Prover for SgxProver {
             sgx_proof = prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
         }
 
-        to_proof(sgx_proof)
+        sgx_proof.map(|r| r.into())
     }
 }
 

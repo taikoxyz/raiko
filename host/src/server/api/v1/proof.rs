@@ -1,5 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::ProofRequest;
+use raiko_lib::prover::Proof;
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -7,7 +8,6 @@ use crate::{
     interfaces::HostResult,
     metrics::{dec_current_req, inc_current_req, inc_guest_req_count, inc_host_req_count},
     proof::handle_proof,
-    server::api::v1::ProofResponse,
     ProverState,
 };
 
@@ -30,7 +30,7 @@ use crate::{
 async fn proof_handler(
     State(prover_state): State<ProverState>,
     Json(req): Json<Value>,
-) -> HostResult<ProofResponse> {
+) -> HostResult<Json<Proof>> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
@@ -52,6 +52,7 @@ async fn proof_handler(
         dec_current_req();
         e
     })
+    .map(|proof| Json(proof))
 }
 
 #[derive(OpenApi)]

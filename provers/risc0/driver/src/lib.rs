@@ -4,7 +4,7 @@ use alloy_primitives::B256;
 use hex::ToHex;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,17 @@ pub struct Risc0Param {
 pub struct Risc0Response {
     pub proof: String,
 }
+
+impl From<Risc0Response> for Proof {
+    fn from(value: Risc0Response) -> Self {
+        Self {
+            proof: Some(value.proof),
+            quote: None,
+            kzg_proof: None,
+        }
+    }
+}
+
 pub struct Risc0Prover;
 
 impl Prover for Risc0Prover {
@@ -80,7 +91,7 @@ impl Prover for Risc0Prover {
                 .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
         }
 
-        to_proof(Ok(Risc0Response { proof: journal }))
+        Ok(Risc0Response { proof: journal }.into())
     }
 }
 

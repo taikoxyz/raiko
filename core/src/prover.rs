@@ -4,7 +4,7 @@ use raiko_lib::{
     consts::VerifierType,
     input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{Proof, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{de::Error, Deserialize, Serialize};
 use serde_with::serde_as;
@@ -56,8 +56,10 @@ impl Prover for NativeProver {
             ));
         }
 
-        to_proof(Ok(NativeResponse {
-            output: output.clone(),
-        }))
+        Ok(Proof {
+            proof: None,
+            quote: None,
+            kzg_proof: None,
+        })
     }
 }

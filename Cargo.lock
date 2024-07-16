@@ -5827,6 +5827,7 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "utoipa",
 ]
 
 [[package]]
