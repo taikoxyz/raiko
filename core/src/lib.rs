@@ -281,19 +281,6 @@ mod tests {
         taiko_chain_spec: ChainSpec,
         proof_request: ProofRequest,
     ) {
-        struct Store {
-            map: HashMap<ProofKey, String>,
-        }
-        impl IdWrite for Store {
-            fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
-                self.map.insert(key, id);
-                Ok(())
-            }
-            fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
-                self.map.remove(&key);
-                Ok(())
-            }
-        }
         let provider =
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .expect("Could not create RpcBlockDataProvider");
@@ -304,13 +291,7 @@ mod tests {
             .expect("input generation failed");
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko
-            .prove(
-                input,
-                &output,
-                &Store {
-                    map: HashMap::new(),
-                },
-            )
+            .prove(input, &output, None)
             .await
             .expect("proof generation failed");
     }
