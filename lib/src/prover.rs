@@ -24,7 +24,7 @@ impl From<String> for ProverError {
 
 pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
 pub type ProverConfig = serde_json::Value;
-pub type ProofKey = (ChainId, B256);
+pub type ProofKey = (ChainId, B256, u8);
 
 #[derive(Debug, Serialize, ToSchema, Deserialize, Default)]
 /// The response body of a proof request.

@@ -237,8 +237,10 @@ impl TaskDb {
             CREATE TABLE store(
               chain_id INTEGER NOT NULL,
               blockhash BLOB NOT NULL,
+              proofsys_id INTEGER NOT NULL,
               id TEXT NOT NULL,
-              UNIQUE (chain_id, blockhash)
+              FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
+              UNIQUE (chain_id, blockhash, proofsys_id)
             );
 
             -- Metadata and mappings
@@ -750,19 +752,25 @@ impl TaskDb {
         Ok(query)
     }
 
-    fn store_id(&self, (chain_id, blockhash): ProofKey, id: String) -> TaskManagerResult<()> {
+    fn store_id(
+        &self,
+        (chain_id, blockhash, proof_key): ProofKey,
+        id: String,
+    ) -> TaskManagerResult<()> {
         let mut statement = self.conn.prepare_cached(
             r#"
             INSERT INTO
               store(
                 chain_id,
                 blockhash,
+                proofsys_id,
                 id
               )
             VALUES
               (
                 :chain_id,
                 :blockhash,
+                :proofsys_id,
                 :id
               );
             "#,
@@ -770,31 +778,34 @@ impl TaskDb {
         statement.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
+            ":proofsys_id": proof_key as u8,
             ":id": id,
         })?;
 
         Ok(())
     }
 
-    fn remove_id(&self, (chain_id, blockhash): ProofKey) -> TaskManagerResult<()> {
+    fn remove_id(&self, (chain_id, blockhash, proof_key): ProofKey) -> TaskManagerResult<()> {
         let mut statement = self.conn.prepare_cached(
             r#"
             DELETE FROM
               store
             WHERE
               chain_id = :chain_id
-              AND blockhash = :blockhash;
+              AND blockhash = :blockhash
+              AND proofsys_id = :proofsys_id;
             "#,
         )?;
         statement.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
+            ":proofsys_id": proof_key as u8,
         })?;
 
         Ok(())
     }
 
-    fn read_id(&self, (chain_id, blockhash): ProofKey) -> TaskManagerResult<String> {
+    fn read_id(&self, (chain_id, blockhash, proof_key): ProofKey) -> TaskManagerResult<String> {
         let mut statement = self.conn.prepare_cached(
             r#"
             SELECT
@@ -804,6 +815,7 @@ impl TaskDb {
             WHERE
               chain_id = :chain_id
               AND blockhash = :blockhash
+              AND proofsys_id = :proofsys_id
             LIMIT
               1;
             "#,
@@ -812,6 +824,7 @@ impl TaskDb {
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
+                ":proofsys_id": proof_key as u8,
             },
             |row| row.get::<_, String>(0),
         )?;
