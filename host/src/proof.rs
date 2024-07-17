@@ -59,7 +59,10 @@ impl ProofActor {
 
         let mut manager = get_task_manager(&self.opts.clone().into());
         key.proof_system
-            .cancel_proof((key.chain_id, key.blockhash), Box::new(&mut manager))
+            .cancel_proof(
+                (key.chain_id, key.blockhash, key.proof_system as u8),
+                Box::new(&mut manager),
+            )
             .await?;
         task.cancel();
         Ok(())
