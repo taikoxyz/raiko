@@ -31,6 +31,8 @@ impl From<Sp1Response> for Proof {
 
 pub struct Sp1Prover;
 
+const SP1_PROVER_CODE: u8 = 1;
+
 impl Prover for Sp1Prover {
     async fn run(
         input: GuestInput,
@@ -67,7 +69,10 @@ impl Prover for Sp1Prover {
                         ProverError::GuestError("Sp1: creating proof failed".to_owned())
                     })?;
                 if let Some(writer) = writer {
-                    writer.store_id((input.chain_spec.chain_id, output.hash), proof_id.clone())?;
+                    writer.store_id(
+                        (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
+                        proof_id.clone(),
+                    )?;
                 }
                 let proof = {
                     let mut is_claimed = false;
