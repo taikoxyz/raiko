@@ -46,6 +46,7 @@ async fn proof_handler(
         &proof_request,
         &prover_state.opts,
         &prover_state.chain_specs,
+        None,
     )
     .await
     .map_err(|e| {

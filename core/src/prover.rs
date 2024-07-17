@@ -28,7 +28,7 @@ impl Prover for NativeProver {
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
-        _store: &mut dyn IdWrite,
+        _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let param =
             config
@@ -64,7 +64,7 @@ impl Prover for NativeProver {
         })
     }
 
-    async fn cancel(_proof_key: ProofKey, _read: &mut dyn IdStore) -> ProverResult<()> {
+    async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
 }

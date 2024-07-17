@@ -105,7 +105,7 @@ impl Raiko {
         &self,
         input: GuestInput,
         output: &GuestOutput,
-        store: &mut dyn IdWrite,
+        store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
         let config = serde_json::to_value(&self.request)?;
         self.request
@@ -114,7 +114,11 @@ impl Raiko {
             .await
     }
 
-    pub async fn cancel(&self, proof_key: ProofKey, read: &mut dyn IdStore) -> RaikoResult<()> {
+    pub async fn cancel(
+        &self,
+        proof_key: ProofKey,
+        read: Box<&mut dyn IdStore>,
+    ) -> RaikoResult<()> {
         self.request.proof_type.cancel_proof(proof_key, read).await
     }
 }

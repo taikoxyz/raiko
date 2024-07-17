@@ -37,7 +37,7 @@ pub struct Proof {
     pub kzg_proof: Option<String>,
 }
 
-pub trait IdWrite {
+pub trait IdWrite: Send {
     fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()>;
 
     fn remove_id(&mut self, key: ProofKey) -> ProverResult<()>;
@@ -53,8 +53,8 @@ pub trait Prover {
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
-        store: &mut dyn IdWrite,
+        store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;
 
-    async fn cancel(proof_key: ProofKey, read: &mut dyn IdStore) -> ProverResult<()>;
+    async fn cancel(proof_key: ProofKey, read: Box<&mut dyn IdStore>) -> ProverResult<()>;
 }

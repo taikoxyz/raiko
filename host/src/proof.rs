@@ -10,7 +10,7 @@ use raiko_lib::{
     prover::{IdWrite, Proof},
     Measurement,
 };
-use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskStatus};
+use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskManagerWrapper, TaskStatus};
 use tokio::{
     select,
     sync::{mpsc::Receiver, Mutex, OwnedSemaphorePermit, Semaphore},
@@ -59,7 +59,7 @@ impl ProofActor {
 
         let mut manager = get_task_manager(&self.opts.clone().into());
         key.proof_system
-            .cancel_proof((key.chain_id, key.blockhash), &mut manager)
+            .cancel_proof((key.chain_id, key.blockhash), Box::new(&mut manager))
             .await?;
         task.cancel();
         Ok(())
@@ -120,7 +120,9 @@ impl ProofActor {
         while let Some(message) = self.receiver.recv().await {
             match message {
                 Message::Cancel(key) => {
-                    self.cancel_task(key).await;
+                    if let Err(error) = self.cancel_task(key).await {
+                        error!("Failed to cancel task: {error}")
+                    }
                 }
                 Message::Task(proof_request) => {
                     let permit = Arc::clone(&semaphore)
@@ -154,7 +156,7 @@ impl ProofActor {
             .await?;
 
         let (status, proof) =
-            match handle_proof(&proof_request, opts, chain_specs, &mut manager).await {
+            match handle_proof(&proof_request, opts, chain_specs, Some(&mut manager)).await {
                 Err(error) => {
                     error!("{error}");
                     (error.into(), None)
@@ -173,7 +175,7 @@ pub async fn handle_proof(
     proof_request: &ProofRequest,
     opts: &Opts,
     chain_specs: &SupportedChainSpecs,
-    store: &mut dyn IdWrite,
+    store: Option<&mut TaskManagerWrapper>,
 ) -> HostResult<Proof> {
     info!(
         "# Generating proof for block {} on {}",
@@ -227,7 +229,7 @@ pub async fn handle_proof(
     memory::reset_stats();
     let measurement = Measurement::start("Generating proof...", false);
     let proof = raiko
-        .prove(input.clone(), &output, store)
+        .prove(input.clone(), &output, store.map(|s| s as &mut dyn IdWrite))
         .await
         .map_err(|e| {
             let total_time = total_time.stop_with("====> Proof generation failed");

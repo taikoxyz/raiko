@@ -160,7 +160,7 @@ impl ProofType {
         input: GuestInput,
         output: &GuestOutput,
         config: &Value,
-        store: &mut dyn IdWrite,
+        store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
         let mut proof = match self {
             ProofType::Native => NativeProver::run(input.clone(), output, config, store)
@@ -212,7 +212,7 @@ impl ProofType {
     pub async fn cancel_proof(
         &self,
         proof_key: ProofKey,
-        read: &mut dyn IdStore,
+        read: Box<&mut dyn IdStore>,
     ) -> RaikoResult<()> {
         let _ = match self {
             ProofType::Native => NativeProver::cancel(proof_key.clone(), read)
