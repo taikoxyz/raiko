@@ -49,6 +49,8 @@ impl From<Risc0Response> for Proof {
 
 pub struct Risc0Prover;
 
+const RISC0_PROVER_CODE: u8 = 3;
+
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
@@ -58,7 +60,11 @@ impl Prover for Risc0Prover {
     ) -> ProverResult<Proof> {
         let mut write = write;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
-        let proof_key = (input.chain_spec.chain_id, output.hash.clone());
+        let proof_key = (
+            input.chain_spec.chain_id,
+            output.hash.clone(),
+            RISC0_PROVER_CODE,
+        );
 
         debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
