@@ -1,5 +1,8 @@
 use log::{debug, error, info, warn};
-use raiko_lib::primitives::keccak::keccak;
+use raiko_lib::{
+    primitives::keccak::keccak,
+    prover::{IdWrite, ProofKey},
+};
 use risc0_zkvm::{
     compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, ExecutorEnv,
     ExecutorImpl, Receipt,
@@ -89,6 +92,8 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     elf: &[u8],
     expected_output: &O,
     assumptions: (Vec<Assumption>, Vec<String>),
+    proof_key: ProofKey,
+    write: &mut Option<&mut dyn IdWrite>,
 ) -> Option<(String, Receipt)> {
     let (assumption_instances, assumption_uuids) = assumptions;
 
@@ -115,6 +120,8 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                     elf,
                     expected_output,
                     assumption_uuids.clone(),
+                    proof_key,
+                    write,
                 )
                 .await
                 {
@@ -178,11 +185,20 @@ pub async fn upload_receipt(receipt: &Receipt) -> anyhow::Result<String> {
     Ok(client.upload_receipt(bincode::serialize(receipt)?)?)
 }
 
+pub async fn cancel_proof(uuid: String) -> anyhow::Result<()> {
+    let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+    let session = bonsai_sdk::alpha::SessionId { uuid };
+    session.stop(&client)?;
+    Ok(())
+}
+
 pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     encoded_input: Vec<u32>,
     elf: &[u8],
     expected_output: &O,
     assumption_uuids: Vec<String>,
+    proof_key: ProofKey,
+    write: &mut Option<&mut dyn IdWrite>,
 ) -> anyhow::Result<(String, Receipt)> {
     info!("Proving on Bonsai");
     // Compute the image_id, then upload the ELF with the image_id as its key.
@@ -201,6 +217,10 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
         input_id.clone(),
         assumption_uuids.clone(),
     )?;
+
+    if let Some(write) = write {
+        write.store_id(proof_key, session.uuid.clone())?;
+    }
 
     verify_bonsai_receipt(image_id, expected_output, session.uuid.clone(), 8).await
 }

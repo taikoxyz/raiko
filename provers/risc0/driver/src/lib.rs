@@ -54,9 +54,11 @@ impl Prover for Risc0Prover {
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
-        _write: Option<&mut dyn IdWrite>,
+        write: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
+        let mut write = write;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+        let proof_key = (input.chain_spec.chain_id, output.hash.clone());
 
         debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
@@ -67,6 +69,8 @@ impl Prover for Risc0Prover {
             RISC0_GUEST_ELF,
             &output.hash,
             Default::default(),
+            proof_key,
+            &mut write,
         )
         .await;
 
@@ -95,7 +99,11 @@ impl Prover for Risc0Prover {
         Ok(Risc0Response { proof: journal }.into())
     }
 
-    async fn cancel(_key: ProofKey, _store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+    async fn cancel(key: ProofKey, store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+        let uuid = store.read_id(key)?;
+        cancel_proof(uuid)
+            .await
+            .map_err(|e| ProverError::GuestError(e.to_string()))?;
         Ok(())
     }
 }
