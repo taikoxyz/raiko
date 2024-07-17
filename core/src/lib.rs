@@ -285,11 +285,11 @@ mod tests {
             map: HashMap<ProofKey, String>,
         }
         impl IdWrite for Store {
-            async fn store_id(&self, key: ProofKey, id: String) -> ProverResult<()> {
+            fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
                 self.map.insert(key, id);
                 Ok(())
             }
-            async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+            fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
                 self.map.remove(&key);
                 Ok(())
             }

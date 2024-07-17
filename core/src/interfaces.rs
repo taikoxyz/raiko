@@ -214,13 +214,13 @@ impl ProofType {
         proof_key: ProofKey,
         read: Box<&mut dyn IdStore>,
     ) -> RaikoResult<()> {
-        let _ = match self {
-            ProofType::Native => NativeProver::cancel(proof_key.clone(), read)
+        match self {
+            ProofType::Native => NativeProver::cancel(proof_key, read)
                 .await
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
-                return sp1_driver::Sp1Driver::cancel(proof_key.clone(), read)
+                return sp1_driver::Sp1Driver::cancel(proof_key, read)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sp1"))]
@@ -228,7 +228,7 @@ impl ProofType {
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                return risc0_driver::Risc0Driver::cancel(proof_key.clone(), read)
+                return risc0_driver::Risc0Driver::cancel(proof_key, read)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "risc0"))]
@@ -236,7 +236,7 @@ impl ProofType {
             }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
-                return sgx_prover::SgxProver::cancel(proof_key.clone(), read)
+                return sgx_prover::SgxProver::cancel(proof_key, read)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
