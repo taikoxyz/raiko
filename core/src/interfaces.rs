@@ -220,7 +220,7 @@ impl ProofType {
                 .map_err(|e| e.into()),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
-                return sp1_driver::Sp1Driver::cancel(proof_key, read)
+                return sp1_driver::Sp1Prover::cancel(proof_key, read)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sp1"))]
@@ -228,7 +228,7 @@ impl ProofType {
             }
             ProofType::Risc0 => {
                 #[cfg(feature = "risc0")]
-                return risc0_driver::Risc0Driver::cancel(proof_key, read)
+                return risc0_driver::Risc0Prover::cancel(proof_key, read)
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "risc0"))]
