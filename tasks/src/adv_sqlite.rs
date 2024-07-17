@@ -778,7 +778,7 @@ impl TaskDb {
         statement.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
-            ":proofsys_id": proof_key as u8,
+            ":proofsys_id": proof_key,
             ":id": id,
         })?;
 
@@ -799,7 +799,7 @@ impl TaskDb {
         statement.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
-            ":proofsys_id": proof_key as u8,
+            ":proofsys_id": proof_key,
         })?;
 
         Ok(())
@@ -824,7 +824,7 @@ impl TaskDb {
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
-                ":proofsys_id": proof_key as u8,
+                ":proofsys_id": proof_key,
             },
             |row| row.get::<_, String>(0),
         )?;
