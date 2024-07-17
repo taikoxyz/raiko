@@ -32,7 +32,7 @@ impl Prover for Sp1Prover {
         input: GuestInput,
         _output: &GuestOutput,
         _config: &ProverConfig,
-        write: &mut dyn IdWrite,
+        write: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         // Write the input.
         let mut stdin = SP1Stdin::new();
@@ -70,7 +70,7 @@ impl Prover for Sp1Prover {
         .into())
     }
 
-    async fn cancel(_key: &str, _store: &mut dyn IdStore) -> ProverResult<()> {
+    async fn cancel(_key: &str, _store: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
 }

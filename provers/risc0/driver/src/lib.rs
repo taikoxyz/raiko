@@ -54,7 +54,7 @@ impl Prover for Risc0Prover {
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
-        write: &mut dyn IdWrite,
+        write: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
 
@@ -95,7 +95,7 @@ impl Prover for Risc0Prover {
         Ok(Risc0Response { proof: journal }.into())
     }
 
-    async fn cancel(key: &str, store: &mut dyn IdStore) -> ProverResult<()> {
+    async fn cancel(key: &str, store: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
 }

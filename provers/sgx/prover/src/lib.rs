@@ -71,7 +71,7 @@ impl Prover for SgxProver {
         input: GuestInput,
         _output: &GuestOutput,
         config: &ProverConfig,
-        _store: &mut dyn IdWrite,
+        _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
@@ -148,7 +148,7 @@ impl Prover for SgxProver {
         sgx_proof.map(|r| r.into())
     }
 
-    async fn cancel(_proof_key: ProofKey, _read: &mut dyn IdStore) -> ProverResult<()> {
+    async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
 }
