@@ -54,9 +54,9 @@ risc0-build = { version = "1.0.1" }
 risc0-binfmt = { version = "1.0.1" }
 
 # SP1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-sdk = {  git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testnet"}
+sp1-zkvm = {  git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testnet"}
+sp1-helper = {  git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testnet"}
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
