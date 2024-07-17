@@ -104,6 +104,7 @@ impl Prover for Risc0Prover {
         cancel_proof(uuid)
             .await
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        store.remove_id(key)?;
         Ok(())
     }
 }
