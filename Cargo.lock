@@ -487,8 +487,7 @@ dependencies = [
 [[package]]
 name = "alloy-serde"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9416c52959e66ead795a11f4a86c248410e9e368a0765710e57055b8a1774dd6"
+source = "git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix#a95c679c0a6a38803f76d0406a636765e265e378"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -8345,9 +8344,11 @@ dependencies = [
 name = "sp1-driver"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips",
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
+ "bincode",
  "cargo_metadata 0.18.1",
  "cfg-if",
  "chrono",
@@ -8355,6 +8356,7 @@ dependencies = [
  "once_cell",
  "raiko-lib",
  "regex",
+ "reth-primitives",
  "serde",
  "serde_json",
  "serde_with 3.9.0",

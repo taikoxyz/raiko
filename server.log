@@ -1,0 +1,127 @@
+warning: skipping duplicate package `fibonacci-program` found at `/home/ubuntu/.cargo/git/checkouts/sp1-20c98843a1ffc860/19ef89a/examples/fibonacci/program`
+   Compiling raiko-lib v0.1.0 (/home/ubuntu/raiko/lib)
+   Compiling raiko-core v0.1.0 (/home/ubuntu/raiko/core)
+   Compiling raiko-tasks v0.1.0 (/home/ubuntu/raiko/tasks)
+   Compiling raiko-host v0.1.0 (/home/ubuntu/raiko/host)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 21.70s
+     Running `target/debug/raiko-host`
+[2m2024-07-18T04:52:53.788216Z[0m [32m INFO[0m [2mraiko_host[0m[2m:[0m Supported chains: SupportedChainSpecs({"taiko_a7": ChainSpec { name: "taiko_a7", chain_id: 167009, max_spec_id: SHANGHAI, hard_forks: {SHANGHAI: Block(0), CANCUN: TBD}, eip_1559_constants: Eip1559Constants { base_fee_change_denominator: 8, base_fee_max_increase_denominator: 8, base_fee_max_decrease_denominator: 8, elasticity_multiplier: 2 }, l1_contract: Some(0x79c9109b764609df928d16fc4a91e9081f7e87db), l2_contract: Some(0x1670090000000000000000000000000000010001), rpc: "https://rpc.hekla.taiko.xyz", beacon_rpc: None, verifier_address: {SGX: Some(0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9), SP1: None, RISC0: Some(0x0000000000000000000000000000000000000000)}, genesis_time: 0, seconds_per_slot: 1, is_taiko: true }, "taiko_mainnet": ChainSpec { name: "taiko_mainnet", chain_id: 167000, max_spec_id: SHANGHAI, hard_forks: {SHANGHAI: Block(0), CANCUN: TBD}, eip_1559_constants: Eip1559Constants { base_fee_change_denominator: 8, base_fee_max_increase_denominator: 8, base_fee_max_decrease_denominator: 8, elasticity_multiplier: 2 }, l1_contract: Some(0x06a9ab27c7e2255df1815e6cc0168d7755feb19a), l2_contract: Some(0x1670000000000000000000000000000000010001), rpc: "https://rpc.mainnet.taiko.xyz", beacon_rpc: None, verifier_address: {SGX: Some(0xb0f3186fc1963f774f52ff455dc86aedd0b31f81), SP1: None, RISC0: Some(0x0000000000000000000000000000000000000000)}, genesis_time: 0, seconds_per_slot: 1, is_taiko: true }, "holesky": ChainSpec { name: "holesky", chain_id: 17000, max_spec_id: CANCUN, hard_forks: {FRONTIER: Block(0), SHANGHAI: Timestamp(1696000704), CANCUN: Timestamp(1707305664)}, eip_1559_constants: Eip1559Constants { base_fee_change_denominator: 8, base_fee_max_increase_denominator: 8, base_fee_max_decrease_denominator: 8, elasticity_multiplier: 2 }, l1_contract: None, l2_contract: None, rpc: "https://ethereum-holesky-rpc.publicnode.com", beacon_rpc: Some("https://fabled-weathered-cherry.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/"), verifier_address: {SGX: Some(0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9), SP1: None, RISC0: Some(0x0000000000000000000000000000000000000000)}, genesis_time: 1695902400, seconds_per_slot: 12, is_taiko: false }, "ethereum": ChainSpec { name: "ethereum", chain_id: 1, max_spec_id: CANCUN, hard_forks: {FRONTIER: Block(0), MERGE: Block(15537394), SHANGHAI: Block(17034870), CANCUN: Timestamp(1710338135)}, eip_1559_constants: Eip1559Constants { base_fee_change_denominator: 8, base_fee_max_increase_denominator: 8, base_fee_max_decrease_denominator: 8, elasticity_multiplier: 2 }, l1_contract: None, l2_contract: None, rpc: "https://rpc.ankr.com/eth", beacon_rpc: Some("https://ethereum-beacon-api.publicnode.com"), verifier_address: {SGX: Some(0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9), SP1: None, RISC0: Some(0x0000000000000000000000000000000000000000)}, genesis_time: 1606824023, seconds_per_slot: 12, is_taiko: false }})
+[2m2024-07-18T04:52:53.788255Z[0m [32m INFO[0m [2mraiko_host[0m[2m:[0m Start config:
+ProofRequestOpt {
+    block_number: None,
+    network: Some(
+        "taiko_a7",
+    ),
+    l1_network: Some(
+        "holesky",
+    ),
+    graffiti: Some(
+        "8008500000000000000000000000000000000000000000000000000000000000",
+    ),
+    prover: Some(
+        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    ),
+    proof_type: Some(
+        "risc0",
+    ),
+    blob_proof_type: None,
+    prover_args: ProverSpecificOpts {
+        native: Some(
+            Object {
+                "json_guest_input": Null,
+            },
+        ),
+        sgx: Some(
+            Object {
+                "bootstrap": Bool(true),
+                "input_path": Null,
+                "instance_id": Number(456),
+                "prove": Bool(true),
+                "setup": Bool(true),
+            },
+        ),
+        sp1: Some(
+            Object {
+                "prover": String("mock"),
+                "recursion": String("core"),
+            },
+        ),
+        risc0: Some(
+            Object {
+                "bonsai": Bool(true),
+                "execution_po2": Number(20),
+                "profile": Bool(false),
+                "snark": Bool(true),
+            },
+        ),
+    },
+}
+[2m2024-07-18T04:52:53.788283Z[0m [32m INFO[0m [2mraiko_host[0m[2m:[0m Args:
+Opts {
+    address: "0.0.0.0:8080",
+    concurrency_limit: 16,
+    log_path: None,
+    max_log: 7,
+    config_path: "host/config/config.json",
+    chain_spec_path: None,
+    cache_path: None,
+    log_level: "info",
+    proof_request_opt: ProofRequestOpt {
+        block_number: None,
+        network: Some(
+            "taiko_a7",
+        ),
+        l1_network: Some(
+            "holesky",
+        ),
+        graffiti: Some(
+            "8008500000000000000000000000000000000000000000000000000000000000",
+        ),
+        prover: Some(
+            "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        ),
+        proof_type: Some(
+            "risc0",
+        ),
+        blob_proof_type: None,
+        prover_args: ProverSpecificOpts {
+            native: Some(
+                Object {
+                    "json_guest_input": Null,
+                },
+            ),
+            sgx: Some(
+                Object {
+                    "bootstrap": Bool(true),
+                    "input_path": Null,
+                    "instance_id": Number(456),
+                    "prove": Bool(true),
+                    "setup": Bool(true),
+                },
+            ),
+            sp1: Some(
+                Object {
+                    "prover": String("mock"),
+                    "recursion": String("core"),
+                },
+            ),
+            risc0: Some(
+                Object {
+                    "bonsai": Bool(true),
+                    "execution_po2": Number(20),
+                    "profile": Bool(false),
+                    "snark": Bool(true),
+                },
+            ),
+        },
+    },
+    jwt_secret: None,
+    sqlite_file: "raiko.sqlite",
+    max_db_size: 1048576,
+}
+[2m2024-07-18T04:52:53.788334Z[0m [32m INFO[0m [2mraiko_host::server[0m[2m:[0m Listening on: 0.0.0.0:8080
+[2m2024-07-18T04:52:57.241884Z[0m [32m INFO[0m [2mraiko_tasks::mem_db[0m[2m:[0m Enqueue new task: EnqueueTaskParams { chain_id: 1, blockhash: 0x3d6c96cb1f45d0de57eaa83324b2d5d8b00b5b60b51f96a105719106e6df0ebe, proof_type: Native, prover: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", block_number: 20331136 }
+[2m2024-07-18T04:52:57.470106Z[0m [32m INFO[0m [2mraiko_host::proof[0m[2m:[0m # Generating proof for block 20331136 on ethereum
+[2m2024-07-18T04:52:57.687411Z[0m [32m INFO[0m [2mraiko_core::preflight[0m[2m:[0m Processing block Some(20331136) with hash: 0x3d6c96cb1f45d0de57eaa83324b2d5d8b00b5b60b51f96a105719106e6df0ebe
+Execution iteration 0...Execution iteration 1...Execution iteration 2...Execution iteration 3...Execution iteration 4...Execution iteration 5...Execution iteration 6...Execution iteration 7...Execution iteration 8...Execution iteration 9...Execution iteration 10...Execution iteration 11...Execution iteration 12...Execution iteration 13...Execution iteration 14...Execution iteration 15...Execution iteration 16...Execution iteration 17...Execution iteration 18...Execution iteration 19...Execution iteration 20...Execution iteration 21...Execution iteration 22...[2K[2m2024-07-18T04:53:01.260657Z[0m [32m INFO[0m [2mraiko_core::preflight[0m[2m:[0m State data fetched in 23 iterations
+fetching storage proof 0/640...
