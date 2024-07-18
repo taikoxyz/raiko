@@ -226,7 +226,6 @@ mod tests {
         consts::{Network, SupportedChainSpecs},
         input::BlobProofType,
         primitives::B256,
-        prover::{IdWrite, ProofKey, ProverResult},
     };
     use serde_json::{json, Value};
     use std::{collections::HashMap, env};
