@@ -271,10 +271,10 @@ mkdir ~/.config/raiko/config
 mkdir ~/.config/raiko/secrets
 ```
 
-5. Now, clone raiko and check out the `taiko/alpha-7` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
+5. Now, clone raiko and check out the `main` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
 
 ```
-git clone -b taiko/alpha-7 https://github.com/taikoxyz/raiko.git
+git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 docker compose build
 ```
@@ -284,8 +284,8 @@ docker compose build
 **Currently, it is not possible to build the image locally due to a dependency being privated. Please pull the docker images needed to run raiko as follows:**
 
 ```
-docker pull us-docker.pkg.dev/evmchain/images/raiko:1.0.0
-docker pull us-docker.pkg.dev/evmchain/images/pccs:1.0.0
+docker pull us-docker.pkg.dev/evmchain/images/raiko:latest
+docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
 You can continue on with the following steps as usual after this.
@@ -355,11 +355,19 @@ pnpm compile
 export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
 ```
 
-4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match
+4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. 
 
+Hekla Addresses:
 `SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
 `ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398 
 `PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E 
+
+Mainnet Addresses:
+`SGX_VERIFIER_ADDRESS`=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
+`ATTESTATION_ADDRESS`=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
+`PEM_CERTCHAIN_ADDRESS`=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
+
+These values are already in the script, it defaults to Hekla; please comment those lines out and uncomment the Mainnet ones if performing RA on Mainnet.
 
 5. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
 
@@ -371,7 +379,7 @@ export PRIVATE_KEY={PROVER_PRIVATE_KEY}
 
 Take that quote and replace `V3_QUOTE_BYTES` in the `script/config_dcap_sgx_verifier.sh` script.
 
-6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with any Holesky RPC URL.
+6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network.
 
 7. Call the script with `./script/config_dcap_sgx_verifier.sh`.
 
