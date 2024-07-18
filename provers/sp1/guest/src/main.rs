@@ -13,24 +13,22 @@ pub mod mem;
 pub use mem::*;
 
 pub fn main() {
-    // let input = sp1_zkvm::io::read::<GuestInput>();
     let input = sp1_zkvm::io::read_vec();
     let input = bincode::deserialize::<GuestInput>(&input).unwrap();
 
-    // revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Sp1Operator {}));
-    // revm_precompile::zk_op::ZKVM_OPERATIONS
-    //     .set(Box::new(vec![
-    //         ZkOperation::Bn128Add,
-    //         ZkOperation::Bn128Mul,
-    //         ZkOperation::Secp256k1,
-    //     ]))
-    //     .expect("Failed to set ZkvmOperations");
+    revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Sp1Operator {}));
+    revm_precompile::zk_op::ZKVM_OPERATIONS
+        .set(Box::new(vec![
+            ZkOperation::Bn128Add,
+            ZkOperation::Bn128Mul,
+            ZkOperation::Secp256k1,
+        ]))
+        .expect("Failed to set ZkvmOperations");
 
-    // let header = calculate_block_header(&input);
-    // let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
-    //     .unwrap()
-    //     .instance_hash();
-    let pi = B256::random();
+    let header = calculate_block_header(&input);
+    let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
+        .unwrap()
+        .instance_hash();
 
     sp1_zkvm::io::commit(&pi);
 }
