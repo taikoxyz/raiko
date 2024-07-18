@@ -440,7 +440,7 @@ Opt {
 Once your Raiko instance is running, you can verify if it was started properly as follows:
 
 ```
- curl --location 'http://localhost:8080' \
+ curl --location 'http://localhost:8080/proof' \
 --header 'Content-Type: application/json' \
 --data '{
     "proof_type": "sgx",
