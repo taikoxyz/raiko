@@ -56,9 +56,9 @@ impl Prover for Risc0Prover {
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
-        write: Option<&mut dyn IdWrite>,
+        id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let mut write = write;
+        let mut id_store = id_store;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
         let proof_key = (
             input.chain_spec.chain_id,
@@ -76,7 +76,7 @@ impl Prover for Risc0Prover {
             &output.hash,
             Default::default(),
             proof_key,
-            &mut write,
+            &mut id_store,
         )
         .await;
 
@@ -105,12 +105,12 @@ impl Prover for Risc0Prover {
         Ok(Risc0Response { proof: journal }.into())
     }
 
-    async fn cancel(key: ProofKey, store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        let uuid = store.read_id(key)?;
+    async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+        let uuid = id_store.read_id(key)?;
         cancel_proof(uuid)
             .await
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        store.remove_id(key)?;
+        id_store.remove_id(key)?;
         Ok(())
     }
 }

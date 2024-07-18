@@ -93,7 +93,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     expected_output: &O,
     assumptions: (Vec<Assumption>, Vec<String>),
     proof_key: ProofKey,
-    write: &mut Option<&mut dyn IdWrite>,
+    id_store: &mut Option<&mut dyn IdWrite>,
 ) -> Option<(String, Receipt)> {
     let (assumption_instances, assumption_uuids) = assumptions;
 
@@ -121,7 +121,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                     expected_output,
                     assumption_uuids.clone(),
                     proof_key,
-                    write,
+                    id_store,
                 )
                 .await
                 {
@@ -198,7 +198,7 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     expected_output: &O,
     assumption_uuids: Vec<String>,
     proof_key: ProofKey,
-    write: &mut Option<&mut dyn IdWrite>,
+    id_store: &mut Option<&mut dyn IdWrite>,
 ) -> anyhow::Result<(String, Receipt)> {
     info!("Proving on Bonsai");
     // Compute the image_id, then upload the ELF with the image_id as its key.
@@ -218,8 +218,8 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
         assumption_uuids.clone(),
     )?;
 
-    if let Some(write) = write {
-        write.store_id(proof_key, session.uuid.clone())?;
+    if let Some(id_store) = id_store {
+        id_store.store_id(proof_key, session.uuid.clone())?;
     }
 
     verify_bonsai_receipt(image_id, expected_output, session.uuid.clone(), 8).await

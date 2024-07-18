@@ -38,7 +38,7 @@ impl Prover for Sp1Prover {
         input: GuestInput,
         output: &GuestOutput,
         _config: &ProverConfig,
-        writer: Option<&mut dyn IdWrite>,
+        id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         // Write the input.
         let mut stdin = SP1Stdin::new();
@@ -68,8 +68,8 @@ impl Prover for Sp1Prover {
                     .map_err(|_| {
                         ProverError::GuestError("Sp1: creating proof failed".to_owned())
                     })?;
-                if let Some(writer) = writer {
-                    writer.store_id(
+                if let Some(id_store) = id_store {
+                    id_store.store_id(
                         (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
                         proof_id.clone(),
                     )?;
@@ -135,8 +135,8 @@ impl Prover for Sp1Prover {
         .into())
     }
 
-    async fn cancel(key: ProofKey, store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        let proof_id = store.read_id(key)?;
+    async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+        let proof_id = id_store.read_id(key)?;
         let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
             ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
         })?;
@@ -145,7 +145,7 @@ impl Prover for Sp1Prover {
             .unclaim_proof(proof_id, UnclaimReason::Abandoned, "".to_owned())
             .await
             .map_err(|_| ProverError::GuestError("Sp1: couldn't unclaim proof".to_owned()))?;
-        store.remove_id(key)?;
+        id_store.remove_id(key)?;
         Ok(())
     }
 }
