@@ -235,14 +235,10 @@ rm csr.pem
 [pccs-readme]: https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/master/QuoteGeneration/pccs/README.md
 [pccs-cert-gen]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/master/QuoteGeneration/pccs/container#2-generate-certificates-to-use-with-pccs
 
-3. Install Intel lib & copy the config file
-
-> **_NOTE:_** The library requires nodejs 18, but regardless if installation succeeds or not, we just need the `default.json` file it comes with.
+3. Curl the config file
 
 ```
-apt install sgx-dcap-pccs
-cd ~/.config/sgx-pccs
-cp /opt/intel/sgx-dcap-pccs/config/default.json  .
+curl -s https://raw.githubusercontent.com/intel/SGXDataCenterAttestationPrimitives/main/QuoteGeneration/pccs/config/default.json > ~/.config/sgx-pccs/default.json
 ```
 
 Make sure you've copied the `default.json` into the .config/sgx-pccs directory you created earlier. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
@@ -288,7 +284,7 @@ docker pull us-docker.pkg.dev/evmchain/images/raiko:latest
 docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
-You can continue on with the following steps as usual after this.
+You can continue on with the following steps as usual after this. Do not do `docker compose build`.
 
 6. Check that the images have been built
 
@@ -377,13 +373,13 @@ These values are already in the script, it defaults to Hekla; please comment tho
 "quote": "0x030002......f00939a7233f79c4ca......9434154452d2d2d2d2d0a00"
 ```
 
-Take that quote and replace `V3_QUOTE_BYTES` in the `script/config_dcap_sgx_verifier.sh` script.
+You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
+
+Copy your quote and use in the following step.
 
 6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network.
 
-7. Call the script with `./script/config_dcap_sgx_verifier.sh`.
-
-> **_NOTE:_**  If you already have QE/TCB/Enclave already configured you can change `export TASK_ENABLE="1,1,1,1,1"` to `export TASK_ENABLE="0,0,0,0,1"` to only register the SGX instance.
+7. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote {YOUR_QUOTE_HERE}`.
 
 8. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
