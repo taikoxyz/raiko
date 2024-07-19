@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Test, console} from "@forge-std/Test.sol";
-import {stdJson} from "@forge-std/StdJson.sol";
+import {Test, console} from "forge-std/Test.sol";
+import {stdJson} from "forge-std/StdJson.sol";
 import {RaikoVerifier} from "../src/RaikoVerifier.sol";
 
 struct RaikoProofFixture {
-    bytes32 pi_hash;
     bytes proof;
     bytes publicValues;
     bytes32 vkey;
@@ -34,7 +33,6 @@ contract RaikoTest is Test {
     function test_ValidRaikoProof() public {
         RaikoProofFixture memory fixture = loadFixture();
         bytes32 pi_hash = raiko.verifyRaikoProof(fixture.proof, fixture.publicValues);
-        // assert(pi_hash == fixture.pi_hash);
     }
 
     function testFail_InvalidRaikoProof() public view {

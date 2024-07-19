@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {SP1Verifier} from "./SP1Verifier.sol";
-import "@forge-std/console.sol";  
+import "forge-std/console.sol";  
 
 
 /// @title Raiko.
@@ -28,11 +28,12 @@ contract RaikoVerifier is SP1Verifier {
         returns (bytes32)
     {
         this.verifyProof(raikoProgramVkey, publicValues, proof);
-        console.log("RaikoVerifier: publicValues: %s", publicValues);
-        console.log("RaikoVerifier: proof: %s", proof);
-        console.log("RaikoVerifier: raikoProgramVkey: %s", raikoProgramVkey);
+        
+        console.logBytes(publicValues);
+        console.logBytes32(raikoProgramVkey);
+        console.logBytes(proof);
+
         bytes32 pi_hash = abi.decode(publicValues, (bytes32));
-        console.log("RaikoVerifier: pi_hash: %s", pi_hash);
         return pi_hash;
     }
 

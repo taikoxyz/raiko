@@ -86,7 +86,7 @@ impl CycleTracker {
             all(target_os = "zkvm", target_vendor = "succinct"),
             feature = "sp1-cycle-tracker"
         ))]
-        println!("cycle-tracker-start: {title}");
+        println!("cycle-tracker-start: {0}", title);
         ct
     }
 
@@ -95,7 +95,7 @@ impl CycleTracker {
             all(target_os = "zkvm", target_vendor = "succinct"),
             feature = "sp1-cycle-tracker"
         ))]
-        println!("cycle-tracker-end: {self.title}");
+        println!("cycle-tracker-end: {0}", self.title);
     }
 
     pub fn println(_inner: impl Fn()) {
