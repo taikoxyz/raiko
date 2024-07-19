@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.25;
 
 import {Test, console} from "@forge-std/Test.sol";
 import {stdJson} from "@forge-std/StdJson.sol";
 import {Raiko} from "../src/Raiko.sol";
-import {SP1VerifierGateway} from "@sp1-contracts/SP1VerifierGateway.sol";
+import {SP1VerifierGateway} from ".//SP1VerifierGateway.sol";
 
 struct RaikoProofFixture {
     bytes32 pi_hash;

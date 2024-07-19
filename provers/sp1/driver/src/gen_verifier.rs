@@ -13,15 +13,19 @@ use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
 use std::env;
 use std::path::PathBuf;
 use bincode::Options;
+use sp1_sdk::artifacts::try_install_plonk_bn254_artifacts;
+
+
 pub const FIXUTRE_PATH: &str = "./provers/sp1/contracts/src/fixtures/fixture.json";
+pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src";
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RaikoProofFixture {
+    vkey: String,
     /// Protocoal Instance hash.
     pi_hash: String,
-    vkey: String,
     public_values: String,
     proof: String,
 }
@@ -37,46 +41,70 @@ fn main() {
     // Setup the logger.
     sp1_sdk::utils::setup_logger();
 
-    // Setup the prover client.
-    let client = ProverClient::new();
+    // Install the plonk verifier from local Sp1 version.
+    let artifacts_dir = try_install_plonk_bn254_artifacts();
 
-    // Setup the program.
-    let (pk, vk) = client.setup(sp1_driver::ELF);
+    // Read all Solidity files from the artifacts_dir.
+    let sol_files = std::fs::read_dir(artifacts_dir)
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("sol"))
+        .collect::<Vec<_>>();
 
-    // Setup the inputs.;
-    let mut stdin = SP1Stdin::new();
-    println!("Reading input from file");
-    let json = std::fs::read_to_string(sp1_driver::E2E_TEST_INPUT_PATH).unwrap();
-    let mut input: GuestInput = serde_json::from_str(&json).unwrap();
-    stdin.write_slice(&bincode::serialize(&input).unwrap());
+    // Write each Solidity file to the contracts directory.
+    let contracts_src_dir = std::path::Path::new(CONTRACT_PATH);
+    for sol_file in sol_files {
+        let sol_file_path = sol_file.path();
+        let sol_file_contents = std::fs::read(&sol_file_path).unwrap();
+        std::fs::write(
+            contracts_src_dir.join(sol_file_path.file_name().unwrap()),
+            sol_file_contents,
+        ).unwrap();
+    }
+
+    // // Setup the prover client.
+    // let client = ProverClient::new();
+
+    // // Setup the program.
+    // let (pk, vk) = client.setup(sp1_driver::ELF);
+
+    // // Setup the inputs.;
+    // let mut stdin = SP1Stdin::new();
+    // println!("Reading input from file");
+    // let json = std::fs::read_to_string(sp1_driver::E2E_TEST_INPUT_PATH).unwrap();
+    // let mut input: GuestInput = serde_json::from_str(&json).unwrap();
+    // stdin.write_slice(&bincode::serialize(&input).unwrap());
     
-    // Generate the proof.
-    let time = Measurement::start("prove_groth16", false);
-    let mut proof = client
-        .prove_plonk(&pk, stdin)
-        .expect("failed to generate proof");
-    time.stop_with("==> Proof generated");
+    // // Generate the proof.
+    // let time = Measurement::start("prove_groth16", false);
+    // let mut proof = client
+    //     .prove_plonk(&pk, stdin)
+    //     .expect("failed to generate proof");
+    // time.stop_with("==> Proof generated");
 
-    // Deserialize the public values.
-    let pi_hash = proof.public_values.read::<B256>();
-    println!("===> pi: {:?}", pi_hash);
+    // // Deserialize the public values.
+    // let pi_hash = proof.public_values.read::<B256>();
+    // println!("===> pi: {:?}", pi_hash);
 
-    // Create the testing fixture so we can test things end-ot-end.
-    let fixture = RaikoProofFixture {
-        pi_hash: pi_hash.to_string(),
-        vkey: vk.bytes32().to_string(),
-        public_values: proof.public_values.bytes().to_string(),
-        proof: proof.bytes().to_string(),
-    };
-    println!("===> Fixture: {:#?}", fixture);
+    // // Create the testing fixture so we can test things end-ot-end.
+    // let fixture = RaikoProofFixture {
+    //     pi_hash: pi_hash.to_string(),
+    //     vkey: vk.bytes32().to_string(),
+    //     public_values: proof.public_values.bytes().to_string(),
+    //     proof: proof.bytes().to_string(),
+    // };
+    // println!("===> Fixture: {:#?}", fixture);
 
-    // Save the fixture to a file.
-    println!("Writing fixture to: {:?}", FIXUTRE_PATH);
-    let fixture_path = PathBuf::from(FIXUTRE_PATH);
-    std::fs::create_dir_all(&fixture_path).expect("failed to create fixture path");
-    std::fs::write(
-        fixture_path.join("fixture.json"),
-        serde_json::to_string_pretty(&fixture).unwrap(),
-    )
-    .expect("failed to write fixture");
+    // // Save the fixture to a file.
+    // println!("Writing fixture to: {:?}", FIXUTRE_PATH);
+    // let fixture_path = PathBuf::from(FIXUTRE_PATH);
+    // if !fixture_path.exists() {
+    //     std::fs::create_dir_all(&fixture_path).expect("failed to create fixture path");
+    // }
+    // std::fs::write(
+    //     fixture_path.join("fixture.json"),
+    //     serde_json::to_string_pretty(&fixture).unwrap(),
+    // )
+    // .expect("failed to write fixture");
+
 }
