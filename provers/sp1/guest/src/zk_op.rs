@@ -76,17 +76,6 @@ impl ZkvmOperator for Sp1Operator {
 
         Ok(public_key_to_address(pk).into_word().0)
     
-        // let mut sig_id = [0u8; 65];
-        // sig_id[..64].copy_from_slice(sig);
-        // sig_id[64] = recid;
-        // let recovered_key = sp1_precompiles::secp256k1::ecrecover(&sig_id, msg)
-        //     .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
-
-        // let mut hash = keccak256(&recovered_key[1..]);
-
-        // // truncate to 20 bytes
-        // hash[..12].fill(0);
-        // Ok(*hash)
     }
 }
 

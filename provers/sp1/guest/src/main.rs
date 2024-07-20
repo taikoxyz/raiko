@@ -3,10 +3,7 @@ harness::entrypoint!(main, tests, zk_op::tests);
 use std::str::FromStr;
 
 use raiko_lib::{
-    consts::VerifierType,
-    builder::calculate_block_header, input::GuestInput,
-    protocol_instance::ProtocolInstance,
-    primitives::B256,
+    builder::calculate_block_header, consts::VerifierType, input::GuestInput, primitives::B256, protocol_instance::ProtocolInstance, CycleTracker
 };
 use reth_primitives::{B512, U256};
 use revm_precompile::zk_op::ZkOperation;
@@ -16,48 +13,31 @@ pub mod mem;
 pub use mem::*;
 
 pub fn main() {
-    println!("cycle-tracker-start: input");
+
+    let mut ct = CycleTracker::start("input");
     let input = sp1_zkvm::io::read_vec();
     let input = bincode::deserialize::<GuestInput>(&input).unwrap();
-    println!("cycle-tracker-end: input");
+    ct.end();
 
-    // revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Sp1Operator {}));
-    // revm_precompile::zk_op::ZKVM_OPERATIONS
-    //     .set(Box::new(vec![
-    //         ZkOperation::Bn128Add,
-    //         ZkOperation::Bn128Mul,
-    //         //already patched with https://github.com/CeciliaZ030/rust-secp256k1
-    //         // ZkOperation::Secp256k1, 
-    //     ]))
-    //     .expect("Failed to set ZkvmOperations");
+    revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Sp1Operator {}));
+    revm_precompile::zk_op::ZKVM_OPERATIONS
+        .set(Box::new(vec![
+            ZkOperation::Bn128Add,
+            ZkOperation::Bn128Mul,
+            //already patched with https://github.com/CeciliaZ030/rust-secp256k1
+            ZkOperation::Secp256k1, 
+        ]))
+        .expect("Failed to set ZkvmOperations");
 
-
-
-    let signature = reth_primitives::Signature {
-        r: U256::from_str(
-            "18515461264373351373200002665853028612451056578545711640558177340181847433846",
-        )
-        .unwrap(),
-        s: U256::from_str(
-            "46948507304638947509940763649030358759909902576025900602547168820602576006531",
-        )
-        .unwrap(),
-        odd_y_parity: false,
-    };
-    let hash =
-        reth_primitives::B256::from_str("daf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53")
-            .unwrap();
-
-    let signer = signature.recover_signer(hash).unwrap();
-
-
-
-    // let header = calculate_block_header(&input);
-    // let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
-    //     .unwrap()
-    //     .instance_hash();
-
-    let pi = B256::random();
+    ct = CycleTracker::start("calculate_block_header");
+    let header = calculate_block_header(&input);
+    ct.end();
+    
+    ct = CycleTracker::start("ProtocolInstance");
+    let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
+        .unwrap()
+        .instance_hash();
+    ct.end();
 
     sp1_zkvm::io::commit(&pi.0);
 }
@@ -72,7 +52,6 @@ harness::zk_suits!(
             assert_eq!(1, 1);
             
         }
-
         pub fn test_signature() {
             let signature = reth_primitives::Signature {
                 r: U256::from_str(
