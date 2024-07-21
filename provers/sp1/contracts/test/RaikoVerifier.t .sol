@@ -7,7 +7,7 @@ import {RaikoVerifier} from "../src/RaikoVerifier.sol";
 
 struct RaikoProofFixture {
     bytes proof;
-    bytes publicValues;
+    bytes32 publicValues;
     bytes32 vkey;
 }
 
@@ -25,14 +25,17 @@ contract RaikoTest is Test {
     }
 
     function setUp() public {
+        console.logString("Setting up RaikoTest");
         RaikoProofFixture memory fixture = loadFixture();
-
         raiko = new RaikoVerifier(fixture.vkey);
     }
 
     function test_ValidRaikoProof() public {
         RaikoProofFixture memory fixture = loadFixture();
-        bytes32 pi_hash = raiko.verifyRaikoProof(fixture.proof, fixture.publicValues);
+        bytes32 pi_hash = raiko.verifyRaikoProof(
+            fixture.proof, 
+            abi.encodePacked(fixture.publicValues)
+        );
     }
 
     function testFail_InvalidRaikoProof() public view {
@@ -41,6 +44,6 @@ contract RaikoTest is Test {
         // Create a fake proof.
         bytes memory fakeProof = new bytes(fixture.proof.length);
 
-        raiko.verifyRaikoProof(fakeProof, fixture.publicValues);
+        raiko.verifyRaikoProof(fakeProof, abi.encodePacked(fixture.publicValues));
     }
 }

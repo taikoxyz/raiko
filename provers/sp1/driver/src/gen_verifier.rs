@@ -10,7 +10,7 @@ use reth_primitives::{AccessList, AccessListItem, Withdrawals};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::Prover;
 use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
-use std::env;
+use std::env::{self, Args};
 use std::path::PathBuf;
 use bincode::Options;
 use sp1_sdk::artifacts::try_install_plonk_bn254_artifacts;
@@ -36,13 +36,8 @@ use reth_primitives::{
 
 fn main() {
 
-
-    let tx = reth_primitives::TransactionSigned::default();
-    let signer = tx.recover_signer();
-
-
-
     dotenv::from_path("./provers/sp1/driver/.env").ok();
+    let args = std::env::args();
 
     // Setup the logger.
     sp1_sdk::utils::setup_logger();
@@ -76,9 +71,16 @@ fn main() {
 
     // Setup the inputs.;
     let mut stdin = SP1Stdin::new();
-    println!("Reading input from file");
-    let json = std::fs::read_to_string(sp1_driver::E2E_TEST_INPUT_PATH).unwrap();
-    let mut input: GuestInput = serde_json::from_str(&json).unwrap();
+    let path = args
+        .last()
+        .map(|s| {
+            let p = PathBuf::from(FIXUTRE_PATH).join(s);
+            if p.exists() { p } else { PathBuf::from(sp1_driver::E2E_TEST_INPUT_PATH)}
+        })
+        .unwrap_or_else(|| PathBuf::from(sp1_driver::E2E_TEST_INPUT_PATH));
+    println!("Reading GuestInput from {:?}", path);
+    let json = std::fs::read_to_string(path).unwrap();
+    let input: GuestInput = serde_json::from_str(&json).unwrap();
     stdin.write_slice(&bincode::serialize(&input).unwrap());
     
     // Generate the proof.
