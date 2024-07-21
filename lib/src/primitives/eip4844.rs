@@ -117,13 +117,13 @@ mod test {
         // The input is encoded as follows:
         // | versioned_hash |  z  |  y  | commitment | proof |
         // |     32         | 32  | 32  |     48     |   48  |
-        let version_hash = commitment_to_version_hash(&commitment);
+        let version_hash = commitment_to_version_hash(commitment);
         let mut input = [0u8; 192];
         input[..32].copy_from_slice(&(*version_hash));
         input[32..64].copy_from_slice(&z.to_bytes());
         input[64..96].copy_from_slice(&y.to_bytes());
         input[96..144].copy_from_slice(commitment);
-        input[144..192].copy_from_slice(&kzg_proof_to_bytes(&proof));
+        input[144..192].copy_from_slice(&kzg_proof_to_bytes(proof));
 
         Ok(reth_primitives::revm_precompile::kzg_point_evaluation::run(
             &Bytes::copy_from_slice(&input),

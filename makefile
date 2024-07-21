@@ -11,9 +11,3 @@ run:
 test:
 	TEST=1 ./script/build.sh $(TARGET)
 	TEST=1 RUN=1 ./script/build.sh $(TARGET)
-
-fmt:
-	@cargo fmt --all --check
-
-clippy:
-	CLIPPY=1 ./script/build.sh $(TARGET)
