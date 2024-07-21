@@ -6,7 +6,7 @@ use crate::{
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use raiko_lib::builder::{create_mem_db, RethBlockBuilder};
-use raiko_lib::consts::{ChainSpec, VerifierType};
+use raiko_lib::consts::ChainSpec;
 use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
 use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::prover::Proof;
@@ -79,7 +79,7 @@ impl Raiko {
 
                 Ok(GuestOutput {
                     header: header.clone(),
-                    hash: ProtocolInstance::new(input, &header, VerifierType::None)?
+                    hash: ProtocolInstance::new(input, &header, self.request.proof_type.into())?
                         .instance_hash(),
                 })
             }
