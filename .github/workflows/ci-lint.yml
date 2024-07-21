@@ -18,9 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run install script for all targets
-        run: make install
-
       - name: Run clippy check for all targets
         run: make clippy
 
