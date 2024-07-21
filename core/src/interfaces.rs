@@ -2,6 +2,7 @@ use crate::{merge, prover::NativeProver};
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
+    consts::VerifierType,
     input::{BlobProofType, GuestInput, GuestOutput},
     primitives::eip4844::{calc_kzg_proof, commitment_to_version_hash, kzg_proof_to_bytes},
     prover::{Proof, Prover, ProverError},
@@ -149,6 +150,17 @@ impl TryFrom<u8> for ProofType {
             2 => Ok(Self::Sgx),
             3 => Ok(Self::Risc0),
             _ => Err(RaikoError::Conversion("Invalid u8".to_owned())),
+        }
+    }
+}
+
+impl Into<VerifierType> for ProofType {
+    fn into(self) -> VerifierType {
+        match self {
+            ProofType::Native => VerifierType::None,
+            ProofType::Sp1 => VerifierType::SP1,
+            ProofType::Sgx => VerifierType::SGX,
+            ProofType::Risc0 => VerifierType::RISC0,
         }
     }
 }
