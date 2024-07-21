@@ -33,7 +33,7 @@ $ ./script/prove-block.sh taiko_mainnet native 192317 192317 '
         "json_guest_input": "./provers/sp1/contracts/src/fixtures/input-taiko-mainnet-192317.json"
     }
 '
-$ cargo run --bin gen-verfier -- input-taiko-mainnet-192317.json
+$ cargo run --bin gen-verifier -- input-taiko-mainnet-192317.json
 $ cd ./provers/sp1/contracts
 $ forge test
 ```
