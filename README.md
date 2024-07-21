@@ -180,6 +180,6 @@ When running any of the features/provers, OpenAPI UIs are available in both Swag
 
 Raiko block proof is available through Sp1's recursive verifier. 
 ```console
-$ ./script/sp1-e2e.sh 1234
+$ ./script/sp1-e2e.sh taiko_mainnet 192317
 ```
-By running this script, you will pull data of block 1234, generate PK/VK and the proof, initiate the contract and verify the proof in Solidity test envoronment.
+By running this script, you will pull data of taiko_mainnet block 192317, generate PK/VK and the proof, initiate the contract and verify the proof in Solidity test envoronment.
