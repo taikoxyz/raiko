@@ -1,10 +1,12 @@
-use raiko_lib::primitives::keccak256;
+use ::secp256k1::SECP256K1;
 use reth_primitives::public_key_to_address;
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
-use secp256k1::{ecdsa::{RecoverableSignature, RecoveryId}, Message};
+use secp256k1::{
+    ecdsa::{RecoverableSignature, RecoveryId},
+    Message,
+};
 use sha2_v0_10_8 as sp1_sha2;
 use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
-use ::secp256k1::SECP256K1;
 
 #[derive(Debug)]
 pub struct Sp1Operator;
@@ -65,17 +67,16 @@ impl ZkvmOperator for Sp1Operator {
         recid: u8,
         msg: &[u8; 32],
     ) -> Result<[u8; 32], Error> {
-
-        let sig = RecoverableSignature::from_compact(sig, RecoveryId::from_i32(recid as i32).unwrap())
+        let sig =
+            RecoverableSignature::from_compact(sig, RecoveryId::from_i32(recid as i32).unwrap())
+                .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
+        let msg =
+            Message::from_digest_slice(msg).map_err(|e| Error::ZkvmOperation(e.to_string()))?;
+        let pk = SECP256K1
+            .recover_ecdsa(&msg, &sig)
             .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
-        let msg = Message::from_digest_slice(msg)
-            .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
-        let pk = SECP256K1.recover_ecdsa(&msg, &sig)
-            .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
-
 
         Ok(public_key_to_address(pk).into_word().0)
-    
     }
 }
 
@@ -105,6 +106,7 @@ fn point_to_be_bytes(p: AffinePoint<Bn254, 16>) -> [u8; 64] {
 
 harness::zk_suits!(
     pub mod tests {
+        use raiko_lib::primitives::hex;
         use revm_precompile::bn128;
         use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
         use substrate_bn::Group;

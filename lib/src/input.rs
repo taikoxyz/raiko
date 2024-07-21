@@ -5,9 +5,8 @@ use std::path::PathBuf;
 use alloy_sol_types::sol;
 use anyhow::{anyhow, Error, Result};
 use reth_primitives::{
-    Block, Header,
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
-    TransactionSigned,
+    Block, Header, TransactionSigned,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;

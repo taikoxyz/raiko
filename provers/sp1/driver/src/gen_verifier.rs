@@ -1,22 +1,14 @@
 #![cfg(feature = "enable")]
-use alloy_primitives::{Address, B256};
-use alloy_sol_types::{sol, SolType};
-use dotenv::dotenv;
-use raiko_lib::consts::ChainSpec;
-use raiko_lib::input::{self, GuestInput, RawGuestOutput, TaikoGuestInput, Transition};
-use raiko_lib::primitives::mpt::MptNode;
-use raiko_lib::{print_duration, Measurement};
-use reth_primitives::{AccessList, AccessListItem, Withdrawals};
+use alloy_primitives::B256;
+use raiko_lib::input::GuestInput;
+use raiko_lib::Measurement;
 use serde::{Deserialize, Serialize};
-use sp1_sdk::Prover;
-use sp1_sdk::{HashableKey, MockProver, ProverClient, SP1Stdin};
-use std::env::{self, Args};
-use std::path::PathBuf;
-use bincode::Options;
 use sp1_sdk::artifacts::try_install_plonk_bn254_artifacts;
+use sp1_sdk::Prover;
+use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
+use std::path::PathBuf;
 
-
-pub const FIXUTRE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
+pub const FIXTURE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
 pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src";
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
@@ -28,14 +20,7 @@ struct RaikoProofFixture {
     proof: String,
 }
 
-use reth_primitives::{
-    Block, Header,
-    revm_primitives::{Bytes, HashMap, U256},
-    TransactionSigned,
-};
-
 fn main() {
-
     dotenv::from_path("./provers/sp1/driver/.env").ok();
     let args = std::env::args();
 
@@ -60,7 +45,8 @@ fn main() {
         std::fs::write(
             contracts_src_dir.join(sol_file_path.file_name().unwrap()),
             sol_file_contents,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     // Setup the prover client.
@@ -74,15 +60,19 @@ fn main() {
     let path = args
         .last()
         .map(|s| {
-            let p = PathBuf::from(FIXUTRE_PATH).join(s);
-            if p.exists() { p } else { PathBuf::from(sp1_driver::E2E_TEST_INPUT_PATH)}
+            let p = PathBuf::from(FIXTURE_PATH).join(s);
+            if p.exists() {
+                p
+            } else {
+                PathBuf::from(sp1_driver::E2E_TEST_INPUT_PATH)
+            }
         })
         .unwrap_or_else(|| PathBuf::from(sp1_driver::E2E_TEST_INPUT_PATH));
     println!("Reading GuestInput from {:?}", path);
     let json = std::fs::read_to_string(path).unwrap();
     let input: GuestInput = serde_json::from_str(&json).unwrap();
     stdin.write_slice(&bincode::serialize(&input).unwrap());
-    
+
     // Generate the proof.
     let time = Measurement::start("prove_groth16", false);
     let mut proof = client
@@ -94,7 +84,7 @@ fn main() {
     let pi_hash = proof.public_values.read::<[u8; 32]>();
     println!("===> pi: {:?}", pi_hash);
 
-    // Create the testing fixture so we can test things end-ot-end.
+    // Create the testing fixture so we can test things end-to-end.
     let fixture = RaikoProofFixture {
         vkey: vk.bytes32().to_string(),
         public_values: B256::from_slice(&pi_hash).to_string(),
@@ -103,8 +93,8 @@ fn main() {
     println!("===> Fixture: {:#?}", fixture);
 
     // Save the fixture to a file.
-    println!("Writing fixture to: {:?}", FIXUTRE_PATH);
-    let fixture_path = PathBuf::from(FIXUTRE_PATH);
+    println!("Writing fixture to: {:?}", FIXTURE_PATH);
+    let fixture_path = PathBuf::from(FIXTURE_PATH);
     if !fixture_path.exists() {
         std::fs::create_dir_all(&fixture_path).expect("failed to create fixture path");
     }
@@ -113,5 +103,4 @@ fn main() {
         serde_json::to_string_pretty(&fixture).unwrap(),
     )
     .expect("failed to write fixture");
-
 }

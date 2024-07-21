@@ -1,10 +1,8 @@
 #![cfg(feature = "enable")]
-use std::{env, path::PathBuf};
 
-use alloy_sol_types::SolType;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;

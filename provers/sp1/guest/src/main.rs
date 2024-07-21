@@ -1,11 +1,10 @@
 #![no_main]
 harness::entrypoint!(main, tests, zk_op::tests);
-use std::str::FromStr;
 
 use raiko_lib::{
-    builder::calculate_block_header, consts::VerifierType, input::GuestInput, primitives::B256, protocol_instance::ProtocolInstance, CycleTracker
+    builder::calculate_block_header, consts::VerifierType, input::GuestInput,
+    protocol_instance::ProtocolInstance, CycleTracker,
 };
-use reth_primitives::{B512, U256};
 use revm_precompile::zk_op::ZkOperation;
 use zk_op::Sp1Operator;
 
@@ -13,7 +12,6 @@ pub mod mem;
 pub use mem::*;
 
 pub fn main() {
-
     let mut ct = CycleTracker::start("input");
     let input = sp1_zkvm::io::read_vec();
     let input = bincode::deserialize::<GuestInput>(&input).unwrap();
@@ -25,14 +23,14 @@ pub fn main() {
             ZkOperation::Bn128Add,
             ZkOperation::Bn128Mul,
             //already patched with https://github.com/CeciliaZ030/rust-secp256k1
-            ZkOperation::Secp256k1, 
+            ZkOperation::Secp256k1,
         ]))
         .expect("Failed to set ZkvmOperations");
 
     ct = CycleTracker::start("calculate_block_header");
     let header = calculate_block_header(&input);
     ct.end();
-    
+
     ct = CycleTracker::start("ProtocolInstance");
     let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
         .unwrap()
@@ -44,13 +42,12 @@ pub fn main() {
 
 harness::zk_suits!(
     pub mod tests {
-        use std::str::FromStr;
         use reth_primitives::U256;
+        use std::str::FromStr;
         #[test]
         pub fn test_build_from_mock_input() {
             // Todo: impl mock input for static unit test
             assert_eq!(1, 1);
-            
         }
         pub fn test_signature() {
             let signature = reth_primitives::Signature {
@@ -64,9 +61,10 @@ harness::zk_suits!(
                 .unwrap(),
                 odd_y_parity: false,
             };
-            let hash =
-                reth_primitives::B256::from_str("daf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53")
-                    .unwrap();
+            let hash = reth_primitives::B256::from_str(
+                "daf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53",
+            )
+            .unwrap();
             let signer = signature.recover_signer(hash).unwrap();
         }
     }

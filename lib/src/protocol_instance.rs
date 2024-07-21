@@ -11,7 +11,8 @@ use crate::{
     primitives::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
-    }, CycleTracker,
+    },
+    CycleTracker,
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 

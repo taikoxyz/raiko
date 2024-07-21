@@ -53,7 +53,7 @@ The script `prove-block.sh` always sends a POST request to Raiko server and enqu
 ```shell
  curl --location --request POST 'http://localhost:8080/proof/report'
 ```
-To prune all tasks (the cancellation feature that kills prover is stil WIP):
+To prune all tasks (the cancellation feature that kills prover is still WIP):
 ```shell
  curl --location --request POST 'http://localhost:8080/proof/prune'
 ```
@@ -178,8 +178,8 @@ When running any of the features/provers, OpenAPI UIs are available in both Swag
 
 ## Smart Contract Verification
 
-Raiko block proof is avaliable through Sp1's recursive verifier. 
+Raiko block proof is available through Sp1's recursive verifier. 
 ```console
 $ ./script/sp1-e2e.sh 1234
 ```
-By running this sciprt, you will pull data of block 1234, generate PK/VK and the proof, initiate the contract and verify the proof in Solidity test envoronment.
+By running this script, you will pull data of block 1234, generate PK/VK and the proof, initiate the contract and verify the proof in Solidity test envoronment.
