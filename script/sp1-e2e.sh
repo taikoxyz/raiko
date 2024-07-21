@@ -3,18 +3,33 @@
 # Any error will result in failure
 set -e
 
-# Build gen-verifier first
-cargo build -p sp1-driver --bin gen-verifier --release
-
-network=$1
-block=$2
+network=$1  
+block=$2  
 
 # Check if both network and block are set  
 if [ -z "$network" ] || [ -z "$block" ]; then  
     echo "Error: Both 'network' and 'block' arguments must be provided."  
     echo "Usage: $0 <network> <block>"  
     exit 1  
-fi
+fi  
+
+# Construct the input file name  
+input_filename="input-${network}-${block}.json"  
+
+# Define the path where the input file is located  
+input_path="./provers/sp1/contracts/src/fixtures"  
+
+# Create the proofParam JSON string using a here-document  
+proofParam=$(cat <<EOF  
+    "proof_type": "native",  
+    "native": {  
+        "json_guest_input": "${input_path}/${input_filename}"  
+    }  
+EOF
+)
+
+# Output the proofParam JSON  
+echo "$proofParam"
 
 # Function to be called on script exit
 cleanup() {
@@ -37,23 +52,6 @@ SERVER_PID=$!
 
 # Get the directory of the current script 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Construct the input file name  
-input_filename="input-${network}-${block}.json"  
-
-# Define the path where the input file is located  
-input_path="./provers/sp1/contracts/src/fixtures"  
-
-# Create the proofParam JSON string  
-proofParam=$(cat <<EOF  
-{  
-    "proof_type": "native",  
-    "native": {  
-        "json_guest_input": "${input_path}/${input_filename}"  
-    }  
-}  
-EOF  
-)  
 
 # Function to check the status of prove-block.sh  
 check_prove_block_status() {  
@@ -94,7 +92,7 @@ while ! check_prove_block_status; do
 done
 
 # Generate solidity tests fixture
-cargo run -p sp1-driver --bin gen-verifier --release -- $input_filename
+cargo run --bin gen-verifier --release -- $input_filename
 
 # Run Smart Contract verification
 cd $SCRIPT_DIR/../provers/sp1/contracts
