@@ -46,9 +46,7 @@ fi
 
 # NATIVE
 if [ -z "$1" ] || [ "$1" == "native" ]; then
-	if [ -n "${CLIPPY}" ]; then
-		cargo clippy -- -D warnings
-	elif [ -z "${RUN}" ]; then
+	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			echo "Building native prover"
 			cargo build ${FLAGS}
@@ -74,8 +72,6 @@ if [ -z "$1" ] || [ "$1" == "sgx" ]; then
 		export SGX_DIRECT=1
 		echo "SGX_DIRECT is set to $SGX_DIRECT"
 	fi
-	if [ -n "${CLIPPY}" ]; then
-		cargo ${TOOLCHAIN_SGX} clippy -p raiko-host -p sgx-prover -F "sgx enable" -- -D warnings
 	elif [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			echo "Building SGX prover"
@@ -103,13 +99,7 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		export RISC0_DEV_MODE=1
 		echo "RISC0_DEV_MODE is set to $RISC0_DEV_MODE"
 	fi
-	if [ -n "${CLIPPY}" ]; then
-		MOCK=1
-		RISC0_DEV_MODE=1
-		CI=1
-		cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
-		cargo ${TOOLCHAIN_RISC0} clippy -F risc0
-	elif [ -z "${RUN}" ]; then
+	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			echo "Building Risc0 prover"
 			cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
@@ -137,9 +127,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		export SP1_PROVER=mock
 		echo "SP1_PROVER is set to $SP1_PROVER"
 	fi
-	if [ -n "${CLIPPY}" ]; then
-		cargo ${TOOLCHAIN_SP1} clippy -p raiko-host -p sp1-builder -p sp1-driver -F "sp1 enable"
-	elif [ -z "${RUN}" ]; then
+	if [ -z "${RUN}" ]; then
 		if [ -z "${TEST}" ]; then
 			echo "Building Sp1 prover"
 			cargo ${TOOLCHAIN_SP1} run --bin sp1-builder
