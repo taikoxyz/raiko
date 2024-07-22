@@ -3,10 +3,9 @@ use alloy_primitives::B256;
 use raiko_lib::input::{GuestInput, GuestOutput};
 use raiko_lib::prover::Prover;
 use raiko_lib::Measurement;
-use sp1_driver::{Sp1Param, Sp1Prover};
-use sp1_sdk::ProverClient;
+use serde_json::json;
+use sp1_driver::Sp1Prover;
 use std::path::PathBuf;
-use serde_json::{json, Value};
 
 pub const DATA: &str = "./data/";
 
@@ -16,7 +15,7 @@ async fn main() {
 
     // Setup the logger.
     sp1_sdk::utils::setup_logger();
-    
+
     // Setup the inputs.;
     let path = std::env::args()
         .last()
@@ -41,14 +40,12 @@ async fn main() {
     // Param has higher priority than .env
     let param = json!({
         "sp1" : {
-            "recursion": "core",
-            "prover": "mock",
+            "recursion": "plonk",
+            "prover": "network",
             "verify": true
         }
     });
     let time = Measurement::start("prove_groth16 & verify", false);
-    Sp1Prover::run(input, &output, &param)
-        .await
-        .unwrap();
+    Sp1Prover::run(input, &output, &param).await.unwrap();
     time.stop_with("==> Verfication complete");
 }

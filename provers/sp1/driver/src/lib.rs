@@ -25,8 +25,8 @@ pub struct Sp1Param {
     pub verify: bool,
 }
 
-#[serde(rename_all = "lowercase")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RecursionMode {
     /// The proof mode for an SP1 core proof.
     Core,
@@ -36,8 +36,8 @@ pub enum RecursionMode {
     Plonk,
 }
 
-#[serde(rename_all = "lowercase")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ProverMode {
     Mock,
     Local,
@@ -114,7 +114,7 @@ fn init_verifier() -> Result<PathBuf, ProverError> {
 
     // Read all Solidity files from the artifacts_dir.
     let sol_files = std::fs::read_dir(artifacts_dir)
-        .map_err(|e| ProverError::GuestError("Failed to read Sp1 verifier artifacts".to_string()))?
+        .map_err(|_| ProverError::GuestError("Failed to read Sp1 verifier artifacts".to_string()))?
         .filter_map(|entry| entry.ok())
         .filter(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("sol"))
         .collect::<Vec<_>>();

@@ -5787,6 +5787,7 @@ dependencies = [
  "cap",
  "cfg-if",
  "clap 4.5.9",
+ "dotenv",
  "env_logger",
  "ethers-core 2.0.10",
  "flate2",
