@@ -80,6 +80,7 @@ mod test {
     use crate::cache;
 
     use alloy_primitives::{Address, B256};
+    use alloy_provider::Provider;
     use raiko_core::{
         interfaces::{ProofRequest, ProofType},
         provider::rpc::RpcBlockDataProvider,
@@ -87,7 +88,7 @@ mod test {
     };
     use raiko_lib::input::BlobProofType;
     use raiko_lib::{
-        consts::{Network, SupportedChainSpecs},
+        consts::{ChainSpec, Network, SupportedChainSpecs},
         input::GuestInput,
     };
 

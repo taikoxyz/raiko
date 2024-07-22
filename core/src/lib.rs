@@ -12,12 +12,9 @@ use raiko_lib::{
     prover::ProofKey,
 };
 use raiko_lib::{
-    consts::{ChainSpec, VerifierType},
-    prover::IdStore,
-};
-use raiko_lib::{
+    consts::ChainSpec,
     input::{GuestInput, GuestOutput, TaikoProverData},
-    prover::IdWrite,
+    prover::{IdStore, IdWrite},
 };
 use reth_primitives::Header;
 use serde_json::Value;
