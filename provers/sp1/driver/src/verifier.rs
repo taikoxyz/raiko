@@ -46,6 +46,6 @@ async fn main() {
         }
     });
     let time = Measurement::start("prove_groth16 & verify", false);
-    Sp1Prover::run(input, &output, &param).await.unwrap();
+    Sp1Prover::run(input, &output, &param, None).await.unwrap();
     time.stop_with("==> Verification complete");
 }

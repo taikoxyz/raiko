@@ -10,11 +10,11 @@ use raiko_lib::{
 use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use sp1_sdk::{HashableKey, ProverClient, SP1PlonkBn254Proof, SP1Stdin, SP1VerifyingKey};
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus, UnclaimReason},
 };
+use sp1_sdk::{HashableKey, ProverClient, SP1PlonkBn254Proof, SP1Stdin, SP1VerifyingKey};
 use std::{env, thread::sleep, time::Duration};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
@@ -42,7 +42,7 @@ pub enum RecursionMode {
     Plonk,
 }
 
-impl From <RecursionMode> for ProofMode {
+impl From<RecursionMode> for ProofMode {
     fn from(value: RecursionMode) -> Self {
         match value {
             RecursionMode::Core => ProofMode::Core,
@@ -59,7 +59,6 @@ pub enum ProverMode {
     Local,
     Network,
 }
-
 
 impl From<Sp1Response> for Proof {
     fn from(value: Sp1Response) -> Self {
@@ -96,42 +95,39 @@ impl Prover for Sp1Prover {
             ProverMode::Local => ProverClient::local(),
             ProverMode::Network => ProverClient::network(),
         };
-        let (pk, vk) = client.setup(ELF);  
+        let (pk, vk) = client.setup(ELF);
 
         if !matches!(param.prover, ProverMode::Network) {
-            return match param.recursion {
-                RecursionMode::Core => {
-                    client
-                        .prove(&pk, stdin)
-                        .map(|p| serde_json::to_string(&p))
-                }
-                RecursionMode::Compressed => {
-                    client
-                        .prove_compressed(&pk, stdin)
-                        .map(|p| serde_json::to_string(&p))
-                }
-                RecursionMode::Plonk => {
-                    client
-                        .prove_plonk(&pk, stdin)
-                        .map(|p| serde_json::to_string(&p))
-                }
+            match param.recursion {
+                RecursionMode::Core => client.prove(&pk, stdin).map(|p| serde_json::to_string(&p)),
+                RecursionMode::Compressed => client
+                    .prove_compressed(&pk, stdin)
+                    .map(|p| serde_json::to_string(&p)),
+                RecursionMode::Plonk => client
+                    .prove_plonk(&pk, stdin)
+                    .map(|p| serde_json::to_string(&p)),
             }
-            .map(|s| Proof { proof: s.ok(), quote: None, kzg_proof: None })
-            .map_err(|e| ProverError::GuestError(format!("Sp1: proving failed: {}", e)));
+            .map(|s| Proof {
+                proof: s.ok(),
+                quote: None,
+                kzg_proof: None,
+            })
+            .map_err(|e| ProverError::GuestError(format!("Sp1: proving failed: {}", e)))
         } else {
             let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
-                ProverError::GuestError(
-                    "SP1_PRIVATE_KEY must be set for remote proving".to_owned(),
-                )
+                ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
             })?;
             let network_client = NetworkClient::new(&private_key);
-            
+
             let proof_id = network_client
-                .create_proof(&pk.elf, &stdin, param.recursion.clone().into(), "v1.0.8-testnet")
+                .create_proof(
+                    &pk.elf,
+                    &stdin,
+                    param.recursion.clone().into(),
+                    "v1.0.8-testnet",
+                )
                 .await
-                .map_err(|_| {
-                    ProverError::GuestError("Sp1: creating proof failed".to_owned())
-                })?;
+                .map_err(|_| ProverError::GuestError("Sp1: creating proof failed".to_owned()))?;
 
             if let Some(id_store) = id_store {
                 id_store.store_id(
@@ -143,28 +139,21 @@ impl Prover for Sp1Prover {
                 let mut is_claimed = false;
                 loop {
                     let (status, maybe_proof) = match param.recursion {
-                        RecursionMode::Core => {
-                            network_client
-                                .get_proof_status::<sp1_sdk::SP1Proof>(&proof_id)
-                                .await
-                                .map(|(s, p)| (s, p.and_then(|p|serde_json::to_string(&p).ok())))
-                        },
-                        RecursionMode::Compressed => {
-                            network_client
-                                .get_proof_status::<sp1_sdk::SP1CompressedProof>(&proof_id)
-                                .await
-                                .map(|(s, p)| (s, p.and_then(|p|serde_json::to_string(&p).ok())))
-                        },
-                        RecursionMode::Plonk => {
-                            network_client
-                                .get_proof_status::<sp1_sdk::SP1PlonkBn254Proof>(&proof_id)
-                                .await
-                                .map(|(s, p)| (s, p.and_then(|p|serde_json::to_string(&p).ok())))
-                        }
-                    }.map_err(|_| {
-                        ProverError::GuestError(
-                            "Sp1: getting proof status failed".to_owned(),
-                        )
+                        RecursionMode::Core => network_client
+                            .get_proof_status::<sp1_sdk::SP1Proof>(&proof_id)
+                            .await
+                            .map(|(s, p)| (s, p.and_then(|p| serde_json::to_string(&p).ok()))),
+                        RecursionMode::Compressed => network_client
+                            .get_proof_status::<sp1_sdk::SP1CompressedProof>(&proof_id)
+                            .await
+                            .map(|(s, p)| (s, p.and_then(|p| serde_json::to_string(&p).ok()))),
+                        RecursionMode::Plonk => network_client
+                            .get_proof_status::<sp1_sdk::SP1PlonkBn254Proof>(&proof_id)
+                            .await
+                            .map(|(s, p)| (s, p.and_then(|p| serde_json::to_string(&p).ok()))),
+                    }
+                    .map_err(|_| {
+                        ProverError::GuestError("Sp1: getting proof status failed".to_owned())
                     })?;
 
                     match status.status() {
@@ -186,8 +175,13 @@ impl Prover for Sp1Prover {
                     }
                     sleep(Duration::from_secs(2));
                 }
-            }.ok();
-            Ok::<_, ProverError>(Proof { proof, quote: None, kzg_proof: None })
+            }
+            .ok();
+            Ok::<_, ProverError>(Proof {
+                proof,
+                quote: None,
+                kzg_proof: None,
+            })
         }
     }
 
