@@ -154,9 +154,9 @@ impl TryFrom<u8> for ProofType {
     }
 }
 
-impl Into<VerifierType> for ProofType {
-    fn into(self) -> VerifierType {
-        match self {
+impl From<ProofType> for VerifierType {
+    fn from(val: ProofType) -> Self {
+        match val {
             ProofType::Native => VerifierType::None,
             ProofType::Sp1 => VerifierType::SP1,
             ProofType::Sgx => VerifierType::SGX,
