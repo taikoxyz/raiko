@@ -1,6 +1,7 @@
 use axum::{response::IntoResponse, Json, Router};
+use raiko_lib::prover::Proof;
 use raiko_tasks::TaskStatus;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
@@ -58,22 +59,9 @@ pub enum ProofResponse {
         status: TaskStatus,
     },
     Proof {
-        #[serde(serialize_with = "ProofResponse::serialize_proof")]
         /// The proof.
-        proof: Option<Vec<u8>>,
+        proof: Proof,
     },
-}
-
-impl ProofResponse {
-    fn serialize_proof<S>(proof: &Option<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match proof {
-            Some(value) => serializer.serialize_str(&String::from_utf8(value.clone()).unwrap()),
-            None => serializer.serialize_str(""),
-        }
-    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -86,7 +74,9 @@ pub enum Status {
 impl From<Vec<u8>> for Status {
     fn from(proof: Vec<u8>) -> Self {
         Self::Ok {
-            data: ProofResponse::Proof { proof: Some(proof) },
+            data: ProofResponse::Proof {
+                proof: serde_json::from_slice(&proof).unwrap_or_default(),
+            },
         }
     }
 }

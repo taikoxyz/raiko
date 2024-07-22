@@ -5,7 +5,7 @@ use hex::ToHex;
 use log::warn;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
@@ -37,15 +37,35 @@ pub struct Risc0Param {
 pub struct Risc0Response {
     pub proof: String,
 }
+
+impl From<Risc0Response> for Proof {
+    fn from(value: Risc0Response) -> Self {
+        Self {
+            proof: Some(value.proof),
+            quote: None,
+            kzg_proof: None,
+        }
+    }
+}
+
 pub struct Risc0Prover;
+
+const RISC0_PROVER_CODE: u8 = 3;
 
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
+        id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
+        let mut id_store = id_store;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+        let proof_key = (
+            input.chain_spec.chain_id,
+            output.hash.clone(),
+            RISC0_PROVER_CODE,
+        );
 
         debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
@@ -56,6 +76,8 @@ impl Prover for Risc0Prover {
             RISC0_GUEST_ELF,
             &output.hash,
             Default::default(),
+            proof_key,
+            &mut id_store,
         )
         .await;
 
@@ -86,7 +108,16 @@ impl Prover for Risc0Prover {
             journal
         };
 
-        to_proof(Ok(Risc0Response { proof: snark_proof }))
+        Ok(Risc0Response { proof: snark_proof }.into())
+    }
+
+    async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+        let uuid = id_store.read_id(key)?;
+        cancel_proof(uuid)
+            .await
+            .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        id_store.remove_id(key)?;
+        Ok(())
     }
 }
 

@@ -14,11 +14,11 @@ sgx-prover = { path = "../provers/sgx/prover", optional = true }
 raiko-lib = { workspace = true }
 
 # reth
-reth-primitives.workspace = true
-reth-evm-ethereum.workspace = true
-reth-evm.workspace = true
-reth-revm.workspace = true
-reth-provider.workspace = true
+reth-primitives = { workspace = true }
+reth-evm-ethereum = { workspace = true }
+reth-evm = { workspace = true }
+reth-revm = { workspace = true }
+reth-provider = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }

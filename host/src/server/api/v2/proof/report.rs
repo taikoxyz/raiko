@@ -1,5 +1,5 @@
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_tasks::{get_task_manager, TaskManager};
+use axum::{debug_handler, extract::State, routing::get, Json, Router};
+use raiko_tasks::TaskManager;
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -16,7 +16,7 @@ use crate::{interfaces::HostResult, ProverState};
 ///
 /// Retrieve a list of `{ chain_id, blockhash, prover_type, prover, status }` items.
 async fn report_handler(State(prover_state): State<ProverState>) -> HostResult<Json<Value>> {
-    let mut manager = get_task_manager(&(&prover_state.opts).into());
+    let mut manager = prover_state.task_manager();
 
     let task_report = manager.list_all_tasks().await?;
 
@@ -32,5 +32,5 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", post(report_handler))
+    Router::new().route("/", get(report_handler))
 }
