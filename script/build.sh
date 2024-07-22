@@ -159,8 +159,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 			
 			echo "Running Sp1 e2e tests"
 			# Get the directory of the current script 
-			SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-			"$SCRIPT_DIR/sp1-e2e.sh"
+			./script/sp1-e2e.sh
 		fi
 	fi
 fi
