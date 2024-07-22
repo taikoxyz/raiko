@@ -5,16 +5,23 @@ use std::path::PathBuf;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sp1_sdk::{HashableKey, ProverClient, SP1PlonkBn254Proof, SP1Stdin, SP1VerifyingKey};
+use sp1_sdk::{
+    network::client::NetworkClient,
+    proto::network::{ProofMode, ProofStatus, UnclaimReason},
+    ProverClient, SP1Stdin,
+};
+use std::{env, thread::sleep, time::Duration};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const FIXTURE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
 pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src";
+const SP1_PROVER_CODE: u8 = 1;
 
 pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifier);
 #[serde_as]
@@ -36,12 +43,33 @@ pub enum RecursionMode {
     Plonk,
 }
 
+impl From <RecursionMode> for ProofMode {
+    fn from(value: RecursionMode) -> Self {
+        match value {
+            RecursionMode::Core => ProofMode::Core,
+            RecursionMode::Compressed => ProofMode::Compressed,
+            RecursionMode::Plonk => ProofMode::Plonk,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProverMode {
     Mock,
     Local,
     Network,
+}
+
+
+impl From<Sp1Response> for Proof {
+    fn from(value: Sp1Response) -> Self {
+        Self {
+            proof: Some(value.proof),
+            quote: None,
+            kzg_proof: None,
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -59,11 +87,14 @@ macro_rules! save_and_return {
 
 pub struct Sp1Prover;
 
+const SP1_PROVER_CODE: u8 = 1;
+
 impl Prover for Sp1Prover {
     async fn run(
         input: GuestInput,
-        _output: &GuestOutput,
+        output: &GuestOutput,
         config: &ProverConfig,
+        id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
 
@@ -76,35 +107,99 @@ impl Prover for Sp1Prover {
             ProverMode::Local => ProverClient::local(),
             ProverMode::Network => ProverClient::network(),
         };
+        let (pk, vk) = client.setup(ELF);  
 
-        let (pk, vk) = client.setup(ELF);
+        if !matches!(param.prover, ProverMode::Network) {
+            return match param.recursion {
+                RecursionMode::Core => {
+                    client
+                        .prove(&pk, stdin)
+                        .map(|p| serde_json::to_string(&p))
+                }
+                RecursionMode::Compressed => {
+                    client
+                        .prove_compressed(&pk, stdin)
+                        .map(|p| serde_json::to_string(&p))
+                }
+                RecursionMode::Plonk => {
+                    client
+                        .prove_plonk(&pk, stdin)
+                        .map(|p| serde_json::to_string(&p))
+                }
+            }
+            .map(|s| Proof { proof: s.ok(), quote: None, kzg_proof: None })
+            .map_err(|e| ProverError::GuestError(format!("Sp1: proving failed: {}", e)));
+        } else {
+            let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
+                ProverError::GuestError(
+                    "SP1_PRIVATE_KEY must be set for remote proving".to_owned(),
+                )
+            })?;
+            let network_client = NetworkClient::new(&private_key);
+            
+            let proof_id = network_client
+                .create_proof(&pk.elf, &stdin, param.recursion.clone().into(), "v1.0.8-testnet")
+                .await
+                .map_err(|_| {
+                    ProverError::GuestError("Sp1: creating proof failed".to_owned())
+                })?;
 
-        match param.recursion {
-            RecursionMode::Core => {
-                let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
-                if param.verify {
-                    println!("Cannot run solidity verifier with core proof");
-                }
-                save_and_return!(proof);
+            if let Some(id_store) = id_store {
+                id_store.store_id(
+                    (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
+                    proof_id.clone(),
+                )?;
             }
-            RecursionMode::Compressed => {
-                let proof = client
-                    .prove_compressed(&pk, stdin)
-                    .expect("Sp1: proving failed");
-                if param.verify {
-                    println!("Cannot run solidity verifier with compressed proof");
+            let proof = {
+                let mut is_claimed = false;
+                loop {
+                    let (status, maybe_proof) = match param.recursion {
+                        RecursionMode::Core => {
+                            network_client
+                                .get_proof_status::<sp1_sdk::SP1Proof>(&proof_id)
+                                .await
+                                .map(|(s, p)| (s, p.and_then(|p|serde_json::to_string(&p).ok())))
+                        },
+                        RecursionMode::Compressed => {
+                            network_client
+                                .get_proof_status::<sp1_sdk::SP1CompressedProof>(&proof_id)
+                                .await
+                                .map(|(s, p)| (s, p.and_then(|p|serde_json::to_string(&p).ok())))
+                        },
+                        RecursionMode::Plonk => {
+                            network_client
+                                .get_proof_status::<sp1_sdk::SP1PlonkBn254Proof>(&proof_id)
+                                .await
+                                .map(|(s, p)| (s, p.and_then(|p|serde_json::to_string(&p).ok())))
+                        }
+                    }.map_err(|_| {
+                        ProverError::GuestError(
+                            "Sp1: getting proof status failed".to_owned(),
+                        )
+                    })?;
+
+                    match status.status() {
+                        ProofStatus::ProofFulfilled => {
+                            break Ok(maybe_proof.unwrap());
+                        }
+                        ProofStatus::ProofClaimed => {
+                            if !is_claimed {
+                                is_claimed = true;
+                            }
+                        }
+                        ProofStatus::ProofUnclaimed => {
+                            break Err(ProverError::GuestError(format!(
+                                "Proof generation failed: {}",
+                                status.unclaim_description()
+                            )));
+                        }
+                        _ => {}
+                    }
+                    sleep(Duration::from_secs(2));
                 }
-                save_and_return!(proof);
-            }
-            RecursionMode::Plonk => {
-                let proof = client.prove_plonk(&pk, stdin).expect("Sp1: proving failed");
-                // Only plonk proof can be verify by smart contract
-                if param.verify {
-                    verify_sol(vk, proof.clone()).expect("Sp1: verification failed");
-                }
-                save_and_return!(proof);
-            }
-        };
+            }.ok();
+            Ok::<_, ProverError>(Proof { proof, quote: None, kzg_proof: None })
+        }
     }
 }
 

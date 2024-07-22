@@ -1,10 +1,10 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_tasks::{get_task_manager, TaskManager, TaskStatus};
+use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, server::api::v2::CancelStatus, ProverState};
+use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, ProverState};
 
 #[utoipa::path(post, path = "/proof/cancel",
     tag = "Proving",
@@ -28,7 +28,7 @@ async fn cancel_handler(
 ) -> HostResult<CancelStatus> {
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
-    let mut config = prover_state.opts.proof_request_opt.clone();
+    let mut config = prover_state.request_config();
     config.merge(&req)?;
 
     // Construct the actual proof request from the available configs.
@@ -41,17 +41,19 @@ async fn cancel_handler(
     )
     .await?;
 
-    let mut manager = get_task_manager(&(&prover_state.opts).into());
+    let key = TaskDescriptor::from((
+        chain_id,
+        block_hash,
+        proof_request.proof_type,
+        proof_request.prover.clone().to_string(),
+    ));
+
+    prover_state.task_channel.try_send(Message::from(&key))?;
+
+    let mut manager = prover_state.task_manager();
 
     manager
-        .update_task_progress(
-            chain_id,
-            block_hash,
-            proof_request.proof_type,
-            Some(proof_request.prover.to_string()),
-            TaskStatus::Cancelled,
-            None,
-        )
+        .update_task_progress(key, TaskStatus::Cancelled, None)
         .await?;
 
     Ok(CancelStatus::Ok)

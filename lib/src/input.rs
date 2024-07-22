@@ -13,7 +13,7 @@ use serde_with::serde_as;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, primitives::mpt::MptNode};
+use crate::{consts::ChainSpec, primitives::mpt::MptNode, utils::zlib_compress_data};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -42,6 +42,20 @@ pub struct GuestInput {
     pub taiko: TaikoGuestInput,
 }
 
+impl From<(Block, Header, ChainSpec, TaikoGuestInput)> for GuestInput {
+    fn from(
+        (block, parent_header, chain_spec, taiko): (Block, Header, ChainSpec, TaikoGuestInput),
+    ) -> Self {
+        Self {
+            block,
+            chain_spec,
+            taiko,
+            parent_header,
+            ..Self::default()
+        }
+    }
+}
+
 #[serde_as]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TaikoGuestInput {
@@ -53,6 +67,21 @@ pub struct TaikoGuestInput {
     pub prover_data: TaikoProverData,
     pub blob_commitment: Option<Vec<u8>>,
     pub blob_proof_type: BlobProofType,
+}
+
+pub struct ZlibCompressError(pub String);
+
+impl TryFrom<Vec<TransactionSigned>> for TaikoGuestInput {
+    type Error = ZlibCompressError;
+
+    fn try_from(value: Vec<TransactionSigned>) -> Result<Self, Self::Error> {
+        let tx_data = zlib_compress_data(&alloy_rlp::encode(&value))
+            .map_err(|e| ZlibCompressError(e.to_string()))?;
+        Ok(Self {
+            tx_data,
+            ..Self::default()
+        })
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

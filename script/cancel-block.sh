@@ -22,8 +22,6 @@ proof="$2"
 # Use the special value "sync" as the third parameter to follow the tip of the chain
 rangeStart="$3"
 rangeEnd="$4"
-# Use the fifth parameter as a custom proofParam
-customParam="$5"
 
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
@@ -34,8 +32,6 @@ elif [ "$chain" == "taiko_mainnet" ]; then
 	l1_network="ethereum"
 elif [ "$chain" == "taiko_a7" ]; then
 	l1_network="holesky"
-elif [ "$chain" == "taiko_dev" ]; then
-	l1_network="taiko_dev_l1"
 else
 	echo "Using customized chain name $1. Please double check the RPCs."
 	l1_network="holesky"
@@ -45,16 +41,12 @@ if [ "$proof" == "native" ]; then
 	proofParam='
     "proof_type": "native",
 	"native" : {
-        "json_guest_input": "./provers/sp1/contracts/src/fixtures/input.json"
+        "write_guest_input_path": null
 	}
   '
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
-    "proof_type": "sp1",
-	"sp1": {
-		"recursion": "core",
-		"prover": "mock"
-	}
+    "proof_type": "sp1"
   '
 elif [ "$proof" == "sgx" ]; then
 	proofParam='
@@ -66,7 +58,7 @@ elif [ "$proof" == "sgx" ]; then
         "prove": true,
         "input_path": null
     }
-'
+    '
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
@@ -90,11 +82,6 @@ elif [ "$proof" == "risc0-bonsai" ]; then
 else
 	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
 	exit 1
-fi
-
-# Ovwerride the proofParam if a custom one is provided
-if [ -n "$5" ]; then
-    proofParam=$customParam
 fi
 
 if [ "$rangeStart" == "sync" ]; then
@@ -130,7 +117,7 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 	fi
 
 	echo "- proving block $block"
-	curl --location --request POST 'http://localhost:8080/proof' \
+	curl --location --request POST 'http://localhost:8080/proof/cancel' \
 		--header 'Content-Type: application/json' \
 		--header 'Authorization: Bearer 4cbd753fbcbc2639de804f8ce425016a50e0ecd53db00cb5397912e83f5e570e' \
 		--data-raw "{
