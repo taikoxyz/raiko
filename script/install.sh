@@ -75,6 +75,11 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		sp1up
 	else
 		echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
+        echo $GITHUB_PATH
+        ls -al /home/runner/
+        ls -al /home/runner/.config/
+        ls -al /home/runner/.config/.sp1/
+        ls -al /home/runner/.config/.sp1/bin
 		/home/runner/.config/.sp1/bin/sp1up
 	fi
 fi
