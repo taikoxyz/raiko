@@ -76,8 +76,8 @@ impl FromStr for BlobProofType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim() {
-            "ProofOfEquivalence" => Ok(BlobProofType::ProofOfEquivalence),
-            "ProofOfCommitment" => Ok(BlobProofType::ProofOfCommitment),
+            "proof_of_equivalence" => Ok(BlobProofType::ProofOfEquivalence),
+            "proof_of_commitment" => Ok(BlobProofType::ProofOfCommitment),
             _ => Err(anyhow!("invalid blob proof type")),
         }
     }

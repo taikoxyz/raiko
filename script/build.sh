@@ -156,10 +156,9 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 			echo "Running Sp1 unit tests"
 			cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf 
 			cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
-			
-			echo "Running Sp1 e2e tests"
-			# Get the directory of the current script 
-			./script/sp1-e2e.sh
+
+			echo "Running Sp1 verification"
+			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier
 		fi
 	fi
 fi
