@@ -2094,7 +2094,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 [[package]]
 name = "reth-chainspec"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-chains",
  "alloy-eips",
@@ -2113,7 +2113,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -2128,7 +2128,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs-derive"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -2139,7 +2139,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "auto_impl",
  "reth-primitives",
@@ -2149,7 +2149,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus-common"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "reth-chainspec",
  "reth-consensus",
@@ -2159,7 +2159,7 @@ dependencies = [
 [[package]]
 name = "reth-db"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "bytes",
  "derive_more",
@@ -2185,7 +2185,7 @@ dependencies = [
 [[package]]
 name = "reth-db-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "bytes",
  "derive_more",
@@ -2204,7 +2204,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-consensus"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "reth-chainspec",
  "reth-consensus",
@@ -2216,7 +2216,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-forks"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -2229,7 +2229,7 @@ dependencies = [
 [[package]]
 name = "reth-evm"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "auto_impl",
  "futures-util",
@@ -2246,7 +2246,7 @@ dependencies = [
 [[package]]
 name = "reth-evm-ethereum"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-eips",
  "alloy-sol-types",
@@ -2266,7 +2266,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-errors"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -2280,7 +2280,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "reth-execution-errors",
  "reth-primitives",
@@ -2291,7 +2291,7 @@ dependencies = [
 [[package]]
 name = "reth-fs-util"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "serde_json",
  "thiserror",
@@ -2300,7 +2300,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "metrics",
  "reth-metrics-derive",
@@ -2309,7 +2309,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics-derive"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "once_cell",
  "proc-macro2",
@@ -2321,7 +2321,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -2355,7 +2355,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives-traits"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -2374,7 +2374,7 @@ dependencies = [
 [[package]]
 name = "reth-prune-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-primitives",
  "bytes",
@@ -2388,7 +2388,7 @@ dependencies = [
 [[package]]
 name = "reth-revm"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-eips",
  "alloy-rlp",
@@ -2406,7 +2406,7 @@ dependencies = [
 [[package]]
 name = "reth-stages-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-primitives",
  "bytes",
@@ -2419,7 +2419,7 @@ dependencies = [
 [[package]]
 name = "reth-static-file-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-primitives",
  "derive_more",
@@ -2430,7 +2430,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "auto_impl",
  "reth-chainspec",
@@ -2447,7 +2447,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-errors"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "reth-fs-util",
  "reth-primitives",
@@ -2457,7 +2457,7 @@ dependencies = [
 [[package]]
 name = "reth-tracing"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "clap",
  "eyre",
@@ -2472,7 +2472,7 @@ dependencies = [
 [[package]]
 name = "reth-trie"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-rlp",
  "auto_impl",
@@ -2491,7 +2491,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-common"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#3043c66ac743ef765f7c403f589d124d115ff9eb"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfdce66ee4a8d39bc895c8305f15d9e32a9"
 dependencies = [
  "alloy-consensus",
  "alloy-genesis",
