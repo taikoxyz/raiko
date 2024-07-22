@@ -8363,6 +8363,7 @@ dependencies = [
  "sha3",
  "sp1-helper",
  "sp1-sdk",
+ "tokio",
 ]
 
 [[package]]

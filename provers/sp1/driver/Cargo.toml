@@ -10,8 +10,8 @@ required-features = ["enable"]
 harness = true
 
 [[bin]]
-name = "gen-verifier"
-path = "src/gen_verifier.rs"
+name = "sp1-verifier"
+path = "src/verifier.rs"
 required-features = ["enable"]
 
 
@@ -19,6 +19,7 @@ required-features = ["enable"]
 raiko-lib = { workspace = true, optional = true }
 alloy-primitives = { workspace = true, optional = true }
 alloy-sol-types = { workspace = true, optional = true }
+alloy-eips = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 sp1-sdk = { workspace = true, optional = true }
@@ -30,14 +31,7 @@ dotenv = {workspace = true, optional = true}
 cfg-if = {workspace = true }
 bincode = {workspace = true }
 reth-primitives = { workspace = true }
-alloy-eips = { version = "0.1", default-features = false, features = [
-    "serde",
-] }
-
-
-# [dependencies.alloy-serde]
-# version = "0.1"
-# default-features = false
+tokio = { workspace = true, optional = true }
 
 
 [build-dependencies]
@@ -61,5 +55,6 @@ enable = [
     "sha3",
     "dotenv",
     "serde_with",
+    "tokio"
 ]
 neon = ["sp1-sdk?/neon"]

@@ -92,7 +92,7 @@ while ! check_prove_block_status; do
 done
 
 # Generate solidity tests fixture
-cargo run --bin gen-verifier --release -- $input_filename
+cargo run --bin run-verifier --release -- $input_filename
 
 # Run Smart Contract verification
 cd $SCRIPT_DIR/../provers/sp1/contracts

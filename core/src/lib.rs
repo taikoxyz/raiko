@@ -233,7 +233,8 @@ mod tests {
             json! {
                 {
                     "recursion": "core",
-                    "prover": "mock"
+                    "prover": "mock",
+                    "verify": true
                 }
             },
         );
