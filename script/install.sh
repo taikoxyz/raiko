@@ -66,7 +66,7 @@ fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	curl -L https://sp1.succinct.xyz | bash
-
+	source /home/runner/.bashrc
 	if [ -z "${CI}" ] || [ ! command -v sp1up &> /dev/null ]; then
 		# Need to add sp1up to the path here
 		PROFILE=$HOME/.bashrc
@@ -74,7 +74,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		source ${PROFILE}
 		sp1up
 	else
-		echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
-		/home/runner/.config/.sp1/bin/sp1up
+		echo "/home/runner/.sp1/bin" >> $GITHUB_PATH
+		/home/runner/.sp1/bin/sp1up
 	fi
 fi
