@@ -2,6 +2,7 @@ use crate::{merge, prover::NativeProver};
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
+    consts::VerifierType,
     input::{BlobProofType, GuestInput, GuestOutput},
     primitives::eip4844::{calc_kzg_proof, commitment_to_version_hash, kzg_proof_to_bytes},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
@@ -153,6 +154,17 @@ impl TryFrom<u8> for ProofType {
     }
 }
 
+impl From<ProofType> for VerifierType {
+    fn from(val: ProofType) -> Self {
+        match val {
+            ProofType::Native => VerifierType::None,
+            ProofType::Sp1 => VerifierType::SP1,
+            ProofType::Sgx => VerifierType::SGX,
+            ProofType::Risc0 => VerifierType::RISC0,
+        }
+    }
+}
+
 impl ProofType {
     /// Run the prover driver depending on the proof type.
     pub async fn run_prover(
@@ -165,7 +177,7 @@ impl ProofType {
         let mut proof = match self {
             ProofType::Native => NativeProver::run(input.clone(), output, config, store)
                 .await
-                .map_err(|e| e.into()),
+                .map_err(<ProverError as Into<RaikoError>>::into),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
                 return sp1_driver::Sp1Prover::run(input.clone(), output, config, store)
@@ -217,7 +229,7 @@ impl ProofType {
         match self {
             ProofType::Native => NativeProver::cancel(proof_key, read)
                 .await
-                .map_err(|e| e.into()),
+                .map_err(<ProverError as Into<RaikoError>>::into),
             ProofType::Sp1 => {
                 #[cfg(feature = "sp1")]
                 return sp1_driver::Sp1Prover::cancel(proof_key, read)

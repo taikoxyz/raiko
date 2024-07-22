@@ -80,6 +80,7 @@ mod test {
     use crate::cache;
 
     use alloy_primitives::{Address, B256};
+    use alloy_provider::Provider;
     use raiko_core::{
         interfaces::{ProofRequest, ProofType},
         provider::rpc::RpcBlockDataProvider,
@@ -87,7 +88,7 @@ mod test {
     };
     use raiko_lib::input::BlobProofType;
     use raiko_lib::{
-        consts::{Network, SupportedChainSpecs},
+        consts::{ChainSpec, Network, SupportedChainSpecs},
         input::GuestInput,
     };
 
@@ -130,11 +131,18 @@ mod test {
         (input, provider.clone())
     }
 
+    async fn get_a_testable_block_num(chain_spec: &ChainSpec) -> u64 {
+        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
+        let height = provider.provider.get_block_number().await.unwrap();
+        height - 299582 // a hardcode helka & mainnet height diff for the test
+    }
+
     #[tokio::test]
     async fn test_generate_input_from_cache() {
         let l1 = &Network::Holesky.to_string();
         let l2 = &Network::TaikoA7.to_string();
-        let block_number: u64 = 123456;
+        let taiko_chain_spec = SupportedChainSpecs::default().get_chain_spec(l2).unwrap();
+        let block_number: u64 = get_a_testable_block_num(&taiko_chain_spec).await;
         let (input, provider) = create_cache_input(l1, l2, block_number).await;
         let cache_path = Some("./".into());
         assert!(cache::set_input(&cache_path, block_number, l2, &input).is_ok());

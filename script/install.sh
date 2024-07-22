@@ -74,7 +74,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		source ${PROFILE}
 		sp1up
 	else
-		echo "/home/runner/.config/.sp1/bin" >> $GITHUB_PATH
-		/home/runner/.config/.sp1/bin/sp1up
+		echo "/home/runner/.sp1/bin" >> $GITHUB_PATH
+		/home/runner/.sp1/bin/sp1up
 	fi
 fi

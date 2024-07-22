@@ -2,6 +2,7 @@
 
 use alloy_primitives::B256;
 use hex::ToHex;
+use log::warn;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -83,7 +84,7 @@ impl Prover for Risc0Prover {
         let journal: String = result.clone().unwrap().1.journal.encode_hex();
 
         // Create/verify Groth16 SNARK
-        if config.snark {
+        let snark_proof = if config.snark {
             let Some((stark_uuid, stark_receipt)) = result else {
                 return Err(ProverError::GuestError(
                     "No STARK data to snarkify!".to_owned(),
@@ -97,12 +98,17 @@ impl Prover for Risc0Prover {
 
             traicing_info!("Validating SNARK uuid: {snark_uuid}");
 
-            verify_groth16_snark(image_id, snark_receipt)
+            let enc_proof = verify_groth16_snark(image_id, snark_receipt)
                 .await
                 .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
-        }
 
-        Ok(Risc0Response { proof: journal }.into())
+            format!("0x{}", hex::encode(enc_proof))
+        } else {
+            warn!("proof is not in snark mode, please check.");
+            journal
+        };
+
+        Ok(Risc0Response { proof: snark_proof }.into())
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {

@@ -14,7 +14,8 @@
 
 use std::{str::FromStr, sync::Arc};
 
-use alloy_sol_types::sol;
+use alloy_primitives::B256;
+use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
 use bonsai_sdk::alpha::responses::SnarkReceipt;
 use ethers_contract::abigen;
@@ -154,7 +155,10 @@ pub async fn stark2snark(
     Ok(snark_data)
 }
 
-pub async fn verify_groth16_snark(image_id: Digest, snark_receipt: SnarkReceipt) -> Result<()> {
+pub async fn verify_groth16_snark(
+    image_id: Digest,
+    snark_receipt: SnarkReceipt,
+) -> Result<Vec<u8>> {
     let verifier_rpc_url =
         std::env::var("GROTH16_VERIFIER_RPC_URL").expect("env GROTH16_VERIFIER_RPC_URL");
     let groth16_verifier_addr = {
@@ -180,7 +184,7 @@ pub async fn verify_groth16_snark(image_id: Digest, snark_receipt: SnarkReceipt)
     tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
     let verify_call_res = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
         .verify(
-            seal.into(),
+            seal.clone().into(),
             image_id.as_bytes().try_into().unwrap(),
             journal_digest.into(),
         )
@@ -192,5 +196,10 @@ pub async fn verify_groth16_snark(image_id: Digest, snark_receipt: SnarkReceipt)
         tracing_err!("SNARK verification failed: {:?}!", verify_call_res);
     }
 
-    Ok(())
+    Ok((seal, B256::from_slice(image_id.as_bytes()))
+        .abi_encode()
+        .iter()
+        .skip(32)
+        .copied()
+        .collect())
 }
