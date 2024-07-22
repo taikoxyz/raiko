@@ -14,7 +14,6 @@ use sp1_sdk::{HashableKey, ProverClient, SP1PlonkBn254Proof, SP1Stdin, SP1Verify
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus, UnclaimReason},
-    ProverClient, SP1Stdin,
 };
 use std::{env, thread::sleep, time::Duration};
 
@@ -77,17 +76,7 @@ pub struct Sp1Response {
     pub proof: String,
 }
 
-macro_rules! save_and_return {
-    ($proof:ident) => {
-        return to_proof(Ok(Sp1Response {
-            proof: serde_json::to_string(&$proof).unwrap(),
-        }));
-    };
-}
-
 pub struct Sp1Prover;
-
-const SP1_PROVER_CODE: u8 = 1;
 
 impl Prover for Sp1Prover {
     async fn run(
@@ -200,6 +189,20 @@ impl Prover for Sp1Prover {
             }.ok();
             Ok::<_, ProverError>(Proof { proof, quote: None, kzg_proof: None })
         }
+    }
+
+    async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+        let proof_id = id_store.read_id(key)?;
+        let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
+            ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
+        })?;
+        let network_client = NetworkClient::new(&private_key);
+        network_client
+            .unclaim_proof(proof_id, UnclaimReason::Abandoned, "".to_owned())
+            .await
+            .map_err(|_| ProverError::GuestError("Sp1: couldn't unclaim proof".to_owned()))?;
+        id_store.remove_id(key)?;
+        Ok(())
     }
 }
 
