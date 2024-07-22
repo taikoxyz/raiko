@@ -5776,6 +5776,7 @@ dependencies = [
  "sp1-driver",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tower",
  "tower-http",
  "tracing",
@@ -5826,6 +5827,7 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "utoipa",
 ]
 
 [[package]]

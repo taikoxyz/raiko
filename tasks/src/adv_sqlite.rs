@@ -159,16 +159,18 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use raiko_core::interfaces::ProofType;
-use raiko_lib::primitives::{ChainId, B256};
+use raiko_lib::{
+    primitives::B256,
+    prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult},
+};
 use rusqlite::{
     named_params, {Connection, OpenFlags},
 };
-use tokio::sync::Mutex;
+use tokio::{runtime::Builder, sync::Mutex};
 
 use crate::{
-    EnqueueTaskParams, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
-    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
+    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 // Types
@@ -230,6 +232,17 @@ impl TaskDb {
         // and introduce a migration on DB opening ... if conserving history is important.
         conn.execute_batch(
             r#"
+            -- Key value store
+            -----------------------------------------------
+            CREATE TABLE store(
+              chain_id INTEGER NOT NULL,
+              blockhash BLOB NOT NULL,
+              proofsys_id INTEGER NOT NULL,
+              id TEXT NOT NULL,
+              FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
+              UNIQUE (chain_id, blockhash, proofsys_id)
+            );
+
             -- Metadata and mappings
             -----------------------------------------------
             CREATE TABLE metadata(
@@ -298,7 +311,7 @@ impl TaskDb {
             -- Proofs might also be large, so we isolate them in a dedicated table
             CREATE TABLE task_proofs(
               task_id INTEGER UNIQUE NOT NULL PRIMARY KEY,
-              proof BLOB NOT NULL,
+              proof TEXT,
               FOREIGN KEY(task_id) REFERENCES tasks(id)
             );
             
@@ -485,13 +498,12 @@ impl TaskDb {
 
     pub fn enqueue_task(
         &self,
-        EnqueueTaskParams {
+        TaskDescriptor {
             chain_id,
             blockhash,
-            proof_type,
+            proof_system,
             prover,
-            ..
-        }: &EnqueueTaskParams,
+        }: &TaskDescriptor,
     ) -> TaskManagerResult<Vec<TaskProvingStatus>> {
         let mut statement = self.conn.prepare_cached(
             r#"
@@ -514,11 +526,11 @@ impl TaskDb {
         statement.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
-            ":proofsys_id": *proof_type as u8,
+            ":proofsys_id": *proof_system as u8,
             ":prover": prover,
         })?;
 
-        Ok(vec![TaskProvingStatus(
+        Ok(vec![(
             TaskStatus::Registered,
             Some(prover.clone()),
             Utc::now(),
@@ -527,10 +539,12 @@ impl TaskDb {
 
     pub fn update_task_progress(
         &self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        TaskDescriptor {
+            chain_id,
+            blockhash,
+            proof_system,
+            prover,
+        }: TaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
@@ -559,10 +573,10 @@ impl TaskDb {
         statement.execute(named_params! {
             ":chain_id": chain_id,
             ":blockhash": blockhash.to_vec(),
-            ":proofsys_id": proof_type as u8,
+            ":proofsys_id": proof_system as u8,
+            ":prover": prover,
             ":status_id": status as i32,
-            ":prover": prover.unwrap_or_default(),
-            ":proof": proof
+            ":proof": proof.map(hex::encode)
         })?;
 
         Ok(())
@@ -570,20 +584,23 @@ impl TaskDb {
 
     pub fn get_task_proving_status(
         &self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        TaskDescriptor {
+            chain_id,
+            blockhash,
+            proof_system,
+            prover,
+        }: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut statement = self.conn.prepare_cached(
             r#"
             SELECT
               ts.status_id,
-              t.prover,
+              tp.proof,
               timestamp
             FROM
               task_status ts
               LEFT JOIN tasks t ON ts.task_id = t.id
+              LEFT JOIN task_proofs tp ON tp.task_id = t.id
             WHERE
               t.chain_id = :chain_id
               AND t.blockhash = :blockhash
@@ -597,13 +614,13 @@ impl TaskDb {
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
-                ":proofsys_id": proof_type as u8,
-                ":prover": prover.unwrap_or_default(),
+                ":proofsys_id": *proof_system as u8,
+                ":prover": prover,
             },
             |row| {
-                Ok(TaskProvingStatus(
+                Ok((
                     TaskStatus::from(row.get::<_, i32>(0)?),
-                    Some(row.get::<_, String>(1)?),
+                    row.get::<_, Option<String>>(1)?,
                     row.get::<_, DateTime<Utc>>(2)?,
                 ))
             },
@@ -614,10 +631,12 @@ impl TaskDb {
 
     pub fn get_task_proof(
         &self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        TaskDescriptor {
+            chain_id,
+            blockhash,
+            proof_system,
+            prover,
+        }: &TaskDescriptor,
     ) -> TaskManagerResult<Vec<u8>> {
         let mut statement = self.conn.prepare_cached(
             r#"
@@ -639,13 +658,18 @@ impl TaskDb {
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
-                ":proofsys_id": proof_type as u8,
-                ":prover": prover.unwrap_or_default(),
+                ":proofsys_id": *proof_system as u8,
+                ":prover": prover,
             },
-            |row| row.get(0),
+            |row| row.get::<_, Option<String>>(0),
         )?;
 
-        Ok(query)
+        let Some(proof) = query else {
+            return Ok(vec![]);
+        };
+
+        hex::decode(proof)
+            .map_err(|_| TaskManagerError::SqlError("couldn't decode from hex".to_owned()))
     }
 
     pub fn get_db_size(&self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
@@ -713,7 +737,7 @@ impl TaskDb {
         )?;
         let query = statement
             .query_map([], |row| {
-                Ok(TaskReport(
+                Ok((
                     TaskDescriptor {
                         chain_id: row.get(0)?,
                         blockhash: B256::from_slice(&row.get::<_, Vec<u8>>(1)?),
@@ -726,6 +750,117 @@ impl TaskDb {
             .collect::<Result<Vec<TaskReport>, _>>()?;
 
         Ok(query)
+    }
+
+    fn store_id(
+        &self,
+        (chain_id, blockhash, proof_key): ProofKey,
+        id: String,
+    ) -> TaskManagerResult<()> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            INSERT INTO
+              store(
+                chain_id,
+                blockhash,
+                proofsys_id,
+                id
+              )
+            VALUES
+              (
+                :chain_id,
+                :blockhash,
+                :proofsys_id,
+                :id
+              );
+            "#,
+        )?;
+        statement.execute(named_params! {
+            ":chain_id": chain_id,
+            ":blockhash": blockhash.to_vec(),
+            ":proofsys_id": proof_key,
+            ":id": id,
+        })?;
+
+        Ok(())
+    }
+
+    fn remove_id(&self, (chain_id, blockhash, proof_key): ProofKey) -> TaskManagerResult<()> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            DELETE FROM
+              store
+            WHERE
+              chain_id = :chain_id
+              AND blockhash = :blockhash
+              AND proofsys_id = :proofsys_id;
+            "#,
+        )?;
+        statement.execute(named_params! {
+            ":chain_id": chain_id,
+            ":blockhash": blockhash.to_vec(),
+            ":proofsys_id": proof_key,
+        })?;
+
+        Ok(())
+    }
+
+    fn read_id(&self, (chain_id, blockhash, proof_key): ProofKey) -> TaskManagerResult<String> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            SELECT
+              id
+            FROM
+              store
+            WHERE
+              chain_id = :chain_id
+              AND blockhash = :blockhash
+              AND proofsys_id = :proofsys_id
+            LIMIT
+              1;
+            "#,
+        )?;
+        let query = statement.query_row(
+            named_params! {
+                ":chain_id": chain_id,
+                ":blockhash": blockhash.to_vec(),
+                ":proofsys_id": proof_key,
+            },
+            |row| row.get::<_, String>(0),
+        )?;
+
+        Ok(query)
+    }
+}
+
+impl IdWrite for SqliteTaskManager {
+    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
+        let rt = Builder::new_current_thread().enable_all().build()?;
+        rt.block_on(async move {
+            let task_db = self.arc_task_db.lock().await;
+            task_db.store_id(key, id)
+        })
+        .map_err(|e| ProverError::StoreError(e.to_string()))
+    }
+
+    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+        let rt = Builder::new_current_thread().enable_all().build()?;
+        rt.block_on(async move {
+            let task_db = self.arc_task_db.lock().await;
+            task_db.remove_id(key)
+        })
+        .map_err(|e| ProverError::StoreError(e.to_string()))
+    }
+}
+
+impl IdStore for SqliteTaskManager {
+    fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+        let rt = Builder::new_current_thread().enable_all().build()?;
+        rt.block_on(async move {
+            let task_db = self.arc_task_db.lock().await;
+            task_db.read_id(key)
+        })
+        .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
 
@@ -750,7 +885,7 @@ impl TaskManager for SqliteTaskManager {
 
     async fn enqueue_task(
         &mut self,
-        params: &EnqueueTaskParams,
+        params: &TaskDescriptor,
     ) -> Result<Vec<TaskProvingStatus>, TaskManagerError> {
         let task_db = self.arc_task_db.lock().await;
         task_db.enqueue_task(params)
@@ -758,38 +893,26 @@ impl TaskManager for SqliteTaskManager {
 
     async fn update_task_progress(
         &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        key: TaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
         let task_db = self.arc_task_db.lock().await;
-        task_db.update_task_progress(chain_id, blockhash, proof_type, prover, status, proof)
+        task_db.update_task_progress(key, status, proof)
     }
 
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
     async fn get_task_proving_status(
         &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
+        key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let task_db = self.arc_task_db.lock().await;
-        task_db.get_task_proving_status(chain_id, blockhash, proof_type, prover)
+        task_db.get_task_proving_status(key)
     }
 
-    async fn get_task_proof(
-        &mut self,
-        chain_id: ChainId,
-        blockhash: B256,
-        proof_type: ProofType,
-        prover: Option<String>,
-    ) -> TaskManagerResult<Vec<u8>> {
+    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         let task_db = self.arc_task_db.lock().await;
-        task_db.get_task_proof(chain_id, blockhash, proof_type, prover)
+        task_db.get_task_proof(key)
     }
 
     /// Returns the total and detailed database size

@@ -11,7 +11,7 @@ use std::{
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -44,6 +44,16 @@ pub struct SgxResponse {
     pub quote: String,
 }
 
+impl From<SgxResponse> for Proof {
+    fn from(value: SgxResponse) -> Self {
+        Self {
+            proof: Some(value.proof),
+            quote: Some(value.quote),
+            kzg_proof: None,
+        }
+    }
+}
+
 pub const ELF_NAME: &str = "sgx-guest";
 pub const CONFIG: &str = if cfg!(feature = "docker_build") {
     "../provers/sgx/config"
@@ -61,6 +71,7 @@ impl Prover for SgxProver {
         input: GuestInput,
         _output: &GuestOutput,
         config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
@@ -134,7 +145,11 @@ impl Prover for SgxProver {
             sgx_proof = prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
         }
 
-        to_proof(sgx_proof)
+        sgx_proof.map(|r| r.into())
+    }
+
+    async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
+        Ok(())
     }
 }
 

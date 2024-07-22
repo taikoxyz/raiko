@@ -1,9 +1,10 @@
-use serde::Serialize;
-use thiserror::Error as ThisError;
+use reth_primitives::{ChainId, B256};
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::input::{GuestInput, GuestOutput};
 
-#[derive(ThisError, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ProverError {
     #[error("ProverError::GuestError `{0}`")]
     GuestError(String),
@@ -11,6 +12,8 @@ pub enum ProverError {
     FileIo(#[from] std::io::Error),
     #[error("ProverError::Param `{0}`")]
     Param(#[from] serde_json::Error),
+    #[error("Store error `{0}`")]
+    StoreError(String),
 }
 
 impl From<String> for ProverError {
@@ -21,7 +24,28 @@ impl From<String> for ProverError {
 
 pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
 pub type ProverConfig = serde_json::Value;
-pub type Proof = serde_json::Value;
+pub type ProofKey = (ChainId, B256, u8);
+
+#[derive(Debug, Serialize, ToSchema, Deserialize, Default)]
+/// The response body of a proof request.
+pub struct Proof {
+    /// The ZK proof.
+    pub proof: Option<String>,
+    /// The TEE quote.
+    pub quote: Option<String>,
+    /// The kzg proof.
+    pub kzg_proof: Option<String>,
+}
+
+pub trait IdWrite: Send {
+    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()>;
+
+    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()>;
+}
+
+pub trait IdStore: IdWrite {
+    fn read_id(&self, key: ProofKey) -> ProverResult<String>;
+}
 
 #[allow(async_fn_in_trait)]
 pub trait Prover {
@@ -29,11 +53,8 @@ pub trait Prover {
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;
-}
 
-pub fn to_proof(proof: ProverResult<impl Serialize>) -> ProverResult<Proof> {
-    proof.and_then(|res| {
-        serde_json::to_value(res).map_err(|err| ProverError::GuestError(err.to_string()))
-    })
+    async fn cancel(proof_key: ProofKey, read: Box<&mut dyn IdStore>) -> ProverResult<()>;
 }
