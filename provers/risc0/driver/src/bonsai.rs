@@ -219,7 +219,7 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     )?;
 
     if let Some(id_store) = id_store {
-        id_store.store_id(proof_key, session.uuid.clone())?;
+        id_store.store_id(proof_key, session.uuid.clone()).await?;
     }
 
     verify_bonsai_receipt(image_id, expected_output, session.uuid.clone(), 8).await

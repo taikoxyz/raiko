@@ -69,10 +69,12 @@ impl Prover for Sp1Prover {
                         ProverError::GuestError("Sp1: creating proof failed".to_owned())
                     })?;
                 if let Some(id_store) = id_store {
-                    id_store.store_id(
-                        (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
-                        proof_id.clone(),
-                    )?;
+                    id_store
+                        .store_id(
+                            (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
+                            proof_id.clone(),
+                        )
+                        .await?;
                 }
                 let proof = {
                     let mut is_claimed = false;
@@ -136,7 +138,7 @@ impl Prover for Sp1Prover {
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        let proof_id = id_store.read_id(key)?;
+        let proof_id = id_store.read_id(key).await?;
         let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
             ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
         })?;
@@ -145,7 +147,7 @@ impl Prover for Sp1Prover {
             .unclaim_proof(proof_id, UnclaimReason::Abandoned, "".to_owned())
             .await
             .map_err(|_| ProverError::GuestError("Sp1: couldn't unclaim proof".to_owned()))?;
-        id_store.remove_id(key)?;
+        id_store.remove_id(key).await?;
         Ok(())
     }
 }

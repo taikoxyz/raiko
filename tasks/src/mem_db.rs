@@ -14,7 +14,7 @@ use std::{
 
 use chrono::Utc;
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
-use tokio::{runtime::Builder, sync::Mutex};
+use tokio::sync::Mutex;
 use tracing::{debug, info};
 
 use crate::{
@@ -143,34 +143,27 @@ impl InMemoryTaskDb {
     }
 }
 
+#[async_trait::async_trait]
 impl IdWrite for InMemoryTaskManager {
-    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
-        let rt = Builder::new_current_thread().enable_all().build()?;
-        rt.block_on(async move {
-            let mut db = self.db.lock().await;
-            db.store_id(key, id)
-        })
-        .map_err(|e| ProverError::StoreError(e.to_string()))
+    async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
+        let mut db = self.db.lock().await;
+        db.store_id(key, id)
+            .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 
-    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
-        let rt = Builder::new_current_thread().enable_all().build()?;
-        rt.block_on(async move {
-            let mut db = self.db.lock().await;
-            db.remove_id(key)
-        })
-        .map_err(|e| ProverError::StoreError(e.to_string()))
+    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+        let mut db = self.db.lock().await;
+        db.remove_id(key)
+            .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
 
+#[async_trait::async_trait]
 impl IdStore for InMemoryTaskManager {
-    fn read_id(&self, key: ProofKey) -> ProverResult<String> {
-        let rt = Builder::new_current_thread().enable_all().build()?;
-        rt.block_on(async move {
-            let mut db = self.db.lock().await;
-            db.read_id(key)
-        })
-        .map_err(|e| ProverError::StoreError(e.to_string()))
+    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+        let mut db = self.db.lock().await;
+        db.read_id(key)
+            .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
 
