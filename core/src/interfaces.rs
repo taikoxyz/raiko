@@ -167,6 +167,7 @@ impl From<ProofType> for VerifierType {
             ProofType::Sp1 => VerifierType::SP1,
             ProofType::Sgx => VerifierType::SGX,
             ProofType::Risc0 => VerifierType::RISC0,
+            ProofType::Nitro => VerifierType::Nitro,
         }
     }
 }
@@ -212,7 +213,7 @@ impl ProofType {
                 #[cfg(feature = "nitro")]
                 return nitro_prover::NitroProver::prove(input).map_err(|e| e.into());
                 #[cfg(not(feature = "nitro"))]
-                Err(RaikoError::FeatureNotSupportedError(self))
+                Err(RaikoError::FeatureNotSupportedError(*self))
             }
         }?;
 
@@ -265,6 +266,10 @@ impl ProofType {
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Nitro => {
+                // Nitro prover is instant and requires no cancelation
+                Ok(())
             }
         }?;
         Ok(())

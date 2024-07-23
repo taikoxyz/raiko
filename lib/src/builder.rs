@@ -9,6 +9,7 @@ use crate::{
     CycleTracker,
 };
 use anyhow::{bail, ensure, Result};
+use core::mem;
 use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET};
 use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
 use reth_evm_ethereum::execute::{

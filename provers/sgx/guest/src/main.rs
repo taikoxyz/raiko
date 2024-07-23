@@ -10,7 +10,6 @@ use clap::Parser;
 
 mod app_args;
 mod one_shot;
-mod signature;
 
 #[tokio::main]
 pub async fn main() -> Result<()> {

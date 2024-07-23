@@ -5,10 +5,9 @@ use aws_nitro_enclaves_nsm_api::{
 };
 use raiko_lib::{
     builder::calculate_block_header,
-    input::GuestInput,
-    input::GuestOutput,
+    input::{GuestInput, GuestOutput},
     protocol_instance::ProtocolInstance,
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdWrite, Proof, Prover, ProverConfig, ProverError, ProverResult},
     signature::{generate_key, sign_message},
 };
 use serde_bytes::ByteBuf;
@@ -55,7 +54,10 @@ impl NitroProver {
             ));
         }
         debug!("Proof acquired. Returning it.");
-        Ok(serde_json::json!({"proof": proving_result}))
+        Ok(Proof {
+            quote: Some(proving_result),
+            ..Default::default()
+        })
     }
 }
 
@@ -64,6 +66,7 @@ impl Prover for NitroProver {
         input: GuestInput,
         _output: &GuestOutput,
         _config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         // read and validate inputs
         info!("Starting Nitro guest and proof generation");
@@ -102,6 +105,16 @@ impl Prover for NitroProver {
 
         nsm_exit(nsm_fd);
         info!("Successfully generated proof for PI {}", pi_hash);
-        to_proof(Ok(result))
+        Ok(Proof {
+            quote: Some(hex::encode(result)),
+            ..Default::default()
+        })
+    }
+
+    async fn cancel(
+        _proof_key: raiko_lib::prover::ProofKey,
+        _read: Box<&mut dyn raiko_lib::prover::IdStore>,
+    ) -> ProverResult<()> {
+        Ok(())
     }
 }

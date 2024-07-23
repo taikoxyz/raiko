@@ -48,7 +48,8 @@ async fn main() {
                     continue;
                 };
                 let block = guest_input.block.header.number;
-                match NitroProver::run(guest_input, &Default::default(), &Default::default()).await
+                match NitroProver::run(guest_input, &Default::default(), &Default::default(), None)
+                    .await
                 {
                     Err(e) => {
                         let msg = format!(
