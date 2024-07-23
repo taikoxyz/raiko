@@ -112,11 +112,11 @@ impl Prover for Risc0Prover {
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        let uuid = id_store.read_id(key)?;
+        let uuid = id_store.read_id(key).await?;
         cancel_proof(uuid)
             .await
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        id_store.remove_id(key)?;
+        id_store.remove_id(key).await?;
         Ok(())
     }
 }
