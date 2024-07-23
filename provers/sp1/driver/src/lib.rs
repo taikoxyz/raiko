@@ -95,7 +95,7 @@ impl Prover for Sp1Prover {
             ProverMode::Local => ProverClient::local(),
             ProverMode::Network => ProverClient::network(),
         };
-        let (pk, vk) = client.setup(ELF);
+        let (pk, _vk) = client.setup(ELF);
 
         if !matches!(param.prover, ProverMode::Network) {
             match param.recursion {
