@@ -15,7 +15,7 @@ use reth_primitives::{Block, Header};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, primitives::mpt::MptNode};
+use crate::{consts::ChainSpec, primitives::mpt::MptNode, utils::zlib_compress_data};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -44,6 +44,20 @@ pub struct GuestInput {
     pub taiko: TaikoGuestInput,
 }
 
+impl From<(Block, Header, ChainSpec, TaikoGuestInput)> for GuestInput {
+    fn from(
+        (block, parent_header, chain_spec, taiko): (Block, Header, ChainSpec, TaikoGuestInput),
+    ) -> Self {
+        Self {
+            block,
+            chain_spec,
+            taiko,
+            parent_header,
+            ..Self::default()
+        }
+    }
+}
+
 #[serde_as]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TaikoGuestInput {
@@ -57,8 +71,27 @@ pub struct TaikoGuestInput {
     pub blob_proof_type: BlobProofType,
 }
 
+pub struct ZlibCompressError(pub String);
+
+impl TryFrom<Vec<TransactionSigned>> for TaikoGuestInput {
+    type Error = ZlibCompressError;
+
+    fn try_from(value: Vec<TransactionSigned>) -> Result<Self, Self::Error> {
+        let tx_data = zlib_compress_data(&alloy_rlp::encode(&value))
+            .map_err(|e| ZlibCompressError(e.to_string()))?;
+        Ok(Self {
+            tx_data,
+            ..Self::default()
+        })
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub enum BlobProofType {
+    /// Guest runs through the entire computation from blob to Kzg commitment
+    /// then to version hash
+    #[default]
+    ProofOfCommitment,
     /// Simplified Proof of Equivalence with fiat input in non-aligned field
     /// Referencing https://notes.ethereum.org/@dankrad/kzg_commitments_in_proofs
     /// with impl details in https://github.com/taikoxyz/raiko/issues/292
@@ -66,11 +99,7 @@ pub enum BlobProofType {
     ///      x = sha256(sha256(blob), kzg_commit(blob))
     ///      y = f(x)
     /// where f is the KZG polynomial
-    #[default]
     ProofOfEquivalence,
-    /// Guest runs through the entire computation from blob to Kzg commitment
-    /// then to version hash
-    ProofOfCommitment,
 }
 
 impl FromStr for BlobProofType {

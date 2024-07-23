@@ -1,4 +1,5 @@
 #![cfg(feature = "enable")]
+
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
@@ -10,7 +11,7 @@ use std::{
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -43,6 +44,16 @@ pub struct SgxResponse {
     pub quote: String,
 }
 
+impl From<SgxResponse> for Proof {
+    fn from(value: SgxResponse) -> Self {
+        Self {
+            proof: Some(value.proof),
+            quote: Some(value.quote),
+            kzg_proof: None,
+        }
+    }
+}
+
 pub const ELF_NAME: &str = "sgx-guest";
 pub const CONFIG: &str = if cfg!(feature = "docker_build") {
     "../provers/sgx/config"
@@ -60,6 +71,7 @@ impl Prover for SgxProver {
         input: GuestInput,
         _output: &GuestOutput,
         config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
@@ -133,7 +145,11 @@ impl Prover for SgxProver {
             sgx_proof = prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
         }
 
-        to_proof(sgx_proof)
+        sgx_proof.map(|r| r.into())
+    }
+
+    async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
+        Ok(())
     }
 }
 
@@ -277,8 +293,7 @@ async fn prove(
                 Ok(parse_sgx_result(output.stdout)?)
             }
             (Err(i), output_success) => Err(ProverError::GuestError(format!(
-                "Can not serialize input for SGX {}, output is {:?}",
-                i, output_success
+                "Can not serialize input for SGX {i}, output is {output_success:?}"
             ))),
             (Ok(_), Err(output_err)) => Err(ProverError::GuestError(
                 handle_gramine_error("Could not run SGX guest prover", output_err).to_string(),
@@ -315,7 +330,7 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
 
 fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
     if let std::io::ErrorKind::NotFound = err.kind() {
-        format!("gramine could not be found, please install gramine first. ({err})",)
+        format!("gramine could not be found, please install gramine first. ({err})")
     } else {
         format!("{context}: {err}")
     }

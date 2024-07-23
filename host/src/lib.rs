@@ -8,13 +8,14 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_task_manager::TaskManagerOpts;
+use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManagerOpts, TaskManagerWrapper};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
 
 use crate::{interfaces::HostResult, proof::ProofActor};
 
+pub mod cache;
 pub mod interfaces;
 pub mod metrics;
 pub mod proof;
@@ -134,13 +135,29 @@ impl From<&Opts> for TaskManagerOpts {
     }
 }
 
-pub type TaskChannelOpts = (ProofRequest, Opts, SupportedChainSpecs);
-
 #[derive(Debug, Clone)]
 pub struct ProverState {
     pub opts: Opts,
     pub chain_specs: SupportedChainSpecs,
-    pub task_channel: mpsc::Sender<TaskChannelOpts>,
+    pub task_channel: mpsc::Sender<Message>,
+}
+
+#[derive(Debug, Serialize)]
+pub enum Message {
+    Cancel(TaskDescriptor),
+    Task(ProofRequest),
+}
+
+impl From<&ProofRequest> for Message {
+    fn from(value: &ProofRequest) -> Self {
+        Self::Task(value.clone())
+    }
+}
+
+impl From<&TaskDescriptor> for Message {
+    fn from(value: &TaskDescriptor) -> Self {
+        Self::Cancel(value.clone())
+    }
 }
 
 impl ProverState {
@@ -163,10 +180,13 @@ impl ProverState {
             }
         }
 
-        let (task_channel, receiver) = mpsc::channel::<TaskChannelOpts>(opts.concurrency_limit);
+        let (task_channel, receiver) = mpsc::channel::<Message>(opts.concurrency_limit);
+
+        let opts_clone = opts.clone();
+        let chain_specs_clone = chain_specs.clone();
 
         tokio::spawn(async move {
-            ProofActor::new(receiver, opts.concurrency_limit)
+            ProofActor::new(receiver, opts_clone, chain_specs_clone)
                 .run()
                 .await;
         });
@@ -176,6 +196,14 @@ impl ProverState {
             chain_specs,
             task_channel,
         })
+    }
+
+    pub fn task_manager(&self) -> TaskManagerWrapper {
+        get_task_manager(&(&self.opts).into())
+    }
+
+    pub fn request_config(&self) -> ProofRequestOpt {
+        self.opts.proof_request_opt.clone()
     }
 }
 

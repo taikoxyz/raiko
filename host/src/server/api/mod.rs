@@ -58,7 +58,7 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
 }
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    v1::create_docs()
+    v2::create_docs()
 }
 
 async fn check_max_body_size(req: Request, next: Next) -> Response {

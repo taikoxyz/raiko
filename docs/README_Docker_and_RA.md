@@ -51,6 +51,14 @@ If you're using Ubuntu and want to see the available Linux kernel versions, run 
 apt search linux-image
 ```
 
+Once you have determined the version of the kernel that you want to downgrade or upgrade, run the following command to install:
+
+```
+sudo apt-get install linux-image-{version}-generic
+```
+
+Then reboot the system
+
 [kernel-5.11]: https://www.intel.com/content/www/us/en/developer/tools/software-guard-extensions/linux-overview.html
 [edmm]: https://gramine.readthedocs.io/en/stable/manifest-syntax.html#edmm
 
@@ -227,14 +235,10 @@ rm csr.pem
 [pccs-readme]: https://github.com/intel/SGXDataCenterAttestationPrimitives/blob/master/QuoteGeneration/pccs/README.md
 [pccs-cert-gen]: https://github.com/intel/SGXDataCenterAttestationPrimitives/tree/master/QuoteGeneration/pccs/container#2-generate-certificates-to-use-with-pccs
 
-3. Install Intel lib & copy the config file
-
-> **_NOTE:_** The library requires nodejs 18, but regardless if installation succeeds or not, we just need the `default.json` file it comes with.
+3. Curl the config file
 
 ```
-apt install sgx-dcap-pccs
-cd ~/.config/sgx-pccs
-cp /opt/intel/sgx-dcap-pccs/config/default.json  .
+curl -s https://raw.githubusercontent.com/intel/SGXDataCenterAttestationPrimitives/main/QuoteGeneration/pccs/config/default.json > ~/.config/sgx-pccs/default.json
 ```
 
 Make sure you've copied the `default.json` into the .config/sgx-pccs directory you created earlier. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
@@ -263,10 +267,10 @@ mkdir ~/.config/raiko/config
 mkdir ~/.config/raiko/secrets
 ```
 
-5. Now, clone raiko and check out the `taiko/alpha-7` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
+5. Now, clone raiko and check out the `main` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
 
 ```
-git clone -b taiko/alpha-7 https://github.com/taikoxyz/raiko.git
+git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 docker compose build
 ```
@@ -276,11 +280,11 @@ docker compose build
 **Currently, it is not possible to build the image locally due to a dependency being privated. Please pull the docker images needed to run raiko as follows:**
 
 ```
-docker pull us-docker.pkg.dev/evmchain/images/raiko:1.0.0
-docker pull us-docker.pkg.dev/evmchain/images/pccs:1.0.0
+docker pull us-docker.pkg.dev/evmchain/images/raiko:latest
+docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
-You can continue on with the following steps as usual after this.
+You can continue on with the following steps as usual after this. Do not do `docker compose build`.
 
 6. Check that the images have been built
 
@@ -347,11 +351,19 @@ pnpm compile
 export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
 ```
 
-4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match
+4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. 
 
+Hekla Addresses:
 `SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
 `ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398 
 `PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E 
+
+Mainnet Addresses:
+`SGX_VERIFIER_ADDRESS`=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
+`ATTESTATION_ADDRESS`=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
+`PEM_CERTCHAIN_ADDRESS`=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
+
+These values are already in the script, it defaults to Hekla; please comment those lines out and uncomment the Mainnet ones if performing RA on Mainnet.
 
 5. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
 
@@ -361,13 +373,13 @@ export PRIVATE_KEY={PROVER_PRIVATE_KEY}
 "quote": "0x030002......f00939a7233f79c4ca......9434154452d2d2d2d2d0a00"
 ```
 
-Take that quote and replace `V3_QUOTE_BYTES` in the `script/config_dcap_sgx_verifier.sh` script.
+You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
 
-6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with any Holesky RPC URL.
+Copy your quote and use in the following step.
 
-7. Call the script with `./script/config_dcap_sgx_verifier.sh`.
+6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network.
 
-> **_NOTE:_**  If you already have QE/TCB/Enclave already configured you can change `export TASK_ENABLE="1,1,1,1,1"` to `export TASK_ENABLE="0,0,0,0,1"` to only register the SGX instance.
+7. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote {YOUR_QUOTE_HERE}`.
 
 8. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
@@ -440,7 +452,7 @@ Opt {
 Once your Raiko instance is running, you can verify if it was started properly as follows:
 
 ```
- curl --location 'http://localhost:8080' \
+ curl --location 'http://localhost:8080/proof' \
 --header 'Content-Type: application/json' \
 --data '{
     "proof_type": "sgx",

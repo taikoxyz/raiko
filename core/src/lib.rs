@@ -5,11 +5,17 @@ use crate::{
 };
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
-use raiko_lib::builder::{create_mem_db, RethBlockBuilder};
-use raiko_lib::consts::{ChainSpec, VerifierType};
-use raiko_lib::input::{GuestInput, GuestOutput, TaikoProverData};
 use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::prover::Proof;
+use raiko_lib::{
+    builder::{create_mem_db, RethBlockBuilder},
+    prover::ProofKey,
+};
+use raiko_lib::{
+    consts::ChainSpec,
+    input::{GuestInput, GuestOutput, TaikoProverData},
+    prover::{IdStore, IdWrite},
+};
 use reth_primitives::Header;
 use serde_json::Value;
 use std::{collections::HashMap, hint::black_box};
@@ -79,7 +85,7 @@ impl Raiko {
 
                 Ok(GuestOutput {
                     header: header.clone(),
-                    hash: ProtocolInstance::new(input, &header, VerifierType::None)?
+                    hash: ProtocolInstance::new(input, &header, self.request.proof_type.into())?
                         .instance_hash(),
                 })
             }
@@ -92,12 +98,25 @@ impl Raiko {
         }
     }
 
-    pub async fn prove(&self, input: GuestInput, output: &GuestOutput) -> RaikoResult<Proof> {
-        let data = serde_json::to_value(&self.request)?;
+    pub async fn prove(
+        &self,
+        input: GuestInput,
+        output: &GuestOutput,
+        store: Option<&mut dyn IdWrite>,
+    ) -> RaikoResult<Proof> {
+        let config = serde_json::to_value(&self.request)?;
         self.request
             .proof_type
-            .run_prover(input, output, &data)
+            .run_prover(input, output, &config, store)
             .await
+    }
+
+    pub async fn cancel(
+        &self,
+        proof_key: ProofKey,
+        read: Box<&mut dyn IdStore>,
+    ) -> RaikoResult<()> {
+        self.request.proof_type.cancel_proof(proof_key, read).await
     }
 }
 
@@ -198,6 +217,7 @@ mod tests {
         ChainSpec, Raiko,
     };
     use alloy_primitives::Address;
+    use alloy_provider::Provider;
     use clap::ValueEnum;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
@@ -267,7 +287,7 @@ mod tests {
             .expect("input generation failed");
         let output = raiko.get_output(&input).expect("output generation failed");
         let _proof = raiko
-            .prove(input, &output)
+            .prove(input, &output, None)
             .await
             .expect("proof generation failed");
     }
@@ -300,6 +320,12 @@ mod tests {
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
 
+    async fn get_recent_block_num(chain_spec: &ChainSpec) -> u64 {
+        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
+        let height = provider.provider.get_block_number().await.unwrap();
+        height - 100
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_ethereum() {
         let proof_type = get_proof_type_from_env();
@@ -307,13 +333,17 @@ mod tests {
         if !(is_ci() && proof_type == ProofType::Sp1) {
             let network = Network::Ethereum.to_string();
             let l1_network = Network::Ethereum.to_string();
-            let block_number = 19907175;
             let taiko_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&network)
                 .unwrap();
             let l1_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&l1_network)
                 .unwrap();
+            let block_number = get_recent_block_num(&taiko_chain_spec).await;
+            println!(
+                "test_prove_block_ethereum in block_number: {}",
+                block_number
+            );
             let proof_request = ProofRequest {
                 block_number,
                 network,
@@ -335,13 +365,17 @@ mod tests {
         if !(is_ci() && proof_type == ProofType::Sp1) {
             let network = Network::TaikoMainnet.to_string();
             let l1_network = Network::Ethereum.to_string();
-            let block_number = 88970;
             let taiko_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&network)
                 .unwrap();
             let l1_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&l1_network)
                 .unwrap();
+            let block_number = get_recent_block_num(&taiko_chain_spec).await;
+            println!(
+                "test_prove_block_taiko_mainnet in block_number: {}",
+                block_number
+            );
             let proof_request = ProofRequest {
                 block_number,
                 network,

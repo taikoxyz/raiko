@@ -1,10 +1,8 @@
 #![cfg(feature = "enable")]
 #![feature(test)]
 extern crate test;
-use test::bench::run_once;
-use test::Bencher;
-
 use sp1_sdk::{ProverClient, SP1Stdin};
+use test::{bench::run_once, Bencher};
 
 const BN254_ADD_ELF: &[u8] = include_bytes!("../../guest/elf/bn254-add");
 const BN254_MUL_ELF: &[u8] = include_bytes!("../../guest/elf/bn254-mul");
@@ -22,33 +20,37 @@ fn prove(elf: &[u8]) {
 }
 
 #[bench]
-fn bench_sha256(b: &mut Bencher) {
-    run_once(|b| {
+fn bench_sha256(_: &mut Bencher) {
+    run_once(|_| {
         prove(SHA256_ELF);
         Ok(())
-    });
+    })
+    .unwrap();
 }
 
 #[bench]
-fn bench_ecdsa(b: &mut Bencher) {
-    run_once(|b| {
+fn bench_ecdsa(_: &mut Bencher) {
+    run_once(|_| {
         prove(ECDSA_ELF);
         Ok(())
-    });
+    })
+    .unwrap();
 }
 
 #[bench]
-fn bench_bn254_add(b: &mut Bencher) {
-    run_once(|b| {
+fn bench_bn254_add(_: &mut Bencher) {
+    run_once(|_| {
         prove(BN254_ADD_ELF);
         Ok(())
-    });
+    })
+    .unwrap();
 }
 
 #[bench]
-fn bench_bn254_mul(b: &mut Bencher) {
-    run_once(|b| {
+fn bench_bn254_mul(_: &mut Bencher) {
+    run_once(|_| {
         prove(BN254_MUL_ELF);
         Ok(())
-    });
+    })
+    .unwrap();
 }

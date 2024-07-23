@@ -9,8 +9,7 @@ use crate::{
     CycleTracker,
 };
 use anyhow::{bail, ensure, Result};
-use core::mem;
-use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_MAINNET};
+use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET};
 use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
 use reth_evm_ethereum::execute::{
     validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
@@ -104,6 +103,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 )
             }
             "holesky" => HOLESKY.clone(),
+            "taiko_dev" => TAIKO_DEV.clone(),
             _ => unimplemented!(),
         };
 

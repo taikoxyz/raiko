@@ -1,13 +1,16 @@
-mod app_args;
-mod one_shot;
-
 extern crate rand;
 extern crate secp256k1;
 
+use crate::{
+    app_args::{App, Command},
+    one_shot::{bootstrap, load_bootstrap, one_shot},
+};
 use anyhow::{anyhow, Result};
-use app_args::{App, Command};
 use clap::Parser;
-use one_shot::{bootstrap, load_bootstrap, one_shot};
+
+mod app_args;
+mod one_shot;
+mod signature;
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
@@ -25,7 +28,7 @@ pub async fn main() -> Result<()> {
         Command::Check => {
             println!("Checking if bootstrap is readable");
             load_bootstrap(&args.global_opts.secrets_dir)
-                .map_err(|err| anyhow!("check booststrap failed: {}", err))?;
+                .map_err(|err| anyhow!("check booststrap failed: {err}"))?;
         }
     }
 

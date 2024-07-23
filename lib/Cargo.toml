@@ -5,10 +5,10 @@ edition = "2021"
 
 [dependencies]
 # reth
-reth-primitives.workspace = true
-reth-evm-ethereum.workspace = true
-reth-evm.workspace = true
-reth-chainspec.workspace = true
+reth-primitives = { workspace = true }
+reth-evm-ethereum = { workspace = true }
+reth-evm = { workspace = true }
+reth-chainspec = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -43,6 +43,9 @@ sha2 = { workspace = true }
 sha3 = { workspace = true }
 rlp = { workspace = true, features = ["std"] }
 
+# docs
+utoipa = { workspace = true }
+
 # misc
 cfg-if = { workspace = true }
 tracing = { workspace = true }
@@ -76,3 +79,4 @@ sgx = []
 sp1 = []
 risc0 = []
 sp1-cycle-tracker = []
+proof_of_equivalence = []

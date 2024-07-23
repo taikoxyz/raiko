@@ -1,23 +1,23 @@
 #![cfg(feature = "enable")]
-use std::fmt::Debug;
 
 use alloy_primitives::B256;
-
 use hex::ToHex;
-
+use log::warn;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{to_proof, Proof, Prover, ProverConfig, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use tracing::info as traicing_info;
+use std::fmt::Debug;
+use tracing::{debug, info as traicing_info};
 
 use crate::{
     methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
     snarks::verify_groth16_snark,
 };
+
 pub use bonsai::*;
 
 pub mod bonsai;
@@ -37,17 +37,37 @@ pub struct Risc0Param {
 pub struct Risc0Response {
     pub proof: String,
 }
+
+impl From<Risc0Response> for Proof {
+    fn from(value: Risc0Response) -> Self {
+        Self {
+            proof: Some(value.proof),
+            quote: None,
+            kzg_proof: None,
+        }
+    }
+}
+
 pub struct Risc0Prover;
+
+const RISC0_PROVER_CODE: u8 = 3;
 
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
+        id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
+        let mut id_store = id_store;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+        let proof_key = (
+            input.chain_spec.chain_id,
+            output.hash.clone(),
+            RISC0_PROVER_CODE,
+        );
 
-        println!("elf code length: {}", RISC0_GUEST_ELF.len());
+        debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
         let result = maybe_prove::<GuestInput, B256>(
@@ -56,15 +76,19 @@ impl Prover for Risc0Prover {
             RISC0_GUEST_ELF,
             &output.hash,
             Default::default(),
+            proof_key,
+            &mut id_store,
         )
         .await;
 
         let journal: String = result.clone().unwrap().1.journal.encode_hex();
 
         // Create/verify Groth16 SNARK
-        if config.snark {
+        let snark_proof = if config.snark {
             let Some((stark_uuid, stark_receipt)) = result else {
-                panic!("No STARK data to snarkify!");
+                return Err(ProverError::GuestError(
+                    "No STARK data to snarkify!".to_owned(),
+                ));
             };
             let image_id = Digest::from(RISC0_GUEST_ID);
             let (snark_uuid, snark_receipt) =
@@ -74,12 +98,26 @@ impl Prover for Risc0Prover {
 
             traicing_info!("Validating SNARK uuid: {snark_uuid}");
 
-            verify_groth16_snark(image_id, snark_receipt)
+            let enc_proof = verify_groth16_snark(image_id, snark_receipt)
                 .await
                 .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
-        }
 
-        to_proof(Ok(Risc0Response { proof: journal }))
+            format!("0x{}", hex::encode(enc_proof))
+        } else {
+            warn!("proof is not in snark mode, please check.");
+            journal
+        };
+
+        Ok(Risc0Response { proof: snark_proof }.into())
+    }
+
+    async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+        let uuid = id_store.read_id(key)?;
+        cancel_proof(uuid)
+            .await
+            .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        id_store.remove_id(key)?;
+        Ok(())
     }
 }
 
