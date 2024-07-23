@@ -100,7 +100,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         let mut block = self.input.block.clone();
         block.body = generate_transactions(
             &self.input.chain_spec,
-            self.input.taiko.block_proposed.meta.blobUsed,
+            self.input.taiko.block_proposed.blob_used(),
             &self.input.taiko.tx_data,
             &self.input.taiko.anchor_tx,
         );

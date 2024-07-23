@@ -7,7 +7,10 @@ use reth_primitives::{Header, U256};
 use crate::no_std::*;
 use crate::{
     consts::{SupportedChainSpecs, VerifierType},
-    input::{BlobProofType, BlockMetadata, EthDeposit, GuestInput, Transition},
+    input::{
+        ontake::BlockMetadataV2, BlobProofType, BlockMetadata, BlockProposedFork, EthDeposit,
+        GuestInput, Transition,
+    },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
@@ -17,9 +20,87 @@ use crate::{
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 #[derive(Debug, Clone)]
+pub enum BlockMetaDataFork {
+    Hekla(BlockMetadata),
+    Ontake(BlockMetadataV2),
+}
+
+impl BlockMetaDataFork {
+    fn from(input: &GuestInput, header: &Header, tx_list_hash: B256) -> Self {
+        match &input.taiko.block_proposed {
+            BlockProposedFork::Nothing => unimplemented!("no block proposed"),
+            BlockProposedFork::Hekla(block_proposed) => {
+                BlockMetaDataFork::Hekla(BlockMetadata {
+                    l1Hash: input.taiko.l1_header.hash_slow(),
+                    difficulty: block_proposed.meta.difficulty,
+                    blobHash: tx_list_hash,
+                    extraData: bytes_to_bytes32(&header.extra_data).into(),
+                    depositsHash: keccak(Vec::<EthDeposit>::new().abi_encode()).into(),
+                    coinbase: header.beneficiary,
+                    id: header.number,
+                    gasLimit: (header.gas_limit
+                        - if input.chain_spec.is_taiko() {
+                            ANCHOR_GAS_LIMIT
+                        } else {
+                            0
+                        }) as u32,
+                    timestamp: header.timestamp,
+                    l1Height: input.taiko.l1_header.number,
+                    minTier: block_proposed.meta.minTier,
+                    blobUsed: block_proposed.meta.blobUsed,
+                    parentMetaHash: block_proposed.meta.parentMetaHash,
+                    sender: block_proposed.meta.sender,
+                })
+            }
+            BlockProposedFork::Ontake(block_proposed_v2) => {
+                BlockMetaDataFork::Ontake(BlockMetadataV2 {
+                    anchorBlockHash: input.taiko.l1_header.hash_slow(),
+                    difficulty: block_proposed_v2.meta.difficulty,
+                    blobHash: tx_list_hash,
+                    extraData: bytes_to_bytes32(&header.extra_data).into(),
+                    coinbase: header.beneficiary,
+                    id: header.number,
+                    gasLimit: (header.gas_limit
+                        - if input.chain_spec.is_taiko() {
+                            ANCHOR_GAS_LIMIT
+                        } else {
+                            0
+                        }) as u32,
+                    timestamp: header.timestamp,
+                    anchorBlockId: input.taiko.l1_header.number,
+                    minTier: block_proposed_v2.meta.minTier,
+                    blobUsed: block_proposed_v2.meta.blobUsed,
+                    parentMetaHash: block_proposed_v2.meta.parentMetaHash,
+                    proposer: block_proposed_v2.meta.proposer,
+                    livenessBond: block_proposed_v2.meta.livenessBond,
+                    proposedAt: block_proposed_v2.meta.proposedAt,
+                    proposedIn: block_proposed_v2.meta.proposedIn,
+                    blobTxListOffset: block_proposed_v2.meta.blobTxListOffset,
+                    blobTxListLength: block_proposed_v2.meta.blobTxListLength,
+                    blobIndex: block_proposed_v2.meta.blobIndex,
+                    basefeeSharingPctg: block_proposed_v2.meta.basefeeSharingPctg,
+                })
+            }
+        }
+    }
+
+    fn match_block_proposal(&self, other: &BlockProposedFork) -> bool {
+        match (self, other) {
+            (BlockMetaDataFork::Hekla(a), BlockProposedFork::Hekla(b)) => {
+                a.abi_encode() == b.meta.abi_encode()
+            }
+            (BlockMetaDataFork::Ontake(a), BlockProposedFork::Ontake(b)) => {
+                a.abi_encode() == b.meta.abi_encode()
+            }
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ProtocolInstance {
     pub transition: Transition,
-    pub block_metadata: BlockMetadata,
+    pub block_metadata: BlockMetaDataFork,
     pub prover: Address,
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
@@ -29,7 +110,7 @@ pub struct ProtocolInstance {
 
 impl ProtocolInstance {
     pub fn new(input: &GuestInput, header: &Header, proof_type: VerifierType) -> Result<Self> {
-        let blob_used = input.taiko.block_proposed.meta.blobUsed;
+        let blob_used = input.taiko.block_proposed.blob_used();
         // If blob is used, tx_list_hash is the commitment to the blob
         // and we need to verify the blob hash matches the blob data.
         // If we need to compute the proof of equivalence this data will be set.
@@ -115,27 +196,7 @@ impl ProtocolInstance {
                 stateRoot: header.state_root,
                 graffiti: input.taiko.prover_data.graffiti,
             },
-            block_metadata: BlockMetadata {
-                l1Hash: input.taiko.l1_header.hash_slow(),
-                difficulty: input.taiko.block_proposed.meta.difficulty,
-                blobHash: tx_list_hash,
-                extraData: bytes_to_bytes32(&header.extra_data).into(),
-                depositsHash: keccak(Vec::<EthDeposit>::new().abi_encode()).into(),
-                coinbase: header.beneficiary,
-                id: header.number,
-                gasLimit: (header.gas_limit
-                    - if input.chain_spec.is_taiko() {
-                        ANCHOR_GAS_LIMIT
-                    } else {
-                        0
-                    }) as u32,
-                timestamp: header.timestamp,
-                l1Height: input.taiko.l1_header.number,
-                minTier: input.taiko.block_proposed.meta.minTier,
-                blobUsed: blob_used,
-                parentMetaHash: input.taiko.block_proposed.meta.parentMetaHash,
-                sender: input.taiko.block_proposed.meta.sender,
-            },
+            block_metadata: BlockMetaDataFork::from(input, header, tx_list_hash),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
             chain_id: input.chain_spec.chain_id,
@@ -146,10 +207,10 @@ impl ProtocolInstance {
         // Sanity check
         if input.chain_spec.is_taiko() {
             ensure!(
-                pi.block_metadata.abi_encode() == input.taiko.block_proposed.meta.abi_encode(),
+                pi.block_metadata.match_block_proposal(&input.taiko.block_proposed),
                 format!(
                     "block hash mismatch, expected: {:?}, got: {:?}",
-                    input.taiko.block_proposed.meta, pi.block_metadata
+                    input.taiko.block_proposed, pi.block_metadata
                 )
             );
         }
@@ -163,7 +224,10 @@ impl ProtocolInstance {
     }
 
     pub fn meta_hash(&self) -> B256 {
-        keccak(self.block_metadata.abi_encode()).into()
+        match self.block_metadata {
+            BlockMetaDataFork::Hekla(ref meta) => keccak(meta.abi_encode()).into(),
+            BlockMetaDataFork::Ontake(ref meta) => keccak(meta.abi_encode()).into(),
+        }
     }
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))

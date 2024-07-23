@@ -51,19 +51,37 @@ impl Raiko {
         &self,
         provider: BDP,
     ) -> RaikoResult<GuestInput> {
-        preflight(
-            provider,
-            self.request.block_number,
-            self.l1_chain_spec.to_owned(),
-            self.taiko_chain_spec.to_owned(),
-            TaikoProverData {
-                graffiti: self.request.graffiti,
-                prover: self.request.prover,
-            },
-            self.request.blob_proof_type.clone(),
-        )
-        .await
-        .map_err(Into::<RaikoError>::into)
+        //TODO: read fork from config
+        if self.request.block_number <= 999999999 {
+            preflight(
+                provider,
+                self.request.block_number,
+                self.l1_chain_spec.to_owned(),
+                self.taiko_chain_spec.to_owned(),
+                TaikoProverData {
+                    graffiti: self.request.graffiti,
+                    prover: self.request.prover,
+                },
+                self.request.blob_proof_type.clone(),
+            )
+            .await
+            .map_err(Into::<RaikoError>::into)
+        } else {
+            crate::preflight::ontake::preflight(
+                provider,
+                self.request.block_number,
+                self.request.block_number,
+                self.l1_chain_spec.to_owned(),
+                self.taiko_chain_spec.to_owned(),
+                TaikoProverData {
+                    graffiti: self.request.graffiti,
+                    prover: self.request.prover,
+                },
+                self.request.blob_proof_type.clone(),
+            )
+            .await
+            .map_err(Into::<RaikoError>::into)
+        }
     }
 
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
