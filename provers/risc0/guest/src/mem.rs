@@ -2,7 +2,7 @@ use std::{
     alloc::{alloc, handle_alloc_error, Layout},
     ffi::c_void,
 };
-
+/// # Safety
 /// This is a basic implementation of custom memory allocation functions that mimic C-style memory management.
 /// This implementation is designed to be used in ZkVM where we cross-compile Rust code with C
 /// due to the dependency of c-kzg. This modification also requires env var:
@@ -10,6 +10,7 @@ use std::{
 ///     $ CC_riscv32im-risc0-zkvm-elf="/opt/riscv/bin/riscv32-unknown-elf-gcc"
 /// which is set in the build pipeline
 
+/// # Safety
 #[no_mangle]
 // TODO ideally this is c_size_t, but not stabilized (not guaranteed to be usize on all archs)
 pub unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
@@ -22,13 +23,13 @@ pub unsafe extern "C" fn malloc(size: usize) -> *mut c_void {
 
     ptr as *mut c_void
 }
-
+/// # Safety
 #[no_mangle]
 // TODO shouldn't need to zero allocated bytes since the zkvm memory is zeroed, might want to zero anyway
 pub unsafe extern "C" fn calloc(nobj: usize, size: usize) -> *mut c_void {
     malloc(nobj * size)
 }
-
+/// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn free(_size: *const c_void) {
     // Intentionally a no-op, since the zkvm allocator is a bump allocator

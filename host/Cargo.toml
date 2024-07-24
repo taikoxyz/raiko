@@ -82,9 +82,6 @@ ethers-core = { workspace = true }
 
 [features]
 default = []
-sp1 = ["raiko-core/sp1"]
-risc0 = ["raiko-core/risc0"]
-sgx = ["raiko-core/sgx"]
 
 [[bin]]
 name = "raiko-host"

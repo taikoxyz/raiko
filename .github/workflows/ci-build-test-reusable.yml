@@ -43,10 +43,16 @@ jobs:
         uses: risc0/risc0/.github/actions/sccache@release-0.19
 
       - name: Install ${{ inputs.version_name }}
+        env:
+          TARGET: ${{ inputs.version_name }}
         run: make install
 
       - name: Build ${{ inputs.version_name }} prover
+        env:
+            TARGET: ${{ inputs.version_name }}
         run: make build
 
       - name: Test ${{ inputs.version_name }} prover
+        env:
+            TARGET: ${{ inputs.version_name }}
         run: make test
