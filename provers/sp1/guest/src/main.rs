@@ -8,8 +8,8 @@ use raiko_lib::{
 use revm_precompile::zk_op::ZkOperation;
 use zk_op::Sp1Operator;
 
-pub mod mem;
-pub use mem::*;
+pub mod sys;
+pub use sys::*;
 
 pub fn main() {
     let mut ct = CycleTracker::start("input");
