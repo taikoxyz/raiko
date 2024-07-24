@@ -1,13 +1,10 @@
-use crate::{
-    interfaces::{RaikoError, RaikoResult},
-    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
-    require,
-};
-pub use alloy_primitives::*;
+use std::collections::HashSet;
+
+use alloy_primitives::{hex, Bytes, Log, B256};
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{Filter, Transaction as AlloyRpcTransaction};
+use alloy_rpc_types::{Block as AlloyRpcBlock, Filter, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::anyhow;
 use kzg_traits::{
     eip_4844::{blob_to_kzg_commitment_rust, Blob},
     G1,
@@ -30,8 +27,13 @@ use raiko_lib::{
 use reth_evm_ethereum::taiko::decode_anchor;
 use reth_primitives::Block;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
+
+use crate::{
+    interfaces::{RaikoError, RaikoResult},
+    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
+    utils::require,
+};
 
 pub async fn preflight<BDP: BlockDataProvider>(
     provider: BDP,
@@ -113,30 +115,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let mut builder = RethBlockBuilder::new(&input, provider_db);
 
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-    let max_iterations = 100;
-    for num_iterations in 0.. {
-        inplace_print(&format!("Execution iteration {num_iterations}..."));
-
-        let Some(db) = builder.db.as_mut() else {
-            return Err(RaikoError::Preflight("No db in builder".to_owned()));
-        };
-        db.optimistic = num_iterations + 1 < max_iterations;
-
-        builder
-            .execute_transactions(num_iterations + 1 < max_iterations)
-            .map_err(|_| {
-                RaikoError::Preflight("Executing transactions in builder failed".to_owned())
-            })?;
-
-        let Some(db) = builder.db.as_mut() else {
-            return Err(RaikoError::Preflight("No db in builder".to_owned()));
-        };
-        if db.fetch_data().await {
-            clear_line();
-            info!("State data fetched in {num_iterations} iterations");
-            break;
-        }
-    }
+    execute_txs(100, &mut builder).await?;
 
     let Some(db) = builder.db.as_mut() else {
         return Err(RaikoError::Preflight("No db in builder".to_owned()));
@@ -187,6 +166,37 @@ pub async fn preflight<BDP: BlockDataProvider>(
     Ok(input)
 }
 
+async fn execute_txs<BDP: BlockDataProvider>(
+    max_iterations: usize,
+    builder: &mut RethBlockBuilder<ProviderDb<BDP>>,
+) -> RaikoResult<()> {
+    for num_iterations in 0.. {
+        inplace_print(&format!("Execution iteration {num_iterations}..."));
+
+        let Some(db) = builder.db.as_mut() else {
+            return Err(RaikoError::Preflight("No db in builder".to_owned()));
+        };
+        db.optimistic = num_iterations + 1 < max_iterations;
+
+        builder
+            .execute_transactions(num_iterations + 1 < max_iterations)
+            .map_err(|_| {
+                RaikoError::Preflight("Executing transactions in builder failed".to_owned())
+            })?;
+
+        let Some(db) = builder.db.as_mut() else {
+            return Err(RaikoError::Preflight("No db in builder".to_owned()));
+        };
+        if db.fetch_data().await {
+            clear_line();
+            info!("State data fetched in {num_iterations} iterations");
+            break;
+        }
+    }
+
+    Ok(())
+}
+
 /// Prepare the input for a Taiko chain
 async fn prepare_taiko_chain_input(
     l1_chain_spec: &ChainSpec,
@@ -199,7 +209,11 @@ async fn prepare_taiko_chain_input(
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, block_number)?;
 
     // Decode the anchor tx to find out which L1 blocks we need to fetch
-    let anchor_tx = &block.body[0].clone();
+    let Some(anchor_tx) = block.body.first().cloned() else {
+        return Err(RaikoError::Preflight(
+            "No anchor tx in the block".to_owned(),
+        ));
+    };
     let anchor_call = decode_anchor(anchor_tx.input())?;
     // The L1 blocks we need
     let l1_state_block_number = anchor_call.l1BlockId;
@@ -218,7 +232,11 @@ async fn prepare_taiko_chain_input(
             (l1_state_block_number, false),
         ])
         .await?;
-    let (l1_inclusion_block, l1_state_block) = (&l1_blocks[0], &l1_blocks[1]);
+    let [l1_inclusion_block, l1_state_block, ..] = l1_blocks.as_slice() else {
+        return Err(RaikoError::Preflight(
+            "No L1 blocks for the requested block".to_owned(),
+        ));
+    };
 
     let l1_state_block_hash = l1_state_block.header.hash.ok_or_else(|| {
         RaikoError::Preflight("No L1 state block hash for the requested block".to_owned())
@@ -231,7 +249,7 @@ async fn prepare_taiko_chain_input(
     })?;
 
     // Get the block proposal data
-    let (proposal_tx, proposal_event) = get_block_proposed_event(
+    let (proposal_tx, block_proposed) = get_block_proposed_event(
         provider_l1.provider(),
         taiko_chain_spec.clone(),
         l1_inclusion_block_hash,
@@ -240,43 +258,66 @@ async fn prepare_taiko_chain_input(
     .await?;
 
     // Fetch the tx data from either calldata or blobdata
-    let (tx_data, blob_commitment) = if proposal_event.meta.blobUsed {
-        debug!("blob active");
-        // Get the blob hashes attached to the propose tx
-        let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-        require(!blob_hashes.is_empty(), "blob hashes are empty")?;
-        // Currently the protocol enforces the first blob hash to be used
-        let blob_hash = blob_hashes[0];
-        // Get the blob data for this block
-        let slot_id = block_time_to_block_slot(
-            l1_inclusion_block.header.timestamp,
-            l1_chain_spec.genesis_time,
-            l1_chain_spec.seconds_per_slot,
-        )?;
-        let beacon_rpc_url: String = l1_chain_spec.beacon_rpc.clone().ok_or_else(|| {
-            RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
-        })?;
-        let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
-        let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
+    let (tx_data, blob_commitment) = get_tx_data_and_commitment(
+        block_proposed.meta.blobUsed,
+        proposal_tx.clone(),
+        l1_inclusion_block.clone(),
+        l1_chain_spec,
+    )
+    .await?;
 
-        (blob, Some(commitment.to_vec()))
-    } else {
-        // Get the tx list data directly from the propose transaction data
-        let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
-            .map_err(|_| RaikoError::Preflight("Could not decode proposeBlockCall".to_owned()))?;
-        (proposal_call.txList.as_ref().to_owned(), None)
-    };
+    let l1_header =
+        l1_state_block.header.clone().try_into().map_err(|e| {
+            RaikoError::Conversion(format!("Failed converting to reth header: {e}"))
+        })?;
 
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {
-        l1_header: l1_state_block.header.clone().try_into().unwrap(),
+        l1_header,
         tx_data,
-        anchor_tx: Some(anchor_tx.clone()),
+        anchor_tx: Some(anchor_tx),
         blob_commitment,
-        block_proposed: proposal_event,
+        block_proposed,
         prover_data,
         blob_proof_type,
     })
+}
+
+async fn get_tx_data_and_commitment(
+    blob_used: bool,
+    proposal_tx: AlloyRpcTransaction,
+    l1_inclusion_block: AlloyRpcBlock,
+    l1_chain_spec: &ChainSpec,
+) -> RaikoResult<(Vec<u8>, Option<Vec<u8>>)> {
+    if !blob_used {
+        // Get the tx list data directly from the propose transaction data
+        let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
+            .map_err(|_| RaikoError::Preflight("Could not decode proposeBlockCall".to_owned()))?;
+        return Ok((proposal_call.txList.as_ref().to_owned(), None));
+    }
+
+    debug!("blob active");
+    // Get the blob hashes attached to the propose tx
+    let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
+    require(!blob_hashes.is_empty(), "blob hashes are empty")?;
+    // Currently the protocol enforces the first blob hash to be used
+    let Some(blob_hash) = blob_hashes.first().cloned() else {
+        return Err(RaikoError::Preflight("No blob hash found".to_owned()));
+    };
+    // Get the blob data for this block
+    let slot_id = block_time_to_block_slot(
+        l1_inclusion_block.header.timestamp,
+        l1_chain_spec.genesis_time,
+        l1_chain_spec.seconds_per_slot,
+    )?;
+    let beacon_rpc_url: String = l1_chain_spec.beacon_rpc.clone().ok_or_else(|| {
+        RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
+    })?;
+    let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
+    let commitment = eip4844::calc_kzg_proof_commitment(&blob)
+        .map_err(|e| RaikoError::Preflight(e.to_string()))?;
+
+    Ok((blob, Some(commitment.to_vec())))
 }
 
 // block_time_to_block_slot returns the slots of the given timestamp.
@@ -286,40 +327,49 @@ fn block_time_to_block_slot(
     block_per_slot: u64,
 ) -> RaikoResult<u64> {
     if genesis_time == 0 {
-        Err(RaikoError::Anyhow(anyhow!(
+        return Err(RaikoError::Anyhow(anyhow!(
             "genesis time is 0, please check chain spec"
-        )))
-    } else if block_time < genesis_time {
-        Err(RaikoError::Anyhow(anyhow!(
-            "provided block_time precedes genesis time",
-        )))
-    } else {
-        Ok((block_time - genesis_time) / block_per_slot)
+        )));
     }
+
+    if block_time < genesis_time {
+        return Err(RaikoError::Anyhow(anyhow!(
+            "provided block_time precedes genesis time",
+        )));
+    }
+
+    Ok((block_time - genesis_time) / block_per_slot)
 }
 
 fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
     hex::decode(blob_str.to_lowercase().trim_start_matches("0x")).unwrap_or_default()
 }
 
-fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
+fn calc_blob_versioned_hash(blob_str: &str) -> RaikoResult<[u8; 32]> {
     let blob_bytes: Vec<u8> = hex::decode(blob_str.to_lowercase().trim_start_matches("0x"))
-        .expect("Could not decode blob");
-    let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
-    let commitment = blob_to_kzg_commitment_rust(
-        &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"),
-        &KZG_SETTINGS.clone(),
-    )
-    .expect("Could not create kzg commitment from blob");
-    let version_hash: [u8; 32] = commitment_to_version_hash(&commitment.to_bytes()).0;
-    version_hash
+        .map_err(|_| RaikoError::Preflight("Could not decode blob".to_owned()))?;
+
+    let blob = Blob::from_bytes(&blob_bytes)
+        .map_err(|_| RaikoError::Preflight("Could not create blob".to_owned()))?;
+
+    let deserialized = eip4844::deserialize_blob_rust(&blob)
+        .map_err(|_| RaikoError::Preflight("Could not deserialize blob".to_owned()))?;
+
+    let commitment =
+        blob_to_kzg_commitment_rust(&deserialized, &KZG_SETTINGS.clone()).map_err(|_| {
+            RaikoError::Preflight("Could not create kzg commitment from blob".to_owned())
+        })?;
+
+    let version_hash = commitment_to_version_hash(&commitment.to_bytes());
+
+    Ok(version_hash.0)
 }
 
 async fn get_blob_data(
     beacon_rpc_url: &str,
     block_id: u64,
-    blob_hash: FixedBytes<32>,
-) -> Result<Vec<u8>> {
+    blob_hash: B256,
+) -> RaikoResult<Vec<u8>> {
     if beacon_rpc_url.contains("blobscan.com") {
         get_blob_data_blobscan(beacon_rpc_url, block_id, blob_hash).await
     } else {
@@ -327,94 +377,110 @@ async fn get_blob_data(
     }
 }
 
+// Blob data from the beacon chain
+// type Sidecar struct {
+// Index                    string                   `json:"index"`
+// Blob                     string                   `json:"blob"`
+// SignedBeaconBlockHeader  *SignedBeaconBlockHeader `json:"signed_block_header"`
+// KzgCommitment            string                   `json:"kzg_commitment"`
+// KzgProof                 string                   `json:"kzg_proof"`
+// CommitmentInclusionProof []string
+// `json:"kzg_commitment_inclusion_proof"` }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct GetBlobData {
+    pub index: String,
+    pub blob: String,
+    // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
+    pub kzg_commitment: String,
+    pub kzg_proof: String,
+    //pub kzg_commitment_inclusion_proof: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct GetBlobsResponse {
+    pub data: Vec<GetBlobData>,
+}
+
+async fn get_request<T>(url: String) -> RaikoResult<T>
+where
+    for<'a> T: Deserialize<'a>,
+{
+    let response = reqwest::get(url.clone())
+        .await
+        .map_err(|e| RaikoError::Preflight(e.to_string()))?;
+    let status = response.status();
+    if !status.is_success() {
+        let text = format!("Request {url} failed with status code: {status}");
+        error!("{text}");
+        return Err(RaikoError::Preflight(text));
+    }
+
+    response
+        .json::<T>()
+        .await
+        .map_err(|e| RaikoError::Preflight(e.to_string()))
+}
+
 async fn get_blob_data_beacon(
     beacon_rpc_url: &str,
     block_id: u64,
-    blob_hash: FixedBytes<32>,
-) -> Result<Vec<u8>> {
-    // Blob data from the beacon chain
-    // type Sidecar struct {
-    // Index                    string                   `json:"index"`
-    // Blob                     string                   `json:"blob"`
-    // SignedBeaconBlockHeader  *SignedBeaconBlockHeader `json:"signed_block_header"`
-    // KzgCommitment            string                   `json:"kzg_commitment"`
-    // KzgProof                 string                   `json:"kzg_proof"`
-    // CommitmentInclusionProof []string
-    // `json:"kzg_commitment_inclusion_proof"` }
-    #[derive(Clone, Debug, Deserialize, Serialize)]
-    struct GetBlobData {
-        pub index: String,
-        pub blob: String,
-        // pub signed_block_header: SignedBeaconBlockHeader, // ignore for now
-        pub kzg_commitment: String,
-        pub kzg_proof: String,
-        //pub kzg_commitment_inclusion_proof: Vec<String>,
-    }
-
-    #[derive(Clone, Debug, Deserialize, Serialize)]
-    struct GetBlobsResponse {
-        pub data: Vec<GetBlobData>,
-    }
-
+    blob_hash: B256,
+) -> RaikoResult<Vec<u8>> {
     let url = format!(
         "{}/eth/v1/beacon/blob_sidecars/{block_id}",
         beacon_rpc_url.trim_end_matches('/'),
     );
     info!("Retrieve blob from {url}.");
-    let response = reqwest::get(url.clone()).await?;
-    if response.status().is_success() {
-        let blobs: GetBlobsResponse = response.json().await?;
-        ensure!(!blobs.data.is_empty(), "blob data not available anymore");
-        // Get the blob data for the blob storing the tx list
-        let tx_blob = blobs
-            .data
-            .iter()
-            .find(|blob| {
-                // calculate from plain blob
-                blob_hash == calc_blob_versioned_hash(&blob.blob)
-            })
-            .cloned();
-        ensure!(tx_blob.is_some());
-        Ok(blob_to_bytes(&tx_blob.unwrap().blob))
-    } else {
-        warn!(
-            "Request {url} failed with status code: {}",
-            response.status()
-        );
-        Err(anyhow::anyhow!(
-            "Request failed with status code: {}",
-            response.status()
-        ))
+
+    let blobs: GetBlobsResponse = get_request(url).await?;
+
+    require(!blobs.data.is_empty(), "Blob data not available anymore")?;
+
+    // Get the blob data for the blob storing the tx list
+    let tx_blob = find_tx_blob(&blobs.data, blob_hash);
+
+    let Some(tx_blob) = tx_blob else {
+        return Err(RaikoError::Preflight("No tx blob found".to_owned()));
+    };
+
+    Ok(blob_to_bytes(&tx_blob.blob))
+}
+
+fn find_tx_blob(blobs: &[GetBlobData], blob_hash: B256) -> Option<&GetBlobData> {
+    for blob_data in blobs {
+        // calculate from plain blob
+        match calc_blob_versioned_hash(&blob_data.blob) {
+            Ok(hash) => {
+                if hash == blob_hash {
+                    return Some(blob_data);
+                }
+            }
+            Err(e) => {
+                error!("Could not calculate blob hash: {e}");
+            }
+        }
     }
+
+    None
+}
+
+// https://api.blobscan.com/#/
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct BlobScanData {
+    pub commitment: String,
+    pub data: String,
 }
 
 async fn get_blob_data_blobscan(
     beacon_rpc_url: &str,
     _block_id: u64,
-    blob_hash: FixedBytes<32>,
-) -> Result<Vec<u8>> {
-    // https://api.blobscan.com/#/
-    #[derive(Clone, Debug, Deserialize, Serialize)]
-    struct BlobScanData {
-        pub commitment: String,
-        pub data: String,
-    }
-
+    blob_hash: B256,
+) -> RaikoResult<Vec<u8>> {
     let url = format!("{}/blobs/{blob_hash}", beacon_rpc_url.trim_end_matches('/'),);
-    let response = reqwest::get(url.clone()).await?;
-    if response.status().is_success() {
-        let blob: BlobScanData = response.json().await?;
-        Ok(blob_to_bytes(&blob.data))
-    } else {
-        error!(
-            "Request {url} failed with status code: {}",
-            response.status()
-        );
-        Err(anyhow::anyhow!(
-            "Request failed with status code: {}",
-            response.status()
-        ))
-    }
+
+    let blob: BlobScanData = get_request(url).await?;
+
+    Ok(blob_to_bytes(&blob.data))
 }
 
 async fn get_block_proposed_event(
@@ -422,21 +488,25 @@ async fn get_block_proposed_event(
     chain_spec: ChainSpec,
     block_hash: B256,
     l2_block_number: u64,
-) -> Result<(AlloyRpcTransaction, BlockProposed)> {
+) -> RaikoResult<(AlloyRpcTransaction, BlockProposed)> {
     // Get the address that emitted the event
     let Some(l1_address) = chain_spec.l1_contract else {
-        bail!("No L1 contract address in the chain spec");
+        return Err(RaikoError::Preflight(
+            "No L1 contract address in the chain spec".to_owned(),
+        ));
     };
 
-    // Get the event signature (value can differ between chains)
-    let event_signature = BlockProposed::SIGNATURE_HASH;
     // Setup the filter to get the relevant events
     let filter = Filter::new()
         .address(l1_address)
         .at_block_hash(block_hash)
-        .event_signature(event_signature);
+        // Get the event signature (value can differ between chains)
+        .event_signature(BlockProposed::SIGNATURE_HASH);
     // Now fetch the events
-    let logs = provider.get_logs(&filter).await?;
+    let logs = provider
+        .get_logs(&filter)
+        .await
+        .map_err(|e| RaikoError::Preflight(e.to_string()))?;
 
     // Run over the logs returned to find the matching event for the specified L2 block number
     // (there can be multiple blocks proposed in the same block and even same tx)
@@ -446,23 +516,34 @@ async fn get_block_proposed_event(
             log.topics().to_vec(),
             log.data().data.clone(),
         ) else {
-            bail!("Could not create log")
+            return Err(RaikoError::Preflight("Could not create log".to_owned()));
         };
+
         let event = BlockProposed::decode_log(&log_struct, false)
-            .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
-        if event.blockId == raiko_lib::primitives::U256::from(l2_block_number) {
-            let Some(log_tx_hash) = log.transaction_hash else {
-                bail!("No transaction hash in the log")
-            };
-            let tx = provider
-                .get_transaction_by_hash(log_tx_hash)
-                .await
-                .expect("couldn't query the propose tx")
-                .expect("Could not find the propose tx");
-            return Ok((tx, event.data));
+            .map_err(|_| RaikoError::Preflight("Could not decode log".to_owned()))?;
+
+        if event.blockId != raiko_lib::primitives::U256::from(l2_block_number) {
+            continue;
         }
+
+        let Some(log_tx_hash) = log.transaction_hash else {
+            return Err(RaikoError::Preflight(
+                "No transaction hash in the log".to_owned(),
+            ));
+        };
+
+        let tx = provider
+            .get_transaction_by_hash(log_tx_hash)
+            .await
+            .map_err(|_| RaikoError::Preflight("Couldn't query the propose tx".to_owned()))?
+            .ok_or_else(|| RaikoError::Preflight("No propose tx found".to_owned()))?;
+
+        return Ok((tx, event.data));
     }
-    bail!("No BlockProposed event found for block {l2_block_number}");
+
+    Err(RaikoError::Preflight(format!(
+        "No BlockProposed event found for block {l2_block_number}"
+    )))
 }
 
 #[cfg(test)]

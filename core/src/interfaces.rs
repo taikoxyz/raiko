@@ -1,4 +1,5 @@
-use crate::{merge, prover::NativeProver};
+use std::{collections::HashMap, path::Path, str::FromStr};
+
 use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
@@ -11,8 +12,9 @@ use reth_primitives::hex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
-use std::{collections::HashMap, path::Path, str::FromStr};
 use utoipa::ToSchema;
+
+use crate::{prover::NativeProver, utils::merge};
 
 #[derive(Debug, thiserror::Error, ToSchema)]
 pub enum RaikoError {

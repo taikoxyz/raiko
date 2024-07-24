@@ -1,4 +1,6 @@
-use alloy_primitives::{Address, Bytes, StorageKey, Uint, U256};
+use std::collections::HashMap;
+
+use alloy_primitives::{Address, Bytes, Uint, U256};
 use alloy_provider::{ProviderBuilder, ReqwestProvider, RootProvider};
 use alloy_rpc_client::{ClientBuilder, RpcClient};
 use alloy_rpc_types::{Block, BlockId, BlockNumberOrTag, EIP1186AccountProofResponse};
@@ -6,8 +8,6 @@ use alloy_transport_http::Http;
 use raiko_lib::clear_line;
 use reqwest_alloy::Client;
 use reth_primitives::revm_primitives::{AccountInfo, Bytecode};
-use std::collections::HashMap;
-use tracing::trace;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
@@ -90,42 +90,47 @@ impl BlockDataProvider for RpcBlockDataProvider {
         for accounts in accounts.chunks(max_batch_size) {
             let mut batch = self.client.new_batch();
 
-            let mut nonce_requests = Vec::with_capacity(max_batch_size);
-            let mut balance_requests = Vec::with_capacity(max_batch_size);
-            let mut code_requests = Vec::with_capacity(max_batch_size);
+            let mut requests = Vec::with_capacity(max_batch_size);
 
             for address in accounts {
-                nonce_requests.push(Box::pin(
-                    batch
-                        .add_call::<_, Uint<64, 1>>(
-                            "eth_getTransactionCount",
-                            &(address, Some(BlockId::from(self.block_number))),
-                        )
-                        .map_err(|_| {
-                            RaikoError::RPC(
-                                "Failed adding eth_getTransactionCount call to batch".to_owned(),
+                requests.push((
+                    Box::pin(
+                        batch
+                            .add_call::<_, Uint<64, 1>>(
+                                "eth_getTransactionCount",
+                                &(address, Some(BlockId::from(self.block_number))),
                             )
-                        })?,
-                ));
-                balance_requests.push(Box::pin(
-                    batch
-                        .add_call::<_, Uint<256, 4>>(
-                            "eth_getBalance",
-                            &(address, Some(BlockId::from(self.block_number))),
-                        )
-                        .map_err(|_| {
-                            RaikoError::RPC("Failed adding eth_getBalance call to batch".to_owned())
-                        })?,
-                ));
-                code_requests.push(Box::pin(
-                    batch
-                        .add_call::<_, Bytes>(
-                            "eth_getCode",
-                            &(address, Some(BlockId::from(self.block_number))),
-                        )
-                        .map_err(|_| {
-                            RaikoError::RPC("Failed adding eth_getCode call to batch".to_owned())
-                        })?,
+                            .map_err(|_| {
+                                RaikoError::RPC(
+                                    "Failed adding eth_getTransactionCount call to batch"
+                                        .to_owned(),
+                                )
+                            })?,
+                    ),
+                    Box::pin(
+                        batch
+                            .add_call::<_, Uint<256, 4>>(
+                                "eth_getBalance",
+                                &(address, Some(BlockId::from(self.block_number))),
+                            )
+                            .map_err(|_| {
+                                RaikoError::RPC(
+                                    "Failed adding eth_getBalance call to batch".to_owned(),
+                                )
+                            })?,
+                    ),
+                    Box::pin(
+                        batch
+                            .add_call::<_, Bytes>(
+                                "eth_getCode",
+                                &(address, Some(BlockId::from(self.block_number))),
+                            )
+                            .map_err(|_| {
+                                RaikoError::RPC(
+                                    "Failed adding eth_getCode call to batch".to_owned(),
+                                )
+                            })?,
+                    ),
                 ));
             }
 
@@ -134,30 +139,25 @@ impl BlockDataProvider for RpcBlockDataProvider {
                 .await
                 .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
 
-            let mut accounts = vec![];
+            let mut accounts = Vec::with_capacity(max_batch_size);
             // Collect the data from the batch
-            for ((nonce_request, balance_request), code_request) in nonce_requests
-                .into_iter()
-                .zip(balance_requests.into_iter())
-                .zip(code_requests.into_iter())
-            {
-                let (nonce, balance, code) = (
-                    nonce_request.await.map_err(|e| {
-                        RaikoError::RPC(format!("Failed to collect nonce request: {e}"))
-                    })?,
-                    balance_request.await.map_err(|e| {
-                        RaikoError::RPC(format!("Failed to collect balance request: {e}"))
-                    })?,
-                    code_request.await.map_err(|e| {
-                        RaikoError::RPC(format!("Failed to collect code request: {e}"))
-                    })?,
-                );
+            for (nonce_request, balance_request, code_request) in requests {
+                let nonce = nonce_request
+                    .await
+                    .map_err(|e| RaikoError::RPC(format!("Failed to collect nonce request: {e}")))?
+                    .try_into()
+                    .map_err(|_| {
+                        RaikoError::Conversion("Failed to convert nonce to u64".to_owned())
+                    })?;
 
-                let nonce = nonce.try_into().map_err(|_| {
-                    RaikoError::Conversion("Failed to convert nonce to u64".to_owned())
+                let balance = balance_request.await.map_err(|e| {
+                    RaikoError::RPC(format!("Failed to collect balance request: {e}"))
                 })?;
 
-                let bytecode = Bytecode::new_raw(code);
+                let bytecode = code_request
+                    .await
+                    .map_err(|e| RaikoError::RPC(format!("Failed to collect code request: {e}")))
+                    .map(Bytecode::new_raw)?;
 
                 let account_info = AccountInfo::new(balance, nonce, bytecode.hash_slow(), bytecode);
 
@@ -225,74 +225,68 @@ impl BlockDataProvider for RpcBlockDataProvider {
         let mut storage_proofs: MerkleProof = HashMap::new();
         let mut idx = offset;
 
-        let mut accounts = accounts.clone();
-
         let batch_limit = 1000;
-        while !accounts.is_empty() {
-            if cfg!(debug_assertions) {
-                raiko_lib::inplace_print(&format!(
-                    "fetching storage proof {idx}/{num_storage_proofs}..."
-                ));
-            } else {
-                trace!("Fetching storage proof {idx}/{num_storage_proofs}...");
-            }
 
-            // Create a batch for all storage proofs
+        let batches = accounts
+            .iter()
+            // Flatten the hashmap into a vector of (address, key) pairs
+            // We need to fetch even if there are no keys for an address
+            .flat_map(|(&address, keys)| {
+                if keys.is_empty() {
+                    vec![(address, None)]
+                } else {
+                    keys.iter()
+                        .map(|&key| (address, Some(key)))
+                        .collect::<Vec<(Address, Option<U256>)>>()
+                }
+            })
+            .collect::<Vec<_>>()
+            // Split the vector into batches of size `batch_limit`
+            .chunks(batch_limit)
+            // Collect the batches into a vector of request parameters
+            .map(|batch| {
+                batch.iter().fold(
+                    HashMap::<Address, Vec<U256>>::new(),
+                    |mut acc, (address, key)| {
+                        acc.entry(*address)
+                            .and_modify(|keys| {
+                                if let Some(key) = key {
+                                    keys.push(*key);
+                                }
+                            })
+                            .or_insert(if let Some(key) = key {
+                                vec![*key]
+                            } else {
+                                vec![]
+                            });
+                        acc
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+
+        for args_batch in batches {
+            #[cfg(debug_assertions)]
+            raiko_lib::inplace_print(&format!(
+                "fetching storage proof {idx}/{num_storage_proofs}..."
+            ));
+            #[cfg(not(debug_assertions))]
+            tracing::trace!("Fetching storage proof {idx}/{num_storage_proofs}...");
+
             let mut batch = self.client.new_batch();
+            let mut requests = Vec::with_capacity(args_batch.len());
 
-            // Collect all requests
-            let mut requests = Vec::new();
-
-            let mut batch_size = 0;
-            while !accounts.is_empty() && batch_size < batch_limit {
-                let mut address_to_remove = None;
-
-                if let Some((address, keys)) = accounts.iter_mut().next() {
-                    // Calculate how many keys we can still process
-                    let num_keys_to_process = if batch_size + keys.len() < batch_limit {
-                        keys.len()
-                    } else {
-                        batch_limit - batch_size
-                    };
-
-                    // If we can process all keys, remove the address from the map after the loop
-                    if num_keys_to_process == keys.len() {
-                        address_to_remove = Some(*address);
-                    }
-
-                    // Extract the keys to process
-                    let keys_to_process = keys
-                        .drain(0..num_keys_to_process)
-                        .map(StorageKey::from)
-                        .collect::<Vec<_>>();
-
-                    // Add the request
-                    requests.push(Box::pin(
-                        batch
-                            .add_call::<_, EIP1186AccountProofResponse>(
-                                "eth_getProof",
-                                &(
-                                    *address,
-                                    keys_to_process.clone(),
-                                    BlockId::from(block_number),
-                                ),
-                            )
-                            .map_err(|_| {
-                                RaikoError::RPC(
-                                    "Failed adding eth_getProof call to batch".to_owned(),
-                                )
-                            })?,
-                    ));
-
-                    // Keep track of how many keys were processed
-                    // Add an additional 1 for the account proof itself
-                    batch_size += 1 + keys_to_process.len();
-                }
-
-                // Remove the address if all keys were processed for this account
-                if let Some(address) = address_to_remove {
-                    accounts.remove(&address);
-                }
+            for (address, keys) in args_batch {
+                requests.push(Box::pin(
+                    batch
+                        .add_call::<_, EIP1186AccountProofResponse>(
+                            "eth_getProof",
+                            &(*address, keys, BlockId::from(block_number)),
+                        )
+                        .map_err(|_| {
+                            RaikoError::RPC("Failed adding eth_getProof call to batch".to_owned())
+                        })?,
+                ));
             }
 
             // Send the batch
@@ -307,11 +301,12 @@ impl BlockDataProvider for RpcBlockDataProvider {
                     .await
                     .map_err(|e| RaikoError::RPC(format!("Error collecting request data: {e}")))?;
                 idx += proof.storage_proof.len();
-                if let Some(map_proof) = storage_proofs.get_mut(&proof.address) {
-                    map_proof.storage_proof.append(&mut proof.storage_proof);
-                } else {
-                    storage_proofs.insert(proof.address, proof);
-                }
+                storage_proofs
+                    .entry(proof.address)
+                    .and_modify(|map_proof| {
+                        map_proof.storage_proof.append(&mut proof.storage_proof);
+                    })
+                    .or_insert(proof);
             }
         }
         clear_line();
