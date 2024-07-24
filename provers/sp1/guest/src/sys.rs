@@ -42,15 +42,19 @@ pub extern "C" fn __ctzsi2(x: u32) -> u32 {
 }
 
 
+use rand::{rngs::StdRng, Rng, SeedableRng};
+use std::sync::Mutex;
 /// https://github.com/succinctlabs/sp1/blob/d5a1423ffe4740b154b60764f17b201c7d94e80e/zkvm/entrypoint/src/syscalls/sys.rs#L8
 /// The random number generator seed for the zkVM.
 /// Needed for tag = v1.0.5-testnet, in latest main branch we don't need this
 const PRNG_SEED: u64 = 0x123456789abcdef0;
 
-lazy_static! {
+lazy_static::lazy_static! {
     /// A lazy static to generate a global random number generator.
     static ref RNG: Mutex<StdRng> = Mutex::new(StdRng::seed_from_u64(PRNG_SEED));
 }
+/// A lazy static to print a warning once for using the `sys_rand` system call.
+static SYS_RAND_WARNING: std::sync::Once = std::sync::Once::new();
 
 /// Generates random bytes.
 ///
