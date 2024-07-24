@@ -133,7 +133,7 @@ impl Prover for Sp1Prover {
                 id_store.store_id(
                     (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
                     proof_id.clone(),
-                )?;
+                ).await?;
             }
             let proof = {
                 let mut is_claimed = false;
