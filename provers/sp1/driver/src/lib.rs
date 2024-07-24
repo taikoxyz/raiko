@@ -130,10 +130,12 @@ impl Prover for Sp1Prover {
                 .map_err(|_| ProverError::GuestError("Sp1: creating proof failed".to_owned()))?;
 
             if let Some(id_store) = id_store {
-                id_store.store_id(
-                    (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
-                    proof_id.clone(),
-                ).await?;
+                id_store
+                    .store_id(
+                        (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
+                        proof_id.clone(),
+                    )
+                    .await?;
             }
             let proof = {
                 let mut is_claimed = false;
