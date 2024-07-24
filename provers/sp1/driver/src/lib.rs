@@ -4,6 +4,7 @@ use raiko_lib::{
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
+pub use sp1_sdk::serve_worker;
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus, UnclaimReason},

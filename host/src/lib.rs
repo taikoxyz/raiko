@@ -35,6 +35,21 @@ pub struct Opts {
     /// [default: 0.0.0.0:8080]
     address: String,
 
+    #[arg(long, require_equals = true, default_value = "0.0.0.0:8081")]
+    #[serde(default = "Opts::default_sp1_worker_address")]
+    /// Distributed SP1 worker listening address
+    /// [default: 0.0.0.0:8081]
+    sp1_worker_address: String,
+
+    #[arg(long, default_value = None)]
+    /// Distributed SP1 worker orchestrator address
+    ///
+    /// Setting this will enable the worker and restrict it to only accept requests from
+    /// this orchestrator
+    ///
+    /// [default: None]
+    sp1_orchestrator_address: Option<String>,
+
     #[arg(long, require_equals = true, default_value = "16")]
     #[serde(default = "Opts::default_concurrency_limit")]
     /// Limit the max number of in-flight requests
@@ -86,6 +101,10 @@ pub struct Opts {
 impl Opts {
     fn default_address() -> String {
         "0.0.0.0:8080".to_string()
+    }
+
+    fn default_sp1_worker_address() -> String {
+        "0.0.0.0:8081".to_string()
     }
 
     fn default_concurrency_limit() -> usize {

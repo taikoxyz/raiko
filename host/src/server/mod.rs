@@ -8,6 +8,15 @@ pub mod api;
 
 /// Starts the proverd server.
 pub async fn serve(state: ProverState) -> anyhow::Result<()> {
+    #[cfg(feature = "sp1")]
+    if let Some(orchestrator_addr) = state.opts.sp1_orchestrator_address.as_ref() {
+        sp1_driver::serve_worker(
+            state.opts.sp1_worker_address.clone(),
+            orchestrator_addr.clone(),
+        )
+        .await;
+    }
+
     let addr = SocketAddr::from_str(&state.opts.address)
         .map_err(|_| HostError::InvalidAddress(state.opts.address.clone()))?;
     let listener = TcpListener::bind(addr).await?;
