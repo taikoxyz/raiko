@@ -5841,6 +5841,7 @@ dependencies = [
  "alloy-rpc-types",
  "alloy-sol-types",
  "anyhow",
+ "async-trait",
  "bincode",
  "cfg-if",
  "chrono",

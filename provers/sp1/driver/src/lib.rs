@@ -186,7 +186,7 @@ impl Prover for Sp1Prover {
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        let proof_id = id_store.read_id(key)?;
+        let proof_id = id_store.read_id(key).await?;
         let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
             ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
         })?;
@@ -195,7 +195,7 @@ impl Prover for Sp1Prover {
             .unclaim_proof(proof_id, UnclaimReason::Abandoned, "".to_owned())
             .await
             .map_err(|_| ProverError::GuestError("Sp1: couldn't unclaim proof".to_owned()))?;
-        id_store.remove_id(key)?;
+        id_store.remove_id(key).await?;
         Ok(())
     }
 }
