@@ -27,17 +27,17 @@ k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k25
 sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6-risczero.0" }
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["risc0"] }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-ontake", default-features = false }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-ontake", default-features = false, features = [
     "taiko",
     "std",
     "c-kzg",
 ] }
 
 [patch.crates-io]
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-ontake" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-ontake" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-ontake" }
 c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
 crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.2-risczero.0" }
