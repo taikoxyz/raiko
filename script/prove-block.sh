@@ -53,7 +53,8 @@ elif [ "$proof" == "sp1" ]; then
     "proof_type": "sp1",
 	"sp1": {
 		"recursion": "core",
-		"prover": "mock"
+		"prover": "mock",
+		"verify": false,
 	}
   '
 elif [ "$proof" == "sgx" ]; then

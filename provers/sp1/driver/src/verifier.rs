@@ -41,7 +41,7 @@ async fn main() {
     let param = json!({
         "sp1" : {
             "recursion": "core",
-            "prover": "local",
+            "prover": "mock",
             "verify": false
         }
     });
