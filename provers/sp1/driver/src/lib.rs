@@ -51,8 +51,9 @@ impl Prover for Sp1Prover {
         let local = true;
         let proof = match local {
             true => {
-                let proof = client
-                    .prove(&pk, stdin)
+                let prove_action = client.prove(&pk, stdin);
+                let proof = prove_action
+                    .run()
                     .map_err(|_| ProverError::GuestError("Sp1: proving failed".to_owned()))?;
                 Ok::<_, ProverError>(proof)
             }

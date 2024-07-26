@@ -57,9 +57,9 @@ risc0-build = { version = "1.0.1" }
 risc0-binfmt = { version = "1.0.1" }
 
 # SP1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "14eb569d41d24721ffbd407d6060e202482d659c" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "14eb569d41d24721ffbd407d6060e202482d659c" }
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "14eb569d41d24721ffbd407d6060e202482d659c" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "dd032eb23949828d244d1ad1f1569aa78155837c" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "dd032eb23949828d244d1ad1f1569aa78155837c" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "dd032eb23949828d244d1ad1f1569aa78155837c" }
 
 
 # alloy
@@ -192,13 +192,13 @@ secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "s
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
 
 # Patch Plonky3 for Serialize and Deserialize of DuplexChallenger
-[patch."https://github.com/succinctlabs/sp1.git"]
-sp1-sdk = { path = "../sp1/sdk" }
-
-# Patch Plonky3 for Serialize and Deserialize of DuplexChallenger
-[patch."https://github.com/Plonky3/Plonky3.git"]
 p3-field = { git = "https://github.com/Champii/Plonky3.git", branch = "serde_patch" }
 p3-challenger = { git = "https://github.com/Champii/Plonky3.git", branch = "serde_patch" }
 p3-poseidon2 = { git = "https://github.com/Champii/Plonky3.git", branch = "serde_patch" }
 p3-baby-bear = { git = "https://github.com/Champii/Plonky3.git", branch = "serde_patch" }
 p3-symmetric = { git = "https://github.com/Champii/Plonky3.git", branch = "serde_patch" }
+
+# Patch Plonky3 for Serialize and Deserialize of DuplexChallenger
+[patch."https://github.com/succinctlabs/sp1.git"]
+sp1-sdk = { path = "../sp1/sdk" }
+
