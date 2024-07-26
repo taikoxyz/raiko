@@ -27,10 +27,12 @@
         "l2_contract": null,
         "rpc": "https://rpc.ankr.com/eth",
         "beacon_rpc": "https://ethereum-beacon-api.publicnode.com",
-        "verifier_address": {
-            "SGX":"0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
-            "SP1":null,
-            "RISC0":"0x0000000000000000000000000000000000000000"
+        "verifier_address_forks": {
+            "FRONTIER": {
+                "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
+                "SP1": null,
+                "RISC0": "0x0000000000000000000000000000000000000000"
+            }
         },
         "genesis_time": 1606824023,
         "seconds_per_slot": 12,
@@ -61,10 +63,12 @@
         "l2_contract": null,
         "rpc": "https://ethereum-holesky-rpc.publicnode.com",
         "beacon_rpc": "https://fabled-weathered-cherry.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/",
-        "verifier_address": {
-            "SGX":"0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
-            "SP1":null,
-            "RISC0":"0x0000000000000000000000000000000000000000"
+        "verifier_address_forks": {
+            "FRONTIER": {
+                "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
+                "SP1": null,
+                "RISC0": "0x0000000000000000000000000000000000000000"
+            }
         },
         "genesis_time": 1695902400,
         "seconds_per_slot": 12,
@@ -73,10 +77,13 @@
     {
         "name": "taiko_a7",
         "chain_id": 167009,
-        "max_spec_id": "SHANGHAI",
+        "max_spec_id": "ONTAKE",
         "hard_forks": {
-            "SHANGHAI": {
+            "HEKLA": {
                 "Block": 0
+            },
+            "ONTAKE": {
+                "Block": 999999
             },
             "CANCUN": "TBD"
         },
@@ -90,10 +97,17 @@
         "l2_contract": "0x1670090000000000000000000000000000010001",
         "rpc": "https://rpc.hekla.taiko.xyz",
         "beacon_rpc": null,
-        "verifier_address":{
-            "SGX":"0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
-            "SP1":null,
-            "RISC0":"0x0000000000000000000000000000000000000000"
+        "verifier_address_forks": {
+            "HEKLA": {
+                "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
+                "SP1": null,
+                "RISC0": "0x0000000000000000000000000000000000000000"
+            },
+            "ONTAKE": {
+                "SGX": "0xf6d620d0b2a2bb9d11066e8532efb72588cae6d9",
+                "SP1": null,
+                "RISC0": "0x0000000000000000000000000000000000000000"
+            }
         },
         "genesis_time": 0,
         "seconds_per_slot": 1,
@@ -102,10 +116,13 @@
     {
         "name": "taiko_mainnet",
         "chain_id": 167000,
-        "max_spec_id": "SHANGHAI",
+        "max_spec_id": "ONTAKE",
         "hard_forks": {
-            "SHANGHAI": {
+            "HEKLA": {
                 "Block": 0
+            },
+            "ONTAKE": {
+                "Block": 999999
             },
             "CANCUN": "TBD"
         },
@@ -119,10 +136,12 @@
         "l2_contract": "0x1670000000000000000000000000000000010001",
         "rpc": "https://rpc.mainnet.taiko.xyz",
         "beacon_rpc": null,
-        "verifier_address": {
-            "SGX":"0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
-            "SP1":null,
-            "RISC0":"0x0000000000000000000000000000000000000000"
+        "verifier_address_forks": {
+            "HEKLA": {
+                "SGX": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
+                "SP1": null,
+                "RISC0": "0x0000000000000000000000000000000000000000"
+            }
         },
         "genesis_time": 0,
         "seconds_per_slot": 1,

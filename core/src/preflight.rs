@@ -38,7 +38,6 @@ pub mod ontake;
 
 pub use hekla::*;
 
-
 // block_time_to_block_slot returns the slots of the given timestamp.
 fn block_time_to_block_slot(
     block_time: u64,

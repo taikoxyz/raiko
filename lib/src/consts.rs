@@ -148,7 +148,7 @@ pub struct ChainSpec {
     pub l2_contract: Option<Address>,
     pub rpc: String,
     pub beacon_rpc: Option<String>,
-    pub verifier_address: BTreeMap<VerifierType, Option<Address>>,
+    pub verifier_address_forks: BTreeMap<SpecId, BTreeMap<VerifierType, Option<Address>>>,
     pub genesis_time: u64,
     pub seconds_per_slot: u64,
     pub is_taiko: bool,
@@ -173,7 +173,7 @@ impl ChainSpec {
             l2_contract: None,
             rpc: "".to_string(),
             beacon_rpc: None,
-            verifier_address: BTreeMap::new(),
+            verifier_address_forks: BTreeMap::new(),
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
             is_taiko,
@@ -204,13 +204,33 @@ impl ChainSpec {
         &self.eip_1559_constants
     }
 
-    fn spec_id(&self, block_no: BlockNumber, timestamp: u64) -> Option<SpecId> {
+    pub fn spec_id(&self, block_no: BlockNumber, timestamp: u64) -> Option<SpecId> {
         for (spec_id, fork) in self.hard_forks.iter().rev() {
             if fork.active(block_no, timestamp) {
                 return Some(*spec_id);
             }
         }
         None
+    }
+
+    pub fn get_fork_verifier_address(
+        &self,
+        block_num: u64,
+        verifier_type: VerifierType,
+    ) -> Result<Address> {
+        // fall down to the first fork that is active as default
+        for (spec_id, fork) in self.hard_forks.iter().rev() {
+            if fork.active(block_num, 0u64) {
+                if let Some(fork_verifier) = self.verifier_address_forks.get(&spec_id) {
+                    return fork_verifier
+                        .get(&verifier_type)
+                        .unwrap()
+                        .ok_or_else(|| anyhow!("Verifier address not found"));
+                }
+            }
+        }
+
+        Err(anyhow!("fork verifier is not active"))
     }
 
     pub fn is_taiko(&self) -> bool {
@@ -249,6 +269,8 @@ impl std::fmt::Display for Network {
 
 #[cfg(test)]
 mod tests {
+    use reth_primitives::address;
+
     use super::*;
 
     #[test]
@@ -262,6 +284,77 @@ mod tests {
         assert_eq!(
             eth_mainnet_spec.spec_id(17_034_870, 0),
             Some(SpecId::SHANGHAI)
+        );
+    }
+
+    #[test]
+    fn raiko_active_fork() {
+        let eth_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::Ethereum.to_string())
+            .unwrap();
+        assert_eq!(
+            eth_mainnet_spec.active_fork(0, 0).unwrap(),
+            SpecId::FRONTIER
+        );
+        assert_eq!(
+            eth_mainnet_spec.active_fork(15_537_394, 0).unwrap(),
+            SpecId::MERGE
+        );
+        assert_eq!(
+            eth_mainnet_spec.active_fork(17_034_869, 0).unwrap(),
+            SpecId::MERGE
+        );
+        assert_eq!(
+            eth_mainnet_spec.active_fork(17_034_870, 0).unwrap(),
+            SpecId::SHANGHAI
+        );
+
+        let taiko_mainnet_spec = SupportedChainSpecs::default()
+        .get_chain_spec(&Network::TaikoMainnet.to_string())
+        .unwrap();
+        assert_eq!(
+            taiko_mainnet_spec.active_fork(0, 0).unwrap(),
+            SpecId::HEKLA
+        );
+        assert_eq!(
+            taiko_mainnet_spec.active_fork(999998, 0).unwrap(),
+            SpecId::HEKLA
+        );
+        assert_eq!(
+            taiko_mainnet_spec.active_fork(999999, 0).unwrap(),
+            SpecId::ONTAKE
+        );
+    }
+
+    #[test]
+    fn forked_verifier_address() {
+        let eth_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::Ethereum.to_string())
+            .unwrap();
+        let verifier_address = eth_mainnet_spec
+            .get_fork_verifier_address(15_537_394, VerifierType::SGX)
+            .unwrap();
+        assert_eq!(
+            verifier_address,
+            address!("532efbf6d62720d0b2a2bb9d11066e8588cae6d9")
+        );
+
+        let hekla_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoA7.to_string())
+            .unwrap();
+        let verifier_address = hekla_mainnet_spec
+            .get_fork_verifier_address(12345, VerifierType::SGX)
+            .unwrap();
+        assert_eq!(
+            verifier_address,
+            address!("532efbf6d62720d0b2a2bb9d11066e8588cae6d9")
+        );
+        let verifier_address = hekla_mainnet_spec
+            .get_fork_verifier_address(15_537_394, VerifierType::SGX)
+            .unwrap();
+        assert_eq!(
+            verifier_address,
+            address!("f6d620d0b2a2bb9d11066e8532efb72588cae6d9")
         );
     }
 
@@ -288,11 +381,14 @@ mod tests {
             l2_contract: None,
             rpc: "".to_string(),
             beacon_rpc: None,
-            verifier_address: BTreeMap::from([
-                (VerifierType::SGX, Some(Address::default())),
-                (VerifierType::SP1, None),
-                (VerifierType::RISC0, Some(Address::default())),
-            ]),
+            verifier_address_forks: BTreeMap::from([(
+                SpecId::FRONTIER,
+                BTreeMap::from([
+                    (VerifierType::SGX, Some(Address::default())),
+                    (VerifierType::SP1, None),
+                    (VerifierType::RISC0, Some(Address::default())),
+                ]),
+            )]),
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
             is_taiko: false,

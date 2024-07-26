@@ -16,6 +16,7 @@ use raiko_lib::{
     input::{GuestInput, GuestOutput, TaikoProverData},
     prover::{IdStore, IdWrite},
 };
+use reth_primitives::revm_primitives::SpecId;
 use reth_primitives::Header;
 use serde_json::Value;
 use std::{collections::HashMap, hint::black_box};
@@ -52,8 +53,11 @@ impl Raiko {
         provider: BDP,
     ) -> RaikoResult<GuestInput> {
         //TODO: read fork from config
-        if self.request.block_number <= 999999999 {
-            preflight(
+        match self
+            .taiko_chain_spec
+            .active_fork(self.request.block_number, 0)?
+        {
+            SpecId::HEKLA => preflight(
                 provider,
                 self.request.block_number,
                 self.l1_chain_spec.to_owned(),
@@ -65,9 +69,8 @@ impl Raiko {
                 self.request.blob_proof_type.clone(),
             )
             .await
-            .map_err(Into::<RaikoError>::into)
-        } else {
-            crate::preflight::ontake::preflight(
+            .map_err(Into::<RaikoError>::into),
+            SpecId::ONTAKE => crate::preflight::ontake::preflight(
                 provider,
                 self.request.block_number,
                 self.request.block_number,
@@ -80,7 +83,8 @@ impl Raiko {
                 self.request.blob_proof_type.clone(),
             )
             .await
-            .map_err(Into::<RaikoError>::into)
+            .map_err(Into::<RaikoError>::into),
+            _ => Err(RaikoError::Preflight("Unsupported fork".to_owned())),
         }
     }
 
