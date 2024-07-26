@@ -73,6 +73,22 @@ impl BlockProposedFork {
             _ => false,
         }
     }
+
+    pub fn block_number(&self) -> u64 {
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.id,
+            BlockProposedFork::Ontake(block) => block.meta.id,
+            _ => 0,
+        }
+    }
+
+    pub fn block_timestamp(&self) -> u64 {
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.timestamp,
+            BlockProposedFork::Ontake(block) => block.meta.timestamp,
+            _ => 0,
+        }
+    }
 }
 
 #[serde_as]
