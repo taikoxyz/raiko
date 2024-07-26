@@ -158,7 +158,9 @@ mod test {
 
         let new_l1 = &Network::Ethereum.to_string();
         let new_l2 = &Network::TaikoMainnet.to_string();
-        let taiko_chain_spec = SupportedChainSpecs::default().get_chain_spec(new_l2).unwrap();
+        let taiko_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(new_l2)
+            .unwrap();
         let block_number: u64 = get_latest_block_num(&taiko_chain_spec).await;
         let (new_input, _) = create_cache_input(new_l1, new_l2, block_number).await;
         // save to old l2 cache slot
