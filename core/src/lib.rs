@@ -243,7 +243,17 @@ mod tests {
             "native".to_string(),
             json! {
                 {
-                    "write_guest_input_path": null
+                    "json_guest_input": null
+                }
+            },
+        );
+        prover_args.insert(
+            "sp1".to_string(),
+            json! {
+                {
+                    "recursion": "core",
+                    "prover": "mock",
+                    "verify": true
                 }
             },
         );
