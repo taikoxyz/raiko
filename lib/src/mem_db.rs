@@ -24,7 +24,7 @@ pub enum DbError {
     AccountNotFound(Address),
     /// Returned when account info was different before inserting.
     #[error("account info {0} different")]
-    AccountInfoMissmatch(Address),
+    AccountInfoMismatch(Address),
     /// Returned when storage was accessed but not loaded into the DB.
     #[error("storage {1}@{0} not loaded")]
     SlotNotFound(Address, U256),
@@ -33,7 +33,7 @@ pub enum DbError {
     BlockNotFound(u64),
     /// Returned when blockhash was different before inserting.
     #[error("blockhash {0} different")]
-    BlockHashMissmatch(u64),
+    BlockHashMismatch(u64),
     /// Unspecified error.
     #[error(transparent)]
     Unspecified(#[from] anyhow::Error),
@@ -108,7 +108,7 @@ impl MemDb {
         match self.accounts.entry(address) {
             Entry::Occupied(entry) => {
                 if info != entry.get().info {
-                    return Err(DbError::AccountInfoMissmatch(address));
+                    return Err(DbError::AccountInfoMismatch(address));
                 }
             }
             Entry::Vacant(entry) => {
@@ -138,7 +138,7 @@ impl MemDb {
         match self.block_hashes.entry(block_no) {
             Entry::Occupied(entry) => {
                 if &block_hash != entry.get() {
-                    return Err(DbError::BlockHashMissmatch(block_no));
+                    return Err(DbError::BlockHashMismatch(block_no));
                 }
             }
             Entry::Vacant(entry) => {
