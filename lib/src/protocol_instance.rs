@@ -13,6 +13,7 @@ use crate::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
     },
+    CycleTracker,
 };
 
 #[derive(Debug, Clone)]
@@ -48,15 +49,19 @@ impl ProtocolInstance {
             );
             match get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()) {
                 BlobProofType::ProofOfEquivalence => {
+                    let ct = CycleTracker::start("proof_of_equivalence");
                     let points =
                         eip4844::proof_of_equivalence(&input.taiko.tx_data, &versioned_hash)?;
+                    ct.end();
                     proof_of_equivalence =
                         (U256::from_le_bytes(points.0), U256::from_le_bytes(points.1));
                 }
                 BlobProofType::ProofOfCommitment => {
+                    let ct = CycleTracker::start("proof_of_commitment");
                     ensure!(
                         commitment == &eip4844::calc_kzg_proof_commitment(&input.taiko.tx_data)?
                     );
+                    ct.end();
                 }
             };
             versioned_hash
@@ -194,15 +199,11 @@ fn get_blob_proof_type(
     proof_type: VerifierType,
     blob_proof_type_hint: BlobProofType,
 ) -> BlobProofType {
-    if cfg!(feature = "proof_of_equivalence") {
-        match proof_type {
-            VerifierType::None => blob_proof_type_hint,
-            VerifierType::SGX => BlobProofType::ProofOfCommitment,
-            VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
-            VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
-        }
-    } else {
-        BlobProofType::ProofOfCommitment
+    match proof_type {
+        VerifierType::None => blob_proof_type_hint,
+        VerifierType::SGX => BlobProofType::ProofOfCommitment,
+        VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
+        VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
     }
 }
 

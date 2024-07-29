@@ -96,7 +96,8 @@ harness::zk_suits!(
             for v in test_ves.iter() {
                 let (input, expected) = *v;
                 let result: [u8; 32] = Sha256::digest(input.as_bytes()).into();
-                assert_eq!(result, expected);
+                // Don't change, this `assert!` custom defimed in `harness` crate.
+                assert!(result == expected);
             }
         }
     }

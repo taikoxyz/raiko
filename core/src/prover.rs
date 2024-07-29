@@ -15,7 +15,7 @@ pub struct NativeProver;
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NativeParam {
-    pub write_guest_input_path: Option<String>,
+    pub json_guest_input: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -38,7 +38,7 @@ impl Prover for NativeProver {
                     "native param not provided",
                 )))??;
 
-        if let Some(path) = param.write_guest_input_path {
+        if let Some(path) = param.json_guest_input {
             let path = Path::new(&path);
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)?;

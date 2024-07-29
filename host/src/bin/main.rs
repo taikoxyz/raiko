@@ -10,6 +10,7 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> HostResult<()> {
+    dotenv::dotenv().ok();
     env_logger::init();
     let state = ProverState::init()?;
     let _guard = subscribe_log(
