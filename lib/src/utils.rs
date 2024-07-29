@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use alloy_rlp::Decodable;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use libflate::zlib::{Decoder as zlibDecoder, Encoder as zlibEncoder};
 use reth_primitives::TransactionSigned;
 use tracing::warn;
@@ -25,34 +25,33 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
 }
 
 fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Vec<u8> {
-    #[allow(clippy::collapsible_else_if)]
-    if chain_spec.is_taiko() {
-        // taiko has some limitations to be aligned with taiko-client
-        if is_blob_data {
-            let compressed_tx_list = decode_blob_data(tx_list);
-            zlib_decompress_data(&compressed_tx_list).unwrap_or_default()
-        } else {
-            if Network::TaikoA7.to_string() == chain_spec.network() {
-                let tx_list = zlib_decompress_data(tx_list).unwrap_or_default();
-                if validate_calldata_tx_list(&tx_list) {
-                    tx_list
-                } else {
-                    warn!("validate_calldata_tx_list failed, use empty tx_list");
-                    vec![]
-                }
-            } else {
-                if validate_calldata_tx_list(tx_list) {
-                    zlib_decompress_data(tx_list).unwrap_or_default()
-                } else {
-                    warn!("validate_calldata_tx_list failed, use empty tx_list");
-                    vec![]
-                }
-            }
-        }
-    } else {
+    if !chain_spec.is_taiko() {
         // no limitation on non-taiko chains
-        zlib_decompress_data(tx_list).unwrap_or_default()
+        return zlib_decompress_data(tx_list).unwrap_or_default();
     }
+
+    // taiko has some limitations to be aligned with taiko-client
+    if is_blob_data {
+        let compressed_tx_list = decode_blob_data(tx_list);
+        return zlib_decompress_data(&compressed_tx_list).unwrap_or_default();
+    }
+
+    if Network::TaikoA7.to_string() == chain_spec.network() {
+        let tx_list = zlib_decompress_data(tx_list).unwrap_or_default();
+        if validate_calldata_tx_list(&tx_list) {
+            return tx_list;
+        }
+
+        warn!("validate_calldata_tx_list failed, use empty tx_list");
+        return vec![];
+    }
+
+    if validate_calldata_tx_list(tx_list) {
+        return zlib_decompress_data(tx_list).unwrap_or_default();
+    }
+
+    warn!("validate_calldata_tx_list failed, use empty tx_list");
+    vec![]
 }
 
 pub fn generate_transactions(
@@ -152,9 +151,7 @@ fn decode_field_element(
 ) -> Result<(u8, usize, usize)> {
     // two highest order bits of the first byte of each field element should always be 0
     if b[ipos] & 0b1100_0000 != 0 {
-        return Err(anyhow::anyhow!(
-            "ErrBlobInvalidFieldElement: field element: {ipos}",
-        ));
+        bail!("ErrBlobInvalidFieldElement: field element: {ipos}");
     }
     // copy(output[opos:], b[ipos+1:ipos+32])
     output[opos..opos + 31].copy_from_slice(&b[ipos + 1..ipos + 32]);
@@ -180,13 +177,13 @@ fn reassemble_bytes(
 
 pub fn zlib_decompress_data(data: &[u8]) -> Result<Vec<u8>> {
     let mut decoder = zlibDecoder::new(data)?;
-    let mut decoded_buf = Vec::new();
+    let mut decoded_buf = Vec::with_capacity(data.len());
     decoder.read_to_end(&mut decoded_buf)?;
     Ok(decoded_buf)
 }
 
 pub fn zlib_compress_data(data: &[u8]) -> Result<Vec<u8>> {
-    let mut encoder = zlibEncoder::new(Vec::new())?;
+    let mut encoder = zlibEncoder::new(Vec::with_capacity(data.len()))?;
     encoder.write_all(data).unwrap();
     let res = encoder.finish().into_result()?;
     Ok(res.clone())

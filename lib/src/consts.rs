@@ -163,7 +163,7 @@ impl ChainSpec {
         eip_1559_constants: Eip1559Constants,
         is_taiko: bool,
     ) -> Self {
-        ChainSpec {
+        Self {
             name,
             chain_id,
             max_spec_id: spec_id,

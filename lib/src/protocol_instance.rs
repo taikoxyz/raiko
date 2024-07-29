@@ -1,6 +1,7 @@
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
-use anyhow::{ensure, Result};
+use anyhow::{anyhow, ensure, Result};
+use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 use reth_primitives::{Header, U256};
 
 #[cfg(not(feature = "std"))]
@@ -13,7 +14,6 @@ use crate::{
         keccak::keccak,
     },
 };
-use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 #[derive(Debug, Clone)]
 pub struct ProtocolInstance {
@@ -39,17 +39,21 @@ impl ProtocolInstance {
                 .taiko
                 .blob_commitment
                 .as_ref()
-                .expect("no blob commitment");
-            let versioned_hash =
-                commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+                .ok_or_else(|| anyhow!("no blob commitment"))?;
+            let versioned_hash = commitment_to_version_hash(
+                &commitment
+                    .clone()
+                    .try_into()
+                    .map_err(|_| anyhow!("could not transform commitment"))?,
+            );
             match get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()) {
-                crate::input::BlobProofType::ProofOfEquivalence => {
+                BlobProofType::ProofOfEquivalence => {
                     let points =
                         eip4844::proof_of_equivalence(&input.taiko.tx_data, &versioned_hash)?;
                     proof_of_equivalence =
                         (U256::from_le_bytes(points.0), U256::from_le_bytes(points.1));
                 }
-                crate::input::BlobProofType::ProofOfCommitment => {
+                BlobProofType::ProofOfCommitment => {
                     ensure!(
                         commitment == &eip4844::calc_kzg_proof_commitment(&input.taiko.tx_data)?
                     );
