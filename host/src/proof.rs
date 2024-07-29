@@ -63,7 +63,15 @@ impl ProofActor {
                 (key.chain_id, key.blockhash, key.proof_system as u8),
                 Box::new(&mut manager),
             )
-            .await?;
+            .await
+            .or_else(|e| {
+                if e.to_string().contains("no id found") {
+                    warn!("Task already cancelled or not yet started!");
+                    Ok(())
+                } else {
+                    Err::<(), HostError>(e.into())
+                }
+            })?;
         task.cancel();
         Ok(())
     }

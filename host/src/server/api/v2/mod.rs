@@ -39,6 +39,7 @@ mod proof;
             TaskStatus,
             CancelStatus,
             PruneStatus,
+            Proof,
             Status,
         )
     ),
