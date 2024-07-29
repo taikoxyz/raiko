@@ -5,7 +5,7 @@ use cap::Cap;
 use clap::Parser;
 use raiko_core::{
     interfaces::{ProofRequest, ProofRequestOpt},
-    merge,
+    utils::merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
 use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManagerOpts, TaskManagerWrapper};

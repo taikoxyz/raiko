@@ -1,3 +1,8 @@
+use std::{
+    collections::{hash_map::Entry, HashSet},
+    mem::take,
+};
+
 use alloy_primitives::{Address, Bytes, U256};
 use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
 use reth_primitives::{Header, B256};
@@ -6,8 +11,8 @@ use reth_revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
     Database, DatabaseCommit,
 };
-use std::{collections::HashSet, mem::take};
 use tokio::runtime::Handle;
+use tracing::error;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
@@ -38,10 +43,10 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
             async_executor: Handle::current(),
             // defaults
             optimistic: false,
-            staging_db: Default::default(),
-            initial_db: Default::default(),
-            initial_headers: Default::default(),
-            current_db: Default::default(),
+            initial_db: MemDb::default(),
+            initial_headers: HashMap::new(),
+            current_db: MemDb::default(),
+            staging_db: MemDb::default(),
             pending_accounts: HashSet::new(),
             pending_slots: HashSet::new(),
             pending_block_hashes: HashSet::new(),
@@ -65,10 +70,13 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                     .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?;
                 provider_db
                     .initial_db
-                    .insert_block_hash(block_number, block_hash);
-                provider_db
-                    .initial_headers
-                    .insert(block_number, block.header.try_into().unwrap());
+                    .insert_block_hash(block_number, block_hash)?;
+                let Ok(header) = Header::try_from(block.header.clone()) else {
+                    return Err(RaikoError::Conversion(
+                        "Could not convert header".to_owned(),
+                    ));
+                };
+                provider_db.initial_headers.insert(block_number, header);
             }
         }
         Ok(provider_db)
@@ -87,13 +95,13 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
         }
 
         // Calculate how many storage proofs we need
-        let num_initial_values: usize = self
+        let num_initial_values = self
             .initial_db
             .storage_keys()
             .values()
             .map(|keys| keys.len())
-            .sum();
-        let num_latest_values: usize = storage_keys.values().map(|keys| keys.len()).sum();
+            .sum::<usize>();
+        let num_latest_values = storage_keys.values().map(|keys| keys.len()).sum::<usize>();
         let num_storage_proofs = num_initial_values + num_latest_values;
 
         // Initial proofs
@@ -127,24 +135,30 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
             .min()
             .unwrap_or(&self.block_number);
 
-        let mut headers = Vec::with_capacity(
-            usize::try_from(self.block_number - *earliest_block)
-                .map_err(|_| RaikoError::Conversion("Could not convert u64 to usize".to_owned()))?,
-        );
+        let capacity = usize::try_from(self.block_number - *earliest_block)
+            .map_err(|_| RaikoError::Conversion("Could not convert u64 to usize".to_owned()))?;
+
+        let mut headers = Vec::with_capacity(capacity);
+
         for block_number in (*earliest_block..self.block_number).rev() {
-            if let std::collections::hash_map::Entry::Vacant(e) =
-                self.initial_headers.entry(block_number)
-            {
-                let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
-                e.insert(block.header.clone().try_into().unwrap());
-            }
-            headers.push(
-                self.initial_headers
-                    .get(&block_number)
-                    .expect("The header is inserted if it was not present")
-                    .clone(),
-            );
+            let header = match self.initial_headers.entry(block_number) {
+                Entry::Vacant(entry) => {
+                    let blocks = self.provider.get_blocks(&[(block_number, false)]).await?;
+                    let block = blocks
+                        .first()
+                        .ok_or_else(|| RaikoError::RPC("No block".to_owned()))?;
+                    let header = Header::try_from(block.header.clone()).map_err(|e| {
+                        RaikoError::Conversion(format!("Could not convert header: {e:?}"))
+                    })?;
+                    entry.insert(header.clone());
+                    header
+                }
+                Entry::Occupied(entry) => entry.get().clone(),
+            };
+
+            headers.push(header);
         }
+
         Ok(headers)
     }
 
@@ -168,8 +182,13 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         }
         if let Ok(db_result) = self.staging_db.basic(address) {
             if self.is_valid_run() {
-                self.initial_db
-                    .insert_account_info(address, db_result.clone().unwrap());
+                let Some(account_info) = db_result.clone() else {
+                    return Ok(None);
+                };
+                if let Err(err) = self.initial_db.insert_account_info(address, account_info) {
+                    error!("Failed to insert account info: {err:?}");
+                    return Ok(None);
+                }
             }
             return Ok(db_result);
         }
@@ -199,8 +218,12 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         .ok_or(ProviderError::RPC("No account".to_owned()))?;
 
         // Insert the account into the initial database.
-        self.initial_db
-            .insert_account_info(address, account.clone());
+        if let Err(err) = self
+            .initial_db
+            .insert_account_info(address, account.clone())
+        {
+            error!("Failed to insert account info: {err:?}");
+        };
         Ok(Some(account.clone()))
     }
 
@@ -214,8 +237,12 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         }
         if let Ok(db_result) = self.staging_db.storage(address, index) {
             if self.is_valid_run() {
-                self.initial_db
-                    .insert_account_storage(&address, index, db_result);
+                if let Err(err) = self
+                    .initial_db
+                    .insert_account_storage(&address, index, db_result)
+                {
+                    error!("Failed to insert account storage: {err:?}");
+                }
             }
             return Ok(db_result);
         }
@@ -239,8 +266,13 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         .first()
         .copied()
         .ok_or(ProviderError::RPC("No storage value".to_owned()))?;
-        self.initial_db
-            .insert_account_storage(&address, index, value);
+
+        if let Err(err) = self
+            .initial_db
+            .insert_account_storage(&address, index, value)
+        {
+            error!("Failed to insert account storage: {err:?}");
+        }
         Ok(value)
     }
 
@@ -255,7 +287,9 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         }
         if let Ok(db_result) = self.staging_db.block_hash(number) {
             if self.is_valid_run() {
-                self.initial_db.insert_block_hash(block_number, db_result);
+                if let Err(err) = self.initial_db.insert_block_hash(block_number, db_result) {
+                    error!("Failed to insert block hash: {err:?}");
+                }
             }
             return Ok(db_result);
         }
@@ -276,10 +310,11 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         .ok_or(ProviderError::RPC("No block".to_owned()))?
         .header
         .hash
-        .ok_or_else(|| ProviderError::RPC("No block hash".to_owned()))?
-        .0
-        .into();
-        self.initial_db.insert_block_hash(block_number, block_hash);
+        .ok_or_else(|| ProviderError::RPC("No block hash".to_owned()))?;
+
+        if let Err(err) = self.initial_db.insert_block_hash(block_number, block_hash) {
+            error!("Failed to insert block hash: {err:?}");
+        }
         Ok(block_hash)
     }
 
@@ -296,10 +331,6 @@ impl<BDP: BlockDataProvider> DatabaseCommit for ProviderDb<BDP> {
 
 impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
     async fn fetch_data(&mut self) -> bool {
-        //println!("all accounts touched: {:?}", self.pending_accounts);
-        //println!("all slots touched: {:?}", self.pending_slots);
-        //println!("all block hashes touched: {:?}", self.pending_block_hashes);
-
         // This run was valid when no pending work was scheduled
         let valid_run = self.is_valid_run();
 
@@ -314,8 +345,12 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
             .into_iter()
             .zip(accounts.iter())
         {
-            self.staging_db
-                .insert_account_info(address, account.clone());
+            if let Err(err) = self
+                .staging_db
+                .insert_account_info(address, account.clone())
+            {
+                error!("Failed to insert account info: {err:?}");
+            }
         }
 
         let Ok(slots) = self
@@ -327,8 +362,12 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
         };
         for ((address, index), value) in take(&mut self.pending_slots).into_iter().zip(slots.iter())
         {
-            self.staging_db
-                .insert_account_storage(&address, index, *value);
+            if let Err(err) = self
+                .staging_db
+                .insert_account_storage(&address, index, *value)
+            {
+                error!("Failed to insert account storage: {err:?}");
+            }
         }
 
         let Ok(blocks) = self
@@ -349,15 +388,21 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
             .into_iter()
             .zip(blocks.iter())
         {
-            self.staging_db
-                .insert_block_hash(block_number, block.header.hash.unwrap());
-            self.initial_headers
-                .insert(block_number, block.header.clone().try_into().unwrap());
+            let Some(hash) = block.header.hash else {
+                return false;
+            };
+            if let Err(err) = self.staging_db.insert_block_hash(block_number, hash) {
+                error!("Failed to insert block hash: {err:?}");
+            }
+            let Ok(header) = Header::try_from(block.header.clone()) else {
+                return false;
+            };
+            self.initial_headers.insert(block_number, header);
         }
 
         // If this wasn't a valid run, clear the post execution database
         if !valid_run {
-            self.current_db = Default::default();
+            self.current_db = MemDb::default();
         }
 
         valid_run

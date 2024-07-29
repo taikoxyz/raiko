@@ -1,29 +1,47 @@
 use core::mem;
 use std::sync::Arc;
 
-use crate::primitives::keccak::keccak;
-use crate::primitives::mpt::StateAccount;
-use crate::utils::generate_transactions;
+use anyhow::{bail, ensure, Result};
+use once_cell::sync::Lazy;
+use reth_chainspec::{
+    ChainSpec as RethChainSpec, ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV,
+    TAIKO_MAINNET,
+};
+use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
+use reth_evm_ethereum::{
+    execute::{validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider},
+    taiko::TaikoData,
+};
+use reth_primitives::{
+    revm_primitives::{
+        db::{Database, DatabaseCommit},
+        Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap,
+    },
+    Address, BlockWithSenders, Header, B256, KECCAK_EMPTY, U256,
+};
+use tracing::debug;
+
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
     guest_mem_forget,
     input::GuestInput,
     mem_db::{AccountState, DbAccount, MemDb},
+    primitives::keccak::keccak,
+    primitives::mpt::StateAccount,
+    utils::generate_transactions,
     CycleTracker,
 };
-use anyhow::{bail, ensure, Result};
-use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET};
-use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
-use reth_evm_ethereum::execute::{
-    validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
-};
-use reth_evm_ethereum::taiko::TaikoData;
-use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
-use reth_primitives::revm_primitives::{
-    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap,
-};
-use reth_primitives::{Address, BlockWithSenders, Header, B256, KECCAK_EMPTY, U256};
-use tracing::debug;
+
+// TODO(Brecht): for some reason using the spec directly doesn't work
+pub static ETH_MAINNET: Lazy<Arc<RethChainSpec>> = Lazy::new(|| {
+    Arc::new(
+        ChainSpecBuilder::default()
+            .chain(MAINNET.chain)
+            .genesis(MAINNET.genesis.clone())
+            .cancun_activated()
+            .build(),
+    )
+});
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
     let cycle_tracker = CycleTracker::start("initialize_database");
@@ -52,6 +70,7 @@ pub trait OptimisticDatabase {
     /// If the current database is optimistic
     fn is_optimistic(&self) -> bool;
 }
+
 /// A generic builder for building a block.
 #[derive(Clone, Debug)]
 pub struct RethBlockBuilder<DB> {
@@ -75,22 +94,10 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
     /// Executes all input transactions.
     pub fn execute_transactions(&mut self, optimistic: bool) -> Result<()> {
         // Get the chain spec
-        let chain_spec = &self.input.chain_spec;
-        let total_difficulty = U256::ZERO;
-        let reth_chain_spec = match chain_spec.name.as_str() {
+        let reth_chain_spec = match self.input.chain_spec.name.as_str() {
             "taiko_a7" => TAIKO_A7.clone(),
             "taiko_mainnet" => TAIKO_MAINNET.clone(),
-            "ethereum" => {
-                //MAINNET.clone()
-                // TODO(Brecht): for some reason using the spec directly doesn't work
-                Arc::new(
-                    ChainSpecBuilder::default()
-                        .chain(MAINNET.chain)
-                        .genesis(MAINNET.genesis.clone())
-                        .cancun_activated()
-                        .build(),
-                )
-            }
+            "ethereum" => ETH_MAINNET.clone(),
             "holesky" => HOLESKY.clone(),
             "taiko_dev" => TAIKO_DEV.clone(),
             _ => unimplemented!(),
@@ -109,6 +116,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
+        let total_difficulty = U256::ZERO;
         // Execute transactions
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
@@ -257,8 +265,8 @@ impl RethBlockBuilder<MemDb> {
             state_trie.insert_rlp(&state_trie_index, state_account)?;
         }
 
-        debug!("Accounts touched {:?}", account_touched);
-        debug!("Storages touched {:?}", storage_touched);
+        debug!("Accounts touched {account_touched:?}");
+        debug!("Storages touched {storage_touched:?}");
 
         Ok(state_trie.hash())
     }

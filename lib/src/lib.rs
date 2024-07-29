@@ -1,8 +1,20 @@
 #![cfg_attr(any(not(feature = "std")), no_std)]
 #![feature(slice_flatten)]
 #![feature(result_flattening)]
+
 #[cfg(feature = "std")]
 use std::io::{self, Write};
+
+use tracing::debug;
+
+pub mod builder;
+pub mod consts;
+pub mod input;
+pub mod mem_db;
+pub mod primitives;
+pub mod protocol_instance;
+pub mod prover;
+pub mod utils;
 
 #[cfg(not(feature = "std"))]
 mod no_std {
@@ -15,17 +27,6 @@ mod no_std {
         vec::Vec,
     };
 }
-
-use tracing::debug;
-
-pub mod builder;
-pub mod consts;
-pub mod input;
-pub mod mem_db;
-pub mod primitives;
-pub mod protocol_instance;
-pub mod prover;
-pub mod utils;
 
 #[cfg(not(target_os = "zkvm"))]
 mod time {
