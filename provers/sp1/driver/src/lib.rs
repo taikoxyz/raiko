@@ -115,9 +115,9 @@ impl Prover for Sp1Prover {
         }?;
 
         // Verify proof.
-        client
-            .verify(&proof, &vk)
-            .map_err(|_| ProverError::GuestError("Sp1: verification failed".to_owned()))?;
+        client.verify(&proof, &vk).map_err(|e| {
+            ProverError::GuestError(format!("Sp1: verification failed: {:#?}", e).to_owned())
+        })?;
 
         // Save the proof.
         let proof_dir =
