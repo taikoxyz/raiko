@@ -58,23 +58,20 @@ impl ProofActor {
         };
 
         let mut manager = get_task_manager(&self.opts.clone().into());
-        match key
-            .proof_system
+        key.proof_system
             .cancel_proof(
                 (key.chain_id, key.blockhash, key.proof_system as u8),
                 Box::new(&mut manager),
             )
             .await
-        {
-            Ok(_) => (),
-            Err(e) => {
+            .or_else(|e| {
                 if e.to_string().contains("no id found") {
-                    warn!("Task already cancelled");
+                    warn!("Task already cancelled or not yet started!");
+                    Ok(())
                 } else {
-                    return Err(e.into());
+                    Err::<(), HostError>(e.into())
                 }
-            }
-        };
+            })?;
         task.cancel();
         Ok(())
     }
