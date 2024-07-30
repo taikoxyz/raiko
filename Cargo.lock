@@ -4605,6 +4605,7 @@ dependencies = [
  "hex",
  "libc",
  "raiko-lib",
+ "secp256k1",
  "serde_bytes",
  "serde_json",
  "tokio",

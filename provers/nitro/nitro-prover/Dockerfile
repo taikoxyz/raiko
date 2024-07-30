@@ -12,6 +12,7 @@ FROM debian:bookworm-slim AS runner
 WORKDIR /raiko-nitro
 
 # Copy the Rust compiled binary from previous image
+COPY --from=builder $SECRET_PATH .
 COPY --from=builder /opt/raiko-nitro/target/release/nitro-prover .
 
 CMD ["/raiko-nitro/nitro-prover"]
