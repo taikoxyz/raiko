@@ -8447,6 +8447,7 @@ dependencies = [
  "sp1-helper",
  "sp1-sdk",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

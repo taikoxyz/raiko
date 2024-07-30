@@ -1,6 +1,6 @@
 #![cfg(feature = "enable")]
 
-use std::path::PathBuf;
+use std::{fmt::format, path::PathBuf};
 use std::fmt::Display;
 use once_cell::sync::Lazy;
 use raiko_lib::{
@@ -100,6 +100,7 @@ impl Prover for Sp1Prover {
         // let mut prove_result: Option<sp1_sdk::SP1ProofWithPublicValues> = None;
 
         let prove_result = if !matches!(param.prover, ProverMode::Network) {
+            tracing::debug!("Proving locally with recursion mode: {:?}", param.recursion);
             match param.recursion {
                 RecursionMode::Core => prove_action
                     .run(),
@@ -110,24 +111,15 @@ impl Prover for Sp1Prover {
                     .plonk()
                     .run(),
             }
-            .map_err(|e| ProverError::GuestError(format!("Sp1: proving failed: {}", e)))
+            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {}", e)))
             .unwrap()
         } else {
-            let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
-                ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
-            })?;
-            let network_client = NetworkClient::new(&private_key);
-
-            let proof_id = network_client
-                .create_proof(
-                    &pk.elf,
-                    &stdin,
-                    param.recursion.clone().into(),
-                    "v1.0.1",
-                )
+            let network_prover = sp1_sdk::NetworkProver::new();
+            
+            let proof_id = network_prover
+                .request_proof(ELF, stdin, param.recursion.clone().into())
                 .await
-                .map_err(|_| ProverError::GuestError("Sp1: creating proof failed".to_owned()))?;
-
+                .map_err(|_| ProverError::GuestError("Sp1: requesting proof failed".to_owned()))?;
             if let Some(id_store) = id_store {
                 id_store
                     .store_id(
@@ -136,27 +128,11 @@ impl Prover for Sp1Prover {
                     )
                     .await?;
             }
-            loop {
-                let (status, maybe_proof) = network_client
-                    .get_proof_status::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
-                    .await
-                    .map_err(|_| {
-                        ProverError::GuestError("Sp1: getting proof status failed".to_owned())
-                    })?;
-
-                if status.status() == ProofStatus::ProofUnspecifiedStatus {
-                    break Err(ProverError::GuestError(format!(
-                        "Proof generation failed: {}",
-                        status.unclaim_description()
-                    )));
-                }
-                if let Some(proof) = maybe_proof {
-                    break Ok(proof);
-                } else {
-                    sleep(Duration::from_secs(2));
-                }
-            }
-            .unwrap()
+            network_prover
+                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
+                .await
+                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
+                .unwrap()
         };
 
         let proof = Proof {
