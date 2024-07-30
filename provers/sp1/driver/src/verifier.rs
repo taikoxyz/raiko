@@ -40,9 +40,9 @@ async fn main() {
     // Param has higher priority than .env
     let param = json!({
         "sp1" : {
-            "recursion": "core",
-            "prover": "mock",
-            "verify": false
+            "recursion": "plonk",
+            "prover": "network",
+            "verify": true
         }
     });
     let time = Measurement::start("prove_groth16 & verify", false);

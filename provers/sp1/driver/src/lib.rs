@@ -1,20 +1,19 @@
 #![cfg(feature = "enable")]
 
 use std::path::PathBuf;
-
+use std::fmt::Display;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult}, Measurement,
 };
 use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sp1_sdk::{
-    network::client::NetworkClient,
-    proto::network::{ProofMode, ProofStatus, UnclaimReason},
+    action, network::client::NetworkClient, proto::network::{ProofMode, ProofStatus, UnclaimReason}
 };
-use sp1_sdk::{HashableKey, ProverClient, SP1PlonkBn254Proof, SP1Stdin, SP1VerifyingKey};
+use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
 use std::{env, thread::sleep, time::Duration};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
@@ -95,24 +94,24 @@ impl Prover for Sp1Prover {
             ProverMode::Local => ProverClient::local(),
             ProverMode::Network => ProverClient::network(),
         };
-        let (pk, _vk) = client.setup(ELF);
+        let (pk, vk) = client.setup(ELF);
 
-        if !matches!(param.prover, ProverMode::Network) {
+        let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
+        // let mut prove_result: Option<sp1_sdk::SP1ProofWithPublicValues> = None;
+
+        let prove_result = if !matches!(param.prover, ProverMode::Network) {
             match param.recursion {
-                RecursionMode::Core => client.prove(&pk, stdin).map(|p| serde_json::to_string(&p)),
-                RecursionMode::Compressed => client
-                    .prove_compressed(&pk, stdin)
-                    .map(|p| serde_json::to_string(&p)),
-                RecursionMode::Plonk => client
-                    .prove_plonk(&pk, stdin)
-                    .map(|p| serde_json::to_string(&p)),
+                RecursionMode::Core => prove_action
+                    .run(),
+                RecursionMode::Compressed => prove_action
+                    .compressed()
+                    .run(),
+                RecursionMode::Plonk => prove_action
+                    .plonk()
+                    .run(),
             }
-            .map(|s| Proof {
-                proof: s.ok(),
-                quote: None,
-                kzg_proof: None,
-            })
             .map_err(|e| ProverError::GuestError(format!("Sp1: proving failed: {}", e)))
+            .unwrap()
         } else {
             let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
                 ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
@@ -124,7 +123,7 @@ impl Prover for Sp1Prover {
                     &pk.elf,
                     &stdin,
                     param.recursion.clone().into(),
-                    "v1.0.8-testnet",
+                    "v1.0.1",
                 )
                 .await
                 .map_err(|_| ProverError::GuestError("Sp1: creating proof failed".to_owned()))?;
@@ -137,54 +136,42 @@ impl Prover for Sp1Prover {
                     )
                     .await?;
             }
-            let proof = {
-                let mut is_claimed = false;
-                loop {
-                    let (status, maybe_proof) = match param.recursion {
-                        RecursionMode::Core => network_client
-                            .get_proof_status::<sp1_sdk::SP1Proof>(&proof_id)
-                            .await
-                            .map(|(s, p)| (s, p.and_then(|p| serde_json::to_string(&p).ok()))),
-                        RecursionMode::Compressed => network_client
-                            .get_proof_status::<sp1_sdk::SP1CompressedProof>(&proof_id)
-                            .await
-                            .map(|(s, p)| (s, p.and_then(|p| serde_json::to_string(&p).ok()))),
-                        RecursionMode::Plonk => network_client
-                            .get_proof_status::<sp1_sdk::SP1PlonkBn254Proof>(&proof_id)
-                            .await
-                            .map(|(s, p)| (s, p.and_then(|p| serde_json::to_string(&p).ok()))),
-                    }
+            loop {
+                let (status, maybe_proof) = network_client
+                    .get_proof_status::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
+                    .await
                     .map_err(|_| {
                         ProverError::GuestError("Sp1: getting proof status failed".to_owned())
                     })?;
 
-                    match status.status() {
-                        ProofStatus::ProofFulfilled => {
-                            break Ok(maybe_proof.unwrap());
-                        }
-                        ProofStatus::ProofClaimed => {
-                            if !is_claimed {
-                                is_claimed = true;
-                            }
-                        }
-                        ProofStatus::ProofUnclaimed => {
-                            break Err(ProverError::GuestError(format!(
-                                "Proof generation failed: {}",
-                                status.unclaim_description()
-                            )));
-                        }
-                        _ => {}
-                    }
+                if status.status() == ProofStatus::ProofUnspecifiedStatus {
+                    break Err(ProverError::GuestError(format!(
+                        "Proof generation failed: {}",
+                        status.unclaim_description()
+                    )));
+                }
+                if let Some(proof) = maybe_proof {
+                    break Ok(proof);
+                } else {
                     sleep(Duration::from_secs(2));
                 }
             }
-            .ok();
-            Ok::<_, ProverError>(Proof {
-                proof,
-                quote: None,
-                kzg_proof: None,
-            })
+            .unwrap()
+        };
+
+        let proof = Proof {
+            proof: serde_json::to_string(&prove_result).ok(),
+            quote: None,
+            kzg_proof: None,
+        };
+
+        if param.verify {
+            let time = Measurement::start("verify", false);
+            verify_sol(vk, prove_result)?;
+            time.stop_with("==> Verification complete");
         }
+
+        Ok::<_, ProverError>(proof)
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
@@ -203,28 +190,10 @@ impl Prover for Sp1Prover {
 }
 
 fn init_verifier() -> Result<PathBuf, ProverError> {
-    // Install the plonk verifier from local Sp1 version.
-    let artifacts_dir = sp1_sdk::artifacts::try_install_plonk_bn254_artifacts();
-
-    // Read all Solidity files from the artifacts_dir.
-    let sol_files = std::fs::read_dir(artifacts_dir)
-        .map_err(|_| ProverError::GuestError("Failed to read Sp1 verifier artifacts".to_string()))?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("sol"))
-        .collect::<Vec<_>>();
-
-    // Write each Solidity file to the contracts directory.
     let contracts_src_dir = std::path::Path::new(CONTRACT_PATH);
-    for sol_file in sol_files {
-        let sol_file_path = sol_file.path();
-        let sol_file_contents = std::fs::read(&sol_file_path).unwrap();
-        std::fs::write(
-            &contracts_src_dir.join(sol_file_path.file_name().unwrap()),
-            sol_file_contents,
-        )
-        .map_err(|e| ProverError::GuestError(format!("Failed to write Solidity file: {}", e)))?;
-    }
-
+    // Install the plonk verifier from local Sp1 version.
+    sp1_sdk::artifacts::export_solidity_plonk_bn254_verifier(CONTRACT_PATH)
+        .map_err(|e| ProverError::GuestError(format!("Failed to export verifier: {}", e)))?;
     Ok(contracts_src_dir.to_owned())
 }
 
@@ -237,7 +206,7 @@ struct RaikoProofFixture {
     proof: String,
 }
 
-pub fn verify_sol(vk: SP1VerifyingKey, mut proof: SP1PlonkBn254Proof) -> ProverResult<()> {
+pub fn verify_sol(vk: SP1VerifyingKey, mut proof: sp1_sdk::SP1ProofWithPublicValues) -> ProverResult<()> {
     assert!(VERIFIER.is_ok());
 
     // Deserialize the public values.
@@ -247,7 +216,7 @@ pub fn verify_sol(vk: SP1VerifyingKey, mut proof: SP1PlonkBn254Proof) -> ProverR
     let fixture = RaikoProofFixture {
         vkey: vk.bytes32().to_string(),
         public_values: B256::from_slice(&pi_hash).to_string(),
-        proof: proof.bytes().to_string(),
+        proof: format!("{:?}", proof.bytes()),
     };
     println!("===> Fixture: {:#?}", fixture);
 
