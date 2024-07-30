@@ -211,7 +211,7 @@ pub fn verify_sol(vk: SP1VerifyingKey, mut proof: sp1_sdk::SP1ProofWithPublicVal
     .map_err(|e| ProverError::GuestError(format!("Failed to write fixture: {}", e)))?;
 
     let child = std::process::Command::new("forge")
-        .arg("test -vv")
+        .arg("test")
         .current_dir(CONTRACT_PATH)
         .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
         .spawn();
