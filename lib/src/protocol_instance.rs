@@ -42,7 +42,7 @@ impl ProtocolInstance {
                 .expect("no blob commitment");
             let versioned_hash =
                 commitment_to_version_hash(&commitment.clone().try_into().unwrap());
-            /* match get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()) {
+            match get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()) {
                 crate::input::BlobProofType::ProofOfEquivalence => {
                     let points =
                         eip4844::proof_of_equivalence(&input.taiko.tx_data, &versioned_hash)?;
@@ -54,7 +54,7 @@ impl ProtocolInstance {
                         commitment == &eip4844::calc_kzg_proof_commitment(&input.taiko.tx_data)?
                     );
                 }
-            }; */
+            };
             versioned_hash
         } else {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))
