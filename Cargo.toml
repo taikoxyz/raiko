@@ -47,7 +47,9 @@ reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch
 reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-ontake", default-features = false }
 reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-ontake", default-features = false }
 reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-ontake", default-features = false }
-reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-ontake", default-features = false }
+reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-ontake", default-features = false, features = [
+    "taiko",
+] }
 reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-ontake", default-features = false }
 
 # risc zero

@@ -224,8 +224,10 @@ impl ChainSpec {
                 if let Some(fork_verifier) = self.verifier_address_forks.get(&spec_id) {
                     return fork_verifier
                         .get(&verifier_type)
-                        .unwrap()
-                        .ok_or_else(|| anyhow!("Verifier address not found"));
+                        .ok_or_else(|| anyhow!("Verifier type not found"))
+                        .and_then(|address| {
+                            address.ok_or_else(|| anyhow!("Verifier address not found"))
+                        });
                 }
             }
         }
@@ -310,12 +312,9 @@ mod tests {
         );
 
         let taiko_mainnet_spec = SupportedChainSpecs::default()
-        .get_chain_spec(&Network::TaikoMainnet.to_string())
-        .unwrap();
-        assert_eq!(
-            taiko_mainnet_spec.active_fork(0, 0).unwrap(),
-            SpecId::HEKLA
-        );
+            .get_chain_spec(&Network::TaikoMainnet.to_string())
+            .unwrap();
+        assert_eq!(taiko_mainnet_spec.active_fork(0, 0).unwrap(), SpecId::HEKLA);
         assert_eq!(
             taiko_mainnet_spec.active_fork(999998, 0).unwrap(),
             SpecId::HEKLA
@@ -356,6 +355,17 @@ mod tests {
             verifier_address,
             address!("f6d620d0b2a2bb9d11066e8532efb72588cae6d9")
         );
+    }
+
+    #[test]
+    fn forked_none_verifier_address() {
+        let eth_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::Ethereum.to_string())
+            .unwrap();
+        let verifier_address = eth_mainnet_spec
+            .get_fork_verifier_address(15_537_394, VerifierType::None)
+            .unwrap_or_default();
+        assert_eq!(verifier_address, Address::ZERO);
     }
 
     #[ignore]

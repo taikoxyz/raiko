@@ -110,7 +110,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 SpecId::HEKLA => {
                     assert!(
                         reth_chain_spec
-                            .fork(Hardfork::Ontake)
+                            .fork(Hardfork::Hekla)
                             .active_at_block(block_num),
                         "evm fork is not active, please update the chain spec"
                     );
@@ -122,6 +122,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                             .active_at_block(block_num),
                         "evm fork is not active, please update the chain spec"
                     );
+                    self.validate_1559_block_basefee()?;
                 }
                 _ => unimplemented!(),
             }
@@ -147,6 +148,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l1_header: self.input.taiko.l1_header.clone(),
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
+                basefee_ratio: self.input.block.header.extra_data[1],
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {
@@ -213,6 +215,47 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .collect();
         self.db.as_mut().unwrap().commit(changes);
 
+        Ok(())
+    }
+
+    // TODO: now reuse calc_next_block_base_fee from alloy.
+    // could be refined to use the whole fn if we change input from target to elasticity_multiplier.
+    fn validate_1559_block_basefee(&self) -> Result<()> {
+        // Calculate the target gas by dividing the gas limit by the elasticity multiplier.
+        let gas_target = (self.input.block.header.extra_data[0] as u64) * 1000000u64;
+        let gas_used = self.input.block.header.gas_used;
+        let base_fee = self.input.parent_header.base_fee_per_gas.unwrap();
+        let max_change_denominator = 8;
+
+        let current_block_basefee = match gas_used.cmp(&gas_target) {
+            // If the gas used in the current block is equal to the gas target, the base fee remains the
+            // same (no increase).
+            core::cmp::Ordering::Equal => base_fee,
+            // If the gas used in the current block is greater than the gas target, calculate a new
+            // increased base fee.
+            core::cmp::Ordering::Greater => {
+                // Calculate the increase in base fee based on the formula defined by EIP-1559.
+                base_fee
+                    + (core::cmp::max(
+                        // Ensure a minimum increase of 1.
+                        1,
+                        base_fee * (gas_used - gas_target) / (gas_target * max_change_denominator),
+                    ))
+            }
+            // If the gas used in the current block is less than the gas target, calculate a new
+            // decreased base fee.
+            core::cmp::Ordering::Less => {
+                // Calculate the decrease in base fee based on the formula defined by EIP-1559.
+                base_fee.saturating_sub(
+                    base_fee * (gas_target - gas_used) / (gas_target * max_change_denominator),
+                )
+            }
+        };
+
+        assert_eq!(
+            current_block_basefee,
+            self.input.block.header.base_fee_per_gas.unwrap()
+        );
         Ok(())
     }
 }

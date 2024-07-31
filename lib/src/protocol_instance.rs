@@ -182,7 +182,8 @@ impl ProtocolInstance {
 
         let verifier_address = input
             .chain_spec
-            .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)?;
+            .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
+            .unwrap_or_default();
 
         let pi = ProtocolInstance {
             transition: Transition {
