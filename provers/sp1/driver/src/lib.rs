@@ -1,5 +1,6 @@
 #![cfg(feature = "enable")]
 
+use std::fs;
 use std::{fmt::format, path::PathBuf};
 use std::fmt::Display;
 use once_cell::sync::Lazy;
@@ -166,12 +167,32 @@ impl Prover for Sp1Prover {
 }
 
 fn init_verifier() -> Result<PathBuf, ProverError> {
-    let contracts_src_dir = std::path::Path::new(CONTRACT_PATH);
-    // Install the plonk verifier from local Sp1 version.
-    sp1_sdk::artifacts::export_solidity_plonk_bn254_verifier(CONTRACT_PATH)
-        .map_err(|e| ProverError::GuestError(format!("Failed to export verifier: {}", e)))?;
-    Ok(contracts_src_dir.to_owned())
+    let output_dir: PathBuf = CONTRACT_PATH.into();
+    let artifacts_dir = sp1_sdk::install::try_install_plonk_bn254_artifacts();
+    if !artifacts_dir.join("SP1Verifier.sol").exists() {
+        return Err(ProverError::GuestError(format!("verifier file not found at {:?}", artifacts_dir)));
+    }
+
+    std::fs::create_dir_all(&output_dir).map_err(|e| ProverError::FileIo(e))?;    
+    copy_dir_all(&artifacts_dir, &output_dir).map_err(|e| ProverError::FileIo(e))?;
+    println!("exported verifier from {} to {}", artifacts_dir.display(), output_dir.display());
+    Ok(output_dir)
 }
+
+fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {  
+    fs::create_dir_all(&dst)?;  
+    for entry in fs::read_dir(src)? {  
+        let entry = entry.unwrap();
+        if entry.file_type()?.is_dir() {  
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;  
+        } else {  
+            println!("copying {:?} to {:?}", entry.path(), dst.as_ref().join(entry.file_name()));
+            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;  
+        }  
+    }  
+    Ok(())  
+}
+
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -227,12 +248,17 @@ mod test {
     const TEST_ELF: &[u8] = include_bytes!("../../guest/elf/test-sp1-guest");
 
     #[test]
+    fn test_init_verifier() {
+        assert!(VERIFIER.is_ok());
+    }
+
+    #[test]
     fn run_unittest_elf() {
         // TODO(Cecilia): imple GuestInput::mock() for unit test
         let client = ProverClient::new();
         let stdin = SP1Stdin::new();
         let (pk, vk) = client.setup(TEST_ELF);
-        let proof = client.prove(&pk, stdin).expect("Sp1: proving failed");
+        let proof = client.prove(&pk, stdin).run().unwrap();
         client
             .verify(&proof, &vk)
             .expect("Sp1: verification failed");

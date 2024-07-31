@@ -1,16 +1,16 @@
 #![cfg(feature = "enable")]
 use alloy_primitives::B256;
 use raiko_lib::input::{GuestInput, GuestOutput};
-use raiko_lib::prover::Prover;
+use raiko_lib::prover::{Prover, ProverError};
 use raiko_lib::Measurement;
 use serde_json::json;
-use sp1_driver::Sp1Prover;
+use sp1_driver::{verify_sol, Sp1Prover, CONTRACT_PATH, VERIFIER};
 use std::path::PathBuf;
 
 pub const DATA: &str = "./data/";
 
 #[tokio::main]
-async fn main() {
+async fn main_() {
     dotenv::from_path("./provers/sp1/driver/.env").ok();
 
     // Setup the logger.
@@ -48,4 +48,16 @@ async fn main() {
     let time = Measurement::start("prove_groth16 & verify", false);
     Sp1Prover::run(input, &output, &param, None).await.unwrap();
     time.stop_with("==> Verification complete");
+}
+
+fn main() {
+    VERIFIER.is_ok();
+
+    let child = std::process::Command::new("forge")
+        .arg("test")
+        .current_dir(CONTRACT_PATH)
+        .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
+        .spawn();
+    println!("Verification started {:?}", child);
+    child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {}", e))).unwrap();
 }
