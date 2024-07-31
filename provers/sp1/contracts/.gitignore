@@ -10,4 +10,4 @@ docs/
 .env
 
 # Sp1 Artifacts
-.bin
+*.bin
