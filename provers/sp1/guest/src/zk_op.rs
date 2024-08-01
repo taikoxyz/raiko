@@ -27,7 +27,7 @@ impl ZkvmOperator for Sp1Operator {
 
         let mut p = be_bytes_to_point(&input[..64]);
         let k = BigUint::from_bytes_le(&input[64..]);
-        p = p * k;
+        p = p.sw_scalar_mul(&k);
         Ok(point_to_be_bytes(p))
     }
 
@@ -81,9 +81,6 @@ fn be_bytes_to_point(input: &[u8]) -> AffinePoint<Bn254> {
 
 #[inline]
 fn point_to_be_bytes(p: AffinePoint<Bn254>) -> [u8; 64] {
-    // p.x.to_bytes_be()
-    // p.to_words_le()
-    // let p = p.to_le_bytes();
     let mut x = [0u8; 32];
     let mut y = [0u8; 32];
 

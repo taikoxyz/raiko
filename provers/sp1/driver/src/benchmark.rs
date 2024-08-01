@@ -10,6 +10,7 @@ const ECDSA_ELF: &[u8] = include_bytes!("../../guest/elf/ecdsa");
 const SHA256_ELF: &[u8] = include_bytes!("../../guest/elf/sha256");
 
 fn prove(elf: &[u8]) {
+    sp1_sdk::utils::setup_logger();
     let client = ProverClient::new();
     let stdin = SP1Stdin::new();
     let (pk, vk) = client.setup(elf);
@@ -53,4 +54,29 @@ fn bench_bn254_mul(_: &mut Bencher) {
         Ok(())
     })
     .unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sha256() {
+        prove(SHA256_ELF);
+    }
+
+    #[test]
+    fn test_ecdsa() {
+        prove(ECDSA_ELF);
+    }
+
+    #[test]
+    fn test_bn254_add() {
+        prove(BN254_ADD_ELF);
+    }
+
+    #[test]
+    fn test_bn254_mul() {
+        prove(BN254_MUL_ELF);
+    }
 }
