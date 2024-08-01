@@ -19,7 +19,7 @@ use std::{env, thread::sleep, time::Duration};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const FIXTURE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
-pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src";
+pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src/exports/";
 const SP1_PROVER_CODE: u8 = 1;
 
 pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifier);
@@ -167,6 +167,7 @@ impl Prover for Sp1Prover {
 }
 
 fn init_verifier() -> Result<PathBuf, ProverError> {
+    // In cargo run, Cargo sets the working directory to the root of the workspace
     let output_dir: PathBuf = CONTRACT_PATH.into();
     let artifacts_dir = sp1_sdk::install::try_install_plonk_bn254_artifacts();
     if !artifacts_dir.join("SP1Verifier.sol").exists() {
@@ -198,7 +199,7 @@ fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Pat
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RaikoProofFixture {
-    vkey: String,
+    vkey: String, 
     public_values: String,
     proof: String,
 }
@@ -250,6 +251,16 @@ mod test {
     #[test]
     fn test_init_verifier() {
         assert!(VERIFIER.is_ok());
+    }
+
+    #[test]
+    fn test_solidity_verification() {
+        let mut cmd = std::process::Command::new("forge");
+        // In test, Cargo sets the working dir to the package being tested
+        // not the workspace root
+        cmd.arg("test").current_dir("../contracts");
+        println!("Running {:?}", &cmd);
+        cmd.status().unwrap();
     }
 
     #[test]
