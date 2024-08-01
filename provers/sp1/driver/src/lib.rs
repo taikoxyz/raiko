@@ -15,6 +15,7 @@ use sp1_sdk::{
     action, network::client::NetworkClient, proto::network::{ProofMode, ProofStatus, UnclaimReason}
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
+use tracing::info;
 use std::{env, thread::sleep, time::Duration};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
@@ -129,6 +130,7 @@ impl Prover for Sp1Prover {
                     )
                     .await?;
             }
+            info!("Sp1 Prover: block {:?} - proof id {:?}", output.header.number, proof_id);
             network_prover
                 .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
                 .await
