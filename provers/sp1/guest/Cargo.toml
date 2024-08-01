@@ -34,9 +34,9 @@ path = "src/benchmark/bn254_mul.rs"
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
 sp1-zkvm ={  version = "1.0.1" }
+sp1-core = "1.0.1"
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch", features = ["sp1"] }
-sp1-precompiles = {  version = "1.0.1"  }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "feat/patch-ecrecover" }
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["sp1"]}
 substrate-bn = "0.6.0"
@@ -48,7 +48,7 @@ revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
 bincode = "1.3.3"
 reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = ["alloy-compat", "taiko"] }
 lazy_static = "1.4.0"
-rand = "0.8.5"
+num-bigint = {version = "0.4.6", default-features = false}
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
@@ -58,7 +58,7 @@ c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" 
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
 ecdsa = { git = "https://github.com/taikoxyz/signatures.git", branch = "0.16.9"  }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch", features = ["sp1"] }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "feat/patch-ecrecover" }
 
 [features]
 default = ["sp1-cycle-tracker"]

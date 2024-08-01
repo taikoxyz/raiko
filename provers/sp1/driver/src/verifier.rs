@@ -10,13 +10,13 @@ use std::path::PathBuf;
 pub const DATA: &str = "./data/";
 
 #[tokio::main]
-async fn main_() {
+async fn main() {
     dotenv::from_path("./provers/sp1/driver/.env").ok();
 
     // Setup the logger.
     sp1_sdk::utils::setup_logger();
 
-    // Setup the inputs.;
+    // Setup the inputs.
     let path = std::env::args()
         .last()
         .and_then(|s| {
@@ -27,7 +27,7 @@ async fn main_() {
                 None
             }
         })
-        .unwrap_or_else(|| PathBuf::from(DATA).join("input.json"));
+        .unwrap_or_else(|| PathBuf::from(DATA).join("input-taiko_mainnet-182300.json"));
     println!("Reading GuestInput from {:?}", path);
     let json = std::fs::read_to_string(path).unwrap();
 
@@ -40,24 +40,12 @@ async fn main_() {
     // Param has higher priority than .env
     let param = json!({
         "sp1" : {
-            "recursion": "plonk",
-            "prover": "network",
-            "verify": true
+            "recursion": "core",
+            "prover": "mock",
+            "verify": false
         }
     });
     let time = Measurement::start("prove_groth16 & verify", false);
     Sp1Prover::run(input, &output, &param, None).await.unwrap();
     time.stop_with("==> Verification complete");
-}
-
-fn main() {
-    VERIFIER.is_ok();
-
-    let child = std::process::Command::new("forge")
-        .arg("test")
-        .current_dir(CONTRACT_PATH)
-        .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
-        .spawn();
-    println!("Verification started {:?}", child);
-    child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {}", e))).unwrap();
 }

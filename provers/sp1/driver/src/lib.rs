@@ -213,7 +213,7 @@ pub fn verify_sol(vk: SP1VerifyingKey, mut proof: sp1_sdk::SP1ProofWithPublicVal
     let fixture = RaikoProofFixture {
         vkey: vk.bytes32().to_string(),
         public_values: B256::from_slice(&pi_hash).to_string(),
-        proof: format!("{:?}", proof.bytes()),
+        proof: format!("0x{}", reth_primitives::hex::encode(proof.bytes())),
     };
     println!("===> Fixture: {:#?}", fixture);
 

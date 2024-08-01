@@ -119,7 +119,7 @@ pub type TaskProvingStatusRecords = Vec<TaskProvingStatus>;
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TaskManagerOpts {
     pub sqlite_file: PathBuf,
     pub max_db_size: usize,

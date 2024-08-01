@@ -1,6 +1,7 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::ProofRequest;
 use raiko_lib::prover::Proof;
+use raiko_tasks::get_task_manager;
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -42,11 +43,14 @@ async fn proof_handler(
     inc_host_req_count(proof_request.block_number);
     inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
+    // In memory task manager only for V1, cannot feature = "sqlite"
+    let mut manager = get_task_manager(&raiko_tasks::TaskManagerOpts::default());
+
     handle_proof(
         &proof_request,
         &prover_state.opts,
         &prover_state.chain_specs,
-        None,
+        Some(&mut manager),
     )
     .await
     .map_err(|e| {
