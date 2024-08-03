@@ -123,7 +123,7 @@ pub type RawGuestOutput = sol! {
 };
 
 #[serde_as]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct GuestOutput {
     pub header: Header,
     pub hash: B256,

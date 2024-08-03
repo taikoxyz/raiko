@@ -6,6 +6,7 @@ jobs:
   build-test-sgx-hardware:
     name: Build and test sgx in hardware
     runs-on: [self-hosted, sgx, linux]
+    if: github.event.pull_request.draft == false
     timeout-minutes: 120
     env:
       TARGET: sgx

@@ -1,0 +1,8 @@
+{
+  "enclave_name": "raiko-host",
+  "cpu_count": 4,
+  "memory_mib": 2048,
+  "eif_path": "raiko-host.eif",
+  "enclave_cid": 16,
+  "debug_mode": true
+}

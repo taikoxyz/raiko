@@ -1,17 +1,15 @@
 extern crate rand;
 extern crate secp256k1;
 
-use anyhow::{anyhow, Result};
-use clap::Parser;
-
 use crate::{
     app_args::{App, Command},
     one_shot::{bootstrap, load_bootstrap, one_shot},
 };
+use anyhow::{anyhow, Result};
+use clap::Parser;
 
 mod app_args;
 mod one_shot;
-mod signature;
 
 #[tokio::main]
 pub async fn main() -> Result<()> {

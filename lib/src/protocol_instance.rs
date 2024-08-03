@@ -195,11 +195,16 @@ fn get_blob_proof_type(
     proof_type: VerifierType,
     blob_proof_type_hint: BlobProofType,
 ) -> BlobProofType {
-    match proof_type {
-        VerifierType::None => blob_proof_type_hint,
-        VerifierType::SGX => BlobProofType::ProofOfCommitment,
-        VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
-        VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+    if cfg!(feature = "proof_of_equivalence") {
+        match proof_type {
+            VerifierType::None => blob_proof_type_hint,
+            VerifierType::SGX => BlobProofType::ProofOfCommitment,
+            VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
+            VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+            VerifierType::Nitro => BlobProofType::ProofOfCommitment,
+        }
+    } else {
+        BlobProofType::ProofOfCommitment
     }
 }
 
