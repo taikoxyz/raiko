@@ -2,7 +2,7 @@
 name = "raiko-tasks"
 version = "0.1.0"
 authors = ["Taiko Labs"]
-edition = "2021"                                      # { workspace = true }
+edition = "2021" 
 
 [dependencies]
 raiko-lib = { workspace = true }

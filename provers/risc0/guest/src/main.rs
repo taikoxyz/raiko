@@ -5,8 +5,8 @@ use raiko_lib::{
     protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
-use risc0_zkvm::guest::env;
 use zk_op::Risc0Operator;
+use risc0_zkvm::guest::env;
 
 pub mod mem;
 

@@ -65,9 +65,9 @@ risc0-build = { version = "1.0.1" }
 risc0-binfmt = { version = "1.0.1" }
 
 # SP1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "main" }
+sp1-sdk = {  git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testnet"}
+sp1-zkvm = {  git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testnet"}
+sp1-helper = {  git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testnet"}
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
@@ -78,7 +78,6 @@ alloy-json-abi = { version = "0.7.2", default-features = false }
 alloy-primitives = { version = "0.7.2", default-features = false }
 alloy-sol-types = { version = "0.7.2", default-features = false }
 reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
-
 alloy-rpc-types = { version = "0.1", default-features = false }
 alloy-rpc-client = { version = "0.1", default-features = false }
 alloy-consensus = { version = "0.1", default-features = false, features = [
@@ -197,6 +196,7 @@ rand = "0.8.5"
 rand_core = "0.6.4"
 dirs = "5.0.1"
 pathdiff = "0.2.1"
+dotenv = "0.15.0"
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
@@ -204,3 +204,4 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
+alloy-serde = { git = "https://github.com/CeciliaZ030/alloy.git", branch = "v0.1.4-fix"}

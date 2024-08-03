@@ -166,7 +166,7 @@ use raiko_lib::{
 use rusqlite::{
     named_params, {Connection, OpenFlags},
 };
-use tokio::{runtime::Builder, sync::Mutex};
+use tokio::sync::Mutex;
 
 use crate::{
     TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
@@ -833,34 +833,30 @@ impl TaskDb {
     }
 }
 
+#[async_trait::async_trait]
 impl IdWrite for SqliteTaskManager {
-    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
-        let rt = Builder::new_current_thread().enable_all().build()?;
-        rt.block_on(async move {
-            let task_db = self.arc_task_db.lock().await;
-            task_db.store_id(key, id)
-        })
-        .map_err(|e| ProverError::StoreError(e.to_string()))
+    async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db
+            .store_id(key, id)
+            .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 
-    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
-        let rt = Builder::new_current_thread().enable_all().build()?;
-        rt.block_on(async move {
-            let task_db = self.arc_task_db.lock().await;
-            task_db.remove_id(key)
-        })
-        .map_err(|e| ProverError::StoreError(e.to_string()))
+    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db
+            .remove_id(key)
+            .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
 
+#[async_trait::async_trait]
 impl IdStore for SqliteTaskManager {
-    fn read_id(&self, key: ProofKey) -> ProverResult<String> {
-        let rt = Builder::new_current_thread().enable_all().build()?;
-        rt.block_on(async move {
-            let task_db = self.arc_task_db.lock().await;
-            task_db.read_id(key)
-        })
-        .map_err(|e| ProverError::StoreError(e.to_string()))
+    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db
+            .read_id(key)
+            .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
 

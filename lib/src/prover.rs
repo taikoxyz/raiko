@@ -37,14 +37,16 @@ pub struct Proof {
     pub kzg_proof: Option<String>,
 }
 
+#[async_trait::async_trait]
 pub trait IdWrite: Send {
-    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()>;
+    async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()>;
 
-    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()>;
+    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()>;
 }
 
+#[async_trait::async_trait]
 pub trait IdStore: IdWrite {
-    fn read_id(&self, key: ProofKey) -> ProverResult<String>;
+    async fn read_id(&self, key: ProofKey) -> ProverResult<String>;
 }
 
 #[allow(async_fn_in_trait)]

@@ -17,3 +17,8 @@ fmt:
 
 clippy:
 	CLIPPY=1 ./script/build.sh $(TARGET)
+
+update:
+	@cargo update
+	cd ./provers/sp1/guest && cargo update
+	cd ./provers/risc0/guest && cargo update

@@ -12,7 +12,7 @@ on:
   merge_group:
 
 jobs:
-  build-test-sgx:
+  build-test-sp1:
     name: Build and test sp1
     uses: ./.github/workflows/ci-build-test-reusable.yml
     with:

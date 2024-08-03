@@ -179,27 +179,29 @@ pub struct TaskManagerWrapper {
     manager: TaskManagerInstance,
 }
 
+#[async_trait::async_trait]
 impl IdWrite for TaskManagerWrapper {
-    fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
+    async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
         match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.store_id(key, id),
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.store_id(key, id),
+            TaskManagerInstance::InMemory(ref mut manager) => manager.store_id(key, id).await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.store_id(key, id).await,
         }
     }
 
-    fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
+    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
         match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.remove_id(key),
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.remove_id(key),
+            TaskManagerInstance::InMemory(ref mut manager) => manager.remove_id(key).await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.remove_id(key).await,
         }
     }
 }
 
+#[async_trait::async_trait]
 impl IdStore for TaskManagerWrapper {
-    fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
         match &self.manager {
-            TaskManagerInstance::InMemory(manager) => manager.read_id(key),
-            TaskManagerInstance::Sqlite(manager) => manager.read_id(key),
+            TaskManagerInstance::InMemory(manager) => manager.read_id(key).await,
+            TaskManagerInstance::Sqlite(manager) => manager.read_id(key).await,
         }
     }
 }

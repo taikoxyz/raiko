@@ -6,12 +6,10 @@ use alloy_sol_types::sol;
 use anyhow::{anyhow, Error, Result};
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
-    TransactionSigned,
+    Block, Header, TransactionSigned,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-
-use reth_primitives::{Block, Header};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -107,8 +105,8 @@ impl FromStr for BlobProofType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim() {
-            "ProofOfEquivalence" => Ok(BlobProofType::ProofOfEquivalence),
-            "ProofOfCommitment" => Ok(BlobProofType::ProofOfCommitment),
+            "proof_of_equivalence" => Ok(BlobProofType::ProofOfEquivalence),
+            "proof_of_commitment" => Ok(BlobProofType::ProofOfCommitment),
             _ => Err(anyhow!("invalid blob proof type")),
         }
     }
@@ -119,6 +117,10 @@ pub struct TaikoProverData {
     pub prover: Address,
     pub graffiti: B256,
 }
+
+pub type RawGuestOutput = sol! {
+    tuple(uint64, address, Transition, address, address, bytes32)
+};
 
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -168,7 +170,7 @@ sol! {
         bytes data;
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Default, Deserialize, Serialize)]
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;

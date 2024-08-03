@@ -12,6 +12,7 @@ use crate::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
     },
+    CycleTracker,
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
@@ -44,15 +45,19 @@ impl ProtocolInstance {
                 commitment_to_version_hash(&commitment.clone().try_into().unwrap());
             match get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()) {
                 crate::input::BlobProofType::ProofOfEquivalence => {
+                    let ct = CycleTracker::start("proof_of_equivalence");
                     let points =
                         eip4844::proof_of_equivalence(&input.taiko.tx_data, &versioned_hash)?;
+                    ct.end();
                     proof_of_equivalence =
                         (U256::from_le_bytes(points.0), U256::from_le_bytes(points.1));
                 }
                 crate::input::BlobProofType::ProofOfCommitment => {
+                    let ct = CycleTracker::start("proof_of_commitment");
                     ensure!(
                         commitment == &eip4844::calc_kzg_proof_commitment(&input.taiko.tx_data)?
                     );
+                    ct.end();
                 }
             };
             versioned_hash

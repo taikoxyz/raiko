@@ -81,6 +81,7 @@ mod test {
 
     use alloy_primitives::{Address, B256};
     use alloy_provider::Provider;
+    use ethers_core::k256::elliptic_curve::rand_core::block;
     use raiko_core::{
         interfaces::{ProofRequest, ProofType},
         provider::rpc::RpcBlockDataProvider,
@@ -132,9 +133,13 @@ mod test {
     }
 
     async fn get_a_testable_block_num(chain_spec: &ChainSpec) -> u64 {
+        get_latest_block_num(chain_spec).await - 299582u64 // a hardcode helka & mainnet height diff for the test
+    }
+
+    async fn get_latest_block_num(chain_spec: &ChainSpec) -> u64 {
         let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
         let height = provider.provider.get_block_number().await.unwrap();
-        height - 299582 // a hardcode helka & mainnet height diff for the test
+        height
     }
 
     #[tokio::test]
@@ -153,6 +158,10 @@ mod test {
 
         let new_l1 = &Network::Ethereum.to_string();
         let new_l2 = &Network::TaikoMainnet.to_string();
+        let taiko_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(new_l2)
+            .unwrap();
+        let block_number: u64 = get_latest_block_num(&taiko_chain_spec).await;
         let (new_input, _) = create_cache_input(new_l1, new_l2, block_number).await;
         // save to old l2 cache slot
         assert!(cache::set_input(&cache_path, block_number, l2, &new_input).is_ok());
