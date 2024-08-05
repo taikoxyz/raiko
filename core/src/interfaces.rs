@@ -399,7 +399,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
             blob_proof_type: value
                 .blob_proof_type
-                .unwrap_or("ProofOfCommitment".to_string())
+                .unwrap_or("kzg_versioned_hash".to_string())
                 .parse()
                 .map_err(|_| {
                     RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())

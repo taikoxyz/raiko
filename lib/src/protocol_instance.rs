@@ -52,7 +52,7 @@ impl ProtocolInstance {
                     proof_of_equivalence =
                         (U256::from_le_bytes(points.0), U256::from_le_bytes(points.1));
                 }
-                crate::input::BlobProofType::ProofOfCommitment => {
+                crate::input::BlobProofType::KzgVersionedHash => {
                     let ct = CycleTracker::start("proof_of_commitment");
                     ensure!(
                         commitment == &eip4844::calc_kzg_proof_commitment(&input.taiko.tx_data)?
@@ -195,11 +195,15 @@ fn get_blob_proof_type(
     proof_type: VerifierType,
     blob_proof_type_hint: BlobProofType,
 ) -> BlobProofType {
-    match proof_type {
-        VerifierType::None => blob_proof_type_hint,
-        VerifierType::SGX => BlobProofType::ProofOfCommitment,
-        VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
-        VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+    if cfg!(feature = "proof_of_equivalence") {
+        match proof_type {
+            VerifierType::None => blob_proof_type_hint,
+            VerifierType::SGX => BlobProofType::KzgVersionedHash,
+            VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
+            VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+        }
+    } else {
+        BlobProofType::KzgVersionedHash
     }
 }
 
