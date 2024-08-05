@@ -111,7 +111,7 @@ mod test {
             graffiti: B256::ZERO,
             prover: Address::ZERO,
             proof_type: ProofType::Native,
-            blob_proof_type: BlobProofType::ProofOfCommitment,
+            blob_proof_type: BlobProofType::KzgVersionedHash,
             prover_args: Default::default(),
         };
         let raiko = Raiko::new(
