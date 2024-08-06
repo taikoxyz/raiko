@@ -85,6 +85,7 @@ impl TryFrom<Vec<TransactionSigned>> for TaikoGuestInput {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum BlobProofType {
     /// Guest runs through the entire computation from blob to Kzg commitment
     /// then to version hash
