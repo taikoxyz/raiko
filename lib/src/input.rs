@@ -85,11 +85,12 @@ impl TryFrom<Vec<TransactionSigned>> for TaikoGuestInput {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum BlobProofType {
     /// Guest runs through the entire computation from blob to Kzg commitment
     /// then to version hash
     #[default]
-    ProofOfCommitment,
+    KzgVersionedHash,
     /// Simplified Proof of Equivalence with fiat input in non-aligned field
     /// Referencing https://notes.ethereum.org/@dankrad/kzg_commitments_in_proofs
     /// with impl details in https://github.com/taikoxyz/raiko/issues/292
@@ -106,7 +107,7 @@ impl FromStr for BlobProofType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim() {
             "proof_of_equivalence" => Ok(BlobProofType::ProofOfEquivalence),
-            "proof_of_commitment" => Ok(BlobProofType::ProofOfCommitment),
+            "kzg_versioned_hash" => Ok(BlobProofType::KzgVersionedHash),
             _ => Err(anyhow!("invalid blob proof type")),
         }
     }

@@ -259,10 +259,9 @@ pub fn prove_locally(
         }
 
         let segment_dir = PathBuf::from("/tmp/risc0-cache");
-        if segment_dir.exists() {
-            fs::remove_dir_all(segment_dir.clone()).unwrap();
+        if !segment_dir.exists() {
+            fs::create_dir(segment_dir.clone()).unwrap();
         }
-        fs::create_dir(segment_dir.clone()).unwrap();
         let env = env_builder.segment_path(segment_dir).build().unwrap();
         let mut exec = ExecutorImpl::from_elf(env, elf).unwrap();
 
