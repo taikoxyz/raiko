@@ -12,9 +12,9 @@ use crate::{
 };
 
 mod cancel;
+mod list;
 mod prune;
 mod report;
-mod list;
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",

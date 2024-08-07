@@ -1,10 +1,10 @@
 #![cfg(feature = "enable")]
 use alloy_primitives::B256;
 use raiko_lib::input::{GuestInput, GuestOutput};
-use raiko_lib::prover::{Prover, ProverError};
+use raiko_lib::prover::Prover;
 use raiko_lib::Measurement;
 use serde_json::json;
-use sp1_driver::{verify_sol, Sp1Prover, CONTRACT_PATH, VERIFIER};
+use sp1_driver::Sp1Prover;
 use std::path::PathBuf;
 
 pub const DATA: &str = "./data/";

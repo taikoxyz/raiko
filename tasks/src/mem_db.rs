@@ -126,7 +126,7 @@ impl InMemoryTaskDb {
     }
 
     fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
-        Ok(self.store.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+        Ok(self.store.iter().map(|(k, v)| (*k, v.clone())).collect())
     }
 
     fn store_id(&mut self, key: ProofKey, id: String) -> TaskManagerResult<()> {

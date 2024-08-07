@@ -68,7 +68,7 @@ if [ -z "$1" ] || [ "$1" == "native" ]; then
 fi
 
 # SGX
-if [ -z "$1" ] || [ "$1" == "sgx" ]; then
+if [ "$1" == "sgx" ]; then
 	check_toolchain $TOOLCHAIN_SGX
 	if [ "$MOCK" = "1" ]; then
 		export SGX_DIRECT=1
@@ -96,7 +96,7 @@ if [ -z "$1" ] || [ "$1" == "sgx" ]; then
 fi
 
 # RISC0
-if [ -z "$1" ] || [ "$1" == "risc0" ]; then
+if [ "$1" == "risc0" ]; then
 	check_toolchain $TOOLCHAIN_RISC0
 	./script/setup-bonsai.sh
 	if [ "$MOCK" = "1" ]; then
@@ -131,7 +131,7 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 fi
 
 # SP1
-if [ -z "$1" ] || [ "$1" == "sp1" ]; then
+if [ "$1" == "sp1" ]; then
 	check_toolchain $TOOLCHAIN_SP1
 	if [ "$MOCK" = "1" ]; then
 		export SP1_PROVER=mock

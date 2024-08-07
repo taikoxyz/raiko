@@ -753,7 +753,7 @@ impl TaskDb {
     }
 
     fn list_stored_ids(&self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
-      unimplemented!()
+        unimplemented!()
     }
 
     fn store_id(

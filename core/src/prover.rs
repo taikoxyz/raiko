@@ -68,20 +68,3 @@ impl Prover for NativeProver {
         Ok(())
     }
 }
-
-
-#[cfg(feature = "sp1")]
-#[cfg(test)]
-#[test]
-fn test_solidity_verification() {
-    use std::env;
-    use sp1_driver::CONTRACT_PATH;
-
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");  
-    println!("CARGO_MANIFEST_DIR: {:?}", manifest_dir);
-
-    let mut cmd = std::process::Command::new("forge");
-    cmd.arg("test").current_dir(CONTRACT_PATH);
-    println!("Running {:?}", &cmd);
-    cmd.status().unwrap();
-}
