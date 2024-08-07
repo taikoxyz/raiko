@@ -281,6 +281,7 @@ pub fn verify_sol(
 #[cfg(test)]
 mod test {
     use super::*;
+    use serde_json::json;
     const TEST_ELF: &[u8] = include_bytes!("../../guest/elf/test-sp1-guest");
 
     #[test]
