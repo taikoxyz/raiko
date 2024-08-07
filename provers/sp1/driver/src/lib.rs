@@ -9,18 +9,16 @@ use raiko_lib::{
 };
 use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use serde_with::serde_as;
 use sp1_sdk::{
     action,
     network::client::NetworkClient,
-    proto::network::{ProofMode, ProofStatus, UnclaimReason},
+    proto::network::{ProofMode, UnclaimReason},
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
-use std::fmt::Display;
 use std::fs;
-use std::{env, thread::sleep, time::Duration};
-use std::{fmt::format, path::PathBuf};
+use std::env;
+use std::path::PathBuf;
 use tracing::info;
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
@@ -104,7 +102,7 @@ impl Prover for Sp1Prover {
                 ProverMode::Local => ProverClient::local(),
                 ProverMode::Network => ProverClient::network(),
             })
-            .unwrap_or_else(|| ProverClient::new());
+            .unwrap_or_else(ProverClient::new);
 
         let (pk, vk) = client.setup(ELF);
 
@@ -198,8 +196,8 @@ fn init_verifier() -> Result<PathBuf, ProverError> {
         )));
     }
 
-    std::fs::create_dir_all(&output_dir).map_err(|e| ProverError::FileIo(e))?;
-    copy_dir_all(&artifacts_dir, &output_dir).map_err(|e| ProverError::FileIo(e))?;
+    std::fs::create_dir_all(&output_dir).map_err(ProverError::FileIo)?;
+    copy_dir_all(&artifacts_dir, &output_dir).map_err(ProverError::FileIo)?;
     println!(
         "exported verifier from {} to {}",
         artifacts_dir.display(),
