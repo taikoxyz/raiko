@@ -16,8 +16,8 @@ use sp1_sdk::{
     proto::network::{ProofMode, UnclaimReason},
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
-use std::fs;
 use std::env;
+use std::fs;
 use std::path::PathBuf;
 use tracing::info;
 
