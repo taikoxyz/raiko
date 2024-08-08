@@ -26,8 +26,9 @@ sol! {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
-        // The percentage of base fee sent to block.coinbase on L2.
+        uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
+        uint32 gasIssuancePerSecond;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]

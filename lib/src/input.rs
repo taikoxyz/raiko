@@ -87,6 +87,27 @@ impl BlockProposedFork {
             _ => 0,
         }
     }
+
+    pub fn basefee_sharing_ratio(&self) -> u8 {
+        match self {
+            BlockProposedFork::Ontake(block) => block.meta.basefeeSharingPctg,
+            _ => 0,
+        }
+    }
+
+    pub fn basefee_adjustment_quotient(&self) -> u8 {
+        match self {
+            BlockProposedFork::Ontake(block) => block.meta.basefeeAdjustmentQuotient,
+            _ => 0,
+        }
+    }
+
+    pub fn gas_issuance_per_second(&self) -> u32 {
+        match self {
+            BlockProposedFork::Ontake(block) => block.meta.gasIssuancePerSecond,
+            _ => 0,
+        }
+    }
 }
 
 #[serde_as]

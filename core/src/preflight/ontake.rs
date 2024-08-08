@@ -1,6 +1,6 @@
 use crate::{
     interfaces::{RaikoError, RaikoResult},
-    preflight::{block_time_to_block_slot, get_blob_data, blob_to_bytes},
+    preflight::{blob_to_bytes, block_time_to_block_slot, get_blob_data},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
     require,
 };
@@ -28,7 +28,7 @@ use raiko_lib::{
     },
     Measurement,
 };
-use reth_evm_ethereum::taiko::decode_anchor;
+use reth_evm_ethereum::taiko::decode_anchor_ontake;
 use reth_primitives::Block;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -204,9 +204,9 @@ async fn prepare_taiko_chain_input(
 
     // Decode the anchor tx to find out which L1 blocks we need to fetch
     let anchor_tx = &block.body[0].clone();
-    let anchor_call = decode_anchor(anchor_tx.input())?;
+    let anchor_call = decode_anchor_ontake(anchor_tx.input())?;
     // The L1 blocks we need
-    let l1_state_block_number = anchor_call.l1BlockId;
+    let l1_state_block_number = anchor_call._anchorBlockId;
 
     // Check that the L1 state block is within the expected range
     assert!(
@@ -216,7 +216,7 @@ async fn prepare_taiko_chain_input(
 
     debug!(
         "anchor L1 block id: {:?}\nanchor L1 state root: {:?}",
-        anchor_call.l1BlockId, anchor_call.l1StateRoot
+        anchor_call._anchorBlockId, anchor_call._anchorStateRoot
     );
 
     // Get the L1 block in which the L2 block was included so we can fetch the DA data.

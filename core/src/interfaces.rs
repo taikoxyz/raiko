@@ -265,6 +265,8 @@ impl ProofType {
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
+    /// The l1 block number of the l2 block be proposed.
+    pub l1_inclusive_block_number: u64,
     /// The network to generate the proof for.
     pub network: String,
     /// The L1 network to generate the proof for.
@@ -290,6 +292,11 @@ pub struct ProofRequestOpt {
     #[arg(long, require_equals = true)]
     /// The block number for the block to generate a proof for.
     pub block_number: Option<u64>,
+    #[arg(long, require_equals = true)]
+    /// The block number for the l2 block to be proposed.
+    /// in hekla, it is the anchored l1 block height - 1
+    /// in ontake, it is the anchored l1 block height - (1..64)
+    pub l1_inclusive_block_number: Option<u64>,
     #[arg(long, require_equals = true)]
     /// The network to generate the proof for.
     pub network: Option<String>,
@@ -370,6 +377,9 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             block_number: value.block_number.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing block number".to_string(),
             ))?,
+            l1_inclusive_block_number: value.l1_inclusive_block_number.ok_or(
+                RaikoError::InvalidRequestConfig("Missing l1_inclusive_block_number".to_string()),
+            )?,
             network: value.network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing network".to_string(),
             ))?,

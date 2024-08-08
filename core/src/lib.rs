@@ -57,33 +57,40 @@ impl Raiko {
             .taiko_chain_spec
             .active_fork(self.request.block_number, 0)?
         {
-            SpecId::HEKLA => preflight(
-                provider,
-                self.request.block_number,
-                self.l1_chain_spec.to_owned(),
-                self.taiko_chain_spec.to_owned(),
-                TaikoProverData {
-                    graffiti: self.request.graffiti,
-                    prover: self.request.prover,
-                },
-                self.request.blob_proof_type.clone(),
-            )
-            .await
-            .map_err(Into::<RaikoError>::into),
-            SpecId::ONTAKE => crate::preflight::ontake::preflight(
-                provider,
-                self.request.block_number,
-                self.request.block_number,
-                self.l1_chain_spec.to_owned(),
-                self.taiko_chain_spec.to_owned(),
-                TaikoProverData {
-                    graffiti: self.request.graffiti,
-                    prover: self.request.prover,
-                },
-                self.request.blob_proof_type.clone(),
-            )
-            .await
-            .map_err(Into::<RaikoError>::into),
+            SpecId::HEKLA => {
+                info!("Generating input for Hekla fork");
+                preflight(
+                    provider,
+                    self.request.block_number,
+                    self.l1_chain_spec.to_owned(),
+                    self.taiko_chain_spec.to_owned(),
+                    TaikoProverData {
+                        graffiti: self.request.graffiti,
+                        prover: self.request.prover,
+                    },
+                    self.request.blob_proof_type.clone(),
+                )
+                .await
+                .map_err(Into::<RaikoError>::into)
+            }
+            SpecId::ONTAKE => {
+                info!("Generating input for ONTAKE fork");
+                crate::preflight::ontake::preflight(
+                    provider,
+                    self.request.block_number,
+                    self.request.l1_inclusive_block_number,
+                    self.l1_chain_spec.to_owned(),
+                    self.taiko_chain_spec.to_owned(),
+                    TaikoProverData {
+                        graffiti: self.request.graffiti,
+                        prover: self.request.prover,
+                    },
+                    self.request.blob_proof_type.clone(),
+                )
+                .await
+                .map_err(Into::<RaikoError>::into)
+            }
+
             _ => Err(RaikoError::Preflight("Unsupported fork".to_owned())),
         }
     }
@@ -341,6 +348,7 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number,
+            l1_inclusive_block_number: 0,
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -378,6 +386,7 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
+                l1_inclusive_block_number: 0,
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
@@ -410,6 +419,7 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
+                l1_inclusive_block_number: 0,
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
