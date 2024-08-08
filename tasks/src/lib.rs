@@ -119,7 +119,7 @@ pub type TaskProvingStatusRecords = Vec<TaskProvingStatus>;
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TaskManagerOpts {
     pub sqlite_file: PathBuf,
     pub max_db_size: usize,
@@ -161,6 +161,9 @@ pub trait TaskManager: IdStore + IdWrite {
 
     /// List all tasks in the db.
     async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>>;
+
+    /// List all stored ids.
+    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>>;
 }
 
 pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
@@ -283,6 +286,13 @@ impl TaskManager for TaskManagerWrapper {
         match &mut self.manager {
             TaskManagerInstance::InMemory(ref mut manager) => manager.list_all_tasks().await,
             TaskManagerInstance::Sqlite(ref mut manager) => manager.list_all_tasks().await,
+        }
+    }
+
+    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(manager) => manager.list_stored_ids().await,
+            TaskManagerInstance::Sqlite(manager) => manager.list_stored_ids().await,
         }
     }
 }

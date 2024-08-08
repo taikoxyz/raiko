@@ -22,6 +22,7 @@ pub fn main() {
         .set(Box::new(vec![
             ZkOperation::Bn128Add,
             ZkOperation::Bn128Mul,
+            ZkOperation::Sha256,
             //already patched with https://github.com/CeciliaZ030/rust-secp256k1
             ZkOperation::Secp256k1,
         ]))

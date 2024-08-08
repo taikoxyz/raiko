@@ -81,7 +81,7 @@ mod test {
 
     use alloy_primitives::{Address, B256};
     use alloy_provider::Provider;
-    use ethers_core::k256::elliptic_curve::rand_core::block;
+
     use raiko_core::{
         interfaces::{ProofRequest, ProofType},
         provider::rpc::RpcBlockDataProvider,
@@ -138,8 +138,8 @@ mod test {
 
     async fn get_latest_block_num(chain_spec: &ChainSpec) -> u64 {
         let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
-        let height = provider.provider.get_block_number().await.unwrap();
-        height
+
+        provider.provider.get_block_number().await.unwrap()
     }
 
     #[tokio::test]

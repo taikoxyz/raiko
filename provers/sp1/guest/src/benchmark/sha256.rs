@@ -1,5 +1,6 @@
 #![no_main]
 harness::entrypoint!(main);
+use raiko_lib::CycleTracker;
 use revm_precompile::zk_op::ZkvmOperator;
 use std::hint::black_box;
 use zk_op::Sp1Operator;
@@ -12,7 +13,10 @@ fn main() {
     ]);
 
     let op = Sp1Operator {};
+    
+    let ct = CycleTracker::start("sha256_run");
     let res = op.sha256_run(&input).unwrap();
+    ct.end();
 
     sp1_zkvm::io::commit(&res);
 }

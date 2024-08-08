@@ -52,9 +52,9 @@ elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
 	"sp1": {
-		"recursion": "core",
-		"prover": "mock",
-		"verify": false,
+		"recursion": "plonk",
+		"prover": "network",
+		"verify": false
 	}
   '
 elif [ "$proof" == "sgx" ]; then

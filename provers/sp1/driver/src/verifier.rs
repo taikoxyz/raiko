@@ -16,7 +16,7 @@ async fn main() {
     // Setup the logger.
     sp1_sdk::utils::setup_logger();
 
-    // Setup the inputs.;
+    // Setup the inputs.
     let path = std::env::args()
         .last()
         .and_then(|s| {
@@ -27,7 +27,7 @@ async fn main() {
                 None
             }
         })
-        .unwrap_or_else(|| PathBuf::from(DATA).join("input.json"));
+        .unwrap_or_else(|| PathBuf::from(DATA).join("input-taiko_mainnet-182300.json"));
     println!("Reading GuestInput from {:?}", path);
     let json = std::fs::read_to_string(path).unwrap();
 
@@ -40,9 +40,9 @@ async fn main() {
     // Param has higher priority than .env
     let param = json!({
         "sp1" : {
-            "recursion": "core",
-            "prover": "mock",
-            "verify": false
+            "recursion": "plonk",
+            "prover": "network",
+            "verify": true
         }
     });
     let time = Measurement::start("prove_groth16 & verify", false);

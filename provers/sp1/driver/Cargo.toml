@@ -32,6 +32,7 @@ cfg-if = {workspace = true }
 bincode = {workspace = true }
 reth-primitives = { workspace = true }
 tokio = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
 
 
 [build-dependencies]
@@ -42,7 +43,6 @@ regex = "1.5.4"
 
 
 [features]
-default =  ["enable"]
 enable = [
     "serde",
     "serde_json",
@@ -55,6 +55,7 @@ enable = [
     "sha3",
     "dotenv",
     "serde_with",
-    "tokio"
+    "tokio",
+    "tracing"
 ]
 neon = ["sp1-sdk?/neon"]

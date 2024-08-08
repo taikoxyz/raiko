@@ -1,5 +1,6 @@
 #![no_main]
 harness::entrypoint!(main);
+use raiko_lib::CycleTracker;
 use revm_precompile::zk_op::ZkvmOperator;
 use std::hint::black_box;
 use zk_op::Sp1Operator;
@@ -16,7 +17,11 @@ fn main() {
     ]);
 
     let op = Sp1Operator {};
+    
+    let ct = CycleTracker::start("bn128_run_add");
     let res = op.bn128_run_add(&input).unwrap();
+    ct.end();
+    
     let hi = res[..32].to_vec();
     let lo = res[32..].to_vec();
 

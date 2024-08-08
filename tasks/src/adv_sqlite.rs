@@ -752,6 +752,10 @@ impl TaskDb {
         Ok(query)
     }
 
+    fn list_stored_ids(&self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
+        unimplemented!()
+    }
+
     fn store_id(
         &self,
         (chain_id, blockhash, proof_key): ProofKey,
@@ -925,6 +929,11 @@ impl TaskManager for SqliteTaskManager {
     async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
         let task_db = self.arc_task_db.lock().await;
         task_db.list_all_tasks()
+    }
+
+    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.list_stored_ids()
     }
 }
 

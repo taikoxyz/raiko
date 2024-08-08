@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use ::secp256k1::SECP256K1;
 use reth_primitives::public_key_to_address;
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
@@ -6,7 +7,8 @@ use secp256k1::{
     Message,
 };
 use sha2_v0_10_8 as sp1_sha2;
-use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
+use sp1_core::utils::ec::{weierstrass::bn254::Bn254, AffinePoint};
+
 
 #[derive(Debug)]
 pub struct Sp1Operator;
@@ -16,27 +18,16 @@ impl ZkvmOperator for Sp1Operator {
         let input = right_pad::<ADD_INPUT_LEN>(input);
         let mut p = be_bytes_to_point(&input[..64]);
         let q = be_bytes_to_point(&input[64..]);
-        p.add_assign(&q);
+        p = p + q;
         Ok(point_to_be_bytes(p))
     }
 
     fn bn128_run_mul(&self, input: &[u8]) -> Result<[u8; 64], Error> {
         let input = right_pad::<96>(input);
-        let _output = [0u8; 64];
 
         let mut p = be_bytes_to_point(&input[..64]);
-
-        let k: [u32; 8] = input[64..]
-            .to_owned()
-            .chunks_exact(4)
-            .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
-            .collect::<Vec<u32>>()
-            .try_into()
-            .map_err(|e| {
-                Error::ZkvmOperation(format!("Input point processing failed. Details: {:?}", e))
-            })?;
-
-        p.mul_assign(&k);
+        let k = BigUint::from_bytes_le(&input[64..]);
+        p = p.sw_scalar_mul(&k);
         Ok(point_to_be_bytes(p))
     }
 
@@ -81,34 +72,30 @@ impl ZkvmOperator for Sp1Operator {
 }
 
 #[inline]
-fn be_bytes_to_point(input: &[u8]) -> AffinePoint<Bn254, 16> {
-    assert!(input.len() == 64, "Input length must be 64 bytes");
-    let mut x: [u8; 32] = input[..32].try_into().unwrap();
-    let mut y: [u8; 32] = input[32..].try_into().unwrap();
-    x.reverse();
-    y.reverse();
-
+fn be_bytes_to_point(input: &[u8]) -> AffinePoint<Bn254> {
+    let x = BigUint::from_bytes_be(&input[..32]);
+    let y = BigUint::from_bytes_be(&input[32..64]);
     // Init AffinePoint for sp1
-    AffinePoint::<Bn254, 16>::from(&x, &y)
+    AffinePoint::<Bn254>::new(x, y)
 }
 
 #[inline]
-fn point_to_be_bytes(p: AffinePoint<Bn254, 16>) -> [u8; 64] {
-    let p = p.to_le_bytes();
+fn point_to_be_bytes(p: AffinePoint<Bn254>) -> [u8; 64] {
     let mut x = [0u8; 32];
     let mut y = [0u8; 32];
 
-    x.copy_from_slice(&p[..32].iter().rev().copied().collect::<Vec<_>>());
-    y.copy_from_slice(&p[32..].iter().rev().copied().collect::<Vec<_>>());
+    x.copy_from_slice(p.x.to_bytes_be().as_slice());
+    y.copy_from_slice(p.y.to_bytes_be().as_slice());
 
     ([x, y]).concat().try_into().unwrap()
 }
 
 harness::zk_suits!(
     pub mod tests {
+        use crate::be_bytes_to_point;
         use raiko_lib::primitives::hex;
         use revm_precompile::bn128;
-        use sp1_zkvm::precompiles::{bn254::Bn254, utils::AffinePoint};
+        use sp1_core::utils::ec::{weierstrass::bn254::Bn254, AffinePoint};
         use substrate_bn::Group;
 
         #[test]
@@ -133,23 +120,10 @@ harness::zk_suits!(
             println!("{:?}, {:?}:?", p_x, p_y);
 
             // Deserialize AffinePoint in Sp1
-            let p_bytes = input
-                .chunks_exact(32)
-                .map(|chunk| {
-                    let mut le_chunk: [u8; 32] = chunk.try_into().expect("Input size unmatch");
-                    le_chunk.reverse();
-                    le_chunk
-                })
-                .collect::<Vec<_>>();
-            let p = AffinePoint::<Bn254, 16>::from(&p_bytes[0], &p_bytes[1]);
+            let p = be_bytes_to_point(&input);
 
-            let mut p_x_le = p.to_le_bytes()[..32].to_owned();
-            let mut p_y_le = p.to_le_bytes()[32..].to_owned();
-            p_x_le.reverse();
-            p_y_le.reverse();
-
-            assert!(p_x == *p_x_le);
-            assert!(p_y == *p_y_le);
+            assert!(p_x == *p.x.to_bytes_be());
+            assert!(p_y == *p.y.to_bytes_be());
         }
 
         #[test]
@@ -174,18 +148,10 @@ harness::zk_suits!(
             p_x.reverse();
             p_y.reverse();
 
-            let p = AffinePoint::<Bn254, 16>::from(&p_x, &p_y);
-            let p_bytes_le = p.to_le_bytes();
-
-            // Reverse to x, y separately to big-endian bytes
-            let mut p_bytes_be = [0; 64];
-            p_bytes_be[..32]
-                .copy_from_slice(&p_bytes_le[..32].iter().rev().copied().collect::<Vec<_>>());
-            p_bytes_be[32..]
-                .copy_from_slice(&p_bytes_le[32..].iter().rev().copied().collect::<Vec<_>>());
-
-            assert!(G1_LE == p_bytes_le);
-            assert!(G1_BE == p_bytes_be);
+            let p = be_bytes_to_point(&G1_BE);
+            [p.x.to_bytes_le(), p.y.to_bytes_le()].concat();
+        
+            assert!(G1_LE == [p.x.to_bytes_le(), p.y.to_bytes_le()].concat());
         }
     }
 );
