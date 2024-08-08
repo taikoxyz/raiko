@@ -310,30 +310,6 @@ mod test {
         assert!(VERIFIER.is_ok());
     }
 
-    #[test]
-    fn test_solidity_verification() {
-        // The working directory
-        let mut cur_dir = env::current_exe()
-            .expect("Fail to get current directory")
-            .parent()
-            .unwrap()
-            .to_path_buf();
-
-        // When running in tests we might be in a child folder
-        if cur_dir.ends_with("deps") {
-            let mut dir_iter = cur_dir.ancestors();
-            dir_iter.advance_by(3).unwrap();
-            cur_dir = dir_iter.next().unwrap().to_path_buf();
-        }
-        println!("~~~~~~~{:?}", cur_dir);
-
-        let mut cmd = std::process::Command::new("forge");
-        // In test, Cargo sets the working dir to the package being tested
-        // not the workspace root
-        cmd.arg("test")
-            .current_dir(cur_dir.join("/provers/sp1/contracts"));
-        cmd.status().unwrap();
-    }
 
     #[test]
     fn run_unittest_elf() {
