@@ -331,7 +331,7 @@ mod test {
         // In test, Cargo sets the working dir to the package being tested
         // not the workspace root
         cmd.arg("test")
-            .current_dir(cur_dir.join("provers/sp1/contracts"));
+            .current_dir(cur_dir.join("/provers/sp1/contracts"));
         cmd.status().unwrap();
     }
 

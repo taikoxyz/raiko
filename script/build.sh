@@ -158,7 +158,7 @@ if [ "$1" == "sp1" ]; then
 			cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
 
 			echo "Running Sp1 verification"
-			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier
+			cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier --features enable
 		fi
 	fi
 fi
