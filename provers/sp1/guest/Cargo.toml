@@ -32,7 +32,7 @@ path = "src/benchmark/bn254_mul.rs"
 # harness = false
 
 [dependencies]
-raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
+raiko-lib = { path = "../../../lib", features = ["std", "sp1", "proof_of_equivalence"] }
 sp1-zkvm ={  version = "1.0.1" }
 sp1-core = "1.0.1"
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
