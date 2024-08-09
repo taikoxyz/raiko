@@ -310,7 +310,6 @@ mod test {
         assert!(VERIFIER.is_ok());
     }
 
-
     #[test]
     fn run_unittest_elf() {
         // TODO(Cecilia): imple GuestInput::mock() for unit test
