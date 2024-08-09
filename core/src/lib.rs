@@ -331,6 +331,36 @@ mod tests {
             .expect("proof generation failed");
     }
 
+    #[ignore]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_prove_block_taiko_dev() {
+        let proof_type = get_proof_type_from_env();
+        let l1_network = "taiko_dev_l1".to_owned();
+        let network = "taiko_dev".to_owned();
+        // Give the CI an simpler block to test because it doesn't have enough memory.
+        // Unfortunately that also means that kzg is not getting fully verified by CI.
+        let block_number = 20 ;
+        let chain_specs = SupportedChainSpecs::merge_from_file(
+            "../host/config/chain_spec_list_devnet.json".into(),
+        )
+        .unwrap();
+        let taiko_chain_spec = chain_specs.get_chain_spec(&network).unwrap();
+        let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
+
+        let proof_request = ProofRequest {
+            block_number,
+            l1_inclusive_block_number: 80,
+            network,
+            graffiti: B256::ZERO,
+            prover: Address::ZERO,
+            l1_network,
+            proof_type,
+            blob_proof_type: BlobProofType::ProofOfEquivalence,
+            prover_args: test_proof_params(),
+        };
+        prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7() {
         let proof_type = get_proof_type_from_env();

@@ -76,7 +76,6 @@ impl BlockMetaDataFork {
                     blobTxListOffset: block_proposed_v2.meta.blobTxListOffset,
                     blobTxListLength: block_proposed_v2.meta.blobTxListLength,
                     blobIndex: block_proposed_v2.meta.blobIndex,
-                    basefeeSharingPctg: block_proposed_v2.meta.basefeeSharingPctg,
                     basefeeAdjustmentQuotient: block_proposed_v2.meta.basefeeAdjustmentQuotient,
                     gasIssuancePerSecond: block_proposed_v2.meta.gasIssuancePerSecond,
                 })

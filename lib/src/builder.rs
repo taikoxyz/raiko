@@ -147,7 +147,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l1_header: self.input.taiko.l1_header.clone(),
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
-                basefee_ratio: self.input.taiko.block_proposed.basefee_sharing_ratio(),
+                basefee_ratio: self.input.block.extra_data[0],
                 basefee_adj_quotient: self.input.taiko.block_proposed.basefee_adjustment_quotient(),
                 gas_issue_per_sec: self.input.taiko.block_proposed.gas_issuance_per_second(),
             })

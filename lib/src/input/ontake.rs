@@ -4,6 +4,17 @@ use serde::{Deserialize, Serialize};
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
+    struct BlockParamsV2 {
+        address coinbase;
+        bytes32 parentMetaHash;
+        uint64 anchorBlockId; // NEW
+        uint64 timestamp; // NEW
+        uint32 blobTxListOffset; // NEW
+        uint32 blobTxListLength; // NEW
+        uint8 blobIndex; // NEW
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
     struct BlockMetadataV2 {
         bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
         bytes32 difficulty;
@@ -27,20 +38,7 @@ sol! {
         uint32 blobTxListLength;
         uint8 blobIndex;
         uint8 basefeeAdjustmentQuotient;
-        uint8 basefeeSharingPctg;
         uint32 gasIssuancePerSecond;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct BlockParamsV2 {
-        address coinbase;
-        bytes32 extraData;
-        bytes32 parentMetaHash;
-        uint64 anchorBlockId; // NEW
-        uint64 timestamp; // NEW
-        uint32 blobTxListOffset; // NEW
-        uint32 blobTxListLength; // NEW
-        uint8 blobIndex; // NEW
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]

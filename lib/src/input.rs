@@ -88,13 +88,6 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn basefee_sharing_ratio(&self) -> u8 {
-        match self {
-            BlockProposedFork::Ontake(block) => block.meta.basefeeSharingPctg,
-            _ => 0,
-        }
-    }
-
     pub fn basefee_adjustment_quotient(&self) -> u8 {
         match self {
             BlockProposedFork::Ontake(block) => block.meta.basefeeAdjustmentQuotient,
