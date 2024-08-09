@@ -8,3 +8,7 @@ docs/
 
 # Dotenv file
 .env
+
+# Sp1 Artifacts
+*.bin
+*.json

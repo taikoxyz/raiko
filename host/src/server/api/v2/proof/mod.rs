@@ -12,6 +12,7 @@ use crate::{
 };
 
 mod cancel;
+mod list;
 mod prune;
 mod report;
 
@@ -109,6 +110,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     [
         cancel::create_docs(),
         report::create_docs(),
+        list::create_docs(),
         prune::create_docs(),
     ]
     .into_iter()
@@ -123,5 +125,6 @@ pub fn create_router() -> Router<ProverState> {
         .route("/", post(proof_handler))
         .nest("/cancel", cancel::create_router())
         .nest("/report", report::create_router())
+        .nest("/list", list::create_router())
         .nest("/prune", prune::create_router())
 }
