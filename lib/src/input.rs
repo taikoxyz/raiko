@@ -166,10 +166,6 @@ pub struct TaikoProverData {
     pub graffiti: B256,
 }
 
-pub type RawGuestOutput = sol! {
-    tuple(uint64, address, Transition, address, address, bytes32)
-};
-
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GuestOutput {

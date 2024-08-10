@@ -213,6 +213,8 @@ async fn prepare_taiko_chain_input(
         l1_state_block_number < l1_inclusion_block_number
             && l1_inclusion_block_number <= l1_state_block_number + 64
     );
+    // TODO: before preconfirmatioin, the inc height is anchor height + 1
+    assert_eq!(l1_inclusion_block_number, l1_state_block_number + 1);
 
     debug!(
         "anchor L1 block id: {:?}\nanchor L1 state root: {:?}",
