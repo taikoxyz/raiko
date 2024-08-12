@@ -208,13 +208,17 @@ async fn prepare_taiko_chain_input(
     // The L1 blocks we need
     let l1_state_block_number = anchor_call._anchorBlockId;
 
+    let l1_proposal_block_num = if l1_inclusion_block_number == 0 {
+        l1_state_block_number + 1
+    } else {
+        l1_inclusion_block_number
+    };
+
     // Check that the L1 state block is within the expected range
     assert!(
-        l1_state_block_number < l1_inclusion_block_number
-            && l1_inclusion_block_number <= l1_state_block_number + 64
+        l1_state_block_number < l1_proposal_block_num
+            && l1_proposal_block_num <= l1_state_block_number + 64
     );
-    // TODO: before preconfirmatioin, the inc height is anchor height + 1
-    assert_eq!(l1_inclusion_block_number, l1_state_block_number + 1);
 
     debug!(
         "anchor L1 block id: {:?}\nanchor L1 state root: {:?}",
@@ -225,7 +229,7 @@ async fn prepare_taiko_chain_input(
     // Also get the L1 state block header so that we can prove the L1 state root.
     let l1_blocks = provider_l1
         .get_blocks(&[
-            (l1_inclusion_block_number, false),
+            (l1_proposal_block_num, false),
             (l1_state_block_number, false),
         ])
         .await?;

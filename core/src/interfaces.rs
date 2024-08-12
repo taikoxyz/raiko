@@ -377,9 +377,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             block_number: value.block_number.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing block number".to_string(),
             ))?,
-            l1_inclusive_block_number: value.l1_inclusive_block_number.ok_or(
-                RaikoError::InvalidRequestConfig("Missing l1_inclusive_block_number".to_string()),
-            )?,
+            l1_inclusive_block_number: value.l1_inclusive_block_number.unwrap_or_default(),
             network: value.network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing network".to_string(),
             ))?,
