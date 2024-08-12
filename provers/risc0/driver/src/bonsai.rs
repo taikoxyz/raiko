@@ -16,6 +16,9 @@ use std::{
 
 use crate::Risc0Param;
 
+mod auto_scaling;
+use auto_scaling::{maxpower_bonsai, shutdown_bonsai};
+
 pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     image_id: Digest,
     expected_output: &O,

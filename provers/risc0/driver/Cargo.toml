@@ -34,6 +34,12 @@ typetag = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+lazy_static = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tokio-util = { workspace = true }
 
 [features]
 enable = [
@@ -57,6 +63,8 @@ enable = [
     "serde_with",
     "serde_json",
     "hex",
+    "reqwest",
+    "lazy_static"
 ]
 cuda = ["risc0-zkvm?/cuda"]
 metal = ["risc0-zkvm?/metal"]
