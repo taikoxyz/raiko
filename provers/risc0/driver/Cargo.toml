@@ -36,8 +36,6 @@ serde_json = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 lazy_static = { workspace = true, optional = true }
-
-[dev-dependencies]
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 

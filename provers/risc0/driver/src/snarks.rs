@@ -70,11 +70,6 @@ abigen!(
     ]"#
 );
 
-// /// ABI encoding of the seal.
-// pub fn abi_encode(seal: Vec<u8>) -> Result<Vec<u8>> {
-//     Ok(encode(seal)?.abi_encode())
-// }
-
 /// encoding of the seal with selector.
 pub fn encode(seal: Vec<u8>) -> Result<Vec<u8>> {
     let verifier_parameters_digest = Groth16ReceiptVerifierParameters::default().digest();

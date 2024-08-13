@@ -11,9 +11,10 @@ use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt::Debug;
-use tracing::{debug, info as traicing_info};
+use tracing::{debug, error, info as traicing_info};
 
 use crate::{
+    bonsai::auto_scaling::{maxpower_bonsai, shutdown_bonsai},
     methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
     snarks::verify_groth16_snark,
 };
@@ -70,6 +71,13 @@ impl Prover for Risc0Prover {
         debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
+        if config.bonsai {
+            // make max speed bonsai
+            maxpower_bonsai()
+                .await
+                .expect("Failed to set max power on Bonsai");
+        }
+
         let result = maybe_prove::<GuestInput, B256>(
             &config,
             encoded_input,
@@ -83,8 +91,8 @@ impl Prover for Risc0Prover {
 
         let journal: String = result.clone().unwrap().1.journal.encode_hex();
 
-        // Create/verify Groth16 SNARK
-        let snark_proof = if config.snark {
+        // Create/verify Groth16 SNARK in bonsai
+        let snark_proof = if config.snark && config.bonsai {
             let Some((stark_uuid, stark_receipt)) = result else {
                 return Err(ProverError::GuestError(
                     "No STARK data to snarkify!".to_owned(),
@@ -108,6 +116,13 @@ impl Prover for Risc0Prover {
             journal
         };
 
+        if config.bonsai {
+            // make max speed bonsai
+            shutdown_bonsai()
+                .await
+                .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        }
+
         Ok(Risc0Response { proof: snark_proof }.into())
     }
 
@@ -116,8 +131,7 @@ impl Prover for Risc0Prover {
         cancel_proof(uuid)
             .await
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        id_store.remove_id(key).await?;
-        Ok(())
+        id_store.remove_id(key).await
     }
 }
 
