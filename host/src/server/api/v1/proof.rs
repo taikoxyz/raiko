@@ -1,8 +1,5 @@
-use axum::{
-    debug_handler, extract::State, response::IntoResponseParts, routing::post, Json, Router,
-};
+use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::ProofRequest;
-use raiko_lib::prover::Proof;
 use raiko_tasks::get_task_manager;
 use serde_json::Value;
 use utoipa::OpenApi;
