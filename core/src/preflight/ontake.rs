@@ -1,78 +1,47 @@
 use crate::{
     interfaces::{RaikoError, RaikoResult},
-    preflight::{blob_to_bytes, block_time_to_block_slot, get_blob_data},
+    preflight::{block_time_to_block_slot, get_blob_data},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
     require,
 };
 pub use alloy_primitives::*;
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Filter, Transaction as AlloyRpcTransaction};
-use alloy_sol_types::{SolCall, SolEvent};
-use anyhow::{anyhow, bail, ensure, Result};
-use kzg_traits::{
-    eip_4844::{blob_to_kzg_commitment_rust, Blob},
-    G1,
-};
+use alloy_sol_types::SolEvent;
+use anyhow::{anyhow, bail, Result};
 use raiko_lib::{
     builder::{OptimisticDatabase, RethBlockBuilder},
     clear_line,
     consts::ChainSpec,
     inplace_print,
     input::{
-        ontake::{proposeBlockV2Call, BlockProposedV2, CalldataTxList},
+        ontake::{BlockProposedV2, CalldataTxList},
         BlobProofType, BlockProposedFork, GuestInput, TaikoGuestInput, TaikoProverData,
     },
-    primitives::{
-        eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
-        mpt::proofs_to_tries,
-    },
+    primitives::{eip4844, mpt::proofs_to_tries},
     Measurement,
 };
 use reth_evm_ethereum::taiko::decode_anchor_ontake;
 use reth_primitives::Block;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
+
+use super::{get_block_and_parent_data, PreflightData};
 
 pub async fn preflight<BDP: BlockDataProvider>(
     provider: BDP,
-    block_number: u64,
-    l1_inclusion_block_number: u64,
-    l1_chain_spec: ChainSpec,
-    taiko_chain_spec: ChainSpec,
-    prover_data: TaikoProverData,
-    blob_proof_type: BlobProofType,
+    PreflightData {
+        block_number,
+        l1_chain_spec,
+        l1_inclusion_block_number,
+        taiko_chain_spec,
+        prover_data,
+        blob_proof_type,
+    }: PreflightData,
 ) -> RaikoResult<GuestInput> {
     let measurement = Measurement::start("Fetching block data...", false);
 
-    // Get the block and the parent block
-    let blocks = provider
-        .get_blocks(&[(block_number, true), (block_number - 1, false)])
-        .await?;
-    let mut blocks = blocks.iter();
-    let Some(block) = blocks.next() else {
-        return Err(RaikoError::Preflight(
-            "No block data for the requested block".to_owned(),
-        ));
-    };
-    let Some(parent_block) = blocks.next() else {
-        return Err(RaikoError::Preflight(
-            "No parent block data for the requested block".to_owned(),
-        ));
-    };
-
-    info!(
-        "Processing block {:?} with hash: {:?}",
-        block.header.number,
-        block.header.hash.unwrap(),
-    );
-    debug!("block.parent_hash: {:?}", block.header.parent_hash);
-    debug!("block gas used: {:?}", block.header.gas_used);
-    debug!("block transactions: {:?}", block.transactions.len());
-
-    // Convert the alloy block to a reth block
-    let block = Block::try_from(block.clone())
-        .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
+    let (block, parent_block) = get_block_and_parent_data(&provider, block_number).await?;
 
     let taiko_guest_input = if taiko_chain_spec.is_taiko() {
         prepare_taiko_chain_input(
@@ -95,21 +64,13 @@ pub async fn preflight<BDP: BlockDataProvider>(
     // Create the guest input
     let input = GuestInput::from((
         block.clone(),
-        parent_block
-            .header
-            .clone()
-            .try_into()
-            .expect("Couldn't transform alloy header to reth header"),
+        parent_block.header.clone(),
         taiko_chain_spec.clone(),
         taiko_guest_input,
     ));
 
     // Create the block builder, run the transactions and extract the DB
-    let Some(parent_block_number) = parent_block.header.number else {
-        return Err(RaikoError::Preflight(
-            "No parent block number for the requested block".to_owned(),
-        ));
-    };
+    let parent_block_number = parent_block.header.number;
     let provider_db = ProviderDb::new(provider, taiko_chain_spec, parent_block_number).await?;
 
     // Now re-execute the transactions in the block to collect all required data
@@ -402,6 +363,8 @@ mod test {
         consts::{Network, SupportedChainSpecs},
         utils::decode_transactions,
     };
+
+    use crate::preflight::blob_to_bytes;
 
     use super::*;
 

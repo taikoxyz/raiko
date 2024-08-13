@@ -1,10 +1,11 @@
 use crate::{
     interfaces::{ProofRequest, RaikoError, RaikoResult},
-    preflight::preflight,
+    preflight::{hekla, ontake},
     provider::BlockDataProvider,
 };
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
+use preflight::PreflightData;
 use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::prover::Proof;
 use raiko_lib::{
@@ -48,49 +49,42 @@ impl Raiko {
         }
     }
 
+    fn get_preflight_data(&self) -> PreflightData {
+        PreflightData::new(
+            self.request.block_number,
+            self.request.l1_inclusive_block_number,
+            self.l1_chain_spec.to_owned(),
+            self.taiko_chain_spec.to_owned(),
+            TaikoProverData {
+                graffiti: self.request.graffiti,
+                prover: self.request.prover,
+            },
+            self.request.blob_proof_type.clone(),
+        )
+    }
+
     pub async fn generate_input<BDP: BlockDataProvider>(
         &self,
         provider: BDP,
     ) -> RaikoResult<GuestInput> {
         //TODO: read fork from config
+        let preflight_data = self.get_preflight_data();
         match self
             .taiko_chain_spec
             .active_fork(self.request.block_number, 0)?
         {
             SpecId::HEKLA => {
-                info!("Generating input for Hekla fork");
-                preflight(
-                    provider,
-                    self.request.block_number,
-                    self.l1_chain_spec.to_owned(),
-                    self.taiko_chain_spec.to_owned(),
-                    TaikoProverData {
-                        graffiti: self.request.graffiti,
-                        prover: self.request.prover,
-                    },
-                    self.request.blob_proof_type.clone(),
-                )
-                .await
-                .map_err(Into::<RaikoError>::into)
+                info!("Generating input for HEKLA fork");
+                hekla::preflight(provider, preflight_data)
+                    .await
+                    .map_err(Into::<RaikoError>::into)
             }
             SpecId::ONTAKE => {
                 info!("Generating input for ONTAKE fork");
-                crate::preflight::ontake::preflight(
-                    provider,
-                    self.request.block_number,
-                    self.request.l1_inclusive_block_number,
-                    self.l1_chain_spec.to_owned(),
-                    self.taiko_chain_spec.to_owned(),
-                    TaikoProverData {
-                        graffiti: self.request.graffiti,
-                        prover: self.request.prover,
-                    },
-                    self.request.blob_proof_type.clone(),
-                )
-                .await
-                .map_err(Into::<RaikoError>::into)
+                ontake::preflight(provider, preflight_data)
+                    .await
+                    .map_err(Into::<RaikoError>::into)
             }
-
             _ => Err(RaikoError::Preflight("Unsupported fork".to_owned())),
         }
     }
@@ -339,7 +333,7 @@ mod tests {
         let network = "taiko_dev".to_owned();
         // Give the CI an simpler block to test because it doesn't have enough memory.
         // Unfortunately that also means that kzg is not getting fully verified by CI.
-        let block_number = 20 ;
+        let block_number = 20;
         let chain_specs = SupportedChainSpecs::merge_from_file(
             "../host/config/chain_spec_list_devnet.json".into(),
         )

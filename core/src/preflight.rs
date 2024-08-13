@@ -1,42 +1,116 @@
 use crate::{
     interfaces::{RaikoError, RaikoResult},
-    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
-    require,
+    provider::BlockDataProvider,
 };
 pub use alloy_primitives::*;
-use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{Filter, Transaction as AlloyRpcTransaction};
-use alloy_sol_types::{SolCall, SolEvent};
-use anyhow::{anyhow, bail, ensure, Result};
+use alloy_rpc_types::Header;
+use anyhow::{anyhow, ensure, Result};
 use kzg_traits::{
     eip_4844::{blob_to_kzg_commitment_rust, Blob},
     G1,
 };
 use raiko_lib::{
-    builder::{OptimisticDatabase, RethBlockBuilder},
-    clear_line,
     consts::ChainSpec,
-    inplace_print,
-    input::{
-        proposeBlockCall, BlobProofType, BlockProposed, BlockProposedFork, GuestInput,
-        TaikoGuestInput, TaikoProverData,
-    },
-    primitives::{
-        eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
-        mpt::proofs_to_tries,
-    },
-    Measurement,
+    input::{BlobProofType, TaikoProverData},
+    primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
 };
-use reth_evm_ethereum::taiko::decode_anchor;
 use reth_primitives::Block;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use tracing::{debug, error, info, warn};
 
-mod hekla;
+pub mod hekla;
 pub mod ontake;
 
-pub use hekla::*;
+pub struct PreflightData {
+    pub block_number: u64,
+    pub l1_chain_spec: ChainSpec,
+    pub l1_inclusion_block_number: u64,
+    pub taiko_chain_spec: ChainSpec,
+    pub prover_data: TaikoProverData,
+    pub blob_proof_type: BlobProofType,
+}
+
+impl PreflightData {
+    pub fn new(
+        block_number: u64,
+        l1_inclusion_block_number: u64,
+        l1_chain_spec: ChainSpec,
+        taiko_chain_spec: ChainSpec,
+        prover_data: TaikoProverData,
+        blob_proof_type: BlobProofType,
+    ) -> Self {
+        Self {
+            block_number,
+            l1_chain_spec,
+            l1_inclusion_block_number,
+            taiko_chain_spec,
+            prover_data,
+            blob_proof_type,
+        }
+    }
+}
+
+pub async fn get_block_and_parent_data<BDP>(
+    provider: &BDP,
+    block_number: u64,
+) -> RaikoResult<(Block, Block)>
+where
+    BDP: BlockDataProvider,
+{
+    // Get the block and the parent block
+    let blocks = provider
+        .get_blocks(&[(block_number, true), (block_number - 1, false)])
+        .await?;
+    let mut blocks = blocks.iter();
+    let Some(block) = blocks.next() else {
+        return Err(RaikoError::Preflight(
+            "No block data for the requested block".to_owned(),
+        ));
+    };
+    let Some(parent_block) = blocks.next() else {
+        return Err(RaikoError::Preflight(
+            "No parent block data for the requested block".to_owned(),
+        ));
+    };
+
+    info!(
+        "Processing block {:?} with hash: {:?}",
+        block.header.number,
+        block.header.hash.unwrap(),
+    );
+    debug!("block.parent_hash: {:?}", block.header.parent_hash);
+    debug!("block gas used: {:?}", block.header.gas_used);
+    debug!("block transactions: {:?}", block.transactions.len());
+
+    // Convert the alloy block to a reth block
+    let block = Block::try_from(block.clone())
+        .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
+    let parent_block = Block::try_from(parent_block.clone())
+        .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
+    Ok((block, parent_block))
+}
+
+pub async fn get_headers<BDP>(provider: &BDP, (a, b): (u64, u64)) -> RaikoResult<(Header, Header)>
+where
+    BDP: BlockDataProvider,
+{
+    // Get the block and the parent block
+    let blocks = provider.get_blocks(&[(a, true), (b, false)]).await?;
+    let mut blocks = blocks.iter();
+    let Some(a) = blocks.next() else {
+        return Err(RaikoError::Preflight(
+            "No block data for the requested block".to_owned(),
+        ));
+    };
+    let Some(b) = blocks.next() else {
+        return Err(RaikoError::Preflight(
+            "No block data for the requested block".to_owned(),
+        ));
+    };
+
+    // Convert the alloy block to a reth block
+    Ok((a.header.clone(), b.header.clone()))
+}
 
 // block_time_to_block_slot returns the slots of the given timestamp.
 fn block_time_to_block_slot(
