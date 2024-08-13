@@ -6,6 +6,8 @@ This tutorial was created to assist you in setting up Raiko and its SGX dependen
 
 We recommended 4 cores and 8GB memory for running Raiko. 8 cores and 16GB memory is ideal; the bare minimum is 2 cores and 4GB memory (tentative).
 
+We also recommend an EPC (Enclave memory) size of 4GB for mainnet, to prevent OOM errors. You can check your machine's EPC size by running `./script/check-epc-size.sh`.
+
 ## Prerequisites
 
 Intel SGX is a technology that involves a considerable amount of configuration. Given its high level of configurability, the setup of your infrastructure may vary significantly depending on the attestation type (EPID, ECDSA) and other parameters. While we've strived to minimize the manual effort required to prepare the development environment, there are certain prerequisites that are challenging, if not impossible, to automate using Dockerfiles. This section outlines these prerequisites.
@@ -182,7 +184,7 @@ Currently Supported FMSPCs (on Hekla):
 - 30606A000000
 - 00706A100000
 
-Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
+Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels or create an issue on Github if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines. **Please include your CPU and your machine's EPC Size in the Github issue!**
 
 > **_NOTE:_** At the moment, we are aware of three cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
 >
