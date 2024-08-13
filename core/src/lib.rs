@@ -69,24 +69,10 @@ impl Raiko {
     ) -> RaikoResult<GuestInput> {
         //TODO: read fork from config
         let preflight_data = self.get_preflight_data();
-        match self
-            .taiko_chain_spec
-            .active_fork(self.request.block_number, 0)?
-        {
-            SpecId::HEKLA => {
-                info!("Generating input for HEKLA fork");
-                hekla::preflight(provider, preflight_data)
-                    .await
-                    .map_err(Into::<RaikoError>::into)
-            }
-            SpecId::ONTAKE => {
-                info!("Generating input for ONTAKE fork");
-                ontake::preflight(provider, preflight_data)
-                    .await
-                    .map_err(Into::<RaikoError>::into)
-            }
-            _ => Err(RaikoError::Preflight("Unsupported fork".to_owned())),
-        }
+        info!("Generating input for HEKLA fork");
+        hekla::preflight(provider, preflight_data)
+            .await
+            .map_err(Into::<RaikoError>::into)
     }
 
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
