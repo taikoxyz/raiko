@@ -29,7 +29,7 @@ pub type ProofKey = (ChainId, B256, u8);
 #[derive(Debug, Serialize, ToSchema, Deserialize, Default)]
 /// The response body of a proof request.
 pub struct Proof {
-    /// The ZK proof.
+    /// The proof either TEE or ZK.
     pub proof: Option<String>,
     /// The TEE quote.
     pub quote: Option<String>,
