@@ -1,7 +1,7 @@
 use log::{debug, error, info, warn};
 use raiko_lib::{
     primitives::keccak::keccak,
-    prover::{IdWrite, ProofKey},
+    prover::{IdWrite, ProofKey, ProverError, ProverResult},
 };
 use risc0_zkvm::{
     compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, ExecutorEnv,
@@ -46,7 +46,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             }
         }
 
-        let res = res.unwrap();
+        let res = res.ok_or_else(|| ProverError::GuestError("No res!".to_owned()))?;
 
         if res.status == "RUNNING" {
             info!(
@@ -67,7 +67,10 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
                 .verify(image_id)
                 .expect("Receipt verification failed");
             // verify output
-            let receipt_output: O = receipt.journal.decode().unwrap();
+            let receipt_output: O = receipt
+                .journal
+                .decode()
+                .map_err(|e| ProverError::GuestError(e.to_string()))?;
             if expected_output == &receipt_output {
                 info!("Receipt validated!");
             } else {
@@ -137,17 +140,19 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
         } else {
             // run prover
             info!("start running local prover");
-            (
-                Default::default(),
-                prove_locally(
-                    param.execution_po2,
-                    encoded_input,
-                    elf,
-                    assumption_instances,
-                    param.profile,
-                ),
-                false,
-            )
+            match prove_locally(
+                param.execution_po2,
+                encoded_input,
+                elf,
+                assumption_instances,
+                param.profile,
+            ) {
+                Ok(receipt) => (Default::default(), receipt, false),
+                Err(e) => {
+                    warn!("Failed to prove locally: {e:?}");
+                    return None;
+                }
+            }
         };
 
     info!("receipt: {receipt:?}");
@@ -233,7 +238,7 @@ pub fn prove_locally(
     elf: &[u8],
     assumptions: Vec<Assumption>,
     profile: bool,
-) -> Receipt {
+) -> ProverResult<Receipt> {
     debug!("Proving with segment_limit_po2 = {segment_limit_po2:?}");
     debug!(
         "Input size: {} words ( {} MB )",
@@ -260,14 +265,23 @@ pub fn prove_locally(
 
         let segment_dir = PathBuf::from("/tmp/risc0-cache");
         if !segment_dir.exists() {
-            fs::create_dir(segment_dir.clone()).unwrap();
+            fs::create_dir(segment_dir.clone()).map_err(|e| ProverError::FileIo(e))?;
         }
-        let env = env_builder.segment_path(segment_dir).build().unwrap();
-        let mut exec = ExecutorImpl::from_elf(env, elf).unwrap();
+        let env = env_builder
+            .segment_path(segment_dir)
+            .build()
+            .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        let mut exec =
+            ExecutorImpl::from_elf(env, elf).map_err(|e| ProverError::GuestError(e.to_string()))?;
 
-        exec.run().unwrap()
+        exec.run()
+            .map_err(|e| ProverError::GuestError(e.to_string()))?
     };
-    session.prove().unwrap().receipt
+    let receipt = session
+        .prove()
+        .map_err(|e| ProverError::GuestError(e.to_string()))?
+        .receipt;
+    Ok(receipt)
 }
 
 pub fn load_receipt<T: serde::de::DeserializeOwned>(
