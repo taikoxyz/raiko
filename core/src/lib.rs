@@ -1,6 +1,6 @@
 use crate::{
     interfaces::{ProofRequest, RaikoError, RaikoResult},
-    preflight::{hekla, ontake},
+    preflight::preflight,
     provider::BlockDataProvider,
 };
 use alloy_primitives::Address;
@@ -17,7 +17,6 @@ use raiko_lib::{
     input::{GuestInput, GuestOutput, TaikoProverData},
     prover::{IdStore, IdWrite},
 };
-use reth_primitives::revm_primitives::SpecId;
 use reth_primitives::Header;
 use serde_json::Value;
 use std::{collections::HashMap, hint::black_box};
@@ -70,7 +69,7 @@ impl Raiko {
         //TODO: read fork from config
         let preflight_data = self.get_preflight_data();
         info!("Generating input for HEKLA fork");
-        hekla::preflight(provider, preflight_data)
+        preflight(provider, preflight_data)
             .await
             .map_err(Into::<RaikoError>::into)
     }
