@@ -96,16 +96,21 @@ pub async fn preflight<BDP: BlockDataProvider>(
     };
     measurement.stop();
 
+    let parent_header: reth_primitives::Header =
+        parent_block.header.clone().try_into().map_err(|e| {
+            RaikoError::Conversion(format!("Failed converting to reth header: {e}"))
+        })?;
+    let parent_block_number = parent_header.number;
+
     // Create the guest input
     let input = GuestInput::from((
         block.clone(),
-        parent_block.header.clone(),
+        parent_header,
         taiko_chain_spec.clone(),
         taiko_guest_input,
     ));
 
     // Create the block builder, run the transactions and extract the DB
-    let parent_block_number = parent_block.header.number;
     let provider_db = ProviderDb::new(provider, taiko_chain_spec, parent_block_number).await?;
 
     // Now re-execute the transactions in the block to collect all required data
@@ -417,7 +422,7 @@ async fn get_block_proposed_event(
 pub async fn get_block_and_parent_data<BDP>(
     provider: &BDP,
     block_number: u64,
-) -> RaikoResult<(Block, Block)>
+) -> RaikoResult<(Block, alloy_rpc_types::Block)>
 where
     BDP: BlockDataProvider,
 {
@@ -449,9 +454,7 @@ where
     // Convert the alloy block to a reth block
     let block = Block::try_from(block.clone())
         .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
-    let parent_block = Block::try_from(parent_block.clone())
-        .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
-    Ok((block, parent_block))
+    Ok((block, parent_block.clone()))
 }
 
 pub async fn get_headers<BDP>(provider: &BDP, (a, b): (u64, u64)) -> RaikoResult<(Header, Header)>
