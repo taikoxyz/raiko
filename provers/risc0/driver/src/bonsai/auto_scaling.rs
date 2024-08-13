@@ -13,27 +13,29 @@ struct ScalerResponse {
 }
 struct BonsaiAutoScaler {
     url: String,
-    api_key: String,
+    headers: HeaderMap,
 }
 
 impl BonsaiAutoScaler {
     fn new(bonsai_api_url: String, api_key: String) -> Self {
         let url = bonsai_api_url + "/workers";
-        Self { url, api_key }
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert("x-api-key", HeaderValue::from_str(&api_key).unwrap());
+        Self { url, headers }
     }
 
     async fn get_bonsai_gpu_num(&self) -> Result<ScalerResponse> {
         // Create a new client
         let client = Client::new();
 
-        // Create custom headers
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert("x-api-key", HeaderValue::from_str(&self.api_key).unwrap());
-
         debug!("Requesting scaler status from: {}", self.url);
         // Make the POST request
-        let response = client.get(self.url.clone()).headers(headers).send().await?;
+        let response = client
+            .get(self.url.clone())
+            .headers(self.headers.clone())
+            .send()
+            .await?;
 
         // Check if the request was successful
         if response.status().is_success() {
@@ -51,15 +53,10 @@ impl BonsaiAutoScaler {
         // Create a new client
         let client = Client::new();
 
-        // Create custom headers
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert("x-api-key", HeaderValue::from_str(&self.api_key).unwrap());
-
         // Make the POST request
         let response = client
             .post(self.url.clone())
-            .headers(headers)
+            .headers(self.headers.clone())
             .body(gpu_num.to_string())
             .send()
             .await?;
