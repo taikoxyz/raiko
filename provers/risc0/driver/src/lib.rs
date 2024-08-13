@@ -11,7 +11,7 @@ use risc0_zkvm::{serde::to_vec, sha::Digest};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt::Debug;
-use tracing::{debug, error, info as traicing_info};
+use tracing::{debug, info as traicing_info};
 
 use crate::{
     bonsai::auto_scaling::{maxpower_bonsai, shutdown_bonsai},
