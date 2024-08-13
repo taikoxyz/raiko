@@ -221,7 +221,7 @@ impl ChainSpec {
         // fall down to the first fork that is active as default
         for (spec_id, fork) in self.hard_forks.iter().rev() {
             if fork.active(block_num, 0u64) {
-                if let Some(fork_verifier) = self.verifier_address_forks.get(&spec_id) {
+                if let Some(fork_verifier) = self.verifier_address_forks.get(spec_id) {
                     return fork_verifier
                         .get(&verifier_type)
                         .ok_or_else(|| anyhow!("Verifier type not found"))
