@@ -184,7 +184,7 @@ Currently Supported FMSPCs (on Hekla):
 - 30606A000000
 - 00706A100000
 
-Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels or create an issue on Github if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines. **Please include your CPU and your machine's EPC Size in the Github issue!**
+Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels or create an issue on Github if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines. **Please include your FMSPC, CPU and your machine's EPC Size in the Github issue! This helps us decide whether the machine/FMSPC is a suitable candidate to add.**
 
 > **_NOTE:_** At the moment, we are aware of three cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
 >
