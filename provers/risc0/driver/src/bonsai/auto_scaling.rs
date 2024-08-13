@@ -69,11 +69,11 @@ impl BonsaiAutoScaler {
             // Use the parsed data
             debug!("Scaler status: {:?}", data);
             assert_eq!(data.desired, gpu_num);
+            Ok(())
         } else {
             trace_err!("Request failed with status: {}", response.status());
+            Err(Error::msg("Failed to get bonsai gpu num".to_string()))
         }
-
-        Ok(())
     }
 }
 
