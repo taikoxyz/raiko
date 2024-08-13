@@ -59,10 +59,8 @@ pub(crate) async fn setup_bootstrap(
         // clean check file
         remove_instance_id(&config_dir)?;
         let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
-        let verifier_address = taiko_chain_spec.get_fork_verifier_address(
-            bootstrap_args.block_num,
-            VerifierType::SGX,
-        )?;
+        let verifier_address = taiko_chain_spec
+            .get_fork_verifier_address(bootstrap_args.block_num, VerifierType::SGX)?;
         let register_id = register_sgx_instance(
             &bootstrap_proof.quote,
             &l1_chain_spec.rpc,

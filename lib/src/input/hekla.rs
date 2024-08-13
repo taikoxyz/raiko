@@ -81,7 +81,6 @@ sol! {
 mod tests {
     extern crate alloc;
     use crate::input::GuestInput;
-    
 
     #[test]
     fn input_serde_roundtrip() {
