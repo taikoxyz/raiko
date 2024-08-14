@@ -33,7 +33,7 @@ use super::ProofResponse;
 async fn proof_handler(
     State(prover_state): State<ProverState>,
     Json(req): Json<Value>,
-) -> HostResult<Json<StateResponse>> {
+) -> HostResult<Json<Status>> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
