@@ -3,6 +3,8 @@ name: OpenAPI
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - "docs/**"
   pull_request:
   merge_group:
 
