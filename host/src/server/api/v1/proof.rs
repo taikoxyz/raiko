@@ -8,7 +8,7 @@ use crate::{
     interfaces::HostResult,
     metrics::{dec_current_req, inc_current_req, inc_guest_req_count, inc_host_req_count},
     proof::handle_proof,
-    server::api::v1::Status as StateResponse,
+    server::api::v1::Status,
     ProverState,
 };
 
