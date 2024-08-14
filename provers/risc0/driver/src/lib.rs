@@ -117,7 +117,7 @@ impl Prover for Risc0Prover {
         };
 
         if config.bonsai {
-            // make max speed bonsai
+            // shutdown max speed bonsai
             shutdown_bonsai()
                 .await
                 .map_err(|e| ProverError::GuestError(e.to_string()))?;
