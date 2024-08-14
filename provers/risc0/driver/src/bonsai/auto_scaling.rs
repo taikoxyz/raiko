@@ -35,7 +35,6 @@ impl BonsaiAutoScaler {
 
     async fn get_bonsai_gpu_num(&self) -> Result<ScalerResponse> {
         debug!("Requesting scaler status from: {}", self.url);
-        // Make the POST request
         let response = self
             .client
             .get(self.url.clone())
@@ -62,7 +61,6 @@ impl BonsaiAutoScaler {
         }
 
         debug!("Requesting scaler status from: {}", self.url);
-        // Make the POST request
         let response = self
             .client
             .post(self.url.clone())
