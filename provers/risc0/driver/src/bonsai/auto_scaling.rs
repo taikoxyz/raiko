@@ -41,7 +41,7 @@ impl BonsaiAutoScaler {
         if response.status().is_success() {
             // Parse the JSON response
             let data: ScalerResponse = response.json().await.unwrap_or_default();
-            debug!("Scaler status: {:?}", data);
+            debug!("Scaler status: {data:?}");
             Ok(data)
         } else {
             trace_err!("Request failed with status: {}", response.status());
