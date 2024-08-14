@@ -61,7 +61,7 @@ async fn proof_handler(
     })
     .map(|proof| {
         dec_current_req();
-        Json(StateResponse::Ok {
+        Json(Status::Ok {
             data: ProofResponse {
                 output: None,
                 proof: proof.proof,
