@@ -143,7 +143,7 @@ impl InMemoryTaskDb {
         self.store
             .get(&key)
             .cloned()
-            .ok_or_else(|| TaskManagerError::SqlError("no id found".to_owned()))
+            .ok_or_else(|| TaskManagerError::NoData)
     }
 }
 

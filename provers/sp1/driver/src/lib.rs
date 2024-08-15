@@ -158,7 +158,16 @@ impl Prover for Sp1Prover {
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        let proof_id = id_store.read_id(key).await?;
+        let proof_id = match id_store.read_id(key).await {
+            Ok(proof_id) => proof_id,
+            Err(e) => {
+                if e.to_string().contains("No data for query") {
+                    return Ok(());
+                } else {
+                    return Err(ProverError::GuestError(e.to_string()));
+                }
+            }
+        };
         let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
             ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
         })?;
