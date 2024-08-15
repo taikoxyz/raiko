@@ -835,7 +835,7 @@ impl TaskDb {
             Ok(q) => q,
             Err(e) => {
                 return match e {
-                    rusqlite::Error::QueryReturnedNoRows => TaskManagerError::NoData,
+                    rusqlite::Error::QueryReturnedNoRows => Err(TaskManagerError::NoData),
                     e => e.into(),
                 }
             }
