@@ -16,6 +16,8 @@ use std::{
 
 use crate::Risc0Param;
 
+pub mod auto_scaling;
+
 pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     image_id: Digest,
     expected_output: &O,
@@ -194,6 +196,7 @@ pub async fn cancel_proof(uuid: String) -> anyhow::Result<()> {
     let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
     let session = bonsai_sdk::alpha::SessionId { uuid };
     session.stop(&client)?;
+    auto_scaling::shutdown_bonsai().await?;
     Ok(())
 }
 
