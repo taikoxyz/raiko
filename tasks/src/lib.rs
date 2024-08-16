@@ -27,6 +27,8 @@ pub enum TaskManagerError {
     IOError(IOErrorKind),
     #[error("SQL Error {0}")]
     SqlError(String),
+    #[error("No data for query")]
+    NoData,
     #[error("Anyhow error: {0}")]
     Anyhow(String),
 }
