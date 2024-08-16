@@ -11,7 +11,7 @@ use raiko_lib::{
     prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
 use rusqlite::Error as SqlError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{adv_sqlite::SqliteTaskManager, mem_db::InMemoryTaskManager};
@@ -61,7 +61,7 @@ impl From<anyhow::Error> for TaskManagerError {
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
-#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Serialize, ToSchema)]
+#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Deserialize, Serialize, ToSchema)]
 #[repr(i32)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {

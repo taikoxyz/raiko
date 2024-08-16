@@ -1,7 +1,7 @@
 use axum::{response::IntoResponse, Json, Router};
 use raiko_lib::prover::Proof;
 use raiko_tasks::TaskStatus;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
@@ -52,7 +52,7 @@ mod proof;
 /// The root API struct which is generated from the `OpenApi` derive macro.
 pub struct Docs;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(untagged)]
 pub enum ProofResponse {
     Status {
@@ -65,7 +65,7 @@ pub enum ProofResponse {
     },
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "lowercase")]
 pub enum Status {
     Ok { data: ProofResponse },
