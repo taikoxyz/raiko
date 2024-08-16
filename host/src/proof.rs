@@ -65,7 +65,7 @@ impl ProofActor {
             )
             .await
             .or_else(|e| {
-                if e.to_string().contains("no id found") {
+                if e.to_string().contains("No data for query") {
                     warn!("Task already cancelled or not yet started!");
                     Ok(())
                 } else {

@@ -112,7 +112,16 @@ impl Prover for Risc0Prover {
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        let uuid = id_store.read_id(key).await?;
+        let uuid = match id_store.read_id(key).await {
+            Ok(uuid) => uuid,
+            Err(e) => {
+                if e.to_string().contains("No data for query") {
+                    return Ok(());
+                } else {
+                    return Err(ProverError::GuestError(e.to_string()));
+                }
+            }
+        };
         cancel_proof(uuid)
             .await
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
