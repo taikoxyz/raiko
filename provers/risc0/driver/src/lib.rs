@@ -1,5 +1,11 @@
 #![cfg(feature = "enable")]
 
+#[cfg(feature = "bonsai-auto-scaling")]
+use crate::bonsai::auto_scaling::shutdown_bonsai;
+use crate::{
+    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
+    snarks::verify_groth16_snark,
+};
 use alloy_primitives::B256;
 use hex::ToHex;
 use log::warn;
@@ -12,12 +18,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt::Debug;
 use tracing::{debug, info as traicing_info};
-
-use crate::{
-    bonsai::auto_scaling::{maxpower_bonsai, shutdown_bonsai},
-    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
-    snarks::verify_groth16_snark,
-};
 
 pub use bonsai::*;
 
@@ -71,13 +71,6 @@ impl Prover for Risc0Prover {
         debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
-        if config.bonsai {
-            // make max speed bonsai
-            maxpower_bonsai()
-                .await
-                .expect("Failed to set max power on Bonsai");
-        }
-
         let result = maybe_prove::<GuestInput, B256>(
             &config,
             encoded_input,
@@ -116,8 +109,9 @@ impl Prover for Risc0Prover {
             journal
         };
 
+        #[cfg(feature = "bonsai-auto-scaling")]
         if config.bonsai {
-            // shutdown max speed bonsai
+            // shutdown bonsai
             shutdown_bonsai()
                 .await
                 .map_err(|e| ProverError::GuestError(e.to_string()))?;
