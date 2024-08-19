@@ -59,9 +59,9 @@ risc0-build = { version = "1.0.1" }
 risc0-binfmt = { version = "1.0.1" }
 
 # SP1
-sp1-sdk = {  version = "1.0.1" }
-sp1-zkvm = {  version = "1.0.1" }
-sp1-helper = {  version = "1.0.1" }
+sp1-sdk = { version = "1.0.1" }
+sp1-zkvm = { version = "1.0.1" }
+sp1-helper = { version = "1.0.1" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
@@ -191,4 +191,4 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
-alloy-serde = { git = "https://github.com/CeciliaZ030/alloy.git", branch = "v0.1.4-fix"}
+alloy-serde = { git = "https://github.com/CeciliaZ030/alloy.git", branch = "v0.1.4-fix" }

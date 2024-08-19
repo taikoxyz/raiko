@@ -16,6 +16,9 @@ use std::{
 
 use crate::Risc0Param;
 
+#[cfg(feature = "bonsai-auto-scaling")]
+pub mod auto_scaling;
+
 pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     image_id: Digest,
     expected_output: &O,
@@ -116,6 +119,10 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             info!("Loaded locally cached stark receipt {receipt_label:?}");
             (cached_data.0, cached_data.1, true)
         } else if param.bonsai {
+            #[cfg(feature = "bonsai-auto-scaling")]
+            auto_scaling::maxpower_bonsai()
+                .await
+                .expect("Failed to set max power on Bonsai");
             // query bonsai service until it works
             loop {
                 match prove_bonsai(
@@ -194,6 +201,8 @@ pub async fn cancel_proof(uuid: String) -> anyhow::Result<()> {
     let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
     let session = bonsai_sdk::alpha::SessionId { uuid };
     session.stop(&client)?;
+    #[cfg(feature = "bonsai-auto-scaling")]
+    auto_scaling::shutdown_bonsai().await?;
     Ok(())
 }
 

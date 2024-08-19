@@ -1,5 +1,11 @@
 #![cfg(feature = "enable")]
 
+#[cfg(feature = "bonsai-auto-scaling")]
+use crate::bonsai::auto_scaling::shutdown_bonsai;
+use crate::{
+    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
+    snarks::verify_groth16_snark,
+};
 use alloy_primitives::B256;
 use hex::ToHex;
 use log::warn;
@@ -12,11 +18,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt::Debug;
 use tracing::{debug, info as traicing_info};
-
-use crate::{
-    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
-    snarks::verify_groth16_snark,
-};
 
 pub use bonsai::*;
 
@@ -83,8 +84,8 @@ impl Prover for Risc0Prover {
 
         let journal: String = result.clone().unwrap().1.journal.encode_hex();
 
-        // Create/verify Groth16 SNARK
-        let snark_proof = if config.snark {
+        // Create/verify Groth16 SNARK in bonsai
+        let snark_proof = if config.snark && config.bonsai {
             let Some((stark_uuid, stark_receipt)) = result else {
                 return Err(ProverError::GuestError(
                     "No STARK data to snarkify!".to_owned(),
@@ -108,6 +109,14 @@ impl Prover for Risc0Prover {
             journal
         };
 
+        #[cfg(feature = "bonsai-auto-scaling")]
+        if config.bonsai {
+            // shutdown bonsai
+            shutdown_bonsai()
+                .await
+                .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        }
+
         Ok(Risc0Response { proof: snark_proof }.into())
     }
 
@@ -125,8 +134,7 @@ impl Prover for Risc0Prover {
         cancel_proof(uuid)
             .await
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        id_store.remove_id(key).await?;
-        Ok(())
+        id_store.remove_id(key).await
     }
 }
 
