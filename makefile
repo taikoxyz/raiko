@@ -12,6 +12,9 @@ test:
 	TEST=1 ./script/build.sh $(TARGET)
 	TEST=1 RUN=1 ./script/build.sh $(TARGET)
 
+integration:
+	@cargo test -F integration proof_request
+
 fmt:
 	@cargo fmt --all --check
 
