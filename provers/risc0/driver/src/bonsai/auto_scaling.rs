@@ -1,8 +1,14 @@
+#![cfg(feature = "bonsai-auto-scaling")]
+
 use anyhow::{Error, Ok, Result};
 use lazy_static::lazy_static;
+use log::info;
+use once_cell::sync::Lazy;
 use reqwest::{header::HeaderMap, header::HeaderValue, header::CONTENT_TYPE, Client};
 use serde::Deserialize;
 use std::env;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tracing::{debug, error as trace_err};
 
 #[derive(Debug, Deserialize, Default)]
@@ -118,9 +124,20 @@ lazy_static! {
         .unwrap();
 }
 
+static AUTO_SCALER: Lazy<Arc<Mutex<BonsaiAutoScaler>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(BonsaiAutoScaler::new(
+        BONSAI_API_URL.to_string(),
+        BONSAI_API_KEY.to_string(),
+    )))
+});
+
+static REF_COUNT: Lazy<Arc<Mutex<u32>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
+
 pub(crate) async fn maxpower_bonsai() -> Result<()> {
-    let mut auto_scaler =
-        BonsaiAutoScaler::new(BONSAI_API_URL.to_string(), BONSAI_API_KEY.to_string());
+    let mut ref_count = REF_COUNT.lock().await;
+    *ref_count += 1;
+
+    let mut auto_scaler = AUTO_SCALER.lock().await;
     let current_gpu_num = auto_scaler.get_bonsai_gpu_num().await?;
     // either already maxed out or pending to be maxed out
     if current_gpu_num.current == *MAX_BONSAI_GPU_NUM
@@ -129,22 +146,31 @@ pub(crate) async fn maxpower_bonsai() -> Result<()> {
     {
         Ok(())
     } else {
+        info!("setting bonsai gpu num to: {:?}", *MAX_BONSAI_GPU_NUM);
         auto_scaler.set_bonsai_gpu_num(*MAX_BONSAI_GPU_NUM).await?;
-        auto_scaler.wait_for_bonsai_config_active(300).await
+        auto_scaler.wait_for_bonsai_config_active(900).await
     }
 }
 
 pub(crate) async fn shutdown_bonsai() -> Result<()> {
-    let mut auto_scaler =
-        BonsaiAutoScaler::new(BONSAI_API_URL.to_string(), BONSAI_API_KEY.to_string());
-    let current_gpu_num = auto_scaler.get_bonsai_gpu_num().await?;
-    if current_gpu_num.current == 0 && current_gpu_num.pending == 0 && current_gpu_num.desired == 0
-    {
-        Ok(())
+    let mut ref_count = REF_COUNT.lock().await;
+    *ref_count = ref_count.saturating_sub(1);
+
+    if *ref_count == 0 {
+        let mut auto_scaler = AUTO_SCALER.lock().await;
+        let current_gpu_num = auto_scaler.get_bonsai_gpu_num().await?;
+        if current_gpu_num.current == 0
+            && current_gpu_num.desired == 0
+            && current_gpu_num.pending == 0
+        {
+            Ok(())
+        } else {
+            info!("setting bonsai gpu num to: 0");
+            auto_scaler.set_bonsai_gpu_num(0).await?;
+            auto_scaler.wait_for_bonsai_config_active(90).await
+        }
     } else {
-        auto_scaler.set_bonsai_gpu_num(0).await?;
-        // wait few minute for the bonsai to cool down
-        auto_scaler.wait_for_bonsai_config_active(30).await
+        Ok(())
     }
 }
 
@@ -184,7 +210,7 @@ mod test {
             .await
             .expect("Failed to set bonsai gpu num");
         auto_scaler
-            .wait_for_bonsai_config_active(300)
+            .wait_for_bonsai_config_active(600)
             .await
             .unwrap();
         let current_gpu_num = auto_scaler.get_bonsai_gpu_num().await.unwrap().current;
@@ -194,10 +220,7 @@ mod test {
             .set_bonsai_gpu_num(0)
             .await
             .expect("Failed to set bonsai gpu num");
-        auto_scaler
-            .wait_for_bonsai_config_active(300)
-            .await
-            .unwrap();
+        auto_scaler.wait_for_bonsai_config_active(60).await.unwrap();
         let current_gpu_num = auto_scaler.get_bonsai_gpu_num().await.unwrap().current;
         assert_eq!(current_gpu_num, 0);
     }
