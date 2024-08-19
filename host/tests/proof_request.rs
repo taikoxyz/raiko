@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 mod common;
 
 #[tokio::test]
+#[cfg(feature = "integration")]
 /// Test sending a proof request to the server. The server should respond with a `Registered`
 /// status.
 async fn send_proof_request() {
