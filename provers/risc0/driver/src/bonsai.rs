@@ -119,6 +119,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             info!("Loaded locally cached stark receipt {receipt_label:?}");
             (cached_data.0, cached_data.1, true)
         } else if param.bonsai {
+            #[cfg(feature = "bonsai-auto-scaling")]
             auto_scaling::maxpower_bonsai()
                 .await
                 .expect("Failed to set max power on Bonsai");
