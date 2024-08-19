@@ -96,7 +96,7 @@ impl IntoResponse for Status {
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "lowercase")]
 /// Status of cancellation request.
 /// Can be `ok` for a successful cancellation or `error` with message and error type for errors.

@@ -1,53 +1,77 @@
-use std::time::Duration;
-
-use lazy_static::lazy_static;
 use raiko_core::interfaces::ProofRequestOpt;
-use raiko_host::server::api::{v1::Status as StatusV1, v2::Status};
-use raiko_lib::consts::Network;
+use raiko_host::{
+    server::{
+        api::{
+            v1::Status as StatusV1,
+            v2::{CancelStatus, Status},
+        },
+        serve,
+    },
+    ProverState,
+};
+use raiko_lib::consts::{Network, SupportedChainSpecs};
+use serde::Deserialize;
+use tokio_util::sync::CancellationToken;
+
+#[derive(Debug, Deserialize)]
+struct RPCResult<T> {
+    result: T,
+}
+
+type BlockHeightResponse = RPCResult<String>;
+
+#[derive(Debug, Deserialize)]
+struct Block {
+    #[serde(rename = "gasUsed")]
+    gas_used: String,
+}
+
+type BlockResponse = RPCResult<Block>;
 
 const URL: &str = "http://localhost:8080";
 
-const TAIKOSCAN_URL: &str = "https://api.taikoscan.io/api";
-lazy_static! {
-    static ref API_KEY: String =
-        std::env::var("TAIKOSCAN_API_KEY").unwrap_or_else(|_| "YourApiKeyToken".to_owned());
-}
-
 pub async fn find_recent_block(network: Network) -> anyhow::Result<u64> {
-    let api_key = API_KEY.clone();
-    let newest_block_number = match network {
-        Network::TaikoMainnet => {
-            let response = reqwest::get(&format!(
-                "{TAIKOSCAN_URL}?module=proxy&action=eth_blockNumber&apikey={api_key}"
-            ))
-            .await?
-            .json::<serde_json::Value>()
-            .await?;
-            let block_number = u64::from_str_radix(&response["result"].as_str().unwrap()[2..], 16)?;
-            Ok(block_number)
-        }
-        _ => Err(anyhow::anyhow!("Unsupported network")),
-    }?;
+    let supported_chains = SupportedChainSpecs::default();
+    let client = reqwest::Client::new();
+    let beacon = supported_chains
+        .get_chain_spec(&network.to_string())
+        .unwrap()
+        .rpc;
+
+    let response = client
+        .post(beacon.clone())
+        .json(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "eth_blockNumber",
+            "params": [],
+            "id": 1
+        }))
+        .send()
+        .await?
+        .json::<BlockHeightResponse>()
+        .await?;
+
+    let newest_block_number = u64::from_str_radix(&response.result[2..], 16)?;
 
     let latest_blocks = (newest_block_number - 20)..=newest_block_number;
 
     let mut blocks = Vec::with_capacity(21);
 
     for block_number in latest_blocks {
-        tokio::time::sleep(Duration::from_secs(5)).await;
-        let response = reqwest::get(&format!(
-            "{TAIKOSCAN_URL}?module=proxy&action=eth_getBlockByNumber&tag=0x{block_number:x}&boolean=false&apikey={api_key}"
-        ))
-        .await?
-        .json::<serde_json::Value>()
-        .await?;
+        let response = client
+            .post(beacon.clone())
+            .json(&serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "eth_getBlockByNumber",
+                "params": [format!("0x{block_number:x}"), false],
+                "id": 1
+            }))
+            .send()
+            .await?
+            .json::<BlockResponse>()
+            .await?;
 
-        if response["result"].is_null() {
-            continue;
-        }
-
-        let block = response["result"].clone();
-        let gas_used = u64::from_str_radix(&block["gasUsed"].as_str().unwrap()[2..], 16)?;
+        let gas_used = u64::from_str_radix(&response.result.gas_used[2..], 16)?;
 
         blocks.push((block_number, gas_used));
     }
@@ -99,4 +123,53 @@ impl ProofClient {
             Err(anyhow::anyhow!("Failed to send proof request"))
         }
     }
+
+    pub async fn cancel_proof(
+        &self,
+        proof_request: ProofRequestOpt,
+    ) -> anyhow::Result<CancelStatus> {
+        let response = self
+            .reqwest_client
+            .post(&format!("{URL}/v2/proof/cancel"))
+            .json(&proof_request)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let cancel_response = response.json::<CancelStatus>().await?;
+            Ok(cancel_response)
+        } else {
+            Err(anyhow::anyhow!("Failed to send proof request"))
+        }
+    }
+}
+
+/// Start the Raiko server and return a cancellation token that can be used to stop the server.
+pub async fn start_raiko() -> anyhow::Result<CancellationToken> {
+    // Initialize the server state.
+    dotenv::dotenv().ok();
+    let state = ProverState::init().expect("Failed to initialize prover state");
+    let token = CancellationToken::new();
+    let clone = token.clone();
+
+    // Run the server in a separate thread with the ability to cancel it when our testing is done.
+    tokio::spawn(async move {
+        tokio::select! {
+            _ = token.cancelled() => {
+                println!("Test done");
+            }
+            result = serve(state) => {
+                match result {
+                    Ok(()) => {
+                        assert!(false, "Unexpected server shutdown");
+                    }
+                    Err(error) => {
+                        assert!(false, "Server failed due to: {error:?}");
+                    }
+                };
+            }
+        }
+    });
+
+    Ok(clone)
 }
