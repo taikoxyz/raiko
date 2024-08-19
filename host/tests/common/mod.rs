@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use lazy_static::lazy_static;
 use raiko_core::interfaces::ProofRequestOpt;
 use raiko_host::server::api::{v1::Status as StatusV1, v2::Status};
 use raiko_lib::consts::Network;
@@ -5,18 +8,22 @@ use raiko_lib::consts::Network;
 const URL: &str = "http://localhost:8080";
 
 const TAIKOSCAN_URL: &str = "https://api.taikoscan.io/api";
-const APIKEY: &str = "YourApiKeyToken";
+lazy_static! {
+    static ref API_KEY: String =
+        std::env::var("TAIKOSCAN_API_KEY").unwrap_or_else(|_| "YourApiKeyToken".to_owned());
+}
 
 pub async fn find_recent_block(network: Network) -> anyhow::Result<u64> {
+    let api_key = API_KEY.clone();
     let newest_block_number = match network {
         Network::TaikoMainnet => {
             let response = reqwest::get(&format!(
-                "{TAIKOSCAN_URL}?module=proxy&action=eth_blockNumber&apikey={APIKEY}"
+                "{TAIKOSCAN_URL}?module=proxy&action=eth_blockNumber&apikey={api_key}"
             ))
             .await?
             .json::<serde_json::Value>()
             .await?;
-            let block_number = u64::from_str_radix(&response["result"].as_str().unwrap()[..], 16)?;
+            let block_number = u64::from_str_radix(&response["result"].as_str().unwrap()[2..], 16)?;
             Ok(block_number)
         }
         _ => Err(anyhow::anyhow!("Unsupported network")),
@@ -27,8 +34,9 @@ pub async fn find_recent_block(network: Network) -> anyhow::Result<u64> {
     let mut blocks = Vec::with_capacity(21);
 
     for block_number in latest_blocks {
+        tokio::time::sleep(Duration::from_secs(5)).await;
         let response = reqwest::get(&format!(
-            "{TAIKOSCAN_URL}?module=proxy&action=eth_getBlockByNumber&tag={block_number:x}&boolean=false&apikey={APIKEY}"
+            "{TAIKOSCAN_URL}?module=proxy&action=eth_getBlockByNumber&tag=0x{block_number:x}&boolean=false&apikey={api_key}"
         ))
         .await?
         .json::<serde_json::Value>()
@@ -39,7 +47,7 @@ pub async fn find_recent_block(network: Network) -> anyhow::Result<u64> {
         }
 
         let block = response["result"].clone();
-        let gas_used = u64::from_str_radix(&block["gasUsed"].as_str().unwrap()[..], 16)?;
+        let gas_used = u64::from_str_radix(&block["gasUsed"].as_str().unwrap()[2..], 16)?;
 
         blocks.push((block_number, gas_used));
     }

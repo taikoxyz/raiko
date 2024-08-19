@@ -2,16 +2,17 @@ use common::find_recent_block;
 use raiko_core::interfaces::{ProofRequestOpt, ProverSpecificOpts};
 use raiko_host::{
     server::{api::v2::Status, serve},
-    Opts, ProverState,
+    ProverState,
 };
-use raiko_lib::consts::{Network, SupportedChainSpecs};
+use raiko_lib::consts::Network;
 use tokio::select;
 use tokio_util::sync::CancellationToken;
 
 mod common;
 
 #[tokio::test]
-#[ignore]
+/// Test sending a proof request to the server. The server should respond with a `Registered`
+/// status.
 async fn send_proof_request() {
     // Initialize the server state.
     dotenv::dotenv().ok();
