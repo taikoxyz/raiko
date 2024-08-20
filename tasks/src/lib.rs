@@ -81,7 +81,7 @@ pub enum TaskStatus {
     SqlDbCorruption           = -99999,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TaskDescriptor {
     pub chain_id: ChainId,
     pub blockhash: B256,

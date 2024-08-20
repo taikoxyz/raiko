@@ -113,7 +113,7 @@ impl IntoResponse for CancelStatus {
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, Deserialize)]
 #[serde(tag = "status", rename_all = "lowercase")]
 /// Status of prune request.
 /// Can be `ok` for a successful prune or `error` with message and error type for errors.

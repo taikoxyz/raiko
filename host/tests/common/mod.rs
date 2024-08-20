@@ -3,13 +3,14 @@ use raiko_host::{
     server::{
         api::{
             v1::Status as StatusV1,
-            v2::{CancelStatus, Status},
+            v2::{CancelStatus, PruneStatus, Status},
         },
         serve,
     },
     ProverState,
 };
 use raiko_lib::consts::{Network, SupportedChainSpecs};
+use raiko_tasks::{TaskDescriptor, TaskStatus};
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
@@ -138,6 +139,36 @@ impl ProofClient {
         if response.status().is_success() {
             let cancel_response = response.json::<CancelStatus>().await?;
             Ok(cancel_response)
+        } else {
+            Err(anyhow::anyhow!("Failed to send proof request"))
+        }
+    }
+
+    pub async fn prune_proof(&self) -> anyhow::Result<PruneStatus> {
+        let response = self
+            .reqwest_client
+            .post(&format!("{URL}/v2/proof/prune"))
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let prune_response = response.json::<PruneStatus>().await?;
+            Ok(prune_response)
+        } else {
+            Err(anyhow::anyhow!("Failed to send proof request"))
+        }
+    }
+
+    pub async fn report_proof(&self) -> anyhow::Result<Vec<(TaskDescriptor, TaskStatus)>> {
+        let response = self
+            .reqwest_client
+            .get(&format!("{URL}/v2/proof/report"))
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let report_response = response.json::<Vec<(TaskDescriptor, TaskStatus)>>().await?;
+            Ok(report_response)
         } else {
             Err(anyhow::anyhow!("Failed to send proof request"))
         }

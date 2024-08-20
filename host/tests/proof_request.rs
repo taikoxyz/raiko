@@ -1,8 +1,12 @@
-use common::{find_recent_block, start_raiko};
 use raiko_core::interfaces::{ProofRequestOpt, ProverSpecificOpts};
-use raiko_host::server::api::v2::{CancelStatus, ProofResponse, Status};
+use raiko_host::server::api::{
+    v1,
+    v2::{self, CancelStatus, ProofResponse, Status},
+};
 use raiko_lib::consts::Network;
 use raiko_tasks::TaskStatus;
+
+use common::{find_recent_block, start_raiko};
 
 mod common;
 
@@ -39,6 +43,22 @@ async fn send_proof_request() {
         },
     };
 
+    // Test v1 API interface.
+    let response = client
+        .send_proof_v1(request.clone())
+        .await
+        .expect("Failed to send proof request");
+
+    assert!(
+        matches!(
+            response,
+            v1::Status::Ok {
+                data: v1::ProofResponse { .. }
+            }
+        ),
+        "Got error response from server"
+    );
+
     let response = client
         .send_proof_v2(request.clone())
         .await
@@ -72,6 +92,8 @@ async fn send_proof_request() {
                 data: ProofResponse::Status {
                     status: TaskStatus::WorkInProgress
                 }
+            } | Status::Ok {
+                data: ProofResponse::Proof { .. }
             }
         ),
         "Got incorrect response from server"
@@ -105,6 +127,33 @@ async fn send_proof_request() {
         ),
         "Got error response from server"
     );
+
+    // We should get a non empty report.
+    let response = client
+        .report_proof()
+        .await
+        .expect("Failed to report proof request");
+
+    assert!(!response.is_empty(), "Got empty report from server");
+
+    // Prune the proof requests.
+    let response = client
+        .prune_proof()
+        .await
+        .expect("Failed to prune proof request");
+
+    assert!(
+        matches!(response, v2::PruneStatus::Ok),
+        "Got error response from server"
+    );
+
+    // We should get an empty report.
+    let response = client
+        .report_proof()
+        .await
+        .expect("Failed to report proof request");
+
+    assert!(response.is_empty(), "Got non empty report from server");
 
     // Cancel the server.
     token.cancel();
