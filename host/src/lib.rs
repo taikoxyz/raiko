@@ -117,10 +117,7 @@ impl Opts {
     }
 
     pub fn merge_from_env(&mut self) {
-        if let Some(path) = std::env::var("CONFIG_PATH")
-            .ok()
-            .map(|path| PathBuf::from(path))
-        {
+        if let Some(path) = std::env::var("CONFIG_PATH").ok().map(PathBuf::from) {
             self.config_path = path;
         }
     }
