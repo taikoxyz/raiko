@@ -214,6 +214,24 @@ fn bytes_to_bytes32(input: &[u8]) -> [u8; 32] {
     bytes
 }
 
+pub fn words_to_bytes_le(words: &[u32; 8]) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    for i in 0..8 {
+        let word_bytes = words[i].to_le_bytes();
+        bytes[i * 4..(i + 1) * 4].copy_from_slice(&word_bytes);
+    }
+    bytes
+}
+
+pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
+    let mut output = Vec::with_capacity(32 + public_inputs.len() * 32);
+    output.extend_from_slice(&program.0);
+    for public_input in public_inputs.iter() {
+        output.extend_from_slice(&public_input.0);
+    }
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use alloy_primitives::{address, b256};

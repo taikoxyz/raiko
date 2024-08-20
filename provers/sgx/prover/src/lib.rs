@@ -10,8 +10,7 @@ use std::{
 
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
+    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput, RawAggregationGuestInput, RawProof}, primitives::B256, prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult}
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -42,12 +41,14 @@ pub struct SgxResponse {
     /// proof format: 4b(id)+20b(pubkey)+65b(signature)
     pub proof: String,
     pub quote: String,
+    pub input: B256,
 }
 
 impl From<SgxResponse> for Proof {
     fn from(value: SgxResponse) -> Self {
         Self {
             proof: Some(value.proof),
+            input: Some(value.input),
             quote: Some(value.quote),
             kzg_proof: None,
         }
@@ -143,6 +144,87 @@ impl Prover for SgxProver {
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             sgx_proof = prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
+        }
+
+        sgx_proof.map(|r| r.into())
+    }
+
+    async fn aggregate(
+        input: AggregationGuestInput,
+        output: &AggregationGuestOutput,
+        config: &ProverConfig,
+        id_store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
+
+        // Support both SGX and the direct backend for testing
+        let direct_mode = match env::var("SGX_DIRECT") {
+            Ok(value) => value == "1",
+            Err(_) => false,
+        };
+
+        println!(
+            "WARNING: running SGX in {} mode!",
+            if direct_mode {
+                "direct (a.k.a. simulation)"
+            } else {
+                "hardware"
+            }
+        );
+
+        // The working directory
+        let mut cur_dir = env::current_exe()
+            .expect("Fail to get current directory")
+            .parent()
+            .unwrap()
+            .to_path_buf();
+
+        // When running in tests we might be in a child folder
+        if cur_dir.ends_with("deps") {
+            cur_dir = cur_dir.parent().unwrap().to_path_buf();
+        }
+
+        println!("Current directory: {cur_dir:?}\n");
+        // Working paths
+        PRIVATE_KEY
+            .get_or_init(|| async { cur_dir.join("secrets").join(PRIV_KEY_FILENAME) })
+            .await;
+        GRAMINE_MANIFEST_TEMPLATE
+            .get_or_init(|| async {
+                cur_dir
+                    .join(CONFIG)
+                    .join("sgx-guest.local.manifest.template")
+            })
+            .await;
+
+        // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
+        let gramine_cmd = || -> StdCommand {
+            let mut cmd = if direct_mode {
+                StdCommand::new("gramine-direct")
+            } else {
+                let mut cmd = StdCommand::new("sudo");
+                cmd.arg("gramine-sgx");
+                cmd
+            };
+            cmd.current_dir(&cur_dir).arg(ELF_NAME);
+            cmd
+        };
+
+        // Setup: run this once while setting up your SGX instance
+        if sgx_param.setup {
+            setup(&cur_dir, direct_mode).await?;
+        }
+
+        let mut sgx_proof = if sgx_param.bootstrap {
+            bootstrap(cur_dir.clone().join("secrets"), gramine_cmd()).await
+        } else {
+            // Dummy proof: it's ok when only setup/bootstrap was requested
+            Ok(SgxResponse::default())
+        };
+
+        if sgx_param.prove {
+            // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
+            sgx_proof = aggregate(gramine_cmd(), input.clone(), sgx_param.instance_id).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -304,6 +386,51 @@ async fn prove(
     .map_err(|e| ProverError::GuestError(e.to_string()))?
 }
 
+async fn aggregate(
+    mut gramine_cmd: StdCommand,
+    input: AggregationGuestInput,
+    instance_id: u64,
+) -> ProverResult<SgxResponse, ProverError> {
+    // Extract the useful parts of the proof here so the guest doesn't have to do it
+    let raw_input = RawAggregationGuestInput {
+        proofs: input.proofs.iter().map(|proof| RawProof {
+                input: proof.clone().input.unwrap(),
+                proof: proof.clone().proof.unwrap().into_bytes()[64..].to_vec(),
+            }
+        ).collect(),
+    };
+
+    tokio::task::spawn_blocking(move || {
+        let mut child = gramine_cmd
+            .arg("aggregate")
+            .arg("--sgx-instance-id")
+            .arg(instance_id.to_string())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        let input_success = bincode::serialize_into(stdin, &raw_input);
+        let output_success = child.wait_with_output();
+
+        match (input_success, output_success) {
+            (Ok(_), Ok(output)) => {
+                handle_output(&output, "SGX prove")?;
+                Ok(parse_sgx_result(output.stdout)?)
+            }
+            (Err(i), output_success) => Err(ProverError::GuestError(format!(
+                "Can not serialize input for SGX {i}, output is {output_success:?}"
+            ))),
+            (Ok(_), Err(output_err)) => Err(ProverError::GuestError(
+                handle_gramine_error("Could not run SGX guest prover", output_err).to_string(),
+            )),
+        }
+    })
+    .await
+    .map_err(|e| ProverError::GuestError(e.to_string()))?
+}
+
 fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
     let mut json_value: Option<Value> = None;
     let output = String::from_utf8(output).map_err(|e| e.to_string())?;
@@ -325,6 +452,7 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
     Ok(SgxResponse {
         proof: extract_field("proof"),
         quote: extract_field("quote"),
+        input: B256::ZERO,
     })
 }
 

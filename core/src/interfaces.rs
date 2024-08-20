@@ -3,7 +3,7 @@ use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
     consts::VerifierType,
-    input::{BlobProofType, GuestInput, GuestOutput},
+    input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestInput, GuestOutput},
     primitives::eip4844::{calc_kzg_proof, commitment_to_version_hash, kzg_proof_to_bytes},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
 };
@@ -221,6 +221,47 @@ impl ProofType {
         Ok(proof)
     }
 
+    /// Run the prover driver depending on the proof type.
+    pub async fn aggregate_proofs(
+        &self,
+        input: AggregationGuestInput,
+        output: &AggregationGuestOutput,
+        config: &Value,
+        store: Option<&mut dyn IdWrite>,
+    ) -> RaikoResult<Proof> {
+        let proof = match self {
+            ProofType::Native => NativeProver::aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(<ProverError as Into<RaikoError>>::into),
+            ProofType::Sp1 => {
+                #[cfg(feature = "sp1")]
+                return sp1_driver::Sp1Prover::aggregate(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sp1"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Risc0 => {
+                #[cfg(feature = "risc0")]
+                return risc0_driver::Risc0Prover::aggregate(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "risc0"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Sgx => {
+                #[cfg(feature = "sgx")]
+                return sgx_prover::SgxProver::aggregate(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sgx"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+        }?;
+
+        Ok(proof)
+    }
+
     pub async fn cancel_proof(
         &self,
         proof_key: ProofKey,
@@ -407,4 +448,16 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             prover_args: value.prover_args.into(),
         })
     }
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+/// A request for proof aggregation of multiple proofs.
+pub struct AggregationRequest {
+    /// All the proofs to verify
+    pub proofs: Vec<Proof>,
+    /// The proof type.
+    pub proof_type: ProofType,
+    /// Additional prover params.
+    pub prover_args: HashMap<String, Value>,
 }

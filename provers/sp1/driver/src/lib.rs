@@ -3,7 +3,7 @@
 
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
+    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
     Measurement,
 };
@@ -13,15 +13,16 @@ use serde_with::serde_as;
 use sp1_sdk::{
     action,
     network::client::NetworkClient,
-    proto::network::{ProofMode, UnclaimReason},
+    proto::network::{ProofMode, UnclaimReason}, SP1Proof,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use tracing::info;
+use tracing::{info, warn};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
+pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const FIXTURE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
 pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src/exports/";
 const SP1_PROVER_CODE: u8 = 1;
@@ -70,6 +71,7 @@ impl From<Sp1Response> for Proof {
             proof: Some(value.proof),
             quote: None,
             kzg_proof: None,
+            input: None,
         }
     }
 }
@@ -90,6 +92,8 @@ impl Prover for Sp1Prover {
     ) -> ProverResult<Proof> {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
+
+        println!("param: {:?}", param);
 
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
@@ -146,12 +150,124 @@ impl Prover for Sp1Prover {
             proof: serde_json::to_string(&prove_result).ok(),
             quote: None,
             kzg_proof: None,
+            input: None,
         };
 
         if param.verify {
-            let time = Measurement::start("verify", false);
-            verify_sol(vk, prove_result)?;
-            time.stop_with("==> Verification complete");
+            if matches!(param.recursion, RecursionMode::Plonk ) {
+                let time = Measurement::start("verify", false);
+                verify_sol(vk, prove_result)?;
+                time.stop_with("==> Verification complete");
+            } else {
+                warn!("Cannot verify a non PLONK proof");
+            }
+        }
+
+        Ok::<_, ProverError>(proof)
+    }
+
+    async fn aggregate(
+        input: AggregationGuestInput,
+        output: &AggregationGuestOutput,
+        config: &ProverConfig,
+        id_store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+        let mode = param.prover.clone().unwrap_or_else(get_env_mock);
+
+        // Extract the block proofs
+        let proofs: Vec<sp1_sdk::SP1ProofWithPublicValues> = input.proofs
+            .iter()
+            .map(|input| serde_json::from_str::<sp1_sdk::SP1ProofWithPublicValues>(&input.proof.clone().unwrap()).unwrap())
+            .collect::<Vec<_>>();
+
+        // Generate the proof for the given program.
+        let client = param
+            .prover
+            .map(|mode| match mode {
+                ProverMode::Mock => ProverClient::mock(),
+                ProverMode::Local => ProverClient::local(),
+                ProverMode::Network => ProverClient::network(),
+            })
+            .unwrap_or_else(ProverClient::new);
+
+        let mut stdin = SP1Stdin::new();
+
+        let (_guest_pk, guest_vk) = client.setup(ELF);
+
+        // Write the verification key.
+        stdin.write::<[u32; 8]>(&guest_vk.hash_u32());
+        // Write the public values for each block proof
+        let public_values = proofs
+            .iter()
+            .map(|proof| B256::from_slice(&proof.public_values.to_vec()))
+            .collect::<Vec<_>>();
+        stdin.write::<Vec<B256>>(&public_values);
+
+        // Write the proofs.
+        //
+        // Note: this data will not actually be read by the aggregation program, instead it will be
+        // witnessed by the prover during the recursive aggregation process inside SP1 itself.
+        for proof in proofs {
+            let SP1Proof::Compressed(proof) = proof.proof else {
+                panic!()
+            };
+            stdin.write_proof(proof, guest_vk.vk.clone());
+        }
+
+        let (pk, vk) = client.setup(AGGREGATION_ELF);
+
+        let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
+        let prove_result = if !matches!(mode, ProverMode::Network) {
+            tracing::debug!("Proving locally with recursion mode: {:?}", param.recursion);
+            match param.recursion {
+                RecursionMode::Core => prove_action.run(),
+                RecursionMode::Compressed => prove_action.compressed().run(),
+                RecursionMode::Plonk => prove_action.plonk().run(),
+            }
+            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {}", e)))
+            .unwrap()
+        } else {
+            let network_prover = sp1_sdk::NetworkProver::new();
+
+            let proof_id = network_prover
+                .request_proof(AGGREGATION_ELF, stdin, param.recursion.clone().into())
+                .await
+                .map_err(|_| ProverError::GuestError("Sp1: requesting proof failed".to_owned()))?;
+            if let Some(id_store) = id_store {
+                id_store
+                    .store_id(
+                        (123456, output.hash, SP1_PROVER_CODE),
+                        proof_id.clone(),
+                    )
+                    .await?;
+            }
+            info!(
+                "Sp1 Prover: aggregation proof id {:?}",
+                proof_id
+            );
+            network_prover
+                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
+                .await
+                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
+                .unwrap()
+        };
+
+        let proof = Proof {
+            proof: serde_json::to_string(&prove_result).ok(),
+            quote: None,
+            kzg_proof: None,
+            input: None,
+        };
+
+        if param.verify {
+            if matches!(param.recursion, RecursionMode::Plonk ) {
+                let time = Measurement::start("verify", false);
+                verify_sol(vk, prove_result)?;
+                time.stop_with("==> Verification complete");
+            } else {
+                warn!("Cannot verify a non PLONK proof");
+            }
         }
 
         Ok::<_, ProverError>(proof)

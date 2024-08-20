@@ -8,8 +8,8 @@ use std::{
 use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
-    builder::calculate_block_header, consts::VerifierType, input::GuestInput, primitives::Address,
-    protocol_instance::ProtocolInstance,
+    builder::calculate_block_header, consts::VerifierType, input::{AggregationGuestInput, GuestInput, RawAggregationGuestInput}, primitives::{keccak, Address, B256},
+    protocol_instance::{aggregation_output, ProtocolInstance},
 };
 use secp256k1::{Keypair, SecretKey};
 use serde::Serialize;
@@ -141,6 +141,70 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     // Sign the public input hash which contains all required block inputs and outputs
     let sig = sign_message(&prev_privkey, pi_hash)?;
+
+    // Create the proof for the onchain SGX verifier
+    const SGX_PROOF_LEN: usize = 89;
+    let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+    proof.extend(args.sgx_instance_id.to_be_bytes());
+    proof.extend(new_instance);
+    proof.extend(sig);
+    let proof = hex::encode(proof);
+
+    // Store the public key address in the attestation data
+    save_attestation_user_report_data(new_instance)?;
+
+    // Print out the proof and updated public info
+    let quote = get_sgx_quote()?;
+    let data = serde_json::json!({
+        "proof": format!("0x{proof}"),
+        "quote": hex::encode(quote),
+        "public_key": format!("0x{new_pubkey}"),
+        "instance_address": new_instance.to_string(),
+    });
+    println!("{data}");
+
+    // Print out general SGX information
+    print_sgx_info()
+}
+
+pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> {
+    // Make sure this SGX instance was bootstrapped
+    let prev_privkey = load_bootstrap(&global_opts.secrets_dir)
+        .or_else(|_| bail!("Application was not bootstrapped or has a deprecated bootstrap."))
+        .unwrap();
+
+    println!("Global options: {global_opts:?}, OneShot options: {args:?}");
+
+    let new_pubkey = public_key(&prev_privkey);
+    let new_instance = public_key_to_address(&new_pubkey);
+
+    let input: RawAggregationGuestInput =
+        bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
+
+    // Verify the proofs
+    for proof in input.proofs.iter() {
+        assert_eq!(
+            recover_signer_unchecked(
+                &proof.proof.clone().try_into().unwrap(),
+                &proof.input,
+            ).unwrap(), 
+            new_instance,
+        );
+    }
+
+    // Calculate the aggregation hash
+    let aggregation_hash = keccak::keccak(
+        aggregation_output(
+            B256::left_padding_from(&new_instance.to_vec()),
+            input.proofs.iter().map(|proof| proof.input).collect(),
+        )
+    );
+
+    // Sign the public aggregation hash
+    let sig = sign_message(
+        &prev_privkey,
+        aggregation_hash.into(),
+    )?;
 
     // Create the proof for the onchain SGX verifier
     const SGX_PROOF_LEN: usize = 89;

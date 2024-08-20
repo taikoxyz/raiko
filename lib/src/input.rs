@@ -13,7 +13,7 @@ use serde_with::serde_as;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, primitives::mpt::MptNode, utils::zlib_compress_data};
+use crate::{consts::ChainSpec, primitives::mpt::MptNode, prover::Proof, utils::zlib_compress_data};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -40,6 +40,36 @@ pub struct GuestInput {
     pub ancestor_headers: Vec<Header>,
     /// Taiko specific data
     pub taiko: TaikoGuestInput,
+}
+
+/// External aggregation input.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct AggregationGuestInput {
+    /// All block proofs to prove
+    pub proofs: Vec<Proof>,
+}
+
+/// The raw proof data necessary to verify a proof
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct RawProof {
+    /// The actual proof
+    pub proof: Vec<u8>,
+    /// The resulting hash
+    pub input: B256,
+}
+
+/// External aggregation input.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct RawAggregationGuestInput {
+    /// All block proofs to prove
+    pub proofs: Vec<RawProof>,
+}
+
+/// External aggregation input.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct AggregationGuestOutput {
+    /// The resulting hash
+    pub hash: B256,
 }
 
 impl From<(Block, Header, ChainSpec, TaikoGuestInput)> for GuestInput {

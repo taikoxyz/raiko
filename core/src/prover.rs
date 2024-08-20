@@ -61,10 +61,20 @@ impl Prover for NativeProver {
             proof: None,
             quote: None,
             kzg_proof: None,
+            input: None,
         })
     }
 
     async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
+    }
+
+    async fn aggregate(
+        input: raiko_lib::input::AggregationGuestInput,
+        output: &raiko_lib::input::AggregationGuestOutput,
+        config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        todo!()
     }
 }
