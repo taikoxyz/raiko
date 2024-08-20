@@ -115,6 +115,15 @@ impl Opts {
         *self = serde_json::from_value(config)?;
         Ok(())
     }
+
+    pub fn merge_from_env(&mut self) {
+        if let Some(path) = std::env::var("CONFIG_PATH")
+            .ok()
+            .map(|path| PathBuf::from(path))
+        {
+            self.config_path = path;
+        }
+    }
 }
 
 impl From<Opts> for TaskManagerOpts {
@@ -164,6 +173,8 @@ impl ProverState {
     pub fn init() -> HostResult<Self> {
         // Read the command line arguments;
         let mut opts = Opts::parse();
+        // Read env supported options.
+        opts.merge_from_env();
         // Read the config file.
         opts.merge_from_file()?;
 
