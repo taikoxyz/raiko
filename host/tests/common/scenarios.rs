@@ -144,7 +144,7 @@ pub async fn test_v2_cancellation() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Test the v2 API report functinality before and after sending a request.
+/// Test the v2 API report functionality before and after sending a request.
 pub async fn test_v2_report() -> anyhow::Result<()> {
     let token = start_raiko().await.expect("Failed to start Raiko server");
     // Send a proof request to the server.
