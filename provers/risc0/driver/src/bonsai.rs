@@ -41,7 +41,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     expected_output: &O,
     uuid: String,
     max_retries: usize,
-) -> anyhow::Result<(String, Receipt), BonsaiExecutionError> {
+) -> Result<(String, Receipt), BonsaiExecutionError> {
     info!("Tracking receipt uuid: {uuid}");
     let session = bonsai_sdk::alpha::SessionId { uuid };
 
