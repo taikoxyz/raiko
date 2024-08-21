@@ -248,7 +248,7 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     assumption_uuids: Vec<String>,
     proof_key: ProofKey,
     id_store: &mut Option<&mut dyn IdWrite>,
-) -> anyhow::Result<(String, Receipt), BonsaiExecutionError> {
+) -> Result<(String, Receipt), BonsaiExecutionError> {
     info!("Proving on Bonsai");
     // Compute the image_id, then upload the ELF with the image_id as its key.
     let image_id = risc0_zkvm::compute_image_id(elf)
