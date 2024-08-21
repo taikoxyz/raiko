@@ -20,7 +20,8 @@ path = "src/benchmark/ecdsa.rs"
 [dependencies]
 getrandom = { version = "0.2", features = ["custom"] }
 # TODO: we should use a powdr accelerated version of k256
-k256 = { version = "0.13", default-features = false }
+k256 = { version = "0.13", default-features = false, features = ["sha256"]}
+sha2 = { version = "0.10", default-features = false }
 rand_chacha = "0.3"
 raiko-lib = { path = "../../../lib", features = ["std", "risc0"] }
 powdr-riscv-runtime = { path = "../../../../powdr/riscv-runtime", features = ["std"] }

@@ -4,18 +4,21 @@ use raiko_lib::{
     builder::calculate_block_header, consts::VerifierType, input::GuestInput,
     protocol_instance::ProtocolInstance,
 };
-use rand_chacha::rand_core::SeedableRng;
 use revm_precompile::zk_op::ZkOperation;
-use revm_primitives::bytes::buf;
 use zk_op::Risc0Operator;
 
 pub mod mem;
-
 pub use mem::*;
+
+mod random;
 
 ///
 
 fn main() {
+    unsafe {
+        random::init();
+    }
+
     let input: GuestInput = env::read();
 
     revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Risc0Operator {}));
@@ -40,15 +43,3 @@ harness::zk_suits!(
         }
     }
 );
-
-/// Our own random number generator, as powdr doesn't have one.
-static mut RNG: rand_chacha::ChaCha8Rng =
-    rand_chacha::ChaCha8Rng::from_seed(*include_bytes!("random_seed.bin"));
-
-fn get_random(buf: &mut [u8]) {
-    unsafe {
-        RNG.fill_bytes(buf);
-    }
-}
-
-register_custom_getrandom!(get_random);

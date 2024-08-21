@@ -1,7 +1,5 @@
-use k256 as risc0_k256;
 use raiko_lib::primitives::keccak256;
 use revm_precompile::{zk_op::ZkvmOperator, Error};
-use sha2 as risc0_sha2;
 
 #[derive(Debug)]
 pub struct Risc0Operator;
@@ -24,8 +22,8 @@ impl ZkvmOperator for Risc0Operator {
     }
 
     fn sha256_run(&self, input: &[u8]) -> Result<[u8; 32], Error> {
-        use risc0_sha2::Digest;
-        Ok(risc0_sha2::Sha256::digest(input).into())
+        use sha2::Digest;
+        Ok(sha2::Sha256::digest(input).into())
     }
 
     fn ripemd160_run(&self, _input: &[u8]) -> Result<[u8; 32], Error> {
@@ -42,7 +40,7 @@ impl ZkvmOperator for Risc0Operator {
         mut recid: u8,
         msg: &[u8; 32],
     ) -> Result<[u8; 32], Error> {
-        use risc0_k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
+        use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 
         // parse signature
         let mut sig = Signature::from_slice(sig.as_slice()).map_err(|_| {
@@ -74,9 +72,9 @@ harness::zk_suits!(
     pub mod tests {
         #[test]
         pub fn test_sha256() {
-            use crate::risc0_sha2::{Digest, Sha256};
             use harness::*;
             use raiko_lib::primitives::hex;
+            use sha2::{Digest, Sha256};
 
             let test_ves = [
                 (
@@ -96,7 +94,7 @@ harness::zk_suits!(
             for v in test_ves.iter() {
                 let (input, expected) = *v;
                 let result: [u8; 32] = Sha256::digest(input.as_bytes()).into();
-                // Don't change, this `assert!` custom defimed in `harness` crate.
+                // Don't change, this `assert!` custom defined in `harness` crate.
                 assert!(result == expected);
             }
         }
