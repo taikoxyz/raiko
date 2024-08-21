@@ -1,18 +1,13 @@
-use raiko_core::interfaces::ProofRequestOpt;
-use raiko_host::{
-    server::{
-        api::{
-            v1::Status as StatusV1,
-            v2::{CancelStatus, PruneStatus, Status},
-        },
-        serve,
-    },
-    ProverState,
-};
+use raiko_core::interfaces::{ProofRequestOpt, ProverSpecificOpts};
+use raiko_host::{server::serve, ProverState};
 use raiko_lib::consts::{Network, SupportedChainSpecs};
-use raiko_tasks::{TaskDescriptor, TaskStatus};
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
+
+mod client;
+pub mod scenarios;
+
+pub use client::ProofClient;
 
 #[derive(Debug, Deserialize)]
 struct RPCResult<T> {
@@ -28,8 +23,6 @@ struct Block {
 }
 
 type BlockResponse = RPCResult<Block>;
-
-const URL: &str = "http://localhost:8080";
 
 pub async fn find_recent_block(network: Network) -> anyhow::Result<u64> {
     let supported_chains = SupportedChainSpecs::default();
@@ -82,99 +75,6 @@ pub async fn find_recent_block(network: Network) -> anyhow::Result<u64> {
     Ok(*block_number)
 }
 
-pub struct ProofClient {
-    reqwest_client: reqwest::Client,
-}
-
-impl ProofClient {
-    pub fn new() -> Self {
-        Self {
-            reqwest_client: reqwest::Client::new(),
-        }
-    }
-
-    pub async fn send_proof_v1(&self, proof_request: ProofRequestOpt) -> anyhow::Result<StatusV1> {
-        let response = self
-            .reqwest_client
-            .post(&format!("{URL}/v1/proof"))
-            .json(&proof_request)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let proof_response = response.json::<StatusV1>().await?;
-            Ok(proof_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
-        }
-    }
-
-    pub async fn send_proof_v2(&self, proof_request: ProofRequestOpt) -> anyhow::Result<Status> {
-        let response = self
-            .reqwest_client
-            .post(&format!("{URL}/v2/proof"))
-            .json(&proof_request)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let proof_response = response.json::<Status>().await?;
-            Ok(proof_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
-        }
-    }
-
-    pub async fn cancel_proof(
-        &self,
-        proof_request: ProofRequestOpt,
-    ) -> anyhow::Result<CancelStatus> {
-        let response = self
-            .reqwest_client
-            .post(&format!("{URL}/v2/proof/cancel"))
-            .json(&proof_request)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let cancel_response = response.json::<CancelStatus>().await?;
-            Ok(cancel_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
-        }
-    }
-
-    pub async fn prune_proof(&self) -> anyhow::Result<PruneStatus> {
-        let response = self
-            .reqwest_client
-            .post(&format!("{URL}/v2/proof/prune"))
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let prune_response = response.json::<PruneStatus>().await?;
-            Ok(prune_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
-        }
-    }
-
-    pub async fn report_proof(&self) -> anyhow::Result<Vec<(TaskDescriptor, TaskStatus)>> {
-        let response = self
-            .reqwest_client
-            .get(&format!("{URL}/v2/proof/report"))
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let report_response = response.json::<Vec<(TaskDescriptor, TaskStatus)>>().await?;
-            Ok(report_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
-        }
-    }
-}
-
 /// Start the Raiko server and return a cancellation token that can be used to stop the server.
 pub async fn start_raiko() -> anyhow::Result<CancellationToken> {
     // Initialize the server state.
@@ -203,4 +103,28 @@ pub async fn start_raiko() -> anyhow::Result<CancellationToken> {
     });
 
     Ok(clone)
+}
+
+pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
+    // Get block to test with.
+    let block_number = find_recent_block(Network::TaikoMainnet).await?;
+
+    Ok(ProofRequestOpt {
+        block_number: Some(block_number),
+        l1_inclusive_block_number: None,
+        network: Some("taiko_mainnet".to_owned()),
+        l1_network: Some("ethereum".to_string()),
+        graffiti: Some(
+            "8008500000000000000000000000000000000000000000000000000000000000".to_owned(),
+        ),
+        prover: Some("0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_owned()),
+        proof_type: Some("native".to_owned()),
+        blob_proof_type: Some("kzg_versioned_hash".to_string()),
+        prover_args: ProverSpecificOpts {
+            native: None,
+            sgx: None,
+            sp1: None,
+            risc0: None,
+        },
+    })
 }
