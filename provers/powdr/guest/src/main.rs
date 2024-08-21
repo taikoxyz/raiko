@@ -1,0 +1,54 @@
+#![no_main]
+harness::entrypoint!(main, tests, zk_op::tests);
+use raiko_lib::{
+    builder::calculate_block_header, consts::VerifierType, input::GuestInput,
+    protocol_instance::ProtocolInstance,
+};
+use rand_chacha::rand_core::SeedableRng;
+use revm_precompile::zk_op::ZkOperation;
+use revm_primitives::bytes::buf;
+use zk_op::Risc0Operator;
+
+pub mod mem;
+
+pub use mem::*;
+
+///
+
+fn main() {
+    let input: GuestInput = env::read();
+
+    revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Risc0Operator {}));
+    revm_precompile::zk_op::ZKVM_OPERATIONS
+        .set(Box::new(vec![ZkOperation::Sha256, ZkOperation::Secp256k1]))
+        .expect("Failed to set ZkvmOperations");
+
+    let header = calculate_block_header(&input);
+    let pi = ProtocolInstance::new(&input, &header, VerifierType::RISC0)
+        .unwrap()
+        .instance_hash();
+
+    env::commit(&pi);
+}
+
+harness::zk_suits!(
+    pub mod tests {
+        #[test]
+        pub fn test_build_from_mock_input() {
+            // Todo: impl mock input for static unit test
+            assert_eq!(1, 1);
+        }
+    }
+);
+
+/// Our own random number generator, as powdr doesn't have one.
+static mut RNG: rand_chacha::ChaCha8Rng =
+    rand_chacha::ChaCha8Rng::from_seed(*include_bytes!("random_seed.bin"));
+
+fn get_random(buf: &mut [u8]) {
+    unsafe {
+        RNG.fill_bytes(buf);
+    }
+}
+
+register_custom_getrandom!(get_random);
