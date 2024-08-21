@@ -36,7 +36,7 @@ raiko-lib = { path = "../../../lib", features = ["std", "sp1", "proof_of_equival
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
 sp1-core = "1.0.1"
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
-secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "feat/patch-ecrecover" }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["sp1"]}
 substrate-bn = "0.6.0"
@@ -56,7 +56,7 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
-secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "feat/patch-ecrecover" }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
 
 
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
