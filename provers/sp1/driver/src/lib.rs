@@ -123,9 +123,7 @@ impl Prover for Sp1Prover {
                 .request_proof(ELF, stdin, param.recursion.clone().into())
                 .await
                 .map_err(|e| {
-                    ProverError::GuestError(
-                        format!("Sp1: requesting proof failed: {e}")
-                    )
+                    ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
                 })?;
             if let Some(id_store) = id_store {
                 id_store
