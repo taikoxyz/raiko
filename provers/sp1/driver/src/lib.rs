@@ -124,7 +124,7 @@ impl Prover for Sp1Prover {
                 .await
                 .map_err(|e| {
                     ProverError::GuestError(
-                        "Sp1: requesting proof failed: ".to_owned() + &e.to_string(),
+                        format!("Sp1: requesting proof failed: {e}")
                     )
                 })?;
             if let Some(id_store) = id_store {
