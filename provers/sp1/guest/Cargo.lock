@@ -91,7 +91,7 @@ dependencies = [
  "derive_more",
  "once_cell",
  "serde",
- "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2",
 ]
 
 [[package]]
@@ -1063,29 +1063,17 @@ checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 [[package]]
 name = "ecdsa"
 version = "0.16.9"
-source = "git+https://github.com/taikoxyz/signatures.git?branch=0.16.9#bb774a2595fcb07528930013e9306de5700f4a85"
-dependencies = [
- "der",
- "digest 0.10.7",
- "elliptic-curve",
- "raiko-sp1-hack",
- "rfc6979",
- "signature",
- "spki",
-]
-
-[[package]]
-name = "ecdsa"
-version = "0.16.9"
 source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#5d48cf0a71337464eccaa7423fbd28221b760a4f"
 dependencies = [
  "anyhow",
  "cfg-if",
+ "der",
  "digest 0.10.7",
  "elliptic-curve",
  "hex-literal",
+ "rfc6979",
  "signature",
- "sp1-lib 1.0.1 (git+https://github.com/succinctlabs/sp1.git?branch=john/lib-refactor)",
+ "sp1-lib 1.0.1",
  "spki",
 ]
 
@@ -1564,10 +1552,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "956ff9b67e26e1a6a866cb758f12c6f8746208489e3e4a4b5580802f2f0a587b"
 dependencies = [
  "cfg-if",
- "ecdsa 0.16.9 (git+https://github.com/taikoxyz/signatures.git?branch=0.16.9)",
+ "ecdsa",
  "elliptic-curve",
  "once_cell",
- "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2",
  "signature",
 ]
 
@@ -1598,7 +1586,7 @@ dependencies = [
  "bincode",
  "blst",
  "serde",
- "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2",
  "siphasher",
 ]
 
@@ -2411,22 +2399,13 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2",
  "sha3",
  "thiserror",
  "thiserror-no-std",
  "tracing",
  "url",
  "utoipa",
-]
-
-[[package]]
-name = "raiko-sp1-hack"
-version = "0.1.0"
-source = "git+https://github.com/taikoxyz/signatures.git?branch=0.16.9#bb774a2595fcb07528930013e9306de5700f4a85"
-dependencies = [
- "bincode",
- "serde",
 ]
 
 [[package]]
@@ -2994,7 +2973,7 @@ dependencies = [
  "revm-primitives",
  "ripemd",
  "secp256k1",
- "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2",
  "substrate-bn",
 ]
 
@@ -3021,7 +3000,7 @@ dependencies = [
 [[package]]
 name = "rfc6979"
 version = "0.4.0"
-source = "git+https://github.com/taikoxyz/signatures.git?branch=0.16.9#bb774a2595fcb07528930013e9306de5700f4a85"
+source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#5d48cf0a71337464eccaa7423fbd28221b760a4f"
 dependencies = [
  "hmac",
  "subtle",
@@ -3240,7 +3219,7 @@ version = "0.29.0"
 source = "git+https://github.com/sp1-patches/rust-secp256k1?branch=feat/patch-ecrecover#1eb67f77245657b92b611fc6d5f84d49d7e817c0"
 dependencies = [
  "cfg-if",
- "ecdsa 0.16.9 (git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9)",
+ "ecdsa",
  "elliptic-curve",
  "k256",
  "rand",
@@ -3368,17 +3347,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.72",
-]
-
-[[package]]
-name = "sha2"
-version = "0.10.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
-dependencies = [
- "cfg-if",
- "cpufeatures",
- "digest 0.10.7",
 ]
 
 [[package]]
@@ -3556,22 +3524,10 @@ dependencies = [
  "reth-primitives",
  "revm-precompile",
  "secp256k1",
- "sha2 0.10.8 (git+https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8)",
+ "sha2",
  "sp1-core",
  "sp1-zkvm",
  "substrate-bn",
-]
-
-[[package]]
-name = "sp1-lib"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01c4a9c8d029e57349b2b124595b2dc7a70d3dd8431d0e63348a2a271a894b8e"
-dependencies = [
- "anyhow",
- "bincode",
- "cfg-if",
- "serde",
 ]
 
 [[package]]
@@ -3583,6 +3539,32 @@ dependencies = [
  "bincode",
  "cfg-if",
  "serde",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "1.1.1"
+source = "git+https://github.com/succinctlabs/sp1?branch=dev#d3a73a9fc33351df68cf1f12625cd48b7415c77f"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "hex",
+ "serde",
+ "snowbridge-amcl",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "1.1.1"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "hex",
+ "serde",
+ "snowbridge-amcl",
 ]
 
 [[package]]
@@ -3601,9 +3583,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-zkvm"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0708c2369deb682e57bfe33bb5a405188d825511b31e22af5722e1ace79c1840"
+version = "1.1.1"
+source = "git+https://github.com/succinctlabs/sp1?branch=dev#d3a73a9fc33351df68cf1f12625cd48b7415c77f"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -3613,8 +3594,8 @@ dependencies = [
  "once_cell",
  "rand",
  "serde",
- "sha2 0.10.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp1-lib 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2",
+ "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1?branch=dev)",
 ]
 
 [[package]]
@@ -3670,14 +3651,16 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b5bbfa79abbae15dd642ea8176a21a635ff3c00059961d1ea27ad04e5b441c"
+source = "git+https://github.com/0xWOLAND/bn?branch=main#4970e22d001de8fcc46b07d93308c5f6cd9b1e26"
 dependencies = [
+ "bytemuck",
  "byteorder",
+ "cfg-if",
  "crunchy",
  "lazy_static",
  "rand",
  "rustc-hex",
+ "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=experimental)",
 ]
 
 [[package]]

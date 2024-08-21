@@ -33,7 +33,7 @@ path = "src/benchmark/bn254_mul.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1", "proof_of_equivalence"] }
-sp1-zkvm ={  version = "1.0.1" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
 sp1-core = "1.0.1"
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "feat/patch-ecrecover" }
@@ -56,9 +56,17 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
-ecdsa = { git = "https://github.com/taikoxyz/signatures.git", branch = "0.16.9"  }
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "feat/patch-ecrecover" }
+
+
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
+ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
+bn = { package = "substrate-bn", git = "https://github.com/0xWOLAND/bn", branch = "main" }
+# kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "bhargav/sp1-bls-patch" }
+
+# [patch."https://github.com/brechtpd/rust-kzg.git"]
+# bls12_381 = { git = "https://github.com/succinctlabs/bls12_381", branch = "main" } 
 
 [features]
 default = ["sp1-cycle-tracker"]

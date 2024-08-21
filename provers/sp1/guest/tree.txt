@@ -1,0 +1,1115 @@
+sp1-guest v0.1.0 (/home/chris/raiko/provers/sp1/guest)
+├── bincode v1.3.3
+│   └── serde v1.0.204
+│       └── serde_derive v1.0.204 (proc-macro)
+│           ├── proc-macro2 v1.0.86
+│           │   └── unicode-ident v1.0.12
+│           ├── quote v1.0.36
+│           │   └── proc-macro2 v1.0.86 (*)
+│           └── syn v2.0.72
+│               ├── proc-macro2 v1.0.86 (*)
+│               ├── quote v1.0.36 (*)
+│               └── unicode-ident v1.0.12
+├── harness v0.1.0 (proc-macro) (/home/chris/raiko/harness/macro)
+│   ├── proc-macro2 v1.0.86 (*)
+│   ├── quote v1.0.36 (*)
+│   └── syn v2.0.72 (*)
+├── harness-core v0.1.0 (/home/chris/raiko/harness/core)
+│   ├── once_cell v1.19.0
+│   ├── proc-macro2 v1.0.86 (*)
+│   ├── quote v1.0.36 (*)
+│   └── syn v2.0.72
+│       ├── proc-macro2 v1.0.86 (*)
+│       ├── quote v1.0.36 (*)
+│       └── unicode-ident v1.0.12
+├── lazy_static v1.5.0
+│   └── spin v0.9.8
+├── num-bigint v0.4.6
+│   ├── num-integer v0.1.46
+│   │   └── num-traits v0.2.19
+│   │       [build-dependencies]
+│   │       └── autocfg v1.3.0
+│   └── num-traits v0.2.19 (*)
+├── raiko-lib v0.1.0 (/home/chris/raiko/lib)
+│   ├── alloy-consensus v0.1.4
+│   │   ├── alloy-eips v0.1.4
+│   │   │   ├── alloy-primitives v0.7.7
+│   │   │   │   ├── alloy-rlp v0.3.7
+│   │   │   │   │   ├── alloy-rlp-derive v0.3.7 (proc-macro)
+│   │   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   │   └── syn v2.0.72 (*)
+│   │   │   │   │   ├── arrayvec v0.7.4
+│   │   │   │   │   └── bytes v1.7.0
+│   │   │   │   │       └── serde v1.0.204 (*)
+│   │   │   │   ├── bytes v1.7.0 (*)
+│   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   ├── const-hex v1.12.0
+│   │   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   │   ├── cpufeatures v0.2.12
+│   │   │   │   │   └── serde v1.0.204 (*)
+│   │   │   │   ├── derive_more v0.99.18 (proc-macro)
+│   │   │   │   │   ├── convert_case v0.4.0
+│   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   └── syn v2.0.72 (*)
+│   │   │   │   │   [build-dependencies]
+│   │   │   │   │   └── rustc_version v0.4.0
+│   │   │   │   │       └── semver v1.0.23
+│   │   │   │   ├── getrandom v0.2.15
+│   │   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   │   └── libc v0.2.155
+│   │   │   │   ├── hex-literal v0.4.1
+│   │   │   │   ├── itoa v1.0.11
+│   │   │   │   ├── rand v0.8.5
+│   │   │   │   │   ├── libc v0.2.155
+│   │   │   │   │   ├── rand_chacha v0.3.1
+│   │   │   │   │   │   ├── ppv-lite86 v0.2.18
+│   │   │   │   │   │   │   └── zerocopy v0.6.6
+│   │   │   │   │   │   │       ├── byteorder v1.5.0
+│   │   │   │   │   │   │       └── zerocopy-derive v0.6.6 (proc-macro)
+│   │   │   │   │   │   │           ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   │           ├── quote v1.0.36 (*)
+│   │   │   │   │   │   │           └── syn v2.0.72 (*)
+│   │   │   │   │   │   └── rand_core v0.6.4
+│   │   │   │   │   │       └── getrandom v0.2.15 (*)
+│   │   │   │   │   └── rand_core v0.6.4 (*)
+│   │   │   │   ├── ruint v1.12.3
+│   │   │   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   │   │   ├── rand v0.8.5 (*)
+│   │   │   │   │   ├── ruint-macro v1.2.1 (proc-macro)
+│   │   │   │   │   └── serde v1.0.204 (*)
+│   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   └── tiny-keccak v2.0.2 (https://github.com/sp1-patches/tiny-keccak?branch=patch-v2.0.2#bf0b28f6)
+│   │   │   │       ├── cfg-if v1.0.0
+│   │   │   │       └── crunchy v0.2.2
+│   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   ├── alloy-serde v0.1.4
+│   │   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   └── serde_json v1.0.121
+│   │   │   │       ├── itoa v1.0.11
+│   │   │   │       ├── memchr v2.7.4
+│   │   │   │       ├── ryu v1.0.18
+│   │   │   │       └── serde v1.0.204 (*)
+│   │   │   ├── c-kzg v1.0.0 (https://github.com/brechtpd/c-kzg-4844?branch=for-alpha7#3bf0372e)
+│   │   │   │   ├── blst v0.3.12 (https://github.com/CeciliaZ030/blst.git?branch=v0.3.12-serialize#063b5206)
+│   │   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   │   ├── threadpool v1.8.1
+│   │   │   │   │   │   └── num_cpus v1.16.0
+│   │   │   │   │   │       └── libc v0.2.155
+│   │   │   │   │   └── zeroize v1.8.1
+│   │   │   │   │       └── zeroize_derive v1.4.2 (proc-macro)
+│   │   │   │   │           ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │           ├── quote v1.0.36 (*)
+│   │   │   │   │           └── syn v2.0.72 (*)
+│   │   │   │   │   [build-dependencies]
+│   │   │   │   │   └── cc v1.1.7
+│   │   │   │   ├── hex v0.4.3
+│   │   │   │   ├── libc v0.2.155
+│   │   │   │   └── serde v1.0.204 (*)
+│   │   │   │   [build-dependencies]
+│   │   │   │   └── cc v1.1.7
+│   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   ├── once_cell v1.19.0
+│   │   │   ├── serde v1.0.204 (*)
+│   │   │   └── sha2 v0.10.8 (https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388)
+│   │   │       ├── cfg-if v1.0.0
+│   │   │       ├── cpufeatures v0.2.12
+│   │   │       └── digest v0.10.7
+│   │   │           ├── block-buffer v0.10.4
+│   │   │           │   └── generic-array v0.14.7
+│   │   │           │       ├── typenum v1.17.0
+│   │   │           │       └── zeroize v1.8.1 (*)
+│   │   │           │       [build-dependencies]
+│   │   │           │       └── version_check v0.9.5
+│   │   │           ├── const-oid v0.9.6
+│   │   │           ├── crypto-common v0.1.6
+│   │   │           │   ├── generic-array v0.14.7 (*)
+│   │   │           │   └── typenum v1.17.0
+│   │   │           └── subtle v2.6.1
+│   │   ├── alloy-primitives v0.7.7 (*)
+│   │   ├── alloy-rlp v0.3.7 (*)
+│   │   ├── alloy-serde v0.1.4 (*)
+│   │   └── serde v1.0.204 (*)
+│   ├── alloy-eips v0.1.4 (*)
+│   ├── alloy-primitives v0.7.7 (*)
+│   ├── alloy-rlp v0.3.7 (*)
+│   ├── alloy-rlp-derive v0.3.7 (proc-macro) (*)
+│   ├── alloy-rpc-types v0.1.4
+│   │   ├── alloy-rpc-types-eth v0.1.4
+│   │   │   ├── alloy-consensus v0.1.4 (*)
+│   │   │   ├── alloy-eips v0.1.4 (*)
+│   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   ├── alloy-serde v0.1.4 (*)
+│   │   │   ├── alloy-sol-types v0.7.7
+│   │   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   │   ├── alloy-sol-macro v0.7.7 (proc-macro)
+│   │   │   │   │   ├── alloy-sol-macro-expander v0.7.7
+│   │   │   │   │   │   ├── alloy-sol-macro-input v0.7.7
+│   │   │   │   │   │   │   ├── const-hex v1.12.0
+│   │   │   │   │   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   │   │   │   │   └── cpufeatures v0.2.12
+│   │   │   │   │   │   │   ├── dunce v1.0.4
+│   │   │   │   │   │   │   ├── heck v0.5.0
+│   │   │   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   │   │   ├── syn v2.0.72 (*)
+│   │   │   │   │   │   │   └── syn-solidity v0.7.7
+│   │   │   │   │   │   │       ├── paste v1.0.15 (proc-macro)
+│   │   │   │   │   │   │       ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   │       ├── quote v1.0.36 (*)
+│   │   │   │   │   │   │       └── syn v2.0.72 (*)
+│   │   │   │   │   │   ├── const-hex v1.12.0 (*)
+│   │   │   │   │   │   ├── heck v0.5.0
+│   │   │   │   │   │   ├── indexmap v2.3.0
+│   │   │   │   │   │   │   ├── equivalent v1.0.1
+│   │   │   │   │   │   │   └── hashbrown v0.14.5
+│   │   │   │   │   │   ├── proc-macro-error v1.0.4
+│   │   │   │   │   │   │   ├── proc-macro-error-attr v1.0.4 (proc-macro)
+│   │   │   │   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   │   │   └── quote v1.0.36 (*)
+│   │   │   │   │   │   │   │   [build-dependencies]
+│   │   │   │   │   │   │   │   └── version_check v0.9.5
+│   │   │   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   │   │   └── syn v1.0.109
+│   │   │   │   │   │   │       ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   │       ├── quote v1.0.36 (*)
+│   │   │   │   │   │   │       └── unicode-ident v1.0.12
+│   │   │   │   │   │   │   [build-dependencies]
+│   │   │   │   │   │   │   └── version_check v0.9.5
+│   │   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   │   ├── syn v2.0.72 (*)
+│   │   │   │   │   │   ├── syn-solidity v0.7.7 (*)
+│   │   │   │   │   │   └── tiny-keccak v2.0.2 (https://github.com/sp1-patches/tiny-keccak?branch=patch-v2.0.2#bf0b28f6) (*)
+│   │   │   │   │   ├── alloy-sol-macro-input v0.7.7 (*)
+│   │   │   │   │   ├── proc-macro-error v1.0.4 (*)
+│   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   └── syn v2.0.72 (*)
+│   │   │   │   └── const-hex v1.12.0 (*)
+│   │   │   ├── itertools v0.13.0
+│   │   │   │   └── either v1.13.0
+│   │   │   ├── serde v1.0.204 (*)
+│   │   │   ├── serde_json v1.0.121 (*)
+│   │   │   └── thiserror v1.0.63
+│   │   │       └── thiserror-impl v1.0.63 (proc-macro)
+│   │   │           ├── proc-macro2 v1.0.86 (*)
+│   │   │           ├── quote v1.0.36 (*)
+│   │   │           └── syn v2.0.72 (*)
+│   │   └── alloy-serde v0.1.4 (*)
+│   ├── alloy-sol-types v0.7.7 (*)
+│   ├── anyhow v1.0.86
+│   ├── async-trait v0.1.81 (proc-macro)
+│   │   ├── proc-macro2 v1.0.86 (*)
+│   │   ├── quote v1.0.36 (*)
+│   │   └── syn v2.0.72 (*)
+│   ├── bincode v1.3.3 (*)
+│   ├── cfg-if v1.0.0
+│   ├── chrono v0.4.38
+│   │   ├── iana-time-zone v0.1.60
+│   │   └── num-traits v0.2.19 (*)
+│   ├── flate2 v1.0.30
+│   │   ├── crc32fast v1.4.2
+│   │   │   └── cfg-if v1.0.0
+│   │   └── miniz_oxide v0.7.4
+│   │       └── adler v1.0.2
+│   ├── hex v0.4.3
+│   ├── kzg v0.1.0 (https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd)
+│   │   ├── bincode v1.3.3 (*)
+│   │   ├── blst v0.3.12 (https://github.com/CeciliaZ030/blst.git?branch=v0.3.12-serialize#063b5206) (*)
+│   │   ├── serde v1.0.204 (*)
+│   │   ├── sha2 v0.10.8 (https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388) (*)
+│   │   └── siphasher v1.0.1
+│   ├── lazy_static v1.5.0 (*)
+│   ├── libflate v2.1.0
+│   │   ├── adler32 v1.2.0
+│   │   ├── core2 v0.4.0
+│   │   │   └── memchr v2.7.4
+│   │   ├── crc32fast v1.4.2 (*)
+│   │   ├── dary_heap v0.3.6
+│   │   └── libflate_lz77 v2.1.0
+│   │       ├── core2 v0.4.0 (*)
+│   │       ├── hashbrown v0.14.5
+│   │       │   ├── ahash v0.8.11
+│   │       │   │   ├── cfg-if v1.0.0
+│   │       │   │   ├── once_cell v1.19.0
+│   │       │   │   └── zerocopy v0.7.35
+│   │       │   │   [build-dependencies]
+│   │       │   │   └── version_check v0.9.5
+│   │       │   ├── allocator-api2 v0.2.18
+│   │       │   └── serde v1.0.204 (*)
+│   │       └── rle-decode-fast v1.0.3
+│   ├── log v0.4.22
+│   ├── once_cell v1.19.0
+│   ├── reth-chainspec v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   ├── alloy-chains v0.1.24
+│   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   ├── num_enum v0.7.3
+│   │   │   │   └── num_enum_derive v0.7.3 (proc-macro)
+│   │   │   │       ├── proc-macro2 v1.0.86 (*)
+│   │   │   │       ├── quote v1.0.36 (*)
+│   │   │   │       └── syn v2.0.72 (*)
+│   │   │   ├── serde v1.0.204 (*)
+│   │   │   └── strum v0.26.3
+│   │   │       └── strum_macros v0.26.4 (proc-macro)
+│   │   │           ├── heck v0.5.0
+│   │   │           ├── proc-macro2 v1.0.86 (*)
+│   │   │           ├── quote v1.0.36 (*)
+│   │   │           ├── rustversion v1.0.17 (proc-macro)
+│   │   │           └── syn v2.0.72 (*)
+│   │   ├── alloy-eips v0.1.4 (*)
+│   │   ├── alloy-genesis v0.1.4
+│   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   ├── alloy-serde v0.1.4 (*)
+│   │   │   └── serde v1.0.204 (*)
+│   │   ├── alloy-primitives v0.7.7 (*)
+│   │   ├── alloy-trie v0.4.1
+│   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   ├── hashbrown v0.14.5 (*)
+│   │   │   ├── nybbles v0.2.1
+│   │   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   │   ├── const-hex v1.12.0 (*)
+│   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   └── smallvec v1.13.2
+│   │   │   │       └── serde v1.0.204 (*)
+│   │   │   ├── serde v1.0.204 (*)
+│   │   │   ├── smallvec v1.13.2 (*)
+│   │   │   └── tracing v0.1.40
+│   │   │       ├── pin-project-lite v0.2.14
+│   │   │       ├── tracing-attributes v0.1.27 (proc-macro)
+│   │   │       │   ├── proc-macro2 v1.0.86 (*)
+│   │   │       │   ├── quote v1.0.36 (*)
+│   │   │       │   └── syn v2.0.72 (*)
+│   │   │       └── tracing-core v0.1.32
+│   │   │           └── once_cell v1.19.0
+│   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   ├── once_cell v1.19.0
+│   │   ├── reth-ethereum-forks v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   ├── alloy-chains v0.1.24 (*)
+│   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   ├── crc v3.2.1
+│   │   │   │   └── crc-catalog v2.4.0
+│   │   │   ├── serde v1.0.204 (*)
+│   │   │   └── thiserror-no-std v2.0.2
+│   │   │       └── thiserror-impl-no-std v2.0.2 (proc-macro)
+│   │   │           ├── proc-macro2 v1.0.86 (*)
+│   │   │           ├── quote v1.0.36 (*)
+│   │   │           └── syn v1.0.109 (*)
+│   │   ├── reth-primitives-traits v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   ├── alloy-consensus v0.1.4 (*)
+│   │   │   ├── alloy-eips v0.1.4 (*)
+│   │   │   ├── alloy-genesis v0.1.4 (*)
+│   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   ├── alloy-rpc-types-eth v0.1.4 (*)
+│   │   │   ├── bytes v1.7.0 (*)
+│   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   ├── modular-bitfield v0.11.2
+│   │   │   │   ├── modular-bitfield-impl v0.11.2 (proc-macro)
+│   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   └── syn v1.0.109 (*)
+│   │   │   │   └── static_assertions v1.1.0
+│   │   │   ├── reth-codecs v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   ├── alloy-consensus v0.1.4 (*)
+│   │   │   │   ├── alloy-eips v0.1.4 (*)
+│   │   │   │   ├── alloy-genesis v0.1.4 (*)
+│   │   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   │   ├── bytes v1.7.0 (*)
+│   │   │   │   ├── modular-bitfield v0.11.2 (*)
+│   │   │   │   ├── reth-codecs-derive v1.0.0-rc.2 (proc-macro) (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   ├── convert_case v0.6.0
+│   │   │   │   │   │   └── unicode-segmentation v1.11.0
+│   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   └── syn v2.0.72 (*)
+│   │   │   │   └── serde v1.0.204 (*)
+│   │   │   ├── revm-primitives v4.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8)
+│   │   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   │   ├── auto_impl v1.2.0 (proc-macro)
+│   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   └── syn v2.0.72 (*)
+│   │   │   │   ├── bitflags v2.6.0
+│   │   │   │   │   └── serde v1.0.204 (*)
+│   │   │   │   ├── bitvec v1.0.1
+│   │   │   │   │   ├── funty v2.0.0
+│   │   │   │   │   ├── radium v0.7.0
+│   │   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   │   ├── tap v1.0.1
+│   │   │   │   │   └── wyz v0.5.1
+│   │   │   │   │       └── tap v1.0.1
+│   │   │   │   ├── c-kzg v1.0.0 (https://github.com/brechtpd/c-kzg-4844?branch=for-alpha7#3bf0372e) (*)
+│   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   │   ├── dyn-clone v1.0.17
+│   │   │   │   ├── enumn v0.1.14 (proc-macro)
+│   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   └── syn v2.0.72 (*)
+│   │   │   │   ├── hashbrown v0.14.5 (*)
+│   │   │   │   ├── once_cell v1.19.0
+│   │   │   │   └── serde v1.0.204 (*)
+│   │   │   │   [build-dependencies]
+│   │   │   │   └── hex v0.4.3
+│   │   │   │       └── serde v1.0.204
+│   │   │   └── serde v1.0.204 (*)
+│   │   ├── reth-trie-common v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   ├── alloy-consensus v0.1.4 (*)
+│   │   │   ├── alloy-genesis v0.1.4 (*)
+│   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   ├── alloy-trie v0.4.1 (*)
+│   │   │   ├── bytes v1.7.0 (*)
+│   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   ├── itertools v0.12.1
+│   │   │   │   └── either v1.13.0
+│   │   │   ├── nybbles v0.2.1 (*)
+│   │   │   ├── reth-codecs v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-primitives-traits v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── revm-primitives v4.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   └── serde v1.0.204 (*)
+│   │   ├── serde v1.0.204 (*)
+│   │   └── serde_json v1.0.121 (*)
+│   ├── reth-evm v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   ├── auto_impl v1.2.0 (proc-macro) (*)
+│   │   ├── futures-util v0.3.30
+│   │   │   ├── futures-core v0.3.30
+│   │   │   ├── futures-macro v0.3.30 (proc-macro)
+│   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   └── syn v2.0.72 (*)
+│   │   │   ├── futures-task v0.3.30
+│   │   │   ├── pin-project-lite v0.2.14
+│   │   │   ├── pin-utils v0.1.0
+│   │   │   └── slab v0.4.9
+│   │   │       [build-dependencies]
+│   │   │       └── autocfg v1.3.0
+│   │   ├── reth-chainspec v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-execution-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   ├── alloy-eips v0.1.4 (*)
+│   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   ├── reth-consensus v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   ├── auto_impl v1.2.0 (proc-macro) (*)
+│   │   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   ├── alloy-consensus v0.1.4 (*)
+│   │   │   │   │   ├── alloy-eips v0.1.4 (*)
+│   │   │   │   │   ├── alloy-genesis v0.1.4 (*)
+│   │   │   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   │   │   ├── alloy-rpc-types v0.1.4 (*)
+│   │   │   │   │   ├── byteorder v1.5.0
+│   │   │   │   │   ├── bytes v1.7.0 (*)
+│   │   │   │   │   ├── c-kzg v1.0.0 (https://github.com/brechtpd/c-kzg-4844?branch=for-alpha7#3bf0372e) (*)
+│   │   │   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   │   │   ├── modular-bitfield v0.11.2 (*)
+│   │   │   │   │   ├── once_cell v1.19.0
+│   │   │   │   │   ├── rayon v1.10.0
+│   │   │   │   │   │   ├── either v1.13.0
+│   │   │   │   │   │   └── rayon-core v1.12.1
+│   │   │   │   │   │       ├── crossbeam-deque v0.8.5
+│   │   │   │   │   │       │   ├── crossbeam-epoch v0.9.18
+│   │   │   │   │   │       │   │   └── crossbeam-utils v0.8.20
+│   │   │   │   │   │       │   └── crossbeam-utils v0.8.20
+│   │   │   │   │   │       └── crossbeam-utils v0.8.20
+│   │   │   │   │   ├── reth-chainspec v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-codecs v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-ethereum-forks v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-primitives-traits v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-static-file-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   │   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   │   │   └── strum v0.26.3 (*)
+│   │   │   │   │   ├── reth-trie-common v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── revm v9.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8)
+│   │   │   │   │   │   ├── auto_impl v1.2.0 (proc-macro) (*)
+│   │   │   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   │   │   ├── dyn-clone v1.0.17
+│   │   │   │   │   │   ├── revm-interpreter v5.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8)
+│   │   │   │   │   │   │   └── revm-primitives v4.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   │   │   │   └── revm-precompile v7.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8)
+│   │   │   │   │   │       ├── aurora-engine-modexp v1.1.0
+│   │   │   │   │   │       │   ├── hex v0.4.3
+│   │   │   │   │   │       │   └── num v0.4.3
+│   │   │   │   │   │       │       ├── num-bigint v0.4.6 (*)
+│   │   │   │   │   │       │       ├── num-complex v0.4.6
+│   │   │   │   │   │       │       │   └── num-traits v0.2.19 (*)
+│   │   │   │   │   │       │       ├── num-integer v0.1.46 (*)
+│   │   │   │   │   │       │       ├── num-iter v0.1.45
+│   │   │   │   │   │       │       │   ├── num-integer v0.1.46 (*)
+│   │   │   │   │   │       │       │   └── num-traits v0.2.19 (*)
+│   │   │   │   │   │       │       │   [build-dependencies]
+│   │   │   │   │   │       │       │   └── autocfg v1.3.0
+│   │   │   │   │   │       │       ├── num-rational v0.4.2
+│   │   │   │   │   │       │       │   ├── num-bigint v0.4.6 (*)
+│   │   │   │   │   │       │       │   ├── num-integer v0.1.46 (*)
+│   │   │   │   │   │       │       │   └── num-traits v0.2.19 (*)
+│   │   │   │   │   │       │       └── num-traits v0.2.19 (*)
+│   │   │   │   │   │       ├── blst v0.3.12 (https://github.com/CeciliaZ030/blst.git?branch=v0.3.12-serialize#063b5206) (*)
+│   │   │   │   │   │       ├── c-kzg v1.0.0 (https://github.com/brechtpd/c-kzg-4844?branch=for-alpha7#3bf0372e) (*)
+│   │   │   │   │   │       ├── k256 v0.13.3
+│   │   │   │   │   │       │   ├── cfg-if v1.0.0
+│   │   │   │   │   │       │   ├── ecdsa v0.16.9 (https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#5d48cf0a)
+│   │   │   │   │   │       │   │   ├── cfg-if v1.0.0
+│   │   │   │   │   │       │   │   ├── der v0.7.9
+│   │   │   │   │   │       │   │   │   ├── const-oid v0.9.6
+│   │   │   │   │   │       │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   │   │       │   │   ├── digest v0.10.7 (*)
+│   │   │   │   │   │       │   │   ├── elliptic-curve v0.13.8
+│   │   │   │   │   │       │   │   │   ├── base16ct v0.2.0
+│   │   │   │   │   │       │   │   │   ├── crypto-bigint v0.5.5
+│   │   │   │   │   │       │   │   │   │   ├── generic-array v0.14.7 (*)
+│   │   │   │   │   │       │   │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   │   │       │   │   │   │   ├── subtle v2.6.1
+│   │   │   │   │   │       │   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   │   │       │   │   │   ├── digest v0.10.7 (*)
+│   │   │   │   │   │       │   │   │   ├── ff v0.13.0
+│   │   │   │   │   │       │   │   │   │   ├── bitvec v1.0.1 (*)
+│   │   │   │   │   │       │   │   │   │   ├── byteorder v1.5.0
+│   │   │   │   │   │       │   │   │   │   ├── ff_derive v0.13.0 (proc-macro)
+│   │   │   │   │   │       │   │   │   │   │   ├── addchain v0.2.0
+│   │   │   │   │   │       │   │   │   │   │   │   ├── num-bigint v0.3.3
+│   │   │   │   │   │       │   │   │   │   │   │   │   ├── num-integer v0.1.46
+│   │   │   │   │   │       │   │   │   │   │   │   │   │   └── num-traits v0.2.19
+│   │   │   │   │   │       │   │   │   │   │   │   │   │       [build-dependencies]
+│   │   │   │   │   │       │   │   │   │   │   │   │   │       └── autocfg v1.3.0
+│   │   │   │   │   │       │   │   │   │   │   │   │   └── num-traits v0.2.19 (*)
+│   │   │   │   │   │       │   │   │   │   │   │   │   [build-dependencies]
+│   │   │   │   │   │       │   │   │   │   │   │   │   └── autocfg v1.3.0
+│   │   │   │   │   │       │   │   │   │   │   │   ├── num-integer v0.1.46 (*)
+│   │   │   │   │   │       │   │   │   │   │   │   └── num-traits v0.2.19 (*)
+│   │   │   │   │   │       │   │   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   │   │       │   │   │   │   │   ├── num-bigint v0.3.3 (*)
+│   │   │   │   │   │       │   │   │   │   │   ├── num-integer v0.1.46 (*)
+│   │   │   │   │   │       │   │   │   │   │   ├── num-traits v0.2.19 (*)
+│   │   │   │   │   │       │   │   │   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │       │   │   │   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   │       │   │   │   │   │   └── syn v1.0.109 (*)
+│   │   │   │   │   │       │   │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   │   │       │   │   │   │   └── subtle v2.6.1
+│   │   │   │   │   │       │   │   │   ├── generic-array v0.14.7 (*)
+│   │   │   │   │   │       │   │   │   ├── group v0.13.0
+│   │   │   │   │   │       │   │   │   │   ├── ff v0.13.0 (*)
+│   │   │   │   │   │       │   │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   │   │       │   │   │   │   └── subtle v2.6.1
+│   │   │   │   │   │       │   │   │   ├── pkcs8 v0.10.2
+│   │   │   │   │   │       │   │   │   │   ├── der v0.7.9 (*)
+│   │   │   │   │   │       │   │   │   │   └── spki v0.7.3
+│   │   │   │   │   │       │   │   │   │       └── der v0.7.9 (*)
+│   │   │   │   │   │       │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   │   │       │   │   │   ├── sec1 v0.7.3
+│   │   │   │   │   │       │   │   │   │   ├── base16ct v0.2.0
+│   │   │   │   │   │       │   │   │   │   ├── der v0.7.9 (*)
+│   │   │   │   │   │       │   │   │   │   ├── generic-array v0.14.7 (*)
+│   │   │   │   │   │       │   │   │   │   ├── subtle v2.6.1
+│   │   │   │   │   │       │   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   │   │       │   │   │   ├── subtle v2.6.1
+│   │   │   │   │   │       │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   │   │       │   │   ├── hex-literal v0.4.1
+│   │   │   │   │   │       │   │   ├── rfc6979 v0.4.0 (https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#5d48cf0a)
+│   │   │   │   │   │       │   │   │   ├── hmac v0.12.1
+│   │   │   │   │   │       │   │   │   │   └── digest v0.10.7 (*)
+│   │   │   │   │   │       │   │   │   └── subtle v2.6.1
+│   │   │   │   │   │       │   │   ├── signature v2.2.0
+│   │   │   │   │   │       │   │   │   ├── digest v0.10.7 (*)
+│   │   │   │   │   │       │   │   │   └── rand_core v0.6.4 (*)
+│   │   │   │   │   │       │   │   └── spki v0.7.3 (*)
+│   │   │   │   │   │       │   ├── elliptic-curve v0.13.8 (*)
+│   │   │   │   │   │       │   ├── once_cell v1.19.0
+│   │   │   │   │   │       │   ├── sha2 v0.10.8 (https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388) (*)
+│   │   │   │   │   │       │   └── signature v2.2.0 (*)
+│   │   │   │   │   │       ├── once_cell v1.19.0
+│   │   │   │   │   │       ├── revm-primitives v4.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   │   │   │       ├── ripemd v0.1.3
+│   │   │   │   │   │       │   └── digest v0.10.7 (*)
+│   │   │   │   │   │       ├── secp256k1 v0.29.0 (https://github.com/sp1-patches/rust-secp256k1?branch=feat/patch-ecrecover#1eb67f77)
+│   │   │   │   │   │       │   ├── cfg-if v1.0.0
+│   │   │   │   │   │       │   ├── rand v0.8.5 (*)
+│   │   │   │   │   │       │   └── secp256k1-sys v0.10.0 (https://github.com/sp1-patches/rust-secp256k1?branch=feat/patch-ecrecover#1eb67f77)
+│   │   │   │   │   │       │       [build-dependencies]
+│   │   │   │   │   │       │       └── cc v1.1.7
+│   │   │   │   │   │       ├── sha2 v0.10.8 (https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388) (*)
+│   │   │   │   │   │       └── substrate-bn v0.6.0 (https://github.com/0xWOLAND/bn?branch=main#4970e22d)
+│   │   │   │   │   │           ├── bytemuck v1.16.3
+│   │   │   │   │   │           ├── byteorder v1.5.0
+│   │   │   │   │   │           ├── cfg-if v1.0.0
+│   │   │   │   │   │           ├── crunchy v0.2.2
+│   │   │   │   │   │           ├── lazy_static v1.5.0 (*)
+│   │   │   │   │   │           ├── rand v0.8.5 (*)
+│   │   │   │   │   │           ├── rustc-hex v2.1.0
+│   │   │   │   │   │           └── sp1-lib v1.1.1 (https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2)
+│   │   │   │   │   │               ├── anyhow v1.0.86
+│   │   │   │   │   │               ├── bincode v1.3.3 (*)
+│   │   │   │   │   │               ├── cfg-if v1.0.0
+│   │   │   │   │   │               ├── hex v0.4.3
+│   │   │   │   │   │               ├── serde v1.0.204 (*)
+│   │   │   │   │   │               └── snowbridge-amcl v1.0.2
+│   │   │   │   │   │                   ├── parity-scale-codec v3.6.12
+│   │   │   │   │   │                   │   ├── arrayvec v0.7.4
+│   │   │   │   │   │                   │   ├── byte-slice-cast v1.2.2
+│   │   │   │   │   │                   │   ├── bytes v1.7.0 (*)
+│   │   │   │   │   │                   │   ├── impl-trait-for-tuples v0.2.2 (proc-macro)
+│   │   │   │   │   │                   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │                   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   │                   │   │   └── syn v1.0.109 (*)
+│   │   │   │   │   │                   │   ├── parity-scale-codec-derive v3.6.12 (proc-macro)
+│   │   │   │   │   │                   │   │   ├── proc-macro-crate v3.1.0
+│   │   │   │   │   │                   │   │   │   └── toml_edit v0.21.1
+│   │   │   │   │   │                   │   │   │       ├── indexmap v2.3.0 (*)
+│   │   │   │   │   │                   │   │   │       ├── toml_datetime v0.6.8
+│   │   │   │   │   │                   │   │   │       └── winnow v0.5.40
+│   │   │   │   │   │                   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │                   │   │   ├── quote v1.0.36 (*)
+│   │   │   │   │   │                   │   │   └── syn v1.0.109 (*)
+│   │   │   │   │   │                   │   └── serde v1.0.204 (*)
+│   │   │   │   │   │                   └── scale-info v2.11.3
+│   │   │   │   │   │                       ├── cfg-if v1.0.0
+│   │   │   │   │   │                       ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   │   │   │                       ├── parity-scale-codec v3.6.12 (*)
+│   │   │   │   │   │                       └── scale-info-derive v2.11.3 (proc-macro)
+│   │   │   │   │   │                           ├── proc-macro-crate v3.1.0 (*)
+│   │   │   │   │   │                           ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │                           ├── quote v1.0.36 (*)
+│   │   │   │   │   │                           └── syn v1.0.109 (*)
+│   │   │   │   │   ├── revm-precompile v7.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   │   │   ├── revm-primitives v4.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   │   │   ├── roaring v0.10.6
+│   │   │   │   │   │   ├── bytemuck v1.16.3
+│   │   │   │   │   │   └── byteorder v1.5.0
+│   │   │   │   │   ├── secp256k1 v0.29.0 (https://github.com/sp1-patches/rust-secp256k1?branch=feat/patch-ecrecover#1eb67f77) (*)
+│   │   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   │   ├── tempfile v3.10.1
+│   │   │   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   │   │   ├── fastrand v2.1.0
+│   │   │   │   │   │   └── rustix v0.38.34
+│   │   │   │   │   │       ├── bitflags v2.6.0 (*)
+│   │   │   │   │   │       └── linux-raw-sys v0.4.14
+│   │   │   │   │   └── thiserror-no-std v2.0.2 (*)
+│   │   │   │   └── thiserror-no-std v2.0.2 (*)
+│   │   │   ├── reth-prune-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   │   ├── bytes v1.7.0 (*)
+│   │   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   │   ├── modular-bitfield v0.11.2 (*)
+│   │   │   │   ├── reth-codecs v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   └── thiserror v1.0.63 (*)
+│   │   │   ├── reth-storage-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   ├── reth-fs-util v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   ├── serde_json v1.0.121 (*)
+│   │   │   │   │   └── thiserror v1.0.63 (*)
+│   │   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   └── thiserror-no-std v2.0.2 (*)
+│   │   │   ├── revm-primitives v4.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   └── thiserror-no-std v2.0.2 (*)
+│   │   ├── reth-execution-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   ├── reth-execution-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-trie v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   │   ├── auto_impl v1.2.0 (proc-macro) (*)
+│   │   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   │   ├── rayon v1.10.0 (*)
+│   │   │   │   ├── reth-db v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   ├── bytes v1.7.0 (*)
+│   │   │   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   │   │   ├── eyre v0.6.12
+│   │   │   │   │   │   ├── indenter v0.3.3
+│   │   │   │   │   │   └── once_cell v1.19.0
+│   │   │   │   │   ├── metrics v0.22.3
+│   │   │   │   │   │   └── ahash v0.8.11 (*)
+│   │   │   │   │   ├── paste v1.0.15 (proc-macro)
+│   │   │   │   │   ├── reth-db-api v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   │   ├── bytes v1.7.0 (*)
+│   │   │   │   │   │   ├── derive_more v0.99.18 (proc-macro) (*)
+│   │   │   │   │   │   ├── metrics v0.22.3 (*)
+│   │   │   │   │   │   ├── modular-bitfield v0.11.2 (*)
+│   │   │   │   │   │   ├── parity-scale-codec v3.6.12 (*)
+│   │   │   │   │   │   ├── reth-codecs v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   │   ├── reth-prune-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   │   ├── reth-stages-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   │   │   ├── alloy-primitives v0.7.7 (*)
+│   │   │   │   │   │   │   ├── bytes v1.7.0 (*)
+│   │   │   │   │   │   │   ├── modular-bitfield v0.11.2 (*)
+│   │   │   │   │   │   │   ├── reth-codecs v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   │   │   ├── reth-trie-common v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   │   │   └── serde v1.0.204 (*)
+│   │   │   │   │   │   ├── reth-storage-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   │   ├── reth-trie-common v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   │   └── serde v1.0.204 (*)
+│   │   │   │   │   ├── reth-fs-util v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-metrics v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   │   ├── metrics v0.22.3 (*)
+│   │   │   │   │   │   └── reth-metrics-derive v1.0.0-rc.2 (proc-macro) (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   │       ├── once_cell v1.19.0
+│   │   │   │   │   │       ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │       ├── quote v1.0.36 (*)
+│   │   │   │   │   │       ├── regex v1.10.5
+│   │   │   │   │   │       │   ├── aho-corasick v1.1.3
+│   │   │   │   │   │       │   │   └── memchr v2.7.4
+│   │   │   │   │   │       │   ├── memchr v2.7.4
+│   │   │   │   │   │       │   ├── regex-automata v0.4.7
+│   │   │   │   │   │       │   │   ├── aho-corasick v1.1.3 (*)
+│   │   │   │   │   │       │   │   ├── memchr v2.7.4
+│   │   │   │   │   │       │   │   └── regex-syntax v0.8.4
+│   │   │   │   │   │       │   └── regex-syntax v0.8.4
+│   │   │   │   │   │       └── syn v2.0.72 (*)
+│   │   │   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-prune-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-stages-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-storage-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── reth-tracing v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   │   │   ├── clap v4.5.13
+│   │   │   │   │   │   │   ├── clap_builder v4.5.13
+│   │   │   │   │   │   │   │   ├── anstream v0.6.15
+│   │   │   │   │   │   │   │   │   ├── anstyle v1.0.8
+│   │   │   │   │   │   │   │   │   ├── anstyle-parse v0.2.5
+│   │   │   │   │   │   │   │   │   │   └── utf8parse v0.2.2
+│   │   │   │   │   │   │   │   │   ├── anstyle-query v1.1.1
+│   │   │   │   │   │   │   │   │   ├── colorchoice v1.0.2
+│   │   │   │   │   │   │   │   │   ├── is_terminal_polyfill v1.70.1
+│   │   │   │   │   │   │   │   │   └── utf8parse v0.2.2
+│   │   │   │   │   │   │   │   ├── anstyle v1.0.8
+│   │   │   │   │   │   │   │   ├── clap_lex v0.7.2
+│   │   │   │   │   │   │   │   └── strsim v0.11.1
+│   │   │   │   │   │   │   └── clap_derive v4.5.13 (proc-macro)
+│   │   │   │   │   │   │       ├── heck v0.5.0
+│   │   │   │   │   │   │       ├── proc-macro2 v1.0.86 (*)
+│   │   │   │   │   │   │       ├── quote v1.0.36 (*)
+│   │   │   │   │   │   │       └── syn v2.0.72 (*)
+│   │   │   │   │   │   ├── eyre v0.6.12 (*)
+│   │   │   │   │   │   ├── rolling-file v0.2.0
+│   │   │   │   │   │   │   └── chrono v0.4.38 (*)
+│   │   │   │   │   │   ├── tracing v0.1.40 (*)
+│   │   │   │   │   │   ├── tracing-appender v0.2.3
+│   │   │   │   │   │   │   ├── crossbeam-channel v0.5.13
+│   │   │   │   │   │   │   │   └── crossbeam-utils v0.8.20
+│   │   │   │   │   │   │   ├── thiserror v1.0.63 (*)
+│   │   │   │   │   │   │   ├── time v0.3.36
+│   │   │   │   │   │   │   │   ├── deranged v0.3.11
+│   │   │   │   │   │   │   │   │   └── powerfmt v0.2.0
+│   │   │   │   │   │   │   │   ├── itoa v1.0.11
+│   │   │   │   │   │   │   │   ├── num-conv v0.1.0
+│   │   │   │   │   │   │   │   ├── powerfmt v0.2.0
+│   │   │   │   │   │   │   │   └── time-core v0.1.2
+│   │   │   │   │   │   │   └── tracing-subscriber v0.3.18
+│   │   │   │   │   │   │       ├── matchers v0.1.0
+│   │   │   │   │   │   │       │   └── regex-automata v0.1.10
+│   │   │   │   │   │   │       │       └── regex-syntax v0.6.29
+│   │   │   │   │   │   │       ├── nu-ansi-term v0.46.0
+│   │   │   │   │   │   │       │   └── overload v0.1.1
+│   │   │   │   │   │   │       ├── once_cell v1.19.0
+│   │   │   │   │   │   │       ├── regex v1.10.5
+│   │   │   │   │   │   │       │   ├── regex-automata v0.4.7
+│   │   │   │   │   │   │       │   │   └── regex-syntax v0.8.4
+│   │   │   │   │   │   │       │   └── regex-syntax v0.8.4
+│   │   │   │   │   │   │       ├── serde v1.0.204 (*)
+│   │   │   │   │   │   │       ├── serde_json v1.0.121 (*)
+│   │   │   │   │   │   │       ├── sharded-slab v0.1.7
+│   │   │   │   │   │   │       │   └── lazy_static v1.5.0 (*)
+│   │   │   │   │   │   │       ├── smallvec v1.13.2 (*)
+│   │   │   │   │   │   │       ├── thread_local v1.1.8
+│   │   │   │   │   │   │       │   ├── cfg-if v1.0.0
+│   │   │   │   │   │   │       │   └── once_cell v1.19.0
+│   │   │   │   │   │   │       ├── tracing v0.1.40 (*)
+│   │   │   │   │   │   │       ├── tracing-core v0.1.32 (*)
+│   │   │   │   │   │   │       ├── tracing-log v0.2.0
+│   │   │   │   │   │   │       │   ├── log v0.4.22
+│   │   │   │   │   │   │       │   ├── once_cell v1.19.0
+│   │   │   │   │   │   │       │   └── tracing-core v0.1.32 (*)
+│   │   │   │   │   │   │       └── tracing-serde v0.1.3
+│   │   │   │   │   │   │           ├── serde v1.0.204 (*)
+│   │   │   │   │   │   │           └── tracing-core v0.1.32 (*)
+│   │   │   │   │   │   ├── tracing-journald v0.3.0
+│   │   │   │   │   │   │   ├── libc v0.2.155
+│   │   │   │   │   │   │   ├── tracing-core v0.1.32 (*)
+│   │   │   │   │   │   │   └── tracing-subscriber v0.3.18 (*)
+│   │   │   │   │   │   ├── tracing-logfmt v0.3.4
+│   │   │   │   │   │   │   ├── time v0.3.36 (*)
+│   │   │   │   │   │   │   ├── tracing v0.1.40 (*)
+│   │   │   │   │   │   │   ├── tracing-core v0.1.32 (*)
+│   │   │   │   │   │   │   └── tracing-subscriber v0.3.18 (*)
+│   │   │   │   │   │   └── tracing-subscriber v0.3.18 (*)
+│   │   │   │   │   ├── reth-trie-common v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   │   ├── rustc-hash v1.1.0
+│   │   │   │   │   ├── serde v1.0.204 (*)
+│   │   │   │   │   ├── strum v0.26.3 (*)
+│   │   │   │   │   ├── sysinfo v0.30.13
+│   │   │   │   │   │   ├── cfg-if v1.0.0
+│   │   │   │   │   │   ├── libc v0.2.155
+│   │   │   │   │   │   └── once_cell v1.19.0
+│   │   │   │   │   └── thiserror v1.0.63 (*)
+│   │   │   │   ├── reth-db-api v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-execution-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-stages-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-trie-common v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── revm v9.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   │   └── tracing v0.1.40 (*)
+│   │   │   └── revm v9.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-prune-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-storage-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── revm v9.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   └── revm-primitives v4.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   ├── reth-evm-ethereum v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   ├── alloy-eips v0.1.4 (*)
+│   │   ├── alloy-sol-types v0.7.7 (*)
+│   │   ├── anyhow v1.0.86
+│   │   ├── lazy_static v1.5.0 (*)
+│   │   ├── reth-chainspec v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-consensus v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-ethereum-consensus v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   ├── reth-chainspec v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-consensus v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-consensus-common v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   ├── reth-chainspec v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-consensus v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   └── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   └── tracing v0.1.40 (*)
+│   │   ├── reth-evm v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-execution-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-prune-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   ├── reth-revm v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   ├── alloy-eips v0.1.4 (*)
+│   │   │   ├── alloy-rlp v0.3.7 (*)
+│   │   │   ├── reth-chainspec v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-consensus-common v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-execution-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-prune-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── reth-storage-api v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd)
+│   │   │   │   ├── auto_impl v1.2.0 (proc-macro) (*)
+│   │   │   │   ├── reth-chainspec v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-db-api v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-execution-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-prune-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-stages-types v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-storage-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   ├── reth-trie v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   │   └── revm v9.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   ├── reth-storage-errors v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   │   │   ├── revm v9.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   │   │   └── tracing v0.1.40 (*)
+│   │   └── revm-primitives v4.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+│   ├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+│   ├── rlp v0.5.2
+│   │   ├── bytes v1.7.0 (*)
+│   │   └── rustc-hex v2.1.0
+│   ├── rust-kzg-zkcrypto v0.1.0 (https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd)
+│   │   ├── bls12_381 v0.8.0 (https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd)
+│   │   │   ├── ff v0.13.0 (*)
+│   │   │   ├── group v0.13.0 (*)
+│   │   │   ├── pairing v0.23.0
+│   │   │   │   └── group v0.13.0 (*)
+│   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   ├── serde v1.0.204 (*)
+│   │   │   └── subtle v2.6.1
+│   │   ├── blst v0.3.12 (https://github.com/CeciliaZ030/blst.git?branch=v0.3.12-serialize#063b5206) (*)
+│   │   ├── byteorder v1.5.0
+│   │   ├── ff v0.13.0 (*)
+│   │   ├── hex v0.4.3
+│   │   ├── kzg v0.1.0 (https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd) (*)
+│   │   ├── libc v0.2.155
+│   │   ├── serde v1.0.204 (*)
+│   │   ├── serde_with v2.3.3
+│   │   │   ├── serde v1.0.204 (*)
+│   │   │   └── serde_with_macros v2.3.3 (proc-macro)
+│   │   │       ├── darling v0.20.10
+│   │   │       │   ├── darling_core v0.20.10
+│   │   │       │   │   ├── fnv v1.0.7
+│   │   │       │   │   ├── ident_case v1.0.1
+│   │   │       │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │       │   │   ├── quote v1.0.36 (*)
+│   │   │       │   │   ├── strsim v0.11.1
+│   │   │       │   │   └── syn v2.0.72 (*)
+│   │   │       │   └── darling_macro v0.20.10 (proc-macro)
+│   │   │       │       ├── darling_core v0.20.10 (*)
+│   │   │       │       ├── quote v1.0.36 (*)
+│   │   │       │       └── syn v2.0.72 (*)
+│   │   │       ├── proc-macro2 v1.0.86 (*)
+│   │   │       ├── quote v1.0.36 (*)
+│   │   │       └── syn v2.0.72 (*)
+│   │   └── subtle v2.6.1
+│   ├── serde v1.0.204 (*)
+│   ├── serde_json v1.0.121 (*)
+│   ├── serde_with v3.9.0
+│   │   ├── serde v1.0.204 (*)
+│   │   ├── serde_derive v1.0.204 (proc-macro) (*)
+│   │   └── serde_with_macros v3.9.0 (proc-macro)
+│   │       ├── darling v0.20.10 (*)
+│   │       ├── proc-macro2 v1.0.86 (*)
+│   │       ├── quote v1.0.36 (*)
+│   │       └── syn v2.0.72 (*)
+│   ├── sha2 v0.10.8 (https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388) (*)
+│   ├── sha3 v0.10.8
+│   │   ├── digest v0.10.7 (*)
+│   │   └── keccak v0.1.5
+│   ├── thiserror v1.0.63 (*)
+│   ├── thiserror-no-std v2.0.2 (*)
+│   ├── tracing v0.1.40 (*)
+│   ├── url v2.5.2
+│   │   ├── form_urlencoded v1.2.1
+│   │   │   └── percent-encoding v2.3.1
+│   │   ├── idna v0.5.0
+│   │   │   ├── unicode-bidi v0.3.15
+│   │   │   └── unicode-normalization v0.1.23
+│   │   │       └── tinyvec v1.8.0
+│   │   │           └── tinyvec_macros v0.1.1
+│   │   └── percent-encoding v2.3.1
+│   └── utoipa v4.2.3
+│       ├── indexmap v2.3.0
+│       │   ├── equivalent v1.0.1
+│       │   ├── hashbrown v0.14.5 (*)
+│       │   └── serde v1.0.204 (*)
+│       ├── serde v1.0.204 (*)
+│       ├── serde_json v1.0.121 (*)
+│       └── utoipa-gen v4.3.0 (proc-macro)
+│           ├── proc-macro-error v1.0.4 (*)
+│           ├── proc-macro2 v1.0.86 (*)
+│           ├── quote v1.0.36 (*)
+│           ├── regex v1.10.5 (*)
+│           └── syn v2.0.72 (*)
+├── reth-primitives v1.0.0-rc.2 (https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#6cc82cfd) (*)
+├── revm-precompile v7.0.0 (https://github.com/taikoxyz/revm.git?branch=v36-taiko#787302e8) (*)
+├── secp256k1 v0.29.0 (https://github.com/sp1-patches/rust-secp256k1?branch=feat/patch-ecrecover#1eb67f77) (*)
+├── sha2 v0.10.8 (https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388) (*)
+├── sp1-core v1.0.1
+│   ├── anyhow v1.0.86
+│   ├── arrayref v0.3.8
+│   ├── bincode v1.3.3 (*)
+│   ├── blake3 v1.5.3
+│   │   ├── arrayref v0.3.8
+│   │   ├── arrayvec v0.7.4
+│   │   ├── cfg-if v1.0.0
+│   │   ├── constant_time_eq v0.3.0
+│   │   └── rayon-core v1.12.1 (*)
+│   │   [build-dependencies]
+│   │   └── cc v1.1.7
+│   ├── bytemuck v1.16.3
+│   ├── cfg-if v1.0.0
+│   ├── curve25519-dalek v4.1.3
+│   │   ├── cfg-if v1.0.0
+│   │   ├── cpufeatures v0.2.12
+│   │   ├── curve25519-dalek-derive v0.1.1 (proc-macro)
+│   │   │   ├── proc-macro2 v1.0.86 (*)
+│   │   │   ├── quote v1.0.36 (*)
+│   │   │   └── syn v2.0.72 (*)
+│   │   ├── subtle v2.6.1
+│   │   └── zeroize v1.8.1 (*)
+│   │   [build-dependencies]
+│   │   └── rustc_version v0.4.0 (*)
+│   ├── elf v0.7.4
+│   ├── elliptic-curve v0.13.8 (*)
+│   ├── generic-array v1.1.0
+│   │   ├── serde v1.0.204 (*)
+│   │   └── typenum v1.17.0
+│   ├── hashbrown v0.14.5 (*)
+│   ├── hex v0.4.3
+│   ├── itertools v0.13.0 (*)
+│   ├── k256 v0.13.3 (*)
+│   ├── log v0.4.22
+│   ├── nohash-hasher v0.2.0
+│   ├── num v0.4.3 (*)
+│   ├── num-bigint v0.4.6 (*)
+│   ├── num_cpus v1.16.0 (*)
+│   ├── p3-air v0.1.3-succinct
+│   │   ├── p3-field v0.1.3-succinct
+│   │   │   ├── itertools v0.12.1 (*)
+│   │   │   ├── num-bigint v0.4.6 (*)
+│   │   │   ├── num-traits v0.2.19 (*)
+│   │   │   ├── p3-util v0.1.3-succinct
+│   │   │   │   └── serde v1.0.204 (*)
+│   │   │   ├── rand v0.8.5 (*)
+│   │   │   └── serde v1.0.204 (*)
+│   │   └── p3-matrix v0.1.3-succinct
+│   │       ├── itertools v0.12.1 (*)
+│   │       ├── p3-field v0.1.3-succinct (*)
+│   │       ├── p3-maybe-rayon v0.1.3-succinct
+│   │       │   └── rayon v1.10.0 (*)
+│   │       ├── p3-util v0.1.3-succinct (*)
+│   │       ├── rand v0.8.5 (*)
+│   │       ├── serde v1.0.204 (*)
+│   │       └── tracing v0.1.40 (*)
+│   ├── p3-baby-bear v0.1.3-succinct
+│   │   ├── num-bigint v0.4.6 (*)
+│   │   ├── p3-field v0.1.3-succinct (*)
+│   │   ├── p3-mds v0.1.3-succinct
+│   │   │   ├── itertools v0.12.1 (*)
+│   │   │   ├── p3-dft v0.1.3-succinct
+│   │   │   │   ├── p3-field v0.1.3-succinct (*)
+│   │   │   │   ├── p3-matrix v0.1.3-succinct (*)
+│   │   │   │   ├── p3-maybe-rayon v0.1.3-succinct (*)
+│   │   │   │   ├── p3-util v0.1.3-succinct (*)
+│   │   │   │   └── tracing v0.1.40 (*)
+│   │   │   ├── p3-field v0.1.3-succinct (*)
+│   │   │   ├── p3-matrix v0.1.3-succinct (*)
+│   │   │   ├── p3-symmetric v0.1.3-succinct
+│   │   │   │   ├── itertools v0.12.1 (*)
+│   │   │   │   ├── p3-field v0.1.3-succinct (*)
+│   │   │   │   └── serde v1.0.204 (*)
+│   │   │   ├── p3-util v0.1.3-succinct (*)
+│   │   │   └── rand v0.8.5 (*)
+│   │   ├── p3-poseidon2 v0.1.3-succinct
+│   │   │   ├── gcd v2.3.0
+│   │   │   ├── p3-field v0.1.3-succinct (*)
+│   │   │   ├── p3-mds v0.1.3-succinct (*)
+│   │   │   ├── p3-symmetric v0.1.3-succinct (*)
+│   │   │   └── rand v0.8.5 (*)
+│   │   ├── p3-symmetric v0.1.3-succinct (*)
+│   │   ├── rand v0.8.5 (*)
+│   │   └── serde v1.0.204 (*)
+│   ├── p3-blake3 v0.1.3-succinct
+│   │   ├── blake3 v1.5.3 (*)
+│   │   └── p3-symmetric v0.1.3-succinct (*)
+│   ├── p3-challenger v0.1.3-succinct
+│   │   ├── p3-field v0.1.3-succinct (*)
+│   │   ├── p3-maybe-rayon v0.1.3-succinct (*)
+│   │   ├── p3-symmetric v0.1.3-succinct (*)
+│   │   ├── p3-util v0.1.3-succinct (*)
+│   │   └── tracing v0.1.40 (*)
+│   ├── p3-commit v0.1.3-succinct
+│   │   ├── itertools v0.12.1 (*)
+│   │   ├── p3-challenger v0.1.3-succinct (*)
+│   │   ├── p3-field v0.1.3-succinct (*)
+│   │   ├── p3-matrix v0.1.3-succinct (*)
+│   │   ├── p3-util v0.1.3-succinct (*)
+│   │   └── serde v1.0.204 (*)
+│   ├── p3-dft v0.1.3-succinct (*)
+│   ├── p3-field v0.1.3-succinct (*)
+│   ├── p3-fri v0.1.3-succinct
+│   │   ├── itertools v0.12.1 (*)
+│   │   ├── p3-challenger v0.1.3-succinct (*)
+│   │   ├── p3-commit v0.1.3-succinct (*)
+│   │   ├── p3-dft v0.1.3-succinct (*)
+│   │   ├── p3-field v0.1.3-succinct (*)
+│   │   ├── p3-interpolation v0.1.3-succinct
+│   │   │   ├── p3-field v0.1.3-succinct (*)
+│   │   │   ├── p3-matrix v0.1.3-succinct (*)
+│   │   │   └── p3-util v0.1.3-succinct (*)
+│   │   ├── p3-matrix v0.1.3-succinct (*)
+│   │   ├── p3-maybe-rayon v0.1.3-succinct (*)
+│   │   ├── p3-util v0.1.3-succinct (*)
+│   │   ├── serde v1.0.204 (*)
+│   │   └── tracing v0.1.40 (*)
+│   ├── p3-keccak v0.1.3-succinct
+│   │   ├── p3-symmetric v0.1.3-succinct (*)
+│   │   └── tiny-keccak v2.0.2 (https://github.com/sp1-patches/tiny-keccak?branch=patch-v2.0.2#bf0b28f6) (*)
+│   ├── p3-keccak-air v0.1.3-succinct
+│   │   ├── p3-air v0.1.3-succinct (*)
+│   │   ├── p3-field v0.1.3-succinct (*)
+│   │   ├── p3-matrix v0.1.3-succinct (*)
+│   │   ├── p3-maybe-rayon v0.1.3-succinct (*)
+│   │   ├── p3-util v0.1.3-succinct (*)
+│   │   ├── tracing v0.1.40 (*)
+│   │   ├── tracing-forest v0.1.6
+│   │   │   ├── ansi_term v0.12.1
+│   │   │   ├── smallvec v1.13.2 (*)
+│   │   │   ├── thiserror v1.0.63 (*)
+│   │   │   ├── tracing v0.1.40 (*)
+│   │   │   └── tracing-subscriber v0.3.18 (*)
+│   │   └── tracing-subscriber v0.3.18 (*)
+│   ├── p3-matrix v0.1.3-succinct (*)
+│   ├── p3-maybe-rayon v0.1.3-succinct (*)
+│   ├── p3-merkle-tree v0.1.3-succinct
+│   │   ├── itertools v0.12.1 (*)
+│   │   ├── p3-commit v0.1.3-succinct (*)
+│   │   ├── p3-field v0.1.3-succinct (*)
+│   │   ├── p3-matrix v0.1.3-succinct (*)
+│   │   ├── p3-maybe-rayon v0.1.3-succinct (*)
+│   │   ├── p3-symmetric v0.1.3-succinct (*)
+│   │   ├── p3-util v0.1.3-succinct (*)
+│   │   ├── serde v1.0.204 (*)
+│   │   └── tracing v0.1.40 (*)
+│   ├── p3-poseidon2 v0.1.3-succinct (*)
+│   ├── p3-symmetric v0.1.3-succinct (*)
+│   ├── p3-uni-stark v0.1.3-succinct
+│   │   ├── itertools v0.12.1 (*)
+│   │   ├── p3-air v0.1.3-succinct (*)
+│   │   ├── p3-challenger v0.1.3-succinct (*)
+│   │   ├── p3-commit v0.1.3-succinct (*)
+│   │   ├── p3-dft v0.1.3-succinct (*)
+│   │   ├── p3-field v0.1.3-succinct (*)
+│   │   ├── p3-matrix v0.1.3-succinct (*)
+│   │   ├── p3-maybe-rayon v0.1.3-succinct (*)
+│   │   ├── p3-util v0.1.3-succinct (*)
+│   │   ├── postcard v1.0.8
+│   │   │   ├── cobs v0.2.3
+│   │   │   ├── embedded-io v0.4.0
+│   │   │   └── serde v1.0.204 (*)
+│   │   ├── serde v1.0.204 (*)
+│   │   ├── tracing v0.1.40 (*)
+│   │   ├── tracing-forest v0.1.6 (*)
+│   │   └── tracing-subscriber v0.3.18 (*)
+│   ├── p3-util v0.1.3-succinct (*)
+│   ├── rand v0.8.5 (*)
+│   ├── rayon-scan v0.1.1
+│   │   └── rayon v1.10.0 (*)
+│   ├── rrs-succinct v0.1.0
+│   │   ├── downcast-rs v1.2.1
+│   │   ├── num_enum v0.5.11
+│   │   │   └── num_enum_derive v0.5.11 (proc-macro)
+│   │   │       ├── proc-macro-crate v1.3.1
+│   │   │       │   ├── once_cell v1.19.0
+│   │   │       │   └── toml_edit v0.19.15
+│   │   │       │       ├── indexmap v2.3.0 (*)
+│   │   │       │       ├── toml_datetime v0.6.8
+│   │   │       │       └── winnow v0.5.40
+│   │   │       ├── proc-macro2 v1.0.86 (*)
+│   │   │       ├── quote v1.0.36 (*)
+│   │   │       └── syn v1.0.109 (*)
+│   │   └── paste v1.0.15 (proc-macro)
+│   ├── serde v1.0.204 (*)
+│   ├── serde_with v3.9.0 (*)
+│   ├── size v0.4.1
+│   ├── snowbridge-amcl v1.0.2 (*)
+│   ├── sp1-derive v1.0.1 (proc-macro)
+│   │   ├── proc-macro2 v1.0.86 (*)
+│   │   ├── quote v1.0.36 (*)
+│   │   └── syn v1.0.109 (*)
+│   ├── sp1-primitives v1.0.1
+│   │   ├── itertools v0.13.0 (*)
+│   │   ├── lazy_static v1.5.0 (*)
+│   │   ├── p3-baby-bear v0.1.3-succinct (*)
+│   │   ├── p3-field v0.1.3-succinct (*)
+│   │   ├── p3-poseidon2 v0.1.3-succinct (*)
+│   │   └── p3-symmetric v0.1.3-succinct (*)
+│   ├── strum v0.26.3 (*)
+│   ├── strum_macros v0.26.4 (proc-macro) (*)
+│   ├── tempfile v3.10.1 (*)
+│   ├── thiserror v1.0.63 (*)
+│   ├── tracing v0.1.40 (*)
+│   ├── tracing-forest v0.1.6 (*)
+│   ├── tracing-subscriber v0.3.18 (*)
+│   ├── typenum v1.17.0
+│   └── web-time v1.1.0
+├── sp1-zkvm v1.1.1 (https://github.com/succinctlabs/sp1?branch=dev#d3a73a9f)
+│   ├── bincode v1.3.3 (*)
+│   ├── cfg-if v1.0.0
+│   ├── getrandom v0.2.15 (*)
+│   ├── lazy_static v1.5.0 (*)
+│   ├── libm v0.2.8
+│   ├── once_cell v1.19.0
+│   ├── rand v0.8.5 (*)
+│   ├── serde v1.0.204 (*)
+│   ├── sha2 v0.10.8 (https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388) (*)
+│   └── sp1-lib v1.1.1 (https://github.com/succinctlabs/sp1?branch=dev#d3a73a9f)
+│       ├── anyhow v1.0.86
+│       ├── bincode v1.3.3 (*)
+│       ├── cfg-if v1.0.0
+│       ├── hex v0.4.3
+│       ├── serde v1.0.204 (*)
+│       └── snowbridge-amcl v1.0.2 (*)
+└── substrate-bn v0.6.0 (https://github.com/0xWOLAND/bn?branch=main#4970e22d) (*)
