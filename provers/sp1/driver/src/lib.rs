@@ -138,7 +138,7 @@ impl Prover for Sp1Prover {
                 output.header.number, proof_id
             );
             network_prover
-                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
+                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
                 .unwrap()
@@ -199,7 +199,7 @@ fn get_env_mock() -> ProverMode {
 fn init_verifier() -> Result<PathBuf, ProverError> {
     // In cargo run, Cargo sets the working directory to the root of the workspace
     let output_dir: PathBuf = CONTRACT_PATH.into();
-    let artifacts_dir = sp1_sdk::install::try_install_plonk_bn254_artifacts();
+    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
     if !artifacts_dir.join("SP1Verifier.sol").exists() {
         return Err(ProverError::GuestError(format!(
             "verifier file not found at {:?}",

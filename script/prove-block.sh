@@ -131,7 +131,7 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 	fi
 
 	echo "- proving block $block"
-	curl --location --request POST 'http://localhost:8080/proof' \
+	curl --location --request POST 'http://localhost:9000/proof' \
 		--header 'Content-Type: application/json' \
 		--header 'Authorization: Bearer 4cbd753fbcbc2639de804f8ce425016a50e0ecd53db00cb5397912e83f5e570e' \
 		--data-raw "{
@@ -143,4 +143,6 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
          $proofParam
        }"
 	echo ""
+
+	sleep 10.0
 done

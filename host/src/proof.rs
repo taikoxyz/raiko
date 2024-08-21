@@ -79,15 +79,18 @@ impl ProofActor {
     pub async fn run_task(&mut self, proof_request: ProofRequest, _permit: OwnedSemaphorePermit) {
         let cancel_token = CancellationToken::new();
 
-        let Ok((chain_id, blockhash)) = get_task_data(
+        let res = get_task_data(
             &proof_request.network,
             proof_request.block_number,
             &self.chain_specs,
         )
-        .await
-        else {
-            error!("Could not get task data for {proof_request:?}");
+        .await;
+        if let Err(e) = res {
+            error!("Could not get task data for {proof_request:?}: {e}");
             return;
+        }
+        let Ok((chain_id, blockhash)) = res else {
+            unreachable!();
         };
 
         let key = TaskDescriptor::from((
