@@ -109,6 +109,8 @@ pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
     // Get block to test with.
     let block_number = find_recent_block(Network::TaikoMainnet).await?;
 
+    // TODO:(petar) Change prover type based on the prover we want to test. Probably should be
+    // read from the environment.
     Ok(ProofRequestOpt {
         block_number: Some(block_number),
         l1_inclusive_block_number: None,
