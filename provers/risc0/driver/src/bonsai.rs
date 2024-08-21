@@ -1,3 +1,8 @@
+use crate::{
+    methods::risc0_guest::RISC0_GUEST_ID,
+    snarks::{stark2snark, verify_groth16_snark},
+    Risc0Response,
+};
 use log::{debug, error, info, warn};
 use raiko_lib::{
     primitives::keccak::keccak,
@@ -16,6 +21,18 @@ use std::{
 
 use crate::Risc0Param;
 
+#[derive(thiserror::Error, Debug)]
+pub enum BonsaiExecutionError {
+    // common errors: include sdk error, or some others from non-bonsai code
+    #[error(transparent)]
+    SdkFailure(#[from] bonsai_sdk::alpha::SdkErr),
+    #[error("bonsai execution error: {0}")]
+    Other(String),
+    // critical error like OOM, which is un-recoverable
+    #[error("bonsai execution fatal error: {0}")]
+    Fatal(String),
+}
+
 #[cfg(feature = "bonsai-auto-scaling")]
 pub mod auto_scaling;
 
@@ -24,7 +41,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     expected_output: &O,
     uuid: String,
     max_retries: usize,
-) -> anyhow::Result<(String, Receipt)> {
+) -> anyhow::Result<(String, Receipt), BonsaiExecutionError> {
     info!("Tracking receipt uuid: {uuid}");
     let session = bonsai_sdk::alpha::SessionId { uuid };
 
@@ -40,7 +57,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
                 }
                 Err(err) => {
                     if attempt == max_retries {
-                        anyhow::bail!(err);
+                        return Err(BonsaiExecutionError::SdkFailure(err));
                     }
                     warn!("Attempt {attempt}/{max_retries} for session status request: {err:?}");
                     std::thread::sleep(std::time::Duration::from_secs(15));
@@ -49,7 +66,8 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             }
         }
 
-        let res = res.ok_or_else(|| ProverError::GuestError("No res!".to_owned()))?;
+        let res =
+            res.ok_or_else(|| BonsaiExecutionError::Other("status result not found!".to_owned()))?;
 
         if res.status == "RUNNING" {
             info!(
@@ -65,7 +83,9 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
                 .expect("API error, missing receipt on completed session");
             let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
             let receipt_buf = client.download(&receipt_url)?;
-            let receipt: Receipt = bincode::deserialize(&receipt_buf)?;
+            let receipt: Receipt = bincode::deserialize(&receipt_buf).map_err(|e| {
+                BonsaiExecutionError::Other(format!("Failed to deserialize receipt: {e:?}"))
+            })?;
             receipt
                 .verify(image_id)
                 .expect("Receipt verification failed");
@@ -73,7 +93,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             let receipt_output: O = receipt
                 .journal
                 .decode()
-                .map_err(|e| ProverError::GuestError(e.to_string()))?;
+                .map_err(|e| BonsaiExecutionError::Other(e.to_string()))?;
             if expected_output == &receipt_output {
                 info!("Receipt validated!");
             } else {
@@ -83,11 +103,14 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             }
             return Ok((session.uuid, receipt));
         } else {
-            panic!(
-                "Workflow exited: {} - | err: {}",
+            let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+            let bonsai_err_log = session.logs(&client);
+            return Err(BonsaiExecutionError::Fatal(format!(
+                "Workflow exited: {} - | err: {} | log: {:?}",
                 res.status,
-                res.error_msg.unwrap_or_default()
-            );
+                res.error_msg.unwrap_or_default(),
+                bonsai_err_log
+            )));
         }
     }
 }
@@ -120,9 +143,13 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             (cached_data.0, cached_data.1, true)
         } else if param.bonsai {
             #[cfg(feature = "bonsai-auto-scaling")]
-            auto_scaling::maxpower_bonsai()
-                .await
-                .expect("Failed to set max power on Bonsai");
+            match auto_scaling::maxpower_bonsai().await {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("Failed to scale up bonsai: {e:?}");
+                    return None;
+                }
+            }
             // query bonsai service until it works
             loop {
                 match prove_bonsai(
@@ -138,9 +165,17 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                     Ok((receipt_uuid, receipt)) => {
                         break (receipt_uuid, receipt, false);
                     }
-                    Err(err) => {
-                        warn!("Failed to prove on Bonsai: {err:?}");
+                    Err(BonsaiExecutionError::SdkFailure(err)) => {
+                        warn!("Bonsai SDK fail: {err:?}, keep tracking...");
                         std::thread::sleep(std::time::Duration::from_secs(15));
+                    }
+                    Err(BonsaiExecutionError::Other(err)) => {
+                        warn!("Something wrong: {err:?}, keep tracking...");
+                        std::thread::sleep(std::time::Duration::from_secs(15));
+                    }
+                    Err(BonsaiExecutionError::Fatal(err)) => {
+                        error!("Fatal error on Bonsai: {err:?}");
+                        return None;
                     }
                 }
             }
@@ -213,10 +248,11 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     assumption_uuids: Vec<String>,
     proof_key: ProofKey,
     id_store: &mut Option<&mut dyn IdWrite>,
-) -> anyhow::Result<(String, Receipt)> {
+) -> anyhow::Result<(String, Receipt), BonsaiExecutionError> {
     info!("Proving on Bonsai");
     // Compute the image_id, then upload the ELF with the image_id as its key.
-    let image_id = risc0_zkvm::compute_image_id(elf)?;
+    let image_id = risc0_zkvm::compute_image_id(elf)
+        .map_err(|e| BonsaiExecutionError::Other(format!("Failed to compute image id: {e:?}")))?;
     let encoded_image_id = hex::encode(image_id);
     // Prepare input data
     let input_data = bytemuck::cast_slice(&encoded_input).to_vec();
@@ -233,10 +269,34 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     )?;
 
     if let Some(id_store) = id_store {
-        id_store.store_id(proof_key, session.uuid.clone()).await?;
+        id_store
+            .store_id(proof_key, session.uuid.clone())
+            .await
+            .map_err(|e| {
+                BonsaiExecutionError::Other(format!("Failed to store session id: {e:?}"))
+            })?;
     }
 
     verify_bonsai_receipt(image_id, expected_output, session.uuid.clone(), 8).await
+}
+
+pub async fn bonsai_stark_to_snark(
+    stark_uuid: String,
+    stark_receipt: Receipt,
+) -> ProverResult<Risc0Response> {
+    let image_id = Digest::from(RISC0_GUEST_ID);
+    let (snark_uuid, snark_receipt) = stark2snark(image_id, stark_uuid, stark_receipt)
+        .await
+        .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
+
+    info!("Validating SNARK uuid: {snark_uuid}");
+
+    let enc_proof = verify_groth16_snark(image_id, snark_receipt)
+        .await
+        .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
+
+    let snark_proof = format!("0x{}", hex::encode(enc_proof));
+    Ok(Risc0Response { proof: snark_proof })
 }
 
 /// Prove the given ELF locally with the given input and assumptions. The segments are
