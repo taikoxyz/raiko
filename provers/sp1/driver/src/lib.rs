@@ -122,7 +122,9 @@ impl Prover for Sp1Prover {
             let proof_id = network_prover
                 .request_proof(ELF, stdin, param.recursion.clone().into())
                 .await
-                .map_err(|_| ProverError::GuestError("Sp1: requesting proof failed".to_owned()))?;
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
+                })?;
             if let Some(id_store) = id_store {
                 id_store
                     .store_id(
