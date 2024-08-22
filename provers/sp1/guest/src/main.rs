@@ -17,17 +17,6 @@ pub fn main() {
     let input = bincode::deserialize::<GuestInput>(&input).unwrap();
     ct.end();
 
-    // revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Sp1Operator {}));
-    // revm_precompile::zk_op::ZKVM_OPERATIONS
-    //     .set(Box::new(vec![
-    //         ZkOperation::Bn128Add,
-    //         ZkOperation::Bn128Mul,
-    //         ZkOperation::Sha256,
-    //         //already patched with https://github.com/CeciliaZ030/rust-secp256k1
-    //         ZkOperation::Secp256k1,
-    //     ]))
-    //     .expect("Failed to set ZkvmOperations");
-
     ct = CycleTracker::start("calculate_block_header");
     let header = calculate_block_header(&input);
     ct.end();

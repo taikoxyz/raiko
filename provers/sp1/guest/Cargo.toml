@@ -63,10 +63,6 @@ sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "pat
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 bn = { package = "substrate-bn", git = "https://github.com/0xWOLAND/bn", branch = "main" }
-# kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "bhargav/sp1-bls-patch" }
-
-# [patch."https://github.com/brechtpd/rust-kzg.git"]
-# bls12_381 = { git = "https://github.com/succinctlabs/bls12_381", branch = "main" } 
 
 [features]
 default = ["sp1-cycle-tracker"]
