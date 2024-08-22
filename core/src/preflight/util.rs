@@ -21,6 +21,7 @@ use raiko_lib::{
 };
 use reth_evm_ethereum::taiko::decode_anchor;
 use reth_primitives::Block;
+use reth_revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 
@@ -81,7 +82,7 @@ pub async fn prepare_taiko_chain_input(
     let anchor_call = decode_anchor(anchor_tx.input())?;
     // The L1 blocks we need
     let l1_state_block_number = anchor_call.l1BlockId;
-    let is_preconfirm = l1_inclusion_block_number.is_some();
+    let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
     let l1_inclusion_block_number = l1_inclusion_block_number.unwrap_or(l1_state_block_number + 1);
 
     debug!(
@@ -115,7 +116,7 @@ pub async fn prepare_taiko_chain_input(
         taiko_chain_spec.clone(),
         l1_inclusion_block_hash,
         block_number,
-        is_preconfirm,
+        fork,
     )
     .await?;
 
@@ -127,21 +128,28 @@ pub async fn prepare_taiko_chain_input(
             l1_chain_spec,
         )
         .await?
-    } else if is_preconfirm {
-        // Get the tx list data directly from the propose block CalldataTxList event
-        let calldata_txlist = get_calldata_txlist_event(
-            provider_l1.provider(),
-            taiko_chain_spec.clone(),
-            l1_inclusion_block_hash,
-            block_number,
-        )
-        .await?;
-        (calldata_txlist.1.txList.as_ref().to_owned(), None)
     } else {
-        // Get the tx list data directly from the propose transaction data
-        let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
-            .map_err(|_| RaikoError::Preflight("Could not decode proposeBlockCall".to_owned()))?;
-        (proposal_call.txList.as_ref().to_owned(), None)
+        match fork {
+            SpecId::ONTAKE => {
+                // Get the tx list data directly from the propose block CalldataTxList event
+                let calldata_txlist = get_calldata_txlist_event(
+                    provider_l1.provider(),
+                    taiko_chain_spec.clone(),
+                    l1_inclusion_block_hash,
+                    block_number,
+                )
+                .await?;
+                (calldata_txlist.1.txList.as_ref().to_owned(), None)
+            }
+            _ => {
+                // Get the tx list data directly from the propose transaction data
+                let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
+                    .map_err(|_| {
+                        RaikoError::Preflight("Could not decode proposeBlockCall".to_owned())
+                    })?;
+                (proposal_call.txList.as_ref().to_owned(), None)
+            }
+        }
     };
 
     // Create the input struct without the block data set
@@ -235,7 +243,7 @@ pub async fn get_block_proposed_event(
     chain_spec: ChainSpec,
     block_hash: B256,
     l2_block_number: u64,
-    is_preconfirm: bool,
+    fork: SpecId,
 ) -> Result<(AlloyRpcTransaction, BlockProposedFork)> {
     // Get the address that emitted the event
     let Some(l1_address) = chain_spec.l1_contract else {
@@ -243,10 +251,9 @@ pub async fn get_block_proposed_event(
     };
 
     // Get the event signature (value can differ between chains)
-    let event_signature = if is_preconfirm {
-        BlockProposedV2::SIGNATURE_HASH
-    } else {
-        BlockProposed::SIGNATURE_HASH
+    let event_signature = match fork {
+        SpecId::ONTAKE => BlockProposedV2::SIGNATURE_HASH,
+        _ => BlockProposed::SIGNATURE_HASH,
     };
     // Setup the filter to get the relevant events
     let filter = Filter::new()
@@ -266,14 +273,17 @@ pub async fn get_block_proposed_event(
         ) else {
             bail!("Could not create log")
         };
-        let (block_id, data) = if is_preconfirm {
-            let event = BlockProposedV2::decode_log(&log_struct, false)
-                .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
-            (event.blockId, BlockProposedFork::Ontake(event.data))
-        } else {
-            let event = BlockProposed::decode_log(&log_struct, false)
-                .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
-            (event.blockId, BlockProposedFork::Hekla(event.data))
+        let (block_id, data) = match fork {
+            SpecId::ONTAKE => {
+                let event = BlockProposedV2::decode_log(&log_struct, false)
+                    .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
+                (event.blockId, BlockProposedFork::Ontake(event.data))
+            }
+            _ => {
+                let event = BlockProposed::decode_log(&log_struct, false)
+                    .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
+                (event.blockId, BlockProposedFork::Hekla(event.data))
+            }
         };
 
         if block_id == raiko_lib::primitives::U256::from(l2_block_number) {
