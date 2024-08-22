@@ -52,7 +52,7 @@ elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
 	"sp1": {
-		"recursion": "plonk",
+		"recursion": "compressed",
 		"prover": "network",
 		"verify": false
 	}
@@ -144,5 +144,5 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
        }"
 	echo ""
 
-	sleep 10.0
+	sleep 25.0
 done
