@@ -3555,19 +3555,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp1-lib"
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-dependencies = [
- "anyhow",
- "bincode",
- "cfg-if",
- "hex",
- "serde",
- "snowbridge-amcl",
-]
-
-[[package]]
 name = "sp1-primitives"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3595,7 +3582,7 @@ dependencies = [
  "rand",
  "serde",
  "sha2",
- "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1?branch=dev)",
+ "sp1-lib 1.1.1",
 ]
 
 [[package]]
@@ -3651,16 +3638,13 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "git+https://github.com/0xWOLAND/bn?branch=main#4970e22d001de8fcc46b07d93308c5f6cd9b1e26"
+source = "git+https://github.com/sp1-patches/bn?branch=master#63f8c587356a67b33c7396af98e065b66fca5dda"
 dependencies = [
- "bytemuck",
  "byteorder",
- "cfg-if",
  "crunchy",
  "lazy_static",
  "rand",
  "rustc-hex",
- "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=experimental)",
 ]
 
 [[package]]
