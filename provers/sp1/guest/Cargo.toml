@@ -5,9 +5,9 @@ name = "sp1-guest"
 version = "0.1.0"
 edition = "2021"
 
-# [lib]
-# name = "zk_op"
-# path = "src/zk_op.rs"
+[lib]
+name = "zk_op"
+path = "src/zk_op.rs"
 
 [[bin]]
 name = "sha256"
