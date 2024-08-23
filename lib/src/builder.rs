@@ -116,6 +116,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l1_header: self.input.taiko.l1_header.clone(),
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
+                ..Default::default()
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {
