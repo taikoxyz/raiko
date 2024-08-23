@@ -58,10 +58,7 @@ impl Prover for NativeProver {
         }
 
         Ok(Proof {
-            proof: None,
-            quote: None,
-            kzg_proof: None,
-            input: None,
+            ..Default::default()
         })
     }
 
@@ -75,6 +72,8 @@ impl Prover for NativeProver {
         config: &ProverConfig,
         store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        todo!()
+        Ok(Proof {
+            ..Default::default()
+        })
     }
 }

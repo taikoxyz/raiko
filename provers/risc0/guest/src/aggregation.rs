@@ -7,9 +7,8 @@ fn main() {
     // Read the aggregation input
     let input = sp1_zkvm::io::read::<ZkAggregationGuestInput>();
 
-    // Verify the proofs.
+    // Verify the block proofs.
     for block_input in input.block_inputs {
-        // Verify that n has a known factorization.
         env::verify(input.image_id, &block_input).unwrap();
     }
 

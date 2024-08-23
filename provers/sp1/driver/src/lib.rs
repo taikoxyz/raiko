@@ -69,9 +69,7 @@ impl From<Sp1Response> for Proof {
     fn from(value: Sp1Response) -> Self {
         Self {
             proof: Some(value.proof),
-            quote: None,
-            kzg_proof: None,
-            input: None,
+            ..Default::default()
         }
     }
 }
@@ -148,9 +146,7 @@ impl Prover for Sp1Prover {
 
         let proof = Proof {
             proof: serde_json::to_string(&prove_result).ok(),
-            quote: None,
-            kzg_proof: None,
-            input: None,
+            ..Default::default()
         };
 
         if param.verify {
@@ -257,9 +253,7 @@ impl Prover for Sp1Prover {
 
         let proof = Proof {
             proof: serde_json::to_string(&prove_result).ok(),
-            quote: None,
-            kzg_proof: None,
-            input: None,
+            ..Default::default()
         };
 
         if param.verify {

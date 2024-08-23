@@ -39,6 +39,7 @@ pub struct Risc0Param {
 pub struct Risc0Response {
     pub proof: String,
     pub receipt: String,
+    pub uuid: String,
     pub input: B256,
 }
 
@@ -48,6 +49,7 @@ impl From<Risc0Response> for Proof {
             proof: Some(value.proof),
             input: Some(value.input),
             quote: Some(value.receipt),
+            uuid: Some(value.uuid),
             kzg_proof: None,
         }
     }
@@ -87,6 +89,7 @@ impl Prover for Risc0Prover {
         .await;
 
         let receipt = result.clone().unwrap().1.clone();
+        let uuid = result.clone().unwrap().0;
         let journal: String = receipt.journal.encode_hex();
 
         // Create/verify Groth16 SNARK in bonsai
@@ -122,7 +125,7 @@ impl Prover for Risc0Prover {
                 .map_err(|e| ProverError::GuestError(e.to_string()))?;
         }
 
-        Ok(Risc0Response { proof: snark_proof, receipt: serde_json::to_string(&receipt).unwrap(), input: output.hash }.into())
+        Ok(Risc0Response { proof: snark_proof, receipt: serde_json::to_string(&receipt).unwrap(), uuid, input: output.hash }.into())
     }
 
     async fn aggregate(
@@ -156,7 +159,7 @@ impl Prover for Risc0Prover {
         // For bonsai
         let assumptions_uuids: Vec<String> = input.proofs
             .iter()
-            .map(|proof| "dummy".to_owned())
+            .map(|proof| proof.uuid.clone().unwrap())
             .collect::<Vec<_>>();
 
         let input = ZkAggregationGuestInput {
@@ -179,6 +182,7 @@ impl Prover for Risc0Prover {
         .await;
 
         let receipt = result.clone().unwrap().1.clone();
+        let uuid = result.clone().unwrap().0;
         let journal: String = receipt.journal.encode_hex();
 
         // Create/verify Groth16 SNARK in bonsai
@@ -214,7 +218,7 @@ impl Prover for Risc0Prover {
                 .map_err(|e| ProverError::GuestError(e.to_string()))?;
         }
 
-        Ok(Risc0Response { proof: snark_proof, receipt: serde_json::to_string(&receipt).unwrap(), input: output.hash }.into())
+        Ok(Risc0Response { proof: snark_proof, receipt: serde_json::to_string(&receipt).unwrap(), uuid, input: output.hash }.into())
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
