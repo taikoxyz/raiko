@@ -4,10 +4,8 @@ use clap::{Args, ValueEnum};
 use raiko_lib::{
     consts::VerifierType,
     input::{BlobProofType, GuestInput, GuestOutput},
-    primitives::eip4844::{calc_kzg_proof, commitment_to_version_hash, kzg_proof_to_bytes},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
 };
-use reth_primitives::hex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
@@ -174,7 +172,7 @@ impl ProofType {
         config: &Value,
         store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
-        Ok(match self {
+        match self {
             ProofType::Native => NativeProver::run(input.clone(), output, config, store)
                 .await
                 .map_err(<ProverError as Into<RaikoError>>::into),
@@ -202,7 +200,7 @@ impl ProofType {
                 #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
             }
-        }?)
+        }
     }
 
     pub async fn cancel_proof(

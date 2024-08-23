@@ -1,7 +1,7 @@
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use reth_primitives::{Header};
+use reth_primitives::Header;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -42,8 +42,9 @@ impl ProtocolInstance {
                 .expect("no blob commitment");
             let versioned_hash =
                 commitment_to_version_hash(&commitment.clone().try_into().unwrap());
-            
-            let blob_proof_type = get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone());
+
+            let blob_proof_type =
+                get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone());
             println!("blob proof type: {:?}", &blob_proof_type);
             match blob_proof_type {
                 crate::input::BlobProofType::ProofOfEquivalence => {
@@ -189,7 +190,7 @@ impl ProtocolInstance {
             self.transition.clone(),
             self.sgx_instance,
             self.prover,
-            self.meta_hash()
+            self.meta_hash(),
         )
             .abi_encode()
             .iter()
@@ -205,7 +206,7 @@ fn get_blob_proof_type(
     proof_type: VerifierType,
     blob_proof_type_hint: BlobProofType,
 ) -> BlobProofType {
-    // Enforce different blob proof type for different provers 
+    // Enforce different blob proof type for different provers
     // due to performance considerations
     match proof_type {
         VerifierType::None => blob_proof_type_hint,

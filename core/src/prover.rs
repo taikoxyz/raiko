@@ -68,7 +68,6 @@ impl Prover for NativeProver {
     }
 }
 
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_native_prover() {
     use serde_json::json;
@@ -101,6 +100,7 @@ async fn test_native_prover() {
             "json_guest_input": null
         }
     });
-    NativeProver::run(input, &output, &param, None).await.unwrap();
-
+    NativeProver::run(input, &output, &param, None)
+        .await
+        .unwrap();
 }

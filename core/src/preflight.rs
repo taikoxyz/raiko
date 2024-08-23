@@ -267,23 +267,23 @@ async fn prepare_taiko_chain_input(
             BlobProofType::KzgVersionedHash => None,
             BlobProofType::ProofOfEquivalence => {
                 let (x, y) = proof_of_equivalence(&blob, &commitment_to_version_hash(&commitment))
-                .map_err(|e| anyhow!(e))?;
-                
-                
-                println!("x {:?} y {:?}", x, y);
-                println!("calc_kzg_proof_with_point {:?}", calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap()).unwrap());
+                    .map_err(|e| anyhow!(e))?;
 
-                Some(calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap())
-                    .map(|g1| g1.to_bytes().to_vec())
-                    .map_err(|e| anyhow!(e))?)
-            },
+                println!("x {:?} y {:?}", x, y);
+                println!(
+                    "calc_kzg_proof_with_point {:?}",
+                    calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap()).unwrap()
+                );
+
+                Some(
+                    calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap())
+                        .map(|g1| g1.to_bytes().to_vec())
+                        .map_err(|e| anyhow!(e))?,
+                )
+            }
         };
 
-        (
-            blob,
-            Some(commitment.to_vec()),
-            blob_proof,
-        )
+        (blob, Some(commitment.to_vec()), blob_proof)
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)

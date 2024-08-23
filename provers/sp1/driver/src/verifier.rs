@@ -60,4 +60,3 @@ async fn main() {
     Sp1Prover::run(input, &output, &param, None).await.unwrap();
     time.stop_with("==> Verification complete");
 }
-
