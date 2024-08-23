@@ -73,9 +73,9 @@
     {
         "name": "taiko_a7",
         "chain_id": 167009,
-        "max_spec_id": "SHANGHAI",
+        "max_spec_id": "HEKLA",
         "hard_forks": {
-            "SHANGHAI": {
+            "HEKLA": {
                 "Block": 0
             },
             "CANCUN": "TBD"
@@ -102,9 +102,9 @@
     {
         "name": "taiko_mainnet",
         "chain_id": 167000,
-        "max_spec_id": "SHANGHAI",
+        "max_spec_id": "HEKLA",
         "hard_forks": {
-            "SHANGHAI": {
+            "HEKLA": {
                 "Block": 0
             },
             "CANCUN": "TBD"
