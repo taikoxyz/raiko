@@ -36,9 +36,9 @@
     {
         "name": "taiko_dev",
         "chain_id": 167001,
-        "max_spec_id": "SHANGHAI",
+        "max_spec_id": "HELKA",
         "hard_forks": {
-            "SHANGHAI": {
+            "HEKLA": {
                 "Block": 0
             },
             "CANCUN": "TBD"
