@@ -48,7 +48,7 @@ fi
 if [ "$1" == "risc0" ]; then
 	check_toolchain $TOOLCHAIN_RISC0
 	./script/setup-bonsai.sh
-	cargo ${TOOLCHAIN_RISC0} test -F "risc0 enable integation" run_scenarios_sequentially
+	cargo ${TOOLCHAIN_RISC0} test -F "risc0 enable integration" run_scenarios_sequentially
 fi
 
 # SP1
