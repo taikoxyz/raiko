@@ -1,4 +1,6 @@
-use raiko_core::interfaces::{ProofRequestOpt, ProverSpecificOpts};
+use std::str::FromStr;
+
+use raiko_core::interfaces::{ProofRequestOpt, ProofType, ProverSpecificOpts};
 use raiko_host::{server::serve, ProverState};
 use raiko_lib::consts::{Network, SupportedChainSpecs};
 use serde::Deserialize;
@@ -109,8 +111,9 @@ pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
     // Get block to test with.
     let block_number = find_recent_block(Network::TaikoMainnet).await?;
 
-    // TODO:(petar) Change prover type based on the prover we want to test. Probably should be
-    // read from the environment.
+    let proof_type =
+        ProofType::from_str(&std::env::var("PROOF_TYPE").unwrap_or_else(|_| "native".to_owned()))?;
+
     Ok(ProofRequestOpt {
         block_number: Some(block_number),
         l1_inclusive_block_number: None,
@@ -120,7 +123,7 @@ pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
             "8008500000000000000000000000000000000000000000000000000000000000".to_owned(),
         ),
         prover: Some("0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_owned()),
-        proof_type: Some("native".to_owned()),
+        proof_type: Some(proof_type),
         blob_proof_type: Some("kzg_versioned_hash".to_string()),
         prover_args: ProverSpecificOpts {
             native: None,
