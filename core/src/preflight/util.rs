@@ -47,8 +47,8 @@ where
 
         builder
             .execute_transactions(num_iterations + 1 < max_iterations)
-            .map_err(|_| {
-                RaikoError::Preflight("Executing transactions in builder failed".to_owned())
+            .map_err(|e| {
+                RaikoError::Preflight(format!("Executing transactions in builder failed: {e}"))
             })?;
 
         let Some(db) = builder.db.as_mut() else {
