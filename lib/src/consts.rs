@@ -265,6 +265,14 @@ mod tests {
         );
     }
 
+    #[test]
+    fn revm_taiko_a7_spec_id() {
+        let taiko_a7_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoA7.to_string())
+            .unwrap();
+        assert_eq!(taiko_a7_spec.spec_id(1, 0), Some(SpecId::HEKLA));
+    }
+
     #[ignore]
     #[test]
     fn serde_chain_spec() {
