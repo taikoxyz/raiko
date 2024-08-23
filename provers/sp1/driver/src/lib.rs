@@ -3,7 +3,7 @@
 
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput},
+    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput, ZkAggregationGuestInput},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
     Measurement,
 };
@@ -191,18 +191,20 @@ impl Prover for Sp1Prover {
             })
             .unwrap_or_else(ProverClient::new);
 
-        let mut stdin = SP1Stdin::new();
-
         let (_guest_pk, guest_vk) = client.setup(ELF);
 
-        // Write the verification key.
-        stdin.write::<[u32; 8]>(&guest_vk.hash_u32());
         // Write the public values for each block proof
-        let public_values = proofs
+        let block_inputs = proofs
             .iter()
             .map(|proof| B256::from_slice(&proof.public_values.to_vec()))
             .collect::<Vec<_>>();
-        stdin.write::<Vec<B256>>(&public_values);
+
+        let input = ZkAggregationGuestInput {
+            image_id: guest_vk.hash_u32(),
+            block_inputs,
+        };
+        let mut stdin = SP1Stdin::new();
+        stdin.write(&input);
 
         // Write the proofs.
         //

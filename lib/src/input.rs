@@ -72,6 +72,12 @@ pub struct AggregationGuestOutput {
     pub hash: B256,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ZkAggregationGuestInput {
+    pub image_id: [u32; 8],
+    pub block_inputs: Vec<B256>,
+}
+
 impl From<(Block, Header, ChainSpec, TaikoGuestInput)> for GuestInput {
     fn from(
         (block, parent_header, chain_spec, taiko): (Block, Header, ChainSpec, TaikoGuestInput),

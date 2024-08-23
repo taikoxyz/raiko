@@ -4,8 +4,7 @@ use raiko_lib::{
     prover::{IdWrite, ProofKey, ProverError, ProverResult},
 };
 use risc0_zkvm::{
-    compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, ExecutorEnv,
-    ExecutorImpl, Receipt,
+    compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, AssumptionReceipt, ExecutorEnv, ExecutorImpl, Receipt
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -97,7 +96,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     encoded_input: Vec<u32>,
     elf: &[u8],
     expected_output: &O,
-    assumptions: (Vec<Assumption>, Vec<String>),
+    assumptions: (Vec<impl Into<AssumptionReceipt>>, Vec<String>),
     proof_key: ProofKey,
     id_store: &mut Option<&mut dyn IdWrite>,
 ) -> Option<(String, Receipt)> {
@@ -245,7 +244,7 @@ pub fn prove_locally(
     segment_limit_po2: u32,
     encoded_input: Vec<u32>,
     elf: &[u8],
-    assumptions: Vec<Assumption>,
+    assumptions: Vec<impl Into<AssumptionReceipt>>,
     profile: bool,
 ) -> ProverResult<Receipt> {
     debug!("Proving with segment_limit_po2 = {segment_limit_po2:?}");
