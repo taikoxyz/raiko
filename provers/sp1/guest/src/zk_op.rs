@@ -6,7 +6,7 @@ use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
     Message,
 };
-use sha2_v0_10_8 as sp1_sha2;
+use sha2 as sp1_sha2;
 use sp1_core::utils::ec::{weierstrass::bn254::Bn254, AffinePoint};
 
 

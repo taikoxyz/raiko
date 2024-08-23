@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use tracing::{info, warn};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
-pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
+pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
 pub const FIXTURE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
 pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src/exports/";
 const SP1_PROVER_CODE: u8 = 1;
