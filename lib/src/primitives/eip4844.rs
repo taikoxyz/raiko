@@ -64,6 +64,37 @@ pub fn proof_of_equivalence(
     Ok((x.to_bytes(), y))
 }
 
+pub fn verify_kzg_proof_impl(
+    commitment: KzgGroup,
+    x: KzgField,
+    y: KzgField,
+    proof: KzgGroup,
+) -> Result<bool, Eip4844Error> {
+    use kzg::bls12_381::*;
+    let commitment = G1Affine::from_compressed(&commitment).unwrap();
+    let proof = G1Affine::from_compressed(&proof).unwrap();
+    let mut x_le = x;
+    x_le.reverse();
+    let mut y_le = y;
+    y_le.reverse();
+    let x = Scalar::from_bytes(&x_le).unwrap();
+    let y = Scalar::from_bytes(&y_le).unwrap();
+
+    let g2_x = G2Affine::generator() * x;
+    let setup_commited_x = G2Affine::from(KZG_SETTINGS.secret_g2[1].proj);
+    let x_diff = setup_commited_x - g2_x;
+
+    let g1_y = G1Affine::generator() * y;
+    let p_minus_y = commitment - g1_y;
+
+    Ok(pairings_verify(
+        p_minus_y.into(),
+        G2Affine::generator(),
+        proof,
+        x_diff.into(),
+    ))
+}
+
 pub fn calc_kzg_proof(blob: &[u8], versioned_hash: &B256) -> Result<ZG1, Eip4844Error> {
     calc_kzg_proof_with_point(blob, get_evaluation_point(blob, versioned_hash))
 }

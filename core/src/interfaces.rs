@@ -174,7 +174,7 @@ impl ProofType {
         config: &Value,
         store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
-        let mut proof = match self {
+        Ok(match self {
             ProofType::Native => NativeProver::run(input.clone(), output, config, store)
                 .await
                 .map_err(<ProverError as Into<RaikoError>>::into),
@@ -202,23 +202,7 @@ impl ProofType {
                 #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
             }
-        }?;
-
-        // Add the kzg proof to the proof if needed
-        if let Some(blob_commitment) = input.taiko.blob_commitment.clone() {
-            let kzg_proof = calc_kzg_proof(
-                &input.taiko.tx_data,
-                &commitment_to_version_hash(&blob_commitment.try_into().map_err(|_| {
-                    RaikoError::Conversion(
-                        "Could not convert blob commitment to version hash".to_owned(),
-                    )
-                })?),
-            )
-            .map_err(|e| anyhow::anyhow!(e))?;
-            proof.kzg_proof = Some(hex::encode(kzg_proof_to_bytes(&kzg_proof)));
-        }
-
-        Ok(proof)
+        }?)
     }
 
     pub async fn cancel_proof(

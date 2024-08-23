@@ -49,7 +49,6 @@ impl From<SgxResponse> for Proof {
         Self {
             proof: Some(value.proof),
             quote: Some(value.quote),
-            kzg_proof: None,
         }
     }
 }

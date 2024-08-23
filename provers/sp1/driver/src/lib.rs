@@ -69,7 +69,6 @@ impl From<Sp1Response> for Proof {
         Self {
             proof: Some(value.proof),
             quote: None,
-            kzg_proof: None,
         }
     }
 }
@@ -122,9 +121,7 @@ impl Prover for Sp1Prover {
             let proof_id = network_prover
                 .request_proof(ELF, stdin, param.recursion.clone().into())
                 .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
-                })?;
+                .map_err(|_| ProverError::GuestError("Sp1: requesting proof failed".to_owned()))?;
             if let Some(id_store) = id_store {
                 id_store
                     .store_id(
@@ -147,7 +144,6 @@ impl Prover for Sp1Prover {
         let proof = Proof {
             proof: serde_json::to_string(&prove_result).ok(),
             quote: None,
-            kzg_proof: None,
         };
 
         if param.verify {
@@ -199,7 +195,7 @@ fn get_env_mock() -> ProverMode {
 fn init_verifier() -> Result<PathBuf, ProverError> {
     // In cargo run, Cargo sets the working directory to the root of the workspace
     let output_dir: PathBuf = CONTRACT_PATH.into();
-    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
+    let artifacts_dir = sp1_sdk::install::try_install_plonk_bn254_artifacts();
     if !artifacts_dir.join("SP1Verifier.sol").exists() {
         return Err(ProverError::GuestError(format!(
             "verifier file not found at {:?}",

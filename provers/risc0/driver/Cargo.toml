@@ -38,7 +38,6 @@ reqwest = { workspace = true, optional = true }
 lazy_static = { workspace = true, optional = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
-thiserror = { workspace = true }
 
 [features]
 enable = [
@@ -63,7 +62,7 @@ enable = [
     "serde_json",
     "hex",
     "reqwest",
-    "lazy_static",
+    "lazy_static"
 ]
 cuda = ["risc0-zkvm?/cuda"]
 metal = ["risc0-zkvm?/metal"]

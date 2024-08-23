@@ -1,7 +1,7 @@
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
-use reth_primitives::{Header, U256};
+use reth_primitives::{Header};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -24,7 +24,6 @@ pub struct ProtocolInstance {
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
-    pub proof_of_equivalence: (U256, U256),
 }
 
 impl ProtocolInstance {
@@ -34,7 +33,7 @@ impl ProtocolInstance {
         // and we need to verify the blob hash matches the blob data.
         // If we need to compute the proof of equivalence this data will be set.
         // Otherwise the proof_of_equivalence is 0
-        let mut proof_of_equivalence = (U256::ZERO, U256::ZERO);
+        // let mut proof_of_equivalence = (U256::ZERO, U256::ZERO);
         let tx_list_hash = if blob_used {
             let commitment = input
                 .taiko
@@ -43,14 +42,27 @@ impl ProtocolInstance {
                 .expect("no blob commitment");
             let versioned_hash =
                 commitment_to_version_hash(&commitment.clone().try_into().unwrap());
-            match get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()) {
+            
+            let blob_proof_type = get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone());
+            println!("blob proof type: {:?}", &blob_proof_type);
+            match blob_proof_type {
                 crate::input::BlobProofType::ProofOfEquivalence => {
                     let ct = CycleTracker::start("proof_of_equivalence");
-                    let points =
+                    let (x, y) =
                         eip4844::proof_of_equivalence(&input.taiko.tx_data, &versioned_hash)?;
                     ct.end();
-                    proof_of_equivalence =
-                        (U256::from_le_bytes(points.0), U256::from_le_bytes(points.1));
+                    let verified = eip4844::verify_kzg_proof_impl(
+                        commitment.clone().try_into().unwrap(),
+                        x,
+                        y,
+                        input
+                            .taiko
+                            .blob_proof
+                            .clone()
+                            .map(|p| TryInto::<[u8; 48]>::try_into(p).unwrap())
+                            .unwrap(),
+                    )?;
+                    ensure!(verified);
                 }
                 crate::input::BlobProofType::KzgVersionedHash => {
                     let ct = CycleTracker::start("proof_of_commitment");
@@ -140,7 +152,7 @@ impl ProtocolInstance {
             prover: input.taiko.prover_data.prover,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
-            proof_of_equivalence,
+            // proof_of_equivalence,
         };
 
         // Sanity check
@@ -177,9 +189,7 @@ impl ProtocolInstance {
             self.transition.clone(),
             self.sgx_instance,
             self.prover,
-            self.meta_hash(),
-            #[cfg(feature = "proof_of_equivalence")]
-            self.proof_of_equivalence,
+            self.meta_hash()
         )
             .abi_encode()
             .iter()
@@ -195,15 +205,13 @@ fn get_blob_proof_type(
     proof_type: VerifierType,
     blob_proof_type_hint: BlobProofType,
 ) -> BlobProofType {
-    if cfg!(feature = "proof_of_equivalence") {
-        match proof_type {
-            VerifierType::None => blob_proof_type_hint,
-            VerifierType::SGX => BlobProofType::KzgVersionedHash,
-            VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
-            VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
-        }
-    } else {
-        BlobProofType::KzgVersionedHash
+    // Enforce different blob proof type for different provers 
+    // due to performance considerations
+    match proof_type {
+        VerifierType::None => blob_proof_type_hint,
+        VerifierType::SGX => BlobProofType::KzgVersionedHash,
+        VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
+        VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
     }
 }
 

@@ -57,9 +57,6 @@ risc0-build = { version = "1.0.1" }
 risc0-binfmt = { version = "1.0.1" }
 
 # SP1
-# sp1-sdk = { version = "1.0.1" }
-# sp1-zkvm = { version = "1.0.1" }
-# sp1-helper = { version = "1.0.1" }
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
 sp1-helper = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
@@ -137,15 +134,15 @@ utoipa-scalar = { version = "0.1.0", features = ["axum"] }
 utoipa = { version = "4.2.0", features = ["axum_extras"] }
 structopt = "0.3.24"
 prometheus = { version = "0.13.3", features = ["process"] }
-tokio = { version = "^1.39.3", features = ["full"] }
+tokio = { version = "^1.23", features = ["full"] }
 tokio-util = { version = "0.7.11" }
 reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 async-trait = "0.1.80"
 
 # crypto
-kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/brechtpd/rust-kzg.git", branch = "sp1-patch", default-features = false }
-kzg_traits = { package = "kzg", git = "https://github.com/brechtpd/rust-kzg.git", branch = "sp1-patch", default-features = false }
+kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
+kzg_traits = { package = "kzg", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 sha2 = "0.10.8"
 secp256k1 = { version = "0.29", default-features = false, features = [
@@ -187,9 +184,9 @@ pathdiff = "0.2.1"
 dotenv = "0.15.0"
 
 [patch.crates-io]
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+revm = { git = "https://github.com/taikoxyz/revm.git", rev = "787302e" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", rev = "787302e" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", rev = "787302e" }
 secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
 alloy-serde = { git = "https://github.com/CeciliaZ030/alloy.git", branch = "v0.1.4-fix" }
