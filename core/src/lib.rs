@@ -222,7 +222,8 @@ mod tests {
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
         input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType},
-        primitives::B256, prover::Proof,
+        primitives::B256,
+        prover::Proof,
     };
     use serde_json::{json, Value};
     use std::{collections::HashMap, env};
@@ -431,13 +432,17 @@ mod tests {
             proofs: vec![proof.clone(), proof],
         };
 
-        let output = AggregationGuestOutput {
-            hash: B256::ZERO,
-        };
+        let output = AggregationGuestOutput { hash: B256::ZERO };
 
         let aggregated_proof = proof_type
-            .aggregate_proofs(input, &output, &serde_json::to_value(&test_proof_params(false)).unwrap(), None)
-            .await.expect("proof aggregation failed");
+            .aggregate_proofs(
+                input,
+                &output,
+                &serde_json::to_value(&test_proof_params(false)).unwrap(),
+                None,
+            )
+            .await
+            .expect("proof aggregation failed");
         println!("aggregated proof: {:?}", aggregated_proof);
     }
 }

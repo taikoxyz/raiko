@@ -3,15 +3,18 @@
 #[cfg(feature = "bonsai-auto-scaling")]
 use crate::bonsai::auto_scaling::shutdown_bonsai;
 use crate::{
-    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
     methods::risc0_aggregation::{RISC0_AGGREGATION_ELF, RISC0_AGGREGATION_ID},
+    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
     snarks::verify_groth16_snark,
 };
 use alloy_primitives::{hex::ToHexExt, B256};
 use bonsai::{cancel_proof, maybe_prove};
 use log::warn;
 use raiko_lib::{
-    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput, ZkAggregationGuestInput},
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
+        ZkAggregationGuestInput,
+    },
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{serde::to_vec, sha::Digest, Receipt};
@@ -103,7 +106,7 @@ impl Prover for Risc0Prover {
                     proof: stark_receipt.journal.encode_hex_with_prefix(),
                     receipt: serde_json::to_string(&receipt).unwrap(),
                     uuid,
-                    input: output.hash
+                    input: output.hash,
                 }
                 .into())
             }
@@ -132,28 +135,26 @@ impl Prover for Risc0Prover {
     ) -> ProverResult<Proof> {
         let mut id_store = id_store;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
-        let proof_key = (
-            0,
-            output.hash.clone(),
-            RISC0_PROVER_CODE,
-        );
+        let proof_key = (0, output.hash.clone(), RISC0_PROVER_CODE);
 
         // Extract the block proof receipts
-        let assumptions: Vec<Receipt> = input.proofs
+        let assumptions: Vec<Receipt> = input
+            .proofs
             .iter()
             .map(|proof| {
-                let receipt: Receipt = serde_json::from_str(&proof.quote.clone().unwrap()).expect("Failed to deserialize");
+                let receipt: Receipt = serde_json::from_str(&proof.quote.clone().unwrap())
+                    .expect("Failed to deserialize");
                 receipt
             })
             .collect::<Vec<_>>();
-        let block_inputs: Vec<B256> = input.proofs
+        let block_inputs: Vec<B256> = input
+            .proofs
             .iter()
-            .map(|proof| {
-                proof.input.unwrap()
-            })
+            .map(|proof| proof.input.unwrap())
             .collect::<Vec<_>>();
         // For bonsai
-        let assumptions_uuids: Vec<String> = input.proofs
+        let assumptions_uuids: Vec<String> = input
+            .proofs
             .iter()
             .map(|proof| proof.uuid.clone().unwrap())
             .collect::<Vec<_>>();
@@ -179,7 +180,7 @@ impl Prover for Risc0Prover {
 
         let receipt = result.clone().unwrap().1.clone();
         let uuid = result.clone().unwrap().0;
-        
+
         let proof_gen_result = if result.is_some() {
             if config.snark && config.bonsai {
                 let (stark_uuid, stark_receipt) = result.clone().unwrap();
@@ -194,7 +195,7 @@ impl Prover for Risc0Prover {
                     proof: stark_receipt.journal.encode_hex_with_prefix(),
                     receipt: serde_json::to_string(&receipt).unwrap(),
                     uuid,
-                    input: output.hash
+                    input: output.hash,
                 }
                 .into())
             }

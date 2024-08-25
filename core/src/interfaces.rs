@@ -3,7 +3,9 @@ use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
     consts::VerifierType,
-    input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestInput, GuestOutput},
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestInput, GuestOutput,
+    },
     primitives::eip4844::{calc_kzg_proof, commitment_to_version_hash, kzg_proof_to_bytes},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
 };

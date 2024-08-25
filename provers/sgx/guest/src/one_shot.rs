@@ -8,7 +8,10 @@ use std::{
 use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
-    builder::calculate_block_header, consts::VerifierType, input::{AggregationGuestInput, GuestInput, RawAggregationGuestInput}, primitives::{keccak, Address, B256},
+    builder::calculate_block_header,
+    consts::VerifierType,
+    input::{AggregationGuestInput, GuestInput, RawAggregationGuestInput},
+    primitives::{keccak, Address, B256},
     protocol_instance::{aggregation_output, aggregation_output_combine, ProtocolInstance},
 };
 use secp256k1::{Keypair, SecretKey};
@@ -189,11 +192,10 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
 
     // Verify the proofs
     for proof in input.proofs.iter() {
+        // TODO: verify protocol instance data so we can trust the old/new instance data
         assert_eq!(
-            recover_signer_unchecked(
-                &proof.proof.clone()[44..].try_into().unwrap(),
-                &proof.input,
-            ).unwrap(),
+            recover_signer_unchecked(&proof.proof.clone()[44..].try_into().unwrap(), &proof.input,)
+                .unwrap(),
             cur_instance,
         );
         cur_instance = Address::from_slice(&proof.proof.clone()[24..44]);
@@ -203,22 +205,23 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
     assert_eq!(cur_instance, new_instance);
 
     // Calculate the aggregation hash
-    let aggregation_hash = keccak::keccak(
-        aggregation_output_combine(
-            [
-                vec![
+    let aggregation_hash = keccak::keccak(aggregation_output_combine(
+        [
+            vec![
                 B256::left_padding_from(&old_instance.to_vec()),
                 B256::left_padding_from(&new_instance.to_vec()),
             ],
-            input.proofs.iter().map(|proof| proof.input).collect::<Vec<_>>(),
-            ].concat(),
+            input
+                .proofs
+                .iter()
+                .map(|proof| proof.input)
+                .collect::<Vec<_>>(),
+        ]
+        .concat(),
     ));
 
     // Sign the public aggregation hash
-    let sig = sign_message(
-        &prev_privkey,
-        aggregation_hash.into(),
-    )?;
+    let sig = sign_message(&prev_privkey, aggregation_hash.into())?;
 
     // Create the proof for the onchain SGX verifier
     const SGX_PROOF_LEN: usize = 89;

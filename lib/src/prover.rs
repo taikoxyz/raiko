@@ -2,7 +2,7 @@ use reth_primitives::{ChainId, B256};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::input::{GuestInput, GuestOutput, AggregationGuestInput, AggregationGuestOutput};
+use crate::input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProverError {

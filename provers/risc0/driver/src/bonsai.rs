@@ -10,7 +10,8 @@ use raiko_lib::{
     prover::{IdWrite, ProofKey, ProverError, ProverResult},
 };
 use risc0_zkvm::{
-    compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, AssumptionReceipt, ExecutorEnv, ExecutorImpl, Receipt
+    compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, AssumptionReceipt,
+    ExecutorEnv, ExecutorImpl, Receipt,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -286,9 +287,10 @@ pub async fn bonsai_stark_to_snark(
     input: B256,
 ) -> ProverResult<Risc0Response> {
     let image_id = Digest::from(RISC0_GUEST_ID);
-    let (snark_uuid, snark_receipt) = stark2snark(image_id, stark_uuid.clone(), stark_receipt.clone())
-        .await
-        .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
+    let (snark_uuid, snark_receipt) =
+        stark2snark(image_id, stark_uuid.clone(), stark_receipt.clone())
+            .await
+            .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
 
     info!("Validating SNARK uuid: {snark_uuid}");
 
@@ -297,7 +299,7 @@ pub async fn bonsai_stark_to_snark(
         .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
 
     let snark_proof = format!("0x{}", hex::encode(enc_proof));
-    Ok(Risc0Response { 
+    Ok(Risc0Response {
         proof: snark_proof,
         receipt: serde_json::to_string(&stark_receipt).unwrap(),
         uuid: stark_uuid,

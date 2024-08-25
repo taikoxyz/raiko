@@ -13,7 +13,9 @@ use serde_with::serde_as;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::{consts::ChainSpec, primitives::mpt::MptNode, prover::Proof, utils::zlib_compress_data};
+use crate::{
+    consts::ChainSpec, primitives::mpt::MptNode, prover::Proof, utils::zlib_compress_data,
+};
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the

@@ -232,10 +232,7 @@ pub fn aggregation_output_combine(public_inputs: Vec<B256>) -> Vec<u8> {
 }
 
 pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
-    aggregation_output_combine([
-        vec![program],
-        public_inputs,
-    ].concat())
+    aggregation_output_combine([vec![program], public_inputs].concat())
 }
 
 #[cfg(test)]

@@ -3,7 +3,10 @@
 
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput, ZkAggregationGuestInput},
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
+        ZkAggregationGuestInput,
+    },
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
     Measurement,
 };
@@ -13,7 +16,8 @@ use serde_with::serde_as;
 use sp1_sdk::{
     action,
     network::client::NetworkClient,
-    proto::network::{ProofMode, UnclaimReason}, SP1Proof,
+    proto::network::{ProofMode, UnclaimReason},
+    SP1Proof,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
 use std::env;
@@ -152,7 +156,7 @@ impl Prover for Sp1Prover {
         };
 
         if param.verify {
-            if matches!(param.recursion, RecursionMode::Plonk ) {
+            if matches!(param.recursion, RecursionMode::Plonk) {
                 let time = Measurement::start("verify", false);
                 verify_sol(vk, prove_result)?;
                 time.stop_with("==> Verification complete");
@@ -174,9 +178,15 @@ impl Prover for Sp1Prover {
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
         // Extract the block proofs
-        let proofs: Vec<sp1_sdk::SP1ProofWithPublicValues> = input.proofs
+        let proofs: Vec<sp1_sdk::SP1ProofWithPublicValues> = input
+            .proofs
             .iter()
-            .map(|input| serde_json::from_str::<sp1_sdk::SP1ProofWithPublicValues>(&input.proof.clone().unwrap()).unwrap())
+            .map(|input| {
+                serde_json::from_str::<sp1_sdk::SP1ProofWithPublicValues>(
+                    &input.proof.clone().unwrap(),
+                )
+                .unwrap()
+            })
             .collect::<Vec<_>>();
 
         // Generate the proof for the given program.
@@ -236,16 +246,10 @@ impl Prover for Sp1Prover {
                 .map_err(|_| ProverError::GuestError("Sp1: requesting proof failed".to_owned()))?;
             if let Some(id_store) = id_store {
                 id_store
-                    .store_id(
-                        (123456, output.hash, SP1_PROVER_CODE),
-                        proof_id.clone(),
-                    )
+                    .store_id((123456, output.hash, SP1_PROVER_CODE), proof_id.clone())
                     .await?;
             }
-            info!(
-                "Sp1 Prover: aggregation proof id {:?}",
-                proof_id
-            );
+            info!("Sp1 Prover: aggregation proof id {:?}", proof_id);
             network_prover
                 .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
                 .await
@@ -259,7 +263,7 @@ impl Prover for Sp1Prover {
         };
 
         if param.verify {
-            if matches!(param.recursion, RecursionMode::Plonk ) {
+            if matches!(param.recursion, RecursionMode::Plonk) {
                 let time = Measurement::start("verify", false);
                 verify_sol(vk, prove_result)?;
                 time.stop_with("==> Verification complete");

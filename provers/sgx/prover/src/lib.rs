@@ -10,7 +10,12 @@ use std::{
 
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput, RawAggregationGuestInput, RawProof}, primitives::B256, prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult}
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
+        RawAggregationGuestInput, RawProof,
+    },
+    primitives::B256,
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -393,11 +398,14 @@ async fn aggregate(
 ) -> ProverResult<SgxResponse, ProverError> {
     // Extract the useful parts of the proof here so the guest doesn't have to do it
     let raw_input = RawAggregationGuestInput {
-        proofs: input.proofs.iter().map(|proof| RawProof {
+        proofs: input
+            .proofs
+            .iter()
+            .map(|proof| RawProof {
                 input: proof.clone().input.unwrap(),
                 proof: hex::decode(&proof.clone().proof.unwrap()[2..]).unwrap(),
-            }
-        ).collect(),
+            })
+            .collect(),
     };
 
     tokio::task::spawn_blocking(move || {

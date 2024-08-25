@@ -32,7 +32,6 @@ use tracing::{error as tracing_err, info as tracing_info};
 
 use crate::bonsai::save_receipt;
 
-
 sol!(
     /// A Groth16 seal over the claimed receipt claim.
     struct Seal {
