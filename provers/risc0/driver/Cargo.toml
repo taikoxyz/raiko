@@ -38,6 +38,7 @@ reqwest = { workspace = true, optional = true }
 lazy_static = { workspace = true, optional = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 enable = [
