@@ -71,7 +71,7 @@ impl Prover for NativeProver {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_native_prover() {
     use serde_json::json;
-    pub const DATA: &str = "./data/";
+    pub const DATA: &str = "../data/";
 
     // Setup the inputs.
     let path = std::env::args()
@@ -84,9 +84,9 @@ async fn test_native_prover() {
                 None
             }
         })
-        .unwrap_or_else(|| std::path::PathBuf::from(DATA).join("input-taiko_mainnet-292300.json"));
+        .unwrap_or_else(|| std::path::PathBuf::from(DATA).join("input-taiko-mainnet-292300.json"));
     println!("Reading GuestInput from {:?}", path);
-    let json = std::fs::read_to_string("input-taiko_mainnet-292300.json").unwrap();
+    let json = std::fs::read_to_string(path).unwrap();
 
     // Deserialize the input.
     let input: GuestInput = serde_json::from_str(&json).unwrap();

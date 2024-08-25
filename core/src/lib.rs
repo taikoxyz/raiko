@@ -336,6 +336,7 @@ mod tests {
         height - 100
     }
 
+    
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_ethereum() {
         let proof_type = get_proof_type_from_env();
