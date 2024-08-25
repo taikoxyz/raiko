@@ -9,7 +9,7 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::calculate_block_header, consts::VerifierType, input::{AggregationGuestInput, GuestInput, RawAggregationGuestInput}, primitives::{keccak, Address, B256},
-    protocol_instance::{aggregation_output, ProtocolInstance},
+    protocol_instance::{aggregation_output, aggregation_output_combine, ProtocolInstance},
 };
 use secp256k1::{Keypair, SecretKey};
 use serde::Serialize;
@@ -147,6 +147,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_be_bytes());
     proof.extend(new_instance);
+    proof.extend(new_instance);
     proof.extend(sig);
     let proof = hex::encode(proof);
 
@@ -160,6 +161,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         "quote": hex::encode(quote),
         "public_key": format!("0x{new_pubkey}"),
         "instance_address": new_instance.to_string(),
+        "input": pi_hash.to_string(),
     });
     println!("{data}");
 
@@ -181,24 +183,36 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
     let input: RawAggregationGuestInput =
         bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
 
+    // Make sure the chain of old/new public keys is preserved
+    let old_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
+    let mut cur_instance = old_instance;
+
     // Verify the proofs
     for proof in input.proofs.iter() {
         assert_eq!(
             recover_signer_unchecked(
-                &proof.proof.clone().try_into().unwrap(),
+                &proof.proof.clone()[44..].try_into().unwrap(),
                 &proof.input,
-            ).unwrap(), 
-            new_instance,
+            ).unwrap(),
+            cur_instance,
         );
+        cur_instance = Address::from_slice(&proof.proof.clone()[24..44]);
     }
+
+    // Current public key needs to match latest proof new public key
+    assert_eq!(cur_instance, new_instance);
 
     // Calculate the aggregation hash
     let aggregation_hash = keccak::keccak(
-        aggregation_output(
-            B256::left_padding_from(&new_instance.to_vec()),
-            input.proofs.iter().map(|proof| proof.input).collect(),
-        )
-    );
+        aggregation_output_combine(
+            [
+                vec![
+                B256::left_padding_from(&old_instance.to_vec()),
+                B256::left_padding_from(&new_instance.to_vec()),
+            ],
+            input.proofs.iter().map(|proof| proof.input).collect::<Vec<_>>(),
+            ].concat(),
+    ));
 
     // Sign the public aggregation hash
     let sig = sign_message(
@@ -210,6 +224,7 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
     const SGX_PROOF_LEN: usize = 89;
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_be_bytes());
+    proof.extend(old_instance);
     proof.extend(new_instance);
     proof.extend(sig);
     let proof = hex::encode(proof);
@@ -224,6 +239,7 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
         "quote": hex::encode(quote),
         "public_key": format!("0x{new_pubkey}"),
         "instance_address": new_instance.to_string(),
+        "input": B256::from(aggregation_hash).to_string(),
     });
     println!("{data}");
 

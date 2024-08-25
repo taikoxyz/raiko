@@ -273,8 +273,8 @@ mod tests {
             json! {
                 {
                     "instance_id": 121,
-                    "setup": true,
-                    "bootstrap": true,
+                    "setup": enable_aggregation,
+                    "bootstrap": enable_aggregation,
                     "prove": true,
                 }
             },
@@ -428,7 +428,7 @@ mod tests {
         let proof = prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
 
         let input = AggregationGuestInput {
-            proofs: vec![proof],
+            proofs: vec![proof.clone(), proof],
         };
 
         let output = AggregationGuestOutput {

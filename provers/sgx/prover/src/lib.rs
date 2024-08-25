@@ -5,7 +5,7 @@ use std::{
     fs::{copy, create_dir_all, remove_file},
     path::{Path, PathBuf},
     process::{Command as StdCommand, Output, Stdio},
-    str,
+    str::{self, FromStr},
 };
 
 use once_cell::sync::Lazy;
@@ -395,7 +395,7 @@ async fn aggregate(
     let raw_input = RawAggregationGuestInput {
         proofs: input.proofs.iter().map(|proof| RawProof {
                 input: proof.clone().input.unwrap(),
-                proof: proof.clone().proof.unwrap().into_bytes()[64..].to_vec(),
+                proof: hex::decode(&proof.clone().proof.unwrap()[2..]).unwrap(),
             }
         ).collect(),
     };
@@ -452,7 +452,7 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
     Ok(SgxResponse {
         proof: extract_field("proof"),
         quote: extract_field("quote"),
-        input: B256::ZERO,
+        input: B256::from_str(&extract_field("input")).unwrap(),
     })
 }
 

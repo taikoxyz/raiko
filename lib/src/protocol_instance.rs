@@ -223,13 +223,19 @@ pub fn words_to_bytes_le(words: &[u32; 8]) -> [u8; 32] {
     bytes
 }
 
-pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
-    let mut output = Vec::with_capacity(32 + public_inputs.len() * 32);
-    output.extend_from_slice(&program.0);
+pub fn aggregation_output_combine(public_inputs: Vec<B256>) -> Vec<u8> {
+    let mut output = Vec::with_capacity(public_inputs.len() * 32);
     for public_input in public_inputs.iter() {
         output.extend_from_slice(&public_input.0);
     }
     output
+}
+
+pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
+    aggregation_output_combine([
+        vec![program],
+        public_inputs,
+    ].concat())
 }
 
 #[cfg(test)]

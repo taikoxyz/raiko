@@ -8167,6 +8167,7 @@ dependencies = [
  "alloy-transport-http",
  "anyhow",
  "bincode",
+ "hex",
  "once_cell",
  "pem 3.0.4",
  "raiko-lib",
