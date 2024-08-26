@@ -396,8 +396,7 @@ fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
         &KZG_SETTINGS.clone(),
     )
     .expect("Could not create kzg commitment from blob");
-    let version_hash = commitment_to_version_hash(&commitment.to_bytes()).0;
-    version_hash
+    commitment_to_version_hash(&commitment.to_bytes()).0
 }
 
 async fn get_blob_data(beacon_rpc_url: &str, block_id: u64, blob_hash: B256) -> Result<Vec<u8>> {
