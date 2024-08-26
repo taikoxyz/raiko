@@ -34,7 +34,7 @@ path = "src/benchmark/bn254_mul.rs"
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1", "proof_of_equivalence"] }
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
-sp1-core = "1.0.1"
+sp1-core = { version = "1.1.1"}
 sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
 harness-core = { path = "../../../harness/core" }
