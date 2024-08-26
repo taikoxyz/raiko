@@ -41,18 +41,18 @@ fi
 # SGX
 if [ "$1" == "sgx" ]; then
 	check_toolchain $TOOLCHAIN_SGX
-	cargo ${TOOLCHAIN_SGX} test -F "sgx enable integration" run_scenarios_sequentially
+	cargo ${TOOLCHAIN_SGX} test -F "sgx integration" run_scenarios_sequentially
 fi
 
 # RISC0
 if [ "$1" == "risc0" ]; then
 	check_toolchain $TOOLCHAIN_RISC0
 	./script/setup-bonsai.sh
-	cargo ${TOOLCHAIN_RISC0} test -F "risc0 enable integration" run_scenarios_sequentially
+	cargo ${TOOLCHAIN_RISC0} test -F "risc0 integration" run_scenarios_sequentially
 fi
 
 # SP1
 if [ "$1" == "sp1" ]; then
 	check_toolchain $TOOLCHAIN_SP1
-	cargo ${TOOLCHAIN_SP1} test -F "sp1 enable integration" run_scenarios_sequentially
+	cargo ${TOOLCHAIN_SP1} test -F "sp1 integration" run_scenarios_sequentially
 fi
