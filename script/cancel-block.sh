@@ -41,7 +41,7 @@ if [ "$proof" == "native" ]; then
 	proofParam='
     "proof_type": "native",
 	"native" : {
-        "write_guest_input_path": null
+        "json_guest_input": null
 	}
   '
 elif [ "$proof" == "sp1" ]; then
