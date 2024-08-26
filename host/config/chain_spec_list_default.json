@@ -25,7 +25,7 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "https://rpc.ankr.com/eth/68bf32161f140416a66645417fdf31fa3a3497ecf90f701c0e5d3be737b827d4",
+        "rpc": "https://ethereum-rpc.publicnode.com",
         "beacon_rpc": "https://ethereum-beacon-api.publicnode.com",
         "verifier_address": {
             "SGX":"0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
@@ -59,7 +59,7 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "https://rpc.ankr.com/eth_holesky/68bf32161f140416a66645417fdf31fa3a3497ecf90f701c0e5d3be737b827d4",
+        "rpc": "https://ethereum-holesky-rpc.publicnode.com",
         "beacon_rpc": "https://fabled-weathered-cherry.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/",
         "verifier_address": {
             "SGX":"0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
