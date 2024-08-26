@@ -74,18 +74,7 @@ async fn test_native_prover() {
     pub const DATA: &str = "../data/";
 
     // Setup the inputs.
-    let path = std::env::args()
-        .last()
-        .and_then(|s| {
-            let p = std::path::PathBuf::from(DATA).join(s);
-            if p.exists() {
-                Some(p)
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| std::path::PathBuf::from(DATA).join("input-taiko_mainnet-328837.json"));
-    println!("Reading GuestInput from {:?}", path);
+    let path = std::path::PathBuf::from(DATA).join("input-taiko_mainnet-328837.json");
     let json = std::fs::read_to_string(path).unwrap();
 
     // Deserialize the input.
