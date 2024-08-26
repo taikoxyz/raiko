@@ -23,7 +23,7 @@ use reth_primitives::revm_primitives::{
     Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap,
 };
 use reth_primitives::{Address, BlockWithSenders, Header, B256, KECCAK_EMPTY, U256};
-use tracing::debug;
+use tracing::{debug, error};
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
     let cycle_tracker = CycleTracker::start("initialize_database");
@@ -116,6 +116,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l1_header: self.input.taiko.l1_header.clone(),
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
+                ..Default::default()
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {
@@ -125,7 +126,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             gas_used: _,
             db: full_state,
             valid_transaction_indices,
-        } = executor.execute((&block, total_difficulty).into())?;
+        } = executor
+            .execute((&block, total_difficulty).into())
+            .map_err(|e| {
+                error!("Error executing block: {:?}", e);
+                e
+            })?;
         // Filter out the valid transactions so that the header checks only take these into account
         block.body = valid_transaction_indices
             .iter()
