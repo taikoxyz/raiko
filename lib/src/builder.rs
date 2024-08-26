@@ -75,7 +75,6 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
     /// Executes all input transactions.
     pub fn execute_transactions(&mut self, optimistic: bool) -> Result<()> {
         // Get the chain spec
-        println!("~~~~ Get the chain spec");
         let chain_spec = &self.input.chain_spec;
         let total_difficulty = U256::ZERO;
         let reth_chain_spec = match chain_spec.name.as_str() {
@@ -98,7 +97,6 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         };
 
         // Generate the transactions from the tx list
-        println!("~~~~ Generate the transactions from the tx list");
         let mut block = self.input.block.clone();
         block.body = generate_transactions(
             &self.input.chain_spec,
@@ -107,13 +105,11 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             &self.input.taiko.anchor_tx,
         );
         // Recover senders
-        println!("~~~~ Recover senders");
         let mut block = block
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
         // Execute transactions
-        println!("~~~~ EthBlockExecutor Execute transactions");
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
             .taiko_data(TaikoData {
@@ -143,7 +139,6 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .collect();
 
         // Header validation
-        println!("~~~~ Header validation");
         let block = block.seal_slow();
         if !optimistic {
             let consensus = EthBeaconConsensus::new(reth_chain_spec.clone());

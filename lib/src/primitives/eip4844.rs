@@ -81,8 +81,8 @@ pub fn verify_kzg_proof_impl(
     let y = Scalar::from_bytes(&y_le).unwrap();
 
     let g2_x = G2Affine::generator() * x;
-    let setup_commited_x = G2Affine::from(KZG_SETTINGS.secret_g2[1].proj);
-    let x_diff = setup_commited_x - g2_x;
+    let setup_committed_x = G2Affine::from(KZG_SETTINGS.secret_g2[1].proj);
+    let x_diff = setup_committed_x - g2_x;
 
     let g1_y = G1Affine::generator() * y;
     let p_minus_y = commitment - g1_y;

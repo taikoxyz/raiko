@@ -52,8 +52,8 @@ elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
 	"sp1": {
-		"recursion": "compressed",
-		"prover": "network",
+		"recursion": "core",
+		"prover": "mock",
 		"verify": false
 	}
   '
