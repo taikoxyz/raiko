@@ -1076,7 +1076,7 @@ dependencies = [
  "hex-literal",
  "rfc6979",
  "signature",
- "sp1-lib 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp1-lib 1.1.1",
  "spki",
 ]
 
@@ -3561,8 +3561,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=dev#f8b27f87d8f24d85b5f68f8b37d7b17c9ce08d48"
+version = "1.2.0-rc1"
+source = "git+https://github.com/succinctlabs/sp1?branch=dev#e8efd0019c8be52c6c4cecfea6259ab90db4148a"
 dependencies = [
  "anyhow",
  "bincode",
@@ -3588,8 +3588,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-zkvm"
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=dev#f8b27f87d8f24d85b5f68f8b37d7b17c9ce08d48"
+version = "1.2.0-rc1"
+source = "git+https://github.com/succinctlabs/sp1?branch=dev#e8efd0019c8be52c6c4cecfea6259ab90db4148a"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -3600,7 +3600,7 @@ dependencies = [
  "rand",
  "serde",
  "sha2",
- "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1?branch=dev)",
+ "sp1-lib 1.2.0-rc1",
 ]
 
 [[package]]
