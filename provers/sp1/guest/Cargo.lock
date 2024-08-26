@@ -3553,6 +3553,7 @@ dependencies = [
  "cfg-if",
  "hex",
  "serde",
+ "snowbridge-amcl",
 ]
 
 [[package]]
