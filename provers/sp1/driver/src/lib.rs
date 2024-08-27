@@ -318,7 +318,10 @@ mod test {
 
     #[test]
     fn test_init_verifier() {
-        assert!(VERIFIER.is_ok());
+        assert!(VERIFIER
+            .as_ref()
+            .map_err(|e| println!("test_init_verifier failed: {:?}", e))
+            .is_ok());
     }
 
     #[test]
