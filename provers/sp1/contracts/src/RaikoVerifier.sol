@@ -9,7 +9,7 @@ import "forge-std/console.sol";
 /// @author Taiko Labs
 /// @notice This contract implements a simple example of verifying the proof of a computing a 
 ///         raiko number.
-contract RaikoVerifier is SP1VerifierPlonk {
+contract RaikoVerifier is SP1Verifier {
 
     /// @notice The verification key for the raiko program.
     bytes32 public raikoProgramVkey;
