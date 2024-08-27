@@ -5,6 +5,8 @@ use raiko_tasks::{TaskManagerError, TaskStatus};
 use tokio::sync::mpsc::error::TrySendError;
 use utoipa::ToSchema;
 
+use crate::server::api::v1::Status;
+
 /// The standardized error returned by the Raiko host.
 #[derive(thiserror::Error, Debug, ToSchema)]
 pub enum HostError {
@@ -92,8 +94,11 @@ impl IntoResponse for HostError {
             HostError::CapacityFull => ("capacity_full".to_string(), "".to_string()),
             HostError::TaskManager(e) => ("task_manager".to_string(), e.to_string()),
         };
-        axum::Json(serde_json::json!({ "status": "error", "error": error, "message": message }))
-            .into_response()
+        axum::Json(
+            serde_json::to_value(Status::Error { error, message })
+                .expect("couldn't serialize the error status"),
+        )
+        .into_response()
     }
 }
 

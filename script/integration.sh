@@ -41,6 +41,9 @@ fi
 # SGX
 if [ "$1" == "sgx" ]; then
 	check_toolchain $TOOLCHAIN_SGX
+	if [ "$MOCK" = "1" ]; then
+		export SGX_DIRECT=1
+	fi
 	cargo ${TOOLCHAIN_SGX} test -F "sgx integration" run_scenarios_sequentially
 fi
 
