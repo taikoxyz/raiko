@@ -71,18 +71,18 @@ impl Prover for NativeProver {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_native_prover() {
     use serde_json::json;
-    use std::path::{PathBuf, Path};  
-    use std::fs;  
-    // Get the current working directory  
-    let current_dir = std::env::current_dir().expect("Failed to get current directory");  
-
-    // Adjust as needed based on your tests  
-    let file_name = "ethereum-20612846.json"; 
-    let path = current_dir.join("../data").join(file_name);  
     
-    // Check if the path exists  
-    if !path.exists() {  
-        panic!("File does not exist: {}", path.display());  
+    
+    // Get the current working directory
+    let current_dir = std::env::current_dir().expect("Failed to get current directory");
+
+    // Adjust as needed based on your tests
+    let file_name = "ethereum-20612846.json";
+    let path = current_dir.join("../data").join(file_name);
+
+    // Check if the path exists
+    if !path.exists() {
+        panic!("File does not exist: {}", path.display());
     }
     let json = std::fs::read_to_string(path).unwrap();
 

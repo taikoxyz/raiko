@@ -16,9 +16,9 @@ use sp1_sdk::{
     proto::network::{ProofMode, UnclaimReason},
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
-use std::{env, path::Path};
 use std::fs;
 use std::path::PathBuf;
+use std::{env, path::Path};
 use tracing::info;
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
@@ -196,34 +196,33 @@ fn get_env_mock() -> ProverMode {
 
 fn init_verifier() -> Result<PathBuf, ProverError> {
     // In cargo run, Cargo sets the working directory to the root of the workspace
-    let mut current_dir = std::env::current_dir().unwrap(); 
-    println!("Current dir: {:?}", current_dir); 
+    let mut current_dir = std::env::current_dir().unwrap();
+    println!("Current dir: {:?}", current_dir);
     if current_dir.ends_with("driver") {
         env::set_current_dir(current_dir.join("../../../"))
             .expect("Failed to set current directory");
-        current_dir = std::env::current_dir().unwrap(); 
+        current_dir = std::env::current_dir().unwrap();
     }
-    println!("Current dir: {:?}", current_dir); 
+    println!("Current dir: {:?}", current_dir);
     let output_dir: PathBuf = current_dir.join(&CONTRACT_PATH);
     let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
-    // Create the destination directory if it doesn't exist  
-    fs::create_dir_all(&output_dir)?;  
+    // Create the destination directory if it doesn't exist
+    fs::create_dir_all(&output_dir)?;
 
-    // Read the entries in the source directory  
-    for entry in fs::read_dir(artifacts_dir)? {  
-        let entry = entry?;  
-        let src = entry.path();  
+    // Read the entries in the source directory
+    for entry in fs::read_dir(artifacts_dir)? {
+        let entry = entry?;
+        let src = entry.path();
 
-        // Check if the entry is a file and ends with .sol  
-        if src.is_file() && src.extension().map(|s| s == "sol").unwrap_or(false) {  
-            let out = output_dir.join(src.file_name().unwrap());  
-            fs::copy(&src, &out)?;  
-            println!("Copied: {:?}", src.file_name().unwrap());  
-        }  
-    }  
+        // Check if the entry is a file and ends with .sol
+        if src.is_file() && src.extension().map(|s| s == "sol").unwrap_or(false) {
+            let out = output_dir.join(src.file_name().unwrap());
+            fs::copy(&src, &out)?;
+            println!("Copied: {:?}", src.file_name().unwrap());
+        }
+    }
     Ok(output_dir)
 }
-
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
