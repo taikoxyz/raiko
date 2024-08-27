@@ -36,7 +36,7 @@
     {
         "name": "taiko_dev",
         "chain_id": 167001,
-        "max_spec_id": "HELKA",
+        "max_spec_id": "HEKLA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
