@@ -71,8 +71,7 @@ impl Prover for NativeProver {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_native_prover() {
     use serde_json::json;
-    
-    
+
     // Get the current working directory
     let current_dir = std::env::current_dir().expect("Failed to get current directory");
 
