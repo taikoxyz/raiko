@@ -48,11 +48,13 @@ fi
 if [ "$1" == "risc0" ]; then
 	check_toolchain $TOOLCHAIN_RISC0
 	./script/setup-bonsai.sh
+	cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
 	cargo ${TOOLCHAIN_RISC0} test -F "risc0 integration" run_scenarios_sequentially
 fi
 
 # SP1
 if [ "$1" == "sp1" ]; then
 	check_toolchain $TOOLCHAIN_SP1
+	cargo ${TOOLCHAIN_SP1} run --bin sp1-builder
 	cargo ${TOOLCHAIN_SP1} test -F "sp1 integration" run_scenarios_sequentially
 fi
