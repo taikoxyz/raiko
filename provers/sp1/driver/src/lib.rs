@@ -16,7 +16,7 @@ use sp1_sdk::{
     proto::network::{ProofMode, UnclaimReason},
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
-use std::env;
+use std::{env, path::Path};
 use std::fs;
 use std::path::PathBuf;
 use tracing::info;
@@ -121,7 +121,9 @@ impl Prover for Sp1Prover {
             let proof_id = network_prover
                 .request_proof(ELF, stdin, param.recursion.clone().into())
                 .await
-                .map_err(|_| ProverError::GuestError("Sp1: requesting proof failed".to_owned()))?;
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
+                })?;
             if let Some(id_store) = id_store {
                 id_store
                     .store_id(
@@ -194,45 +196,34 @@ fn get_env_mock() -> ProverMode {
 
 fn init_verifier() -> Result<PathBuf, ProverError> {
     // In cargo run, Cargo sets the working directory to the root of the workspace
-    let output_dir: PathBuf = CONTRACT_PATH.into();
-    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
-    if !artifacts_dir.join("PlonkSP1Verifier.sol").exists() {
-        return Err(ProverError::GuestError(format!(
-            "verifier file not found at {:?}",
-            artifacts_dir
-        )));
+    let mut current_dir = std::env::current_dir().unwrap(); 
+    println!("Current dir: {:?}", current_dir); 
+    if current_dir.ends_with("driver") {
+        env::set_current_dir(current_dir.join("../../../"))
+            .expect("Failed to set current directory");
+        current_dir = std::env::current_dir().unwrap(); 
     }
+    println!("Current dir: {:?}", current_dir); 
+    let output_dir: PathBuf = current_dir.join(&CONTRACT_PATH);
+    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
+    // Create the destination directory if it doesn't exist  
+    fs::create_dir_all(&output_dir)?;  
 
-    std::fs::create_dir_all(&output_dir).map_err(ProverError::FileIo)?;
-    copy_dir_all(&artifacts_dir, &output_dir).map_err(ProverError::FileIo)?;
-    println!(
-        "exported verifier from {} to {}",
-        artifacts_dir.display(),
-        output_dir.display()
-    );
+    // Read the entries in the source directory  
+    for entry in fs::read_dir(artifacts_dir)? {  
+        let entry = entry?;  
+        let src = entry.path();  
+
+        // Check if the entry is a file and ends with .sol  
+        if src.is_file() && src.extension().map(|s| s == "sol").unwrap_or(false) {  
+            let out = output_dir.join(src.file_name().unwrap());  
+            fs::copy(&src, &out)?;  
+            println!("Copied: {:?}", src.file_name().unwrap());  
+        }  
+    }  
     Ok(output_dir)
 }
 
-fn copy_dir_all(
-    src: impl AsRef<std::path::Path>,
-    dst: impl AsRef<std::path::Path>,
-) -> std::io::Result<()> {
-    fs::create_dir_all(&dst)?;
-    for entry in fs::read_dir(src)? {
-        let entry = entry.unwrap();
-        if entry.file_type()?.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        } else {
-            println!(
-                "copying {:?} to {:?}",
-                entry.path(),
-                dst.as_ref().join(entry.file_name())
-            );
-            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        }
-    }
-    Ok(())
-}
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -314,7 +305,7 @@ mod test {
 
     #[test]
     fn test_init_verifier() {
-        assert!(VERIFIER.is_ok());
+        VERIFIER.as_ref().expect("Failed to init verifier");
     }
 
     #[test]

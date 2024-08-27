@@ -30,7 +30,7 @@ async fn main() {
                 None
             }
         })
-        .unwrap_or_else(|| PathBuf::from(DATA).join("input-taiko-mainnet-292300.json"));
+        .unwrap_or_else(|| PathBuf::from(DATA).join("taiko_mainnet-328833.json"));
     println!("Reading GuestInput from {:?}", path);
     let json = std::fs::read_to_string(path).unwrap();
 

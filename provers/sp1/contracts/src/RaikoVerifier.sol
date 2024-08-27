@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {SP1Verifier} from "./exports/SP1Verifier.sol";
+import {SP1Verifier} from "./exports/SP1VerifierPlonk.sol";
 import "forge-std/console.sol";  
 
 
@@ -9,7 +9,7 @@ import "forge-std/console.sol";
 /// @author Taiko Labs
 /// @notice This contract implements a simple example of verifying the proof of a computing a 
 ///         raiko number.
-contract RaikoVerifier is SP1Verifier {
+contract RaikoVerifier is SP1VerifierPlonk {
 
     /// @notice The verification key for the raiko program.
     bytes32 public raikoProgramVkey;

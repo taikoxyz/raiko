@@ -269,8 +269,8 @@ async fn prepare_taiko_chain_input(
                 let (x, y) = proof_of_equivalence(&blob, &commitment_to_version_hash(&commitment))
                     .map_err(|e| anyhow!(e))?;
 
-                println!("x {:?} y {:?}", x, y);
-                println!(
+                debug!("x {:?} y {:?}", x, y);
+                debug!(
                     "calc_kzg_proof_with_point {:?}",
                     calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap()).unwrap()
                 );

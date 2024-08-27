@@ -33,7 +33,6 @@ impl ProtocolInstance {
         // and we need to verify the blob hash matches the blob data.
         // If we need to compute the proof of equivalence this data will be set.
         // Otherwise the proof_of_equivalence is 0
-        // let mut proof_of_equivalence = (U256::ZERO, U256::ZERO);
         let tx_list_hash = if blob_used {
             let commitment = input
                 .taiko
@@ -153,7 +152,6 @@ impl ProtocolInstance {
             prover: input.taiko.prover_data.prover,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
-            // proof_of_equivalence,
         };
 
         // Sanity check

@@ -59,9 +59,6 @@ blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-seri
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
-
-
-
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 bls12_381 = { git = "https://github.com/0xWOLAND/bls12_381/", branch = "bhargav/experiment" }
 bn = { package = "substrate-bn", git = "https://github.com/sp1-patches/bn", branch = "master" }
