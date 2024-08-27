@@ -60,7 +60,7 @@
         "l1_contract": null,
         "l2_contract": null,
         "rpc": "https://ethereum-holesky-rpc.publicnode.com",
-        "beacon_rpc": "https://fabled-weathered-cherrtest.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/",
+        "beacon_rpc": "https://fabled-weathered-cherry.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/",
         "verifier_address": {
             "SGX":"0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
             "SP1":null,
