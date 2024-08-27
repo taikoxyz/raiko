@@ -77,28 +77,27 @@ pub enum HostError {
 impl IntoResponse for HostError {
     fn into_response(self) -> axum::response::Response {
         let (error, message) = match self {
-            HostError::InvalidRequestConfig(e) => ("invalid_request_config".to_string(), e),
-            HostError::InvalidAddress(e) => ("invalid_address".to_string(), e),
-            HostError::Io(e) => ("io_error".to_string(), e.to_string()),
-            HostError::Conversion(e) => ("conversion_error".to_string(), e),
-            HostError::RPC(e) => ("rpc_error".to_string(), e),
-            HostError::Serde(e) => ("serde_error".to_string(), e.to_string()),
-            HostError::JoinHandle(e) => ("join_handle_error".to_string(), e.to_string()),
-            HostError::Guest(e) => ("guest_error".to_string(), e.to_string()),
-            HostError::Core(e) => ("core_error".to_string(), e.to_string()),
-            HostError::FeatureNotSupportedError(t) => {
-                ("feature_not_supported_error".to_string(), t.to_string())
-            }
-            HostError::Anyhow(e) => ("anyhow_error".to_string(), e.to_string()),
-            HostError::HandleDropped => ("handle_dropped".to_string(), "".to_string()),
-            HostError::CapacityFull => ("capacity_full".to_string(), "".to_string()),
-            HostError::TaskManager(e) => ("task_manager".to_string(), e.to_string()),
+            HostError::InvalidRequestConfig(e) => ("invalid_request_config", e),
+            HostError::InvalidAddress(e) => ("invalid_address", e),
+            HostError::Io(e) => ("io_error", e.to_string()),
+            HostError::Conversion(e) => ("conversion_error", e),
+            HostError::RPC(e) => ("rpc_error", e),
+            HostError::Serde(e) => ("serde_error", e.to_string()),
+            HostError::JoinHandle(e) => ("join_handle_error", e.to_string()),
+            HostError::Guest(e) => ("guest_error", e.to_string()),
+            HostError::Core(e) => ("core_error", e.to_string()),
+            HostError::FeatureNotSupportedError(e) => ("feature_not_supported", e.to_string()),
+            HostError::TaskManager(e) => ("task_manager", e.to_string()),
+            HostError::Anyhow(e) => ("anyhow_error", e.to_string()),
+            HostError::HandleDropped => ("handle_dropped", "".to_owned()),
+            HostError::CapacityFull => ("capacity_full", "".to_owned()),
         };
-        axum::Json(
-            serde_json::to_value(Status::Error { error, message })
-                .expect("couldn't serialize the error status"),
-        )
-        .into_response()
+        let status = Status::Error {
+            error: error.to_owned(),
+            message,
+        };
+        let value = serde_json::to_value(status).expect("couldn't serialize the error status");
+        axum::Json(value).into_response()
     }
 }
 
