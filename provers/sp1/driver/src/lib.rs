@@ -16,9 +16,9 @@ use sp1_sdk::{
     proto::network::{ProofMode, UnclaimReason},
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
+use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::{env, path::Path};
 use tracing::info;
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
