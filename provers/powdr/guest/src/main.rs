@@ -11,16 +11,10 @@ use zk_op::Risc0Operator;
 pub mod mem;
 pub use mem::*;
 
-mod random;
-
 const INPUT_FD: u32 = 42;
 const OUTPUT_FD: u32 = 43;
 
 fn main() {
-    unsafe {
-        random::init();
-    }
-
     let input: GuestInput = powdr::io::read(INPUT_FD);
 
     revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Risc0Operator {}));
