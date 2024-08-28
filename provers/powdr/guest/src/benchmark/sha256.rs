@@ -1,5 +1,6 @@
 #![no_main]
 harness::entrypoint!(main);
+use powdr_riscv_runtime as powdr;
 use revm_precompile::zk_op::ZkvmOperator;
 use std::hint::black_box;
 use zk_op::Risc0Operator;
@@ -14,5 +15,5 @@ fn main() {
     let op = Risc0Operator {};
     let res = op.sha256_run(&input).unwrap();
 
-    env::commit::<[u8; 32]>(&res);
+    powdr::io::write(43, &res);
 }

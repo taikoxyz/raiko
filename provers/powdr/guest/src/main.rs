@@ -1,5 +1,6 @@
 #![no_main]
 harness::entrypoint!(main, tests, zk_op::tests);
+use powdr_riscv_runtime as powdr;
 use raiko_lib::{
     builder::calculate_block_header, consts::VerifierType, input::GuestInput,
     protocol_instance::ProtocolInstance,
@@ -12,14 +13,15 @@ pub use mem::*;
 
 mod random;
 
-///
+const INPUT_FD: u32 = 42;
+const OUTPUT_FD: u32 = 43;
 
 fn main() {
     unsafe {
         random::init();
     }
 
-    let input: GuestInput = env::read();
+    let input: GuestInput = powdr::io::read(INPUT_FD);
 
     revm_precompile::zk_op::ZKVM_OPERATOR.get_or_init(|| Box::new(Risc0Operator {}));
     revm_precompile::zk_op::ZKVM_OPERATIONS
@@ -31,7 +33,7 @@ fn main() {
         .unwrap()
         .instance_hash();
 
-    env::commit(&pi);
+    powdr::io::write(OUTPUT_FD, &pi);
 }
 
 harness::zk_suits!(

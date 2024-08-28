@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 
 static mut RNG: MaybeUninit<rand_chacha::ChaCha8Rng> = MaybeUninit::uninit();
 
-unsafe fn init() {
+pub unsafe fn init() {
     unsafe {
         RNG.write(rand_chacha::ChaCha8Rng::from_seed(*include_bytes!(
             "../random_seed.bin"
@@ -20,4 +20,4 @@ fn get_random(buf: &mut [u8]) -> Result<(), getrandom::Error> {
     Ok(())
 }
 
-getrandom::register_custom_getrandom!(get_random);
+//getrandom::register_custom_getrandom!(get_random);
