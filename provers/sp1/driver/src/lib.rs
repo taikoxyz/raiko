@@ -16,15 +16,18 @@ use sp1_sdk::{
     proto::network::{ProofMode, UnclaimReason},
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
-use std::env;
-use std::fs;
-use std::path::PathBuf;
-use tracing::info;
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
+use tracing::{debug, info};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
-pub const FIXTURE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
-pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src/exports/";
 const SP1_PROVER_CODE: u8 = 1;
+static FIXTURE_PATH: Lazy<PathBuf> =
+    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures/"));
+static CONTRACT_PATH: Lazy<PathBuf> =
+    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/exports/"));
 
 pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifier);
 #[serde_as]
@@ -196,18 +199,11 @@ fn get_env_mock() -> ProverMode {
 
 fn init_verifier() -> Result<PathBuf, ProverError> {
     // In cargo run, Cargo sets the working directory to the root of the workspace
-    let mut current_dir = std::env::current_dir().unwrap();
-    println!("Current dir: {:?}", current_dir);
-    if current_dir.ends_with("driver") {
-        env::set_current_dir(current_dir.join("../../../"))
-            .expect("Failed to set current directory");
-        current_dir = std::env::current_dir().unwrap();
-    }
-    println!("Current dir: {:?}", current_dir);
-    let output_dir: PathBuf = current_dir.join(&CONTRACT_PATH);
+    let contract_path = &*CONTRACT_PATH;
+    info!("Contract dir: {:?}", contract_path);
     let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
     // Create the destination directory if it doesn't exist
-    fs::create_dir_all(&output_dir)?;
+    fs::create_dir_all(&contract_path)?;
 
     // Read the entries in the source directory
     for entry in fs::read_dir(artifacts_dir)? {
@@ -216,12 +212,12 @@ fn init_verifier() -> Result<PathBuf, ProverError> {
 
         // Check if the entry is a file and ends with .sol
         if src.is_file() && src.extension().map(|s| s == "sol").unwrap_or(false) {
-            let out = output_dir.join(src.file_name().unwrap());
+            let out = contract_path.join(src.file_name().unwrap());
             fs::copy(&src, &out)?;
             println!("Copied: {:?}", src.file_name().unwrap());
         }
     }
-    Ok(output_dir)
+    Ok(contract_path.clone())
 }
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
@@ -248,13 +244,14 @@ pub fn verify_sol(
         public_values: B256::from_slice(&pi_hash).to_string(),
         proof: format!("0x{}", reth_primitives::hex::encode(proof.bytes())),
     };
-    println!("===> Fixture: {:#?}", fixture);
+    debug!("===> Fixture: {:#?}", fixture);
 
     // Save the fixture to a file.
-    println!("Writing fixture to: {:?}", FIXTURE_PATH);
-    let fixture_path = PathBuf::from(FIXTURE_PATH);
+    let fixture_path = &*FIXTURE_PATH;
+    info!("Writing fixture to: {:?}", fixture_path);
+
     if !fixture_path.exists() {
-        std::fs::create_dir_all(&fixture_path).map_err(|e| {
+        std::fs::create_dir_all(fixture_path).map_err(|e| {
             ProverError::GuestError(format!("Failed to create fixture path: {}", e))
         })?;
     }
@@ -266,10 +263,10 @@ pub fn verify_sol(
 
     let child = std::process::Command::new("forge")
         .arg("test")
-        .current_dir(CONTRACT_PATH)
+        .current_dir(&*CONTRACT_PATH)
         .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
         .spawn();
-    println!("Verification started {:?}", child);
+    info!("Verification started {:?}", child);
     child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {}", e)))?;
 
     Ok(())
