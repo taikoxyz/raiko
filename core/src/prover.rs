@@ -68,6 +68,7 @@ impl Prover for NativeProver {
     }
 }
 
+#[ignore = "Only used to test serialized data"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_native_prover() {
     use serde_json::json;
