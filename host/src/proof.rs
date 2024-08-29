@@ -112,7 +112,7 @@ impl ProofActor {
                 result = Self::handle_message(proof_request, key.clone(), &opts, &chain_specs) => {
                     match result {
                         Ok(()) => {
-                            info!("Proof generated");
+                            info!("Host handling message");
                         }
                         Err(error) => {
                             error!("Worker failed due to: {error:?}");

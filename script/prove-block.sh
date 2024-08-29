@@ -52,8 +52,8 @@ elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
 	"sp1": {
-		"recursion": "plonk",
-		"prover": "network",
+		"recursion": "core",
+		"prover": "mock",
 		"verify": false
 	}
   '
@@ -143,4 +143,6 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
          $proofParam
        }"
 	echo ""
+
+	sleep 25.0
 done

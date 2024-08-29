@@ -62,10 +62,12 @@ impl BlockDataProvider for RpcBlockDataProvider {
                 ));
             }
 
-            batch
-                .send()
-                .await
-                .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
+            batch.send().await.map_err(|e| {
+                RaikoError::RPC(format!(
+                    "Error sending batch request for block {:?}: {e}",
+                    blocks_to_fetch
+                ))
+            })?;
 
             let mut blocks = Vec::with_capacity(max_batch_size);
             // Collect the data from the batch
@@ -132,7 +134,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
             batch
                 .send()
                 .await
-                .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
+                .map_err(|e| RaikoError::RPC(format!("Error sending batch request {e}")))?;
 
             let mut accounts = vec![];
             // Collect the data from the batch
@@ -197,7 +199,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
             batch
                 .send()
                 .await
-                .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
+                .map_err(|e| RaikoError::RPC(format!("Error sending batch request {e}")))?;
 
             let mut values = Vec::with_capacity(max_batch_size);
             // Collect the data from the batch
@@ -299,7 +301,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
             batch
                 .send()
                 .await
-                .map_err(|_| RaikoError::RPC("Error sending batch request".to_owned()))?;
+                .map_err(|e| RaikoError::RPC(format!("Error sending batch request {e}")))?;
 
             // Collect the data from the batch
             for request in requests {

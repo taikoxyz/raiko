@@ -10,7 +10,7 @@ use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, ensure, Result};
 use kzg_traits::{
     eip_4844::{blob_to_kzg_commitment_rust, Blob},
-    G1,
+    Fr, G1,
 };
 use raiko_lib::{
     builder::{OptimisticDatabase, RethBlockBuilder},
@@ -240,7 +240,12 @@ async fn prepare_taiko_chain_input(
     .await?;
 
     // Fetch the tx data from either calldata or blobdata
-    let (tx_data, blob_commitment) = if proposal_event.meta.blobUsed {
+    let (tx_data, blob_commitment, blob_proof) = if proposal_event.meta.blobUsed {
+        use eip4844::{
+            calc_kzg_proof_commitment, calc_kzg_proof_with_point, commitment_to_version_hash,
+            proof_of_equivalence,
+        };
+        use kzg::kzg_types::ZFr;
         debug!("blob active");
         // Get the blob hashes attached to the propose tx
         let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
@@ -257,14 +262,33 @@ async fn prepare_taiko_chain_input(
             RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
         })?;
         let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
-        let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
+        let commitment = calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
+        let blob_proof = match blob_proof_type {
+            BlobProofType::KzgVersionedHash => None,
+            BlobProofType::ProofOfEquivalence => {
+                let (x, y) = proof_of_equivalence(&blob, &commitment_to_version_hash(&commitment))
+                    .map_err(|e| anyhow!(e))?;
 
-        (blob, Some(commitment.to_vec()))
+                debug!("x {:?} y {:?}", x, y);
+                debug!(
+                    "calc_kzg_proof_with_point {:?}",
+                    calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap()).unwrap()
+                );
+
+                Some(
+                    calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap())
+                        .map(|g1| g1.to_bytes().to_vec())
+                        .map_err(|e| anyhow!(e))?,
+                )
+            }
+        };
+
+        (blob, Some(commitment.to_vec()), blob_proof)
     } else {
         // Get the tx list data directly from the propose transaction data
         let proposal_call = proposeBlockCall::abi_decode(&proposal_tx.input, false)
             .map_err(|_| RaikoError::Preflight("Could not decode proposeBlockCall".to_owned()))?;
-        (proposal_call.txList.as_ref().to_owned(), None)
+        (proposal_call.txList.as_ref().to_owned(), None, None)
     };
 
     // Create the input struct without the block data set
@@ -273,6 +297,7 @@ async fn prepare_taiko_chain_input(
         tx_data,
         anchor_tx: Some(anchor_tx.clone()),
         blob_commitment,
+        blob_proof,
         block_proposed: proposal_event,
         prover_data,
         blob_proof_type,

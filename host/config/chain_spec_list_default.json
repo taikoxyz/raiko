@@ -25,7 +25,7 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "https://rpc.ankr.com/eth",
+        "rpc": "https://ethereum-rpc.publicnode.com",
         "beacon_rpc": "https://ethereum-beacon-api.publicnode.com",
         "verifier_address": {
             "SGX":"0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
@@ -73,9 +73,9 @@
     {
         "name": "taiko_a7",
         "chain_id": 167009,
-        "max_spec_id": "SHANGHAI",
+        "max_spec_id": "HEKLA",
         "hard_forks": {
-            "SHANGHAI": {
+            "HEKLA": {
                 "Block": 0
             },
             "CANCUN": "TBD"
@@ -102,9 +102,9 @@
     {
         "name": "taiko_mainnet",
         "chain_id": 167000,
-        "max_spec_id": "SHANGHAI",
+        "max_spec_id": "HEKLA",
         "hard_forks": {
-            "SHANGHAI": {
+            "HEKLA": {
                 "Block": 0
             },
             "CANCUN": "TBD"

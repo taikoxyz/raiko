@@ -10,7 +10,7 @@ ARG BUILD_FLAGS=""
 
 WORKDIR /opt/raiko
 COPY . .
-RUN cargo build --release ${BUILD_FLAGS} --features "sgx,risc0" --features "docker_build"
+RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 FROM gramineproject/gramine:1.6-jammy as runtime
 ENV DEBIAN_FRONTEND=noninteractive

@@ -39,7 +39,6 @@ impl From<Risc0Response> for Proof {
         Self {
             proof: Some(value.proof),
             quote: None,
-            kzg_proof: None,
         }
     }
 }
