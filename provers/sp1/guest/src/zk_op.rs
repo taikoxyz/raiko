@@ -150,7 +150,7 @@ harness::zk_suits!(
 
             let p = be_bytes_to_point(&G1_BE);
             [p.x.to_bytes_le(), p.y.to_bytes_le()].concat();
-        
+
             assert!(G1_LE == [p.x.to_bytes_le(), p.y.to_bytes_le()].concat());
         }
     }

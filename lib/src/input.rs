@@ -113,6 +113,7 @@ pub struct TaikoGuestInput {
     pub block_proposed: BlockProposedFork,
     pub prover_data: TaikoProverData,
     pub blob_commitment: Option<Vec<u8>>,
+    pub blob_proof: Option<Vec<u8>>,
     pub blob_proof_type: BlobProofType,
 }
 

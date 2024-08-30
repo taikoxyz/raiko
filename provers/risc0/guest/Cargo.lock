@@ -703,7 +703,7 @@ dependencies = [
 [[package]]
 name = "bls12_381"
 version = "0.8.0"
-source = "git+https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd1fa9ae4133e04d5edf6eaabf86acac3a"
+source = "git+https://github.com/ceciliaz030/rust-kzg.git?branch=brecht/sp1-patch#f8b4d5aa6db6d49597a0cb912b2b32a6f415476c"
 dependencies = [
  "ff",
  "group",
@@ -1624,7 +1624,7 @@ dependencies = [
 [[package]]
 name = "kzg"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd1fa9ae4133e04d5edf6eaabf86acac3a"
+source = "git+https://github.com/ceciliaz030/rust-kzg.git?branch=brecht/sp1-patch#f8b4d5aa6db6d49597a0cb912b2b32a6f415476c"
 dependencies = [
  "bincode",
  "blst",
@@ -2969,7 +2969,7 @@ checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 [[package]]
 name = "rust-kzg-zkcrypto"
 version = "0.1.0"
-source = "git+https://github.com/brechtpd/rust-kzg.git?branch=sp1-patch#cbbfafdd1fa9ae4133e04d5edf6eaabf86acac3a"
+source = "git+https://github.com/ceciliaz030/rust-kzg.git?branch=brecht/sp1-patch#f8b4d5aa6db6d49597a0cb912b2b32a6f415476c"
 dependencies = [
  "bls12_381",
  "blst",
@@ -3109,18 +3109,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.205"
+version = "1.0.209"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e33aedb1a7135da52b7c21791455563facbbcc43d0f0f66165b42c21b3dfb150"
+checksum = "99fce0ffe7310761ca6bf9faf5115afbc19688edd00171d81b1bb1b116c63e09"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.205"
+version = "1.0.209"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "692d6f5ac90220161d6774db30c662202721e64aed9058d2c394f451261420c1"
+checksum = "a5831b979fd7b5439637af1752d535ff49f4860c0f341d1baeb6faf0f4242170"
 dependencies = [
  "proc-macro2",
  "quote",

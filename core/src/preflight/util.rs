@@ -3,9 +3,10 @@ use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Filter, Header, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, ensure, Result};
+use kzg::kzg_types::ZFr;
 use kzg_traits::{
     eip_4844::{blob_to_kzg_commitment_rust, Blob},
-    G1,
+    Fr, G1,
 };
 use raiko_lib::{
     builder::{OptimisticDatabase, RethBlockBuilder},
@@ -121,11 +122,12 @@ pub async fn prepare_taiko_chain_input(
     .await?;
 
     // Fetch the tx data from either calldata or blobdata
-    let (tx_data, blob_commitment) = if block_proposed.blob_used() {
+    let (tx_data, blob_commitment, blob_proof) = if block_proposed.blob_used() {
         get_tx_data(
             proposal_tx.blob_versioned_hashes,
             l1_inclusion_header.timestamp,
             l1_chain_spec,
+            &blob_proof_type,
         )
         .await?
     } else {
@@ -139,7 +141,7 @@ pub async fn prepare_taiko_chain_input(
                     block_number,
                 )
                 .await?;
-                (txList.to_vec(), None)
+                (txList.to_vec(), None, None)
             }
             _ => {
                 // Get the tx list data directly from the propose transaction data
@@ -147,7 +149,7 @@ pub async fn prepare_taiko_chain_input(
                     proposeBlockCall::abi_decode(&proposal_tx.input, false).map_err(|_| {
                         RaikoError::Preflight("Could not decode proposeBlockCall".to_owned())
                     })?;
-                (txList.to_vec(), None)
+                (txList.to_vec(), None, None)
             }
         }
     };
@@ -160,6 +162,7 @@ pub async fn prepare_taiko_chain_input(
         blob_commitment,
         block_proposed,
         prover_data,
+        blob_proof,
         blob_proof_type,
     })
 }
@@ -168,7 +171,8 @@ pub async fn get_tx_data(
     blob_versioned_hashes: Option<Vec<B256>>,
     timestamp: u64,
     chain_spec: &ChainSpec,
-) -> RaikoResult<(Vec<u8>, Option<Vec<u8>>)> {
+    blob_proof_type: &BlobProofType,
+) -> RaikoResult<(Vec<u8>, Option<Vec<u8>>, Option<Vec<u8>>)> {
     debug!("blob active");
     // Get the blob hashes attached to the propose tx
     let blob_hashes = blob_versioned_hashes.unwrap_or_default();
@@ -186,8 +190,26 @@ pub async fn get_tx_data(
     })?;
     let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
     let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
+    let blob_proof = match blob_proof_type {
+        BlobProofType::KzgVersionedHash => None,
+        BlobProofType::ProofOfEquivalence => {
+            let (x, y) =
+                eip4844::proof_of_equivalence(&blob, &commitment_to_version_hash(&commitment))
+                    .map_err(|e| anyhow!(e))?;
 
-    Ok((blob, Some(commitment.to_vec())))
+            debug!("x {x:?} y {y:?}");
+            let point = eip4844::calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap());
+            debug!("calc_kzg_proof_with_point {point:?}");
+
+            Some(
+                point
+                    .map(|g1| g1.to_bytes().to_vec())
+                    .map_err(|e| anyhow!(e))?,
+            )
+        }
+    };
+
+    Ok((blob, Some(commitment.to_vec()), blob_proof))
 }
 
 pub async fn get_calldata_txlist_event(

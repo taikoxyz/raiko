@@ -51,9 +51,10 @@ if [ "$proof" == "native" ]; then
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
+    "blob_proof_type": "proof_of_equivalence",
 	"sp1": {
-		"recursion": "plonk",
-		"prover": "network",
+		"recursion": "core",
+		"prover": "mock",
 		"verify": false
 	}
   '
@@ -71,6 +72,7 @@ elif [ "$proof" == "sgx" ]; then
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
+    "blob_proof_type": "proof_of_equivalence",
     "risc0": {
         "bonsai": false,
         "snark": false,
@@ -81,6 +83,7 @@ elif [ "$proof" == "risc0" ]; then
 elif [ "$proof" == "risc0-bonsai" ]; then
 	proofParam='
     "proof_type": "risc0",
+    "blob_proof_type": "proof_of_equivalence",
     "risc0": {
         "bonsai": true,
         "snark": true,
@@ -143,4 +146,6 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
          $proofParam
        }"
 	echo ""
+
+	sleep 25.0
 done
