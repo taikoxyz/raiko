@@ -5,8 +5,6 @@ use raiko_lib::{
     builder::calculate_block_header, consts::VerifierType, input::GuestInput,
     protocol_instance::ProtocolInstance, CycleTracker,
 };
-use revm_precompile::zk_op::ZkOperation;
-use zk_op::Sp1Operator;
 
 pub mod sys;
 pub use sys::*;
@@ -55,7 +53,7 @@ harness::zk_suits!(
                 "daf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53",
             )
             .unwrap();
-            let signer = signature.recover_signer(hash).unwrap();
+            signature.recover_signer(hash).unwrap();
         }
     }
 );
