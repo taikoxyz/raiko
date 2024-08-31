@@ -55,6 +55,7 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": "0xA4702E22F8807Df82Fe5B6dDdd99eB3Fcb0237B0",
+        "l1_contract": "0xcdE816aFd1B7db50f09831097e71F99877809218",
         "l2_contract": "0x1670010000000000000000000000000000010001",
         "rpc": "https://rpc.internal.taiko.xyz",
         "beacon_rpc": null,
