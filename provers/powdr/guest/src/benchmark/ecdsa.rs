@@ -23,5 +23,5 @@ fn main() {
     let op = Risc0Operator {};
     let res = op.secp256k1_ecrecover(&sig, recid, &msg).unwrap();
 
-    powdr::io::write(43, &res);
+    powdr::io::write(1, &res);
 }

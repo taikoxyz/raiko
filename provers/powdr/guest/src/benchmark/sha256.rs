@@ -15,5 +15,5 @@ fn main() {
     let op = Risc0Operator {};
     let res = op.sha256_run(&input).unwrap();
 
-    powdr::io::write(43, &res);
+    powdr::io::write(1, &res);
 }

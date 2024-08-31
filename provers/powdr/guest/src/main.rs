@@ -12,7 +12,7 @@ pub mod mem;
 pub use mem::*;
 
 const INPUT_FD: u32 = 42;
-const OUTPUT_FD: u32 = 43;
+const OUTPUT_FD: u32 = 1;
 
 fn main() {
     let input: GuestInput = powdr::io::read(INPUT_FD);
@@ -27,6 +27,7 @@ fn main() {
         .unwrap()
         .instance_hash();
 
+    // This will simply write to stdout, powdr still doesn't support public outputs.
     powdr::io::write(OUTPUT_FD, &pi);
 }
 
