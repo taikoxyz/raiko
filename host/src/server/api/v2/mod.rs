@@ -1,3 +1,8 @@
+use crate::{
+    server::api::v1::{self, GuestOutputDoc},
+    server::api::ServiceBuilder,
+    ProverState,
+};
 use axum::{response::IntoResponse, Json, Router};
 use raiko_lib::prover::Proof;
 use raiko_tasks::TaskStatus;
@@ -5,11 +10,6 @@ use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
-
-use crate::{
-    server::api::v1::{self, GuestOutputDoc},
-    ProverState,
-};
 
 mod proof;
 
@@ -144,13 +144,17 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     })
 }
 
-pub fn create_router() -> Router<ProverState> {
+pub fn create_router(concurrency_limit: usize) -> Router<ProverState> {
     let docs = create_docs();
 
     Router::new()
         // Only add the concurrency limit to the proof route. We want to still be able to call
         // healthchecks and metrics to have insight into the system.
-        .nest("/proof", proof::create_router())
+        .nest(
+            "/proof",
+            proof::create_router()
+                .layer(ServiceBuilder::new().concurrency_limit(concurrency_limit)),
+        )
         .nest("/health", v1::health::create_router())
         .nest("/metrics", v1::metrics::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))

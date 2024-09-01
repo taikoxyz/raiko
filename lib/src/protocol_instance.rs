@@ -95,8 +95,7 @@ impl From<(&GuestInput, &Header, B256, &BlockProposedV2)> for BlockMetadataV2 {
             blobTxListOffset: block_proposed.meta.blobTxListOffset,
             blobTxListLength: block_proposed.meta.blobTxListLength,
             blobIndex: block_proposed.meta.blobIndex,
-            basefeeAdjustmentQuotient: block_proposed.meta.basefeeAdjustmentQuotient,
-            gasIssuancePerSecond: block_proposed.meta.gasIssuancePerSecond,
+            baseFeeConfig: block_proposed.meta.baseFeeConfig.clone(),
         }
     }
 }

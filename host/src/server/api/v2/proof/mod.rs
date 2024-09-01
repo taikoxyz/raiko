@@ -94,7 +94,6 @@ async fn proof_handler(
         // If the task has succeeded, return the proof.
         TaskStatus::Success => {
             let proof = manager.get_task_proof(&key).await?;
-
             Ok(proof.into())
         }
         // For all other statuses just return the status.

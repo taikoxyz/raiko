@@ -15,7 +15,7 @@ use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, UnclaimReason},
 };
-use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
+use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::{
     borrow::BorrowMut,
     env, fs,
@@ -163,24 +163,34 @@ impl Prover for Sp1Prover {
                 .borrow_mut()
                 .public_values
                 .read::<[u8; 32]>();
-            verify_sol(&vk, &proof_bytes, &pi_hash)?;
+            let fixture = RaikoProofFixture {
+                vkey: vk.bytes32().to_string(),
+                public_values: B256::from_slice(&pi_hash).to_string(),
+                proof: format!("0x{}", reth_primitives::hex::encode(&proof_bytes)),
+            };
+
+            verify_sol(&fixture)?;
             time.stop_with("==> Verification complete");
         }
 
+        let proof_string = if proof_bytes.is_empty() {
+            None
+        } else {
+            // 0x + 64 bytes of the vkey + the proof
+            // vkey itself contains 0x prefix
+            Some(format!(
+                "{}{}",
+                vk.bytes32(),
+                reth_primitives::hex::encode(proof_bytes)
+            ))
+        };
+
+        info!(
+            "Sp1 Prover: block {:?} completed! proof: {:?}",
+            output.header.number, proof_string
+        );
         Ok::<_, ProverError>(Proof {
-            proof: {
-                if proof_bytes.is_empty() {
-                    None
-                } else {
-                    // 0x + 64 bytes of the vkey + the proof
-                    // vkey itself contains 0x prefix
-                    Some(format!(
-                        "{}{}",
-                        vk.bytes32(),
-                        reth_primitives::hex::encode(proof_bytes)
-                    ))
-                }
-            },
+            proof: proof_string,
             quote: None,
         })
     }
@@ -248,28 +258,14 @@ fn init_verifier() -> Result<PathBuf, ProverError> {
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct RaikoProofFixture {
+pub(crate) struct RaikoProofFixture {
     vkey: String,
     public_values: String,
     proof: String,
 }
 
-pub fn verify_sol(
-    vk: &SP1VerifyingKey,
-    proof_bytes: &[u8],
-    pi_hash: &[u8; 32],
-) -> ProverResult<()> {
+fn verify_sol(fixture: &RaikoProofFixture) -> ProverResult<()> {
     assert!(VERIFIER.is_ok());
-
-    // Deserialize the public values.
-    // let pi_hash = proof.public_values.read::<[u8; 32]>();
-
-    // Create the testing fixture so we can test things end-to-end.
-    let fixture = RaikoProofFixture {
-        vkey: vk.bytes32().to_string(),
-        public_values: B256::from_slice(pi_hash).to_string(),
-        proof: format!("0x{}", reth_primitives::hex::encode(proof_bytes)),
-    };
     debug!("===> Fixture: {:#?}", fixture);
 
     // Save the fixture to a file.

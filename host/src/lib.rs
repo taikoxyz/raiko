@@ -12,6 +12,7 @@ use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManagerOpts, TaskManager
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
+use tracing::info;
 
 use crate::{interfaces::HostResult, proof::ProofActor};
 
@@ -35,7 +36,7 @@ pub struct Opts {
     /// [default: 0.0.0.0:8080]
     pub address: String,
 
-    #[arg(long, require_equals = true, default_value = "16")]
+    #[arg(long, require_equals = true, default_value = "1")]
     #[serde(default = "Opts::default_concurrency_limit")]
     /// Limit the max number of in-flight requests
     pub concurrency_limit: usize,
@@ -152,6 +153,7 @@ pub struct ProverState {
 pub enum Message {
     Cancel(TaskDescriptor),
     Task(ProofRequest),
+    TaskComplete,
 }
 
 impl From<&ProofRequest> for Message {
@@ -193,8 +195,13 @@ impl ProverState {
         let opts_clone = opts.clone();
         let chain_specs_clone = chain_specs.clone();
 
+        info!(
+            "Starting proof actor with capacity: {}",
+            opts.concurrency_limit
+        );
+        let task_channel_cloned = task_channel.clone();
         tokio::spawn(async move {
-            ProofActor::new(receiver, opts_clone, chain_specs_clone)
+            ProofActor::new(task_channel_cloned, receiver, opts_clone, chain_specs_clone)
                 .run()
                 .await;
         });
@@ -202,7 +209,7 @@ impl ProverState {
         Ok(Self {
             opts,
             chain_specs,
-            task_channel,
+            task_channel: task_channel.clone(),
         })
     }
 

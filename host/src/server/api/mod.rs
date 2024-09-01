@@ -36,7 +36,7 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
     let trace = TraceLayer::new_for_http();
 
     let v1_api = v1::create_router(concurrency_limit);
-    let v2_api = v2::create_router();
+    let v2_api = v2::create_router(concurrency_limit);
 
     let router = Router::new()
         .nest("/v1", v1_api)

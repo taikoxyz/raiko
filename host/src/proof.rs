@@ -13,7 +13,10 @@ use raiko_lib::{
 use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskManagerWrapper, TaskStatus};
 use tokio::{
     select,
-    sync::{mpsc::Receiver, Mutex, OwnedSemaphorePermit, Semaphore},
+    sync::{
+        mpsc::{Receiver, Sender},
+        Mutex, OwnedSemaphorePermit, Semaphore,
+    },
 };
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
@@ -34,10 +37,16 @@ pub struct ProofActor {
     chain_specs: SupportedChainSpecs,
     tasks: Arc<Mutex<HashMap<TaskDescriptor, CancellationToken>>>,
     receiver: Receiver<Message>,
+    sender: Sender<Message>,
 }
 
 impl ProofActor {
-    pub fn new(receiver: Receiver<Message>, opts: Opts, chain_specs: SupportedChainSpecs) -> Self {
+    pub fn new(
+        sender: Sender<Message>,
+        receiver: Receiver<Message>,
+        opts: Opts,
+        chain_specs: SupportedChainSpecs,
+    ) -> Self {
         let tasks = Arc::new(Mutex::new(
             HashMap::<TaskDescriptor, CancellationToken>::new(),
         ));
@@ -47,6 +56,7 @@ impl ProofActor {
             opts,
             chain_specs,
             receiver,
+            sender,
         }
     }
 
@@ -58,6 +68,7 @@ impl ProofActor {
         };
 
         let mut manager = get_task_manager(&self.opts.clone().into());
+        let mut already_cancelled = false;
         key.proof_system
             .cancel_proof(
                 (key.chain_id, key.blockhash, key.proof_system as u8),
@@ -67,12 +78,16 @@ impl ProofActor {
             .or_else(|e| {
                 if e.to_string().contains("No data for query") {
                     warn!("Task already cancelled or not yet started!");
+                    already_cancelled = true;
                     Ok(())
                 } else {
                     Err::<(), HostError>(e.into())
                 }
             })?;
-        task.cancel();
+
+        if !already_cancelled {
+            task.cancel();
+        }
         Ok(())
     }
 
@@ -103,15 +118,17 @@ impl ProofActor {
         let tasks = self.tasks.clone();
         let opts = self.opts.clone();
         let chain_specs = self.chain_specs.clone();
-
+        let sender = self.sender.clone();
         tokio::spawn(async move {
             select! {
                 _ = cancel_token.cancelled() => {
-                    info!("Task cancelled");
+                    info!("Task {:?} cancelled", key);
+                    sender.send(Message::TaskComplete).await.expect("Couldn't send message");
                 }
                 result = Self::handle_message(proof_request, key.clone(), &opts, &chain_specs) => {
                     match result {
                         Ok(()) => {
+                            sender.send(Message::TaskComplete).await.expect("Couldn't send message");
                             info!("Host handling message");
                         }
                         Err(error) => {
@@ -127,6 +144,10 @@ impl ProofActor {
 
     pub async fn run(&mut self) {
         let semaphore = Arc::new(Semaphore::new(self.opts.concurrency_limit));
+        // a automic reference counter
+        let task_cnt = Arc::new(Mutex::new(0usize));
+        // todo: use FIFO
+        let pending_tasks = Arc::new(Mutex::new(Vec::<ProofRequest>::new()));
 
         while let Some(message) = self.receiver.recv().await {
             match message {
@@ -140,7 +161,34 @@ impl ProofActor {
                         .acquire_owned()
                         .await
                         .expect("Couldn't acquire permit");
+                    if *task_cnt.lock().await >= self.opts.concurrency_limit {
+                        info!(
+                            "Current {:?} tasks running, add {:?} to pending list [{:?}]",
+                            *task_cnt.lock().await,
+                            proof_request,
+                            pending_tasks.lock().await.len()
+                        );
+                        pending_tasks.lock().await.push(proof_request);
+                        continue;
+                    }
+                    *task_cnt.lock().await += 1;
                     self.run_task(proof_request, permit).await;
+                }
+                Message::TaskComplete => {
+                    *task_cnt.lock().await -= 1;
+                    info!(
+                        "task completed, current runing {:?}, pending: {:?}",
+                        *task_cnt.lock().await,
+                        pending_tasks.lock().await.len()
+                    );
+                    let mut pending_tasks = pending_tasks.lock().await;
+                    if let Some(proof_request) = pending_tasks.pop() {
+                        info!("Pop out pending task {:?}", proof_request);
+                        self.sender
+                            .send(Message::Task(proof_request))
+                            .await
+                            .expect("Couldn't send message");
+                    }
                 }
             }
         }
@@ -172,7 +220,10 @@ impl ProofActor {
                     error!("{error}");
                     (error.into(), None)
                 }
-                Ok(proof) => (TaskStatus::Success, Some(serde_json::to_vec(&proof)?)),
+                Ok(proof) => {
+                    let proof_bytes = serde_json::to_vec(&proof)?;
+                    (TaskStatus::Success, Some(proof_bytes))
+                }
             };
 
         manager
