@@ -14,8 +14,8 @@ use crate::{
     },
     CycleTracker,
 };
-use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 use log::info;
+use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 #[derive(Debug, Clone)]
 pub struct ProtocolInstance {
