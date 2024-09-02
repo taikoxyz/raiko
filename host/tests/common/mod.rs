@@ -116,7 +116,7 @@ pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
 
     Ok(ProofRequestOpt {
         block_number: Some(block_number),
-        l1_inclusive_block_number: None,
+        l1_inclusion_block_number: None,
         network: Some("taiko_mainnet".to_owned()),
         l1_network: Some("ethereum".to_string()),
         graffiti: Some(

@@ -43,7 +43,7 @@ mod tests {
                 proof_type,
                 prover_args,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
-                l1_inclusive_block_number: 0,
+                l1_inclusion_block_number: 0,
             },
         )
     }

@@ -48,7 +48,7 @@ impl Raiko {
     fn get_preflight_data(&self) -> PreflightData {
         PreflightData::new(
             self.request.block_number,
-            self.request.l1_inclusive_block_number,
+            self.request.l1_inclusion_block_number,
             self.l1_chain_spec.to_owned(),
             self.taiko_chain_spec.to_owned(),
             TaikoProverData {
@@ -325,7 +325,7 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number,
-            l1_inclusive_block_number: 80,
+            l1_inclusion_block_number: 80,
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -354,7 +354,7 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number,
-            l1_inclusive_block_number: 0,
+            l1_inclusion_block_number: 0,
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -392,7 +392,7 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
-                l1_inclusive_block_number: 0,
+                l1_inclusion_block_number: 0,
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
@@ -425,7 +425,7 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
-                l1_inclusive_block_number: 0,
+                l1_inclusion_block_number: 0,
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
