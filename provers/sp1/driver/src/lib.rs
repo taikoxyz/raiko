@@ -166,7 +166,7 @@ impl Prover for Sp1Prover {
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32().to_string(),
                 public_values: B256::from_slice(&pi_hash).to_string(),
-                proof: format!("0x{}", reth_primitives::hex::encode(&proof_bytes)),
+                reth_primitives::hex::encode_prefixed(&proof_bytes),
             };
 
             verify_sol(&fixture)?;
