@@ -17,6 +17,7 @@ use sp1_sdk::{
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
 use std::{
+    borrow::BorrowMut,
     env, fs,
     path::{Path, PathBuf},
 };
@@ -33,12 +34,14 @@ pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifie
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sp1Param {
+    #[serde(default = "RecursionMode::default")]
     pub recursion: RecursionMode,
     pub prover: Option<ProverMode>,
+    #[serde(default = "bool::default")]
     pub verify: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum RecursionMode {
     /// The proof mode for an SP1 core proof.
@@ -46,6 +49,7 @@ pub enum RecursionMode {
     /// The proof mode for a compressed proof.
     Compressed,
     /// The proof mode for a PlonK proof.
+    #[default]
     Plonk,
 }
 
@@ -107,6 +111,11 @@ impl Prover for Sp1Prover {
             .unwrap_or_else(ProverClient::new);
 
         let (pk, vk) = client.setup(ELF);
+        info!(
+            "Sp1 Prover: block {:?} with vk {:?}",
+            output.header.number,
+            vk.bytes32()
+        );
 
         let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
         let prove_result = if !matches!(mode, ProverMode::Network) {
@@ -146,18 +155,34 @@ impl Prover for Sp1Prover {
                 .unwrap()
         };
 
-        let proof = Proof {
-            proof: serde_json::to_string(&prove_result).ok(),
-            quote: None,
-        };
-
+        let proof_bytes = prove_result.bytes();
         if param.verify {
             let time = Measurement::start("verify", false);
-            verify_sol(vk, prove_result)?;
+            let pi_hash = prove_result
+                .clone()
+                .borrow_mut()
+                .public_values
+                .read::<[u8; 32]>();
+            verify_sol(&vk, &proof_bytes, &pi_hash)?;
             time.stop_with("==> Verification complete");
         }
 
-        Ok::<_, ProverError>(proof)
+        Ok::<_, ProverError>(Proof {
+            proof: {
+                if proof_bytes.is_empty() {
+                    None
+                } else {
+                    // 0x + 64 bytes of the vkey + the proof
+                    // vkey itself contains 0x prefix
+                    Some(format!(
+                        "{}{}",
+                        vk.bytes32(),
+                        reth_primitives::hex::encode(proof_bytes)
+                    ))
+                }
+            },
+            quote: None,
+        })
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
@@ -230,19 +255,20 @@ struct RaikoProofFixture {
 }
 
 pub fn verify_sol(
-    vk: SP1VerifyingKey,
-    mut proof: sp1_sdk::SP1ProofWithPublicValues,
+    vk: &SP1VerifyingKey,
+    proof_bytes: &[u8],
+    pi_hash: &[u8; 32],
 ) -> ProverResult<()> {
     assert!(VERIFIER.is_ok());
 
     // Deserialize the public values.
-    let pi_hash = proof.public_values.read::<[u8; 32]>();
+    // let pi_hash = proof.public_values.read::<[u8; 32]>();
 
     // Create the testing fixture so we can test things end-to-end.
     let fixture = RaikoProofFixture {
         vkey: vk.bytes32().to_string(),
-        public_values: B256::from_slice(&pi_hash).to_string(),
-        proof: format!("0x{}", reth_primitives::hex::encode(proof.bytes())),
+        public_values: B256::from_slice(pi_hash).to_string(),
+        proof: format!("0x{}", reth_primitives::hex::encode(proof_bytes)),
     };
     debug!("===> Fixture: {:#?}", fixture);
 
