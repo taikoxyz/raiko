@@ -1,0 +1,40 @@
+[workspace]
+
+[package]
+name = "powdr-guest"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "zk_op"
+path = "src/zk_op.rs"
+
+[[bin]]
+name = "sha256"
+path = "src/benchmark/sha256.rs"
+
+[[bin]]
+name = "ecdsa"
+path = "src/benchmark/ecdsa.rs"
+
+[dependencies]
+# TODO: we should use a powdr accelerated version of k256
+k256 = { version = "0.13", default-features = false, features = ["sha256"]}
+sha2 = { version = "0.10", default-features = false }
+raiko-lib = { path = "../../../lib", features = ["std", "risc0"] }
+powdr-riscv-runtime = { path = "../../../../powdr/riscv-runtime", features = ["std","getrandom","allow_fake_rand"] }
+harness-core = { path = "../../../harness/core" }
+harness = { path = "../../../harness/macro", features = ["risc0"] }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
+    "taiko",
+    "std",
+    "c-kzg",
+] }
+
+[patch.crates-io]
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" }
+blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
