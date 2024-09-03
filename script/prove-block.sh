@@ -53,8 +53,8 @@ elif [ "$proof" == "sp1" ]; then
     "proof_type": "sp1",
     "blob_proof_type": "proof_of_equivalence",
 	"sp1": {
-		"recursion": "core",
-		"prover": "mock",
+		"recursion": "plonk",
+		"prover": "network",
 		"verify": false
 	}
   '
@@ -147,5 +147,5 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
        }"
 	echo ""
 
-	sleep 25.0
+	sleep 1.0
 done

@@ -18,6 +18,7 @@ use crate::{
     },
     CycleTracker,
 };
+use log::info;
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 #[derive(Debug, Clone)]
@@ -155,7 +156,7 @@ impl ProtocolInstance {
 
             let blob_proof_type =
                 get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone());
-            println!("blob proof type: {:?}", &blob_proof_type);
+            info!("blob proof type: {:?}", &blob_proof_type);
             match blob_proof_type {
                 crate::input::BlobProofType::ProofOfEquivalence => {
                     let ct = CycleTracker::start("proof_of_equivalence");
