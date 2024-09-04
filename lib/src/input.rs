@@ -2,6 +2,7 @@ use core::{fmt::Debug, str::FromStr};
 
 use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
+use reth_evm_ethereum::taiko::ProtocolBaseFeeConfig;
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
     Block, Header, TransactionSigned,
@@ -88,17 +89,16 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn basefee_adjustment_quotient(&self) -> u8 {
+    pub fn base_fee_config(&self) -> ProtocolBaseFeeConfig {
         match self {
-            BlockProposedFork::Ontake(block) => block.meta.basefeeAdjustmentQuotient,
-            _ => 0,
-        }
-    }
-
-    pub fn gas_issuance_per_second(&self) -> u32 {
-        match self {
-            BlockProposedFork::Ontake(block) => block.meta.gasIssuancePerSecond,
-            _ => 0,
+            BlockProposedFork::Ontake(block) => ProtocolBaseFeeConfig {
+                adjustment_quotient: block.meta.baseFeeConfig.adjustmentQuotient,
+                sharing_pctg: block.meta.baseFeeConfig.sharingPctg,
+                gas_issuance_per_second: block.meta.baseFeeConfig.gasIssuancePerSecond,
+                min_gas_excess: block.meta.baseFeeConfig.minGasExcess,
+                max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
+            },
+            _ => ProtocolBaseFeeConfig::default(),
         }
     }
 }

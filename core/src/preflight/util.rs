@@ -20,7 +20,7 @@ use raiko_lib::{
     },
     primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
 };
-use reth_evm_ethereum::taiko::decode_anchor;
+use reth_evm_ethereum::taiko::{decode_anchor, decode_anchor_ontake};
 use reth_primitives::Block;
 use reth_revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
@@ -80,15 +80,28 @@ pub async fn prepare_taiko_chain_input(
         .body
         .first()
         .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
-    let anchor_call = decode_anchor(anchor_tx.input())?;
-    // The L1 blocks we need
-    let l1_state_block_number = anchor_call.l1BlockId;
-    let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
-    let l1_inclusion_block_number = l1_inclusion_block_number.unwrap_or(l1_state_block_number + 1);
 
+    let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
+    info!("current taiko chain fork: {fork:?}");
+
+    let (l1_state_block_number, l1_inclusion_block_number) = match fork {
+        SpecId::ONTAKE => {
+            let anchor_call = decode_anchor_ontake(anchor_tx.input())?;
+            (
+                anchor_call._anchorBlockId,
+                l1_inclusion_block_number.unwrap_or(anchor_call._anchorBlockId + 1),
+            )
+        }
+        _ => {
+            let anchor_call = decode_anchor(anchor_tx.input())?;
+            (
+                anchor_call.l1BlockId,
+                l1_inclusion_block_number.unwrap_or(anchor_call.l1BlockId + 1),
+            )
+        }
+    };
     debug!(
-        "anchor L1 block id: {:?}\nanchor L1 state root: {:?}",
-        anchor_call.l1BlockId, anchor_call.l1StateRoot
+        "anchor L1 block id: {l1_state_block_number:?}, l1 inclusion block id: {l1_inclusion_block_number:?}"
     );
 
     // Get the L1 block in which the L2 block was included so we can fetch the DA data.

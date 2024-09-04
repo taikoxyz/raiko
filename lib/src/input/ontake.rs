@@ -4,6 +4,15 @@ use serde::{Deserialize, Serialize};
 
 sol! {
     #[derive(Debug, Default, Deserialize, Serialize)]
+    struct BaseFeeConfig {
+        uint8 adjustmentQuotient;
+        uint8 sharingPctg;
+        uint32 gasIssuancePerSecond;
+        uint64 minGasExcess;
+        uint32 maxGasIssuancePerBlock;
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
     struct BlockParamsV2 {
         address coinbase;
         bytes32 parentMetaHash;
@@ -37,8 +46,7 @@ sol! {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
-        uint8 basefeeAdjustmentQuotient;
-        uint32 gasIssuancePerSecond;
+        BaseFeeConfig baseFeeConfig;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]

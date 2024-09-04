@@ -65,7 +65,7 @@ impl Raiko {
     ) -> RaikoResult<GuestInput> {
         //TODO: read fork from config
         let preflight_data = self.get_preflight_data();
-        info!("Generating input for HEKLA fork");
+        info!("Generating input for block {}", self.request.block_number);
         preflight(provider, preflight_data)
             .await
             .map_err(Into::<RaikoError>::into)
