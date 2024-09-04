@@ -101,8 +101,7 @@ pub async fn prepare_taiko_chain_input(
         }
     };
     debug!(
-        "anchor L1 block id: {:?}, l1 inclusion block id: {:?}",
-        l1_state_block_number, l1_inclusion_block_number
+        "anchor L1 block id: {l1_state_block_number:?}, l1 inclusion block id: {l1_inclusion_block_number:?}"
     );
 
     // Get the L1 block in which the L2 block was included so we can fetch the DA data.
