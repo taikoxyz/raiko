@@ -16,8 +16,8 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  build-test:
-    name: Build and test
+  build-run-integration:
+    name: Build and run integration
     runs-on: [taiko-runner]
     timeout-minutes: 120
 

@@ -39,7 +39,7 @@ where
 {
     let max_iterations = 100;
     for num_iterations in 0.. {
-        inplace_print(&format!("Execution iteration {num_iterations}..."));
+        inplace_print(&format!("Executing iteration {num_iterations}..."));
 
         let Some(db) = builder.db.as_mut() else {
             return Err(RaikoError::Preflight("No db in builder".to_owned()));

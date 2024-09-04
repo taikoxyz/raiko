@@ -19,8 +19,8 @@ jobs:
       version_name: "sgx"
       version_toolchain: "stable"
 
-  integration-test-native:
-    name: Build and run integration tests on sgx
+  integration-test-sgx:
+    name: Run integration tests on sgx
     uses: ./.github/workflows/ci-integration-reusable.yml
     with:
       version_name: "sgx"
