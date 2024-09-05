@@ -146,6 +146,7 @@ pub struct ProverState {
 pub enum Message {
     Cancel(TaskDescriptor),
     Task(ProofRequest),
+    TaskComplete(ProofRequest),
 }
 
 impl From<&ProofRequest> for Message {
@@ -184,9 +185,9 @@ impl ProverState {
 
         let opts_clone = opts.clone();
         let chain_specs_clone = chain_specs.clone();
-
+        let sender = task_channel.clone();
         tokio::spawn(async move {
-            ProofActor::new(receiver, opts_clone, chain_specs_clone)
+            ProofActor::new(sender, receiver, opts_clone, chain_specs_clone)
                 .run()
                 .await;
         });
