@@ -23,6 +23,7 @@ use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 #[derive(Debug, Clone)]
 pub enum BlockMetaDataFork {
+    None,
     Hekla(BlockMetadata),
     Ontake(BlockMetadataV2),
 }
@@ -104,24 +105,23 @@ impl From<(&GuestInput, &Header, B256, &BlockProposedV2)> for BlockMetadataV2 {
 impl BlockMetaDataFork {
     fn from(input: &GuestInput, header: &Header, tx_list_hash: B256) -> Self {
         match &input.taiko.block_proposed {
-            BlockProposedFork::Nothing => unimplemented!("no block proposed"),
+            BlockProposedFork::Nothing => Self::None,
             BlockProposedFork::Hekla(block_proposed) => {
-                BlockMetaDataFork::Hekla((input, header, tx_list_hash, block_proposed).into())
+                Self::Hekla((input, header, tx_list_hash, block_proposed).into())
             }
             BlockProposedFork::Ontake(block_proposed_v2) => {
-                BlockMetaDataFork::Ontake((input, header, tx_list_hash, block_proposed_v2).into())
+                Self::Ontake((input, header, tx_list_hash, block_proposed_v2).into())
             }
         }
     }
 
     fn match_block_proposal(&self, other: &BlockProposedFork) -> bool {
         match (self, other) {
-            (BlockMetaDataFork::Hekla(a), BlockProposedFork::Hekla(b)) => {
+            (Self::Hekla(a), BlockProposedFork::Hekla(b)) => a.abi_encode() == b.meta.abi_encode(),
+            (Self::Ontake(a), BlockProposedFork::Ontake(b)) => {
                 a.abi_encode() == b.meta.abi_encode()
             }
-            (BlockMetaDataFork::Ontake(a), BlockProposedFork::Ontake(b)) => {
-                a.abi_encode() == b.meta.abi_encode()
-            }
+            (Self::None, BlockProposedFork::Nothing) => true,
             _ => false,
         }
     }
@@ -265,6 +265,7 @@ impl ProtocolInstance {
 
     pub fn meta_hash(&self) -> B256 {
         match self.block_metadata {
+            BlockMetaDataFork::None => keccak(vec![]).into(),
             BlockMetaDataFork::Hekla(ref meta) => keccak(meta.abi_encode()).into(),
             BlockMetaDataFork::Ontake(ref meta) => keccak(meta.abi_encode()).into(),
         }
