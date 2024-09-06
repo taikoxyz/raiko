@@ -1,6 +1,6 @@
 pub const TEST_RISC0_GUEST_ELF: &[u8] = include_bytes!(
-    "../../../guest/target/riscv32im-risc0-zkvm-elf/release/deps/risc0_guest-90b3fe531b061f6a"
+    "../../../guest/target/riscv32im-risc0-zkvm-elf/release/deps/risc0_guest-f5987cc5887deb20"
 );
 pub const TEST_RISC0_GUEST_ID: [u32; 8] = [
-    3252456902, 53901671, 541073573, 102077000, 3257334206, 588733068, 3223781439, 2047063023,
+    2430015116, 3517447033, 2144906779, 1977372976, 3657453511, 3589121667, 1749151289, 1572046207,
 ];
