@@ -36,9 +36,6 @@ jobs:
           toolchain: ${{ inputs.version_toolchain }}
           profile: minimal
 
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.6.4
-
       - name: Setup sccache
         if: ${{ inputs.version_name }} == risc0
         uses: risc0/risc0/.github/actions/sccache@release-0.19
