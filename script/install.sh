@@ -56,10 +56,12 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		echo ${PROFILE}
 		source ${PROFILE}
 		rzup install cargo-risczero v1.1.0-rc.3
+		rzup install
 	else
 		echo "/home/runner/.risc0/bin" >> $GITHUB_PATH
         echo $GITHUB_PATH
 		/home/runner/.risc0/bin/rzup install cargo-risczero v1.1.0-rc.3
+		/home/runner/.risc0/bin/rzup install
 	fi
 fi
 # SP1
