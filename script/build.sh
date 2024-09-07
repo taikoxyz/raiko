@@ -3,6 +3,7 @@
 # Any error will result in failure
 set -e
 
+TOOLCHAIN_POWDR=+nightly-2024-04-18
 TOOLCHAIN_RISC0=+nightly-2024-04-18
 TOOLCHAIN_SP1=+nightly-2024-04-18
 TOOLCHAIN_SGX=+nightly-2024-04-18
@@ -91,6 +92,40 @@ if [ -z "$1" ] || [ "$1" == "sgx" ]; then
 		else
 			echo "Running SGX tests"
 			cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p raiko-host -p sgx-prover --features "sgx enable"
+		fi
+	fi
+fi
+
+# POWDR
+if [ -z "$1" ] || [ "$1" == "powdr" ]; then
+	check_toolchain $TOOLCHAIN_POWDR
+	if [ "$MOCK" = "1" ]; then
+		export POWDR_DEV_MODE=1
+		echo "POWDR_DEV_MODE is set to $POWDR_DEV_MODE"
+	fi
+	if [ -n "${CLIPPY}" ]; then
+		MOCK=1
+		POWDR_DEV_MODE=1
+		CI=1
+		cargo ${TOOLCHAIN_POWDR} run --bin powdr-builder
+		cargo ${TOOLCHAIN_POWDR} clippy -F powdr
+	elif [ -z "${RUN}" ]; then
+		if [ -z "${TEST}" ]; then
+			echo "Building Powdr prover"
+			cargo ${TOOLCHAIN_POWDR} run --bin powdr-builder
+		else
+			echo "Building test elfs for powdr prover"
+			cargo ${TOOLCHAIN_POWDR} run --bin powdr-builder --features test,bench
+		fi
+		cargo ${TOOLCHAIN_POWDR} build ${FLAGS} --features powdr
+	else
+		if [ -z "${TEST}" ]; then
+			echo "Running powdr prover"
+			cargo ${TOOLCHAIN_POWDR} run ${FLAGS} --features powdr
+		else
+			echo "Running powdr tests"
+			cargo ${TOOLCHAIN_POWDR} test ${FLAGS} --lib powdr-driver --features powdr -- run_unittest_elf
+			cargo ${TOOLCHAIN_POWDR} test ${FLAGS} -p raiko-host -p powdr-driver --features "powdr enable"
 		fi
 	fi
 fi

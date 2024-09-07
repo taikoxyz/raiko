@@ -18,5 +18,7 @@ risc0-binfmt = { workspace = true, optional = true }
 pathdiff = { workspace = true, optional = true }
 
 [features]
+# TODO: make powdr feature work
+powdr = []
 risc0 = ["dep:risc0-binfmt", "dep:pathdiff"]
 sp1 = []

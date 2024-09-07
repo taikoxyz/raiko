@@ -5452,6 +5452,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 
 [[package]]
+name = "powdr-builder"
+version = "0.1.0"
+dependencies = [
+ "raiko-pipeline",
+]
+
+[[package]]
+name = "powdr-driver"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "anyhow",
+ "bincode",
+ "bonsai-sdk 0.8.0",
+ "bytemuck",
+ "cfg-if",
+ "ethers-contract 2.0.10",
+ "ethers-core 2.0.10",
+ "ethers-providers 2.0.10",
+ "hex",
+ "log",
+ "once_cell",
+ "raiko-lib",
+ "risc0-zkvm",
+ "serde",
+ "serde_json",
+ "serde_with 3.9.0",
+ "tracing",
+ "typetag",
+]
+
+[[package]]
 name = "powerfmt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
