@@ -135,7 +135,13 @@ impl CommandBuilder {
             Ok(output) => {
                 if output.status.success() {
                     println!("Command succeeded with output: {:?}", output.stdout);
-                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                    if let Ok(out) = String::from_utf8(output.stdout) {
+                        let out = out.trim();
+                        println!("Using {tool}: {out}");
+                        Some(PathBuf::from(out))
+                    } else {
+                        None
+                    }
                 } else {
                     eprintln!("Command failed with status: {}", output.status);
                     None
@@ -146,16 +152,6 @@ impl CommandBuilder {
                 None
             }
         }
-
-        let Ok(out) = String::from_utf8(stdout) else {
-            return None;
-        };
-
-        let out = out.trim();
-
-        println!("Using {tool}: {out}");
-
-        Some(PathBuf::from(out))
     }
 
     pub fn new(meta: &Metadata, target: &str, toolchain: &str) -> Self {
