@@ -128,12 +128,24 @@ pub struct CommandBuilder {
 
 impl CommandBuilder {
     fn get_path_buf(tool: &str, toolchain: &str) -> Option<PathBuf> {
-        let std::io::Result::Ok(std::process::Output { stdout, .. }) = sanitized_cmd("rustup")
+        match sanitized_cmd("rustup")
             .args([&format!("+{toolchain}"), "which", tool])
             .output()
-        else {
-            return None;
-        };
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    println!("Command succeeded with output: {:?}", output.stdout);
+                    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    eprintln!("Command failed with status: {}", output.status);
+                    None
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to execute command: {}", e);
+                None
+            }
+        }
 
         let Ok(out) = String::from_utf8(stdout) else {
             return None;
