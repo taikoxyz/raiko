@@ -58,9 +58,9 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		source ${PROFILE}
 		rzup -v 1.0.1
 	else
-		echo "/home/runner/.config/.risc0/bin" >> $GITHUB_PATH
+		echo "/home/runner/.risc0/bin" >> $GITHUB_PATH
         echo $GITHUB_PATH
-		/home/runner/.config/.risc0/bin/rzup -v 1.0.1
+		/home/runner/.risc0/bin/rzup -v 1.0.1
 	fi
 fi
 # SP1
