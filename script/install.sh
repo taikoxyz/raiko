@@ -83,7 +83,8 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 fi
 # Powdr
 if [ -z "$1" ] || [ "$1" == "powdr" ]; then
-	# Install nightly toolchain
+	# Install nightly toolchain (use the same version as the rust-toolchain
+	# because it is installed already)
 	rustup toolchain install nightly-2024-04-18
 	# Add rust-src component
 	rustup component add rust-src --toolchain nightly-2024-04-18

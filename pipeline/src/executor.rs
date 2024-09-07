@@ -112,6 +112,7 @@ impl Executor {
             fs::create_dir_all(&dest_dir).expect("Couldn't create destination directories");
         }
 
+        println!("#### {:#?}", self.artifacts);
         for src in &self.artifacts {
             let mut name = file_name(src);
 
