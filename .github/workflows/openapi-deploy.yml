@@ -32,7 +32,7 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2024-04-18
+          toolchain: nightly-2024-04-17
           profile: minimal
 
       - name: Run docs generation binary
