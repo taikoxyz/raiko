@@ -25,27 +25,3 @@ jobs:
       TARGET: ${{ inputs.version_name }}
       CI: 1
       MOCK: 1
-
-      # TODO:(petar) re add to CI after fixing sgx directory setup
-    # steps:
-    #   - uses: actions/checkout@v4
-    #     with:
-    #       submodules: recursive
-    #
-    #   - uses: actions-rs/toolchain@v1
-    #     with:
-    #       toolchain: ${{ inputs.version_toolchain }}
-    #       profile: minimal
-    #
-    #   - name: Setup sccache
-    #     if: ${{ inputs.version_name }} == risc0
-    #     uses: risc0/risc0/.github/actions/sccache@release-0.19
-    #
-    #   - name: Install ${{ inputs.version_name }}
-    #     run: make install
-    #
-    #   - name: Build ${{ inputs.version_name }} prover
-    #     run: make build
-    #
-    #   - name: Run integration test for ${{ inputs.version_name }} prover
-    #     run: make integration
