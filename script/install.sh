@@ -51,17 +51,16 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
         export TERM=xterm
     fi
     curl -L https://risczero.com/install | bash
+
 	if [ -z "${CI}" ] || [ ! command -v rzup &> /dev/null ]; then
 		PROFILE=$HOME/.bashrc
 		echo ${PROFILE}
 		source ${PROFILE}
-		rzup install cargo-risczero v1.1.0-rc.3
-		rzup install
+		rzup -v 1.0.1
 	else
-		echo "/home/runner/.risc0/bin" >> $GITHUB_PATH
+		echo "/home/runner/.config/.risc0/bin" >> $GITHUB_PATH
         echo $GITHUB_PATH
-		/home/runner/.risc0/bin/rzup install cargo-risczero v1.1.0-rc.3
-		/home/runner/.risc0/bin/rzup install
+		/home/runner/.config/.risc0/bin/rzup -v 1.0.1
 	fi
 fi
 # SP1
