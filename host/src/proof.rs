@@ -177,7 +177,7 @@ impl ProofActor {
                     // pop up pending task if any task complete
                     debug!("Message::TaskComplete: {:?}", req);
                     info!(
-                        "task completed, current runing {:?}, pending: {:?}",
+                        "task completed, current running {:?}, pending: {:?}",
                         self.running_tasks.lock().await.len(),
                         self.pending_tasks.lock().await.len()
                     );
