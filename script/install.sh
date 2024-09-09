@@ -88,4 +88,8 @@ if [ -z "$1" ] || [ "$1" == "powdr" ]; then
 	rustup toolchain install nightly-2024-04-18
 	# Add rust-src component
 	rustup component add rust-src --toolchain nightly-2024-04-18
+
+	# Build powdr using the same toolchain, since it is installed anyway
+	# TODO: don't assume powdr is in ../powdr
+	RUSTUP_TOOLCHAIN=nightly-2024-04-18 cargo build -r --manifest-path ../powdr/Cargo.toml
 fi
