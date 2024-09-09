@@ -20,7 +20,7 @@ pub async fn test_v1_api_format() -> anyhow::Result<()> {
                 data: v1::ProofResponse { .. }
             }
         ),
-        "Got error response from server"
+        "Got error response from server {response:?}"
     );
 
     token.cancel();
@@ -53,7 +53,7 @@ pub async fn test_v2_api_response() -> anyhow::Result<()> {
                 data: v2::ProofResponse::Proof { .. }
             }
         ),
-        "Got error response from server"
+        "Got error response from server {response:?}"
     );
 
     // Wait a second to allow the server to process the request.
@@ -76,7 +76,7 @@ pub async fn test_v2_api_response() -> anyhow::Result<()> {
                 data: v2::ProofResponse::Proof { .. }
             }
         ),
-        "Got incorrect response from server"
+        "Got incorrect response from server {response:?}"
     );
 
     token.cancel();
@@ -108,7 +108,7 @@ pub async fn test_v2_cancellation() -> anyhow::Result<()> {
                 data: v2::ProofResponse::Proof { .. }
             }
         ),
-        "Got error response from server"
+        "Got error response from server {response:?}"
     );
 
     // Cancel the proof request.
@@ -119,7 +119,7 @@ pub async fn test_v2_cancellation() -> anyhow::Result<()> {
 
     assert!(
         matches!(response, v2::CancelStatus::Ok),
-        "Got error response from server"
+        "Got error response from server {response:?}"
     );
 
     // Check that we can restart the proof request.
@@ -137,7 +137,7 @@ pub async fn test_v2_cancellation() -> anyhow::Result<()> {
                 }
             }
         ),
-        "Got error response from server"
+        "Got error response from server {response:?}"
     );
 
     token.cancel();
@@ -170,7 +170,7 @@ pub async fn test_v2_report() -> anyhow::Result<()> {
                 }
             }
         ),
-        "Got error response from server"
+        "Got error response from server {response:?}"
     );
 
     let response = client.report_proof().await?;
@@ -210,7 +210,7 @@ pub async fn test_v2_prune() -> anyhow::Result<()> {
                 }
             }
         ),
-        "Got error response from server"
+        "Got error response from server {response:?}"
     );
 
     let response = client.report_proof().await?;
@@ -224,7 +224,7 @@ pub async fn test_v2_prune() -> anyhow::Result<()> {
 
     assert!(
         matches!(response, v2::PruneStatus::Ok),
-        "Got error response from server"
+        "Got error response from server {response:?}"
     );
 
     let response = client.report_proof().await?;
