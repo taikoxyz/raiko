@@ -165,7 +165,7 @@ impl ProofActor {
                         self.run_task(proof_request).await;
                     } else {
                         info!(
-                            "Task concurrency limit reached, current runing {:?}, pending: {:?}",
+                            "Task concurrency limit reached, current running {:?}, pending: {:?}",
                             running_task_count,
                             self.pending_tasks.lock().await.len()
                         );
