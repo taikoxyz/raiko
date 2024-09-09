@@ -134,12 +134,13 @@ impl CommandBuilder {
         {
             Ok(output) => {
                 if output.status.success() {
-                    println!("Command succeeded with output: {:?}", output.stdout);
-                    if let Ok(out) = String::from_utf8(output.stdout) {
+                    let stdout = output.stdout;
+                    if let Ok(out) = String::from_utf8(stdout.clone()) {
                         let out = out.trim();
                         println!("Using {tool}: {out}");
                         Some(PathBuf::from(out))
                     } else {
+                        println!("Command succeeded with unknown output: {:?}", stdout);
                         None
                     }
                 } else {
