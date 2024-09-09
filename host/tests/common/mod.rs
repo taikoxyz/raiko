@@ -124,7 +124,7 @@ pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
         ),
         prover: Some("0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_owned()),
         proof_type: Some(proof_type.to_string()),
-        blob_proof_type: Some("proof_of_equivalence"),
+        blob_proof_type: Some("proof_of_equivalence".to_string()),
         prover_args: ProverSpecificOpts {
             native: None,
             sgx: None,
