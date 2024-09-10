@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::str::FromStr;
 
 use raiko_core::interfaces::{ProofRequestOpt, ProofType, ProverSpecificOpts};
