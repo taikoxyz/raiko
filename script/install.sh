@@ -59,8 +59,8 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		rzup -v 1.0.1
 	else
 		echo "/home/runner/.config/.risc0/bin" >> $GITHUB_PATH
-        echo $GITHUB_PATH
-		/home/runner/.config/.risc0/bin/rzup -v 1.0.1
+		echo $GITHUB_PATH
+		/home/runner/.risc0/bin/rzup --verbose install
 	fi
 fi
 # SP1
