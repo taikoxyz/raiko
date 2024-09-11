@@ -3,6 +3,8 @@
 # Any error will result in failure
 set -e
 
+source ./script/ci-env-check.sh
+
 # Check if wget is installed
 if ! command -v wget &> /dev/null
 then
