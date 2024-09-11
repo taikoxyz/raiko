@@ -486,3 +486,13 @@ The response should look like this:
 ```
 
 If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
+
+## Change your Raiko instance's RPCs to your personal RPC (Optional but recommended)
+
+If you've successfully set up your raiko instance as above, you may want to change the RPCs raiko uses to ones you trust / your own deployed L1 Node and Beacon Node. Doing so will prevent random outages on PublicNode from affecting your proving, which you will want to do when running a mainnet prover/proposer.
+
+If your raiko instance is still running, take it down temporarily with `docker compose down`.
+
+Navigate to `host/config/chain_spec_list_default.json`. On L28-29, change the `"rpc"` and `"beacon_rpc"` values to an RPC provider you trust or your own endpoints.
+
+You can now restart your raiko instance (skipping the init/bootstrapping step) and operate as normal! Monitor the logs and run the above `./script/prove-block` script to make sure it's functioning normally.
