@@ -3,6 +3,11 @@
 # Any error will result in failure
 set -e
 
+# report the CI image status
+if [ -n "$CI" ]; then
+    source ./script/ci-env-check.sh
+fi
+
 # toolchain necessary to compile c-kzg in SP1/risc0
 if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 	# Check if the RISC-V GCC prebuilt binary archive already exists
@@ -59,8 +64,8 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		rzup -v 1.0.1
 	else
 		echo "/home/runner/.config/.risc0/bin" >> $GITHUB_PATH
-        echo $GITHUB_PATH
-		/home/runner/.config/.risc0/bin/rzup -v 1.0.1
+		echo $GITHUB_PATH
+		/home/runner/.risc0/bin/rzup --verbose install
 	fi
 fi
 # SP1
