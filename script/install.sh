@@ -3,8 +3,10 @@
 # Any error will result in failure
 set -e
 
-# in any case wget is not installed
-sudo apt-get update && sudo apt-get install -y wget
+# report the CI image status
+if [ -n "$CI" ]; then
+    source ./script/ci-env-check.sh
+fi
 
 # toolchain necessary to compile c-kzg in SP1/risc0
 if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
