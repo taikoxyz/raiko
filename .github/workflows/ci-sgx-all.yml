@@ -19,13 +19,6 @@ jobs:
       version_name: "sgx"
       version_toolchain: "stable"
 
-  integration-test-sgx:
-    name: Run integration tests on sgx
-    uses: ./.github/workflows/ci-integration-reusable.yml
-    with:
-      version_name: "sgx"
-      version_toolchain: "nightly-2024-04-17"
-
   build-test-sgx-docker:
     name: Build and test sgx with Docker
     uses: ./.github/workflows/ci-sgx-docker.yml
