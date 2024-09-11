@@ -2,6 +2,6 @@
   "network": "taiko_dev",
   "l1_network": "taiko_dev_l1",
   "sgx": {
-    "instance_id": 1
+    "instance_id": 0
   }
 }
