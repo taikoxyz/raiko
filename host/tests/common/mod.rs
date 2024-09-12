@@ -1,9 +1,12 @@
+#![allow(dead_code)]
+
 use std::str::FromStr;
 
 use raiko_core::interfaces::{ProofRequestOpt, ProofType, ProverSpecificOpts};
 use raiko_host::{server::serve, ProverState};
 use raiko_lib::consts::{Network, SupportedChainSpecs};
 use serde::Deserialize;
+use serde_json::json;
 use tokio_util::sync::CancellationToken;
 
 mod client;
@@ -36,7 +39,7 @@ pub async fn find_recent_block(network: Network) -> anyhow::Result<u64> {
 
     let response = client
         .post(beacon.clone())
-        .json(&serde_json::json!({
+        .json(&json!({
             "jsonrpc": "2.0",
             "method": "eth_blockNumber",
             "params": [],
@@ -56,7 +59,7 @@ pub async fn find_recent_block(network: Network) -> anyhow::Result<u64> {
     for block_number in latest_blocks {
         let response = client
             .post(beacon.clone())
-            .json(&serde_json::json!({
+            .json(&json!({
                 "jsonrpc": "2.0",
                 "method": "eth_getBlockByNumber",
                 "params": [format!("0x{block_number:x}"), false],
@@ -94,10 +97,10 @@ pub async fn start_raiko() -> anyhow::Result<CancellationToken> {
             result = serve(state) => {
                 match result {
                     Ok(()) => {
-                        assert!(false, "Unexpected server shutdown");
+                        panic!("Unexpected server shutdown");
                     }
                     Err(error) => {
-                        assert!(false, "Server failed due to: {error:?}");
+                        panic!("Server failed due to: {error:?}");
                     }
                 };
             }
@@ -128,7 +131,7 @@ pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
         prover_args: ProverSpecificOpts {
             native: None,
             sgx: None,
-            sp1: None,
+            sp1: Some(json!({ "verify": false })),
             risc0: None,
         },
     })

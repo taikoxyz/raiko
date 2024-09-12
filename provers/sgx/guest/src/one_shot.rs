@@ -13,6 +13,7 @@ use raiko_lib::{
 };
 use secp256k1::{Keypair, SecretKey};
 use serde::Serialize;
+use serde_json::json;
 
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
@@ -68,7 +69,7 @@ fn save_bootstrap_details(
         quote: hex::encode(quote),
     };
 
-    println!("{}", serde_json::json!(&bootstrap_details));
+    println!("{}", json!(&bootstrap_details));
     let json = serde_json::to_string_pretty(&bootstrap_details)?;
     fs::write(bootstrap_details_file_path, json).context(format!(
         "Saving bootstrap data file {} failed",
@@ -155,7 +156,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     // Print out the proof and updated public info
     let quote = get_sgx_quote()?;
-    let data = serde_json::json!({
+    let data = json!({
         "proof": format!("0x{proof}"),
         "quote": hex::encode(quote),
         "public_key": format!("0x{new_pubkey}"),

@@ -102,7 +102,7 @@ pub async fn test_v2_cancellation() -> anyhow::Result<()> {
             response,
             v2::Status::Ok {
                 data: v2::ProofResponse::Status {
-                    status: TaskStatus::Registered
+                    status: TaskStatus::Registered | TaskStatus::WorkInProgress
                 }
             } | v2::Status::Ok {
                 data: v2::ProofResponse::Proof { .. }
