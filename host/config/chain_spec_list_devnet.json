@@ -31,7 +31,7 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1725896100,
+        "genesis_time": 1726040200,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
@@ -44,7 +44,7 @@
                 "Block": 0
             },
             "ONTAKE": {
-                "Block": 50
+                "Block": 500
             },
             "CANCUN": "TBD"
         },
