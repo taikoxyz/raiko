@@ -121,7 +121,8 @@ impl Prover for NitroProver {
 
         info!("Successfully generated proof for PI {}", pi_hash);
         Ok(Proof {
-            quote: Some(hex::encode(user_data)),
+            proof: Some(hex::encode(user_data)),
+            quote: Some(hex::encode(self.get_attestation()?)),
             ..Default::default()
         })
     }
