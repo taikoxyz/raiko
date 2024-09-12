@@ -96,10 +96,10 @@ pub async fn start_raiko() -> anyhow::Result<CancellationToken> {
             result = serve(state) => {
                 match result {
                     Ok(()) => {
-                        assert!(false, "Unexpected server shutdown");
+                        panic!("Unexpected server shutdown");
                     }
                     Err(error) => {
-                        assert!(false, "Server failed due to: {error:?}");
+                        panic!("Server failed due to: {error:?}");
                     }
                 };
             }
@@ -130,7 +130,7 @@ pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
         prover_args: ProverSpecificOpts {
             native: None,
             sgx: None,
-            sp1: None,
+            sp1: Some(serde_json::json!({ "verify": false })),
             risc0: None,
         },
     })
