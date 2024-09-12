@@ -1,7 +1,7 @@
 use axum::{response::IntoResponse, Router};
 use raiko_lib::input::GuestOutput;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use tower::ServiceBuilder;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
@@ -62,10 +62,7 @@ pub struct ProofResponse {
 
 impl ProofResponse {
     pub fn to_response(&self) -> Value {
-        serde_json::json!({
-            "status": "ok",
-            "data": self
-        })
+        json!({ "status": "ok", "data": self })
     }
 }
 
