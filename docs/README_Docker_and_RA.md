@@ -493,6 +493,15 @@ If you've successfully set up your raiko instance as above, you may want to chan
 
 If your raiko instance is still running, take it down temporarily with `docker compose down`.
 
-Navigate to `host/config/chain_spec_list_default.json`. On L28-29, change the `"rpc"` and `"beacon_rpc"` values to an RPC provider you trust or your own endpoints.
+Navigate to the `docker` folder in the raiko repo, export the below variables as necessary in the `docker-compose.yml` on L69-74 depending on which network you are running an SGX prover for.
 
-You can now restart your raiko instance (skipping the init/bootstrapping step) and operate as normal! Monitor the logs and run the above `./script/prove-block` script to make sure it's functioning normally.
+```
+- ETHEREUM_RPC=${ETHEREUM_RPC}
+- ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
+- HOLESKY_RPC=${HOLESKY_RPC}
+- HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
+- TAIKO_A7_RPC=${TAIKO_A7_RPC}
+- TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
+```
+
+You can now restart your raiko instance (skipping the init/bootstrapping step) and operate as normal with `docker compose up raiko -d`! Monitor the logs and run the above `./script/prove-block` script to make sure it's functioning normally.
