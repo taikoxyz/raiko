@@ -2,41 +2,25 @@
 set -x
 set -eo pipefail
 
-features=(
-	"pos"
-	"none"
-)
+sgx_flags=$1
+if [[ -n "$sgx_flags" ]]; then
+	build_flags="${build_flags} --build-arg EDMM=${sgx_flags}"
+fi
 
-for feature in "${features[@]}"; do
-	if [[ "${feature}" != "$1" ]]; then
-		continue
-	fi
+tag=$2
 
-	tag=$3
+if [[ -z "$tag" ]]; then
+	tag="latest"
+fi
 
-	if [[ -z "$tag" ]]; then
-		tag="latest"
-	fi
+echo "Build and push $1:$tag..."
+docker buildx build ./ \
+	--load \
+	--platform linux/amd64 \
+	-t raiko:$tag \
+	--build-arg TARGETPLATFORM=linux/amd64 \
+	--progress=plain
 
-	build_flags=""
-	if [[ "$feature" != "none" ]]; then
-		tag="${tag}-${feature}"
-		build_flags="--build-arg BUILD_FLAGS=--features=${feature}"
-	fi
+docker tag raiko:$tag us-docker.pkg.dev/evmchain/images/raiko:$tag
 
-	sgx_flags=$2
-	if [[ -n "$sgx_flags" ]]; then
-		build_flags="${build_flags} --build-arg EDMM=${sgx_flags}"
-	fi
-
-	echo "Build and push $1:$tag..."
-	docker buildx build ./ \
-		--platform linux/amd64 \
-		-t raiko:$tag \
-		$build_flags \
-		--build-arg TARGETPLATFORM=linux/amd64
-
-	docker tag raiko:$tag us-docker.pkg.dev/evmchain/hekla/raiko:$tag
-
-	echo "Done"
-done
+echo "Done"
