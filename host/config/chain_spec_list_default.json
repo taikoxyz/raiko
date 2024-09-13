@@ -83,7 +83,7 @@
                 "Block": 0
             },
             "ONTAKE": {
-                "Block": 999999
+                "Block": 840512
             },
             "CANCUN": "TBD"
         },
@@ -105,8 +105,8 @@
             },
             "ONTAKE": {
                 "SGX": "0xf6d620d0b2a2bb9d11066e8532efb72588cae6d9",
-                "SP1": null,
-                "RISC0": "0x0000000000000000000000000000000000000000"
+                "SP1": "0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD",
+                "RISC0":"0x4fEd801C5a876D4289e869cbEfA1E1A448b10714"
             }
         },
         "genesis_time": 0,
