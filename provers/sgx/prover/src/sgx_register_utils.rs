@@ -1,4 +1,4 @@
-use alloy_provider::{Provider, ProviderBuilder, RootProvider};
+use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder, RootProvider};
 use alloy_rpc_client::RpcClient;
 use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
@@ -276,6 +276,7 @@ pub async fn register_sgx_instance(
     let http = Http::new(Url::parse(l1_rpc_url).expect("invalid rpc url"));
     let provider = ProviderBuilder::new()
         .with_recommended_fillers()
+        .wallet(EthereumWallet::from(wallet.clone()))
         .on_provider(RootProvider::new(RpcClient::new(http, false)));
     let sgx_verifier_contract = SgxVerifier::new(sgx_verifier_addr, &provider);
 
