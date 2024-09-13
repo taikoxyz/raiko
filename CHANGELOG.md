@@ -1,5 +1,57 @@
 # Changelog
 
+## [1.1.0](https://github.com/taikoxyz/raiko/compare/v1.0.0...v1.1.0) (2024-09-13)
+
+
+### Features
+
+* **ci:** fix make clippy script and clippy CI job ([#220](https://github.com/taikoxyz/raiko/issues/220)) ([62158a0](https://github.com/taikoxyz/raiko/commit/62158a097221f3676ad3bed61070a9e967966e81))
+* **devnet:** update devnet config ([#326](https://github.com/taikoxyz/raiko/issues/326)) ([959bdea](https://github.com/taikoxyz/raiko/commit/959bdeadfc216e76ee512cab38f9ab560dea237c))
+* **docs:** check epc size instructions and script ([#342](https://github.com/taikoxyz/raiko/issues/342)) ([4235d32](https://github.com/taikoxyz/raiko/commit/4235d326140bb4f695ec63425b160adad1df645b))
+* **docs:** update tencent link ([#269](https://github.com/taikoxyz/raiko/issues/269)) ([1e2a254](https://github.com/taikoxyz/raiko/commit/1e2a2541111d70352aaefc4c629f9daea58ce6e4))
+* **harness:** make harness part of the root workspace ([#285](https://github.com/taikoxyz/raiko/issues/285)) ([e3d2403](https://github.com/taikoxyz/raiko/commit/e3d2403b643e87093a547837234d9bf13dfb03ce))
+* **host,provers,tasks:** handle local job cancellation ([#345](https://github.com/taikoxyz/raiko/issues/345)) ([cce1371](https://github.com/taikoxyz/raiko/commit/cce137114cbae69cf975a37119fb053378e9913c))
+* **host:** create initial cancel handling ([#316](https://github.com/taikoxyz/raiko/issues/316)) ([f6d02b3](https://github.com/taikoxyz/raiko/commit/f6d02b3d3397a88e0029a18af66dd54461561916))
+* **host:** extract worker message handling ([#307](https://github.com/taikoxyz/raiko/issues/307)) ([ae8858c](https://github.com/taikoxyz/raiko/commit/ae8858c58e0fd099ec4a81d55270a0bfd8521df7))
+* **misc:** remove sp1-helper from builder ([#293](https://github.com/taikoxyz/raiko/issues/293)) ([fd474e3](https://github.com/taikoxyz/raiko/commit/fd474e3304edd896305260feec47641a826e1521))
+* prepare for ontake upgrade ([#329](https://github.com/taikoxyz/raiko/issues/329)) ([9546df7](https://github.com/taikoxyz/raiko/commit/9546df70719e036d7abf6073ed50bd2c59ea23c8))
+* prove blocks using reth ([#226](https://github.com/taikoxyz/raiko/issues/226)) ([546ab19](https://github.com/taikoxyz/raiko/commit/546ab19cbc12e58a10ede52076d5b6bbcd093f1a))
+* **prover:** bls12-381 & updates patches ([#350](https://github.com/taikoxyz/raiko/issues/350)) ([7356e8f](https://github.com/taikoxyz/raiko/commit/7356e8fd289fd6539b94c8d28366b49a410da647))
+* **prover:** change GuestOutput and the zk committed value for onchain verification ([#282](https://github.com/taikoxyz/raiko/issues/282)) ([37f6c49](https://github.com/taikoxyz/raiko/commit/37f6c4970924ebb9d53941498ba69123ab304c48))
+* **prover:** enable GuestInput serialization in native path ([#281](https://github.com/taikoxyz/raiko/issues/281)) ([0ba89ae](https://github.com/taikoxyz/raiko/commit/0ba89aecf846e2aeda41ff0c65410b9beb0d77f6))
+* **prover:** sp1 onchain verifier ([#229](https://github.com/taikoxyz/raiko/issues/229)) ([1f0b062](https://github.com/taikoxyz/raiko/commit/1f0b0623b581fe16242972c12e58def54352b436))
+* **provers:** update Sp1 v1.0.1 ([#333](https://github.com/taikoxyz/raiko/issues/333)) ([e85c0d2](https://github.com/taikoxyz/raiko/commit/e85c0d275ce7b1f65ba0c2460ff78da260b244b5))
+* **prover:** track cycles of sp1 guest & patch Secp256k1 ([#288](https://github.com/taikoxyz/raiko/issues/288)) ([927e697](https://github.com/taikoxyz/raiko/commit/927e6973ae2ba8c68b18cb7e53a719c1eaee5896))
+* **raiko-lib:** unify protocol instance for on chain verification ([#230](https://github.com/taikoxyz/raiko/issues/230)) ([ed37856](https://github.com/taikoxyz/raiko/commit/ed37856906bf27433418e7a781d4138b180da550))
+* **raiko:** bonsai auto scaling ([#341](https://github.com/taikoxyz/raiko/issues/341)) ([dc89e60](https://github.com/taikoxyz/raiko/commit/dc89e60ae1b30837b2cc1a45faec30969d3ec144))
+* **raiko:** config hekla ontake fork ([#366](https://github.com/taikoxyz/raiko/issues/366)) ([80915d8](https://github.com/taikoxyz/raiko/commit/80915d88c710fbaae8f9f4074aa6028724eeb079))
+* **raiko:** prove risc0 proof in devnet ([#335](https://github.com/taikoxyz/raiko/issues/335)) ([dcbad01](https://github.com/taikoxyz/raiko/commit/dcbad01194159d1b0f8a56f9dad9db0253b49cd1))
+* **raiko:** refine auto-scaling ([#346](https://github.com/taikoxyz/raiko/issues/346)) ([34c1348](https://github.com/taikoxyz/raiko/commit/34c1348cb3f001638488c74c5fded0b2a38c101e))
+* **raiko:** refine error return to avoid incorrect status. ([#348](https://github.com/taikoxyz/raiko/issues/348)) ([829609c](https://github.com/taikoxyz/raiko/commit/829609c9687eaaf55e1bce6ebd6fe454a0ad1ffc))
+* **raiko:** rename tasks manager ([#318](https://github.com/taikoxyz/raiko/issues/318)) ([9568634](https://github.com/taikoxyz/raiko/commit/956863408171c4cd6b0f241828d54222ef663dad))
+* **raiko:** update risc0 toolchain to v1.0.1 ([#311](https://github.com/taikoxyz/raiko/issues/311)) ([d2b87e0](https://github.com/taikoxyz/raiko/commit/d2b87e060097be26da622e43273fc036e15602af))
+* **raiko:** use even more reth ([#303](https://github.com/taikoxyz/raiko/issues/303)) ([a51fd42](https://github.com/taikoxyz/raiko/commit/a51fd424b9a1b37e08e6b7580fae314fdfede9a6))
+* **raiko:** use feature to enable proof-of-equivalence ([#317](https://github.com/taikoxyz/raiko/issues/317)) ([22637d0](https://github.com/taikoxyz/raiko/commit/22637d0b1894b0b344f611e4b33053f744f6fb37))
+* **repo:** ignore changes to docs for build ([#343](https://github.com/taikoxyz/raiko/issues/343)) ([b901ce6](https://github.com/taikoxyz/raiko/commit/b901ce6742888552a502ba62b0b179f91588f4e0))
+* **task db:** implement a task DB ([#208](https://github.com/taikoxyz/raiko/issues/208)) ([48ea079](https://github.com/taikoxyz/raiko/commit/48ea0792b94e2973ece698b50452d3b46310d952))
+* **tasks:** add README & return the latest status only from POST 'proof/report' ([#319](https://github.com/taikoxyz/raiko/issues/319)) ([f7cab97](https://github.com/taikoxyz/raiko/commit/f7cab9737483dc5030dd1a9f61e9d09093b9911c))
+* update docs ([#324](https://github.com/taikoxyz/raiko/issues/324)) ([fee3869](https://github.com/taikoxyz/raiko/commit/fee3869079efd6e50623be37951697a820582150))
+
+
+### Bug Fixes
+
+* **bonsai:** handle error unwraping gracefully ([#339](https://github.com/taikoxyz/raiko/issues/339)) ([f396354](https://github.com/taikoxyz/raiko/commit/f396354566e62d53df88d60e7cc456e5f0fbc4cf))
+* **host:** add guest request count and make concurrent request decrementation more ergonomic ([#261](https://github.com/taikoxyz/raiko/issues/261)) ([d660a17](https://github.com/taikoxyz/raiko/commit/d660a17c9fef9ce9fa58558a4d3da115d134dad6))
+* **host:** ignore `no id found` error for cancellation ([#330](https://github.com/taikoxyz/raiko/issues/330)) ([048df9f](https://github.com/taikoxyz/raiko/commit/048df9f840ea40742f3e14106c9352b835b11628))
+* **lib,provers,tasks:** move from sync to async trait ([#328](https://github.com/taikoxyz/raiko/issues/328)) ([36a5614](https://github.com/taikoxyz/raiko/commit/36a56145b25c3b18fbcd3af5b1f2ab71b521cba3))
+* **raiko:** double check if cached file is valid. ([#271](https://github.com/taikoxyz/raiko/issues/271)) ([39bdc11](https://github.com/taikoxyz/raiko/commit/39bdc11d46814f6f9876c54df29c631ad2127b74))
+* **raiko:** fix fixture dir and update sp1 contract test ([#353](https://github.com/taikoxyz/raiko/issues/353)) ([ecbd621](https://github.com/taikoxyz/raiko/commit/ecbd6212e11183c1d76706734efb8a02b1bb52c7))
+* **raiko:** removed panic stabilization ([#232](https://github.com/taikoxyz/raiko/issues/232)) ([254ff6a](https://github.com/taikoxyz/raiko/commit/254ff6a90d1ea17672d2cf6352cb6a9af98f0ec0))
+* **raiko:** revert v1 response back to previous format ([#340](https://github.com/taikoxyz/raiko/issues/340)) ([5526cc0](https://github.com/taikoxyz/raiko/commit/5526cc04ae5b2c4b9d31d59f56e7e8bb68c75668))
+* **raiko:** run ci checks on merge queue ([#305](https://github.com/taikoxyz/raiko/issues/305)) ([1d69947](https://github.com/taikoxyz/raiko/commit/1d6994702ebade7450cd418727ec8e2b073861c7))
+* **raiko:** set default behavior and fix proof format ([#354](https://github.com/taikoxyz/raiko/issues/354)) ([5533914](https://github.com/taikoxyz/raiko/commit/55339149daeee14b394ea6158d8cdfa5824b344c))
+* **raiko:** unsafe align vec to avoid unalign mem access ([#291](https://github.com/taikoxyz/raiko/issues/291)) ([5e9dbe8](https://github.com/taikoxyz/raiko/commit/5e9dbe82c798c2e48051b5976a459cec6c700385))
+
 ## 1.0.0 (2024-05-25)
 
 
