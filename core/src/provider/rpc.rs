@@ -64,8 +64,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
             batch.send().await.map_err(|e| {
                 RaikoError::RPC(format!(
-                    "Error sending batch request for block {:?}: {e}",
-                    blocks_to_fetch
+                    "Error sending batch request for block {blocks_to_fetch:?}: {e}"
                 ))
             })?;
 

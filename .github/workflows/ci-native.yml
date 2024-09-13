@@ -9,3 +9,10 @@ jobs:
     with:
       version_name: "native"
       version_toolchain: "nightly-2024-04-17"
+
+  integration-test-native:
+    name: Run integration tests on native
+    uses: ./.github/workflows/ci-integration-reusable.yml
+    with:
+      version_name: "native"
+      version_toolchain: "nightly-2024-04-17"

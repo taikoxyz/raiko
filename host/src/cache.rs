@@ -113,6 +113,7 @@ mod test {
             proof_type: ProofType::Native,
             blob_proof_type: BlobProofType::KzgVersionedHash,
             prover_args: Default::default(),
+            l1_inclusion_block_number: 0,
         };
         let raiko = Raiko::new(
             l1_chain_spec.clone(),

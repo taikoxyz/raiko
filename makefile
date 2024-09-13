@@ -12,6 +12,9 @@ test:
 	TEST=1 ./script/build.sh $(TARGET)
 	TEST=1 RUN=1 ./script/build.sh $(TARGET)
 
+integration:
+	CONFIG_PATH="config/config.json" ./script/integration.sh $(TARGET)
+
 fmt:
 	@cargo fmt --all --check
 
