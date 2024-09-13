@@ -294,7 +294,7 @@ You can continue on with the following steps as usual after this. Do not do `doc
 docker image ls
 ```
 
-You should see at least two images, `gcr.io/evmchain/raiko` and `gcr.io/evmchain/pccs`.
+You should see at least two images, `us-docker.pkg.dev/evmchain/raiko` and `us-docker.pkg.dev/evmchain/pccs`.
 
 7. If both are present, bootstrap Raiko with the following command:
 
@@ -324,10 +324,11 @@ You've now prepared your machine for running Raiko through Docker. Now, you need
 
 ## On-Chain RA
 
-1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main) and navigate to the scripts
+1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main), checkout the appropriate tag (protocol-v1.9.0 for hekla) and navigate to the protocol directory.
 
 ```
 git clone https://github.com/taikoxyz/taiko-mono.git
+git checkout tags/{release-tag}
 cd taiko-mono/packages/protocol
 ```
 
@@ -353,7 +354,7 @@ pnpm compile
 export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
 ```
 
-4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. 
+4. Ensure the values in the `script/layer1/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. 
 
 Hekla Addresses:
 `SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
@@ -379,7 +380,9 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
 
 Copy your quote and use in the following step.
 
-6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network.
+> **_NOTE:_** If you are on `protocol-v1.9.0`, the script is located at `script/layer1/config_dcap_sgx_verifier.sh`. Use this for the following steps. 
+
+6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network. Alternatively, export it like so: `export FORK_URL="https://any-holesky-rpc-url/"`.
 
 7. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote {YOUR_QUOTE_HERE}`.
 
