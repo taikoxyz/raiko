@@ -354,7 +354,7 @@ pnpm compile
 export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
 ```
 
-4. Ensure the values in the `script/layer1/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. 
+4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. (`script/layer1/config_dcap_sgx_verifier.sh` for `protocol-v1.9.0` release.)
 
 Hekla Addresses:
 `SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
