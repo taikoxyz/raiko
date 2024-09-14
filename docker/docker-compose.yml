@@ -13,6 +13,8 @@ services:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
       - ${HOME}/.config/raiko:/root/.config/raiko
+    environment:
+      - SGX=true
     # environment:
       # you can use your own PCCS host
       #- PCCS_HOST=host.docker.internal:8081
@@ -36,6 +38,7 @@ services:
       - ${HOME}/.config/raiko:/root/.config/raiko
       - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
     environment:
+      - SGX=true
       - SENDER_PRIV_KEY=${SENDER_PRIV_KEY}
       - L1_RPC=${L1_RPC}
       - L1_CHAIN_ID=${L1_CHAIN_ID}
@@ -63,6 +66,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - SGX=true
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
@@ -102,6 +106,7 @@ services:
     environment:
       # you can use your own PCCS host
       # - PCCS_HOST=host.docker.internal:8081
+      - SGX=true
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
       - HOLESKY_RPC=${HOLESKY_RPC}
@@ -115,6 +120,37 @@ services:
     #  - "host.docker.internal:host-gateway"
     depends_on:
       - pccs
+  raiko-zk:
+    build:
+      context: ..
+      dockerfile: Dockerfile.zk
+    image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
+    container_name: raiko-zk
+    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    volumes:
+      - /var/log/raiko:/var/log/raiko
+    ports:
+      - "8081:8080"
+    environment:
+      # you can use your own PCCS host
+      # - PCCS_HOST=host.docker.internal:8081
+      - ZK=true
+      - ETHEREUM_RPC=${ETHEREUM_RPC}
+      - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
+      - HOLESKY_RPC=${HOLESKY_RPC}
+      - HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
+      - TAIKO_A7_RPC=${TAIKO_A7_RPC}
+      - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
+      - L1_NETWORK=${L1_NETWORK}
+      - NETWORK=${NETWORK}
+      - BONSAI_API_KEY=${BONSAI_API_KEY}
+      - BONSAI_API_URL=${BONSAI_API_URL}
+      - MAX_BONSAI_GPU_NUM=15
+      - GROTH16_VERIFIER_RPC_URL=${GROTH16_VERIFIER_RPC_URL}
+      - GROTH16_VERIFIER_ADDRESS=${GROTH16_VERIFIER_ADDRESS}
+      - SP1_PRIVATE_KEY=${SP1_PRIVATE_KEY}
+      - SKIP_SIMULATION=true
+      - PROVER_NETWORK_RPC=${SP1_PROVER_NETWORK_RPC}
   pccs:
     build:
       context: ..

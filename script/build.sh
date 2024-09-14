@@ -117,7 +117,9 @@ if [ "$1" == "risc0" ]; then
 			echo "Building test elfs for Risc0 prover"
 			cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test,bench
 		fi
-		cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --features risc0
+        if [ -z "${GUEST}" ]; then
+            cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --features risc0
+        fi
 	else
 		if [ -z "${TEST}" ]; then
 			echo "Running Risc0 prover"
@@ -147,7 +149,9 @@ if [ "$1" == "sp1" ]; then
 			echo "Building test elfs for Sp1 prover"
 			cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench
 		fi
-		cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1
+        if [ -z "${GUEST}" ]; then
+               cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1
+        fi
 	else
 		if [ -z "${TEST}" ]; then
 			echo "Running Sp1 prover"

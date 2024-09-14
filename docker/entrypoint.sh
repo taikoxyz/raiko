@@ -134,33 +134,53 @@ if [[ -n $TEST ]]; then
     return 0
 fi
 
-sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
-/restart_aesm.sh
+# sgx mode
+if [[ -n $SGX ]]; then
+    sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
+    /restart_aesm.sh
+fi
 
 echo $#
-if [[ $# -eq 1 && $1 == "--init" ]]; then
-    echo "start bootstrap"
-    bootstrap
-elif [[ $# -eq 1 && $1 == "--init-self-register" ]]; then
-    echo "start bootstrap with self register"
-    bootstrap_with_self_register
-else
-    echo "start proving"
-    if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
-        echo "Application was not bootstrapped. " \
-            "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
-        exit 1
+if [[ -n $SGX ]]; then
+    if [[ $# -eq 1 && $1 == "--init" ]]; then
+        echo "start bootstrap"
+        bootstrap
+    elif [[ $# -eq 1 && $1 == "--init-self-register" ]]; then
+        echo "start bootstrap with self register"
+        bootstrap_with_self_register
+    else
+        echo "start proving"
+        if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
+            echo "Application was not bootstrapped. " \
+                "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
+            exit 1
+        fi
+
+        if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
+            echo "$RAIKO_CONF_BASE_CONFIG file not found."
+            exit 1
+        fi
+
+        #update raiko server config
+        update_raiko_network $RAIKO_CONF_BASE_CONFIG
+        update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
+        update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
+
+        /opt/raiko/bin/raiko-host "$@"
     fi
+fi
 
-    if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
-        echo "$RAIKO_CONF_BASE_CONFIG file not found."
-        exit 1
-    fi
+if [[ -n $ZK ]]; then
+    echo "running raiko in zk mode"
+        if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
+            echo "$RAIKO_CONF_BASE_CONFIG file not found."
+            exit 1
+        fi
 
-    #update raiko server config
-    update_raiko_network $RAIKO_CONF_BASE_CONFIG
-    update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
-    update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
+        #update raiko server config
+        update_raiko_network $RAIKO_CONF_BASE_CONFIG
+        update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
+        update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
-    /opt/raiko/bin/raiko-host "$@"
+        RUST_LOG=debug /opt/raiko/bin/raiko-host "$@"
 fi

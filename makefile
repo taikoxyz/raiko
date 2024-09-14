@@ -2,6 +2,10 @@
 install:
 	./script/install.sh $(TARGET)
 
+ # build guest binary only
+guest:
+	GUEST=1 ./script/build.sh $(TARGET) 
+
 build:
 	./script/build.sh $(TARGET) 
 
