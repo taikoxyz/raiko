@@ -40,7 +40,7 @@
 
 ### Bug Fixes
 
-* **bonsai:** handle error unwraping gracefully ([#339](https://github.com/taikoxyz/raiko/issues/339)) ([f396354](https://github.com/taikoxyz/raiko/commit/f396354566e62d53df88d60e7cc456e5f0fbc4cf))
+* **bonsai:** handle error unwrapping gracefully ([#339](https://github.com/taikoxyz/raiko/issues/339)) ([f396354](https://github.com/taikoxyz/raiko/commit/f396354566e62d53df88d60e7cc456e5f0fbc4cf))
 * **host:** add guest request count and make concurrent request decrementation more ergonomic ([#261](https://github.com/taikoxyz/raiko/issues/261)) ([d660a17](https://github.com/taikoxyz/raiko/commit/d660a17c9fef9ce9fa58558a4d3da115d134dad6))
 * **host:** ignore `no id found` error for cancellation ([#330](https://github.com/taikoxyz/raiko/issues/330)) ([048df9f](https://github.com/taikoxyz/raiko/commit/048df9f840ea40742f3e14106c9352b835b11628))
 * **lib,provers,tasks:** move from sync to async trait ([#328](https://github.com/taikoxyz/raiko/issues/328)) ([36a5614](https://github.com/taikoxyz/raiko/commit/36a56145b25c3b18fbcd3af5b1f2ab71b521cba3))
