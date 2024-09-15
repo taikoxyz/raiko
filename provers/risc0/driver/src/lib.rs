@@ -130,6 +130,7 @@ impl Prover for Risc0Prover {
 #[cfg(test)]
 mod test {
     use super::*;
+    use methods::risc0_guest::RISC0_GUEST_ID;
     use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
     use risc0_zkvm::{default_prover, ExecutorEnv};
 
@@ -140,5 +141,14 @@ mod test {
         let prover = default_prover();
         let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
         receipt.receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+    }
+
+    #[ignore = "only to print image id for docker image build"]
+    #[test]
+    fn test_show_risc0_image_id() {
+        let image_id = RISC0_GUEST_ID
+            .map(|limp| hex::encode(limp.to_le_bytes()))
+            .concat();
+        println!("RISC0 IMAGE_ID: {}", image_id);
     }
 }

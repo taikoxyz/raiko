@@ -337,4 +337,12 @@ mod test {
             .verify(&proof, &vk)
             .expect("Sp1: verification failed");
     }
+
+    #[ignore = "This is for docker image build only"]
+    #[test]
+    fn test_show_sp1_elf_vk() {
+        let client = ProverClient::new();
+        let (_pk, vk) = client.setup(ELF);
+        println!("SP1 ELF VK: {:?}", vk.bytes32());
+    }
 }
