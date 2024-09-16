@@ -6059,10 +6059,12 @@ dependencies = [
  "cfg-if",
  "chrono",
  "dirs",
+ "hex",
  "once_cell",
  "pathdiff",
  "regex",
  "risc0-binfmt",
+ "sp1-sdk",
 ]
 
 [[package]]

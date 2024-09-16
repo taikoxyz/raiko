@@ -72,6 +72,7 @@ impl Executor {
 
     #[cfg(feature = "sp1")]
     pub fn sp1_placement(&self, dest: &str) -> anyhow::Result<()> {
+        use sp1_sdk::{CpuProver, HashableKey, Prover};
         use std::fs;
 
         let root = crate::ROOT_DIR.get().expect("No reference to ROOT_DIR");
@@ -96,6 +97,10 @@ impl Executor {
             )?;
 
             println!("Write elf from\n {src:?}\nto\n {dest:?}");
+            let elf = std::fs::read(&dest.join(&name.replace('_', "-")))?;
+            let prover = CpuProver::new();
+            let key_pair = prover.setup(&elf);
+            println!("sp1 elf vk is: {}", key_pair.1.bytes32());
         }
 
         Ok(())

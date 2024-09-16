@@ -28,6 +28,7 @@ impl GuestListEntry {
         let elf = std::fs::read(elf_path)?;
         let image_id = risc0_binfmt::compute_image_id(&elf)?;
 
+        println!("risc0 elf image id: {}", hex::encode(image_id.as_bytes()));
         Ok(Self {
             name: Cow::Owned(name.to_owned()),
             elf: Cow::Owned(elf),
