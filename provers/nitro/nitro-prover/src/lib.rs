@@ -33,7 +33,7 @@ impl NitroProver {
         };
         Ok(Keypair::from_seckey_slice(SECP256K1, &key_data)?)
     }
-    pub fn get_attestation(&self) -> Result<Vec<u8>> {
+    pub fn get_attestation() -> Result<Vec<u8>> {
         let Ok(key) = Self::load_key() else {
             bail!("Non initialized enclave");
         };
@@ -122,7 +122,9 @@ impl Prover for NitroProver {
         info!("Successfully generated proof for PI {}", pi_hash);
         Ok(Proof {
             proof: Some(hex::encode(user_data)),
-            quote: Some(hex::encode(self.get_attestation()?)),
+            quote: Some(hex::encode(
+                Self::get_attestation().map_err(|e| ProverError::GuestError(e.to_string()))?,
+            )),
             ..Default::default()
         })
     }
