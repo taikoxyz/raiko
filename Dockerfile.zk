@@ -41,10 +41,6 @@ ENV TARGET=sp1
 RUN make install
 RUN make guest
 RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0,bonsai-auto-scaling" --features "docker_build"
-# print sp1 vk
-RUN cargo test -r --package sp1-driver --lib --all-features -- test::test_show_sp1_elf_vk --exact --show-output --ignored
-# print risc0 image id
-RUN cargo test  --package risc0-driver --lib -F enable -- test::test_show_risc0_image_id --exact --show-output --ignored
 
 RUN mkdir -p \
     ./bin \
