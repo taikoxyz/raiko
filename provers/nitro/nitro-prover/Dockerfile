@@ -1,4 +1,4 @@
-FROM rust:1.75.0 as builder
+FROM rust:latest AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
@@ -7,12 +7,13 @@ WORKDIR /opt/raiko-nitro
 COPY . .
 RUN cargo build --release -p nitro-prover
 
+
 # Set up runtime
 FROM debian:bookworm-slim AS runner
 WORKDIR /raiko-nitro
 
 # Copy the Rust compiled binary from previous image
-COPY --from=builder $SECRET_PATH .
+COPY --from=builder /opt/raiko-nitro/provers/nitro/nitro-prover/secret.key .
 COPY --from=builder /opt/raiko-nitro/target/release/nitro-prover .
 
 CMD ["/raiko-nitro/nitro-prover"]
