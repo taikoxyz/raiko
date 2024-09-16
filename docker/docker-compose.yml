@@ -150,7 +150,6 @@ services:
       - GROTH16_VERIFIER_ADDRESS=${GROTH16_VERIFIER_ADDRESS}
       - SP1_PRIVATE_KEY=${SP1_PRIVATE_KEY}
       - SKIP_SIMULATION=true
-      - PROVER_NETWORK_RPC=${SP1_PROVER_NETWORK_RPC}
   pccs:
     build:
       context: ..
