@@ -11,10 +11,10 @@ use crate::{
     Message, ProverState,
 };
 
-mod cancel;
-mod list;
-mod prune;
-mod report;
+pub mod cancel;
+pub mod list;
+pub mod prune;
+pub mod report;
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",

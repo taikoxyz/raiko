@@ -442,14 +442,84 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
     }
 }
 
-#[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
+#[serde(default)]
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationRequest {
-    /// All the proofs to verify
-    pub proofs: Vec<Proof>,
+    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
+    pub block_numbers: Vec<(u64, u64)>,
+    /// The network to generate the proof for.
+    pub network: Option<String>,
+    /// The L1 network to generate the proof for.
+    pub l1_network: Option<String>,
+    // Graffiti.
+    pub graffiti: Option<String>,
+    /// The protocol instance data.
+    pub prover: Option<String>,
     /// The proof type.
-    pub proof_type: ProofType,
-    /// Additional prover params.
-    pub prover_args: HashMap<String, Value>,
+    pub proof_type: Option<String>,
+    /// Blob proof type.
+    pub blob_proof_type: Option<String>,
+    #[serde(flatten)]
+    /// Any additional prover params in JSON format.
+    pub prover_args: ProverSpecificOpts,
+}
+
+impl AggregationRequest {
+    /// Merge proof request options into aggregation request options.
+    pub fn merge(&mut self, opts: &ProofRequestOpt) -> RaikoResult<()> {
+        let this = serde_json::to_value(&self)?;
+        let mut opts = serde_json::to_value(opts)?;
+        merge(&mut opts, &this);
+        *self = serde_json::from_value(opts)?;
+        Ok(())
+    }
+}
+
+impl From<AggregationRequest> for Vec<ProofRequestOpt> {
+    fn from(value: AggregationRequest) -> Self {
+        value
+            .block_numbers
+            .iter()
+            .map(
+                |&(block_number, l1_inclusion_block_number)| ProofRequestOpt {
+                    block_number: Some(block_number),
+                    l1_inclusion_block_number: Some(l1_inclusion_block_number),
+                    network: value.network.clone(),
+                    l1_network: value.l1_network.clone(),
+                    graffiti: value.graffiti.clone(),
+                    prover: value.prover.clone(),
+                    proof_type: value.proof_type.clone(),
+                    blob_proof_type: value.blob_proof_type.clone(),
+                    prover_args: value.prover_args.clone(),
+                },
+            )
+            .collect()
+    }
+}
+
+impl From<ProofRequestOpt> for AggregationRequest {
+    fn from(value: ProofRequestOpt) -> Self {
+        let block_numbers = if let Some(block_number) = value.block_number {
+            vec![(
+                block_number,
+                value
+                    .l1_inclusion_block_number
+                    .unwrap_or_else(|| block_number - 1),
+            )]
+        } else {
+            vec![]
+        };
+
+        Self {
+            block_numbers,
+            network: value.network,
+            l1_network: value.l1_network,
+            graffiti: value.graffiti,
+            prover: value.prover,
+            proof_type: value.proof_type,
+            blob_proof_type: value.blob_proof_type,
+            prover_args: value.prover_args,
+        }
+    }
 }

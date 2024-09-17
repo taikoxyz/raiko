@@ -11,13 +11,13 @@ use crate::{
     ProverState,
 };
 
-pub mod proof;
+mod proof;
 
 #[derive(OpenApi)]
 #[openapi(
     info(
         title = "Raiko Proverd Server API",
-        version = "2.0",
+        version = "3.0",
         description = "Raiko Proverd Server API",
         contact(
             name = "API Support",
@@ -78,6 +78,14 @@ impl From<Vec<u8>> for Status {
             data: ProofResponse::Proof {
                 proof: serde_json::from_slice(&proof).unwrap_or_default(),
             },
+        }
+    }
+}
+
+impl From<Proof> for Status {
+    fn from(proof: Proof) -> Self {
+        Self::Ok {
+            data: ProofResponse::Proof { proof },
         }
     }
 }
@@ -151,8 +159,6 @@ pub fn create_router() -> Router<ProverState> {
         // Only add the concurrency limit to the proof route. We want to still be able to call
         // healthchecks and metrics to have insight into the system.
         .nest("/proof", proof::create_router())
-        // TODO: Separate task or try to get it into /proof somehow? Probably separate
-        .nest("/aggregate", proof::create_router())
         .nest("/health", v1::health::create_router())
         .nest("/metrics", v1::metrics::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
