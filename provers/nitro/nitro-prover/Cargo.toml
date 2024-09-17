@@ -21,3 +21,4 @@ secp256k1 = { workspace = true }
 
 [build_dependencies]
 raiko-lib = { workspace = true }
+hex = { workspace = true }

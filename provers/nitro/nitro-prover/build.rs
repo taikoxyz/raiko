@@ -9,6 +9,6 @@ fn main() {
     out_dir.push(SECRET_NAME);
     let kp = generate_key();
     println!("Writing secret to file {}", &out_dir.to_string_lossy());
-    write(out_dir, kp.secret_bytes()).unwrap();
+    write(out_dir, hex::encode(kp.secret_bytes()).as_bytes()).unwrap();
     println!("Done");
 }

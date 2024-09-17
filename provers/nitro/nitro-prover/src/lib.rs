@@ -22,7 +22,7 @@ pub const CID: u32 = 16;
 pub const PORT: u32 = 26000;
 pub const NON_HEX_PREFIX: &str = "XYZ";
 
-const SECRET_LOCATION: &str = "./secret.key";
+const SECRET_LOCATION: &str = "/raiko-nitro/secret.key";
 
 pub struct NitroProver;
 
@@ -31,7 +31,10 @@ impl NitroProver {
         let Ok(key_data) = std::fs::read(SECRET_LOCATION) else {
             bail!("No SK found.");
         };
-        Ok(Keypair::from_seckey_slice(SECP256K1, &key_data)?)
+        Ok(Keypair::from_seckey_slice(
+            SECP256K1,
+            &hex::decode(key_data)?,
+        )?)
     }
     pub fn get_attestation() -> Result<Vec<u8>> {
         let Ok(key) = Self::load_key() else {
