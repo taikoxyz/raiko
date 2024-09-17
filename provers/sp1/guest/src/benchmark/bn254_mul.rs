@@ -19,7 +19,7 @@ fn main() {
     let ct = CycleTracker::start("bn128_run_mul");
     let res = op.bn128_run_mul(&input).unwrap();
     ct.end();
-    
+
     let hi = res[..32].to_vec();
     let lo = res[32..].to_vec();
     sp1_zkvm::io::commit(&hi);

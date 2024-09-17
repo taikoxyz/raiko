@@ -1,5 +1,5 @@
-use num_bigint::BigUint;
 use ::secp256k1::SECP256K1;
+use num_bigint::BigUint;
 use reth_primitives::public_key_to_address;
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
 use secp256k1::{
@@ -8,7 +8,6 @@ use secp256k1::{
 };
 use sha2 as sp1_sha2;
 use sp1_core::utils::ec::{weierstrass::bn254::Bn254, AffinePoint};
-
 
 #[derive(Debug)]
 pub struct Sp1Operator;
@@ -155,3 +154,4 @@ harness::zk_suits!(
         }
     }
 );
+
