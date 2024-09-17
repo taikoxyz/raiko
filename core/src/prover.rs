@@ -61,6 +61,8 @@ impl Prover for NativeProver {
             input: None,
             proof: None,
             quote: None,
+            uuid: None,
+            kzg_proof: None,
         })
     }
 

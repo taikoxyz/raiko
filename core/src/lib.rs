@@ -455,6 +455,7 @@ mod tests {
             .unwrap();
 
         let proof_request = ProofRequest {
+            l1_inclusion_block_number: 0,
             block_number,
             l1_inclusion_block_number: 0,
             network,

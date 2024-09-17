@@ -3,9 +3,8 @@
 #[cfg(feature = "bonsai-auto-scaling")]
 use crate::bonsai::auto_scaling::shutdown_bonsai;
 use crate::{
-    methods::risc0_aggregation::{RISC0_AGGREGATION_ELF, RISC0_AGGREGATION_ID},
+    methods::risc0_aggregation::RISC0_AGGREGATION_ELF,
     methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
-    snarks::verify_groth16_snark,
 };
 use alloy_primitives::{hex::ToHexExt, B256};
 use bonsai::{cancel_proof, maybe_prove};
@@ -17,7 +16,7 @@ use raiko_lib::{
     },
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
-use risc0_zkvm::{serde::to_vec, sha::Digest, Receipt};
+use risc0_zkvm::{serde::to_vec, Receipt};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt::Debug;
@@ -49,6 +48,9 @@ impl From<Risc0Response> for Proof {
         Self {
             proof: Some(value.proof),
             quote: None,
+            input: Some(value.input),
+            uuid: Some(value.uuid),
+            kzg_proof: None,
         }
     }
 }
@@ -80,7 +82,7 @@ impl Prover for Risc0Prover {
             encoded_input,
             RISC0_GUEST_ELF,
             &output.hash,
-            Default::default(),
+            (Vec::<Receipt>::new(), Vec::new()),
             proof_key,
             &mut id_store,
         )
@@ -92,7 +94,7 @@ impl Prover for Risc0Prover {
         let proof_gen_result = if result.is_some() {
             if config.snark && config.bonsai {
                 let (stark_uuid, stark_receipt) = result.clone().unwrap();
-                bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt)
+                bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt, output.hash)
                     .await
                     .map(|r0_response| r0_response.into())
                     .map_err(|e| ProverError::GuestError(e.to_string()))

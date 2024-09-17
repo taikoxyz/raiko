@@ -35,6 +35,10 @@ pub struct Proof {
     pub input: Option<B256>,
     /// The TEE quote.
     pub quote: Option<String>,
+    /// The assumption UUID.
+    pub uuid: Option<String>,
+    /// The kzg proof.
+    pub kzg_proof: Option<String>,
 }
 
 #[async_trait::async_trait]

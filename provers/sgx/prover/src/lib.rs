@@ -55,6 +55,8 @@ impl From<SgxResponse> for Proof {
             proof: Some(value.proof),
             input: Some(value.input),
             quote: Some(value.quote),
+            uuid: None,
+            kzg_proof: None,
         }
     }
 }
