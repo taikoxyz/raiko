@@ -17,6 +17,10 @@ async fn main() {
         );
     }
     info!("Initializing");
+    if let Err(e) = NitroProver::load_key() {
+        error!("Failed to initialize SK storage: {e}");
+        return;
+    }
     let listener = VsockListener::bind(&VsockAddr::new(libc::VMADDR_CID_ANY, PORT))
         .expect("bind and listen failed");
     info!("Listener socket binded. Starting main loop");

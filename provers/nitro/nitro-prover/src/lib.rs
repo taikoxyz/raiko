@@ -22,12 +22,12 @@ pub const CID: u32 = 16;
 pub const PORT: u32 = 26000;
 pub const NON_HEX_PREFIX: &str = "XYZ";
 
-const SECRET_LOCATION: &str = "secret.key";
+const SECRET_LOCATION: &str = "./secret.key";
 
 pub struct NitroProver;
 
 impl NitroProver {
-    fn load_key() -> Result<Keypair> {
+    pub fn load_key() -> Result<Keypair> {
         let Ok(key_data) = std::fs::read(SECRET_LOCATION) else {
             bail!("No SK found.");
         };
