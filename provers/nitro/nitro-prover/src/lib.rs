@@ -89,10 +89,14 @@ impl NitroProver {
             ));
         }
         debug!("Proof acquired. Returning it.");
-        Ok(Proof {
-            quote: Some(proving_result),
-            ..Default::default()
-        })
+        Ok(serde_json::from_slice(
+            &hex::decode(proving_result).map_err(|e| {
+                ProverError::GuestError(format!(
+                    "Failed to decode proof from enclave with details {}",
+                    e
+                ))
+            })?,
+        )?)
     }
 }
 
