@@ -3504,7 +3504,7 @@ dependencies = [
  "size",
  "snowbridge-amcl",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 1.1.1",
  "static_assertions",
  "strum",
  "strum_macros",
@@ -3589,6 +3589,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-primitives"
+version = "1.2.0-rc1"
+source = "git+https://github.com/succinctlabs/sp1?branch=dev#e8efd0019c8be52c6c4cecfea6259ab90db4148a"
+dependencies = [
+ "itertools 0.13.0",
+ "lazy_static",
+ "p3-baby-bear",
+ "p3-field",
+ "p3-poseidon2",
+ "p3-symmetric",
+]
+
+[[package]]
 name = "sp1-zkvm"
 version = "1.2.0-rc1"
 source = "git+https://github.com/succinctlabs/sp1?branch=dev#e8efd0019c8be52c6c4cecfea6259ab90db4148a"
@@ -3599,10 +3612,13 @@ dependencies = [
  "lazy_static",
  "libm",
  "once_cell",
+ "p3-baby-bear",
+ "p3-field",
  "rand",
  "serde",
  "sha2",
  "sp1-lib 1.2.0-rc1",
+ "sp1-primitives 1.2.0-rc1",
 ]
 
 [[package]]
