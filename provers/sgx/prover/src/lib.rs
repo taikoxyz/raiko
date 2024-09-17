@@ -155,9 +155,9 @@ impl Prover for SgxProver {
 
     async fn aggregate(
         input: AggregationGuestInput,
-        output: &AggregationGuestOutput,
+        _output: &AggregationGuestOutput,
         config: &ProverConfig,
-        id_store: Option<&mut dyn IdWrite>,
+        _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 

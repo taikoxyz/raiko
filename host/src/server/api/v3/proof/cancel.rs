@@ -4,7 +4,6 @@ use raiko_core::{
     provider::get_task_data,
 };
 use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
-use serde_json::Value;
 use utoipa::OpenApi;
 
 use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, ProverState};
@@ -27,11 +26,11 @@ use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, Prov
 /// - risc0 - uses the risc0 prover
 async fn cancel_handler(
     State(prover_state): State<ProverState>,
-    Json(aggregation_request): Json<AggregationRequest>,
+    Json(mut aggregation_request): Json<AggregationRequest>,
 ) -> HostResult<CancelStatus> {
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
-    aggregation_request.merge(&prover_state.request_config());
+    aggregation_request.merge(&prover_state.request_config())?;
 
     let proof_request_opts: Vec<ProofRequestOpt> = aggregation_request.into();
 

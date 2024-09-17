@@ -10,9 +10,9 @@ use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::calculate_block_header,
     consts::VerifierType,
-    input::{AggregationGuestInput, GuestInput, RawAggregationGuestInput},
+    input::{GuestInput, RawAggregationGuestInput},
     primitives::{keccak, Address, B256},
-    protocol_instance::{aggregation_output, aggregation_output_combine, ProtocolInstance},
+    protocol_instance::{aggregation_output_combine, ProtocolInstance},
 };
 use secp256k1::{Keypair, SecretKey};
 use serde::Serialize;
@@ -208,8 +208,8 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
     let aggregation_hash = keccak::keccak(aggregation_output_combine(
         [
             vec![
-                B256::left_padding_from(&old_instance.to_vec()),
-                B256::left_padding_from(&new_instance.to_vec()),
+                B256::left_padding_from(old_instance.as_ref()),
+                B256::left_padding_from(new_instance.as_ref()),
             ],
             input
                 .proofs
