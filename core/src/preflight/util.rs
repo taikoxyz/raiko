@@ -132,10 +132,16 @@ pub async fn prepare_taiko_chain_input(
     let l1_state_block_hash = l1_state_header.hash.ok_or_else(|| {
         RaikoError::Preflight("No L1 state block hash for the requested block".to_owned())
     })?;
-    debug!("l1_state_root_block hash: {l1_state_block_hash:?}");
     let l1_inclusion_block_hash = l1_inclusion_header.hash.ok_or_else(|| {
         RaikoError::Preflight("No L1 inclusion block hash for the requested block".to_owned())
     })?;
+    info!(
+        "L1 inclusion block number: {:?}, hash: {:?}. L1 state block number: {:?}, hash: {:?}",
+        l1_inclusion_block_number,
+        l1_inclusion_block_hash,
+        l1_state_header.number,
+        l1_state_block_hash
+    );
 
     // Fetch the tx data from either calldata or blobdata
     let (tx_data, blob_commitment, blob_proof) = if block_proposed.blob_used() {

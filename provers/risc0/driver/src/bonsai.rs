@@ -197,8 +197,8 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             }
         };
 
-    info!("receipt: {receipt:?}");
-    info!("journal: {:?}", receipt.journal);
+    debug!("receipt: {receipt:?}");
+    debug!("journal: {:?}", receipt.journal);
 
     // verify output
     let output_guest: O = receipt.journal.decode().unwrap();
