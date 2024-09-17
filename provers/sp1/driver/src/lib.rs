@@ -3,10 +3,7 @@
 
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
-        ZkAggregationGuestInput,
-    },
+    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
     Measurement,
 };
@@ -17,9 +14,8 @@ use sp1_sdk::{
     action,
     network::client::NetworkClient,
     proto::network::{ProofMode, UnclaimReason},
-    SP1Proof,
 };
-use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
+use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::{
     borrow::BorrowMut,
     env, fs,
@@ -29,8 +25,6 @@ use tracing::{debug, info};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
-pub const FIXTURE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
-pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src/exports/";
 const SP1_PROVER_CODE: u8 = 1;
 static FIXTURE_PATH: Lazy<PathBuf> =
     Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures/"));
@@ -81,15 +75,18 @@ pub enum ProverMode {
 impl From<Sp1Response> for Proof {
     fn from(value: Sp1Response) -> Self {
         Self {
-            proof: Some(value.proof),
+            proof: value.proof,
             quote: None,
+            input: None,
+            uuid: None,
+            kzg_proof: None,
         }
     }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
-    pub proof: String,
+    pub proof: Option<String>,
 }
 
 pub struct Sp1Prover;
@@ -104,7 +101,7 @@ impl Prover for Sp1Prover {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
-        println!("param: {:?}", param);
+        println!("param: {param:?}");
 
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
@@ -195,13 +192,15 @@ impl Prover for Sp1Prover {
         };
 
         info!(
-            "Sp1 Prover: block {:?} completed! proof: {:?}",
-            output.header.number, proof_string
+            "Sp1 Prover: block {:?} completed! proof: {proof_string:?}",
+            output.header.number,
         );
-        Ok::<_, ProverError>(Proof {
-            proof: proof_string,
-            quote: None,
-        })
+        Ok::<_, ProverError>(
+            Sp1Response {
+                proof: proof_string,
+            }
+            .into(),
+        )
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
@@ -226,6 +225,15 @@ impl Prover for Sp1Prover {
         id_store.remove_id(key).await?;
         Ok(())
     }
+
+    async fn aggregate(
+        _input: AggregationGuestInput,
+        _output: &AggregationGuestOutput,
+        _config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        todo!()
+    }
 }
 
 fn get_env_mock() -> ProverMode {
@@ -244,10 +252,10 @@ fn get_env_mock() -> ProverMode {
 fn init_verifier() -> Result<PathBuf, ProverError> {
     // In cargo run, Cargo sets the working directory to the root of the workspace
     let contract_path = &*CONTRACT_PATH;
-    info!("Contract dir: {:?}", contract_path);
+    info!("Contract dir: {contract_path:?}");
     let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
     // Create the destination directory if it doesn't exist
-    fs::create_dir_all(&contract_path)?;
+    fs::create_dir_all(contract_path)?;
 
     // Read the entries in the source directory
     for entry in fs::read_dir(artifacts_dir)? {
@@ -275,22 +283,21 @@ pub(crate) struct RaikoProofFixture {
 
 fn verify_sol(fixture: &RaikoProofFixture) -> ProverResult<()> {
     assert!(VERIFIER.is_ok());
-    debug!("===> Fixture: {:#?}", fixture);
+    debug!("===> Fixture: {fixture:#?}");
 
     // Save the fixture to a file.
     let fixture_path = &*FIXTURE_PATH;
-    info!("Writing fixture to: {:?}", fixture_path);
+    info!("Writing fixture to: {fixture_path:?}");
 
     if !fixture_path.exists() {
-        std::fs::create_dir_all(fixture_path).map_err(|e| {
-            ProverError::GuestError(format!("Failed to create fixture path: {}", e))
-        })?;
+        std::fs::create_dir_all(fixture_path.clone())
+            .map_err(|e| ProverError::GuestError(format!("Failed to create fixture path: {e}")))?;
     }
     std::fs::write(
         fixture_path.join("fixture.json"),
         serde_json::to_string_pretty(&fixture).unwrap(),
     )
-    .map_err(|e| ProverError::GuestError(format!("Failed to write fixture: {}", e)))?;
+    .map_err(|e| ProverError::GuestError(format!("Failed to write fixture: {e}")))?;
 
     let child = std::process::Command::new("forge")
         .arg("test")
@@ -298,7 +305,7 @@ fn verify_sol(fixture: &RaikoProofFixture) -> ProverResult<()> {
         .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
         .spawn();
     info!("Verification started {:?}", child);
-    child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {}", e)))?;
+    child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {e}")))?;
 
     Ok(())
 }
@@ -323,11 +330,11 @@ mod test {
             prover: Some(ProverMode::Network),
             verify: true,
         };
-        let serialized = serde_json::to_value(&param).unwrap();
+        let serialized = serde_json::to_value(param).unwrap();
         assert_eq!(json, serialized);
 
         let deserialized: Sp1Param = serde_json::from_value(serialized).unwrap();
-        println!("{:?} {:?}", json, deserialized);
+        println!("{json:?} {deserialized:?}");
     }
 
     #[test]

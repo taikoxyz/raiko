@@ -10,8 +10,8 @@ use raiko_lib::{
     prover::{IdWrite, ProofKey, ProverError, ProverResult},
 };
 use risc0_zkvm::{
-    compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, AssumptionReceipt,
-    ExecutorEnv, ExecutorImpl, Receipt,
+    compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, AssumptionReceipt, ExecutorEnv,
+    ExecutorImpl, Receipt,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{

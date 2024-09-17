@@ -333,7 +333,7 @@ mod tests {
             l1_network,
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
-            prover_args: test_proof_params(),
+            prover_args: test_proof_params(false),
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -455,6 +455,7 @@ mod tests {
             .unwrap();
 
         let proof_request = ProofRequest {
+            l1_inclusion_block_number: 0,
             block_number,
             network,
             graffiti: B256::ZERO,
