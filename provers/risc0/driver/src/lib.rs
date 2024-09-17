@@ -48,10 +48,7 @@ impl From<Risc0Response> for Proof {
     fn from(value: Risc0Response) -> Self {
         Self {
             proof: Some(value.proof),
-            input: Some(value.input),
-            quote: Some(value.receipt),
-            uuid: Some(value.uuid),
-            kzg_proof: None,
+            quote: None,
         }
     }
 }
@@ -83,7 +80,7 @@ impl Prover for Risc0Prover {
             encoded_input,
             RISC0_GUEST_ELF,
             &output.hash,
-            (Vec::<Receipt>::new(), Vec::new()),
+            Default::default(),
             proof_key,
             &mut id_store,
         )
@@ -95,7 +92,7 @@ impl Prover for Risc0Prover {
         let proof_gen_result = if result.is_some() {
             if config.snark && config.bonsai {
                 let (stark_uuid, stark_receipt) = result.clone().unwrap();
-                bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt, output.hash)
+                bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt)
                     .await
                     .map(|r0_response| r0_response.into())
                     .map_err(|e| ProverError::GuestError(e.to_string()))
@@ -237,6 +234,7 @@ impl Prover for Risc0Prover {
 #[cfg(test)]
 mod test {
     use super::*;
+    use methods::risc0_guest::RISC0_GUEST_ID;
     use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
     use risc0_zkvm::{default_prover, ExecutorEnv};
 
@@ -247,5 +245,14 @@ mod test {
         let prover = default_prover();
         let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
         receipt.receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+    }
+
+    #[ignore = "only to print image id for docker image build"]
+    #[test]
+    fn test_show_risc0_image_id() {
+        let image_id = RISC0_GUEST_ID
+            .map(|limp| hex::encode(limp.to_le_bytes()))
+            .concat();
+        println!("RISC0 IMAGE_ID: {}", image_id);
     }
 }

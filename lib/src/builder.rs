@@ -12,7 +12,9 @@ use crate::{
     CycleTracker,
 };
 use anyhow::{bail, ensure, Result};
-use reth_chainspec::{ChainSpecBuilder, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET};
+use reth_chainspec::{
+    ChainSpecBuilder, Hardfork, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET,
+};
 use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
 use reth_evm_ethereum::execute::{
     validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
@@ -20,10 +22,10 @@ use reth_evm_ethereum::execute::{
 use reth_evm_ethereum::taiko::TaikoData;
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{
-    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap,
+    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap, SpecId,
 };
 use reth_primitives::{Address, BlockWithSenders, Header, B256, KECCAK_EMPTY, U256};
-use tracing::debug;
+use tracing::{debug, error};
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
     let cycle_tracker = CycleTracker::start("initialize_database");
@@ -96,11 +98,40 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             _ => unimplemented!(),
         };
 
+        if reth_chain_spec.is_taiko() {
+            let block_num = self.input.taiko.block_proposed.block_number();
+            let block_timestamp = 0u64; // self.input.taiko.block_proposed.block_timestamp();
+            let taiko_fork = self
+                .input
+                .chain_spec
+                .spec_id(block_num, block_timestamp)
+                .unwrap();
+            match taiko_fork {
+                SpecId::HEKLA => {
+                    assert!(
+                        reth_chain_spec
+                            .fork(Hardfork::Hekla)
+                            .active_at_block(block_num),
+                        "evm fork is not active, please update the chain spec"
+                    );
+                }
+                SpecId::ONTAKE => {
+                    assert!(
+                        reth_chain_spec
+                            .fork(Hardfork::Ontake)
+                            .active_at_block(block_num),
+                        "evm fork is not active, please update the chain spec"
+                    );
+                }
+                _ => unimplemented!(),
+            }
+        }
+
         // Generate the transactions from the tx list
         let mut block = self.input.block.clone();
         block.body = generate_transactions(
             &self.input.chain_spec,
-            self.input.taiko.block_proposed.meta.blobUsed,
+            self.input.taiko.block_proposed.blob_used(),
             &self.input.taiko.tx_data,
             &self.input.taiko.anchor_tx,
         );
@@ -116,6 +147,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l1_header: self.input.taiko.l1_header.clone(),
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
+                base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {
@@ -125,7 +157,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             gas_used: _,
             db: full_state,
             valid_transaction_indices,
-        } = executor.execute((&block, total_difficulty).into())?;
+        } = executor
+            .execute((&block, total_difficulty).into())
+            .map_err(|e| {
+                error!("Error executing block: {:?}", e);
+                e
+            })?;
         // Filter out the valid transactions so that the header checks only take these into account
         block.body = valid_transaction_indices
             .iter()

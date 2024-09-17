@@ -20,27 +20,35 @@ use sp1_sdk::{
     SP1Proof,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
-use std::env;
-use std::fs;
-use std::path::PathBuf;
-use tracing::{info, warn};
+use std::{
+    borrow::BorrowMut,
+    env, fs,
+    path::{Path, PathBuf},
+};
+use tracing::{debug, info};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
 pub const FIXTURE_PATH: &str = "./provers/sp1/contracts/src/fixtures/";
 pub const CONTRACT_PATH: &str = "./provers/sp1/contracts/src/exports/";
 const SP1_PROVER_CODE: u8 = 1;
+static FIXTURE_PATH: Lazy<PathBuf> =
+    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures/"));
+static CONTRACT_PATH: Lazy<PathBuf> =
+    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/exports/"));
 
 pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifier);
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sp1Param {
+    #[serde(default = "RecursionMode::default")]
     pub recursion: RecursionMode,
     pub prover: Option<ProverMode>,
+    #[serde(default = "bool::default")]
     pub verify: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum RecursionMode {
     /// The proof mode for an SP1 core proof.
@@ -48,6 +56,7 @@ pub enum RecursionMode {
     /// The proof mode for a compressed proof.
     Compressed,
     /// The proof mode for a PlonK proof.
+    #[default]
     Plonk,
 }
 
@@ -73,7 +82,7 @@ impl From<Sp1Response> for Proof {
     fn from(value: Sp1Response) -> Self {
         Self {
             proof: Some(value.proof),
-            ..Default::default()
+            quote: None,
         }
     }
 }
@@ -111,6 +120,11 @@ impl Prover for Sp1Prover {
             .unwrap_or_else(ProverClient::new);
 
         let (pk, vk) = client.setup(ELF);
+        info!(
+            "Sp1 Prover: block {:?} with vk {:?}",
+            output.header.number,
+            vk.bytes32()
+        );
 
         let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
         let prove_result = if !matches!(mode, ProverMode::Network) {
@@ -144,135 +158,50 @@ impl Prover for Sp1Prover {
                 output.header.number, proof_id
             );
             network_prover
-                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
+                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
                 .unwrap()
         };
 
-        let proof = Proof {
-            proof: serde_json::to_string(&prove_result).ok(),
-            ..Default::default()
-        };
-
+        let proof_bytes = prove_result.bytes();
         if param.verify {
-            if matches!(param.recursion, RecursionMode::Plonk) {
-                let time = Measurement::start("verify", false);
-                verify_sol(vk, prove_result)?;
-                time.stop_with("==> Verification complete");
-            } else {
-                warn!("Cannot verify a non PLONK proof");
-            }
-        }
-
-        Ok::<_, ProverError>(proof)
-    }
-
-    async fn aggregate(
-        input: AggregationGuestInput,
-        output: &AggregationGuestOutput,
-        config: &ProverConfig,
-        id_store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof> {
-        let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
-        let mode = param.prover.clone().unwrap_or_else(get_env_mock);
-
-        // Extract the block proofs
-        let proofs: Vec<sp1_sdk::SP1ProofWithPublicValues> = input
-            .proofs
-            .iter()
-            .map(|input| {
-                serde_json::from_str::<sp1_sdk::SP1ProofWithPublicValues>(
-                    &input.proof.clone().unwrap(),
-                )
-                .unwrap()
-            })
-            .collect::<Vec<_>>();
-
-        // Generate the proof for the given program.
-        let client = param
-            .prover
-            .map(|mode| match mode {
-                ProverMode::Mock => ProverClient::mock(),
-                ProverMode::Local => ProverClient::local(),
-                ProverMode::Network => ProverClient::network(),
-            })
-            .unwrap_or_else(ProverClient::new);
-
-        let (_guest_pk, guest_vk) = client.setup(ELF);
-
-        // Write the public values for each block proof
-        let block_inputs = proofs
-            .iter()
-            .map(|proof| B256::from_slice(&proof.public_values.to_vec()))
-            .collect::<Vec<_>>();
-
-        let input = ZkAggregationGuestInput {
-            image_id: guest_vk.hash_u32(),
-            block_inputs,
-        };
-        let mut stdin = SP1Stdin::new();
-        stdin.write(&input);
-
-        // Write the proofs.
-        //
-        // Note: this data will not actually be read by the aggregation program, instead it will be
-        // witnessed by the prover during the recursive aggregation process inside SP1 itself.
-        for proof in proofs {
-            let SP1Proof::Compressed(proof) = proof.proof else {
-                panic!()
+            let time = Measurement::start("verify", false);
+            let pi_hash = prove_result
+                .clone()
+                .borrow_mut()
+                .public_values
+                .read::<[u8; 32]>();
+            let fixture = RaikoProofFixture {
+                vkey: vk.bytes32().to_string(),
+                public_values: B256::from_slice(&pi_hash).to_string(),
+                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
             };
-            stdin.write_proof(proof, guest_vk.vk.clone());
+
+            verify_sol(&fixture)?;
+            time.stop_with("==> Verification complete");
         }
 
-        let (pk, vk) = client.setup(AGGREGATION_ELF);
-
-        let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
-        let prove_result = if !matches!(mode, ProverMode::Network) {
-            tracing::debug!("Proving locally with recursion mode: {:?}", param.recursion);
-            match param.recursion {
-                RecursionMode::Core => prove_action.run(),
-                RecursionMode::Compressed => prove_action.compressed().run(),
-                RecursionMode::Plonk => prove_action.plonk().run(),
-            }
-            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {}", e)))
-            .unwrap()
+        let proof_string = if proof_bytes.is_empty() {
+            None
         } else {
-            let network_prover = sp1_sdk::NetworkProver::new();
-
-            let proof_id = network_prover
-                .request_proof(AGGREGATION_ELF, stdin, param.recursion.clone().into())
-                .await
-                .map_err(|_| ProverError::GuestError("Sp1: requesting proof failed".to_owned()))?;
-            if let Some(id_store) = id_store {
-                id_store
-                    .store_id((123456, output.hash, SP1_PROVER_CODE), proof_id.clone())
-                    .await?;
-            }
-            info!("Sp1 Prover: aggregation proof id {:?}", proof_id);
-            network_prover
-                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id)
-                .await
-                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
-                .unwrap()
+            // 0x + 64 bytes of the vkey + the proof
+            // vkey itself contains 0x prefix
+            Some(format!(
+                "{}{}",
+                vk.bytes32(),
+                reth_primitives::hex::encode(proof_bytes)
+            ))
         };
 
-        let proof = Proof {
-            proof: serde_json::to_string(&prove_result).ok(),
-            ..Default::default()
-        };
-
-        if param.verify {
-            if matches!(param.recursion, RecursionMode::Plonk) {
-                let time = Measurement::start("verify", false);
-                verify_sol(vk, prove_result)?;
-                time.stop_with("==> Verification complete");
-            } else {
-                warn!("Cannot verify a non PLONK proof");
-            }
-        }
-
-        Ok::<_, ProverError>(proof)
+        info!(
+            "Sp1 Prover: block {:?} completed! proof: {:?}",
+            output.header.number, proof_string
+        );
+        Ok::<_, ProverError>(Proof {
+            proof: proof_string,
+            quote: None,
+        })
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
@@ -314,77 +243,46 @@ fn get_env_mock() -> ProverMode {
 
 fn init_verifier() -> Result<PathBuf, ProverError> {
     // In cargo run, Cargo sets the working directory to the root of the workspace
-    let output_dir: PathBuf = CONTRACT_PATH.into();
-    let artifacts_dir = sp1_sdk::install::try_install_plonk_bn254_artifacts();
-    if !artifacts_dir.join("SP1Verifier.sol").exists() {
-        return Err(ProverError::GuestError(format!(
-            "verifier file not found at {:?}",
-            artifacts_dir
-        )));
-    }
+    let contract_path = &*CONTRACT_PATH;
+    info!("Contract dir: {:?}", contract_path);
+    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
+    // Create the destination directory if it doesn't exist
+    fs::create_dir_all(&contract_path)?;
 
-    std::fs::create_dir_all(&output_dir).map_err(ProverError::FileIo)?;
-    copy_dir_all(&artifacts_dir, &output_dir).map_err(ProverError::FileIo)?;
-    println!(
-        "exported verifier from {} to {}",
-        artifacts_dir.display(),
-        output_dir.display()
-    );
-    Ok(output_dir)
-}
+    // Read the entries in the source directory
+    for entry in fs::read_dir(artifacts_dir)? {
+        let entry = entry?;
+        let src = entry.path();
 
-fn copy_dir_all(
-    src: impl AsRef<std::path::Path>,
-    dst: impl AsRef<std::path::Path>,
-) -> std::io::Result<()> {
-    fs::create_dir_all(&dst)?;
-    for entry in fs::read_dir(src)? {
-        let entry = entry.unwrap();
-        if entry.file_type()?.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        } else {
-            println!(
-                "copying {:?} to {:?}",
-                entry.path(),
-                dst.as_ref().join(entry.file_name())
-            );
-            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        // Check if the entry is a file and ends with .sol
+        if src.is_file() && src.extension().map(|s| s == "sol").unwrap_or(false) {
+            let out = contract_path.join(src.file_name().unwrap());
+            fs::copy(&src, &out)?;
+            println!("Copied: {:?}", src.file_name().unwrap());
         }
     }
-    Ok(())
+    Ok(contract_path.clone())
 }
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct RaikoProofFixture {
+pub(crate) struct RaikoProofFixture {
     vkey: String,
     public_values: String,
     proof: String,
 }
 
-pub fn verify_sol(
-    vk: SP1VerifyingKey,
-    mut proof: sp1_sdk::SP1ProofWithPublicValues,
-) -> ProverResult<()> {
+fn verify_sol(fixture: &RaikoProofFixture) -> ProverResult<()> {
     assert!(VERIFIER.is_ok());
-
-    // Deserialize the public values.
-    let pi_hash = proof.public_values.read::<[u8; 32]>();
-
-    // Create the testing fixture so we can test things end-to-end.
-    let fixture = RaikoProofFixture {
-        vkey: vk.bytes32().to_string(),
-        public_values: B256::from_slice(&pi_hash).to_string(),
-        proof: format!("0x{}", reth_primitives::hex::encode(proof.bytes())),
-    };
-    println!("===> Fixture: {:#?}", fixture);
+    debug!("===> Fixture: {:#?}", fixture);
 
     // Save the fixture to a file.
-    println!("Writing fixture to: {:?}", FIXTURE_PATH);
-    let fixture_path = PathBuf::from(FIXTURE_PATH);
+    let fixture_path = &*FIXTURE_PATH;
+    info!("Writing fixture to: {:?}", fixture_path);
+
     if !fixture_path.exists() {
-        std::fs::create_dir_all(&fixture_path).map_err(|e| {
+        std::fs::create_dir_all(fixture_path).map_err(|e| {
             ProverError::GuestError(format!("Failed to create fixture path: {}", e))
         })?;
     }
@@ -396,10 +294,10 @@ pub fn verify_sol(
 
     let child = std::process::Command::new("forge")
         .arg("test")
-        .current_dir(CONTRACT_PATH)
+        .current_dir(&*CONTRACT_PATH)
         .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
         .spawn();
-    println!("Verification started {:?}", child);
+    info!("Verification started {:?}", child);
     child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {}", e)))?;
 
     Ok(())
@@ -434,7 +332,7 @@ mod test {
 
     #[test]
     fn test_init_verifier() {
-        assert!(VERIFIER.is_ok());
+        VERIFIER.as_ref().expect("Failed to init verifier");
     }
 
     #[test]
@@ -447,5 +345,13 @@ mod test {
         client
             .verify(&proof, &vk)
             .expect("Sp1: verification failed");
+    }
+
+    #[ignore = "This is for docker image build only"]
+    #[test]
+    fn test_show_sp1_elf_vk() {
+        let client = ProverClient::new();
+        let (_pk, vk) = client.setup(ELF);
+        println!("SP1 ELF VK: {:?}", vk.bytes32());
     }
 }

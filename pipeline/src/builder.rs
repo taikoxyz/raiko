@@ -128,22 +128,31 @@ pub struct CommandBuilder {
 
 impl CommandBuilder {
     fn get_path_buf(tool: &str, toolchain: &str) -> Option<PathBuf> {
-        let std::io::Result::Ok(std::process::Output { stdout, .. }) = sanitized_cmd("rustup")
+        match sanitized_cmd("rustup")
             .args([&format!("+{toolchain}"), "which", tool])
             .output()
-        else {
-            return None;
-        };
-
-        let Ok(out) = String::from_utf8(stdout) else {
-            return None;
-        };
-
-        let out = out.trim();
-
-        println!("Using {tool}: {out}");
-
-        Some(PathBuf::from(out))
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = output.stdout;
+                    if let Ok(out) = String::from_utf8(stdout.clone()) {
+                        let out = out.trim();
+                        println!("Using {tool}: {out}");
+                        Some(PathBuf::from(out))
+                    } else {
+                        println!("Command succeeded with unknown output: {:?}", stdout);
+                        None
+                    }
+                } else {
+                    eprintln!("Command failed with status: {}", output.status);
+                    None
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to execute command: {}", e);
+                None
+            }
+        }
     }
 
     pub fn new(meta: &Metadata, target: &str, toolchain: &str) -> Self {

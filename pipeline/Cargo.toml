@@ -7,7 +7,7 @@ edition = "2021"
 
 
 [dependencies]
-cargo_metadata = { workspace = true}
+cargo_metadata = { workspace = true }
 chrono = { workspace = true }
 cfg-if = { workspace = true }
 regex = { workspace = true }
@@ -16,7 +16,9 @@ anyhow = { workspace = true }
 dirs = { workspace = true }
 risc0-binfmt = { workspace = true, optional = true }
 pathdiff = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+sp1-sdk = { workspace = true, optional = true }
 
 [features]
-risc0 = ["dep:risc0-binfmt", "dep:pathdiff"]
-sp1 = []
+risc0 = ["dep:risc0-binfmt", "dep:pathdiff", "dep:hex"]
+sp1 = ["dep:sp1-sdk"]
