@@ -447,7 +447,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationRequest {
     /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
-    pub block_numbers: Vec<(u64, u64)>,
+    pub block_numbers: Vec<(u64, Option<u64>)>,
     /// The network to generate the proof for.
     pub network: Option<String>,
     /// The L1 network to generate the proof for.
@@ -484,7 +484,7 @@ impl From<AggregationRequest> for Vec<ProofRequestOpt> {
             .map(
                 |&(block_number, l1_inclusion_block_number)| ProofRequestOpt {
                     block_number: Some(block_number),
-                    l1_inclusion_block_number: Some(l1_inclusion_block_number),
+                    l1_inclusion_block_number,
                     network: value.network.clone(),
                     l1_network: value.l1_network.clone(),
                     graffiti: value.graffiti.clone(),
@@ -501,12 +501,7 @@ impl From<AggregationRequest> for Vec<ProofRequestOpt> {
 impl From<ProofRequestOpt> for AggregationRequest {
     fn from(value: ProofRequestOpt) -> Self {
         let block_numbers = if let Some(block_number) = value.block_number {
-            vec![(
-                block_number,
-                value
-                    .l1_inclusion_block_number
-                    .unwrap_or_else(|| block_number - 1),
-            )]
+            vec![(block_number, value.l1_inclusion_block_number)]
         } else {
             vec![]
         };
