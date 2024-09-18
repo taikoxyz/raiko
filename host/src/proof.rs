@@ -178,7 +178,7 @@ impl ProofActor {
         manager
             .update_task_progress(key, status, proof.as_deref())
             .await
-            .map_err(|e| HostError::from(e))?;
+            .map_err(HostError::from)?;
         Ok(status)
     }
 }
