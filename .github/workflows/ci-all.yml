@@ -7,11 +7,13 @@ on:
       - "host/**"
       - "lib/**"
       - "script/**"
+      - "!docs/**"
   pull_request:
     paths:
       - "host/**"
       - "lib/**"
       - "script/**"
+      - "!docs/**"
   merge_group:
 
 env:

@@ -65,7 +65,7 @@ impl ProofActor {
             )
             .await
             .or_else(|e| {
-                if e.to_string().contains("no id found") {
+                if e.to_string().contains("No data for query") {
                     warn!("Task already cancelled or not yet started!");
                     Ok(())
                 } else {
@@ -112,7 +112,7 @@ impl ProofActor {
                 result = Self::handle_message(proof_request, key.clone(), &opts, &chain_specs) => {
                     match result {
                         Ok(()) => {
-                            info!("Proof generated");
+                            info!("Host handling message");
                         }
                         Err(error) => {
                             error!("Worker failed due to: {error:?}");

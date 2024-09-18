@@ -125,6 +125,10 @@ impl InMemoryTaskDb {
             .collect())
     }
 
+    fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
+        Ok(self.store.iter().map(|(k, v)| (*k, v.clone())).collect())
+    }
+
     fn store_id(&mut self, key: ProofKey, id: String) -> TaskManagerResult<()> {
         self.store.insert(key, id);
         Ok(())
@@ -139,7 +143,7 @@ impl InMemoryTaskDb {
         self.store
             .get(&key)
             .cloned()
-            .ok_or_else(|| TaskManagerError::SqlError("no id found".to_owned()))
+            .ok_or(TaskManagerError::NoData)
     }
 }
 
@@ -238,6 +242,11 @@ impl TaskManager for InMemoryTaskManager {
     async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
         let mut db = self.db.lock().await;
         db.list_all_tasks()
+    }
+
+    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
+        let mut db = self.db.lock().await;
+        db.list_stored_ids()
     }
 }
 

@@ -132,7 +132,6 @@ impl Prover for NitroProver {
             quote: Some(hex::encode(
                 Self::get_attestation().map_err(|e| ProverError::GuestError(e.to_string()))?,
             )),
-            ..Default::default()
         })
     }
 

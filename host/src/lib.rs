@@ -33,7 +33,7 @@ pub struct Opts {
     #[serde(default = "Opts::default_address")]
     /// Server bind address
     /// [default: 0.0.0.0:8080]
-    address: String,
+    pub address: String,
 
     #[arg(long, require_equals = true, default_value = "16")]
     #[serde(default = "Opts::default_concurrency_limit")]
@@ -51,15 +51,15 @@ pub struct Opts {
     #[serde(default = "Opts::default_config_path")]
     /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
-    config_path: PathBuf,
+    pub config_path: PathBuf,
 
     #[arg(long, require_equals = true)]
     /// Path to a chain spec file that includes supported chain list
-    chain_spec_path: Option<PathBuf>,
+    pub chain_spec_path: Option<PathBuf>,
 
     #[arg(long, require_equals = true)]
     /// Use a local directory as a cache for input. Accepts a custom directory.
-    cache_path: Option<PathBuf>,
+    pub cache_path: Option<PathBuf>,
 
     #[arg(long, require_equals = true, env = "RUST_LOG", default_value = "info")]
     #[serde(default = "Opts::default_log_level")]
@@ -73,14 +73,14 @@ pub struct Opts {
 
     #[arg(long, require_equals = true)]
     /// Set jwt secret for auth
-    jwt_secret: Option<String>,
+    pub jwt_secret: Option<String>,
 
     #[arg(long, require_equals = true, default_value = "raiko.sqlite")]
     /// Set the path to the sqlite db file
-    sqlite_file: PathBuf,
+    pub sqlite_file: PathBuf,
 
     #[arg(long, require_equals = true, default_value = "1048576")]
-    max_db_size: usize,
+    pub max_db_size: usize,
 }
 
 impl Opts {
@@ -114,6 +114,12 @@ impl Opts {
 
         *self = serde_json::from_value(config)?;
         Ok(())
+    }
+
+    pub fn merge_from_env(&mut self) {
+        if let Some(path) = std::env::var("CONFIG_PATH").ok().map(PathBuf::from) {
+            self.config_path = path;
+        }
     }
 }
 
@@ -164,6 +170,8 @@ impl ProverState {
     pub fn init() -> HostResult<Self> {
         // Read the command line arguments;
         let mut opts = Opts::parse();
+        // Read env supported options.
+        opts.merge_from_env();
         // Read the config file.
         opts.merge_from_file()?;
 

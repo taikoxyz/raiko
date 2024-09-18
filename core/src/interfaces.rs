@@ -4,10 +4,8 @@ use clap::{Args, ValueEnum};
 use raiko_lib::{
     consts::VerifierType,
     input::{BlobProofType, GuestInput, GuestOutput},
-    primitives::eip4844::{calc_kzg_proof, commitment_to_version_hash, kzg_proof_to_bytes},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
 };
-use reth_primitives::hex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
@@ -181,7 +179,7 @@ impl ProofType {
         config: &Value,
         store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
-        let mut proof = match self {
+        match self {
             ProofType::Native => NativeProver::run(input.clone(), output, config, store)
                 .await
                 .map_err(<ProverError as Into<RaikoError>>::into),
@@ -215,23 +213,7 @@ impl ProofType {
                 #[cfg(not(feature = "nitro"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
             }
-        }?;
-
-        // Add the kzg proof to the proof if needed
-        if let Some(blob_commitment) = input.taiko.blob_commitment.clone() {
-            let kzg_proof = calc_kzg_proof(
-                &input.taiko.tx_data,
-                &commitment_to_version_hash(&blob_commitment.try_into().map_err(|_| {
-                    RaikoError::Conversion(
-                        "Could not convert blob commitment to version hash".to_owned(),
-                    )
-                })?),
-            )
-            .map_err(|e| anyhow::anyhow!(e))?;
-            proof.kzg_proof = Some(hex::encode(kzg_proof_to_bytes(&kzg_proof)));
         }
-
-        Ok(proof)
     }
 
     pub async fn cancel_proof(
@@ -282,6 +264,8 @@ impl ProofType {
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
+    /// The l1 block number of the l2 block be proposed.
+    pub l1_inclusion_block_number: u64,
     /// The network to generate the proof for.
     pub network: String,
     /// The L1 network to generate the proof for.
@@ -307,6 +291,11 @@ pub struct ProofRequestOpt {
     #[arg(long, require_equals = true)]
     /// The block number for the block to generate a proof for.
     pub block_number: Option<u64>,
+    #[arg(long, require_equals = true)]
+    /// The block number for the l2 block to be proposed.
+    /// in hekla, it is the anchored l1 block height - 1
+    /// in ontake, it is the anchored l1 block height - (1..64)
+    pub l1_inclusion_block_number: Option<u64>,
     #[arg(long, require_equals = true)]
     /// The network to generate the proof for.
     pub network: Option<String>,
@@ -390,6 +379,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             block_number: value.block_number.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing block number".to_string(),
             ))?,
+            l1_inclusion_block_number: value.l1_inclusion_block_number.unwrap_or_default(),
             network: value.network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing network".to_string(),
             ))?,
@@ -419,7 +409,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
             blob_proof_type: value
                 .blob_proof_type
-                .unwrap_or("ProofOfEquivalence".to_string())
+                .unwrap_or("proof_of_equivalence".to_string())
                 .parse()
                 .map_err(|_| {
                     RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())

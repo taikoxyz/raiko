@@ -752,6 +752,10 @@ impl TaskDb {
         Ok(query)
     }
 
+    fn list_stored_ids(&self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
+        unimplemented!()
+    }
+
     fn store_id(
         &self,
         (chain_id, blockhash, proof_key): ProofKey,
@@ -820,14 +824,22 @@ impl TaskDb {
               1;
             "#,
         )?;
-        let query = statement.query_row(
+        let query = match statement.query_row(
             named_params! {
                 ":chain_id": chain_id,
                 ":blockhash": blockhash.to_vec(),
                 ":proofsys_id": proof_key,
             },
             |row| row.get::<_, String>(0),
-        )?;
+        ) {
+            Ok(q) => q,
+            Err(e) => {
+                return match e {
+                    rusqlite::Error::QueryReturnedNoRows => Err(TaskManagerError::NoData),
+                    e => Err(e.into()),
+                }
+            }
+        };
 
         Ok(query)
     }
@@ -925,6 +937,11 @@ impl TaskManager for SqliteTaskManager {
     async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
         let task_db = self.arc_task_db.lock().await;
         task_db.list_all_tasks()
+    }
+
+    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.list_stored_ids()
     }
 }
 

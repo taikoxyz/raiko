@@ -69,7 +69,7 @@ rlp = { workspace = true }
 url = { workspace = true }
 cfg-if = { workspace = true }
 cap = { workspace = true }
-dotenv = {workspace = true }
+dotenv = { workspace = true }
 
 
 # reth
@@ -88,6 +88,7 @@ default = []
 sp1 = ["raiko-core/sp1"]
 risc0 = ["raiko-core/risc0"]
 sgx = ["raiko-core/sgx"]
+integration = []
 
 [[bin]]
 name = "raiko-host"

@@ -20,8 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Setup and build
+      - name: Setup and build sgx docker
         run: |
           cd docker
-          docker compose build --no-cache
+          docker compose build raiko --no-cache
         shell: bash

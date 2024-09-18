@@ -1,24 +1,20 @@
 #![cfg(feature = "enable")]
 
-use alloy_primitives::B256;
-use hex::ToHex;
+#[cfg(feature = "bonsai-auto-scaling")]
+use crate::bonsai::auto_scaling::shutdown_bonsai;
+use crate::methods::risc0_guest::RISC0_GUEST_ELF;
+use alloy_primitives::{hex::ToHexExt, B256};
+pub use bonsai::*;
 use log::warn;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
-use risc0_zkvm::{serde::to_vec, sha::Digest};
+use risc0_zkvm::serde::to_vec;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt::Debug;
-use tracing::{debug, info as traicing_info};
-
-use crate::{
-    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
-    snarks::verify_groth16_snark,
-};
-
-pub use bonsai::*;
+use tracing::debug;
 
 pub mod bonsai;
 pub mod methods;
@@ -43,7 +39,6 @@ impl From<Risc0Response> for Proof {
         Self {
             proof: Some(value.proof),
             quote: None,
-            kzg_proof: None,
         }
     }
 }
@@ -81,49 +76,61 @@ impl Prover for Risc0Prover {
         )
         .await;
 
-        let journal: String = result.clone().unwrap().1.journal.encode_hex();
-
-        // Create/verify Groth16 SNARK
-        let snark_proof = if config.snark {
-            let Some((stark_uuid, stark_receipt)) = result else {
-                return Err(ProverError::GuestError(
-                    "No STARK data to snarkify!".to_owned(),
-                ));
-            };
-            let image_id = Digest::from(RISC0_GUEST_ID);
-            let (snark_uuid, snark_receipt) =
-                snarks::stark2snark(image_id, stark_uuid, stark_receipt)
+        let proof_gen_result = if result.is_some() {
+            if config.snark && config.bonsai {
+                let (stark_uuid, stark_receipt) = result.clone().unwrap();
+                bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt)
                     .await
-                    .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
+                    .map(|r0_response| r0_response.into())
+                    .map_err(|e| ProverError::GuestError(e.to_string()))
+            } else {
+                warn!("proof is not in snark mode, please check.");
+                let (_, stark_receipt) = result.clone().unwrap();
 
-            traicing_info!("Validating SNARK uuid: {snark_uuid}");
-
-            let enc_proof = verify_groth16_snark(image_id, snark_receipt)
-                .await
-                .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
-
-            format!("0x{}", hex::encode(enc_proof))
+                Ok(Risc0Response {
+                    proof: stark_receipt.journal.encode_hex_with_prefix(),
+                }
+                .into())
+            }
         } else {
-            warn!("proof is not in snark mode, please check.");
-            journal
+            Err(ProverError::GuestError(
+                "Failed to generate proof".to_string(),
+            ))
         };
 
-        Ok(Risc0Response { proof: snark_proof }.into())
+        #[cfg(feature = "bonsai-auto-scaling")]
+        if config.bonsai {
+            // shutdown bonsai
+            shutdown_bonsai()
+                .await
+                .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        }
+
+        proof_gen_result
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        let uuid = id_store.read_id(key).await?;
+        let uuid = match id_store.read_id(key).await {
+            Ok(uuid) => uuid,
+            Err(e) => {
+                if e.to_string().contains("No data for query") {
+                    return Ok(());
+                } else {
+                    return Err(ProverError::GuestError(e.to_string()));
+                }
+            }
+        };
         cancel_proof(uuid)
             .await
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        id_store.remove_id(key).await?;
-        Ok(())
+        id_store.remove_id(key).await
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use methods::risc0_guest::RISC0_GUEST_ID;
     use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
     use risc0_zkvm::{default_prover, ExecutorEnv};
 
@@ -134,5 +141,14 @@ mod test {
         let prover = default_prover();
         let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
         receipt.receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
+    }
+
+    #[ignore = "only to print image id for docker image build"]
+    #[test]
+    fn test_show_risc0_image_id() {
+        let image_id = RISC0_GUEST_ID
+            .map(|limp| hex::encode(limp.to_le_bytes()))
+            .concat();
+        println!("RISC0 IMAGE_ID: {}", image_id);
     }
 }

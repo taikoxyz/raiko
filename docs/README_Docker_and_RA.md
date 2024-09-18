@@ -6,6 +6,8 @@ This tutorial was created to assist you in setting up Raiko and its SGX dependen
 
 We recommended 4 cores and 8GB memory for running Raiko. 8 cores and 16GB memory is ideal; the bare minimum is 2 cores and 4GB memory (tentative).
 
+We also recommend an EPC (Enclave memory) size of 4GB for mainnet, to prevent OOM errors. You can check your machine's EPC size by running `./script/check-epc-size.sh`.
+
 ## Prerequisites
 
 Intel SGX is a technology that involves a considerable amount of configuration. Given its high level of configurability, the setup of your infrastructure may vary significantly depending on the attestation type (EPID, ECDSA) and other parameters. While we've strived to minimize the manual effort required to prepare the development environment, there are certain prerequisites that are challenging, if not impossible, to automate using Dockerfiles. This section outlines these prerequisites.
@@ -182,7 +184,7 @@ Currently Supported FMSPCs (on Hekla):
 - 30606A000000
 - 00706A100000
 
-Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines.
+Please reach out to us in [discord](https://discord.com/invite/taikoxyz) channels or create an issue on Github if your machine doesn't have a listed FMSPC, if you've done the bootstrap process and obtained a quote we can try adding them to the On Chain RA process. We can't guarantee all FMSPCs will work, so you might have to switch machines. **Please include your FMSPC, CPU and your machine's EPC Size in the Github issue! This helps us decide whether the machine/FMSPC is a suitable candidate to add.**
 
 > **_NOTE:_** At the moment, we are aware of three cloud providers who offer compatible SGX machines: [*Tencent Cloud*](https://www.tencentcloud.com/document/product/213/45510), Alibaba Cloud and Azure. (Tencent Cloud is one of our ecosystem partners!) Specifically, Tencent Cloud's `M6ce` model, Alibaba Cloud's `g7t` model support `SGX-FMSPC 00606A000000` and Azure's `confidential compute` machines support `SGX-FMSPC 00906ED50000`.
 >
@@ -292,7 +294,7 @@ You can continue on with the following steps as usual after this. Do not do `doc
 docker image ls
 ```
 
-You should see at least two images, `gcr.io/evmchain/raiko` and `gcr.io/evmchain/pccs`.
+You should see at least two images, `us-docker.pkg.dev/evmchain/raiko` and `us-docker.pkg.dev/evmchain/pccs`.
 
 7. If both are present, bootstrap Raiko with the following command:
 
@@ -322,10 +324,11 @@ You've now prepared your machine for running Raiko through Docker. Now, you need
 
 ## On-Chain RA
 
-1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main) and navigate to the scripts
+1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main), checkout the appropriate tag (protocol-v1.9.0 for hekla) and navigate to the protocol directory.
 
 ```
 git clone https://github.com/taikoxyz/taiko-mono.git
+git checkout tags/{release-tag}
 cd taiko-mono/packages/protocol
 ```
 
@@ -351,7 +354,7 @@ pnpm compile
 export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
 ```
 
-4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. 
+4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. (`script/layer1/config_dcap_sgx_verifier.sh` for `protocol-v1.9.0` release.)
 
 Hekla Addresses:
 `SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
@@ -377,7 +380,9 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
 
 Copy your quote and use in the following step.
 
-6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network.
+> **_NOTE:_** If you are on `protocol-v1.9.0`, the script is located at `script/layer1/config_dcap_sgx_verifier.sh`. Use this for the following steps. 
+
+6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network. Alternatively, export it like so: `export FORK_URL="https://any-holesky-rpc-url/"`.
 
 7. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote {YOUR_QUOTE_HERE}`.
 
@@ -484,3 +489,22 @@ The response should look like this:
 ```
 
 If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
+
+## Change your Raiko instance's RPCs to your personal RPC (Optional but recommended)
+
+If you've successfully set up your raiko instance as above, you may want to change the RPCs raiko uses to ones you trust / your own deployed L1 Node and Beacon Node. Doing so will prevent random outages on PublicNode from affecting your proving, which you will want to do when running a mainnet prover/proposer.
+
+If your raiko instance is still running, take it down temporarily with `docker compose down`.
+
+Navigate to the `docker` folder in the raiko repo, export the below variables as necessary in the `docker-compose.yml` on L69-74 depending on which network you are running an SGX prover for.
+
+```
+- ETHEREUM_RPC=${ETHEREUM_RPC}
+- ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
+- HOLESKY_RPC=${HOLESKY_RPC}
+- HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
+- TAIKO_A7_RPC=${TAIKO_A7_RPC}
+- TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
+```
+
+You can now restart your raiko instance (skipping the init/bootstrapping step) and operate as normal with `docker compose up raiko -d`! Monitor the logs and run the above `./script/prove-block` script to make sure it's functioning normally.

@@ -1,6 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::ProofRequest;
-use raiko_lib::prover::Proof;
+use raiko_tasks::get_task_manager;
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -8,8 +8,11 @@ use crate::{
     interfaces::HostResult,
     metrics::{dec_current_req, inc_current_req, inc_guest_req_count, inc_host_req_count},
     proof::handle_proof,
+    server::api::v1::Status,
     ProverState,
 };
+
+use super::ProofResponse;
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",
@@ -31,7 +34,7 @@ use crate::{
 async fn proof_handler(
     State(prover_state): State<ProverState>,
     Json(req): Json<Value>,
-) -> HostResult<Json<Proof>> {
+) -> HostResult<Json<Status>> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
@@ -43,18 +46,30 @@ async fn proof_handler(
     inc_host_req_count(proof_request.block_number);
     inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
+    // In memory task manager only for V1, cannot feature = "sqlite"
+    let mut manager = get_task_manager(&raiko_tasks::TaskManagerOpts::default());
+
     handle_proof(
         &proof_request,
         &prover_state.opts,
         &prover_state.chain_specs,
-        None,
+        Some(&mut manager),
     )
     .await
     .map_err(|e| {
         dec_current_req();
         e
     })
-    .map(Json)
+    .map(|proof| {
+        dec_current_req();
+        Json(Status::Ok {
+            data: ProofResponse {
+                output: None,
+                proof: proof.proof,
+                quote: proof.quote,
+            },
+        })
+    })
 }
 
 #[derive(OpenApi)]

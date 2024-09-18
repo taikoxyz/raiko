@@ -81,7 +81,7 @@ mod test {
 
     use alloy_primitives::{Address, B256};
     use alloy_provider::Provider;
-    use ethers_core::k256::elliptic_curve::rand_core::block;
+
     use raiko_core::{
         interfaces::{ProofRequest, ProofType},
         provider::rpc::RpcBlockDataProvider,
@@ -111,8 +111,9 @@ mod test {
             graffiti: B256::ZERO,
             prover: Address::ZERO,
             proof_type: ProofType::Native,
-            blob_proof_type: BlobProofType::ProofOfCommitment,
+            blob_proof_type: BlobProofType::KzgVersionedHash,
             prover_args: Default::default(),
+            l1_inclusion_block_number: 0,
         };
         let raiko = Raiko::new(
             l1_chain_spec.clone(),
@@ -138,8 +139,8 @@ mod test {
 
     async fn get_latest_block_num(chain_spec: &ChainSpec) -> u64 {
         let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
-        let height = provider.provider.get_block_number().await.unwrap();
-        height
+
+        provider.provider.get_block_number().await.unwrap()
     }
 
     #[tokio::test]

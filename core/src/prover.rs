@@ -60,11 +60,45 @@ impl Prover for NativeProver {
         Ok(Proof {
             proof: None,
             quote: None,
-            kzg_proof: None,
         })
     }
 
     async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
+}
+
+#[ignore = "Only used to test serialized data"]
+#[tokio::test(flavor = "multi_thread")]
+async fn test_native_prover() {
+    use serde_json::json;
+
+    // Get the current working directory
+    let current_dir = std::env::current_dir().expect("Failed to get current directory");
+
+    // Adjust as needed based on your tests
+    let file_name = "ethereum-20612846.json";
+    let path = current_dir.join("../data").join(file_name);
+
+    // Check if the path exists
+    if !path.exists() {
+        panic!("File does not exist: {}", path.display());
+    }
+    let json = std::fs::read_to_string(path).unwrap();
+
+    // Deserialize the input.
+    let input: GuestInput = serde_json::from_str(&json).unwrap();
+    let output = GuestOutput {
+        header: reth_primitives::Header::default(),
+        hash: reth_primitives::B256::default(),
+    };
+
+    let param = json!({
+        "native": {
+            "json_guest_input": null
+        }
+    });
+    NativeProver::run(input, &output, &param, None)
+        .await
+        .expect_err("Default output should not match input.");
 }

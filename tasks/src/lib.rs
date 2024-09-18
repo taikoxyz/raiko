@@ -11,7 +11,7 @@ use raiko_lib::{
     prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
 use rusqlite::Error as SqlError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{adv_sqlite::SqliteTaskManager, mem_db::InMemoryTaskManager};
@@ -27,6 +27,8 @@ pub enum TaskManagerError {
     IOError(IOErrorKind),
     #[error("SQL Error {0}")]
     SqlError(String),
+    #[error("No data for query")]
+    NoData,
     #[error("Anyhow error: {0}")]
     Anyhow(String),
 }
@@ -59,7 +61,7 @@ impl From<anyhow::Error> for TaskManagerError {
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
-#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Serialize, ToSchema)]
+#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Deserialize, Serialize, ToSchema)]
 #[repr(i32)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
@@ -79,7 +81,7 @@ pub enum TaskStatus {
     SqlDbCorruption           = -99999,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TaskDescriptor {
     pub chain_id: ChainId,
     pub blockhash: B256,
@@ -119,7 +121,7 @@ pub type TaskProvingStatusRecords = Vec<TaskProvingStatus>;
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TaskManagerOpts {
     pub sqlite_file: PathBuf,
     pub max_db_size: usize,
@@ -161,6 +163,9 @@ pub trait TaskManager: IdStore + IdWrite {
 
     /// List all tasks in the db.
     async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>>;
+
+    /// List all stored ids.
+    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>>;
 }
 
 pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
@@ -283,6 +288,13 @@ impl TaskManager for TaskManagerWrapper {
         match &mut self.manager {
             TaskManagerInstance::InMemory(ref mut manager) => manager.list_all_tasks().await,
             TaskManagerInstance::Sqlite(ref mut manager) => manager.list_all_tasks().await,
+        }
+    }
+
+    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(manager) => manager.list_stored_ids().await,
+            TaskManagerInstance::Sqlite(manager) => manager.list_stored_ids().await,
         }
     }
 }
