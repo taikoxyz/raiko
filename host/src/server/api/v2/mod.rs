@@ -85,9 +85,7 @@ impl From<Vec<u8>> for Status {
 impl From<TaskStatus> for Status {
     fn from(status: TaskStatus) -> Self {
         match status {
-            TaskStatus::Success
-            | TaskStatus::WorkInProgress
-            | TaskStatus::Registered => Self::Ok {
+            TaskStatus::Success | TaskStatus::WorkInProgress | TaskStatus::Registered => Self::Ok {
                 data: ProofResponse::Status { status },
             },
             _ => Self::Error {
