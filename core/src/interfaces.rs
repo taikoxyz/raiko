@@ -535,7 +535,7 @@ pub struct AggregationOnlyRequest {
 impl Display for AggregationOnlyRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!(
-            "AggregationOnyRequest {{ {:?}, {:?} }}",
+            "AggregationOnlyRequest {{ {:?}, {:?} }}",
             self.proof_type, self.prover_args
         ))
     }
