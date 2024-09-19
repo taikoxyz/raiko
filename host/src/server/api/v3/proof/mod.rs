@@ -70,7 +70,7 @@ async fn proof_handler(
             proof_request.prover.to_string(),
         ));
 
-        tasks.push(key);
+        tasks.push((key,proof_request));
     }
 
     let mut manager = prover_state.task_manager();
@@ -78,14 +78,14 @@ async fn proof_handler(
     let mut is_registered = false;
     let mut is_success = true;
 
-    for task in tasks.iter() {
-        let status = manager.get_task_proving_status(task).await?;
+    for (key, req) in tasks.iter() {
+        let status = manager.get_task_proving_status(key).await?;
 
         let Some((latest_status, ..)) = status.last() else {
             // If there are no tasks with provided config, create a new one.
-            manager.enqueue_task(task).await?;
+            manager.enqueue_task(key).await?;
 
-            prover_state.task_channel.try_send(Message::from(task))?;
+            prover_state.task_channel.try_send(Message::from(req))?;
             is_registered = true;
             continue;
         };
@@ -97,10 +97,10 @@ async fn proof_handler(
             | TaskStatus::Cancelled_NeverStarted
             | TaskStatus::CancellationInProgress => {
                 manager
-                    .update_task_progress(task.clone(), TaskStatus::Registered, None)
+                    .update_task_progress(key.clone(), TaskStatus::Registered, None)
                     .await?;
 
-                prover_state.task_channel.try_send(Message::from(task))?;
+                prover_state.task_channel.try_send(Message::from(req))?;
 
                 is_registered = true;
                 is_success = false;
@@ -117,7 +117,7 @@ async fn proof_handler(
     } else if is_success {
         // TODO:(petar) aggregate the proofs and return the result without blocking
         let mut proofs = Vec::with_capacity(tasks.len());
-        for task in tasks {
+        for (task, _req) in tasks {
             let raw_proof = manager.get_task_proof(&task).await?;
             let proof = serde_json::from_slice(&raw_proof)?;
             proofs.push(proof);
