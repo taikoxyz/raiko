@@ -1,14 +1,9 @@
-use std::str::FromStr;
-
-use anyhow::anyhow;
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{
-    interfaces::{AggregationRequest, ProofRequest, ProofRequestOpt, ProofType},
+    interfaces::{AggregationOnlyRequest, AggregationRequest, ProofRequest, ProofRequestOpt},
     provider::get_task_data,
 };
-use raiko_lib::input::{AggregationGuestInput, AggregationGuestOutput};
 use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
-use reth_primitives::B256;
 use utoipa::OpenApi;
 
 use crate::{
@@ -18,11 +13,12 @@ use crate::{
     Message, ProverState,
 };
 
+mod aggregate;
 mod cancel;
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",
-    request_body = ProofRequestOpt,
+    request_body = AggregationRequest,
     responses (
         (status = 200, description = "Successfully submitted proof task, queried tasks in progress or retrieved proof.", body = Status)
     )
@@ -70,7 +66,7 @@ async fn proof_handler(
             proof_request.prover.to_string(),
         ));
 
-        tasks.push((key,proof_request));
+        tasks.push((key, proof_request));
     }
 
     let mut manager = prover_state.task_manager();
@@ -115,7 +111,6 @@ async fn proof_handler(
     if is_registered {
         Ok(TaskStatus::Registered.into())
     } else if is_success {
-        // TODO:(petar) aggregate the proofs and return the result without blocking
         let mut proofs = Vec::with_capacity(tasks.len());
         for (task, _req) in tasks {
             let raw_proof = manager.get_task_proof(&task).await?;
@@ -123,21 +118,59 @@ async fn proof_handler(
             proofs.push(proof);
         }
 
-        let proof_type = ProofType::from_str(
-            aggregation_request
-                .proof_type
-                .as_ref()
-                .ok_or_else(|| anyhow!("No proof type"))?,
-        )?;
-        let input = AggregationGuestInput { proofs };
-        let output = AggregationGuestOutput { hash: B256::ZERO };
-        let config = serde_json::to_value(aggregation_request)?;
+        let aggregation_request = AggregationOnlyRequest {
+            proofs,
+            proof_type: aggregation_request.proof_type,
+            prover_args: aggregation_request.prover_args,
+        };
 
-        let proof = proof_type
-            .aggregate_proofs(input, &output, &config, Some(&mut manager))
+        let status = manager
+            .get_aggregation_task_proving_status(&aggregation_request)
             .await?;
 
-        Ok(proof.into())
+        let Some((latest_status, ..)) = status.last() else {
+            // If there are no tasks with provided config, create a new one.
+            manager
+                .enqueue_aggregation_task(&aggregation_request)
+                .await?;
+
+            prover_state
+                .task_channel
+                .try_send(Message::from(aggregation_request.clone()))?;
+            return Ok(Status::from(TaskStatus::Registered));
+        };
+
+        match latest_status {
+            // If task has been cancelled add it to the queue again
+            TaskStatus::Cancelled
+            | TaskStatus::Cancelled_Aborted
+            | TaskStatus::Cancelled_NeverStarted
+            | TaskStatus::CancellationInProgress => {
+                manager
+                    .update_aggregation_task_progress(
+                        &aggregation_request,
+                        TaskStatus::Registered,
+                        None,
+                    )
+                    .await?;
+
+                prover_state
+                    .task_channel
+                    .try_send(Message::from(aggregation_request))?;
+
+                Ok(Status::from(TaskStatus::Registered))
+            }
+            // If the task has succeeded, return the proof.
+            TaskStatus::Success => {
+                let proof = manager
+                    .get_aggregation_task_proof(&aggregation_request)
+                    .await?;
+
+                Ok(proof.into())
+            }
+            // For all other statuses just return the status.
+            status => Ok((*status).into()),
+        }
     } else {
         Ok(TaskStatus::WorkInProgress.into())
     }
@@ -150,6 +183,7 @@ struct Docs;
 pub fn create_docs() -> utoipa::openapi::OpenApi {
     [
         cancel::create_docs(),
+        aggregate::create_docs(),
         v2::proof::report::create_docs(),
         v2::proof::list::create_docs(),
         v2::proof::prune::create_docs(),
@@ -165,6 +199,7 @@ pub fn create_router() -> Router<ProverState> {
     Router::new()
         .route("/", post(proof_handler))
         .nest("/cancel", cancel::create_router())
+        .nest("/aggregate", aggregate::create_router())
         .nest("/report", v2::proof::report::create_router())
         .nest("/list", v2::proof::list::create_router())
         .nest("/prune", v2::proof::prune::create_router())

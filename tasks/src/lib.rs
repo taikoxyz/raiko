@@ -5,7 +5,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use num_enum::{FromPrimitive, IntoPrimitive};
-use raiko_core::interfaces::ProofType;
+use raiko_core::interfaces::{AggregationOnlyRequest, ProofType};
 use raiko_lib::{
     primitives::{ChainId, B256},
     prover::{IdStore, IdWrite, ProofKey, ProverResult},
@@ -61,7 +61,7 @@ impl From<anyhow::Error> for TaskManagerError {
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
-#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Deserialize, Serialize, ToSchema)]
+#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Deserialize, Serialize, ToSchema, Eq, PartialOrd, Ord)]
 #[repr(i32)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
@@ -79,6 +79,23 @@ pub enum TaskStatus {
     UnspecifiedFailureReason  = -9999,
     #[num_enum(default)]
     SqlDbCorruption           = -99999,
+}
+
+impl FromIterator<TaskStatus> for TaskStatus {
+    fn from_iter<T: IntoIterator<Item = TaskStatus>>(iter: T) -> Self {
+        iter.into_iter()
+            .min()
+            .unwrap_or(TaskStatus::UnspecifiedFailureReason)
+    }
+}
+
+impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
+    fn from_iter<T: IntoIterator<Item = &'a TaskStatus>>(iter: T) -> Self {
+        iter.into_iter()
+            .min()
+            .copied()
+            .unwrap_or(TaskStatus::UnspecifiedFailureReason)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -166,6 +183,32 @@ pub trait TaskManager: IdStore + IdWrite {
 
     /// List all stored ids.
     async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>>;
+
+    /// Enqueue a new aggregation task to the tasks database.
+    async fn enqueue_aggregation_task(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<()>;
+
+    /// Update a specific aggregation tasks progress.
+    async fn update_aggregation_task_progress(
+        &mut self,
+        request: &AggregationOnlyRequest,
+        status: TaskStatus,
+        proof: Option<&[u8]>,
+    ) -> TaskManagerResult<()>;
+
+    /// Returns the latest triplet (status, proof - if any, last update time).
+    async fn get_aggregation_task_proving_status(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<TaskProvingStatusRecords>;
+
+    /// Returns the proof for the given aggregation task.
+    async fn get_aggregation_task_proof(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<Vec<u8>>;
 }
 
 pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
@@ -295,6 +338,68 @@ impl TaskManager for TaskManagerWrapper {
         match &mut self.manager {
             TaskManagerInstance::InMemory(manager) => manager.list_stored_ids().await,
             TaskManagerInstance::Sqlite(manager) => manager.list_stored_ids().await,
+        }
+    }
+
+    async fn enqueue_aggregation_task(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<()> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager.enqueue_aggregation_task(request).await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager.enqueue_aggregation_task(request).await
+            }
+        }
+    }
+
+    async fn update_aggregation_task_progress(
+        &mut self,
+        request: &AggregationOnlyRequest,
+        status: TaskStatus,
+        proof: Option<&[u8]>,
+    ) -> TaskManagerResult<()> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager
+                    .update_aggregation_task_progress(request, status, proof)
+                    .await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager
+                    .update_aggregation_task_progress(request, status, proof)
+                    .await
+            }
+        }
+    }
+
+    async fn get_aggregation_task_proving_status(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager.get_aggregation_task_proving_status(request).await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager.get_aggregation_task_proving_status(request).await
+            }
+        }
+    }
+
+    async fn get_aggregation_task_proof(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<Vec<u8>> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager.get_aggregation_task_proof(request).await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager.get_aggregation_task_proof(request).await
+            }
         }
     }
 }

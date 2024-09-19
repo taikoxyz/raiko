@@ -11,7 +11,7 @@ use raiko_lib::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
-use std::{collections::HashMap, path::Path, str::FromStr};
+use std::{collections::HashMap, fmt::Display, path::Path, str::FromStr};
 use utoipa::ToSchema;
 
 #[derive(Debug, thiserror::Error, ToSchema)]
@@ -345,7 +345,7 @@ pub struct ProofRequestOpt {
     pub prover_args: ProverSpecificOpts,
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args, PartialEq, Eq, Hash)]
 pub struct ProverSpecificOpts {
     /// Native prover specific options.
     pub native: Option<Value>,
@@ -516,5 +516,48 @@ impl From<ProofRequestOpt> for AggregationRequest {
             blob_proof_type: value.blob_proof_type,
             prover_args: value.prover_args,
         }
+    }
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq, Eq, Hash)]
+#[serde(default)]
+/// A request for proof aggregation of multiple proofs.
+pub struct AggregationOnlyRequest {
+    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
+    pub proofs: Vec<Proof>,
+    /// The proof type.
+    pub proof_type: Option<String>,
+    #[serde(flatten)]
+    /// Any additional prover params in JSON format.
+    pub prover_args: ProverSpecificOpts,
+}
+
+impl Display for AggregationOnlyRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!(
+            "AggregationOnyRequest {{ {:?}, {:?} }}",
+            self.proof_type, self.prover_args
+        ))
+    }
+}
+
+impl From<(AggregationRequest, Vec<Proof>)> for AggregationOnlyRequest {
+    fn from((request, proofs): (AggregationRequest, Vec<Proof>)) -> Self {
+        Self {
+            proofs,
+            proof_type: request.proof_type,
+            prover_args: request.prover_args,
+        }
+    }
+}
+
+impl AggregationOnlyRequest {
+    /// Merge proof request options into aggregation request options.
+    pub fn merge(&mut self, opts: &ProofRequestOpt) -> RaikoResult<()> {
+        let this = serde_json::to_value(&self)?;
+        let mut opts = serde_json::to_value(opts)?;
+        merge(&mut opts, &this);
+        *self = serde_json::from_value(opts)?;
+        Ok(())
     }
 }

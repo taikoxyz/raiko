@@ -13,6 +13,7 @@ use std::{
 };
 
 use chrono::Utc;
+use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
 use tokio::sync::Mutex;
 use tracing::{debug, info};
@@ -29,14 +30,16 @@ pub struct InMemoryTaskManager {
 
 #[derive(Debug)]
 pub struct InMemoryTaskDb {
-    enqueue_task: HashMap<TaskDescriptor, TaskProvingStatusRecords>,
+    tasks_queue: HashMap<TaskDescriptor, TaskProvingStatusRecords>,
+    aggregation_tasks_queue: HashMap<AggregationOnlyRequest, TaskProvingStatusRecords>,
     store: HashMap<ProofKey, String>,
 }
 
 impl InMemoryTaskDb {
     fn new() -> InMemoryTaskDb {
         InMemoryTaskDb {
-            enqueue_task: HashMap::new(),
+            tasks_queue: HashMap::new(),
+            aggregation_tasks_queue: HashMap::new(),
             store: HashMap::new(),
         }
     }
@@ -44,7 +47,7 @@ impl InMemoryTaskDb {
     fn enqueue_task(&mut self, key: &TaskDescriptor) {
         let task_status = (TaskStatus::Registered, None, Utc::now());
 
-        match self.enqueue_task.get(key) {
+        match self.tasks_queue.get(key) {
             Some(task_proving_records) => {
                 debug!(
                     "Task already exists: {:?}",
@@ -53,7 +56,7 @@ impl InMemoryTaskDb {
             } // do nothing
             None => {
                 info!("Enqueue new task: {key:?}");
-                self.enqueue_task.insert(key.clone(), vec![task_status]);
+                self.tasks_queue.insert(key.clone(), vec![task_status]);
             }
         }
     }
@@ -64,9 +67,9 @@ impl InMemoryTaskDb {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
-        ensure(self.enqueue_task.contains_key(&key), "no task found")?;
+        ensure(self.tasks_queue.contains_key(&key), "no task found")?;
 
-        self.enqueue_task.entry(key).and_modify(|entry| {
+        self.tasks_queue.entry(key).and_modify(|entry| {
             if let Some(latest) = entry.last() {
                 if latest.0 != status {
                     entry.push((status, proof.map(hex::encode), Utc::now()));
@@ -81,14 +84,14 @@ impl InMemoryTaskDb {
         &mut self,
         key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        Ok(self.enqueue_task.get(key).cloned().unwrap_or_default())
+        Ok(self.tasks_queue.get(key).cloned().unwrap_or_default())
     }
 
     fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
-        ensure(self.enqueue_task.contains_key(key), "no task found")?;
+        ensure(self.tasks_queue.contains_key(key), "no task found")?;
 
         let proving_status_records = self
-            .enqueue_task
+            .tasks_queue
             .get(key)
             .ok_or_else(|| TaskManagerError::SqlError("no task in db".to_owned()))?;
 
@@ -107,17 +110,17 @@ impl InMemoryTaskDb {
     }
 
     fn size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
-        Ok((self.enqueue_task.len(), vec![]))
+        Ok((self.tasks_queue.len(), vec![]))
     }
 
     fn prune(&mut self) -> TaskManagerResult<()> {
-        self.enqueue_task.clear();
+        self.tasks_queue.clear();
         Ok(())
     }
 
     fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
         Ok(self
-            .enqueue_task
+            .tasks_queue
             .iter()
             .flat_map(|(descriptor, statuses)| {
                 statuses.last().map(|status| (descriptor.clone(), status.0))
@@ -144,6 +147,91 @@ impl InMemoryTaskDb {
             .get(&key)
             .cloned()
             .ok_or(TaskManagerError::NoData)
+    }
+
+    fn enqueue_aggregation_task(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<()> {
+        let task_status = (TaskStatus::Registered, None, Utc::now());
+
+        match self.aggregation_tasks_queue.get(request) {
+            Some(task_proving_records) => {
+                debug!(
+                    "Task already exists: {:?}",
+                    task_proving_records.last().unwrap().0
+                );
+            } // do nothing
+            None => {
+                info!("Enqueue new task: {request}");
+                self.aggregation_tasks_queue
+                    .insert(request.clone(), vec![task_status]);
+            }
+        }
+        Ok(())
+    }
+
+    fn get_aggregation_task_proving_status(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        Ok(self
+            .aggregation_tasks_queue
+            .get(request)
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    fn update_aggregation_task_progress(
+        &mut self,
+        request: &AggregationOnlyRequest,
+        status: TaskStatus,
+        proof: Option<&[u8]>,
+    ) -> TaskManagerResult<()> {
+        ensure(
+            self.aggregation_tasks_queue.contains_key(request),
+            "no task found",
+        )?;
+
+        self.aggregation_tasks_queue
+            .entry(request.clone())
+            .and_modify(|entry| {
+                if let Some(latest) = entry.last() {
+                    if latest.0 != status {
+                        entry.push((status, proof.map(hex::encode), Utc::now()));
+                    }
+                }
+            });
+
+        Ok(())
+    }
+
+    fn get_aggregation_task_proof(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<Vec<u8>> {
+        ensure(
+            self.aggregation_tasks_queue.contains_key(request),
+            "no task found",
+        )?;
+
+        let proving_status_records = self
+            .aggregation_tasks_queue
+            .get(request)
+            .ok_or_else(|| TaskManagerError::SqlError("no task in db".to_owned()))?;
+
+        let (_, proof, ..) = proving_status_records
+            .iter()
+            .filter(|(status, ..)| (status == &TaskStatus::Success))
+            .last()
+            .ok_or_else(|| TaskManagerError::SqlError("no successful task in db".to_owned()))?;
+
+        let Some(proof) = proof else {
+            return Ok(vec![]);
+        };
+
+        hex::decode(proof)
+            .map_err(|_| TaskManagerError::SqlError("couldn't decode from hex".to_owned()))
     }
 }
 
@@ -247,6 +335,40 @@ impl TaskManager for InMemoryTaskManager {
     async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
         let mut db = self.db.lock().await;
         db.list_stored_ids()
+    }
+
+    async fn enqueue_aggregation_task(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<()> {
+        let mut db = self.db.lock().await;
+        db.enqueue_aggregation_task(request)
+    }
+
+    async fn get_aggregation_task_proving_status(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        let mut db = self.db.lock().await;
+        db.get_aggregation_task_proving_status(request)
+    }
+
+    async fn update_aggregation_task_progress(
+        &mut self,
+        request: &AggregationOnlyRequest,
+        status: TaskStatus,
+        proof: Option<&[u8]>,
+    ) -> TaskManagerResult<()> {
+        let mut db = self.db.lock().await;
+        db.update_aggregation_task_progress(request, status, proof)
+    }
+
+    async fn get_aggregation_task_proof(
+        &mut self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<Vec<u8>> {
+        let mut db = self.db.lock().await;
+        db.get_aggregation_task_proof(request)
     }
 }
 

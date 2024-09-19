@@ -26,7 +26,7 @@ pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
 pub type ProverConfig = serde_json::Value;
 pub type ProofKey = (ChainId, B256, u8);
 
-#[derive(Clone, Debug, Serialize, ToSchema, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, ToSchema, Deserialize, Default, PartialEq, Eq, Hash)]
 /// The response body of a proof request.
 pub struct Proof {
     /// The proof either TEE or ZK.
