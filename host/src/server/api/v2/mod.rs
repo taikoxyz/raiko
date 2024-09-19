@@ -90,7 +90,7 @@ impl From<TaskStatus> for Status {
             },
             _ => Self::Error {
                 error: "task_failed".to_string(),
-                message: format!("Task failed with status: {:?}", status),
+                message: format!("Task failed with status: {status:?}"),
             },
         }
     }
