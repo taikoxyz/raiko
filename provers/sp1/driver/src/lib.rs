@@ -179,17 +179,15 @@ impl Prover for Sp1Prover {
             time.stop_with("==> Verification complete");
         }
 
-        let proof_string = if proof_bytes.is_empty() {
-            None
-        } else {
+        let proof_string = proof_bytes.is_empty().then_some(
             // 0x + 64 bytes of the vkey + the proof
             // vkey itself contains 0x prefix
-            Some(format!(
+            format!(
                 "{}{}",
                 vk.bytes32(),
                 reth_primitives::hex::encode(proof_bytes)
-            ))
-        };
+            ),
+        );
 
         info!(
             "Sp1 Prover: block {:?} completed! proof: {proof_string:?}",
@@ -227,12 +225,86 @@ impl Prover for Sp1Prover {
     }
 
     async fn aggregate(
-        _input: AggregationGuestInput,
+        input: AggregationGuestInput,
         _output: &AggregationGuestOutput,
-        _config: &ProverConfig,
+        config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        todo!()
+        let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+        let mode = param.prover.clone().unwrap_or_else(get_env_mock);
+
+        println!("param: {param:?}");
+
+        let mut stdin = SP1Stdin::new();
+        stdin.write(&input);
+
+        // Generate the proof for the given program.
+        let client = param
+            .prover
+            .map(|mode| match mode {
+                ProverMode::Mock => ProverClient::mock(),
+                ProverMode::Local => ProverClient::local(),
+                ProverMode::Network => ProverClient::network(),
+            })
+            .unwrap_or_else(ProverClient::new);
+
+        let (pk, vk) = client.setup(AGGREGATION_ELF);
+
+        let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
+        let prove_result = if !matches!(mode, ProverMode::Network) {
+            tracing::debug!("Proving locally with recursion mode: {:?}", param.recursion);
+            match param.recursion {
+                RecursionMode::Core => prove_action.run(),
+                RecursionMode::Compressed => prove_action.compressed().run(),
+                RecursionMode::Plonk => prove_action.plonk().run(),
+            }
+            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {}", e)))
+            .unwrap()
+        } else {
+            let network_prover = sp1_sdk::NetworkProver::new();
+
+            let proof_id = network_prover
+                .request_proof(AGGREGATION_ELF, stdin, param.recursion.clone().into())
+                .await
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
+                })?;
+            network_prover
+                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
+                .await
+                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
+                .unwrap()
+        };
+
+        let proof_bytes = prove_result.bytes();
+        if param.verify {
+            let time = Measurement::start("verify", false);
+            let pi_hash = prove_result
+                .clone()
+                .borrow_mut()
+                .public_values
+                .read::<[u8; 32]>();
+            let fixture = RaikoProofFixture {
+                vkey: vk.bytes32().to_string(),
+                public_values: B256::from_slice(&pi_hash).to_string(),
+                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
+            };
+
+            verify_sol(&fixture)?;
+            time.stop_with("==> Verification complete");
+        }
+
+        let proof = proof_bytes.is_empty().then_some(
+            // 0x + 64 bytes of the vkey + the proof
+            // vkey itself contains 0x prefix
+            format!(
+                "{}{}",
+                vk.bytes32(),
+                reth_primitives::hex::encode(proof_bytes)
+            ),
+        );
+
+        Ok::<_, ProverError>(Sp1Response { proof }.into())
     }
 }
 
