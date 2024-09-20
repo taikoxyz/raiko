@@ -92,8 +92,14 @@ impl From<Proof> for Status {
 
 impl From<TaskStatus> for Status {
     fn from(status: TaskStatus) -> Self {
-        Self::Ok {
-            data: ProofResponse::Status { status },
+        match status {
+            TaskStatus::Success | TaskStatus::WorkInProgress | TaskStatus::Registered => Self::Ok {
+                data: ProofResponse::Status { status },
+            },
+            _ => Self::Error {
+                error: "task_failed".to_string(),
+                message: format!("Task failed with status: {status:?}"),
+            },
         }
     }
 }
