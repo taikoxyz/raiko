@@ -1,6 +1,6 @@
-use alloy_primitives::{hex, Log, B256};
+use alloy_primitives::{hex, Log as LogStruct, B256};
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{Filter, Header, Transaction as AlloyRpcTransaction};
+use alloy_rpc_types::{Filter, Header, Log, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, ensure, Result};
 use kzg::kzg_types::ZFr;
@@ -81,58 +81,67 @@ pub async fn prepare_taiko_chain_input(
         .first()
         .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
 
+    // get anchor block num and state root
     let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
-    info!("current taiko chain fork: {fork:?}");
-
-    let (l1_state_block_number, l1_inclusion_block_number) = match fork {
+    let (anchor_block_height, anchor_state_root) = match fork {
         SpecId::ONTAKE => {
             let anchor_call = decode_anchor_ontake(anchor_tx.input())?;
-            (
-                anchor_call._anchorBlockId,
-                l1_inclusion_block_number.unwrap_or(anchor_call._anchorBlockId + 1),
-            )
+            (anchor_call._anchorBlockId, anchor_call._anchorStateRoot)
         }
         _ => {
             let anchor_call = decode_anchor(anchor_tx.input())?;
-            (
-                anchor_call.l1BlockId,
-                l1_inclusion_block_number.unwrap_or(anchor_call.l1BlockId + 1),
-            )
+            (anchor_call.l1BlockId, anchor_call.l1StateRoot)
         }
     };
-    debug!(
-        "anchor L1 block id: {l1_state_block_number:?}, l1 inclusion block id: {l1_inclusion_block_number:?}"
-    );
 
-    // Get the L1 block in which the L2 block was included so we can fetch the DA data.
-    // Also get the L1 state block header so that we can prove the L1 state root.
+    // // Get the L1 block in which the L2 block was included so we can fetch the DA data.
+    // // Also get the L1 state block header so that we can prove the L1 state root.
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, block_number)?;
+
+    info!("current taiko chain fork: {fork:?}");
+
+    let (l1_inclusion_block_number, proposal_tx, block_proposed) =
+        if let Some(l1_block_number) = l1_inclusion_block_number {
+            // Get the block proposal data
+            get_block_proposed_event_by_height(
+                provider_l1.provider(),
+                taiko_chain_spec.clone(),
+                l1_block_number,
+                block_number,
+                fork,
+            )
+            .await?
+        } else {
+            // traversal next 64 blocks to get proposal data
+            get_block_proposed_event_by_traversal(
+                provider_l1.provider(),
+                taiko_chain_spec.clone(),
+                anchor_block_height,
+                block_number,
+                fork,
+            )
+            .await?
+        };
 
     let (l1_inclusion_header, l1_state_header) = get_headers(
         &provider_l1,
-        (l1_inclusion_block_number, l1_state_block_number),
+        (l1_inclusion_block_number, anchor_block_height),
     )
     .await?;
-
+    assert_eq!(anchor_state_root, l1_state_header.state_root);
     let l1_state_block_hash = l1_state_header.hash.ok_or_else(|| {
         RaikoError::Preflight("No L1 state block hash for the requested block".to_owned())
     })?;
-
-    debug!("l1_state_root_block hash: {l1_state_block_hash:?}");
-
     let l1_inclusion_block_hash = l1_inclusion_header.hash.ok_or_else(|| {
         RaikoError::Preflight("No L1 inclusion block hash for the requested block".to_owned())
     })?;
-
-    // Get the block proposal data
-    let (proposal_tx, block_proposed) = get_block_proposed_event(
-        provider_l1.provider(),
-        taiko_chain_spec.clone(),
+    info!(
+        "L1 inclusion block number: {:?}, hash: {:?}. L1 state block number: {:?}, hash: {:?}",
+        l1_inclusion_block_number,
         l1_inclusion_block_hash,
-        block_number,
-        fork,
-    )
-    .await?;
+        l1_state_header.number,
+        l1_state_block_hash
+    );
 
     // Fetch the tx data from either calldata or blobdata
     let (tx_data, blob_commitment, blob_proof) = if block_proposed.blob_used() {
@@ -225,31 +234,39 @@ pub async fn get_tx_data(
     Ok((blob, Some(commitment.to_vec()), blob_proof))
 }
 
+pub async fn filter_blockchain_event(
+    provider: &ReqwestProvider,
+    gen_block_event_filter: impl Fn() -> Filter,
+) -> Result<Vec<Log>> {
+    // Setup the filter to get the relevant events
+    let filter = gen_block_event_filter();
+    // Now fetch the events
+    Ok(provider.get_logs(&filter).await?)
+}
+
 pub async fn get_calldata_txlist_event(
     provider: &ReqwestProvider,
     chain_spec: ChainSpec,
     block_hash: B256,
     l2_block_number: u64,
 ) -> Result<(AlloyRpcTransaction, CalldataTxList)> {
-    // Get the address that emitted the event
+    // // Get the address that emitted the event
     let Some(l1_address) = chain_spec.l1_contract else {
         bail!("No L1 contract address in the chain spec");
     };
 
-    // Get the event signature (value can differ between chains)
-    let event_signature = CalldataTxList::SIGNATURE_HASH;
-    // Setup the filter to get the relevant events
-    let filter = Filter::new()
-        .address(l1_address)
-        .at_block_hash(block_hash)
-        .event_signature(event_signature);
-    // Now fetch the events
-    let logs = provider.get_logs(&filter).await?;
+    let logs = filter_blockchain_event(provider, || {
+        Filter::new()
+            .address(l1_address)
+            .at_block_hash(block_hash)
+            .event_signature(CalldataTxList::SIGNATURE_HASH)
+    })
+    .await?;
 
     // Run over the logs returned to find the matching event for the specified L2 block number
     // (there can be multiple blocks proposed in the same block and even same tx)
     for log in logs {
-        let Some(log_struct) = Log::new(
+        let Some(log_struct) = LogStruct::new(
             log.address(),
             log.topics().to_vec(),
             log.data().data.clone(),
@@ -273,13 +290,20 @@ pub async fn get_calldata_txlist_event(
     bail!("No BlockProposedV2 event found for block {l2_block_number}");
 }
 
-pub async fn get_block_proposed_event(
+pub enum EventFilterConditioin {
+    #[allow(dead_code)]
+    Hash(B256),
+    Height(u64),
+    Range((u64, u64)),
+}
+
+pub async fn filter_block_proposed_event(
     provider: &ReqwestProvider,
     chain_spec: ChainSpec,
-    block_hash: B256,
+    filter_condition: EventFilterConditioin,
     l2_block_number: u64,
     fork: SpecId,
-) -> Result<(AlloyRpcTransaction, BlockProposedFork)> {
+) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
     // Get the address that emitted the event
     let Some(l1_address) = chain_spec.l1_contract else {
         bail!("No L1 contract address in the chain spec");
@@ -291,24 +315,35 @@ pub async fn get_block_proposed_event(
         _ => BlockProposed::SIGNATURE_HASH,
     };
     // Setup the filter to get the relevant events
-    let filter = Filter::new()
-        .address(l1_address)
-        .at_block_hash(block_hash)
-        .event_signature(event_signature);
-    // Now fetch the events
-    let logs = provider.get_logs(&filter).await?;
+    let logs = filter_blockchain_event(provider, || match filter_condition {
+        EventFilterConditioin::Hash(block_hash) => Filter::new()
+            .address(l1_address)
+            .at_block_hash(block_hash)
+            .event_signature(event_signature),
+        EventFilterConditioin::Height(block_number) => Filter::new()
+            .address(l1_address)
+            .from_block(block_number)
+            .to_block(block_number + 1)
+            .event_signature(event_signature),
+        EventFilterConditioin::Range((from_block_number, to_block_number)) => Filter::new()
+            .address(l1_address)
+            .from_block(from_block_number)
+            .to_block(to_block_number)
+            .event_signature(event_signature),
+    })
+    .await?;
 
     // Run over the logs returned to find the matching event for the specified L2 block number
     // (there can be multiple blocks proposed in the same block and even same tx)
     for log in logs {
-        let Some(log_struct) = Log::new(
+        let Some(log_struct) = LogStruct::new(
             log.address(),
             log.topics().to_vec(),
             log.data().data.clone(),
         ) else {
             bail!("Could not create log")
         };
-        let (block_id, data) = match fork {
+        let (block_id, block_propose_event) = match fork {
             SpecId::ONTAKE => {
                 let event = BlockProposedV2::decode_log(&log_struct, false)
                     .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
@@ -330,13 +365,64 @@ pub async fn get_block_proposed_event(
                 .await
                 .expect("couldn't query the propose tx")
                 .expect("Could not find the propose tx");
-            return Ok((tx, data));
+            return Ok((log.block_number.unwrap(), tx, block_propose_event));
         }
     }
 
     Err(anyhow!(
         "No BlockProposed event found for block {l2_block_number}"
     ))
+}
+
+pub async fn _get_block_proposed_event_by_hash(
+    provider: &ReqwestProvider,
+    chain_spec: ChainSpec,
+    l1_inclusion_block_hash: B256,
+    l2_block_number: u64,
+    fork: SpecId,
+) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
+    filter_block_proposed_event(
+        provider,
+        chain_spec,
+        EventFilterConditioin::Hash(l1_inclusion_block_hash),
+        l2_block_number,
+        fork,
+    )
+    .await
+}
+
+pub async fn get_block_proposed_event_by_height(
+    provider: &ReqwestProvider,
+    chain_spec: ChainSpec,
+    l1_inclusion_block_number: u64,
+    l2_block_number: u64,
+    fork: SpecId,
+) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
+    filter_block_proposed_event(
+        provider,
+        chain_spec,
+        EventFilterConditioin::Height(l1_inclusion_block_number),
+        l2_block_number,
+        fork,
+    )
+    .await
+}
+
+pub async fn get_block_proposed_event_by_traversal(
+    provider: &ReqwestProvider,
+    chain_spec: ChainSpec,
+    l1_anchor_block_number: u64,
+    l2_block_number: u64,
+    fork: SpecId,
+) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
+    filter_block_proposed_event(
+        provider,
+        chain_spec,
+        EventFilterConditioin::Range((l1_anchor_block_number + 1, l1_anchor_block_number + 65)),
+        l2_block_number,
+        fork,
+    )
+    .await
 }
 
 pub async fn get_block_and_parent_data<BDP>(

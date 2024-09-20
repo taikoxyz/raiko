@@ -120,8 +120,8 @@ impl ProofActor {
                 }
                 result = Self::handle_message(proof_request, key.clone(), &opts, &chain_specs) => {
                     match result {
-                        Ok(()) => {
-                            info!("Host handling message");
+                        Ok(status) => {
+                            info!("Host handling message: {status:?}");
                         }
                         Err(error) => {
                             error!("Worker failed due to: {error:?}");
@@ -240,14 +240,14 @@ impl ProofActor {
         key: TaskDescriptor,
         opts: &Opts,
         chain_specs: &SupportedChainSpecs,
-    ) -> HostResult<()> {
+    ) -> HostResult<TaskStatus> {
         let mut manager = get_task_manager(&opts.clone().into());
 
         let status = manager.get_task_proving_status(&key).await?;
 
         if let Some(latest_status) = status.iter().last() {
             if !matches!(latest_status.0, TaskStatus::Registered) {
-                return Ok(());
+                return Ok(latest_status.0);
             }
         }
 
@@ -267,7 +267,8 @@ impl ProofActor {
         manager
             .update_task_progress(key, status, proof.as_deref())
             .await
-            .map_err(|e| e.into())
+            .map_err(HostError::from)?;
+        Ok(status)
     }
 
     pub async fn handle_aggregate(request: AggregationOnlyRequest, opts: &Opts) -> HostResult<()> {
