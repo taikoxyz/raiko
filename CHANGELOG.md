@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/taikoxyz/raiko/compare/v1.1.0...v1.2.0) (2024-09-20)
+
+
+### Features
+
+* **raiko:** make raiko-zk docker image ([#374](https://github.com/taikoxyz/raiko/issues/374)) ([65ff9a4](https://github.com/taikoxyz/raiko/commit/65ff9a4935ac66f0c21785a0b8415313942bda82))
+* **raiko:** traversal to find inclusion block if none inclusion number is sent ([#377](https://github.com/taikoxyz/raiko/issues/377)) ([c2b0db5](https://github.com/taikoxyz/raiko/commit/c2b0db5a61e920840f9de083de8684a8375e51b3))
+* **sgx:** add wallet to provider builder when register instance ([#369](https://github.com/taikoxyz/raiko/issues/369)) ([a250edf](https://github.com/taikoxyz/raiko/commit/a250edf2ca42d5481ba92d97ca6ade5b46bb536c))
+
+
+### Bug Fixes
+
+* **raiko:** refine error return ([#378](https://github.com/taikoxyz/raiko/issues/378)) ([f4f818d](https://github.com/taikoxyz/raiko/commit/f4f818d43a33ba1caf95cb1db4160ba90824eb2d))
+* **script:** output build message and skip `pos` flag ([#367](https://github.com/taikoxyz/raiko/issues/367)) ([2c881dc](https://github.com/taikoxyz/raiko/commit/2c881dc22d5df553bffc24f8bbac6a86e2fd9688))
+
 ## [1.1.0](https://github.com/taikoxyz/raiko/compare/v1.0.0...v1.1.0) (2024-09-13)
 
 
