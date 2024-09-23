@@ -276,7 +276,7 @@ impl ProtocolInstance {
         // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
         // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
         debug!(
-            "caclucate instance_hash from:
+            "calculate instance_hash from:
             chain_id: {:?}, verifier: {:?}, transition: {:?}, sgx_instance: {:?},
             prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
             self.chain_id,
