@@ -18,7 +18,7 @@ use crate::{
     },
     CycleTracker,
 };
-use log::info;
+use log::{debug, info};
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 #[derive(Debug, Clone)]
@@ -275,6 +275,18 @@ impl ProtocolInstance {
     pub fn instance_hash(&self) -> B256 {
         // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
         // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
+        debug!(
+            "caclucate instance_hash from:
+            chain_id: {:?}, verifier: {:?}, transition: {:?}, sgx_instance: {:?},
+            prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
+            self.chain_id,
+            self.verifier_address,
+            self.transition.clone(),
+            self.sgx_instance,
+            self.prover,
+            self.block_metadata,
+            self.meta_hash(),
+        );
         let data = (
             "VERIFY_PROOF",
             self.chain_id,

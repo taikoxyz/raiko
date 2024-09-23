@@ -146,10 +146,10 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     let sig = sign_message(&prev_privkey, pi_hash)?;
 
     // Create the proof for the onchain SGX verifier
+    // 4(id) + 20(new) + 65(sig) = 89
     const SGX_PROOF_LEN: usize = 89;
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_be_bytes());
-    proof.extend(new_instance);
     proof.extend(new_instance);
     proof.extend(sig);
     let proof = hex::encode(proof);
@@ -194,11 +194,11 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
     for proof in input.proofs.iter() {
         // TODO: verify protocol instance data so we can trust the old/new instance data
         assert_eq!(
-            recover_signer_unchecked(&proof.proof.clone()[44..].try_into().unwrap(), &proof.input,)
+            recover_signer_unchecked(&proof.proof.clone()[24..].try_into().unwrap(), &proof.input,)
                 .unwrap(),
             cur_instance,
         );
-        cur_instance = Address::from_slice(&proof.proof.clone()[24..44]);
+        cur_instance = Address::from_slice(&proof.proof.clone()[4..24]);
     }
 
     // Current public key needs to match latest proof new public key
@@ -224,7 +224,8 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
     let sig = sign_message(&prev_privkey, aggregation_hash.into())?;
 
     // Create the proof for the onchain SGX verifier
-    const SGX_PROOF_LEN: usize = 89;
+    const SGX_PROOF_LEN: usize = 109;
+    // 4(id) + 20(old) + 20(new) + 65(sig) = 109
     let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_be_bytes());
     proof.extend(old_instance);

@@ -12,6 +12,7 @@ use crate::{
     server::api::{v2, v3::Status},
     Message, ProverState,
 };
+use tracing::{debug, info};
 
 mod aggregate;
 mod cancel;
@@ -111,10 +112,12 @@ async fn proof_handler(
     if is_registered {
         Ok(TaskStatus::Registered.into())
     } else if is_success {
+        info!("All tasks are successful, aggregating proofs");
         let mut proofs = Vec::with_capacity(tasks.len());
-        for (task, _req) in tasks {
+        for (task, req) in tasks {
             let raw_proof = manager.get_task_proof(&task).await?;
             let proof = serde_json::from_slice(&raw_proof)?;
+            debug!("req: {:?} gets proof: {:?}", req, proof);
             proofs.push(proof);
         }
 
