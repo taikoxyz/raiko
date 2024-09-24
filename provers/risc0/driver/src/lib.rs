@@ -8,7 +8,7 @@ use crate::{
 };
 use alloy_primitives::{hex::ToHexExt, B256};
 use bonsai::{cancel_proof, maybe_prove};
-use log::warn;
+use log::{info, warn};
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
@@ -16,7 +16,10 @@ use raiko_lib::{
     },
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
-use risc0_zkvm::{serde::to_vec, Receipt};
+use risc0_zkvm::{
+    compute_image_id, default_prover, serde::to_vec, sha::Digestible, ExecutorEnv, ProverOpts,
+    Receipt,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt::Debug;
@@ -47,7 +50,7 @@ impl From<Risc0Response> for Proof {
     fn from(value: Risc0Response) -> Self {
         Self {
             proof: Some(value.proof),
-            quote: None,
+            quote: Some(value.receipt),
             input: Some(value.input),
             uuid: Some(value.uuid),
             kzg_proof: None,
@@ -128,13 +131,15 @@ impl Prover for Risc0Prover {
 
     async fn aggregate(
         input: AggregationGuestInput,
-        output: &AggregationGuestOutput,
+        _output: &AggregationGuestOutput,
         config: &ProverConfig,
-        id_store: Option<&mut dyn IdWrite>,
+        _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let mut id_store = id_store;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
-        let proof_key = (0, output.hash.clone(), RISC0_PROVER_CODE);
+        assert!(
+            config.snark && config.bonsai,
+            "Aggregation must be in bonsai snark mode"
+        );
 
         // Extract the block proof receipts
         let assumptions: Vec<Receipt> = input
@@ -151,58 +156,44 @@ impl Prover for Risc0Prover {
             .iter()
             .map(|proof| proof.input.unwrap())
             .collect::<Vec<_>>();
-        // For bonsai
-        let assumptions_uuids: Vec<String> = input
-            .proofs
-            .iter()
-            .map(|proof| proof.uuid.clone().unwrap())
-            .collect::<Vec<_>>();
-
         let input = ZkAggregationGuestInput {
             image_id: RISC0_GUEST_ID,
             block_inputs,
         };
-
-        debug!("elf code length: {}", RISC0_AGGREGATION_ELF.len());
-        let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
-
-        let result = maybe_prove::<AggregationGuestInput, B256>(
-            &config,
-            encoded_input,
-            RISC0_AGGREGATION_ELF,
-            &output.hash,
-            (assumptions, assumptions_uuids),
-            proof_key,
-            &mut id_store,
-        )
-        .await;
-
-        let receipt = result.clone().unwrap().1.clone();
-        let uuid = result.clone().unwrap().0;
-
-        let proof_gen_result = if result.is_some() {
-            if config.snark && config.bonsai {
-                let (stark_uuid, stark_receipt) = result.clone().unwrap();
-                bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt, output.hash)
-                    .await
-                    .map(|r0_response| r0_response.into())
-                    .map_err(|e| ProverError::GuestError(e.to_string()))
-            } else {
-                warn!("proof is not in snark mode, please check.");
-                let (_, stark_receipt) = result.clone().unwrap();
-                Ok(Risc0Response {
-                    proof: stark_receipt.journal.encode_hex_with_prefix(),
-                    receipt: serde_json::to_string(&receipt).unwrap(),
-                    uuid,
-                    input: output.hash,
-                }
-                .into())
+        info!("Start aggregate proofs");
+        // add_assumption makes the receipt to be verified available to the prover.
+        let env = {
+            let mut env = ExecutorEnv::builder();
+            for assumption in assumptions {
+                env.add_assumption(assumption);
             }
-        } else {
-            Err(ProverError::GuestError(
-                "Failed to generate proof".to_string(),
-            ))
+            env.write(&input).unwrap().build().unwrap()
         };
+
+        let opts = ProverOpts::groth16();
+        let receipt = default_prover()
+            .prove_with_opts(env, RISC0_AGGREGATION_ELF, &opts)
+            .unwrap()
+            .receipt;
+
+        info!(
+            "Generate aggregatino receipt journal: {:?}",
+            receipt.journal
+        );
+        let aggregation_image_id = compute_image_id(RISC0_AGGREGATION_ELF).unwrap();
+        let enc_proof =
+            snarks::verify_groth16_snark_from_receipt(aggregation_image_id, receipt.clone())
+                .await
+                .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
+        let snark_proof = format!("0x{}", hex::encode(enc_proof));
+
+        let proof_gen_result = Ok(Risc0Response {
+            proof: snark_proof,
+            receipt: serde_json::to_string(&receipt).unwrap(),
+            uuid: "".to_owned(),
+            input: B256::from_slice(&receipt.journal.digest().as_bytes()),
+        }
+        .into());
 
         #[cfg(feature = "bonsai-auto-scaling")]
         if config.bonsai {

@@ -1,6 +1,6 @@
 use crate::{
     methods::risc0_guest::RISC0_GUEST_ID,
-    snarks::{stark2snark, verify_groth16_snark},
+    snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
 };
 use alloy_primitives::B256;
@@ -294,7 +294,7 @@ pub async fn bonsai_stark_to_snark(
 
     info!("Validating SNARK uuid: {snark_uuid}");
 
-    let enc_proof = verify_groth16_snark(image_id, snark_receipt)
+    let enc_proof = verify_groth16_from_snark_receipt(image_id, snark_receipt)
         .await
         .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
 

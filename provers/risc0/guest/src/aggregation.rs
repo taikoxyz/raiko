@@ -16,12 +16,11 @@ pub fn main() {
 
     // Verify the proofs.
     for block_input in input.block_inputs.iter() {
-        // Verify that n has a known factorization.
-        env::verify(input.image_id, &serde::to_vec(&block_input).unwrap()).unwrap();
+        env::verify(input.image_id, &serde::to_vec(block_input).unwrap()).unwrap();
     }
 
     // The aggregation output
-    env::commit(&aggregation_output(
+    env::commit_slice(&aggregation_output(
         B256::from(words_to_bytes_le(&input.image_id)),
         input.block_inputs,
     ));
