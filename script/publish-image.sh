@@ -18,6 +18,7 @@ docker buildx build ./ \
 	--load \
 	--platform linux/amd64 \
 	-t raiko:$tag \
+	$build_flags \
 	--build-arg TARGETPLATFORM=linux/amd64 \
 	--progress=plain
 
