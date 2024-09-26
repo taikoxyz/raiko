@@ -30,7 +30,7 @@ use risc0_zkvm::{
 
 use tracing::{error as tracing_err, info as tracing_info};
 
-use crate::save_receipt;
+use crate::bonsai::save_receipt;
 
 sol!(
     /// A Groth16 seal over the claimed receipt claim.

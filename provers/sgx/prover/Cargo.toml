@@ -24,6 +24,7 @@ alloy-transport-http = { workspace = true }
 pem = { version = "3.0.4", optional = true }
 url = { workspace = true }
 anyhow = { workspace = true }
+hex = { workspace = true }
 
 [features]
 default = ["dep:pem"]
