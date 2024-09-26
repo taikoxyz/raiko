@@ -105,7 +105,10 @@ async fn proof_handler(
             // If the task has succeeded, return the proof.
             TaskStatus::Success => {}
             // For all other statuses just return the status.
-            _status => {}
+            _status => {
+                is_registered = false;
+                is_success = false;
+            }
         }
     }
 

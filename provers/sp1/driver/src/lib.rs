@@ -131,8 +131,7 @@ impl Prover for Sp1Prover {
                 RecursionMode::Compressed => prove_action.compressed().run(),
                 RecursionMode::Plonk => prove_action.plonk().run(),
             }
-            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {}", e)))
-            .unwrap()
+            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
         } else {
             let network_prover = sp1_sdk::NetworkProver::new();
 
@@ -151,14 +150,13 @@ impl Prover for Sp1Prover {
                     .await?;
             }
             info!(
-                "Sp1 Prover: block {:?} - proof id {:?}",
-                output.header.number, proof_id
+                "Sp1 Prover: block {:?} - proof id {proof_id:?}",
+                output.header.number
             );
             network_prover
                 .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
                 .await
-                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
-                .unwrap()
+                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
 
         let proof_bytes = prove_result.bytes();
@@ -258,8 +256,7 @@ impl Prover for Sp1Prover {
                 RecursionMode::Compressed => prove_action.compressed().run(),
                 RecursionMode::Plonk => prove_action.plonk().run(),
             }
-            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {}", e)))
-            .unwrap()
+            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
         } else {
             let network_prover = sp1_sdk::NetworkProver::new();
 
@@ -272,8 +269,7 @@ impl Prover for Sp1Prover {
             network_prover
                 .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
                 .await
-                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
-                .unwrap()
+                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
 
         let proof_bytes = prove_result.bytes();
