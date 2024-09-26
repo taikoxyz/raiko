@@ -15,11 +15,8 @@ use sp1_sdk::{
     proto::network::{ProofMode, UnclaimReason},
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-use std::{
-    borrow::BorrowMut,
-    env,
-};
-use tracing::{info};
+use std::{borrow::BorrowMut, env};
+use tracing::info;
 
 mod proof_verify;
 use proof_verify::remote_contract_verify::verify_sol_by_contract_call;

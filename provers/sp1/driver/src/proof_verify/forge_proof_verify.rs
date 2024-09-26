@@ -1,9 +1,7 @@
 #![cfg(feature = "foundry-verify")]
 
 use once_cell::sync::Lazy;
-use raiko_lib::{
-    prover::{ProverError, ProverResult},
-};
+use raiko_lib::prover::{ProverError, ProverResult};
 use std::{
     env, fs,
     path::{Path, PathBuf},
