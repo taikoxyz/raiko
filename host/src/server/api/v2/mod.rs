@@ -1,7 +1,7 @@
 use axum::{response::IntoResponse, Json, Router};
 use raiko_lib::prover::Proof;
 use raiko_tasks::TaskStatus;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
@@ -52,7 +52,7 @@ mod proof;
 /// The root API struct which is generated from the `OpenApi` derive macro.
 pub struct Docs;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(untagged)]
 pub enum ProofResponse {
     Status {
@@ -65,7 +65,7 @@ pub enum ProofResponse {
     },
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "lowercase")]
 pub enum Status {
     Ok { data: ProofResponse },
@@ -84,8 +84,14 @@ impl From<Vec<u8>> for Status {
 
 impl From<TaskStatus> for Status {
     fn from(status: TaskStatus) -> Self {
-        Self::Ok {
-            data: ProofResponse::Status { status },
+        match status {
+            TaskStatus::Success | TaskStatus::WorkInProgress | TaskStatus::Registered => Self::Ok {
+                data: ProofResponse::Status { status },
+            },
+            _ => Self::Error {
+                error: "task_failed".to_string(),
+                message: format!("Task failed with status: {status:?}"),
+            },
         }
     }
 }
@@ -96,7 +102,7 @@ impl IntoResponse for Status {
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "lowercase")]
 /// Status of cancellation request.
 /// Can be `ok` for a successful cancellation or `error` with message and error type for errors.
@@ -113,7 +119,7 @@ impl IntoResponse for CancelStatus {
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, Deserialize)]
 #[serde(tag = "status", rename_all = "lowercase")]
 /// Status of prune request.
 /// Can be `ok` for a successful prune or `error` with message and error type for errors.

@@ -1,25 +1,23 @@
-use crate::{
-    interfaces::{ProofRequest, RaikoError, RaikoResult},
-    preflight::preflight,
-    provider::BlockDataProvider,
-};
+use std::{collections::HashMap, hint::black_box};
+
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
-use raiko_lib::protocol_instance::ProtocolInstance;
-use raiko_lib::prover::Proof;
 use raiko_lib::{
     builder::{create_mem_db, RethBlockBuilder},
-    prover::ProofKey,
-};
-use raiko_lib::{
     consts::ChainSpec,
     input::{GuestInput, GuestOutput, TaikoProverData},
-    prover::{IdStore, IdWrite},
+    protocol_instance::ProtocolInstance,
+    prover::{IdStore, IdWrite, Proof, ProofKey},
 };
 use reth_primitives::Header;
 use serde_json::Value;
-use std::{collections::HashMap, hint::black_box};
 use tracing::{debug, error, info, warn};
+
+use crate::{
+    interfaces::{ProofRequest, RaikoError, RaikoResult},
+    preflight::{preflight, PreflightData},
+    provider::BlockDataProvider,
+};
 
 pub mod interfaces;
 pub mod preflight;
@@ -47,13 +45,10 @@ impl Raiko {
         }
     }
 
-    pub async fn generate_input<BDP: BlockDataProvider>(
-        &self,
-        provider: BDP,
-    ) -> RaikoResult<GuestInput> {
-        preflight(
-            provider,
+    fn get_preflight_data(&self) -> PreflightData {
+        PreflightData::new(
             self.request.block_number,
+            self.request.l1_inclusion_block_number,
             self.l1_chain_spec.to_owned(),
             self.taiko_chain_spec.to_owned(),
             TaikoProverData {
@@ -62,8 +57,18 @@ impl Raiko {
             },
             self.request.blob_proof_type.clone(),
         )
-        .await
-        .map_err(Into::<RaikoError>::into)
+    }
+
+    pub async fn generate_input<BDP: BlockDataProvider>(
+        &self,
+        provider: BDP,
+    ) -> RaikoResult<GuestInput> {
+        //TODO: read fork from config
+        let preflight_data = self.get_preflight_data();
+        info!("Generating input for block {}", self.request.block_number);
+        preflight(provider, preflight_data)
+            .await
+            .map_err(Into::<RaikoError>::into)
     }
 
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
@@ -302,6 +307,36 @@ mod tests {
             .expect("proof generation failed");
     }
 
+    #[ignore]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_prove_block_taiko_dev() {
+        let proof_type = get_proof_type_from_env();
+        let l1_network = "taiko_dev_l1".to_owned();
+        let network = "taiko_dev".to_owned();
+        // Give the CI an simpler block to test because it doesn't have enough memory.
+        // Unfortunately that also means that kzg is not getting fully verified by CI.
+        let block_number = 20;
+        let chain_specs = SupportedChainSpecs::merge_from_file(
+            "../host/config/chain_spec_list_devnet.json".into(),
+        )
+        .unwrap();
+        let taiko_chain_spec = chain_specs.get_chain_spec(&network).unwrap();
+        let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
+
+        let proof_request = ProofRequest {
+            block_number,
+            l1_inclusion_block_number: 80,
+            network,
+            graffiti: B256::ZERO,
+            prover: Address::ZERO,
+            l1_network,
+            proof_type,
+            blob_proof_type: BlobProofType::ProofOfEquivalence,
+            prover_args: test_proof_params(),
+        };
+        prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7() {
         let proof_type = get_proof_type_from_env();
@@ -319,6 +354,7 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number,
+            l1_inclusion_block_number: 0,
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -356,6 +392,7 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
+                l1_inclusion_block_number: 0,
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
@@ -388,6 +425,7 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
+                l1_inclusion_block_number: 0,
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,

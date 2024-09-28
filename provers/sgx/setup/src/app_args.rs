@@ -37,6 +37,10 @@ pub struct BootstrapArgs {
 
     #[arg(long, default_value = "taiko_a7")]
     pub network: String,
+
+    /// block_num to get the verifier address for different fork
+    #[arg(long, default_value = "0")]
+    pub block_num: u64,
 }
 
 fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {

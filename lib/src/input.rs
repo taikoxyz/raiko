@@ -1,9 +1,8 @@
 use core::{fmt::Debug, str::FromStr};
-#[cfg(feature = "std")]
-use std::path::PathBuf;
 
-use alloy_sol_types::sol;
 use anyhow::{anyhow, Error, Result};
+use ontake::BlockProposedV2;
+use reth_evm_ethereum::taiko::ProtocolBaseFeeConfig;
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
     Block, Header, TransactionSigned,
@@ -56,6 +55,54 @@ impl From<(Block, Header, ChainSpec, TaikoGuestInput)> for GuestInput {
     }
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+
+pub enum BlockProposedFork {
+    #[default]
+    Nothing,
+    Hekla(BlockProposed),
+    Ontake(BlockProposedV2),
+}
+
+impl BlockProposedFork {
+    pub fn blob_used(&self) -> bool {
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.blobUsed,
+            BlockProposedFork::Ontake(block) => block.meta.blobUsed,
+            _ => false,
+        }
+    }
+
+    pub fn block_number(&self) -> u64 {
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.id,
+            BlockProposedFork::Ontake(block) => block.meta.id,
+            _ => 0,
+        }
+    }
+
+    pub fn block_timestamp(&self) -> u64 {
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.timestamp,
+            BlockProposedFork::Ontake(block) => block.meta.timestamp,
+            _ => 0,
+        }
+    }
+
+    pub fn base_fee_config(&self) -> ProtocolBaseFeeConfig {
+        match self {
+            BlockProposedFork::Ontake(block) => ProtocolBaseFeeConfig {
+                adjustment_quotient: block.meta.baseFeeConfig.adjustmentQuotient,
+                sharing_pctg: block.meta.baseFeeConfig.sharingPctg,
+                gas_issuance_per_second: block.meta.baseFeeConfig.gasIssuancePerSecond,
+                min_gas_excess: block.meta.baseFeeConfig.minGasExcess,
+                max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
+            },
+            _ => ProtocolBaseFeeConfig::default(),
+        }
+    }
+}
+
 #[serde_as]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TaikoGuestInput {
@@ -63,7 +110,7 @@ pub struct TaikoGuestInput {
     pub l1_header: Header,
     pub tx_data: Vec<u8>,
     pub anchor_tx: Option<TransactionSigned>,
-    pub block_proposed: BlockProposed,
+    pub block_proposed: BlockProposedFork,
     pub prover_data: TaikoProverData,
     pub blob_commitment: Option<Vec<u8>>,
     pub blob_proof: Option<Vec<u8>>,
@@ -120,10 +167,6 @@ pub struct TaikoProverData {
     pub graffiti: B256,
 }
 
-pub type RawGuestOutput = sol! {
-    tuple(uint64, address, Transition, address, address, bytes32)
-};
-
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GuestOutput {
@@ -131,96 +174,17 @@ pub struct GuestOutput {
     pub hash: B256,
 }
 
-sol! {
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct EthDeposit {
-        address recipient;
-        uint96 amount;
-        uint64 id;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct BlockMetadata {
-        bytes32 l1Hash;
-        bytes32 difficulty;
-        bytes32 blobHash; //or txListHash (if Blob not yet supported)
-        bytes32 extraData;
-        bytes32 depositsHash;
-        address coinbase; // L2 coinbase
-        uint64 id;
-        uint32 gasLimit;
-        uint64 timestamp;
-        uint64 l1Height;
-        uint16 minTier;
-        bool blobUsed;
-        bytes32 parentMetaHash;
-        address sender;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct BlockParams {
-        address assignedProver;
-        address coinbase;
-        bytes32 extraData;
-        bytes32 parentMetaHash;
-        HookCall[] hookCalls;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct HookCall {
-        address hook;
-        bytes data;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct Transition {
-        bytes32 parentHash;
-        bytes32 blockHash;
-        bytes32 stateRoot;
-        bytes32 graffiti;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    event BlockProposed(
-        uint256 indexed blockId,
-        address indexed assignedProver,
-        uint96 livenessBond,
-        BlockMetadata meta,
-        EthDeposit[] depositsProcessed
-    );
-
-    #[derive(Debug)]
-    struct TierProof {
-        uint16 tier;
-        bytes data;
-    }
-
-    #[derive(Debug)]
-    function proposeBlock(
-        bytes calldata params,
-        bytes calldata txList
-    )
-    {}
-
-    function proveBlock(uint64 blockId, bytes calldata input) {}
-}
-
 #[cfg(feature = "std")]
 use std::path::Path;
+#[cfg(feature = "std")]
+use std::path::PathBuf;
 
 #[cfg(feature = "std")]
 pub fn get_input_path(dir: &Path, block_number: u64, network: &str) -> PathBuf {
     dir.join(format!("input-{network}-{block_number}.bin"))
 }
 
-#[cfg(test)]
-mod tests {
-    extern crate alloc;
-    use super::*;
+mod hekla;
+pub mod ontake;
 
-    #[test]
-    fn input_serde_roundtrip() {
-        let input = GuestInput::default();
-        let _: GuestInput = bincode::deserialize(&bincode::serialize(&input).unwrap()).unwrap();
-    }
-}
+pub use hekla::*;

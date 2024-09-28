@@ -274,19 +274,19 @@ mkdir ~/.config/raiko/secrets
 ```
 git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
-docker compose build
+docker compose build raiko
 ```
 
-> **_NOTE:_** This step will take some time, sometimes ~5 minutes.
+> **_NOTE:_** This step will take some time, sometimes ~5 minutes. Do NOT do `docker compose build` alone, this will build the zk image which will take >30mins and will not be used!
 
-**Currently, it is not possible to build the image locally due to a dependency being privated. Please pull the docker images needed to run raiko as follows:**
+If you do not wish to build the image locally, you can optionally pull them from our registry.
 
 ```
-docker pull us-docker.pkg.dev/evmchain/images/raiko:latest
+docker pull us-docker.pkg.dev/evmchain/images/raiko:1.2.0
 docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
-You can continue on with the following steps as usual after this. Do not do `docker compose build`.
+You can continue on with the following steps as usual after this.
 
 6. Check that the images have been built
 
@@ -294,7 +294,7 @@ You can continue on with the following steps as usual after this. Do not do `doc
 docker image ls
 ```
 
-You should see at least two images, `gcr.io/evmchain/raiko` and `gcr.io/evmchain/pccs`.
+You should see at least two images, `us-docker.pkg.dev/evmchain/raiko` and `us-docker.pkg.dev/evmchain/pccs`.
 
 7. If both are present, bootstrap Raiko with the following command:
 
@@ -324,10 +324,11 @@ You've now prepared your machine for running Raiko through Docker. Now, you need
 
 ## On-Chain RA
 
-1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main) and navigate to the scripts
+1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main), checkout the appropriate tag (protocol-v1.9.0 for hekla) and navigate to the protocol directory.
 
 ```
 git clone https://github.com/taikoxyz/taiko-mono.git
+git checkout tags/{release-tag}
 cd taiko-mono/packages/protocol
 ```
 
@@ -353,7 +354,7 @@ pnpm compile
 export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
 ```
 
-4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. 
+4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. (`script/layer1/config_dcap_sgx_verifier.sh` for `protocol-v1.9.0` release.)
 
 Hekla Addresses:
 `SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
@@ -379,7 +380,9 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
 
 Copy your quote and use in the following step.
 
-6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network.
+> **_NOTE:_** If you are on `protocol-v1.9.0`, the script is located at `script/layer1/config_dcap_sgx_verifier.sh`. Use this for the following steps. The script is also bugged in this release (has been fixed on main), you will need to change [L150](https://github.com/taikoxyz/taiko-mono/blob/bf45889e18e97f1186cd60fd55e1b2664dc4bf43/packages/protocol/script/layer1/config_dcap_sgx_verifier.sh#L150) to `forge script script/layer1/SetDcapParams.s.sol:SetDcapParams`.
+
+6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network. Alternatively, export it like so: `export FORK_URL="https://any-holesky-rpc-url/"`.
 
 7. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote {YOUR_QUOTE_HERE}`.
 
@@ -486,3 +489,22 @@ The response should look like this:
 ```
 
 If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
+
+## Change your Raiko instance's RPCs to your personal RPC (Optional but recommended)
+
+If you've successfully set up your raiko instance as above, you may want to change the RPCs raiko uses to ones you trust / your own deployed L1 Node and Beacon Node. Doing so will prevent random outages on PublicNode from affecting your proving, which you will want to do when running a mainnet prover/proposer.
+
+If your raiko instance is still running, take it down temporarily with `docker compose down`.
+
+Navigate to the `docker` folder in the raiko repo, export the below variables as necessary in the `docker-compose.yml` on L69-74 depending on which network you are running an SGX prover for.
+
+```
+- ETHEREUM_RPC=${ETHEREUM_RPC}
+- ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
+- HOLESKY_RPC=${HOLESKY_RPC}
+- HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
+- TAIKO_A7_RPC=${TAIKO_A7_RPC}
+- TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
+```
+
+You can now restart your raiko instance (skipping the init/bootstrapping step) and operate as normal with `docker compose up raiko -d`! Monitor the logs and run the above `./script/prove-block` script to make sure it's functioning normally.

@@ -18,3 +18,10 @@ jobs:
     with:
       version_name: "risc0"
       version_toolchain: "stable"
+
+  integration-test-risc0:
+    name: Run integration tests on risc0
+    uses: ./.github/workflows/ci-integration-reusable.yml
+    with:
+      version_name: "risc0"
+      version_toolchain: "nightly-2024-04-17"

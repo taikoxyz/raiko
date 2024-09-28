@@ -14,4 +14,4 @@ extend-ignore-identifiers-re = [
 ]
 
 [files]
-extend-exclude = []
+extend-exclude = ["CHANGELOG.md"]

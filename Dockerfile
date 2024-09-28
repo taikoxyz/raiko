@@ -1,4 +1,4 @@
-FROM rust:1.75.0 as builder
+FROM rust:1.75.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
@@ -12,7 +12,7 @@ WORKDIR /opt/raiko
 COPY . .
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
-FROM gramineproject/gramine:1.6-jammy as runtime
+FROM gramineproject/gramine:1.6-jammy AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
 
