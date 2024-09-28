@@ -3,7 +3,10 @@
 
 use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput},
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
+        ZkAggregationGuestInput,
+    },
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
     Measurement,
 };
@@ -14,6 +17,7 @@ use sp1_sdk::{
     action,
     network::client::NetworkClient,
     proto::network::{ProofMode, UnclaimReason},
+    SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::{
@@ -21,7 +25,7 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
 };
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
@@ -76,9 +80,15 @@ impl From<Sp1Response> for Proof {
     fn from(value: Sp1Response) -> Self {
         Self {
             proof: value.proof,
-            quote: None,
-            input: None,
-            uuid: None,
+            quote: value
+                .sp1_proof
+                .as_ref()
+                .map(|p| serde_json::to_string(&p.proof).unwrap()),
+            input: value
+                .sp1_proof
+                .as_ref()
+                .map(|p| B256::from_slice(p.public_values.as_slice())),
+            uuid: value.vkey.map(|v| serde_json::to_string(&v).unwrap()),
             kzg_proof: None,
         }
     }
@@ -87,6 +97,9 @@ impl From<Sp1Response> for Proof {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
     pub proof: Option<String>,
+    /// for aggregation
+    pub sp1_proof: Option<SP1ProofWithPublicValues>,
+    pub vkey: Option<SP1VerifyingKey>,
 }
 
 pub struct Sp1Prover;
@@ -159,7 +172,13 @@ impl Prover for Sp1Prover {
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
 
-        let proof_bytes = prove_result.bytes();
+        let proof_bytes = match param.recursion {
+            RecursionMode::Compressed => {
+                info!("Compressed proof is used in aggregation mode only");
+                vec![]
+            }
+            _ => prove_result.bytes(),
+        };
         if param.verify {
             let time = Measurement::start("verify", false);
             let pi_hash = prove_result
@@ -194,6 +213,8 @@ impl Prover for Sp1Prover {
         Ok::<_, ProverError>(
             Sp1Response {
                 proof: proof_string,
+                sp1_proof: Some(prove_result),
+                vkey: Some(vk),
             }
             .into(),
         )
@@ -231,10 +252,38 @@ impl Prover for Sp1Prover {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
-        println!("param: {param:?}");
+        info!("aggregate proof with param: {param:?}");
+
+        let block_inputs: Vec<B256> = input
+            .proofs
+            .iter()
+            .map(|proof| proof.input.unwrap())
+            .collect::<Vec<_>>();
+        let block_proof_vk = serde_json::from_str::<SP1VerifyingKey>(
+            &input.proofs.first().unwrap().uuid.clone().unwrap(),
+        )
+        .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 vk: {e}")))?;
+        let stark_vk = block_proof_vk.vk.clone();
+        let image_id = block_proof_vk.hash_u32();
+        let aggregation_input = ZkAggregationGuestInput {
+            image_id: image_id,
+            block_inputs,
+        };
 
         let mut stdin = SP1Stdin::new();
-        stdin.write(&input);
+        stdin.write(&aggregation_input);
+        for proof in input.proofs.iter() {
+            let sp1_proof = serde_json::from_str::<SP1Proof>(&proof.quote.clone().unwrap())
+                .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 proof: {e}")))?;
+            match sp1_proof {
+                SP1Proof::Compressed(block_proof) => {
+                    stdin.write_proof(block_proof.into(), stark_vk.clone());
+                }
+                _ => {
+                    error!("unsupported proof type for aggregation: {:?}", sp1_proof);
+                }
+            }
+        }
 
         // Generate the proof for the given program.
         let client = param
@@ -248,29 +297,11 @@ impl Prover for Sp1Prover {
 
         let (pk, vk) = client.setup(AGGREGATION_ELF);
 
-        let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
-        let prove_result = if !matches!(mode, ProverMode::Network) {
-            tracing::debug!("Proving locally with recursion mode: {:?}", param.recursion);
-            match param.recursion {
-                RecursionMode::Core => prove_action.run(),
-                RecursionMode::Compressed => prove_action.compressed().run(),
-                RecursionMode::Plonk => prove_action.plonk().run(),
-            }
-            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
-        } else {
-            let network_prover = sp1_sdk::NetworkProver::new();
-
-            let proof_id = network_prover
-                .request_proof(AGGREGATION_ELF, stdin, param.recursion.clone().into())
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
-                })?;
-            network_prover
-                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
-                .await
-                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
-        };
+        let prove_result = client
+            .prove(&pk, stdin)
+            .plonk()
+            .run()
+            .expect("proving failed");
 
         let proof_bytes = prove_result.bytes();
         if param.verify {
@@ -300,7 +331,14 @@ impl Prover for Sp1Prover {
             ),
         );
 
-        Ok::<_, ProverError>(Sp1Response { proof }.into())
+        Ok::<_, ProverError>(
+            Sp1Response {
+                proof: proof,
+                sp1_proof: None,
+                vkey: None,
+            }
+            .into(),
+        )
     }
 }
 
