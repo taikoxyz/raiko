@@ -18,6 +18,8 @@ fs.mounts = [
   { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
   { path = "/usr/lib/ssl/certs/", uri = "file:/usr/lib/ssl/certs/" },
   { path = "/root/.config/raiko/config", uri = "file:/root/.config/raiko/config" },
+  { path = "/proc/self/mountinfo", uri = "file:/proc/self/mountinfo" },
+  { path = "/proc/self/cgroup", uri = "file:/proc/self/cgroup" },
   { path = "/root/.config/raiko/secrets", uri = "file:/root/.config/raiko/secrets", type = "encrypted", key_name = "_sgx_mrenclave" },
 ]
 sgx.allowed_files = [
