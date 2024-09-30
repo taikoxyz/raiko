@@ -46,6 +46,10 @@ async fn aggregation_handler(
     inc_host_req_count(0);
     inc_guest_req_count(&proof_type, 0);
 
+    if aggregation_request.proofs.is_empty() {
+        return Err(anyhow::anyhow!("No proofs provided").into());
+    }
+
     let mut manager = prover_state.task_manager();
 
     let status = manager

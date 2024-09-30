@@ -46,6 +46,10 @@ async fn proof_handler(
 
     let proof_request_opts: Vec<ProofRequestOpt> = aggregation_request.clone().into();
 
+    if proof_request_opts.is_empty() {
+        return Err(anyhow::anyhow!("No blocks for proving provided").into());
+    }
+
     // Construct the actual proof request from the available configs.
     for proof_request_opt in proof_request_opts {
         let proof_request = ProofRequest::try_from(proof_request_opt)?;
