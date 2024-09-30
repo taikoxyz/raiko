@@ -25,6 +25,9 @@ fs.mounts = [
 ]
 sgx.allowed_files = [
   "file:/root/.config/raiko/config",
+  "file:/proc/self/mountinfo",
+  "file:/proc/self/cgroup",
+  "file:/sys/fs/cgroup/",
 ]
 sgx.debug = false
 sgx.edmm_enable = {{ 'true' if env.get('EDMM', '1') == '1' else 'false' }}
@@ -37,7 +40,7 @@ sgx.trusted_files = [
   "file:/usr/lib/ssl/certs/",
   "file:sgx-guest",
 ]
-sgx.max_threads = 32
+sgx.max_threads = 512
 sgx.remote_attestation = "dcap"
 sys.enable_extra_runtime_domain_names_conf = true
 sys.insecure__allow_eventfd = true
