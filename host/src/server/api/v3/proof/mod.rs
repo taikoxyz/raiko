@@ -111,7 +111,7 @@ async fn proof_handler(
             TaskStatus::Success => {}
             // For all other statuses just return the status.
             status => {
-                statuses.push(*status);
+                statuses.push(status.clone());
                 is_registered = false;
                 is_success = false;
             }
@@ -181,7 +181,7 @@ async fn proof_handler(
                 Ok(proof.into())
             }
             // For all other statuses just return the status.
-            status => Ok((*status).into()),
+            status => Ok(status.clone().into()),
         }
     } else {
         let status = statuses.into_iter().collect::<TaskStatus>();

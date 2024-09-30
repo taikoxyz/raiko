@@ -247,7 +247,7 @@ impl ProofActor {
 
         if let Some(latest_status) = status.iter().last() {
             if !matches!(latest_status.0, TaskStatus::Registered) {
-                return Ok(latest_status.0);
+                return Ok(latest_status.0.clone());
             }
         }
 
@@ -265,7 +265,7 @@ impl ProofActor {
             };
 
         manager
-            .update_task_progress(key, status, proof.as_deref())
+            .update_task_progress(key, status.clone(), proof.as_deref())
             .await
             .map_err(HostError::from)?;
         Ok(status)

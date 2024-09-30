@@ -576,7 +576,7 @@ impl TaskDb {
             ":blockhash": blockhash.to_vec(),
             ":proofsys_id": proof_system as u8,
             ":prover": prover,
-            ":status_id": status as i32,
+            ":status_id": i32::from(status),
             ":proof": proof.map(hex::encode)
         })?;
 

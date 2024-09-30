@@ -98,7 +98,7 @@ async fn proof_handler(
             Ok(proof.into())
         }
         // For all other statuses just return the status.
-        status => Ok((*status).into()),
+        status => Ok(status.clone().into()),
     }
 }
 

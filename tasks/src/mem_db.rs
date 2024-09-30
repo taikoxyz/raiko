@@ -123,7 +123,9 @@ impl InMemoryTaskDb {
             .tasks_queue
             .iter()
             .flat_map(|(descriptor, statuses)| {
-                statuses.last().map(|status| (descriptor.clone(), status.0))
+                statuses
+                    .last()
+                    .map(|status| (descriptor.clone(), status.0.clone()))
             })
             .collect())
     }

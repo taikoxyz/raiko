@@ -4,7 +4,6 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use num_enum::{FromPrimitive, IntoPrimitive};
 use raiko_core::interfaces::{AggregationOnlyRequest, ProofType};
 use raiko_lib::{
     primitives::{ChainId, B256},
@@ -61,24 +60,66 @@ impl From<anyhow::Error> for TaskManagerError {
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
-#[derive(PartialEq, Debug, Copy, Clone, IntoPrimitive, FromPrimitive, Deserialize, Serialize, ToSchema, Eq, PartialOrd, Ord)]
-#[repr(i32)]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, ToSchema, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
-    Success                   =     0,
-    Registered                =  1000,
-    WorkInProgress            =  2000,
-    ProofFailure_Generic      = -1000,
-    ProofFailure_OutOfMemory  = -1100,
-    NetworkFailure            = -2000,
-    Cancelled                 = -3000,
-    Cancelled_NeverStarted    = -3100,
-    Cancelled_Aborted         = -3200,
-    CancellationInProgress    = -3210,
-    InvalidOrUnsupportedBlock = -4000,
-    UnspecifiedFailureReason  = -9999,
-    #[num_enum(default)]
-    SqlDbCorruption           = -99999,
+    Success,
+    Registered,
+    WorkInProgress,
+    ProofFailure_Generic,
+    ProofFailure_OutOfMemory,
+    NetworkFailure,
+    Cancelled,
+    Cancelled_NeverStarted,
+    Cancelled_Aborted,
+    CancellationInProgress,
+    InvalidOrUnsupportedBlock,
+    NonDbFailure(String),
+    UnspecifiedFailureReason,
+    SqlDbCorruption,
+}
+
+impl From<TaskStatus> for i32 {
+    fn from(status: TaskStatus) -> i32 {
+        match status {
+            TaskStatus::Success => 0,
+            TaskStatus::Registered => 1000,
+            TaskStatus::WorkInProgress => 2000,
+            TaskStatus::ProofFailure_Generic => -1000,
+            TaskStatus::ProofFailure_OutOfMemory => -1100,
+            TaskStatus::NetworkFailure => -2000,
+            TaskStatus::Cancelled => -3000,
+            TaskStatus::Cancelled_NeverStarted => -3100,
+            TaskStatus::Cancelled_Aborted => -3200,
+            TaskStatus::CancellationInProgress => -3210,
+            TaskStatus::InvalidOrUnsupportedBlock => -4000,
+            TaskStatus::NonDbFailure(_) => -5000,
+            TaskStatus::UnspecifiedFailureReason => -9999,
+            TaskStatus::SqlDbCorruption => -99999,
+        }
+    }
+}
+
+impl From<i32> for TaskStatus {
+    fn from(value: i32) -> TaskStatus {
+        match value {
+            0 => TaskStatus::Success,
+            1000 => TaskStatus::Registered,
+            2000 => TaskStatus::WorkInProgress,
+            -1000 => TaskStatus::ProofFailure_Generic,
+            -1100 => TaskStatus::ProofFailure_OutOfMemory,
+            -2000 => TaskStatus::NetworkFailure,
+            -3000 => TaskStatus::Cancelled,
+            -3100 => TaskStatus::Cancelled_NeverStarted,
+            -3200 => TaskStatus::Cancelled_Aborted,
+            -3210 => TaskStatus::CancellationInProgress,
+            -4000 => TaskStatus::InvalidOrUnsupportedBlock,
+            -5000 => TaskStatus::NonDbFailure("".to_string()),
+            -9999 => TaskStatus::UnspecifiedFailureReason,
+            -99999 => TaskStatus::SqlDbCorruption,
+            _ => TaskStatus::UnspecifiedFailureReason,
+        }
+    }
 }
 
 impl FromIterator<TaskStatus> for TaskStatus {
@@ -93,7 +134,7 @@ impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
     fn from_iter<T: IntoIterator<Item = &'a TaskStatus>>(iter: T) -> Self {
         iter.into_iter()
             .min()
-            .copied()
+            .cloned()
             .unwrap_or(TaskStatus::UnspecifiedFailureReason)
     }
 }
