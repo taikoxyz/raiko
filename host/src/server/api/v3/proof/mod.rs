@@ -78,6 +78,7 @@ async fn proof_handler(
 
     let mut is_registered = false;
     let mut is_success = true;
+    let mut statuses = Vec::with_capacity(tasks.len());
 
     for (key, req) in tasks.iter() {
         let status = manager.get_task_proving_status(key).await?;
@@ -109,7 +110,8 @@ async fn proof_handler(
             // If the task has succeeded, return the proof.
             TaskStatus::Success => {}
             // For all other statuses just return the status.
-            _status => {
+            status => {
+                statuses.push(*status);
                 is_registered = false;
                 is_success = false;
             }
@@ -182,7 +184,8 @@ async fn proof_handler(
             status => Ok((*status).into()),
         }
     } else {
-        Ok(TaskStatus::WorkInProgress.into())
+        let status = statuses.into_iter().collect::<TaskStatus>();
+        Ok(status.into())
     }
 }
 
