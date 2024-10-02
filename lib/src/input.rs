@@ -73,7 +73,7 @@ pub struct AggregationGuestOutput {
     pub hash: B256,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZkAggregationGuestInput {
     pub image_id: [u32; 8],
     pub block_inputs: Vec<B256>,

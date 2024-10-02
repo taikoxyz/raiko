@@ -196,7 +196,7 @@ impl Prover for Sp1Prover {
             time.stop_with("==> Verification complete");
         }
 
-        let proof_string = proof_bytes.is_empty().then_some(
+        let proof_string = (!proof_bytes.is_empty()).then_some(
             // 0x + 64 bytes of the vkey + the proof
             // vkey itself contains 0x prefix
             format!(
@@ -269,6 +269,11 @@ impl Prover for Sp1Prover {
             image_id: image_id,
             block_inputs,
         };
+        info!(
+            "Aggregating {:?} proofs with input: {:?}",
+            input.proofs.len(),
+            aggregation_input
+        );
 
         let mut stdin = SP1Stdin::new();
         stdin.write(&aggregation_input);
@@ -296,6 +301,12 @@ impl Prover for Sp1Prover {
             .unwrap_or_else(ProverClient::new);
 
         let (pk, vk) = client.setup(AGGREGATION_ELF);
+        info!(
+            "sp1 aggregate: {:?} based {:?} blocks with vk {:?}",
+            reth_primitives::hex::encode_prefixed(stark_vk.hash_bytes()),
+            input.proofs.len(),
+            vk.bytes32()
+        );
 
         let prove_result = client
             .prove(&pk, stdin)
@@ -306,14 +317,10 @@ impl Prover for Sp1Prover {
         let proof_bytes = prove_result.bytes();
         if param.verify {
             let time = Measurement::start("verify", false);
-            let pi_hash = prove_result
-                .clone()
-                .borrow_mut()
-                .public_values
-                .read::<[u8; 32]>();
+            let aggregation_pi = prove_result.clone().borrow_mut().public_values.raw();
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32().to_string(),
-                public_values: B256::from_slice(&pi_hash).to_string(),
+                public_values: reth_primitives::hex::encode_prefixed(&aggregation_pi),
                 proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
             };
 
@@ -321,12 +328,13 @@ impl Prover for Sp1Prover {
             time.stop_with("==> Verification complete");
         }
 
-        let proof = proof_bytes.is_empty().then_some(
+        let proof = (!proof_bytes.is_empty()).then_some(
             // 0x + 64 bytes of the vkey + the proof
             // vkey itself contains 0x prefix
             format!(
-                "{}{}",
+                "{}{}{}",
                 vk.bytes32(),
+                reth_primitives::hex::encode(stark_vk.hash_bytes()),
                 reth_primitives::hex::encode(proof_bytes)
             ),
         );

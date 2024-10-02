@@ -336,6 +336,15 @@ pub fn words_to_bytes_le(words: &[u32; 8]) -> [u8; 32] {
     bytes
 }
 
+pub fn words_to_bytes_be(words: &[u32; 8]) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    for i in 0..8 {
+        let word_bytes = words[i].to_be_bytes();
+        bytes[i * 4..(i + 1) * 4].copy_from_slice(&word_bytes);
+    }
+    bytes
+}
+
 pub fn aggregation_output_combine(public_inputs: Vec<B256>) -> Vec<u8> {
     let mut output = Vec::with_capacity(public_inputs.len() * 32);
     for public_input in public_inputs.iter() {

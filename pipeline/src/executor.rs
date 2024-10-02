@@ -100,7 +100,8 @@ impl Executor {
             let elf = std::fs::read(&dest.join(&name.replace('_', "-")))?;
             let prover = CpuProver::new();
             let key_pair = prover.setup(&elf);
-            println!("sp1 elf vk is: {}", key_pair.1.bytes32());
+            println!("sp1 elf vk bn256 is: {}", key_pair.1.bytes32());
+            println!("sp1 elf vk hash_bytes is: {}", hex::encode(&key_pair.1.hash_bytes()));
         }
 
         Ok(())

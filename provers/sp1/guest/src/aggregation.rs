@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use raiko_lib::{
     input::ZkAggregationGuestInput,
     primitives::B256,
-    protocol_instance::{aggregation_output, words_to_bytes_le},
+    protocol_instance::{aggregation_output, words_to_bytes_be},
 };
 
 pub fn main() {
@@ -24,7 +24,7 @@ pub fn main() {
 
     // The aggregation output
     sp1_zkvm::io::commit_slice(&aggregation_output(
-        B256::from(words_to_bytes_le(&input.image_id)),
+        B256::from(words_to_bytes_be(&input.image_id)),
         input.block_inputs,
     ));
 }
