@@ -1,7 +1,6 @@
 #![cfg(feature = "enable")]
 #![feature(iter_advance_by)]
 
-use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -16,21 +15,15 @@ use sp1_sdk::{
     proto::network::{ProofMode, UnclaimReason},
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-use std::{
-    borrow::BorrowMut,
-    env, fs,
-    path::{Path, PathBuf},
-};
-use tracing::{debug, info};
+use std::{borrow::BorrowMut, env};
+use tracing::info;
+
+mod proof_verify;
+use proof_verify::remote_contract_verify::verify_sol_by_contract_call;
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 const SP1_PROVER_CODE: u8 = 1;
-static FIXTURE_PATH: Lazy<PathBuf> =
-    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures/"));
-static CONTRACT_PATH: Lazy<PathBuf> =
-    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/exports/"));
 
-pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifier);
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sp1Param {
@@ -164,12 +157,12 @@ impl Prover for Sp1Prover {
                 .public_values
                 .read::<[u8; 32]>();
             let fixture = RaikoProofFixture {
-                vkey: vk.bytes32().to_string(),
-                public_values: B256::from_slice(&pi_hash).to_string(),
-                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
+                vkey: vk.bytes32(),
+                public_values: pi_hash.into(),
+                proof: proof_bytes.clone(),
             };
 
-            verify_sol(&fixture)?;
+            verify_sol_by_contract_call(&fixture).await?;
             time.stop_with("==> Verification complete");
         }
 
@@ -232,66 +225,13 @@ fn get_env_mock() -> ProverMode {
     }
 }
 
-fn init_verifier() -> Result<PathBuf, ProverError> {
-    // In cargo run, Cargo sets the working directory to the root of the workspace
-    let contract_path = &*CONTRACT_PATH;
-    info!("Contract dir: {:?}", contract_path);
-    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
-    // Create the destination directory if it doesn't exist
-    fs::create_dir_all(&contract_path)?;
-
-    // Read the entries in the source directory
-    for entry in fs::read_dir(artifacts_dir)? {
-        let entry = entry?;
-        let src = entry.path();
-
-        // Check if the entry is a file and ends with .sol
-        if src.is_file() && src.extension().map(|s| s == "sol").unwrap_or(false) {
-            let out = contract_path.join(src.file_name().unwrap());
-            fs::copy(&src, &out)?;
-            println!("Copied: {:?}", src.file_name().unwrap());
-        }
-    }
-    Ok(contract_path.clone())
-}
-
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RaikoProofFixture {
     vkey: String,
-    public_values: String,
-    proof: String,
-}
-
-fn verify_sol(fixture: &RaikoProofFixture) -> ProverResult<()> {
-    assert!(VERIFIER.is_ok());
-    debug!("===> Fixture: {:#?}", fixture);
-
-    // Save the fixture to a file.
-    let fixture_path = &*FIXTURE_PATH;
-    info!("Writing fixture to: {:?}", fixture_path);
-
-    if !fixture_path.exists() {
-        std::fs::create_dir_all(fixture_path).map_err(|e| {
-            ProverError::GuestError(format!("Failed to create fixture path: {}", e))
-        })?;
-    }
-    std::fs::write(
-        fixture_path.join("fixture.json"),
-        serde_json::to_string_pretty(&fixture).unwrap(),
-    )
-    .map_err(|e| ProverError::GuestError(format!("Failed to write fixture: {}", e)))?;
-
-    let child = std::process::Command::new("forge")
-        .arg("test")
-        .current_dir(&*CONTRACT_PATH)
-        .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
-        .spawn();
-    info!("Verification started {:?}", child);
-    child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {}", e)))?;
-
-    Ok(())
+    public_values: B256,
+    proof: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -314,16 +254,11 @@ mod test {
             prover: Some(ProverMode::Network),
             verify: true,
         };
-        let serialized = serde_json::to_value(&param).unwrap();
+        let serialized = serde_json::to_value(param).unwrap();
         assert_eq!(json, serialized);
 
         let deserialized: Sp1Param = serde_json::from_value(serialized).unwrap();
-        println!("{:?} {:?}", json, deserialized);
-    }
-
-    #[test]
-    fn test_init_verifier() {
-        VERIFIER.as_ref().expect("Failed to init verifier");
+        println!("{json:?} {deserialized:?}");
     }
 
     #[test]
