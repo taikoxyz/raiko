@@ -58,6 +58,16 @@ elif [ "$proof" == "sp1" ]; then
 		"verify": false
 	}
   '
+elif [ "$proof" == "sp1-aggregation" ]; then
+	proofParam='
+    "proof_type": "sp1",
+    "blob_proof_type": "proof_of_equivalence",
+	"sp1": {
+		"recursion": "compressed",
+		"prover": "network",
+		"verify": false
+	}
+  '
 elif [ "$proof" == "sgx" ]; then
 	proofParam='
     "proof_type": "sgx",
