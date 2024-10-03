@@ -274,19 +274,19 @@ mkdir ~/.config/raiko/secrets
 ```
 git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
-docker compose build
+docker compose build raiko
 ```
 
-> **_NOTE:_** This step will take some time, sometimes ~5 minutes.
+> **_NOTE:_** This step will take some time, sometimes ~5 minutes. Do NOT do `docker compose build` alone, this will build the zk image which will take >30mins and will not be used!
 
-**Currently, it is not possible to build the image locally due to a dependency being privated. Please pull the docker images needed to run raiko as follows:**
+If you do not wish to build the image locally, you can optionally pull them from our registry.
 
 ```
-docker pull us-docker.pkg.dev/evmchain/images/raiko:latest
+docker pull us-docker.pkg.dev/evmchain/images/raiko:1.2.0
 docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
-You can continue on with the following steps as usual after this. Do not do `docker compose build`.
+You can continue on with the following steps as usual after this.
 
 6. Check that the images have been built
 
@@ -380,7 +380,7 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
 
 Copy your quote and use in the following step.
 
-> **_NOTE:_** If you are on `protocol-v1.9.0`, the script is located at `script/layer1/config_dcap_sgx_verifier.sh`. Use this for the following steps. 
+> **_NOTE:_** If you are on `protocol-v1.9.0`, the script is located at `script/layer1/config_dcap_sgx_verifier.sh`. Use this for the following steps. The script is also bugged in this release (has been fixed on main), you will need to change [L150](https://github.com/taikoxyz/taiko-mono/blob/bf45889e18e97f1186cd60fd55e1b2664dc4bf43/packages/protocol/script/layer1/config_dcap_sgx_verifier.sh#L150) to `forge script script/layer1/SetDcapParams.s.sol:SetDcapParams`.
 
 6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network. Alternatively, export it like so: `export FORK_URL="https://any-holesky-rpc-url/"`.
 

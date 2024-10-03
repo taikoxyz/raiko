@@ -12,7 +12,7 @@ WORKDIR /opt/raiko
 COPY . .
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
-FROM gramineproject/gramine:1.6-jammy AS runtime
+FROM gramineproject/gramine:1.7-jammy AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
 
