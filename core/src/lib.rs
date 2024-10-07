@@ -482,6 +482,6 @@ mod tests {
             )
             .await
             .expect("proof aggregation failed");
-        println!("aggregated proof: {:?}", aggregated_proof);
+        println!("aggregated proof: {aggregated_proof:?}");
     }
 }

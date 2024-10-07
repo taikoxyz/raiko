@@ -206,7 +206,7 @@ pub async fn verify_groth16_snark_impl(
     if verify_call_res.is_ok() {
         tracing_info!("SNARK verified successfully using {groth16_verifier_addr:?}!");
     } else {
-        tracing_err!("SNARK verification failed: {:?}!", verify_call_res);
+        tracing_err!("SNARK verification failed: {verify_call_res:?}!");
     }
 
     Ok(make_risc0_groth16_proof(enc_seal, image_id))

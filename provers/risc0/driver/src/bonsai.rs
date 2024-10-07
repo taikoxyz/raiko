@@ -107,10 +107,9 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
             let bonsai_err_log = session.logs(&client);
             return Err(BonsaiExecutionError::Fatal(format!(
-                "Workflow exited: {} - | err: {} | log: {:?}",
+                "Workflow exited: {} - | err: {} | log: {bonsai_err_log:?}",
                 res.status,
                 res.error_msg.unwrap_or_default(),
-                bonsai_err_log
             )));
         }
     }

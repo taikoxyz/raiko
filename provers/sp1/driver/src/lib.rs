@@ -270,9 +270,8 @@ impl Prover for Sp1Prover {
             block_inputs,
         };
         info!(
-            "Aggregating {:?} proofs with input: {:?}",
+            "Aggregating {:?} proofs with input: {aggregation_input:?}",
             input.proofs.len(),
-            aggregation_input
         );
 
         let mut stdin = SP1Stdin::new();
@@ -285,7 +284,7 @@ impl Prover for Sp1Prover {
                     stdin.write_proof(block_proof.into(), stark_vk.clone());
                 }
                 _ => {
-                    error!("unsupported proof type for aggregation: {:?}", sp1_proof);
+                    error!("unsupported proof type for aggregation: {sp1_proof:?}");
                 }
             }
         }
@@ -418,7 +417,7 @@ fn verify_sol(fixture: &RaikoProofFixture) -> ProverResult<()> {
         .current_dir(&*CONTRACT_PATH)
         .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
         .spawn();
-    info!("Verification started {:?}", child);
+    info!("Verification started {child:?}");
     child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {e}")))?;
 
     Ok(())

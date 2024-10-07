@@ -116,7 +116,7 @@ harness::zk_suits!(
             p.x().to_big_endian(&mut p_x).unwrap();
             p.y().to_big_endian(&mut p_y).unwrap();
 
-            println!("{:?}, {:?}:?", p_x, p_y);
+            println!("{p_x:?}, {p_y:?}:?");
 
             // Deserialize AffinePoint in Sp1
             let p = be_bytes_to_point(&input);
@@ -154,4 +154,3 @@ harness::zk_suits!(
         }
     }
 );
-

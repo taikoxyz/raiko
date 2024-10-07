@@ -126,7 +126,7 @@ async fn proof_handler(
         for (task, req) in tasks {
             let raw_proof = manager.get_task_proof(&task).await?;
             let proof = serde_json::from_slice(&raw_proof)?;
-            debug!("req: {:?} gets proof: {:?}", req, proof);
+            debug!("req: {req:?} gets proof: {proof:?}");
             proofs.push(proof);
         }
 

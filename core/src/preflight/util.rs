@@ -136,11 +136,8 @@ pub async fn prepare_taiko_chain_input(
         RaikoError::Preflight("No L1 inclusion block hash for the requested block".to_owned())
     })?;
     info!(
-        "L1 inclusion block number: {:?}, hash: {:?}. L1 state block number: {:?}, hash: {:?}",
-        l1_inclusion_block_number,
-        l1_inclusion_block_hash,
+        "L1 inclusion block number: {l1_inclusion_block_number:?}, hash: {l1_inclusion_block_hash:?}. L1 state block number: {:?}, hash: {l1_state_block_hash:?}",
         l1_state_header.number,
-        l1_state_block_hash
     );
 
     // Fetch the tx data from either calldata or blobdata

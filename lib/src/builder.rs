@@ -160,7 +160,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         } = executor
             .execute((&block, total_difficulty).into())
             .map_err(|e| {
-                error!("Error executing block: {:?}", e);
+                error!("Error executing block: {e:?}");
                 e
             })?;
         // Filter out the valid transactions so that the header checks only take these into account
@@ -294,8 +294,8 @@ impl RethBlockBuilder<MemDb> {
             state_trie.insert_rlp(&state_trie_index, state_account)?;
         }
 
-        debug!("Accounts touched {:?}", account_touched);
-        debug!("Storages touched {:?}", storage_touched);
+        debug!("Accounts touched {account_touched:?}");
+        debug!("Storages touched {storage_touched:?}");
 
         Ok(state_trie.hash())
     }
