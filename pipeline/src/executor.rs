@@ -103,7 +103,7 @@ impl Executor {
             println!("sp1 elf vk bn256 is: {}", key_pair.1.bytes32());
             println!(
                 "sp1 elf vk hash_bytes is: {}",
-                hex::encode(&key_pair.1.hash_bytes())
+                hex::encode(key_pair.1.hash_bytes())
             );
         }
 
