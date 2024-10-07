@@ -101,7 +101,10 @@ impl Executor {
             let prover = CpuProver::new();
             let key_pair = prover.setup(&elf);
             println!("sp1 elf vk bn256 is: {}", key_pair.1.bytes32());
-            println!("sp1 elf vk hash_bytes is: {}", hex::encode(&key_pair.1.hash_bytes()));
+            println!(
+                "sp1 elf vk hash_bytes is: {}",
+                hex::encode(&key_pair.1.hash_bytes())
+            );
         }
 
         Ok(())
