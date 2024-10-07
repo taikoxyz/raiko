@@ -8615,8 +8615,10 @@ dependencies = [
 name = "sp1-driver"
 version = "0.1.0"
 dependencies = [
+ "alloy-contract",
  "alloy-eips",
  "alloy-primitives",
+ "alloy-provider",
  "alloy-sol-types",
  "anyhow",
  "bincode",
