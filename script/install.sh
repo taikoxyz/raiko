@@ -47,6 +47,16 @@ if [ -z "$1" ] || [ "$1" == "sgx" ]; then
         sudo apt install -y /tmp/gramine.deb
     fi
 fi
+
+# Nitro
+if [ -z "$1" ] || [ "$1" == "nitro" ]; then
+    if command -v nitro-cli >/dev/null 2>&1; then
+        echo "nitro-cli already installed"
+    else
+        echo "nitro-cli not installed, install it manually following this guide: https://github.com/aws/aws-nitro-enclaves-cli/blob/main/docs/ubuntu_20.04_how_to_install_nitro_cli_from_github_sources.md"
+    fi
+fi
+
 # RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
     echo "Current TERM: $TERM"
@@ -68,6 +78,7 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		/home/runner/.risc0/bin/rzup --verbose install
 	fi
 fi
+
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	curl -L https://sp1.succinct.xyz | bash

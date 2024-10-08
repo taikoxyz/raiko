@@ -15,6 +15,7 @@ jobs:
   build-test-sgx-with-docker:
     name: Build and test sgx with Docker
     runs-on: [taiko-runner]
+    if: github.event.pull_request.draft == false
     timeout-minutes: 60
 
     steps:

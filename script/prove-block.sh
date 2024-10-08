@@ -91,8 +91,14 @@ elif [ "$proof" == "risc0-bonsai" ]; then
         "execution_po2": 20
     }
   '
+elif [ "$proof" == "nitro" ]; then
+	proofParam='
+    "proof_type": "nitro",
+    "nitro": {
+    }
+  '
 else
-	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
+	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'nitro' or 'sgx'."
 	exit 1
 fi
 
@@ -117,6 +123,12 @@ if [ "$rangeEnd" == "" ]; then
 	rangeEnd=$rangeStart
 fi
 
+proverHost="http://localhost:8080"
+
+if [ $PROVER_HOST ]; then
+    proverHost=$PROVER_HOST
+fi
+
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
@@ -134,7 +146,7 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 	fi
 
 	echo "- proving block $block"
-	curl --location --request POST 'http://localhost:8080/proof' \
+	curl --location --request POST "$proverHost/proof" \
 		--header 'Content-Type: application/json' \
 		--header 'Authorization: Bearer 4cbd753fbcbc2639de804f8ce425016a50e0ecd53db00cb5397912e83f5e570e' \
 		--data-raw "{

@@ -16,10 +16,8 @@ use serde::Serialize;
 
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
-use crate::{
-    app_args::{GlobalOpts, OneShotArgs},
-    signature::*,
-};
+use crate::app_args::{GlobalOpts, OneShotArgs};
+use raiko_lib::signature::*;
 
 pub const ATTESTATION_QUOTE_DEVICE_FILE: &str = "/dev/attestation/quote";
 pub const ATTESTATION_TYPE_DEVICE_FILE: &str = "/dev/attestation/attestation_type";
@@ -129,7 +127,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
         bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
 
     // Process the block
-    let header = calculate_block_header(&input);
+    let header = calculate_block_header(&input)?;
     // Calculate the public input hash
     let pi = ProtocolInstance::new(&input, &header, VerifierType::SGX)?.sgx_instance(new_instance);
     let pi_hash = pi.instance_hash();

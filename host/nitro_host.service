@@ -1,0 +1,15 @@
+[Unit]
+Description=Taiko Nitro enclave companion  
+After=network.target
+
+[Service]
+Environment="RUST_LOG=info"
+StandardOutput=file:/var/log/nitro_host.log
+StandardError=file:/var/log/nitro_host.log
+Type=simple
+Restart=always
+ExecStart=/usr/bin/raiko-host
+TimeoutSec=900
+
+[Install]
+WantedBy=multi-user.target

@@ -167,3 +167,20 @@ if [ "$1" == "sp1" ]; then
         fi
     fi
 fi
+
+# Nitro
+if [ -z "$1" ] || [ "$1" == "nitro" ]; then
+	if command -v nitro-cli >/dev/null 2>&1 && command -v docker >/dev/null 2&>1; then
+		if [ -z "${RUN}" ]; then
+			source nitro_build_and_run_debug.sh
+		else
+			echo "Building prover image"
+			docker build -f provers/nitro/nitro-prover/Dockerfile . -t raiko-prover
+
+			echo "Generating EIF enclave"
+			nitro-cli build-enclave --docker-uri raiko-prover:latest --output-file raiko-prover.eif
+		fi
+	else
+		echo "nitro-cli required for enclave creation, aborting"	
+	fi
+fi

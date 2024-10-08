@@ -26,20 +26,25 @@ concurrency:
 
 jobs:
   build-test-native:
+    if: github.event.pull_request.draft == false
     uses: ./.github/workflows/ci-native.yml
 
   build-test-risc0:
+    if: github.event.pull_request.draft == false
     uses: ./.github/workflows/ci-risc0.yml
 
   build-test-sp1:
+    if: github.event.pull_request.draft == false
     uses: ./.github/workflows/ci-sp1.yml
 
   build-test-sgx-all:
+    if: github.event.pull_request.draft == false
     uses: ./.github/workflows/ci-sgx-all.yml
 
   test-lib:
     name: Test raiko-lib
     runs-on: [taiko-runner]
+    if: github.event.pull_request.draft == false
     timeout-minutes: 60
 
     steps:

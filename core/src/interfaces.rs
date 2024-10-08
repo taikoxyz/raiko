@@ -111,6 +111,10 @@ pub enum ProofType {
     ///
     /// Uses the RISC0 prover to build the block.
     Risc0,
+    /// # Nitro
+    ///
+    /// Uses Nitro enclave prover.
+    Nitro,
 }
 
 impl std::fmt::Display for ProofType {
@@ -120,6 +124,7 @@ impl std::fmt::Display for ProofType {
             ProofType::Sp1 => "sp1",
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
+            ProofType::Nitro => "nitro",
         })
     }
 }
@@ -133,6 +138,7 @@ impl FromStr for ProofType {
             "sp1" => Ok(ProofType::Sp1),
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
+            "nitro" => Ok(ProofType::Nitro),
             _ => Err(RaikoError::InvalidProofType(s.to_string())),
         }
     }
@@ -159,6 +165,7 @@ impl From<ProofType> for VerifierType {
             ProofType::Sp1 => VerifierType::SP1,
             ProofType::Sgx => VerifierType::SGX,
             ProofType::Risc0 => VerifierType::RISC0,
+            ProofType::Nitro => VerifierType::Nitro,
         }
     }
 }
@@ -200,6 +207,12 @@ impl ProofType {
                 #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
             }
+            ProofType::Nitro => {
+                #[cfg(feature = "nitro")]
+                return nitro_prover::NitroProver::prove(input).map_err(|e| e.into());
+                #[cfg(not(feature = "nitro"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
         }
     }
 
@@ -235,6 +248,10 @@ impl ProofType {
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "sgx"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Nitro => {
+                // Nitro prover is instant and requires no cancelation
+                Ok(())
             }
         }?;
         Ok(())
@@ -312,6 +329,8 @@ pub struct ProverSpecificOpts {
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
     pub risc0: Option<Value>,
+    /// Nitro enclave specific options.
+    pub nitro: Option<Value>,
 }
 
 impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificOpts>
@@ -323,6 +342,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
             ("sgx", value.sgx.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
+            ("nitro", value.nitro.clone()),
         ]
         .into_iter()
         .filter_map(|(name, value)| value.map(|v| (name.to_string(), v)))
