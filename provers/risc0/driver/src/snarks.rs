@@ -17,7 +17,7 @@ use std::{str::FromStr, sync::Arc};
 use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
-use bonsai_sdk::alpha::responses::SnarkReceipt;
+use bonsai_sdk::blocking::Client;
 use ethers_contract::abigen;
 use ethers_core::types::H160;
 use ethers_providers::{Http, Provider, RetryClient};
@@ -86,7 +86,7 @@ pub async fn stark2snark(
     image_id: Digest,
     stark_uuid: String,
     stark_receipt: Receipt,
-) -> Result<(String, SnarkReceipt)> {
+) -> Result<(String, Receipt)> {
     info!("Submitting SNARK workload");
     // Label snark output as journal digest
     let receipt_label = format!(
@@ -106,19 +106,21 @@ pub async fn stark2snark(
         stark_uuid
     };
 
-    let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+    let client = Client::from_env(risc0_zkvm::VERSION)?;
     let snark_uuid = client.create_snark(stark_uuid)?;
 
     let snark_receipt = loop {
         let res = snark_uuid.status(&client)?;
-
         if res.status == "RUNNING" {
             info!("Current status: {} - continue polling...", res.status);
             std::thread::sleep(std::time::Duration::from_secs(15));
         } else if res.status == "SUCCEEDED" {
-            break res
+            let download_url = res
                 .output
                 .expect("Bonsai response is missing SnarkReceipt.");
+            let receipt_buf = client.download(&download_url)?;
+            let snark_receipt: Receipt = bincode::deserialize(&receipt_buf)?;
+            break snark_receipt;
         } else {
             panic!(
                 "Workflow exited: {} - | err: {}",
@@ -129,7 +131,7 @@ pub async fn stark2snark(
     };
 
     let stark_psd = stark_receipt.claim()?.as_value().unwrap().post.digest();
-    let snark_psd = Digest::try_from(snark_receipt.post_state_digest.as_slice())?;
+    let snark_psd = snark_receipt.claim()?.as_value().unwrap().post.digest();
 
     if stark_psd != snark_psd {
         error!("SNARK/STARK Post State Digest mismatch!");
@@ -137,7 +139,7 @@ pub async fn stark2snark(
         error!("SNARK: {}", hex::encode(snark_psd));
     }
 
-    if snark_receipt.journal != stark_receipt.journal.bytes {
+    if snark_receipt.journal.bytes != stark_receipt.journal.bytes {
         error!("SNARK/STARK Receipt Journal mismatch!");
         error!("STARK: {}", hex::encode(&stark_receipt.journal.bytes));
         error!("SNARK: {}", hex::encode(&snark_receipt.journal));
