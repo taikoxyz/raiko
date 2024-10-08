@@ -3,6 +3,7 @@ use crate::{
     snarks::{stark2snark, verify_groth16_snark},
     Risc0Response,
 };
+use bonsai_sdk::blocking::{Client, SessionId};
 use log::{debug, error, info, warn};
 use raiko_lib::{
     primitives::keccak::keccak,
@@ -25,7 +26,7 @@ use crate::Risc0Param;
 pub enum BonsaiExecutionError {
     // common errors: include sdk error, or some others from non-bonsai code
     #[error(transparent)]
-    SdkFailure(#[from] bonsai_sdk::alpha::SdkErr),
+    SdkFailure(#[from] bonsai_sdk::SdkErr),
     #[error("bonsai execution error: {0}")]
     Other(String),
     // critical error like OOM, which is un-recoverable
@@ -43,12 +44,12 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     max_retries: usize,
 ) -> Result<(String, Receipt), BonsaiExecutionError> {
     info!("Tracking receipt uuid: {uuid}");
-    let session = bonsai_sdk::alpha::SessionId { uuid };
+    let session = SessionId { uuid };
 
     loop {
         let mut res = None;
         for attempt in 1..=max_retries {
-            let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+            let client = Client::from_env(risc0_zkvm::VERSION)?;
 
             match session.status(&client) {
                 Ok(response) => {
@@ -81,7 +82,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             let receipt_url = res
                 .receipt_url
                 .expect("API error, missing receipt on completed session");
-            let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+            let client = Client::from_env(risc0_zkvm::VERSION)?;
             let receipt_buf = client.download(&receipt_url)?;
             let receipt: Receipt = bincode::deserialize(&receipt_buf).map_err(|e| {
                 BonsaiExecutionError::Other(format!("Failed to deserialize receipt: {e:?}"))
@@ -103,7 +104,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             }
             return Ok((session.uuid, receipt));
         } else {
-            let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+            let client = Client::from_env(risc0_zkvm::VERSION)?;
             let bonsai_err_log = session.logs(&client);
             return Err(BonsaiExecutionError::Fatal(format!(
                 "Workflow exited: {} - | err: {} | log: {:?}",
@@ -228,13 +229,13 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
 }
 
 pub async fn upload_receipt(receipt: &Receipt) -> anyhow::Result<String> {
-    let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+    let client = Client::from_env(risc0_zkvm::VERSION)?;
     Ok(client.upload_receipt(bincode::serialize(receipt)?)?)
 }
 
 pub async fn cancel_proof(uuid: String) -> anyhow::Result<()> {
-    let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
-    let session = bonsai_sdk::alpha::SessionId { uuid };
+    let client = Client::from_env(risc0_zkvm::VERSION)?;
+    let session = SessionId { uuid };
     session.stop(&client)?;
     #[cfg(feature = "bonsai-auto-scaling")]
     auto_scaling::shutdown_bonsai().await?;
@@ -257,7 +258,7 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     // Prepare input data
     let input_data = bytemuck::cast_slice(&encoded_input).to_vec();
 
-    let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
+    let client = Client::from_env(risc0_zkvm::VERSION)?;
     client.upload_img(&encoded_image_id, elf.to_vec())?;
     // upload input
     let input_id = client.upload_input(input_data.clone())?;
@@ -266,6 +267,7 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
         encoded_image_id.clone(),
         input_id.clone(),
         assumption_uuids.clone(),
+        false
     )?;
 
     if let Some(id_store) = id_store {
