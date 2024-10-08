@@ -273,7 +273,7 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
         assumption_uuids.clone(),
         false,
     )?;
-
+    info!("KV store: proofKey {proof_key:?} => session {session:?}");
     if let Some(id_store) = id_store {
         id_store
             .store_id(proof_key, session.uuid.clone())
