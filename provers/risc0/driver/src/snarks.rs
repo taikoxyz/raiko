@@ -27,6 +27,7 @@ use risc0_zkvm::{
     sha::{Digest, Digestible},
     Groth16ReceiptVerifierParameters, Receipt,
 };
+use tokio::time::{sleep as tokio_async_sleep, Duration};
 
 use tracing::{error as tracing_err, info as tracing_info};
 
@@ -86,6 +87,7 @@ pub async fn stark2snark(
     image_id: Digest,
     stark_uuid: String,
     stark_receipt: Receipt,
+    max_retries: usize,
 ) -> Result<(String, Receipt)> {
     info!("Submitting SNARK workload");
     // Label snark output as journal digest
@@ -107,13 +109,17 @@ pub async fn stark2snark(
     };
 
     let client = Client::from_env(risc0_zkvm::VERSION)?;
-    let snark_uuid = client.create_snark(stark_uuid)?;
+    let snark_uuid = client.create_snark(stark_uuid.clone())?;
 
+    let mut retry = 0;
     let snark_receipt = loop {
         let res = snark_uuid.status(&client)?;
         if res.status == "RUNNING" {
-            info!("Current status: {} - continue polling...", res.status);
-            std::thread::sleep(std::time::Duration::from_secs(15));
+            info!(
+                "Current {:?} status: {} - continue polling...",
+                &stark_uuid, res.status
+            );
+            tokio_async_sleep(Duration::from_secs(15)).await;
         } else if res.status == "SUCCEEDED" {
             let download_url = res
                 .output
@@ -122,6 +128,18 @@ pub async fn stark2snark(
             let snark_receipt: Receipt = bincode::deserialize(&receipt_buf)?;
             break snark_receipt;
         } else {
+            if retry < max_retries {
+                retry += 1;
+                info!(
+                    "Workflow {:?} exited: {} - | err: {} - retrying {}/{max_retries}",
+                    stark_uuid,
+                    res.status,
+                    res.error_msg.unwrap_or_default(),
+                    retry
+                );
+                tokio_async_sleep(Duration::from_secs(15)).await;
+                continue;
+            }
             panic!(
                 "Workflow exited: {} - | err: {}",
                 res.status,
