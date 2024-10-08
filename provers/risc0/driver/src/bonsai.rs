@@ -19,8 +19,11 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use tokio::time::{sleep as tokio_async_sleep, Duration};
 
 use crate::Risc0Param;
+
+const MAX_REQUEST_RETRY: usize = 8;
 
 #[derive(thiserror::Error, Debug)]
 pub enum BonsaiExecutionError {
@@ -61,7 +64,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
                         return Err(BonsaiExecutionError::SdkFailure(err));
                     }
                     warn!("Attempt {attempt}/{max_retries} for session status request: {err:?}");
-                    std::thread::sleep(std::time::Duration::from_secs(15));
+                    tokio_async_sleep(Duration::from_secs(15)).await;
                     continue;
                 }
             }
@@ -72,13 +75,14 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
 
         if res.status == "RUNNING" {
             info!(
-                "Current status: {} - state: {} - continue polling...",
+                "Current  {session:?} status: {} - state: {} - continue polling...",
                 res.status,
                 res.state.unwrap_or_default()
             );
-            std::thread::sleep(std::time::Duration::from_secs(15));
+            tokio_async_sleep(Duration::from_secs(15)).await;
         } else if res.status == "SUCCEEDED" {
             // Download the receipt, containing the output
+            info!("Prove task {session:?} successed.");
             let receipt_url = res
                 .receipt_url
                 .expect("API error, missing receipt on completed session");
@@ -107,7 +111,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             let client = Client::from_env(risc0_zkvm::VERSION)?;
             let bonsai_err_log = session.logs(&client);
             return Err(BonsaiExecutionError::Fatal(format!(
-                "Workflow exited: {} - | err: {} | log: {bonsai_err_log:?}",
+                "Workflow {session:?} exited: {} - | err: {} | log: {bonsai_err_log:?}",
                 res.status,
                 res.error_msg.unwrap_or_default(),
             )));
@@ -167,11 +171,11 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                     }
                     Err(BonsaiExecutionError::SdkFailure(err)) => {
                         warn!("Bonsai SDK fail: {err:?}, keep tracking...");
-                        std::thread::sleep(std::time::Duration::from_secs(15));
+                        tokio_async_sleep(Duration::from_secs(15)).await;
                     }
                     Err(BonsaiExecutionError::Other(err)) => {
                         warn!("Something wrong: {err:?}, keep tracking...");
-                        std::thread::sleep(std::time::Duration::from_secs(15));
+                        tokio_async_sleep(Duration::from_secs(15)).await;
                     }
                     Err(BonsaiExecutionError::Fatal(err)) => {
                         error!("Fatal error on Bonsai: {err:?}");
@@ -266,7 +270,7 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
         encoded_image_id.clone(),
         input_id.clone(),
         assumption_uuids.clone(),
-        false
+        false,
     )?;
 
     if let Some(id_store) = id_store {
@@ -278,7 +282,13 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
             })?;
     }
 
-    verify_bonsai_receipt(image_id, expected_output, session.uuid.clone(), 8).await
+    verify_bonsai_receipt(
+        image_id,
+        expected_output,
+        session.uuid.clone(),
+        MAX_REQUEST_RETRY,
+    )
+    .await
 }
 
 pub async fn bonsai_stark_to_snark(
@@ -288,7 +298,7 @@ pub async fn bonsai_stark_to_snark(
 ) -> ProverResult<Risc0Response> {
     let image_id = Digest::from(RISC0_GUEST_ID);
     let (snark_uuid, snark_receipt) =
-        stark2snark(image_id, stark_uuid.clone(), stark_receipt.clone())
+        stark2snark(image_id, stark_uuid, stark_receipt, MAX_REQUEST_RETRY)
             .await
             .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
 
@@ -383,8 +393,10 @@ pub fn load_receipt<T: serde::de::DeserializeOwned>(
 
 pub fn save_receipt<T: serde::Serialize>(receipt_label: &String, receipt_data: &(String, T)) {
     if !is_dev_mode() {
+        let cache_path = zkp_cache_path(receipt_label);
+        info!("Saving receipt to cache: {cache_path:?}");
         fs::write(
-            zkp_cache_path(receipt_label),
+            cache_path,
             bincode::serialize(receipt_data).expect("Failed to serialize receipt!"),
         )
         .expect("Failed to save receipt output file.");
