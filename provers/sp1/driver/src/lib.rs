@@ -283,7 +283,7 @@ impl Prover for Sp1Prover {
                 .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 proof: {e}")))?;
             match sp1_proof {
                 SP1Proof::Compressed(block_proof) => {
-                    stdin.write_proof(block_proof.into(), stark_vk.clone());
+                    stdin.write_proof(block_proof, stark_vk.clone());
                 }
                 _ => {
                     error!("unsupported proof type for aggregation: {sp1_proof:?}");
@@ -321,7 +321,7 @@ impl Prover for Sp1Prover {
             let aggregation_pi = prove_result.clone().borrow_mut().public_values.raw();
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32().to_string(),
-                public_values: reth_primitives::hex::encode_prefixed(&aggregation_pi),
+                public_values: reth_primitives::hex::encode_prefixed(aggregation_pi),
                 proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
             };
 
