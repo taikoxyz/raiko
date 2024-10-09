@@ -27,6 +27,9 @@ use std::{
 };
 use tracing::{debug, error, info};
 
+mod proof_verify;
+use proof_verify::remote_contract_verify::verify_sol_by_contract_call;
+
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
 const SP1_PROVER_CODE: u8 = 1;
@@ -187,12 +190,12 @@ impl Prover for Sp1Prover {
                 .public_values
                 .read::<[u8; 32]>();
             let fixture = RaikoProofFixture {
-                vkey: vk.bytes32().to_string(),
-                public_values: B256::from_slice(&pi_hash).to_string(),
-                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
+                vkey: vk.bytes32(),
+                public_values: pi_hash.into(),
+                proof: proof_bytes.clone(),
             };
 
-            verify_sol(&fixture)?;
+            verify_sol_by_contract_call(&fixture).await?;
             time.stop_with("==> Verification complete");
         }
 
@@ -386,7 +389,7 @@ fn init_verifier() -> Result<PathBuf, ProverError> {
 }
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RaikoProofFixture {
     vkey: String,
