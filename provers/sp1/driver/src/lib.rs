@@ -37,8 +37,8 @@ static FIXTURE_PATH: Lazy<PathBuf> =
     Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures/"));
 static CONTRACT_PATH: Lazy<PathBuf> =
     Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/exports/"));
-
 pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifier);
+
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sp1Param {
@@ -191,8 +191,8 @@ impl Prover for Sp1Prover {
                 .read::<[u8; 32]>();
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32(),
-                public_values: pi_hash.into(),
-                proof: proof_bytes.clone(),
+                public_values: B256::from_slice(&pi_hash).to_string(),
+                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
             };
 
             verify_sol_by_contract_call(&fixture).await?;
@@ -253,7 +253,6 @@ impl Prover for Sp1Prover {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
-        let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
         info!("aggregate proof with param: {param:?}");
 
@@ -269,7 +268,7 @@ impl Prover for Sp1Prover {
         let stark_vk = block_proof_vk.vk.clone();
         let image_id = block_proof_vk.hash_u32();
         let aggregation_input = ZkAggregationGuestInput {
-            image_id: image_id,
+            image_id,
             block_inputs,
         };
         info!(
@@ -343,7 +342,7 @@ impl Prover for Sp1Prover {
 
         Ok::<_, ProverError>(
             Sp1Response {
-                proof: proof,
+                proof,
                 sp1_proof: None,
                 vkey: None,
             }
