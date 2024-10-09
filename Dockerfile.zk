@@ -40,7 +40,7 @@ RUN echo "Building for sp1"
 ENV TARGET=sp1
 RUN make install
 RUN make guest
-RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0,bonsai-auto-scaling" --features "docker_build"
+RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build"
 
 RUN mkdir -p \
     ./bin \

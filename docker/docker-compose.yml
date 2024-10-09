@@ -130,10 +130,11 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
     ports:
-      - "8081:8080"
+      - "8080:8080"
     environment:
       # you can use your own PCCS host
       # - PCCS_HOST=host.docker.internal:8081
+      - RUST_LOG=${RUST_LOG:-info}
       - ZK=true
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
@@ -145,11 +146,13 @@ services:
       - NETWORK=${NETWORK}
       - BONSAI_API_KEY=${BONSAI_API_KEY}
       - BONSAI_API_URL=${BONSAI_API_URL}
-      - MAX_BONSAI_GPU_NUM=15
+      - MAX_BONSAI_GPU_NUM=300
       - GROTH16_VERIFIER_RPC_URL=${GROTH16_VERIFIER_RPC_URL}
       - GROTH16_VERIFIER_ADDRESS=${GROTH16_VERIFIER_ADDRESS}
       - SP1_PRIVATE_KEY=${SP1_PRIVATE_KEY}
       - SKIP_SIMULATION=true
+      - SP1_VERIFIER_RPC_URL=${SP1_VERIFIER_RPC_URL}
+      - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
   pccs:
     build:
       context: ..
