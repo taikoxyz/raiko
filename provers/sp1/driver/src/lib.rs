@@ -46,9 +46,11 @@ pub struct Sp1Param {
     #[serde(default = "RecursionMode::default")]
     pub recursion: RecursionMode,
     pub prover: Option<ProverMode>,
-    #[serde(default = "bool::default")]
+    #[serde(default = "DEFAULT_TRUE")]
     pub verify: bool,
 }
+
+const DEFAULT_TRUE: fn() -> bool = || true;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
