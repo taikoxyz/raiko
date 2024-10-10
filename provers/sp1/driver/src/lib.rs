@@ -12,7 +12,8 @@ use serde_with::serde_as;
 use sp1_sdk::{
     action,
     network::client::NetworkClient,
-    proto::network::{ProofMode, UnclaimReason},
+    network::proto::network::{ProofMode, UnclaimReason},
+    NetworkProverV1 as NetworkProver,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::{borrow::BorrowMut, env};
@@ -123,7 +124,7 @@ impl Prover for Sp1Prover {
             .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {}", e)))
             .unwrap()
         } else {
-            let network_prover = sp1_sdk::NetworkProver::new();
+            let network_prover = NetworkProver::new();
 
             let proof_id = network_prover
                 .request_proof(ELF, stdin, param.recursion.clone().into())
