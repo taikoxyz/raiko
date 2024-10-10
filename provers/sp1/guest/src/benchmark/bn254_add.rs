@@ -17,11 +17,11 @@ fn main() {
     ]);
 
     let op = Sp1Operator {};
-    
+
     let ct = CycleTracker::start("bn128_run_add");
     let res = op.bn128_run_add(&input).unwrap();
     ct.end();
-    
+
     let hi = res[..32].to_vec();
     let lo = res[32..].to_vec();
 

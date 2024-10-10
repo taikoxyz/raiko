@@ -121,12 +121,12 @@ impl From<HostError> for TaskStatus {
             | HostError::JoinHandle(_)
             | HostError::InvalidAddress(_)
             | HostError::InvalidRequestConfig(_) => unreachable!(),
-            HostError::Conversion(_)
-            | HostError::Serde(_)
-            | HostError::Core(_)
-            | HostError::Anyhow(_)
-            | HostError::FeatureNotSupportedError(_)
-            | HostError::Io(_) => TaskStatus::UnspecifiedFailureReason,
+            HostError::Conversion(e) => TaskStatus::NonDbFailure(e),
+            HostError::Serde(e) => TaskStatus::NonDbFailure(e.to_string()),
+            HostError::Core(e) => TaskStatus::NonDbFailure(e.to_string()),
+            HostError::Anyhow(e) => TaskStatus::NonDbFailure(e.to_string()),
+            HostError::FeatureNotSupportedError(e) => TaskStatus::NonDbFailure(e.to_string()),
+            HostError::Io(e) => TaskStatus::NonDbFailure(e.to_string()),
             HostError::RPC(_) => TaskStatus::NetworkFailure,
             HostError::Guest(_) => TaskStatus::ProofFailure_Generic,
             HostError::TaskManager(_) => TaskStatus::SqlDbCorruption,
@@ -142,12 +142,12 @@ impl From<&HostError> for TaskStatus {
             | HostError::JoinHandle(_)
             | HostError::InvalidAddress(_)
             | HostError::InvalidRequestConfig(_) => unreachable!(),
-            HostError::Conversion(_)
-            | HostError::Serde(_)
-            | HostError::Core(_)
-            | HostError::Anyhow(_)
-            | HostError::FeatureNotSupportedError(_)
-            | HostError::Io(_) => TaskStatus::UnspecifiedFailureReason,
+            HostError::Conversion(e) => TaskStatus::NonDbFailure(e.to_owned()),
+            HostError::Serde(e) => TaskStatus::NonDbFailure(e.to_string()),
+            HostError::Core(e) => TaskStatus::NonDbFailure(e.to_string()),
+            HostError::Anyhow(e) => TaskStatus::NonDbFailure(e.to_string()),
+            HostError::FeatureNotSupportedError(e) => TaskStatus::NonDbFailure(e.to_string()),
+            HostError::Io(e) => TaskStatus::NonDbFailure(e.to_string()),
             HostError::RPC(_) => TaskStatus::NetworkFailure,
             HostError::Guest(_) => TaskStatus::ProofFailure_Generic,
             HostError::TaskManager(_) => TaskStatus::SqlDbCorruption,

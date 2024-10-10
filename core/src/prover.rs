@@ -58,13 +58,27 @@ impl Prover for NativeProver {
         }
 
         Ok(Proof {
+            input: None,
             proof: None,
             quote: None,
+            uuid: None,
+            kzg_proof: None,
         })
     }
 
     async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
+    }
+
+    async fn aggregate(
+        _input: raiko_lib::input::AggregationGuestInput,
+        _output: &raiko_lib::input::AggregationGuestOutput,
+        _config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        Ok(Proof {
+            ..Default::default()
+        })
     }
 }
 

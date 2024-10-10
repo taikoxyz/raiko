@@ -1,15 +1,16 @@
 use crate::{
     methods::risc0_guest::RISC0_GUEST_ID,
-    snarks::{stark2snark, verify_groth16_snark},
+    snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
 };
+use alloy_primitives::B256;
 use log::{debug, error, info, warn};
 use raiko_lib::{
     primitives::keccak::keccak,
     prover::{IdWrite, ProofKey, ProverError, ProverResult},
 };
 use risc0_zkvm::{
-    compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, Assumption, ExecutorEnv,
+    compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, AssumptionReceipt, ExecutorEnv,
     ExecutorImpl, Receipt,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -106,10 +107,9 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
             let bonsai_err_log = session.logs(&client);
             return Err(BonsaiExecutionError::Fatal(format!(
-                "Workflow exited: {} - | err: {} | log: {:?}",
+                "Workflow exited: {} - | err: {} | log: {bonsai_err_log:?}",
                 res.status,
                 res.error_msg.unwrap_or_default(),
-                bonsai_err_log
             )));
         }
     }
@@ -120,7 +120,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     encoded_input: Vec<u32>,
     elf: &[u8],
     expected_output: &O,
-    assumptions: (Vec<Assumption>, Vec<String>),
+    assumptions: (Vec<impl Into<AssumptionReceipt>>, Vec<String>),
     proof_key: ProofKey,
     id_store: &mut Option<&mut dyn IdWrite>,
 ) -> Option<(String, Receipt)> {
@@ -283,20 +283,27 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
 pub async fn bonsai_stark_to_snark(
     stark_uuid: String,
     stark_receipt: Receipt,
+    input: B256,
 ) -> ProverResult<Risc0Response> {
     let image_id = Digest::from(RISC0_GUEST_ID);
-    let (snark_uuid, snark_receipt) = stark2snark(image_id, stark_uuid, stark_receipt)
-        .await
-        .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
+    let (snark_uuid, snark_receipt) =
+        stark2snark(image_id, stark_uuid.clone(), stark_receipt.clone())
+            .await
+            .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
 
     info!("Validating SNARK uuid: {snark_uuid}");
 
-    let enc_proof = verify_groth16_snark(image_id, snark_receipt)
+    let enc_proof = verify_groth16_from_snark_receipt(image_id, snark_receipt)
         .await
         .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
 
     let snark_proof = format!("0x{}", hex::encode(enc_proof));
-    Ok(Risc0Response { proof: snark_proof })
+    Ok(Risc0Response {
+        proof: snark_proof,
+        receipt: serde_json::to_string(&stark_receipt).unwrap(),
+        uuid: stark_uuid,
+        input,
+    })
 }
 
 /// Prove the given ELF locally with the given input and assumptions. The segments are
@@ -305,7 +312,7 @@ pub fn prove_locally(
     segment_limit_po2: u32,
     encoded_input: Vec<u32>,
     elf: &[u8],
-    assumptions: Vec<Assumption>,
+    assumptions: Vec<impl Into<AssumptionReceipt>>,
     profile: bool,
 ) -> ProverResult<Receipt> {
     debug!("Proving with segment_limit_po2 = {segment_limit_po2:?}");

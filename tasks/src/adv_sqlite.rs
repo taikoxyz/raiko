@@ -159,6 +159,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::{
     primitives::B256,
     prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult},
@@ -575,7 +576,7 @@ impl TaskDb {
             ":blockhash": blockhash.to_vec(),
             ":proofsys_id": proof_system as u8,
             ":prover": prover,
-            ":status_id": status as i32,
+            ":status_id": i32::from(status),
             ":proof": proof.map(hex::encode)
         })?;
 
@@ -942,6 +943,36 @@ impl TaskManager for SqliteTaskManager {
     async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
         let task_db = self.arc_task_db.lock().await;
         task_db.list_stored_ids()
+    }
+
+    async fn enqueue_aggregation_task(
+        &mut self,
+        _request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<()> {
+        todo!()
+    }
+
+    async fn get_aggregation_task_proving_status(
+        &mut self,
+        _request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        todo!()
+    }
+
+    async fn update_aggregation_task_progress(
+        &mut self,
+        _request: &AggregationOnlyRequest,
+        _status: TaskStatus,
+        _proof: Option<&[u8]>,
+    ) -> TaskManagerResult<()> {
+        todo!()
+    }
+
+    async fn get_aggregation_task_proof(
+        &mut self,
+        _request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<Vec<u8>> {
+        todo!()
     }
 }
 

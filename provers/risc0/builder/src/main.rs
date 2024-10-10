@@ -5,7 +5,10 @@ use std::path::PathBuf;
 
 fn main() {
     let pipeline = Risc0Pipeline::new("provers/risc0/guest", "release");
-    pipeline.bins(&["risc0-guest"], "provers/risc0/driver/src/methods");
+    pipeline.bins(
+        &["risc0-guest", "risc0-aggregation"],
+        "provers/risc0/driver/src/methods",
+    );
     #[cfg(feature = "test")]
     pipeline.tests(&["risc0-guest"], "provers/risc0/driver/src/methods");
     #[cfg(feature = "bench")]

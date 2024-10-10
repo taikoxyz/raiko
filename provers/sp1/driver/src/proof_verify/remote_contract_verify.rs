@@ -32,13 +32,11 @@ pub(crate) async fn verify_sol_by_contract_call(fixture: &RaikoProofFixture) -> 
 
     let provider = ProviderBuilder::new().on_http(Url::parse(&sp1_verifier_rpc_url).unwrap());
     let program_key: B256 = B256::from_str(&fixture.vkey).unwrap();
-    let public_value = fixture.public_values;
+    let public_value = fixture.public_values.clone();
     let proof_bytes = fixture.proof.clone();
 
     info!(
-        "verify sp1 proof with program key: {:?} public value: {:?} proof: {:?}",
-        program_key,
-        public_value,
+        "verify sp1 proof with program key: {program_key:?} public value: {public_value:?} proof: {:?}",
         reth_primitives::hex::encode(&proof_bytes)
     );
 
@@ -50,7 +48,7 @@ pub(crate) async fn verify_sol_by_contract_call(fixture: &RaikoProofFixture) -> 
     if verify_call_res.is_ok() {
         info!("SP1 proof verified successfully using {sp1_verifier_addr:?}!");
     } else {
-        error!("SP1 proof verification failed: {:?}!", verify_call_res);
+        error!("SP1 proof verification failed: {verify_call_res:?}!");
     }
 
     Ok(())
