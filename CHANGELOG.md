@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0](https://github.com/taikoxyz/raiko/compare/v1.2.0...v1.3.0) (2024-10-10)
+
+
+### Features
+
+* **core,host:** initial aggregation API ([#375](https://github.com/taikoxyz/raiko/issues/375)) ([eb4d032](https://github.com/taikoxyz/raiko/commit/eb4d032abf7c55d3d1d498b8f08a00250fe0a14a))
+* **docs:** update docs for 1.2.0 ([#382](https://github.com/taikoxyz/raiko/issues/382)) ([f33d211](https://github.com/taikoxyz/raiko/commit/f33d2119a66864bb34ca915349c06f6e950c94ce))
+* **raiko:** use simple contract to verify sp1 proof ([#381](https://github.com/taikoxyz/raiko/issues/381)) ([8ad5a6f](https://github.com/taikoxyz/raiko/commit/8ad5a6f1e73ad57183e353b18649baa977752206))
+
+
+### Bug Fixes
+
+* add cgroup&mountinfo for docker env ([#383](https://github.com/taikoxyz/raiko/issues/383)) ([7e61432](https://github.com/taikoxyz/raiko/commit/7e614326b199d350c24f83dd27ac08d878f105cb))
+* **raiko:** add build flags to docker image build script ([#379](https://github.com/taikoxyz/raiko/issues/379)) ([2ee7d2a](https://github.com/taikoxyz/raiko/commit/2ee7d2ac1762f088c06df80d187dcfc00cfba882))
+
 ## [1.2.0](https://github.com/taikoxyz/raiko/compare/v1.1.0...v1.2.0) (2024-09-20)
 
 
