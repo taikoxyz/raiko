@@ -95,15 +95,18 @@ impl ProofActor {
     pub async fn run_task(&mut self, proof_request: ProofRequest) {
         let cancel_token = CancellationToken::new();
 
-        let Ok((chain_id, blockhash)) = get_task_data(
+        let (chain_id, blockhash) = match get_task_data(
             &proof_request.network,
             proof_request.block_number,
             &self.chain_specs,
         )
         .await
-        else {
-            error!("Could not get task data for {proof_request:?}");
-            return;
+        {
+            Ok(v) => v,
+            Err(e) => {
+                error!("Could not get task data for {proof_request:?}, error: {e}");
+                return;
+            }
         };
 
         let key = TaskDescriptor::from((
