@@ -157,17 +157,43 @@ pub async fn verify_groth16_from_snark_receipt(
     let seal = encode(snark_receipt.snark.to_vec())?;
     let journal_digest = snark_receipt.journal.digest();
     let post_state_digest = snark_receipt.post_state_digest.digest();
-    verify_groth16_snark_impl(image_id, seal, journal_digest, post_state_digest).await
+    let encoded_proof =
+        verify_groth16_snark_impl(image_id, seal, journal_digest, post_state_digest).await?;
+    let proof = (encoded_proof, B256::from_slice(image_id.as_bytes()))
+        .abi_encode()
+        .iter()
+        .skip(32)
+        .copied()
+        .collect();
+    Ok(proof)
 }
 
-pub async fn verify_groth16_snark_from_receipt(
-    image_id: Digest,
+pub async fn verify_aggregation_groth16_proof(
+    block_proof_image_id: Digest,
+    aggregation_image_id: Digest,
     receipt: Receipt,
 ) -> Result<Vec<u8>> {
     let seal = receipt.inner.groth16().unwrap().seal.clone();
     let journal_digest = receipt.journal.digest();
     let post_state_digest = receipt.claim()?.as_value().unwrap().post.digest();
-    verify_groth16_snark_impl(image_id, seal, journal_digest, post_state_digest).await
+    let encoded_proof = verify_groth16_snark_impl(
+        aggregation_image_id,
+        seal,
+        journal_digest,
+        post_state_digest,
+    )
+    .await?;
+    let proof = (
+        encoded_proof,
+        B256::from_slice(block_proof_image_id.as_bytes()),
+        B256::from_slice(aggregation_image_id.as_bytes()),
+    )
+        .abi_encode()
+        .iter()
+        .skip(32)
+        .copied()
+        .collect();
+    Ok(proof)
 }
 
 pub async fn verify_groth16_snark_impl(
@@ -209,14 +235,5 @@ pub async fn verify_groth16_snark_impl(
         tracing_err!("SNARK verification failed: {verify_call_res:?}!");
     }
 
-    Ok(make_risc0_groth16_proof(enc_seal, image_id))
-}
-
-pub fn make_risc0_groth16_proof(seal: Vec<u8>, image_id: Digest) -> Vec<u8> {
-    (seal, B256::from_slice(image_id.as_bytes()))
-        .abi_encode()
-        .iter()
-        .skip(32)
-        .copied()
-        .collect()
+    Ok(enc_seal)
 }
