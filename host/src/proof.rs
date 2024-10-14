@@ -261,7 +261,7 @@ impl ProofActor {
                     );
                     let mut pending_tasks = self.pending_tasks.lock().await;
                     if let Some(proof_request) = pending_tasks.pop_front() {
-                        info!("Pop out pending task {:?}", proof_request);
+                        info!("Pop out pending task {proof_request:?}");
                         self.sender
                             .send(Message::Task(proof_request))
                             .await
