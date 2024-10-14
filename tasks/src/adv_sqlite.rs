@@ -170,8 +170,8 @@ use rusqlite::{
 use tokio::sync::Mutex;
 
 use crate::{
-    TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    AggregationTaskReport, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
+    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 // Types
@@ -972,6 +972,16 @@ impl TaskManager for SqliteTaskManager {
         &mut self,
         _request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<Vec<u8>> {
+        todo!()
+    }
+
+    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()> {
+        todo!()
+    }
+
+    async fn list_all_aggregation_tasks(
+        &mut self,
+    ) -> TaskManagerResult<Vec<AggregationTaskReport>> {
         todo!()
     }
 }

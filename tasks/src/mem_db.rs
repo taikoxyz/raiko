@@ -19,8 +19,8 @@ use tokio::sync::Mutex;
 use tracing::{debug, info};
 
 use crate::{
-    ensure, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatusRecords, TaskReport, TaskStatus,
+    ensure, AggregationTaskReport, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
+    TaskManagerResult, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 #[derive(Debug)]
@@ -235,6 +235,23 @@ impl InMemoryTaskDb {
         hex::decode(proof)
             .map_err(|_| TaskManagerError::SqlError("couldn't decode from hex".to_owned()))
     }
+
+    fn prune_aggregation(&mut self) -> TaskManagerResult<()> {
+        self.aggregation_tasks_queue.clear();
+        Ok(())
+    }
+
+    fn list_all_aggregation_tasks(&mut self) -> TaskManagerResult<Vec<AggregationTaskReport>> {
+        Ok(self
+            .aggregation_tasks_queue
+            .iter()
+            .flat_map(|(request, statuses)| {
+                statuses
+                    .last()
+                    .map(|status| (request.clone(), status.0.clone()))
+            })
+            .collect())
+    }
 }
 
 #[async_trait::async_trait]
@@ -371,6 +388,18 @@ impl TaskManager for InMemoryTaskManager {
     ) -> TaskManagerResult<Vec<u8>> {
         let mut db = self.db.lock().await;
         db.get_aggregation_task_proof(request)
+    }
+
+    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()> {
+        let mut db = self.db.lock().await;
+        db.prune_aggregation()
+    }
+
+    async fn list_all_aggregation_tasks(
+        &mut self,
+    ) -> TaskManagerResult<Vec<AggregationTaskReport>> {
+        let mut db = self.db.lock().await;
+        db.list_all_aggregation_tasks()
     }
 }
 
