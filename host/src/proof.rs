@@ -231,7 +231,7 @@ impl ProofActor {
         while let Some(message) = self.receiver.recv().await {
             match message {
                 Message::Cancel(key) => {
-                    debug!("Message::Cancel task: {:?}", key);
+                    debug!("Message::Cancel task: {key:?}");
                     if let Err(error) = self.cancel_task(key).await {
                         error!("Failed to cancel task: {error}")
                     }
