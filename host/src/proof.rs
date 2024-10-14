@@ -237,7 +237,7 @@ impl ProofActor {
                     }
                 }
                 Message::Task(proof_request) => {
-                    debug!("Message::Task proof_request: {:?}", proof_request);
+                    debug!("Message::Task proof_request: {proof_request:?}");
                     let running_task_count = self.running_tasks.lock().await.len();
                     if running_task_count < self.opts.concurrency_limit {
                         info!("Running task {:?}", proof_request);
