@@ -18,6 +18,7 @@ use crate::ProverState;
 
 pub mod v1;
 pub mod v2;
+pub mod v3;
 
 pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Router<ProverState> {
     let cors = CorsLayer::new()
@@ -37,11 +38,13 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
 
     let v1_api = v1::create_router(concurrency_limit);
     let v2_api = v2::create_router();
+    let v3_api = v3::create_router();
 
     let router = Router::new()
         .nest("/v1", v1_api)
-        .nest("/v2", v2_api.clone())
-        .merge(v2_api)
+        .nest("/v2", v2_api)
+        .nest("/v3", v3_api.clone())
+        .merge(v3_api)
         .layer(middleware)
         .layer(middleware::from_fn(check_max_body_size))
         .layer(trace)
@@ -58,7 +61,7 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
 }
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    v2::create_docs()
+    v3::create_docs()
 }
 
 async fn check_max_body_size(req: Request, next: Next) -> Response {

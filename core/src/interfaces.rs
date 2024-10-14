@@ -3,13 +3,15 @@ use alloy_primitives::{Address, B256};
 use clap::{Args, ValueEnum};
 use raiko_lib::{
     consts::VerifierType,
-    input::{BlobProofType, GuestInput, GuestOutput},
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestInput, GuestOutput,
+    },
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
-use std::{collections::HashMap, path::Path, str::FromStr};
+use std::{collections::HashMap, fmt::Display, path::Path, str::FromStr};
 use utoipa::ToSchema;
 
 #[derive(Debug, thiserror::Error, ToSchema)]
@@ -203,6 +205,47 @@ impl ProofType {
         }
     }
 
+    /// Run the prover driver depending on the proof type.
+    pub async fn aggregate_proofs(
+        &self,
+        input: AggregationGuestInput,
+        output: &AggregationGuestOutput,
+        config: &Value,
+        store: Option<&mut dyn IdWrite>,
+    ) -> RaikoResult<Proof> {
+        let proof = match self {
+            ProofType::Native => NativeProver::aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(<ProverError as Into<RaikoError>>::into),
+            ProofType::Sp1 => {
+                #[cfg(feature = "sp1")]
+                return sp1_driver::Sp1Prover::aggregate(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sp1"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Risc0 => {
+                #[cfg(feature = "risc0")]
+                return risc0_driver::Risc0Prover::aggregate(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "risc0"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Sgx => {
+                #[cfg(feature = "sgx")]
+                return sgx_prover::SgxProver::aggregate(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "sgx"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+        }?;
+
+        Ok(proof)
+    }
+
     pub async fn cancel_proof(
         &self,
         proof_key: ProofKey,
@@ -302,7 +345,7 @@ pub struct ProofRequestOpt {
     pub prover_args: ProverSpecificOpts,
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args, PartialEq, Eq, Hash)]
 pub struct ProverSpecificOpts {
     /// Native prover specific options.
     pub native: Option<Value>,
@@ -396,5 +439,125 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 })?,
             prover_args: value.prover_args.into(),
         })
+    }
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
+#[serde(default)]
+/// A request for proof aggregation of multiple proofs.
+pub struct AggregationRequest {
+    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
+    pub block_numbers: Vec<(u64, Option<u64>)>,
+    /// The network to generate the proof for.
+    pub network: Option<String>,
+    /// The L1 network to generate the proof for.
+    pub l1_network: Option<String>,
+    // Graffiti.
+    pub graffiti: Option<String>,
+    /// The protocol instance data.
+    pub prover: Option<String>,
+    /// The proof type.
+    pub proof_type: Option<String>,
+    /// Blob proof type.
+    pub blob_proof_type: Option<String>,
+    #[serde(flatten)]
+    /// Any additional prover params in JSON format.
+    pub prover_args: ProverSpecificOpts,
+}
+
+impl AggregationRequest {
+    /// Merge proof request options into aggregation request options.
+    pub fn merge(&mut self, opts: &ProofRequestOpt) -> RaikoResult<()> {
+        let this = serde_json::to_value(&self)?;
+        let mut opts = serde_json::to_value(opts)?;
+        merge(&mut opts, &this);
+        *self = serde_json::from_value(opts)?;
+        Ok(())
+    }
+}
+
+impl From<AggregationRequest> for Vec<ProofRequestOpt> {
+    fn from(value: AggregationRequest) -> Self {
+        value
+            .block_numbers
+            .iter()
+            .map(
+                |&(block_number, l1_inclusion_block_number)| ProofRequestOpt {
+                    block_number: Some(block_number),
+                    l1_inclusion_block_number,
+                    network: value.network.clone(),
+                    l1_network: value.l1_network.clone(),
+                    graffiti: value.graffiti.clone(),
+                    prover: value.prover.clone(),
+                    proof_type: value.proof_type.clone(),
+                    blob_proof_type: value.blob_proof_type.clone(),
+                    prover_args: value.prover_args.clone(),
+                },
+            )
+            .collect()
+    }
+}
+
+impl From<ProofRequestOpt> for AggregationRequest {
+    fn from(value: ProofRequestOpt) -> Self {
+        let block_numbers = if let Some(block_number) = value.block_number {
+            vec![(block_number, value.l1_inclusion_block_number)]
+        } else {
+            vec![]
+        };
+
+        Self {
+            block_numbers,
+            network: value.network,
+            l1_network: value.l1_network,
+            graffiti: value.graffiti,
+            prover: value.prover,
+            proof_type: value.proof_type,
+            blob_proof_type: value.blob_proof_type,
+            prover_args: value.prover_args,
+        }
+    }
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq, Eq, Hash)]
+#[serde(default)]
+/// A request for proof aggregation of multiple proofs.
+pub struct AggregationOnlyRequest {
+    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
+    pub proofs: Vec<Proof>,
+    /// The proof type.
+    pub proof_type: Option<String>,
+    #[serde(flatten)]
+    /// Any additional prover params in JSON format.
+    pub prover_args: ProverSpecificOpts,
+}
+
+impl Display for AggregationOnlyRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!(
+            "AggregationOnlyRequest {{ {:?}, {:?} }}",
+            self.proof_type, self.prover_args
+        ))
+    }
+}
+
+impl From<(AggregationRequest, Vec<Proof>)> for AggregationOnlyRequest {
+    fn from((request, proofs): (AggregationRequest, Vec<Proof>)) -> Self {
+        Self {
+            proofs,
+            proof_type: request.proof_type,
+            prover_args: request.prover_args,
+        }
+    }
+}
+
+impl AggregationOnlyRequest {
+    /// Merge proof request options into aggregation request options.
+    pub fn merge(&mut self, opts: &ProofRequestOpt) -> RaikoResult<()> {
+        let this = serde_json::to_value(&self)?;
+        let mut opts = serde_json::to_value(opts)?;
+        merge(&mut opts, &this);
+        *self = serde_json::from_value(opts)?;
+        Ok(())
     }
 }

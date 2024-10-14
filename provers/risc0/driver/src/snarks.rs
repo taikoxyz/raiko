@@ -30,7 +30,7 @@ use risc0_zkvm::{
 
 use tracing::{error as tracing_err, info as tracing_info};
 
-use crate::save_receipt;
+use crate::bonsai::save_receipt;
 
 sol!(
     /// A Groth16 seal over the claimed receipt claim.
@@ -150,9 +150,31 @@ pub async fn stark2snark(
     Ok(snark_data)
 }
 
-pub async fn verify_groth16_snark(
+pub async fn verify_groth16_from_snark_receipt(
     image_id: Digest,
     snark_receipt: SnarkReceipt,
+) -> Result<Vec<u8>> {
+    let seal = encode(snark_receipt.snark.to_vec())?;
+    let journal_digest = snark_receipt.journal.digest();
+    let post_state_digest = snark_receipt.post_state_digest.digest();
+    verify_groth16_snark_impl(image_id, seal, journal_digest, post_state_digest).await
+}
+
+pub async fn verify_groth16_snark_from_receipt(
+    image_id: Digest,
+    receipt: Receipt,
+) -> Result<Vec<u8>> {
+    let seal = receipt.inner.groth16().unwrap().seal.clone();
+    let journal_digest = receipt.journal.digest();
+    let post_state_digest = receipt.claim()?.as_value().unwrap().post.digest();
+    verify_groth16_snark_impl(image_id, seal, journal_digest, post_state_digest).await
+}
+
+pub async fn verify_groth16_snark_impl(
+    image_id: Digest,
+    seal: Vec<u8>,
+    journal_digest: Digest,
+    post_state_digest: Digest,
 ) -> Result<Vec<u8>> {
     let verifier_rpc_url =
         std::env::var("GROTH16_VERIFIER_RPC_URL").expect("env GROTH16_VERIFIER_RPC_URL");
@@ -167,19 +189,15 @@ pub async fn verify_groth16_snark(
         500,
     )?);
 
-    let seal = encode(snark_receipt.snark.to_vec())?;
-    let journal_digest = snark_receipt.journal.digest();
+    let enc_seal = encode(seal)?;
     tracing_info!("Verifying SNARK:");
-    tracing_info!("Seal: {}", hex::encode(&seal));
+    tracing_info!("Seal: {}", hex::encode(&enc_seal));
     tracing_info!("Image ID: {}", hex::encode(image_id.as_bytes()));
-    tracing_info!(
-        "Post State Digest: {}",
-        hex::encode(&snark_receipt.post_state_digest)
-    );
+    tracing_info!("Post State Digest: {}", hex::encode(&post_state_digest));
     tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
     let verify_call_res = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
         .verify(
-            seal.clone().into(),
+            enc_seal.clone().into(),
             image_id.as_bytes().try_into().unwrap(),
             journal_digest.into(),
         )
@@ -188,13 +206,17 @@ pub async fn verify_groth16_snark(
     if verify_call_res.is_ok() {
         tracing_info!("SNARK verified successfully using {groth16_verifier_addr:?}!");
     } else {
-        tracing_err!("SNARK verification failed: {:?}!", verify_call_res);
+        tracing_err!("SNARK verification failed: {verify_call_res:?}!");
     }
 
-    Ok((seal, B256::from_slice(image_id.as_bytes()))
+    Ok(make_risc0_groth16_proof(enc_seal, image_id))
+}
+
+pub fn make_risc0_groth16_proof(seal: Vec<u8>, image_id: Digest) -> Vec<u8> {
+    (seal, B256::from_slice(image_id.as_bytes()))
         .abi_encode()
         .iter()
         .skip(32)
         .copied()
-        .collect())
+        .collect()
 }

@@ -1,19 +1,23 @@
 use std::{
     collections::{HashMap, VecDeque},
+    str::FromStr,
     sync::Arc,
 };
 
+use anyhow::anyhow;
 use raiko_core::{
-    interfaces::{ProofRequest, RaikoError},
+    interfaces::{AggregationOnlyRequest, ProofRequest, ProofType, RaikoError},
     provider::{get_task_data, rpc::RpcBlockDataProvider},
     Raiko,
 };
 use raiko_lib::{
     consts::SupportedChainSpecs,
+    input::{AggregationGuestInput, AggregationGuestOutput},
     prover::{IdWrite, Proof},
     Measurement,
 };
 use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskManagerWrapper, TaskStatus};
+use reth_primitives::B256;
 use tokio::{
     select,
     sync::{
@@ -38,6 +42,7 @@ use crate::{
 pub struct ProofActor {
     opts: Opts,
     chain_specs: SupportedChainSpecs,
+    aggregate_tasks: Arc<Mutex<HashMap<AggregationOnlyRequest, CancellationToken>>>,
     running_tasks: Arc<Mutex<HashMap<TaskDescriptor, CancellationToken>>>,
     pending_tasks: Arc<Mutex<VecDeque<ProofRequest>>>,
     receiver: Receiver<Message>,
@@ -55,10 +60,15 @@ impl ProofActor {
             HashMap::<TaskDescriptor, CancellationToken>::new(),
         ));
         let pending_tasks = Arc::new(Mutex::new(VecDeque::<ProofRequest>::new()));
+        let aggregate_tasks = Arc::new(Mutex::new(HashMap::<
+            AggregationOnlyRequest,
+            CancellationToken,
+        >::new()));
 
         Self {
             opts,
             chain_specs,
+            aggregate_tasks,
             running_tasks,
             pending_tasks,
             receiver,
@@ -147,6 +157,74 @@ impl ProofActor {
         });
     }
 
+    pub async fn cancel_aggregation_task(
+        &mut self,
+        request: AggregationOnlyRequest,
+    ) -> HostResult<()> {
+        let tasks_map = self.aggregate_tasks.lock().await;
+        let Some(task) = tasks_map.get(&request) else {
+            warn!("No task with those keys to cancel");
+            return Ok(());
+        };
+
+        // TODO:(petar) implement cancel_proof_aggregation
+        // let mut manager = get_task_manager(&self.opts.clone().into());
+        // let proof_type = ProofType::from_str(
+        //     request
+        //         .proof_type
+        //         .as_ref()
+        //         .ok_or_else(|| anyhow!("No proof type"))?,
+        // )?;
+        // proof_type
+        //     .cancel_proof_aggregation(request, Box::new(&mut manager))
+        //     .await
+        //     .or_else(|e| {
+        //         if e.to_string().contains("No data for query") {
+        //             warn!("Task already cancelled or not yet started!");
+        //             Ok(())
+        //         } else {
+        //             Err::<(), HostError>(e.into())
+        //         }
+        //     })?;
+        task.cancel();
+        Ok(())
+    }
+
+    pub async fn run_aggregate(
+        &mut self,
+        request: AggregationOnlyRequest,
+        _permit: OwnedSemaphorePermit,
+    ) {
+        let cancel_token = CancellationToken::new();
+
+        let mut tasks = self.aggregate_tasks.lock().await;
+        tasks.insert(request.clone(), cancel_token.clone());
+
+        let request_clone = request.clone();
+        let tasks = self.aggregate_tasks.clone();
+        let opts = self.opts.clone();
+
+        tokio::spawn(async move {
+            select! {
+                _ = cancel_token.cancelled() => {
+                    info!("Task cancelled");
+                }
+                result = Self::handle_aggregate(request_clone, &opts) => {
+                    match result {
+                        Ok(()) => {
+                            info!("Host handling message");
+                        }
+                        Err(error) => {
+                            error!("Worker failed due to: {error:?}");
+                        }
+                    };
+                }
+            }
+            let mut tasks = tasks.lock().await;
+            tasks.remove(&request);
+        });
+    }
+
     pub async fn run(&mut self) {
         // recv() is protected by outside mpsc, no lock needed here
         while let Some(message) = self.receiver.recv().await {
@@ -190,6 +268,18 @@ impl ProofActor {
                             .expect("Couldn't send message");
                     }
                 }
+                Message::CancelAggregate(request) => {
+                    if let Err(error) = self.cancel_aggregation_task(request).await {
+                        error!("Failed to cancel task: {error}")
+                    }
+                }
+                Message::Aggregate(request) => {
+                    let permit = Arc::clone(&semaphore)
+                        .acquire_owned()
+                        .await
+                        .expect("Couldn't acquire permit");
+                    self.run_aggregate(request, permit).await;
+                }
             }
         }
     }
@@ -206,7 +296,7 @@ impl ProofActor {
 
         if let Some(latest_status) = status.iter().last() {
             if !matches!(latest_status.0, TaskStatus::Registered) {
-                return Ok(latest_status.0);
+                return Ok(latest_status.0.clone());
             }
         }
 
@@ -224,10 +314,57 @@ impl ProofActor {
             };
 
         manager
-            .update_task_progress(key, status, proof.as_deref())
+            .update_task_progress(key, status.clone(), proof.as_deref())
             .await
             .map_err(HostError::from)?;
         Ok(status)
+    }
+
+    pub async fn handle_aggregate(request: AggregationOnlyRequest, opts: &Opts) -> HostResult<()> {
+        let mut manager = get_task_manager(&opts.clone().into());
+
+        let status = manager
+            .get_aggregation_task_proving_status(&request)
+            .await?;
+
+        if let Some(latest_status) = status.iter().last() {
+            if !matches!(latest_status.0, TaskStatus::Registered) {
+                return Ok(());
+            }
+        }
+
+        manager
+            .update_aggregation_task_progress(&request, TaskStatus::WorkInProgress, None)
+            .await?;
+        let proof_type = ProofType::from_str(
+            request
+                .proof_type
+                .as_ref()
+                .ok_or_else(|| anyhow!("No proof type"))?,
+        )?;
+        let input = AggregationGuestInput {
+            proofs: request.clone().proofs,
+        };
+        let output = AggregationGuestOutput { hash: B256::ZERO };
+        let config = serde_json::to_value(request.clone().prover_args)?;
+        let mut manager = get_task_manager(&opts.clone().into());
+
+        let (status, proof) = match proof_type
+            .aggregate_proofs(input, &output, &config, Some(&mut manager))
+            .await
+        {
+            Err(error) => {
+                error!("{error}");
+                (HostError::from(error).into(), None)
+            }
+            Ok(proof) => (TaskStatus::Success, Some(serde_json::to_vec(&proof)?)),
+        };
+
+        manager
+            .update_aggregation_task_progress(&request, status, proof.as_deref())
+            .await?;
+
+        Ok(())
     }
 }
 

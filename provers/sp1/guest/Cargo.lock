@@ -3504,7 +3504,7 @@ dependencies = [
  "size",
  "snowbridge-amcl",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 1.1.1",
  "static_assertions",
  "strum",
  "strum_macros",
@@ -3549,8 +3549,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "1.2.0-rc1"
-source = "git+https://github.com/succinctlabs/sp1?branch=dev#e8efd0019c8be52c6c4cecfea6259ab90db4148a"
+version = "1.2.0-rc2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b85660c40c7b40a65c706816d9157ef1b084099a80275c9b4d650f53067e667f"
 dependencies = [
  "anyhow",
  "bincode",
@@ -3562,9 +3563,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "1.2.0-rc2"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b85660c40c7b40a65c706816d9157ef1b084099a80275c9b4d650f53067e667f"
+checksum = "413956de14568d7fb462213b9505ad4607d75c875301b9eca567cfb2e58eaac1"
 dependencies = [
  "anyhow",
  "bincode",
@@ -3589,9 +3590,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-primitives"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efbeba375fe59917f162f1808c280d2e39e4698dc7eeac83936b6e70c2f8dbbc"
+dependencies = [
+ "itertools 0.13.0",
+ "lazy_static",
+ "p3-baby-bear",
+ "p3-field",
+ "p3-poseidon2",
+ "p3-symmetric",
+]
+
+[[package]]
 name = "sp1-zkvm"
-version = "1.2.0-rc1"
-source = "git+https://github.com/succinctlabs/sp1?branch=dev#e8efd0019c8be52c6c4cecfea6259ab90db4148a"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66c525f67cfd3f65950f01c713a72c41a5d44d289155644c8ace4ec264098039"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -3599,10 +3615,13 @@ dependencies = [
  "lazy_static",
  "libm",
  "once_cell",
+ "p3-baby-bear",
+ "p3-field",
  "rand",
  "serde",
  "sha2",
- "sp1-lib 1.2.0-rc1",
+ "sp1-lib 2.0.0",
+ "sp1-primitives 2.0.0",
 ]
 
 [[package]]

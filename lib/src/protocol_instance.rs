@@ -18,7 +18,7 @@ use crate::{
     },
     CycleTracker,
 };
-use log::info;
+use log::{debug, info};
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 
 #[derive(Debug, Clone)]
@@ -275,6 +275,18 @@ impl ProtocolInstance {
     pub fn instance_hash(&self) -> B256 {
         // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
         // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
+        debug!(
+            "calculate instance_hash from:
+            chain_id: {:?}, verifier: {:?}, transition: {:?}, sgx_instance: {:?},
+            prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
+            self.chain_id,
+            self.verifier_address,
+            self.transition.clone(),
+            self.sgx_instance,
+            self.prover,
+            self.block_metadata,
+            self.meta_hash(),
+        );
         let data = (
             "VERIFY_PROOF",
             self.chain_id,
@@ -313,6 +325,36 @@ fn bytes_to_bytes32(input: &[u8]) -> [u8; 32] {
     let len = core::cmp::min(input.len(), 32);
     bytes[..len].copy_from_slice(&input[..len]);
     bytes
+}
+
+pub fn words_to_bytes_le(words: &[u32; 8]) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    for i in 0..8 {
+        let word_bytes = words[i].to_le_bytes();
+        bytes[i * 4..(i + 1) * 4].copy_from_slice(&word_bytes);
+    }
+    bytes
+}
+
+pub fn words_to_bytes_be(words: &[u32; 8]) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    for i in 0..8 {
+        let word_bytes = words[i].to_be_bytes();
+        bytes[i * 4..(i + 1) * 4].copy_from_slice(&word_bytes);
+    }
+    bytes
+}
+
+pub fn aggregation_output_combine(public_inputs: Vec<B256>) -> Vec<u8> {
+    let mut output = Vec::with_capacity(public_inputs.len() * 32);
+    for public_input in public_inputs.iter() {
+        output.extend_from_slice(&public_input.0);
+    }
+    output
+}
+
+pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
+    aggregation_output_combine([vec![program], public_inputs].concat())
 }
 
 #[cfg(test)]

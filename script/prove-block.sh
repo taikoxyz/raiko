@@ -58,6 +58,16 @@ elif [ "$proof" == "sp1" ]; then
 		"verify": false
 	}
   '
+elif [ "$proof" == "sp1-aggregation" ]; then
+	proofParam='
+    "proof_type": "sp1",
+    "blob_proof_type": "proof_of_equivalence",
+	"sp1": {
+		"recursion": "compressed",
+		"prover": "network",
+		"verify": false
+	}
+  '
 elif [ "$proof" == "sgx" ]; then
 	proofParam='
     "proof_type": "sgx",
@@ -134,13 +144,13 @@ for block in $(eval echo {$rangeStart..$rangeEnd}); do
 	fi
 
 	echo "- proving block $block"
-	curl --location --request POST 'http://localhost:8080/proof' \
+	curl --location --request POST 'http://localhost:8080/v3/proof' \
 		--header 'Content-Type: application/json' \
 		--header 'Authorization: Bearer 4cbd753fbcbc2639de804f8ce425016a50e0ecd53db00cb5397912e83f5e570e' \
 		--data-raw "{
          \"network\": \"$chain\",
          \"l1_network\": \"$l1_network\",
-         \"block_number\": $block,
+         \"block_numbers\": [[$block, null], [$(($block+1)), null]],
          \"prover\": \"$prover\",
          \"graffiti\": \"$graffiti\",
          $proofParam

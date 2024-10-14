@@ -1,14 +1,13 @@
-use num_bigint::BigUint;
 use ::secp256k1::SECP256K1;
+use num_bigint::BigUint;
 use reth_primitives::public_key_to_address;
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
 use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
     Message,
 };
-use sha2_v0_10_8 as sp1_sha2;
+use sha2 as sp1_sha2;
 use sp1_core::utils::ec::{weierstrass::bn254::Bn254, AffinePoint};
-
 
 #[derive(Debug)]
 pub struct Sp1Operator;
@@ -117,7 +116,7 @@ harness::zk_suits!(
             p.x().to_big_endian(&mut p_x).unwrap();
             p.y().to_big_endian(&mut p_y).unwrap();
 
-            println!("{:?}, {:?}:?", p_x, p_y);
+            println!("{p_x:?}, {p_y:?}:?");
 
             // Deserialize AffinePoint in Sp1
             let p = be_bytes_to_point(&input);
