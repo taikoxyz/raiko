@@ -14,6 +14,10 @@ use crate::{
     Message, ProverState,
 };
 
+pub mod cancel;
+pub mod prune;
+pub mod report;
+
 #[utoipa::path(post, path = "/proof/aggregate",
     tag = "Proving",
     request_body = AggregationRequest,
@@ -109,9 +113,22 @@ async fn aggregation_handler(
 struct Docs;
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    Docs::openapi()
+    [
+        cancel::create_docs(),
+        report::create_docs(),
+        prune::create_docs(),
+    ]
+    .into_iter()
+    .fold(Docs::openapi(), |mut docs, curr| {
+        docs.merge(curr);
+        docs
+    })
 }
 
 pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", post(aggregation_handler))
+    Router::new()
+        .route("/", post(aggregation_handler))
+        .nest("/cancel", cancel::create_router())
+        .nest("/prune", prune::create_router())
+        .nest("/report", report::create_router())
 }
