@@ -244,8 +244,7 @@ impl ProofActor {
                         self.run_task(proof_request).await;
                     } else {
                         info!(
-                            "Task concurrency limit reached, current running {:?}, pending: {:?}",
-                            running_task_count,
+                            "Task concurrency limit reached, current running {running_task_count:?}, pending: {:?}",
                             self.pending_tasks.lock().await.len()
                         );
                         let mut pending_tasks = self.pending_tasks.lock().await;
