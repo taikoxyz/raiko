@@ -211,6 +211,8 @@ pub enum TaskDescriptor {
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);
 
+pub type AggregationTaskReport = (AggregationOnlyRequest, TaskStatus);
+
 #[derive(Debug, Clone, Default)]
 pub struct TaskManagerOpts {
     pub max_db_size: usize,
@@ -283,6 +285,13 @@ pub trait TaskManager: IdStore + IdWrite + Send + Sync {
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<Vec<u8>>;
+
+    /// Prune old tasks.
+    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()>;
+
+    /// List all tasks in the db.
+    async fn list_all_aggregation_tasks(&mut self)
+        -> TaskManagerResult<Vec<AggregationTaskReport>>;
 }
 
 pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
@@ -396,6 +405,16 @@ impl<T: TaskManager> TaskManager for TaskManagerWrapper<T> {
         request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<Vec<u8>> {
         self.manager.get_aggregation_task_proof(request).await
+    }
+
+    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()> {
+        self.manager.prune_aggregation_db().await
+    }
+
+    async fn list_all_aggregation_tasks(
+        &mut self,
+    ) -> TaskManagerResult<Vec<AggregationTaskReport>> {
+        self.manager.list_all_aggregation_tasks().await
     }
 }
 
