@@ -22,7 +22,7 @@ use tokio::{
     select,
     sync::{
         mpsc::{Receiver, Sender},
-        Mutex,
+        Mutex, OwnedSemaphorePermit, Semaphore,
     },
 };
 use tokio_util::sync::CancellationToken;
@@ -59,11 +59,11 @@ impl ProofActor {
         let running_tasks = Arc::new(Mutex::new(
             HashMap::<TaskDescriptor, CancellationToken>::new(),
         ));
-        let pending_tasks = Arc::new(Mutex::new(VecDeque::<ProofRequest>::new()));
         let aggregate_tasks = Arc::new(Mutex::new(HashMap::<
             AggregationOnlyRequest,
             CancellationToken,
         >::new()));
+        let pending_tasks = Arc::new(Mutex::new(VecDeque::<ProofRequest>::new()));
 
         Self {
             opts,
@@ -227,6 +227,7 @@ impl ProofActor {
 
     pub async fn run(&mut self) {
         // recv() is protected by outside mpsc, no lock needed here
+        let semaphore = Arc::new(Semaphore::new(self.opts.concurrency_limit));
         while let Some(message) = self.receiver.recv().await {
             match message {
                 Message::Cancel(key) => {
@@ -296,7 +297,7 @@ impl ProofActor {
 
         if let Some(latest_status) = status.iter().last() {
             if !matches!(latest_status.0, TaskStatus::Registered) {
-                return Ok(latest_status.0.clone());
+                return Ok(latest_status.0);
             }
         }
 
@@ -314,7 +315,7 @@ impl ProofActor {
             };
 
         manager
-            .update_task_progress(key, status.clone(), proof.as_deref())
+            .update_task_progress(key, status, proof.as_deref())
             .await
             .map_err(HostError::from)?;
         Ok(status)
