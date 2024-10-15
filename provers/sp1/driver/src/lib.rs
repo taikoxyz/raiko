@@ -24,6 +24,7 @@ use std::{
     borrow::BorrowMut,
     env, fs,
     path::{Path, PathBuf},
+    time::Duration,
 };
 use tracing::{debug, error, info};
 
@@ -170,7 +171,10 @@ impl Prover for Sp1Prover {
                 output.header.number
             );
             network_prover
-                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
+                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(
+                    &proof_id,
+                    Some(Duration::from_secs(3600)),
+                )
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
