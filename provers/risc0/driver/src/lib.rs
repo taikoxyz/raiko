@@ -191,7 +191,7 @@ impl Prover for Risc0Prover {
         .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
         let snark_proof = alloy_primitives::hex::encode_prefixed(proof_data);
 
-        info!("Aggregation proof: {:?}", snark_proof);
+        info!("Aggregation proof: {snark_proof:?}");
         let proof_gen_result = Ok(Risc0Response {
             proof: snark_proof,
             receipt: serde_json::to_string(&receipt).unwrap(),
