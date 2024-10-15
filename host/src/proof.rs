@@ -211,8 +211,8 @@ impl ProofActor {
                 }
                 result = Self::handle_aggregate(request_clone, &opts) => {
                     match result {
-                        Ok(()) => {
-                            info!("Host handling message");
+                        Ok(status) => {
+                            info!("Host handling message: {status:?}");
                         }
                         Err(error) => {
                             error!("Worker failed due to: {error:?}");
@@ -244,7 +244,7 @@ impl ProofActor {
                         self.run_task(proof_request).await;
                     } else {
                         info!(
-                            "Task concurrency limit reached, current running {running_task_count:?}, pending: {:?}",
+                            "Task concurrency status: running:{running_task_count:?}, add {proof_request:?} to pending list[{:?}]",
                             self.pending_tasks.lock().await.len()
                         );
                         let mut pending_tasks = self.pending_tasks.lock().await;
