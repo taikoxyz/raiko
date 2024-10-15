@@ -231,13 +231,13 @@ impl ProofActor {
         while let Some(message) = self.receiver.recv().await {
             match message {
                 Message::Cancel(key) => {
-                    debug!("Message::Cancel task: {key:?}");
+                    debug!("Message::Cancel({key:?})");
                     if let Err(error) = self.cancel_task(key).await {
                         error!("Failed to cancel task: {error}")
                     }
                 }
                 Message::Task(proof_request) => {
-                    debug!("Message::Task proof_request: {proof_request:?}");
+                    debug!("Message::Task({proof_request:?})");
                     let running_task_count = self.running_tasks.lock().await.len();
                     if running_task_count < self.opts.concurrency_limit {
                         info!("Running task {proof_request:?}");
@@ -253,9 +253,9 @@ impl ProofActor {
                 }
                 Message::TaskComplete(req) => {
                     // pop up pending task if any task complete
-                    debug!("Message::TaskComplete: {req:?}");
+                    debug!("Message::TaskComplete({req:?})");
                     info!(
-                        "task completed, current running {:?}, pending: {:?}",
+                        "task {req:?} completed, current running {:?}, pending: {:?}",
                         self.running_tasks.lock().await.len(),
                         self.pending_tasks.lock().await.len()
                     );
@@ -269,11 +269,13 @@ impl ProofActor {
                     }
                 }
                 Message::CancelAggregate(request) => {
+                    debug!("Message::CancelAggregate({request:?})");
                     if let Err(error) = self.cancel_aggregation_task(request).await {
                         error!("Failed to cancel task: {error}")
                     }
                 }
                 Message::Aggregate(request) => {
+                    debug!("Message::Aggregate({request:?})");
                     let permit = Arc::clone(&semaphore)
                         .acquire_owned()
                         .await
