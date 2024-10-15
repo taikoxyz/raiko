@@ -244,6 +244,14 @@ impl TaskDb {
               UNIQUE (chain_id, blockhash, proofsys_id)
             );
 
+            CREATE TABLE aggregation_store(
+              proofs TEXT NOT NULL,
+              proofsys_id INTEGER NOT NULL,
+              id TEXT NOT NULL,
+              FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
+              UNIQUE (proofs, proofsys_id)
+            );
+
             -- Metadata and mappings
             -----------------------------------------------
             CREATE TABLE metadata(
@@ -308,6 +316,14 @@ impl TaskDb {
               FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
               UNIQUE (chain_id, blockhash, proofsys_id)
             );
+
+            CREATE TABLE aggregation_tasks(
+              id INTEGER UNIQUE NOT NULL PRIMARY KEY,
+              proofs TEXT NOT NULL,
+              proofsys_id INTEGER NOT NULL,
+              FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
+              UNIQUE (proofs, proofsys_id)
+            );
             
             -- Proofs might also be large, so we isolate them in a dedicated table
             CREATE TABLE task_proofs(
@@ -315,12 +331,27 @@ impl TaskDb {
               proof TEXT,
               FOREIGN KEY(task_id) REFERENCES tasks(id)
             );
+
+            CREATE TABLE aggregation_task_proofs(
+              task_id INTEGER UNIQUE NOT NULL PRIMARY KEY,
+              proof TEXT,
+              FOREIGN KEY(task_id) REFERENCES aggregation_tasks(id)
+            );
             
             CREATE TABLE task_status(
               task_id INTEGER NOT NULL,
               status_id INTEGER NOT NULL,
               timestamp TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
               FOREIGN KEY(task_id) REFERENCES tasks(id),
+              FOREIGN KEY(status_id) REFERENCES status_codes(id),
+              UNIQUE (task_id, timestamp)
+            );
+
+            CREATE TABLE aggregation_task_status(
+              task_id INTEGER NOT NULL,
+              status_id INTEGER NOT NULL,
+              timestamp TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
+              FOREIGN KEY(task_id) REFERENCES aggregation_tasks(id),
               FOREIGN KEY(status_id) REFERENCES status_codes(id),
               UNIQUE (task_id, timestamp)
             );
@@ -358,6 +389,27 @@ impl TaskDb {
               tasks t
               LEFT JOIN task_status ts on ts.task_id = t.id
               LEFT JOIN task_proofs tpf on tpf.task_id = t.id;
+
+            CREATE VIEW enqueue_aggregation_task AS
+            SELECT
+              t.id,
+              t.proofs,
+              t.proofsys_id
+            FROM
+              aggregation_tasks t
+              LEFT JOIN aggregation_task_status ts on ts.task_id = t.id;
+
+            CREATE VIEW update_aggregation_task_progress AS
+            SELECT
+              t.id,
+              t.proofs,
+              t.proofsys_id,
+              ts.status_id,
+              tpf.proof
+            FROM
+              aggregation_tasks t
+              LEFT JOIN aggregation_task_status ts on ts.task_id = t.id
+              LEFT JOIN aggregation_task_proofs tpf on tpf.task_id = t.id;
             "#,
         )?;
 
@@ -408,6 +460,7 @@ impl TaskDb {
             r#"
             -- PRAGMA temp_store = 'MEMORY';
             CREATE TEMPORARY TABLE IF NOT EXISTS temp.current_task(task_id INTEGER);
+            CREATE TEMPORARY TABLE IF NOT EXISTS temp.current_aggregation_task(task_id INTEGER);
             
             CREATE TEMPORARY TRIGGER IF NOT EXISTS enqueue_task_insert_trigger INSTEAD OF
             INSERT
@@ -446,6 +499,43 @@ impl TaskDb {
                 
                 DELETE FROM
                   current_task;
+            END;
+
+            CREATE TEMPORARY TRIGGER IF NOT EXISTS enqueue_aggregation_task_insert_trigger INSTEAD OF
+            INSERT
+              ON enqueue_aggregation_task
+            BEGIN
+                INSERT INTO
+                  aggregation_tasks(proofs, proofsys_id)
+                VALUES
+                  (
+                    new.proofs,
+                    new.proofsys_id
+                  );
+                
+                INSERT INTO
+                  current_aggregation_task
+                SELECT
+                  id
+                FROM
+                  aggregation_tasks
+                WHERE
+                  rowid = last_insert_rowid()
+                LIMIT
+                  1;
+                
+                -- Tasks are initialized at status 1000 - registered
+                -- timestamp is auto-filled with datetime('now'), see its field definition
+                INSERT INTO
+                  aggregation_task_status(task_id, status_id)
+                SELECT
+                  tmp.task_id,
+                  1000
+                FROM
+                  current_aggregation_task tmp;
+                
+                DELETE FROM
+                  current_aggregation_task;
             END;
             
             CREATE TEMPORARY TRIGGER IF NOT EXISTS update_task_progress_trigger INSTEAD OF
@@ -490,6 +580,49 @@ impl TaskDb {
                 
                 DELETE FROM
                   current_task;
+            END;
+
+            CREATE TEMPORARY TRIGGER IF NOT EXISTS update_aggregation_task_progress_trigger INSTEAD OF
+            INSERT
+              ON update_aggregation_task_progress
+            BEGIN
+                INSERT INTO
+                  current_aggregation_task
+                SELECT
+                  id
+                FROM
+                  aggregation_tasks
+                WHERE
+                  proofs = new.proofs
+                  AND proofsys_id = new.proofsys_id
+                LIMIT
+                  1;
+                
+                -- timestamp is auto-filled with datetime('now'), see its field definition
+                INSERT INTO
+                  aggregation_task_status(task_id, status_id)
+                SELECT
+                  tmp.task_id,
+                  new.status_id
+                FROM
+                  current_aggregation_task tmp
+                LIMIT
+                  1;
+                
+                INSERT
+                  OR REPLACE INTO aggregation_task_proofs
+                SELECT
+                  task_id,
+                  new.proof
+                FROM
+                  current_aggregation_task
+                WHERE
+                  new.proof IS NOT NULL
+                LIMIT
+                  1;
+                
+                DELETE FROM
+                  current_aggregation_task;
             END;
             "#,
         )?;
