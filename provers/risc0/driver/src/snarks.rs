@@ -173,9 +173,19 @@ pub async fn verify_aggregation_groth16_proof(
     aggregation_image_id: Digest,
     receipt: Receipt,
 ) -> Result<Vec<u8>> {
-    let seal = receipt.inner.groth16().unwrap().seal.clone();
+    let seal = receipt
+        .inner
+        .groth16()
+        .map_err(|e| anyhow::Error::msg(format!("receipt.inner.groth16() failed: {e:?}")))?
+        .seal
+        .clone();
     let journal_digest = receipt.journal.digest();
-    let post_state_digest = receipt.claim()?.as_value().unwrap().post.digest();
+    let post_state_digest = receipt
+        .claim()?
+        .as_value()
+        .map_err(|e| anyhow::Error::msg(format!("receipt.claim()?.as_value() failed: {e:?}")))?
+        .post
+        .digest();
     let encoded_proof = verify_groth16_snark_impl(
         aggregation_image_id,
         seal,
