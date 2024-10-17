@@ -155,11 +155,12 @@
 use std::{
     fs::File,
     path::Path,
+    str::FromStr,
     sync::{Arc, Once},
 };
 
 use chrono::{DateTime, Utc};
-use raiko_core::interfaces::AggregationOnlyRequest;
+use raiko_core::interfaces::{AggregationOnlyRequest, ProofType, ProverSpecificOpts};
 use raiko_lib::{
     primitives::B256,
     prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult},
@@ -170,8 +171,8 @@ use rusqlite::{
 use tokio::sync::Mutex;
 
 use crate::{
-    TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    AggregationTaskReport, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
+    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 // Types
@@ -244,6 +245,14 @@ impl TaskDb {
               UNIQUE (chain_id, blockhash, proofsys_id)
             );
 
+            CREATE TABLE aggregation_store(
+              proofs TEXT NOT NULL,
+              proofsys_id INTEGER NOT NULL,
+              id TEXT NOT NULL,
+              FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
+              UNIQUE (proofs, proofsys_id)
+            );
+
             -- Metadata and mappings
             -----------------------------------------------
             CREATE TABLE metadata(
@@ -308,6 +317,14 @@ impl TaskDb {
               FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
               UNIQUE (chain_id, blockhash, proofsys_id)
             );
+
+            CREATE TABLE aggregation_tasks(
+              id INTEGER UNIQUE NOT NULL PRIMARY KEY,
+              proofs TEXT NOT NULL,
+              proofsys_id INTEGER NOT NULL,
+              FOREIGN KEY(proofsys_id) REFERENCES proofsys(id),
+              UNIQUE (proofs, proofsys_id)
+            );
             
             -- Proofs might also be large, so we isolate them in a dedicated table
             CREATE TABLE task_proofs(
@@ -315,12 +332,27 @@ impl TaskDb {
               proof TEXT,
               FOREIGN KEY(task_id) REFERENCES tasks(id)
             );
+
+            CREATE TABLE aggregation_task_proofs(
+              task_id INTEGER UNIQUE NOT NULL PRIMARY KEY,
+              proof TEXT,
+              FOREIGN KEY(task_id) REFERENCES aggregation_tasks(id)
+            );
             
             CREATE TABLE task_status(
               task_id INTEGER NOT NULL,
               status_id INTEGER NOT NULL,
               timestamp TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
               FOREIGN KEY(task_id) REFERENCES tasks(id),
+              FOREIGN KEY(status_id) REFERENCES status_codes(id),
+              UNIQUE (task_id, timestamp)
+            );
+
+            CREATE TABLE aggregation_task_status(
+              task_id INTEGER NOT NULL,
+              status_id INTEGER NOT NULL,
+              timestamp TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
+              FOREIGN KEY(task_id) REFERENCES aggregation_tasks(id),
               FOREIGN KEY(status_id) REFERENCES status_codes(id),
               UNIQUE (task_id, timestamp)
             );
@@ -358,6 +390,27 @@ impl TaskDb {
               tasks t
               LEFT JOIN task_status ts on ts.task_id = t.id
               LEFT JOIN task_proofs tpf on tpf.task_id = t.id;
+
+            CREATE VIEW enqueue_aggregation_task AS
+            SELECT
+              t.id,
+              t.proofs,
+              t.proofsys_id
+            FROM
+              aggregation_tasks t
+              LEFT JOIN aggregation_task_status ts on ts.task_id = t.id;
+
+            CREATE VIEW update_aggregation_task_progress AS
+            SELECT
+              t.id,
+              t.proofs,
+              t.proofsys_id,
+              ts.status_id,
+              tpf.proof
+            FROM
+              aggregation_tasks t
+              LEFT JOIN aggregation_task_status ts on ts.task_id = t.id
+              LEFT JOIN aggregation_task_proofs tpf on tpf.task_id = t.id;
             "#,
         )?;
 
@@ -408,6 +461,7 @@ impl TaskDb {
             r#"
             -- PRAGMA temp_store = 'MEMORY';
             CREATE TEMPORARY TABLE IF NOT EXISTS temp.current_task(task_id INTEGER);
+            CREATE TEMPORARY TABLE IF NOT EXISTS temp.current_aggregation_task(task_id INTEGER);
             
             CREATE TEMPORARY TRIGGER IF NOT EXISTS enqueue_task_insert_trigger INSTEAD OF
             INSERT
@@ -446,6 +500,43 @@ impl TaskDb {
                 
                 DELETE FROM
                   current_task;
+            END;
+
+            CREATE TEMPORARY TRIGGER IF NOT EXISTS enqueue_aggregation_task_insert_trigger INSTEAD OF
+            INSERT
+              ON enqueue_aggregation_task
+            BEGIN
+                INSERT INTO
+                  aggregation_tasks(proofs, proofsys_id)
+                VALUES
+                  (
+                    new.proofs,
+                    new.proofsys_id
+                  );
+                
+                INSERT INTO
+                  current_aggregation_task
+                SELECT
+                  id
+                FROM
+                  aggregation_tasks
+                WHERE
+                  rowid = last_insert_rowid()
+                LIMIT
+                  1;
+                
+                -- Tasks are initialized at status 1000 - registered
+                -- timestamp is auto-filled with datetime('now'), see its field definition
+                INSERT INTO
+                  aggregation_task_status(task_id, status_id)
+                SELECT
+                  tmp.task_id,
+                  1000
+                FROM
+                  current_aggregation_task tmp;
+                
+                DELETE FROM
+                  current_aggregation_task;
             END;
             
             CREATE TEMPORARY TRIGGER IF NOT EXISTS update_task_progress_trigger INSTEAD OF
@@ -490,6 +581,49 @@ impl TaskDb {
                 
                 DELETE FROM
                   current_task;
+            END;
+
+            CREATE TEMPORARY TRIGGER IF NOT EXISTS update_aggregation_task_progress_trigger INSTEAD OF
+            INSERT
+              ON update_aggregation_task_progress
+            BEGIN
+                INSERT INTO
+                  current_aggregation_task
+                SELECT
+                  id
+                FROM
+                  aggregation_tasks
+                WHERE
+                  proofs = new.proofs
+                  AND proofsys_id = new.proofsys_id
+                LIMIT
+                  1;
+                
+                -- timestamp is auto-filled with datetime('now'), see its field definition
+                INSERT INTO
+                  aggregation_task_status(task_id, status_id)
+                SELECT
+                  tmp.task_id,
+                  new.status_id
+                FROM
+                  current_aggregation_task tmp
+                LIMIT
+                  1;
+                
+                INSERT
+                  OR REPLACE INTO aggregation_task_proofs
+                SELECT
+                  task_id,
+                  new.proof
+                FROM
+                  current_aggregation_task
+                WHERE
+                  new.proof IS NOT NULL
+                LIMIT
+                  1;
+                
+                DELETE FROM
+                  current_aggregation_task;
             END;
             "#,
         )?;
@@ -844,6 +978,210 @@ impl TaskDb {
 
         Ok(query)
     }
+
+    fn enqueue_aggregation_task(&self, request: &AggregationOnlyRequest) -> TaskManagerResult<()> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            INSERT INTO
+              enqueue_aggregation_task(
+                proofs,
+                proofsys_id
+              )
+            VALUES
+              (
+                :proofs
+                :proofsys_id
+              );
+            "#,
+        )?;
+        let proof_type =
+            ProofType::from_str(request.proof_type.as_ref().unwrap_or(&"native".to_owned()))
+                .map_err(|e| anyhow::anyhow!("Conversion error {e:?}"))?;
+        statement.execute(named_params! {
+            ":proofs": serde_json::to_string(&request.proofs)?,
+            ":proofsys_id": u8::from(proof_type),
+        })?;
+
+        Ok(())
+    }
+
+    fn get_aggregation_task_proving_status(
+        &self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            SELECT
+              ts.status_id,
+              tp.proof,
+              timestamp
+            FROM
+              aggregation_task_status ts
+              LEFT JOIN aggregation_tasks t ON ts.task_id = t.id
+              LEFT JOIN aggregation_task_proofs tp ON tp.task_id = t.id
+            WHERE
+              t.proofs = :proofs
+              AND t.proofsys_id = :proofsys_id
+            ORDER BY
+              ts.timestamp;
+            "#,
+        )?;
+        let proof_type =
+            ProofType::from_str(request.proof_type.as_ref().unwrap_or(&"native".to_owned()))
+                .map_err(|e| anyhow::anyhow!("Conversion error {e:?}"))?;
+        let query = statement.query_map(
+            named_params! {
+                ":proofs": serde_json::to_string(&request.proofs)?,
+                ":proofsys_id": u8::from(proof_type),
+            },
+            |row| {
+                Ok((
+                    TaskStatus::from(row.get::<_, i32>(0)?),
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, DateTime<Utc>>(2)?,
+                ))
+            },
+        )?;
+
+        Ok(query.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    fn update_aggregation_task_progress(
+        &self,
+        request: &AggregationOnlyRequest,
+        status: TaskStatus,
+        proof: Option<&[u8]>,
+    ) -> TaskManagerResult<()> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            INSERT INTO
+              update_aggregation_task_progress(
+                proofs,
+                proofsys_id,
+                status_id,
+                proof
+              )
+            VALUES
+              (
+                :proofs,
+                :proofsys_id,
+                :status_id,
+                :proof
+              );
+            "#,
+        )?;
+        let proof_type =
+            ProofType::from_str(request.proof_type.as_ref().unwrap_or(&"native".to_owned()))
+                .map_err(|e| anyhow::anyhow!("Conversion error {e:?}"))?;
+        statement.execute(named_params! {
+            ":proofs": serde_json::to_string(&request.proofs)?,
+            ":proofsys_id": u8::from(proof_type),
+            ":status_id": i32::from(status),
+            ":proof": proof.map(hex::encode)
+        })?;
+
+        Ok(())
+    }
+
+    fn get_aggregation_task_proof(
+        &self,
+        request: &AggregationOnlyRequest,
+    ) -> TaskManagerResult<Vec<u8>> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            SELECT
+              proof
+            FROM
+              aggregation_task_proofs tp
+              LEFT JOIN aggregation_tasks t ON tp.task_id = t.id
+            WHERE
+              t.proofs = :proofs
+              AND t.proofsys_id = :proofsys_id
+            LIMIT
+              1;
+            "#,
+        )?;
+        let proof_type =
+            ProofType::from_str(request.proof_type.as_ref().unwrap_or(&"native".to_owned()))
+                .map_err(|e| anyhow::anyhow!("Conversion error {e:?}"))?;
+        let query = statement.query_row(
+            named_params! {
+                ":proofs": serde_json::to_string(&request.proofs)?,
+                ":proofsys_id": u8::from(proof_type),
+            },
+            |row| row.get::<_, Option<String>>(0),
+        )?;
+
+        let Some(proof) = query else {
+            return Ok(vec![]);
+        };
+
+        hex::decode(proof)
+            .map_err(|_| TaskManagerError::SqlError("couldn't decode from hex".to_owned()))
+    }
+
+    fn prune_aggregation_db(&self) -> TaskManagerResult<()> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            DELETE FROM
+              aggregation_tasks;
+            
+            DELETE FROM
+              aggregation_task_proofs;
+            
+            DELETE FROM
+              aggregation_task_status;
+            "#,
+        )?;
+        statement.execute([])?;
+
+        Ok(())
+    }
+
+    fn list_all_aggregation_tasks(&self) -> TaskManagerResult<Vec<AggregationTaskReport>> {
+        let mut statement = self.conn.prepare_cached(
+            r#"
+            SELECT
+              proofs,
+              proofsys_id,
+              status_id
+            FROM
+              aggregation_tasks
+              LEFT JOIN aggregation_task_status on task.id = aggregation_task_status.task_id
+              JOIN (
+                SELECT
+                  task_id,
+                  MAX(timestamp) as latest_timestamp
+                FROM
+                  aggregation_task_status
+                GROUP BY
+                  task_id
+              ) latest_ts ON aggregation_task_status.task_id = latest_ts.task_id
+              AND aggregation_task_status.timestamp = latest_ts.latest_timestamp
+            "#,
+        )?;
+        let query = statement
+            .query_map([], |row| {
+                Ok((
+                    AggregationOnlyRequest {
+                        proofs: serde_json::from_str(&row.get::<_, String>(0)?)
+                            .map_err(|e| anyhow::anyhow!("Couldn't deserialize proofs: {e:?}"))
+                            .unwrap(),
+                        proof_type: Some(
+                            ProofType::try_from(row.get::<_, u8>(1)?)
+                                .map_err(|e| anyhow::anyhow!("Couldn't decode proof type: {e:?}"))
+                                .unwrap()
+                                .to_string(),
+                        ),
+                        prover_args: ProverSpecificOpts::default(),
+                    },
+                    TaskStatus::from(row.get::<_, i32>(2)?),
+                ))
+            })?
+            .collect::<Result<Vec<AggregationTaskReport>, _>>()?;
+
+        Ok(query)
+    }
 }
 
 #[async_trait::async_trait]
@@ -947,32 +1285,48 @@ impl TaskManager for SqliteTaskManager {
 
     async fn enqueue_aggregation_task(
         &mut self,
-        _request: &AggregationOnlyRequest,
+        request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<()> {
-        todo!()
+        let task_db = self.arc_task_db.lock().await;
+        task_db.enqueue_aggregation_task(request)
     }
 
     async fn get_aggregation_task_proving_status(
         &mut self,
-        _request: &AggregationOnlyRequest,
+        request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        todo!()
+        let task_db = self.arc_task_db.lock().await;
+        task_db.get_aggregation_task_proving_status(request)
     }
 
     async fn update_aggregation_task_progress(
         &mut self,
-        _request: &AggregationOnlyRequest,
-        _status: TaskStatus,
-        _proof: Option<&[u8]>,
+        request: &AggregationOnlyRequest,
+        status: TaskStatus,
+        proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
-        todo!()
+        let task_db = self.arc_task_db.lock().await;
+        task_db.update_aggregation_task_progress(request, status, proof)
     }
 
     async fn get_aggregation_task_proof(
         &mut self,
-        _request: &AggregationOnlyRequest,
+        request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<Vec<u8>> {
-        todo!()
+        let task_db = self.arc_task_db.lock().await;
+        task_db.get_aggregation_task_proof(request)
+    }
+
+    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.prune_aggregation_db()
+    }
+
+    async fn list_all_aggregation_tasks(
+        &mut self,
+    ) -> TaskManagerResult<Vec<AggregationTaskReport>> {
+        let task_db = self.arc_task_db.lock().await;
+        task_db.list_all_aggregation_tasks()
     }
 }
 
