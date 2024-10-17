@@ -356,11 +356,67 @@ pub async fn bootstrap(
     .map_err(|e| ProverError::GuestError(e.to_string()))?
 }
 
+pub fn fake_signing() -> bool {
+    match env::var("SGX_FAKE_PRIV_KEY") {
+        Ok(value) => true,
+        Err(_) => false,
+    }
+}
+
+mod signature;
+
 async fn prove(
     mut gramine_cmd: StdCommand,
     input: GuestInput,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
+    if fake_signing() {
+        println!("Fake sgx prove signing mode enabled");
+        let prev_privkey: String = env::var("SGX_FAKE_PRIV_KEY")
+            .expect("SGX_PRIV_KEY env var not set")
+            .parse()
+            .expect("Invalid private key");
+
+        let secret_key = secp256k1::SecretKey::from_str(&prev_privkey).unwrap();
+        let new_pubkey = signature::public_key(&secret_key);
+        let new_instance = signature::public_key_to_address(&new_pubkey);
+        // Process the block
+        let header = input.block.header.clone();
+        // Calculate the public input hash
+        println!("new_instance: {new_instance} to sign header {header:?}");
+        let pi = raiko_lib::protocol_instance::ProtocolInstance::new(
+            &input,
+            &header,
+            raiko_lib::consts::VerifierType::SGX,
+        )
+        .map_err(|e| ProverError::GuestError(e.to_string()))?
+        .sgx_instance(new_instance);
+        let pi_hash = pi.instance_hash();
+
+        println!(
+            "Block {}. PI data to be signed: {pi_hash}",
+            input.block.number
+        );
+
+        // Sign the public input hash which contains all required block inputs and outputs
+        let sig = signature::sign_message(&secret_key, pi_hash)
+            .map_err(|e| ProverError::GuestError(format!("Could not sign message: {e}")))?;
+
+        // Create the proof for the onchain SGX verifier
+        // 4(id) + 20(new) + 65(sig) = 89
+        const SGX_PROOF_LEN: usize = 89;
+        let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+        proof.extend((instance_id as u32).to_be_bytes());
+        proof.extend(new_instance);
+        proof.extend(sig);
+        let proof = format!("0x{}", hex::encode(proof));
+        return Ok(SgxResponse {
+            proof,
+            quote: "".to_string(),
+            input: pi_hash,
+        });
+    }
+
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
             .arg("one-shot")
@@ -408,6 +464,8 @@ async fn aggregate(
             })
             .collect(),
     };
+
+    println!("Aggregating proofs: {raw_input:?}");
 
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd

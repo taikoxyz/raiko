@@ -8289,6 +8289,8 @@ dependencies = [
  "once_cell",
  "pem 3.0.4",
  "raiko-lib",
+ "rand_core 0.6.4",
+ "secp256k1",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
