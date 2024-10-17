@@ -1,18 +1,18 @@
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::{
-    interfaces::{AggregationOnlyRequest, AggregationRequest, ProofRequest, ProofRequestOpt},
-    provider::get_task_data,
-};
-use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
-use utoipa::OpenApi;
-
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::api::{v2, v3::Status},
     Message, ProverState,
 };
+use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use raiko_core::{
+    interfaces::{AggregationOnlyRequest, AggregationRequest, ProofRequest, ProofRequestOpt},
+    provider::get_task_data,
+};
+use raiko_lib::prover::Proof;
+use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
 use tracing::{debug, info};
+use utoipa::OpenApi;
 
 mod aggregate;
 mod cancel;
@@ -125,8 +125,11 @@ async fn proof_handler(
         let mut proofs = Vec::with_capacity(tasks.len());
         for (task, req) in tasks {
             let raw_proof = manager.get_task_proof(&task).await?;
-            let proof = serde_json::from_slice(&raw_proof)?;
-            debug!("req: {req:?} gets proof: {proof:?}");
+            let proof: Proof = serde_json::from_slice(&raw_proof)?;
+            debug!(
+                "Aggregation sub-req: {req:?} gets proof {:?} with input {:?}.",
+                proof.proof, proof.input
+            );
             proofs.push(proof);
         }
 

@@ -24,6 +24,7 @@ use std::{
     borrow::BorrowMut,
     env, fs,
     path::{Path, PathBuf},
+    time::Duration,
 };
 use tracing::{debug, error, info};
 
@@ -170,7 +171,10 @@ impl Prover for Sp1Prover {
                 output.header.number
             );
             network_prover
-                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
+                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(
+                    &proof_id,
+                    Some(Duration::from_secs(3600)),
+                )
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
@@ -253,9 +257,6 @@ impl Prover for Sp1Prover {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
-
-        info!("aggregate proof with param: {param:?}");
-
         let block_inputs: Vec<B256> = input
             .proofs
             .iter()
@@ -312,6 +313,7 @@ impl Prover for Sp1Prover {
         let prove_result = client
             .prove(&pk, stdin)
             .plonk()
+            .timeout(Duration::from_secs(3600))
             .run()
             .expect("proving failed");
 

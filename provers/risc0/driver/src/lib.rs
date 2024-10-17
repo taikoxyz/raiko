@@ -180,13 +180,18 @@ impl Prover for Risc0Prover {
             "Generate aggregatino receipt journal: {:?}",
             receipt.journal
         );
+        let block_proof_image_id = compute_image_id(RISC0_GUEST_ELF).unwrap();
         let aggregation_image_id = compute_image_id(RISC0_AGGREGATION_ELF).unwrap();
-        let enc_proof =
-            snarks::verify_groth16_snark_from_receipt(aggregation_image_id, receipt.clone())
-                .await
-                .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
-        let snark_proof = format!("0x{}", hex::encode(enc_proof));
+        let proof_data = snarks::verify_aggregation_groth16_proof(
+            block_proof_image_id,
+            aggregation_image_id,
+            receipt.clone(),
+        )
+        .await
+        .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
+        let snark_proof = alloy_primitives::hex::encode_prefixed(proof_data);
 
+        info!("Aggregation proof: {snark_proof:?}");
         let proof_gen_result = Ok(Risc0Response {
             proof: snark_proof,
             receipt: serde_json::to_string(&receipt).unwrap(),
