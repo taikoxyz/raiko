@@ -83,7 +83,7 @@ pub struct Opts {
     pub max_db_size: usize,
 
     #[arg(long, require_equals = true, default_value = "redis://localhost:6379")]
-    pub redis_url: usize,
+    pub redis_url: String,
 }
 
 impl Opts {
