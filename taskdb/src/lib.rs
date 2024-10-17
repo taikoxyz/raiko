@@ -17,15 +17,18 @@ use crate::{adv_sqlite::SqliteTaskManager, mem_db::InMemoryTaskManager};
 
 mod adv_sqlite;
 mod mem_db;
+mod redis;
 
 // Types
 // ----------------------------------------------------------------
-#[derive(PartialEq, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum TaskManagerError {
     #[error("IO Error {0}")]
     IOError(IOErrorKind),
     #[error("SQL Error {0}")]
     SqlError(String),
+    #[error("Redis Error {0}")]
+    RedisError(#[from] crate::redis::RedisDbError),
     #[error("No data for query")]
     NoData,
     #[error("Anyhow error: {0}")]
@@ -183,6 +186,7 @@ pub type TaskReport = (TaskDescriptor, TaskStatus);
 pub struct TaskManagerOpts {
     pub sqlite_file: PathBuf,
     pub max_db_size: usize,
+    pub redis_url: String,
 }
 
 #[async_trait::async_trait]
@@ -465,6 +469,7 @@ mod test {
         let opts = TaskManagerOpts {
             sqlite_file: sqlite_file.to_path_buf(),
             max_db_size: 1024 * 1024,
+            redis_url: "redis://localhost:6379".to_string(),
         };
         let mut task_manager = get_task_manager(&opts);
 

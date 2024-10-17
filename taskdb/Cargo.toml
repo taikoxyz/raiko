@@ -2,12 +2,12 @@
 name = "raiko-tasks"
 version = "0.1.0"
 authors = ["Taiko Labs"]
-edition = "2021" 
+edition = "2021"
 
 [dependencies]
 raiko-lib = { workspace = true }
 raiko-core = { workspace = true }
-rusqlite = { workspace = true, features = ["chrono"] }
+rusqlite = { workspace = true, features = ["chrono"], optional = true }
 num_enum = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 thiserror = { workspace = true }
@@ -19,6 +19,7 @@ anyhow = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 utoipa = { workspace = true }
+redis = { workspace = true, optional = true }
 
 [dev-dependencies]
 rand = "0.9.0-alpha.1"                                            # This is an alpha version, that has rng.gen_iter::<T>()
@@ -29,8 +30,10 @@ rusqlite = { workspace = true, features = ["trace"] }
 
 [features]
 default = ["in-memory"]
-sqlite = []
+sqlite = ["rusqlite"]
 in-memory = []
+redis-db = ["redis"]
+
 
 [[test]]
 name = "tasks_tests"
