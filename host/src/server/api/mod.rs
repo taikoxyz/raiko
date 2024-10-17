@@ -1,11 +1,13 @@
+use crate::ProverState;
 use axum::{
-    body::HttpBody,
+    body::{to_bytes, Bytes, HttpBody},
     extract::Request,
     http::{header, HeaderName, Method, StatusCode, Uri},
     middleware::{self, Next},
-    response::Response,
+    response::{IntoResponse, Response},
     Router,
 };
+use tokio::time::Instant;
 use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
@@ -13,12 +15,35 @@ use tower_http::{
     trace::TraceLayer,
     validate_request::ValidateRequestHeaderLayer,
 };
-
-use crate::ProverState;
+use tracing::{debug, info, trace};
 
 pub mod v1;
 pub mod v2;
 pub mod v3;
+
+async fn route_trace(req: Request, next: Next) -> impl IntoResponse {
+    let path = req.uri().path().to_owned();
+    let method = req.method().clone();
+    let (rebuild_req, req_str) = if method == Method::POST {
+        let (parts, body) = req.into_parts();
+        let req_body_bytes = to_bytes(body, 4096).await.unwrap_or_default();
+        let req_body_str = String::from_utf8_lossy(&req_body_bytes).to_string();
+        debug!("POST {path:?} request {req_body_str:?}");
+        (
+            Request::from_parts(parts, Bytes::from(req_body_bytes).into()),
+            req_body_str,
+        )
+    } else {
+        (req, "".to_string())
+    };
+
+    let start = Instant::now();
+    let response: axum::http::Response<axum::body::Body> = next.run(rebuild_req).await;
+    let latency = start.elapsed();
+
+    trace!("Process {req_str:?} Latency: {latency:?} with response: {response:?}");
+    response
+}
 
 pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Router<ProverState> {
     let cors = CorsLayer::new()
@@ -47,6 +72,7 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
         .merge(v3_api)
         .layer(middleware)
         .layer(middleware::from_fn(check_max_body_size))
+        .layer(middleware::from_fn(route_trace))
         .layer(trace)
         .fallback(|uri: Uri| async move {
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
