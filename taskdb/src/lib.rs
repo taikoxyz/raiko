@@ -9,14 +9,23 @@ use raiko_lib::{
     primitives::{ChainId, B256},
     prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
-use rusqlite::Error as SqlError;
+#[cfg(feature = "sqlite")]
+use rusqlite::Error as RustSQLiteError;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{adv_sqlite::SqliteTaskManager, mem_db::InMemoryTaskManager};
+#[cfg(feature = "sqlite")]
+use crate::adv_sqlite::SqliteTaskManager;
+#[cfg(feature = "in-memory")]
+use crate::mem_db::InMemoryTaskManager;
+#[cfg(feature = "redis")]
+use crate::redis::RedisTaskManager;
 
+#[cfg(feature = "sqlite")]
 mod adv_sqlite;
+#[cfg(feature = "in-memory")]
 mod mem_db;
+#[cfg(feature = "redis")]
 mod redis;
 
 // Types
@@ -27,6 +36,7 @@ pub enum TaskManagerError {
     IOError(IOErrorKind),
     #[error("SQL Error {0}")]
     SqlError(String),
+    #[cfg(feature = "redis")]
     #[error("Redis Error {0}")]
     RedisError(#[from] crate::redis::RedisDbError),
     #[error("No data for query")]
@@ -43,8 +53,9 @@ impl From<IOError> for TaskManagerError {
     }
 }
 
-impl From<SqlError> for TaskManagerError {
-    fn from(error: SqlError) -> TaskManagerError {
+#[cfg(feature = "sqlite")]
+impl From<RustSQLiteError> for TaskManagerError {
+    fn from(error: RustSQLiteError) -> TaskManagerError {
         TaskManagerError::SqlError(error.to_string())
     }
 }
@@ -190,7 +201,7 @@ pub struct TaskManagerOpts {
 }
 
 #[async_trait::async_trait]
-pub trait TaskManager: IdStore + IdWrite {
+pub trait TaskManager: IdStore + IdWrite + Send + Sync {
     /// Create a new task manager.
     fn new(opts: &TaskManagerOpts) -> Self;
 
@@ -263,51 +274,32 @@ pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
     Ok(())
 }
 
-enum TaskManagerInstance {
-    InMemory(InMemoryTaskManager),
-    Sqlite(SqliteTaskManager),
-}
-
-pub struct TaskManagerWrapper {
-    manager: TaskManagerInstance,
+pub struct TaskManagerWrapper<T: TaskManager> {
+    manager: T,
 }
 
 #[async_trait::async_trait]
-impl IdWrite for TaskManagerWrapper {
+impl<T: TaskManager> IdWrite for TaskManagerWrapper<T> {
     async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.store_id(key, id).await,
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.store_id(key, id).await,
-        }
+        self.manager.store_id(key, id).await
     }
 
     async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.remove_id(key).await,
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.remove_id(key).await,
-        }
+        self.manager.remove_id(key).await
     }
 }
 
 #[async_trait::async_trait]
-impl IdStore for TaskManagerWrapper {
+impl<T: TaskManager> IdStore for TaskManagerWrapper<T> {
     async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
-        match &self.manager {
-            TaskManagerInstance::InMemory(manager) => manager.read_id(key).await,
-            TaskManagerInstance::Sqlite(manager) => manager.read_id(key).await,
-        }
+        self.manager.read_id(key).await
     }
 }
 
 #[async_trait::async_trait]
-impl TaskManager for TaskManagerWrapper {
+impl<T: TaskManager> TaskManager for TaskManagerWrapper<T> {
     fn new(opts: &TaskManagerOpts) -> Self {
-        let manager = if cfg!(feature = "sqlite") {
-            TaskManagerInstance::Sqlite(SqliteTaskManager::new(opts))
-        } else {
-            TaskManagerInstance::InMemory(InMemoryTaskManager::new(opts))
-        };
-
+        let manager = T::new(opts);
         Self { manager }
     }
 
@@ -315,10 +307,7 @@ impl TaskManager for TaskManagerWrapper {
         &mut self,
         request: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.enqueue_task(request).await,
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.enqueue_task(request).await,
-        }
+        self.manager.enqueue_task(request).await
     }
 
     async fn update_task_progress(
@@ -327,77 +316,41 @@ impl TaskManager for TaskManagerWrapper {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.update_task_progress(key, status, proof).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.update_task_progress(key, status, proof).await
-            }
-        }
+        self.manager.update_task_progress(key, status, proof).await
     }
 
     async fn get_task_proving_status(
         &mut self,
         key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.get_task_proving_status(key).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.get_task_proving_status(key).await
-            }
-        }
+        self.manager.get_task_proving_status(key).await
     }
 
     async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.get_task_proof(key).await,
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.get_task_proof(key).await,
-        }
+        self.manager.get_task_proof(key).await
     }
 
     async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.get_db_size().await,
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.get_db_size().await,
-        }
+        self.manager.get_db_size().await
     }
 
     async fn prune_db(&mut self) -> TaskManagerResult<()> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.prune_db().await,
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.prune_db().await,
-        }
+        self.manager.prune_db().await
     }
 
     async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => manager.list_all_tasks().await,
-            TaskManagerInstance::Sqlite(ref mut manager) => manager.list_all_tasks().await,
-        }
+        self.manager.list_all_tasks().await
     }
 
     async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(manager) => manager.list_stored_ids().await,
-            TaskManagerInstance::Sqlite(manager) => manager.list_stored_ids().await,
-        }
+        self.manager.list_stored_ids().await
     }
 
     async fn enqueue_aggregation_task(
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<()> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.enqueue_aggregation_task(request).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.enqueue_aggregation_task(request).await
-            }
-        }
+        self.manager.enqueue_aggregation_task(request).await
     }
 
     async fn update_aggregation_task_progress(
@@ -406,51 +359,37 @@ impl TaskManager for TaskManagerWrapper {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager
-                    .update_aggregation_task_progress(request, status, proof)
-                    .await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager
-                    .update_aggregation_task_progress(request, status, proof)
-                    .await
-            }
-        }
+        self.manager
+            .update_aggregation_task_progress(request, status, proof)
+            .await
     }
 
     async fn get_aggregation_task_proving_status(
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.get_aggregation_task_proving_status(request).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.get_aggregation_task_proving_status(request).await
-            }
-        }
+        self.manager
+            .get_aggregation_task_proving_status(request)
+            .await
     }
 
     async fn get_aggregation_task_proof(
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<Vec<u8>> {
-        match &mut self.manager {
-            TaskManagerInstance::InMemory(ref mut manager) => {
-                manager.get_aggregation_task_proof(request).await
-            }
-            TaskManagerInstance::Sqlite(ref mut manager) => {
-                manager.get_aggregation_task_proof(request).await
-            }
-        }
+        self.manager.get_aggregation_task_proof(request).await
     }
 }
 
-pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapper {
-    TaskManagerWrapper::new(opts)
+#[cfg(feature = "in-memory")]
+pub type TaskManagerWrapperImpl = TaskManagerWrapper<InMemoryTaskManager>;
+#[cfg(feature = "sqlite")]
+pub type TaskManagerWrapperImpl = TaskManagerWrapper<SqliteTaskManager>;
+#[cfg(feature = "redis")]
+pub type TaskManagerWrapperImpl = TaskManagerWrapper<RedisTaskManager>;
+
+pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapperImpl {
+    TaskManagerWrapperImpl::new(opts)
 }
 
 #[cfg(test)]

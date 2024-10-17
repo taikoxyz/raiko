@@ -124,7 +124,7 @@ async fn proof_handler(
         info!("All tasks are successful, aggregating proofs");
         let mut proofs = Vec::with_capacity(tasks.len());
         for (task, req) in tasks {
-            let raw_proof = manager.get_task_proof(&task).await?;
+            let raw_proof: Vec<u8> = manager.get_task_proof(&task).await?;
             let proof = serde_json::from_slice(&raw_proof)?;
             debug!("req: {req:?} gets proof: {proof:?}");
             proofs.push(proof);
