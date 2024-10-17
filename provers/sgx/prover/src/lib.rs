@@ -16,7 +16,7 @@ use raiko_lib::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput, RawAggregationGuestInput, RawProof,
     },
-    primitives::B256,
+    primitives::{keccak, Address, B256},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
@@ -438,11 +438,70 @@ pub async fn bootstrap(
     .map_err(|e| ProverError::GuestError(e.to_string()))?
 }
 
+pub fn fake_signing() -> bool {
+    match env::var("SGX_FAKE_PRIV_KEY") {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
+
+mod signature;
+
 async fn prove(
     mut gramine_cmd: StdCommand,
     input: GuestInput,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
+    if fake_signing() {
+        println!("Fake sgx prove signing mode enabled");
+        let prev_privkey: String = env::var("SGX_FAKE_PRIV_KEY")
+            .expect("SGX_PRIV_KEY env var not set")
+            .parse()
+            .expect("Invalid private key");
+        println!("prev_privkey: {prev_privkey}");
+        let secret_key = secp256k1::SecretKey::from_str(&prev_privkey).unwrap();
+        println!("secret_key: {:?}", secret_key);
+        let new_pubkey = signature::public_key(&secret_key);
+        println!("new_pubkey: {new_pubkey}");
+        let new_instance = signature::public_key_to_address(&new_pubkey);
+        println!("new_instance: {new_instance}");
+        // Process the block
+        let header = input.block.header.clone();
+        // Calculate the public input hash
+        println!("new_instance: {new_instance} to sign header {header:?}");
+        let pi = raiko_lib::protocol_instance::ProtocolInstance::new(
+            &input,
+            &header,
+            raiko_lib::proof_type::ProofType::Sgx,
+        )
+        .map_err(|e| ProverError::GuestError(e.to_string()))?
+        .sgx_instance(new_instance);
+        let pi_hash = pi.instance_hash();
+
+        println!(
+            "Block {}. PI data to be signed: {pi_hash}",
+            input.block.number
+        );
+
+        // Sign the public input hash which contains all required block inputs and outputs
+        let sig = signature::sign_message(&secret_key, pi_hash)
+            .map_err(|e| ProverError::GuestError(format!("Could not sign message: {e}")))?;
+
+        // Create the proof for the onchain SGX verifier
+        // 4(id) + 20(new) + 65(sig) = 89
+        const SGX_PROOF_LEN: usize = 89;
+        let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+        proof.extend((instance_id as u32).to_be_bytes());
+        proof.extend(new_instance);
+        proof.extend(sig);
+        let proof = format!("0x{}", hex::encode(proof));
+        return Ok(SgxResponse {
+            proof,
+            quote: "".to_string(),
+            input: pi_hash,
+        });
+    }
+
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
             .arg("one-shot")
@@ -479,6 +538,58 @@ async fn batch_prove(
     input: GuestBatchInput,
     instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
+    if fake_signing() {
+        println!("Fake sgx prove signing mode enabled");
+        let prev_privkey: String = env::var("SGX_FAKE_PRIV_KEY")
+            .expect("SGX_PRIV_KEY env var not set")
+            .parse()
+            .expect("Invalid private key");
+        println!("prev_privkey: {prev_privkey}");
+        let secret_key = secp256k1::SecretKey::from_str(&prev_privkey).unwrap();
+        println!("secret_key: {:?}", secret_key);
+        let new_pubkey = signature::public_key(&secret_key);
+        println!("new_pubkey: {new_pubkey}");
+        let new_instance = signature::public_key_to_address(&new_pubkey);
+        println!("new_instance: {new_instance}");
+        // Process the block
+        let batch_input: GuestBatchInput = input.clone();
+
+        // Process the block
+        let final_blocks = raiko_lib::builder::calculate_batch_blocks_final_header(&batch_input);
+        // Calculate the public input hash
+        let pi = raiko_lib::protocol_instance::ProtocolInstance::new_batch(
+            &batch_input,
+            final_blocks,
+            raiko_lib::proof_type::ProofType::Sgx,
+        )
+        .map_err(|e| ProverError::GuestError(e.to_string()))?
+        .sgx_instance(new_instance);
+        let pi_hash = pi.instance_hash();
+
+        println!(
+            "Batch {}. PI data to be signed: {pi_hash}",
+            input.taiko.batch_id
+        );
+
+        // Sign the public input hash which contains all required block inputs and outputs
+        let sig = signature::sign_message(&secret_key, pi_hash)
+            .map_err(|e| ProverError::GuestError(format!("Could not sign message: {e}")))?;
+
+        // Create the proof for the onchain SGX verifier
+        // 4(id) + 20(new) + 65(sig) = 89
+        const SGX_PROOF_LEN: usize = 89;
+        let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+        proof.extend((instance_id as u32).to_be_bytes());
+        proof.extend(new_instance);
+        proof.extend(sig);
+        let proof = format!("0x{}", hex::encode(proof));
+        return Ok(SgxResponse {
+            proof,
+            quote: "".to_string(),
+            input: pi_hash,
+        });
+    }
+
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
             .arg("one-batch-shot")
@@ -531,6 +642,78 @@ async fn aggregate(
         instance_id_bytes[0..4].copy_from_slice(&raw_input.proofs[0].proof.clone()[0..4]);
         u32::from_be_bytes(instance_id_bytes)
     };
+
+    println!("Aggregating proofs: {raw_input:?}");
+
+    if fake_signing() {
+        println!("Fake sgx prove signing mode enabled");
+        let prev_privkey: String = env::var("SGX_FAKE_PRIV_KEY")
+            .expect("SGX_PRIV_KEY env var not set")
+            .parse()
+            .expect("Invalid private key");
+        let secret_key = secp256k1::SecretKey::from_str(&prev_privkey).unwrap();
+        let new_pubkey = signature::public_key(&secret_key);
+        let new_instance = signature::public_key_to_address(&new_pubkey);
+
+        let input: RawAggregationGuestInput = raw_input.clone();
+        // Make sure the chain of old/new public keys is preserved
+        let old_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
+        let mut cur_instance = old_instance;
+
+        // Verify the proofs
+        for proof in input.proofs.iter() {
+            // TODO: verify protocol instance data so we can trust the old/new instance data
+            assert_eq!(
+                signature::recover_signer_unchecked(
+                    &proof.proof.clone()[24..].try_into().unwrap(),
+                    &proof.input,
+                )
+                .unwrap(),
+                cur_instance,
+            );
+            cur_instance = Address::from_slice(&proof.proof.clone()[4..24]);
+        }
+
+        // Current public key needs to match latest proof new public key
+        assert_eq!(cur_instance, new_instance);
+
+        // Calculate the aggregation hash
+        let aggregation_hash =
+            keccak::keccak(raiko_lib::protocol_instance::aggregation_output_combine(
+                [
+                    vec![
+                        B256::left_padding_from(old_instance.as_ref()),
+                        B256::left_padding_from(new_instance.as_ref()),
+                    ],
+                    input
+                        .proofs
+                        .iter()
+                        .map(|proof| proof.input)
+                        .collect::<Vec<_>>(),
+                ]
+                .concat(),
+            ));
+
+        // Sign the public aggregation hash
+        let sig = signature::sign_message(&secret_key, aggregation_hash.into())
+            .map_err(|e| ProverError::GuestError(format!("Could not fake sign message: {e}")))?;
+
+        // Create the proof for the onchain SGX verifier
+        const SGX_PROOF_LEN: usize = 109;
+        // 4(id) + 20(old) + 20(new) + 65(sig) = 109
+        let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+        proof.extend(instance_id.to_be_bytes());
+        proof.extend(old_instance);
+        proof.extend(new_instance);
+        proof.extend(sig);
+        let proof = hex::encode(proof);
+
+        return Ok(SgxResponse {
+            proof,
+            quote: "".to_string(),
+            input: aggregation_hash.into(),
+        });
+    }
 
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
@@ -621,4 +804,18 @@ pub fn get_instance_id_from_params(input: &GuestInput, sgx_param: &SgxParam) -> 
         .ok_or_else(|| {
             ProverError::GuestError(format!("No instance id found for spec id: {:?}", spec_id))
         })
+}
+
+#[cfg(test)]
+mod test {
+    use std::env;
+
+    #[test]
+    fn test_priv_key_read() {
+        let prev_privkey: String = env::var("SGX_FAKE_PRIV_KEY")
+            .expect("SGX_PRIV_KEY env var not set")
+            .parse()
+            .expect("Invalid private key");
+        println!("prev_privkey: {prev_privkey}");
+    }
 }

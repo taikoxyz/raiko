@@ -27,6 +27,8 @@ anyhow = { workspace = true }
 hex = { workspace = true }
 reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
+secp256k1 = { workspace = true }
+rand_core = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }

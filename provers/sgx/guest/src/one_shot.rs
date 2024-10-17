@@ -98,6 +98,7 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     let key_pair = generate_key();
     // Store it on disk encrypted inside SGX so we can reuse it between program runs
     let privkey_path = global_opts.secrets_dir.join(PRIV_KEY_FILENAME);
+    println!("Private key: {:?}", key_pair.secret_bytes());
     save_priv_key(&key_pair, &privkey_path)?;
     // Get the public key from the pair
     println!("Public key: 0x{}", key_pair.public_key());
