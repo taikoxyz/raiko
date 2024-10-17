@@ -257,9 +257,6 @@ impl Prover for Sp1Prover {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
-
-        info!("aggregate proof with param: {param:?}");
-
         let block_inputs: Vec<B256> = input
             .proofs
             .iter()
@@ -316,6 +313,7 @@ impl Prover for Sp1Prover {
         let prove_result = client
             .prove(&pk, stdin)
             .plonk()
+            .timeout(Duration::from_secs(3600))
             .run()
             .expect("proving failed");
 
