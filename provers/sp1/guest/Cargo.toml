@@ -58,10 +58,10 @@ c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" 
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
+sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-sha3-v0.10.8", package = "sha3" }
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
-bls12_381 = { git = "https://github.com/0xWOLAND/bls12_381/", branch = "bhargav/experiment" }
-bn = { package = "substrate-bn", git = "https://github.com/sp1-patches/bn", branch = "master" }
+bn = { package = "substrate-bn", git = "https://github.com/sp1-patches/bn", branch = "chris/v0.6.0" }
 
 [features]
 default = ["sp1-cycle-tracker"]
