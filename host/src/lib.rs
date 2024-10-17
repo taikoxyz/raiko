@@ -8,7 +8,7 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManagerOpts, TaskManagerWrapper};
+use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManagerOpts, TaskManagerWrapperImpl};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -81,6 +81,9 @@ pub struct Opts {
 
     #[arg(long, require_equals = true, default_value = "1048576")]
     pub max_db_size: usize,
+
+    #[arg(long, require_equals = true, default_value = "redis://localhost:6379")]
+    pub redis_url: String,
 }
 
 impl Opts {
@@ -128,6 +131,7 @@ impl From<Opts> for TaskManagerOpts {
         Self {
             sqlite_file: val.sqlite_file,
             max_db_size: val.max_db_size,
+            redis_url: val.redis_url.to_string(),
         }
     }
 }
@@ -137,6 +141,7 @@ impl From<&Opts> for TaskManagerOpts {
         Self {
             sqlite_file: val.sqlite_file.clone(),
             max_db_size: val.max_db_size,
+            redis_url: val.redis_url.to_string(),
         }
     }
 }
@@ -215,7 +220,7 @@ impl ProverState {
         })
     }
 
-    pub fn task_manager(&self) -> TaskManagerWrapper {
+    pub fn task_manager(&self) -> TaskManagerWrapperImpl {
         get_task_manager(&(&self.opts).into())
     }
 

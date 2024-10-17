@@ -16,7 +16,9 @@ use raiko_lib::{
     prover::{IdWrite, Proof},
     Measurement,
 };
-use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskManagerWrapper, TaskStatus};
+use raiko_tasks::{
+    get_task_manager, TaskDescriptor, TaskManager, TaskManagerWrapperImpl, TaskStatus,
+};
 use reth_primitives::B256;
 use tokio::{
     select,
@@ -374,7 +376,7 @@ pub async fn handle_proof(
     proof_request: &ProofRequest,
     opts: &Opts,
     chain_specs: &SupportedChainSpecs,
-    store: Option<&mut TaskManagerWrapper>,
+    store: Option<&mut TaskManagerWrapperImpl>,
 ) -> HostResult<Proof> {
     info!(
         "Generating proof for block {} on {}",
