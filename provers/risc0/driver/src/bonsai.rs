@@ -82,7 +82,7 @@ pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
             tokio_async_sleep(Duration::from_secs(15)).await;
         } else if res.status == "SUCCEEDED" {
             // Download the receipt, containing the output
-            info!("Prove task {session:?} successed.");
+            info!("Prove task {session:?} success.");
             let receipt_url = res
                 .receipt_url
                 .expect("API error, missing receipt on completed session");
