@@ -74,7 +74,6 @@ fn unzip_tx_list_from_data_buf(
 
 pub fn generate_transactions(
     chain_spec: &ChainSpec,
-    // is_blob_data: bool,
     block_proposal: &BlockProposedFork,
     tx_list_data_buf: &[u8],
     anchor_tx: &Option<TransactionSigned>,
