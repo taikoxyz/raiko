@@ -652,6 +652,20 @@ name = "bytemuck"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fd4c6dcc3b0aea2f5c0b4b82c2b15fe39ddbc76041a310848f4706edf76bb31"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcfcc3cd946cb52f0bbfdbbcfa2f4e24f75ebb6c0e1002f7c25904fada18b9ec"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.76",
+]
 
 [[package]]
 name = "byteorder"
@@ -3372,8 +3386,7 @@ dependencies = [
 [[package]]
 name = "sha3"
 version = "0.10.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
+source = "git+https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-sha3-v0.10.8#8f6d303c0861ba7e5adcc36207c0f41fe5edaabc"
 dependencies = [
  "digest 0.10.7",
  "keccak",
@@ -3677,13 +3690,17 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "git+https://github.com/sp1-patches/bn?branch=master#63f8c587356a67b33c7396af98e065b66fca5dda"
+source = "git+https://github.com/sp1-patches/bn?branch=chris/v0.6.0#42511f883a8f370246c8a56bc62960b7839daf7f"
 dependencies = [
+ "bytemuck",
  "byteorder",
+ "cfg-if",
  "crunchy",
  "lazy_static",
+ "num-bigint 0.4.6",
  "rand",
  "rustc-hex",
+ "sp1-lib 1.2.0-rc2",
 ]
 
 [[package]]
@@ -4395,8 +4412,3 @@ dependencies = [
  "quote",
  "syn 2.0.76",
 ]
-
-[[patch.unused]]
-name = "bls12_381"
-version = "0.8.0"
-source = "git+https://github.com/0xWOLAND/bls12_381/?branch=bhargav/experiment#59604db0784cca4ef87a494903ecc102b0a6cb3b"
