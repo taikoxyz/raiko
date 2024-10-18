@@ -28,8 +28,7 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
 fn unzip_tx_list_from_data_buf(
     chain_spec: &ChainSpec,
     is_blob_data: bool,
-    offset: usize,
-    length: usize,
+    blob_slice_param: Option<(usize, usize)>,
     tx_list_data_buf: &[u8],
 ) -> Vec<u8> {
     #[allow(clippy::collapsible_else_if)]
@@ -37,7 +36,18 @@ fn unzip_tx_list_from_data_buf(
         // taiko has some limitations to be aligned with taiko-client
         if is_blob_data {
             let compressed_tx_list = decode_blob_data(tx_list_data_buf);
-            zlib_decompress_data(&compressed_tx_list[offset..offset + length]).unwrap_or_default()
+            assert!(compressed_tx_list.len() <= MAX_BLOB_DATA_SIZE);
+            let slice_compressed_tx_list = if let Some((offset, length)) = blob_slice_param {
+                if offset + length > compressed_tx_list.len() {
+                    error!("blob_slice_param ({offset},{length}) out of range, use empty tx_list");
+                    vec![]
+                } else {
+                    compressed_tx_list[offset..offset + length].to_vec()
+                }
+            } else {
+                compressed_tx_list.to_vec()
+            };
+            zlib_decompress_data(&slice_compressed_tx_list).unwrap_or_default()
         } else {
             if Network::TaikoA7.to_string() == chain_spec.network() {
                 let tx_list = zlib_decompress_data(tx_list_data_buf).unwrap_or_default();
@@ -70,16 +80,10 @@ pub fn generate_transactions(
     anchor_tx: &Option<TransactionSigned>,
 ) -> Vec<TransactionSigned> {
     let is_blob_data = block_proposal.blob_used();
-    let (offset, length) = block_proposal.blob_tx_slice_param();
-    if (offset + length) as u32 > BLOB_DATA_CAPACITY as u32 {
-        error!(
-            "BlobTxListOffset: {offset} + BlobTxListLength: {length} exceeds capacity: {BLOB_DATA_CAPACITY}"
-        );
-        return vec![];
-    }
+    let blob_slice_param = block_proposal.blob_tx_slice_param();
     // Decode the tx list from the raw data posted onchain
     let unzip_tx_list_buf =
-        unzip_tx_list_from_data_buf(chain_spec, is_blob_data, offset, length, tx_list_data_buf);
+        unzip_tx_list_from_data_buf(chain_spec, is_blob_data, blob_slice_param, tx_list_data_buf);
     // Decode the transactions from the tx list
     let mut transactions = decode_transactions(&unzip_tx_list_buf);
     // Add the anchor tx at the start of the list
@@ -91,7 +95,7 @@ pub fn generate_transactions(
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
 const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
-pub(crate) const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
+const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
 // max call data bytes
 const CALL_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * (BLOB_FIELD_ELEMENT_BYTES - 1);
 const BLOB_VERSION_OFFSET: usize = 1;

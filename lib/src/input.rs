@@ -13,10 +13,7 @@ use serde_with::serde_as;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::ChainSpec,
-    primitives::mpt::MptNode,
-    prover::Proof,
-    utils::{zlib_compress_data, BLOB_DATA_CAPACITY},
+    consts::ChainSpec, primitives::mpt::MptNode, prover::Proof, utils::zlib_compress_data,
 };
 
 /// Represents the state of an account's storage.
@@ -143,14 +140,13 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn blob_tx_slice_param(&self) -> (usize, usize) {
+    pub fn blob_tx_slice_param(&self) -> Option<(usize, usize)> {
         match self {
-            BlockProposedFork::Hekla(_) => (0, BLOB_DATA_CAPACITY),
-            BlockProposedFork::Ontake(block) => (
+            BlockProposedFork::Ontake(block) => Some((
                 block.meta.blobTxListOffset as usize,
                 block.meta.blobTxListLength as usize,
-            ),
-            _ => (0, BLOB_DATA_CAPACITY),
+            )),
+            _ => None,
         }
     }
 }
