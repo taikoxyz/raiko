@@ -13,7 +13,10 @@ use serde_with::serde_as;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::ChainSpec, primitives::mpt::MptNode, prover::Proof, utils::zlib_compress_data,
+    consts::ChainSpec,
+    primitives::mpt::MptNode,
+    prover::Proof,
+    utils::{self, zlib_compress_data},
 };
 
 /// Represents the state of an account's storage.
@@ -137,6 +140,17 @@ impl BlockProposedFork {
                 max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
             },
             _ => ProtocolBaseFeeConfig::default(),
+        }
+    }
+
+    pub fn blob_tx_slice_param(&self) -> (usize, usize) {
+        match self {
+            BlockProposedFork::Hekla(_) => (0, utils::BLOB_DATA_CAPACITY),
+            BlockProposedFork::Ontake(block) => (
+                block.meta.blobTxListOffset as usize,
+                block.meta.blobTxListLength as usize,
+            ),
+            _ => (0, utils::BLOB_DATA_CAPACITY),
         }
     }
 }
