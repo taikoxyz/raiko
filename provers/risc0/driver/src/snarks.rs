@@ -172,11 +172,12 @@ pub async fn stark2snark(
 
 pub async fn verify_groth16_from_snark_receipt(
     image_id: Digest,
-    snark_receipt: SnarkReceipt,
+    snark_receipt: Receipt,
 ) -> Result<Vec<u8>> {
-    let seal = encode(snark_receipt.snark.to_vec())?;
+    let groth16_claim = snark_receipt.inner.groth16().unwrap();
+    let seal = encode(groth16_claim.seal.clone())?;
     let journal_digest = snark_receipt.journal.digest();
-    let post_state_digest = snark_receipt.post_state_digest.digest();
+    let post_state_digest = snark_receipt.claim()?.as_value().unwrap().post.digest();
     let encoded_proof =
         verify_groth16_snark_impl(image_id, seal, journal_digest, post_state_digest).await?;
     let proof = (encoded_proof, B256::from_slice(image_id.as_bytes()))

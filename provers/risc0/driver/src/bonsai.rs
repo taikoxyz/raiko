@@ -3,6 +3,7 @@ use crate::{
     snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
 };
+use alloy_primitives::B256;
 use bonsai_sdk::blocking::{Client, SessionId};
 use log::{debug, error, info, warn};
 use raiko_lib::{
@@ -297,10 +298,14 @@ pub async fn bonsai_stark_to_snark(
     input: B256,
 ) -> ProverResult<Risc0Response> {
     let image_id = Digest::from(RISC0_GUEST_ID);
-    let (snark_uuid, snark_receipt) =
-        stark2snark(image_id, stark_uuid, stark_receipt, MAX_REQUEST_RETRY)
-            .await
-            .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
+    let (snark_uuid, snark_receipt) = stark2snark(
+        image_id,
+        stark_uuid.clone(),
+        stark_receipt.clone(),
+        MAX_REQUEST_RETRY,
+    )
+    .await
+    .map_err(|err| format!("Failed to convert STARK to SNARK: {err:?}"))?;
 
     info!("Validating SNARK uuid: {snark_uuid}");
 
