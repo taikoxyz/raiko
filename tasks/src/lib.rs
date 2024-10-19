@@ -179,6 +179,8 @@ pub type TaskProvingStatusRecords = Vec<TaskProvingStatus>;
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);
 
+pub type AggregationTaskReport = (AggregationOnlyRequest, TaskStatus);
+
 #[derive(Debug, Clone, Default)]
 pub struct TaskManagerOpts {
     pub sqlite_file: PathBuf,
@@ -250,6 +252,13 @@ pub trait TaskManager: IdStore + IdWrite {
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<Vec<u8>>;
+
+    /// Prune old tasks.
+    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()>;
+
+    /// List all tasks in the db.
+    async fn list_all_aggregation_tasks(&mut self)
+        -> TaskManagerResult<Vec<AggregationTaskReport>>;
 }
 
 pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
@@ -440,6 +449,26 @@ impl TaskManager for TaskManagerWrapper {
             }
             TaskManagerInstance::Sqlite(ref mut manager) => {
                 manager.get_aggregation_task_proof(request).await
+            }
+        }
+    }
+
+    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => manager.prune_aggregation_db().await,
+            TaskManagerInstance::Sqlite(ref mut manager) => manager.prune_aggregation_db().await,
+        }
+    }
+
+    async fn list_all_aggregation_tasks(
+        &mut self,
+    ) -> TaskManagerResult<Vec<AggregationTaskReport>> {
+        match &mut self.manager {
+            TaskManagerInstance::InMemory(ref mut manager) => {
+                manager.list_all_aggregation_tasks().await
+            }
+            TaskManagerInstance::Sqlite(ref mut manager) => {
+                manager.list_all_aggregation_tasks().await
             }
         }
     }

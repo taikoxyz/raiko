@@ -154,6 +154,17 @@ impl TryFrom<u8> for ProofType {
     }
 }
 
+impl From<ProofType> for u8 {
+    fn from(val: ProofType) -> Self {
+        match val {
+            ProofType::Native => 0,
+            ProofType::Sp1 => 1,
+            ProofType::Sgx => 2,
+            ProofType::Risc0 => 3,
+        }
+    }
+}
+
 impl From<ProofType> for VerifierType {
     fn from(val: ProofType) -> Self {
         match val {
