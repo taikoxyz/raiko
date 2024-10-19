@@ -139,6 +139,16 @@ impl BlockProposedFork {
             _ => ProtocolBaseFeeConfig::default(),
         }
     }
+
+    pub fn blob_tx_slice_param(&self) -> Option<(usize, usize)> {
+        match self {
+            BlockProposedFork::Ontake(block) => Some((
+                block.meta.blobTxListOffset as usize,
+                block.meta.blobTxListLength as usize,
+            )),
+            _ => None,
+        }
+    }
 }
 
 #[serde_as]
