@@ -187,7 +187,7 @@ impl Prover for Sp1Prover {
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32(),
                 public_values: B256::from_slice(&pi_hash).to_string(),
-                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
+                proof: proof_bytes.clone(),
             };
 
             verify_sol_by_contract_call(&fixture).await?;
@@ -309,13 +309,13 @@ impl Prover for Sp1Prover {
             .expect("proving failed");
 
         let proof_bytes = prove_result.bytes();
-        if param.verify {
+        if param.verify && !proof_bytes.is_empty() {
             let time = Measurement::start("verify", false);
             let aggregation_pi = prove_result.clone().borrow_mut().public_values.raw();
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32().to_string(),
                 public_values: reth_primitives::hex::encode_prefixed(aggregation_pi),
-                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
+                proof: proof_bytes.clone(),
             };
 
             verify_sol_by_contract_call(&fixture).await?;
@@ -363,7 +363,7 @@ fn get_env_mock() -> ProverMode {
 pub(crate) struct RaikoProofFixture {
     vkey: String,
     public_values: String,
-    proof: String,
+    proof: Vec<u8>,
 }
 
 #[cfg(test)]
