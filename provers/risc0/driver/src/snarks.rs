@@ -175,7 +175,7 @@ pub async fn verify_groth16_from_snark_receipt(
     snark_receipt: Receipt,
 ) -> Result<Vec<u8>> {
     let groth16_claim = snark_receipt.inner.groth16().unwrap();
-    let seal = encode(groth16_claim.seal.clone())?;
+    let seal = groth16_claim.seal.clone();
     let journal_digest = snark_receipt.journal.digest();
     let post_state_digest = snark_receipt.claim()?.as_value().unwrap().post.digest();
     let encoded_proof =
