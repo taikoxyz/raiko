@@ -1,7 +1,6 @@
 #![cfg(feature = "enable")]
 #![feature(iter_advance_by)]
 
-use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
@@ -16,16 +15,11 @@ use serde_with::serde_as;
 use sp1_sdk::{
     action,
     network::client::NetworkClient,
-    proto::network::{ProofMode, UnclaimReason},
-    SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
+    network::proto::network::{ProofMode, UnclaimReason},
+    NetworkProverV1 as NetworkProver, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-use std::{
-    borrow::BorrowMut,
-    env, fs,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{borrow::BorrowMut, env, time::Duration};
 use tracing::{debug, error, info};
 
 mod proof_verify;
@@ -34,11 +28,6 @@ use proof_verify::remote_contract_verify::verify_sol_by_contract_call;
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
 const SP1_PROVER_CODE: u8 = 1;
-static FIXTURE_PATH: Lazy<PathBuf> =
-    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures/"));
-static CONTRACT_PATH: Lazy<PathBuf> =
-    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/exports/"));
-pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifier);
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -46,9 +35,11 @@ pub struct Sp1Param {
     #[serde(default = "RecursionMode::default")]
     pub recursion: RecursionMode,
     pub prover: Option<ProverMode>,
-    #[serde(default = "bool::default")]
+    #[serde(default = "DEFAULT_TRUE")]
     pub verify: bool,
 }
+
+const DEFAULT_TRUE: fn() -> bool = || true;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -142,7 +133,7 @@ impl Prover for Sp1Prover {
 
         let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
         let prove_result = if !matches!(mode, ProverMode::Network) {
-            tracing::debug!("Proving locally with recursion mode: {:?}", param.recursion);
+            debug!("Proving locally with recursion mode: {:?}", param.recursion);
             match param.recursion {
                 RecursionMode::Core => prove_action.run(),
                 RecursionMode::Compressed => prove_action.compressed().run(),
@@ -150,7 +141,7 @@ impl Prover for Sp1Prover {
             }
             .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
         } else {
-            let network_prover = sp1_sdk::NetworkProver::new();
+            let network_prover = NetworkProver::new();
 
             let proof_id = network_prover
                 .request_proof(ELF, stdin, param.recursion.clone().into())
@@ -186,7 +177,7 @@ impl Prover for Sp1Prover {
             }
             _ => prove_result.bytes(),
         };
-        if param.verify {
+        if param.verify && !proof_bytes.is_empty() {
             let time = Measurement::start("verify", false);
             let pi_hash = prove_result
                 .clone()
@@ -196,7 +187,7 @@ impl Prover for Sp1Prover {
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32(),
                 public_values: B256::from_slice(&pi_hash).to_string(),
-                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
+                proof: proof_bytes.clone(),
             };
 
             verify_sol_by_contract_call(&fixture).await?;
@@ -284,7 +275,7 @@ impl Prover for Sp1Prover {
                 .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 proof: {e}")))?;
             match sp1_proof {
                 SP1Proof::Compressed(block_proof) => {
-                    stdin.write_proof(block_proof, stark_vk.clone());
+                    stdin.write_proof(*block_proof, stark_vk.clone());
                 }
                 _ => {
                     error!("unsupported proof type for aggregation: {sp1_proof:?}");
@@ -318,17 +309,17 @@ impl Prover for Sp1Prover {
             .expect("proving failed");
 
         let proof_bytes = prove_result.bytes();
-        if param.verify {
+        if param.verify && !proof_bytes.is_empty() {
             let time = Measurement::start("verify", false);
             let aggregation_pi = prove_result.clone().borrow_mut().public_values.raw();
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32().to_string(),
                 public_values: reth_primitives::hex::encode_prefixed(aggregation_pi),
-                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
+                proof: proof_bytes.clone(),
             };
 
-            verify_sol(&fixture)?;
-            time.stop_with("==> Verification complete");
+            verify_sol_by_contract_call(&fixture).await?;
+            time.stop_with("==> Aggregation verification complete");
         }
 
         let proof = (!proof_bytes.is_empty()).then_some(
@@ -366,65 +357,13 @@ fn get_env_mock() -> ProverMode {
     }
 }
 
-fn init_verifier() -> Result<PathBuf, ProverError> {
-    // In cargo run, Cargo sets the working directory to the root of the workspace
-    let contract_path = &*CONTRACT_PATH;
-    info!("Contract dir: {contract_path:?}");
-    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
-    // Create the destination directory if it doesn't exist
-    fs::create_dir_all(contract_path)?;
-
-    // Read the entries in the source directory
-    for entry in fs::read_dir(artifacts_dir)? {
-        let entry = entry?;
-        let src = entry.path();
-
-        // Check if the entry is a file and ends with .sol
-        if src.is_file() && src.extension().map(|s| s == "sol").unwrap_or(false) {
-            let out = contract_path.join(src.file_name().unwrap());
-            fs::copy(&src, &out)?;
-            println!("Copied: {:?}", src.file_name().unwrap());
-        }
-    }
-    Ok(contract_path.clone())
-}
-
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RaikoProofFixture {
     vkey: String,
     public_values: String,
-    proof: String,
-}
-
-fn verify_sol(fixture: &RaikoProofFixture) -> ProverResult<()> {
-    assert!(VERIFIER.is_ok());
-    debug!("===> Fixture: {fixture:#?}");
-
-    // Save the fixture to a file.
-    let fixture_path = &*FIXTURE_PATH;
-    info!("Writing fixture to: {fixture_path:?}");
-
-    if !fixture_path.exists() {
-        std::fs::create_dir_all(fixture_path.clone())
-            .map_err(|e| ProverError::GuestError(format!("Failed to create fixture path: {e}")))?;
-    }
-    std::fs::write(
-        fixture_path.join("fixture.json"),
-        serde_json::to_string_pretty(&fixture).unwrap(),
-    )
-    .map_err(|e| ProverError::GuestError(format!("Failed to write fixture: {e}")))?;
-
-    let child = std::process::Command::new("forge")
-        .arg("test")
-        .current_dir(&*CONTRACT_PATH)
-        .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
-        .spawn();
-    info!("Verification started {child:?}");
-    child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {e}")))?;
-
-    Ok(())
+    proof: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -452,11 +391,6 @@ mod test {
 
         let deserialized: Sp1Param = serde_json::from_value(serialized).unwrap();
         println!("{json:?} {deserialized:?}");
-    }
-
-    #[test]
-    fn test_init_verifier() {
-        VERIFIER.as_ref().expect("Failed to init verifier");
     }
 
     #[test]

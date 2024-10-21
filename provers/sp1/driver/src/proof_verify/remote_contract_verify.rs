@@ -3,7 +3,7 @@ use alloy_provider::ProviderBuilder;
 use alloy_sol_types::sol;
 use raiko_lib::prover::ProverResult;
 use reth_primitives::B256;
-use sp1_sdk::proto::network::twirp::url::Url;
+use sp1_sdk::network::proto::network::twirp::url::Url;
 use std::{env, str::FromStr};
 use tracing::{error, info};
 
@@ -32,7 +32,7 @@ pub(crate) async fn verify_sol_by_contract_call(fixture: &RaikoProofFixture) -> 
 
     let provider = ProviderBuilder::new().on_http(Url::parse(&sp1_verifier_rpc_url).unwrap());
     let program_key: B256 = B256::from_str(&fixture.vkey).unwrap();
-    let public_value = fixture.public_values.clone();
+    let public_value = reth_primitives::hex::decode(&fixture.public_values).unwrap();
     let proof_bytes = fixture.proof.clone();
 
     info!(

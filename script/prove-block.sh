@@ -55,7 +55,7 @@ elif [ "$proof" == "sp1" ]; then
 	"sp1": {
 		"recursion": "plonk",
 		"prover": "network",
-		"verify": false
+		"verify": true
 	}
   '
 elif [ "$proof" == "sp1-aggregation" ]; then
