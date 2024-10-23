@@ -60,13 +60,18 @@ ENV TARGET=sp1
 RUN make guest
 RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build"
 
-#FROM rust:1.79.0 as raiko-zk
 FROM ubuntu:22.04 AS raiko-zk
 RUN mkdir -p \
     ./bin \
     /etc/raiko \
     /var/log/raiko \
     /tmp/risc0-cache
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    openssl \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.
 COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/

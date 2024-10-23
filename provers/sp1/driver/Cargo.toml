@@ -12,7 +12,7 @@ harness = true
 [[bin]]
 name = "sp1-verifier"
 path = "src/verifier.rs"
-required-features = ["enable"]
+required-features = ["enable-verifier"]
 
 
 [dependencies]
@@ -64,3 +64,4 @@ enable = [
 ]
 neon = ["sp1-sdk?/neon"]
 foundry-verify = []
+enable-verifier = []
