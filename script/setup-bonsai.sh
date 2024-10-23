@@ -1,10 +1,25 @@
 #!/usr/bin/env bash
 
 # Environment variables
-BONSAI_API_KEY="1234"
-BONSAI_API_URL="https://api.bonsai.xyzz/"
-GROTH16_VERIFIER_ADDRESS="3d24C84FC1A2B26f9229e58ddDf11A8dfba802d0"
-GROTH16_VERIFIER_RPC_URL="https://sepolia.infura.io/v3/4c76691f5f384d30bed910018c28ba1d"
+# risc0
+BONSAI_API_KEY=$BONSAI_API_KEY
+BONSAI_API_URL=$BONSAI_API_URL
+# reference verifier was deployed in holesky
+GROTH16_VERIFIER_RPC_URL=https://ethereum-holesky-rpc.publicnode.com
+# v1.1.2
+GROTH16_VERIFIER_ADDRESS=0x3098D568e8E7E158D1a84233182C5fC60f50c16a
+
+# sp1
+SP1_PROVER=network
+SKIP_SIMULATION=true
+PROVER_NETWORK_RPC=$PROVER_NETWORK_RPC
+SP1_PRIVATE_KEY=$SP1_PRIVATE_KEY
+# reference verifier was deployed in holesky
+SP1_VERIFIER_RPC_URL=https://ethereum-holesky-rpc.publicnode.com
+# v2.0.0
+# export SP1_VERIFIER_ADDRESS=0x35500C6fdfc4d57582672CE32A55B9a3fB48292d
+# v3.0.0-rc3
+SP1_VERIFIER_ADDRESS=0x7089666D4fEcca134D1a6d2636b03e2087B52e97
 
 # Function to set environment variable persistently
 set_persistent_env() {

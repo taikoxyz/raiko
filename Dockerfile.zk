@@ -1,4 +1,4 @@
-FROM rust:1.79.0 as builder
+FROM rust:1.79.0 AS base-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
@@ -12,6 +12,26 @@ RUN apt-get update && \
     sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/raiko
+# build related files
+COPY makefile makefile
+COPY script script
+RUN ls -al > /tmp/file_list.txt
+RUN cat /tmp/file_list.txt
+
+ENV TARGET=risc0
+RUN mkdir -p ~/.cargo/bin
+RUN echo "Building for risc0"
+RUN make install
+RUN echo "Building for sp1"
+ENV TARGET=sp1
+RUN make install
+
+FROM base-builder AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ARG BUILD_FLAGS=""
 
 WORKDIR /opt/raiko
 # build related files
@@ -34,24 +54,30 @@ RUN cat /tmp/file_list.txt
 ENV TARGET=risc0
 RUN mkdir -p ~/.cargo/bin
 RUN echo "Building for risc0"
-RUN make install
 RUN make guest
 RUN echo "Building for sp1"
 ENV TARGET=sp1
-RUN make install
 RUN make guest
-RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0,bonsai-auto-scaling" --features "docker_build"
+RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build"
 
+FROM ubuntu:22.04 AS raiko-zk
 RUN mkdir -p \
     ./bin \
     /etc/raiko \
     /var/log/raiko \
     /tmp/risc0-cache
 
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    openssl \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.
-RUN cp /opt/raiko/host/config/config.sgx.json /etc/raiko/
-RUN cp /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list.docker.json
-RUN cp /opt/raiko/target/release/raiko-host ./bin/
+COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
+COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list.docker.json
+COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raiko/chain_spec_list.devnet.json
+COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
 
 WORKDIR /opt/raiko/bin
 COPY ./docker/entrypoint.sh /opt/raiko/bin/

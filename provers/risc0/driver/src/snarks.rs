@@ -17,7 +17,7 @@ use std::{str::FromStr, sync::Arc};
 use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
-use bonsai_sdk::alpha::responses::SnarkReceipt;
+use bonsai_sdk::blocking::Client;
 use ethers_contract::abigen;
 use ethers_core::types::H160;
 use ethers_providers::{Http, Provider, RetryClient};
@@ -27,6 +27,7 @@ use risc0_zkvm::{
     sha::{Digest, Digestible},
     Groth16ReceiptVerifierParameters, Receipt,
 };
+use tokio::time::{sleep as tokio_async_sleep, Duration};
 
 use tracing::{error as tracing_err, info as tracing_info};
 
@@ -86,7 +87,8 @@ pub async fn stark2snark(
     image_id: Digest,
     stark_uuid: String,
     stark_receipt: Receipt,
-) -> Result<(String, SnarkReceipt)> {
+    max_retries: usize,
+) -> Result<(String, Receipt)> {
     info!("Submitting SNARK workload");
     // Label snark output as journal digest
     let receipt_label = format!(
@@ -106,20 +108,38 @@ pub async fn stark2snark(
         stark_uuid
     };
 
-    let client = bonsai_sdk::alpha_async::get_client_from_env(risc0_zkvm::VERSION).await?;
-    let snark_uuid = client.create_snark(stark_uuid)?;
+    let client = Client::from_env(risc0_zkvm::VERSION)?;
+    let snark_uuid = client.create_snark(stark_uuid.clone())?;
 
+    let mut retry = 0;
     let snark_receipt = loop {
         let res = snark_uuid.status(&client)?;
-
         if res.status == "RUNNING" {
-            info!("Current status: {} - continue polling...", res.status);
-            std::thread::sleep(std::time::Duration::from_secs(15));
+            info!(
+                "Current {:?} status: {} - continue polling...",
+                &stark_uuid, res.status
+            );
+            tokio_async_sleep(Duration::from_secs(15)).await;
         } else if res.status == "SUCCEEDED" {
-            break res
+            let download_url = res
                 .output
                 .expect("Bonsai response is missing SnarkReceipt.");
+            let receipt_buf = client.download(&download_url)?;
+            let snark_receipt: Receipt = bincode::deserialize(&receipt_buf)?;
+            break snark_receipt;
         } else {
+            if retry < max_retries {
+                retry += 1;
+                info!(
+                    "Workflow {:?} exited: {} - | err: {} - retrying {}/{max_retries}",
+                    stark_uuid,
+                    res.status,
+                    res.error_msg.unwrap_or_default(),
+                    retry
+                );
+                tokio_async_sleep(Duration::from_secs(15)).await;
+                continue;
+            }
             panic!(
                 "Workflow exited: {} - | err: {}",
                 res.status,
@@ -129,7 +149,7 @@ pub async fn stark2snark(
     };
 
     let stark_psd = stark_receipt.claim()?.as_value().unwrap().post.digest();
-    let snark_psd = Digest::try_from(snark_receipt.post_state_digest.as_slice())?;
+    let snark_psd = snark_receipt.claim()?.as_value().unwrap().post.digest();
 
     if stark_psd != snark_psd {
         error!("SNARK/STARK Post State Digest mismatch!");
@@ -137,7 +157,7 @@ pub async fn stark2snark(
         error!("SNARK: {}", hex::encode(snark_psd));
     }
 
-    if snark_receipt.journal != stark_receipt.journal.bytes {
+    if snark_receipt.journal.bytes != stark_receipt.journal.bytes {
         error!("SNARK/STARK Receipt Journal mismatch!");
         error!("STARK: {}", hex::encode(&stark_receipt.journal.bytes));
         error!("SNARK: {}", hex::encode(&snark_receipt.journal));
@@ -152,11 +172,12 @@ pub async fn stark2snark(
 
 pub async fn verify_groth16_from_snark_receipt(
     image_id: Digest,
-    snark_receipt: SnarkReceipt,
+    snark_receipt: Receipt,
 ) -> Result<Vec<u8>> {
-    let seal = encode(snark_receipt.snark.to_vec())?;
+    let groth16_claim = snark_receipt.inner.groth16().unwrap();
+    let seal = groth16_claim.seal.clone();
     let journal_digest = snark_receipt.journal.digest();
-    let post_state_digest = snark_receipt.post_state_digest.digest();
+    let post_state_digest = snark_receipt.claim()?.as_value().unwrap().post.digest();
     let encoded_proof =
         verify_groth16_snark_impl(image_id, seal, journal_digest, post_state_digest).await?;
     let proof = (encoded_proof, B256::from_slice(image_id.as_bytes()))
