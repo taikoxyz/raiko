@@ -240,7 +240,7 @@ rm csr.pem
 3. Curl the config file
 
 ```
-curl -s https://raw.githubusercontent.com/intel/SGXDataCenterAttestationPrimitives/main/QuoteGeneration/pccs/config/default.json > ~/.config/sgx-pccs/default.json
+curl -s https://raw.githubusercontent.com/intel/SGXDataCenterAttestationPrimitives/refs/tags/dcap_1.21_reproducible/QuoteGeneration/pccs/config/default.json > ~/.config/sgx-pccs/default.json
 ```
 
 Make sure you've copied the `default.json` into the .config/sgx-pccs directory you created earlier. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
