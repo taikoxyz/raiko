@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.3.0](https://github.com/taikoxyz/raiko/compare/v1.2.0...v1.3.0) (2024-10-23)
+
+
+### Features
+
+* **core,host:** initial aggregation API ([#375](https://github.com/taikoxyz/raiko/issues/375)) ([eb4d032](https://github.com/taikoxyz/raiko/commit/eb4d032abf7c55d3d1d498b8f08a00250fe0a14a))
+* **docs:** update docs for 1.2.0 ([#382](https://github.com/taikoxyz/raiko/issues/382)) ([f33d211](https://github.com/taikoxyz/raiko/commit/f33d2119a66864bb34ca915349c06f6e950c94ce))
+* **raiko:** enable blob slice to support multi-blocks in single blob ([#390](https://github.com/taikoxyz/raiko/issues/390)) ([8471b16](https://github.com/taikoxyz/raiko/commit/8471b16bfe86b1d4a18a8092ab40cb5488ff824f))
+* **raiko:** merge stress test upgrades ([#392](https://github.com/taikoxyz/raiko/issues/392)) ([7f64cbe](https://github.com/taikoxyz/raiko/commit/7f64cbe72176f2f4a424c31a7946171d48d89537))
+* **raiko:** put the tasks that cannot run in parallel into pending list ([#358](https://github.com/taikoxyz/raiko/issues/358)) ([ec483b7](https://github.com/taikoxyz/raiko/commit/ec483b7e6d637b921e677ad7fb89222da7749b85))
+* **raiko:** update ontake config & docker build for next release ([#394](https://github.com/taikoxyz/raiko/issues/394)) ([4bacdac](https://github.com/taikoxyz/raiko/commit/4bacdac7ec4c28e0fad9594093840226775a7e26))
+* **raiko:** use simple contract to verify sp1 proof ([#381](https://github.com/taikoxyz/raiko/issues/381)) ([8ad5a6f](https://github.com/taikoxyz/raiko/commit/8ad5a6f1e73ad57183e353b18649baa977752206))
+
+
+### Bug Fixes
+
+* add cgroup&mountinfo for docker env ([#383](https://github.com/taikoxyz/raiko/issues/383)) ([7e61432](https://github.com/taikoxyz/raiko/commit/7e614326b199d350c24f83dd27ac08d878f105cb))
+* incorrect state transition handling ([#395](https://github.com/taikoxyz/raiko/issues/395)) ([6d1f3ae](https://github.com/taikoxyz/raiko/commit/6d1f3ae8c5bc2131cd79a5023335bc845095dee4))
+* **raiko:** add build flags to docker image build script ([#379](https://github.com/taikoxyz/raiko/issues/379)) ([2ee7d2a](https://github.com/taikoxyz/raiko/commit/2ee7d2ac1762f088c06df80d187dcfc00cfba882))
+* **raiko:** fix r0 aggregation proof format ([#386](https://github.com/taikoxyz/raiko/issues/386)) ([3cb6651](https://github.com/taikoxyz/raiko/commit/3cb6651d4adc443697473e33e24a849516e9b264))
+
 ## [1.2.0](https://github.com/taikoxyz/raiko/compare/v1.1.0...v1.2.0) (2024-09-20)
 
 
