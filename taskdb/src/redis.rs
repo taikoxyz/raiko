@@ -36,13 +36,15 @@ pub struct RedisTaskManager {
 type RedisDbResult<T> = Result<T, RedisDbError>;
 
 #[derive(Error, Debug)]
-pub(crate) enum RedisDbError {
+pub enum RedisDbError {
     #[error("Redis DB error: {0}")]
     RedisDb(#[from] RedisError),
     #[error("Redis Task Manager error: {0}")]
     TaskManager(String),
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
+    #[error("Redis key non-exist: {0}")]
+    KeyNotFound(String),
 }
 
 // impl ToRedisArgs for TaskDescriptor {
@@ -123,11 +125,6 @@ impl RedisTaskDb {
             Err(e) if e.kind() == redis::ErrorKind::TypeError => Ok(None),
             Err(e) => Err(RedisDbError::RedisDb(e)),
         }
-    }
-
-    fn delete(&mut self, key: &TaskDescriptor) -> RedisDbResult<()> {
-        let serialized = serde_json::to_string(key).map_err(RedisDbError::Serialization)?;
-        self.delete_redis(&serialized)
     }
 
     fn delete_redis(&mut self, key: &String) -> RedisDbResult<()> {
@@ -244,7 +241,7 @@ impl RedisTaskDb {
     ) -> RedisDbResult<TaskProvingStatusRecords> {
         match self.query(key) {
             Ok(Some(records)) => Ok(records),
-            Ok(None) => Err(RedisDbError::TaskManager(
+            Ok(None) => Err(RedisDbError::KeyNotFound(
                 format!("task {key:?} not found").to_owned(),
             )),
             Err(e) => Err(RedisDbError::TaskManager(
@@ -276,10 +273,6 @@ impl RedisTaskDb {
         } else {
             Ok(vec![])
         }
-    }
-
-    fn size(&mut self) -> RedisDbResult<(usize, Vec<(String, usize)>)> {
-        todo!();
     }
 
     fn prune(&mut self) -> RedisDbResult<()> {
@@ -477,8 +470,11 @@ impl TaskManager for RedisTaskManager {
         key: &TaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut task_db = self.arc_task_db.lock().await;
-        let res = task_db.get_task_proving_status(key)?;
-        Ok(res)
+        match task_db.get_task_proving_status(key) {
+            Ok(records) => Ok(records),
+            Err(RedisDbError::KeyNotFound(_)) => Ok(vec![]),
+            Err(e) => Err(TaskManagerError::RedisError(e)),
+        }
     }
 
     async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {

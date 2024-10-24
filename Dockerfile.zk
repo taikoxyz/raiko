@@ -45,7 +45,7 @@ COPY harness harness
 COPY rust-toolchain rust-toolchain
 COPY kzg_settings_raw.bin kzg_settings_raw.bin
 COPY core core
-COPY tasks tasks
+COPY taskdb taskdb
 COPY makefile makefile
 COPY script script
 RUN ls -al > /tmp/file_list.txt

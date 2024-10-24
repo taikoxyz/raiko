@@ -19,6 +19,6 @@
 !/provers/sgx/setup
 !/kzg_settings_raw.bin
 !/core
-!/tasks
+!/taskdb
 !/makefile
 !/script

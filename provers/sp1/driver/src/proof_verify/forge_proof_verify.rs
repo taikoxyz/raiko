@@ -21,7 +21,7 @@ fn init_verifier() -> Result<PathBuf, ProverError> {
     // In cargo run, Cargo sets the working directory to the root of the workspace
     let contract_path = &*CONTRACT_PATH;
     info!("Contract dir: {contract_path:?}");
-    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
+    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts("plonk");
     // Create the destination directory if it doesn't exist
     fs::create_dir_all(contract_path)?;
 

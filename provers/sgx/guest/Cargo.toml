@@ -5,12 +5,16 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "sgx-guest"
+required-features = ["sgx"]
+
 [dependencies]
 raiko-lib = { workspace = true, features = ["sgx"] }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
-secp256k1 = { workspace = true, features = ["rand-std"]}
+secp256k1 = { workspace = true, features = ["rand-std"] }
 serde = { workspace = true }
 rand = { workspace = true }
 hex = { workspace = true }
@@ -22,3 +26,7 @@ base64-serde = { workspace = true }
 base64 = { workspace = true }
 dirs = { workspace = true }
 bincode = { workspace = true }
+
+[features]
+default = []
+sgx = []

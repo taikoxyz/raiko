@@ -4,6 +4,10 @@ name = "raiko-setup"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "raiko-setup"
+required-features = ["sgx"]
+
 [dependencies]
 sgx-prover = { path = "../prover", features = ["enable"] }
 
@@ -58,3 +62,6 @@ dirs = { workspace = true }
 assert_cmd = { workspace = true }
 rstest = { workspace = true }
 ethers-core = { workspace = true }
+
+[features]
+sgx = []
