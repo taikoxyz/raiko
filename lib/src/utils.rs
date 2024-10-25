@@ -4,9 +4,10 @@ use alloy_rlp::Decodable;
 use anyhow::Result;
 use libflate::zlib::{Decoder as zlibDecoder, Encoder as zlibEncoder};
 use reth_primitives::TransactionSigned;
-use tracing::warn;
+use tracing::{error, warn};
 
 use crate::consts::{ChainSpec, Network};
+use crate::input::BlockProposedFork;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
@@ -24,16 +25,32 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
     tx_list.len() <= CALL_DATA_CAPACITY
 }
 
-fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Vec<u8> {
+fn unzip_tx_list_from_data_buf(
+    chain_spec: &ChainSpec,
+    is_blob_data: bool,
+    blob_slice_param: Option<(usize, usize)>,
+    tx_list_data_buf: &[u8],
+) -> Vec<u8> {
     #[allow(clippy::collapsible_else_if)]
     if chain_spec.is_taiko() {
         // taiko has some limitations to be aligned with taiko-client
         if is_blob_data {
-            let compressed_tx_list = decode_blob_data(tx_list);
-            zlib_decompress_data(&compressed_tx_list).unwrap_or_default()
+            let compressed_tx_list = decode_blob_data(tx_list_data_buf);
+            assert!(compressed_tx_list.len() <= MAX_BLOB_DATA_SIZE);
+            let slice_compressed_tx_list = if let Some((offset, length)) = blob_slice_param {
+                if offset + length > compressed_tx_list.len() {
+                    error!("blob_slice_param ({offset},{length}) out of range, use empty tx_list");
+                    vec![]
+                } else {
+                    compressed_tx_list[offset..offset + length].to_vec()
+                }
+            } else {
+                compressed_tx_list.to_vec()
+            };
+            zlib_decompress_data(&slice_compressed_tx_list).unwrap_or_default()
         } else {
             if Network::TaikoA7.to_string() == chain_spec.network() {
-                let tx_list = zlib_decompress_data(tx_list).unwrap_or_default();
+                let tx_list = zlib_decompress_data(tx_list_data_buf).unwrap_or_default();
                 if validate_calldata_tx_list(&tx_list) {
                     tx_list
                 } else {
@@ -41,8 +58,8 @@ fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Ve
                     vec![]
                 }
             } else {
-                if validate_calldata_tx_list(tx_list) {
-                    zlib_decompress_data(tx_list).unwrap_or_default()
+                if validate_calldata_tx_list(tx_list_data_buf) {
+                    zlib_decompress_data(tx_list_data_buf).unwrap_or_default()
                 } else {
                     warn!("validate_calldata_tx_list failed, use empty tx_list");
                     vec![]
@@ -51,20 +68,23 @@ fn get_tx_list(chain_spec: &ChainSpec, is_blob_data: bool, tx_list: &[u8]) -> Ve
         }
     } else {
         // no limitation on non-taiko chains
-        zlib_decompress_data(tx_list).unwrap_or_default()
+        zlib_decompress_data(tx_list_data_buf).unwrap_or_default()
     }
 }
 
 pub fn generate_transactions(
     chain_spec: &ChainSpec,
-    is_blob_data: bool,
-    tx_list: &[u8],
+    block_proposal: &BlockProposedFork,
+    tx_list_data_buf: &[u8],
     anchor_tx: &Option<TransactionSigned>,
 ) -> Vec<TransactionSigned> {
+    let is_blob_data = block_proposal.blob_used();
+    let blob_slice_param = block_proposal.blob_tx_slice_param();
     // Decode the tx list from the raw data posted onchain
-    let tx_list = get_tx_list(chain_spec, is_blob_data, tx_list);
+    let unzip_tx_list_buf =
+        unzip_tx_list_from_data_buf(chain_spec, is_blob_data, blob_slice_param, tx_list_data_buf);
     // Decode the transactions from the tx list
-    let mut transactions = decode_transactions(&tx_list);
+    let mut transactions = decode_transactions(&unzip_tx_list_buf);
     // Add the anchor tx at the start of the list
     if let Some(anchor_tx) = anchor_tx {
         transactions.insert(0, anchor_tx.clone());

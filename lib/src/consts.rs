@@ -316,11 +316,11 @@ mod tests {
             .unwrap();
         assert_eq!(taiko_mainnet_spec.active_fork(0, 0).unwrap(), SpecId::HEKLA);
         assert_eq!(
-            taiko_mainnet_spec.active_fork(999998, 0).unwrap(),
+            taiko_mainnet_spec.active_fork(538303, 0).unwrap(),
             SpecId::HEKLA
         );
         assert_eq!(
-            taiko_mainnet_spec.active_fork(999999, 0).unwrap(),
+            taiko_mainnet_spec.active_fork(538304, 0).unwrap(),
             SpecId::ONTAKE
         );
     }

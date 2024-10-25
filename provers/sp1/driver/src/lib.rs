@@ -1,9 +1,11 @@
 #![cfg(feature = "enable")]
 #![feature(iter_advance_by)]
 
-use once_cell::sync::Lazy;
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
+        ZkAggregationGuestInput,
+    },
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
     Measurement,
 };
@@ -13,33 +15,31 @@ use serde_with::serde_as;
 use sp1_sdk::{
     action,
     network::client::NetworkClient,
-    proto::network::{ProofMode, UnclaimReason},
+    network::proto::network::{ProofMode, UnclaimReason},
+    NetworkProverV1 as NetworkProver, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-use std::{
-    borrow::BorrowMut,
-    env, fs,
-    path::{Path, PathBuf},
-};
-use tracing::{debug, info};
+use std::{borrow::BorrowMut, env, time::Duration};
+use tracing::{debug, error, info};
+
+mod proof_verify;
+use proof_verify::remote_contract_verify::verify_sol_by_contract_call;
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
+pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
 const SP1_PROVER_CODE: u8 = 1;
-static FIXTURE_PATH: Lazy<PathBuf> =
-    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures/"));
-static CONTRACT_PATH: Lazy<PathBuf> =
-    Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/exports/"));
 
-pub static VERIFIER: Lazy<Result<PathBuf, ProverError>> = Lazy::new(init_verifier);
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sp1Param {
     #[serde(default = "RecursionMode::default")]
     pub recursion: RecursionMode,
     pub prover: Option<ProverMode>,
-    #[serde(default = "bool::default")]
+    #[serde(default = "DEFAULT_TRUE")]
     pub verify: bool,
 }
+
+const DEFAULT_TRUE: fn() -> bool = || true;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -74,15 +74,27 @@ pub enum ProverMode {
 impl From<Sp1Response> for Proof {
     fn from(value: Sp1Response) -> Self {
         Self {
-            proof: Some(value.proof),
-            quote: None,
+            proof: value.proof,
+            quote: value
+                .sp1_proof
+                .as_ref()
+                .map(|p| serde_json::to_string(&p.proof).unwrap()),
+            input: value
+                .sp1_proof
+                .as_ref()
+                .map(|p| B256::from_slice(p.public_values.as_slice())),
+            uuid: value.vkey.map(|v| serde_json::to_string(&v).unwrap()),
+            kzg_proof: None,
         }
     }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sp1Response {
-    pub proof: String,
+    pub proof: Option<String>,
+    /// for aggregation
+    pub sp1_proof: Option<SP1ProofWithPublicValues>,
+    pub vkey: Option<SP1VerifyingKey>,
 }
 
 pub struct Sp1Prover;
@@ -96,6 +108,8 @@ impl Prover for Sp1Prover {
     ) -> ProverResult<Proof> {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
+
+        println!("param: {param:?}");
 
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
@@ -119,16 +133,15 @@ impl Prover for Sp1Prover {
 
         let prove_action = action::Prove::new(client.prover.as_ref(), &pk, stdin.clone());
         let prove_result = if !matches!(mode, ProverMode::Network) {
-            tracing::debug!("Proving locally with recursion mode: {:?}", param.recursion);
+            debug!("Proving locally with recursion mode: {:?}", param.recursion);
             match param.recursion {
                 RecursionMode::Core => prove_action.run(),
                 RecursionMode::Compressed => prove_action.compressed().run(),
                 RecursionMode::Plonk => prove_action.plonk().run(),
             }
-            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {}", e)))
-            .unwrap()
+            .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
         } else {
-            let network_prover = sp1_sdk::NetworkProver::new();
+            let network_prover = NetworkProver::new();
 
             let proof_id = network_prover
                 .request_proof(ELF, stdin, param.recursion.clone().into())
@@ -145,18 +158,26 @@ impl Prover for Sp1Prover {
                     .await?;
             }
             info!(
-                "Sp1 Prover: block {:?} - proof id {:?}",
-                output.header.number, proof_id
+                "Sp1 Prover: block {:?} - proof id {proof_id:?}",
+                output.header.number
             );
             network_prover
-                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(&proof_id, None)
+                .wait_proof::<sp1_sdk::SP1ProofWithPublicValues>(
+                    &proof_id,
+                    Some(Duration::from_secs(3600)),
+                )
                 .await
-                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {:?}", e)))
-                .unwrap()
+                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
 
-        let proof_bytes = prove_result.bytes();
-        if param.verify {
+        let proof_bytes = match param.recursion {
+            RecursionMode::Compressed => {
+                info!("Compressed proof is used in aggregation mode only");
+                vec![]
+            }
+            _ => prove_result.bytes(),
+        };
+        if param.verify && !proof_bytes.is_empty() {
             let time = Measurement::start("verify", false);
             let pi_hash = prove_result
                 .clone()
@@ -164,35 +185,37 @@ impl Prover for Sp1Prover {
                 .public_values
                 .read::<[u8; 32]>();
             let fixture = RaikoProofFixture {
-                vkey: vk.bytes32().to_string(),
+                vkey: vk.bytes32(),
                 public_values: B256::from_slice(&pi_hash).to_string(),
-                proof: reth_primitives::hex::encode_prefixed(&proof_bytes),
+                proof: proof_bytes.clone(),
             };
 
-            verify_sol(&fixture)?;
+            verify_sol_by_contract_call(&fixture).await?;
             time.stop_with("==> Verification complete");
         }
 
-        let proof_string = if proof_bytes.is_empty() {
-            None
-        } else {
+        let proof_string = (!proof_bytes.is_empty()).then_some(
             // 0x + 64 bytes of the vkey + the proof
             // vkey itself contains 0x prefix
-            Some(format!(
+            format!(
                 "{}{}",
                 vk.bytes32(),
                 reth_primitives::hex::encode(proof_bytes)
-            ))
-        };
+            ),
+        );
 
         info!(
-            "Sp1 Prover: block {:?} completed! proof: {:?}",
-            output.header.number, proof_string
+            "Sp1 Prover: block {:?} completed! proof: {proof_string:?}",
+            output.header.number,
         );
-        Ok::<_, ProverError>(Proof {
-            proof: proof_string,
-            quote: None,
-        })
+        Ok::<_, ProverError>(
+            Sp1Response {
+                proof: proof_string,
+                sp1_proof: Some(prove_result),
+                vkey: Some(vk),
+            }
+            .into(),
+        )
     }
 
     async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
@@ -217,6 +240,108 @@ impl Prover for Sp1Prover {
         id_store.remove_id(key).await?;
         Ok(())
     }
+
+    async fn aggregate(
+        input: AggregationGuestInput,
+        _output: &AggregationGuestOutput,
+        config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+        let block_inputs: Vec<B256> = input
+            .proofs
+            .iter()
+            .map(|proof| proof.input.unwrap())
+            .collect::<Vec<_>>();
+        let block_proof_vk = serde_json::from_str::<SP1VerifyingKey>(
+            &input.proofs.first().unwrap().uuid.clone().unwrap(),
+        )
+        .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 vk: {e}")))?;
+        let stark_vk = block_proof_vk.vk.clone();
+        let image_id = block_proof_vk.hash_u32();
+        let aggregation_input = ZkAggregationGuestInput {
+            image_id,
+            block_inputs,
+        };
+        info!(
+            "Aggregating {:?} proofs with input: {aggregation_input:?}",
+            input.proofs.len(),
+        );
+
+        let mut stdin = SP1Stdin::new();
+        stdin.write(&aggregation_input);
+        for proof in input.proofs.iter() {
+            let sp1_proof = serde_json::from_str::<SP1Proof>(&proof.quote.clone().unwrap())
+                .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 proof: {e}")))?;
+            match sp1_proof {
+                SP1Proof::Compressed(block_proof) => {
+                    stdin.write_proof(*block_proof, stark_vk.clone());
+                }
+                _ => {
+                    error!("unsupported proof type for aggregation: {sp1_proof:?}");
+                }
+            }
+        }
+
+        // Generate the proof for the given program.
+        let client = param
+            .prover
+            .map(|mode| match mode {
+                ProverMode::Mock => ProverClient::mock(),
+                ProverMode::Local => ProverClient::local(),
+                ProverMode::Network => ProverClient::network(),
+            })
+            .unwrap_or_else(ProverClient::new);
+
+        let (pk, vk) = client.setup(AGGREGATION_ELF);
+        info!(
+            "sp1 aggregate: {:?} based {:?} blocks with vk {:?}",
+            reth_primitives::hex::encode_prefixed(stark_vk.hash_bytes()),
+            input.proofs.len(),
+            vk.bytes32()
+        );
+
+        let prove_result = client
+            .prove(&pk, stdin)
+            .plonk()
+            .timeout(Duration::from_secs(3600))
+            .run()
+            .expect("proving failed");
+
+        let proof_bytes = prove_result.bytes();
+        if param.verify && !proof_bytes.is_empty() {
+            let time = Measurement::start("verify", false);
+            let aggregation_pi = prove_result.clone().borrow_mut().public_values.raw();
+            let fixture = RaikoProofFixture {
+                vkey: vk.bytes32().to_string(),
+                public_values: reth_primitives::hex::encode_prefixed(aggregation_pi),
+                proof: proof_bytes.clone(),
+            };
+
+            verify_sol_by_contract_call(&fixture).await?;
+            time.stop_with("==> Aggregation verification complete");
+        }
+
+        let proof = (!proof_bytes.is_empty()).then_some(
+            // 0x + 64 bytes of the vkey + the proof
+            // vkey itself contains 0x prefix
+            format!(
+                "{}{}{}",
+                vk.bytes32(),
+                reth_primitives::hex::encode(stark_vk.hash_bytes()),
+                reth_primitives::hex::encode(proof_bytes)
+            ),
+        );
+
+        Ok::<_, ProverError>(
+            Sp1Response {
+                proof,
+                sp1_proof: None,
+                vkey: None,
+            }
+            .into(),
+        )
+    }
 }
 
 fn get_env_mock() -> ProverMode {
@@ -232,66 +357,13 @@ fn get_env_mock() -> ProverMode {
     }
 }
 
-fn init_verifier() -> Result<PathBuf, ProverError> {
-    // In cargo run, Cargo sets the working directory to the root of the workspace
-    let contract_path = &*CONTRACT_PATH;
-    info!("Contract dir: {:?}", contract_path);
-    let artifacts_dir = sp1_sdk::install::try_install_circuit_artifacts();
-    // Create the destination directory if it doesn't exist
-    fs::create_dir_all(&contract_path)?;
-
-    // Read the entries in the source directory
-    for entry in fs::read_dir(artifacts_dir)? {
-        let entry = entry?;
-        let src = entry.path();
-
-        // Check if the entry is a file and ends with .sol
-        if src.is_file() && src.extension().map(|s| s == "sol").unwrap_or(false) {
-            let out = contract_path.join(src.file_name().unwrap());
-            fs::copy(&src, &out)?;
-            println!("Copied: {:?}", src.file_name().unwrap());
-        }
-    }
-    Ok(contract_path.clone())
-}
-
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RaikoProofFixture {
     vkey: String,
     public_values: String,
-    proof: String,
-}
-
-fn verify_sol(fixture: &RaikoProofFixture) -> ProverResult<()> {
-    assert!(VERIFIER.is_ok());
-    debug!("===> Fixture: {:#?}", fixture);
-
-    // Save the fixture to a file.
-    let fixture_path = &*FIXTURE_PATH;
-    info!("Writing fixture to: {:?}", fixture_path);
-
-    if !fixture_path.exists() {
-        std::fs::create_dir_all(fixture_path).map_err(|e| {
-            ProverError::GuestError(format!("Failed to create fixture path: {}", e))
-        })?;
-    }
-    std::fs::write(
-        fixture_path.join("fixture.json"),
-        serde_json::to_string_pretty(&fixture).unwrap(),
-    )
-    .map_err(|e| ProverError::GuestError(format!("Failed to write fixture: {}", e)))?;
-
-    let child = std::process::Command::new("forge")
-        .arg("test")
-        .current_dir(&*CONTRACT_PATH)
-        .stdout(std::process::Stdio::inherit()) // Inherit the parent process' stdout
-        .spawn();
-    info!("Verification started {:?}", child);
-    child.map_err(|e| ProverError::GuestError(format!("Failed to run forge: {}", e)))?;
-
-    Ok(())
+    proof: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -314,16 +386,11 @@ mod test {
             prover: Some(ProverMode::Network),
             verify: true,
         };
-        let serialized = serde_json::to_value(&param).unwrap();
+        let serialized = serde_json::to_value(param).unwrap();
         assert_eq!(json, serialized);
 
         let deserialized: Sp1Param = serde_json::from_value(serialized).unwrap();
-        println!("{:?} {:?}", json, deserialized);
-    }
-
-    #[test]
-    fn test_init_verifier() {
-        VERIFIER.as_ref().expect("Failed to init verifier");
+        println!("{json:?} {deserialized:?}");
     }
 
     #[test]

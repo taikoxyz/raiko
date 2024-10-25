@@ -13,7 +13,7 @@ fn main() {
     ]);
 
     let op = Sp1Operator {};
-    
+
     let ct = CycleTracker::start("sha256_run");
     let res = op.sha256_run(&input).unwrap();
     ct.end();

@@ -63,7 +63,7 @@ enable = [
     "serde_json",
     "hex",
     "reqwest",
-    "lazy_static"
+    "lazy_static",
 ]
 cuda = ["risc0-zkvm?/cuda"]
 metal = ["risc0-zkvm?/metal"]

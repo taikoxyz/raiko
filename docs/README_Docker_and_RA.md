@@ -286,6 +286,8 @@ docker pull us-docker.pkg.dev/evmchain/images/raiko:1.2.0
 docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
+If you do this step, you need to change your raiko docker-compose.yml to use this image. Navigate to `raiko/docker` and search for `raiko:latest` and change all instances to `raiko:1.2.0`.
+
 You can continue on with the following steps as usual after this.
 
 6. Check that the images have been built

@@ -10,6 +10,10 @@ name = "zk_op"
 path = "src/zk_op.rs"
 
 [[bin]]
+name = "risc0-aggregation"
+path = "src/aggregation.rs"
+
+[[bin]]
 name = "sha256"
 path = "src/benchmark/sha256.rs"
 
@@ -19,7 +23,7 @@ path = "src/benchmark/ecdsa.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "risc0"] }
-risc0-zkvm = { version = "1.0.1", default-features = false, features = [
+risc0-zkvm = { version = "=1.1.2", default-features = false, features = [
     'std',
     "getrandom",
 ] }

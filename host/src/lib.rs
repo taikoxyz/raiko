@@ -4,7 +4,7 @@ use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
 use raiko_core::{
-    interfaces::{ProofRequest, ProofRequestOpt},
+    interfaces::{AggregationOnlyRequest, ProofRequest, ProofRequestOpt},
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
@@ -152,6 +152,9 @@ pub struct ProverState {
 pub enum Message {
     Cancel(TaskDescriptor),
     Task(ProofRequest),
+    TaskComplete(ProofRequest),
+    CancelAggregate(AggregationOnlyRequest),
+    Aggregate(AggregationOnlyRequest),
 }
 
 impl From<&ProofRequest> for Message {
@@ -163,6 +166,12 @@ impl From<&ProofRequest> for Message {
 impl From<&TaskDescriptor> for Message {
     fn from(value: &TaskDescriptor) -> Self {
         Self::Cancel(value.clone())
+    }
+}
+
+impl From<AggregationOnlyRequest> for Message {
+    fn from(value: AggregationOnlyRequest) -> Self {
+        Self::Aggregate(value)
     }
 }
 
@@ -192,9 +201,9 @@ impl ProverState {
 
         let opts_clone = opts.clone();
         let chain_specs_clone = chain_specs.clone();
-
+        let sender = task_channel.clone();
         tokio::spawn(async move {
-            ProofActor::new(receiver, opts_clone, chain_specs_clone)
+            ProofActor::new(sender, receiver, opts_clone, chain_specs_clone)
                 .run()
                 .await;
         });

@@ -2,7 +2,7 @@ use reth_primitives::{ChainId, B256};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::input::{GuestInput, GuestOutput};
+use crate::input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProverError {
@@ -26,13 +26,19 @@ pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
 pub type ProverConfig = serde_json::Value;
 pub type ProofKey = (ChainId, B256, u8);
 
-#[derive(Debug, Serialize, ToSchema, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, ToSchema, Deserialize, Default, PartialEq, Eq, Hash)]
 /// The response body of a proof request.
 pub struct Proof {
     /// The proof either TEE or ZK.
     pub proof: Option<String>,
+    /// The public input
+    pub input: Option<B256>,
     /// The TEE quote.
     pub quote: Option<String>,
+    /// The assumption UUID.
+    pub uuid: Option<String>,
+    /// The kzg proof.
+    pub kzg_proof: Option<String>,
 }
 
 #[async_trait::async_trait]
@@ -52,6 +58,13 @@ pub trait Prover {
     async fn run(
         input: GuestInput,
         output: &GuestOutput,
+        config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof>;
+
+    async fn aggregate(
+        input: AggregationGuestInput,
+        output: &AggregationGuestOutput,
         config: &ProverConfig,
         store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;

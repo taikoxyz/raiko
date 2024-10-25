@@ -131,7 +131,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         let mut block = self.input.block.clone();
         block.body = generate_transactions(
             &self.input.chain_spec,
-            self.input.taiko.block_proposed.blob_used(),
+            &self.input.taiko.block_proposed,
             &self.input.taiko.tx_data,
             &self.input.taiko.anchor_tx,
         );
@@ -160,7 +160,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         } = executor
             .execute((&block, total_difficulty).into())
             .map_err(|e| {
-                error!("Error executing block: {:?}", e);
+                error!("Error executing block: {e:?}");
                 e
             })?;
         // Filter out the valid transactions so that the header checks only take these into account
@@ -203,12 +203,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .into_iter()
             .map(|(address, bundle_account)| {
                 let mut account = Account {
-                    info: bundle_account.info.unwrap_or_default(),
+                    info: bundle_account.account_info().unwrap_or_default(),
                     storage: bundle_account.storage,
                     status: AccountStatus::default(),
                 };
                 account.mark_touch();
-                if bundle_account.status.was_destroyed() {
+                if bundle_account.info.is_none() {
                     account.mark_selfdestruct();
                 }
                 if bundle_account.original_info.is_none() {
@@ -294,8 +294,8 @@ impl RethBlockBuilder<MemDb> {
             state_trie.insert_rlp(&state_trie_index, state_account)?;
         }
 
-        debug!("Accounts touched {:?}", account_touched);
-        debug!("Storages touched {:?}", storage_touched);
+        debug!("Accounts touched {account_touched:?}");
+        debug!("Storages touched {storage_touched:?}");
 
         Ok(state_trie.hash())
     }

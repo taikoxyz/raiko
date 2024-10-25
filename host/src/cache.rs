@@ -55,10 +55,7 @@ pub async fn validate_input(
 
         let cached_block_hash = cache_input.block.header.hash_slow();
         let real_block_hash = block.header.hash.unwrap();
-        debug!(
-            "cache_block_hash={:?}, real_block_hash={:?}",
-            cached_block_hash, real_block_hash
-        );
+        debug!("cache_block_hash={cached_block_hash:?}, real_block_hash={real_block_hash:?}");
 
         // double check if cache is valid
         if cached_block_hash == real_block_hash {

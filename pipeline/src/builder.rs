@@ -140,7 +140,7 @@ impl CommandBuilder {
                         println!("Using {tool}: {out}");
                         Some(PathBuf::from(out))
                     } else {
-                        println!("Command succeeded with unknown output: {:?}", stdout);
+                        println!("Command succeeded with unknown output: {stdout:?}");
                         None
                     }
                 } else {

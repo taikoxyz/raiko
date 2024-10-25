@@ -3,6 +3,7 @@ extern crate secp256k1;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use one_shot::aggregate;
 
 use crate::{
     app_args::{App, Command},
@@ -21,6 +22,10 @@ pub async fn main() -> Result<()> {
         Command::OneShot(one_shot_args) => {
             println!("Starting one shot mode");
             one_shot(args.global_opts, one_shot_args).await?
+        }
+        Command::Aggregate(one_shot_args) => {
+            println!("Starting one shot mode");
+            aggregate(args.global_opts, one_shot_args).await?
         }
         Command::Bootstrap => {
             println!("Bootstrapping the app");
