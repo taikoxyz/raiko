@@ -10,18 +10,14 @@
 use chrono::Utc;
 use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
-use redis::{Client, Commands, Connection, FromRedisValue, RedisError, ToRedisArgs};
-use std::{
-    collections::HashMap,
-    f32::consts::E,
-    sync::{Arc, Once},
-};
+use redis::{Client, Commands, Connection, RedisError};
+use std::sync::{Arc, Once};
 use thiserror::Error;
 use tokio::sync::Mutex;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::{
-    ensure, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
+    TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
     TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
@@ -307,8 +303,8 @@ impl RedisTaskDb {
     ) -> RedisDbResult<TaskProvingStatusRecords> {
         match self.query_aggregation(request)? {
             Some(records) => Ok(records),
-            None => Err(RedisDbError::TaskManager(
-                format!("task {request} not found").to_owned(),
+            None => Err(RedisDbError::KeyNotFound(
+                format!("task {request:?} not found").to_owned(),
             )),
         }
     }
@@ -524,9 +520,11 @@ impl TaskManager for RedisTaskManager {
         request: &AggregationOnlyRequest,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut task_db = self.arc_task_db.lock().await;
-        task_db
-            .get_aggregation_task_proving_status(request)
-            .map_err(TaskManagerError::RedisError)
+        match task_db.get_aggregation_task_proving_status(request) {
+            Ok(records) => Ok(records),
+            Err(RedisDbError::KeyNotFound(_)) => Ok(vec![]),
+            Err(e) => Err(TaskManagerError::RedisError(e)),
+        }
     }
 
     async fn update_aggregation_task_progress(
