@@ -56,6 +56,7 @@ async fn proof_handler(
 
     let key = TaskDescriptor::from((
         chain_id,
+        proof_request.block_number,
         blockhash,
         proof_request.proof_type,
         proof_request.prover.to_string(),
@@ -64,7 +65,7 @@ async fn proof_handler(
     let mut manager = prover_state.task_manager();
     let status = manager.get_task_proving_status(&key).await?;
 
-    let Some((latest_status, ..)) = status.last() else {
+    let Some((latest_status, ..)) = status.0.last() else {
         // If there are no tasks with provided config, create a new one.
         manager.enqueue_task(&key).await?;
 

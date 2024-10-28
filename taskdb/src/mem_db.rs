@@ -51,12 +51,13 @@ impl InMemoryTaskDb {
             Some(task_proving_records) => {
                 debug!(
                     "Task already exists: {:?}",
-                    task_proving_records.last().unwrap().0
+                    task_proving_records.0.last().unwrap().0
                 );
             } // do nothing
             None => {
                 info!("Enqueue new task: {key:?}");
-                self.tasks_queue.insert(key.clone(), vec![task_status]);
+                self.tasks_queue
+                    .insert(key.clone(), TaskProvingStatusRecords(vec![task_status]));
             }
         }
     }
@@ -70,9 +71,9 @@ impl InMemoryTaskDb {
         ensure(self.tasks_queue.contains_key(&key), "no task found")?;
 
         self.tasks_queue.entry(key).and_modify(|entry| {
-            if let Some(latest) = entry.last() {
+            if let Some(latest) = entry.0.last() {
                 if latest.0 != status {
-                    entry.push((status, proof.map(hex::encode), Utc::now()));
+                    entry.0.push((status, proof.map(hex::encode), Utc::now()));
                 }
             }
         });
@@ -96,6 +97,7 @@ impl InMemoryTaskDb {
             .ok_or_else(|| TaskManagerError::SqlError("no task in db".to_owned()))?;
 
         let (_, proof, ..) = proving_status_records
+            .0
             .iter()
             .filter(|(status, ..)| (status == &TaskStatus::Success))
             .last()
@@ -124,6 +126,7 @@ impl InMemoryTaskDb {
             .iter()
             .flat_map(|(descriptor, statuses)| {
                 statuses
+                    .0
                     .last()
                     .map(|status| (descriptor.clone(), status.0.clone()))
             })
@@ -161,13 +164,13 @@ impl InMemoryTaskDb {
             Some(task_proving_records) => {
                 debug!(
                     "Task already exists: {:?}",
-                    task_proving_records.last().unwrap().0
+                    task_proving_records.0.last().unwrap().0
                 );
             } // do nothing
             None => {
                 info!("Enqueue new task: {request}");
                 self.aggregation_tasks_queue
-                    .insert(request.clone(), vec![task_status]);
+                    .insert(request.clone(), TaskProvingStatusRecords(vec![task_status]));
             }
         }
         Ok(())
@@ -198,9 +201,9 @@ impl InMemoryTaskDb {
         self.aggregation_tasks_queue
             .entry(request.clone())
             .and_modify(|entry| {
-                if let Some(latest) = entry.last() {
+                if let Some(latest) = entry.0.last() {
                     if latest.0 != status {
-                        entry.push((status, proof.map(hex::encode), Utc::now()));
+                        entry.0.push((status, proof.map(hex::encode), Utc::now()));
                     }
                 }
             });
@@ -223,6 +226,7 @@ impl InMemoryTaskDb {
             .ok_or_else(|| TaskManagerError::SqlError("no task in db".to_owned()))?;
 
         let (_, proof, ..) = proving_status_records
+            .0
             .iter()
             .filter(|(status, ..)| (status == &TaskStatus::Success))
             .last()
@@ -286,7 +290,7 @@ impl TaskManager for InMemoryTaskManager {
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut db = self.db.lock().await;
         let status = db.get_task_proving_status(params)?;
-        if !status.is_empty() {
+        if !status.0.is_empty() {
             return Ok(status);
         }
 
@@ -391,6 +395,7 @@ mod tests {
         let mut db = InMemoryTaskDb::new();
         let params = TaskDescriptor {
             chain_id: 1,
+            block_id: 1,
             blockhash: B256::default(),
             proof_system: ProofType::Native,
             prover: "0x1234".to_owned(),

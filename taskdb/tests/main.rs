@@ -65,6 +65,7 @@ mod tests {
         let mut tama = get_task_manager(&TaskManagerOpts {
             sqlite_file: file,
             max_db_size: 1_000_000,
+            redis_url: env::var("REDIS_URL").unwrap_or_default(),
         });
 
         let (chain_id, blockhash, request) =
@@ -101,6 +102,7 @@ mod tests {
         let mut tama = get_task_manager(&TaskManagerOpts {
             sqlite_file: file,
             max_db_size: 1_000_000,
+            redis_url: env::var("REDIS_URL").unwrap_or_default(),
         });
 
         let mut rng = ChaCha8Rng::seed_from_u64(123);

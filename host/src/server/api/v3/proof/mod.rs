@@ -66,6 +66,7 @@ async fn proof_handler(
 
         let key = TaskDescriptor::from((
             chain_id,
+            proof_request.block_number,
             blockhash,
             proof_request.proof_type,
             proof_request.prover.to_string(),
@@ -83,7 +84,7 @@ async fn proof_handler(
     for (key, req) in tasks.iter() {
         let status = manager.get_task_proving_status(key).await?;
 
-        let Some((latest_status, ..)) = status.last() else {
+        let Some((latest_status, ..)) = status.0.last() else {
             // If there are no tasks with provided config, create a new one.
             manager.enqueue_task(key).await?;
 
@@ -123,6 +124,7 @@ async fn proof_handler(
     } else if is_success {
         info!("All tasks are successful, aggregating proofs");
         let mut proofs = Vec::with_capacity(tasks.len());
+        let mut aggregation_ids = Vec::with_capacity(tasks.len());
         for (task, req) in tasks {
             let raw_proof: Vec<u8> = manager.get_task_proof(&task).await?;
             let proof: Proof = serde_json::from_slice(&raw_proof)?;
@@ -131,9 +133,11 @@ async fn proof_handler(
                 proof.proof, proof.input
             );
             proofs.push(proof);
+            aggregation_ids.push(req.block_number);
         }
 
         let aggregation_request = AggregationOnlyRequest {
+            aggregation_ids,
             proofs,
             proof_type: aggregation_request.proof_type,
             prover_args: aggregation_request.prover_args,
@@ -143,7 +147,7 @@ async fn proof_handler(
             .get_aggregation_task_proving_status(&aggregation_request)
             .await?;
 
-        let Some((latest_status, ..)) = status.last() else {
+        let Some((latest_status, ..)) = status.0.last() else {
             // If there are no tasks with provided config, create a new one.
             manager
                 .enqueue_aggregation_task(&aggregation_request)

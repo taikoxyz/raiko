@@ -12,6 +12,7 @@ use raiko_lib::{
 #[cfg(feature = "sqlite")]
 use rusqlite::Error as RustSQLiteError;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 use utoipa::ToSchema;
 
 #[cfg(feature = "sqlite")]
@@ -156,17 +157,25 @@ impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TaskDescriptor {
     pub chain_id: ChainId,
+    pub block_id: u64,
     pub blockhash: B256,
     pub proof_system: ProofType,
     pub prover: String,
 }
 
-impl From<(ChainId, B256, ProofType, String)> for TaskDescriptor {
+impl From<(ChainId, u64, B256, ProofType, String)> for TaskDescriptor {
     fn from(
-        (chain_id, blockhash, proof_system, prover): (ChainId, B256, ProofType, String),
+        (chain_id, block_id, blockhash, proof_system, prover): (
+            ChainId,
+            u64,
+            B256,
+            ProofType,
+            String,
+        ),
     ) -> Self {
         TaskDescriptor {
             chain_id,
+            block_id,
             blockhash,
             proof_system,
             prover,
@@ -186,10 +195,30 @@ impl From<TaskDescriptor> for (ChainId, B256) {
     }
 }
 
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[serde(default)]
+/// A request for proof aggregation of multiple proofs.
+pub struct AggregationTaskDescriptor {
+    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
+    pub aggregation_ids: Vec<u64>,
+    /// The proof type.
+    pub proof_type: Option<String>,
+}
+
+impl From<&AggregationOnlyRequest> for AggregationTaskDescriptor {
+    fn from(request: &AggregationOnlyRequest) -> Self {
+        Self {
+            aggregation_ids: request.aggregation_ids.clone(),
+            proof_type: request.proof_type.clone().map(|p| p.to_string()),
+        }
+    }
+}
+
 /// Task status triplet (status, proof, timestamp).
 pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
 
-pub type TaskProvingStatusRecords = Vec<TaskProvingStatus>;
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TaskProvingStatusRecords(pub Vec<TaskProvingStatus>);
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);
 
@@ -389,6 +418,7 @@ pub type TaskManagerWrapperImpl = TaskManagerWrapper<SqliteTaskManager>;
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<RedisTaskManager>;
 
 pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapperImpl {
+    debug!("get task manager with options: {:?}", opts);
     TaskManagerWrapperImpl::new(opts)
 }
 
@@ -416,6 +446,7 @@ mod test {
             task_manager
                 .enqueue_task(&TaskDescriptor {
                     chain_id: 1,
+                    block_id: 0,
                     blockhash: B256::default(),
                     proof_system: ProofType::Native,
                     prover: "test".to_string(),

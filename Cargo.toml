@@ -165,7 +165,7 @@ thiserror-no-std = "2.0.2"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 
 # redis
-redis = { version = "0.27.0" }
+redis = { version = "=0.27.3" }
 
 # misc
 hashbrown = { version = "0.14", features = ["inline-more"] }

@@ -43,6 +43,7 @@ async fn cancel_handler(
 
     let key = TaskDescriptor::from((
         chain_id,
+        proof_request.block_number,
         block_hash,
         proof_request.proof_type,
         proof_request.prover.clone().to_string(),

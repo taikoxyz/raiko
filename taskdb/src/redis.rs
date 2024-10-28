@@ -10,15 +10,15 @@
 use chrono::Utc;
 use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
-use redis::{Client, Commands, Connection, RedisError};
+use redis::{Client, Commands, Connection, RedisError, RedisWrite, ToRedisArgs};
 use std::sync::{Arc, Once};
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
 use crate::{
-    TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    AggregationTaskDescriptor, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
+    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 pub struct RedisTaskDb {
@@ -43,15 +43,40 @@ pub enum RedisDbError {
     KeyNotFound(String),
 }
 
-// impl ToRedisArgs for TaskDescriptor {
-//     fn write_redis_args<W>(&self, out: &mut W)
-//     where
-//         W: ?Sized + redis::RedisWrite,
-//     {
-//         let serialized = serde_json::to_string(self).expect("Failed to serialize TaskDescriptor");
-//         out.write_arg(serialized.as_bytes());
-//     }
-// }
+impl ToRedisArgs for TaskDescriptor {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        let serialized = serde_json::to_string(self).expect("Failed to serialize TaskDescriptor");
+        out.write_arg(serialized.as_bytes());
+    }
+}
+
+impl ToRedisArgs for AggregationTaskDescriptor {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        let serialized =
+            serde_json::to_string(self).expect("Failed to serialize AggregationTaskDescriptor");
+        out.write_arg(serialized.as_bytes());
+    }
+}
+
+impl ToRedisArgs for TaskProvingStatusRecords {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        let serialized =
+            serde_json::to_string(self).expect("Failed to serialize TaskProvingStatusRecords");
+        out.write_arg(serialized.as_bytes());
+    }
+}
+
+// redis key ttl
+const TTL_SECS: u64 = 2 * 24 * 3600; // 2 days
 
 impl RedisTaskDb {
     fn new(url: &str) -> RedisDbResult<Self> {
@@ -60,34 +85,38 @@ impl RedisTaskDb {
         Ok(RedisTaskDb { conn })
     }
 
-    fn insert(
+    fn insert_proof_task(
         &mut self,
         key: &TaskDescriptor,
         value: &TaskProvingStatusRecords,
     ) -> RedisDbResult<()> {
-        let serialized_k = serde_json::to_string(key)?;
-        let serialized_v = serde_json::to_string(value)?;
-        self.insert_redis(&serialized_k, &serialized_v)
+        self.insert_redis(key, value)
     }
 
-    fn insert_aggregation(
+    fn insert_aggregation_task(
         &mut self,
-        key: &AggregationOnlyRequest,
+        key: &AggregationTaskDescriptor,
         value: &TaskProvingStatusRecords,
     ) -> RedisDbResult<()> {
-        let serialized_k = serde_json::to_string(key)?;
-        let serialized_v = serde_json::to_string(value)?;
-        self.insert_redis(&serialized_k, &serialized_v)
+        self.insert_redis(key, value)
     }
 
-    fn insert_redis(&mut self, key: &String, value: &String) -> RedisDbResult<()> {
-        self.conn.set(key, value).map_err(RedisDbError::RedisDb)?;
+    fn insert_redis<K, V>(&mut self, key: &K, value: &V) -> RedisDbResult<()>
+    where
+        K: ToRedisArgs,
+        V: ToRedisArgs,
+    {
+        self.conn
+            .set_ex(key, value, TTL_SECS)
+            .map_err(RedisDbError::RedisDb)?;
         Ok(())
     }
 
-    fn query(&mut self, key: &TaskDescriptor) -> RedisDbResult<Option<TaskProvingStatusRecords>> {
-        let k = serde_json::to_string(key).map_err(RedisDbError::Serialization)?;
-        match self.query_redis(&k) {
+    fn query_proof_task(
+        &mut self,
+        key: &TaskDescriptor,
+    ) -> RedisDbResult<Option<TaskProvingStatusRecords>> {
+        match self.query_redis(&key) {
             Ok(Some(v)) => {
                 if let Some(records) = serde_json::from_str(&v)? {
                     Ok(Some(records))
@@ -103,19 +132,18 @@ impl RedisTaskDb {
         }
     }
 
-    fn query_aggregation(
+    fn query_aggregation_task(
         &mut self,
-        key: &AggregationOnlyRequest,
+        key: &AggregationTaskDescriptor,
     ) -> RedisDbResult<Option<TaskProvingStatusRecords>> {
-        let k = serde_json::to_string(key).map_err(RedisDbError::Serialization)?;
-        match self.query_redis(&k) {
+        match self.query_redis(&key) {
             Ok(Some(v)) => Ok(Some(serde_json::from_str(&v)?)),
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         }
     }
 
-    fn query_redis(&mut self, key: &String) -> RedisDbResult<Option<String>> {
+    fn query_redis(&mut self, key: &impl ToRedisArgs) -> RedisDbResult<Option<String>> {
         match self.conn.get(key) {
             Ok(value) => Ok(Some(value)),
             Err(e) if e.kind() == redis::ErrorKind::TypeError => Ok(None),
@@ -123,31 +151,29 @@ impl RedisTaskDb {
         }
     }
 
-    fn delete_redis(&mut self, key: &String) -> RedisDbResult<()> {
+    fn delete_redis(&mut self, key: &impl ToRedisArgs) -> RedisDbResult<()> {
         let result: i32 = self.conn.del(key).map_err(RedisDbError::RedisDb)?;
         if result != 1 {
-            return Err(RedisDbError::TaskManager(
-                format!("remove id {key:?} failed").to_owned(),
-            ));
+            return Err(RedisDbError::TaskManager("redis del".to_owned()));
         }
         Ok(())
     }
 
-    fn update_status(
+    fn update_proof_task_status(
         &mut self,
         key: &TaskDescriptor,
         new_status: TaskProvingStatus,
     ) -> RedisDbResult<()> {
-        let old_value = self.query(key).unwrap_or_default();
+        let old_value = self.query_proof_task(key).unwrap_or_default();
         let mut records = match old_value {
             Some(v) => v,
             None => {
                 warn!("Update a unknown task: {key:?} to {new_status:?}");
-                TaskProvingStatusRecords::new()
+                TaskProvingStatusRecords(vec![])
             }
         };
 
-        records.push(new_status);
+        records.0.push(new_status);
         let k = serde_json::to_string(&key)?;
         let v = serde_json::to_string(&records)?;
 
@@ -156,19 +182,19 @@ impl RedisTaskDb {
 
     fn update_aggregation_status(
         &mut self,
-        key: &AggregationOnlyRequest,
+        key: &AggregationTaskDescriptor,
         new_status: TaskProvingStatus,
     ) -> RedisDbResult<()> {
-        let old_value = self.query_aggregation(key).unwrap_or_default();
+        let old_value = self.query_aggregation_task(key.into()).unwrap_or_default();
         let mut records = match old_value {
             Some(v) => v,
             None => {
                 warn!("Update a unknown task: {key:?} to {new_status:?}");
-                TaskProvingStatusRecords::new()
+                TaskProvingStatusRecords(vec![])
             }
         };
 
-        records.push(new_status);
+        records.0.push(new_status);
         let k = serde_json::to_string(&key)?;
         let v = serde_json::to_string(&records)?;
 
@@ -176,7 +202,7 @@ impl RedisTaskDb {
     }
 
     fn update_status_redis(&mut self, k: &String, v: &String) -> RedisDbResult<()> {
-        self.conn.set(k, v)?;
+        self.conn.set_ex(k, v, TTL_SECS)?;
         Ok(())
     }
 }
@@ -185,14 +211,14 @@ impl RedisTaskDb {
     fn enqueue_task(&mut self, key: &TaskDescriptor) -> RedisDbResult<TaskProvingStatus> {
         let task_status = (TaskStatus::Registered, None, Utc::now());
 
-        match self.query(key) {
+        match self.query_proof_task(key) {
             Ok(Some(task_proving_records)) => {
-                warn!("Task already exists: {:?}", task_proving_records.last());
-                Ok(task_proving_records.last().unwrap().clone())
+                warn!("Task already exists: {:?}", task_proving_records.0.last());
+                Ok(task_proving_records.0.last().unwrap().clone())
             } // do nothing
             Ok(None) => {
                 info!("Enqueue new task: {key:?}");
-                self.insert(key, &vec![task_status.clone()])?;
+                self.insert_proof_task(key, &TaskProvingStatusRecords(vec![task_status.clone()]))?;
                 Ok(task_status)
             }
             Err(e) => {
@@ -208,12 +234,12 @@ impl RedisTaskDb {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> RedisDbResult<()> {
-        match self.query(&key) {
+        match self.query_proof_task(&key) {
             Ok(Some(records)) => {
-                if let Some(latest) = records.last() {
+                if let Some(latest) = records.0.last() {
                     if latest.0 != status {
                         let new_statue = (status, proof.map(hex::encode), Utc::now());
-                        self.update_status(&key, new_statue)?;
+                        self.update_proof_task_status(&key, new_statue)?;
                     }
                 } else {
                     return Err(RedisDbError::TaskManager(
@@ -235,7 +261,7 @@ impl RedisTaskDb {
         &mut self,
         key: &TaskDescriptor,
     ) -> RedisDbResult<TaskProvingStatusRecords> {
-        match self.query(key) {
+        match self.query_proof_task(key) {
             Ok(Some(records)) => Ok(records),
             Ok(None) => Err(RedisDbError::KeyNotFound(
                 format!("task {key:?} not found").to_owned(),
@@ -248,11 +274,12 @@ impl RedisTaskDb {
 
     fn get_task_proof(&mut self, key: &TaskDescriptor) -> RedisDbResult<Vec<u8>> {
         let proving_status_records = self
-            .query(key)
+            .query_proof_task(key)
             .map_err(|e| RedisDbError::TaskManager(format!("query error: {e:?}").to_owned()))?
             .unwrap_or_default();
 
         let (_, proof, ..) = proving_status_records
+            .0
             .iter()
             .filter(|(status, ..)| (status == &TaskStatus::Success))
             .last()
@@ -281,17 +308,20 @@ impl RedisTaskDb {
 
     fn enqueue_aggregation_task(&mut self, request: &AggregationOnlyRequest) -> RedisDbResult<()> {
         let task_status = (TaskStatus::Registered, None, Utc::now());
-
-        match self.query_aggregation(request)? {
+        let agg_task_descriptor = request.into();
+        match self.query_aggregation_task(&agg_task_descriptor)? {
             Some(task_proving_records) => {
                 info!(
                     "Task already exists: {:?}",
-                    task_proving_records.last().unwrap().0
+                    task_proving_records.0.last().unwrap().0
                 );
             } // do nothing
             None => {
                 info!("Enqueue new aggregatino task: {request}");
-                self.insert_aggregation(&request, &vec![task_status])?;
+                self.insert_aggregation_task(
+                    &agg_task_descriptor,
+                    &TaskProvingStatusRecords(vec![task_status]),
+                )?;
             }
         }
         Ok(())
@@ -301,10 +331,11 @@ impl RedisTaskDb {
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> RedisDbResult<TaskProvingStatusRecords> {
-        match self.query_aggregation(request)? {
+        let agg_task_descriptor = request.into();
+        match self.query_aggregation_task(&agg_task_descriptor)? {
             Some(records) => Ok(records),
             None => Err(RedisDbError::KeyNotFound(
-                format!("task {request:?} not found").to_owned(),
+                format!("task {agg_task_descriptor:?} not found").to_owned(),
             )),
         }
     }
@@ -315,22 +346,23 @@ impl RedisTaskDb {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> RedisDbResult<()> {
-        match self.query_aggregation(request)? {
+        let agg_task_descriptor = request.into();
+        match self.query_aggregation_task(&agg_task_descriptor)? {
             Some(records) => {
-                if let Some(latest) = records.last() {
+                if let Some(latest) = records.0.last() {
                     if latest.0 != status {
                         let new_record = (status, proof.map(hex::encode), Utc::now());
-                        self.update_aggregation_status(request, new_record)?;
+                        self.update_aggregation_status(&agg_task_descriptor, new_record)?;
                     }
                 } else {
                     return Err(RedisDbError::TaskManager(
-                        format!("task {request} not found").to_owned(),
+                        format!("task {agg_task_descriptor:?} not found").to_owned(),
                     ));
                 }
                 Ok(())
             }
             None => Err(RedisDbError::TaskManager(
-                format!("task {request} not found").to_owned(),
+                format!("task {agg_task_descriptor:?} not found").to_owned(),
             )),
         }
     }
@@ -339,20 +371,26 @@ impl RedisTaskDb {
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> RedisDbResult<Vec<u8>> {
-        let proving_status_records = self.query_aggregation(request)?.unwrap_or_default();
+        let agg_task_descriptor = request.into();
+        let proving_status_records = self
+            .query_aggregation_task(&agg_task_descriptor)?
+            .unwrap_or_default();
 
         let (_, proof, ..) = proving_status_records
+            .0
             .iter()
             .filter(|(status, ..)| (status == &TaskStatus::Success))
             .last()
             .ok_or_else(|| {
-                RedisDbError::TaskManager(format!("task {request} not found").to_owned())
+                RedisDbError::TaskManager(
+                    format!("task {agg_task_descriptor:?} not found").to_owned(),
+                )
             })?;
 
         if let Some(proof) = proof {
             hex::decode(proof).map_err(|e| {
                 RedisDbError::TaskManager(
-                    format!("task {request:?} hex decode failed for {e:?}").to_owned(),
+                    format!("task {agg_task_descriptor:?} hex decode failed for {e:?}").to_owned(),
                 )
             })
         } else {
@@ -443,10 +481,10 @@ impl TaskManager for RedisTaskManager {
     async fn enqueue_task(
         &mut self,
         params: &TaskDescriptor,
-    ) -> Result<Vec<TaskProvingStatus>, TaskManagerError> {
+    ) -> Result<TaskProvingStatusRecords, TaskManagerError> {
         let mut task_db = self.arc_task_db.lock().await;
         let enq_status = task_db.enqueue_task(params)?;
-        Ok(vec![enq_status])
+        Ok(TaskProvingStatusRecords(vec![enq_status]))
     }
 
     async fn update_task_progress(
@@ -468,7 +506,7 @@ impl TaskManager for RedisTaskManager {
         let mut task_db = self.arc_task_db.lock().await;
         match task_db.get_task_proving_status(key) {
             Ok(records) => Ok(records),
-            Err(RedisDbError::KeyNotFound(_)) => Ok(vec![]),
+            Err(RedisDbError::KeyNotFound(_)) => Ok(TaskProvingStatusRecords(vec![])),
             Err(e) => Err(TaskManagerError::RedisError(e)),
         }
     }
@@ -522,7 +560,7 @@ impl TaskManager for RedisTaskManager {
         let mut task_db = self.arc_task_db.lock().await;
         match task_db.get_aggregation_task_proving_status(request) {
             Ok(records) => Ok(records),
-            Err(RedisDbError::KeyNotFound(_)) => Ok(vec![]),
+            Err(RedisDbError::KeyNotFound(_)) => Ok(TaskProvingStatusRecords(vec![])),
             Err(e) => Err(TaskManagerError::RedisError(e)),
         }
     }
@@ -562,6 +600,7 @@ mod tests {
         let mut db = RedisTaskDb::new("redis://localhost:6379").unwrap();
         let params = TaskDescriptor {
             chain_id: 1,
+            block_id: 1,
             blockhash: B256::default(),
             proof_system: ProofType::Native,
             prover: "0x1234".to_owned(),
