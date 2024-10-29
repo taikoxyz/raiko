@@ -32,7 +32,7 @@ FROM base-builder AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
-ARG TASKDB=${TASKDB:-in-memory}
+ARG TASKDB=${TASKDB:-raiko-tasks/in-memory}
 
 WORKDIR /opt/raiko
 # build related files

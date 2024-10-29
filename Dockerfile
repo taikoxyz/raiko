@@ -2,7 +2,7 @@ FROM rust:1.75.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
-ARG TASKDB=${TASKDB:-in-memory}
+ARG TASKDB=${TASKDB:-raiko-tasks/in-memory}
 
 # risc0 dependencies
 # RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
