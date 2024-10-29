@@ -1,3 +1,4 @@
+#![cfg(feature = "redis-db")]
 // Raiko
 // Copyright (c) 2024 Taiko Labs
 // Licensed and distributed under either of

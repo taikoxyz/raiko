@@ -29,7 +29,7 @@ alloy-primitives = { workspace = true, features = ["getrandom"] }
 rusqlite = { workspace = true, features = ["trace"] }
 
 [features]
-default = ["in-memory"]
+default = []
 sqlite = ["rusqlite"]
 in-memory = []
 redis-db = ["redis"]

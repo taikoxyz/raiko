@@ -33,6 +33,8 @@ else
     echo "Warning: in debug mode"
 fi
 
+TASKDB=${TASKDB:-in-memory}
+
 if [ -z "${RUN}" ]; then
     COMMAND=build
 else
@@ -51,18 +53,18 @@ if [ -z "$1" ] || [ "$1" == "native" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building native prover"
-            cargo build ${FLAGS}
+            cargo build ${FLAGS} -F $TASKDB
         else
             echo "Building native tests"
-            cargo test ${FLAGS} --no-run
+            cargo test ${FLAGS} --no-run -F $TASKDB
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running native prover"
-            cargo run ${FLAGS}
+            cargo run ${FLAGS} -F $TASKDB
         else
             echo "Running native tests"
-            cargo test ${FLAGS}
+            cargo test ${FLAGS} -F $TASKDB
         fi
     fi
 fi
@@ -75,22 +77,22 @@ if [ "$1" == "sgx" ]; then
         echo "SGX_DIRECT is set to $SGX_DIRECT"
     fi
     if [ -n "${CLIPPY}" ]; then
-        cargo ${TOOLCHAIN_SGX} clippy -p raiko-host -p sgx-prover -F "sgx enable" -- -D warnings
+        cargo ${TOOLCHAIN_SGX} clippy -p raiko-host -p sgx-prover -F "sgx enable" -F $TASKDB -- -D warnings
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building SGX prover"
-            cargo ${TOOLCHAIN_SGX} build ${FLAGS} --features sgx
+            cargo ${TOOLCHAIN_SGX} build ${FLAGS} --features sgx -F $TASKDB
         else
             echo "Building SGX tests"
-            cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p raiko-host -p sgx-prover --features "sgx enable" --no-run
+            cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p raiko-host -p sgx-prover --features "sgx enable" -F $TASKDB --no-run
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running SGX prover"
-            cargo ${TOOLCHAIN_SGX} run ${FLAGS} --features sgx
+            cargo ${TOOLCHAIN_SGX} run ${FLAGS} --features sgx -F $TASKDB
         else
             echo "Running SGX tests"
-            cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p raiko-host -p sgx-prover --features "sgx enable"
+            cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p raiko-host -p sgx-prover --features "sgx enable" -F $TASKDB
         fi
     fi
 fi
@@ -107,27 +109,27 @@ if [ "$1" == "risc0" ]; then
         MOCK=1
         RISC0_DEV_MODE=1
         CI=1
-        cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
-        cargo ${TOOLCHAIN_RISC0} clippy -F risc0
+        cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder -F $TASKDB
+        cargo ${TOOLCHAIN_RISC0} clippy -F risc0 -F $TASKDB
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
+            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder -F $TASKDB
         else
             echo "Building test elfs for Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test,bench
+            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test,bench -F $TASKDB
         fi
         if [ -z "${GUEST}" ]; then
-            cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --features risc0
+            cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --features risc0 -F $TASKDB
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --features risc0
+            cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --features risc0 -F $TASKDB
         else
             echo "Running Risc0 tests"
-            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} --lib risc0-driver --features risc0 -- run_unittest_elf
-            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p raiko-host -p risc0-driver --features "risc0 enable"
+            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} --lib risc0-driver --features risc0 -- run_unittest_elf -F $TASKDB
+            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p raiko-host -p risc0-driver --features "risc0 enable" -F $TASKDB
         fi
     fi
 fi
@@ -140,30 +142,30 @@ if [ "$1" == "sp1" ]; then
         echo "SP1_PROVER is set to $SP1_PROVER"
     fi
     if [ -n "${CLIPPY}" ]; then
-        cargo ${TOOLCHAIN_SP1} clippy -p raiko-host -p sp1-builder -p sp1-driver -F "sp1 enable"
+        cargo ${TOOLCHAIN_SP1} clippy -p raiko-host -p sp1-builder -p sp1-driver -F "sp1,enable" -F $TASKDB
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder
+            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder -F $TASKDB
         else
             echo "Building test elfs for Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench
+            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench -F $TASKDB
         fi
         if [ -z "${GUEST}" ]; then
-            cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1
+            cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1 -F $TASKDB
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1
+            cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1 -F $TASKDB
         else
             echo "Running Sp1 unit tests"
-            cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf
-            cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
+            cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf -F $TASKDB
+            cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable" -F $TASKDB
 
             # Don't wannt to span Succinct Network and wait 2 hours in CI
             # echo "Running Sp1 verification"
-            # cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier --features enable
+            # cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier --features enable,sp1-verifier -F $TASKDB
         fi
     fi
 fi

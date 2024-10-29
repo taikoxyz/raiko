@@ -19,15 +19,15 @@ use utoipa::ToSchema;
 use crate::adv_sqlite::SqliteTaskManager;
 #[cfg(feature = "in-memory")]
 use crate::mem_db::InMemoryTaskManager;
-#[cfg(feature = "redis")]
-use crate::redis::RedisTaskManager;
+#[cfg(feature = "redis-db")]
+use crate::redis_db::RedisTaskManager;
 
 #[cfg(feature = "sqlite")]
 mod adv_sqlite;
 #[cfg(feature = "in-memory")]
 mod mem_db;
-#[cfg(feature = "redis")]
-mod redis;
+#[cfg(feature = "redis-db")]
+mod redis_db;
 
 // Types
 // ----------------------------------------------------------------
@@ -37,9 +37,9 @@ pub enum TaskManagerError {
     IOError(IOErrorKind),
     #[error("SQL Error {0}")]
     SqlError(String),
-    #[cfg(feature = "redis")]
+    #[cfg(feature = "redis-db")]
     #[error("Redis Error {0}")]
-    RedisError(#[from] crate::redis::RedisDbError),
+    RedisError(#[from] crate::redis_db::RedisDbError),
     #[error("No data for query")]
     NoData,
     #[error("Anyhow error: {0}")]
@@ -414,7 +414,7 @@ impl<T: TaskManager> TaskManager for TaskManagerWrapper<T> {
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<InMemoryTaskManager>;
 #[cfg(feature = "sqlite")]
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<SqliteTaskManager>;
-#[cfg(feature = "redis")]
+#[cfg(feature = "redis-db")]
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<RedisTaskManager>;
 
 pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapperImpl {

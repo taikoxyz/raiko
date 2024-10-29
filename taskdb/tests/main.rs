@@ -7,7 +7,7 @@
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, time::Duration};
+    use std::{collections::HashMap, env, time::Duration};
 
     use alloy_primitives::Address;
     use raiko_core::interfaces::{ProofRequest, ProofType};

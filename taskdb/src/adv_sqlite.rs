@@ -501,11 +501,12 @@ impl TaskDb {
         &self,
         TaskDescriptor {
             chain_id,
+            block_id,
             blockhash,
             proof_system,
             prover,
         }: &TaskDescriptor,
-    ) -> TaskManagerResult<Vec<TaskProvingStatus>> {
+    ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut statement = self.conn.prepare_cached(
             r#"
             INSERT INTO
@@ -526,22 +527,24 @@ impl TaskDb {
         )?;
         statement.execute(named_params! {
             ":chain_id": chain_id,
+            ":block_id": block_id,
             ":blockhash": blockhash.to_vec(),
             ":proofsys_id": *proof_system as u8,
             ":prover": prover,
         })?;
 
-        Ok(vec![(
+        Ok(TaskProvingStatusRecords(vec![(
             TaskStatus::Registered,
             Some(prover.clone()),
             Utc::now(),
-        )])
+        )]))
     }
 
     pub fn update_task_progress(
         &self,
         TaskDescriptor {
             chain_id,
+            block_id,
             blockhash,
             proof_system,
             prover,
@@ -587,6 +590,7 @@ impl TaskDb {
         &self,
         TaskDescriptor {
             chain_id,
+            block_id,
             blockhash,
             proof_system,
             prover,
@@ -614,6 +618,7 @@ impl TaskDb {
         let query = statement.query_map(
             named_params! {
                 ":chain_id": chain_id,
+                ":block_id": block_id,
                 ":blockhash": blockhash.to_vec(),
                 ":proofsys_id": *proof_system as u8,
                 ":prover": prover,
@@ -627,13 +632,16 @@ impl TaskDb {
             },
         )?;
 
-        Ok(query.collect::<Result<Vec<_>, _>>()?)
+        Ok(TaskProvingStatusRecords(
+            query.collect::<Result<Vec<_>, _>>()?,
+        ))
     }
 
     pub fn get_task_proof(
         &self,
         TaskDescriptor {
             chain_id,
+            block_id,
             blockhash,
             proof_system,
             prover,
@@ -658,6 +666,7 @@ impl TaskDb {
         let query = statement.query_row(
             named_params! {
                 ":chain_id": chain_id,
+                ":block_id": block_id,
                 ":blockhash": blockhash.to_vec(),
                 ":proofsys_id": *proof_system as u8,
                 ":prover": prover,
@@ -741,6 +750,7 @@ impl TaskDb {
                 Ok((
                     TaskDescriptor {
                         chain_id: row.get(0)?,
+                        block_id: row.get(1)?,
                         blockhash: B256::from_slice(&row.get::<_, Vec<u8>>(1)?),
                         proof_system: row.get::<_, u8>(2)?.try_into().unwrap(),
                         prover: row.get(3)?,
@@ -759,7 +769,7 @@ impl TaskDb {
 
     fn store_id(
         &self,
-        (chain_id, blockhash, proof_key): ProofKey,
+        (chain_id, block_id, blockhash, proof_key): ProofKey,
         id: String,
     ) -> TaskManagerResult<()> {
         let mut statement = self.conn.prepare_cached(
@@ -790,7 +800,10 @@ impl TaskDb {
         Ok(())
     }
 
-    fn remove_id(&self, (chain_id, blockhash, proof_key): ProofKey) -> TaskManagerResult<()> {
+    fn remove_id(
+        &self,
+        (chain_id, block_id, blockhash, proof_key): ProofKey,
+    ) -> TaskManagerResult<()> {
         let mut statement = self.conn.prepare_cached(
             r#"
             DELETE FROM
@@ -810,7 +823,10 @@ impl TaskDb {
         Ok(())
     }
 
-    fn read_id(&self, (chain_id, blockhash, proof_key): ProofKey) -> TaskManagerResult<String> {
+    fn read_id(
+        &self,
+        (chain_id, block_id, blockhash, proof_key): ProofKey,
+    ) -> TaskManagerResult<String> {
         let mut statement = self.conn.prepare_cached(
             r#"
             SELECT
@@ -895,8 +911,8 @@ impl TaskManager for SqliteTaskManager {
     async fn enqueue_task(
         &mut self,
         params: &TaskDescriptor,
-    ) -> Result<Vec<TaskProvingStatus>, TaskManagerError> {
-        let task_db = self.arc_task_db.lock().await;
+    ) -> Result<TaskProvingStatusRecords, TaskManagerError> {
+        let task_db: tokio::sync::MutexGuard<'_, TaskDb> = self.arc_task_db.lock().await;
         task_db.enqueue_task(params)
     }
 
