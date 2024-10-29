@@ -453,6 +453,7 @@ mod test {
                 })
                 .await
                 .unwrap()
+                .0
                 .len(),
             1
         );

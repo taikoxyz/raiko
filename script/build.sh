@@ -49,7 +49,7 @@ fi
 # NATIVE
 if [ -z "$1" ] || [ "$1" == "native" ]; then
     if [ -n "${CLIPPY}" ]; then
-        cargo clippy -- -D warnings
+        cargo clippy -- -D warnings -F $TASKDB
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building native prover"
