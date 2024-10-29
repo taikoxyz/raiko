@@ -32,6 +32,7 @@ FROM base-builder AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
+ARG TASKDB=${TASKDB:-in-memory}
 
 WORKDIR /opt/raiko
 # build related files
@@ -58,7 +59,7 @@ RUN make guest
 RUN echo "Building for sp1"
 ENV TARGET=sp1
 RUN make guest
-RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build"
+RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build" --features ${TASKDB}
 
 FROM ubuntu:22.04 AS raiko-zk
 RUN mkdir -p \

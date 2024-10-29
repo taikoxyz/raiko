@@ -15,7 +15,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use raiko_lib::{input::BlobProofType, primitives::B256};
-    use raiko_tasks::{get_task_manager, TaskManager, TaskManagerOpts, TaskStatus};
+    use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskManagerOpts, TaskStatus};
 
     fn create_random_task(rng: &mut ChaCha8Rng) -> (u64, B256, ProofRequest) {
         let chain_id = 100;
@@ -127,6 +127,7 @@ mod tests {
                 .get_task_proving_status(
                     &(
                         chain_id,
+                        request.block_number,
                         blockhash,
                         request.proof_type,
                         request.prover.to_string(),
@@ -160,20 +161,19 @@ mod tests {
                 .await
                 .unwrap();
             println!("{task_status:?}");
-            tama.update_task_progress(
-                (tasks[0].0, tasks[0].1, tasks[0].3, tasks[0].4.to_string()).into(),
-                TaskStatus::Cancelled_NeverStarted,
-                None,
+            let task_0_desc: &TaskDescriptor = &(
+                tasks[0].0,
+                tasks[0].2,
+                tasks[0].1,
+                tasks[0].3,
+                tasks[0].4.to_string(),
             )
-            .await
-            .unwrap();
-
-            let task_status = tama
-                .get_task_proving_status(
-                    &(tasks[0].0, tasks[0].1, tasks[0].3, tasks[0].4.to_string()).into(),
-                )
+                .into();
+            tama.update_task_progress(task_0_desc, TaskStatus::Cancelled_NeverStarted, None)
                 .await
                 .unwrap();
+
+            let task_status = tama.get_task_proving_status(task_0_desc).await.unwrap();
             println!("{task_status:?}");
             assert_eq!(task_status.len(), 2);
             assert_eq!(task_status[1].0, TaskStatus::Cancelled_NeverStarted);
@@ -181,21 +181,20 @@ mod tests {
         }
         // -----------------------
         {
-            tama.update_task_progress(
-                (tasks[1].0, tasks[1].1, tasks[1].3, tasks[1].4.to_string()).into(),
-                TaskStatus::WorkInProgress,
-                None,
+            let task_1_desc = &(
+                tasks[1].0,
+                tasks[1].2,
+                tasks[1].1,
+                tasks[1].3,
+                tasks[1].4.to_string(),
             )
-            .await
-            .unwrap();
+                .into();
+            tama.update_task_progress(task_1_desc, TaskStatus::WorkInProgress, None)
+                .await
+                .unwrap();
 
             {
-                let task_status = tama
-                    .get_task_proving_status(
-                        &(tasks[1].0, tasks[1].1, tasks[1].3, tasks[1].4.to_string()).into(),
-                    )
-                    .await
-                    .unwrap();
+                let task_status = tama.get_task_proving_status(task_1_desc).await.unwrap();
                 assert_eq!(task_status.len(), 2);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
                 assert_eq!(task_status[0].0, TaskStatus::Registered);
@@ -204,7 +203,14 @@ mod tests {
             std::thread::sleep(Duration::from_millis(1));
 
             tama.update_task_progress(
-                (tasks[1].0, tasks[1].1, tasks[1].3, tasks[1].4.to_string()).into(),
+                &(
+                    tasks[0].0,
+                    tasks[0].2,
+                    tasks[0].1,
+                    tasks[0].3,
+                    tasks[0].4.to_string(),
+                )
+                    .into(),
                 TaskStatus::CancellationInProgress,
                 None,
             )
@@ -214,7 +220,14 @@ mod tests {
             {
                 let task_status = tama
                     .get_task_proving_status(
-                        &(tasks[1].0, tasks[1].1, tasks[1].3, tasks[1].4.to_string()).into(),
+                        &(
+                            tasks[0].0,
+                            tasks[0].2,
+                            tasks[0].1,
+                            tasks[0].3,
+                            tasks[0].4.to_string(),
+                        )
+                            .into(),
                     )
                     .await
                     .unwrap();
@@ -235,12 +248,7 @@ mod tests {
             .unwrap();
 
             {
-                let task_status = tama
-                    .get_task_proving_status(
-                        &(tasks[1].0, tasks[1].1, tasks[1].3, tasks[1].4.to_string()).into(),
-                    )
-                    .await
-                    .unwrap();
+                let task_status = tama.get_task_proving_status(task_1_desc).await.unwrap();
                 assert_eq!(task_status.len(), 4);
                 assert_eq!(task_status[3].0, TaskStatus::Cancelled);
                 assert_eq!(task_status[2].0, TaskStatus::CancellationInProgress);
@@ -251,21 +259,20 @@ mod tests {
 
         // -----------------------
         {
-            tama.update_task_progress(
-                (tasks[2].0, tasks[2].1, tasks[2].3, tasks[2].4.to_string()).into(),
-                TaskStatus::WorkInProgress,
-                None,
+            let task_2_desc = &(
+                tasks[2].0,
+                tasks[2].2,
+                tasks[2].1,
+                tasks[2].3,
+                tasks[2].4.to_string(),
             )
-            .await
-            .unwrap();
+                .into();
+            tama.update_task_progress(task_2_desc, TaskStatus::WorkInProgress, None)
+                .await
+                .unwrap();
 
             {
-                let task_status = tama
-                    .get_task_proving_status(
-                        &(tasks[2].0, tasks[2].1, tasks[2].3, tasks[2].4.to_string()).into(),
-                    )
-                    .await
-                    .unwrap();
+                let task_status = tama.get_task_proving_status(task_2_desc).await.unwrap();
                 assert_eq!(task_status.len(), 2);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
                 assert_eq!(task_status[0].0, TaskStatus::Registered);
@@ -274,35 +281,19 @@ mod tests {
             std::thread::sleep(Duration::from_millis(1));
 
             let proof: Vec<_> = (&mut rng).gen_iter::<u8>().take(128).collect();
-            tama.update_task_progress(
-                (tasks[2].0, tasks[2].1, tasks[2].3, tasks[2].4.to_string()).into(),
-                TaskStatus::Success,
-                Some(&proof),
-            )
-            .await
-            .unwrap();
+            tama.update_task_progress(task_2_desc, TaskStatus::Success, Some(&proof))
+                .await
+                .unwrap();
 
             {
-                let task_status = tama
-                    .get_task_proving_status(
-                        &(tasks[2].0, tasks[2].1, tasks[2].3, tasks[2].4.to_string()).into(),
-                    )
-                    .await
-                    .unwrap();
+                let task_status = tama.get_task_proving_status(task_2_desc).await.unwrap();
                 assert_eq!(task_status.len(), 3);
                 assert_eq!(task_status[2].0, TaskStatus::Success);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
                 assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
 
-            assert_eq!(
-                proof,
-                tama.get_task_proof(
-                    &(tasks[2].0, tasks[2].1, tasks[2].3, tasks[2].4.to_string()).into()
-                )
-                .await
-                .unwrap()
-            );
+            assert_eq!(proof, tama.get_task_proof(task_2_desc,).await.unwrap());
         }
 
         // -----------------------

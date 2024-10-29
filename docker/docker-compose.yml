@@ -25,6 +25,7 @@ services:
       context: ..
       args:
         ENABLE_SELF_REGISTER: "true"
+        TASKDB: ${TASKDB:-in-memory"}
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init-self-register
@@ -46,12 +47,15 @@ services:
       - HOLESKY_RPC=${HOLESKY_RPC}
       - HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
       - TAIKO_A7_RPC=${TAIKO_A7_RPC}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       #- PCCS_HOST=host.docker.internal:8081
     depends_on:
       - pccs
   raiko:
     build:
       context: ..
+      args:
+        TASKDB: ${TASKDB:-in-memory"}
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
@@ -78,17 +82,23 @@ services:
       - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
       - L1_NETWORK=${L1_NETWORK}
       - NETWORK=${NETWORK}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       # you can use your own PCCS host
       #- PCCS_HOST=host.docker.internal:8081
-    # use the host's network to connect to the PCCS
-    #extra_hosts:
-    #  - "host.docker.internal:host-gateway"
+      # use the host's network to connect to the PCCS
+      #extra_hosts:
+      #  - "host.docker.internal:host-gateway"
     depends_on:
+      - redis
       - pccs
+    profiles:
+      - prod-redis
   raiko-self-register:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        TASKDB: ${TASKDB:-in-memory"}
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-self-register
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
@@ -115,6 +125,7 @@ services:
       - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
       - L1_NETWORK=${L1_NETWORK}
       - NETWORK=${NETWORK}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     # use the host's network to connect to the PCCS
     #extra_hosts:
     #  - "host.docker.internal:host-gateway"
@@ -124,6 +135,8 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile.zk
+      args:
+        TASKDB: ${TASKDB:-in-memory"}
     image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
     container_name: raiko-zk
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
@@ -153,6 +166,7 @@ services:
       - SKIP_SIMULATION=true
       - SP1_VERIFIER_RPC_URL=${SP1_VERIFIER_RPC_URL}
       - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
   pccs:
     build:
       context: ..
@@ -163,3 +177,10 @@ services:
       - ${HOME}/.config/sgx-pccs/default.json:/opt/intel/pccs/config/default.json
       - ${HOME}/.config/sgx-pccs/file.crt:/opt/intel/pccs/ssl_key/file.crt
       - ${HOME}/.config/sgx-pccs/private.pem:/opt/intel/pccs/ssl_key/private.pem
+  redis:
+    image: redis
+    container_name: redis
+    ports:
+      - "6379:6379"
+    profiles:
+      - prod-redis
