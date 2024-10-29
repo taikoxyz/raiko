@@ -33,7 +33,7 @@ else
     echo "Warning: in debug mode"
 fi
 
-TASKDB=${TASKDB:-in-memory}
+TASKDB=${TASKDB:-raiko-tasks/in-memory}
 
 if [ -z "${RUN}" ]; then
     COMMAND=build
@@ -49,7 +49,7 @@ fi
 # NATIVE
 if [ -z "$1" ] || [ "$1" == "native" ]; then
     if [ -n "${CLIPPY}" ]; then
-        cargo clippy -- -D warnings -F $TASKDB
+        cargo clippy -F ${TASKDB} -- -D warnings
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building native prover"
@@ -128,7 +128,7 @@ if [ "$1" == "risc0" ]; then
             cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --features risc0 -F $TASKDB
         else
             echo "Running Risc0 tests"
-            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} --lib risc0-driver --features risc0 -- run_unittest_elf -F $TASKDB
+            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} --lib risc0-driver --features risc0  -F $TASKDB -- run_unittest_elf
             cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p raiko-host -p risc0-driver --features "risc0 enable" -F $TASKDB
         fi
     fi
@@ -160,7 +160,7 @@ if [ "$1" == "sp1" ]; then
             cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1 -F $TASKDB
         else
             echo "Running Sp1 unit tests"
-            cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf -F $TASKDB
+            cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -F $TASKDB -- run_unittest_elf
             cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable" -F $TASKDB
 
             # Don't wannt to span Succinct Network and wait 2 hours in CI
