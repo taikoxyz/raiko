@@ -203,12 +203,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .into_iter()
             .map(|(address, bundle_account)| {
                 let mut account = Account {
-                    info: bundle_account.info.unwrap_or_default(),
+                    info: bundle_account.account_info().unwrap_or_default(),
                     storage: bundle_account.storage,
                     status: AccountStatus::default(),
                 };
                 account.mark_touch();
-                if bundle_account.status.was_destroyed() {
+                if bundle_account.info.is_none() {
                     account.mark_selfdestruct();
                 }
                 if bundle_account.original_info.is_none() {

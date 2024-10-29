@@ -240,7 +240,7 @@ rm csr.pem
 3. Curl the config file
 
 ```
-curl -s https://raw.githubusercontent.com/intel/SGXDataCenterAttestationPrimitives/main/QuoteGeneration/pccs/config/default.json > ~/.config/sgx-pccs/default.json
+curl -s https://raw.githubusercontent.com/taikoxyz/raiko/refs/heads/main/docs/default.json > ~/.config/sgx-pccs/default.json
 ```
 
 Make sure you've copied the `default.json` into the .config/sgx-pccs directory you created earlier. The `raiko` container will mount this as a volume. After copying the file, open it for editing and fill in the below listed parameters as recommended by [Intel's manual][pccs-cert-gen-config]:
@@ -282,11 +282,11 @@ docker compose build raiko
 If you do not wish to build the image locally, you can optionally pull them from our registry.
 
 ```
-docker pull us-docker.pkg.dev/evmchain/images/raiko:1.2.0
+docker pull us-docker.pkg.dev/evmchain/images/raiko:1.3.0
 docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
-If you do this step, you need to change your raiko docker-compose.yml to use this image. Navigate to `raiko/docker` and search for `raiko:latest` and change all instances to `raiko:1.2.0`.
+If you do this step, you need to change your raiko docker-compose.yml to use this image. Navigate to `raiko/docker` and search for `raiko:latest` and change all instances to `raiko:1.3.0`.
 
 You can continue on with the following steps as usual after this.
 
@@ -326,7 +326,7 @@ You've now prepared your machine for running Raiko through Docker. Now, you need
 
 ## On-Chain RA
 
-1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main), checkout the appropriate tag (protocol-v1.9.0 for hekla) and navigate to the protocol directory.
+1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main), checkout the appropriate tag and navigate to the protocol directory.
 
 ```
 git clone https://github.com/taikoxyz/taiko-mono.git
