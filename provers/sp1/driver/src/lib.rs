@@ -152,7 +152,12 @@ impl Prover for Sp1Prover {
             if let Some(id_store) = id_store {
                 id_store
                     .store_id(
-                        (input.chain_spec.chain_id, output.hash, SP1_PROVER_CODE),
+                        (
+                            input.chain_spec.chain_id,
+                            input.block.header.number,
+                            output.hash,
+                            SP1_PROVER_CODE,
+                        ),
                         proof_id.clone(),
                     )
                     .await?;

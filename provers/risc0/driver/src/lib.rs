@@ -73,6 +73,7 @@ impl Prover for Risc0Prover {
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
         let proof_key = (
             input.chain_spec.chain_id,
+            input.block.header.number,
             output.hash.clone(),
             RISC0_PROVER_CODE,
         );

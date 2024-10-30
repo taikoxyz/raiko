@@ -14,7 +14,7 @@ members = [
     "provers/sgx/setup",
     "pipeline",
     "core",
-    "tasks",
+    "taskdb",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -36,7 +36,7 @@ opt-level = 3
 # raiko
 raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
-raiko-tasks = { path = "./tasks" }
+raiko-tasks = { path = "./taskdb" }
 
 # reth
 reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
@@ -163,6 +163,9 @@ thiserror-no-std = "2.0.2"
 
 # SQLite
 rusqlite = { version = "0.31.0", features = ["bundled"] }
+
+# redis
+redis = { version = "=0.27.3" }
 
 # misc
 hashbrown = { version = "0.14", features = ["inline-more"] }

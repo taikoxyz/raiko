@@ -16,7 +16,9 @@ use raiko_lib::{
     prover::{IdWrite, Proof},
     Measurement,
 };
-use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskManagerWrapper, TaskStatus};
+use raiko_tasks::{
+    get_task_manager, TaskDescriptor, TaskManager, TaskManagerWrapperImpl, TaskStatus,
+};
 use reth_primitives::B256;
 use tokio::{
     select,
@@ -86,7 +88,12 @@ impl ProofActor {
         let mut manager = get_task_manager(&self.opts.clone().into());
         key.proof_system
             .cancel_proof(
-                (key.chain_id, key.blockhash, key.proof_system as u8),
+                (
+                    key.chain_id,
+                    key.block_id,
+                    key.blockhash,
+                    key.proof_system as u8,
+                ),
                 Box::new(&mut manager),
             )
             .await
@@ -121,6 +128,7 @@ impl ProofActor {
 
         let key = TaskDescriptor::from((
             chain_id,
+            proof_request.block_number,
             blockhash,
             proof_request.proof_type,
             proof_request.prover.clone().to_string(),
@@ -299,7 +307,7 @@ impl ProofActor {
 
         let status = manager.get_task_proving_status(&key).await?;
 
-        if let Some(latest_status) = status.iter().last() {
+        if let Some(latest_status) = status.0.iter().last() {
             if !matches!(latest_status.0, TaskStatus::Registered) {
                 return Ok(latest_status.0.clone());
             }
@@ -332,7 +340,7 @@ impl ProofActor {
             .get_aggregation_task_proving_status(&request)
             .await?;
 
-        if let Some(latest_status) = status.iter().last() {
+        if let Some(latest_status) = status.0.iter().last() {
             if !matches!(latest_status.0, TaskStatus::Registered) {
                 return Ok(());
             }
@@ -377,7 +385,7 @@ pub async fn handle_proof(
     proof_request: &ProofRequest,
     opts: &Opts,
     chain_specs: &SupportedChainSpecs,
-    store: Option<&mut TaskManagerWrapper>,
+    store: Option<&mut TaskManagerWrapperImpl>,
 ) -> HostResult<Proof> {
     info!(
         "Generating proof for block {} on {}",

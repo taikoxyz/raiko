@@ -56,7 +56,7 @@ async fn aggregation_handler(
         .get_aggregation_task_proving_status(&aggregation_request)
         .await?;
 
-    let Some((latest_status, ..)) = status.last() else {
+    let Some((latest_status, ..)) = status.0.last() else {
         // If there are no tasks with provided config, create a new one.
         manager
             .enqueue_aggregation_task(&aggregation_request)

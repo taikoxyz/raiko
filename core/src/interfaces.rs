@@ -524,6 +524,8 @@ impl From<ProofRequestOpt> for AggregationRequest {
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationOnlyRequest {
     /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
+    pub aggregation_ids: Vec<u64>,
+    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
     pub proofs: Vec<Proof>,
     /// The proof type.
     pub proof_type: Option<String>,
@@ -545,6 +547,7 @@ impl From<(AggregationRequest, Vec<Proof>)> for AggregationOnlyRequest {
     fn from((request, proofs): (AggregationRequest, Vec<Proof>)) -> Self {
         Self {
             proofs,
+            aggregation_ids: request.block_numbers.iter().map(|(id, _)| *id).collect(),
             proof_type: request.proof_type,
             prover_args: request.prover_args,
         }

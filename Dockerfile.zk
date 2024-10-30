@@ -32,6 +32,7 @@ FROM base-builder AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
+ARG TASKDB=${TASKDB:-raiko-tasks/in-memory}
 
 WORKDIR /opt/raiko
 # build related files
@@ -45,7 +46,7 @@ COPY harness harness
 COPY rust-toolchain rust-toolchain
 COPY kzg_settings_raw.bin kzg_settings_raw.bin
 COPY core core
-COPY tasks tasks
+COPY taskdb taskdb
 COPY makefile makefile
 COPY script script
 RUN ls -al > /tmp/file_list.txt
@@ -58,7 +59,7 @@ RUN make guest
 RUN echo "Building for sp1"
 ENV TARGET=sp1
 RUN make guest
-RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build"
+RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build" --features ${TASKDB}
 
 FROM ubuntu:22.04 AS raiko-zk
 RUN mkdir -p \

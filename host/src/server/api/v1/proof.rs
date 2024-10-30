@@ -45,8 +45,7 @@ async fn proof_handler(
     inc_host_req_count(proof_request.block_number);
     inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
-    // In memory task manager only for V1, cannot feature = "sqlite"
-    let mut manager = get_task_manager(&raiko_tasks::TaskManagerOpts::default());
+    let mut manager = get_task_manager(&prover_state.opts.clone().into());
 
     handle_proof(
         &proof_request,
