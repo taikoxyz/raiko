@@ -3,7 +3,7 @@ use raiko_core::{
     interfaces::{AggregationRequest, ProofRequest, ProofRequestOpt},
     provider::get_task_data,
 };
-use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
+use raiko_tasks::{ProofTaskDescriptor, TaskManager, TaskStatus};
 use utoipa::OpenApi;
 
 use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, ProverState};
@@ -44,7 +44,7 @@ async fn cancel_handler(
         )
         .await?;
 
-        let key = TaskDescriptor::from((
+        let key = ProofTaskDescriptor::from((
             chain_id,
             proof_request.block_number,
             block_hash,

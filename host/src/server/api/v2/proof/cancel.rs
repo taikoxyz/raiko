@@ -1,6 +1,6 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
+use raiko_tasks::{ProofTaskDescriptor, TaskManager, TaskStatus};
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -41,7 +41,7 @@ async fn cancel_handler(
     )
     .await?;
 
-    let key = TaskDescriptor::from((
+    let key = ProofTaskDescriptor::from((
         chain_id,
         proof_request.block_number,
         block_hash,

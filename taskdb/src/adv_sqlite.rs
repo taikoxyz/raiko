@@ -170,8 +170,8 @@ use rusqlite::{
 use tokio::sync::Mutex;
 
 use crate::{
-    TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    ProofTaskDescriptor, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
+    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 // Types
@@ -499,13 +499,13 @@ impl TaskDb {
 
     pub fn enqueue_task(
         &self,
-        TaskDescriptor {
+        ProofTaskDescriptor {
             chain_id,
             block_id,
             blockhash,
             proof_system,
             prover,
-        }: &TaskDescriptor,
+        }: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut statement = self.conn.prepare_cached(
             r#"
@@ -542,13 +542,13 @@ impl TaskDb {
 
     pub fn update_task_progress(
         &self,
-        TaskDescriptor {
+        ProofTaskDescriptor {
             chain_id,
             block_id,
             blockhash,
             proof_system,
             prover,
-        }: TaskDescriptor,
+        }: ProofTaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
@@ -588,13 +588,13 @@ impl TaskDb {
 
     pub fn get_task_proving_status(
         &self,
-        TaskDescriptor {
+        ProofTaskDescriptor {
             chain_id,
             block_id,
             blockhash,
             proof_system,
             prover,
-        }: &TaskDescriptor,
+        }: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut statement = self.conn.prepare_cached(
             r#"
@@ -639,13 +639,13 @@ impl TaskDb {
 
     pub fn get_task_proof(
         &self,
-        TaskDescriptor {
+        ProofTaskDescriptor {
             chain_id,
             block_id,
             blockhash,
             proof_system,
             prover,
-        }: &TaskDescriptor,
+        }: &ProofTaskDescriptor,
     ) -> TaskManagerResult<Vec<u8>> {
         let mut statement = self.conn.prepare_cached(
             r#"
@@ -748,13 +748,13 @@ impl TaskDb {
         let query = statement
             .query_map([], |row| {
                 Ok((
-                    TaskDescriptor {
+                    TaskDescriptor::SingleProof(ProofTaskDescriptor {
                         chain_id: row.get(0)?,
                         block_id: row.get(1)?,
                         blockhash: B256::from_slice(&row.get::<_, Vec<u8>>(1)?),
                         proof_system: row.get::<_, u8>(2)?.try_into().unwrap(),
                         prover: row.get(3)?,
-                    },
+                    }),
                     TaskStatus::from(row.get::<_, i32>(4)?),
                 ))
             })?
@@ -910,7 +910,7 @@ impl TaskManager for SqliteTaskManager {
 
     async fn enqueue_task(
         &mut self,
-        params: &TaskDescriptor,
+        params: &ProofTaskDescriptor,
     ) -> Result<TaskProvingStatusRecords, TaskManagerError> {
         let task_db: tokio::sync::MutexGuard<'_, TaskDb> = self.arc_task_db.lock().await;
         task_db.enqueue_task(params)
@@ -918,7 +918,7 @@ impl TaskManager for SqliteTaskManager {
 
     async fn update_task_progress(
         &mut self,
-        key: TaskDescriptor,
+        key: ProofTaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
@@ -929,13 +929,13 @@ impl TaskManager for SqliteTaskManager {
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
     async fn get_task_proving_status(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let task_db = self.arc_task_db.lock().await;
         task_db.get_task_proving_status(key)
     }
 
-    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
+    async fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         let task_db = self.arc_task_db.lock().await;
         task_db.get_task_proof(key)
     }

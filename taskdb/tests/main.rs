@@ -15,7 +15,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use raiko_lib::{input::BlobProofType, primitives::B256};
-    use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManager, TaskManagerOpts, TaskStatus};
+    use raiko_tasks::{get_task_manager, ProofTaskDescriptor, TaskManager, TaskManagerOpts, TaskStatus};
 
     fn create_random_task(rng: &mut ChaCha8Rng) -> (u64, B256, ProofRequest) {
         let chain_id = 100;
@@ -157,7 +157,7 @@ mod tests {
         std::thread::sleep(Duration::from_millis(1));
 
         {
-            let task_0_desc: &TaskDescriptor = &(
+            let task_0_desc: &ProofTaskDescriptor = &(
                 tasks[0].0,
                 tasks[0].2,
                 tasks[0].1,
@@ -183,7 +183,7 @@ mod tests {
         }
         // -----------------------
         {
-            let task_1_desc: &TaskDescriptor = &(
+            let task_1_desc: &ProofTaskDescriptor = &(
                 tasks[1].0,
                 tasks[1].2,
                 tasks[1].1,
@@ -238,7 +238,7 @@ mod tests {
 
         // -----------------------
         {
-            let task_2_desc: &TaskDescriptor = &(
+            let task_2_desc: &ProofTaskDescriptor = &(
                 tasks[2].0,
                 tasks[2].2,
                 tasks[2].1,
@@ -277,7 +277,7 @@ mod tests {
 
         // -----------------------
         {
-            let task_3_desc: &TaskDescriptor = &(
+            let task_3_desc: &ProofTaskDescriptor = &(
                 tasks[3].0,
                 tasks[3].2,
                 tasks[3].1,
