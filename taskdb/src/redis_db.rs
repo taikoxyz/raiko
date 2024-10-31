@@ -11,15 +11,19 @@
 use chrono::Utc;
 use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
-use redis::{Client, Commands, Connection, RedisError, RedisWrite, ToRedisArgs};
+use redis::{
+    Client, Commands, Connection, ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite,
+    ToRedisArgs, Value,
+};
 use std::sync::{Arc, Once};
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
 use crate::{
-    AggregationTaskDescriptor, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts,
-    TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport, TaskStatus,
+    AggregationTaskDescriptor, ProofTaskDescriptor, TaskDescriptor, TaskManager, TaskManagerError,
+    TaskManagerOpts, TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport,
+    TaskStatus,
 };
 
 pub struct RedisTaskDb {
@@ -44,13 +48,25 @@ pub enum RedisDbError {
     KeyNotFound(String),
 }
 
-impl ToRedisArgs for TaskDescriptor {
+impl ToRedisArgs for ProofTaskDescriptor {
     fn write_redis_args<W>(&self, out: &mut W)
     where
         W: ?Sized + RedisWrite,
     {
         let serialized = serde_json::to_string(self).expect("Failed to serialize TaskDescriptor");
         out.write_arg(serialized.as_bytes());
+    }
+}
+
+impl FromRedisValue for ProofTaskDescriptor {
+    fn from_redis_value(v: &Value) -> RedisResult<Self> {
+        let serialized = String::from_redis_value(v)?;
+        serde_json::from_str(&serialized).map_err(|_| {
+            RedisError::from((
+                ErrorKind::TypeError,
+                "ProofTaskDescriptor type conversion fail",
+            ))
+        })
     }
 }
 
@@ -65,6 +81,18 @@ impl ToRedisArgs for AggregationTaskDescriptor {
     }
 }
 
+impl FromRedisValue for AggregationTaskDescriptor {
+    fn from_redis_value(v: &Value) -> RedisResult<Self> {
+        let serialized = String::from_redis_value(v)?;
+        serde_json::from_str(&serialized).map_err(|_| {
+            RedisError::from((
+                ErrorKind::TypeError,
+                "AggregationTaskDescriptor type conversion fail",
+            ))
+        })
+    }
+}
+
 impl ToRedisArgs for TaskProvingStatusRecords {
     fn write_redis_args<W>(&self, out: &mut W)
     where
@@ -72,6 +100,31 @@ impl ToRedisArgs for TaskProvingStatusRecords {
     {
         let serialized =
             serde_json::to_string(self).expect("Failed to serialize TaskProvingStatusRecords");
+        out.write_arg(serialized.as_bytes());
+    }
+}
+
+impl FromRedisValue for TaskProvingStatusRecords {
+    fn from_redis_value(v: &Value) -> RedisResult<Self> {
+        let serialized = String::from_redis_value(v)?;
+        serde_json::from_str(&serialized).map_err(|_| {
+            RedisError::from((
+                ErrorKind::TypeError,
+                "TaskProvingStatusRecords type conversion fail",
+            ))
+        })
+    }
+}
+
+struct TaskIdDescriptor(ProofKey);
+
+impl ToRedisArgs for TaskIdDescriptor {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        let serialized =
+            serde_json::to_string(&self.0).expect("Failed to serialize TaskIDDescriptor");
         out.write_arg(serialized.as_bytes());
     }
 }
@@ -88,7 +141,7 @@ impl RedisTaskDb {
 
     fn insert_proof_task(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
         value: &TaskProvingStatusRecords,
     ) -> RedisDbResult<()> {
         self.insert_redis(key, value)
@@ -115,7 +168,7 @@ impl RedisTaskDb {
 
     fn query_proof_task(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
     ) -> RedisDbResult<Option<TaskProvingStatusRecords>> {
         match self.query_redis(&key) {
             Ok(Some(v)) => {
@@ -133,6 +186,14 @@ impl RedisTaskDb {
         }
     }
 
+    fn query_proof_task_latest_status(
+        &mut self,
+        key: &ProofTaskDescriptor,
+    ) -> RedisDbResult<Option<TaskProvingStatus>> {
+        self.query_proof_task(key)
+            .map(|v| v.map(|records| records.0.last().unwrap().clone()))
+    }
+
     fn query_aggregation_task(
         &mut self,
         key: &AggregationTaskDescriptor,
@@ -142,6 +203,14 @@ impl RedisTaskDb {
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         }
+    }
+
+    fn query_aggregation_task_latest_status(
+        &mut self,
+        key: &AggregationTaskDescriptor,
+    ) -> RedisDbResult<Option<TaskProvingStatus>> {
+        self.query_aggregation_task(key)
+            .map(|v| v.map(|records| records.0.last().unwrap().clone()))
     }
 
     fn query_redis(&mut self, key: &impl ToRedisArgs) -> RedisDbResult<Option<String>> {
@@ -162,7 +231,7 @@ impl RedisTaskDb {
 
     fn update_proof_task_status(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
         new_status: TaskProvingStatus,
     ) -> RedisDbResult<()> {
         let old_value = self.query_proof_task(key).unwrap_or_default();
@@ -209,7 +278,7 @@ impl RedisTaskDb {
 }
 
 impl RedisTaskDb {
-    fn enqueue_task(&mut self, key: &TaskDescriptor) -> RedisDbResult<TaskProvingStatus> {
+    fn enqueue_task(&mut self, key: &ProofTaskDescriptor) -> RedisDbResult<TaskProvingStatus> {
         let task_status = (TaskStatus::Registered, None, Utc::now());
 
         match self.query_proof_task(key) {
@@ -231,7 +300,7 @@ impl RedisTaskDb {
 
     fn update_task_progress(
         &mut self,
-        key: TaskDescriptor,
+        key: ProofTaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> RedisDbResult<()> {
@@ -260,7 +329,7 @@ impl RedisTaskDb {
 
     fn get_task_proving_status(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
     ) -> RedisDbResult<TaskProvingStatusRecords> {
         match self.query_proof_task(key) {
             Ok(Some(records)) => Ok(records),
@@ -273,7 +342,7 @@ impl RedisTaskDb {
         }
     }
 
-    fn get_task_proof(&mut self, key: &TaskDescriptor) -> RedisDbResult<Vec<u8>> {
+    fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> RedisDbResult<Vec<u8>> {
         let proving_status_records = self
             .query_proof_task(key)
             .map_err(|e| RedisDbError::TaskManager(format!("query error: {e:?}").to_owned()))?
@@ -304,7 +373,26 @@ impl RedisTaskDb {
     }
 
     fn list_all_tasks(&mut self) -> RedisDbResult<Vec<TaskReport>> {
-        todo!();
+        let mut kvs = Vec::new();
+        let keys: Vec<Value> = self.conn.keys("*").map_err(RedisDbError::RedisDb)?;
+        for key in keys.iter() {
+            match (
+                ProofTaskDescriptor::from_redis_value(key),
+                AggregationTaskDescriptor::from_redis_value(key),
+            ) {
+                (Ok(desc), _) => {
+                    let status = self.query_proof_task_latest_status(&desc)?;
+                    status.map(|s| kvs.push((TaskDescriptor::SingleProof(desc), s.0)));
+                }
+                (_, Ok(desc)) => {
+                    let status = self.query_aggregation_task_latest_status(&desc)?;
+                    status.map(|s| kvs.push((TaskDescriptor::Aggregation(desc), s.0)));
+                }
+                _ => (),
+            }
+        }
+
+        Ok(kvs)
     }
 
     fn enqueue_aggregation_task(&mut self, request: &AggregationOnlyRequest) -> RedisDbResult<()> {
@@ -406,20 +494,16 @@ impl RedisTaskDb {
 
 impl RedisTaskDb {
     async fn store_id(&mut self, key: ProofKey, id: String) -> RedisDbResult<()> {
-        let serialized_k = serde_json::to_string(&key)?;
-        let serialized_v = serde_json::to_string(&id)?;
-        self.insert_redis(&serialized_k, &serialized_v)
+        self.insert_redis(&TaskIdDescriptor(key), &id)
     }
 
     async fn remove_id(&mut self, key: ProofKey) -> RedisDbResult<()> {
-        let serialized = serde_json::to_string(&key)?;
-        self.delete_redis(&serialized)
+        self.delete_redis(&TaskIdDescriptor(key))
     }
 
     async fn read_id(&mut self, key: ProofKey) -> RedisDbResult<String> {
-        let serialized = serde_json::to_string(&key)?;
-        match self.query_redis(&serialized) {
-            Ok(Some(v)) => Ok(serde_json::from_str(&v)?),
+        match self.query_redis(&TaskIdDescriptor(key)) {
+            Ok(Some(v)) => Ok(v),
             Ok(None) => Err(RedisDbError::TaskManager(
                 format!("id {key:?} not found").to_owned(),
             )),
@@ -481,7 +565,7 @@ impl TaskManager for RedisTaskManager {
 
     async fn enqueue_task(
         &mut self,
-        params: &TaskDescriptor,
+        params: &ProofTaskDescriptor,
     ) -> Result<TaskProvingStatusRecords, TaskManagerError> {
         let mut task_db = self.arc_task_db.lock().await;
         let enq_status = task_db.enqueue_task(params)?;
@@ -490,7 +574,7 @@ impl TaskManager for RedisTaskManager {
 
     async fn update_task_progress(
         &mut self,
-        key: TaskDescriptor,
+        key: ProofTaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
@@ -502,7 +586,7 @@ impl TaskManager for RedisTaskManager {
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
     async fn get_task_proving_status(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut task_db = self.arc_task_db.lock().await;
         match task_db.get_task_proving_status(key) {
@@ -512,7 +596,7 @@ impl TaskManager for RedisTaskManager {
         }
     }
 
-    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
+    async fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         let mut task_db = self.arc_task_db.lock().await;
         let proof = task_db.get_task_proof(key)?;
         Ok(proof)
@@ -599,7 +683,7 @@ mod tests {
     #[test]
     fn test_db_enqueue() {
         let mut db = RedisTaskDb::new("redis://localhost:6379").unwrap();
-        let params = TaskDescriptor {
+        let params = ProofTaskDescriptor {
             chain_id: 1,
             block_id: 1,
             blockhash: B256::default(),

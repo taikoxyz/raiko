@@ -8,7 +8,7 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_tasks::{get_task_manager, TaskDescriptor, TaskManagerOpts, TaskManagerWrapperImpl};
+use raiko_tasks::{get_task_manager, ProofTaskDescriptor, TaskManagerOpts, TaskManagerWrapperImpl};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -155,7 +155,7 @@ pub struct ProverState {
 
 #[derive(Debug, Serialize)]
 pub enum Message {
-    Cancel(TaskDescriptor),
+    Cancel(ProofTaskDescriptor),
     Task(ProofRequest),
     TaskComplete(ProofRequest),
     CancelAggregate(AggregationOnlyRequest),
@@ -168,8 +168,8 @@ impl From<&ProofRequest> for Message {
     }
 }
 
-impl From<&TaskDescriptor> for Message {
-    fn from(value: &TaskDescriptor) -> Self {
+impl From<&ProofTaskDescriptor> for Message {
+    fn from(value: &ProofTaskDescriptor) -> Self {
         Self::Cancel(value.clone())
     }
 }

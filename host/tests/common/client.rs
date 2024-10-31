@@ -1,6 +1,6 @@
 use raiko_core::interfaces::ProofRequestOpt;
 use raiko_host::server::api::{v1, v2};
-use raiko_tasks::{TaskDescriptor, TaskStatus};
+use raiko_tasks::{ProofTaskDescriptor, TaskStatus};
 
 const URL: &str = "http://localhost:8080";
 
@@ -87,7 +87,7 @@ impl ProofClient {
         }
     }
 
-    pub async fn report_proof(&self) -> anyhow::Result<Vec<(TaskDescriptor, TaskStatus)>> {
+    pub async fn report_proof(&self) -> anyhow::Result<Vec<(ProofTaskDescriptor, TaskStatus)>> {
         let response = self
             .reqwest_client
             .get(&format!("{URL}/v2/proof/report"))
@@ -95,7 +95,9 @@ impl ProofClient {
             .await?;
 
         if response.status().is_success() {
-            let report_response = response.json::<Vec<(TaskDescriptor, TaskStatus)>>().await?;
+            let report_response = response
+                .json::<Vec<(ProofTaskDescriptor, TaskStatus)>>()
+                .await?;
             Ok(report_response)
         } else {
             Err(anyhow::anyhow!("Failed to send proof request"))

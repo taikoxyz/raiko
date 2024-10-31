@@ -154,8 +154,8 @@ impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct TaskDescriptor {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+pub struct ProofTaskDescriptor {
     pub chain_id: ChainId,
     pub block_id: u64,
     pub blockhash: B256,
@@ -163,7 +163,7 @@ pub struct TaskDescriptor {
     pub prover: String,
 }
 
-impl From<(ChainId, u64, B256, ProofType, String)> for TaskDescriptor {
+impl From<(ChainId, u64, B256, ProofType, String)> for ProofTaskDescriptor {
     fn from(
         (chain_id, block_id, blockhash, proof_system, prover): (
             ChainId,
@@ -173,7 +173,7 @@ impl From<(ChainId, u64, B256, ProofType, String)> for TaskDescriptor {
             String,
         ),
     ) -> Self {
-        TaskDescriptor {
+        ProofTaskDescriptor {
             chain_id,
             block_id,
             blockhash,
@@ -183,13 +183,13 @@ impl From<(ChainId, u64, B256, ProofType, String)> for TaskDescriptor {
     }
 }
 
-impl From<TaskDescriptor> for (ChainId, B256) {
+impl From<ProofTaskDescriptor> for (ChainId, B256) {
     fn from(
-        TaskDescriptor {
+        ProofTaskDescriptor {
             chain_id,
             blockhash,
             ..
-        }: TaskDescriptor,
+        }: ProofTaskDescriptor,
     ) -> Self {
         (chain_id, blockhash)
     }
@@ -220,6 +220,12 @@ pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TaskProvingStatusRecords(pub Vec<TaskProvingStatus>);
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TaskDescriptor {
+    SingleProof(ProofTaskDescriptor),
+    Aggregation(AggregationTaskDescriptor),
+}
+
 pub type TaskReport = (TaskDescriptor, TaskStatus);
 
 #[derive(Debug, Clone, Default)]
@@ -237,13 +243,13 @@ pub trait TaskManager: IdStore + IdWrite + Send + Sync {
     /// Enqueue a new task to the tasks database.
     async fn enqueue_task(
         &mut self,
-        request: &TaskDescriptor,
+        request: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
     /// Update a specific tasks progress.
     async fn update_task_progress(
         &mut self,
-        key: TaskDescriptor,
+        key: ProofTaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()>;
@@ -251,11 +257,11 @@ pub trait TaskManager: IdStore + IdWrite + Send + Sync {
     /// Returns the latest triplet (status, proof - if any, last update time).
     async fn get_task_proving_status(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords>;
 
     /// Returns the proof for the given task.
-    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>>;
+    async fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<Vec<u8>>;
 
     /// Returns the total and detailed database size.
     async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)>;
@@ -334,14 +340,14 @@ impl<T: TaskManager> TaskManager for TaskManagerWrapper<T> {
 
     async fn enqueue_task(
         &mut self,
-        request: &TaskDescriptor,
+        request: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         self.manager.enqueue_task(request).await
     }
 
     async fn update_task_progress(
         &mut self,
-        key: TaskDescriptor,
+        key: ProofTaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
@@ -350,12 +356,12 @@ impl<T: TaskManager> TaskManager for TaskManagerWrapper<T> {
 
     async fn get_task_proving_status(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         self.manager.get_task_proving_status(key).await
     }
 
-    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
+    async fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         self.manager.get_task_proof(key).await
     }
 
@@ -444,7 +450,7 @@ mod test {
 
         assert_eq!(
             task_manager
-                .enqueue_task(&TaskDescriptor {
+                .enqueue_task(&ProofTaskDescriptor {
                     chain_id: 1,
                     block_id: 0,
                     blockhash: B256::default(),

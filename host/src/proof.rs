@@ -17,7 +17,7 @@ use raiko_lib::{
     Measurement,
 };
 use raiko_tasks::{
-    get_task_manager, TaskDescriptor, TaskManager, TaskManagerWrapperImpl, TaskStatus,
+    get_task_manager, ProofTaskDescriptor, TaskManager, TaskManagerWrapperImpl, TaskStatus,
 };
 use reth_primitives::B256;
 use tokio::{
@@ -45,7 +45,7 @@ pub struct ProofActor {
     opts: Opts,
     chain_specs: SupportedChainSpecs,
     aggregate_tasks: Arc<Mutex<HashMap<AggregationOnlyRequest, CancellationToken>>>,
-    running_tasks: Arc<Mutex<HashMap<TaskDescriptor, CancellationToken>>>,
+    running_tasks: Arc<Mutex<HashMap<ProofTaskDescriptor, CancellationToken>>>,
     pending_tasks: Arc<Mutex<VecDeque<ProofRequest>>>,
     receiver: Receiver<Message>,
     sender: Sender<Message>,
@@ -59,7 +59,7 @@ impl ProofActor {
         chain_specs: SupportedChainSpecs,
     ) -> Self {
         let running_tasks = Arc::new(Mutex::new(
-            HashMap::<TaskDescriptor, CancellationToken>::new(),
+            HashMap::<ProofTaskDescriptor, CancellationToken>::new(),
         ));
         let aggregate_tasks = Arc::new(Mutex::new(HashMap::<
             AggregationOnlyRequest,
@@ -78,7 +78,7 @@ impl ProofActor {
         }
     }
 
-    pub async fn cancel_task(&mut self, key: TaskDescriptor) -> HostResult<()> {
+    pub async fn cancel_task(&mut self, key: ProofTaskDescriptor) -> HostResult<()> {
         let tasks_map = self.running_tasks.lock().await;
         let Some(task) = tasks_map.get(&key) else {
             warn!("No task with those keys to cancel");
@@ -126,7 +126,7 @@ impl ProofActor {
             }
         };
 
-        let key = TaskDescriptor::from((
+        let key = ProofTaskDescriptor::from((
             chain_id,
             proof_request.block_number,
             blockhash,
@@ -299,7 +299,7 @@ impl ProofActor {
 
     pub async fn handle_message(
         proof_request: ProofRequest,
-        key: TaskDescriptor,
+        key: ProofTaskDescriptor,
         opts: &Opts,
         chain_specs: &SupportedChainSpecs,
     ) -> HostResult<TaskStatus> {

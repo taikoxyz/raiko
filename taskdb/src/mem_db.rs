@@ -19,8 +19,9 @@ use tokio::sync::Mutex;
 use tracing::{debug, info};
 
 use crate::{
-    ensure, TaskDescriptor, TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult,
-    TaskProvingStatusRecords, TaskReport, TaskStatus,
+    ensure, AggregationTaskDescriptor, ProofTaskDescriptor, TaskDescriptor, TaskManager,
+    TaskManagerError, TaskManagerOpts, TaskManagerResult, TaskProvingStatusRecords, TaskReport,
+    TaskStatus,
 };
 
 #[derive(Debug)]
@@ -30,7 +31,7 @@ pub struct InMemoryTaskManager {
 
 #[derive(Debug)]
 pub struct InMemoryTaskDb {
-    tasks_queue: HashMap<TaskDescriptor, TaskProvingStatusRecords>,
+    tasks_queue: HashMap<ProofTaskDescriptor, TaskProvingStatusRecords>,
     aggregation_tasks_queue: HashMap<AggregationOnlyRequest, TaskProvingStatusRecords>,
     store: HashMap<ProofKey, String>,
 }
@@ -44,7 +45,7 @@ impl InMemoryTaskDb {
         }
     }
 
-    fn enqueue_task(&mut self, key: &TaskDescriptor) {
+    fn enqueue_task(&mut self, key: &ProofTaskDescriptor) {
         let task_status = (TaskStatus::Registered, None, Utc::now());
 
         match self.tasks_queue.get(key) {
@@ -64,7 +65,7 @@ impl InMemoryTaskDb {
 
     fn update_task_progress(
         &mut self,
-        key: TaskDescriptor,
+        key: ProofTaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
@@ -83,12 +84,12 @@ impl InMemoryTaskDb {
 
     fn get_task_proving_status(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         Ok(self.tasks_queue.get(key).cloned().unwrap_or_default())
     }
 
-    fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
+    fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         ensure(self.tasks_queue.contains_key(key), "no task found")?;
 
         let proving_status_records = self
@@ -121,16 +122,26 @@ impl InMemoryTaskDb {
     }
 
     fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
-        Ok(self
-            .tasks_queue
+        let single_proofs = self.tasks_queue.iter().filter_map(|(desc, statuses)| {
+            statuses
+                .0
+                .last()
+                .map(|s| (TaskDescriptor::SingleProof(desc.clone()), s.0.clone()))
+        });
+
+        let aggregations = self
+            .aggregation_tasks_queue
             .iter()
-            .flat_map(|(descriptor, statuses)| {
-                statuses
-                    .0
-                    .last()
-                    .map(|status| (descriptor.clone(), status.0.clone()))
-            })
-            .collect())
+            .filter_map(|(desc, statuses)| {
+                statuses.0.last().map(|s| {
+                    (
+                        TaskDescriptor::Aggregation(AggregationTaskDescriptor::from(desc)),
+                        s.0.clone(),
+                    )
+                })
+            });
+
+        Ok(single_proofs.chain(aggregations).collect())
     }
 
     fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
@@ -286,7 +297,7 @@ impl TaskManager for InMemoryTaskManager {
 
     async fn enqueue_task(
         &mut self,
-        params: &TaskDescriptor,
+        params: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut db = self.db.lock().await;
         let status = db.get_task_proving_status(params)?;
@@ -300,7 +311,7 @@ impl TaskManager for InMemoryTaskManager {
 
     async fn update_task_progress(
         &mut self,
-        key: TaskDescriptor,
+        key: ProofTaskDescriptor,
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> TaskManagerResult<()> {
@@ -311,13 +322,13 @@ impl TaskManager for InMemoryTaskManager {
     /// Returns the latest triplet (submitter or fulfiller, status, last update time)
     async fn get_task_proving_status(
         &mut self,
-        key: &TaskDescriptor,
+        key: &ProofTaskDescriptor,
     ) -> TaskManagerResult<TaskProvingStatusRecords> {
         let mut db = self.db.lock().await;
         db.get_task_proving_status(key)
     }
 
-    async fn get_task_proof(&mut self, key: &TaskDescriptor) -> TaskManagerResult<Vec<u8>> {
+    async fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<Vec<u8>> {
         let mut db = self.db.lock().await;
         db.get_task_proof(key)
     }
@@ -393,7 +404,7 @@ mod tests {
     #[test]
     fn test_db_enqueue() {
         let mut db = InMemoryTaskDb::new();
-        let params = TaskDescriptor {
+        let params = ProofTaskDescriptor {
             chain_id: 1,
             block_id: 1,
             blockhash: B256::default(),

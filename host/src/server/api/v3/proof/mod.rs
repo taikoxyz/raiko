@@ -10,7 +10,7 @@ use raiko_core::{
     provider::get_task_data,
 };
 use raiko_lib::prover::Proof;
-use raiko_tasks::{TaskDescriptor, TaskManager, TaskStatus};
+use raiko_tasks::{ProofTaskDescriptor, TaskManager, TaskStatus};
 use tracing::{debug, info};
 use utoipa::OpenApi;
 
@@ -64,7 +64,7 @@ async fn proof_handler(
         )
         .await?;
 
-        let key = TaskDescriptor::from((
+        let key = ProofTaskDescriptor::from((
             chain_id,
             proof_request.block_number,
             blockhash,

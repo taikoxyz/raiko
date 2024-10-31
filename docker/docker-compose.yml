@@ -143,7 +143,7 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
     ports:
-      - "8080:8080"
+      - "8090:8080"
     environment:
       # you can use your own PCCS host
       # - PCCS_HOST=host.docker.internal:8081
@@ -167,6 +167,10 @@ services:
       - SP1_VERIFIER_RPC_URL=${SP1_VERIFIER_RPC_URL}
       - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      - redis
+    profiles:
+      - prod-redis
   pccs:
     build:
       context: ..
