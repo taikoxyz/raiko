@@ -461,7 +461,7 @@ fn parse_sgx_result(output: Vec<u8>) -> ProverResult<SgxResponse, String> {
     Ok(SgxResponse {
         proof: extract_field("proof"),
         quote: extract_field("quote"),
-        input: B256::from_str(&extract_field("input")).unwrap(),
+        input: B256::from_str(&extract_field("input")).unwrap_or_default(),
     })
 }
 
