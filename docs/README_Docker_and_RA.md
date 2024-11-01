@@ -2,7 +2,7 @@
 
 This tutorial was created to assist you in setting up Raiko and its SGX dependencies using a Docker container. Configuring SGX can be complex without a detailed guide to walk you through each step. This tutorial strives to provide a comprehensive walkthrough, leaving no detail unaddressed.
 
-> **_NOTE:_** Currently, raiko v1.3.0 sometimes encounters OOM errors (Out of Memory). We recommend that you do NOT use 1.3.0 in  production as this can lead to losses. Please instead use 1.3.0-edmm ONLY if you have a SGX-2 enabled machine (i.e. pull the image with `docker pull us-docker.pkg.dev/evmchain/images/raiko:1.3.0-edmm` and proceed as normal). If you have bootstrapped and started using the 1.3.0 image, you will have to redo the process with the 1.3.0-edmm image if you wish to continue proving without error.
+> **_NOTE:_** Currently, raiko v1.3.0 sometimes encounters OOM errors (Out of Memory). We recommend that you do NOT use 1.3.0 in  production as this can lead to losses. Please instead use 1.3.0-edmm ONLY if you have a SGX-2 enabled machine (i.e. pull the image with `docker pull us-docker.pkg.dev/evmchain/images/raiko:1.3.0-edmm` and proceed as normal). If you have bootstrapped and started using the 1.3.0 image, you will have to redo the process with the 1.3.0-edmm image if you wish to continue proving without error. We are working on a hotfixed version at the moment, thank you for your patience.
 
 ## Recommended Specs
 
