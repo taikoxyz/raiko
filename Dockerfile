@@ -14,7 +14,7 @@ COPY . .
 RUN echo "Building for sgx with taskdb: ${TASKDB}"
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build" --features ${TASKDB}
 
-FROM gramineproject/gramine:1.7-jammy AS runtime
+FROM gramineproject/gramine:1.8-jammy AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
 
