@@ -18,8 +18,8 @@ use crate::{
     },
     CycleTracker,
 };
-use log::{debug, info};
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
+use tracing::{debug, info};
 
 #[derive(Debug, Clone)]
 pub enum BlockMetaDataFork {

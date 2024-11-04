@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+exec 2>&1
 set -xeo pipefail
 
 export IN_CONTAINER=1

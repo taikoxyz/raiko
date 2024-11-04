@@ -83,6 +83,7 @@ services:
       - L1_NETWORK=${L1_NETWORK}
       - NETWORK=${NETWORK}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RUST_LOG=${RUST_LOG:-info}
       # you can use your own PCCS host
       #- PCCS_HOST=host.docker.internal:8081
       # use the host's network to connect to the PCCS

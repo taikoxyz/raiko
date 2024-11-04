@@ -4,7 +4,7 @@ use alloy_rlp::Decodable;
 use anyhow::Result;
 use libflate::zlib::{Decoder as zlibDecoder, Encoder as zlibEncoder};
 use reth_primitives::TransactionSigned;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 use crate::consts::{ChainSpec, Network};
 use crate::input::BlockProposedFork;
@@ -31,6 +31,10 @@ fn unzip_tx_list_from_data_buf(
     blob_slice_param: Option<(usize, usize)>,
     tx_list_data_buf: &[u8],
 ) -> Vec<u8> {
+    debug!(
+        "unzip_tx_list_from_data_buf(is_blob_data: {is_blob_data}, tx_list_data_buf.len: {:?}, blob_slice_param: {blob_slice_param:?})",
+        tx_list_data_buf.len()
+    );
     #[allow(clippy::collapsible_else_if)]
     if chain_spec.is_taiko() {
         // taiko has some limitations to be aligned with taiko-client

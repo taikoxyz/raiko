@@ -11,7 +11,9 @@ use tracing_subscriber::FmtSubscriber;
 #[tokio::main]
 async fn main() -> HostResult<()> {
     dotenv::dotenv().ok();
-    env_logger::init();
+    env_logger::Builder::from_default_env()
+        .target(env_logger::Target::Stdout)
+        .init();
     let state = ProverState::init()?;
     let _guard = subscribe_log(
         &state.opts.log_path,
