@@ -149,6 +149,14 @@ impl BlockProposedFork {
             _ => None,
         }
     }
+
+    pub fn blob_hash(&self) -> B256 {
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.blobHash,
+            BlockProposedFork::Ontake(block) => block.meta.blobHash,
+            _ => B256::default(),
+        }
+    }
 }
 
 #[serde_as]

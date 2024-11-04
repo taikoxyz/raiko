@@ -142,8 +142,19 @@ pub async fn prepare_taiko_chain_input(
 
     // Fetch the tx data from either calldata or blobdata
     let (tx_data, blob_commitment, blob_proof) = if block_proposed.blob_used() {
+        let expected_blob_hash = block_proposed.blob_hash();
+        let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
+        // Get the blob hashes attached to the propose tx and make sure the expected blob hash is in there
+        require(
+            blob_hashes.contains(&expected_blob_hash),
+            &format!(
+                "Proposal blobs hash mismatch: {:?} not in {:?}",
+                expected_blob_hash, blob_hashes
+            ),
+        )?;
+
         get_tx_data(
-            proposal_tx.blob_versioned_hashes,
+            expected_blob_hash,
             l1_inclusion_header.timestamp,
             l1_chain_spec,
             &blob_proof_type,
@@ -187,17 +198,12 @@ pub async fn prepare_taiko_chain_input(
 }
 
 pub async fn get_tx_data(
-    blob_versioned_hashes: Option<Vec<B256>>,
+    blob_hash: B256,
     timestamp: u64,
     chain_spec: &ChainSpec,
     blob_proof_type: &BlobProofType,
 ) -> RaikoResult<(Vec<u8>, Option<Vec<u8>>, Option<Vec<u8>>)> {
-    debug!("blob active");
-    // Get the blob hashes attached to the propose tx
-    let blob_hashes = blob_versioned_hashes.unwrap_or_default();
-    require(!blob_hashes.is_empty(), "blob hashes are empty")?;
-    // Currently the protocol enforces the first blob hash to be used
-    let blob_hash = blob_hashes[0];
+    debug!("get tx from hash blob: {blob_hash:?}");
     // Get the blob data for this block
     let slot_id = block_time_to_block_slot(
         timestamp,
