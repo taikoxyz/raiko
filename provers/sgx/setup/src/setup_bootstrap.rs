@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use file_lock::{FileLock, FileOptions};
 use raiko_lib::consts::{SupportedChainSpecs, VerifierType};
 use serde_json::{Number, Value};
 use sgx_prover::{
@@ -21,6 +22,15 @@ pub(crate) async fn setup_bootstrap(
     config_dir: PathBuf,
     bootstrap_args: &BootstrapArgs,
 ) -> Result<()> {
+    // Lock the bootstrap process to prevent multiple instances from running concurrently.
+    // Block until the lock is acquired.
+    // Create the lock file if it does not exist.
+    // Drop the lock file when the lock goes out of scope by drop guard.
+    let _filelock = FileLock::lock(
+        config_dir.join("bootstrap.lock"),
+        true,
+        FileOptions::new().create(true).write(true),
+    )?;
     let chain_specs = SupportedChainSpecs::merge_from_file(bootstrap_args.chain_spec_path.clone())?;
     let l1_chain_spec = chain_specs
         .get_chain_spec(&bootstrap_args.l1_network)

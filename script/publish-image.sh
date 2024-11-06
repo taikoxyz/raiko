@@ -19,6 +19,7 @@ docker buildx build ./ \
 	--platform linux/amd64 \
 	-t raiko:$tag \
 	$build_flags \
+	--build-arg TASKDB=redis-db \
 	--build-arg TARGETPLATFORM=linux/amd64 \
 	--progress=plain
 
