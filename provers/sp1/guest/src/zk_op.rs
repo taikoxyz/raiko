@@ -7,7 +7,7 @@ use secp256k1::{
     Message,
 };
 use sha2 as sp1_sha2;
-use sp1_core::utils::ec::{weierstrass::bn254::Bn254, AffinePoint};
+use sp1_curves::{weierstrass::bn254::Bn254, AffinePoint};
 
 #[derive(Debug)]
 pub struct Sp1Operator;
@@ -91,10 +91,10 @@ fn point_to_be_bytes(p: AffinePoint<Bn254>) -> [u8; 64] {
 
 harness::zk_suits!(
     pub mod tests {
+        use super::*;
         use crate::be_bytes_to_point;
         use raiko_lib::primitives::hex;
         use revm_precompile::bn128;
-        use sp1_core::utils::ec::{weierstrass::bn254::Bn254, AffinePoint};
         use substrate_bn::Group;
 
         #[test]
