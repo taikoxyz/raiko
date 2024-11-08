@@ -58,9 +58,9 @@ bonsai-sdk = { version = "=1.1.2" }
 risc0-binfmt = { version = "=1.1.2" }
 
 # SP1
-sp1-sdk = { version = "=3.0.0-rc3" }
-sp1-zkvm = { version = "2.0.0" }
-sp1-helper = { version = "2.0.0" }
+sp1-sdk = { version = "=3.0.0" }
+sp1-zkvm = { version = "=3.0.0" }
+sp1-helper = { version = "=3.0.0" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
