@@ -233,6 +233,7 @@ pub struct TaskManagerOpts {
     pub sqlite_file: PathBuf,
     pub max_db_size: usize,
     pub redis_url: String,
+    pub redis_ttl: u64,
 }
 
 #[async_trait::async_trait]
@@ -445,6 +446,7 @@ mod test {
             sqlite_file: sqlite_file.to_path_buf(),
             max_db_size: 1024 * 1024,
             redis_url: "redis://localhost:6379".to_string(),
+            redis_ttl: 3600,
         };
         let mut task_manager = get_task_manager(&opts);
 

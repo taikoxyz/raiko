@@ -68,6 +68,7 @@ mod tests {
             sqlite_file: file,
             max_db_size: 1_000_000,
             redis_url: env::var("REDIS_URL").unwrap_or_default(),
+            redis_ttl: 3600,
         });
 
         let (chain_id, blockhash, request) =
@@ -106,6 +107,7 @@ mod tests {
             sqlite_file: file,
             max_db_size: 1_000_000,
             redis_url: env::var("REDIS_URL").unwrap_or_default(),
+            redis_ttl: 3600,
         });
 
         let mut rng = ChaCha8Rng::seed_from_u64(123);

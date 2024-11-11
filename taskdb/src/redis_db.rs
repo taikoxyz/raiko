@@ -28,6 +28,7 @@ use crate::{
 
 pub struct RedisTaskDb {
     conn: Connection,
+    config: RedisConfig,
 }
 
 pub struct RedisTaskManager {
@@ -129,14 +130,18 @@ impl ToRedisArgs for TaskIdDescriptor {
     }
 }
 
-// redis key ttl
-const TTL_SECS: u64 = 2 * 24 * 3600; // 2 days
+#[derive(Debug, Clone, Default)]
+pub struct RedisConfig {
+    url: String,
+    ttl: u64,
+}
 
 impl RedisTaskDb {
-    fn new(url: &str) -> RedisDbResult<Self> {
+    fn new(config: RedisConfig) -> RedisDbResult<Self> {
+        let url = config.url.clone();
         let client = Client::open(url).map_err(RedisDbError::RedisDb)?;
         let conn = client.get_connection().map_err(RedisDbError::RedisDb)?;
-        Ok(RedisTaskDb { conn })
+        Ok(RedisTaskDb { conn, config })
     }
 
     fn insert_proof_task(
@@ -161,7 +166,7 @@ impl RedisTaskDb {
         V: ToRedisArgs,
     {
         self.conn
-            .set_ex(key, value, TTL_SECS)
+            .set_ex(key, value, self.config.ttl)
             .map_err(RedisDbError::RedisDb)?;
         Ok(())
     }
@@ -272,7 +277,7 @@ impl RedisTaskDb {
     }
 
     fn update_status_redis(&mut self, k: &String, v: &String) -> RedisDbResult<()> {
-        self.conn.set_ex(k, v, TTL_SECS)?;
+        self.conn.set_ex(k, v, self.config.ttl)?;
         Ok(())
     }
 }
@@ -553,7 +558,11 @@ impl TaskManager for RedisTaskManager {
         INIT.call_once(|| {
             unsafe {
                 CONN = Some(Arc::new(Mutex::new({
-                    let db = RedisTaskDb::new(&opts.redis_url).unwrap();
+                    let db = RedisTaskDb::new(RedisConfig {
+                        url: opts.redis_url.clone(),
+                        ttl: opts.redis_ttl.clone(),
+                    })
+                    .unwrap();
                     db
                 })))
             };

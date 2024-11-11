@@ -373,6 +373,7 @@ mod tests {
         height - 100
     }
 
+    #[ignore = "public node does not support long distance MPT proof query."]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_ethereum() {
         let proof_type = get_proof_type_from_env();
