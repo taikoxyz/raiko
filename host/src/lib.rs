@@ -84,6 +84,9 @@ pub struct Opts {
 
     #[arg(long, require_equals = true, default_value = "redis://localhost:6379")]
     pub redis_url: String,
+
+    #[arg(long, require_equals = true, default_value = "3600")]
+    pub redis_ttl: u64,
 }
 
 impl Opts {
@@ -132,6 +135,7 @@ impl From<Opts> for TaskManagerOpts {
             sqlite_file: val.sqlite_file,
             max_db_size: val.max_db_size,
             redis_url: val.redis_url.to_string(),
+            redis_ttl: val.redis_ttl,
         }
     }
 }
@@ -142,6 +146,7 @@ impl From<&Opts> for TaskManagerOpts {
             sqlite_file: val.sqlite_file.clone(),
             max_db_size: val.max_db_size,
             redis_url: val.redis_url.to_string(),
+            redis_ttl: val.redis_ttl,
         }
     }
 }

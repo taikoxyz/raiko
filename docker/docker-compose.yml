@@ -167,6 +167,7 @@ services:
       - SKIP_SIMULATION=true
       - SP1_VERIFIER_RPC_URL=${SP1_VERIFIER_RPC_URL}
       - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
+      - PROVER_NETWORK_RPC=${PROVER_NETWORK_RPC}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     depends_on:
       - redis
