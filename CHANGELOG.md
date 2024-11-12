@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0](https://github.com/taikoxyz/raiko/compare/v1.3.0...v1.4.0) (2024-11-11)
+
+
+### Features
+
+* **docs:** use edmm image ([#402](https://github.com/taikoxyz/raiko/issues/402)) ([450eef6](https://github.com/taikoxyz/raiko/commit/450eef6ee7b71adc148d956b2f9dd9725999654f))
+* introduce file lock for share instance bootstrap ([#405](https://github.com/taikoxyz/raiko/issues/405)) ([9317ca1](https://github.com/taikoxyz/raiko/commit/9317ca1eb99a8a1d67a3aaf107a76c00f9cfdeb1))
+* **raiko:** add alloc feature to compile risc0 guest to avoid oom issue ([#404](https://github.com/taikoxyz/raiko/issues/404)) ([831efbe](https://github.com/taikoxyz/raiko/commit/831efbe9308e73fbdb86d7790c4a56333f4090fe))
+* **raiko:** config redis ttl from cmdline & default 1 hour ([#406](https://github.com/taikoxyz/raiko/issues/406)) ([a497171](https://github.com/taikoxyz/raiko/commit/a4971711932ca3c1429a0a6e306c5bfd9523c7aa))
+* **raiko:** multi blocks in one proposal tx ([#403](https://github.com/taikoxyz/raiko/issues/403)) ([d85cb13](https://github.com/taikoxyz/raiko/commit/d85cb13675604ecd75cf373b41576d3b146e7e14))
+* **raiko:** redis db implementation for sharing proof between cloud instances. ([#389](https://github.com/taikoxyz/raiko/issues/389)) ([14b15e6](https://github.com/taikoxyz/raiko/commit/14b15e68aa986840f1ffcd64704c4a22f4e73aa6))
+
+
+### Bug Fixes
+
+* **raiko:** fix task db report and docker image build ([#400](https://github.com/taikoxyz/raiko/issues/400)) ([54291f3](https://github.com/taikoxyz/raiko/commit/54291f364132832a7462edceffdb8c44ac9d3de9))
+
 ## [1.3.0](https://github.com/taikoxyz/raiko/compare/v1.2.0...v1.3.0) (2024-10-23)
 
 
