@@ -75,4 +75,6 @@ std = [
 sgx = []
 sp1 = []
 risc0 = []
+powdr = []
 sp1-cycle-tracker = []
+proof_of_equivalence = []

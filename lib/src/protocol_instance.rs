@@ -317,6 +317,7 @@ fn get_blob_proof_type(
         VerifierType::SGX => BlobProofType::KzgVersionedHash,
         VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
         VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+        VerifierType::Powdr => BlobProofType::ProofOfEquivalence,
     }
 }
 

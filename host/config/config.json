@@ -24,6 +24,9 @@
 		"prover": "mock",
         "verify": false
 	},
+    "powdr": {
+		"prover": "mock"
+	},
     "native" : {
         "json_guest_input": null
 	}

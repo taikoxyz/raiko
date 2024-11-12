@@ -8,8 +8,8 @@ if [ -n "$CI" ]; then
     source ./script/ci-env-check.sh
 fi
 
-# toolchain necessary to compile c-kzg in SP1/risc0
-if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
+# toolchain necessary to compile c-kzg in SP1/risc0/powdr
+if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ] || [ "$1" == "powdr" ]; then
 	# Check if the RISC-V GCC prebuilt binary archive already exists
 	if [ -f /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz ]; then
 		echo "riscv-gcc-prebuilt existed, please check the file manually"
@@ -85,4 +85,12 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		echo "/home/runner/.sp1/bin" >> $GITHUB_PATH
 		/home/runner/.sp1/bin/sp1up
 	fi
+fi
+# Powdr
+if [ -z "$1" ] || [ "$1" == "powdr" ]; then
+	# Install nightly toolchain (use the same version as the rust-toolchain
+	# because it is installed already)
+	rustup toolchain install nightly-2024-04-18
+	# Add rust-src component
+	rustup component add rust-src --toolchain nightly-2024-04-18
 fi

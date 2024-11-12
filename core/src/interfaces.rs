@@ -113,6 +113,10 @@ pub enum ProofType {
     ///
     /// Uses the RISC0 prover to build the block.
     Risc0,
+    /// # powdr
+    ///
+    /// Uses powdrVM to build the block.
+    Powdr,
 }
 
 impl std::fmt::Display for ProofType {
@@ -122,6 +126,7 @@ impl std::fmt::Display for ProofType {
             ProofType::Sp1 => "sp1",
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
+            ProofType::Powdr => "powdr",
         })
     }
 }
@@ -135,6 +140,7 @@ impl FromStr for ProofType {
             "sp1" => Ok(ProofType::Sp1),
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
+            "powdr" => Ok(ProofType::Powdr),
             _ => Err(RaikoError::InvalidProofType(s.to_string())),
         }
     }
@@ -149,6 +155,7 @@ impl TryFrom<u8> for ProofType {
             1 => Ok(Self::Sp1),
             2 => Ok(Self::Sgx),
             3 => Ok(Self::Risc0),
+            4 => Ok(Self::Powdr),
             _ => Err(RaikoError::Conversion("Invalid u8".to_owned())),
         }
     }
@@ -161,6 +168,7 @@ impl From<ProofType> for VerifierType {
             ProofType::Sp1 => VerifierType::SP1,
             ProofType::Sgx => VerifierType::SGX,
             ProofType::Risc0 => VerifierType::RISC0,
+            ProofType::Powdr => VerifierType::Powdr,
         }
     }
 }
@@ -192,6 +200,14 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "risc0"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Powdr => {
+                #[cfg(feature = "powdr")]
+                return powdr_driver::PowdrProver::run(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "powdr"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
             }
             ProofType::Sgx => {
@@ -233,6 +249,14 @@ impl ProofType {
                 #[cfg(not(feature = "risc0"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
             }
+            ProofType::Powdr => {
+                #[cfg(feature = "powdr")]
+                return powdr_driver::PowdrProver::aggregate(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "powdr"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
             ProofType::Sgx => {
                 #[cfg(feature = "sgx")]
                 return sgx_prover::SgxProver::aggregate(input.clone(), output, config, store)
@@ -269,6 +293,14 @@ impl ProofType {
                     .await
                     .map_err(|e| e.into());
                 #[cfg(not(feature = "risc0"))]
+                Err(RaikoError::FeatureNotSupportedError(*self))
+            }
+            ProofType::Powdr => {
+                #[cfg(feature = "powdr")]
+                return powdr_driver::PowdrProver::cancel(proof_key, read)
+                    .await
+                    .map_err(|e| e.into());
+                #[cfg(not(feature = "powdr"))]
                 Err(RaikoError::FeatureNotSupportedError(*self))
             }
             ProofType::Sgx => {
@@ -355,6 +387,8 @@ pub struct ProverSpecificOpts {
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
     pub risc0: Option<Value>,
+    /// Powdr prover specific options.
+    pub powdr: Option<Value>,
 }
 
 impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificOpts>

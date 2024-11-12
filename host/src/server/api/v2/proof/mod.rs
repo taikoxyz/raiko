@@ -32,6 +32,7 @@ pub mod report;
 /// - sgx - uses the sgx environment to construct a block and produce proof of execution
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
+/// - powdr - uses the powdr prover
 async fn proof_handler(
     State(prover_state): State<ProverState>,
     Json(req): Json<Value>,

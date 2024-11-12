@@ -134,6 +134,7 @@ pub enum VerifierType {
     SGX,
     SP1,
     RISC0,
+    Powdr,
 }
 
 /// Specification of a specific chain.
@@ -397,6 +398,7 @@ mod tests {
                     (VerifierType::SGX, Some(Address::default())),
                     (VerifierType::SP1, None),
                     (VerifierType::RISC0, Some(Address::default())),
+                    (VerifierType::Powdr, None),
                 ]),
             )]),
             genesis_time: 0u64,

@@ -22,3 +22,5 @@ sp1-sdk = { workspace = true, optional = true }
 [features]
 risc0 = ["dep:risc0-binfmt", "dep:pathdiff", "dep:hex"]
 sp1 = ["dep:sp1-sdk"]
+# TODO: make powdr feature work
+powdr = []

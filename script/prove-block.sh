@@ -101,8 +101,17 @@ elif [ "$proof" == "risc0-bonsai" ]; then
         "execution_po2": 20
     }
   '
+elif [ "$proof" == "powdr" ]; then
+	proofParam='
+    "proof_type": "powdr",
+    "blob_proof_type": "proof_of_equivalence",
+    "powdr": {
+        "prover": "mock"
+    }
+  '
+
 else
-	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
+	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'powdr', or 'sgx'."
 	exit 1
 fi
 

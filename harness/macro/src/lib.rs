@@ -3,17 +3,17 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Item, ItemFn, ItemMod};
 
-#[cfg(any(feature = "sp1", feature = "risc0"))]
+#[cfg(any(feature = "sp1", feature = "risc0", feature = "powdr"))]
 use syn::{punctuated::Punctuated, Ident, Path, Token};
 
 // Helper struct to parse input
-#[cfg(any(feature = "sp1", feature = "risc0"))]
+#[cfg(any(feature = "sp1", feature = "risc0", feature = "powdr"))]
 struct EntryArgs {
     main_entry: Ident,
     test_modules: Option<Punctuated<Path, Token![,]>>,
 }
 
-#[cfg(any(feature = "sp1", feature = "risc0"))]
+#[cfg(any(feature = "sp1", feature = "risc0", feature = "powdr"))]
 impl syn::parse::Parse for EntryArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let main_entry: Ident = input.parse()?;
@@ -33,7 +33,7 @@ impl syn::parse::Parse for EntryArgs {
 }
 
 #[proc_macro]
-#[cfg(any(feature = "sp1", feature = "risc0"))]
+#[cfg(any(feature = "sp1", feature = "risc0", feature = "powdr"))]
 pub fn entrypoint(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as EntryArgs);
     let main_entry = input.main_entry;
@@ -100,11 +100,29 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
         }
     };
 
+    #[cfg(feature = "powdr")]
+    let output = quote! {
+        #[cfg(test)]
+        #tests_entry
+
+        #[cfg(not(test))]
+        const ZKVM_ENTRY: fn() = #main_entry;
+        #[cfg(test)]
+        const ZKVM_ENTRY: fn() = run_tests;
+
+        mod zkvm_generated_main {
+            #[no_mangle]
+            fn main() {
+                super::ZKVM_ENTRY()
+            }
+        }
+    };
+
     output.into()
 }
 
 #[proc_macro]
-#[cfg(not(any(feature = "sp1", feature = "risc0")))]
+#[cfg(not(any(feature = "sp1", feature = "risc0", feature = "powdr")))]
 pub fn entrypoint(_input: TokenStream) -> TokenStream {
     quote! {
         mod generated_main {
