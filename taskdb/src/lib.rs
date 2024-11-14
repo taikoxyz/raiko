@@ -472,4 +472,37 @@ mod test {
             1
         );
     }
+
+    #[tokio::test]
+    async fn test_enqueue_twice() {
+        let sqlite_file: &Path = Path::new("test.db");
+        // remove existed one
+        if sqlite_file.exists() {
+            std::fs::remove_file(sqlite_file).unwrap();
+        }
+
+        let opts = TaskManagerOpts {
+            sqlite_file: sqlite_file.to_path_buf(),
+            max_db_size: 1024 * 1024,
+            redis_url: "redis://localhost:6379".to_string(),
+            redis_ttl: 3600,
+        };
+        let mut task_manager = get_task_manager(&opts);
+        let key = ProofTaskDescriptor {
+            chain_id: 1,
+            block_id: 0,
+            blockhash: B256::default(),
+            proof_system: ProofType::Native,
+            prover: "test".to_string(),
+        };
+
+        assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
+        // enqueue again
+        assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
+
+        let status = task_manager.get_task_proving_status(&key).await.unwrap();
+        assert_eq!(status.0.len(), 2);
+        assert_eq!(status.0.last().unwrap().0, TaskStatus::Registered);
+        assert_eq!(status.0.first().unwrap().0, TaskStatus::Registered);
+    }
 }
