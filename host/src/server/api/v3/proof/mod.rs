@@ -98,9 +98,8 @@ async fn proof_handler(
                     manager
                         .update_task_progress(key.clone(), TaskStatus::Registered, None)
                         .await?;
-    
                     prover_state.task_channel.try_send(Message::from(req))?;
-    
+
                     is_registered = true;
                     is_success = false;
                 }
@@ -157,7 +156,7 @@ async fn proof_handler(
                 TaskStatus::Cancelled
                 | TaskStatus::Cancelled_Aborted
                 | TaskStatus::Cancelled_NeverStarted
-                | TaskStatus::CancellationInProgress 
+                | TaskStatus::CancellationInProgress
                 // or if the task is failed, add it to the queue again
                 | TaskStatus::GuestProverFailure(_)
                 | TaskStatus::UnspecifiedFailureReason
@@ -169,11 +168,9 @@ async fn proof_handler(
                             None,
                         )
                         .await?;
-    
                     prover_state
                         .task_channel
                         .try_send(Message::from(aggregation_request))?;
-    
                     Ok(Status::from(TaskStatus::Registered))
                 }
                 // If the task has succeeded, return the proof.
@@ -181,13 +178,12 @@ async fn proof_handler(
                     let proof = manager
                         .get_aggregation_task_proof(&aggregation_request)
                         .await?;
-    
                     Ok(proof.into())
                 }
                 // For all other statuses just return the status.
                 status => Ok(status.clone().into()),
             }
-        }else {
+        } else {
             // If there are no tasks with provided config, create a new one.
             manager
                 .enqueue_aggregation_task(&aggregation_request)
