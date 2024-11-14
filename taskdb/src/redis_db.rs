@@ -288,8 +288,9 @@ impl RedisTaskDb {
 
         match self.query_proof_task(key) {
             Ok(Some(task_proving_records)) => {
-                warn!("Task already exists: {:?}", task_proving_records.0.last());
-                Ok(task_proving_records.0.last().unwrap().clone())
+                warn!("Task already exists {:?}, register again", task_proving_records.0.last());
+                self.insert_proof_task(key, &TaskProvingStatusRecords(vec![task_status.clone()]))?;
+                Ok(task_status)
             } // do nothing
             Ok(None) => {
                 info!("Enqueue new task: {key:?}");

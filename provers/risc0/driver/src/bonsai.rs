@@ -128,7 +128,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     assumptions: (Vec<impl Into<AssumptionReceipt>>, Vec<String>),
     proof_key: ProofKey,
     id_store: &mut Option<&mut dyn IdWrite>,
-) -> Option<(String, Receipt)> {
+) -> ProverResult<(String, Receipt)> {
     let (assumption_instances, assumption_uuids) = assumptions;
 
     let encoded_output =
@@ -152,12 +152,41 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                 Ok(_) => {}
                 Err(e) => {
                     error!("Failed to scale up bonsai: {e:?}");
-                    return None;
+                    return Err(ProverError::GuestError(
+                        "Failed to scale up bonsai".to_string(),
+                    ));
                 }
             }
             // query bonsai service until it works
-            loop {
-                match prove_bonsai(
+            macro_rules! retry_with_backoff {
+                ($max_retries:expr, $retry_delay:expr, $operation:expr, $err_transform:expr) => {{
+                    let mut attempt = 0;
+                    loop {
+                        match $operation {
+                            Ok(result) => break Ok(result),
+                            Err(e) => {
+                                if attempt >= $max_retries {
+                                    error!("Max retries ({}) reached, aborting...", $max_retries);
+                                    break Err($err_transform(e));
+                                }
+                                warn!(
+                                    "Operation failed (attempt {}/{}): {:?}",
+                                    attempt + 1,
+                                    $max_retries,
+                                    e
+                                );
+                                tokio_async_sleep(Duration::from_secs($retry_delay)).await;
+                                attempt += 1;
+                            }
+                        }
+                    }
+                }};
+            }
+
+            let (uuid, receipt) = retry_with_backoff!(
+                MAX_REQUEST_RETRY,
+                20,
+                prove_bonsai(
                     encoded_input.clone(),
                     elf,
                     expected_output,
@@ -165,25 +194,10 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                     proof_key,
                     id_store,
                 )
-                .await
-                {
-                    Ok((receipt_uuid, receipt)) => {
-                        break (receipt_uuid, receipt, false);
-                    }
-                    Err(BonsaiExecutionError::SdkFailure(err)) => {
-                        warn!("Bonsai SDK fail: {err:?}, keep tracking...");
-                        tokio_async_sleep(Duration::from_secs(15)).await;
-                    }
-                    Err(BonsaiExecutionError::Other(err)) => {
-                        warn!("Something wrong: {err:?}, keep tracking...");
-                        tokio_async_sleep(Duration::from_secs(15)).await;
-                    }
-                    Err(BonsaiExecutionError::Fatal(err)) => {
-                        error!("Fatal error on Bonsai: {err:?}");
-                        return None;
-                    }
-                }
-            }
+                .await,
+                |e| ProverError::GuestError(format!("Bonsai SDK call fail: {e:?}").to_string())
+            )?;
+            (uuid, receipt, false)
         } else {
             // run prover
             info!("start running local prover");
@@ -197,7 +211,9 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                 Ok(receipt) => (Default::default(), receipt, false),
                 Err(e) => {
                     warn!("Failed to prove locally: {e:?}");
-                    return None;
+                    return Err(ProverError::GuestError(
+                        "Failed to prove locally".to_string(),
+                    ));
                 }
             }
         };
@@ -211,6 +227,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
         info!("Prover succeeded");
     } else {
         error!("Output mismatch! Prover: {output_guest:?}, expected: {expected_output:?}");
+        return Err(ProverError::GuestError("Output mismatch!".to_string()));
     }
 
     // upload receipt to bonsai
@@ -229,7 +246,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     }
 
     // return result
-    Some(result)
+    Ok(result)
 }
 
 pub async fn upload_receipt(receipt: &Receipt) -> anyhow::Result<String> {
