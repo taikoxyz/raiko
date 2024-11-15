@@ -302,14 +302,18 @@ mod tests {
 
             std::thread::sleep(Duration::from_millis(1));
 
-            tama.update_task_progress(task_3_desc.clone(), TaskStatus::NetworkFailure, None)
-                .await
-                .unwrap();
+            tama.update_task_progress(
+                task_3_desc.clone(),
+                TaskStatus::UnspecifiedFailureReason,
+                None,
+            )
+            .await
+            .unwrap();
 
             {
                 let task_status = tama.get_task_proving_status(task_3_desc).await.unwrap().0;
                 assert_eq!(task_status.len(), 3);
-                assert_eq!(task_status[2].0, TaskStatus::NetworkFailure);
+                assert_eq!(task_status[2].0, TaskStatus::UnspecifiedFailureReason);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
                 assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
@@ -324,7 +328,7 @@ mod tests {
                 let task_status = tama.get_task_proving_status(task_3_desc).await.unwrap().0;
                 assert_eq!(task_status.len(), 4);
                 assert_eq!(task_status[3].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[2].0, TaskStatus::NetworkFailure);
+                assert_eq!(task_status[2].0, TaskStatus::UnspecifiedFailureReason);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
                 assert_eq!(task_status[0].0, TaskStatus::Registered);
             }
@@ -345,7 +349,7 @@ mod tests {
                 assert_eq!(task_status.len(), 5);
                 assert_eq!(task_status[4].0, TaskStatus::Success);
                 assert_eq!(task_status[3].0, TaskStatus::WorkInProgress);
-                assert_eq!(task_status[2].0, TaskStatus::NetworkFailure);
+                assert_eq!(task_status[2].0, TaskStatus::UnspecifiedFailureReason);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
                 assert_eq!(task_status[0].0, TaskStatus::Registered);
             }

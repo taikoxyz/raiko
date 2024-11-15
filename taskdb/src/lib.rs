@@ -501,8 +501,22 @@ mod test {
         assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
 
         let status = task_manager.get_task_proving_status(&key).await.unwrap();
+        assert_eq!(status.0.len(), 1);
+
+        task_manager
+            .update_task_progress(key.clone(), TaskStatus::InvalidOrUnsupportedBlock, None)
+            .await
+            .expect("update task failed");
+        let status = task_manager.get_task_proving_status(&key).await.unwrap();
         assert_eq!(status.0.len(), 2);
-        assert_eq!(status.0.last().unwrap().0, TaskStatus::Registered);
+
+        task_manager
+            .update_task_progress(key.clone(), TaskStatus::Registered, None)
+            .await
+            .expect("update task failed");
+        let status = task_manager.get_task_proving_status(&key).await.unwrap();
+        assert_eq!(status.0.len(), 3);
         assert_eq!(status.0.first().unwrap().0, TaskStatus::Registered);
+        assert_eq!(status.0.last().unwrap().0, TaskStatus::Registered);
     }
 }
