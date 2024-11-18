@@ -6,9 +6,11 @@ on:
     branches: ["main"]
     paths:
       - "provers/sp1/**"
+      - "!docs/**"
   pull_request:
     paths:
       - "provers/sp1/**"
+      - "!docs/**"
   merge_group:
 
 jobs:

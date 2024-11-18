@@ -6,9 +6,11 @@ on:
     branches: ["main"]
     paths:
       - "docker/**"
+      - "!docs/**"
   pull_request:
     paths:
       - "docker/**"
+      - "!docs/**"
   merge_group:
 
 jobs:

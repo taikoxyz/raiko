@@ -6,9 +6,11 @@ on:
     branches: ["main"]
     paths:
       - "provers/risc0/**"
+      - "!docs/**"
   pull_request:
     paths:
       - "provers/risc0/**"
+      - "!docs/**"
   merge_group:
 
 jobs:

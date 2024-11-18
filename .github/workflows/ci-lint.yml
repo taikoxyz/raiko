@@ -3,6 +3,8 @@ name: CI - Lint
 on:
   pull_request:
     types: [opened, reopened, edited, synchronize]
+    paths-ignore:
+      - "docs/**"
   merge_group:
 
 env:
