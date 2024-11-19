@@ -13,7 +13,6 @@ on:
       - "pipelines/**"
       - "harness/**"
       - "!docs/**"
-  merge_group:
 
 env:
   CARGO_TERM_COLOR: always

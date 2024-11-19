@@ -11,7 +11,6 @@ on:
     paths:
       - "provers/risc0/**"
       - "!docs/**"
-  merge_group:
 
 jobs:
   build-test-risc0:

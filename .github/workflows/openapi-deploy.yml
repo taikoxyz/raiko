@@ -6,7 +6,8 @@ on:
     paths:
       - "!docs/**"
   pull_request:
-  merge_group:
+    paths:
+      - "!docs/**"
 
 permissions:
   contents: read
