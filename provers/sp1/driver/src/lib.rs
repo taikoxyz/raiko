@@ -109,6 +109,12 @@ impl Prover for Sp1Prover {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
+        if matches!(param.recursion, RecursionMode::Compressed) {
+            return Err(ProverError::GuestError(
+                "Compressed proof is used in aggregation mode only".to_owned(),
+            ));
+        }
+
         println!("param: {param:?}");
 
         let mut stdin = SP1Stdin::new();
@@ -136,7 +142,9 @@ impl Prover for Sp1Prover {
             debug!("Proving locally with recursion mode: {:?}", param.recursion);
             match param.recursion {
                 RecursionMode::Core => prove_action.run(),
-                RecursionMode::Compressed => prove_action.compressed().run(),
+                RecursionMode::Compressed => {
+                    unreachable!("Compressed proof is used in aggregation mode only, checked above")
+                }
                 RecursionMode::Plonk => prove_action.plonk().run(),
             }
             .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
@@ -172,13 +180,7 @@ impl Prover for Sp1Prover {
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
 
-        let proof_bytes = match param.recursion {
-            RecursionMode::Compressed => {
-                info!("Compressed proof is used in aggregation mode only");
-                vec![]
-            }
-            _ => prove_result.bytes(),
-        };
+        let proof_bytes = prove_result.bytes();
         if param.verify && !proof_bytes.is_empty() {
             let time = Measurement::start("verify", false);
             let pi_hash = prove_result
