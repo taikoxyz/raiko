@@ -79,6 +79,12 @@ impl ProofActor {
     }
 
     pub async fn cancel_task(&mut self, key: ProofTaskDescriptor) -> HostResult<()> {
+        // Remove cancelling task from pending tasks
+        {
+            let pending_tasks = self.pending_tasks.lock().await;
+            let _ = pending_tasks.remove(&key);
+        }
+
         let tasks_map = self.running_tasks.lock().await;
         let Some(task) = tasks_map.get(&key) else {
             warn!("No task with those keys to cancel");
