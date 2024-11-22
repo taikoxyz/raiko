@@ -14,7 +14,6 @@ on:
       - "lib/**"
       - "script/**"
       - "!docs/**"
-  merge_group:
 
 env:
   CARGO_TERM_COLOR: always

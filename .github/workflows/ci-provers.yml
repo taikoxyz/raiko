@@ -7,11 +7,12 @@ on:
     paths:
       - "pipelines/**"
       - "harness/**"
+      - "!docs/**"
   pull_request:
     paths:
       - "pipelines/**"
       - "harness/**"
-  merge_group:
+      - "!docs/**"
 
 env:
   CARGO_TERM_COLOR: always

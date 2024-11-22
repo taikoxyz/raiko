@@ -6,10 +6,11 @@ on:
     branches: ["main"]
     paths:
       - "provers/sgx/**"
+      - "!docs/**"
   pull_request:
     paths:
       - "provers/sgx/**"
-  merge_group:
+      - "!docs/**"
 
 jobs:
   build-test-sgx:

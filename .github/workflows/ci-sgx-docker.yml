@@ -6,10 +6,11 @@ on:
     branches: ["main"]
     paths:
       - "docker/**"
+      - "!docs/**"
   pull_request:
     paths:
       - "docker/**"
-  merge_group:
+      - "!docs/**"
 
 jobs:
   build-test-sgx-with-docker:
