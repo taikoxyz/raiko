@@ -352,13 +352,7 @@ pnpm install
 pnpm compile
 ```
 
-3. Prepare your prover's private key
-
-```
-export PRIVATE_KEY={PROVER_PRIVATE_KEY} 
-```
-
-4. Ensure the values in the `script/config_dcap_sgx_verifier.sh` script match whichever network you are registering for. (`script/layer1/config_dcap_sgx_verifier.sh` for `protocol-v1.9.0` release.)
+3. Ensure the values in the `script/layer1/config_dcap_sgx_verifier.sh` script match whichever network you are registering for.
 
 Hekla Addresses:
 `SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
@@ -372,6 +366,8 @@ Mainnet Addresses:
 
 These values are already in the script, it defaults to Hekla; please comment those lines out and uncomment the Mainnet ones if performing RA on Mainnet.
 
+4. In the `script/layer1/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the hekla/mainnet network. Alternatively, export it like so: `export FORK_URL="https://any-holesky-rpc-url/"`.
+
 5. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
 
 ```
@@ -384,13 +380,9 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
 
 Copy your quote and use in the following step.
 
-> **_NOTE:_** If you are on `protocol-v1.9.0`, the script is located at `script/layer1/config_dcap_sgx_verifier.sh`. Use this for the following steps. The script is also bugged in this release (has been fixed on main), you will need to change [L150](https://github.com/taikoxyz/taiko-mono/blob/bf45889e18e97f1186cd60fd55e1b2664dc4bf43/packages/protocol/script/layer1/config_dcap_sgx_verifier.sh#L150) to `forge script script/layer1/SetDcapParams.s.sol:SetDcapParams`.
+6. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote {YOUR_QUOTE_HERE}`. "YOUR_QUOTE_HERE" comes from above step 5.
 
-6. In the `script/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the respective network. Alternatively, export it like so: `export FORK_URL="https://any-holesky-rpc-url/"`.
-
-7. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/config_dcap_sgx_verifier.sh --quote {YOUR_QUOTE_HERE}`.
-
-8. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
+7. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
 It should look like this:
 
