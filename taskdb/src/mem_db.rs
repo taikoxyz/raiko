@@ -16,7 +16,7 @@ use chrono::Utc;
 use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
 use tokio::sync::Mutex;
-use tracing::{debug, info};
+use tracing::{info, warn};
 
 use crate::{
     ensure, AggregationTaskDescriptor, ProofTaskDescriptor, TaskDescriptor, TaskManager,
@@ -45,15 +45,16 @@ impl InMemoryTaskDb {
         }
     }
 
-    fn enqueue_task(&mut self, key: &ProofTaskDescriptor) {
+    fn enqueue_task(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<()> {
         let task_status = (TaskStatus::Registered, None, Utc::now());
 
         match self.tasks_queue.get(key) {
             Some(task_proving_records) => {
-                debug!(
-                    "Task already exists: {:?}",
-                    task_proving_records.0.last().unwrap().0
-                );
+                let previous_status = &task_proving_records.0.last().unwrap().0;
+                warn!("Task already exists: {key:?} with previous statuw {previous_status:?}");
+                if previous_status != &TaskStatus::Success {
+                    self.update_task_progress(key.clone(), TaskStatus::Registered, None)?;
+                }
             } // do nothing
             None => {
                 info!("Enqueue new task: {key:?}");
@@ -61,6 +62,8 @@ impl InMemoryTaskDb {
                     .insert(key.clone(), TaskProvingStatusRecords(vec![task_status]));
             }
         }
+
+        Ok(())
     }
 
     fn update_task_progress(
@@ -173,10 +176,11 @@ impl InMemoryTaskDb {
 
         match self.aggregation_tasks_queue.get(request) {
             Some(task_proving_records) => {
-                debug!(
-                    "Task already exists: {:?}",
-                    task_proving_records.0.last().unwrap().0
-                );
+                let previous_status = &task_proving_records.0.last().unwrap().0;
+                warn!("Task already exists: {request} with previous status {previous_status:?}");
+                if previous_status != &TaskStatus::Success {
+                    self.update_aggregation_task_progress(request, TaskStatus::Registered, None)?;
+                }
             } // do nothing
             None => {
                 info!("Enqueue new task: {request}");
@@ -305,7 +309,7 @@ impl TaskManager for InMemoryTaskManager {
             return Ok(status);
         }
 
-        db.enqueue_task(params);
+        db.enqueue_task(params)?;
         db.get_task_proving_status(params)
     }
 
@@ -411,7 +415,7 @@ mod tests {
             proof_system: ProofType::Native,
             prover: "0x1234".to_owned(),
         };
-        db.enqueue_task(&params);
+        db.enqueue_task(&params).expect("enqueue task");
         let status = db.get_task_proving_status(&params);
         assert!(status.is_ok());
     }

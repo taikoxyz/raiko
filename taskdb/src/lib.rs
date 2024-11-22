@@ -83,15 +83,17 @@ pub enum TaskStatus {
     WorkInProgress,
     ProofFailure_Generic,
     ProofFailure_OutOfMemory,
-    NetworkFailure,
+    NetworkFailure(String),
     Cancelled,
     Cancelled_NeverStarted,
     Cancelled_Aborted,
     CancellationInProgress,
     InvalidOrUnsupportedBlock,
-    NonDbFailure(String),
+    IoFailure(String),
+    AnyhowError(String),
+    GuestProverFailure(String),
     UnspecifiedFailureReason,
-    SqlDbCorruption,
+    TaskDbCorruption(String),
 }
 
 impl From<TaskStatus> for i32 {
@@ -102,15 +104,17 @@ impl From<TaskStatus> for i32 {
             TaskStatus::WorkInProgress => 2000,
             TaskStatus::ProofFailure_Generic => -1000,
             TaskStatus::ProofFailure_OutOfMemory => -1100,
-            TaskStatus::NetworkFailure => -2000,
+            TaskStatus::NetworkFailure(_) => -2000,
             TaskStatus::Cancelled => -3000,
             TaskStatus::Cancelled_NeverStarted => -3100,
             TaskStatus::Cancelled_Aborted => -3200,
             TaskStatus::CancellationInProgress => -3210,
             TaskStatus::InvalidOrUnsupportedBlock => -4000,
-            TaskStatus::NonDbFailure(_) => -5000,
-            TaskStatus::UnspecifiedFailureReason => -9999,
-            TaskStatus::SqlDbCorruption => -99999,
+            TaskStatus::IoFailure(_) => -5000,
+            TaskStatus::AnyhowError(_) => -6000,
+            TaskStatus::GuestProverFailure(_) => -7000,
+            TaskStatus::UnspecifiedFailureReason => -8000,
+            TaskStatus::TaskDbCorruption(_) => -9000,
         }
     }
 }
@@ -123,15 +127,17 @@ impl From<i32> for TaskStatus {
             2000 => TaskStatus::WorkInProgress,
             -1000 => TaskStatus::ProofFailure_Generic,
             -1100 => TaskStatus::ProofFailure_OutOfMemory,
-            -2000 => TaskStatus::NetworkFailure,
+            -2000 => TaskStatus::NetworkFailure("".to_string()),
             -3000 => TaskStatus::Cancelled,
             -3100 => TaskStatus::Cancelled_NeverStarted,
             -3200 => TaskStatus::Cancelled_Aborted,
             -3210 => TaskStatus::CancellationInProgress,
             -4000 => TaskStatus::InvalidOrUnsupportedBlock,
-            -5000 => TaskStatus::NonDbFailure("".to_string()),
-            -9999 => TaskStatus::UnspecifiedFailureReason,
-            -99999 => TaskStatus::SqlDbCorruption,
+            -5000 => TaskStatus::IoFailure("".to_string()),
+            -6000 => TaskStatus::AnyhowError("".to_string()),
+            -7000 => TaskStatus::GuestProverFailure("".to_string()),
+            -8000 => TaskStatus::UnspecifiedFailureReason,
+            -9000 => TaskStatus::TaskDbCorruption("".to_string()),
             _ => TaskStatus::UnspecifiedFailureReason,
         }
     }
@@ -465,5 +471,52 @@ mod test {
                 .len(),
             1
         );
+    }
+
+    #[tokio::test]
+    async fn test_enqueue_twice() {
+        let sqlite_file: &Path = Path::new("test.db");
+        // remove existed one
+        if sqlite_file.exists() {
+            std::fs::remove_file(sqlite_file).unwrap();
+        }
+
+        let opts = TaskManagerOpts {
+            sqlite_file: sqlite_file.to_path_buf(),
+            max_db_size: 1024 * 1024,
+            redis_url: "redis://localhost:6379".to_string(),
+            redis_ttl: 3600,
+        };
+        let mut task_manager = get_task_manager(&opts);
+        let key = ProofTaskDescriptor {
+            chain_id: 1,
+            block_id: 0,
+            blockhash: B256::default(),
+            proof_system: ProofType::Native,
+            prover: "test".to_string(),
+        };
+
+        assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
+        // enqueue again
+        assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
+
+        let status = task_manager.get_task_proving_status(&key).await.unwrap();
+        assert_eq!(status.0.len(), 1);
+
+        task_manager
+            .update_task_progress(key.clone(), TaskStatus::InvalidOrUnsupportedBlock, None)
+            .await
+            .expect("update task failed");
+        let status = task_manager.get_task_proving_status(&key).await.unwrap();
+        assert_eq!(status.0.len(), 2);
+
+        task_manager
+            .update_task_progress(key.clone(), TaskStatus::Registered, None)
+            .await
+            .expect("update task failed");
+        let status = task_manager.get_task_proving_status(&key).await.unwrap();
+        assert_eq!(status.0.len(), 3);
+        assert_eq!(status.0.first().unwrap().0, TaskStatus::Registered);
+        assert_eq!(status.0.last().unwrap().0, TaskStatus::Registered);
     }
 }

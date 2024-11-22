@@ -3,7 +3,8 @@ name: CI - Lint
 on:
   pull_request:
     types: [opened, reopened, edited, synchronize]
-  merge_group:
+    paths:
+      - "!docs/**"
 
 env:
   CARGO_TERM_COLOR: always

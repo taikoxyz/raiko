@@ -288,8 +288,12 @@ impl RedisTaskDb {
 
         match self.query_proof_task(key) {
             Ok(Some(task_proving_records)) => {
-                warn!("Task already exists: {:?}", task_proving_records.0.last());
-                Ok(task_proving_records.0.last().unwrap().clone())
+                warn!(
+                    "Task status exists: {:?}, register again",
+                    task_proving_records.0.last()
+                );
+                self.insert_proof_task(key, &TaskProvingStatusRecords(vec![task_status.clone()]))?;
+                Ok(task_status)
             } // do nothing
             Ok(None) => {
                 info!("Enqueue new task: {key:?}");
@@ -691,7 +695,11 @@ mod tests {
 
     #[test]
     fn test_db_enqueue() {
-        let mut db = RedisTaskDb::new("redis://localhost:6379").unwrap();
+        let mut db = RedisTaskDb::new(RedisConfig {
+            url: "redis://localhost:6379".to_owned(),
+            ttl: 3600,
+        })
+        .unwrap();
         let params = ProofTaskDescriptor {
             chain_id: 1,
             block_id: 1,

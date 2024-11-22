@@ -121,15 +121,15 @@ impl From<HostError> for TaskStatus {
             | HostError::JoinHandle(_)
             | HostError::InvalidAddress(_)
             | HostError::InvalidRequestConfig(_) => unreachable!(),
-            HostError::Conversion(e) => TaskStatus::NonDbFailure(e),
-            HostError::Serde(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::Core(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::Anyhow(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::FeatureNotSupportedError(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::Io(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::RPC(_) => TaskStatus::NetworkFailure,
-            HostError::Guest(_) => TaskStatus::ProofFailure_Generic,
-            HostError::TaskManager(_) => TaskStatus::SqlDbCorruption,
+            HostError::Conversion(e) => TaskStatus::IoFailure(e),
+            HostError::Serde(e) => TaskStatus::IoFailure(e.to_string()),
+            HostError::Core(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::Anyhow(e) => TaskStatus::AnyhowError(e.to_string()),
+            HostError::FeatureNotSupportedError(_) => TaskStatus::InvalidOrUnsupportedBlock,
+            HostError::Io(e) => TaskStatus::IoFailure(e.to_string()),
+            HostError::RPC(e) => TaskStatus::NetworkFailure(e.to_string()),
+            HostError::Guest(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::TaskManager(e) => TaskStatus::TaskDbCorruption(e.to_string()),
         }
     }
 }
@@ -142,15 +142,15 @@ impl From<&HostError> for TaskStatus {
             | HostError::JoinHandle(_)
             | HostError::InvalidAddress(_)
             | HostError::InvalidRequestConfig(_) => unreachable!(),
-            HostError::Conversion(e) => TaskStatus::NonDbFailure(e.to_owned()),
-            HostError::Serde(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::Core(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::Anyhow(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::FeatureNotSupportedError(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::Io(e) => TaskStatus::NonDbFailure(e.to_string()),
-            HostError::RPC(_) => TaskStatus::NetworkFailure,
-            HostError::Guest(_) => TaskStatus::ProofFailure_Generic,
-            HostError::TaskManager(_) => TaskStatus::SqlDbCorruption,
+            HostError::Conversion(e) => TaskStatus::GuestProverFailure(e.to_owned()),
+            HostError::Serde(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::Core(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::Anyhow(e) => TaskStatus::AnyhowError(e.to_string()),
+            HostError::FeatureNotSupportedError(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::Io(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::RPC(e) => TaskStatus::NetworkFailure(e.to_string()),
+            HostError::Guest(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::TaskManager(e) => TaskStatus::TaskDbCorruption(e.to_string()),
         }
     }
 }

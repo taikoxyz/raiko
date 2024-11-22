@@ -64,27 +64,39 @@ async fn proof_handler(
 
     let mut manager = prover_state.task_manager();
     let status = manager.get_task_proving_status(&key).await?;
+    match status.0.last() {
+        Some((latest_status, ..)) => {
+            match latest_status {
+                // If task has been cancelled
+                TaskStatus::Cancelled
+                | TaskStatus::Cancelled_Aborted
+                | TaskStatus::Cancelled_NeverStarted
+                | TaskStatus::CancellationInProgress
+                // or if the task is failed, add it to the queue again
+                | TaskStatus::GuestProverFailure(_)
+                | TaskStatus::UnspecifiedFailureReason => {
+                    manager
+                        .update_task_progress(key, TaskStatus::Registered, None)
+                        .await?;
 
-    let Some((latest_status, ..)) = status.0.last() else {
-        // If there are no tasks with provided config, create a new one.
-        manager.enqueue_task(&key).await?;
+                    prover_state
+                        .task_channel
+                        .try_send(Message::from(&proof_request))?;
 
-        prover_state
-            .task_channel
-            .try_send(Message::from(&proof_request))?;
+                    Ok(TaskStatus::Registered.into())
+                }
+                // If the task has succeeded, return the proof.
+                TaskStatus::Success => {
+                    let proof = manager.get_task_proof(&key).await?;
 
-        return Ok(TaskStatus::Registered.into());
-    };
-
-    match latest_status {
-        // If task has been cancelled add it to the queue again
-        TaskStatus::Cancelled
-        | TaskStatus::Cancelled_Aborted
-        | TaskStatus::Cancelled_NeverStarted
-        | TaskStatus::CancellationInProgress => {
-            manager
-                .update_task_progress(key, TaskStatus::Registered, None)
-                .await?;
+                    Ok(proof.into())
+                }
+                // For all other statuses just return the status.
+                status => Ok(status.clone().into()),
+            }
+        }
+        None => {
+            manager.enqueue_task(&key).await?;
 
             prover_state
                 .task_channel
@@ -92,14 +104,6 @@ async fn proof_handler(
 
             Ok(TaskStatus::Registered.into())
         }
-        // If the task has succeeded, return the proof.
-        TaskStatus::Success => {
-            let proof = manager.get_task_proof(&key).await?;
-
-            Ok(proof.into())
-        }
-        // For all other statuses just return the status.
-        status => Ok(status.clone().into()),
     }
 }
 
