@@ -90,33 +90,28 @@ impl Prover for Risc0Prover {
             proof_key,
             &mut id_store,
         )
-        .await;
+        .await?;
 
-        let receipt = result.clone().unwrap().1.clone();
-        let uuid = result.clone().unwrap().0;
-
-        let proof_gen_result = if result.is_some() {
+        let proof_gen_result = {
             if config.snark && config.bonsai {
-                let (stark_uuid, stark_receipt) = result.clone().unwrap();
+                let (stark_uuid, stark_receipt) = result.clone();
                 bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt, output.hash)
                     .await
                     .map(|r0_response| r0_response.into())
                     .map_err(|e| ProverError::GuestError(e.to_string()))
             } else {
-                warn!("proof is not in snark mode, please check.");
-                let (_, stark_receipt) = result.clone().unwrap();
+                if !config.snark {
+                    warn!("proof is not in snark mode, please check.");
+                }
+                let (uuid, stark_receipt) = result.clone();
                 Ok(Risc0Response {
                     proof: stark_receipt.journal.encode_hex_with_prefix(),
-                    receipt: serde_json::to_string(&receipt).unwrap(),
+                    receipt: serde_json::to_string(&stark_receipt).unwrap(),
                     uuid,
                     input: output.hash,
                 }
                 .into())
             }
-        } else {
-            Err(ProverError::GuestError(
-                "Failed to generate proof".to_string(),
-            ))
         };
 
         #[cfg(feature = "bonsai-auto-scaling")]
