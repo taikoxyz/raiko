@@ -6,10 +6,11 @@ on:
     branches: ["main"]
     paths:
       - "provers/risc0/**"
+      - "!docs/**"
   pull_request:
     paths:
       - "provers/risc0/**"
-  merge_group:
+      - "!docs/**"
 
 jobs:
   build-test-risc0:

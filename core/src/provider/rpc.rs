@@ -7,7 +7,6 @@ use raiko_lib::clear_line;
 use reqwest_alloy::Client;
 use reth_primitives::revm_primitives::{AccountInfo, Bytecode};
 use std::collections::HashMap;
-use tracing::trace;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
@@ -230,13 +229,12 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
         let batch_limit = 1000;
         while !accounts.is_empty() {
-            if cfg!(debug_assertions) {
-                raiko_lib::inplace_print(&format!(
-                    "fetching storage proof {idx}/{num_storage_proofs}..."
-                ));
-            } else {
-                trace!("Fetching storage proof {idx}/{num_storage_proofs}...");
-            }
+            #[cfg(debug_assertions)]
+            raiko_lib::inplace_print(&format!(
+                "fetching storage proof {idx}/{num_storage_proofs}..."
+            ));
+            #[cfg(not(debug_assertions))]
+            tracing::trace!("Fetching storage proof {idx}/{num_storage_proofs}...");
 
             // Create a batch for all storage proofs
             let mut batch = self.client.new_batch();

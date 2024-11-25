@@ -79,10 +79,15 @@ impl ProofActor {
     }
 
     pub async fn cancel_task(&mut self, key: ProofTaskDescriptor) -> HostResult<()> {
-        let tasks_map = self.running_tasks.lock().await;
-        let Some(task) = tasks_map.get(&key) else {
-            warn!("No task with those keys to cancel");
-            return Ok(());
+        let task = {
+            let tasks_map = self.running_tasks.lock().await;
+            match tasks_map.get(&key) {
+                Some(task) => task.to_owned(),
+                None => {
+                    warn!("No task with those keys to cancel");
+                    return Ok(());
+                }
+            }
         };
 
         let mut manager = get_task_manager(&self.opts.clone().into());
@@ -134,10 +139,12 @@ impl ProofActor {
             proof_request.prover.clone().to_string(),
         ));
 
-        let mut tasks = self.running_tasks.lock().await;
-        tasks.insert(key.clone(), cancel_token.clone());
-        let sender = self.sender.clone();
+        {
+            let mut tasks = self.running_tasks.lock().await;
+            tasks.insert(key.clone(), cancel_token.clone());
+        }
 
+        let sender = self.sender.clone();
         let tasks = self.running_tasks.clone();
         let opts = self.opts.clone();
         let chain_specs = self.chain_specs.clone();

@@ -84,7 +84,35 @@ async fn proof_handler(
     for (key, req) in tasks.iter() {
         let status = manager.get_task_proving_status(key).await?;
 
-        let Some((latest_status, ..)) = status.0.last() else {
+        if let Some((latest_status, ..)) = status.0.last() {
+            match latest_status {
+                // If task has been cancelled
+                TaskStatus::Cancelled
+                | TaskStatus::Cancelled_Aborted
+                | TaskStatus::Cancelled_NeverStarted
+                | TaskStatus::CancellationInProgress
+                // or if the task is failed, add it to the queue again
+                | TaskStatus::GuestProverFailure(_)
+                | TaskStatus::UnspecifiedFailureReason
+                 => {
+                    manager
+                        .update_task_progress(key.clone(), TaskStatus::Registered, None)
+                        .await?;
+                    prover_state.task_channel.try_send(Message::from(req))?;
+
+                    is_registered = true;
+                    is_success = false;
+                }
+                // If the task has succeeded, return the proof.
+                TaskStatus::Success => {}
+                // For all other statuses just return the status.
+                status => {
+                    statuses.push(status.clone());
+                    is_registered = false;
+                    is_success = false;
+                }
+            }
+        } else {
             // If there are no tasks with provided config, create a new one.
             manager.enqueue_task(key).await?;
 
@@ -92,31 +120,6 @@ async fn proof_handler(
             is_registered = true;
             continue;
         };
-
-        match latest_status {
-            // If task has been cancelled add it to the queue again
-            TaskStatus::Cancelled
-            | TaskStatus::Cancelled_Aborted
-            | TaskStatus::Cancelled_NeverStarted
-            | TaskStatus::CancellationInProgress => {
-                manager
-                    .update_task_progress(key.clone(), TaskStatus::Registered, None)
-                    .await?;
-
-                prover_state.task_channel.try_send(Message::from(req))?;
-
-                is_registered = true;
-                is_success = false;
-            }
-            // If the task has succeeded, return the proof.
-            TaskStatus::Success => {}
-            // For all other statuses just return the status.
-            status => {
-                statuses.push(status.clone());
-                is_registered = false;
-                is_success = false;
-            }
-        }
     }
 
     if is_registered {
@@ -147,7 +150,40 @@ async fn proof_handler(
             .get_aggregation_task_proving_status(&aggregation_request)
             .await?;
 
-        let Some((latest_status, ..)) = status.0.last() else {
+        if let Some((latest_status, ..)) = status.0.last() {
+            match latest_status {
+                // If task has been cancelled add it to the queue again
+                TaskStatus::Cancelled
+                | TaskStatus::Cancelled_Aborted
+                | TaskStatus::Cancelled_NeverStarted
+                | TaskStatus::CancellationInProgress
+                // or if the task is failed, add it to the queue again
+                | TaskStatus::GuestProverFailure(_)
+                | TaskStatus::UnspecifiedFailureReason
+                => {
+                    manager
+                        .update_aggregation_task_progress(
+                            &aggregation_request,
+                            TaskStatus::Registered,
+                            None,
+                        )
+                        .await?;
+                    prover_state
+                        .task_channel
+                        .try_send(Message::from(aggregation_request))?;
+                    Ok(Status::from(TaskStatus::Registered))
+                }
+                // If the task has succeeded, return the proof.
+                TaskStatus::Success => {
+                    let proof = manager
+                        .get_aggregation_task_proof(&aggregation_request)
+                        .await?;
+                    Ok(proof.into())
+                }
+                // For all other statuses just return the status.
+                status => Ok(status.clone().into()),
+            }
+        } else {
             // If there are no tasks with provided config, create a new one.
             manager
                 .enqueue_aggregation_task(&aggregation_request)
@@ -156,39 +192,7 @@ async fn proof_handler(
             prover_state
                 .task_channel
                 .try_send(Message::from(aggregation_request.clone()))?;
-            return Ok(Status::from(TaskStatus::Registered));
-        };
-
-        match latest_status {
-            // If task has been cancelled add it to the queue again
-            TaskStatus::Cancelled
-            | TaskStatus::Cancelled_Aborted
-            | TaskStatus::Cancelled_NeverStarted
-            | TaskStatus::CancellationInProgress => {
-                manager
-                    .update_aggregation_task_progress(
-                        &aggregation_request,
-                        TaskStatus::Registered,
-                        None,
-                    )
-                    .await?;
-
-                prover_state
-                    .task_channel
-                    .try_send(Message::from(aggregation_request))?;
-
-                Ok(Status::from(TaskStatus::Registered))
-            }
-            // If the task has succeeded, return the proof.
-            TaskStatus::Success => {
-                let proof = manager
-                    .get_aggregation_task_proof(&aggregation_request)
-                    .await?;
-
-                Ok(proof.into())
-            }
-            // For all other statuses just return the status.
-            status => Ok(status.clone().into()),
+            Ok(Status::from(TaskStatus::Registered))
         }
     } else {
         let status = statuses.into_iter().collect::<TaskStatus>();
