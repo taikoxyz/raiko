@@ -17,6 +17,8 @@ use once_cell::sync::Lazy;
 use std::path::PathBuf;
 use std::{collections::HashMap, env::var};
 
+use crate::proof::ProofType;
+
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;
 /// U256 representation of 1.
@@ -134,6 +136,17 @@ pub enum VerifierType {
     SGX,
     SP1,
     RISC0,
+}
+
+impl From<ProofType> for VerifierType {
+    fn from(val: ProofType) -> Self {
+        match val {
+            ProofType::Native => VerifierType::None,
+            ProofType::Sgx => VerifierType::SGX,
+            ProofType::Sp1 => VerifierType::SP1,
+            ProofType::Risc0 => VerifierType::RISC0,
+        }
+    }
 }
 
 /// Specification of a specific chain.
