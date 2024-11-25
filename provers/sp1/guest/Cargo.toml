@@ -37,9 +37,8 @@ path = "src/benchmark/bn254_mul.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
-sp1-zkvm = { version = "3.0.0", features = ["verify"] }
-sp1-core = { package = "sp1-core-executor", version = "3.0.0" }
-sp1-curves = { version = "3.0.0" }
+sp1-zkvm = { version = "3.3.0", features = ["verify"] }
+sp1-curves = { version = "3.3.0" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
 harness-core = { path = "../../../harness/core" }
@@ -67,7 +66,7 @@ blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-seri
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-sha3-v0.10.8", package = "sha3" }
-ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
+ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", tag = "ecdsa-v0.16.9-patch-v3.3.0" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 bn = { package = "substrate-bn", git = "https://github.com/sp1-patches/bn", branch = "chris/v0.6.0" }
 
