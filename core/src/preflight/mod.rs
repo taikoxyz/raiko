@@ -87,12 +87,13 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let parent_block_number = parent_header.number;
 
     // Create the guest input
-    let input = GuestInput::from((
-        block.clone(),
+    let input = GuestInput {
+        block,
         parent_header,
-        taiko_chain_spec.clone(),
-        taiko_guest_input,
-    ));
+        chain_spec: taiko_chain_spec.clone(),
+        taiko: taiko_guest_input,
+        ..Default::default()
+    };
 
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(provider, taiko_chain_spec, parent_block_number).await?;

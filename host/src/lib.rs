@@ -167,24 +167,6 @@ pub enum Message {
     Aggregate(AggregationOnlyRequest),
 }
 
-impl From<&ProofRequest> for Message {
-    fn from(value: &ProofRequest) -> Self {
-        Self::Task(value.clone())
-    }
-}
-
-impl From<&ProofTaskDescriptor> for Message {
-    fn from(value: &ProofTaskDescriptor) -> Self {
-        Self::Cancel(value.clone())
-    }
-}
-
-impl From<AggregationOnlyRequest> for Message {
-    fn from(value: AggregationOnlyRequest) -> Self {
-        Self::Aggregate(value)
-    }
-}
-
 impl ProverState {
     pub fn init() -> HostResult<Self> {
         // Read the command line arguments;
