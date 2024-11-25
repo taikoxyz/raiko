@@ -81,7 +81,7 @@ impl Prover for Risc0Prover {
         debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
-        let result = maybe_prove::<GuestInput, B256>(
+        let (uuid, receipt) = maybe_prove::<GuestInput, B256>(
             &config,
             encoded_input,
             RISC0_GUEST_ELF,
@@ -92,26 +92,22 @@ impl Prover for Risc0Prover {
         )
         .await?;
 
-        let proof_gen_result = {
-            if config.snark && config.bonsai {
-                let (stark_uuid, stark_receipt) = result.clone();
-                bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt, output.hash)
-                    .await
-                    .map(|r0_response| r0_response.into())
-                    .map_err(|e| ProverError::GuestError(e.to_string()))
-            } else {
-                if !config.snark {
-                    warn!("proof is not in snark mode, please check.");
-                }
-                let (uuid, stark_receipt) = result.clone();
-                Ok(Risc0Response {
-                    proof: stark_receipt.journal.encode_hex_with_prefix(),
-                    receipt: serde_json::to_string(&stark_receipt).unwrap(),
-                    uuid,
-                    input: output.hash,
-                }
-                .into())
+        let proof_gen_result = if config.snark && config.bonsai {
+            bonsai::bonsai_stark_to_snark(uuid, receipt, output.hash)
+                .await
+                .map(|r0_response| r0_response.into())
+                .map_err(|e| ProverError::GuestError(e.to_string()))
+        } else {
+            if !config.snark {
+                warn!("proof is not in snark mode, please check.");
             }
+            Ok(Risc0Response {
+                proof: receipt.journal.encode_hex_with_prefix(),
+                receipt: serde_json::to_string(&receipt).unwrap(),
+                uuid,
+                input: output.hash,
+            }
+            .into())
         };
 
         #[cfg(feature = "bonsai-auto-scaling")]
