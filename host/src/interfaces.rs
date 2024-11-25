@@ -1,5 +1,5 @@
 use axum::response::IntoResponse;
-use raiko_core::interfaces::ProofType;
+use raiko_lib::proof::ProofType;
 use raiko_lib::prover::ProverError;
 use raiko_tasks::{TaskManagerError, TaskStatus};
 use tokio::sync::mpsc::error::TrySendError;

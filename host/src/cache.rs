@@ -79,15 +79,12 @@ mod test {
     use alloy_primitives::{Address, B256};
     use alloy_provider::Provider;
 
-    use raiko_core::{
-        interfaces::{ProofRequest, ProofType},
-        provider::rpc::RpcBlockDataProvider,
-        Raiko,
-    };
+    use raiko_core::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, Raiko};
     use raiko_lib::input::BlobProofType;
     use raiko_lib::{
         consts::{ChainSpec, Network, SupportedChainSpecs},
         input::GuestInput,
+        proof::ProofType,
     };
 
     async fn create_cache_input(
