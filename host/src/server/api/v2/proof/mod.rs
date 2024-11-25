@@ -81,7 +81,7 @@ async fn proof_handler(
 
                     prover_state
                         .task_channel
-                        .try_send(Message::from(&proof_request))?;
+                        .try_send(Message::Task(proof_request))?;
 
                     Ok(TaskStatus::Registered.into())
                 }
@@ -100,7 +100,7 @@ async fn proof_handler(
 
             prover_state
                 .task_channel
-                .try_send(Message::from(&proof_request))?;
+                .try_send(Message::Task(proof_request))?;
 
             Ok(TaskStatus::Registered.into())
         }

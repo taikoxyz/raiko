@@ -64,7 +64,7 @@ async fn aggregation_handler(
 
         prover_state
             .task_channel
-            .try_send(Message::from(aggregation_request.clone()))?;
+            .try_send(Message::Aggregate(aggregation_request))?;
         return Ok(Status::from(TaskStatus::Registered));
     };
 
@@ -84,7 +84,7 @@ async fn aggregation_handler(
 
             prover_state
                 .task_channel
-                .try_send(Message::from(aggregation_request))?;
+                .try_send(Message::Aggregate(aggregation_request))?;
 
             Ok(Status::from(TaskStatus::Registered))
         }

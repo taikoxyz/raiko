@@ -52,7 +52,9 @@ async fn cancel_handler(
             proof_request.prover.clone().to_string(),
         ));
 
-        prover_state.task_channel.try_send(Message::from(&key))?;
+        prover_state
+            .task_channel
+            .try_send(Message::Cancel(key.clone()))?;
 
         let mut manager = prover_state.task_manager();
 

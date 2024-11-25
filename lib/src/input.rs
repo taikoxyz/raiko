@@ -79,20 +79,6 @@ pub struct ZkAggregationGuestInput {
     pub block_inputs: Vec<B256>,
 }
 
-impl From<(Block, Header, ChainSpec, TaikoGuestInput)> for GuestInput {
-    fn from(
-        (block, parent_header, chain_spec, taiko): (Block, Header, ChainSpec, TaikoGuestInput),
-    ) -> Self {
-        Self {
-            block,
-            chain_spec,
-            taiko,
-            parent_header,
-            ..Self::default()
-        }
-    }
-}
-
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 
 pub enum BlockProposedFork {
