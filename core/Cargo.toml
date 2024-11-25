@@ -8,6 +8,7 @@ edition = "2021"
 # provers
 sp1-driver = { path = "../provers/sp1/driver", optional = true }
 risc0-driver = { path = "../provers/risc0/driver", optional = true }
+powdr-driver = { path = "../provers/powdr/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
@@ -69,4 +70,5 @@ ethers-core = { workspace = true }
 # powdr = ["dep:powdr"]
 sp1 = ["dep:sp1-driver", "sp1-driver/enable"]
 risc0 = ["dep:risc0-driver", "risc0-driver/enable"]
+powdr = ["dep:powdr-driver", "powdr-driver/enable"]
 sgx = ["dep:sgx-prover", "sgx-prover/enable"]

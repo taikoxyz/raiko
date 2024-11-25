@@ -9,6 +9,7 @@ default-run = "raiko-host"
 # provers
 sp1-driver = { path = "../provers/sp1/driver", optional = true }
 risc0-driver = { path = "../provers/risc0/driver", optional = true }
+powdr-driver = { path = "../provers/powdr/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
 
 # raiko
@@ -86,6 +87,7 @@ ethers-core = { workspace = true }
 default = []
 sp1 = ["raiko-core/sp1"]
 risc0 = ["raiko-core/risc0"]
+powdr = ["raiko-core/powdr"]
 sgx = ["raiko-core/sgx"]
 integration = []
 

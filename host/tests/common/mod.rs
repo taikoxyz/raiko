@@ -130,6 +130,7 @@ pub async fn make_request() -> anyhow::Result<ProofRequestOpt> {
             sgx: None,
             sp1: None,
             risc0: None,
+            powdr: None,
         },
     })
 }

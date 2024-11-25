@@ -275,6 +275,14 @@ mod tests {
             },
         );
         prover_args.insert(
+            "powdr".to_string(),
+            json! {
+                {
+                    "prover": "mock",
+                }
+            },
+        );
+        prover_args.insert(
             "sgx".to_string(),
             json! {
                 {
