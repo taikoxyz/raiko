@@ -9,18 +9,22 @@ pub enum ProofType {
     /// # Native
     ///
     /// This builds the block the same way the node does and then runs the result.
+    #[serde(alias = "NATIVE")]
     Native = 0u8,
     /// # Sp1
     ///
     /// Uses the SP1 prover to build the block.
+    #[serde(alias = "SP1")]
     Sp1 = 1u8,
     /// # Sgx
     ///
     /// Builds the block on a SGX supported CPU to create a proof.
+    #[serde(alias = "SGX")]
     Sgx = 2u8,
     /// # Risc0
     ///
     /// Uses the RISC0 prover to build the block.
+    #[serde(alias = "RISC0")]
     Risc0 = 3u8,
 }
 
