@@ -1,7 +1,6 @@
 #![cfg(feature = "enable")]
 use alloy_primitives::B256;
 use raiko_lib::builder::calculate_block_header;
-use raiko_lib::consts::VerifierType;
 use raiko_lib::input::{BlobProofType, GuestInput, GuestOutput};
 use raiko_lib::proof_type::ProofType;
 use raiko_lib::protocol_instance::ProtocolInstance;

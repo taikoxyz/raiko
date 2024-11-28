@@ -2,7 +2,7 @@
 harness::entrypoint!(main, tests, zk_op::tests);
 
 use raiko_lib::{
-    builder::calculate_block_header, consts::VerifierType, input::GuestInput,
+    builder::calculate_block_header, input::GuestInput, proof_type::ProofType,
     protocol_instance::ProtocolInstance, CycleTracker,
 };
 
@@ -20,7 +20,7 @@ pub fn main() {
     ct.end();
 
     ct = CycleTracker::start("ProtocolInstance");
-    let pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
+    let pi = ProtocolInstance::new(&input, &header, ProofType::Sp1)
         .unwrap()
         .instance_hash();
     ct.end();
