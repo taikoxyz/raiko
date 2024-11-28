@@ -1,23 +1,20 @@
 //! Constants for the Ethereum protocol.
 extern crate alloc;
 
+use crate::primitives::{uint, BlockNumber, ChainId, U256};
+use crate::proof_type::ProofType;
 use alloc::collections::BTreeMap;
-
 use alloy_primitives::Address;
 use anyhow::{anyhow, bail, Result};
+use once_cell::sync::Lazy;
 use reth_primitives::revm_primitives::SpecId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-#[cfg(not(feature = "std"))]
-use crate::no_std::*;
-use crate::primitives::{uint, BlockNumber, ChainId, U256};
-
-use once_cell::sync::Lazy;
 use std::path::PathBuf;
 use std::{collections::HashMap, env::var};
 
-use crate::proof_type::ProofType;
+#[cfg(not(feature = "std"))]
+use crate::no_std::*;
 
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;
@@ -129,26 +126,6 @@ impl Default for Eip1559Constants {
     }
 }
 
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum VerifierType {
-    None,
-    SGX,
-    SP1,
-    RISC0,
-}
-
-impl From<ProofType> for VerifierType {
-    fn from(val: ProofType) -> Self {
-        match val {
-            ProofType::Native => VerifierType::None,
-            ProofType::Sgx => VerifierType::SGX,
-            ProofType::Sp1 => VerifierType::SP1,
-            ProofType::Risc0 => VerifierType::RISC0,
-        }
-    }
-}
-
 /// Specification of a specific chain.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct ChainSpec {
@@ -161,7 +138,7 @@ pub struct ChainSpec {
     pub l2_contract: Option<Address>,
     pub rpc: String,
     pub beacon_rpc: Option<String>,
-    pub verifier_address_forks: BTreeMap<SpecId, BTreeMap<VerifierType, Option<Address>>>,
+    pub verifier_address_forks: BTreeMap<SpecId, BTreeMap<ProofType, Option<Address>>>,
     pub genesis_time: u64,
     pub seconds_per_slot: u64,
     pub is_taiko: bool,
@@ -229,14 +206,14 @@ impl ChainSpec {
     pub fn get_fork_verifier_address(
         &self,
         block_num: u64,
-        verifier_type: VerifierType,
+        proof_type: ProofType,
     ) -> Result<Address> {
         // fall down to the first fork that is active as default
         for (spec_id, fork) in self.hard_forks.iter().rev() {
             if fork.active(block_num, 0u64) {
                 if let Some(fork_verifier) = self.verifier_address_forks.get(spec_id) {
                     return fork_verifier
-                        .get(&verifier_type)
+                        .get(&proof_type)
                         .ok_or_else(|| anyhow!("Verifier type not found"))
                         .and_then(|address| {
                             address.ok_or_else(|| anyhow!("Verifier address not found"))
@@ -344,7 +321,7 @@ mod tests {
             .get_chain_spec(&Network::Ethereum.to_string())
             .unwrap();
         let verifier_address = eth_mainnet_spec
-            .get_fork_verifier_address(15_537_394, VerifierType::SGX)
+            .get_fork_verifier_address(15_537_394, ProofType::Sgx)
             .unwrap();
         assert_eq!(
             verifier_address,
@@ -355,14 +332,14 @@ mod tests {
             .get_chain_spec(&Network::TaikoA7.to_string())
             .unwrap();
         let verifier_address = hekla_mainnet_spec
-            .get_fork_verifier_address(12345, VerifierType::SGX)
+            .get_fork_verifier_address(12345, ProofType::Sgx)
             .unwrap();
         assert_eq!(
             verifier_address,
             address!("532efbf6d62720d0b2a2bb9d11066e8588cae6d9")
         );
         let verifier_address = hekla_mainnet_spec
-            .get_fork_verifier_address(15_537_394, VerifierType::SGX)
+            .get_fork_verifier_address(15_537_394, ProofType::Sgx)
             .unwrap();
         assert_eq!(
             verifier_address,
@@ -371,12 +348,12 @@ mod tests {
     }
 
     #[test]
-    fn forked_none_verifier_address() {
+    fn forked_native_verifier_address() {
         let eth_mainnet_spec = SupportedChainSpecs::default()
             .get_chain_spec(&Network::Ethereum.to_string())
             .unwrap();
         let verifier_address = eth_mainnet_spec
-            .get_fork_verifier_address(15_537_394, VerifierType::None)
+            .get_fork_verifier_address(15_537_394, ProofType::Native)
             .unwrap_or_default();
         assert_eq!(verifier_address, Address::ZERO);
     }
@@ -407,9 +384,9 @@ mod tests {
             verifier_address_forks: BTreeMap::from([(
                 SpecId::FRONTIER,
                 BTreeMap::from([
-                    (VerifierType::SGX, Some(Address::default())),
-                    (VerifierType::SP1, None),
-                    (VerifierType::RISC0, Some(Address::default())),
+                    (ProofType::Sgx, Some(Address::default())),
+                    (ProofType::Sp1, None),
+                    (ProofType::Risc0, Some(Address::default())),
                 ]),
             )]),
             genesis_time: 0u64,

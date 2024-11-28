@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use file_lock::{FileLock, FileOptions};
-use raiko_lib::consts::{SupportedChainSpecs, VerifierType};
+use raiko_lib::{consts::SupportedChainSpecs, proof_type::ProofType};
 use serde_json::{Number, Value};
 use sgx_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
@@ -69,8 +69,8 @@ pub(crate) async fn setup_bootstrap(
         // clean check file
         remove_instance_id(&config_dir)?;
         let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
-        let verifier_address = taiko_chain_spec
-            .get_fork_verifier_address(bootstrap_args.block_num, VerifierType::SGX)?;
+        let verifier_address =
+            taiko_chain_spec.get_fork_verifier_address(bootstrap_args.block_num, ProofType::Sgx)?;
         let register_id = register_sgx_instance(
             &bootstrap_proof.quote,
             &l1_chain_spec.rpc,

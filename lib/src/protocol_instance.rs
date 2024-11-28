@@ -6,7 +6,7 @@ use reth_primitives::Header;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::{SupportedChainSpecs, VerifierType},
+    consts::SupportedChainSpecs,
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, EthDeposit, GuestInput,
@@ -16,6 +16,7 @@ use crate::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
     },
+    proof_type::ProofType,
     CycleTracker,
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
@@ -138,7 +139,7 @@ pub struct ProtocolInstance {
 }
 
 impl ProtocolInstance {
-    pub fn new(input: &GuestInput, header: &Header, proof_type: VerifierType) -> Result<Self> {
+    pub fn new(input: &GuestInput, header: &Header, proof_type: ProofType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.blob_used();
         // If blob is used, tx_list_hash is the commitment to the blob
         // and we need to verify the blob hash matches the blob data.
@@ -307,16 +308,16 @@ impl ProtocolInstance {
 
 // Make sure the verifier supports the blob proof type
 fn get_blob_proof_type(
-    proof_type: VerifierType,
+    proof_type: ProofType,
     blob_proof_type_hint: BlobProofType,
 ) -> BlobProofType {
     // Enforce different blob proof type for different provers
     // due to performance considerations
     match proof_type {
-        VerifierType::None => blob_proof_type_hint,
-        VerifierType::SGX => BlobProofType::KzgVersionedHash,
-        VerifierType::SP1 => BlobProofType::ProofOfEquivalence,
-        VerifierType::RISC0 => BlobProofType::ProofOfEquivalence,
+        ProofType::Native => blob_proof_type_hint,
+        ProofType::Sgx => BlobProofType::KzgVersionedHash,
+        ProofType::Sp1 => BlobProofType::ProofOfEquivalence,
+        ProofType::Risc0 => BlobProofType::ProofOfEquivalence,
     }
 }
 

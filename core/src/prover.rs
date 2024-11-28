@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use raiko_lib::{
-    consts::VerifierType,
     input::{GuestInput, GuestOutput},
+    proof_type::ProofType,
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
@@ -49,7 +49,7 @@ impl Prover for NativeProver {
 
         trace!("Running the native prover for input {input:?}");
 
-        let pi = ProtocolInstance::new(&input, &output.header, VerifierType::None)
+        let pi = ProtocolInstance::new(&input, &output.header, ProofType::Native)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
         if pi.instance_hash() != output.hash {
             return Err(ProverError::GuestError(
