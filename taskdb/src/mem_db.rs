@@ -98,21 +98,21 @@ impl InMemoryTaskDb {
         let proving_status_records = self
             .tasks_queue
             .get(key)
-            .ok_or_else(|| TaskManagerError::SqlError("no task in db".to_owned()))?;
+            .ok_or_else(|| TaskManagerError::Anyhow("no task in db".to_owned()))?;
 
         let (_, proof, ..) = proving_status_records
             .0
             .iter()
             .filter(|(status, ..)| (status == &TaskStatus::Success))
             .last()
-            .ok_or_else(|| TaskManagerError::SqlError("no successful task in db".to_owned()))?;
+            .ok_or_else(|| TaskManagerError::Anyhow("no successful task in db".to_owned()))?;
 
         let Some(proof) = proof else {
             return Ok(vec![]);
         };
 
         hex::decode(proof)
-            .map_err(|_| TaskManagerError::SqlError("couldn't decode from hex".to_owned()))
+            .map_err(|_| TaskManagerError::Anyhow("couldn't decode from hex".to_owned()))
     }
 
     fn size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
@@ -238,21 +238,21 @@ impl InMemoryTaskDb {
         let proving_status_records = self
             .aggregation_tasks_queue
             .get(request)
-            .ok_or_else(|| TaskManagerError::SqlError("no task in db".to_owned()))?;
+            .ok_or_else(|| TaskManagerError::Anyhow("no task in db".to_owned()))?;
 
         let (_, proof, ..) = proving_status_records
             .0
             .iter()
             .filter(|(status, ..)| (status == &TaskStatus::Success))
             .last()
-            .ok_or_else(|| TaskManagerError::SqlError("no successful task in db".to_owned()))?;
+            .ok_or_else(|| TaskManagerError::Anyhow("no successful task in db".to_owned()))?;
 
         let Some(proof) = proof else {
             return Ok(vec![]);
         };
 
         hex::decode(proof)
-            .map_err(|_| TaskManagerError::SqlError("couldn't decode from hex".to_owned()))
+            .map_err(|_| TaskManagerError::Anyhow("couldn't decode from hex".to_owned()))
     }
 }
 

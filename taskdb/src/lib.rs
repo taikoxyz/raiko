@@ -1,29 +1,21 @@
-use std::{
-    io::{Error as IOError, ErrorKind as IOErrorKind},
-    path::PathBuf,
-};
+use std::io::{Error as IOError, ErrorKind as IOErrorKind};
 
 use chrono::{DateTime, Utc};
-use raiko_core::interfaces::{AggregationOnlyRequest, ProofType};
+use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::{
     primitives::{ChainId, B256},
+    proof_type::ProofType,
     prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
-#[cfg(feature = "sqlite")]
-use rusqlite::Error as RustSQLiteError;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 use utoipa::ToSchema;
 
-#[cfg(feature = "sqlite")]
-use crate::adv_sqlite::SqliteTaskManager;
 #[cfg(feature = "in-memory")]
 use crate::mem_db::InMemoryTaskManager;
 #[cfg(feature = "redis-db")]
 use crate::redis_db::RedisTaskManager;
 
-#[cfg(feature = "sqlite")]
-mod adv_sqlite;
 #[cfg(feature = "in-memory")]
 mod mem_db;
 #[cfg(feature = "redis-db")]
@@ -35,8 +27,6 @@ mod redis_db;
 pub enum TaskManagerError {
     #[error("IO Error {0}")]
     IOError(IOErrorKind),
-    #[error("SQL Error {0}")]
-    SqlError(String),
     #[cfg(feature = "redis-db")]
     #[error("Redis Error {0}")]
     RedisError(#[from] crate::redis_db::RedisDbError),
@@ -51,19 +41,6 @@ pub type TaskManagerResult<T> = Result<T, TaskManagerError>;
 impl From<IOError> for TaskManagerError {
     fn from(error: IOError) -> TaskManagerError {
         TaskManagerError::IOError(error.kind())
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl From<RustSQLiteError> for TaskManagerError {
-    fn from(error: RustSQLiteError) -> TaskManagerError {
-        TaskManagerError::SqlError(error.to_string())
-    }
-}
-
-impl From<serde_json::Error> for TaskManagerError {
-    fn from(error: serde_json::Error) -> TaskManagerError {
-        TaskManagerError::SqlError(error.to_string())
     }
 }
 
@@ -236,7 +213,6 @@ pub type TaskReport = (TaskDescriptor, TaskStatus);
 
 #[derive(Debug, Clone, Default)]
 pub struct TaskManagerOpts {
-    pub sqlite_file: PathBuf,
     pub max_db_size: usize,
     pub redis_url: String,
     pub redis_ttl: u64,
@@ -425,8 +401,6 @@ impl<T: TaskManager> TaskManager for TaskManagerWrapper<T> {
 
 #[cfg(feature = "in-memory")]
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<InMemoryTaskManager>;
-#[cfg(feature = "sqlite")]
-pub type TaskManagerWrapperImpl = TaskManagerWrapper<SqliteTaskManager>;
 #[cfg(feature = "redis-db")]
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<RedisTaskManager>;
 
@@ -438,29 +412,23 @@ pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapperImpl {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::path::Path;
+    use rand::Rng;
 
     #[tokio::test]
     async fn test_new_taskmanager() {
-        let sqlite_file: &Path = Path::new("test.db");
-        // remove existed one
-        if sqlite_file.exists() {
-            std::fs::remove_file(sqlite_file).unwrap();
-        }
-
         let opts = TaskManagerOpts {
-            sqlite_file: sqlite_file.to_path_buf(),
             max_db_size: 1024 * 1024,
             redis_url: "redis://localhost:6379".to_string(),
             redis_ttl: 3600,
         };
         let mut task_manager = get_task_manager(&opts);
 
+        let block_id = rand::thread_rng().gen_range(0..1000000);
         assert_eq!(
             task_manager
                 .enqueue_task(&ProofTaskDescriptor {
                     chain_id: 1,
-                    block_id: 0,
+                    block_id,
                     blockhash: B256::default(),
                     proof_system: ProofType::Native,
                     prover: "test".to_string(),
@@ -475,22 +443,16 @@ mod test {
 
     #[tokio::test]
     async fn test_enqueue_twice() {
-        let sqlite_file: &Path = Path::new("test.db");
-        // remove existed one
-        if sqlite_file.exists() {
-            std::fs::remove_file(sqlite_file).unwrap();
-        }
-
         let opts = TaskManagerOpts {
-            sqlite_file: sqlite_file.to_path_buf(),
             max_db_size: 1024 * 1024,
             redis_url: "redis://localhost:6379".to_string(),
             redis_ttl: 3600,
         };
         let mut task_manager = get_task_manager(&opts);
+        let block_id = rand::thread_rng().gen_range(0..1000000);
         let key = ProofTaskDescriptor {
             chain_id: 1,
-            block_id: 0,
+            block_id,
             blockhash: B256::default(),
             proof_system: ProofType::Native,
             prover: "test".to_string(),

@@ -161,9 +161,6 @@ anyhow = "1.0"
 thiserror = "1.0"
 thiserror-no-std = "2.0.2"
 
-# SQLite
-rusqlite = { version = "0.31.0", features = ["bundled"] }
-
 # redis
 redis = { version = "=0.27.3" }
 
