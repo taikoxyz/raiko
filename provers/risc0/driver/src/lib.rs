@@ -14,6 +14,7 @@ use raiko_lib::{
         AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
         ZkAggregationGuestInput,
     },
+    proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{
@@ -60,8 +61,6 @@ impl From<Risc0Response> for Proof {
 
 pub struct Risc0Prover;
 
-const RISC0_PROVER_CODE: u8 = 3;
-
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
@@ -75,7 +74,7 @@ impl Prover for Risc0Prover {
             input.chain_spec.chain_id,
             input.block.header.number,
             output.hash,
-            RISC0_PROVER_CODE,
+            ProofType::Risc0 as u8,
         );
 
         debug!("elf code length: {}", RISC0_GUEST_ELF.len());

@@ -6,6 +6,7 @@ use raiko_lib::{
         AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
         ZkAggregationGuestInput,
     },
+    proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
     Measurement,
 };
@@ -27,7 +28,6 @@ use proof_verify::remote_contract_verify::verify_sol_by_contract_call;
 
 pub const ELF: &[u8] = include_bytes!("../../guest/elf/sp1-guest");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
-const SP1_PROVER_CODE: u8 = 1;
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -156,7 +156,7 @@ impl Prover for Sp1Prover {
                             input.chain_spec.chain_id,
                             input.block.header.number,
                             output.hash,
-                            SP1_PROVER_CODE,
+                            ProofType::Sp1 as u8,
                         ),
                         proof_id.clone(),
                     )
