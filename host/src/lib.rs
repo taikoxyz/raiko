@@ -75,10 +75,6 @@ pub struct Opts {
     /// Set jwt secret for auth
     pub jwt_secret: Option<String>,
 
-    #[arg(long, require_equals = true, default_value = "raiko.sqlite")]
-    /// Set the path to the sqlite db file
-    pub sqlite_file: PathBuf,
-
     #[arg(long, require_equals = true, default_value = "1048576")]
     pub max_db_size: usize,
 
@@ -132,7 +128,6 @@ impl Opts {
 impl From<Opts> for TaskManagerOpts {
     fn from(val: Opts) -> Self {
         Self {
-            sqlite_file: val.sqlite_file,
             max_db_size: val.max_db_size,
             redis_url: val.redis_url.to_string(),
             redis_ttl: val.redis_ttl,
@@ -143,7 +138,6 @@ impl From<Opts> for TaskManagerOpts {
 impl From<&Opts> for TaskManagerOpts {
     fn from(val: &Opts) -> Self {
         Self {
-            sqlite_file: val.sqlite_file.clone(),
             max_db_size: val.max_db_size,
             redis_url: val.redis_url.to_string(),
             redis_ttl: val.redis_ttl,

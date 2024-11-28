@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 raiko-lib = { workspace = true }
 raiko-core = { workspace = true }
-rusqlite = { workspace = true, features = ["chrono"], optional = true }
 num_enum = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 thiserror = { workspace = true }
@@ -26,11 +25,9 @@ rand = "0.9.0-alpha.1"                                            # This is an a
 rand_chacha = "0.9.0-alpha.1"
 tempfile = "3.10.1"
 alloy-primitives = { workspace = true, features = ["getrandom"] }
-rusqlite = { workspace = true, features = ["trace"] }
 
 [features]
 default = []
-sqlite = ["rusqlite"]
 in-memory = []
 redis-db = ["redis"]
 

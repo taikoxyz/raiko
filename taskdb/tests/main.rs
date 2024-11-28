@@ -52,20 +52,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_enqueue_task() {
-        // // Materialized local DB
-        // let dir = std::env::current_dir().unwrap().join("tests");
-        // let file = dir.as_path().join("test_enqueue_task.sqlite");
-        // if file.exists() {
-        //     std::fs::remove_file(&file).unwrap()
-        // };
-
-        // temp dir DB
-        use tempfile::tempdir;
-        let dir = tempdir().unwrap();
-        let file = dir.path().join("test_enqueue_task.sqlite");
-
         let mut tama = get_task_manager(&TaskManagerOpts {
-            sqlite_file: file,
             max_db_size: 1_000_000,
             redis_url: env::var("REDIS_URL").unwrap_or_default(),
             redis_ttl: 3600,
@@ -89,22 +76,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_query_tasks_progress() {
-        // Materialized local DB
-        let dir = std::env::current_dir().unwrap().join("tests");
-        let file = dir
-            .as_path()
-            .join("test_update_query_tasks_progress.sqlite");
-        if file.exists() {
-            std::fs::remove_file(&file).unwrap()
-        };
-
-        // // temp dir DB
-        // use tempfile::tempdir;
-        // let dir = tempdir().unwrap();
-        // let file = dir.path().join("test_update_task_progress.sqlite");
-
         let mut tama = get_task_manager(&TaskManagerOpts {
-            sqlite_file: file,
             max_db_size: 1_000_000,
             redis_url: env::var("REDIS_URL").unwrap_or_default(),
             redis_ttl: 3600,
