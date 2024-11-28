@@ -4,15 +4,17 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::anyhow;
 use raiko_core::{
-    interfaces::{AggregationOnlyRequest, ProofRequest, ProofType, RaikoError},
+    interfaces::{
+        aggregate_proofs, cancel_proof, AggregationOnlyRequest, ProofRequest, RaikoError,
+    },
     provider::{get_task_data, rpc::RpcBlockDataProvider},
     Raiko,
 };
 use raiko_lib::{
     consts::SupportedChainSpecs,
     input::{AggregationGuestInput, AggregationGuestOutput},
+    proof_type::ProofType,
     prover::{IdWrite, Proof},
     Measurement,
 };
@@ -91,25 +93,25 @@ impl ProofActor {
         };
 
         let mut manager = get_task_manager(&self.opts.clone().into());
-        key.proof_system
-            .cancel_proof(
-                (
-                    key.chain_id,
-                    key.block_id,
-                    key.blockhash,
-                    key.proof_system as u8,
-                ),
-                Box::new(&mut manager),
-            )
-            .await
-            .or_else(|e| {
-                if e.to_string().contains("No data for query") {
-                    warn!("Task already cancelled or not yet started!");
-                    Ok(())
-                } else {
-                    Err::<(), HostError>(e.into())
-                }
-            })?;
+        cancel_proof(
+            key.proof_system,
+            (
+                key.chain_id,
+                key.block_id,
+                key.blockhash,
+                key.proof_system as u8,
+            ),
+            Box::new(&mut manager),
+        )
+        .await
+        .or_else(|e| {
+            if e.to_string().contains("No data for query") {
+                warn!("Task already cancelled or not yet started!");
+                Ok(())
+            } else {
+                Err::<(), HostError>(e.into())
+            }
+        })?;
         task.cancel();
         Ok(())
     }
@@ -341,6 +343,9 @@ impl ProofActor {
     }
 
     pub async fn handle_aggregate(request: AggregationOnlyRequest, opts: &Opts) -> HostResult<()> {
+        let proof_type_str = request.proof_type.to_owned().unwrap_or_default();
+        let proof_type = ProofType::from_str(&proof_type_str).map_err(HostError::Conversion)?;
+
         let mut manager = get_task_manager(&opts.clone().into());
 
         let status = manager
@@ -356,12 +361,7 @@ impl ProofActor {
         manager
             .update_aggregation_task_progress(&request, TaskStatus::WorkInProgress, None)
             .await?;
-        let proof_type = ProofType::from_str(
-            request
-                .proof_type
-                .as_ref()
-                .ok_or_else(|| anyhow!("No proof type"))?,
-        )?;
+
         let input = AggregationGuestInput {
             proofs: request.clone().proofs,
         };
@@ -369,16 +369,14 @@ impl ProofActor {
         let config = serde_json::to_value(request.clone().prover_args)?;
         let mut manager = get_task_manager(&opts.clone().into());
 
-        let (status, proof) = match proof_type
-            .aggregate_proofs(input, &output, &config, Some(&mut manager))
-            .await
-        {
-            Err(error) => {
-                error!("{error}");
-                (HostError::from(error).into(), None)
-            }
-            Ok(proof) => (TaskStatus::Success, Some(serde_json::to_vec(&proof)?)),
-        };
+        let (status, proof) =
+            match aggregate_proofs(proof_type, input, &output, &config, Some(&mut manager)).await {
+                Err(error) => {
+                    error!("{error}");
+                    (HostError::from(error).into(), None)
+                }
+                Ok(proof) => (TaskStatus::Success, Some(serde_json::to_vec(&proof)?)),
+            };
 
         manager
             .update_aggregation_task_progress(&request, status, proof.as_deref())

@@ -5,7 +5,7 @@ use prometheus::{
     labels, register_histogram_vec, register_int_counter_vec, register_int_gauge, HistogramVec,
     IntCounterVec, IntGauge,
 };
-use raiko_core::interfaces::ProofType;
+use raiko_lib::proof_type::ProofType;
 
 lazy_static! {
     pub static ref HOST_REQ_COUNT: IntCounterVec = register_int_counter_vec!(

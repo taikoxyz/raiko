@@ -2,6 +2,7 @@ use std::{collections::HashMap, hint::black_box};
 
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
+use interfaces::{cancel_proof, run_prover};
 use raiko_lib::{
     builder::{create_mem_db, RethBlockBuilder},
     consts::ChainSpec,
@@ -110,10 +111,7 @@ impl Raiko {
         store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
         let config = serde_json::to_value(&self.request)?;
-        self.request
-            .proof_type
-            .run_prover(input, output, &config, store)
-            .await
+        run_prover(self.request.proof_type, input, output, &config, store).await
     }
 
     pub async fn cancel(
@@ -121,7 +119,7 @@ impl Raiko {
         proof_key: ProofKey,
         read: Box<&mut dyn IdStore>,
     ) -> RaikoResult<()> {
-        self.request.proof_type.cancel_proof(proof_key, read).await
+        cancel_proof(self.request.proof_type, proof_key, read).await
     }
 }
 
@@ -216,26 +214,23 @@ pub fn merge(a: &mut Value, b: &Value) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        interfaces::{ProofRequest, ProofType},
-        provider::rpc::RpcBlockDataProvider,
-        ChainSpec, Raiko,
-    };
+    use crate::interfaces::aggregate_proofs;
+    use crate::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, ChainSpec, Raiko};
     use alloy_primitives::Address;
     use alloy_provider::Provider;
-    use clap::ValueEnum;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
         input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType},
         primitives::B256,
+        proof_type::ProofType,
         prover::Proof,
     };
     use serde_json::{json, Value};
-    use std::{collections::HashMap, env};
+    use std::{collections::HashMap, env, str::FromStr};
 
     fn get_proof_type_from_env() -> ProofType {
         let proof_type = env::var("TARGET").unwrap_or("native".to_string());
-        ProofType::from_str(&proof_type, true).unwrap()
+        ProofType::from_str(&proof_type).unwrap()
     }
 
     fn is_ci() -> bool {
@@ -474,15 +469,15 @@ mod tests {
 
         let output = AggregationGuestOutput { hash: B256::ZERO };
 
-        let aggregated_proof = proof_type
-            .aggregate_proofs(
-                input,
-                &output,
-                &serde_json::to_value(&test_proof_params(false)).unwrap(),
-                None,
-            )
-            .await
-            .expect("proof aggregation failed");
+        let aggregated_proof = aggregate_proofs(
+            proof_type,
+            input,
+            &output,
+            &serde_json::to_value(&test_proof_params(false)).unwrap(),
+            None,
+        )
+        .await
+        .expect("proof aggregation failed");
         println!("aggregated proof: {aggregated_proof:?}");
     }
 }

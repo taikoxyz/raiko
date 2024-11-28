@@ -4,9 +4,10 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use raiko_core::interfaces::{AggregationOnlyRequest, ProofType};
+use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::{
     primitives::{ChainId, B256},
+    proof_type::ProofType,
     prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
 #[cfg(feature = "sqlite")]
@@ -438,6 +439,7 @@ pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapperImpl {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rand::Rng;
     use std::path::Path;
 
     #[tokio::test]
@@ -456,11 +458,12 @@ mod test {
         };
         let mut task_manager = get_task_manager(&opts);
 
+        let block_id = rand::thread_rng().gen_range(0..1000000);
         assert_eq!(
             task_manager
                 .enqueue_task(&ProofTaskDescriptor {
                     chain_id: 1,
-                    block_id: 0,
+                    block_id,
                     blockhash: B256::default(),
                     proof_system: ProofType::Native,
                     prover: "test".to_string(),
@@ -488,9 +491,10 @@ mod test {
             redis_ttl: 3600,
         };
         let mut task_manager = get_task_manager(&opts);
+        let block_id = rand::thread_rng().gen_range(0..1000000);
         let key = ProofTaskDescriptor {
             chain_id: 1,
-            block_id: 0,
+            block_id,
             blockhash: B256::default(),
             proof_system: ProofType::Native,
             prover: "test".to_string(),

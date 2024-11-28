@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::interfaces::{AggregationOnlyRequest, ProofType};
+use raiko_core::interfaces::AggregationOnlyRequest;
+use raiko_lib::proof_type::ProofType;
 use raiko_tasks::{TaskManager, TaskStatus};
 use utoipa::OpenApi;
 
@@ -9,6 +10,7 @@ use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::api::v3::Status,
+    server::HostError,
     Message, ProverState,
 };
 
@@ -42,7 +44,8 @@ async fn aggregation_handler(
             .proof_type
             .as_deref()
             .unwrap_or_default(),
-    )?;
+    )
+    .map_err(HostError::Conversion)?;
     inc_host_req_count(0);
     inc_guest_req_count(&proof_type, 0);
 

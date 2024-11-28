@@ -10,11 +10,11 @@ mod tests {
     use std::{collections::HashMap, env, time::Duration};
 
     use alloy_primitives::Address;
-    use raiko_core::interfaces::{ProofRequest, ProofType};
+    use raiko_core::interfaces::ProofRequest;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
-    use raiko_lib::{input::BlobProofType, primitives::B256};
+    use raiko_lib::{input::BlobProofType, primitives::B256, proof_type::ProofType};
     use raiko_tasks::{
         get_task_manager, ProofTaskDescriptor, TaskManager, TaskManagerOpts, TaskStatus,
     };
