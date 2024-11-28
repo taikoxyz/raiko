@@ -23,7 +23,7 @@ pub mod consts;
 pub mod input;
 pub mod mem_db;
 pub mod primitives;
-pub mod proof;
+pub mod proof_type;
 pub mod protocol_instance;
 pub mod prover;
 pub mod utils;

@@ -84,7 +84,7 @@ mod test {
     use raiko_lib::{
         consts::{ChainSpec, Network, SupportedChainSpecs},
         input::GuestInput,
-        proof::ProofType,
+        proof_type::ProofType,
     };
 
     async fn create_cache_input(

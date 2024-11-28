@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::{
     primitives::{ChainId, B256},
-    proof::ProofType,
+    proof_type::ProofType,
     prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
 #[cfg(feature = "sqlite")]

@@ -5,7 +5,7 @@ use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestInput, GuestOutput,
     },
-    proof::ProofType,
+    proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
 };
 use serde::{Deserialize, Serialize};

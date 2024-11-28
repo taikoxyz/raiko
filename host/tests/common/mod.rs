@@ -3,7 +3,7 @@ use std::str::FromStr;
 use raiko_core::interfaces::{ProofRequestOpt, ProverSpecificOpts};
 use raiko_host::{server::serve, ProverState};
 use raiko_lib::consts::{Network, SupportedChainSpecs};
-use raiko_lib::proof::ProofType;
+use raiko_lib::proof_type::ProofType;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 

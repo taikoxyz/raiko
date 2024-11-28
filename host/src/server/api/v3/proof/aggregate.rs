@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::AggregationOnlyRequest;
-use raiko_lib::proof::ProofType;
+use raiko_lib::proof_type::ProofType;
 use raiko_tasks::{TaskManager, TaskStatus};
 use utoipa::OpenApi;
 

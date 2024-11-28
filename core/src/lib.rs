@@ -222,7 +222,7 @@ mod tests {
         consts::{Network, SupportedChainSpecs},
         input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType},
         primitives::B256,
-        proof::ProofType,
+        proof_type::ProofType,
         prover::Proof,
     };
     use serde_json::{json, Value};

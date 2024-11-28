@@ -14,7 +14,7 @@ use raiko_core::{
 use raiko_lib::{
     consts::SupportedChainSpecs,
     input::{AggregationGuestInput, AggregationGuestOutput},
-    proof::ProofType,
+    proof_type::ProofType,
     prover::{IdWrite, Proof},
     Measurement,
 };

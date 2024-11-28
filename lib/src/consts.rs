@@ -17,7 +17,7 @@ use once_cell::sync::Lazy;
 use std::path::PathBuf;
 use std::{collections::HashMap, env::var};
 
-use crate::proof::ProofType;
+use crate::proof_type::ProofType;
 
 /// U256 representation of 0.
 pub const ZERO: U256 = U256::ZERO;
