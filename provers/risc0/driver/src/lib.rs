@@ -74,7 +74,7 @@ impl Prover for Risc0Prover {
         let proof_key = (
             input.chain_spec.chain_id,
             input.block.header.number,
-            output.hash.clone(),
+            output.hash,
             RISC0_PROVER_CODE,
         );
 
@@ -188,7 +188,7 @@ impl Prover for Risc0Prover {
             proof: snark_proof,
             receipt: serde_json::to_string(&receipt).unwrap(),
             uuid: "".to_owned(),
-            input: B256::from_slice(&receipt.journal.digest().as_bytes()),
+            input: B256::from_slice(receipt.journal.digest().as_bytes()),
         }
         .into());
 

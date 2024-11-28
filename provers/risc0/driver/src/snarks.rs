@@ -250,7 +250,7 @@ pub async fn verify_groth16_snark_impl(
     tracing_info!("Verifying SNARK:");
     tracing_info!("Seal: {}", hex::encode(&enc_seal));
     tracing_info!("Image ID: {}", hex::encode(image_id.as_bytes()));
-    tracing_info!("Post State Digest: {}", hex::encode(&post_state_digest));
+    tracing_info!("Post State Digest: {}", hex::encode(post_state_digest));
     tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
     let verify_call_res = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
         .verify(

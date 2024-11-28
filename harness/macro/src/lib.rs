@@ -59,45 +59,47 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
         };
     }
 
-    #[cfg(feature = "sp1")]
-    let output = quote! {
-        // Set up a global allocator
-        use sp1_zkvm::heap::SimpleAlloc;
-        #[global_allocator]
-        static HEAP: SimpleAlloc = SimpleAlloc;
+    let output = if cfg!(feature = "sp1") {
+        quote! {
+            // Set up a global allocator
+            use sp1_zkvm::heap::SimpleAlloc;
+            #[global_allocator]
+            static HEAP: SimpleAlloc = SimpleAlloc;
 
-        #[cfg(test)]
-        #tests_entry
+            #[cfg(test)]
+            #tests_entry
 
-        #[cfg(not(test))]
-        const ZKVM_ENTRY: fn() = #main_entry;
-        #[cfg(test)]
-        const ZKVM_ENTRY: fn() = run_tests;
+            #[cfg(not(test))]
+            const ZKVM_ENTRY: fn() = #main_entry;
+            #[cfg(test)]
+            const ZKVM_ENTRY: fn() = run_tests;
 
-        mod zkvm_generated_main {
-            #[no_mangle]
-            fn main() {
-                super::ZKVM_ENTRY()
+            mod zkvm_generated_main {
+                #[no_mangle]
+                fn main() {
+                    super::ZKVM_ENTRY()
+                }
             }
         }
-    };
+    } else if cfg!(feature = "risc0") {
+        quote! {
+            #[cfg(test)]
+            #tests_entry
 
-    #[cfg(feature = "risc0")]
-    let output = quote! {
-        #[cfg(test)]
-        #tests_entry
+            #[cfg(not(test))]
+            const ZKVM_ENTRY: fn() = #main_entry;
+            #[cfg(test)]
+            const ZKVM_ENTRY: fn() = run_tests;
 
-        #[cfg(not(test))]
-        const ZKVM_ENTRY: fn() = #main_entry;
-        #[cfg(test)]
-        const ZKVM_ENTRY: fn() = run_tests;
-
-        mod zkvm_generated_main {
-            #[no_mangle]
-            fn main() {
-                super::ZKVM_ENTRY()
+            mod zkvm_generated_main {
+                #[no_mangle]
+                fn main() {
+                    super::ZKVM_ENTRY()
+                }
             }
         }
+    } else {
+        quote! {}
     };
 
     output.into()

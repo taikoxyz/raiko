@@ -374,7 +374,7 @@ pub fn prove_locally(
 
         let segment_dir = PathBuf::from("/tmp/risc0-cache");
         if !segment_dir.exists() {
-            fs::create_dir(segment_dir.clone()).map_err(|e| ProverError::FileIo(e))?;
+            fs::create_dir(segment_dir.clone()).map_err(ProverError::FileIo)?;
         }
         let env = env_builder
             .segment_path(segment_dir)
