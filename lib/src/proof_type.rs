@@ -3,25 +3,29 @@ use serde::{Deserialize, Serialize};
 #[derive(
     PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Default, Deserialize, Serialize, Hash, Copy,
 )]
-/// Available proof types.
+#[repr(u8)]
 pub enum ProofType {
     #[default]
     /// # Native
     ///
     /// This builds the block the same way the node does and then runs the result.
-    Native,
+    #[serde(alias = "NATIVE")]
+    Native = 0u8,
     /// # Sp1
     ///
     /// Uses the SP1 prover to build the block.
-    Sp1,
+    #[serde(alias = "SP1")]
+    Sp1 = 1u8,
     /// # Sgx
     ///
     /// Builds the block on a SGX supported CPU to create a proof.
-    Sgx,
+    #[serde(alias = "SGX")]
+    Sgx = 2u8,
     /// # Risc0
     ///
     /// Uses the RISC0 prover to build the block.
-    Risc0,
+    #[serde(alias = "RISC0")]
+    Risc0 = 3u8,
 }
 
 impl std::fmt::Display for ProofType {

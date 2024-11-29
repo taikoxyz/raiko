@@ -1,12 +1,12 @@
 #![no_main]
 harness::entrypoint!(main, tests, zk_op::tests);
 use raiko_lib::{
-    builder::calculate_block_header, consts::VerifierType, input::GuestInput,
+    builder::calculate_block_header, input::GuestInput, proof_type::ProofType,
     protocol_instance::ProtocolInstance,
 };
 use revm_precompile::zk_op::ZkOperation;
-use zk_op::Risc0Operator;
 use risc0_zkvm::guest::env;
+use zk_op::Risc0Operator;
 
 pub mod mem;
 
@@ -21,7 +21,7 @@ fn main() {
         .expect("Failed to set ZkvmOperations");
 
     let header = calculate_block_header(&input);
-    let pi = ProtocolInstance::new(&input, &header, VerifierType::RISC0)
+    let pi = ProtocolInstance::new(&input, &header, ProofType::Risc0)
         .unwrap()
         .instance_hash();
 

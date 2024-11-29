@@ -1,8 +1,8 @@
 #![cfg(feature = "enable")]
 use alloy_primitives::B256;
 use raiko_lib::builder::calculate_block_header;
-use raiko_lib::consts::VerifierType;
 use raiko_lib::input::{BlobProofType, GuestInput, GuestOutput};
+use raiko_lib::proof_type::ProofType;
 use raiko_lib::protocol_instance::ProtocolInstance;
 use raiko_lib::prover::Prover;
 use raiko_lib::Measurement;
@@ -39,7 +39,7 @@ async fn main() {
 
     let header = calculate_block_header(&input);
 
-    let _pi = ProtocolInstance::new(&input, &header, VerifierType::SP1)
+    let _pi = ProtocolInstance::new(&input, &header, ProofType::SP1)
         .unwrap()
         .instance_hash();
 

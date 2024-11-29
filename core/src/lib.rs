@@ -91,7 +91,7 @@ impl Raiko {
 
                 Ok(GuestOutput {
                     header: header.clone(),
-                    hash: ProtocolInstance::new(input, &header, self.request.proof_type.into())?
+                    hash: ProtocolInstance::new(input, &header, self.request.proof_type)?
                         .instance_hash(),
                 })
             }

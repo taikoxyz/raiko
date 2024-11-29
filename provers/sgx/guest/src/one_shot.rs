@@ -9,9 +9,9 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::calculate_block_header,
-    consts::VerifierType,
     input::{GuestInput, RawAggregationGuestInput},
     primitives::{keccak, Address, B256},
+    proof_type::ProofType,
     protocol_instance::{aggregation_output_combine, ProtocolInstance},
 };
 use secp256k1::{Keypair, SecretKey};
@@ -134,7 +134,7 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     // Process the block
     let header = calculate_block_header(&input);
     // Calculate the public input hash
-    let pi = ProtocolInstance::new(&input, &header, VerifierType::SGX)?.sgx_instance(new_instance);
+    let pi = ProtocolInstance::new(&input, &header, ProofType::Sgx)?.sgx_instance(new_instance);
     let pi_hash = pi.instance_hash();
 
     println!(
