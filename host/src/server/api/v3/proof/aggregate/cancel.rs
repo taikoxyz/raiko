@@ -1,17 +1,12 @@
-use std::str::FromStr;
-
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::interfaces::AggregationOnlyRequest;
-use raiko_lib::proof_type::ProofType;
-use raiko_tasks::{TaskManager, TaskStatus};
-use utoipa::OpenApi;
-
 use crate::{
     interfaces::{HostError, HostResult},
-    metrics::{inc_guest_req_count, inc_host_req_count},
     server::api::v2::CancelStatus,
     Message, ProverState,
 };
+use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use raiko_core::interfaces::AggregationOnlyRequest;
+use raiko_tasks::{TaskManager, TaskStatus};
+use utoipa::OpenApi;
 
 #[utoipa::path(post, path = "/proof/aggregate/cancel",
     tag = "Proving",
@@ -37,31 +32,67 @@ async fn cancel_handler(
     // options with the request from the client.
     aggregation_request.merge(&prover_state.request_config())?;
 
-    let proof_type = ProofType::from_str(
-        aggregation_request
-            .proof_type
-            .as_deref()
-            .unwrap_or_default(),
-    )
-    .map_err(|e| HostError::InvalidRequestConfig(e.to_string()))?;
-    inc_host_req_count(0);
-    inc_guest_req_count(&proof_type, 0);
-
-    if aggregation_request.proofs.is_empty() {
-        return Err(anyhow::anyhow!("No proofs provided").into());
-    }
-
-    prover_state
-        .task_channel
-        .try_send(Message::CancelAggregate(aggregation_request.clone()))?;
-
-    let mut manager = prover_state.task_manager();
-
-    manager
-        .update_aggregation_task_progress(&aggregation_request, TaskStatus::Cancelled, None)
+    let status = prover_state
+        .task_manager()
+        .get_aggregation_task_proving_status(&aggregation_request)
         .await?;
 
-    Ok(CancelStatus::Ok)
+    let Some((latest_status, ..)) = status.0.last() else {
+        return Err(HostError::Io(std::io::ErrorKind::NotFound.into()));
+    };
+
+    let mut should_signal_cancel = false;
+    let returning_cancel_status = match latest_status {
+        /* Task is already cancelled, so we don't need further action */
+        TaskStatus::Cancelled
+        | TaskStatus::Cancelled_Aborted
+        | TaskStatus::Cancelled_NeverStarted
+        | TaskStatus::CancellationInProgress => CancelStatus::Ok,
+
+        /* Task is not completed, so we need to signal the prover to cancel */
+        TaskStatus::Registered | TaskStatus::WorkInProgress => {
+            should_signal_cancel = true;
+            CancelStatus::Ok
+        }
+
+        /* Task is completed with failure, so we don't need further action, but in case of
+         * retry we safe to signal the prover to cancel */
+        TaskStatus::ProofFailure_Generic
+        | TaskStatus::ProofFailure_OutOfMemory
+        | TaskStatus::NetworkFailure(_)
+        | TaskStatus::IoFailure(_)
+        | TaskStatus::AnyhowError(_)
+        | TaskStatus::GuestProverFailure(_)
+        | TaskStatus::InvalidOrUnsupportedBlock
+        | TaskStatus::UnspecifiedFailureReason
+        | TaskStatus::TaskDbCorruption(_) => {
+            should_signal_cancel = true;
+            CancelStatus::Error {
+                error: "Task already completed".to_string(),
+                message: format!("Task already completed, status: {:?}", latest_status),
+            }
+        }
+
+        /* Task is completed with success, so we return an error */
+        TaskStatus::Success => CancelStatus::Error {
+            error: "Task already completed".to_string(),
+            message: format!("Task already completed, status: {:?}", latest_status),
+        },
+    };
+
+    if should_signal_cancel {
+        prover_state
+            .task_channel
+            .try_send(Message::CancelAggregate(aggregation_request.clone()))?;
+
+        let mut manager = prover_state.task_manager();
+
+        manager
+            .update_aggregation_task_progress(&aggregation_request, TaskStatus::Cancelled, None)
+            .await?;
+    }
+
+    Ok(returning_cancel_status)
 }
 
 #[derive(OpenApi)]
