@@ -168,8 +168,8 @@ impl Prover for Risc0Prover {
             .receipt;
 
         info!(
-            "Generate aggregatino receipt journal: {:?}",
-            receipt.journal
+            "Generate aggregation receipt journal: {:?}",
+            alloy_primitives::hex::encode_prefixed(receipt.journal.bytes)
         );
         let block_proof_image_id = compute_image_id(RISC0_GUEST_ELF).unwrap();
         let aggregation_image_id = compute_image_id(RISC0_AGGREGATION_ELF).unwrap();
