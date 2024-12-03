@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.5.0](https://github.com/taikoxyz/raiko/compare/v1.4.0...v1.5.0) (2024-12-03)
+
+
+### Features
+
+* complete v3 Aggregation APIs ([#424](https://github.com/taikoxyz/raiko/issues/424)) ([5dade7a](https://github.com/taikoxyz/raiko/commit/5dade7aaf2db1b76e1a4c59ce4a22f0a63bb7118))
+* **raiko:** retry task if previous running failed. ([#408](https://github.com/taikoxyz/raiko/issues/408)) ([3432737](https://github.com/taikoxyz/raiko/commit/3432737265602098d1db546b95541542360d64e2))
+* **taskdb:** remove sqlite task manager ([#423](https://github.com/taikoxyz/raiko/issues/423)) ([89f748f](https://github.com/taikoxyz/raiko/commit/89f748f67eb78383ec978e156e5511a721af4e71))
+* union proof type relevant stuff ([#422](https://github.com/taikoxyz/raiko/issues/422)) ([4b0df41](https://github.com/taikoxyz/raiko/commit/4b0df4105f2b599d88455fc020d25eaa5a0d7c3d))
+
+
+### Bug Fixes
+
+* bump sp1 version + new patch ([#412](https://github.com/taikoxyz/raiko/issues/412)) ([64fd81f](https://github.com/taikoxyz/raiko/commit/64fd81f09a7305412286942ab0abb7cb8086c394))
+* **raiko:** fix some misleading info prints ([#425](https://github.com/taikoxyz/raiko/issues/425)) ([32bc6a9](https://github.com/taikoxyz/raiko/commit/32bc6a994e4ce26f3bac1aebf7c7e60facd8e909))
+
+
+### Performance Improvements
+
+* **host:** release running_tasks lock asap ([#417](https://github.com/taikoxyz/raiko/issues/417)) ([6e98484](https://github.com/taikoxyz/raiko/commit/6e984840a8038a6654ab1ecbb1caea7c036feb3a))
+
 ## [1.4.0](https://github.com/taikoxyz/raiko/compare/v1.3.0...v1.4.0) (2024-11-11)
 
 
