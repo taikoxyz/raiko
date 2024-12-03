@@ -415,7 +415,7 @@ impl RedisTaskDb {
                 );
             } // do nothing
             None => {
-                info!("Enqueue new aggregatino task: {request}");
+                info!("Enqueue new aggregation task: {request}");
                 self.insert_aggregation_task(
                     &agg_task_descriptor,
                     &TaskProvingStatusRecords(vec![task_status]),

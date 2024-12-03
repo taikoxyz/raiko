@@ -1117,7 +1117,7 @@ checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 [[package]]
 name = "ecdsa"
 version = "0.16.9"
-source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#475daa8834035cc170a567e7656329ab8de8cc44"
+source = "git+https://github.com/sp1-patches/signatures?tag=ecdsa-v0.16.9-patch-v3.3.0#5de03653f713e2b314d9d7aeaa3d6755d77b7e44"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1126,6 +1126,21 @@ dependencies = [
  "elliptic-curve",
  "hex-literal",
  "rfc6979",
+ "signature",
+ "sp1-lib 3.3.0",
+ "spki",
+]
+
+[[package]]
+name = "ecdsa"
+version = "0.16.9"
+source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#475daa8834035cc170a567e7656329ab8de8cc44"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "digest 0.10.7",
+ "elliptic-curve",
+ "hex-literal",
  "signature",
  "sp1-lib 3.3.0",
  "spki",
@@ -1594,7 +1609,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "956ff9b67e26e1a6a866cb758f12c6f8746208489e3e4a4b5580802f2f0a587b"
 dependencies = [
  "cfg-if",
- "ecdsa",
+ "ecdsa 0.16.9 (git+https://github.com/sp1-patches/signatures?tag=ecdsa-v0.16.9-patch-v3.3.0)",
  "elliptic-curve",
  "once_cell",
  "sha2",
@@ -2973,7 +2988,7 @@ dependencies = [
 [[package]]
 name = "rfc6979"
 version = "0.4.0"
-source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#475daa8834035cc170a567e7656329ab8de8cc44"
+source = "git+https://github.com/sp1-patches/signatures?tag=ecdsa-v0.16.9-patch-v3.3.0#5de03653f713e2b314d9d7aeaa3d6755d77b7e44"
 dependencies = [
  "hmac",
  "subtle",
@@ -3181,7 +3196,7 @@ version = "0.29.0"
 source = "git+https://github.com/sp1-patches/rust-secp256k1?branch=patch-secp256k1-v0.29.0#13910d476dbdaf436312a9f096ee312593028557"
 dependencies = [
  "cfg-if",
- "ecdsa",
+ "ecdsa 0.16.9 (git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9)",
  "elliptic-curve",
  "k256",
  "rand",
