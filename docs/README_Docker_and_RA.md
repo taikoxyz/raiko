@@ -2,13 +2,26 @@
 
 This tutorial was created to assist you in setting up Raiko and its SGX dependencies using a Docker container. Configuring SGX can be complex without a detailed guide to walk you through each step. This tutorial strives to provide a comprehensive walkthrough, leaving no detail unaddressed.
 
-> **_NOTE:_** Currently, raiko v1.3.0 sometimes encounters OOM errors (Out of Memory). We recommend that you do NOT use 1.3.0 in  production as this can lead to losses. Please instead use 1.3.0-edmm ONLY if you have a SGX-2 enabled machine (i.e. pull the image with `docker pull us-docker.pkg.dev/evmchain/images/raiko:1.3.0-edmm` and proceed as normal). If you have bootstrapped and started using the 1.3.0 image, you will have to redo the process with the 1.3.0-edmm image if you wish to continue proving without error. We are working on a hotfixed version at the moment, thank you for your patience.
-
 ## Recommended Specs
 
 We recommended 4 cores and 8GB memory for running Raiko. 8 cores and 16GB memory is ideal; the bare minimum is 2 cores and 4GB memory (tentative).
 
 We also recommend an EPC (Enclave memory) size of 4GB for mainnet, to prevent OOM errors. You can check your machine's EPC size by running `./script/check-epc-size.sh`.
+
+## Installing Dependencies
+
+To make the process of setup a bit more straightforward, we've provided a script to install dependencies and check your machine's FMSPC in one go. Please prepare your Intel API Key before running.
+
+```bash
+cd raiko
+sudo bash script/raiko-setup.sh
+source ~/.bashrc
+foundryup
+```
+
+The script does NOT include Docker as that is dependent on your distribution, please follow the docs to install the CLI.
+
+After running this script your machine should be setup and you may skip to the `2. Generating PCCS Certificates` part of the guide and continue as normal.
 
 ## Prerequisites
 
@@ -284,11 +297,11 @@ docker compose build raiko
 If you do not wish to build the image locally, you can optionally pull them from our registry.
 
 ```
-docker pull us-docker.pkg.dev/evmchain/images/raiko:1.3.0-edmm
+docker pull us-docker.pkg.dev/evmchain/images/raiko:1.4.0
 docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
-If you do this step, you need to change your raiko docker-compose.yml to use this image. Navigate to `raiko/docker` and search for `raiko:latest` and change all instances to `raiko:1.3.0-edmm`.
+If you do this step, you need to change your raiko docker-compose.yml to use this image. Navigate to `raiko/docker` and search for `raiko:latest` and change all instances to `raiko:1.4.0`.
 
 You can continue on with the following steps as usual after this.
 
@@ -390,6 +403,9 @@ It should look like this:
 emit InstanceAdded(id: 1, instance: 0xc369eedf4C69CacceDa551390576EAd2383E6f9E, replaced: 0x0000000000000000000000000000000000000000, validSince: 1708704201 [1.708e9])
 ```
 
+If you accidentally cleared your terminal or somehow otherwise fail to view this event log, you can find this value in the Etherscan at your prover EOA.
+You should see a new transaction with the method `Register Instance` sent to the respective `SGX_VERIFIER_ADDRESS`; viewing the transaction details and accessing the transaction receipt event logs should show the InstanceAdded event!
+
 ## Running Raiko
 
 Once you've completed the above steps, you can actually run a prover. 
@@ -453,7 +469,7 @@ Opt {
 Once your Raiko instance is running, you can verify if it was started properly as follows:
 
 ```
- curl --location 'http://localhost:8080/proof' \
+ curl --location 'http://localhost:8080/v2/proof' \
 --header 'Content-Type: application/json' \
 --data '{
     "proof_type": "sgx",
@@ -476,9 +492,13 @@ The response should look like this:
 ```
 {
     "data": {
-        "output": null,
-        "proof": "0x00000206c3694ecb5c....6e0e7a36546bf98caa7bb4ac2cd4f917c2102116167e42c54849f15044c032e1c",
-        "quote": "03000200000000000a000f00939a72....0a2d2d2d2d2d454e442043455254494649434154452d2d2d2d2d0a00"
+        "proof": {
+            "input": "0x.....",
+            "kzg_proof": "null",
+            "proof": "0x.....",
+            "quote": "03000200000000000a000f00939a72....0a2d2d2d2d2d454e442043455254494649434154452d2d2d2d2d0a00",
+            "uuid": null
+        }
     },
     "status": "ok"
 }
