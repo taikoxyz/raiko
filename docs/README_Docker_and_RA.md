@@ -403,6 +403,9 @@ It should look like this:
 emit InstanceAdded(id: 1, instance: 0xc369eedf4C69CacceDa551390576EAd2383E6f9E, replaced: 0x0000000000000000000000000000000000000000, validSince: 1708704201 [1.708e9])
 ```
 
+If you accidentally cleared your terminal or somehow otherwise fail to view this event log, you can find this value in the Etherscan at your prover EOA.
+You should see a new transaction with the method `Register Instance` sent to the respective `SGX_VERIFIER_ADDRESS`; viewing the transaction details and accessing the transaction receipt event logs should show the InstanceAdded event!
+
 ## Running Raiko
 
 Once you've completed the above steps, you can actually run a prover. 
