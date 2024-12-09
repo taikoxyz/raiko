@@ -34,7 +34,7 @@ pub unsafe extern "C" fn free(_size: *const c_void) {
     // Intentionally a no-op, since the zkvm allocator is a bump allocator
 }
 
-/// LLVM intrinsics that is not available in in the RiscV asm set used in SP1
+/// LLVM intrinsics that is not available in the RiscV asm set used in SP1
 /// needed by rust_secp256k1
 #[no_mangle]
 pub extern "C" fn __ctzsi2(x: u32) -> u32 {
