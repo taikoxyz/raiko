@@ -170,6 +170,10 @@ impl ProverState {
         // Read the config file.
         opts.merge_from_file()?;
 
+        Self::init_with_opts(opts)
+    }
+
+    pub fn init_with_opts(opts: Opts) -> HostResult<Self> {
         let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
             SupportedChainSpecs::merge_from_file(cs_path.clone()).unwrap_or_default()
         } else {
