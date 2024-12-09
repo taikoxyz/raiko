@@ -17,6 +17,7 @@ env:
 
 jobs:
   build-run-integration:
+    if: ${{ github.event.pull_request.draft == false }}
     name: Build and run integration
     runs-on: [taiko-runner]
     timeout-minutes: 120
