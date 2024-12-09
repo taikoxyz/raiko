@@ -489,9 +489,13 @@ The response should look like this:
 ```
 {
     "data": {
-        "output": null,
-        "proof": "0x00000206c3694ecb5c....6e0e7a36546bf98caa7bb4ac2cd4f917c2102116167e42c54849f15044c032e1c",
-        "quote": "03000200000000000a000f00939a72....0a2d2d2d2d2d454e442043455254494649434154452d2d2d2d2d0a00"
+        "proof": {
+            "input": "0x.....",
+            "kzg_proof": "null",
+            "proof": "0x.....",
+            "quote": "03000200000000000a000f00939a72....0a2d2d2d2d2d454e442043455254494649434154452d2d2d2d2d0a00",
+            "uuid": null
+        }
     },
     "status": "ok"
 }
