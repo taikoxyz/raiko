@@ -12,6 +12,7 @@ env:
 
 jobs:
   clippy:
+    if: ${{ github.event.pull_request.draft == false }}
     name: clippy
     runs-on: [taiko-runner]
     timeout-minutes: 30

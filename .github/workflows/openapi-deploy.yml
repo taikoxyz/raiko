@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   deploy-docs:
+    if: ${{ github.event.pull_request.draft == false }}
     name: Generate OpenAPI docs
     runs-on: [taiko-runner]
     environment:
