@@ -56,7 +56,7 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
             .await
             .expect("failed to send request")
         {
-            // Proof genration is in progress
+            // Proof generation is in progress
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Status { status, .. },
             } => {
@@ -66,7 +66,7 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
                 );
             }
 
-            // Proof genration is successfully completed
+            // Proof generation is successfully completed
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Proof { proof },
             } => {
@@ -74,7 +74,7 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
                 return;
             }
 
-            // Proof genration failed
+            // Proof generation failed
             api::v2::Status::Error { message, error } => {
                 panic!("proof generation failed, message: {message}, error: {error:?}");
             }
