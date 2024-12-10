@@ -1,106 +1,57 @@
-use raiko_core::interfaces::ProofRequestOpt;
-use raiko_host::server::api::{v1, v2};
-use raiko_tasks::{ProofTaskDescriptor, TaskStatus};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-const URL: &str = "http://localhost:8080";
-
-pub struct ProofClient {
+/// Raiko client.
+///
+/// Example:
+/// ```
+/// let client = Client::new("http://localhost:8080");
+/// let request =  raiko_host::server::api::v1::ProofRequest::default();
+/// let response = client.send_request("/v1/proof", &request).await?;
+/// ```
+pub struct Client {
+    url: String,
     reqwest_client: reqwest::Client,
 }
 
-impl ProofClient {
-    pub fn new() -> Self {
+impl Client {
+    pub fn new(url: String) -> Self {
         Self {
+            url,
             reqwest_client: reqwest::Client::new(),
         }
     }
 
-    pub async fn send_proof_v1(
+    pub async fn post<Request: Serialize, Response: DeserializeOwned + ?Sized>(
         &self,
-        proof_request: ProofRequestOpt,
-    ) -> anyhow::Result<v1::Status> {
+        path: &str,
+        request: &Request,
+    ) -> Result<Response, reqwest::Error> {
         let response = self
             .reqwest_client
-            .post(&format!("{URL}/v1/proof"))
-            .json(&proof_request)
+            .post(self.build_url(path))
+            .json(&request)
             .send()
             .await?;
 
-        if response.status().is_success() {
-            let proof_response = response.json::<v1::Status>().await?;
-            Ok(proof_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
+        if !response.status().is_success() {
+            return Err(response.error_for_status().unwrap_err());
         }
+
+        response.json().await
     }
 
-    pub async fn send_proof_v2(
-        &self,
-        proof_request: ProofRequestOpt,
-    ) -> anyhow::Result<v2::Status> {
-        let response = self
-            .reqwest_client
-            .post(&format!("{URL}/v2/proof"))
-            .json(&proof_request)
-            .send()
-            .await?;
+    pub async fn get(&self, path: &str) -> Result<reqwest::Response, reqwest::Error> {
+        let response = self.reqwest_client.get(self.build_url(path)).send().await?;
 
-        if response.status().is_success() {
-            let proof_response = response.json::<v2::Status>().await?;
-            Ok(proof_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
+        if !response.status().is_success() {
+            return Err(response.error_for_status().unwrap_err());
         }
+
+        Ok(response)
     }
 
-    pub async fn cancel_proof(
-        &self,
-        proof_request: ProofRequestOpt,
-    ) -> anyhow::Result<v2::CancelStatus> {
-        let response = self
-            .reqwest_client
-            .post(&format!("{URL}/v2/proof/cancel"))
-            .json(&proof_request)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let cancel_response = response.json::<v2::CancelStatus>().await?;
-            Ok(cancel_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
-        }
-    }
-
-    pub async fn prune_proof(&self) -> anyhow::Result<v2::PruneStatus> {
-        let response = self
-            .reqwest_client
-            .post(&format!("{URL}/v2/proof/prune"))
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let prune_response = response.json::<v2::PruneStatus>().await?;
-            Ok(prune_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
-        }
-    }
-
-    pub async fn report_proof(&self) -> anyhow::Result<Vec<(ProofTaskDescriptor, TaskStatus)>> {
-        let response = self
-            .reqwest_client
-            .get(&format!("{URL}/v2/proof/report"))
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let report_response = response
-                .json::<Vec<(ProofTaskDescriptor, TaskStatus)>>()
-                .await?;
-            Ok(report_response)
-        } else {
-            Err(anyhow::anyhow!("Failed to send proof request"))
-        }
+    fn build_url(&self, path: &str) -> String {
+        format!("{}/{}", self.url, path.trim_start_matches('/'))
     }
 }
