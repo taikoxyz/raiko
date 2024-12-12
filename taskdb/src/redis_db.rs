@@ -8,14 +8,16 @@
 
 // Imports
 // ----------------------------------------------------------------
+use backoff::ExponentialBackoff;
 use chrono::Utc;
 use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
 use redis::{
-    Client, Commands, Connection, ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite,
-    ToRedisArgs, Value,
+    Client, Commands, ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs,
+    Value,
 };
 use std::sync::{Arc, Once};
+use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
@@ -156,19 +158,34 @@ impl RedisTaskDb {
         Ok(RedisTaskDb { client, config })
     }
 
-    fn get_conn(&mut self) -> Result<Connection, RedisError> {
-        match self.client.get_connection() {
+    fn get_conn(&mut self) -> Result<redis::Connection, redis::RedisError> {
+        let backoff = ExponentialBackoff {
+            initial_interval: Duration::from_secs(10),
+            max_interval: Duration::from_secs(60),
+            max_elapsed_time: Some(Duration::from_secs(300)),
+            ..Default::default()
+        };
+
+        backoff::retry(backoff, || match self.client.get_connection() {
             Ok(conn) => Ok(conn),
-            Err(_) => {
-                error!(
-                    "Failed to get redis connection, try to reconnect {}",
-                    self.config.url
-                );
+            Err(e) => {
+                error!("Failed to connect to redis: {e:?}, retrying...");
                 self.client = redis::Client::open(self.config.url.clone())?;
-                self.client.get_connection()
+                Err(backoff::Error::Transient {
+                    err: e,
+                    retry_after: None,
+                })
             }
-        }
+        })
+        .map_err(|e| match e {
+            backoff::Error::Transient {
+                err,
+                retry_after: _,
+            }
+            | backoff::Error::Permanent(err) => err,
+        })
     }
+
     fn insert_proof_task(
         &mut self,
         key: &ProofTaskDescriptor,
