@@ -21,13 +21,13 @@ use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
 use crate::{
-    AggregationTaskDescriptor, ProofTaskDescriptor, TaskDescriptor, TaskManager, TaskManagerError,
-    TaskManagerOpts, TaskManagerResult, TaskProvingStatus, TaskProvingStatusRecords, TaskReport,
-    TaskStatus,
+    AggregationTaskDescriptor, AggregationTaskReport, ProofTaskDescriptor, TaskDescriptor,
+    TaskManager, TaskManagerError, TaskManagerOpts, TaskManagerResult, TaskProvingStatus,
+    TaskProvingStatusRecords, TaskReport, TaskStatus,
 };
 
 pub struct RedisTaskDb {
-    conn: Connection,
+    client: Client,
     config: RedisConfig,
 }
 
@@ -130,6 +130,19 @@ impl ToRedisArgs for TaskIdDescriptor {
     }
 }
 
+impl FromRedisValue for TaskIdDescriptor {
+    fn from_redis_value(v: &Value) -> RedisResult<Self> {
+        let serialized = String::from_redis_value(v)?;
+        let proof_key = serde_json::from_str(&serialized).map_err(|_| {
+            RedisError::from((
+                ErrorKind::TypeError,
+                "TaskIdDescriptor type conversion fail",
+            ))
+        })?;
+        Ok(TaskIdDescriptor(proof_key))
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct RedisConfig {
     url: String,
@@ -140,10 +153,18 @@ impl RedisTaskDb {
     fn new(config: RedisConfig) -> RedisDbResult<Self> {
         let url = config.url.clone();
         let client = Client::open(url).map_err(RedisDbError::RedisDb)?;
-        let conn = client.get_connection().map_err(RedisDbError::RedisDb)?;
-        Ok(RedisTaskDb { conn, config })
+        Ok(RedisTaskDb { client, config })
     }
 
+    fn get_conn(&mut self) -> Result<Connection, RedisError> {
+        match self.client.get_connection() {
+            Ok(conn) => Ok(conn),
+            Err(_) => {
+                self.client = redis::Client::open(self.config.url.clone())?;
+                self.client.get_connection()
+            }
+        }
+    }
     fn insert_proof_task(
         &mut self,
         key: &ProofTaskDescriptor,
@@ -165,7 +186,7 @@ impl RedisTaskDb {
         K: ToRedisArgs,
         V: ToRedisArgs,
     {
-        self.conn
+        self.get_conn()?
             .set_ex(key, value, self.config.ttl)
             .map_err(RedisDbError::RedisDb)?;
         Ok(())
@@ -219,7 +240,7 @@ impl RedisTaskDb {
     }
 
     fn query_redis(&mut self, key: &impl ToRedisArgs) -> RedisDbResult<Option<String>> {
-        match self.conn.get(key) {
+        match self.get_conn()?.get(key) {
             Ok(value) => Ok(Some(value)),
             Err(e) if e.kind() == redis::ErrorKind::TypeError => Ok(None),
             Err(e) => Err(RedisDbError::RedisDb(e)),
@@ -227,7 +248,7 @@ impl RedisTaskDb {
     }
 
     fn delete_redis(&mut self, key: &impl ToRedisArgs) -> RedisDbResult<()> {
-        let result: i32 = self.conn.del(key).map_err(RedisDbError::RedisDb)?;
+        let result: i32 = self.get_conn()?.del(key).map_err(RedisDbError::RedisDb)?;
         if result != 1 {
             return Err(RedisDbError::TaskManager("redis del".to_owned()));
         }
@@ -277,7 +298,7 @@ impl RedisTaskDb {
     }
 
     fn update_status_redis(&mut self, k: &String, v: &String) -> RedisDbResult<()> {
-        self.conn.set_ex(k, v, self.config.ttl)?;
+        self.get_conn()?.set_ex(k, v, self.config.ttl)?;
         Ok(())
     }
 }
@@ -378,12 +399,28 @@ impl RedisTaskDb {
     }
 
     fn prune(&mut self) -> RedisDbResult<()> {
-        todo!();
+        let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
+        for key in keys.iter() {
+            match (
+                ProofTaskDescriptor::from_redis_value(key),
+                AggregationTaskDescriptor::from_redis_value(key),
+            ) {
+                (Ok(desc), _) => {
+                    self.delete_redis(&desc)?;
+                }
+                (_, Ok(desc)) => {
+                    self.delete_redis(&desc)?;
+                }
+                _ => (),
+            }
+        }
+
+        Ok(())
     }
 
     fn list_all_tasks(&mut self) -> RedisDbResult<Vec<TaskReport>> {
         let mut kvs = Vec::new();
-        let keys: Vec<Value> = self.conn.keys("*").map_err(RedisDbError::RedisDb)?;
+        let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
         for key in keys.iter() {
             match (
                 ProofTaskDescriptor::from_redis_value(key),
@@ -497,20 +534,58 @@ impl RedisTaskDb {
     }
 
     fn get_db_size(&self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
-        todo!();
+        // todo
+        Ok((0, vec![]))
+    }
+
+    fn prune_aggregation(&mut self) -> RedisDbResult<()> {
+        let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
+        for key in keys.iter() {
+            match AggregationTaskDescriptor::from_redis_value(key) {
+                Ok(desc) => {
+                    self.delete_redis(&desc)?;
+                }
+                _ => (),
+            }
+        }
+        Ok(())
+    }
+
+    fn list_all_aggregation_tasks(&mut self) -> RedisDbResult<Vec<AggregationTaskReport>> {
+        let mut kvs: Vec<AggregationTaskReport> = Vec::new();
+        let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
+        for key in keys.iter() {
+            match AggregationTaskDescriptor::from_redis_value(key) {
+                Ok(desc) => {
+                    let status = self.query_aggregation_task_latest_status(&desc)?;
+                    status.map(|s| {
+                        kvs.push((
+                            AggregationOnlyRequest {
+                                aggregation_ids: desc.aggregation_ids,
+                                proof_type: desc.proof_type,
+                                ..Default::default()
+                            },
+                            s.0,
+                        ))
+                    });
+                }
+                _ => (),
+            }
+        }
+        Ok(kvs)
     }
 }
 
 impl RedisTaskDb {
-    async fn store_id(&mut self, key: ProofKey, id: String) -> RedisDbResult<()> {
+    fn store_id(&mut self, key: ProofKey, id: String) -> RedisDbResult<()> {
         self.insert_redis(&TaskIdDescriptor(key), &id)
     }
 
-    async fn remove_id(&mut self, key: ProofKey) -> RedisDbResult<()> {
+    fn remove_id(&mut self, key: ProofKey) -> RedisDbResult<()> {
         self.delete_redis(&TaskIdDescriptor(key))
     }
 
-    async fn read_id(&mut self, key: ProofKey) -> RedisDbResult<String> {
+    fn read_id(&mut self, key: ProofKey) -> RedisDbResult<String> {
         match self.query_redis(&TaskIdDescriptor(key)) {
             Ok(Some(v)) => Ok(v),
             Ok(None) => Err(RedisDbError::TaskManager(
@@ -523,7 +598,31 @@ impl RedisTaskDb {
     }
 
     fn list_stored_ids(&mut self) -> RedisDbResult<Vec<(ProofKey, String)>> {
-        todo!();
+        let mut kvs = Vec::new();
+        let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
+        for key in keys.iter() {
+            match TaskIdDescriptor::from_redis_value(key) {
+                Ok(desc) => {
+                    let status = self.query_redis(&desc)?;
+                    status.map(|s| kvs.push((desc.0, s)));
+                }
+                _ => (),
+            }
+        }
+        Ok(kvs)
+    }
+
+    fn prune_stored_ids(&mut self) -> RedisDbResult<()> {
+        let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
+        for key in keys.iter() {
+            match TaskIdDescriptor::from_redis_value(key) {
+                Ok(desc) => {
+                    self.delete_redis(&desc)?;
+                }
+                _ => (),
+            }
+        }
+        Ok(())
     }
 }
 
@@ -532,7 +631,6 @@ impl IdStore for RedisTaskManager {
     async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
         let mut db = self.arc_task_db.lock().await;
         db.read_id(key)
-            .await
             .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
@@ -542,14 +640,12 @@ impl IdWrite for RedisTaskManager {
     async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
         let mut db = self.arc_task_db.lock().await;
         db.store_id(key, id)
-            .await
             .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 
     async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
         let mut db = self.arc_task_db.lock().await;
         db.remove_id(key)
-            .await
             .map_err(|e| ProverError::StoreError(e.to_string()))
     }
 }
@@ -558,10 +654,10 @@ impl IdWrite for RedisTaskManager {
 impl TaskManager for RedisTaskManager {
     fn new(opts: &TaskManagerOpts) -> Self {
         static INIT: Once = Once::new();
-        static mut CONN: Option<Arc<Mutex<RedisTaskDb>>> = None;
+        static mut REDIS_DB: Option<Arc<Mutex<RedisTaskDb>>> = None;
         INIT.call_once(|| {
             unsafe {
-                CONN = Some(Arc::new(Mutex::new({
+                REDIS_DB = Some(Arc::new(Mutex::new({
                     let db = RedisTaskDb::new(RedisConfig {
                         url: opts.redis_url.clone(),
                         ttl: opts.redis_ttl.clone(),
@@ -572,7 +668,7 @@ impl TaskManager for RedisTaskManager {
             };
         });
         Self {
-            arc_task_db: unsafe { CONN.clone().unwrap() },
+            arc_task_db: unsafe { REDIS_DB.clone().unwrap() },
         }
     }
 
@@ -684,6 +780,22 @@ impl TaskManager for RedisTaskManager {
             .get_aggregation_task_proof(request)
             .map_err(TaskManagerError::RedisError)
     }
+
+    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()> {
+        let mut task_db = self.arc_task_db.lock().await;
+        task_db
+            .prune_aggregation()
+            .map_err(TaskManagerError::RedisError)
+    }
+
+    async fn list_all_aggregation_tasks(
+        &mut self,
+    ) -> TaskManagerResult<Vec<AggregationTaskReport>> {
+        let mut task_db = self.arc_task_db.lock().await;
+        task_db
+            .list_all_aggregation_tasks()
+            .map_err(TaskManagerError::RedisError)
+    }
 }
 
 #[cfg(test)]
@@ -710,5 +822,50 @@ mod tests {
         db.enqueue_task(&params).expect("enqueue task failed");
         let status = db.get_task_proving_status(&params);
         assert!(status.is_ok());
+    }
+
+    #[test]
+    fn test_db_enqueue_and_prune() {
+        let mut db = RedisTaskDb::new(RedisConfig {
+            url: "redis://localhost:6379".to_owned(),
+            ttl: 3600,
+        })
+        .unwrap();
+        let params = ProofTaskDescriptor {
+            chain_id: 1,
+            block_id: 1,
+            blockhash: B256::default(),
+            proof_system: ProofType::Native,
+            prover: "0x1234".to_owned(),
+        };
+        db.enqueue_task(&params).expect("enqueue task failed");
+        let status = db.get_task_proving_status(&params);
+        assert!(status.is_ok());
+
+        db.prune().expect("prune failed");
+        let status = db.get_task_proving_status(&params);
+        assert!(status.is_err());
+    }
+
+    #[test]
+    fn test_db_id_operatioins() {
+        let mut db = RedisTaskDb::new(RedisConfig {
+            url: "redis://localhost:6379".to_owned(),
+            ttl: 3600,
+        })
+        .unwrap();
+        db.prune_stored_ids().expect("prune ids failed");
+        let store_ids = db.list_stored_ids().expect("list ids failed");
+        assert_eq!(store_ids.len(), 0);
+
+        let params = (1, 1, B256::random(), 1);
+        db.store_id(params, "1-2-3-4".to_owned())
+            .expect("store id failed");
+        let store_ids = db.list_stored_ids().expect("list ids failed");
+        assert_eq!(store_ids.len(), 1);
+
+        db.remove_id(params).expect("remove id failed");
+        let store_ids = db.list_stored_ids().expect("list ids failed");
+        assert_eq!(store_ids.len(), 0);
     }
 }
