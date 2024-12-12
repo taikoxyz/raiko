@@ -4,19 +4,40 @@ on:
   workflow_call:
   pull_request:
     paths:
-      - "taskdb/src/**"
+      - "taskdb/**"
 
 jobs:
+  set-taskdb:
+    runs-on: ubuntu-latest
+    outputs:
+      taskdb: ${{ steps.check_file.outputs.taskdb }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check if specific file changed
+        id: check_file
+        run: |
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q 'taskdb/src/redis-db.rs'; then
+            echo "::set-output name=taskdb::raiko-tasks/redis-db"
+          else
+            echo "::set-output name=taskdb::"
+          fi
+
   build-test-native:
     name: Build and test native
+    needs: set-taskdb
     uses: ./.github/workflows/ci-build-test-reusable.yml
     with:
       version_name: "native"
       version_toolchain: "nightly-2024-04-17"
+      taskdb: ${{ needs.set-taskdb.outputs.taskdb }}
 
   integration-test-native:
     name: Run integration tests on native
+    needs: set-taskdb
     uses: ./.github/workflows/ci-integration-reusable.yml
     with:
       version_name: "native"
       version_toolchain: "nightly-2024-04-17"
+      taskdb: ${{ needs.set-taskdb.outputs.taskdb }}
