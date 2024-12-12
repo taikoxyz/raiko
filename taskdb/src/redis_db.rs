@@ -160,7 +160,10 @@ impl RedisTaskDb {
         match self.client.get_connection() {
             Ok(conn) => Ok(conn),
             Err(_) => {
-                error!("Failed to get redis connection, try to reconnect {}", self.config.url);
+                error!(
+                    "Failed to get redis connection, try to reconnect {}",
+                    self.config.url
+                );
                 self.client = redis::Client::open(self.config.url.clone())?;
                 self.client.get_connection()
             }
