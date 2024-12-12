@@ -1,6 +1,10 @@
 name: CI - Native
 
-on: workflow_call
+on: 
+  workflow_call:
+  pull_request:
+    paths:
+      - "taskdb/src/**"
 
 jobs:
   build-test-native:
