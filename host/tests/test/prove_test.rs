@@ -19,7 +19,7 @@ pub async fn test_v2_mainnet_native_prove() {
     );
 
     let (_server, client) = setup().await;
-    let request = make_proof_request(network, proof_type, block_number);
+    let request = make_proof_request(&network, &proof_type, block_number);
 
     let status: api::v2::Status = client
         .post("/v2/proof", &request)

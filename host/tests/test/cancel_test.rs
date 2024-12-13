@@ -14,7 +14,7 @@ pub async fn test_v2_mainnet_native_cancel() {
         .expect("randomly select block failed");
 
     let (_server, client) = setup().await;
-    let request = make_proof_request(network, proof_type, block_number);
+    let request = make_proof_request(&network, &proof_type, block_number);
 
     let status: api::v2::Status = client
         .post(&format!("/{api_version}/proof"), &request)
@@ -57,7 +57,7 @@ pub async fn test_v2_mainnet_native_cancel_non_registered() {
         .expect("randomly select block failed");
 
     let (_server, client) = setup().await;
-    let request = make_proof_request(network, proof_type, block_number);
+    let request = make_proof_request(&network, &proof_type, block_number);
 
     // Did not register the proof request, cancel should fail
     let status: api::v2::CancelStatus = client
@@ -80,7 +80,7 @@ pub async fn test_v2_mainnet_native_cancel_then_register() {
         .expect("randomly select block failed");
 
     let (_server, client) = setup().await;
-    let request = make_proof_request(network, proof_type, block_number);
+    let request = make_proof_request(&network, &proof_type, block_number);
 
     let status: api::v2::Status = client
         .post(&format!("/{api_version}/proof"), &request)
