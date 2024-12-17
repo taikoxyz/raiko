@@ -19,8 +19,10 @@ jobs:
         id: check_file
         run: |
           if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q 'taskdb/src/redis-db.rs'; then
+            echo "redis changed"
             echo "::set-output name=taskdb::raiko-tasks/redis-db"
           else
+            echo "redis unchanged"
             echo "::set-output name=taskdb::"
           fi
 
