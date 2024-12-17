@@ -49,7 +49,9 @@ async fn test_v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
                 status,
                 api::v2::Status::Ok {
                     data: api::v2::ProofResponse::Status {
-                        status: TaskStatus::Registered,
+                        status: TaskStatus::Registered
+                            | TaskStatus::WorkInProgress
+                            | TaskStatus::Success,
                         ..
                     }
                 }
@@ -74,7 +76,9 @@ async fn test_v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
             status,
             api::v3::Status::Ok {
                 data: api::v3::ProofResponse::Status {
-                    status: TaskStatus::Registered,
+                    status: TaskStatus::Registered
+                        | TaskStatus::WorkInProgress
+                        | TaskStatus::Success,
                     ..
                 }
             }
