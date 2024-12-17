@@ -266,8 +266,9 @@ impl Prover for Sp1Prover {
             block_inputs,
         };
         info!(
-            "Aggregating {:?} proofs with input: {aggregation_input:?}",
+            "Collect {:?} proofs aggregation pi inputs: {:?}",
             input.proofs.len(),
+            aggregation_input.block_inputs
         );
 
         let mut stdin = SP1Stdin::new();
@@ -316,7 +317,7 @@ impl Prover for Sp1Prover {
             let aggregation_pi = prove_result.clone().borrow_mut().public_values.raw();
             let fixture = RaikoProofFixture {
                 vkey: vk.bytes32().to_string(),
-                public_values: reth_primitives::hex::encode_prefixed(aggregation_pi),
+                public_values: aggregation_pi,
                 proof: proof_bytes.clone(),
             };
 
