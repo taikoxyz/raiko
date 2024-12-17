@@ -3,7 +3,7 @@ use raiko_host::server::api;
 use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_lib::prover::Proof;
-use raiko_tasks::{TaskReport, TaskStatus};
+use raiko_tasks::{TaskDescriptor, TaskReport, TaskStatus};
 use serde_json::json;
 
 use crate::common::Client;
@@ -37,9 +37,14 @@ pub fn make_proof_request(
             native: Some(json!({
                 "json_guest_input": json_guest_input,
             })),
+            risc0: Some(json!({
+                "bonsai": false, // run locally
+                "snark": false,
+                "profile": false,
+                "execution_po2" : 20, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
+            })),
             sgx: None,
             sp1: None,
-            risc0: None,
         },
     }
 }
@@ -69,9 +74,14 @@ pub async fn make_aggregate_proof_request(
             native: Some(json!({
                 "json_guest_input": json_guest_input,
             })),
+            risc0: Some(json!({
+                "bonsai": false, // run locally
+                "snark": false,
+                "profile": false,
+                "execution_po2" : 20, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
+            })),
             sgx: None,
             sp1: None,
-            risc0: None,
         },
     }
 }
@@ -89,9 +99,22 @@ pub async fn complete_proof_request(
 
 pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOpt) -> Proof {
     let start_time = std::time::Instant::now();
-    let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
+    let mut interval = tokio::time::interval(std::time::Duration::from_millis(2000));
     while start_time.elapsed().as_secs() < 60 * 60 {
         interval.tick().await;
+
+        let task_status = get_status_of_proof_request(client, request).await;
+        println!("[v2_complete_proof_request] task_status: {task_status:?}");
+
+        let task_status_code: i32 = task_status.clone().into();
+        assert!(
+            task_status_code >= -4000,
+            "proof generation failed, task_status: {task_status:?}, request: {request:?}",
+        );
+
+        if task_status != TaskStatus::Success {
+            continue;
+        }
 
         match client
             .post("/v2/proof", request)
@@ -141,9 +164,22 @@ pub async fn v3_complete_aggregate_proof_request(
     request: &AggregationOnlyRequest,
 ) -> Proof {
     let start_time = std::time::Instant::now();
-    let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
+    let mut interval = tokio::time::interval(std::time::Duration::from_millis(2000));
     while start_time.elapsed().as_secs() < 60 * 60 {
         interval.tick().await;
+
+        let task_status = get_status_of_aggregation_proof_request(client, request).await;
+        println!("[v3_complete_aggregate_proof_request] task_status: {task_status:?}");
+
+        let task_status_code: i32 = task_status.clone().into();
+        assert!(
+            task_status_code >= -4000,
+            "aggregation proof generation failed, task_status: {task_status:?}, request: {request:?}",
+        );
+
+        if task_status != TaskStatus::Success {
+            continue;
+        }
 
         match client
             .post("/v3/proof/aggregate", request)
@@ -164,7 +200,10 @@ pub async fn v3_complete_aggregate_proof_request(
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Proof { proof },
             } => {
-                println!("aggregation proof generation completed, proof: {}", json!(proof));
+                println!(
+                    "aggregation proof generation completed, proof: {}",
+                    json!(proof)
+                );
                 return proof;
             }
 
@@ -185,4 +224,36 @@ pub async fn v2_assert_report(client: &Client) -> Vec<TaskReport> {
         .await
         .expect("failed to send request");
     response.json().await.expect("failed to decode report body")
+}
+
+pub async fn get_status_of_proof_request(client: &Client, request: &ProofRequestOpt) -> TaskStatus {
+    let report = v2_assert_report(client).await;
+    for (task_descriptor, task_status) in report {
+        if let TaskDescriptor::SingleProof(proof_task_descriptor) = task_descriptor {
+            if proof_task_descriptor.block_id == request.block_number.unwrap()
+                && &proof_task_descriptor.proof_system.to_string()
+                    == request.proof_type.as_ref().unwrap()
+                && &proof_task_descriptor.prover == request.prover.as_ref().unwrap()
+            {
+                return task_status;
+            }
+        }
+    }
+    panic!("proof request not found in report: request: {request:?}");
+}
+
+pub async fn get_status_of_aggregation_proof_request(
+    client: &Client,
+    request: &AggregationOnlyRequest,
+) -> TaskStatus {
+    let expected_task_descriptor: TaskDescriptor = TaskDescriptor::Aggregation(request.into());
+    let report = v2_assert_report(client).await;
+    for (task_descriptor, task_status) in &report {
+        if task_descriptor == &expected_task_descriptor {
+            return task_status.clone();
+        }
+    }
+    panic!(
+        "aggregation proof request not found in report: report: {report:?}, request: {request:?}"
+    );
 }

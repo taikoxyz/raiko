@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use raiko_lib::consts::{Network, SupportedChainSpecs};
 use rand::Rng;
 use serde::Deserialize;
@@ -27,48 +29,46 @@ pub async fn randomly_select_block(network: Network) -> anyhow::Result<u64> {
         .unwrap()
         .rpc;
 
-    let tip_block_number = get_block_number(network).await?;
-    let random_block_number = rand::thread_rng().gen_range(1..tip_block_number);
+    println!("[randomly_select_block]: network: {network}, url: {beacon}");
 
+    let tip_block_number = get_block_number(network).await?;
+    let from_block_number = max(1, tip_block_number - 100);
+    let random_block_number = rand::thread_rng().gen_range(from_block_number..tip_block_number);
+
+    let mut min_gas_used = u64::MAX;
+    let mut min_gas_used_block_number = 0;
     for block_number in random_block_number..tip_block_number {
-        if is_zero_gas_used_block(&client, &beacon, block_number).await? {
-            return Ok(block_number);
+        let gas_used = get_block_gas_used(&client, &beacon, block_number).await?;
+
+        // Avoid the error "No BlockProposed event found for block"
+        if 200000 < gas_used && gas_used < min_gas_used {
+            min_gas_used = gas_used;
+            min_gas_used_block_number = block_number;
         }
     }
 
-    Err(anyhow::anyhow!("No zero gas used block found"))
+    if min_gas_used_block_number == 0 {
+        return Err(anyhow::anyhow!("No zero gas used block found"));
+    }
+
+    Ok(min_gas_used_block_number)
 }
 
 // NOTE: In order to avoid request collision during multiple tests running in parallel,
 //       we select a random block number to make the proof request unique.
 pub async fn randomly_select_blocks(network: Network, count: usize) -> anyhow::Result<Vec<u64>> {
-    let supported_chains = SupportedChainSpecs::default();
-    let client = reqwest::Client::new();
-    let beacon = supported_chains
-        .get_chain_spec(&network.to_string())
-        .unwrap()
-        .rpc;
-    let tip_block_number = get_block_number(network).await?;
-    let random_block_number = rand::thread_rng().gen_range(1..tip_block_number);
-
-    let mut selected = Vec::with_capacity(count);
-    for block_number in random_block_number..tip_block_number {
-        if !is_zero_gas_used_block(&client, &beacon, block_number).await? {
-            selected.push(block_number);
-            if selected.len() == count {
-                return Ok(selected);
-            }
-        }
+    let mut blocks = Vec::with_capacity(count);
+    for _ in 0..count {
+        blocks.push(randomly_select_block(network).await?);
     }
-
-    Err(anyhow::anyhow!("No enough zero gas used blocks found"))
+    Ok(blocks)
 }
 
-async fn is_zero_gas_used_block(
+async fn get_block_gas_used(
     client: &reqwest::Client,
     url: &str,
     block_number: u64,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<u64> {
     let response = client
         .post(url)
         .json(&serde_json::json!({
@@ -83,7 +83,7 @@ async fn is_zero_gas_used_block(
         .await?;
 
     let gas_used = u64::from_str_radix(&response.result.gas_used[2..], 16)?;
-    Ok(gas_used == 0)
+    Ok(gas_used)
 }
 
 pub(crate) async fn get_block_number(network: Network) -> anyhow::Result<u64> {

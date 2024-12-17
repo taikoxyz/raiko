@@ -203,7 +203,7 @@ pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TaskProvingStatusRecords(pub Vec<TaskProvingStatus>);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskDescriptor {
     SingleProof(ProofTaskDescriptor),
     Aggregation(AggregationTaskDescriptor),

@@ -47,6 +47,7 @@ impl TestServerBuilder {
         // Run the server in a separate thread with the ability to cancel it when our testing is done.
         let (state_, token_) = (state.clone(), token.clone());
         tokio::spawn(async move {
+            println!("Starting server on port {}", port);
             tokio::select! {
                 _ = token_.cancelled() => {
                     println!("Test done");
