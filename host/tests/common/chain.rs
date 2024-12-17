@@ -1,4 +1,7 @@
+use once_cell::sync::Lazy;
 use std::cmp::max;
+use std::collections::HashSet;
+use std::sync::Mutex;
 
 use raiko_lib::consts::{Network, SupportedChainSpecs};
 use rand::Rng;
@@ -18,6 +21,10 @@ pub(crate) struct Block {
 }
 
 pub(crate) type BlockResponse = RPCResult<Block>;
+
+// TODO: randomly select block, filter out the block with no BlockProposed event, order by gas used
+
+static SELECTED_BLOCKS: Lazy<Mutex<HashSet<u64>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
 // NOTE: In order to avoid request collision during multiple tests running in parallel,
 //       we select a random block number to make the proof request unique.
@@ -40,6 +47,10 @@ pub async fn randomly_select_block(network: Network) -> anyhow::Result<u64> {
     for block_number in random_block_number..tip_block_number {
         let gas_used = get_block_gas_used(&client, &beacon, block_number).await?;
 
+        if SELECTED_BLOCKS.lock().unwrap().contains(&block_number) {
+            continue;
+        }
+
         // Avoid the error "No BlockProposed event found for block"
         if 200000 < gas_used && gas_used < min_gas_used {
             min_gas_used = gas_used;
@@ -51,6 +62,10 @@ pub async fn randomly_select_block(network: Network) -> anyhow::Result<u64> {
         return Err(anyhow::anyhow!("No zero gas used block found"));
     }
 
+    SELECTED_BLOCKS
+        .lock()
+        .unwrap()
+        .insert(min_gas_used_block_number);
     Ok(min_gas_used_block_number)
 }
 
