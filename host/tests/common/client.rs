@@ -34,9 +34,11 @@ impl Client {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            return Err(response.error_for_status().unwrap_err());
-        }
+        assert!(
+            response.status().is_success(),
+            "reqwest post error: {}",
+            response.text().await?
+        );
 
         response.json().await
     }
@@ -44,9 +46,11 @@ impl Client {
     pub async fn get(&self, path: &str) -> Result<reqwest::Response, reqwest::Error> {
         let response = self.reqwest_client.get(self.build_url(path)).send().await?;
 
-        if !response.status().is_success() {
-            return Err(response.error_for_status().unwrap_err());
-        }
+        assert!(
+            response.status().is_success(),
+            "reqwest get error: {}",
+            response.text().await?
+        );
 
         Ok(response)
     }

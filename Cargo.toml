@@ -185,6 +185,9 @@ pathdiff = "0.2.1"
 dotenv = "0.15.0"
 backoff = "0.4.0"
 
+# test
+test-log = "0.2.16"
+
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
