@@ -1,5 +1,5 @@
 use crate::{
-    methods::risc0_guest::RISC0_GUEST_ID,
+    methods::RISC0_GUEST_ID,
     snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
 };
@@ -208,12 +208,15 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                 assumption_instances,
                 param.profile,
             ) {
-                Ok(receipt) => (Default::default(), receipt, false),
+                Ok(receipt) => {
+                    info!("end running local prover");
+                    (Default::default(), receipt, false)
+                }
                 Err(e) => {
                     warn!("Failed to prove locally: {e:?}");
-                    return Err(ProverError::GuestError(
-                        "Failed to prove locally".to_string(),
-                    ));
+                    return Err(ProverError::GuestError(format!(
+                        "Failed to prove locally: {e:?}"
+                    )));
                 }
             }
         };
@@ -223,7 +226,11 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
 
     // verify output
     let output_guest: O = receipt.journal.decode().unwrap();
-    if expected_output == &output_guest {
+    #[cfg(feature = "test-mock-guest")]
+    let success = true;
+    #[cfg(not(feature = "test-mock-guest"))]
+    let success = expected_output == &output_guest;
+    if success {
         info!("Prover succeeded");
     } else {
         error!("Output mismatch! Prover: {output_guest:?}, expected: {expected_output:?}");

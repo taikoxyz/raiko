@@ -14,6 +14,14 @@ name = "risc0-aggregation"
 path = "src/aggregation.rs"
 
 [[bin]]
+name = "risc0-guest-mock"
+path = "src/guest-mock.rs"
+
+[[bin]]
+name = "risc0-aggregation-mock"
+path = "src/aggregation-mock.rs"
+
+[[bin]]
 name = "sha256"
 path = "src/benchmark/sha256.rs"
 

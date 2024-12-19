@@ -6,22 +6,22 @@ use raiko_host::server::api;
 use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_tasks::TaskStatus;
+use test_log::test;
 
-#[tokio::test]
+#[test(tokio::test)]
 async fn test_v2_mainnet_aggregate_native() {
     test_v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Native).await;
 }
 
+// NOTE: Locally zkVM proof aggregation is not supported yet, we are not able to test it locally.
 #[ignore]
-#[cfg(feature = "risc0")]
-#[tokio::test]
+#[cfg(all(feature = "risc0", feature = "test-mock-guest"))]
+#[test(tokio::test)]
 async fn test_v2_mainnet_aggregate_risc0() {
     test_v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Risc0).await;
 }
 
 async fn test_v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
-    setup_mock_zkvm_elf();
-
     let api_version = "v2";
     let aggregate_block_count = 2;
 
@@ -91,9 +91,4 @@ async fn test_v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
 
     // santy check for report format
     v2_assert_report(&client).await;
-}
-
-// Use mock zkvm elf for testing
-fn setup_mock_zkvm_elf() {
-    std::env::set_var("RAIKO_MOCK_ZKVM_ELF", "true");
 }

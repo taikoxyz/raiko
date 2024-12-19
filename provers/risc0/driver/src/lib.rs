@@ -2,10 +2,7 @@
 
 #[cfg(feature = "bonsai-auto-scaling")]
 use crate::bonsai::auto_scaling::shutdown_bonsai;
-use crate::{
-    methods::risc0_aggregation::RISC0_AGGREGATION_ELF,
-    methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
-};
+use crate::methods::{RISC0_AGGREGATION_ELF, RISC0_GUEST_ELF, RISC0_GUEST_ID};
 use alloy_primitives::{hex::ToHexExt, B256};
 use bonsai::{cancel_proof, maybe_prove};
 use log::{info, warn};
@@ -223,8 +220,8 @@ impl Prover for Risc0Prover {
 #[cfg(test)]
 mod test {
     use super::*;
-    use methods::risc0_guest::RISC0_GUEST_ID;
     use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
+    use methods::RISC0_GUEST_ID;
     use risc0_zkvm::{default_prover, ExecutorEnv};
 
     #[test]

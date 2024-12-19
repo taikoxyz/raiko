@@ -135,7 +135,7 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Proof { proof },
             } => {
-                println!("proof generation completed, proof: {}", json!(proof));
+                println!("proof generation completed, request: {request:?}");
                 return proof;
             }
 
@@ -200,10 +200,7 @@ pub async fn v3_complete_aggregate_proof_request(
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Proof { proof },
             } => {
-                println!(
-                    "aggregation proof generation completed, proof: {}",
-                    json!(proof)
-                );
+                println!("aggregation proof generation completed, request: {request:?}");
                 return proof;
             }
 

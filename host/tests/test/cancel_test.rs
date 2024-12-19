@@ -3,12 +3,21 @@ use raiko_host::server::api;
 use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_tasks::TaskStatus;
+use test_log::test;
 
-#[tokio::test]
-pub async fn test_v2_mainnet_native_cancel() {
+#[cfg(all(feature = "risc0", feature = "test-mock-guest"))]
+#[test(tokio::test)]
+async fn test_v2_mainnet_risc0_cancel() {
+    test_v2_cancel(Network::TaikoMainnet, ProofType::Risc0).await;
+}
+
+#[test(tokio::test)]
+async fn test_v2_mainnet_native_cancel() {
+    test_v2_cancel(Network::TaikoMainnet, ProofType::Native).await;
+}
+
+async fn test_v2_cancel(network: Network, proof_type: ProofType) {
     let api_version = "v2";
-    let network = Network::TaikoMainnet;
-    let proof_type = ProofType::Native;
     let block_number = randomly_select_block(network)
         .await
         .expect("randomly select block failed");

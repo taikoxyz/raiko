@@ -3,6 +3,7 @@ use raiko_core::interfaces::{ProofRequestOpt, ProverSpecificOpts};
 use raiko_host::server::api;
 use raiko_tasks::TaskStatus;
 use serde_json::json;
+use test_log::test;
 
 /// This test is used to manually test the proof process. Operator can use this to test case to
 /// simplly test online service.
@@ -19,7 +20,7 @@ use serde_json::json;
 /// RAIKO_TEST_MANUAL_PROVE_RAIKO_RPC_URL=https://rpc.raiko.xyz \
 /// cargo test --test test_manual_prove -- --ignored
 /// ```
-#[tokio::test]
+#[test(tokio::test)]
 #[ignore]
 pub async fn test_manual_prove() {
     let enabled = std::env::var("RAIKO_TEST_MANUAL_PROVE_ENABLED").unwrap_or_default() == "false";
@@ -38,6 +39,14 @@ pub async fn test_manual_prove() {
     let raiko_rpc_url = std::env::var("RAIKO_TEST_MANUAL_PROVE_RAIKO_RPC_URL").unwrap_or_default();
 
     let client = Client::new(raiko_rpc_url.clone());
+
+    let json_guest_input = format!(
+        "make_prove_request_{}_{}_{}_{}.json",
+        network,
+        proof_type,
+        block_number,
+        std::time::Instant::now().elapsed().as_secs()
+    );
     let request = ProofRequestOpt {
         block_number: Some(block_number),
         network: Some(network.clone()),
@@ -52,10 +61,17 @@ pub async fn test_manual_prove() {
         prover: Some("0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_owned()),
         blob_proof_type: Some("proof_of_equivalence".to_string()),
         prover_args: ProverSpecificOpts {
-            native: None,
+            native: Some(json!({
+                "json_guest_input": json_guest_input,
+            })),
+            risc0: Some(json!({
+                "bonsai": false, // run locally
+                "snark": false,
+                "profile": false,
+                "execution_po2" : 20, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
+            })),
             sgx: None,
             sp1: None,
-            risc0: None,
         },
     };
 
