@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::{alloc, path::PathBuf};
 
 use anyhow::Context;
@@ -108,10 +110,11 @@ impl Opts {
 
     /// Read the options from a file and merge it with the current options.
     pub fn merge_from_file(&mut self) -> HostResult<()> {
-        let file = std::fs::File::open(&self.config_path)?;
+        let file = std::fs::File::open(&self.config_path).context("Failed to open config file")?;
         let reader = std::io::BufReader::new(file);
-        let mut config: Value = serde_json::from_reader(reader)?;
-        let this = serde_json::to_value(&self)?;
+        let mut config: Value =
+            serde_json::from_reader(reader).context("Failed to read config file")?;
+        let this = serde_json::to_value(&self).context("Failed to deserialize Opts")?;
         merge(&mut config, &this);
 
         *self = serde_json::from_value(config)?;
@@ -150,15 +153,17 @@ pub struct ProverState {
     pub opts: Opts,
     pub chain_specs: SupportedChainSpecs,
     pub task_channel: mpsc::Sender<Message>,
+    pause_flag: Arc<AtomicBool>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub enum Message {
     Cancel(ProofTaskDescriptor),
     Task(ProofRequest),
     TaskComplete(ProofRequest),
     CancelAggregate(AggregationOnlyRequest),
     Aggregate(AggregationOnlyRequest),
+    SystemPause(tokio::sync::oneshot::Sender<HostResult<()>>),
 }
 
 impl ProverState {
@@ -188,6 +193,7 @@ impl ProverState {
         }
 
         let (task_channel, receiver) = mpsc::channel::<Message>(opts.concurrency_limit);
+        let pause_flag = Arc::new(AtomicBool::new(false));
 
         let opts_clone = opts.clone();
         let chain_specs_clone = chain_specs.clone();
@@ -202,6 +208,7 @@ impl ProverState {
             opts,
             chain_specs,
             task_channel,
+            pause_flag,
         })
     }
 
@@ -211,6 +218,30 @@ impl ProverState {
 
     pub fn request_config(&self) -> ProofRequestOpt {
         self.opts.proof_request_opt.clone()
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.pause_flag.load(Ordering::SeqCst)
+    }
+
+    /// Set the pause flag and notify the task manager to pause, then wait for the task manager to
+    /// finish the pause process.
+    ///
+    /// Note that this function is blocking until the task manager finishes the pause process.
+    pub async fn set_pause(&self, paused: bool) -> HostResult<()> {
+        self.pause_flag.store(paused, Ordering::SeqCst);
+        if paused {
+            // Notify task manager to start pause process
+            let (sender, receiver) = tokio::sync::oneshot::channel();
+            self.task_channel
+                .try_send(Message::SystemPause(sender))
+                .context("Failed to send pause message")?;
+
+            // Wait for the pause message to be processed
+            let result = receiver.await.context("Failed to receive pause message")?;
+            return result;
+        }
+        Ok(())
     }
 }
 

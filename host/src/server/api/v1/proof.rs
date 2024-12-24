@@ -8,7 +8,7 @@ use crate::{
     interfaces::HostResult,
     metrics::{dec_current_req, inc_current_req, inc_guest_req_count, inc_host_req_count},
     proof::handle_proof,
-    server::api::v1::Status,
+    server::api::{util::ensure_not_paused, v1::Status},
     ProverState,
 };
 
@@ -35,6 +35,9 @@ async fn proof_handler(
     Json(req): Json<Value>,
 ) -> HostResult<Json<Status>> {
     inc_current_req();
+
+    ensure_not_paused(&prover_state)?;
+
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     let mut config = prover_state.request_config();

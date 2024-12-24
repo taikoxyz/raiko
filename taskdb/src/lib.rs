@@ -71,6 +71,7 @@ pub enum TaskStatus {
     GuestProverFailure(String),
     UnspecifiedFailureReason,
     TaskDbCorruption(String),
+    SystemPaused,
 }
 
 impl From<TaskStatus> for i32 {
@@ -92,6 +93,7 @@ impl From<TaskStatus> for i32 {
             TaskStatus::GuestProverFailure(_) => -7000,
             TaskStatus::UnspecifiedFailureReason => -8000,
             TaskStatus::TaskDbCorruption(_) => -9000,
+            TaskStatus::SystemPaused => -10000,
         }
     }
 }
@@ -115,6 +117,7 @@ impl From<i32> for TaskStatus {
             -7000 => TaskStatus::GuestProverFailure("".to_string()),
             -8000 => TaskStatus::UnspecifiedFailureReason,
             -9000 => TaskStatus::TaskDbCorruption("".to_string()),
+            -10000 => TaskStatus::SystemPaused,
             _ => TaskStatus::UnspecifiedFailureReason,
         }
     }

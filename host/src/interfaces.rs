@@ -72,6 +72,10 @@ pub enum HostError {
     /// For task manager errors.
     #[error("There was an error with the task manager: {0}")]
     TaskManager(#[from] TaskManagerError),
+
+    /// For system paused state.
+    #[error("System is paused")]
+    SystemPaused,
 }
 
 impl IntoResponse for HostError {
@@ -91,6 +95,7 @@ impl IntoResponse for HostError {
             HostError::Anyhow(e) => ("anyhow_error", e.to_string()),
             HostError::HandleDropped => ("handle_dropped", "".to_owned()),
             HostError::CapacityFull => ("capacity_full", "".to_owned()),
+            HostError::SystemPaused => ("system_paused", "".to_owned()),
         };
         let status = Status::Error {
             error: error.to_owned(),
@@ -130,6 +135,7 @@ impl From<HostError> for TaskStatus {
             HostError::RPC(e) => TaskStatus::NetworkFailure(e.to_string()),
             HostError::Guest(e) => TaskStatus::GuestProverFailure(e.to_string()),
             HostError::TaskManager(e) => TaskStatus::TaskDbCorruption(e.to_string()),
+            HostError::SystemPaused => TaskStatus::SystemPaused,
         }
     }
 }
@@ -151,6 +157,7 @@ impl From<&HostError> for TaskStatus {
             HostError::RPC(e) => TaskStatus::NetworkFailure(e.to_string()),
             HostError::Guest(e) => TaskStatus::GuestProverFailure(e.to_string()),
             HostError::TaskManager(e) => TaskStatus::TaskDbCorruption(e.to_string()),
+            HostError::SystemPaused => TaskStatus::SystemPaused,
         }
     }
 }

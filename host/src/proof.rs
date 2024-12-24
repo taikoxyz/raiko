@@ -302,6 +302,10 @@ impl ProofActor {
                         .expect("Couldn't acquire permit");
                     self.run_aggregate(request, permit).await;
                 }
+                Message::SystemPause(notifier) => {
+                    let result = self.handle_system_pause().await;
+                    let _ = notifier.send(result);
+                }
             }
         }
     }
@@ -383,6 +387,90 @@ impl ProofActor {
             .await?;
 
         Ok(())
+    }
+
+    async fn cancel_all_running_tasks(&mut self) -> HostResult<()> {
+        info!("Cancelling all running tasks");
+
+        // Clone all tasks to avoid holding locks to avoid deadlock, they will be locked by other
+        // internal functions.
+        let running_tasks = {
+            let running_tasks = self.running_tasks.lock().await;
+            (*running_tasks).clone()
+        };
+
+        // Cancel all running tasks, don't stop even if any task fails.
+        let mut final_result = Ok(());
+        for proof_task_descriptor in running_tasks.keys() {
+            match self.cancel_task(proof_task_descriptor.clone()).await {
+                Ok(()) => {
+                    info!(
+                        "Cancel task during system pause, task: {:?}",
+                        proof_task_descriptor
+                    );
+                }
+                Err(e) => {
+                    error!(
+                        "Failed to cancel task during system pause: {}, task: {:?}",
+                        e, proof_task_descriptor
+                    );
+                    final_result = final_result.and(Err(e));
+                }
+            }
+        }
+        final_result
+    }
+
+    async fn cancel_all_aggregation_tasks(&mut self) -> HostResult<()> {
+        info!("Cancelling all aggregation tasks");
+
+        // Clone all tasks to avoid holding locks to avoid deadlock, they will be locked by other
+        // internal functions.
+        let aggregate_tasks = {
+            let aggregate_tasks = self.aggregate_tasks.lock().await;
+            (*aggregate_tasks).clone()
+        };
+
+        // Cancel all aggregation tasks, don't stop even if any task fails.
+        let mut final_result = Ok(());
+        for request in aggregate_tasks.keys() {
+            match self.cancel_aggregation_task(request.clone()).await {
+                Ok(()) => {
+                    info!(
+                        "Cancel aggregation task during system pause, task: {}",
+                        request
+                    );
+                }
+                Err(e) => {
+                    error!(
+                        "Failed to cancel aggregation task during system pause: {}, task: {}",
+                        e, request
+                    );
+                    final_result = final_result.and(Err(e));
+                }
+            }
+        }
+        final_result
+    }
+
+    async fn handle_system_pause(&mut self) -> HostResult<()> {
+        info!("System pausing");
+
+        let mut final_result = Ok(());
+
+        self.pending_tasks.lock().await.clear();
+
+        if let Err(e) = self.cancel_all_running_tasks().await {
+            final_result = final_result.and(Err(e));
+        }
+
+        if let Err(e) = self.cancel_all_aggregation_tasks().await {
+            final_result = final_result.and(Err(e));
+        }
+
+        // TODO(Kero): make sure all tasks are saved to database, including pending tasks.
+
+        final_result
     }
 }
 
@@ -482,4 +570,169 @@ pub async fn handle_proof(
     )?;
 
     Ok(proof)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn test_handle_system_pause_happy_path() {
+        let (tx, rx) = mpsc::channel(100);
+        let mut actor = setup_actor_with_tasks(tx, rx);
+
+        let result = actor.handle_system_pause().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_handle_system_pause_with_pending_tasks() {
+        let (tx, rx) = mpsc::channel(100);
+        let mut actor = setup_actor_with_tasks(tx, rx);
+
+        // Add some pending tasks
+        actor.pending_tasks.lock().await.push_back(ProofRequest {
+            block_number: 1,
+            l1_inclusion_block_number: 1,
+            network: "test".to_string(),
+            l1_network: "test".to_string(),
+            graffiti: B256::ZERO,
+            prover: Default::default(),
+            proof_type: Default::default(),
+            blob_proof_type: Default::default(),
+            prover_args: HashMap::new(),
+        });
+
+        let result = actor.handle_system_pause().await;
+        assert!(result.is_ok());
+
+        // Verify pending tasks were cleared
+        assert_eq!(actor.pending_tasks.lock().await.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_handle_system_pause_with_running_tasks() {
+        let (tx, rx) = mpsc::channel(100);
+        let mut actor = setup_actor_with_tasks(tx, rx);
+
+        // Add some running tasks
+        let task_descriptor = ProofTaskDescriptor::default();
+        let cancellation_token = CancellationToken::new();
+        actor
+            .running_tasks
+            .lock()
+            .await
+            .insert(task_descriptor.clone(), cancellation_token.clone());
+
+        let result = actor.handle_system_pause().await;
+        assert!(result.is_ok());
+
+        // Verify running tasks were cancelled
+        assert!(cancellation_token.is_cancelled());
+
+        // TODO(Kero): Cancelled tasks should be removed from running_tasks
+        // assert_eq!(actor.running_tasks.lock().await.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_handle_system_pause_with_aggregation_tasks() {
+        let (tx, rx) = mpsc::channel(100);
+        let mut actor = setup_actor_with_tasks(tx, rx);
+
+        // Add some aggregation tasks
+        let request = AggregationOnlyRequest::default();
+        let cancellation_token = CancellationToken::new();
+        actor
+            .aggregate_tasks
+            .lock()
+            .await
+            .insert(request.clone(), cancellation_token.clone());
+
+        let result = actor.handle_system_pause().await;
+        assert!(result.is_ok());
+
+        // Verify aggregation tasks were cancelled
+        assert!(cancellation_token.is_cancelled());
+        // TODO(Kero): Cancelled tasks should be removed from aggregate_tasks
+        // assert_eq!(actor.aggregate_tasks.lock().await.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_handle_system_pause_with_failures() {
+        let (tx, rx) = mpsc::channel(100);
+        let mut actor = setup_actor_with_tasks(tx, rx);
+
+        // Add some pending tasks
+        {
+            actor.pending_tasks.lock().await.push_back(ProofRequest {
+                block_number: 1,
+                l1_inclusion_block_number: 1,
+                network: "test".to_string(),
+                l1_network: "test".to_string(),
+                graffiti: B256::ZERO,
+                prover: Default::default(),
+                proof_type: Default::default(),
+                blob_proof_type: Default::default(),
+                prover_args: HashMap::new(),
+            });
+        }
+
+        let good_running_task_token = {
+            // Add some running tasks
+            let task_descriptor = ProofTaskDescriptor::default();
+            let cancellation_token = CancellationToken::new();
+            actor
+                .running_tasks
+                .lock()
+                .await
+                .insert(task_descriptor.clone(), cancellation_token.clone());
+            cancellation_token
+        };
+
+        let good_aggregation_task_token = {
+            // Add some aggregation tasks
+            let request = AggregationOnlyRequest::default();
+            let cancellation_token = CancellationToken::new();
+            actor
+                .aggregate_tasks
+                .lock()
+                .await
+                .insert(request.clone(), cancellation_token.clone());
+            cancellation_token
+        };
+
+        // Setup tasks that will fail to cancel
+        {
+            let task_descriptor_should_fail_cause_not_supported_error = ProofTaskDescriptor {
+                proof_system: ProofType::Risc0,
+                ..Default::default()
+            };
+            actor.running_tasks.lock().await.insert(
+                task_descriptor_should_fail_cause_not_supported_error.clone(),
+                CancellationToken::new(),
+            );
+        }
+
+        let result = actor.handle_system_pause().await;
+
+        // Verify error contains all accumulated errors
+        assert!(matches!(
+            result,
+            Err(HostError::Core(RaikoError::FeatureNotSupportedError(..)))
+        ));
+        assert!(good_running_task_token.is_cancelled());
+        assert!(good_aggregation_task_token.is_cancelled());
+        assert!(actor.pending_tasks.lock().await.is_empty());
+    }
+
+    // Helper function to setup actor with common test configuration
+    fn setup_actor_with_tasks(tx: Sender<Message>, rx: Receiver<Message>) -> ProofActor {
+        let opts = Opts {
+            concurrency_limit: 4,
+            ..Default::default()
+        };
+
+        ProofActor::new(tx, rx, opts, SupportedChainSpecs::default())
+    }
 }

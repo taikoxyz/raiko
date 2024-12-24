@@ -1,6 +1,7 @@
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
+    server::api::util::ensure_not_paused,
     server::api::{v2, v3::Status},
     Message, ProverState,
 };
@@ -38,6 +39,9 @@ async fn proof_handler(
     Json(mut aggregation_request): Json<AggregationRequest>,
 ) -> HostResult<Status> {
     inc_current_req();
+
+    ensure_not_paused(&prover_state)?;
+
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     aggregation_request.merge(&prover_state.request_config())?;
@@ -229,4 +233,49 @@ pub fn create_router() -> Router<ProverState> {
         .nest("/report", v2::proof::report::create_router())
         .nest("/list", v2::proof::list::create_router())
         .nest("/prune", v2::proof::prune::create_router())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use clap::Parser;
+    use std::path::PathBuf;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_proof_handler_when_paused() {
+        let opts = {
+            let mut opts = crate::Opts::parse();
+            opts.config_path = PathBuf::from("../host/config/config.json");
+            opts.merge_from_file().unwrap();
+            opts
+        };
+        let state = ProverState::init_with_opts(opts).unwrap();
+        let app = Router::new()
+            .route("/", post(proof_handler))
+            .with_state(state.clone());
+
+        // Set pause flag
+        state.set_pause(true).await.unwrap();
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"block_numbers":[],"proof_type":"block","prover":"native"}"#,
+            ))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&body).contains("system_paused"),
+            "{:?}",
+            body
+        );
+    }
 }

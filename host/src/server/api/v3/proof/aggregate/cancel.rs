@@ -65,7 +65,8 @@ async fn cancel_handler(
         | TaskStatus::GuestProverFailure(_)
         | TaskStatus::InvalidOrUnsupportedBlock
         | TaskStatus::UnspecifiedFailureReason
-        | TaskStatus::TaskDbCorruption(_) => {
+        | TaskStatus::TaskDbCorruption(_)
+        | TaskStatus::SystemPaused => {
             should_signal_cancel = true;
             CancelStatus::Error {
                 error: "Task already completed".to_string(),
