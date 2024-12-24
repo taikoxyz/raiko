@@ -6,7 +6,6 @@ use crate::{
 use alloy_primitives::B256;
 use bonsai_sdk::blocking::{Client, SessionId};
 use log::{debug, error, info, warn};
-use once_cell::sync::OnceCell;
 use raiko_lib::{
     primitives::keccak::keccak,
     prover::{IdWrite, ProofKey, ProverError, ProverResult},
@@ -20,7 +19,6 @@ use std::{
     fmt::Debug,
     fs,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 use tokio::time::{sleep as tokio_async_sleep, Duration};
 
@@ -265,30 +263,6 @@ pub async fn cancel_proof(uuid: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-struct BonsaiClient {
-    pub(crate) client: Arc<Client>,
-}
-
-impl BonsaiClient {
-    pub fn instance(
-        encoded_image_id: &String,
-        elf: Vec<u8>,
-    ) -> Result<&'static BonsaiClient, BonsaiExecutionError> {
-        static INSTANCE: OnceCell<BonsaiClient> = OnceCell::new();
-
-        Ok(INSTANCE
-            .get_or_try_init(|| {
-                let client = Client::from_env(risc0_zkvm::VERSION)?;
-                client.upload_img(&encoded_image_id, elf)?;
-
-                Ok(BonsaiClient {
-                    client: Arc::new(client),
-                })
-            })
-            .map_err(|e| BonsaiExecutionError::SdkFailure(e))?)
-    }
-}
-
 pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     encoded_input: Vec<u32>,
     elf: &[u8],
@@ -305,9 +279,8 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     // Prepare input data
     let input_data = bytemuck::cast_slice(&encoded_input).to_vec();
 
-    let client = BonsaiClient::instance(&encoded_image_id, elf.to_vec())?
-        .client
-        .clone();
+    let client = Client::from_env(risc0_zkvm::VERSION)?;
+    client.upload_img(&encoded_image_id, elf.to_vec())?;
     // upload input
     let input_id = client.upload_input(input_data.clone())?;
 
