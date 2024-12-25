@@ -1,9 +1,6 @@
 use axum::{
-    body::HttpBody,
-    extract::Request,
+    extract::DefaultBodyLimit,
     http::{header, HeaderName, Method, StatusCode, Uri},
-    middleware::{self, Next},
-    response::Response,
     Router,
 };
 use tower::ServiceBuilder;
@@ -19,6 +16,8 @@ use crate::ProverState;
 pub mod v1;
 pub mod v2;
 pub mod v3;
+
+pub const MAX_BODY_SIZE: usize = 1 << 20;
 
 pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Router<ProverState> {
     let cors = CorsLayer::new()
@@ -46,7 +45,7 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
         .nest("/v3", v3_api.clone())
         .merge(v3_api)
         .layer(middleware)
-        .layer(middleware::from_fn(check_max_body_size))
+        .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
         .layer(trace)
         .fallback(|uri: Uri| async move {
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
@@ -62,20 +61,4 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
     v3::create_docs()
-}
-
-async fn check_max_body_size(req: Request, next: Next) -> Response {
-    const MAX_BODY_SIZE: u64 = 1 << 20;
-    let response_content_length = match req.body().size_hint().upper() {
-        Some(v) => v,
-        None => MAX_BODY_SIZE + 1,
-    };
-
-    if response_content_length > MAX_BODY_SIZE {
-        let mut resp = Response::new(axum::body::Body::from("request too large"));
-        *resp.status_mut() = StatusCode::BAD_REQUEST;
-        return resp;
-    }
-
-    next.run(req).await
 }
