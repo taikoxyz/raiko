@@ -1,6 +1,8 @@
 #![cfg(feature = "enable")]
 #![feature(iter_advance_by)]
 
+use dashmap::DashMap;
+use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
@@ -15,12 +17,15 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sp1_sdk::{
     action,
-    network::client::NetworkClient,
-    network::proto::network::{ProofMode, UnclaimReason},
-    NetworkProverV1 as NetworkProver, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
+    network::{
+        client::NetworkClient,
+        proto::network::{ProofMode, UnclaimReason},
+    },
+    NetworkProverV1 as NetworkProver, SP1Proof, SP1ProofWithPublicValues, SP1ProvingKey,
+    SP1VerifyingKey,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
-use std::{borrow::BorrowMut, env, time::Duration};
+use std::{borrow::BorrowMut, env, sync::Arc, time::Duration};
 use tracing::{debug, error, info};
 
 mod proof_verify;
@@ -63,7 +68,7 @@ impl From<RecursionMode> for ProofMode {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum ProverMode {
     Mock,
@@ -99,6 +104,17 @@ pub struct Sp1Response {
 
 pub struct Sp1Prover;
 
+#[derive(Clone)]
+struct Sp1ProverClient {
+    pub(crate) client: Arc<ProverClient>,
+    pub(crate) pk: SP1ProvingKey,
+    pub(crate) vk: SP1VerifyingKey,
+}
+
+//TODO: use prover object to save such local storage members.
+static BLOCK_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
+static AGGREGATION_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
+
 impl Prover for Sp1Prover {
     async fn run(
         input: GuestInput,
@@ -110,21 +126,28 @@ impl Prover for Sp1Prover {
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
         println!("param: {param:?}");
-
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 
-        // Generate the proof for the given program.
-        let client = param
-            .prover
-            .map(|mode| match mode {
-                ProverMode::Mock => ProverClient::mock(),
-                ProverMode::Local => ProverClient::local(),
-                ProverMode::Network => ProverClient::network(),
-            })
-            .unwrap_or_else(ProverClient::new);
+        let Sp1ProverClient { client, pk, vk } = BLOCK_PROOF_CLIENT
+            .entry(mode.clone())
+            .or_insert_with(|| {
+                let base_client = match mode {
+                    ProverMode::Mock => ProverClient::mock(),
+                    ProverMode::Local => ProverClient::local(),
+                    ProverMode::Network => ProverClient::network(),
+                };
 
-        let (pk, vk) = client.setup(ELF);
+                let client = Arc::new(base_client);
+                let (pk, vk) = client.setup(ELF);
+                info!(
+                    "new client and setup() for block {:?}.",
+                    output.header.number
+                );
+                Sp1ProverClient { client, pk, vk }
+            })
+            .clone();
+
         info!(
             "Sp1 Prover: block {:?} with vk {:?}",
             output.header.number,
@@ -214,7 +237,7 @@ impl Prover for Sp1Prover {
             Sp1Response {
                 proof: proof_string,
                 sp1_proof: Some(prove_result),
-                vkey: Some(vk),
+                vkey: Some(vk.clone()),
             }
             .into(),
         )
@@ -287,16 +310,28 @@ impl Prover for Sp1Prover {
         }
 
         // Generate the proof for the given program.
-        let client = param
-            .prover
-            .map(|mode| match mode {
-                ProverMode::Mock => ProverClient::mock(),
-                ProverMode::Local => ProverClient::local(),
-                ProverMode::Network => ProverClient::network(),
-            })
-            .unwrap_or_else(ProverClient::new);
+        let Sp1ProverClient { client, pk, vk } = AGGREGATION_CLIENT
+            .entry(param.prover.clone().unwrap_or_else(get_env_mock))
+            .or_insert_with(|| {
+                let base_client = param
+                    .prover
+                    .map(|mode| match mode {
+                        ProverMode::Mock => ProverClient::mock(),
+                        ProverMode::Local => ProverClient::local(),
+                        ProverMode::Network => ProverClient::network(),
+                    })
+                    .unwrap_or_else(ProverClient::new);
 
-        let (pk, vk) = client.setup(AGGREGATION_ELF);
+                let client = Arc::new(base_client);
+                let (pk, vk) = client.setup(AGGREGATION_ELF);
+                info!(
+                    "new client and setup() for aggregation based on {:?} proofs with vk {:?}",
+                    input.proofs.len(),
+                    vk.bytes32()
+                );
+                Sp1ProverClient { client, pk, vk }
+            })
+            .clone();
         info!(
             "sp1 aggregate: {:?} based {:?} blocks with vk {:?}",
             reth_primitives::hex::encode_prefixed(stark_vk.hash_bytes()),

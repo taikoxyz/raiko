@@ -35,7 +35,7 @@ bincode = { workspace = true }
 reth-primitives = { workspace = true }
 tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
-
+dashmap = { workspace = true }
 
 [build-dependencies]
 sp1-helper = { workspace = true, optional = true }
