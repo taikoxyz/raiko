@@ -4,7 +4,7 @@ use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, BlockDataProvider},
 };
-use alloy_primitives::{Address, Bytes, B256};
+use alloy_primitives::{Bytes, B256};
 use alloy_rpc_types::eth::{
     Block as AlloyEthBlock, EIP1186AccountProofResponse, Header as AlloyEthHeader,
 };
@@ -31,8 +31,6 @@ pub struct PreFlightRpcData {
     pub parent_header: AlloyEthHeader,
     /// The account proofs.
     pub account_proofs: Vec<EIP1186AccountProofResponse>,
-    /// The account code bytes.
-    pub account_codes: HashMap<Address, Bytes>,
     /// The parent account proofs.
     pub parent_account_proofs: Vec<EIP1186AccountProofResponse>,
     /// The contracts used.

@@ -118,8 +118,8 @@ impl BlockDataProvider for RethPreflightBlockDataProvider {
                 let nonce = account_proof.nonce;
                 let code_hash = account_proof.code_hash;
                 let code = preflight_data
-                    .account_codes
-                    .get(&account_proof.address)
+                    .contracts
+                    .get(&account_proof.code_hash)
                     .map(|code| Bytecode::new_raw(code.clone()))
                     .unwrap();
                 assert_eq!(code_hash, code.hash_slow());
