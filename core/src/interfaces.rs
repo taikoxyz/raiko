@@ -79,6 +79,58 @@ impl From<raiko_lib::mem_db::DbError> for RaikoError {
 
 pub type RaikoResult<T> = Result<T, RaikoError>;
 
+/// Get the proving image for a given proof type.
+pub fn get_proving_image(proof_type: ProofType) -> RaikoResult<(&'static [u8], &'static [u32; 8])> {
+    match proof_type {
+        ProofType::Native => Ok(NativeProver::current_proving_image()),
+        ProofType::Sp1 => {
+            #[cfg(feature = "sp1")]
+            return Ok(sp1_driver::Sp1Prover::current_proving_image());
+            #[cfg(not(feature = "sp1"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return Ok(risc0_driver::Risc0Prover::current_proving_image());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Sgx => {
+            #[cfg(feature = "sgx")]
+            return Ok(sgx_prover::SgxProver::current_proving_image());
+            #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+    }
+}
+
+/// Get the aggregation image for a given proof type.
+pub fn get_aggregation_image(
+    proof_type: ProofType,
+) -> RaikoResult<(&'static [u8], &'static [u32; 8])> {
+    match proof_type {
+        ProofType::Native => Ok(NativeProver::current_aggregation_image()),
+        ProofType::Sp1 => {
+            #[cfg(feature = "sp1")]
+            return Ok(sp1_driver::Sp1Prover::current_aggregation_image());
+            #[cfg(not(feature = "sp1"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return Ok(risc0_driver::Risc0Prover::current_aggregation_image());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Sgx => {
+            #[cfg(feature = "sgx")]
+            return Ok(sgx_prover::SgxProver::current_aggregation_image());
+            #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+    }
+}
+
 /// Run the prover driver depending on the proof type.
 pub async fn run_prover(
     proof_type: ProofType,
