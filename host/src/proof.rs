@@ -415,10 +415,12 @@ pub async fn handle_proof(
     // Execute the proof generation.
     let total_time = Measurement::start("", false);
 
+    let v2_preflight = std::env::var("V2_PREFLIGHT").is_ok();
     let raiko = Raiko::new(
         l1_chain_spec.clone(),
         taiko_chain_spec.clone(),
         proof_request.clone(),
+        v2_preflight,
     );
     let provider = RpcBlockDataProvider::new(
         &taiko_chain_spec.rpc.clone(),

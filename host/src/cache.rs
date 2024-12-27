@@ -113,6 +113,7 @@ mod test {
             l1_chain_spec.clone(),
             taiko_chain_spec.clone(),
             proof_request.clone(),
+            false,
         );
         let provider = RpcBlockDataProvider::new(
             &taiko_chain_spec.rpc.clone(),
