@@ -7,7 +7,7 @@ use utoipa::OpenApi;
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
-    server::api::v2::Status,
+    server::api::{util::ensure_not_paused, v2::Status},
     Message, ProverState,
 };
 
@@ -37,6 +37,9 @@ async fn proof_handler(
     Json(req): Json<Value>,
 ) -> HostResult<Status> {
     inc_current_req();
+
+    ensure_not_paused(&prover_state)?;
+
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     let mut config = prover_state.request_config();
