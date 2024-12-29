@@ -69,7 +69,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 {
     /// Creates a new block builder.
     pub fn new(input: &GuestInput, db: DB) -> RethBlockBuilder<DB> {
-        // original tx comes from guest input L1 event, which is a super set of input.block.body
+        // original tx comes from guest input L1 event, which should be a super set of input.block.body
         let original_txs = input
             .get_original_txs()
             .expect("get_original_txs should success");
