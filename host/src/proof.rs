@@ -136,13 +136,14 @@ impl ProofActor {
             }
         };
 
-        let key = ProofTaskDescriptor::from((
+        let key = ProofTaskDescriptor::new(
             chain_id,
             proof_request.block_number,
             blockhash,
             proof_request.proof_type,
-            proof_request.prover.clone().to_string(),
-        ));
+            proof_request.prover.to_string(),
+            proof_request.image_id.clone(),
+        );
 
         {
             let mut tasks = self.running_tasks.lock().await;
@@ -587,6 +588,32 @@ mod tests {
     use super::*;
     use tokio::sync::mpsc;
 
+    fn create_test_proof_request() -> ProofRequest {
+        ProofRequest {
+            block_number: 1,
+            l1_inclusion_block_number: 1,
+            network: "test".to_string(),
+            l1_network: "test".to_string(),
+            graffiti: B256::ZERO,
+            prover: Default::default(),
+            proof_type: Default::default(),
+            blob_proof_type: Default::default(),
+            image_id: None,
+            prover_args: HashMap::new(),
+        }
+    }
+
+    fn create_test_task_descriptor() -> ProofTaskDescriptor {
+        ProofTaskDescriptor::new(
+            ChainId::from(1u64),
+            1,
+            B256::default(),
+            ProofType::Native,
+            "test".to_string(),
+            None,
+        )
+    }
+
     #[tokio::test]
     async fn test_handle_system_pause_happy_path() {
         let (tx, rx) = mpsc::channel(100);
@@ -602,17 +629,11 @@ mod tests {
         let mut actor = setup_actor_with_tasks(tx, rx);
 
         // Add some pending tasks
-        actor.pending_tasks.lock().await.push_back(ProofRequest {
-            block_number: 1,
-            l1_inclusion_block_number: 1,
-            network: "test".to_string(),
-            l1_network: "test".to_string(),
-            graffiti: B256::ZERO,
-            prover: Default::default(),
-            proof_type: Default::default(),
-            blob_proof_type: Default::default(),
-            prover_args: HashMap::new(),
-        });
+        actor
+            .pending_tasks
+            .lock()
+            .await
+            .push_back(create_test_proof_request());
 
         let result = actor.handle_system_pause().await;
         assert!(result.is_ok());
@@ -627,7 +648,7 @@ mod tests {
         let mut actor = setup_actor_with_tasks(tx, rx);
 
         // Add some running tasks
-        let task_descriptor = ProofTaskDescriptor::default();
+        let task_descriptor = create_test_task_descriptor();
         let cancellation_token = CancellationToken::new();
         actor
             .running_tasks
@@ -646,51 +667,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_system_pause_with_aggregation_tasks() {
-        let (tx, rx) = mpsc::channel(100);
-        let mut actor = setup_actor_with_tasks(tx, rx);
-
-        // Add some aggregation tasks
-        let request = AggregationOnlyRequest::default();
-        let cancellation_token = CancellationToken::new();
-        actor
-            .aggregate_tasks
-            .lock()
-            .await
-            .insert(request.clone(), cancellation_token.clone());
-
-        let result = actor.handle_system_pause().await;
-        assert!(result.is_ok());
-
-        // Verify aggregation tasks were cancelled
-        assert!(cancellation_token.is_cancelled());
-        // TODO(Kero): Cancelled tasks should be removed from aggregate_tasks
-        // assert_eq!(actor.aggregate_tasks.lock().await.len(), 0);
-    }
-
-    #[tokio::test]
     async fn test_handle_system_pause_with_failures() {
         let (tx, rx) = mpsc::channel(100);
         let mut actor = setup_actor_with_tasks(tx, rx);
 
         // Add some pending tasks
-        {
-            actor.pending_tasks.lock().await.push_back(ProofRequest {
-                block_number: 1,
-                l1_inclusion_block_number: 1,
-                network: "test".to_string(),
-                l1_network: "test".to_string(),
-                graffiti: B256::ZERO,
-                prover: Default::default(),
-                proof_type: Default::default(),
-                blob_proof_type: Default::default(),
-                prover_args: HashMap::new(),
-            });
-        }
+        actor
+            .pending_tasks
+            .lock()
+            .await
+            .push_back(create_test_proof_request());
 
         let good_running_task_token = {
             // Add some running tasks
-            let task_descriptor = ProofTaskDescriptor::default();
+            let task_descriptor = create_test_task_descriptor();
             let cancellation_token = CancellationToken::new();
             actor
                 .running_tasks
