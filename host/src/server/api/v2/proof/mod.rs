@@ -7,7 +7,10 @@ use utoipa::OpenApi;
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
-    server::api::{util::ensure_not_paused, v2::Status},
+    server::api::{
+        util::{ensure_not_paused, ensure_proof_request_image_id},
+        v2::Status,
+    },
     Message, ProverState,
 };
 
@@ -44,6 +47,8 @@ async fn proof_handler(
     // options with the request from the client.
     let mut config = prover_state.request_config();
     config.merge(&req)?;
+
+    ensure_proof_request_image_id(&mut config)?;
 
     // Construct the actual proof request from the available configs.
     let proof_request = ProofRequest::try_from(config)?;

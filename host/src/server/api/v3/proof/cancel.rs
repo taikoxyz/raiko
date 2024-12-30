@@ -6,7 +6,14 @@ use raiko_core::{
 use raiko_tasks::{ProofTaskDescriptor, TaskManager, TaskStatus};
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, ProverState};
+use crate::{
+    interfaces::HostResult,
+    server::api::{
+        util::{ensure_aggregation_request_image_id, ensure_not_paused},
+        v2::CancelStatus,
+    },
+    Message, ProverState,
+};
 
 #[utoipa::path(post, path = "/proof/cancel",
     tag = "Proving",
@@ -31,6 +38,9 @@ async fn cancel_handler(
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     aggregation_request.merge(&prover_state.request_config())?;
+
+    ensure_not_paused(&prover_state)?;
+    ensure_aggregation_request_image_id(&mut aggregation_request)?;
 
     let proof_request_opts: Vec<ProofRequestOpt> = aggregation_request.into();
 
