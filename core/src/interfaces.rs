@@ -378,6 +378,8 @@ pub struct AggregationRequest {
     pub proof_type: Option<String>,
     /// Blob proof type.
     pub blob_proof_type: Option<String>,
+    /// The guest image id for RISC0/SP1 provers.
+    pub image_id: Option<String>,
     #[serde(flatten)]
     /// Any additional prover params in JSON format.
     pub prover_args: ProverSpecificOpts,
@@ -409,6 +411,7 @@ impl From<AggregationRequest> for Vec<ProofRequestOpt> {
                     prover: value.prover.clone(),
                     proof_type: value.proof_type.clone(),
                     blob_proof_type: value.blob_proof_type.clone(),
+                    image_id: value.image_id.clone(),
                     prover_args: value.prover_args.clone(),
                 },
             )
@@ -432,7 +435,20 @@ impl From<ProofRequestOpt> for AggregationRequest {
             prover: value.prover,
             proof_type: value.proof_type,
             blob_proof_type: value.blob_proof_type,
+            image_id: value.image_id,
             prover_args: value.prover_args,
+        }
+    }
+}
+
+impl From<(AggregationRequest, Vec<Proof>)> for AggregationOnlyRequest {
+    fn from((request, proofs): (AggregationRequest, Vec<Proof>)) -> Self {
+        Self {
+            proofs,
+            aggregation_ids: request.block_numbers.iter().map(|(id, _)| *id).collect(),
+            proof_type: request.proof_type,
+            image_id: request.image_id,
+            prover_args: request.prover_args,
         }
     }
 }
@@ -459,18 +475,6 @@ impl Display for AggregationOnlyRequest {
             "AggregationOnlyRequest {{{:?}, {:?}}}",
             self.aggregation_ids, self.proof_type
         ))
-    }
-}
-
-impl From<(AggregationRequest, Vec<Proof>)> for AggregationOnlyRequest {
-    fn from((request, proofs): (AggregationRequest, Vec<Proof>)) -> Self {
-        Self {
-            proofs,
-            aggregation_ids: request.block_numbers.iter().map(|(id, _)| *id).collect(),
-            proof_type: request.proof_type,
-            image_id: None,
-            prover_args: request.prover_args,
-        }
     }
 }
 
