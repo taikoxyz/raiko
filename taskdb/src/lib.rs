@@ -154,28 +154,9 @@ pub struct ProofTaskDescriptor {
 
 impl ProofTaskDescriptor {
     /// Create a new ProofTaskDescriptor.
-    /// For RISC0 and SP1 provers, it will try to get the image id from environment variables
-    /// if not provided explicitly.
+    /// For RISC0 and SP1 provers, if image_id is None, it will try to get the image id
+    /// from environment variables.
     pub fn new(
-        chain_id: ChainId,
-        block_id: u64,
-        blockhash: B256,
-        proof_system: ProofType,
-        prover: String,
-    ) -> Self {
-        let image_id = raiko_lib::prover_util::get_prover_image_id(&proof_system);
-        Self {
-            chain_id,
-            block_id,
-            blockhash,
-            proof_system,
-            prover,
-            image_id,
-        }
-    }
-
-    /// Create a new ProofTaskDescriptor with a specific image id.
-    pub fn with_image_id(
         chain_id: ChainId,
         block_id: u64,
         blockhash: B256,
@@ -183,6 +164,8 @@ impl ProofTaskDescriptor {
         prover: String,
         image_id: Option<String>,
     ) -> Self {
+        let image_id =
+            image_id.or_else(|| raiko_lib::prover_util::get_prover_image_id(&proof_system));
         Self {
             chain_id,
             block_id,
@@ -205,7 +188,7 @@ impl From<(ChainId, u64, B256, ProofType, String)> for ProofTaskDescriptor {
             String,
         ),
     ) -> Self {
-        Self::new(chain_id, block_id, blockhash, proof_system, prover)
+        Self::new(chain_id, block_id, blockhash, proof_system, prover, None)
     }
 }
 
@@ -505,11 +488,12 @@ mod test {
         assert_eq!(
             task_manager
                 .enqueue_task(&ProofTaskDescriptor::new(
-                    1.into(),
+                    ChainId::from(1u64),
                     block_id,
                     B256::default(),
                     ProofType::Native,
                     "test".to_string(),
+                    None,
                 ))
                 .await
                 .unwrap()
@@ -529,11 +513,12 @@ mod test {
         let mut task_manager = TaskManagerWrapperImpl::new(&opts);
         let block_id = rand::thread_rng().gen_range(0..1000000);
         let key = ProofTaskDescriptor::new(
-            1.into(),
+            ChainId::from(1u64),
             block_id,
             B256::default(),
             ProofType::Native,
             "test".to_string(),
+            None,
         );
 
         assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
