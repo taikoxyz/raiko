@@ -217,6 +217,8 @@ pub struct ProofRequest {
     pub proof_type: ProofType,
     /// Blob proof type.
     pub blob_proof_type: BlobProofType,
+    /// The guest image id for RISC0/SP1 provers.
+    pub image_id: Option<String>,
     #[serde(flatten)]
     /// Additional prover params.
     pub prover_args: HashMap<String, Value>,
@@ -251,6 +253,9 @@ pub struct ProofRequestOpt {
     pub proof_type: Option<String>,
     /// Blob proof type.
     pub blob_proof_type: Option<String>,
+    #[arg(long, require_equals = true)]
+    /// The guest image id for RISC0/SP1 provers.
+    pub image_id: Option<String>,
     #[command(flatten)]
     #[serde(flatten)]
     /// Any additional prover params in JSON format.
@@ -349,6 +354,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 .map_err(|_| {
                     RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
                 })?,
+            image_id: value.image_id,
             prover_args: value.prover_args.into(),
         })
     }
@@ -441,6 +447,7 @@ pub struct AggregationOnlyRequest {
     pub proofs: Vec<Proof>,
     /// The proof type.
     pub proof_type: Option<String>,
+    pub image_id: Option<String>,
     #[serde(flatten)]
     /// Any additional prover params in JSON format.
     pub prover_args: ProverSpecificOpts,
@@ -461,6 +468,7 @@ impl From<(AggregationRequest, Vec<Proof>)> for AggregationOnlyRequest {
             proofs,
             aggregation_ids: request.block_numbers.iter().map(|(id, _)| *id).collect(),
             proof_type: request.proof_type,
+            image_id: None,
             prover_args: request.prover_args,
         }
     }
