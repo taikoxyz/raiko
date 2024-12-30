@@ -26,7 +26,6 @@ pub mod primitives;
 pub mod proof_type;
 pub mod protocol_instance;
 pub mod prover;
-pub mod prover_util;
 pub mod utils;
 
 #[cfg(not(target_os = "zkvm"))]

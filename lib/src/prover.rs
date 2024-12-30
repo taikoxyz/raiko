@@ -90,7 +90,11 @@ pub fn encode_image_id(image_id: &[u32; 8]) -> String {
 
 /// A helper function to decode image id from hex string.
 pub fn decode_image_id(hex_image_id: &str) -> Result<[u32; 8], hex::FromHexError> {
-    let bytes: Vec<u8> = hex::decode(hex_image_id)?;
+    let bytes: Vec<u8> = if let Some(stripped) = hex_image_id.strip_prefix("0x") {
+        hex::decode(stripped)?
+    } else {
+        hex::decode(hex_image_id)?
+    };
     let array: &[u32] = bytemuck::cast_slice::<u8, u32>(&bytes);
     let result: [u32; 8] = array.try_into().expect("invalid hex image id");
     Ok(result)
@@ -112,6 +116,9 @@ mod test {
             "3947266e11ba7ecd9b7bc5ae79f683a868c35afff30b55990abd855f32ddb0e0"
         );
         let decoded = decode_image_id(&encoded).unwrap();
+        assert_eq!(decoded, image_id);
+
+        let decoded = decode_image_id(&format!("0x{encoded}")).unwrap();
         assert_eq!(decoded, image_id);
     }
 }

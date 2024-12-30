@@ -1,5 +1,7 @@
-use raiko_core::interfaces::{AggregationRequest, ProofRequestOpt};
-use raiko_lib::proof_type::ProofType;
+use raiko_core::interfaces::{
+    get_aggregation_image, get_proving_image, AggregationRequest, ProofRequestOpt,
+};
+use raiko_lib::{proof_type::ProofType, prover::encode_image_id};
 
 use crate::{
     interfaces::{HostError, HostResult},
@@ -41,8 +43,8 @@ pub fn ensure_proof_request_image_id(proof_request_opt: &mut ProofRequestOpt) ->
                 Some(image_id) => {
                     // Temporarily workaround for RISC0/SP1 proof type: assert that the image_id is the same with `get_aggregation_image_id()`,
                     // that means we don't support custom image_id for RISC0/SP1 proof type.
-                    let supported_image_id =
-                        raiko_lib::prover_util::get_proving_image_id(&proof_type);
+                    let (_, supported_image_id) = get_proving_image(proof_type)?;
+                    let supported_image_id = encode_image_id(supported_image_id);
                     if *image_id != supported_image_id {
                         return Err(HostError::InvalidRequestConfig(
                                 format!(
@@ -54,8 +56,9 @@ pub fn ensure_proof_request_image_id(proof_request_opt: &mut ProofRequestOpt) ->
                 }
                 None => {
                     // If image_id is None, fill it with the default value
-                    proof_request_opt.image_id =
-                        Some(raiko_lib::prover_util::get_proving_image_id(&proof_type));
+                    let (_, supported_image_id) = get_proving_image(proof_type)?;
+                    let supported_image_id = encode_image_id(supported_image_id);
+                    proof_request_opt.image_id = Some(supported_image_id);
                 }
             }
         }
@@ -93,8 +96,8 @@ pub fn ensure_aggregation_request_image_id(
                 Some(image_id) => {
                     // Temporarily workaround for RISC0/SP1 proof type: assert that the image_id is the same with `get_aggregation_image_id()`,
                     // that means we don't support custom image_id for RISC0/SP1 proof type.
-                    let supported_image_id =
-                        raiko_lib::prover_util::get_aggregation_image_id(&proof_type);
+                    let (_, supported_image_id) = get_aggregation_image(proof_type)?;
+                    let supported_image_id = encode_image_id(supported_image_id);
                     if *image_id != supported_image_id {
                         return Err(HostError::InvalidRequestConfig(
                                 format!(
@@ -106,9 +109,9 @@ pub fn ensure_aggregation_request_image_id(
                 }
                 None => {
                     // If image_id is None, fill it with the default value
-                    aggregation_request.image_id = Some(
-                        raiko_lib::prover_util::get_aggregation_image_id(&proof_type),
-                    );
+                    let (_, supported_image_id) = get_aggregation_image(proof_type)?;
+                    let supported_image_id = encode_image_id(supported_image_id);
+                    aggregation_request.image_id = Some(supported_image_id);
                 }
             }
         }
