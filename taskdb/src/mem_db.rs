@@ -447,13 +447,14 @@ mod tests {
     #[test]
     fn test_db_enqueue() {
         let mut db = InMemoryTaskDb::new();
-        let params = ProofTaskDescriptor {
-            chain_id: 1,
-            block_id: 1,
-            blockhash: B256::default(),
-            proof_system: ProofType::Native,
-            prover: "0x1234".to_owned(),
-        };
+        let params = ProofTaskDescriptor::new(
+            1,
+            1,
+            B256::default(),
+            ProofType::Native,
+            "0x1234".to_owned(),
+            None,
+        );
         db.enqueue_task(&params).expect("enqueue task");
         let status = db.get_task_proving_status(&params);
         assert!(status.is_ok());

@@ -586,6 +586,7 @@ pub async fn handle_proof(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_primitives::ChainId;
     use tokio::sync::mpsc;
 
     fn create_test_proof_request() -> ProofRequest {
