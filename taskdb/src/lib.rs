@@ -154,8 +154,7 @@ pub struct ProofTaskDescriptor {
 
 impl ProofTaskDescriptor {
     /// Create a new ProofTaskDescriptor.
-    /// For RISC0 and SP1 provers, if image_id is None, it will try to get the image id
-    /// from environment variables.
+    /// For RISC0 and SP1 provers, image_id should be provided.
     pub fn new(
         chain_id: ChainId,
         block_id: u64,
@@ -164,8 +163,10 @@ impl ProofTaskDescriptor {
         prover: String,
         image_id: Option<String>,
     ) -> Self {
-        let image_id =
-            image_id.or_else(|| raiko_lib::prover_util::get_prover_image_id(&proof_system));
+        debug_assert!(
+            matches!(proof_system, ProofType::Native | ProofType::Sgx) || image_id.is_some(),
+            "RISC0/SP1 provers require image_id to be provided"
+        );
         Self {
             chain_id,
             block_id,
@@ -174,21 +175,6 @@ impl ProofTaskDescriptor {
             prover,
             image_id,
         }
-    }
-}
-
-// Keep the From implementation for backward compatibility, but use the new constructor internally
-impl From<(ChainId, u64, B256, ProofType, String)> for ProofTaskDescriptor {
-    fn from(
-        (chain_id, block_id, blockhash, proof_system, prover): (
-            ChainId,
-            u64,
-            B256,
-            ProofType,
-            String,
-        ),
-    ) -> Self {
-        Self::new(chain_id, block_id, blockhash, proof_system, prover, None)
     }
 }
 
