@@ -57,13 +57,14 @@ async fn proof_handler(
     )
     .await?;
 
-    let key = ProofTaskDescriptor::from((
+    let key = ProofTaskDescriptor::new(
         chain_id,
         proof_request.block_number,
         blockhash,
         proof_request.proof_type,
         proof_request.prover.to_string(),
-    ));
+        proof_request.image_id.clone(),
+    );
 
     let mut manager = prover_state.task_manager();
     let status = manager.get_task_proving_status(&key).await?;

@@ -44,13 +44,14 @@ async fn cancel_handler(
         )
         .await?;
 
-        let key = ProofTaskDescriptor::from((
+        let key = ProofTaskDescriptor::new(
             chain_id,
             proof_request.block_number,
             block_hash,
             proof_request.proof_type,
-            proof_request.prover.clone().to_string(),
-        ));
+            proof_request.prover.to_string(),
+            proof_request.image_id.clone(),
+        );
 
         prover_state
             .task_channel

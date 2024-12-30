@@ -68,13 +68,14 @@ async fn proof_handler(
         )
         .await?;
 
-        let key = ProofTaskDescriptor::from((
+        let key = ProofTaskDescriptor::new(
             chain_id,
             proof_request.block_number,
             blockhash,
             proof_request.proof_type,
             proof_request.prover.to_string(),
-        ));
+            proof_request.image_id.clone(),
+        );
 
         tasks.push((key, proof_request));
     }
