@@ -1,4 +1,7 @@
-use std::io::{Error as IOError, ErrorKind as IOErrorKind};
+use std::{
+    io::{Error as IOError, ErrorKind as IOErrorKind},
+    str::FromStr,
+};
 
 use chrono::{DateTime, Utc};
 use raiko_core::interfaces::AggregationOnlyRequest;
@@ -139,13 +142,14 @@ impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ProofTaskDescriptor {
     pub chain_id: ChainId,
     pub block_id: u64,
     pub blockhash: B256,
     pub proof_system: ProofType,
     pub prover: String,
+    pub image_id: Option<String>,
 }
 
 impl From<(ChainId, u64, B256, ProofType, String)> for ProofTaskDescriptor {
@@ -158,12 +162,27 @@ impl From<(ChainId, u64, B256, ProofType, String)> for ProofTaskDescriptor {
             String,
         ),
     ) -> Self {
+        let image_id = raiko_lib::prover_util::get_prover_image_id(&proof_system);
         ProofTaskDescriptor {
             chain_id,
             block_id,
             blockhash,
             proof_system,
             prover,
+            image_id,
+        }
+    }
+}
+
+impl Default for ProofTaskDescriptor {
+    fn default() -> Self {
+        Self {
+            chain_id: Default::default(),
+            block_id: Default::default(),
+            blockhash: Default::default(),
+            proof_system: Default::default(),
+            prover: Default::default(),
+            image_id: None,
         }
     }
 }
@@ -182,19 +201,26 @@ impl From<ProofTaskDescriptor> for (ChainId, B256) {
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(default)]
-/// A request for proof aggregation of multiple proofs.
 pub struct AggregationTaskDescriptor {
-    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
     pub aggregation_ids: Vec<u64>,
-    /// The proof type.
     pub proof_type: Option<String>,
+    pub image_id: Option<String>,
 }
 
 impl From<&AggregationOnlyRequest> for AggregationTaskDescriptor {
     fn from(request: &AggregationOnlyRequest) -> Self {
+        let proof_type = request.proof_type.clone();
+        let image_id = request.image_id.clone().or_else(|| {
+            proof_type
+                .as_ref()
+                .and_then(|pt| ProofType::from_str(pt).ok())
+                .and_then(|pt| raiko_lib::prover_util::get_aggregation_image_id(&pt))
+        });
+
         Self {
             aggregation_ids: request.aggregation_ids.clone(),
-            proof_type: request.proof_type.clone().map(|p| p.to_string()),
+            proof_type,
+            image_id,
         }
     }
 }
@@ -423,7 +449,7 @@ impl<T: TaskManager> TaskManager for TaskManagerWrapper<T> {
 
 #[cfg(feature = "in-memory")]
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<InMemoryTaskManager>;
-#[cfg(feature = "redis-db")]
+#[cfg(all(feature = "redis-db", not(feature = "in-memory")))]
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<RedisTaskManager>;
 
 #[cfg(test)]
@@ -449,6 +475,7 @@ mod test {
                     blockhash: B256::default(),
                     proof_system: ProofType::Native,
                     prover: "test".to_string(),
+                    image_id: None,
                 })
                 .await
                 .unwrap()
@@ -473,6 +500,7 @@ mod test {
             blockhash: B256::default(),
             proof_system: ProofType::Native,
             prover: "test".to_string(),
+            image_id: None,
         };
 
         assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
