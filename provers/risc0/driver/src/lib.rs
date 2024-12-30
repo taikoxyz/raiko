@@ -241,12 +241,12 @@ impl Prover for Risc0Prover {
 
     fn current_proving_image() -> (&'static [u8], &'static [u32; 8]) {
         use crate::methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID};
-        (&RISC0_GUEST_ELF, &RISC0_GUEST_ID)
+        (RISC0_GUEST_ELF, &RISC0_GUEST_ID)
     }
 
     fn current_aggregation_image() -> (&'static [u8], &'static [u32; 8]) {
         use crate::methods::risc0_aggregation::{RISC0_AGGREGATION_ELF, RISC0_AGGREGATION_ID};
-        (&RISC0_AGGREGATION_ELF, &RISC0_AGGREGATION_ID)
+        (RISC0_AGGREGATION_ELF, &RISC0_AGGREGATION_ID)
     }
 }
 

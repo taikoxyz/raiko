@@ -145,7 +145,7 @@ impl Prover for Sp1Prover {
                     "Sp1 Prover: block {:?} with vk {:?} image_id {}",
                     output.header.number,
                     vk.bytes32(),
-                    encode_image_id(&image_id)
+                    encode_image_id(image_id)
                 );
                 Sp1ProverClient { client, pk, vk }
             })

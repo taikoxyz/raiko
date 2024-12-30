@@ -142,7 +142,7 @@ impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub struct ProofTaskDescriptor {
     pub chain_id: ChainId,
     pub block_id: u64,
@@ -174,19 +174,6 @@ impl ProofTaskDescriptor {
             proof_system,
             prover,
             image_id,
-        }
-    }
-}
-
-impl Default for ProofTaskDescriptor {
-    fn default() -> Self {
-        Self {
-            chain_id: Default::default(),
-            block_id: Default::default(),
-            blockhash: Default::default(),
-            proof_system: Default::default(),
-            prover: Default::default(),
-            image_id: None,
         }
     }
 }
