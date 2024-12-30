@@ -211,21 +211,32 @@ pub struct AggregationTaskDescriptor {
     pub image_id: Option<String>,
 }
 
-impl From<&AggregationOnlyRequest> for AggregationTaskDescriptor {
-    fn from(request: &AggregationOnlyRequest) -> Self {
-        let proof_type = request.proof_type.clone();
-        let image_id = request.image_id.clone().or_else(|| {
-            proof_type
-                .as_ref()
-                .and_then(|pt| ProofType::from_str(pt).ok())
-                .and_then(|pt| raiko_lib::prover_util::get_aggregation_image_id(&pt))
-        });
+impl TryFrom<&AggregationOnlyRequest> for AggregationTaskDescriptor {
+    type Error = String;
 
-        Self {
-            aggregation_ids: request.aggregation_ids.clone(),
-            proof_type,
-            image_id,
+    fn try_from(request: &AggregationOnlyRequest) -> Result<Self, Self::Error> {
+        // Check if we need an image ID for this proof type
+        if let Some(pt) = request
+            .proof_type
+            .as_ref()
+            .and_then(|pt| ProofType::from_str(pt).ok())
+        {
+            match pt {
+                ProofType::Risc0 | ProofType::Sp1 if request.image_id.is_none() => {
+                    return Err("RISC0/SP1 provers require image_id to be provided".to_string());
+                }
+                ProofType::Native | ProofType::Sgx if request.image_id.is_some() => {
+                    return Err("Native/SGX provers must not have image_id".to_string());
+                }
+                _ => {}
+            }
         }
+
+        Ok(Self {
+            aggregation_ids: request.aggregation_ids.clone(),
+            proof_type: request.proof_type.clone(),
+            image_id: request.image_id.clone(),
+        })
     }
 }
 

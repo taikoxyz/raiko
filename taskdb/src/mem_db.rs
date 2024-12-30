@@ -135,7 +135,11 @@ impl InMemoryTaskDb {
             .filter_map(|(desc, statuses)| {
                 statuses.0.last().map(|s| {
                     (
-                        TaskDescriptor::Aggregation(AggregationTaskDescriptor::from(desc)),
+                        TaskDescriptor::Aggregation(
+                            AggregationTaskDescriptor::try_from(desc).expect(
+                                "invalid AggregationOnlyRequest detected in Memory DB, please report this issue",
+                            ),
+                        ),
                         s.0.clone(),
                     )
                 })
