@@ -151,6 +151,7 @@ async fn proof_handler(
             proofs,
             proof_type: aggregation_request.proof_type,
             prover_args: aggregation_request.prover_args,
+            image_id: aggregation_request.image_id,
         };
 
         let status = manager
