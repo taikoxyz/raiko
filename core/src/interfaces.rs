@@ -33,11 +33,6 @@ pub enum RaikoError {
     #[schema(value_type = Value)]
     FeatureNotSupportedError(ProofType),
 
-    /// For missing guest image ID.
-    #[error("Missing guest image ID for {0}")]
-    #[schema(value_type = Value)]
-    MissingImageId(ProofType),
-
     /// For invalid type conversion.
     #[error("Invalid conversion: {0}")]
     Conversion(String),
@@ -334,8 +329,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             ProofType::Risc0 | ProofType::Sp1 => value
                 .image_id
                 .clone()
-                .or_else(|| raiko_lib::prover_util::get_prover_image_id(&proof_type))
-                .ok_or_else(|| RaikoError::MissingImageId(proof_type))?,
+                .ok_or_else(|| RaikoError::InvalidRequestConfig("Missing image_id".to_string()))?,
             _ => value.image_id.unwrap_or_default(),
         };
 
