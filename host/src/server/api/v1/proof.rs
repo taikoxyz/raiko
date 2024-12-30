@@ -8,7 +8,10 @@ use crate::{
     interfaces::HostResult,
     metrics::{dec_current_req, inc_current_req, inc_guest_req_count, inc_host_req_count},
     proof::handle_proof,
-    server::api::{util::ensure_not_paused, v1::Status},
+    server::api::{
+        util::{ensure_not_paused, ensure_proof_request_image_id},
+        v1::Status,
+    },
     ProverState,
 };
 
@@ -42,6 +45,8 @@ async fn proof_handler(
     // options with the request from the client.
     let mut config = prover_state.request_config();
     config.merge(&req)?;
+
+    ensure_proof_request_image_id(&mut config)?;
 
     // Construct the actual proof request from the available configs.
     let proof_request = ProofRequest::try_from(config)?;

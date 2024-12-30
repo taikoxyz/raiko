@@ -108,6 +108,7 @@ mod test {
             blob_proof_type: BlobProofType::KzgVersionedHash,
             prover_args: Default::default(),
             l1_inclusion_block_number: 0,
+            image_id: None,
         };
         let raiko = Raiko::new(
             l1_chain_spec.clone(),

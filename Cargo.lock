@@ -6139,6 +6139,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
+ "bytemuck",
  "cfg-if",
  "chrono",
  "flate2",

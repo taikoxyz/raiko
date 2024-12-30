@@ -465,7 +465,9 @@ impl RedisTaskDb {
 
     fn enqueue_aggregation_task(&mut self, request: &AggregationOnlyRequest) -> RedisDbResult<()> {
         let task_status = (TaskStatus::Registered, None, Utc::now());
-        let agg_task_descriptor = request.into();
+        let agg_task_descriptor = request
+            .try_into()
+            .map_err(|e: String| RedisDbError::TaskManager(e))?;
         match self.query_aggregation_task(&agg_task_descriptor)? {
             Some(task_proving_records) => {
                 info!(
@@ -488,7 +490,9 @@ impl RedisTaskDb {
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> RedisDbResult<TaskProvingStatusRecords> {
-        let agg_task_descriptor = request.into();
+        let agg_task_descriptor = request
+            .try_into()
+            .map_err(|e: String| RedisDbError::TaskManager(e))?;
         match self.query_aggregation_task(&agg_task_descriptor)? {
             Some(records) => Ok(records),
             None => Err(RedisDbError::KeyNotFound(
@@ -503,7 +507,9 @@ impl RedisTaskDb {
         status: TaskStatus,
         proof: Option<&[u8]>,
     ) -> RedisDbResult<()> {
-        let agg_task_descriptor = request.into();
+        let agg_task_descriptor = request
+            .try_into()
+            .map_err(|e: String| RedisDbError::TaskManager(e))?;
         match self.query_aggregation_task(&agg_task_descriptor)? {
             Some(records) => {
                 if let Some(latest) = records.0.last() {
@@ -528,7 +534,9 @@ impl RedisTaskDb {
         &mut self,
         request: &AggregationOnlyRequest,
     ) -> RedisDbResult<Vec<u8>> {
-        let agg_task_descriptor = request.into();
+        let agg_task_descriptor = request
+            .try_into()
+            .map_err(|e: String| RedisDbError::TaskManager(e))?;
         let proving_status_records = self
             .query_aggregation_task(&agg_task_descriptor)?
             .unwrap_or_default();
