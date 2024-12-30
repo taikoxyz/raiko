@@ -33,6 +33,11 @@ pub enum RaikoError {
     #[schema(value_type = Value)]
     FeatureNotSupportedError(ProofType),
 
+    /// For missing guest image ID.
+    #[error("Missing guest image ID for {0}")]
+    #[schema(value_type = Value)]
+    MissingImageId(ProofType),
+
     /// For invalid type conversion.
     #[error("Invalid conversion: {0}")]
     Conversion(String),
@@ -315,6 +320,25 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
     type Error = RaikoError;
 
     fn try_from(value: ProofRequestOpt) -> Result<Self, Self::Error> {
+        let proof_type = value
+            .proof_type
+            .as_ref()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing proof_type".to_string(),
+            ))?
+            .parse()
+            .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?;
+
+        // Check if we need an image ID for this proof type
+        let image_id = match &proof_type {
+            ProofType::Risc0 | ProofType::Sp1 => value
+                .image_id
+                .clone()
+                .or_else(|| raiko_lib::prover_util::get_prover_image_id(&proof_type))
+                .ok_or_else(|| RaikoError::MissingImageId(proof_type))?,
+            _ => value.image_id.unwrap_or_default(),
+        };
+
         Ok(Self {
             block_number: value.block_number.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing block number".to_string(),
@@ -340,13 +364,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 ))?
                 .parse()
                 .map_err(|_| RaikoError::InvalidRequestConfig("Invalid prover".to_string()))?,
-            proof_type: value
-                .proof_type
-                .ok_or(RaikoError::InvalidRequestConfig(
-                    "Missing proof_type".to_string(),
-                ))?
-                .parse()
-                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
+            proof_type,
             blob_proof_type: value
                 .blob_proof_type
                 .unwrap_or("proof_of_equivalence".to_string())
@@ -354,7 +372,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                 .map_err(|_| {
                     RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
                 })?,
-            image_id: value.image_id,
+            image_id: Some(image_id),
             prover_args: value.prover_args.into(),
         })
     }
