@@ -231,7 +231,7 @@ impl RedisTaskDb {
                 } else {
                     error!("Failed to deserialize TaskProvingStatusRecords");
                     Err(RedisDbError::TaskManager(
-                        format!("Failed to deserialize TaskProvingStatusRecords").to_owned(),
+                        "Failed to deserialize TaskProvingStatusRecords".to_string(),
                     ))
                 }
             }
@@ -309,7 +309,7 @@ impl RedisTaskDb {
         key: &AggregationTaskDescriptor,
         new_status: TaskProvingStatus,
     ) -> RedisDbResult<()> {
-        let old_value = self.query_aggregation_task(key.into()).unwrap_or_default();
+        let old_value = self.query_aggregation_task(key).unwrap_or_default();
         let mut records = match old_value {
             Some(v) => v,
             None => {
@@ -457,11 +457,15 @@ impl RedisTaskDb {
             ) {
                 (Ok(desc), _) => {
                     let status = self.query_proof_task_latest_status(&desc)?;
-                    status.map(|s| kvs.push((TaskDescriptor::SingleProof(desc), s.0)));
+                    if let Some(s) = status {
+                        kvs.push((TaskDescriptor::SingleProof(desc), s.0))
+                    }
                 }
                 (_, Ok(desc)) => {
                     let status = self.query_aggregation_task_latest_status(&desc)?;
-                    status.map(|s| kvs.push((TaskDescriptor::Aggregation(desc), s.0)));
+                    if let Some(s) = status {
+                        kvs.push((TaskDescriptor::Aggregation(desc), s.0))
+                    }
                 }
                 _ => (),
             }
@@ -578,11 +582,8 @@ impl RedisTaskDb {
     fn prune_aggregation(&mut self) -> RedisDbResult<()> {
         let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
         for key in keys.iter() {
-            match AggregationTaskDescriptor::from_redis_value(key) {
-                Ok(desc) => {
-                    self.delete_redis(&desc)?;
-                }
-                _ => (),
+            if let Ok(desc) = AggregationTaskDescriptor::from_redis_value(key) {
+                self.delete_redis(&desc)?;
             }
         }
         Ok(())
@@ -592,21 +593,18 @@ impl RedisTaskDb {
         let mut kvs: Vec<AggregationTaskReport> = Vec::new();
         let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
         for key in keys.iter() {
-            match AggregationTaskDescriptor::from_redis_value(key) {
-                Ok(desc) => {
-                    let status = self.query_aggregation_task_latest_status(&desc)?;
-                    status.map(|s| {
-                        kvs.push((
-                            AggregationOnlyRequest {
-                                aggregation_ids: desc.aggregation_ids,
-                                proof_type: desc.proof_type,
-                                ..Default::default()
-                            },
-                            s.0,
-                        ))
-                    });
+            if let Ok(desc) = AggregationTaskDescriptor::from_redis_value(key) {
+                let status = self.query_aggregation_task_latest_status(&desc)?;
+                if let Some(s) = status {
+                    kvs.push((
+                        AggregationOnlyRequest {
+                            aggregation_ids: desc.aggregation_ids,
+                            proof_type: desc.proof_type,
+                            ..Default::default()
+                        },
+                        s.0,
+                    ));
                 }
-                _ => (),
             }
         }
         Ok(kvs)
@@ -638,12 +636,11 @@ impl RedisTaskDb {
         let mut kvs = Vec::new();
         let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
         for key in keys.iter() {
-            match TaskIdDescriptor::from_redis_value(key) {
-                Ok(desc) => {
-                    let status = self.query_redis(&desc)?;
-                    status.map(|s| kvs.push((desc.0, s)));
+            if let Ok(desc) = TaskIdDescriptor::from_redis_value(key) {
+                let status = self.query_redis(&desc)?;
+                if let Some(s) = status {
+                    kvs.push((desc.0, s));
                 }
-                _ => (),
             }
         }
         Ok(kvs)
@@ -652,11 +649,8 @@ impl RedisTaskDb {
     fn prune_stored_ids(&mut self) -> RedisDbResult<()> {
         let keys: Vec<Value> = self.get_conn()?.keys("*").map_err(RedisDbError::RedisDb)?;
         for key in keys.iter() {
-            match TaskIdDescriptor::from_redis_value(key) {
-                Ok(desc) => {
-                    self.delete_redis(&desc)?;
-                }
-                _ => (),
+            if let Ok(desc) = TaskIdDescriptor::from_redis_value(key) {
+                self.delete_redis(&desc)?;
             }
         }
         Ok(())
@@ -695,14 +689,13 @@ impl TaskManager for RedisTaskManager {
         static mut REDIS_DB: Option<Arc<Mutex<RedisTaskDb>>> = None;
         INIT.call_once(|| {
             unsafe {
-                REDIS_DB = Some(Arc::new(Mutex::new({
-                    let db = RedisTaskDb::new(RedisConfig {
+                REDIS_DB = Some(Arc::new(Mutex::new(
+                    RedisTaskDb::new(RedisConfig {
                         url: opts.redis_url.clone(),
-                        ttl: opts.redis_ttl.clone(),
+                        ttl: opts.redis_ttl,
                     })
-                    .unwrap();
-                    db
-                })))
+                    .unwrap(),
+                )))
             };
         });
         Self {
@@ -868,6 +861,7 @@ mod tests {
             blockhash: B256::default(),
             proof_system: ProofType::Native,
             prover: "0x1234".to_owned(),
+            image_id: None,
         };
         db.enqueue_task(&params).expect("enqueue task failed");
         let status = db.get_task_proving_status(&params);
@@ -887,6 +881,7 @@ mod tests {
             blockhash: B256::default(),
             proof_system: ProofType::Native,
             prover: "0x1234".to_owned(),
+            image_id: None,
         };
         db.enqueue_task(&params).expect("enqueue task failed");
         let status = db.get_task_proving_status(&params);
