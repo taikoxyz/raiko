@@ -48,6 +48,11 @@ async fn proof_handler(
     let mut config = prover_state.request_config();
     config.merge(&req)?;
 
+    // TODO: remove this assert after we support custom image_id for RISC0/SP1 proof type
+    assert!(
+        config.image_id.is_none(),
+        "currently we don't support custom image_id for RISC0/SP1 proof type"
+    );
     ensure_proof_request_image_id(&mut config)?;
 
     // Construct the actual proof request from the available configs.

@@ -44,6 +44,12 @@ async fn proof_handler(
     inc_current_req();
 
     ensure_not_paused(&prover_state)?;
+
+    // TODO: remove this assert after we support custom image_id for RISC0/SP1 proof type
+    assert!(
+        aggregation_request.image_id.is_none(),
+        "currently we don't support custom image_id for RISC0/SP1 proof type"
+    );
     ensure_aggregation_request_image_id(&mut aggregation_request)?;
 
     // Override the existing proof request config from the config file and command line
