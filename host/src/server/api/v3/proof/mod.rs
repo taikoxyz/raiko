@@ -256,7 +256,8 @@ mod tests {
     use std::path::PathBuf;
     use tower::ServiceExt;
 
-    #[tokio::test]
+    #[serial_test::serial]
+    #[test_log::test(tokio::test)]
     async fn test_proof_handler_when_paused() {
         let opts = {
             let mut opts = crate::Opts::parse();

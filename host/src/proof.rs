@@ -616,7 +616,8 @@ mod tests {
         )
     }
 
-    #[tokio::test]
+    #[serial_test::serial]
+    #[test_log::test(tokio::test)]
     async fn test_handle_system_pause_happy_path() {
         let (tx, rx) = mpsc::channel(100);
         let mut actor = setup_actor_with_tasks(tx, rx);
@@ -625,7 +626,8 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[serial_test::serial]
+    #[test_log::test(tokio::test)]
     async fn test_handle_system_pause_with_pending_tasks() {
         let (tx, rx) = mpsc::channel(100);
         let mut actor = setup_actor_with_tasks(tx, rx);
@@ -644,7 +646,8 @@ mod tests {
         assert_eq!(actor.pending_tasks.lock().await.len(), 0);
     }
 
-    #[tokio::test]
+    #[serial_test::serial]
+    #[test_log::test(tokio::test)]
     async fn test_handle_system_pause_with_running_tasks() {
         let (tx, rx) = mpsc::channel(100);
         let mut actor = setup_actor_with_tasks(tx, rx);
@@ -668,7 +671,8 @@ mod tests {
         // assert_eq!(actor.running_tasks.lock().await.len(), 0);
     }
 
-    #[tokio::test]
+    #[serial_test::serial]
+    #[test_log::test(tokio::test)]
     async fn test_handle_system_pause_with_failures() {
         let (tx, rx) = mpsc::channel(100);
         let mut actor = setup_actor_with_tasks(tx, rx);

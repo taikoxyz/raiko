@@ -138,7 +138,8 @@ mod test {
         provider.provider.get_block_number().await.unwrap()
     }
 
-    #[tokio::test]
+    #[serial_test::serial]
+    #[test_log::test(tokio::test)]
     async fn test_generate_input_from_cache() {
         let l1 = &Network::Holesky.to_string();
         let l2 = &Network::TaikoA7.to_string();

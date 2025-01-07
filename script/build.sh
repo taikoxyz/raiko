@@ -61,7 +61,7 @@ if [ -z "$1" ] || [ "$1" == "native" ]; then
             cargo build ${FLAGS} -F $TASKDB
         else
             echo "Building native tests"
-            cargo nextest run ${FLAGS} --no-run -F $TASKDB --retries 3
+            cargo test ${FLAGS} --no-run -F $TASKDB
         fi
     else
         if [ -z "${TEST}" ]; then
@@ -69,7 +69,7 @@ if [ -z "$1" ] || [ "$1" == "native" ]; then
             cargo run ${FLAGS} -F $TASKDB
         else
             echo "Running native tests"
-            cargo nextest run ${FLAGS} -F $TASKDB --retries 3
+            cargo test ${FLAGS} -F $TASKDB
         fi
     fi
 fi
