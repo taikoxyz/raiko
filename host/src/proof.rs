@@ -731,6 +731,8 @@ mod tests {
     fn setup_actor_with_tasks(tx: Sender<Message>, _rx: Receiver<Message>) -> ProofActor {
         let opts = Opts {
             concurrency_limit: 4,
+            redis_url: "redis://localhost:6379".to_string(),
+            redis_ttl: 3600,
             ..Default::default()
         };
         let task_manager = TaskManagerWrapperImpl::new(&opts.clone().into());

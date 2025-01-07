@@ -39,6 +39,8 @@ impl TestServerBuilder {
             log_level,
 
             concurrency_limit: 16,
+            redis_url: "redis://localhost:6379".to_string(),
+            redis_ttl: 3600,
             ..Default::default()
         };
         let state = ProverState::init_with_opts(opts).expect("Failed to initialize prover state");
