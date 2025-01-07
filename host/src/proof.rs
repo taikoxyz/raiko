@@ -587,6 +587,7 @@ pub async fn handle_proof(
 mod tests {
     use super::*;
     use alloy_primitives::ChainId;
+    use rand::Rng;
     use tokio::sync::mpsc;
 
     fn create_test_proof_request() -> ProofRequest {
@@ -729,9 +730,10 @@ mod tests {
 
     // Helper function to setup actor with common test configuration
     fn setup_actor_with_tasks(tx: Sender<Message>, _rx: Receiver<Message>) -> ProofActor {
+        let redis_database = rand::thread_rng().gen_range(0..10000);
         let opts = Opts {
             concurrency_limit: 4,
-            redis_url: "redis://localhost:6379".to_string(),
+            redis_url: format!("redis://localhost:6379/{redis_database}"),
             redis_ttl: 3600,
             ..Default::default()
         };

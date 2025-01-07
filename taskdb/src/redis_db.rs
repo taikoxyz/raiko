@@ -16,7 +16,7 @@ use redis::{
     Client, Commands, ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs,
     Value,
 };
-use std::sync::{Arc, Once};
+use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -685,7 +685,7 @@ impl IdWrite for RedisTaskManager {
 impl TaskManager for RedisTaskManager {
     #[cfg(not(test))]
     fn new(opts: &TaskManagerOpts) -> Self {
-        static INIT: Once = Once::new();
+        static INIT: std::sync::Once = std::sync::Once::new();
         static mut REDIS_DB: Option<Arc<Mutex<RedisTaskDb>>> = None;
         INIT.call_once(|| {
             unsafe {

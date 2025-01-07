@@ -21,7 +21,7 @@ use std::str::FromStr;
 /// RAIKO_TEST_MANUAL_PROVE_RAIKO_RPC_URL=https://rpc.raiko.xyz \
 /// cargo test --test test_manual_prove -- --ignored
 /// ```
-#[tokio::test]
+#[test_log::test(tokio::test)]
 #[ignore]
 pub async fn test_manual_prove() {
     let enabled = std::env::var("RAIKO_TEST_MANUAL_PROVE_ENABLED").unwrap_or_default() == "false";

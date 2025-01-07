@@ -303,7 +303,7 @@ impl IdStore for InMemoryTaskManager {
 impl TaskManager for InMemoryTaskManager {
     #[cfg(not(test))]
     fn new(_opts: &TaskManagerOpts) -> Self {
-        static INIT: Once = Once::new();
+        static INIT: std::sync::Once = std::sync::Once::new();
         static mut SHARED_TASK_MANAGER: Option<Arc<Mutex<InMemoryTaskDb>>> = None;
 
         INIT.call_once(|| {
@@ -314,6 +314,7 @@ impl TaskManager for InMemoryTaskManager {
             }
         });
 
+        tracing::info!("InMemoryTaskManager created not test");
         InMemoryTaskManager {
             db: unsafe { SHARED_TASK_MANAGER.clone().unwrap() },
         }
@@ -321,6 +322,7 @@ impl TaskManager for InMemoryTaskManager {
 
     #[cfg(test)]
     fn new(_opts: &TaskManagerOpts) -> Self {
+        tracing::info!("InMemoryTaskManager created test");
         InMemoryTaskManager {
             db: Arc::new(Mutex::new(InMemoryTaskDb::new())),
         }

@@ -78,6 +78,12 @@ async fn proof_handler(
 
     let mut manager = prover_state.task_manager();
     let status = manager.get_task_proving_status(&key).await?;
+    tracing::info!(
+        "/v2/proof, request: {:?}, status: {:?}",
+        proof_request,
+        status
+    );
+
     match status.0.last() {
         Some((latest_status, ..)) => {
             match latest_status {

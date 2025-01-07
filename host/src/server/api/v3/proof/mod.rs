@@ -98,6 +98,7 @@ async fn proof_handler(
 
     for (key, req) in tasks.iter() {
         let status = manager.get_task_proving_status(key).await?;
+        tracing::info!("/v3/proof, request: {:?}, status: {:?}", req, status);
 
         if let Some((latest_status, ..)) = status.0.last() {
             match latest_status {
