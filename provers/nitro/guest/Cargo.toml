@@ -1,0 +1,38 @@
+[package]
+name = "nitro-attest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nitro-common = { path = "../common" }
+aws-nitro-enclaves-nsm-api = "0.4.0"
+aws-nitro-enclaves-cose = "0.5.2"
+aws-sdk-kms = "1.50.0"
+aws-config = "1.5.10"
+nix = { version = "0.29.0", features = ["socket"] }
+vsock = "0.5.1"
+
+anyhow = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+raiko-lib = { workspace = true, features = ["sgx"] }
+thiserror = { workspace = true }
+secp256k1 = { workspace = true, features = ["rand-std"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rand = { workspace = true }
+hex = { workspace = true }
+clap = { workspace = true }
+rand_core = { workspace = true }
+sha3 = { workspace = true }
+base64-serde = { workspace = true }
+base64 = { workspace = true }
+dirs = { workspace = true }
+bincode = { workspace = true }
+
+
+[features]
+default = ["aws-nitro"]
+aws-nitro = []

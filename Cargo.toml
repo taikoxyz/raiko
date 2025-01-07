@@ -15,6 +15,8 @@ members = [
     "pipeline",
     "core",
     "taskdb",
+    "provers/nitro/guest",
+    "provers/nitro/prover", "provers/nitro/common",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

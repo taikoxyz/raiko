@@ -1,0 +1,30 @@
+[package]
+name = "aws-prover"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vsock = "0.5.1"
+nitro-common = { path = "../common" }
+
+raiko-lib = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+serde_with = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+once_cell = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-signer-local = { workspace = true }
+alloy-rpc-client = { workspace = true }
+alloy-transport-http = { workspace = true }
+pem = { version = "3.0.4", optional = true }
+url = { workspace = true }
+anyhow = { workspace = true }
+hex = { workspace = true }
+
+[features]
+default = ["raiko-lib", "serde", "serde_json", "serde_with", "bincode", "tokio"]
