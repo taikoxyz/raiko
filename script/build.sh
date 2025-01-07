@@ -46,6 +46,11 @@ if [ "$CPU_OPT" = "1" ]; then
     echo "Enable cpu optimization with host RUSTFLAGS"
 fi
 
+# install cargo-nextest if not installed
+if ! cargo nextest --version >/dev/null 2>&1; then
+    cargo install cargo-nextest@0.9.85 --locked
+fi
+
 # NATIVE
 if [ -z "$1" ] || [ "$1" == "native" ]; then
     if [ -n "${CLIPPY}" ]; then
@@ -56,7 +61,7 @@ if [ -z "$1" ] || [ "$1" == "native" ]; then
             cargo build ${FLAGS} -F $TASKDB
         else
             echo "Building native tests"
-            cargo test ${FLAGS} --no-run -F $TASKDB
+            cargo nextest run ${FLAGS} --no-run -F $TASKDB --retries 3
         fi
     else
         if [ -z "${TEST}" ]; then
@@ -64,7 +69,7 @@ if [ -z "$1" ] || [ "$1" == "native" ]; then
             cargo run ${FLAGS} -F $TASKDB
         else
             echo "Running native tests"
-            cargo test ${FLAGS} -F $TASKDB
+            cargo nextest run ${FLAGS} -F $TASKDB --retries 3
         fi
     fi
 fi
