@@ -33,6 +33,7 @@ pub struct RedisTaskDb {
     config: RedisConfig,
 }
 
+#[derive(Debug, Clone)]
 pub struct RedisTaskManager {
     arc_task_db: Arc<Mutex<RedisTaskDb>>,
 }

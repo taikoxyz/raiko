@@ -224,7 +224,7 @@ pub struct TaskManagerOpts {
 }
 
 #[async_trait::async_trait]
-pub trait TaskManager: IdStore + IdWrite + Send + Sync {
+pub trait TaskManager: IdStore + IdWrite + Send + Sync + Clone {
     /// Create a new task manager.
     fn new(opts: &TaskManagerOpts) -> Self;
 
@@ -304,6 +304,7 @@ pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone)]
 pub struct TaskManagerWrapper<T: TaskManager> {
     manager: T,
 }

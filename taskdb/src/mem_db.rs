@@ -24,7 +24,7 @@ use crate::{
     TaskReport, TaskStatus,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InMemoryTaskManager {
     db: Arc<Mutex<InMemoryTaskDb>>,
 }
