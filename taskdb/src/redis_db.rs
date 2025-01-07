@@ -33,9 +33,15 @@ pub struct RedisTaskDb {
     config: RedisConfig,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RedisTaskManager {
     arc_task_db: Arc<Mutex<RedisTaskDb>>,
+}
+
+impl std::fmt::Debug for RedisTaskManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RedisTaskManager")
+    }
 }
 
 type RedisDbResult<T> = Result<T, RedisDbError>;
@@ -675,6 +681,7 @@ impl IdWrite for RedisTaskManager {
 
 #[async_trait::async_trait]
 impl TaskManager for RedisTaskManager {
+    #[cfg(not(test))]
     fn new(opts: &TaskManagerOpts) -> Self {
         static INIT: Once = Once::new();
         static mut REDIS_DB: Option<Arc<Mutex<RedisTaskDb>>> = None;
@@ -692,6 +699,18 @@ impl TaskManager for RedisTaskManager {
         });
         Self {
             arc_task_db: unsafe { REDIS_DB.clone().unwrap() },
+        }
+    }
+    #[cfg(test)]
+    fn new(opts: &TaskManagerOpts) -> Self {
+        Self {
+            arc_task_db: Arc::new(Mutex::new(
+                RedisTaskDb::new(RedisConfig {
+                    url: opts.redis_url.clone(),
+                    ttl: opts.redis_ttl.clone(),
+                })
+                .unwrap(),
+            )),
         }
     }
 

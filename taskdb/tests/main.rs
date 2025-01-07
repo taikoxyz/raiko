@@ -16,7 +16,7 @@ mod tests {
 
     use raiko_lib::{input::BlobProofType, primitives::B256, proof_type::ProofType};
     use raiko_tasks::{
-        get_task_manager, ProofTaskDescriptor, TaskManager, TaskManagerOpts, TaskStatus,
+        ProofTaskDescriptor, TaskManager, TaskManagerOpts, TaskManagerWrapperImpl, TaskStatus,
     };
 
     fn create_random_task(rng: &mut ChaCha8Rng) -> (u64, B256, ProofRequest) {
@@ -52,7 +52,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_enqueue_task() {
-        let mut tama = get_task_manager(&TaskManagerOpts {
+        let mut tama = TaskManagerWrapperImpl::new(&TaskManagerOpts {
             max_db_size: 1_000_000,
             redis_url: env::var("REDIS_URL").unwrap_or_default(),
             redis_ttl: 3600,
@@ -76,7 +76,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_query_tasks_progress() {
-        let mut tama = get_task_manager(&TaskManagerOpts {
+        let mut tama = TaskManagerWrapperImpl::new(&TaskManagerOpts {
             max_db_size: 1_000_000,
             redis_url: env::var("REDIS_URL").unwrap_or_default(),
             redis_ttl: 3600,

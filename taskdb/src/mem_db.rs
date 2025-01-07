@@ -7,10 +7,7 @@
 
 // Imports
 // ----------------------------------------------------------------
-use std::{
-    collections::HashMap,
-    sync::{Arc, Once},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use chrono::Utc;
 use raiko_core::interfaces::AggregationOnlyRequest;
@@ -300,6 +297,7 @@ impl IdStore for InMemoryTaskManager {
 
 #[async_trait::async_trait]
 impl TaskManager for InMemoryTaskManager {
+    #[cfg(not(test))]
     fn new(_opts: &TaskManagerOpts) -> Self {
         static INIT: Once = Once::new();
         static mut SHARED_TASK_MANAGER: Option<Arc<Mutex<InMemoryTaskDb>>> = None;
@@ -314,6 +312,13 @@ impl TaskManager for InMemoryTaskManager {
 
         InMemoryTaskManager {
             db: unsafe { SHARED_TASK_MANAGER.clone().unwrap() },
+        }
+    }
+
+    #[cfg(test)]
+    fn new(_opts: &TaskManagerOpts) -> Self {
+        InMemoryTaskManager {
+            db: Arc::new(Mutex::new(InMemoryTaskDb::new())),
         }
     }
 

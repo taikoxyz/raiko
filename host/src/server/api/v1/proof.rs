@@ -1,6 +1,5 @@
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::ProofRequest;
-use raiko_tasks::get_task_manager;
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -48,7 +47,7 @@ async fn proof_handler(
     inc_host_req_count(proof_request.block_number);
     inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
-    let mut manager = get_task_manager(&prover_state.opts.clone().into());
+    let mut manager = prover_state.task_manager();
 
     handle_proof(
         &proof_request,

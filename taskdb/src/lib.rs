@@ -8,7 +8,6 @@ use raiko_lib::{
     prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 use utoipa::ToSchema;
 
 #[cfg(feature = "in-memory")]
@@ -427,11 +426,6 @@ pub type TaskManagerWrapperImpl = TaskManagerWrapper<InMemoryTaskManager>;
 #[cfg(feature = "redis-db")]
 pub type TaskManagerWrapperImpl = TaskManagerWrapper<RedisTaskManager>;
 
-pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapperImpl {
-    debug!("get task manager with options: {:?}", opts);
-    TaskManagerWrapperImpl::new(opts)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -444,7 +438,7 @@ mod test {
             redis_url: "redis://localhost:6379".to_string(),
             redis_ttl: 3600,
         };
-        let mut task_manager = get_task_manager(&opts);
+        let mut task_manager = TaskManagerWrapperImpl::new(&opts);
 
         let block_id = rand::thread_rng().gen_range(0..1000000);
         assert_eq!(
@@ -471,7 +465,7 @@ mod test {
             redis_url: "redis://localhost:6379".to_string(),
             redis_ttl: 3600,
         };
-        let mut task_manager = get_task_manager(&opts);
+        let mut task_manager = TaskManagerWrapperImpl::new(&opts);
         let block_id = rand::thread_rng().gen_range(0..1000000);
         let key = ProofTaskDescriptor {
             chain_id: 1,
