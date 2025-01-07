@@ -10,7 +10,8 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_tasks::{get_task_manager, ProofTaskDescriptor, TaskManagerOpts, TaskManagerWrapperImpl};
+use raiko_tasks::TaskManager;
+use raiko_tasks::{ProofTaskDescriptor, TaskManagerOpts, TaskManagerWrapperImpl};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -154,6 +155,8 @@ pub struct ProverState {
     pub chain_specs: SupportedChainSpecs,
     pub task_channel: mpsc::Sender<Message>,
     pause_flag: Arc<AtomicBool>,
+
+    task_manager: TaskManagerWrapperImpl,
 }
 
 #[derive(Debug)]
@@ -205,15 +208,16 @@ impl ProverState {
         });
 
         Ok(Self {
-            opts,
+            opts: opts.clone(),
             chain_specs,
             task_channel,
             pause_flag,
+            task_manager: TaskManagerWrapperImpl::new(&opts.into()),
         })
     }
 
     pub fn task_manager(&self) -> TaskManagerWrapperImpl {
-        get_task_manager(&(&self.opts).into())
+        self.task_manager.clone()
     }
 
     pub fn request_config(&self) -> ProofRequestOpt {
