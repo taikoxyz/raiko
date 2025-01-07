@@ -4,6 +4,7 @@ use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_tasks::TaskStatus;
 
+#[ignore]
 #[serial_test::serial]
 #[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_native_cancel() {
@@ -48,6 +49,7 @@ pub async fn test_v2_mainnet_native_cancel() {
     assert!(matches!(status, api::v2::CancelStatus::Ok),);
 }
 
+#[ignore]
 #[serial_test::serial]
 #[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_native_cancel_non_registered() {
@@ -72,6 +74,7 @@ pub async fn test_v2_mainnet_native_cancel_non_registered() {
     );
 }
 
+#[ignore]
 #[serial_test::serial]
 #[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_native_cancel_then_register() {

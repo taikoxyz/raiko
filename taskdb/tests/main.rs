@@ -153,7 +153,7 @@ mod tests {
 
             {
                 let task_status = tama.get_task_proving_status(&task_1_desc).await.unwrap().0;
-                assert_eq!(task_status.len(), 2);
+                assert_eq!(task_status.len(), 2, "task_status: {:?}", task_status);
                 assert_eq!(task_status[1].0, TaskStatus::WorkInProgress);
                 assert_eq!(task_status[0].0, TaskStatus::Registered);
             }

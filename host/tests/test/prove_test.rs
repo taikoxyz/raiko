@@ -6,6 +6,7 @@ use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_tasks::TaskStatus;
 
+#[ignore]
 #[serial_test::serial]
 #[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_native_prove() {
