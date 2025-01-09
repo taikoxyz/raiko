@@ -2987,6 +2987,7 @@ dependencies = [
  "revm-precompile",
  "revm-primitives",
  "risc0-zkvm",
+ "risc0-zkvm-platform",
  "sha2 0.10.6",
 ]
 

@@ -28,6 +28,9 @@ risc0-zkvm = { version = "=1.2.0", default-features = false, features = [
     "getrandom",
     "heap-embedded-alloc",
 ] }
+risc0-zkvm-platform = { version = "=1.2.0", default-features = false, features = [
+    "sys-getenv",
+] }
 k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.3-risczero.0" }
 sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6-risczero.0" }
 harness-core = { path = "../../../harness/core" }
