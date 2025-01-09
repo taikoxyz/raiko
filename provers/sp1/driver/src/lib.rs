@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{
-    network::FulfillmentStrategy, Prover as SP1ProverTrait, SP1Proof, SP1ProofMode,
+    network::FulfillmentStrategy, NetworkProver, Prover as SP1ProverTrait, SP1Proof, SP1ProofMode,
     SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
@@ -102,6 +102,7 @@ pub struct Sp1Prover;
 #[derive(Clone)]
 struct Sp1ProverClient {
     pub(crate) client: Arc<Box<dyn SP1ProverTrait<CpuProverComponents>>>,
+    pub(crate) network_client: Arc<NetworkProver>,
     pub(crate) pk: SP1ProvingKey,
     pub(crate) vk: SP1VerifyingKey,
 }
@@ -124,9 +125,15 @@ impl Prover for Sp1Prover {
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 
-        let Sp1ProverClient { client, pk, vk } = BLOCK_PROOF_CLIENT
+        let Sp1ProverClient {
+            client,
+            pk,
+            vk,
+            network_client,
+        } = BLOCK_PROOF_CLIENT
             .entry(mode.clone())
             .or_insert_with(|| {
+                let network_client = Arc::new(ProverClient::builder().network().build());
                 let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
                     ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
                     ProverMode::Local => Box::new(ProverClient::builder().cpu().build()),
@@ -139,7 +146,12 @@ impl Prover for Sp1Prover {
                     "new client and setup() for block {:?}.",
                     output.header.number
                 );
-                Sp1ProverClient { client, pk, vk }
+                Sp1ProverClient {
+                    client,
+                    network_client,
+                    pk,
+                    vk,
+                }
             })
             .clone();
 
@@ -159,16 +171,8 @@ impl Prover for Sp1Prover {
             client
                 .prove(&pk, &stdin, prove_mode)
                 .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
-            // match param.recursion {
-            //     RecursionMode::Core => prove_action.run(),
-            //     RecursionMode::Compressed => prove_action.compressed().run(),
-            //     RecursionMode::Plonk => prove_action.plonk().run(),
-            // }
-            // .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
         } else {
-            let network_prover = ProverClient::builder().network().build();
-
-            let proof_id = network_prover
+            let proof_id = network_client
                 .prove(&pk, &stdin)
                 .mode(param.recursion.clone().into())
                 .skip_simulation(true)
@@ -195,7 +199,7 @@ impl Prover for Sp1Prover {
                 "Sp1 Prover: block {:?} - proof id {proof_id:?}",
                 output.header.number
             );
-            network_prover
+            network_client
                 .wait_proof(proof_id.clone(), Some(Duration::from_secs(3600)))
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
@@ -320,9 +324,15 @@ impl Prover for Sp1Prover {
         }
 
         // Generate the proof for the given program.
-        let Sp1ProverClient { client, pk, vk } = AGGREGATION_CLIENT
+        let Sp1ProverClient {
+            client,
+            pk,
+            vk,
+            network_client,
+        } = AGGREGATION_CLIENT
             .entry(param.prover.clone().unwrap_or_else(get_env_mock))
             .or_insert_with(|| {
+                let network_client = Arc::new(ProverClient::builder().network().build());
                 let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = param
                     .prover
                     .map(|mode| {
@@ -344,7 +354,12 @@ impl Prover for Sp1Prover {
                     input.proofs.len(),
                     vk.bytes32()
                 );
-                Sp1ProverClient { client, pk, vk }
+                Sp1ProverClient {
+                    client,
+                    pk,
+                    vk,
+                    network_client,
+                }
             })
             .clone();
         info!(
@@ -360,8 +375,7 @@ impl Prover for Sp1Prover {
                 .expect("proving failed");
             prove_result
         } else {
-            let network_prover = ProverClient::builder().network().build();
-            let proof_id = network_prover
+            let proof_id = network_client
                 .prove(&pk, &stdin)
                 .mode(param.recursion.clone().into())
                 .skip_simulation(true)
@@ -371,7 +385,7 @@ impl Prover for Sp1Prover {
                 .map_err(|e| {
                     ProverError::GuestError(format!("Sp1: network proving failed: {e}"))
                 })?;
-            network_prover
+            network_client
                 .wait_proof(proof_id.clone(), Some(Duration::from_secs(3600)))
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
