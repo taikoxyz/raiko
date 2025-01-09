@@ -53,9 +53,6 @@ if [ -z "$1" ] || [ "$1" == "native" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building native prover"
-            echo ${FLAGS}
-            echo ${TASKDB}
-            echo $PWD
             cargo build ${FLAGS} -F $TASKDB
         else
             echo "Building native tests"
@@ -155,6 +152,7 @@ if [ "$1" == "sp1" ]; then
             cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench -F $TASKDB
         fi
         if [ -z "${GUEST}" ]; then
+            echo "Building 'cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1 -F $TASKDB'" 
             cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1 -F $TASKDB
         fi
     else
