@@ -1,6 +1,4 @@
 #![cfg_attr(any(not(feature = "std")), no_std)]
-#![feature(slice_flatten)]
-#![feature(result_flattening)]
 #[cfg(feature = "std")]
 use std::io::{self, Write};
 

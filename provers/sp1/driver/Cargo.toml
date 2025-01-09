@@ -62,6 +62,5 @@ enable = [
     "tokio",
     "tracing",
 ]
-neon = ["sp1-sdk?/neon"]
 foundry-verify = []
 enable-verifier = []
