@@ -4,7 +4,7 @@
 set -e
 
 TOOLCHAIN_RISC0=+nightly-2024-04-18
-TOOLCHAIN_SP1=+1.81.0
+TOOLCHAIN_SP1=+nightly-2024-09-05
 TOOLCHAIN_SGX=+nightly-2024-04-18
 
 check_toolchain() {

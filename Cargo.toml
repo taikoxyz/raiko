@@ -59,6 +59,7 @@ risc0-binfmt = { version = "=1.1.2" }
 
 # SP1
 sp1-sdk = { version = "=4.0.0-rc.8" }
+sp1-prover = { version = "=4.0.0-rc.8" }
 sp1-zkvm = { version = "=4.0.0-rc.8" }
 sp1-helper = { version = "=4.0.0-rc.8" }
 
