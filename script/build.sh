@@ -4,7 +4,7 @@
 set -e
 
 TOOLCHAIN_RISC0=+nightly-2024-04-18
-TOOLCHAIN_SP1=+nightly-2024-04-18
+TOOLCHAIN_SP1=+1.81.0
 TOOLCHAIN_SGX=+nightly-2024-04-18
 
 check_toolchain() {
@@ -53,6 +53,9 @@ if [ -z "$1" ] || [ "$1" == "native" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building native prover"
+            echo ${FLAGS}
+            echo ${TASKDB}
+            echo $PWD
             cargo build ${FLAGS} -F $TASKDB
         else
             echo "Building native tests"
