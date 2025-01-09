@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{
-    network::client::NetworkClient, NetworkProver, Prover as SP1ProverTrait, SP1Proof,
-    SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
+    network::FulfillmentStrategy, Prover as SP1ProverTrait, SP1Proof, SP1ProofMode,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
 use std::{borrow::BorrowMut, env, sync::Arc, time::Duration};
@@ -171,6 +171,8 @@ impl Prover for Sp1Prover {
             let proof_id = network_prover
                 .prove(&pk, &stdin)
                 .mode(param.recursion.clone().into())
+                .skip_simulation(true)
+                .strategy(FulfillmentStrategy::Reserved)
                 .request_async()
                 .await
                 .map_err(|e| {
@@ -280,6 +282,7 @@ impl Prover for Sp1Prover {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+        let mode = param.prover.clone().unwrap_or_else(get_env_mock);
         let block_inputs: Vec<B256> = input
             .proofs
             .iter()
@@ -351,9 +354,28 @@ impl Prover for Sp1Prover {
             vk.bytes32()
         );
 
-        let prove_result = client
-            .prove(&pk, &stdin, SP1ProofMode::Plonk)
-            .expect("proving failed");
+        let prove_result = if !matches!(mode, ProverMode::Network) {
+            let prove_result = client
+                .prove(&pk, &stdin, SP1ProofMode::Plonk)
+                .expect("proving failed");
+            prove_result
+        } else {
+            let network_prover = ProverClient::builder().network().build();
+            let proof_id = network_prover
+                .prove(&pk, &stdin)
+                .mode(param.recursion.clone().into())
+                .skip_simulation(true)
+                .strategy(FulfillmentStrategy::Reserved)
+                .request_async()
+                .await
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: network proving failed: {e}"))
+                })?;
+            network_prover
+                .wait_proof(proof_id.clone(), Some(Duration::from_secs(3600)))
+                .await
+                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
+        };
 
         let proof_bytes = prove_result.bytes();
         if param.verify && !proof_bytes.is_empty() {
