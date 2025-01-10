@@ -23,7 +23,7 @@ jobs:
     with:
       version_name: "risc0"
       version_toolchain: "nightly-2024-09-05"
-      taskdb: “raiko-tasks/in-memory”
+      taskdb: "raiko-tasks/in-memory"
 
   integration-test-risc0:
     name: Run integration tests on risc0
@@ -31,5 +31,5 @@ jobs:
     with:
       version_name: "risc0"
       version_toolchain: "nightly-2024-09-05"
-      taskdb: “raiko-tasks/in-memory”
+      taskdb: "raiko-tasks/in-memory"
 
