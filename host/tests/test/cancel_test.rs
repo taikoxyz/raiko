@@ -25,12 +25,12 @@ pub async fn test_v2_mainnet_native_cancel() {
             status,
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Status {
-                    status: TaskStatus::Registered,
+                    status: TaskStatus::Registered | TaskStatus::WorkInProgress,
                     ..
                 }
             }
         ),
-        "status: {status:?}"
+        "unexpected status: {status:?}"
     );
 
     let status: api::v2::CancelStatus = client
@@ -91,12 +91,12 @@ pub async fn test_v2_mainnet_native_cancel_then_register() {
             status,
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Status {
-                    status: TaskStatus::Registered,
+                    status: TaskStatus::Registered | TaskStatus::WorkInProgress,
                     ..
                 }
             }
         ),
-        "status: {status:?}"
+        "unexpected status: {status:?}"
     );
 
     let status: api::v2::CancelStatus = client

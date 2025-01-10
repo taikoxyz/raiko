@@ -482,7 +482,7 @@ mod test {
         let client = ProverClient::new();
         let stdin = SP1Stdin::new();
         let (pk, vk) = client.setup(TEST_ELF);
-        let proof = client.prove(&pk, stdin).run().unwrap();
+        let proof = client.prove(&pk, &stdin).run().unwrap();
         client
             .verify(&proof, &vk)
             .expect("Sp1: verification failed");
