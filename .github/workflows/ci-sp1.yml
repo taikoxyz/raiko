@@ -7,10 +7,14 @@ on:
     paths:
       - "provers/sp1/**"
       - "!docs/**"
+      - "script/build.sh"
+      - "script/install.sh"
   pull_request:
     paths:
       - "provers/sp1/**"
       - "!docs/**"
+      - "script/build.sh"
+      - "script/install.sh"
 
 jobs:
   build-test-sp1:
@@ -18,11 +22,14 @@ jobs:
     uses: ./.github/workflows/ci-build-test-reusable.yml
     with:
       version_name: "sp1"
-      version_toolchain: "nightly-2024-04-18"
+      version_toolchain: "nightly-2024-09-05"
+      taskdb: “in-memory”
 
   integration-test-sp1:
     name: Run integration tests on sp1
     uses: ./.github/workflows/ci-integration-reusable.yml
     with:
       version_name: "sp1"
-      version_toolchain: "nightly-2024-04-17"
+      version_toolchain: "nightly-2024-09-05"
+      taskdb: “in-memory”
+

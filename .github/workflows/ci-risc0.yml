@@ -7,10 +7,14 @@ on:
     paths:
       - "provers/risc0/**"
       - "!docs/**"
+      - "script/build.sh"
+      - "script/install.sh"
   pull_request:
     paths:
       - "provers/risc0/**"
       - "!docs/**"
+      - "script/build.sh"
+      - "script/install.sh"
 
 jobs:
   build-test-risc0:
@@ -18,11 +22,14 @@ jobs:
     uses: ./.github/workflows/ci-build-test-reusable.yml
     with:
       version_name: "risc0"
-      version_toolchain: "stable"
+      version_toolchain: "nightly-2024-09-05"
+      taskdb: “in-memory”
 
   integration-test-risc0:
     name: Run integration tests on risc0
     uses: ./.github/workflows/ci-integration-reusable.yml
     with:
       version_name: "risc0"
-      version_toolchain: "nightly-2024-04-17"
+      version_toolchain: "nightly-2024-09-05"
+      taskdb: “in-memory”
+
