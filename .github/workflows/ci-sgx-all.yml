@@ -23,7 +23,7 @@ jobs:
     with:
       version_name: "sgx"
       version_toolchain: "stable"
-      taskdb: “in-memory”
+      taskdb: “raiko-tasks/in-memory”
 
   integration-test-sgx:
     name: Run integration tests on sgx
@@ -31,7 +31,7 @@ jobs:
     with:
       version_name: "sgx"
       version_toolchain: "nightly-2024-04-17"
-      taskdb: “in-memory”
+      taskdb: “raiko-tasks/in-memory”
 
   build-test-sgx-docker:
     name: Build and test sgx with Docker
