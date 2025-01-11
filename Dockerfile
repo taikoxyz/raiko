@@ -1,4 +1,4 @@
-FROM rust:1.75.0 AS builder
+FROM rust:1.81.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""

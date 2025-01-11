@@ -167,8 +167,16 @@ mod test {
     #[test]
     fn test_kzg_settings_equivalence() {
         let kzg_settings: KZGSettings = kzg_traits::eip_4844::load_trusted_setup_rust(
-            G1Points::as_ref(G1_POINTS).flatten(),
-            G2Points::as_ref(G2_POINTS).flatten(),
+            &G1Points::as_ref(G1_POINTS)
+                .into_iter()
+                .flatten()
+                .cloned()
+                .collect::<Vec<_>>(),
+            &G2Points::as_ref(G2_POINTS)
+                .into_iter()
+                .flatten()
+                .cloned()
+                .collect::<Vec<_>>(),
         )
         .expect("failed to load trusted setup");
         assert_eq!(KZG_SETTINGS.clone().secret_g1, kzg_settings.secret_g1);

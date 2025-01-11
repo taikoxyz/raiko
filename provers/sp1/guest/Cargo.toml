@@ -37,13 +37,13 @@ path = "src/benchmark/bn254_mul.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "sp1"] }
-sp1-zkvm = { version = "3.3.0", features = ["verify"] }
-sp1-curves = { version = "3.3.0" }
-sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
-secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
+sp1-zkvm = { version = "4.0.0-rc.8", features = ["verify"] }
+sp1-curves = { version = "4.0.0-rc.8" }
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0-rc.3" }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", tag = "patch-0.29.1-sp1-4.0.0-rc.3" }
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["sp1"] }
-substrate-bn = "0.6.0"
+substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-4.0.0-rc.3-v1" }
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
     "taiko",
     "std",
@@ -63,12 +63,17 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
-secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
-sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
-sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-sha3-v0.10.8", package = "sha3" }
-ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", tag = "ecdsa-v0.16.9-patch-v3.3.0" }
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
-bn = { package = "substrate-bn", git = "https://github.com/sp1-patches/bn", branch = "chris/v0.6.0" }
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0-rc.3" }
+sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0-rc.3" }
+crypto-bigint = { git = "https://github.com/sp1-patches/RustCrypto-bigint", tag = "patch-0.5.5-sp1-4.0.0-rc.3" }
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0-rc.3" }
+# curve25519-dalek = { git = "https://github.com/sp1-patches/curve25519-dalek", tag = "patch-4.1.3-sp1-4.0.0-rc.3" }
+# curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-ng", tag = "patch-4.1.1-sp1-4.0.0-rc.3" }
+ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", tag = "patch-0.16.9-sp1-4.0.0-rc.3-v2" }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", tag = "patch-0.29.1-sp1-4.0.0-rc.3" }
+substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-4.0.0-rc.3-v1" }
+# bls12_381 = { git = "https://github.com/sp1-patches/bls12_381", tag = "patch-0.8.0-sp1-4.0.0-rc.3-v1" }
+# rsa = { git = "https://github.com/sp1-patches/RustCrypto-RSA/", tag = "patch-0.9.6-sp1-4.0.0-rc.3" }
 
 [features]
 default = ["sp1-cycle-tracker"]

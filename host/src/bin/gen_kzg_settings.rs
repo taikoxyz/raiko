@@ -1,4 +1,3 @@
-#![feature(slice_flatten)]
 use std::{fs, path::PathBuf};
 
 use kzg::kzg_proofs::KZGSettings;
@@ -7,8 +6,16 @@ static FILE_NAME: &str = "zkcrypto_kzg_settings.bin";
 
 fn main() {
     let kzg_setting: KZGSettings = kzg_traits::eip_4844::load_trusted_setup_rust(
-        G1Points::as_ref(G1_POINTS).flatten(),
-        G2Points::as_ref(G2_POINTS).flatten(),
+        &G1Points::as_ref(G1_POINTS)
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>(),
+        &G2Points::as_ref(G2_POINTS)
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>(),
     )
     .expect("failed to load trusted setup");
 

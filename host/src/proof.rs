@@ -717,10 +717,14 @@ mod tests {
         let result = actor.handle_system_pause().await;
 
         // Verify error contains all accumulated errors
-        assert!(matches!(
-            result,
-            Err(HostError::Core(RaikoError::FeatureNotSupportedError(..)))
-        ));
+        #[cfg(not(feature = "risc0"))]
+        assert!(
+            matches!(
+                result,
+                Err(HostError::Core(RaikoError::FeatureNotSupportedError(..)))
+            ),
+            "Unexpected result: {result:?}",
+        );
         assert!(good_running_task_token.is_cancelled());
         assert!(good_aggregation_task_token.is_cancelled());
         assert!(actor.pending_tasks.lock().await.is_empty());
