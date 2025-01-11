@@ -7,14 +7,10 @@ on:
     paths:
       - "docker/**"
       - "!docs/**"
-      - "script/build.sh"
-      - "script/install.sh"
   pull_request:
     paths:
       - "docker/**"
       - "!docs/**"
-      - "script/build.sh"
-      - "script/install.sh"
 
 jobs:
   build-test-sgx-with-docker:

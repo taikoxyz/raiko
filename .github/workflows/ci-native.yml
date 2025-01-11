@@ -4,11 +4,6 @@ on:
   workflow_call:
   pull_request:
     paths:
-      - "core/**"
-      - "host/**"
-      - "lib/**"
-      - "!doc/**"
-      - "script/**"
       - "taskdb/**"
 
 jobs:
@@ -40,7 +35,7 @@ jobs:
     uses: ./.github/workflows/ci-build-test-reusable.yml
     with:
       version_name: "native"
-      version_toolchain: "nightly-2024-09-05"
+      version_toolchain: "nightly-2024-04-17"
       taskdb: ${{ needs.set-taskdb.outputs.taskdb }}
 
   integration-test-native:
@@ -49,5 +44,5 @@ jobs:
     uses: ./.github/workflows/ci-integration-reusable.yml
     with:
       version_name: "native"
-      version_toolchain: "nightly-2024-09-05"
+      version_toolchain: "nightly-2024-04-17"
       taskdb: ${{ needs.set-taskdb.outputs.taskdb }}

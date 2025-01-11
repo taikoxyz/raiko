@@ -7,14 +7,10 @@ on:
     paths:
       - "provers/sgx/**"
       - "!docs/**"
-      - "script/build.sh"
-      - "script/install.sh"
   pull_request:
     paths:
       - "provers/sgx/**"
       - "!docs/**"
-      - "script/build.sh"
-      - "script/install.sh"
 
 jobs:
   build-test-sgx:
@@ -23,7 +19,6 @@ jobs:
     with:
       version_name: "sgx"
       version_toolchain: "stable"
-      taskdb: "raiko-tasks/in-memory"
 
   integration-test-sgx:
     name: Run integration tests on sgx
@@ -31,7 +26,6 @@ jobs:
     with:
       version_name: "sgx"
       version_toolchain: "nightly-2024-04-17"
-      taskdb: "raiko-tasks/in-memory"
 
   build-test-sgx-docker:
     name: Build and test sgx with Docker
