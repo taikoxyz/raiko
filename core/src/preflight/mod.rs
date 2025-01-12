@@ -88,6 +88,11 @@ pub async fn preflight<BDP: BlockDataProvider>(
         "[{} Account/{num_storage_proofs} Storage]",
         parent_proofs.len() + proofs.len(),
     ));
+    tracing::trace!(
+        "Fetched {:?} and {:?} storage proofs",
+        parent_proofs,
+        proofs
+    );
 
     // Construct the state trie and storage from the storage proofs.
     let measurement = Measurement::start("Constructing MPT...", true);
@@ -104,11 +109,21 @@ pub async fn preflight<BDP: BlockDataProvider>(
     let measurement = Measurement::start("Fetching contract code...", true);
     let contracts =
         HashSet::<Bytes>::from_iter(db.initial_db.accounts.values().filter_map(|account| {
-            account
-                .info
-                .code
-                .clone()
-                .map(|code| Bytes(code.bytecode().0.clone()))
+            tracing::info!(
+                "--- Fetching contract code with hash {:?}",
+                account.info.code_hash
+            );
+            account.info.code.clone().map(|code| {
+                let bytes = Bytes(code.bytecode().0.clone());
+                if bytes.len() > 0 {
+                    tracing::info!(
+                        "--- Calc contract code {:?} hash {:?}",
+                        bytes.to_vec(),
+                        raiko_lib::primitives::keccak::keccak(&bytes)
+                    );
+                }
+                bytes
+            })
         }))
         .into_iter()
         .collect::<Vec<Bytes>>();

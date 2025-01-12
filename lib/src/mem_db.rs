@@ -109,6 +109,7 @@ impl MemDb {
     /// Insert account info without overriding its storage.
     /// Panics if a different account info exists.
     pub fn insert_account_info(&mut self, address: Address, info: AccountInfo) {
+        tracing::info!("inserting account info: {:?} -> {:?}", address, info);
         match self.accounts.entry(address) {
             Entry::Occupied(entry) => assert_eq!(info, entry.get().info),
             Entry::Vacant(entry) => {

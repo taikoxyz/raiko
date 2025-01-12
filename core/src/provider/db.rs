@@ -111,7 +111,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
             .get_merkle_proofs(
                 self.block_number + 1,
                 storage_keys,
-                num_initial_values,
+                0,
                 num_storage_proofs,
             )
             .await?;

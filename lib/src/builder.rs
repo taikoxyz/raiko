@@ -351,7 +351,15 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
         } else {
             let bytes = contracts
                 .get(&code_hash)
-                .expect("Contract not found")
+                .expect(
+                    format!(
+                        "Contract {:?} not found for address {:?}, whole contracts are {:?}.",
+                        code_hash,
+                        address,
+                        contracts.keys()
+                    )
+                    .as_str(),
+                )
                 .clone();
             Bytecode::new_raw(bytes)
         };
