@@ -1,18 +1,9 @@
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
-use raiko_core::interfaces::ProofRequest;
-use raiko_tasks::get_task_manager;
+use axum::{extract::State, routing::post, Json, Router};
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::{
-    interfaces::HostResult,
-    metrics::{dec_current_req, inc_current_req, inc_guest_req_count, inc_host_req_count},
-    proof::handle_proof,
-    server::api::{util::ensure_not_paused, v1::Status},
-    ProverState,
-};
-
-use super::ProofResponse;
+use crate::{interfaces::HostResult, server::api::v1::Status};
+use raiko_reqactor::Gateway;
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",
@@ -21,7 +12,7 @@ use super::ProofResponse;
         (status = 200, description = "Successfully created proof for request", body = Status)
     )
 )]
-#[debug_handler(state = ProverState)]
+// #[debug_handler(state = Gateway)]
 /// Generate a proof for requested config.
 ///
 /// Accepts a proof request and generates a proof with the specified guest prover.
@@ -30,47 +21,11 @@ use super::ProofResponse;
 /// - sgx - uses the sgx environment to construct a block and produce proof of execution
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
-async fn proof_handler(
-    State(prover_state): State<ProverState>,
-    Json(req): Json<Value>,
+async fn proof_handler<P: raiko_reqpool::Pool>(
+    State(_gateway): State<Gateway<P>>,
+    Json(_req): Json<Value>,
 ) -> HostResult<Json<Status>> {
-    inc_current_req();
-
-    ensure_not_paused(&prover_state)?;
-
-    // Override the existing proof request config from the config file and command line
-    // options with the request from the client.
-    let mut config = prover_state.request_config();
-    config.merge(&req)?;
-
-    // Construct the actual proof request from the available configs.
-    let proof_request = ProofRequest::try_from(config)?;
-    inc_host_req_count(proof_request.block_number);
-    inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
-
-    let mut manager = get_task_manager(&prover_state.opts.clone().into());
-
-    handle_proof(
-        &proof_request,
-        &prover_state.opts,
-        &prover_state.chain_specs,
-        Some(&mut manager),
-    )
-    .await
-    .map_err(|e| {
-        dec_current_req();
-        e
-    })
-    .map(|proof| {
-        dec_current_req();
-        Json(Status::Ok {
-            data: ProofResponse {
-                output: None,
-                proof: proof.proof,
-                quote: proof.quote,
-            },
-        })
-    })
+    unreachable!("deprecated")
 }
 
 #[derive(OpenApi)]
@@ -81,6 +36,6 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     Docs::openapi()
 }
 
-pub fn create_router() -> Router<ProverState> {
+pub fn create_router<P: raiko_reqpool::Pool + 'static>() -> Router<Gateway<P>> {
     Router::new().route("/", post(proof_handler))
 }

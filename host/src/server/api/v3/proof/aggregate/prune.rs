@@ -1,8 +1,8 @@
-use axum::{debug_handler, extract::State, routing::post, Router};
-use raiko_tasks::TaskManager;
+use axum::{extract::State, routing::post, Router};
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, server::api::v2::PruneStatus, ProverState};
+use crate::{interfaces::HostResult, server::api::v2::PruneStatus};
+use raiko_reqactor::Gateway;
 
 #[utoipa::path(post, path = "/proof/aggregate/prune",
     tag = "Proving",
@@ -10,14 +10,11 @@ use crate::{interfaces::HostResult, server::api::v2::PruneStatus, ProverState};
         (status = 200, description = "Successfully pruned all aggregation tasks", body = PruneStatus)
     )
 )]
-#[debug_handler(state = ProverState)]
 /// Prune all aggregation tasks.
-async fn prune_handler(State(prover_state): State<ProverState>) -> HostResult<PruneStatus> {
-    let mut manager = prover_state.task_manager();
-
-    manager.prune_aggregation_db().await?;
-
-    Ok(PruneStatus::Ok)
+async fn prune_handler<P: raiko_reqpool::Pool + 'static>(
+    State(_gateway): State<Gateway<P>>,
+) -> HostResult<PruneStatus> {
+    todo!()
 }
 
 #[derive(OpenApi)]
@@ -28,6 +25,6 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     Docs::openapi()
 }
 
-pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", post(prune_handler))
+pub fn create_router<P: raiko_reqpool::Pool + 'static>() -> Router<Gateway<P>> {
+    Router::new().route("/", post(prune_handler::<P>))
 }

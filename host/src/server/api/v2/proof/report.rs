@@ -1,9 +1,9 @@
-use axum::{debug_handler, extract::State, routing::get, Json, Router};
-use raiko_tasks::TaskManager;
+use axum::{extract::State, routing::get, Json, Router};
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, ProverState};
+use crate::interfaces::HostResult;
+use raiko_reqactor::Gateway;
 
 #[utoipa::path(post, path = "/proof/report",
     tag = "Proving",
@@ -11,16 +11,14 @@ use crate::{interfaces::HostResult, ProverState};
         (status = 200, description = "Successfully listed all current tasks", body = CancelStatus)
     )
 )]
-#[debug_handler(state = ProverState)]
+// #[debug_handler(state = Gateway<P>)]
 /// List all tasks.
 ///
 /// Retrieve a list of `{ chain_id, blockhash, prover_type, prover, status }` items.
-async fn report_handler(State(prover_state): State<ProverState>) -> HostResult<Json<Value>> {
-    let mut manager = prover_state.task_manager();
-
-    let task_report = manager.list_all_tasks().await?;
-
-    Ok(Json(serde_json::to_value(task_report)?))
+async fn report_handler<P: raiko_reqpool::Pool + 'static>(
+    State(_gateway): State<Gateway<P>>,
+) -> HostResult<Json<Value>> {
+    todo!()
 }
 
 #[derive(OpenApi)]
@@ -31,6 +29,6 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     Docs::openapi()
 }
 
-pub fn create_router() -> Router<ProverState> {
-    Router::new().route("/", get(report_handler))
+pub fn create_router<P: raiko_reqpool::Pool + 'static>() -> Router<Gateway<P>> {
+    Router::new().route("/", get(report_handler::<P>))
 }

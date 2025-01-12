@@ -1,18 +1,17 @@
 use std::str::FromStr;
 
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::proof_type::ProofType;
-use raiko_tasks::{TaskManager, TaskStatus};
+use raiko_reqpool::{AggregationRequestEntity, AggregationRequestKey};
 use utoipa::OpenApi;
 
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
-    server::api::v3::Status,
-    server::HostError,
-    Message, ProverState,
+    server::{api::v3::Status, to_v3_result, HostError},
 };
+use raiko_reqactor::Gateway;
 
 pub mod cancel;
 pub mod prune;
@@ -25,7 +24,7 @@ pub mod report;
         (status = 200, description = "Successfully submitted proof aggregation task, queried aggregation tasks in progress or retrieved aggregated proof.", body = Status)
     )
 )]
-#[debug_handler(state = ProverState)]
+// #[debug_handler(state = Gateway)]
 /// Submit a proof aggregation task with requested config, get task status or get proof value.
 ///
 /// Accepts a proof request and creates a proving task with the specified guest prover.
@@ -34,14 +33,15 @@ pub mod report;
 /// - sgx - uses the sgx environment to construct a block and produce proof of execution
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
-async fn aggregation_handler(
-    State(prover_state): State<ProverState>,
+async fn aggregation_handler<P: raiko_reqpool::Pool + 'static>(
+    State(gateway): State<Gateway<P>>,
     Json(mut aggregation_request): Json<AggregationOnlyRequest>,
 ) -> HostResult<Status> {
     inc_current_req();
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
-    aggregation_request.merge(&prover_state.request_config())?;
+    let default_request_config = gateway.default_request_config();
+    aggregation_request.merge(&default_request_config)?;
 
     let proof_type = ProofType::from_str(
         aggregation_request
@@ -57,55 +57,18 @@ async fn aggregation_handler(
         return Err(anyhow::anyhow!("No proofs provided").into());
     }
 
-    let mut manager = prover_state.task_manager();
+    let agg_request_key =
+        AggregationRequestKey::new(proof_type, aggregation_request.aggregation_ids.clone()).into();
+    let agg_request_entity = AggregationRequestEntity::new(
+        aggregation_request.aggregation_ids,
+        aggregation_request.proofs,
+        proof_type,
+        aggregation_request.prover_args,
+    )
+    .into();
 
-    let status = manager
-        .get_aggregation_task_proving_status(&aggregation_request)
-        .await?;
-
-    let Some((latest_status, ..)) = status.0.last() else {
-        // If there are no tasks with provided config, create a new one.
-        manager
-            .enqueue_aggregation_task(&aggregation_request)
-            .await?;
-
-        prover_state
-            .task_channel
-            .try_send(Message::Aggregate(aggregation_request))?;
-        return Ok(Status::from(TaskStatus::Registered));
-    };
-
-    match latest_status {
-        // If task has been cancelled add it to the queue again
-        TaskStatus::Cancelled
-        | TaskStatus::Cancelled_Aborted
-        | TaskStatus::Cancelled_NeverStarted
-        | TaskStatus::CancellationInProgress => {
-            manager
-                .update_aggregation_task_progress(
-                    &aggregation_request,
-                    TaskStatus::Registered,
-                    None,
-                )
-                .await?;
-
-            prover_state
-                .task_channel
-                .try_send(Message::Aggregate(aggregation_request))?;
-
-            Ok(Status::from(TaskStatus::Registered))
-        }
-        // If the task has succeeded, return the proof.
-        TaskStatus::Success => {
-            let proof = manager
-                .get_aggregation_task_proof(&aggregation_request)
-                .await?;
-
-            Ok(proof.into())
-        }
-        // For all other statuses just return the status.
-        status => Ok(status.clone().into()),
-    }
+    let result = crate::server::prove(&gateway, agg_request_key, agg_request_entity).await;
+    Ok(to_v3_result(result))
 }
 
 #[derive(OpenApi)]
@@ -125,9 +88,9 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     })
 }
 
-pub fn create_router() -> Router<ProverState> {
+pub fn create_router<P: raiko_reqpool::Pool + 'static>() -> Router<Gateway<P>> {
     Router::new()
-        .route("/", post(aggregation_handler))
+        .route("/", post(aggregation_handler::<P>))
         .nest("/cancel", cancel::create_router())
         .nest("/prune", prune::create_router())
         .nest("/report", report::create_router())

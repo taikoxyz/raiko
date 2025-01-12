@@ -1,5 +1,8 @@
 #![allow(incomplete_features)]
-use raiko_host::{interfaces::HostResult, server::serve, ProverState};
+use clap::Parser;
+use raiko_host::{interfaces::HostResult, server::serve, Opts};
+use raiko_lib::consts::SupportedChainSpecs;
+use raiko_reqpool::RedisPoolConfig;
 use std::path::PathBuf;
 use tracing::{debug, info};
 use tracing_appender::{
@@ -14,21 +17,56 @@ async fn main() -> HostResult<()> {
     env_logger::Builder::from_default_env()
         .target(env_logger::Target::Stdout)
         .init();
-    let state = ProverState::init()?;
-    let _guard = subscribe_log(
-        &state.opts.log_path,
-        &state.opts.log_level,
-        state.opts.max_log,
+    let opts = parse_opts()?;
+    let chain_specs = parse_chain_specs(&opts);
+
+    // Start pool
+    let pool = raiko_reqpool::RedisPool::open(RedisPoolConfig {
+        redis_url: opts.redis_url.clone(),
+        redis_ttl: opts.redis_ttl,
+    })
+    .map_err(|e| anyhow::anyhow!(e))?;
+
+    // Start Actor
+    let (controller, pause_tx) =
+        raiko_reqactor::Actor::start(pool.clone(), chain_specs.clone()).await;
+    let gateway = raiko_reqactor::Gateway::new(
+        pool,
+        opts.proof_request_opt.clone(),
+        chain_specs.clone(),
+        controller,
+        pause_tx,
     );
-    debug!("Start config:\n{:#?}", state.opts.proof_request_opt);
-    debug!("Args:\n{:#?}", state.opts);
 
-    info!("Supported chains: {:?}", state.chain_specs);
-    info!("Start config:\n{:#?}", state.opts.proof_request_opt);
-    info!("Args:\n{:#?}", state.opts);
+    let _guard = subscribe_log(&opts.log_path, &opts.log_level, opts.max_log);
+    debug!("Start config:\n{:#?}", opts.proof_request_opt);
+    debug!("Args:\n{:#?}", opts);
+    info!("Supported chains: {:?}", chain_specs);
 
-    serve(state).await?;
+    let address = opts.address.as_str();
+    let concurrency = opts.concurrency_limit;
+    let jwt_secret = opts.jwt_secret.clone();
+    serve(gateway, address, concurrency, jwt_secret).await?;
     Ok(())
+}
+
+fn parse_opts() -> HostResult<Opts> {
+    // Read the command line arguments;
+    let mut opts = Opts::parse();
+    // Read env supported options.
+    opts.merge_from_env();
+    // Read the config file.
+    opts.merge_from_file()?;
+
+    Ok(opts)
+}
+
+fn parse_chain_specs(opts: &Opts) -> SupportedChainSpecs {
+    if let Some(cs_path) = &opts.chain_spec_path {
+        SupportedChainSpecs::merge_from_file(cs_path.clone()).expect("Failed to parse chain specs")
+    } else {
+        SupportedChainSpecs::default()
+    }
 }
 
 fn subscribe_log(

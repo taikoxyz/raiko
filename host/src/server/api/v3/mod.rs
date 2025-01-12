@@ -6,10 +6,8 @@ use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::{
-    server::api::v1::{self, GuestOutputDoc},
-    ProverState,
-};
+use crate::server::api::v1::{self, GuestOutputDoc};
+use raiko_reqactor::Gateway;
 
 mod proof;
 
@@ -158,7 +156,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     })
 }
 
-pub fn create_router() -> Router<ProverState> {
+pub fn create_router<P: raiko_reqpool::Pool + 'static>() -> Router<Gateway<P>> {
     let docs = create_docs();
 
     Router::new()
