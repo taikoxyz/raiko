@@ -2424,6 +2424,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-getters"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74ef43543e701c01ad77d3a5922755c6a1d71b22d942cb8042be4994b380caff"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.82",
+]
+
+[[package]]
 name = "derive_arbitrary"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6093,6 +6104,8 @@ dependencies = [
  "proptest",
  "raiko-core",
  "raiko-lib",
+ "raiko-reqactor",
+ "raiko-reqpool",
  "raiko-tasks",
  "rand 0.8.5",
  "reqwest 0.11.27",
@@ -6183,6 +6196,106 @@ dependencies = [
  "regex",
  "risc0-binfmt",
  "sp1-sdk",
+]
+
+[[package]]
+name = "raiko-redis-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "raiko-reqactor"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-network",
+ "alloy-primitives 0.7.7",
+ "alloy-provider",
+ "alloy-rlp",
+ "alloy-rlp-derive",
+ "alloy-rpc-client",
+ "alloy-rpc-types",
+ "alloy-sol-types",
+ "alloy-transport-http",
+ "anyhow",
+ "assert_cmd",
+ "bincode",
+ "bytemuck",
+ "cap",
+ "cfg-if",
+ "chrono",
+ "clap 4.5.20",
+ "dotenv",
+ "env_logger",
+ "ethers-core 2.0.10",
+ "flate2",
+ "kzg",
+ "lazy_static",
+ "lru_time_cache",
+ "once_cell",
+ "prometheus",
+ "proptest",
+ "raiko-core",
+ "raiko-lib",
+ "raiko-reqpool",
+ "rand 0.8.5",
+ "reqwest 0.11.27",
+ "reqwest 0.12.8",
+ "reth-evm",
+ "reth-evm-ethereum",
+ "reth-primitives",
+ "reth-provider",
+ "risc0-driver",
+ "rlp",
+ "rstest",
+ "rust-kzg-zkcrypto",
+ "serde",
+ "serde_json",
+ "serde_with 3.11.0",
+ "sgx-prover",
+ "sha2",
+ "sp1-driver",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber 0.3.18",
+ "url",
+]
+
+[[package]]
+name = "raiko-reqpool"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives 0.7.7",
+ "anyhow",
+ "async-trait",
+ "backoff",
+ "chrono",
+ "derive-getters",
+ "hex",
+ "num_enum 0.7.3",
+ "proc-macro2",
+ "quote",
+ "raiko-core",
+ "raiko-lib",
+ "raiko-redis-derive",
+ "rand 0.9.0-alpha.2",
+ "rand_chacha 0.9.0-alpha.2",
+ "redis",
+ "serde",
+ "serde_json",
+ "serde_with 3.11.0",
+ "syn 2.0.82",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
