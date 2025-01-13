@@ -3,9 +3,9 @@
 # Any error will result in failure
 set -e
 
-TOOLCHAIN_RISC0=+nightly-2024-04-18
-TOOLCHAIN_SP1=+nightly-2024-04-18
-TOOLCHAIN_SGX=+nightly-2024-04-18
+TOOLCHAIN_RISC0=+nightly-2024-09-05
+TOOLCHAIN_SP1=+nightly-2024-09-05
+TOOLCHAIN_SGX=+nightly-2024-09-05
 
 check_toolchain() {
     local TOOLCHAIN=$1
@@ -152,6 +152,7 @@ if [ "$1" == "sp1" ]; then
             cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench -F $TASKDB
         fi
         if [ -z "${GUEST}" ]; then
+            echo "Building 'cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1 -F $TASKDB'" 
             cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1 -F $TASKDB
         fi
     else

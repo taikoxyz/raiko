@@ -3,9 +3,9 @@ use alloy_provider::ProviderBuilder;
 use alloy_sol_types::sol;
 use raiko_lib::prover::ProverResult;
 use reth_primitives::B256;
-use sp1_sdk::network::proto::network::twirp::url::Url;
 use std::{env, str::FromStr};
 use tracing::{error, info};
+use url::Url;
 
 use crate::RaikoProofFixture;
 

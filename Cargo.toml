@@ -53,14 +53,15 @@ reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = 
 reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 
 # risc zero
-risc0-zkvm = { version = "=1.1.2", features = ["prove", "getrandom"] }
-bonsai-sdk = { version = "=1.1.2" }
-risc0-binfmt = { version = "=1.1.2" }
+risc0-zkvm = { version = "=1.2.0", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "=1.2.0" }
+risc0-binfmt = { version = "=1.2.0" }
 
 # SP1
-sp1-sdk = { version = "=3.3.0" }
-sp1-zkvm = { version = "=3.3.0" }
-sp1-helper = { version = "=3.3.0" }
+sp1-sdk = { version = "=4.0.0-rc.8" }
+sp1-prover = { version = "=4.0.0-rc.8" }
+sp1-zkvm = { version = "=4.0.0-rc.8" }
+sp1-helper = { version = "=4.0.0-rc.8" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
@@ -129,7 +130,7 @@ cap = { git = "https://github.com/brechtpd/cap", branch = "more-stats", features
 # async, server, http queries
 axum = { version = "0.7.4", features = ["macros"] }
 tower-http = { version = "0.5.2", features = ["full"] }
-tower = { version = "0.4.13", features = ["full"] }
+tower = { version = "0.5.2", features = ["full"] }
 utoipa-swagger-ui = { version = "7.1.0", features = ["axum"] }
 utoipa-scalar = { version = "0.1.0", features = ["axum"] }
 utoipa = { version = "4.2.0", features = ["axum_extras"] }

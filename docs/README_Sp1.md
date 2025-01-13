@@ -8,11 +8,7 @@ To enable CPU acceleration, you can use the `RUSTFLAGS` environment variable to 
 RUSTFLAGS='-C target-cpu=native' cargo run --release
 ```
 
-Currently there is support for AVX512 and NEON SIMD instructions. For NEON, you must also enable the `sp1-driver` feature `neon`.
-
-```bash
-cargo run --features sp1,neon --release
-```
+Currently there is support for AVX512 SIMD instructions.
 
 ## Performance
 
