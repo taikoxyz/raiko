@@ -12,6 +12,9 @@ type GlobalStorage = Mutex<HashMap<String, SingleStorage>>;
 
 lazy_static! {
     // #{redis_url => single_storage}
+    //
+    // We use redis_url to distinguish different redis database for tests, to prevent
+    // data race problem when running multiple tests.
     static ref GLOBAL_STORAGE: GlobalStorage = Mutex::new(HashMap::new());
 }
 
