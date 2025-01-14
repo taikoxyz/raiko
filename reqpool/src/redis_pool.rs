@@ -5,6 +5,7 @@ use crate::{
 use backoff::{exponential::ExponentialBackoff, SystemClock};
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
 use raiko_redis_derive::RedisValue;
+#[allow(unused_imports)]
 use redis::{Client, Commands, RedisResult};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
