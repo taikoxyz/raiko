@@ -11,19 +11,19 @@ use tokio::sync::{mpsc::Sender, oneshot};
 use crate::Action;
 
 #[derive(Debug, Clone)]
-pub struct Gateway<P: Pool> {
+pub struct Gateway {
     default_request_config: ProofRequestOpt,
     chain_specs: SupportedChainSpecs,
     controller: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
     pause_signal: Sender<()>,
-    pool: Arc<Mutex<P>>,
+    pool: Arc<Mutex<Pool>>,
     is_paused: Arc<AtomicBool>,
 }
 
 /// Gateway for the Actor.
-impl<P: Pool> Gateway<P> {
+impl Gateway {
     pub fn new(
-        pool: P,
+        pool: Pool,
         default_request_config: ProofRequestOpt,
         chain_specs: SupportedChainSpecs,
         controller: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
