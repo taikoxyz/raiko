@@ -1,6 +1,6 @@
 use crate::{
-    impl_display_using_json_pretty, proof_key_to_hack_request_key, Pool, PoolResult,
-    RedisPoolConfig, RequestEntity, RequestKey, StatusWithContext,
+    impl_display_using_json_pretty, proof_key_to_hack_request_key, RedisPoolConfig, RequestEntity,
+    RequestKey, StatusWithContext,
 };
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
 use raiko_redis_derive::RedisValue;
@@ -9,18 +9,18 @@ use redis::{Client, Commands, RedisResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
-pub struct RedisPool {
+pub struct Pool {
     client: Client,
     config: RedisPoolConfig,
 }
 
-impl Pool for RedisPool {
-    fn add(
+impl Pool {
+    pub fn add(
         &mut self,
         request_key: RequestKey,
         request_entity: RequestEntity,
         status: StatusWithContext,
-    ) -> PoolResult<()> {
+    ) -> Result<(), String> {
         tracing::info!("RedisPool.add: {request_key}, {status}");
         let request_entity_and_status = RequestEntityAndStatus {
             entity: request_entity,
@@ -37,7 +37,7 @@ impl Pool for RedisPool {
         Ok(())
     }
 
-    fn remove(&mut self, request_key: &RequestKey) -> PoolResult<usize> {
+    pub fn remove(&mut self, request_key: &RequestKey) -> Result<usize, String> {
         tracing::info!("RedisPool.remove: {request_key}");
         let result: usize = self
             .conn()
@@ -47,10 +47,10 @@ impl Pool for RedisPool {
         Ok(result)
     }
 
-    fn get(
+    pub fn get(
         &mut self,
         request_key: &RequestKey,
-    ) -> PoolResult<Option<(RequestEntity, StatusWithContext)>> {
+    ) -> Result<Option<(RequestEntity, StatusWithContext)>, String> {
         let result: RedisResult<RequestEntityAndStatus> =
             self.conn().map_err(|e| e.to_string())?.get(request_key);
         match result {
@@ -60,15 +60,18 @@ impl Pool for RedisPool {
         }
     }
 
-    fn get_status(&mut self, request_key: &RequestKey) -> PoolResult<Option<StatusWithContext>> {
+    pub fn get_status(
+        &mut self,
+        request_key: &RequestKey,
+    ) -> Result<Option<StatusWithContext>, String> {
         self.get(request_key).map(|v| v.map(|v| v.1))
     }
 
-    fn update_status(
+    pub fn update_status(
         &mut self,
         request_key: RequestKey,
         status: StatusWithContext,
-    ) -> PoolResult<StatusWithContext> {
+    ) -> Result<StatusWithContext, String> {
         tracing::info!("RedisPool.update_status: {request_key}, {status}");
         match self.get(&request_key)? {
             Some((entity, old_status)) => {
@@ -81,7 +84,7 @@ impl Pool for RedisPool {
 }
 
 #[async_trait::async_trait]
-impl IdStore for RedisPool {
+impl IdStore for Pool {
     async fn read_id(&mut self, proof_key: ProofKey) -> ProverResult<String> {
         let hack_request_key = proof_key_to_hack_request_key(proof_key);
 
@@ -99,7 +102,7 @@ impl IdStore for RedisPool {
 }
 
 #[async_trait::async_trait]
-impl IdWrite for RedisPool {
+impl IdWrite for Pool {
     async fn store_id(&mut self, proof_key: ProofKey, id: String) -> ProverResult<()> {
         let hack_request_key = proof_key_to_hack_request_key(proof_key);
 
@@ -125,7 +128,7 @@ impl IdWrite for RedisPool {
     }
 }
 
-impl RedisPool {
+impl Pool {
     pub fn open(config: RedisPoolConfig) -> Result<Self, redis::RedisError> {
         tracing::info!("RedisPool.open: connecting to redis: {}", config.redis_url);
 
