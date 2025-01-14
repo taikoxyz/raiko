@@ -8,7 +8,7 @@ use raiko_core::{
 use raiko_lib::{
     consts::SupportedChainSpecs,
     input::{AggregationGuestInput, AggregationGuestOutput},
-    prover::{IdStore, IdWrite, Proof},
+    prover::{IdWrite, Proof},
 };
 use raiko_reqpool::{
     AggregationRequestEntity, RequestEntity, RequestKey, SingleProofRequestEntity, Status,
@@ -23,20 +23,20 @@ use tokio::sync::{
 use crate::{Action, Pool};
 
 #[derive(Clone)]
-pub struct Actor<P: Pool + IdStore + IdWrite + 'static> {
-    pool: P,
+pub struct Actor {
+    pool: Pool,
     chain_specs: SupportedChainSpecs,
     internal_tx: Sender<RequestKey>,
 }
 
 // TODO: load pool and notify internal channel
-impl<P: Pool + IdStore + 'static> Actor<P> {
+impl Actor {
     /// Start the actor, return the actor and the sender.
     ///
     /// The returned channel sender is used to send actions to the actor, and the actor will
     /// act on the actions and send responses back.
     pub async fn start(
-        pool: P,
+        pool: Pool,
         chain_specs: SupportedChainSpecs,
     ) -> (
         Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
