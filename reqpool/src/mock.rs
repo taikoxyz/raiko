@@ -69,7 +69,7 @@ impl MockRedisConnection {
 mod tests {
     use redis::RedisResult;
 
-    use crate::{RedisPool, RedisPoolConfig};
+    use crate::{Pool, RedisPoolConfig};
 
     #[test]
     fn test_mock_redis_pool() {
@@ -77,7 +77,7 @@ mod tests {
             redis_ttl: 111,
             redis_url: "redis://localhost:6379".to_string(),
         };
-        let mut pool = RedisPool::open(config).unwrap();
+        let mut pool = Pool::open(config).unwrap();
         let mut conn = pool.conn().expect("mock conn");
 
         let key = "hello".to_string();
