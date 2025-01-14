@@ -1,7 +1,6 @@
 mod config;
 mod macros;
-mod memory_pool;
-#[cfg(test)]
+#[cfg(any(test, feature = "enable-mock"))]
 mod mock;
 mod redis_pool;
 mod request;
