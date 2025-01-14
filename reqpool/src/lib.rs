@@ -1,6 +1,8 @@
 mod config;
 mod macros;
 mod memory_pool;
+#[cfg(test)]
+mod mock;
 mod redis_pool;
 mod request;
 mod traits;

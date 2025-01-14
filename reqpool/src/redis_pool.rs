@@ -2,12 +2,11 @@ use crate::{
     impl_display_using_json_pretty, proof_key_to_hack_request_key, Pool, PoolResult,
     RedisPoolConfig, RequestEntity, RequestKey, StatusWithContext,
 };
-use backoff::{exponential::ExponentialBackoff, SystemClock};
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
 use raiko_redis_derive::RedisValue;
+#[allow(unused_imports)]
 use redis::{Client, Commands, RedisResult};
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct RedisPool {
@@ -91,7 +90,7 @@ impl IdStore for RedisPool {
         let result: RedisResult<String> = self
             .conn()
             .map_err(|e| e.to_string())?
-            .get(hack_request_key);
+            .get(&hack_request_key);
         match result {
             Ok(value) => Ok(value.into()),
             Err(e) => Err(ProverError::StoreError(e.to_string())),
@@ -134,7 +133,19 @@ impl RedisPool {
         Ok(Self { client, config })
     }
 
+    #[cfg(test)]
+    pub(crate) fn conn(&mut self) -> Result<crate::mock::MockRedisConnection, redis::RedisError> {
+        let _ = self.client;
+        Ok(crate::mock::MockRedisConnection::new(
+            self.config.redis_url.clone(),
+        ))
+    }
+
+    #[cfg(not(test))]
     fn conn(&mut self) -> Result<redis::Connection, redis::RedisError> {
+        use backoff::{exponential::ExponentialBackoff, SystemClock};
+        use std::time::Duration;
+
         let backoff: ExponentialBackoff<SystemClock> = ExponentialBackoff {
             initial_interval: Duration::from_secs(10),
             max_interval: Duration::from_secs(60),
