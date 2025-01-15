@@ -77,7 +77,7 @@ impl Backend {
 
                     // Signal the request key to the internal channel, to move on to the next step, whatever the result is
                     //
-                    // NOTE: Why signal whatever the result is? It's for fault tolerence, to ensure the request will be
+                    // NOTE: Why signal whatever the result is? It's for fault tolerance, to ensure the request will be
                     // handled even when something unexpected happens.
                     self.ensure_internal_signal(request_key).await;
 
@@ -200,9 +200,9 @@ impl Backend {
                 );
             }
             Err(err) => {
-                // Fault tolerence: re-enqueue the internal signal after 3 seconds
+                // Fault tolerance: re-enqueue the internal signal after 3 seconds
                 tracing::warn!(
-                    "Actor Backend failed to get status of internal signal {request_key}: {err:?}, performing fault tolerence and retrying later"
+                    "Actor Backend failed to get status of internal signal {request_key}: {err:?}, performing fault tolerance and retrying later"
                 );
                 self.ensure_internal_signal_after(request_key, Duration::from_secs(3))
                     .await;
@@ -212,7 +212,7 @@ impl Backend {
 
     // Ensure signal the request key to the internal channel.
     //
-    // Note that this function will retry sending the signal until successed.
+    // Note that this function will retry sending the signal until success.
     async fn ensure_internal_signal(&mut self, request_key: RequestKey) {
         let mut ticker = tokio::time::interval(Duration::from_secs(3));
         let internal_tx = self.internal_tx.clone();
