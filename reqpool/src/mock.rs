@@ -95,4 +95,51 @@ mod tests {
         let actual: RedisResult<String> = conn.get(&key);
         assert!(actual.is_err());
     }
+
+    #[test]
+    fn test_mock_multiple_redis_pool() {
+        let mut pool1 = Pool::open(RedisPoolConfig {
+            redis_ttl: 111,
+            redis_url: "redis://localhost:6379".to_string(),
+        })
+        .unwrap();
+        let mut pool2 = Pool::open(RedisPoolConfig {
+            redis_ttl: 111,
+            redis_url: "redis://localhost:6380".to_string(),
+        })
+        .unwrap();
+
+        let mut conn1 = pool1.conn().expect("mock conn");
+        let mut conn2 = pool2.conn().expect("mock conn");
+
+        let key = "hello".to_string();
+        let world = "world".to_string();
+
+        {
+            conn1
+                .set_ex(key.clone(), world.clone(), 111)
+                .expect("mock set_ex");
+            let actual: RedisResult<String> = conn1.get(&key);
+            assert_eq!(actual, Ok(world.clone()));
+        }
+
+        {
+            let actual: RedisResult<String> = conn2.get(&key);
+            assert!(actual.is_err());
+        }
+
+        {
+            let meme = "meme".to_string();
+            conn2
+                .set_ex(key.clone(), meme.clone(), 111)
+                .expect("mock set_ex");
+            let actual: RedisResult<String> = conn2.get(&key);
+            assert_eq!(actual, Ok(meme));
+        }
+
+        {
+            let actual: RedisResult<String> = conn1.get(&key);
+            assert_eq!(actual, Ok(world));
+        }
+    }
 }
