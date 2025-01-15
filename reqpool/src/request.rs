@@ -276,11 +276,29 @@ impl From<AggregationRequestEntity> for RequestEntity {
 
 // === impl Display using json_pretty ===
 
-impl_display_using_json_pretty!(Status);
-impl_display_using_json_pretty!(StatusWithContext);
 impl_display_using_json_pretty!(RequestKey);
 impl_display_using_json_pretty!(SingleProofRequestKey);
 impl_display_using_json_pretty!(AggregationRequestKey);
 impl_display_using_json_pretty!(RequestEntity);
 impl_display_using_json_pretty!(SingleProofRequestEntity);
 impl_display_using_json_pretty!(AggregationRequestEntity);
+
+// === impl Display for Status ===
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Status::Registered => write!(f, "Registered"),
+            Status::WorkInProgress => write!(f, "WorkInProgress"),
+            Status::Success { .. } => write!(f, "Success"),
+            Status::Cancelled => write!(f, "Cancelled"),
+            Status::Failed { error } => write!(f, "Failed({})", error),
+        }
+    }
+}
+
+impl std::fmt::Display for StatusWithContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.status())
+    }
+}
