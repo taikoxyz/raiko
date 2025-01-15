@@ -93,3 +93,113 @@ impl Actor {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::Address;
+    use raiko_lib::{
+        consts::SupportedChainSpecs,
+        input::BlobProofType,
+        primitives::{ChainId, B256},
+        proof_type::ProofType,
+    };
+    use raiko_reqpool::{
+        Pool, RedisPoolConfig, RequestEntity, RequestKey, SingleProofRequestEntity,
+        SingleProofRequestKey, StatusWithContext,
+    };
+    use std::collections::HashMap;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn test_pause_sets_is_paused_flag() {
+        let (action_tx, _) = mpsc::channel(1);
+        let (pause_tx, _pause_rx) = mpsc::channel(1);
+
+        let config = RedisPoolConfig {
+            redis_url: "redis://localhost:6379/0".to_string(),
+            redis_ttl: 3600,
+        };
+
+        let actor = Actor::new(
+            Pool::open(config).expect("Failed to create pool"),
+            ProofRequestOpt::default(),
+            SupportedChainSpecs::default(),
+            action_tx,
+            pause_tx,
+        );
+
+        assert!(!actor.is_paused(), "Actor should not be paused initially");
+
+        actor.pause().await.expect("Pause should succeed");
+        assert!(
+            actor.is_paused(),
+            "Actor should be paused after calling pause()"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_act_sends_action_and_returns_response() {
+        let (action_tx, mut action_rx) = mpsc::channel(1);
+        let (pause_tx, _) = mpsc::channel(1);
+
+        let config = RedisPoolConfig {
+            redis_url: "redis://localhost:6379/0".to_string(),
+            redis_ttl: 3600,
+        };
+
+        let actor = Actor::new(
+            Pool::open(config).expect("Failed to create pool"),
+            ProofRequestOpt::default(),
+            SupportedChainSpecs::default(),
+            action_tx,
+            pause_tx,
+        );
+
+        // Create a test action
+        let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
+            ChainId::default(),
+            1,
+            B256::default(),
+            ProofType::default(),
+            "test_prover".to_string(),
+        ));
+        let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
+            1,
+            1,
+            "test_network".to_string(),
+            "test_l1_network".to_string(),
+            B256::default(),
+            Address::default(),
+            ProofType::default(),
+            BlobProofType::default(),
+            HashMap::new(),
+        ));
+        let test_action = Action::Prove {
+            request_key: request_key.clone(),
+            request_entity,
+        };
+
+        // Spawn a task to handle the action and send back a response
+        let status = StatusWithContext::new_registered();
+        let status_clone = status.clone();
+        let handle = tokio::spawn(async move {
+            let (action, resp_tx) = action_rx.recv().await.expect("Should receive action");
+            // Verify we received the expected action
+            assert_eq!(action.request_key(), &request_key);
+            // Send back a mock response with Registered status
+            resp_tx
+                .send(Ok(status_clone))
+                .expect("Should send response");
+        });
+
+        // Send the action and wait for response
+        let result = actor.act(test_action).await;
+
+        // Make sure we got back an Ok response
+        assert_eq!(result, Ok(status), "Should receive successful response");
+
+        // Wait for the handler to complete
+        handle.await.expect("Handler should complete");
+    }
+}
