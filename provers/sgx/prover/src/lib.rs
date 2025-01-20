@@ -237,6 +237,15 @@ impl Prover for SgxProver {
     async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
+    
+    async fn batch_run(
+        input: raiko_lib::input::GuestBatchInput,
+        output: &GuestOutput,
+        config: &ProverConfig,
+        store: Option<std::sync::Arc<std::sync::Mutex<&mut dyn IdWrite>>>,
+    ) -> ProverResult<Vec<Proof>> {
+        todo!()
+    }
 }
 
 async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
