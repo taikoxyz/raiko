@@ -1,4 +1,6 @@
-use std::path::Path;
+use std::ops::DerefMut;
+use std::sync::{Arc, Mutex};
+use std::{ops::Deref, path::Path};
 
 use raiko_lib::{
     input::{GuestInput, GuestOutput},
@@ -64,6 +66,27 @@ impl Prover for NativeProver {
             uuid: None,
             kzg_proof: None,
         })
+    }
+
+    async fn batch_run(
+        input: raiko_lib::input::GuestBatchInput,
+        output: &GuestOutput,
+        config: &ProverConfig,
+        store: Option<Arc<Mutex<&mut dyn IdWrite>>>,
+    ) -> ProverResult<Vec<Proof>> {
+        let mut batch_proofs = Vec::new();
+        for input in input.inputs {
+            if store.is_some() {
+                let mut guard = store.as_ref().unwrap().lock().unwrap();
+                let proof =
+                    Self::run(input, output, config, Some(guard.deref_mut().deref_mut())).await?;
+                batch_proofs.push(proof);
+            } else {
+                let proof = Self::run(input, output, config, None).await?;
+                batch_proofs.push(proof);
+            }
+        }
+        Ok(batch_proofs)
     }
 
     async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {

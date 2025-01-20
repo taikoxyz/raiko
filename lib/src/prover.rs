@@ -1,8 +1,12 @@
 use reth_primitives::{ChainId, B256};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::sync::Mutex;
 use utoipa::ToSchema;
 
-use crate::input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput};
+use crate::input::{
+    AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput, GuestOutput,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProverError {
@@ -63,6 +67,13 @@ pub trait Prover {
         config: &ProverConfig,
         store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;
+
+    async fn batch_run(
+        input: GuestBatchInput,
+        output: &GuestOutput,
+        config: &ProverConfig,
+        store: Option<Arc<Mutex<&mut dyn IdWrite>>>,
+    ) -> ProverResult<Vec<Proof>>;
 
     async fn aggregate(
         input: AggregationGuestInput,
