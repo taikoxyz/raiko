@@ -1,17 +1,15 @@
-use crate::common::{make_proof_request, randomly_select_block, setup};
+use crate::common::{make_proof_request, setup};
 use raiko_host::server::api;
 use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_tasks::TaskStatus;
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_native_cancel() {
     let api_version = "v2";
     let network = Network::TaikoMainnet;
     let proof_type = ProofType::Native;
-    let block_number = randomly_select_block(network)
-        .await
-        .expect("randomly select block failed");
+    let block_number = crate::test::TEST_BLOCK_NUMBER;
 
     let (_server, client) = setup().await;
     let request = make_proof_request(&network, &proof_type, block_number);
@@ -47,14 +45,13 @@ pub async fn test_v2_mainnet_native_cancel() {
     assert!(matches!(status, api::v2::CancelStatus::Ok),);
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_native_cancel_non_registered() {
     let api_version = "v2";
     let network = Network::TaikoMainnet;
     let proof_type = ProofType::Native;
-    let block_number = randomly_select_block(network)
-        .await
-        .expect("randomly select block failed");
+
+    let block_number = crate::test::TEST_BLOCK_NUMBER;
 
     let (_server, client) = setup().await;
     let request = make_proof_request(&network, &proof_type, block_number);
@@ -70,14 +67,13 @@ pub async fn test_v2_mainnet_native_cancel_non_registered() {
     );
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_native_cancel_then_register() {
     let api_version = "v2";
     let network = Network::TaikoMainnet;
     let proof_type = ProofType::Native;
-    let block_number = randomly_select_block(network)
-        .await
-        .expect("randomly select block failed");
+
+    let block_number = crate::test::TEST_BLOCK_NUMBER;
 
     let (_server, client) = setup().await;
     let request = make_proof_request(&network, &proof_type, block_number);

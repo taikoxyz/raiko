@@ -15,6 +15,8 @@ sgx-prover = { path = "../provers/sgx/prover", optional = true }
 raiko-lib = { workspace = true }
 raiko-core = { workspace = true }
 raiko-tasks = { workspace = true }
+raiko-reqpool = { workspace = true }
+raiko-reqactor = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -82,6 +84,7 @@ assert_cmd = { workspace = true }
 rstest = { workspace = true }
 ethers-core = { workspace = true }
 rand = { workspace = true }
+test-log = { workspace = true }
 
 [features]
 default = []
@@ -89,6 +92,7 @@ sp1 = ["raiko-core/sp1"]
 risc0 = ["raiko-core/risc0"]
 sgx = ["raiko-core/sgx"]
 integration = []
+test-utils = ["raiko-core/test-utils", "raiko-reqpool/test-utils"]
 
 [[bin]]
 name = "raiko-host"

@@ -1,6 +1,6 @@
 use crate::common::{
     complete_aggregate_proof_request, complete_proof_request, make_aggregate_proof_request,
-    make_proof_request, randomly_select_blocks, setup, v2_assert_report,
+    make_proof_request, setup, v2_assert_report,
 };
 use raiko_host::server::api;
 use raiko_lib::consts::Network;
@@ -9,28 +9,22 @@ use raiko_tasks::TaskStatus;
 
 #[tokio::test]
 async fn test_v2_mainnet_aggregate_native() {
-    test_v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Native).await;
+    v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Native).await;
 }
 
 #[ignore]
 #[cfg(feature = "risc0")]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn test_v2_mainnet_aggregate_risc0() {
-    test_v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Risc0).await;
+    v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Risc0).await;
 }
 
-async fn test_v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
+async fn v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
     setup_mock_zkvm_elf();
 
     let api_version = "v2";
-    let aggregate_block_count = 2;
 
-    let block_numbers = randomly_select_blocks(network, aggregate_block_count)
-        .await
-        .expect("randomly select blocks failed");
-    println!(
-        "[test_aggregate_v2_mainnet] network: {network}, proof_type: {proof_type}, block_numbers: {block_numbers:?}"
-    );
+    let block_numbers = vec![crate::test::TEST_BLOCK_NUMBER];
 
     let (_server, client) = setup().await;
     let requests: Vec<_> = block_numbers

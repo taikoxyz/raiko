@@ -1,8 +1,9 @@
-use axum::{body::Body, debug_handler, http::header, response::Response, routing::get, Router};
+use axum::{body::Body, http::header, response::Response, routing::get, Router};
 use prometheus::{Encoder, TextEncoder};
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, ProverState};
+use crate::interfaces::HostResult;
+use raiko_reqactor::Actor;
 
 #[utoipa::path(
     get,
@@ -12,7 +13,6 @@ use crate::{interfaces::HostResult, ProverState};
         (status = 200, description = "The metrics have been captured successfully"),
     ),
 )]
-#[debug_handler(state = ProverState)]
 /// Get prometheus metrics
 ///
 /// Currently available metrics are:
@@ -52,6 +52,6 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     Docs::openapi()
 }
 
-pub fn create_router() -> Router<ProverState> {
+pub fn create_router() -> Router<Actor> {
     Router::new().route("/", get(metrics_handler))
 }

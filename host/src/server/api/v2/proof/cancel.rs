@@ -1,10 +1,14 @@
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_tasks::{ProofTaskDescriptor, TaskManager, TaskStatus};
+use raiko_reqpool::SingleProofRequestKey;
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, ProverState};
+use crate::{
+    interfaces::HostResult,
+    server::{api::v2::CancelStatus, to_v2_cancel_status},
+};
+use raiko_reqactor::Actor;
 
 #[utoipa::path(post, path = "/proof/cancel",
     tag = "Proving",
@@ -13,7 +17,6 @@ use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, Prov
         (status = 200, description = "Successfully cancelled proof task", body = CancelStatus)
     )
 )]
-#[debug_handler(state = ProverState)]
 /// Cancel a proof task with requested config.
 ///
 /// Accepts a proof request and cancels a proving task with the specified guest prover.
@@ -23,12 +26,12 @@ use crate::{interfaces::HostResult, server::api::v2::CancelStatus, Message, Prov
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
 async fn cancel_handler(
-    State(prover_state): State<ProverState>,
+    State(actor): State<Actor>,
     Json(req): Json<Value>,
 ) -> HostResult<CancelStatus> {
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
-    let mut config = prover_state.request_config();
+    let mut config = actor.default_request_config().to_owned();
     config.merge(&req)?;
 
     // Construct the actual proof request from the available configs.
@@ -37,29 +40,21 @@ async fn cancel_handler(
     let (chain_id, block_hash) = get_task_data(
         &proof_request.network,
         proof_request.block_number,
-        &prover_state.chain_specs,
+        actor.chain_specs(),
     )
     .await?;
 
-    let key = ProofTaskDescriptor::from((
+    let request_key = SingleProofRequestKey::new(
         chain_id,
         proof_request.block_number,
         block_hash,
         proof_request.proof_type,
         proof_request.prover.clone().to_string(),
-    ));
+    )
+    .into();
+    let result = crate::server::cancel(&actor, request_key).await;
 
-    prover_state
-        .task_channel
-        .try_send(Message::Cancel(key.clone()))?;
-
-    let mut manager = prover_state.task_manager();
-
-    manager
-        .update_task_progress(key, TaskStatus::Cancelled, None)
-        .await?;
-
-    Ok(CancelStatus::Ok)
+    Ok(to_v2_cancel_status(result))
 }
 
 #[derive(OpenApi)]
@@ -70,6 +65,6 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     Docs::openapi()
 }
 
-pub fn create_router() -> Router<ProverState> {
+pub fn create_router() -> Router<Actor> {
     Router::new().route("/", post(cancel_handler))
 }

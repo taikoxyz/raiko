@@ -1,18 +1,22 @@
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
-    server::api::util::ensure_not_paused,
-    server::api::{v2, v3::Status},
-    Message, ProverState,
+    server::{
+        api::{v2, v3::Status},
+        prove_aggregation,
+        utils::to_v3_status,
+    },
 };
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{
-    interfaces::{AggregationOnlyRequest, AggregationRequest, ProofRequest, ProofRequestOpt},
+    interfaces::{AggregationRequest, ProofRequest, ProofRequestOpt},
     provider::get_task_data,
 };
-use raiko_lib::prover::Proof;
-use raiko_tasks::{ProofTaskDescriptor, TaskManager, TaskStatus};
-use tracing::{debug, info};
+use raiko_reqactor::Actor;
+use raiko_reqpool::{
+    AggregationRequestEntity, AggregationRequestKey, SingleProofRequestEntity,
+    SingleProofRequestKey,
+};
 use utoipa::OpenApi;
 
 mod aggregate;
@@ -25,7 +29,6 @@ mod cancel;
         (status = 200, description = "Successfully submitted proof task, queried tasks in progress or retrieved proof.", body = Status)
     )
 )]
-#[debug_handler(state = ProverState)]
 /// Submit a proof aggregation task with requested config, get task status or get proof value.
 ///
 /// Accepts a proof request and creates a proving task with the specified guest prover.
@@ -35,18 +38,14 @@ mod cancel;
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
 async fn proof_handler(
-    State(prover_state): State<ProverState>,
+    State(actor): State<Actor>,
     Json(mut aggregation_request): Json<AggregationRequest>,
 ) -> HostResult<Status> {
     inc_current_req();
 
-    ensure_not_paused(&prover_state)?;
-
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
-    aggregation_request.merge(&prover_state.request_config())?;
-
-    let mut tasks = Vec::with_capacity(aggregation_request.block_numbers.len());
+    aggregation_request.merge(&actor.default_request_config())?;
 
     let proof_request_opts: Vec<ProofRequestOpt> = aggregation_request.clone().into();
 
@@ -55,6 +54,8 @@ async fn proof_handler(
     }
 
     // Construct the actual proof request from the available configs.
+    let mut sub_request_keys = Vec::with_capacity(proof_request_opts.len());
+    let mut sub_request_entities = Vec::with_capacity(proof_request_opts.len());
     for proof_request_opt in proof_request_opts {
         let proof_request = ProofRequest::try_from(proof_request_opt)?;
 
@@ -64,146 +65,56 @@ async fn proof_handler(
         let (chain_id, blockhash) = get_task_data(
             &proof_request.network,
             proof_request.block_number,
-            &prover_state.chain_specs,
+            actor.chain_specs(),
         )
         .await?;
 
-        let key = ProofTaskDescriptor::from((
+        let request_key = SingleProofRequestKey::new(
             chain_id,
             proof_request.block_number,
             blockhash,
             proof_request.proof_type,
             proof_request.prover.to_string(),
-        ));
+        );
+        let request_entity = SingleProofRequestEntity::new(
+            proof_request.block_number,
+            proof_request.l1_inclusion_block_number,
+            proof_request.network,
+            proof_request.l1_network,
+            proof_request.graffiti,
+            proof_request.prover,
+            proof_request.proof_type,
+            proof_request.blob_proof_type,
+            proof_request.prover_args,
+        );
 
-        tasks.push((key, proof_request));
+        sub_request_keys.push(request_key);
+        sub_request_entities.push(request_entity);
     }
 
-    let mut manager = prover_state.task_manager();
+    let proof_type = *sub_request_keys.first().unwrap().proof_type();
+    let block_numbers = aggregation_request
+        .block_numbers
+        .iter()
+        .map(|(block_number, _)| *block_number)
+        .collect::<Vec<_>>();
+    let agg_request_key = AggregationRequestKey::new(proof_type, block_numbers.clone());
+    let agg_request_entity_without_proofs = AggregationRequestEntity::new(
+        block_numbers,
+        vec![],
+        proof_type,
+        aggregation_request.prover_args,
+    );
 
-    let mut is_registered = false;
-    let mut is_success = true;
-    let mut statuses = Vec::with_capacity(tasks.len());
-
-    for (key, req) in tasks.iter() {
-        let status = manager.get_task_proving_status(key).await?;
-
-        if let Some((latest_status, ..)) = status.0.last() {
-            match latest_status {
-                // If task has been cancelled
-                TaskStatus::Cancelled
-                | TaskStatus::Cancelled_Aborted
-                | TaskStatus::Cancelled_NeverStarted
-                | TaskStatus::CancellationInProgress
-                // or if the task is failed, add it to the queue again
-                | TaskStatus::GuestProverFailure(_)
-                | TaskStatus::UnspecifiedFailureReason
-                 => {
-                    manager
-                        .update_task_progress(key.clone(), TaskStatus::Registered, None)
-                        .await?;
-                    prover_state.task_channel.try_send(Message::Task(req.to_owned()))?;
-
-                    is_registered = true;
-                    is_success = false;
-                }
-                // If the task has succeeded, return the proof.
-                TaskStatus::Success => {}
-                // For all other statuses just return the status.
-                status => {
-                    statuses.push(status.clone());
-                    is_registered = false;
-                    is_success = false;
-                }
-            }
-        } else {
-            // If there are no tasks with provided config, create a new one.
-            manager.enqueue_task(key).await?;
-
-            prover_state
-                .task_channel
-                .try_send(Message::Task(req.to_owned()))?;
-            is_registered = true;
-            continue;
-        };
-    }
-
-    if is_registered {
-        Ok(TaskStatus::Registered.into())
-    } else if is_success {
-        info!("All tasks are successful, aggregating proofs");
-        let mut proofs = Vec::with_capacity(tasks.len());
-        let mut aggregation_ids = Vec::with_capacity(tasks.len());
-        for (task, req) in tasks {
-            let raw_proof: Vec<u8> = manager.get_task_proof(&task).await?;
-            let proof: Proof = serde_json::from_slice(&raw_proof)?;
-            debug!(
-                "Aggregation sub-req: {req:?} gets proof {:?} with input {:?}.",
-                proof.proof, proof.input
-            );
-            proofs.push(proof);
-            aggregation_ids.push(req.block_number);
-        }
-
-        let aggregation_request = AggregationOnlyRequest {
-            aggregation_ids,
-            proofs,
-            proof_type: aggregation_request.proof_type,
-            prover_args: aggregation_request.prover_args,
-        };
-
-        let status = manager
-            .get_aggregation_task_proving_status(&aggregation_request)
-            .await?;
-
-        if let Some((latest_status, ..)) = status.0.last() {
-            match latest_status {
-                // If task has been cancelled add it to the queue again
-                TaskStatus::Cancelled
-                | TaskStatus::Cancelled_Aborted
-                | TaskStatus::Cancelled_NeverStarted
-                | TaskStatus::CancellationInProgress
-                // or if the task is failed, add it to the queue again
-                | TaskStatus::GuestProverFailure(_)
-                | TaskStatus::UnspecifiedFailureReason
-                => {
-                    manager
-                        .update_aggregation_task_progress(
-                            &aggregation_request,
-                            TaskStatus::Registered,
-                            None,
-                        )
-                        .await?;
-                    prover_state
-                        .task_channel
-                        .try_send(Message::Aggregate(aggregation_request))?;
-                    Ok(Status::from(TaskStatus::Registered))
-                }
-                // If the task has succeeded, return the proof.
-                TaskStatus::Success => {
-                    let proof = manager
-                        .get_aggregation_task_proof(&aggregation_request)
-                        .await?;
-                    Ok(proof.into())
-                }
-                // For all other statuses just return the status.
-                status => Ok(status.clone().into()),
-            }
-        } else {
-            // If there are no tasks with provided config, create a new one.
-            manager
-                .enqueue_aggregation_task(&aggregation_request)
-                .await?;
-
-            prover_state
-                .task_channel
-                .try_send(Message::Aggregate(aggregation_request))?;
-            Ok(Status::from(TaskStatus::Registered))
-        }
-    } else {
-        let status = statuses.into_iter().collect::<TaskStatus>();
-        Ok(status.into())
-    }
+    let result = prove_aggregation(
+        &actor,
+        agg_request_key,
+        agg_request_entity_without_proofs,
+        sub_request_keys,
+        sub_request_entities,
+    )
+    .await;
+    Ok(to_v3_status(result))
 }
 
 #[derive(OpenApi)]
@@ -225,7 +136,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     })
 }
 
-pub fn create_router() -> Router<ProverState> {
+pub fn create_router() -> Router<Actor> {
     Router::new()
         .route("/", post(proof_handler))
         .nest("/cancel", cancel::create_router())
@@ -233,49 +144,4 @@ pub fn create_router() -> Router<ProverState> {
         .nest("/report", v2::proof::report::create_router())
         .nest("/list", v2::proof::list::create_router())
         .nest("/prune", v2::proof::prune::create_router())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::{body::Body, http::Request};
-    use clap::Parser;
-    use std::path::PathBuf;
-    use tower::ServiceExt;
-
-    #[tokio::test]
-    async fn test_proof_handler_when_paused() {
-        let opts = {
-            let mut opts = crate::Opts::parse();
-            opts.config_path = PathBuf::from("../host/config/config.json");
-            opts.merge_from_file().unwrap();
-            opts
-        };
-        let state = ProverState::init_with_opts(opts).unwrap();
-        let app = Router::new()
-            .route("/", post(proof_handler))
-            .with_state(state.clone());
-
-        // Set pause flag
-        state.set_pause(true).await.unwrap();
-
-        let request = Request::builder()
-            .method("POST")
-            .uri("/")
-            .header("content-type", "application/json")
-            .body(Body::from(
-                r#"{"block_numbers":[],"proof_type":"block","prover":"native"}"#,
-            ))
-            .unwrap();
-
-        let response = app.oneshot(request).await.unwrap();
-        let body = axum::body::to_bytes(response.into_body(), 1024)
-            .await
-            .unwrap();
-        assert!(
-            String::from_utf8_lossy(&body).contains("system_paused"),
-            "{:?}",
-            body
-        );
-    }
 }

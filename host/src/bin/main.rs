@@ -1,5 +1,6 @@
 #![allow(incomplete_features)]
-use raiko_host::{interfaces::HostResult, server::serve, ProverState};
+use raiko_host::{interfaces::HostResult, parse_chain_specs, parse_opts, server::serve};
+use raiko_reqpool::RedisPoolConfig;
 use std::path::PathBuf;
 use tracing::{debug, info};
 use tracing_appender::{
@@ -14,20 +15,34 @@ async fn main() -> HostResult<()> {
     env_logger::Builder::from_default_env()
         .target(env_logger::Target::Stdout)
         .init();
-    let state = ProverState::init()?;
-    let _guard = subscribe_log(
-        &state.opts.log_path,
-        &state.opts.log_level,
-        state.opts.max_log,
-    );
-    debug!("Start config:\n{:#?}", state.opts.proof_request_opt);
-    debug!("Args:\n{:#?}", state.opts);
+    let opts = parse_opts()?;
+    let chain_specs = parse_chain_specs(&opts);
+    let default_request_config = opts.proof_request_opt.clone();
+    let max_proving_concurrency = opts.concurrency_limit;
 
-    info!("Supported chains: {:?}", state.chain_specs);
-    info!("Start config:\n{:#?}", state.opts.proof_request_opt);
-    info!("Args:\n{:#?}", state.opts);
+    let pool = raiko_reqpool::Pool::open(RedisPoolConfig {
+        redis_url: opts.redis_url.clone(),
+        redis_ttl: opts.redis_ttl,
+    })
+    .map_err(|e| anyhow::anyhow!(e))?;
 
-    serve(state).await?;
+    let actor = raiko_reqactor::start_actor(
+        pool,
+        chain_specs.clone(),
+        default_request_config.clone(),
+        max_proving_concurrency,
+    )
+    .await;
+
+    let _guard = subscribe_log(&opts.log_path, &opts.log_level, opts.max_log);
+    debug!("Start config:\n{:#?}", default_request_config);
+    debug!("Args:\n{:#?}", opts);
+    info!("Supported chains: {:?}", chain_specs);
+
+    let address = opts.address.as_str();
+    let concurrency = opts.concurrency_limit;
+    let jwt_secret = opts.jwt_secret.clone();
+    serve(actor, address, concurrency, jwt_secret).await?;
     Ok(())
 }
 

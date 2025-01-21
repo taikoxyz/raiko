@@ -1,7 +1,8 @@
 use crate::common::Client;
-use raiko_host::{server::serve, Opts, ProverState};
+use raiko_host::{parse_chain_specs, server::serve, Opts};
+use raiko_reqactor::start_actor;
+use raiko_reqpool::mock_redis_pool;
 use rand::Rng;
-use tokio_util::sync::CancellationToken;
 
 /// Builder for a test server.
 ///
@@ -16,6 +17,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Default, Debug)]
 pub struct TestServerBuilder {
     port: Option<u16>,
+    redis_url: Option<String>,
 }
 
 impl TestServerBuilder {
@@ -24,51 +26,44 @@ impl TestServerBuilder {
         self
     }
 
-    pub fn build(self) -> TestServerHandle {
+    pub fn redis_pool<S: ToString>(mut self, redis_url: S) -> Self {
+        self.redis_url = Some(redis_url.to_string());
+        self
+    }
+
+    pub async fn build(self) -> TestServerHandle {
         let port = self
             .port
             .unwrap_or(rand::thread_rng().gen_range(1024..65535));
+        let redis_url = self.redis_url.unwrap_or(port.to_string());
         let address = format!("127.0.0.1:{port}");
-
-        // TODO
-        // opts.config_path
-        // opts.chain_spec_path
         let log_level = std::env::var("RUST_LOG").unwrap_or("info".to_string());
-        let opts = Opts {
-            address,
-            log_level,
 
+        let opts = Opts {
+            address: address.clone(),
+            log_level,
             concurrency_limit: 16,
             ..Default::default()
         };
-        let state = ProverState::init_with_opts(opts).expect("Failed to initialize prover state");
-        let token = CancellationToken::new();
+        let chain_specs = parse_chain_specs(&opts);
+        let default_request_config = opts.proof_request_opt.clone();
+        let max_proving_concurrency = opts.concurrency_limit;
 
-        // Run the server in a separate thread with the ability to cancel it when our testing is done.
-        let (state_, token_) = (state.clone(), token.clone());
+        let pool = mock_redis_pool(redis_url);
+        let actor = start_actor(
+            pool,
+            chain_specs.clone(),
+            default_request_config.clone(),
+            max_proving_concurrency,
+        )
+        .await;
+
+        let address_clone = address.clone();
         tokio::spawn(async move {
-            println!("Starting server on port {}", port);
-            tokio::select! {
-                _ = token_.cancelled() => {
-                    println!("Test done");
-                }
-                result = serve(state_) => {
-                    match result {
-                        Ok(()) => {
-                            assert!(false, "Unexpected server shutdown");
-                        }
-                        Err(error) => {
-                            assert!(false, "Server failed due to: {error:?}");
-                        }
-                    };
-                }
-            }
+            let _ = serve(actor, &address_clone, max_proving_concurrency, None).await;
         });
 
-        TestServerHandle {
-            state,
-            _token: token,
-        }
+        TestServerHandle { address }
     }
 }
 
@@ -76,12 +71,11 @@ impl TestServerBuilder {
 ///
 /// Note that we don't need to cancel the server explicitly, as it will be cancelled when the token is dropped.
 pub struct TestServerHandle {
-    state: ProverState,
-    _token: CancellationToken,
+    address: String,
 }
 
 impl TestServerHandle {
     pub fn get_client(&self) -> Client {
-        Client::new(format!("http://{}", self.state.opts.address))
+        Client::new(format!("http://{}", self.address))
     }
 }

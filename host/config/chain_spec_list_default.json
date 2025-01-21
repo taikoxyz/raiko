@@ -25,7 +25,7 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "https://ethereum-rpc.publicnode.com",
+        "rpc": "https://eth.drpc.org",
         "beacon_rpc": "https://ethereum-beacon-api.publicnode.com",
         "verifier_address_forks": {
             "FRONTIER": {

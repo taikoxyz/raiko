@@ -4,7 +4,7 @@ use rand::Rng;
 
 pub async fn setup() -> (TestServerHandle, Client) {
     let port = rand::thread_rng().gen_range(1024..65535);
-    let server = TestServerBuilder::default().port(port).build();
+    let server = TestServerBuilder::default().port(port).build().await;
     let client = server.get_client();
 
     // Wait for the server to be ready

@@ -1,15 +1,15 @@
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
-use raiko_tasks::{ProofTaskDescriptor, TaskManager, TaskStatus};
+use raiko_reqpool::{SingleProofRequestEntity, SingleProofRequestKey};
 use serde_json::Value;
 use utoipa::OpenApi;
 
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
-    server::api::{util::ensure_not_paused, v2::Status},
-    Message, ProverState,
+    server::{api::v2::Status, to_v2_status},
 };
+use raiko_reqactor::Actor;
 
 pub mod cancel;
 pub mod list;
@@ -23,7 +23,6 @@ pub mod report;
         (status = 200, description = "Successfully submitted proof task, queried tasks in progress or retrieved proof.", body = Status)
     )
 )]
-#[debug_handler(state = ProverState)]
 /// Submit a proof task with requested config, get task status or get proof value.
 ///
 /// Accepts a proof request and creates a proving task with the specified guest prover.
@@ -32,17 +31,12 @@ pub mod report;
 /// - sgx - uses the sgx environment to construct a block and produce proof of execution
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
-async fn proof_handler(
-    State(prover_state): State<ProverState>,
-    Json(req): Json<Value>,
-) -> HostResult<Status> {
+async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> HostResult<Status> {
     inc_current_req();
-
-    ensure_not_paused(&prover_state)?;
 
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
-    let mut config = prover_state.request_config();
+    let mut config = actor.default_request_config().clone();
     config.merge(&req)?;
 
     // Construct the actual proof request from the available configs.
@@ -53,61 +47,33 @@ async fn proof_handler(
     let (chain_id, blockhash) = get_task_data(
         &proof_request.network,
         proof_request.block_number,
-        &prover_state.chain_specs,
+        actor.chain_specs(),
     )
     .await?;
 
-    let key = ProofTaskDescriptor::from((
+    let request_key = SingleProofRequestKey::new(
         chain_id,
         proof_request.block_number,
         blockhash,
         proof_request.proof_type,
         proof_request.prover.to_string(),
-    ));
+    )
+    .into();
+    let request_entity = SingleProofRequestEntity::new(
+        proof_request.block_number,
+        proof_request.l1_inclusion_block_number,
+        proof_request.network,
+        proof_request.l1_network,
+        proof_request.graffiti,
+        proof_request.prover,
+        proof_request.proof_type,
+        proof_request.blob_proof_type,
+        proof_request.prover_args,
+    )
+    .into();
 
-    let mut manager = prover_state.task_manager();
-    let status = manager.get_task_proving_status(&key).await?;
-    match status.0.last() {
-        Some((latest_status, ..)) => {
-            match latest_status {
-                // If task has been cancelled
-                TaskStatus::Cancelled
-                | TaskStatus::Cancelled_Aborted
-                | TaskStatus::Cancelled_NeverStarted
-                | TaskStatus::CancellationInProgress
-                // or if the task is failed, add it to the queue again
-                | TaskStatus::GuestProverFailure(_)
-                | TaskStatus::UnspecifiedFailureReason => {
-                    manager
-                        .update_task_progress(key, TaskStatus::Registered, None)
-                        .await?;
-
-                    prover_state
-                        .task_channel
-                        .try_send(Message::Task(proof_request))?;
-
-                    Ok(TaskStatus::Registered.into())
-                }
-                // If the task has succeeded, return the proof.
-                TaskStatus::Success => {
-                    let proof = manager.get_task_proof(&key).await?;
-
-                    Ok(proof.into())
-                }
-                // For all other statuses just return the status.
-                status => Ok(status.clone().into()),
-            }
-        }
-        None => {
-            manager.enqueue_task(&key).await?;
-
-            prover_state
-                .task_channel
-                .try_send(Message::Task(proof_request))?;
-
-            Ok(TaskStatus::Registered.into())
-        }
-    }
+    let result = crate::server::prove(&actor, request_key, request_entity).await;
+    Ok(to_v2_status(result))
 }
 
 #[derive(OpenApi)]
@@ -128,7 +94,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     })
 }
 
-pub fn create_router() -> Router<ProverState> {
+pub fn create_router() -> Router<Actor> {
     Router::new()
         .route("/", post(proof_handler))
         .nest("/cancel", cancel::create_router())
