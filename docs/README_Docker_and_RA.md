@@ -344,10 +344,11 @@ You've now prepared your machine for running Raiko through Docker. Now, you need
 1. Clone [taiko-mono](https://github.com/taikoxyz/taiko-mono/tree/main), checkout the appropriate tag and navigate to the protocol directory.
 
 ```
+cd ~
 git clone https://github.com/taikoxyz/taiko-mono.git
 cd taiko-mono
 git checkout tags/{release-tag}
-cd taiko-mono/packages/protocol
+cd packages/protocol
 ```
 
 2. Install [`pnpm`](https://pnpm.io/installation#on-posix-systems) and [`foundry`](https://book.getfoundry.sh/getting-started/installation) so that you can install dependencies for taiko-mono.
