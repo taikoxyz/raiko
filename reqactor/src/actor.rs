@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
 use raiko_core::interfaces::ProofRequestOpt;
@@ -62,6 +65,10 @@ impl Actor {
         request_key: &RequestKey,
     ) -> Result<Option<StatusWithContext>, String> {
         self.pool.lock().unwrap().get_status(request_key)
+    }
+
+    pub fn pool_list_status(&self) -> Result<HashMap<RequestKey, StatusWithContext>, String> {
+        self.pool.lock().unwrap().list()
     }
 
     /// Send an action to the backend and wait for the response.

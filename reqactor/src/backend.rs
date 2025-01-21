@@ -183,7 +183,7 @@ impl Backend {
                 },
                 Status::WorkInProgress => {
                     // Wait for proving completion
-                    tracing::info!(
+                    tracing::debug!(
                         "Actor Backend checks a work-in-progress request {request_key}, elapsed: {elapsed:?}",
                         elapsed = chrono::Utc::now() - status.timestamp(),
                     );
@@ -228,6 +228,7 @@ impl Backend {
 
     async fn ensure_internal_signal_after(&mut self, request_key: RequestKey, after: Duration) {
         let mut timer = tokio::time::interval(after);
+        timer.tick().await; // first tick is immediate
         timer.tick().await;
         self.ensure_internal_signal(request_key).await
     }
@@ -329,12 +330,14 @@ impl Backend {
         // 2. Start the proving work in a separate thread
         let mut actor = self.clone();
         let proving_semaphore = self.proving_semaphore.clone();
+        let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
         tokio::spawn(async move {
             // Acquire a permit from the semaphore before starting the proving work
             let _permit = proving_semaphore
                 .acquire()
                 .await
                 .expect("semaphore should not be closed");
+            semaphore_acquired_tx.send(()).unwrap();
 
             // 2.1. Start the proving work
             let proven_status = do_prove_single(
@@ -359,6 +362,9 @@ impl Backend {
             }
             // The permit is automatically dropped here, releasing the semaphore
         });
+
+        // Wait for the semaphore to be acquired
+        semaphore_acquired_rx.await.unwrap();
     }
 
     async fn prove_aggregation(
@@ -381,12 +387,14 @@ impl Backend {
         // 2. Start the proving work in a separate thread
         let mut actor = self.clone();
         let proving_semaphore = self.proving_semaphore.clone();
+        let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
         tokio::spawn(async move {
             // Acquire a permit from the semaphore before starting the proving work
             let _permit = proving_semaphore
                 .acquire()
                 .await
                 .expect("semaphore should not be closed");
+            semaphore_acquired_tx.send(()).unwrap();
 
             // 2.1. Start the proving work
             let proven_status =
@@ -407,6 +415,9 @@ impl Backend {
             }
             // The permit is automatically dropped here, releasing the semaphore
         });
+
+        // Wait for the semaphore to be acquired
+        semaphore_acquired_rx.await.unwrap();
     }
 
     async fn halt(&mut self) -> Result<(), String> {
