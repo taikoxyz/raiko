@@ -19,14 +19,12 @@ async fn main() -> HostResult<()> {
     let chain_specs = parse_chain_specs(&opts);
     let default_request_config = opts.proof_request_opt.clone();
     let max_proving_concurrency = opts.concurrency_limit;
-
     let pool = raiko_reqpool::Pool::open(RedisPoolConfig {
         redis_url: opts.redis_url.clone(),
         redis_ttl: opts.redis_ttl,
         enable_memory_backend: opts.use_memory_backend,
     })
     .map_err(|e| anyhow::anyhow!(e))?;
-
     let actor = raiko_reqactor::start_actor(
         pool,
         chain_specs.clone(),

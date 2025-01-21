@@ -116,8 +116,8 @@ mod tests {
         proof_type::ProofType,
     };
     use raiko_reqpool::{
-        memory_pool, Pool, RequestEntity, RequestKey, SingleProofRequestEntity,
-        SingleProofRequestKey, StatusWithContext,
+        memory_pool, RequestEntity, RequestKey, SingleProofRequestEntity, SingleProofRequestKey,
+        StatusWithContext,
     };
     use std::collections::HashMap;
     use tokio::sync::mpsc;
