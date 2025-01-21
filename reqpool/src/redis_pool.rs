@@ -8,7 +8,7 @@ use raiko_redis_derive::RedisValue;
 #[allow(unused_imports)]
 use redis::{Client, Commands, RedisResult};
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 #[derive(Debug, Clone)]
 pub struct Pool {
@@ -83,6 +83,20 @@ impl Pool {
             None => Err("Request not found".to_string()),
         }
     }
+
+    pub fn list(&mut self) -> Result<HashMap<RequestKey, StatusWithContext>, String> {
+        let mut conn = self.conn().map_err(|e| e.to_string())?;
+        let keys: Vec<RequestKey> = conn.keys("*").map_err(|e| e.to_string())?;
+
+        let mut result = HashMap::new();
+        for key in keys {
+            if let Ok(Some((_, status))) = self.get(&key) {
+                result.insert(key, status);
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 #[async_trait::async_trait]
@@ -138,14 +152,14 @@ impl Pool {
         Ok(Self { client, config })
     }
 
-    #[cfg(any(test, feature = "enable-mock"))]
+    #[cfg(any(test, feature = "test-utils"))]
     pub(crate) fn conn(&mut self) -> Result<crate::mock::MockRedisConnection, redis::RedisError> {
         Ok(crate::mock::MockRedisConnection::new(
             self.config.redis_url.clone(),
         ))
     }
 
-    #[cfg(not(any(test, feature = "enable-mock")))]
+    #[cfg(not(any(test, feature = "test-utils")))]
     fn conn(&mut self) -> Result<redis::Connection, redis::RedisError> {
         self.redis_conn()
     }

@@ -1,3 +1,4 @@
+use crate::{Pool, RedisPoolConfig};
 use lazy_static::lazy_static;
 use redis::{RedisError, RedisResult};
 use serde::Serialize;
@@ -23,7 +24,7 @@ pub struct MockRedisConnection {
 }
 
 impl MockRedisConnection {
-    pub(crate) fn new(redis_url: String) -> Self {
+    pub fn new(redis_url: String) -> Self {
         let mut global = GLOBAL_STORAGE.lock().unwrap();
         Self {
             storage: global
@@ -66,21 +67,37 @@ impl MockRedisConnection {
             Ok(1)
         }
     }
+
+    pub fn keys<K: serde::de::DeserializeOwned>(&mut self, key: &str) -> RedisResult<Vec<K>> {
+        assert_eq!(key, "*", "mock redis only supports '*'");
+
+        let lock = self.storage.lock().unwrap();
+        Ok(lock
+            .keys()
+            .map(|k| serde_json::from_value(k.clone()).unwrap())
+            .collect())
+    }
+}
+
+/// Return the mock redis pool with the given id.
+///
+/// This is used for testing. Please use the test case name as the id to prevent data race.
+pub fn mock_redis_pool<S: ToString>(id: S) -> Pool {
+    let config = RedisPoolConfig {
+        redis_ttl: 111,
+        redis_url: format!("redis://{}:6379", id.to_string()),
+    };
+    Pool::open(config).unwrap()
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use redis::RedisResult;
-
-    use crate::{Pool, RedisPoolConfig};
 
     #[test]
     fn test_mock_redis_pool() {
-        let config = RedisPoolConfig {
-            redis_ttl: 111,
-            redis_url: "redis://localhost:6379".to_string(),
-        };
-        let mut pool = Pool::open(config).unwrap();
+        let mut pool = mock_redis_pool("test_mock_redis_pool");
         let mut conn = pool.conn().expect("mock conn");
 
         let key = "hello".to_string();
@@ -98,17 +115,8 @@ mod tests {
 
     #[test]
     fn test_mock_multiple_redis_pool() {
-        let mut pool1 = Pool::open(RedisPoolConfig {
-            redis_ttl: 111,
-            redis_url: "redis://localhost:6379".to_string(),
-        })
-        .unwrap();
-        let mut pool2 = Pool::open(RedisPoolConfig {
-            redis_ttl: 111,
-            redis_url: "redis://localhost:6380".to_string(),
-        })
-        .unwrap();
-
+        let mut pool1 = mock_redis_pool("test_mock_multiple_redis_pool_1");
+        let mut pool2 = mock_redis_pool("test_mock_multiple_redis_pool_2");
         let mut conn1 = pool1.conn().expect("mock conn");
         let mut conn2 = pool2.conn().expect("mock conn");
 
