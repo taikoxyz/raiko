@@ -3,6 +3,7 @@ use axum::{
     http::{header, HeaderName, Method, StatusCode, Uri},
     Router,
 };
+use raiko_reqactor::Actor;
 use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
@@ -11,17 +12,14 @@ use tower_http::{
     validate_request::ValidateRequestHeaderLayer,
 };
 
-use crate::ProverState;
-
 pub mod admin;
-pub mod util;
 pub mod v1;
 pub mod v2;
 pub mod v3;
 
 pub const MAX_BODY_SIZE: usize = 1 << 20;
 
-pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Router<ProverState> {
+pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Router<Actor> {
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([

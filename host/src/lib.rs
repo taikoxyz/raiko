@@ -168,23 +168,11 @@ pub enum Message {
 
 impl ProverState {
     pub fn init() -> HostResult<Self> {
-        // Read the command line arguments;
-        let mut opts = Opts::parse();
-        // Read env supported options.
-        opts.merge_from_env();
-        // Read the config file.
-        opts.merge_from_file()?;
-
+        let opts = parse_opts()?;
         Self::init_with_opts(opts)
     }
 
     pub fn init_with_opts(opts: Opts) -> HostResult<Self> {
-        let chain_specs = if let Some(cs_path) = &opts.chain_spec_path {
-            SupportedChainSpecs::merge_from_file(cs_path.clone()).unwrap_or_default()
-        } else {
-            SupportedChainSpecs::default()
-        };
-
         // Check if the cache path exists and create it if it doesn't.
         if let Some(cache_path) = &opts.cache_path {
             if !cache_path.exists() {
@@ -196,6 +184,7 @@ impl ProverState {
         let pause_flag = Arc::new(AtomicBool::new(false));
 
         let opts_clone = opts.clone();
+        let chain_specs = parse_chain_specs(&opts);
         let chain_specs_clone = chain_specs.clone();
         let sender = task_channel.clone();
         tokio::spawn(async move {
@@ -242,6 +231,25 @@ impl ProverState {
             return result;
         }
         Ok(())
+    }
+}
+
+pub fn parse_opts() -> HostResult<Opts> {
+    // Read the command line arguments;
+    let mut opts = Opts::parse();
+    // Read env supported options.
+    opts.merge_from_env();
+    // Read the config file.
+    opts.merge_from_file()?;
+
+    Ok(opts)
+}
+
+pub fn parse_chain_specs(opts: &Opts) -> SupportedChainSpecs {
+    if let Some(cs_path) = &opts.chain_spec_path {
+        SupportedChainSpecs::merge_from_file(cs_path.clone()).expect("Failed to parse chain specs")
+    } else {
+        SupportedChainSpecs::default()
     }
 }
 
