@@ -1,14 +1,15 @@
+mod backend;
 mod config;
 mod macros;
-mod mock;
-mod redis_pool;
+mod memory_backend;
+mod pool;
 mod request;
 mod utils;
 
 // Re-export
 pub use config::RedisPoolConfig;
-pub use mock::{mock_redis_pool, MockRedisConnection};
-pub use redis_pool::Pool;
+pub use memory_backend::{memory_pool, MemoryBackend};
+pub use pool::Pool;
 pub use request::{
     AggregationRequestEntity, AggregationRequestKey, RequestEntity, RequestKey,
     SingleProofRequestEntity, SingleProofRequestKey, Status, StatusWithContext,

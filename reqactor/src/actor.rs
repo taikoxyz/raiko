@@ -112,7 +112,7 @@ mod tests {
         proof_type::ProofType,
     };
     use raiko_reqpool::{
-        Pool, RedisPoolConfig, RequestEntity, RequestKey, SingleProofRequestEntity,
+        memory_pool, Pool, RequestEntity, RequestKey, SingleProofRequestEntity,
         SingleProofRequestKey, StatusWithContext,
     };
     use std::collections::HashMap;
@@ -123,13 +123,9 @@ mod tests {
         let (action_tx, _) = mpsc::channel(1);
         let (pause_tx, _pause_rx) = mpsc::channel(1);
 
-        let config = RedisPoolConfig {
-            redis_url: "redis://localhost:6379/0".to_string(),
-            redis_ttl: 3600,
-        };
-
+        let pool = memory_pool("test_pause_sets_is_paused_flag");
         let actor = Actor::new(
-            Pool::open(config).expect("Failed to create pool"),
+            pool,
             ProofRequestOpt::default(),
             SupportedChainSpecs::default(),
             action_tx,
@@ -150,13 +146,9 @@ mod tests {
         let (action_tx, mut action_rx) = mpsc::channel(1);
         let (pause_tx, _) = mpsc::channel(1);
 
-        let config = RedisPoolConfig {
-            redis_url: "redis://localhost:6379/0".to_string(),
-            redis_ttl: 3600,
-        };
-
+        let pool = memory_pool("test_act_sends_action_and_returns_response");
         let actor = Actor::new(
-            Pool::open(config).expect("Failed to create pool"),
+            pool,
             ProofRequestOpt::default(),
             SupportedChainSpecs::default(),
             action_tx,
