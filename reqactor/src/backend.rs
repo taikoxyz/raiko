@@ -256,10 +256,12 @@ impl Backend {
         request_key: RequestKey,
         old_status: StatusWithContext,
     ) -> Result<StatusWithContext, String> {
-        debug_assert!(
-            old_status.status() == &Status::WorkInProgress
-                || old_status.status() == &Status::Registered
-        );
+        if old_status.status() != &Status::Registered
+            && old_status.status() != &Status::WorkInProgress
+        {
+            tracing::warn!("Actor Backend received cancel-action {request_key}, but it is not registered or work-in-progress, skipping");
+            return Ok(old_status);
+        }
 
         // Case: old_status is registered: mark the request as cancelled in the pool and return directly
         if old_status.status() == &Status::Registered {
