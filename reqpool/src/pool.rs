@@ -1,6 +1,6 @@
 use crate::{
-    impl_display_using_json_pretty, proof_key_to_hack_request_key, RedisPoolConfig, RequestEntity,
-    RequestKey, StatusWithContext,
+    backend::Backend, impl_display_using_json_pretty, proof_key_to_hack_request_key, MemoryBackend,
+    RedisPoolConfig, RequestEntity, RequestKey, StatusWithContext,
 };
 use backoff::{exponential::ExponentialBackoff, SystemClock};
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
@@ -152,19 +152,16 @@ impl Pool {
         Ok(Self { client, config })
     }
 
-    #[cfg(any(test, feature = "test-utils"))]
-    pub(crate) fn conn(&mut self) -> Result<crate::mock::MockRedisConnection, redis::RedisError> {
-        Ok(crate::mock::MockRedisConnection::new(
-            self.config.redis_url.clone(),
-        ))
+    pub fn conn(&mut self) -> Result<Backend, redis::RedisError> {
+        if self.config.enable_memory_backend {
+            Ok(Backend::Memory(MemoryBackend::new(
+                self.config.redis_url.clone(),
+            )))
+        } else {
+            Ok(Backend::Redis(self.redis_conn()?))
+        }
     }
 
-    #[cfg(not(any(test, feature = "test-utils")))]
-    fn conn(&mut self) -> Result<redis::Connection, redis::RedisError> {
-        self.redis_conn()
-    }
-
-    #[allow(dead_code)]
     fn redis_conn(&mut self) -> Result<redis::Connection, redis::RedisError> {
         let backoff: ExponentialBackoff<SystemClock> = ExponentialBackoff {
             initial_interval: Duration::from_secs(10),

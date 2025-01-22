@@ -85,6 +85,9 @@ pub struct Opts {
 
     #[arg(long, require_equals = true, default_value = "3600")]
     pub redis_ttl: u64,
+
+    #[arg(long, default_value = "false")]
+    pub use_memory_backend: bool,
 }
 
 impl Opts {

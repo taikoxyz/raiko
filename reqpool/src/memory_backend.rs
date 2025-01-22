@@ -19,11 +19,11 @@ lazy_static! {
     static ref GLOBAL_STORAGE: GlobalStorage = Mutex::new(HashMap::new());
 }
 
-pub struct MockRedisConnection {
+pub struct MemoryBackend {
     storage: SingleStorage,
 }
 
-impl MockRedisConnection {
+impl MemoryBackend {
     pub fn new(redis_url: String) -> Self {
         let mut global = GLOBAL_STORAGE.lock().unwrap();
         Self {
@@ -69,7 +69,7 @@ impl MockRedisConnection {
     }
 
     pub fn keys<K: serde::de::DeserializeOwned>(&mut self, key: &str) -> RedisResult<Vec<K>> {
-        assert_eq!(key, "*", "mock redis only supports '*'");
+        assert_eq!(key, "*", "memory backend only supports '*'");
 
         let lock = self.storage.lock().unwrap();
         Ok(lock
@@ -79,13 +79,14 @@ impl MockRedisConnection {
     }
 }
 
-/// Return the mock redis pool with the given id.
+/// Return the memory pool with the given id.
 ///
 /// This is used for testing. Please use the test case name as the id to prevent data race.
-pub fn mock_redis_pool<S: ToString>(id: S) -> Pool {
+pub fn memory_pool<S: ToString>(id: S) -> Pool {
     let config = RedisPoolConfig {
         redis_ttl: 111,
         redis_url: format!("redis://{}:6379", id.to_string()),
+        enable_memory_backend: true,
     };
     Pool::open(config).unwrap()
 }
@@ -96,14 +97,14 @@ mod tests {
     use redis::RedisResult;
 
     #[test]
-    fn test_mock_redis_pool() {
-        let mut pool = mock_redis_pool("test_mock_redis_pool");
-        let mut conn = pool.conn().expect("mock conn");
+    fn test_memory_pool() {
+        let mut pool = memory_pool("test_memory_pool");
+        let mut conn = pool.conn().expect("memory conn");
 
         let key = "hello".to_string();
         let val = "world".to_string();
         conn.set_ex(key.clone(), val.clone(), 111)
-            .expect("mock set_ex");
+            .expect("memory set_ex");
 
         let actual: RedisResult<String> = conn.get(&key);
         assert_eq!(actual, Ok(val));
@@ -114,11 +115,11 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_multiple_redis_pool() {
-        let mut pool1 = mock_redis_pool("test_mock_multiple_redis_pool_1");
-        let mut pool2 = mock_redis_pool("test_mock_multiple_redis_pool_2");
-        let mut conn1 = pool1.conn().expect("mock conn");
-        let mut conn2 = pool2.conn().expect("mock conn");
+    fn test_multiple_memory_pool() {
+        let mut pool1 = memory_pool("test_multiple_memory_pool_1");
+        let mut pool2 = memory_pool("test_multiple_memory_pool_2");
+        let mut conn1 = pool1.conn().expect("memory conn");
+        let mut conn2 = pool2.conn().expect("memory conn");
 
         let key = "hello".to_string();
         let world = "world".to_string();
@@ -126,7 +127,7 @@ mod tests {
         {
             conn1
                 .set_ex(key.clone(), world.clone(), 111)
-                .expect("mock set_ex");
+                .expect("memory set_ex");
             let actual: RedisResult<String> = conn1.get(&key);
             assert_eq!(actual, Ok(world.clone()));
         }
@@ -140,7 +141,7 @@ mod tests {
             let meme = "meme".to_string();
             conn2
                 .set_ex(key.clone(), meme.clone(), 111)
-                .expect("mock set_ex");
+                .expect("memory set_ex");
             let actual: RedisResult<String> = conn2.get(&key);
             assert_eq!(actual, Ok(meme));
         }

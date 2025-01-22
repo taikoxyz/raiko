@@ -23,6 +23,3 @@ quote = { workspace = true }
 syn = { workspace = true }
 alloy-primitives = { workspace = true }
 lazy_static = { workspace = true }
-
-[features]
-test-utils = []

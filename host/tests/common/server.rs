@@ -1,7 +1,7 @@
 use crate::common::Client;
 use raiko_host::{parse_chain_specs, server::serve, Opts};
 use raiko_reqactor::start_actor;
-use raiko_reqpool::mock_redis_pool;
+use raiko_reqpool::memory_pool;
 use rand::Rng;
 
 /// Builder for a test server.
@@ -26,11 +26,6 @@ impl TestServerBuilder {
         self
     }
 
-    pub fn redis_pool<S: ToString>(mut self, redis_url: S) -> Self {
-        self.redis_url = Some(redis_url.to_string());
-        self
-    }
-
     pub async fn build(self) -> TestServerHandle {
         let port = self
             .port
@@ -49,7 +44,7 @@ impl TestServerBuilder {
         let default_request_config = opts.proof_request_opt.clone();
         let max_proving_concurrency = opts.concurrency_limit;
 
-        let pool = mock_redis_pool(redis_url);
+        let pool = memory_pool(redis_url);
         let actor = start_actor(
             pool,
             chain_specs.clone(),

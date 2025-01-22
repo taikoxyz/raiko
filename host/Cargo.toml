@@ -92,7 +92,7 @@ sp1 = ["raiko-core/sp1"]
 risc0 = ["raiko-core/risc0"]
 sgx = ["raiko-core/sgx"]
 integration = []
-test-utils = ["raiko-core/test-utils", "raiko-reqpool/test-utils"]
+test-utils = ["raiko-core/test-utils"]
 
 [[bin]]
 name = "raiko-host"
