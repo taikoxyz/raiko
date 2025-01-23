@@ -253,16 +253,16 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
         // Gather inclusion proofs for the initial and final state
         let measurement = Measurement::start("Fetching storage proofs...", true);
-        let (parent_proofs, proofs, num_storage_proofs) = db.get_proofs().await?;
+        let (parent_proofs, current_proofs, num_storage_proofs) = db.get_proofs().await?;
         measurement.stop_with_count(&format!(
             "[{} Account/{num_storage_proofs} Storage]",
-            parent_proofs.len() + proofs.len(),
+            parent_proofs.len() + current_proofs.len(),
         ));
 
         // Construct the state trie and storage from the storage proofs.
         let measurement = Measurement::start("Constructing MPT...", true);
         let (parent_state_trie, parent_storage) =
-            proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
+            proofs_to_tries(input.parent_header.state_root, parent_proofs, current_proofs)?;
         measurement.stop();
 
         // Gather proofs for block history
