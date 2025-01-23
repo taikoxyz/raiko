@@ -49,6 +49,10 @@ COPY core core
 COPY taskdb taskdb
 COPY makefile makefile
 COPY script script
+COPY reqpool reqpool
+COPY reqactor reqactor
+COPY ballot ballot
+COPY redis-derive redis-derive
 RUN ls -al > /tmp/file_list.txt
 RUN cat /tmp/file_list.txt
 
