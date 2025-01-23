@@ -9,7 +9,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::server::api::v1::{self, GuestOutputDoc};
 use raiko_reqactor::Actor;
 
-mod proof;
+pub mod proof;
 
 #[derive(OpenApi)]
 #[openapi(

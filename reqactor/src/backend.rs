@@ -423,7 +423,8 @@ impl Backend {
     }
 
     async fn halt(&mut self) -> Result<(), String> {
-        todo!("halt")
+        // TODO: implement halt for pause
+        Ok(())
     }
 }
 

@@ -19,8 +19,8 @@ use raiko_reqpool::{
 };
 use utoipa::OpenApi;
 
-mod aggregate;
-mod cancel;
+pub mod aggregate;
+pub mod cancel;
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",

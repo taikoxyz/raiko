@@ -5,6 +5,7 @@ use std::{alloc, path::PathBuf};
 use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
+use raiko_ballot::Ballot;
 use raiko_core::{
     interfaces::{AggregationOnlyRequest, ProofRequest, ProofRequestOpt},
     merge,
@@ -88,6 +89,11 @@ pub struct Opts {
 
     #[arg(long, default_value = "false")]
     pub use_memory_backend: bool,
+
+    /// Path to a ballot config file that includes the proof type probabilities.
+    /// If not provided, the Ballot::Default() will be used.
+    #[arg(long, require_equals = true)]
+    pub ballot_config: Option<PathBuf>,
 }
 
 impl Opts {
@@ -253,6 +259,18 @@ pub fn parse_chain_specs(opts: &Opts) -> SupportedChainSpecs {
         SupportedChainSpecs::merge_from_file(cs_path.clone()).expect("Failed to parse chain specs")
     } else {
         SupportedChainSpecs::default()
+    }
+}
+
+pub fn parse_ballot(opts: &Opts) -> Ballot {
+    match &opts.ballot_config {
+        Some(path) => {
+            let cfg = std::fs::read_to_string(path).expect("Failed to read ballot config");
+            let ballot: Ballot = serde_json::from_str(&cfg).expect("Failed to parse ballot config");
+            ballot.validate().expect("Failed to validate ballot");
+            ballot
+        }
+        None => Ballot::default(),
     }
 }
 
