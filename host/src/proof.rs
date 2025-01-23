@@ -512,7 +512,8 @@ pub async fn handle_proof(
     let provider = RpcBlockDataProvider::new(
         &taiko_chain_spec.rpc.clone(),
         proof_request.block_number - 1,
-    )?;
+    )
+    .await?;
     let input = match cache::validate_input(cached_input, &provider).await {
         Ok(cache_input) => cache_input,
         Err(_) => {

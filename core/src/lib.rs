@@ -141,7 +141,11 @@ impl Raiko {
             .iter()
             .map(|input| self.get_output(input))
             .collect::<Vec<RaikoResult<GuestOutput>>>();
-        assert!(!outputs.iter().any(|output| output.is_err()));
+        assert!(
+            !outputs.iter().any(|output| output.is_err()),
+            "Error in generating batch output: {:?}",
+            outputs
+        );
         let result =
             outputs.last().unwrap().as_ref().map_err(|e| {
                 RaikoError::Preflight(format!("Error in generating batch output: {e}"))
@@ -347,6 +351,7 @@ mod tests {
     ) -> Proof {
         let provider =
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
+                .await
                 .expect("Could not create RpcBlockDataProvider");
         let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
         let input = raiko
@@ -371,6 +376,7 @@ mod tests {
             .collect();
         let provider =
             RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
+                .await
                 .expect("Could not create RpcBlockDataProvider");
         let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
         let input = raiko
@@ -482,7 +488,7 @@ mod tests {
     }
 
     async fn get_recent_block_num(chain_spec: &ChainSpec) -> u64 {
-        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
+        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).await.unwrap();
         let height = provider.provider.get_block_number().await.unwrap();
         height - 100
     }
