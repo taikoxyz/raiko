@@ -143,7 +143,9 @@ impl<
     }
 
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        self.map.insert(key, value)
+        let result = self.map.insert(key, value);
+        self.save().unwrap();
+        result
     }
 
     pub fn save(&self) -> std::io::Result<()> {
