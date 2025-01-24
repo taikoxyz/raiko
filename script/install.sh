@@ -78,7 +78,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		PROFILE=$HOME/.bashrc
 		echo ${PROFILE}
 		source ${PROFILE}
-		sp1up
+		sp1up -v v4.0.0-rc.1
 	else
 		echo "CI environment"
 		source /home/runner/.bashrc
