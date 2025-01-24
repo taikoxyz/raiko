@@ -650,7 +650,7 @@ impl RedisTaskDb {
 
 #[async_trait::async_trait]
 impl IdStore for RedisTaskManager {
-    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+    async fn read_id(&mut self, key: ProofKey) -> ProverResult<String> {
         let mut db = self.arc_task_db.lock().await;
         db.read_id(key)
             .map_err(|e| ProverError::StoreError(e.to_string()))
