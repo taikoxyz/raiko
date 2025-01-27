@@ -36,6 +36,8 @@ elif [ "$chain" == "taiko_a7" ]; then
 	l1_network="holesky"
 elif [ "$chain" == "taiko_dev" ]; then
 	l1_network="taiko_dev_l1"
+elif [ "$chain" == "surge_dev" ]; then
+	l1_network="surge_dev_l1"
 else
 	echo "Using customized chain name $1. Please double check the RPCs."
 	l1_network="holesky"
@@ -54,7 +56,7 @@ elif [ "$proof" == "sp1" ]; then
     "blob_proof_type": "proof_of_equivalence",
 	"sp1": {
 		"recursion": "plonk",
-		"prover": "network",
+		"prover": "local",
 		"verify": true
 	}
   '

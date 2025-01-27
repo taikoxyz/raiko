@@ -39,18 +39,19 @@ raiko-core = { path = "./core" }
 raiko-tasks = { path = "./taskdb" }
 
 # reth
-reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
+reth-primitives = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false, features = [
     "alloy-compat",
     "taiko",
 ] }
-reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
+reth-evm-ethereum = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false }
+reth-evm = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false }
+reth-rpc-types = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false }
+reth-revm = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false }
+reth-chainspec = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false, features = [
     "taiko",
 ] }
-reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
+reth-provider = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false }
+reth-ethereum-forks = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false }
 
 # risc zero
 risc0-zkvm = { version = "=1.2.0", features = ["prove", "getrandom"] }
@@ -58,10 +59,10 @@ bonsai-sdk = { version = "=1.2.0" }
 risc0-binfmt = { version = "=1.2.0" }
 
 # SP1
-sp1-sdk = { version = "=4.0.0-rc.8" }
-sp1-prover = { version = "=4.0.0-rc.8" }
-sp1-zkvm = { version = "=4.0.0-rc.8" }
-sp1-helper = { version = "=4.0.0-rc.8" }
+sp1-sdk = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-no-ctrlc", features = ["cuda"] }
+sp1-prover = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-no-ctrlc" }
+sp1-zkvm = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-no-ctrlc" }
+sp1-helper = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-no-ctrlc" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
@@ -71,6 +72,7 @@ alloy-dyn-abi = { version = "0.7.2", default-features = false }
 alloy-json-abi = { version = "0.7.2", default-features = false }
 alloy-primitives = { version = "0.7.2", default-features = false }
 alloy-sol-types = { version = "0.7.2", default-features = false }
+alloy-chains = { version = "0.1.15", default-features = false }
 reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
 alloy-rpc-types = { version = "0.1", default-features = false }
 alloy-rpc-client = { version = "0.1", default-features = false }

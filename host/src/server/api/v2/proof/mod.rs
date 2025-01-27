@@ -45,6 +45,24 @@ async fn proof_handler(
     let mut config = prover_state.request_config();
     config.merge(&req)?;
 
+    if let Some(ref proof_type) = config.proof_type {
+        match proof_type.as_str() {
+            "risc0" => {
+                #[cfg(not(feature = "risc0"))]
+                return Ok(TaskStatus::AnyhowError("RISC0 not supported".to_string()).into());
+            }
+            "sp1" => {
+                #[cfg(not(feature = "sp1"))]
+                return Ok(TaskStatus::AnyhowError("SP1 not supported".to_string()).into());
+            }
+            "sgx" => {
+                #[cfg(not(feature = "sgx"))]
+                return Ok(TaskStatus::AnyhowError("SGX not supported".to_string()).into());
+            }
+            _ => return Ok(TaskStatus::AnyhowError(format!("Unknown proof type: {}", proof_type)).into()),
+        }
+    }
+
     // Construct the actual proof request from the available configs.
     let proof_request = ProofRequest::try_from(config)?;
     inc_host_req_count(proof_request.block_number);

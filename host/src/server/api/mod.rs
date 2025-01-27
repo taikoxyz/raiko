@@ -7,6 +7,7 @@ use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::{self, CorsLayer},
+    normalize_path::NormalizePathLayer,
     trace::TraceLayer,
     validate_request::ValidateRequestHeaderLayer,
 };
@@ -51,6 +52,7 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
         .layer(middleware)
         .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
         .layer(trace)
+        .layer(NormalizePathLayer::trim_trailing_slash())
         .fallback(|uri: Uri| async move {
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
         });

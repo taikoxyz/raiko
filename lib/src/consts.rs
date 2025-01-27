@@ -175,6 +175,15 @@ impl ChainSpec {
         self.chain_id
     }
 
+    /// Returns true if the ONTAKE fork is active for a given block number and timestamp.
+    pub fn is_ontake_active(&self, block_no: BlockNumber, timestamp: u64) -> bool {
+        if let Some(fork_condition) = self.hard_forks.get(&SpecId::ONTAKE) {
+            fork_condition.active(block_no, timestamp)
+        } else {
+            false
+        }
+    }
+
     /// Returns the [SpecId] for a given block number and timestamp or an error if not
     /// supported.
     pub fn active_fork(&self, block_no: BlockNumber, timestamp: u64) -> Result<SpecId> {

@@ -62,9 +62,9 @@ pub fn entrypoint(input: TokenStream) -> TokenStream {
     let output = if cfg!(feature = "sp1") {
         quote! {
             // Set up a global allocator
-            use sp1_zkvm::heap::SimpleAlloc;
-            #[global_allocator]
-            static HEAP: SimpleAlloc = SimpleAlloc;
+            //use sp1_zkvm::allocators::embedded::EmbeddedAlloc;
+            //#[global_allocator]
+            //static HEAP: EmbeddedAlloc = EmbeddedAlloc;
 
             #[cfg(test)]
             #tests_entry

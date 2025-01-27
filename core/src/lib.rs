@@ -307,8 +307,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_dev() {
         let proof_type = get_proof_type_from_env();
-        let l1_network = "taiko_dev_l1".to_owned();
-        let network = "taiko_dev".to_owned();
+        let l1_network = "surge_dev_l1".to_owned();
+        let network = "surge_dev".to_owned();
         // Give the CI an simpler block to test because it doesn't have enough memory.
         // Unfortunately that also means that kzg is not getting fully verified by CI.
         let block_number = 20;

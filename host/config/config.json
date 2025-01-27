@@ -1,17 +1,13 @@
 {
-    "network": "taiko_a7",
-    "l1_network": "holesky",
+    "network": "surge_dev",
+    "l1_network": "surge_dev_l1",
     "cache_path": "/tmp/raiko/",
     "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
-    "proof_type": "risc0",
+    "proof_type": "sp1",
     "blob_proof_type": "proof_of_equivalence",
     "sgx": {
-        "instance_id": 456,
-        "setup": true,
-        "bootstrap": true,
-        "prove": true,
-        "input_path": null
+        "instance_id": 0
     },
     "risc0": {
         "bonsai": true,
@@ -22,7 +18,7 @@
     "sp1": {
 		"recursion": "core",
 		"prover": "mock",
-        "verify": false
+        "verify": true
 	},
     "native" : {
         "json_guest_input": null
