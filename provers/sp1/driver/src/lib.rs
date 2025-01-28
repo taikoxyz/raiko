@@ -107,7 +107,6 @@ impl Prover for Sp1Prover {
         let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
-        println!("param: {param:?}");
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 

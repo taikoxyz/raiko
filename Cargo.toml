@@ -54,9 +54,9 @@ reth-provider = { git = "https://github.com/NethermindEth/surge-reth.git", defau
 reth-ethereum-forks = { git = "https://github.com/NethermindEth/surge-reth.git", default-features = false }
 
 # risc zero
-risc0-zkvm = { version = "=1.2.0", features = ["prove", "getrandom"] }
-bonsai-sdk = { version = "=1.2.0" }
-risc0-binfmt = { version = "=1.2.0" }
+risc0-zkvm = { version = "=1.2.2", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "=1.2.2" }
+risc0-binfmt = { version = "=1.2.2" }
 
 # SP1
 sp1-sdk = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-no-ctrlc", features = ["cuda"] }
