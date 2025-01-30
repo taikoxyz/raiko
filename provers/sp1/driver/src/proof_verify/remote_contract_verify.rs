@@ -49,7 +49,7 @@ pub(crate) async fn verify_sol_by_contract_call(fixture: &RaikoProofFixture) -> 
         info!("SP1 proof verified successfully using {sp1_verifier_addr:?}!");
     } else {
         error!("SP1 proof verification failed: {verify_call_res:?}!");
-        return Err(anyhow::Error::msg(format!("SP1 proof verification failed: {verify_call_res:?}!")));
+        return Err(format!("SP1 proof verification failed: {verify_call_res:?}!").into());
     }
 
     Ok(())
