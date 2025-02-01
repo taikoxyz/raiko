@@ -15,10 +15,11 @@ use reth_primitives::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
+    preflight,
     provider::BlockDataProvider,
     MerkleProof,
 };
@@ -84,7 +85,7 @@ impl BlockDataBoostProvider {
     pub async fn fetch_preflight_data(&mut self) -> RaikoResult<()> {
         let num = self.block_numbers[0];
         let url = self.url.clone() + "trace/" + num.to_string().as_str();
-        println!("Fetching preflight data from {}", url);
+        info!("Fetching preflight data from {}", url);
         let response = reqwest::get(url.clone()).await.map_err(|e| {
             RaikoError::RPC(format!("Failed to fetch preflight data from {url}: {e}"))
         })?;
@@ -131,9 +132,12 @@ impl BlockDataBoostProvider {
         let storage_values: Vec<Option<U256>> = storage_values
             .iter()
             .zip(account_keys.iter())
-            .map(|(value, (addr, _))| {
-                if value.is_zero() {
-                    error!("Empty storage value for address {}", addr);
+            .map(|(value, (addr, key))| {
+                if is_missing_storage(value) {
+                    error!(
+                        "Missing storage value for (address,key): ({}, {})",
+                        addr, key
+                    );
                     None
                 } else {
                     Some(value.clone())
@@ -191,6 +195,7 @@ impl BlockDataBoostProvider {
     }
 }
 
+/// check if account info is a empty account placeholder
 fn empty_account_info(account_info: &AccountInfo) -> bool {
     account_info.balance.is_zero()
         && account_info.nonce == 0
@@ -199,6 +204,11 @@ fn empty_account_info(account_info: &AccountInfo) -> bool {
             .clone()
             .is_some_and(|code| code.is_empty())
         && account_info.code_hash.is_zero()
+}
+
+/// use U256::MAX as a placeholder for missing storage values
+fn is_missing_storage(value: &U256) -> bool {
+    *value == U256::MAX
 }
 
 impl BlockDataProvider for BlockDataBoostProvider {
@@ -252,9 +262,10 @@ impl BlockDataProvider for BlockDataBoostProvider {
         block_number: u64,
         accounts: &[Address],
     ) -> RaikoResult<Vec<AccountInfo>> {
-        self.preflight_data_is_available(block_number)?;
+        let preflight_block_num = block_number + 1;
+        self.preflight_data_is_available(preflight_block_num)?;
 
-        let pre_block_image = self.preflight_data.get(&block_number).unwrap();
+        let pre_block_image = self.preflight_data.get(&preflight_block_num).unwrap();
         let mut all_accounts: Vec<AccountInfo> = Vec::with_capacity(accounts.len());
         let none_place_holder = alloy_rpc_types::EIP1186AccountProofResponse::default();
         let none_byte_holder = reth_primitives::Bytes::default();
@@ -267,14 +278,9 @@ impl BlockDataProvider for BlockDataBoostProvider {
                 }) {
                 Some(account_proof) => account_proof,
                 None => {
-                    println!(
-                        "Unable to find account proof for address {} in {:?} parent account proofs",
-                        address.to_checksum(None),
-                        &pre_block_image
-                            .pre_account_proofs
-                            .iter()
-                            .map(|a| a.address.to_checksum(None))
-                            .collect::<Vec<_>>()
+                    info!(
+                        "Unable to find account proof for address {} in parent account proofs",
+                        address.to_checksum(None)
                     );
                     &none_place_holder
                 }
@@ -302,11 +308,12 @@ impl BlockDataProvider for BlockDataBoostProvider {
         block_number: u64,
         accounts: &[(Address, U256)],
     ) -> RaikoResult<Vec<U256>> {
-        self.preflight_data_is_available(block_number)?;
+        let preflight_block_num = block_number + 1;
+        self.preflight_data_is_available(preflight_block_num)?;
 
-        let pre_block_image = self.preflight_data.get(&block_number).unwrap();
+        let pre_block_image = self.preflight_data.get(&preflight_block_num).unwrap();
         let mut all_values = Vec::with_capacity(accounts.len());
-        let empty_storage_value = U256::ZERO;
+        let empty_storage_value = U256::MAX;
         for (address, key) in accounts {
             let storage_proof = pre_block_image
                 .pre_account_proofs
@@ -335,13 +342,30 @@ impl BlockDataProvider for BlockDataBoostProvider {
         &self,
         block_number: u64,
         accounts: HashMap<Address, Vec<U256>>,
-        _offset: usize,
+        offset: usize,
         num_storage_proofs: usize,
     ) -> RaikoResult<MerkleProof> {
-        self.preflight_data_is_available(block_number)?;
+        info!(
+            "Getting merkle proofs for block {} with offset {} and num_storage_proofs {}",
+            block_number, offset, num_storage_proofs
+        );
+        // todo: better way to get pre & post mpt proof
+        // if offset is 0, then we need to get current block's pre mpt proof, which is block_number + 1
+        // if offset is 1, then we need to get current block's post mpt proof, which is block_number
+        // this complicated logic is becuase previous logic use parent & current as pre & post respectively
+        let prefligh_block_num = if offset == 0 {
+            block_number + 1
+        } else {
+            block_number
+        };
+        self.preflight_data_is_available(prefligh_block_num)?;
+        let preflight_block_image = self.preflight_data.get(&prefligh_block_num).unwrap();
+        let account_proofs = if offset == 0 {
+            &preflight_block_image.pre_account_proofs
+        } else {
+            &preflight_block_image.post_account_proofs
+        };
 
-        let pre_block_image = self.preflight_data.get(&block_number).unwrap();
-        let account_proofs = &pre_block_image.pre_account_proofs;
         let mut storage_proofs: MerkleProof = HashMap::new();
 
         for (address, keys) in accounts.iter() {
