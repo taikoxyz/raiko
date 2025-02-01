@@ -63,12 +63,15 @@ impl RpcBlockDataProvider {
     }
 
     pub async fn new_batch(url: &str, block_numbers: Vec<u64>) -> RaikoResult<Self> {
-        assert!(!block_numbers.is_empty());
+        assert!(
+            !block_numbers.is_empty() && block_numbers.len() > 1,
+            "batch block_numbers should have at least 2 elements"
+        );
         let url =
             reqwest::Url::parse(url).map_err(|_| RaikoError::RPC("Invalid RPC URL".to_owned()))?;
         info!("BATCH RPC URL: {:?} block_number {}", url, block_numbers[0]);
 
-        let boost_provider = Self::init_boost_rpc_from_env(&block_numbers).await;
+        let boost_provider = Self::init_boost_rpc_from_env(&block_numbers[1..]).await;
         Ok(Self {
             provider: ProviderBuilder::new().on_provider(RootProvider::new_http(url.clone())),
             client: ClientBuilder::default().http(url),
@@ -167,9 +170,9 @@ impl BlockDataProvider for RpcBlockDataProvider {
                 (Vec::new(), accounts.to_vec())
             };
 
-        println!(
-            "preflight missed_accounts: {:?} in full list {:?}",
-            missed_accounts, accounts
+        tracing::info!(
+            "preflight get_accounts missed_accounts: {:?}.",
+            missed_accounts
         );
 
         // fall back to legacy RPC & process missed accounts
@@ -322,6 +325,11 @@ impl BlockDataProvider for RpcBlockDataProvider {
             assert_eq!(preflight_storage_values.len(), accounts.len());
         }
 
+        tracing::info!(
+            "preflight get_storage_values missed_accounts: {:?}.",
+            missed_accounts
+        );
+
         // fall back to legacy RPC & process missed accounts
         let mut all_missed_values = Vec::with_capacity(missed_accounts.len());
 
@@ -422,9 +430,9 @@ impl BlockDataProvider for RpcBlockDataProvider {
             (MerkleProof::new(), accounts.clone())
         };
 
-        tracing::info!("get_merkle_proofs accounts: {:?}", &accounts.keys());
+        tracing::trace!("get_merkle_proofs accounts: {:?}", &accounts.keys());
         tracing::info!(
-            "get_merkle_proofs missed_accounts: {:?}",
+            "preflight get_merkle_proofs missed_accounts: {:?}",
             missed_accounts.keys()
         );
 
