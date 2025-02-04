@@ -566,4 +566,27 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
         Ok(all_account_key_proofs)
     }
+
+    async fn get_prestate(&self, block_number: u64) -> RaikoResult<super::PrestateImage> {
+        info!("get_prestate block_number: {}", block_number);
+
+        assert!(
+            self.block_numbers.contains(&block_number),
+            "Block number {} not found in {:?}",
+            block_number,
+            self.block_numbers
+        );
+
+        if let Some(preflight_provider) = &self.boost_provider {
+            match preflight_provider.get_prestate(block_number).await {
+                Ok(prestate) => Ok(prestate),
+                Err(e) => {
+                    tracing::error!("Error getting prestate from preflight provider: {:?}", e);
+                    Err(RaikoError::RPC("No prestate provider".to_owned()))
+                }
+            }
+        } else {
+            Err(RaikoError::RPC("No prestate provider".to_owned()))
+        }
+    }
 }

@@ -261,8 +261,11 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
         // Construct the state trie and storage from the storage proofs.
         let measurement = Measurement::start("Constructing MPT...", true);
-        let (parent_state_trie, parent_storage) =
-            proofs_to_tries(input.parent_header.state_root, parent_proofs, current_proofs)?;
+        let (parent_state_trie, parent_storage) = proofs_to_tries(
+            input.parent_header.state_root,
+            parent_proofs,
+            current_proofs,
+        )?;
         measurement.stop();
 
         // Gather proofs for block history
