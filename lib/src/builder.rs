@@ -1,7 +1,6 @@
 use core::mem;
 use std::sync::Arc;
 
-use crate::input::GuestBatchInput;
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
 use crate::utils::generate_transactions;
@@ -9,7 +8,7 @@ use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
     guest_mem_forget,
     input::GuestInput,
-    mem_db::{AccountState, BatchMemDb, DbAccount, MemDb},
+    mem_db::{AccountState, DbAccount, MemDb},
     CycleTracker,
 };
 use anyhow::{bail, ensure, Result};

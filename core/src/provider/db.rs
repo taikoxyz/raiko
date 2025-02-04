@@ -43,12 +43,14 @@ async fn get_prestate_accounts(
     for prestate_account_info in prestate_image.pre_account_proofs {
         let address = prestate_account_info.address;
         let code_hash = prestate_account_info.code_hash;
-        let bytecode = if code_hash.0 == KECCAK_EMPTY.0 {
+        let bytecode = if code_hash.0 == KECCAK_EMPTY.0 || code_hash == B256::ZERO {
             Bytecode::new()
         } else {
             let bytes: Bytes = contracts
                 .get(&code_hash)
-                .expect(&format!("Contract {code_hash} not found"))
+                .expect(&format!(
+                    "Contract {code_hash} not found for address: {address}"
+                ))
                 .clone();
             Bytecode::new_raw(bytes)
         };
