@@ -28,6 +28,7 @@ use reth_primitives::revm_primitives::{Address, HashMap};
 use rlp::{Decodable, DecoderError, Prototype, Rlp};
 use serde::{Deserialize, Serialize};
 use thiserror::Error as ThisError;
+use tracing::debug;
 
 pub type StorageEntry = (MptNode, Vec<U256>);
 
@@ -1033,7 +1034,7 @@ pub fn shorten_node_path(node: &MptNode) -> Vec<MptNode> {
 pub fn proofs_to_tries(
     state_root: B256,
     parent_proofs: HashMap<Address, EIP1186AccountProofResponse>,
-    proofs: HashMap<Address, EIP1186AccountProofResponse>,
+    post_proofs: HashMap<Address, EIP1186AccountProofResponse>,
 ) -> Result<(MptNode, HashMap<Address, StorageEntry>)> {
     // if no addresses are provided, return the trie only consisting of the state root
     if parent_proofs.is_empty() {
@@ -1057,7 +1058,7 @@ pub fn proofs_to_tries(
             state_nodes.insert(node.reference(), node);
         }
 
-        let fini_proofs = proofs.get(&address).unwrap();
+        let fini_proofs = post_proofs.get(&address).unwrap();
 
         // assure that addresses can be deleted from the state trie
         add_orphaned_leafs(address, &fini_proofs.account_proof, &mut state_nodes)?;
@@ -1114,13 +1115,14 @@ pub fn proofs_to_tries(
 
 /// Adds all the leaf nodes of non-inclusion proofs to the nodes.
 fn add_orphaned_leafs(
-    key: impl AsRef<[u8]>,
+    key: impl AsRef<[u8]> + std::fmt::Debug + Clone,
     proof: &[impl AsRef<[u8]>],
     nodes_by_reference: &mut HashMap<MptNodeReference, MptNode>,
 ) -> Result<()> {
     if !proof.is_empty() {
         let proof_nodes = parse_proof(proof).context("invalid proof encoding")?;
-        if is_not_included(&keccak(key), &proof_nodes)? {
+        if is_not_included(&keccak(key.clone()), &proof_nodes)? {
+            debug!("Adding orphaned leafs for key {:?}", hex::encode(&key));
             // add the leaf node to the nodes
             let leaf = proof_nodes.last().unwrap();
             for node in shorten_node_path(leaf) {

@@ -426,14 +426,21 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_batch_prove_block_taiko_a7() {
+    async fn test_batch_prove_block_taiko_mainnet() {
         env_logger::init();
         let proof_type = get_proof_type_from_env();
-        let l1_network = Network::Holesky.to_string();
-        let network = Network::TaikoA7.to_string();
+        let l1_network = Network::Ethereum.to_string();
+        let network = Network::TaikoMainnet.to_string();
         // Give the CI an simpler block to test because it doesn't have enough memory.
         // Unfortunately that also means that kzg is not getting fully verified by CI.
-        let block_number = if is_ci() { 105987 } else { 101368 };
+        let block_number = if is_ci() {
+            800000
+        } else {
+            std::env::var("BLOCK_NUMBER")
+                .unwrap_or("800000".to_string())
+                .parse::<u64>()
+                .unwrap()
+        };
         let taiko_chain_spec = SupportedChainSpecs::default()
             .get_chain_spec(&network)
             .unwrap();

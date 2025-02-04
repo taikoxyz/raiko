@@ -418,6 +418,16 @@ impl BlockDataProvider for BlockDataBoostProvider {
         }
         Ok(storage_proofs)
     }
+
+    async fn get_prestate(&self, block_number: u64) -> RaikoResult<super::PrestateImage> {
+        let preflight_block_num = block_number + 1;
+        self.preflight_data_is_available(preflight_block_num)?;
+        Ok(self
+            .preflight_data
+            .get(&(preflight_block_num))
+            .unwrap()
+            .clone())
+    }
 }
 
 #[cfg(test)]

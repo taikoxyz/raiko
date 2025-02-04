@@ -1,6 +1,6 @@
 use alloy_primitives::{Address, Bytes, U256};
 use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
-use reth_primitives::{Header, B256};
+use reth_primitives::{Header, B256, KECCAK_EMPTY};
 use reth_provider::ProviderError;
 use reth_revm::{
     primitives::{Account, AccountInfo, Bytecode, HashMap},
@@ -12,9 +12,10 @@ use tokio::runtime::Handle;
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::BlockDataProvider,
+    provider::PrestateImage,
     MerkleProof,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 pub struct ProviderDb<'a, BDP: BlockDataProvider> {
     pub provider: &'a BDP,
@@ -29,6 +30,43 @@ pub struct ProviderDb<'a, BDP: BlockDataProvider> {
     pub pending_accounts: HashSet<Address>,
     pub pending_slots: HashSet<(Address, U256)>,
     pub pending_block_hashes: HashSet<u64>,
+}
+
+async fn get_prestate_accounts(
+    provider: &impl BlockDataProvider,
+    block_number: u64,
+) -> RaikoResult<HashMap<Address, (AccountInfo, Vec<(U256, U256)>)>> {
+    // Load account data into db
+    let prestate_image: PrestateImage = provider.get_prestate(block_number).await?;
+    let contracts = prestate_image.contracts;
+    let mut accounts = HashMap::with_capacity(prestate_image.pre_account_proofs.len());
+    for prestate_account_info in prestate_image.pre_account_proofs {
+        let address = prestate_account_info.address;
+        let code_hash = prestate_account_info.code_hash;
+        let bytecode = if code_hash.0 == KECCAK_EMPTY.0 {
+            Bytecode::new()
+        } else {
+            let bytes: Bytes = contracts
+                .get(&code_hash)
+                .expect(&format!("Contract {code_hash} not found"))
+                .clone();
+            Bytecode::new_raw(bytes)
+        };
+        let account_info = AccountInfo::new(
+            prestate_account_info.balance,
+            prestate_account_info.nonce.as_limbs()[0],
+            code_hash,
+            bytecode,
+        );
+
+        let storages = prestate_account_info
+            .storage_proof
+            .into_iter()
+            .map(|storage_proof| (storage_proof.key.0.into(), storage_proof.value))
+            .collect();
+        accounts.insert(address, (account_info, storages));
+    }
+    Ok(accounts)
 }
 
 impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
@@ -74,6 +112,20 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                 provider_db
                     .initial_headers
                     .insert(block_number, block.header.try_into().unwrap());
+            }
+
+            // insert prestate accounts into initial db
+            if let Ok(prestate_accounts) = get_prestate_accounts(provider, block_number).await {
+                for (address, (account_info, storages)) in prestate_accounts {
+                    provider_db
+                        .initial_db
+                        .insert_account_info(address, account_info);
+                    for (index, value) in storages {
+                        provider_db
+                            .initial_db
+                            .insert_account_storage(&address, index, value);
+                    }
+                }
             }
         }
         info!("Initial new provider_db {:?}", provider_db.block_number);
@@ -230,6 +282,7 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
         if self.optimistic {
             self.basic(address)?;
             self.pending_slots.insert((address, index));
+            warn!("optimistic storage to be fetch: {:?}", (address, index));
             return Ok(U256::default());
         }
 
