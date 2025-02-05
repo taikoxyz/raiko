@@ -31,20 +31,23 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1728872400,
+        "genesis_time": 1738916500,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
     {
         "name": "taiko_dev",
         "chain_id": 167001,
-        "max_spec_id": "ONTAKE",
+        "max_spec_id": "PACAYA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
             },
             "ONTAKE": {
-                "Block": 500
+                "Block": 0
+            },
+            "PACAYA": {
+                "Block": 0
             },
             "CANCUN": "TBD"
         },
@@ -54,7 +57,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0xA4702E22F8807Df82Fe5B6dDdd99eB3Fcb0237B0",
+        "l1_contract": "0x8096ba9b2ba1bf0C34777309a58eF88926A009a8",
         "l2_contract": "0x1670010000000000000000000000000000010001",
         "rpc": "https://rpc.internal.taiko.xyz",
         "beacon_rpc": null,
@@ -65,6 +68,11 @@
                 "RISC0": "0xDf8038e9f4535040D7421A89ead398b3A38366EC"
             },
             "ONTAKE": {
+                "SGX": "0xebB0DA61818F639f460F67940EB269b36d1F104E",
+                "SP1": "0x748d4a7e3a49adEbA2157B2d581434A6Cc226D1F",
+                "RISC0": "0xDf8038e9f4535040D7421A89ead398b3A38366EC"
+            },
+            "PACAYA": {
                 "SGX": "0xebB0DA61818F639f460F67940EB269b36d1F104E",
                 "SP1": "0x748d4a7e3a49adEbA2157B2d581434A6Cc226D1F",
                 "RISC0": "0xDf8038e9f4535040D7421A89ead398b3A38366EC"

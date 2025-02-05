@@ -3,11 +3,12 @@ use std::sync::{Arc, Mutex};
 use std::{ops::Deref, path::Path};
 
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
+    input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput},
     proof_type::ProofType,
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
+use reth_primitives::B256;
 use serde::{de::Error, Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::trace;
@@ -69,24 +70,49 @@ impl Prover for NativeProver {
     }
 
     async fn batch_run(
-        input: raiko_lib::input::GuestBatchInput,
-        output: &GuestOutput,
+        batch_input: GuestBatchInput,
+        batch_output: &GuestBatchOutput,
         config: &ProverConfig,
-        store: Option<Arc<Mutex<&mut dyn IdWrite>>>,
-    ) -> ProverResult<Vec<Proof>> {
-        let mut batch_proofs = Vec::new();
-        for input in input.inputs {
-            if store.is_some() {
-                let mut guard = store.as_ref().unwrap().lock().unwrap();
-                let proof =
-                    Self::run(input, output, config, Some(guard.deref_mut().deref_mut())).await?;
-                batch_proofs.push(proof);
-            } else {
-                let proof = Self::run(input, output, config, None).await?;
-                batch_proofs.push(proof);
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        let param =
+            config
+                .get("native")
+                .map(NativeParam::deserialize)
+                .ok_or(ProverError::Param(serde_json::Error::custom(
+                    "native param not provided",
+                )))??;
+
+        if let Some(path) = param.json_guest_input {
+            let path = Path::new(&path);
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)?;
             }
+            let json = serde_json::to_string(&batch_input)?;
+            std::fs::write(path, json)?;
         }
-        Ok(batch_proofs)
+
+        trace!("Running the native prover for input {batch_input:?}");
+
+        let pi = ProtocolInstance::new_batch(
+            &batch_input,
+            batch_output.blocks.clone(),
+            ProofType::Native,
+        )
+        .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        if pi.instance_hash() != batch_output.hash {
+            return Err(ProverError::GuestError(
+                "Protocol Instance hash not matched".to_string(),
+            ));
+        }
+
+        Ok(Proof {
+            input: Some(batch_output.hash),
+            proof: None,
+            quote: None,
+            uuid: None,
+            kzg_proof: None,
+        })
     }
 
     async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {

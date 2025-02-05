@@ -3,8 +3,8 @@ use alloy_primitives::{Address, B256};
 use clap::Args;
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestBatchInput, GuestInput,
-        GuestOutput,
+        AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestBatchInput,
+        GuestBatchOutput, GuestInput, GuestOutput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
@@ -124,13 +124,12 @@ pub async fn run_prover(
 pub async fn run_batch_prover(
     proof_type: ProofType,
     input: GuestBatchInput,
-    output: &GuestOutput,
+    output: &GuestBatchOutput,
     config: &Value,
     store: Option<&mut dyn IdWrite>,
-) -> RaikoResult<Vec<Proof>> {
-    let shared_store = store.map(|s| Arc::new(Mutex::new(s)));
+) -> RaikoResult<Proof> {
     match proof_type {
-        ProofType::Native => NativeProver::batch_run(input.clone(), output, config, shared_store)
+        ProofType::Native => NativeProver::batch_run(input.clone(), output, config, store)
             .await
             .map_err(<ProverError as Into<RaikoError>>::into),
         ProofType::Sp1 => {
@@ -151,7 +150,7 @@ pub async fn run_batch_prover(
         }
         ProofType::Sgx => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::run(input.clone(), output, config, store)
+            return sgx_prover::SgxProver::batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
@@ -244,6 +243,8 @@ pub async fn cancel_proof(
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
+    /// The block number for the block to generate a proof for.
+    pub batch_id: u64,
     /// The l1 block number of the l2 block be proposed.
     pub l1_inclusion_block_number: u64,
     /// The l2_l1 block pairs for batch proof generation.
@@ -273,6 +274,9 @@ pub struct ProofRequestOpt {
     #[arg(long, require_equals = true)]
     /// The block number for the block to generate a proof for.
     pub block_number: Option<u64>,
+    #[arg(long, require_equals = true)]
+    /// The batch id for the batch of blocks to generate a proof for.
+    pub batch_id: Option<u64>,
     #[arg(long, require_equals = true)]
     /// The block number for the l2 block to be proposed.
     /// in hekla, it is the anchored l1 block height - 1
@@ -362,6 +366,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             block_number: value.block_number.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing block number".to_string(),
             ))?,
+            batch_id: value.batch_id.unwrap_or_default(),
             l1_inclusion_block_number: value.l1_inclusion_block_number.unwrap_or_default(),
             network: value.network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing network".to_string(),
@@ -445,6 +450,7 @@ impl From<AggregationRequest> for Vec<ProofRequestOpt> {
             .map(
                 |&(block_number, l1_inclusion_block_number)| ProofRequestOpt {
                     block_number: Some(block_number),
+                    batch_id: None,
                     l1_inclusion_block_number,
                     l2_l1_block_pairs: Vec::new(),
                     network: value.network.clone(),
@@ -464,6 +470,7 @@ impl From<AggregationRequest> for ProofRequestOpt {
     fn from(value: AggregationRequest) -> Self {
         ProofRequestOpt {
             block_number: None,
+            batch_id: None,
             l1_inclusion_block_number: None,
             l2_l1_block_pairs: value.block_numbers.iter().map(|(id, _)| *id).collect(),
             network: value.network,
