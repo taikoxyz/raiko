@@ -104,7 +104,7 @@ elif [ "$proof" == "risc0" ]; then
         "bonsai": false,
         "snark": false,
         "profile": true,
-        "execution_po2": 18
+        "execution_po2": 21
     }
   '
 elif [ "$proof" == "risc0-bonsai" ]; then
@@ -115,7 +115,7 @@ elif [ "$proof" == "risc0-bonsai" ]; then
         "bonsai": true,
         "snark": true,
         "profile": false,
-        "execution_po2": 20
+        "execution_po2": 21
     }
   '
 else
