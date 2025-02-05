@@ -22,3 +22,7 @@
 !/taskdb
 !/makefile
 !/script
+!/reqpool
+!/reqactor
+!/ballot
+!/redis-derive
