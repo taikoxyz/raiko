@@ -17,7 +17,7 @@
         "bonsai": true,
         "snark": true,
         "profile": false,
-        "execution_po2": 20
+        "execution_po2": 21
     },
     "sp1": {
 		"recursion": "core",
