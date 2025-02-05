@@ -71,6 +71,10 @@ impl Actor {
         self.pool.lock().unwrap().list()
     }
 
+    pub fn pool_remove_request(&self, request_key: &RequestKey) -> Result<usize, String> {
+        self.pool.lock().unwrap().remove(request_key)
+    }
+
     /// Send an action to the backend and wait for the response.
     pub async fn act(&self, action: Action) -> Result<StatusWithContext, String> {
         let (resp_tx, resp_rx) = oneshot::channel();

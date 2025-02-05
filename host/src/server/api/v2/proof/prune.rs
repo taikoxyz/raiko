@@ -1,7 +1,7 @@
 use axum::{extract::State, routing::post, Router};
 use utoipa::OpenApi;
 
-use crate::{interfaces::HostResult, server::api::v2::PruneStatus};
+use crate::interfaces::HostResult;
 use raiko_reqactor::Actor;
 
 #[utoipa::path(post, path = "/proof/prune",
@@ -11,8 +11,15 @@ use raiko_reqactor::Actor;
     )
 )]
 /// Prune all tasks.
-async fn prune_handler(State(_actor): State<Actor>) -> HostResult<PruneStatus> {
-    todo!()
+async fn prune_handler(State(actor): State<Actor>) -> HostResult<()> {
+    let statuses = actor.pool_list_status().map_err(|e| anyhow::anyhow!(e))?;
+    for (key, status) in statuses {
+        tracing::info!("Pruning task: {key} with status: {status}");
+        let _ = actor
+            .pool_remove_request(&key)
+            .map_err(|e| anyhow::anyhow!(e))?;
+    }
+    Ok(())
 }
 
 #[derive(OpenApi)]
