@@ -47,8 +47,6 @@ async fn proof_handler(
     // options with the request from the client.
     aggregation_request.merge(&prover_state.request_config())?;
 
-    let mut tasks = Vec::with_capacity(aggregation_request.block_numbers.len());
-
     let proof_request_opt: ProofRequestOpt = aggregation_request.clone().into();
 
     // Construct the actual proof request from the available configs.
@@ -58,7 +56,7 @@ async fn proof_handler(
 
     let (chain_id, blockhash) = get_batch_task_data(
         &proof_request.network,
-        proof_request.block_numbers.last().unwrap().0,
+        &vec![proof_request.batch_id],
         &prover_state.chain_specs,
     )
     .await?;

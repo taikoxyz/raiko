@@ -5,7 +5,8 @@ use std::sync::Mutex;
 use utoipa::ToSchema;
 
 use crate::input::{
-    AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput, GuestOutput,
+    AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput,
+    GuestOutput,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -68,10 +69,10 @@ pub trait Prover {
 
     async fn batch_run(
         input: GuestBatchInput,
-        output: &GuestOutput,
+        output: &GuestBatchOutput,
         config: &ProverConfig,
-        store: Option<Arc<Mutex<&mut dyn IdWrite>>>,
-    ) -> ProverResult<Vec<Proof>>;
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof>;
 
     async fn aggregate(
         input: AggregationGuestInput,

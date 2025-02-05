@@ -1,14 +1,17 @@
 use std::collections::HashSet;
 
 use alloy_primitives::Bytes;
+use anyhow::bail;
 // use alloy_rpc_types::Block;
 use raiko_lib::{
     builder::RethBlockBuilder,
     consts::ChainSpec,
     input::{BlobProofType, GuestBatchInput, GuestInput, TaikoGuestInput, TaikoProverData},
     primitives::mpt::proofs_to_tries,
+    utils::{generate_batch_transactions, generate_transactions},
     Measurement,
 };
+use reth_primitives::TransactionSigned;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
@@ -20,6 +23,8 @@ use util::{
     execute_txs, get_batch_blocks_and_parent_data, get_block_and_parent_data,
     prepare_taiko_chain_batch_input, prepare_taiko_chain_input,
 };
+
+pub use util::parse_l1_batch_proposal_tx_for_pacaya_fork;
 
 mod util;
 
@@ -33,10 +38,9 @@ pub struct PreflightData {
 }
 
 pub struct BatchPreflightData {
+    pub batch_id: u64,
     pub block_numbers: Vec<u64>,
-    // in real batch, we will have only 1 inclusion block number
-    // here use vec for back compatbiility
-    pub l1_inclusion_block_numbers: Option<Vec<u64>>,
+    pub l1_inclusion_block_number: u64,
     pub l1_chain_spec: ChainSpec,
     pub taiko_chain_spec: ChainSpec,
     pub prover_data: TaikoProverData,
@@ -117,8 +121,15 @@ pub async fn preflight<BDP: BlockDataProvider>(
     // Now re-execute the transactions in the block to collect all required data
     let mut builder = RethBlockBuilder::new(&input, provider_db);
 
+    let pool_tx = generate_transactions(
+        &input.chain_spec,
+        &input.taiko.block_proposed,
+        &input.taiko.tx_data,
+        &input.taiko.anchor_tx,
+    );
+
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-    execute_txs(&mut builder).await?;
+    execute_txs(&mut builder, pool_tx).await?;
 
     let Some(db) = builder.db.as_mut() else {
         return Err(RaikoError::Preflight("No db in builder".to_owned()));
@@ -172,12 +183,13 @@ pub async fn preflight<BDP: BlockDataProvider>(
 pub async fn batch_preflight<BDP: BlockDataProvider>(
     provider: BDP,
     BatchPreflightData {
+        batch_id,
         block_numbers,
         l1_chain_spec,
         taiko_chain_spec,
         prover_data,
         blob_proof_type,
-        l1_inclusion_block_numbers,
+        l1_inclusion_block_number,
     }: BatchPreflightData,
 ) -> RaikoResult<GuestBatchInput> {
     let measurement = Measurement::start("Fetching block data...", false);
@@ -193,40 +205,53 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         .iter()
         .map(|(block, _)| block.clone())
         .collect::<Vec<_>>();
-    let taiko_guest_inputs = if taiko_chain_spec.is_taiko() {
+    let taiko_guest_batch_input = if taiko_chain_spec.is_taiko() {
         prepare_taiko_chain_batch_input(
             &l1_chain_spec,
             &taiko_chain_spec,
-            l2_l1_block_pairs,
+            l1_inclusion_block_number,
+            batch_id,
             &all_prove_blocks,
             prover_data,
             &blob_proof_type,
         )
         .await?
     } else {
-        // For Ethereum blocks we just convert the block transactions in a tx_list
-        // so that we don't have to supports separate paths.
-        all_prove_blocks
-            .iter()
-            .map(|block| {
-                TaikoGuestInput::try_from(block.body.clone())
-                    .map_err(|e| RaikoError::Conversion(e.0))
-            })
-            .collect::<RaikoResult<Vec<_>>>()?
+        return Err(RaikoError::Preflight(
+            "Batch preflight is only used for Taiko chains".to_owned(),
+        ));
     };
     measurement.stop();
 
-    info!("taiko_guest_inputs.len(): {:?}", taiko_guest_inputs.len());
     info!("block_parent_pairs.len(): {:?}", block_parent_pairs.len());
+
+    /// distrubute txs to each block
+    let pool_txs_list: Vec<Vec<TransactionSigned>> =
+        generate_batch_transactions(&l1_chain_spec, &taiko_guest_batch_input);
+
+    assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
+
     let mut batch_guest_input = Vec::new();
-    for ((prove_block, parent_block), taiko_input) in
-        block_parent_pairs.iter().zip(taiko_guest_inputs.iter())
+    for ((prove_block, parent_block), pure_pool_txs) in
+        block_parent_pairs.iter().zip(pool_txs_list.iter())
     {
         let parent_header: reth_primitives::Header =
             parent_block.header.clone().try_into().map_err(|e| {
                 RaikoError::Conversion(format!("Failed converting to reth header: {e}"))
             })?;
         let parent_block_number = parent_header.number;
+
+        let anchor_tx = prove_block.body.first().unwrap().clone();
+        let taiko_input = TaikoGuestInput {
+            l1_header: taiko_guest_batch_input.l1_header.clone(),
+            tx_data: Vec::new(),
+            anchor_tx: Some(anchor_tx.clone()),
+            block_proposed: taiko_guest_batch_input.batch_proposed.clone(),
+            prover_data: taiko_guest_batch_input.prover_data.clone(),
+            blob_commitment: None,
+            blob_proof: None,
+            blob_proof_type: taiko_guest_batch_input.blob_proof_type.clone(),
+        };
 
         // Create the guest input
         let input = GuestInput {
@@ -245,7 +270,9 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         let mut builder = RethBlockBuilder::new(&input, provider_db);
 
         // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-        execute_txs(&mut builder).await?;
+        let mut pool_txs = vec![anchor_tx.clone()];
+        pool_txs.extend_from_slice(pure_pool_txs);
+        execute_txs(&mut builder, pool_txs).await?;
 
         let Some(db) = builder.db.as_mut() else {
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
@@ -300,6 +327,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
     Ok(GuestBatchInput {
         inputs: batch_guest_input,
+        taiko: taiko_guest_batch_input,
     })
 }
 

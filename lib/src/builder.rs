@@ -3,11 +3,11 @@ use std::sync::Arc;
 
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
-use crate::utils::generate_transactions;
+use crate::utils::{generate_batch_transactions, generate_transactions};
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
     guest_mem_forget,
-    input::GuestInput,
+    input::{GuestBatchInput, GuestInput},
     mem_db::{AccountState, DbAccount, MemDb},
     CycleTracker,
 };
@@ -24,7 +24,9 @@ use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{
     Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap, SpecId,
 };
-use reth_primitives::{Address, BlockWithSenders, Header, B256, KECCAK_EMPTY, U256};
+use reth_primitives::{
+    Address, Block, BlockWithSenders, Header, TransactionSigned, B256, KECCAK_EMPTY, U256,
+};
 use tracing::{debug, error};
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
@@ -33,9 +35,17 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
     cycle_tracker.end();
 
     let mut builder = RethBlockBuilder::new(input, db);
+    let pool_tx = generate_transactions(
+        &input.chain_spec,
+        &input.taiko.block_proposed,
+        &input.taiko.tx_data,
+        &input.taiko.anchor_tx,
+    );
 
     let cycle_tracker = CycleTracker::start("execute_transactions");
-    builder.execute_transactions(false).expect("execute");
+    builder
+        .execute_transactions(pool_tx, false)
+        .expect("execute");
     cycle_tracker.end();
 
     let cycle_tracker = CycleTracker::start("finalize");
@@ -45,22 +55,24 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
     header
 }
 
-pub fn calculate_batch_blocks_final_header(input: &GuestInput) -> Header {
-    let cycle_tracker = CycleTracker::start("initialize_database");
-    let db = create_mem_db(&mut input.clone()).unwrap();
-    cycle_tracker.end();
-
-    let mut builder = RethBlockBuilder::new(input, db);
-
-    let cycle_tracker = CycleTracker::start("execute_transactions");
-    builder.execute_transactions(false).expect("execute");
-    cycle_tracker.end();
-
-    let cycle_tracker = CycleTracker::start("finalize");
-    let header = builder.finalize().expect("execute");
-    cycle_tracker.end();
-
-    header
+pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block> {
+    let pool_txs_list = generate_batch_transactions(&input.taiko.chain_spec, &input.taiko);
+    let mut final_blocks = Vec::new();
+    for (i, pool_txs) in pool_txs_list.iter().enumerate() {
+        let mut builder = RethBlockBuilder::new(
+            &input.inputs[i],
+            create_mem_db(&mut input.inputs[i].clone()).unwrap(),
+        );
+        builder
+            .execute_transactions(pool_txs.clone(), false)
+            .expect("execute");
+        final_blocks.push(
+            builder
+                .finalize_block()
+                .expect("execute single batched block"),
+        );
+    }
+    final_blocks
 }
 
 /// Optimistic database
@@ -93,7 +105,11 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
     }
 
     /// Executes all input transactions.
-    pub fn execute_transactions(&mut self, optimistic: bool) -> Result<()> {
+    pub fn execute_transactions(
+        &mut self,
+        pool_txs: Vec<TransactionSigned>,
+        optimistic: bool,
+    ) -> Result<()> {
         // Get the chain spec
         let chain_spec = &self.input.chain_spec;
         let total_difficulty = U256::ZERO;
@@ -130,7 +146,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                         reth_chain_spec
                             .fork(Hardfork::Hekla)
                             .active_at_block(block_num),
-                        "evm fork is not active, please update the chain spec"
+                        "evm fork HEKLA is not active, please update the chain spec"
                     );
                 }
                 SpecId::ONTAKE => {
@@ -138,7 +154,15 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                         reth_chain_spec
                             .fork(Hardfork::Ontake)
                             .active_at_block(block_num),
-                        "evm fork is not active, please update the chain spec"
+                        "evm fork ONTAKE is not active, please update the chain spec"
+                    );
+                }
+                SpecId::PACAYA => {
+                    assert!(
+                        reth_chain_spec
+                            .fork(Hardfork::Pacaya)
+                            .active_at_block(block_num),
+                        "evm fork PACAYA is not active, please update the chain spec"
                     );
                 }
                 _ => unimplemented!(),
@@ -147,12 +171,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 
         // Generate the transactions from the tx list
         let mut block = self.input.block.clone();
-        block.body = generate_transactions(
-            &self.input.chain_spec,
-            &self.input.taiko.block_proposed,
-            &self.input.taiko.tx_data,
-            &self.input.taiko.anchor_tx,
-        );
+        block.body = pool_txs;
         // Recover senders
         let mut block = block
             .with_recovered_senders()
@@ -247,6 +266,13 @@ impl RethBlockBuilder<MemDb> {
         let state_root = self.calculate_state_root()?;
         ensure!(self.input.block.state_root == state_root);
         Ok(self.input.block.header.clone())
+    }
+
+    /// Finalizes the block building and returns the header
+    pub fn finalize_block(&mut self) -> Result<Block> {
+        let state_root = self.calculate_state_root()?;
+        ensure!(self.input.block.state_root == state_root);
+        Ok(self.input.block.clone())
     }
 
     /// Calculates the state root of the block

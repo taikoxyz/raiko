@@ -23,6 +23,10 @@ pub async fn main() -> Result<()> {
             println!("Starting one shot mode");
             one_shot(args.global_opts, one_shot_args).await?
         }
+        Command::OneBatchShot(one_shot_args) => {
+            println!("Starting one shot mode");
+            one_shot(args.global_opts, one_shot_args).await?
+        }
         Command::Aggregate(one_shot_args) => {
             println!("Starting one shot mode");
             aggregate(args.global_opts, one_shot_args).await?
