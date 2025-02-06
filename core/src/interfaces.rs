@@ -33,6 +33,10 @@ pub enum RaikoError {
     #[schema(value_type = Value)]
     FeatureNotSupportedError(ProofType),
 
+    /// For zk_any request is not drawn.
+    #[error("The zk_any request is not drawn")]
+    ZKAnyNotDrawn,
+
     /// For invalid type conversion.
     #[error("Invalid conversion: {0}")]
     Conversion(String),

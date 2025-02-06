@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{alloc, path::PathBuf};
@@ -5,11 +6,13 @@ use std::{alloc, path::PathBuf};
 use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
+use raiko_ballot::Ballot;
 use raiko_core::{
     interfaces::{AggregationOnlyRequest, ProofRequest, ProofRequestOpt},
     merge,
 };
 use raiko_lib::consts::SupportedChainSpecs;
+use raiko_lib::proof_type::ProofType;
 use raiko_tasks::{get_task_manager, ProofTaskDescriptor, TaskManagerOpts, TaskManagerWrapperImpl};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -88,6 +91,15 @@ pub struct Opts {
 
     #[arg(long, default_value = "false")]
     pub use_memory_backend: bool,
+
+    /// Ballot config in json format. If not provided, '{}' will be used.
+    #[arg(
+        long,
+        require_equals = true,
+        default_value = "{}",
+        help = "e.g. {\"Sp1\":0.1,\"Risc0\":0.2}"
+    )]
+    pub ballot: String,
 }
 
 impl Opts {
@@ -254,6 +266,14 @@ pub fn parse_chain_specs(opts: &Opts) -> SupportedChainSpecs {
     } else {
         SupportedChainSpecs::default()
     }
+}
+
+pub fn parse_ballot(opts: &Opts) -> Ballot {
+    let probs: BTreeMap<ProofType, f64> =
+        serde_json::from_str(&opts.ballot).expect("Failed to parse ballot config");
+    let ballot = Ballot::new(probs).expect("Failed to create ballot");
+    ballot.validate().expect("Failed to validate ballot");
+    ballot
 }
 
 #[global_allocator]

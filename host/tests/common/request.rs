@@ -231,8 +231,6 @@ pub async fn get_status_of_proof_request(client: &Client, request: &ProofRequest
     for (task_descriptor, task_status) in report {
         if let TaskDescriptor::SingleProof(proof_task_descriptor) = task_descriptor {
             if proof_task_descriptor.block_id == request.block_number.unwrap()
-                && &proof_task_descriptor.proof_system.to_string()
-                    == request.proof_type.as_ref().unwrap()
                 && &proof_task_descriptor.prover == request.prover.as_ref().unwrap()
             {
                 return task_status;

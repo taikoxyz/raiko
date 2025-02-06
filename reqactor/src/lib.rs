@@ -2,6 +2,7 @@ mod action;
 mod actor;
 mod backend;
 
+use raiko_ballot::Ballot;
 use raiko_core::interfaces::ProofRequestOpt;
 use raiko_lib::consts::SupportedChainSpecs;
 use tokio::sync::{mpsc, oneshot};
@@ -19,6 +20,7 @@ pub use raiko_reqpool::{
 /// Run the actor backend in background, and return the actor.
 pub async fn start_actor(
     pool: Pool,
+    ballot: Ballot,
     chain_specs: SupportedChainSpecs,
     default_request_config: ProofRequestOpt,
     max_proving_concurrency: usize,
@@ -39,6 +41,7 @@ pub async fn start_actor(
 
     Actor::new(
         pool,
+        ballot,
         default_request_config,
         chain_specs.clone(),
         action_tx,
