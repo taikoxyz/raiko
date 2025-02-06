@@ -115,12 +115,12 @@ impl Backend {
                 request_entity,
             } => match self.pool.get_status(&request_key) {
                 Ok(None) => {
-                    tracing::info!("Actor Backend received prove-action {request_key}, and it is not in pool, registering");
+                    tracing::debug!("Actor Backend received prove-action {request_key}, and it is not in pool, registering");
                     self.register(request_key.clone(), request_entity).await
                 }
                 Ok(Some(status)) => match status.status() {
                     Status::Registered | Status::WorkInProgress | Status::Success { .. } => {
-                        tracing::info!("Actor Backend received prove-action {request_key}, but it is already {status}, skipping");
+                        tracing::debug!("Actor Backend received prove-action {request_key}, but it is already {status}, skipping");
                         Ok(status)
                     }
                     Status::Cancelled { .. } => {
@@ -146,12 +146,12 @@ impl Backend {
                 }
                 Ok(Some(status)) => match status.status() {
                     Status::Registered | Status::WorkInProgress => {
-                        tracing::info!("Actor Backend received cancel-action {request_key}, and it is {status}, cancelling");
+                        tracing::debug!("Actor Backend received cancel-action {request_key}, and it is {status}, cancelling");
                         self.cancel(request_key, status).await
                     }
 
                     Status::Failed { .. } | Status::Cancelled { .. } | Status::Success { .. } => {
-                        tracing::info!("Actor Backend received cancel-action {request_key}, but it is already {status}, skipping");
+                        tracing::debug!("Actor Backend received cancel-action {request_key}, but it is already {status}, skipping");
                         Ok(status)
                     }
                 },
@@ -171,12 +171,12 @@ impl Backend {
             Ok(Some((request_entity, status))) => match status.status() {
                 Status::Registered => match request_entity {
                     RequestEntity::SingleProof(entity) => {
-                        tracing::info!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
+                        tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
                         self.prove_single(request_key.clone(), entity).await;
                         self.ensure_internal_signal(request_key).await;
                     }
                     RequestEntity::Aggregation(entity) => {
-                        tracing::info!("Actor Backend received internal signal {request_key}, status: {status}, proving aggregation proof");
+                        tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving aggregation proof");
                         self.prove_aggregation(request_key.clone(), entity).await;
                         self.ensure_internal_signal(request_key).await;
                     }
@@ -191,7 +191,7 @@ impl Backend {
                         .await;
                 }
                 Status::Success { .. } | Status::Cancelled { .. } | Status::Failed { .. } => {
-                    tracing::info!("Actor Backend received internal signal {request_key}, status: {status}, done");
+                    tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, done");
                 }
             },
             Ok(None) => {
