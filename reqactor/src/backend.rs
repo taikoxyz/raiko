@@ -218,10 +218,12 @@ impl Backend {
         let internal_tx = self.internal_tx.clone();
         tokio::spawn(async move {
             loop {
+                ticker.tick().await; // first tick is immediate
                 if let Err(err) = internal_tx.send(request_key.clone()).await {
                     tracing::error!("Actor Backend failed to send internal signal {request_key}: {err:?}, retrying. It should not happen, please issue a bug report");
+                } else {
+                    break;
                 }
-                ticker.tick().await;
             }
         });
     }
@@ -331,9 +333,10 @@ impl Backend {
 
         // 2. Start the proving work in a separate thread
         let mut actor = self.clone();
+        let request_key_ = request_key.clone();
         let proving_semaphore = self.proving_semaphore.clone();
         let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             // Acquire a permit from the semaphore before starting the proving work
             let _permit = proving_semaphore
                 .acquire()
@@ -365,6 +368,34 @@ impl Backend {
             // The permit is automatically dropped here, releasing the semaphore
         });
 
+        let mut pool_ = self.pool.clone();
+        tokio::spawn(async move {
+            match handle.await {
+                Ok(()) => {
+                    tracing::debug!(
+                        "Actor Backend proved single proof {request_key_} successfully"
+                    );
+                }
+                Err(e) => {
+                    if e.is_panic() {
+                        tracing::error!("Actor Backend panicked while proving single proof: {e:?}");
+                        let status = Status::Failed {
+                            error: e.to_string(),
+                        };
+                        if let Err(err) =
+                            pool_.update_status(request_key_.clone(), status.clone().into())
+                        {
+                            tracing::error!(
+                                "Actor Backend failed to update status of prove-action {request_key_}: {err:?}, status: {status}",
+                                status = status,
+                            );
+                        }
+                    } else {
+                        tracing::error!("Actor Backend failed to prove single proof: {e:?}");
+                    }
+                }
+            }
+        });
         // Wait for the semaphore to be acquired
         semaphore_acquired_rx.await.unwrap();
     }
@@ -423,7 +454,8 @@ impl Backend {
     }
 
     async fn halt(&mut self) -> Result<(), String> {
-        todo!("halt")
+        // TODO: implement halt for pause
+        Ok(())
     }
 }
 
