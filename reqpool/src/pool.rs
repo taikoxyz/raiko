@@ -146,7 +146,11 @@ impl IdWrite for Pool {
 
 impl Pool {
     pub fn open(config: RedisPoolConfig) -> Result<Self, redis::RedisError> {
-        tracing::info!("RedisPool.open: connecting to redis: {}", config.redis_url);
+        if config.enable_memory_backend {
+            tracing::info!("RedisPool.open using memory pool");
+        } else {
+            tracing::info!("RedisPool.open using redis: {}", config.redis_url);
+        }
 
         let client = Client::open(config.redis_url.clone())?;
         Ok(Self { client, config })

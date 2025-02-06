@@ -31,8 +31,3 @@ alloy-primitives = { workspace = true, features = ["getrandom"] }
 default = []
 in-memory = []
 redis-db = ["redis"]
-
-
-[[test]]
-name = "tasks_tests"
-path = "tests/main.rs"
