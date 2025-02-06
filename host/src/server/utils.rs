@@ -1,10 +1,12 @@
 use crate::server::api::{v2, v3};
+use raiko_lib::proof_type::ProofType;
 use raiko_reqpool::Status;
 use raiko_tasks::TaskStatus;
 
-pub fn to_v2_status(result: Result<Status, String>) -> v2::Status {
+pub fn to_v2_status(proof_type: ProofType, result: Result<Status, String>) -> v2::Status {
     match result {
         Ok(status) => v2::Status::Ok {
+            proof_type,
             data: {
                 match status {
                     Status::Registered => v2::ProofResponse::Status {
@@ -49,8 +51,8 @@ pub fn to_v2_cancel_status(result: Result<Status, String>) -> v2::CancelStatus {
 }
 
 // TODO: remove the staled interface
-pub fn to_v3_status(result: Result<Status, String>) -> v3::Status {
-    to_v2_status(result)
+pub fn to_v3_status(proof_type: ProofType, result: Result<Status, String>) -> v3::Status {
+    to_v2_status(proof_type, result)
 }
 
 pub fn to_v3_cancel_status(result: Result<Status, String>) -> v3::CancelStatus {

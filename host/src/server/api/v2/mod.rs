@@ -1,5 +1,5 @@
 use axum::{response::IntoResponse, Json, Router};
-use raiko_lib::prover::Proof;
+use raiko_lib::{proof_type::ProofType, prover::Proof};
 use raiko_tasks::TaskStatus;
 use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
@@ -66,32 +66,14 @@ pub enum ProofResponse {
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "lowercase")]
 pub enum Status {
-    Ok { data: ProofResponse },
-    Error { error: String, message: String },
-}
-
-impl From<Vec<u8>> for Status {
-    fn from(proof: Vec<u8>) -> Self {
-        Self::Ok {
-            data: ProofResponse::Proof {
-                proof: serde_json::from_slice(&proof).unwrap_or_default(),
-            },
-        }
-    }
-}
-
-impl From<TaskStatus> for Status {
-    fn from(status: TaskStatus) -> Self {
-        match status {
-            TaskStatus::Success | TaskStatus::WorkInProgress | TaskStatus::Registered => Self::Ok {
-                data: ProofResponse::Status { status },
-            },
-            _ => Self::Error {
-                error: "task_failed".to_string(),
-                message: format!("Task failed with status: {status:?}"),
-            },
-        }
-    }
+    Ok {
+        proof_type: ProofType,
+        data: ProofResponse,
+    },
+    Error {
+        error: String,
+        message: String,
+    },
 }
 
 impl IntoResponse for Status {

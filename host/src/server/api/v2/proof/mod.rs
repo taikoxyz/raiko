@@ -75,6 +75,7 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     )
     .await?;
 
+    let proof_type = proof_request.proof_type;
     let request_key = SingleProofRequestKey::new(
         chain_id,
         proof_request.block_number,
@@ -97,7 +98,7 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     .into();
 
     let result = crate::server::prove(&actor, request_key, request_entity).await;
-    Ok(to_v2_status(result))
+    Ok(to_v2_status(proof_type, result))
 }
 
 #[derive(OpenApi)]
