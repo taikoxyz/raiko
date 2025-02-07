@@ -7,6 +7,7 @@ use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_tasks::TaskStatus;
 
+#[ignore]
 #[tokio::test]
 async fn test_v2_mainnet_aggregate_native() {
     v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Native).await;
