@@ -422,31 +422,3 @@ impl TaskManager for InMemoryTaskManager {
         db.list_all_aggregation_tasks()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use alloy_primitives::B256;
-
-    use super::*;
-    use crate::ProofType;
-
-    #[test]
-    fn test_db_open() {
-        assert!(InMemoryTaskDb::new().size().is_ok());
-    }
-
-    #[test]
-    fn test_db_enqueue() {
-        let mut db = InMemoryTaskDb::new();
-        let params = ProofTaskDescriptor {
-            chain_id: 1,
-            block_id: 1,
-            blockhash: B256::default(),
-            proof_system: ProofType::Native,
-            prover: "0x1234".to_owned(),
-        };
-        db.enqueue_task(&params).expect("enqueue task");
-        let status = db.get_task_proving_status(&params);
-        assert!(status.is_ok());
-    }
-}

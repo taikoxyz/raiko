@@ -115,12 +115,12 @@ impl Backend {
                 request_entity,
             } => match self.pool.get_status(&request_key) {
                 Ok(None) => {
-                    tracing::info!("Actor Backend received prove-action {request_key}, and it is not in pool, registering");
+                    tracing::debug!("Actor Backend received prove-action {request_key}, and it is not in pool, registering");
                     self.register(request_key.clone(), request_entity).await
                 }
                 Ok(Some(status)) => match status.status() {
                     Status::Registered | Status::WorkInProgress | Status::Success { .. } => {
-                        tracing::info!("Actor Backend received prove-action {request_key}, but it is already {status}, skipping");
+                        tracing::debug!("Actor Backend received prove-action {request_key}, but it is already {status}, skipping");
                         Ok(status)
                     }
                     Status::Cancelled { .. } => {
@@ -146,12 +146,12 @@ impl Backend {
                 }
                 Ok(Some(status)) => match status.status() {
                     Status::Registered | Status::WorkInProgress => {
-                        tracing::info!("Actor Backend received cancel-action {request_key}, and it is {status}, cancelling");
+                        tracing::debug!("Actor Backend received cancel-action {request_key}, and it is {status}, cancelling");
                         self.cancel(request_key, status).await
                     }
 
                     Status::Failed { .. } | Status::Cancelled { .. } | Status::Success { .. } => {
-                        tracing::info!("Actor Backend received cancel-action {request_key}, but it is already {status}, skipping");
+                        tracing::debug!("Actor Backend received cancel-action {request_key}, but it is already {status}, skipping");
                         Ok(status)
                     }
                 },
@@ -171,12 +171,12 @@ impl Backend {
             Ok(Some((request_entity, status))) => match status.status() {
                 Status::Registered => match request_entity {
                     RequestEntity::SingleProof(entity) => {
-                        tracing::info!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
+                        tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
                         self.prove_single(request_key.clone(), entity).await;
                         self.ensure_internal_signal(request_key).await;
                     }
                     RequestEntity::Aggregation(entity) => {
-                        tracing::info!("Actor Backend received internal signal {request_key}, status: {status}, proving aggregation proof");
+                        tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving aggregation proof");
                         self.prove_aggregation(request_key.clone(), entity).await;
                         self.ensure_internal_signal(request_key).await;
                     }
@@ -191,7 +191,7 @@ impl Backend {
                         .await;
                 }
                 Status::Success { .. } | Status::Cancelled { .. } | Status::Failed { .. } => {
-                    tracing::info!("Actor Backend received internal signal {request_key}, status: {status}, done");
+                    tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, done");
                 }
             },
             Ok(None) => {
@@ -218,10 +218,12 @@ impl Backend {
         let internal_tx = self.internal_tx.clone();
         tokio::spawn(async move {
             loop {
+                ticker.tick().await; // first tick is immediate
                 if let Err(err) = internal_tx.send(request_key.clone()).await {
                     tracing::error!("Actor Backend failed to send internal signal {request_key}: {err:?}, retrying. It should not happen, please issue a bug report");
+                } else {
+                    break;
                 }
-                ticker.tick().await;
             }
         });
     }
@@ -331,9 +333,10 @@ impl Backend {
 
         // 2. Start the proving work in a separate thread
         let mut actor = self.clone();
+        let request_key_ = request_key.clone();
         let proving_semaphore = self.proving_semaphore.clone();
         let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             // Acquire a permit from the semaphore before starting the proving work
             let _permit = proving_semaphore
                 .acquire()
@@ -365,6 +368,34 @@ impl Backend {
             // The permit is automatically dropped here, releasing the semaphore
         });
 
+        let mut pool_ = self.pool.clone();
+        tokio::spawn(async move {
+            match handle.await {
+                Ok(()) => {
+                    tracing::debug!(
+                        "Actor Backend proved single proof {request_key_} successfully"
+                    );
+                }
+                Err(e) => {
+                    if e.is_panic() {
+                        tracing::error!("Actor Backend panicked while proving single proof: {e:?}");
+                        let status = Status::Failed {
+                            error: e.to_string(),
+                        };
+                        if let Err(err) =
+                            pool_.update_status(request_key_.clone(), status.clone().into())
+                        {
+                            tracing::error!(
+                                "Actor Backend failed to update status of prove-action {request_key_}: {err:?}, status: {status}",
+                                status = status,
+                            );
+                        }
+                    } else {
+                        tracing::error!("Actor Backend failed to prove single proof: {e:?}");
+                    }
+                }
+            }
+        });
         // Wait for the semaphore to be acquired
         semaphore_acquired_rx.await.unwrap();
     }
@@ -423,7 +454,8 @@ impl Backend {
     }
 
     async fn halt(&mut self) -> Result<(), String> {
-        todo!("halt")
+        // TODO: implement halt for pause
+        Ok(())
     }
 }
 

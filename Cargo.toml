@@ -15,6 +15,9 @@ members = [
     "pipeline",
     "core",
     "taskdb",
+    "redis-derive",
+    "reqpool",
+    "reqactor",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -37,6 +40,9 @@ opt-level = 3
 raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
 raiko-tasks = { path = "./taskdb" }
+raiko-redis-derive = { path = "./redis-derive" }
+raiko-reqpool = { path = "./reqpool" }
+raiko-reqactor = { path = "./reqactor" }
 
 # reth
 reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
@@ -186,6 +192,8 @@ dirs = "5.0.1"
 pathdiff = "0.2.1"
 dotenv = "0.15.0"
 backoff = "0.4.0"
+derive-getters = "0.5.0"
+test-log = "0.2.16"
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
