@@ -11,6 +11,7 @@ use crate::{
 };
 
 pub mod db;
+pub mod persistent_map;
 pub mod rpc;
 
 #[allow(async_fn_in_trait)]
