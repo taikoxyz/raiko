@@ -6,20 +6,12 @@ use std::collections::HashMap;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
-    provider::boost_rpc::PreFlightBoostRpcData,
     provider::rpc::RpcBlockDataProvider,
     MerkleProof,
 };
 
-pub mod boost_rpc;
 pub mod db;
 pub mod rpc;
-
-/// The prestate image is the preloaded data that to replay the mempool txs
-/// can be from preflight API or some 3rd party services.
-/// Data is not needed to be complete, but the more data the better.
-/// TODO: now it's preflight only, add more fields/logics if needed
-pub type PrestateImage = PreFlightBoostRpcData;
 
 #[allow(async_fn_in_trait)]
 pub trait BlockDataProvider {
@@ -44,8 +36,6 @@ pub trait BlockDataProvider {
         offset: usize,
         num_storage_proofs: usize,
     ) -> RaikoResult<MerkleProof>;
-
-    async fn get_prestate(&self, block_number: u64) -> RaikoResult<PrestateImage>;
 }
 
 pub async fn get_task_data(
