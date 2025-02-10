@@ -146,10 +146,10 @@ impl IdWrite for Pool {
 
 impl Pool {
     pub fn open(config: RedisPoolConfig) -> Result<Self, redis::RedisError> {
-        if config.enable_memory_backend {
-            tracing::info!("RedisPool.open using memory pool");
-        } else {
+        if config.enable_redis_pool {
             tracing::info!("RedisPool.open using redis: {}", config.redis_url);
+        } else {
+            tracing::info!("RedisPool.open using memory pool");
         }
 
         let client = Client::open(config.redis_url.clone())?;
@@ -157,12 +157,12 @@ impl Pool {
     }
 
     pub fn conn(&mut self) -> Result<Backend, redis::RedisError> {
-        if self.config.enable_memory_backend {
+        if self.config.enable_redis_pool {
+            Ok(Backend::Redis(self.redis_conn()?))
+        } else {
             Ok(Backend::Memory(MemoryBackend::new(
                 self.config.redis_url.clone(),
             )))
-        } else {
-            Ok(Backend::Redis(self.redis_conn()?))
         }
     }
 

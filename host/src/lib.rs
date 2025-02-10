@@ -90,7 +90,7 @@ pub struct Opts {
     pub redis_ttl: u64,
 
     #[arg(long, default_value = "false")]
-    pub use_memory_backend: bool,
+    pub enable_redis_pool: bool,
 
     /// Ballot config in json format. If not provided, '{}' will be used.
     #[arg(
