@@ -67,7 +67,7 @@ async fn aggregation_handler(
     .into();
 
     let result = crate::server::prove(&actor, agg_request_key, agg_request_entity).await;
-    Ok(to_v3_status(result))
+    Ok(to_v3_status(proof_type, result))
 }
 
 #[derive(OpenApi)]

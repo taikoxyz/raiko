@@ -1,13 +1,18 @@
-use axum::{response::IntoResponse, Json, Router};
+use axum::Router;
 use raiko_lib::prover::Proof;
 use raiko_tasks::TaskStatus;
-use serde::{Deserialize, Serialize};
-use utoipa::{OpenApi, ToSchema};
+use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::server::api::v1::{self, GuestOutputDoc};
 use raiko_reqactor::Actor;
+
+// re-export v2 types
+pub use crate::server::api::v2::CancelStatus;
+pub use crate::server::api::v2::ProofResponse;
+pub use crate::server::api::v2::PruneStatus;
+pub use crate::server::api::v2::Status;
 
 mod proof;
 
@@ -49,98 +54,6 @@ mod proof;
 )]
 /// The root API struct which is generated from the `OpenApi` derive macro.
 pub struct Docs;
-
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(untagged)]
-pub enum ProofResponse {
-    Status {
-        /// The status of the submitted task.
-        status: TaskStatus,
-    },
-    Proof {
-        /// The proof.
-        proof: Proof,
-    },
-}
-
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(tag = "status", rename_all = "lowercase")]
-pub enum Status {
-    Ok { data: ProofResponse },
-    Error { error: String, message: String },
-}
-
-impl From<Vec<u8>> for Status {
-    fn from(proof: Vec<u8>) -> Self {
-        Self::Ok {
-            data: ProofResponse::Proof {
-                proof: serde_json::from_slice(&proof).unwrap_or_default(),
-            },
-        }
-    }
-}
-
-impl From<Proof> for Status {
-    fn from(proof: Proof) -> Self {
-        Self::Ok {
-            data: ProofResponse::Proof { proof },
-        }
-    }
-}
-
-impl From<TaskStatus> for Status {
-    fn from(status: TaskStatus) -> Self {
-        match status {
-            TaskStatus::Success | TaskStatus::WorkInProgress | TaskStatus::Registered => Self::Ok {
-                data: ProofResponse::Status { status },
-            },
-            _ => Self::Error {
-                error: "task_failed".to_string(),
-                message: format!("Task failed with status: {status:?}"),
-            },
-        }
-    }
-}
-
-impl IntoResponse for Status {
-    fn into_response(self) -> axum::response::Response {
-        Json(serde_json::to_value(self).unwrap()).into_response()
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(tag = "status", rename_all = "lowercase")]
-/// Status of cancellation request.
-/// Can be `ok` for a successful cancellation or `error` with message and error type for errors.
-pub enum CancelStatus {
-    /// Cancellation was successful.
-    Ok,
-    /// Cancellation failed.
-    Error { error: String, message: String },
-}
-
-impl IntoResponse for CancelStatus {
-    fn into_response(self) -> axum::response::Response {
-        Json(serde_json::to_value(self).unwrap()).into_response()
-    }
-}
-
-#[derive(Debug, Serialize, ToSchema, Deserialize)]
-#[serde(tag = "status", rename_all = "lowercase")]
-/// Status of prune request.
-/// Can be `ok` for a successful prune or `error` with message and error type for errors.
-pub enum PruneStatus {
-    /// Prune was successful.
-    Ok,
-    /// Prune failed.
-    Error { error: String, message: String },
-}
-
-impl IntoResponse for PruneStatus {
-    fn into_response(self) -> axum::response::Response {
-        Json(serde_json::to_value(self).unwrap()).into_response()
-    }
-}
 
 #[must_use]
 pub fn create_docs() -> utoipa::openapi::OpenApi {

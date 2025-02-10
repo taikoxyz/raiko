@@ -1,9 +1,11 @@
 use axum::{extract::State, routing::post, Json, Router};
+use raiko_core::interfaces::RaikoError;
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
 use raiko_reqpool::{SingleProofRequestEntity, SingleProofRequestKey};
 use serde_json::Value;
 use utoipa::OpenApi;
 
+use crate::interfaces::HostError;
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
@@ -39,6 +41,29 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     let mut config = actor.default_request_config().clone();
     config.merge(&req)?;
 
+    // For zk_any request, draw zk proof type based on the block hash.
+    //
+    // A zk_any request is: { "proof_type": "zk_any" }
+    let is_zk_any = config.proof_type == Some("zk_any".to_string());
+    if is_zk_any {
+        let network = config
+            .network
+            .as_ref()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?;
+        let block_number = config.block_number.ok_or(RaikoError::InvalidRequestConfig(
+            "Missing block number".to_string(),
+        ))?;
+        let (_, blockhash) = get_task_data(&network, block_number, actor.chain_specs()).await?;
+        match actor.draw(&blockhash) {
+            Some(proof_type) => config.proof_type = Some(proof_type.to_string()),
+            None => {
+                return Err(HostError::ZKAnyNotDrawn);
+            }
+        }
+    }
+
     // Construct the actual proof request from the available configs.
     let proof_request = ProofRequest::try_from(config)?;
     inc_host_req_count(proof_request.block_number);
@@ -51,6 +76,7 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     )
     .await?;
 
+    let proof_type = proof_request.proof_type;
     let request_key = SingleProofRequestKey::new(
         chain_id,
         proof_request.block_number,
@@ -73,7 +99,7 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     .into();
 
     let result = crate::server::prove(&actor, request_key, request_entity).await;
-    Ok(to_v2_status(result))
+    Ok(to_v2_status(proof_type, result))
 }
 
 #[derive(OpenApi)]

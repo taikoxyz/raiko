@@ -17,6 +17,7 @@ raiko-core = { workspace = true }
 raiko-tasks = { workspace = true }
 raiko-reqpool = { workspace = true }
 raiko-reqactor = { workspace = true }
+raiko-ballot = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }

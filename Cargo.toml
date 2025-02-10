@@ -18,6 +18,7 @@ members = [
     "redis-derive",
     "reqpool",
     "reqactor",
+    "ballot",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -43,6 +44,7 @@ raiko-tasks = { path = "./taskdb" }
 raiko-redis-derive = { path = "./redis-derive" }
 raiko-reqpool = { path = "./reqpool" }
 raiko-reqactor = { path = "./reqactor" }
+raiko-ballot = { path = "./ballot" }
 
 # reth
 reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [

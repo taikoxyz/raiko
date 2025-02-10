@@ -1,4 +1,5 @@
 use crate::common::Client;
+use raiko_ballot::Ballot;
 use raiko_host::{parse_chain_specs, server::serve, Opts};
 use raiko_reqactor::start_actor;
 use raiko_reqpool::memory_pool;
@@ -45,8 +46,10 @@ impl TestServerBuilder {
         let max_proving_concurrency = opts.concurrency_limit;
 
         let pool = memory_pool(redis_url);
+        let ballot = Ballot::default();
         let actor = start_actor(
             pool,
+            ballot,
             chain_specs.clone(),
             default_request_config.clone(),
             max_proving_concurrency,

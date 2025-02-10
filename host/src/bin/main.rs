@@ -1,5 +1,7 @@
 #![allow(incomplete_features)]
-use raiko_host::{interfaces::HostResult, parse_chain_specs, parse_opts, server::serve};
+use raiko_host::{
+    interfaces::HostResult, parse_ballot, parse_chain_specs, parse_opts, server::serve,
+};
 use raiko_reqpool::RedisPoolConfig;
 use std::path::PathBuf;
 use tracing::{debug, info};
@@ -17,6 +19,7 @@ async fn main() -> HostResult<()> {
         .init();
     let opts = parse_opts()?;
     let chain_specs = parse_chain_specs(&opts);
+    let ballot = parse_ballot(&opts);
     let default_request_config = opts.proof_request_opt.clone();
     let max_proving_concurrency = opts.concurrency_limit;
 
@@ -29,6 +32,7 @@ async fn main() -> HostResult<()> {
 
     let actor = raiko_reqactor::start_actor(
         pool,
+        ballot,
         chain_specs.clone(),
         default_request_config.clone(),
         max_proving_concurrency,

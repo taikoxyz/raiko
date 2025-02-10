@@ -6,9 +6,11 @@ use std::{
     },
 };
 
+use raiko_ballot::Ballot;
 use raiko_core::interfaces::ProofRequestOpt;
-use raiko_lib::consts::SupportedChainSpecs;
+use raiko_lib::{consts::SupportedChainSpecs, proof_type::ProofType};
 use raiko_reqpool::{Pool, RequestKey, StatusWithContext};
+use reth_primitives::BlockHash;
 use tokio::sync::{mpsc::Sender, oneshot};
 
 use crate::Action;
@@ -24,11 +26,14 @@ pub struct Actor {
 
     // TODO: Remove Mutex. currently, in order to pass `&mut Pool`, we need to use Arc<Mutex<Pool>>.
     pool: Arc<Mutex<Pool>>,
+    // In order to support dynamic config via HTTP, we need to use Arc<Mutex<Ballot>>.
+    ballot: Arc<Mutex<Ballot>>,
 }
 
 impl Actor {
     pub fn new(
         pool: Pool,
+        ballot: Ballot,
         default_request_config: ProofRequestOpt,
         chain_specs: SupportedChainSpecs,
         action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
@@ -40,6 +45,7 @@ impl Actor {
             action_tx,
             pause_tx,
             is_paused: Arc::new(AtomicBool::new(false)),
+            ballot: Arc::new(Mutex::new(ballot)),
             pool: Arc::new(Mutex::new(pool)),
         }
     }
@@ -103,6 +109,20 @@ impl Actor {
             .map_err(|e| format!("failed to send pause signal: {e}"))?;
         Ok(())
     }
+
+    pub fn get_ballot(&self) -> Ballot {
+        self.ballot.lock().unwrap().clone()
+    }
+
+    pub fn set_ballot(&self, new_ballot: Ballot) {
+        let mut ballot = self.ballot.lock().unwrap();
+        *ballot = new_ballot;
+    }
+
+    /// Draw proof types based on the block hash.
+    pub fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
+        self.ballot.lock().unwrap().draw(block_hash)
+    }
 }
 
 #[cfg(test)]
@@ -130,6 +150,7 @@ mod tests {
         let pool = memory_pool("test_pause_sets_is_paused_flag");
         let actor = Actor::new(
             pool,
+            Ballot::default(),
             ProofRequestOpt::default(),
             SupportedChainSpecs::default(),
             action_tx,
@@ -153,6 +174,7 @@ mod tests {
         let pool = memory_pool("test_act_sends_action_and_returns_response");
         let actor = Actor::new(
             pool,
+            Ballot::default(),
             ProofRequestOpt::default(),
             SupportedChainSpecs::default(),
             action_tx,
