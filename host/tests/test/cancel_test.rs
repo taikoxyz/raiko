@@ -25,8 +25,8 @@ pub async fn test_v2_mainnet_native_cancel() {
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Status {
                     status: TaskStatus::Registered,
-                    ..
-                }
+                },
+                ..
             }
         ),
         "status: {status:?}"
@@ -92,7 +92,8 @@ pub async fn test_v2_mainnet_native_cancel_then_register() {
                 data: api::v2::ProofResponse::Status {
                     status: TaskStatus::Registered,
                     ..
-                }
+                },
+                ..
             }
         ),
         "status: {status:?}"

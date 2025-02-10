@@ -59,6 +59,10 @@ pub enum HostError {
     #[schema(value_type = Value)]
     Core(#[from] raiko_core::interfaces::RaikoError),
 
+    /// For zk_any request is not drawn.
+    #[error("The zk_any request is not drawn")]
+    ZKAnyNotDrawn,
+
     /// For requesting a proof of a type that is not supported.
     #[error("Feature not supported: {0}")]
     #[schema(value_type = Value)]
@@ -90,6 +94,10 @@ impl IntoResponse for HostError {
             HostError::JoinHandle(e) => ("join_handle_error", e.to_string()),
             HostError::Guest(e) => ("guest_error", e.to_string()),
             HostError::Core(e) => ("core_error", e.to_string()),
+            HostError::ZKAnyNotDrawn => (
+                "zk_any_not_drawn_error",
+                "The zk_any request is not drawn".to_owned(),
+            ),
             HostError::FeatureNotSupportedError(e) => ("feature_not_supported", e.to_string()),
             HostError::TaskManager(e) => ("task_manager", e.to_string()),
             HostError::Anyhow(e) => ("anyhow_error", e.to_string()),
@@ -129,6 +137,7 @@ impl From<HostError> for TaskStatus {
             HostError::Conversion(e) => TaskStatus::IoFailure(e),
             HostError::Serde(e) => TaskStatus::IoFailure(e.to_string()),
             HostError::Core(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::ZKAnyNotDrawn => TaskStatus::InvalidOrUnsupportedBlock,
             HostError::Anyhow(e) => TaskStatus::AnyhowError(e.to_string()),
             HostError::FeatureNotSupportedError(_) => TaskStatus::InvalidOrUnsupportedBlock,
             HostError::Io(e) => TaskStatus::IoFailure(e.to_string()),
@@ -151,6 +160,7 @@ impl From<&HostError> for TaskStatus {
             HostError::Conversion(e) => TaskStatus::GuestProverFailure(e.to_owned()),
             HostError::Serde(e) => TaskStatus::GuestProverFailure(e.to_string()),
             HostError::Core(e) => TaskStatus::GuestProverFailure(e.to_string()),
+            HostError::ZKAnyNotDrawn => TaskStatus::InvalidOrUnsupportedBlock,
             HostError::Anyhow(e) => TaskStatus::AnyhowError(e.to_string()),
             HostError::FeatureNotSupportedError(e) => TaskStatus::GuestProverFailure(e.to_string()),
             HostError::Io(e) => TaskStatus::GuestProverFailure(e.to_string()),

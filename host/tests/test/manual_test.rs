@@ -81,8 +81,8 @@ pub async fn test_manual_prove() {
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Status {
                     status: TaskStatus::Registered,
-                    ..
-                }
+                },
+                ..
             }
         ),
         "status: {status:?}"

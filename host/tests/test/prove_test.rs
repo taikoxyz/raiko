@@ -26,7 +26,8 @@ pub async fn test_v2_mainnet_native_prove() {
                 data: api::v2::ProofResponse::Status {
                     status: TaskStatus::Registered,
                     ..
-                }
+                },
+                ..
             }
         ),
         "status: {status:?}"
@@ -77,7 +78,8 @@ pub async fn test_v2_mainnet_zk_any_prove() {
                 data: api::v2::ProofResponse::Status {
                     status: TaskStatus::Registered,
                     ..
-                }
+                },
+                ..
             }
         ),
         "status: {status:?}"
@@ -126,7 +128,7 @@ pub async fn test_v2_mainnet_zk_any_prove_but_not_drawn() {
             api::v2::Status::Error {
                 ref error,
                 ref message,
-            } if error == "core_error" && message == "The zk_any request is not drawn",
+            } if error == "zk_any_not_drawn_error" && message == "The zk_any request is not drawn",
         ),
         "status: {status:?}"
     );

@@ -40,7 +40,5 @@ Response:
 Error response:
 
 ```json
-{"error":"core_error","message":"The zk_any request is not drawn","status":"error"}
+{"error":"zk_any_not_drawn_error","message":"The zk_any request is not drawn","status":"error"}
 ```
-
-
