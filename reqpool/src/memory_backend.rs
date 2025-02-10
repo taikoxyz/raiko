@@ -86,7 +86,7 @@ pub fn memory_pool<S: ToString>(id: S) -> Pool {
     let config = RedisPoolConfig {
         redis_ttl: 111,
         redis_url: format!("redis://{}:6379", id.to_string()),
-        enable_memory_backend: true,
+        enable_redis_pool: false,
     };
     Pool::open(config).unwrap()
 }

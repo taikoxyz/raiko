@@ -25,7 +25,7 @@ async fn main() -> HostResult<()> {
     let pool = raiko_reqpool::Pool::open(RedisPoolConfig {
         redis_url: opts.redis_url.clone(),
         redis_ttl: opts.redis_ttl,
-        enable_memory_backend: opts.use_memory_backend,
+        enable_redis_pool: opts.enable_redis_pool,
     })
     .map_err(|e| anyhow::anyhow!(e))?;
     let actor = raiko_reqactor::start_actor(
