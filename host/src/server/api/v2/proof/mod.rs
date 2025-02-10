@@ -5,6 +5,7 @@ use raiko_reqpool::{SingleProofRequestEntity, SingleProofRequestKey};
 use serde_json::Value;
 use utoipa::OpenApi;
 
+use crate::interfaces::HostError;
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
@@ -58,7 +59,7 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
         match actor.draw(&blockhash) {
             Some(proof_type) => config.proof_type = Some(proof_type.to_string()),
             None => {
-                return Err(RaikoError::ZKAnyNotDrawn.into());
+                return Err(HostError::ZKAnyNotDrawn);
             }
         }
     }
