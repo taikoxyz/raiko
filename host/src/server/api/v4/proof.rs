@@ -12,8 +12,12 @@ use raiko_core::{
     interfaces::{AggregationRequest, ProofRequest, ProofRequestOpt},
     provider::{get_batch_task_data, get_task_data},
 };
+use raiko_lib::proof_type;
 use raiko_reqactor::Actor;
-use raiko_reqpool::{BatchProofRequestEntity, BatchProofRequestKey};
+use raiko_reqpool::{
+    AggregationRequestEntity, AggregationRequestKey, BatchProofRequestEntity, BatchProofRequestKey,
+    RequestEntity, RequestKey,
+};
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -46,7 +50,7 @@ async fn proof_handler(
     let mut config = actor.default_request_config().clone();
     config.merge(&batch_request_opt)?;
 
-    let batch_request: ProofRequest = ProofRequest::try_from(config)?;
+    let batch_request: ProofRequest = ProofRequest::try_from(config.clone())?;
     assert!(
         batch_request.block_number == 0,
         "balock_number is 0 in batch mode"
@@ -65,15 +69,15 @@ async fn proof_handler(
         .expect("get a known chainspec")
         .chain_id;
 
-    let request_key = BatchProofRequestKey::new(
+    let request_key = RequestKey::BatchProof(BatchProofRequestKey::new(
         chain_id,
         batch_request.batch_id,
         batch_request.l1_inclusion_block_number,
         batch_request.proof_type,
         batch_request.prover.to_string(),
-    )
+    ))
     .into();
-    let request_entity = BatchProofRequestEntity::new(
+    let request_entity = RequestEntity::BatchProof(BatchProofRequestEntity::new(
         batch_request.batch_id,
         batch_request.l1_inclusion_block_number,
         batch_request.network,
@@ -83,10 +87,31 @@ async fn proof_handler(
         batch_request.proof_type,
         batch_request.blob_proof_type,
         batch_request.prover_args,
-    )
+    ))
     .into();
 
-    let result = crate::server::prove(&actor, request_key, request_entity).await;
+    // no need run here as prove_aggregation calls prove() internally
+    // let result = crate::server::prove(&actor, request_key, request_entity).await;
+
+    // in batch mode, single batch are aggregated automatically
+    let agg_request_key =
+        AggregationRequestKey::new(batch_request.proof_type, vec![batch_request.batch_id]);
+    let agg_request_entity_without_proofs = AggregationRequestEntity::new(
+        vec![batch_request.batch_id],
+        vec![],
+        batch_request.proof_type,
+        config.prover_args,
+    );
+    let sub_request_keys = vec![request_key];
+    let sub_request_entities = vec![request_entity];
+    let result = crate::server::prove_aggregation(
+        &actor,
+        agg_request_key,
+        agg_request_entity_without_proofs,
+        sub_request_keys,
+        sub_request_entities,
+    )
+    .await;
     Ok(to_v3_status(result))
 }
 
