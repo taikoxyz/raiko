@@ -10,7 +10,7 @@
 
 ### Response Parameters
 
-- proof_type(string), the type of proof that was proven. Allowed values: `Native`, `Sgx`, `Risc0`, `Sp1`. When requesting a `zk_any` proof, the server will automatically determine the proof type (risc0 or sp1) based on the request parameters, then return the proof type in the response.
+- proof_type(string), the type of proof that was proven. Allowed values: `native`, `sgx`, `risc0`, `sp1`. When requesting a `zk_any` proof, the server will automatically determine the proof type (risc0 or sp1) based on the request parameters, then return the proof type in the response.
 
 > NOTE: The `proof_type` field in response is introduced in https://github.com/taikoxyz/raiko/pull/454
 
@@ -34,7 +34,7 @@ curl --location \
 Response:
 
 ```json
-{"data":{"status":"registered"},"proof_type":"Risc0","status":"ok"}
+{"data":{"status":"registered"},"proof_type":"risc0","status":"ok"}
 ```
 
 Error response:

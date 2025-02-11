@@ -67,6 +67,7 @@ pub enum ProofResponse {
 #[serde(tag = "status", rename_all = "lowercase")]
 pub enum Status {
     Ok {
+        #[serde(with = "raiko_lib::proof_type::lowercase")]
         proof_type: ProofType,
         data: ProofResponse,
     },
