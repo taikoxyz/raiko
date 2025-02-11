@@ -25,7 +25,6 @@ services:
       context: ..
       args:
         ENABLE_SELF_REGISTER: "true"
-        TASKDB: ${TASKDB:-raiko-tasks/in-memory}
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init-self-register
@@ -54,8 +53,6 @@ services:
   raiko:
     build:
       context: ..
-      args:
-        TASKDB: ${TASKDB:-raiko-tasks/in-memory}
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
@@ -98,8 +95,6 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-      args:
-        TASKDB: ${TASKDB:-raiko-tasks/in-memory}
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-self-register
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
@@ -136,8 +131,6 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile.zk
-      args:
-        TASKDB: ${TASKDB:-raiko-tasks/in-memory}
     image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
     container_name: raiko-zk
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
