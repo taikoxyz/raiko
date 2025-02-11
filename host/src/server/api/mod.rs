@@ -46,6 +46,7 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
         .nest("/v1", v1_api)
         .nest("/v2", v2_api)
         .nest("/v3", v3_api.clone())
+        .nest("/v4", v4_api)
         .merge(v3_api)
         .nest("/admin", admin_api)
         .layer(middleware)

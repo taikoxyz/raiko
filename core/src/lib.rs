@@ -95,8 +95,8 @@ impl Raiko {
         //TODO: read fork from config
         let preflight_data = self.get_batch_preflight_data();
         info!(
-            "Generating batch input for block {}",
-            self.request.block_number
+            "Generating batch input for batch {}",
+            self.request.batch_id
         );
         batch_preflight(provider, preflight_data)
             .await

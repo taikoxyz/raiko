@@ -14,7 +14,7 @@ use crate::{
     provider::BlockDataProvider,
     MerkleProof,
 };
-use tracing::{info, warn};
+use tracing::{info, trace};
 
 pub struct ProviderDb<'a, BDP: BlockDataProvider> {
     pub provider: &'a BDP,
@@ -230,7 +230,7 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
         if self.optimistic {
             self.basic(address)?;
             self.pending_slots.insert((address, index));
-            warn!("optimistic storage to be fetch: {:?}", (address, index));
+            trace!("optimistic storage to be fetch: {:?}", (address, index));
             return Ok(U256::default());
         }
 

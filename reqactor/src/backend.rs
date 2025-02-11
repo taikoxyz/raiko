@@ -637,8 +637,8 @@ async fn do_prove_batch(
     let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
         &l1_chain_spec,
         &taiko_chain_spec,
-        *batch_id,
         *l1_include_block_number,
+        *batch_id,
     )
     .await
     .expect("Could not parse L1 batch proposal tx");
@@ -649,6 +649,7 @@ async fn do_prove_batch(
         .await
         .expect("Could not create RpcBlockDataProvider");
     let proof_request = ProofRequest {
+        block_number: 0,
         batch_id: *request_entity.batch_id(),
         l1_inclusion_block_number: *request_entity.l1_inclusion_block_number(),
         network: request_entity.network().clone(),
@@ -658,8 +659,7 @@ async fn do_prove_batch(
         proof_type: request_entity.proof_type().clone(),
         blob_proof_type: request_entity.blob_proof_type().clone(),
         prover_args: request_entity.prover_args().clone(),
-        l2_block_numbers: Vec::new(),
-        block_number: 0,
+        l2_block_numbers: all_prove_blocks.clone(),
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
     let input = raiko

@@ -366,9 +366,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
 
     fn try_from(value: ProofRequestOpt) -> Result<Self, Self::Error> {
         Ok(Self {
-            block_number: value.block_number.ok_or(RaikoError::InvalidRequestConfig(
-                "Missing block number".to_string(),
-            ))?,
+            block_number: value.block_number.unwrap_or_default(),
             batch_id: value.batch_id.unwrap_or_default(),
             l1_inclusion_block_number: value.l1_inclusion_block_number.unwrap_or_default(),
             network: value.network.ok_or(RaikoError::InvalidRequestConfig(
