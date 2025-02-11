@@ -15,7 +15,9 @@ use anyhow::{bail, ensure, Result};
 use reth_chainspec::{
     ChainSpecBuilder, Hardfork, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET,
 };
-use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
+use reth_evm::execute::{
+    self, BlockExecutionOutput, BlockValidationError, Executor, ProviderError,
+};
 use reth_evm_ethereum::execute::{
     validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
 };
@@ -63,8 +65,11 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
             &input.inputs[i],
             create_mem_db(&mut input.inputs[i].clone()).unwrap(),
         );
+
+        let mut execute_tx = vec![input.inputs[i].taiko.anchor_tx.clone().unwrap()];
+        execute_tx.extend_from_slice(&pool_txs);
         builder
-            .execute_transactions(pool_txs.clone(), false)
+            .execute_transactions(execute_tx.clone(), false)
             .expect("execute");
         final_blocks.push(
             builder

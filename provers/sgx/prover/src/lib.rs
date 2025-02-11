@@ -478,7 +478,7 @@ async fn batch_prove(
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
-            .arg("one-shot-batch")
+            .arg("one-batch-shot")
             .arg("--sgx-instance-id")
             .arg(instance_id.to_string())
             .stdin(Stdio::piped())

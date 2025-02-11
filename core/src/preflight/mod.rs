@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use alloy_primitives::Bytes;
-use anyhow::bail;
 // use alloy_rpc_types::Block;
 use raiko_lib::{
     builder::RethBlockBuilder,

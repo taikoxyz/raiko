@@ -45,18 +45,18 @@ raiko-reqpool = { path = "./reqpool" }
 raiko-reqactor = { path = "./reqactor" }
 
 # reth
-reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
+reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-pacaya", default-features = false, features = [
     "alloy-compat",
     "taiko",
 ] }
-reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
+reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-pacaya", default-features = false }
+reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-pacaya", default-features = false }
+reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-pacaya", default-features = false }
+reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-pacaya", default-features = false }
+reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-pacaya", default-features = false, features = [
     "taiko",
 ] }
-reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
+reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-pacaya", default-features = false }
 
 # risc zero
 risc0-zkvm = { version = "=1.2.0", features = ["prove", "getrandom"] }
@@ -196,21 +196,21 @@ derive-getters = "0.5.0"
 test-log = "0.2.16"
 
 [patch.crates-io]
-# revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-# revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-# revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm = {path = "../../taiko/revm/crates/revm"}
-revm-primitives = {path = "../../taiko/revm/crates/primitives"}
-revm-precompile = {path = "../../taiko/revm/crates/precompile"}
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-pacaya" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-pacaya" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-pacaya" }
+# revm = {path = "../../taiko/revm/crates/revm"}
+# revm-primitives = {path = "../../taiko/revm/crates/primitives"}
+# revm-precompile = {path = "../../taiko/revm/crates/precompile"}
 secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
 alloy-serde = { git = "https://github.com/CeciliaZ030/alloy.git", branch = "v0.1.4-fix" }
 
-[patch."https://github.com/taikoxyz/taiko-reth.git"]
-reth-primitives = { path = "../../taiko/taiko-reth/crates/primitives" }
-reth-evm-ethereum =  { path = "../../taiko/taiko-reth/crates/ethereum/evm" }
-reth-evm = { path = "../../taiko/taiko-reth/crates/evm" }
-reth-rpc-types = { path = "../../taiko/taiko-reth/crates/rpc/rpc-types" }
-reth-revm = { path = "../../taiko/taiko-reth/crates/revm" }
-reth-chainspec = { path = "../../taiko/taiko-reth/crates/chainspec" }
-reth-provider = { path = "../../taiko/taiko-reth/crates/storage/provider" }
+# [patch."https://github.com/taikoxyz/taiko-reth.git"]
+# reth-primitives = { path = "../../taiko/taiko-reth/crates/primitives" }
+# reth-evm-ethereum =  { path = "../../taiko/taiko-reth/crates/ethereum/evm" }
+# reth-evm = { path = "../../taiko/taiko-reth/crates/evm" }
+# reth-rpc-types = { path = "../../taiko/taiko-reth/crates/rpc/rpc-types" }
+# reth-revm = { path = "../../taiko/taiko-reth/crates/revm" }
+# reth-chainspec = { path = "../../taiko/taiko-reth/crates/chainspec" }
+# reth-provider = { path = "../../taiko/taiko-reth/crates/storage/provider" }

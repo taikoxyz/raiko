@@ -1,6 +1,4 @@
-use std::ops::DerefMut;
-use std::sync::{Arc, Mutex};
-use std::{ops::Deref, path::Path};
+use std::path::Path;
 
 use raiko_lib::{
     input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput},
@@ -8,7 +6,6 @@ use raiko_lib::{
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
-use reth_primitives::B256;
 use serde::{de::Error, Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::trace;

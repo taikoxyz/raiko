@@ -7,7 +7,7 @@ use one_shot::aggregate;
 
 use crate::{
     app_args::{App, Command},
-    one_shot::{bootstrap, load_bootstrap, one_shot},
+    one_shot::{bootstrap, load_bootstrap, one_shot, one_shot_batch},
 };
 
 mod app_args;
@@ -24,8 +24,8 @@ pub async fn main() -> Result<()> {
             one_shot(args.global_opts, one_shot_args).await?
         }
         Command::OneBatchShot(one_shot_args) => {
-            println!("Starting one shot mode");
-            one_shot(args.global_opts, one_shot_args).await?
+            println!("Starting one batch shot mode");
+            one_shot_batch(args.global_opts, one_shot_args).await?
         }
         Command::Aggregate(one_shot_args) => {
             println!("Starting one shot mode");
