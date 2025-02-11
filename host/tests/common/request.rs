@@ -41,7 +41,7 @@ pub fn make_proof_request(
                 "bonsai": false, // run locally
                 "snark": false,
                 "profile": false,
-                "execution_po2" : 20, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
+                "execution_po2" : 21, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
             })),
             sgx: None,
             sp1: None,
@@ -78,7 +78,7 @@ pub async fn make_aggregate_proof_request(
                 "bonsai": false, // run locally
                 "snark": false,
                 "profile": false,
-                "execution_po2" : 20, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
+                "execution_po2" : 21, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
             })),
             sgx: None,
             sp1: None,
