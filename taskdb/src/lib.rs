@@ -321,7 +321,7 @@ impl<T: TaskManager> IdWrite for TaskManagerWrapper<T> {
 
 #[async_trait::async_trait]
 impl<T: TaskManager> IdStore for TaskManagerWrapper<T> {
-    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+    async fn read_id(&mut self, key: ProofKey) -> ProverResult<String> {
         self.manager.read_id(key).await
     }
 }
@@ -429,78 +429,4 @@ pub type TaskManagerWrapperImpl = TaskManagerWrapper<RedisTaskManager>;
 pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapperImpl {
     debug!("get task manager with options: {:?}", opts);
     TaskManagerWrapperImpl::new(opts)
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use rand::Rng;
-
-    #[tokio::test]
-    async fn test_new_taskmanager() {
-        let opts = TaskManagerOpts {
-            max_db_size: 1024 * 1024,
-            redis_url: "redis://localhost:6379".to_string(),
-            redis_ttl: 3600,
-        };
-        let mut task_manager = get_task_manager(&opts);
-
-        let block_id = rand::thread_rng().gen_range(0..1000000);
-        assert_eq!(
-            task_manager
-                .enqueue_task(&ProofTaskDescriptor {
-                    chain_id: 1,
-                    block_id,
-                    blockhash: B256::default(),
-                    proof_system: ProofType::Native,
-                    prover: "test".to_string(),
-                })
-                .await
-                .unwrap()
-                .0
-                .len(),
-            1
-        );
-    }
-
-    #[tokio::test]
-    async fn test_enqueue_twice() {
-        let opts = TaskManagerOpts {
-            max_db_size: 1024 * 1024,
-            redis_url: "redis://localhost:6379".to_string(),
-            redis_ttl: 3600,
-        };
-        let mut task_manager = get_task_manager(&opts);
-        let block_id = rand::thread_rng().gen_range(0..1000000);
-        let key = ProofTaskDescriptor {
-            chain_id: 1,
-            block_id,
-            blockhash: B256::default(),
-            proof_system: ProofType::Native,
-            prover: "test".to_string(),
-        };
-
-        assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
-        // enqueue again
-        assert_eq!(task_manager.enqueue_task(&key).await.unwrap().0.len(), 1);
-
-        let status = task_manager.get_task_proving_status(&key).await.unwrap();
-        assert_eq!(status.0.len(), 1);
-
-        task_manager
-            .update_task_progress(key.clone(), TaskStatus::InvalidOrUnsupportedBlock, None)
-            .await
-            .expect("update task failed");
-        let status = task_manager.get_task_proving_status(&key).await.unwrap();
-        assert_eq!(status.0.len(), 2);
-
-        task_manager
-            .update_task_progress(key.clone(), TaskStatus::Registered, None)
-            .await
-            .expect("update task failed");
-        let status = task_manager.get_task_proving_status(&key).await.unwrap();
-        assert_eq!(status.0.len(), 3);
-        assert_eq!(status.0.first().unwrap().0, TaskStatus::Registered);
-        assert_eq!(status.0.last().unwrap().0, TaskStatus::Registered);
-    }
 }

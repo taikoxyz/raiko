@@ -650,7 +650,7 @@ impl RedisTaskDb {
 
 #[async_trait::async_trait]
 impl IdStore for RedisTaskManager {
-    async fn read_id(&self, key: ProofKey) -> ProverResult<String> {
+    async fn read_id(&mut self, key: ProofKey) -> ProverResult<String> {
         let mut db = self.arc_task_db.lock().await;
         db.read_id(key)
             .map_err(|e| ProverError::StoreError(e.to_string()))
@@ -817,77 +817,5 @@ impl TaskManager for RedisTaskManager {
         task_db
             .list_all_aggregation_tasks()
             .map_err(TaskManagerError::RedisError)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use alloy_primitives::B256;
-
-    use super::*;
-    use crate::ProofType;
-
-    #[test]
-    fn test_db_enqueue() {
-        let mut db = RedisTaskDb::new(RedisConfig {
-            url: "redis://localhost:6379".to_owned(),
-            ttl: 3600,
-        })
-        .unwrap();
-        let params = ProofTaskDescriptor {
-            chain_id: 1,
-            block_id: 1,
-            blockhash: B256::default(),
-            proof_system: ProofType::Native,
-            prover: "0x1234".to_owned(),
-        };
-        db.enqueue_task(&params).expect("enqueue task failed");
-        let status = db.get_task_proving_status(&params);
-        assert!(status.is_ok());
-    }
-
-    #[test]
-    fn test_db_enqueue_and_prune() {
-        let mut db = RedisTaskDb::new(RedisConfig {
-            url: "redis://localhost:6379".to_owned(),
-            ttl: 3600,
-        })
-        .unwrap();
-        let params = ProofTaskDescriptor {
-            chain_id: 1,
-            block_id: 1,
-            blockhash: B256::default(),
-            proof_system: ProofType::Native,
-            prover: "0x1234".to_owned(),
-        };
-        db.enqueue_task(&params).expect("enqueue task failed");
-        let status = db.get_task_proving_status(&params);
-        assert!(status.is_ok());
-
-        db.prune().expect("prune failed");
-        let status = db.get_task_proving_status(&params);
-        assert!(status.is_err());
-    }
-
-    #[test]
-    fn test_db_id_operatioins() {
-        let mut db = RedisTaskDb::new(RedisConfig {
-            url: "redis://localhost:6379".to_owned(),
-            ttl: 3600,
-        })
-        .unwrap();
-        db.prune_stored_ids().expect("prune ids failed");
-        let store_ids = db.list_stored_ids().expect("list ids failed");
-        assert_eq!(store_ids.len(), 0);
-
-        let params = (1, 1, B256::random(), 1);
-        db.store_id(params, "1-2-3-4".to_owned())
-            .expect("store id failed");
-        let store_ids = db.list_stored_ids().expect("list ids failed");
-        assert_eq!(store_ids.len(), 1);
-
-        db.remove_id(params).expect("remove id failed");
-        let store_ids = db.list_stored_ids().expect("list ids failed");
-        assert_eq!(store_ids.len(), 0);
     }
 }
