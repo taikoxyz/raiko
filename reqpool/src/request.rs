@@ -98,6 +98,7 @@ impl From<Status> for StatusWithContext {
 pub enum RequestKey {
     SingleProof(SingleProofRequestKey),
     Aggregation(AggregationRequestKey),
+    BatchProof(BatchProofRequestKey),
 }
 
 impl RequestKey {
@@ -105,6 +106,7 @@ impl RequestKey {
         match self {
             RequestKey::SingleProof(key) => &key.proof_type,
             RequestKey::Aggregation(key) => &key.proof_type,
+            RequestKey::BatchProof(key) => &key.proof_type,
         }
     }
 }
@@ -163,6 +165,41 @@ impl AggregationRequestKey {
     }
 }
 
+/// The key to identify a request in the pool
+#[derive(
+    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord, Hash, RedisValue, Getters,
+)]
+pub struct BatchProofRequestKey {
+    /// The chain ID of the request
+    chain_id: ChainId,
+    /// The block number of the request
+    batch_id: u64,
+    /// The l1 block humber of the request
+    l1_inclusion_height: u64,
+    /// The proof type of the request
+    proof_type: ProofType,
+    /// The prover of the request
+    prover_address: String,
+}
+
+impl BatchProofRequestKey {
+    pub fn new(
+        chain_id: ChainId,
+        batch_id: u64,
+        l1_inclusion_height: u64,
+        proof_type: ProofType,
+        prover_address: String,
+    ) -> Self {
+        Self {
+            chain_id,
+            batch_id,
+            l1_inclusion_height,
+            proof_type,
+            prover_address,
+        }
+    }
+}
+
 impl From<SingleProofRequestKey> for RequestKey {
     fn from(key: SingleProofRequestKey) -> Self {
         RequestKey::SingleProof(key)
@@ -172,6 +209,12 @@ impl From<SingleProofRequestKey> for RequestKey {
 impl From<AggregationRequestKey> for RequestKey {
     fn from(key: AggregationRequestKey) -> Self {
         RequestKey::Aggregation(key)
+    }
+}
+
+impl From<BatchProofRequestKey> for RequestKey {
+    fn from(key: BatchProofRequestKey) -> Self {
+        RequestKey::BatchProof(key)
     }
 }
 
@@ -255,11 +298,64 @@ impl AggregationRequestEntity {
     }
 }
 
+#[serde_as]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue, Getters)]
+pub struct BatchProofRequestEntity {
+    /// The block number for the block to generate a proof for.
+    batch_id: u64,
+    /// The l1 block number of the l2 block be proposed.
+    l1_inclusion_block_number: u64,
+    /// The network to generate the proof for.
+    network: String,
+    /// The L1 network to generate the proof for.
+    l1_network: String,
+    /// Graffiti.
+    graffiti: B256,
+    /// The protocol instance data.
+    #[serde_as(as = "DisplayFromStr")]
+    prover: Address,
+    /// The proof type.
+    proof_type: ProofType,
+    /// Blob proof type.
+    blob_proof_type: BlobProofType,
+    #[serde(flatten)]
+    /// Additional prover params.
+    prover_args: HashMap<String, serde_json::Value>,
+}
+
+impl BatchProofRequestEntity {
+    pub fn new(
+        batch_id: u64,
+        l1_inclusion_block_number: u64,
+        network: String,
+        l1_network: String,
+        graffiti: B256,
+        prover: Address,
+        proof_type: ProofType,
+        blob_proof_type: BlobProofType,
+        prover_args: HashMap<String, serde_json::Value>,
+    ) -> Self {
+        Self {
+            batch_id,
+            l1_inclusion_block_number,
+            network,
+            l1_network,
+            graffiti,
+            prover,
+            proof_type,
+            blob_proof_type,
+            prover_args,
+        }
+    }
+}
+
 /// The entity of a request
 #[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue)]
 pub enum RequestEntity {
     SingleProof(SingleProofRequestEntity),
     Aggregation(AggregationRequestEntity),
+    BatchProof(BatchProofRequestEntity),
+    //todo: AggregationBatch(AggregationBatchRequestEntity),
 }
 
 impl From<SingleProofRequestEntity> for RequestEntity {
@@ -274,14 +370,22 @@ impl From<AggregationRequestEntity> for RequestEntity {
     }
 }
 
+impl From<BatchProofRequestEntity> for RequestEntity {
+    fn from(entity: BatchProofRequestEntity) -> Self {
+        RequestEntity::BatchProof(entity)
+    }
+}
+
 // === impl Display using json_pretty ===
 
 impl_display_using_json_pretty!(RequestKey);
 impl_display_using_json_pretty!(SingleProofRequestKey);
 impl_display_using_json_pretty!(AggregationRequestKey);
+impl_display_using_json_pretty!(BatchProofRequestKey);
 impl_display_using_json_pretty!(RequestEntity);
 impl_display_using_json_pretty!(SingleProofRequestEntity);
 impl_display_using_json_pretty!(AggregationRequestEntity);
+impl_display_using_json_pretty!(BatchProofRequestEntity);
 
 // === impl Display for Status ===
 

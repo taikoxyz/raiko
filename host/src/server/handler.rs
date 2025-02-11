@@ -31,16 +31,25 @@ pub async fn prove_aggregation(
     actor: &Actor,
     request_key: AggregationRequestKey,
     request_entity_without_proofs: AggregationRequestEntity,
-    sub_request_keys: Vec<SingleProofRequestKey>,
-    sub_request_entities: Vec<SingleProofRequestEntity>,
+    sub_request_keys: Vec<RequestKey>,
+    sub_request_entities: Vec<RequestEntity>,
 ) -> Result<Status, String> {
     // Prove the sub-requests
     let mut statuses = Vec::with_capacity(sub_request_keys.len());
     for (sub_request_key, sub_request_entity) in
         sub_request_keys.into_iter().zip(sub_request_entities)
     {
-        let status = prove(actor, sub_request_key.into(), sub_request_entity.into()).await?;
-        statuses.push(status);
+        match (sub_request_key, sub_request_entity) {
+            (RequestKey::SingleProof(key), RequestEntity::SingleProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            (RequestKey::BatchProof(key), RequestEntity::BatchProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            _ => return Err("Invalid request key and entity".to_string()),
+        }
     }
 
     let is_all_sub_success = statuses

@@ -403,4 +403,33 @@ mod tests {
         let deserialized: ChainSpec = serde_json::from_str(&json).unwrap();
         assert_eq!(spec, deserialized);
     }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_merge_from_file() {
+        let mut known_chain_specs = SupportedChainSpecs::default();
+        assert!(
+            known_chain_specs.get_chain_spec("taiko_dev").is_none(),
+            "taiko_dev is not presented in default specs"
+        );
+        let file_path = PathBuf::from("../host/config/chain_spec_list_devnet.json");
+        let merged_specs =
+            SupportedChainSpecs::merge_from_file(file_path.clone()).expect("merge from file");
+        assert!(
+            merged_specs.get_chain_spec("taiko_dev").is_some(),
+            "taiko_dev is not merged"
+        );
+        assert!(
+            merged_specs
+                .get_chain_spec(&Network::Ethereum.to_string())
+                .is_some(),
+            "existed chain spec Ethereum is changed by merge"
+        );
+        assert!(
+            merged_specs
+                .get_chain_spec(&Network::TaikoA7.to_string())
+                .is_some(),
+            "existed chain spec TaikoA7 is changed by merge"
+        );
+    }
 }

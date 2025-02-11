@@ -7,7 +7,7 @@ use reth_primitives::TransactionSigned;
 use tracing::{debug, error, warn};
 
 use crate::consts::{ChainSpec, Network};
-use crate::input::BlockProposedFork;
+use crate::input::{BlockProposedFork, TaikoGuestBatchInput};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
@@ -94,6 +94,55 @@ pub fn generate_transactions(
         transactions.insert(0, anchor_tx.clone());
     }
     transactions
+}
+
+// distribute txs to each block by its tx_nums
+fn distribute_txs<T: Clone>(data: &[T], sizes: &[usize]) -> Vec<Vec<T>> {
+    let mut positions = Vec::with_capacity(sizes.len() + 1);
+    positions.push(0);
+
+    let mut pos = 0;
+    for &size in sizes {
+        pos += size;
+        positions.push(pos);
+    }
+
+    positions
+        .windows(2)
+        .map(|w| data[w[0]..w[1]].to_vec())
+        .collect()
+}
+
+/// concat blob & decode a whole txlist, then
+/// each block will get a portion of the txlist by its tx_nums
+pub fn generate_batch_transactions(
+    chain_spec: &ChainSpec,
+    taiko_guest_batch_input: &TaikoGuestBatchInput,
+) -> Vec<Vec<TransactionSigned>> {
+    assert!(
+        matches!(
+            taiko_guest_batch_input.batch_proposed,
+            BlockProposedFork::Pacaya(_)
+        ),
+        "only pacaya batch supported"
+    );
+    let batch_proposal = &taiko_guest_batch_input.batch_proposed;
+    let blob_data_bufs = taiko_guest_batch_input.tx_data_from_blob.clone();
+    let compressed_tx_list_buf = blob_data_bufs
+        .iter()
+        .map(|blob_data_buf| decode_blob_data(blob_data_buf))
+        .collect::<Vec<Vec<u8>>>()
+        .concat();
+    let tx_list_buf = zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
+    let txs = decode_transactions(&tx_list_buf);
+    let tx_num_sizes = batch_proposal
+        .batch_info()
+        .unwrap()
+        .blocks
+        .iter()
+        .map(|b| b.numTransactions as usize)
+        .collect::<Vec<_>>();
+    distribute_txs(&txs, &tx_num_sizes)
 }
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;

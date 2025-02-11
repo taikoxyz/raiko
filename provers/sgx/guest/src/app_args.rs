@@ -17,6 +17,8 @@ pub struct App {
 pub enum Command {
     /// Prove (i.e. sign) a single block and exit.
     OneShot(OneShotArgs),
+    /// Prove (i.e. sign) a single block and exit.
+    OneBatchShot(OneShotArgs),
     /// Aggregate proofs
     Aggregate(OneShotArgs),
     /// Bootstrap the application and then exit. The bootstrapping process generates the

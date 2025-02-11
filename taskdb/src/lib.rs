@@ -200,6 +200,17 @@ impl From<&AggregationOnlyRequest> for AggregationTaskDescriptor {
     }
 }
 
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[serde(default)]
+/// A request for proof aggregation of multiple proofs.
+pub struct BatchProofTaskDescriptor {
+    pub chain_id: ChainId,
+    pub batch_id: u64,
+    pub l1_height: u64,
+    pub proof_system: ProofType,
+    pub prover: String,
+}
+
 /// Task status triplet (status, proof, timestamp).
 pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
 
@@ -210,6 +221,7 @@ pub struct TaskProvingStatusRecords(pub Vec<TaskProvingStatus>);
 pub enum TaskDescriptor {
     SingleProof(ProofTaskDescriptor),
     Aggregation(AggregationTaskDescriptor),
+    BatchProof(BatchProofTaskDescriptor),
 }
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);

@@ -14,8 +14,8 @@ use raiko_core::{
 };
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
-    AggregationRequestEntity, AggregationRequestKey, SingleProofRequestEntity,
-    SingleProofRequestKey,
+    AggregationRequestEntity, AggregationRequestKey, RequestEntity, RequestKey,
+    SingleProofRequestEntity, SingleProofRequestKey,
 };
 use utoipa::OpenApi;
 
@@ -69,14 +69,14 @@ async fn proof_handler(
         )
         .await?;
 
-        let request_key = SingleProofRequestKey::new(
+        let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
             chain_id,
             proof_request.block_number,
             blockhash,
             proof_request.proof_type,
             proof_request.prover.to_string(),
-        );
-        let request_entity = SingleProofRequestEntity::new(
+        ));
+        let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
             proof_request.block_number,
             proof_request.l1_inclusion_block_number,
             proof_request.network,
@@ -86,7 +86,7 @@ async fn proof_handler(
             proof_request.proof_type,
             proof_request.blob_proof_type,
             proof_request.prover_args,
-        );
+        ));
 
         sub_request_keys.push(request_key);
         sub_request_entities.push(request_entity);
