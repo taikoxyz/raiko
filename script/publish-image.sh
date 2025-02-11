@@ -13,15 +13,12 @@ if [[ -z "$tag" ]]; then
 	tag="latest"
 fi
 
-TASKDB=${TASKDB:-raiko-tasks/in-memory}
-
 echo "Build and push $1:$tag..."
 docker buildx build ./ \
 	--load \
 	--platform linux/amd64 \
 	-t raiko:$tag \
 	$build_flags \
-	--build-arg TASKDB=${TASKDB} \
 	--build-arg TARGETPLATFORM=linux/amd64 \
 	--progress=plain
 

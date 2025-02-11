@@ -2,7 +2,6 @@ FROM rust:1.81.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
-ARG TASKDB=${TASKDB:-raiko-tasks/in-memory}
 
 # risc0 dependencies
 # RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
@@ -11,8 +10,7 @@ ARG TASKDB=${TASKDB:-raiko-tasks/in-memory}
 
 WORKDIR /opt/raiko
 COPY . .
-RUN echo "Building for sgx with taskdb: ${TASKDB}"
-RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build" --features ${TASKDB}
+RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 FROM gramineproject/gramine:1.8-jammy AS runtime
 ENV DEBIAN_FRONTEND=noninteractive

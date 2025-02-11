@@ -1,7 +1,7 @@
 use axum::response::IntoResponse;
 use raiko_lib::proof_type::ProofType;
 use raiko_lib::prover::ProverError;
-use raiko_tasks::{TaskManagerError, TaskStatus};
+use raiko_tasks::TaskStatus;
 use tokio::sync::mpsc::error::TrySendError;
 use utoipa::ToSchema;
 
@@ -69,10 +69,6 @@ pub enum HostError {
     #[schema(value_type = Value)]
     Anyhow(#[from] anyhow::Error),
 
-    /// For task manager errors.
-    #[error("There was an error with the task manager: {0}")]
-    TaskManager(#[from] TaskManagerError),
-
     /// For system paused state.
     #[error("System is paused")]
     SystemPaused,
@@ -91,7 +87,6 @@ impl IntoResponse for HostError {
             HostError::Guest(e) => ("guest_error", e.to_string()),
             HostError::Core(e) => ("core_error", e.to_string()),
             HostError::FeatureNotSupportedError(e) => ("feature_not_supported", e.to_string()),
-            HostError::TaskManager(e) => ("task_manager", e.to_string()),
             HostError::Anyhow(e) => ("anyhow_error", e.to_string()),
             HostError::HandleDropped => ("handle_dropped", "".to_owned()),
             HostError::CapacityFull => ("capacity_full", "".to_owned()),
@@ -134,7 +129,6 @@ impl From<HostError> for TaskStatus {
             HostError::Io(e) => TaskStatus::IoFailure(e.to_string()),
             HostError::RPC(e) => TaskStatus::NetworkFailure(e.to_string()),
             HostError::Guest(e) => TaskStatus::GuestProverFailure(e.to_string()),
-            HostError::TaskManager(e) => TaskStatus::TaskDbCorruption(e.to_string()),
             HostError::SystemPaused => TaskStatus::SystemPaused,
         }
     }
@@ -156,7 +150,6 @@ impl From<&HostError> for TaskStatus {
             HostError::Io(e) => TaskStatus::GuestProverFailure(e.to_string()),
             HostError::RPC(e) => TaskStatus::NetworkFailure(e.to_string()),
             HostError::Guest(e) => TaskStatus::GuestProverFailure(e.to_string()),
-            HostError::TaskManager(e) => TaskStatus::TaskDbCorruption(e.to_string()),
             HostError::SystemPaused => TaskStatus::SystemPaused,
         }
     }

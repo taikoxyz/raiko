@@ -9,9 +9,6 @@ on:
       version_toolchain:
         type: string
         required: true
-      taskdb:
-        type: string
-        required: true
 
 
 env:
@@ -36,11 +33,6 @@ jobs:
         with:
           submodules: recursive
       
-      - name: taskdb check
-        if: ${{ inputs.taskdb != '' }}
-        run: |
-          echo "TASKDB=${{ inputs.taskdb }}" >> $GITHUB_ENV
-
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ inputs.version_toolchain }}

@@ -3,7 +3,7 @@ use raiko_host::server::api;
 use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_lib::prover::Proof;
-use raiko_tasks::{TaskDescriptor, TaskReport, TaskStatus};
+use raiko_tasks::{AggregationTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus};
 use serde_json::json;
 
 use crate::common::Client;
@@ -248,7 +248,11 @@ pub async fn get_status_of_aggregation_proof_request(
     client: &Client,
     request: &AggregationOnlyRequest,
 ) -> TaskStatus {
-    let expected_task_descriptor: TaskDescriptor = TaskDescriptor::Aggregation(request.into());
+    let descriptor = AggregationTaskDescriptor {
+        aggregation_ids: request.aggregation_ids.clone(),
+        proof_type: request.proof_type.clone().map(|p| p.to_string()),
+    };
+    let expected_task_descriptor: TaskDescriptor = TaskDescriptor::Aggregation(descriptor);
     let report = v2_assert_report(client).await;
     for (task_descriptor, task_status) in &report {
         if task_descriptor == &expected_task_descriptor {

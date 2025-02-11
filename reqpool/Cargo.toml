@@ -15,7 +15,7 @@ serde_with = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
-redis = { workspace = true }
+redis = { workspace = true, features = [ "disable-client-setinfo" ] }
 backoff = { workspace = true }
 derive-getters = { workspace = true }
 proc-macro2 = { workspace = true }
