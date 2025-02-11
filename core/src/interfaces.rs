@@ -247,8 +247,8 @@ pub struct ProofRequest {
     pub batch_id: u64,
     /// The l1 block number of the l2 block be proposed.
     pub l1_inclusion_block_number: u64,
-    /// The l2_l1 block pairs for batch proof generation.
-    pub l2_l1_block_pairs: Vec<(u64, Option<u64>)>,
+    /// To support batch proof generation.
+    pub l2_block_numbers: Vec<u64>,
     /// The network to generate the proof for.
     pub network: String,
     /// The L1 network to generate the proof for.
@@ -281,11 +281,14 @@ pub struct ProofRequestOpt {
     /// The block number for the l2 block to be proposed.
     /// in hekla, it is the anchored l1 block height - 1
     /// in ontake, it is the anchored l1 block height - (1..64)
+    /// both above can be optional because raiko know anchor block id.
+    /// in pacaya, it is the height of the l1 block which proposed the l2 block and must be presented
+    /// as raiko does not know the anchor block id.
     pub l1_inclusion_block_number: Option<u64>,
     /// To support batch proof generation.
     /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
     /// This is used for batch proof generation.
-    pub l2_l1_block_pairs: Vec<u64>,
+    pub l2_block_numbers: Option<Vec<u64>>,
     #[arg(long, require_equals = true)]
     /// The network to generate the proof for.
     pub network: Option<String>,
@@ -371,7 +374,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             network: value.network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing network".to_string(),
             ))?,
-            l2_l1_block_pairs: value.l2_l1_block_pairs.iter().map(|&v| (v, None)).collect(),
+            l2_block_numbers: value.l2_block_numbers.unwrap_or_default(),
             l1_network: value.l1_network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing l1_network".to_string(),
             ))?,
@@ -452,7 +455,7 @@ impl From<AggregationRequest> for Vec<ProofRequestOpt> {
                     block_number: Some(block_number),
                     batch_id: None,
                     l1_inclusion_block_number,
-                    l2_l1_block_pairs: Vec::new(),
+                    l2_block_numbers: None,
                     network: value.network.clone(),
                     l1_network: value.l1_network.clone(),
                     graffiti: value.graffiti.clone(),
@@ -472,7 +475,7 @@ impl From<AggregationRequest> for ProofRequestOpt {
             block_number: None,
             batch_id: None,
             l1_inclusion_block_number: None,
-            l2_l1_block_pairs: value.block_numbers.iter().map(|(id, _)| *id).collect(),
+            l2_block_numbers: None,
             network: value.network,
             l1_network: value.l1_network,
             graffiti: value.graffiti,

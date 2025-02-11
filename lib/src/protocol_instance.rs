@@ -1,6 +1,7 @@
 use alloy_primitives::{Address, TxHash, B256};
 use alloy_sol_types::SolValue;
-use anyhow::{ensure, Error, Result};
+use anyhow::{ensure, Result};
+use reth_evm_ethereum::taiko::decode_anchor_pacaya;
 use reth_primitives::{Block, Header};
 
 #[cfg(not(feature = "std"))]
@@ -152,9 +153,16 @@ impl BlockMetaDataFork {
                 );
                 let blocks = final_blocks
                     .iter()
-                    .map(|block| BlockParams {
-                        numTransactions: block.body.len() as u16 - 1, // exclude anchor tx
-                        timeShift: (block.timestamp - batch_proposed.meta.proposedAt) as u8,
+                    .enumerate()
+                    .map(|(index, block)| {
+                        let anchor_tx = batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
+                        let anchor_data = decode_anchor_pacaya(&anchor_tx.input()).unwrap();
+                        let singal_slots = anchor_data._signalSlots.clone();
+                        BlockParams {
+                            numTransactions: block.body.len() as u16 - 1, // exclude anchor tx
+                            timeShift: (block.timestamp - batch_proposed.meta.proposedAt) as u8,
+                            signalSlots: singal_slots,
+                        }
                     })
                     .collect::<Vec<BlockParams>>();
                 assert!(
@@ -191,9 +199,7 @@ impl BlockMetaDataFork {
                 // checked in anchor_check()
                 let anchor_block_id = batch_proposed.info.anchorBlockId;
                 let anchor_block_hash = batch_proposed.info.anchorBlockHash;
-                let anchor_input = batch_proposed.info.anchorInput;
                 let base_fee_config = batch_proposed.info.baseFeeConfig.clone();
-                let signal_slots = batch_proposed.info.signalSlots.clone();
                 BlockMetaDataFork::Pacaya(BatchMetadata {
                     // todo: keccak data based on input
                     infoHash: keccak(
@@ -211,9 +217,7 @@ impl BlockMetaDataFork {
                             lastBlockTimestamp: last_block_timestamp,
                             anchorBlockId: anchor_block_id,
                             anchorBlockHash: anchor_block_hash,
-                            anchorInput: anchor_input,
                             baseFeeConfig: base_fee_config,
-                            signalSlots: signal_slots,
                         }
                         .abi_encode(),
                     )

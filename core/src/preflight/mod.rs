@@ -196,11 +196,11 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
     let block_parent_pairs = get_batch_blocks_and_parent_data(&provider, &block_numbers).await?;
 
-    let l2_l1_block_pairs: Vec<(u64, Option<u64>)> = block_numbers
+    let l2_block_numbers: Vec<(u64, Option<u64>)> = block_numbers
         .iter()
         .map(|&block_number| (block_number, None))
         .collect::<Vec<(u64, Option<u64>)>>();
-    info!("l2_l1_block_pairs: {:?}", l2_l1_block_pairs);
+    info!("batch preflight l2_block_numbers: {:?}", l2_block_numbers);
     let all_prove_blocks = block_parent_pairs
         .iter()
         .map(|(block, _)| block.clone())

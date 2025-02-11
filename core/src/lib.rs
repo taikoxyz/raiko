@@ -64,12 +64,7 @@ impl Raiko {
     fn get_batch_preflight_data(&self) -> BatchPreflightData {
         BatchPreflightData {
             batch_id: self.request.batch_id,
-            block_numbers: self
-                .request
-                .l2_l1_block_pairs
-                .iter()
-                .map(|(b, _)| *b)
-                .collect(),
+            block_numbers: self.request.l2_block_numbers.clone(),
             l1_inclusion_block_number: self.request.l1_inclusion_block_number, // todo: user input
             l1_chain_spec: self.l1_chain_spec.to_owned(),
             taiko_chain_spec: self.taiko_chain_spec.to_owned(),
@@ -483,9 +478,9 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 911,
-            l1_inclusion_block_number: 1836,
-            l2_l1_block_pairs: vec![(911, None)],
+            batch_id: 164,
+            l1_inclusion_block_number: 363,
+            l2_block_numbers: vec![164],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -524,7 +519,7 @@ mod tests {
             block_number: 0,
             batch_id: 1,
             l1_inclusion_block_number: 1000,
-            l2_l1_block_pairs: vec![(block_number, None)],
+            l2_block_numbers: vec![block_number],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -556,7 +551,7 @@ mod tests {
             block_number,
             batch_id: 0,
             l1_inclusion_block_number: 0,
-            l2_l1_block_pairs: vec![],
+            l2_block_numbers: vec![],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -597,7 +592,7 @@ mod tests {
                 block_number,
                 batch_id: 0,
                 l1_inclusion_block_number: 0,
-                l2_l1_block_pairs: Vec::new(),
+                l2_block_numbers: Vec::new(),
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
@@ -632,7 +627,7 @@ mod tests {
                 block_number,
                 batch_id: 0,
                 l1_inclusion_block_number: 0,
-                l2_l1_block_pairs: Vec::new(),
+                l2_block_numbers: Vec::new(),
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
@@ -664,7 +659,7 @@ mod tests {
             block_number,
             batch_id: 0,
             l1_inclusion_block_number: 0,
-            l2_l1_block_pairs: Vec::new(),
+            l2_block_numbers: Vec::new(),
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,

@@ -23,6 +23,8 @@ sol! {
         // For all other blocks in the same batch, the block timestamp is its parent block's
         // timestamp plus this time shift value.
         uint8 timeShift;
+        // Signals sent on L1 and need to sync to this L2 block.
+        bytes32[] signalSlots;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -47,10 +49,8 @@ sol! {
         address coinbase;
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
-        bytes32 anchorInput;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
-        bytes32[] signalSlots;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
@@ -77,9 +77,7 @@ sol! {
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
-        bytes32 anchorInput;
         BaseFeeConfig baseFeeConfig;
-        bytes32[] signalSlots;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]

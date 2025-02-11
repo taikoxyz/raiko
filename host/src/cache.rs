@@ -99,6 +99,7 @@ mod test {
             .get_chain_spec(network)
             .unwrap();
         let proof_request = ProofRequest {
+            batch_id: 0,
             block_number,
             network: network.to_string(),
             l1_network: l1_network.to_string(),
@@ -108,7 +109,7 @@ mod test {
             blob_proof_type: BlobProofType::KzgVersionedHash,
             prover_args: Default::default(),
             l1_inclusion_block_number: 0,
-            l2_l1_block_pairs: Default::default(),
+            l2_block_numbers: Default::default(),
         };
         let raiko = Raiko::new(
             l1_chain_spec.clone(),

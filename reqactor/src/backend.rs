@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use raiko_core::{
     interfaces::{aggregate_proofs, ProofRequest},
+    preflight::parse_l1_batch_proposal_tx_for_pacaya_fork,
     provider::rpc::RpcBlockDataProvider,
     Raiko,
 };
@@ -12,14 +13,15 @@ use raiko_lib::{
     prover::{IdWrite, Proof},
 };
 use raiko_reqpool::{
-    AggregationRequestEntity, RequestEntity, RequestKey, SingleProofRequestEntity, Status,
-    StatusWithContext,
+    AggregationRequestEntity, BatchProofRequestEntity, RequestEntity, RequestKey,
+    SingleProofRequestEntity, Status, StatusWithContext,
 };
 use reth_primitives::B256;
 use tokio::sync::{
     mpsc::{self, Receiver, Sender},
     oneshot, Semaphore,
 };
+use tracing::{debug, trace};
 
 use crate::{Action, Pool};
 
@@ -180,6 +182,11 @@ impl Backend {
                         self.prove_aggregation(request_key.clone(), entity).await;
                         self.ensure_internal_signal(request_key).await;
                     }
+                    RequestEntity::BatchProof(entity) => {
+                        tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving batch proof");
+                        self.prove_batch(request_key.clone(), entity).await;
+                        self.ensure_internal_signal(request_key).await;
+                    }
                 },
                 Status::WorkInProgress => {
                     // Wait for proving completion
@@ -307,6 +314,11 @@ impl Backend {
                 Ok(status)
             }
             RequestKey::Aggregation(..) => {
+                let status = StatusWithContext::new_cancelled();
+                self.pool.update_status(request_key, status.clone())?;
+                Ok(status)
+            }
+            RequestKey::BatchProof(..) => {
                 let status = StatusWithContext::new_cancelled();
                 self.pool.update_status(request_key, status.clone())?;
                 Ok(status)
@@ -453,6 +465,63 @@ impl Backend {
         semaphore_acquired_rx.await.unwrap();
     }
 
+    async fn prove_batch(
+        &mut self,
+        request_key: RequestKey,
+        request_entity: BatchProofRequestEntity,
+    ) {
+        // 1. Update the request status in pool to WorkInProgress
+        if let Err(err) = self
+            .pool
+            .update_status(request_key.clone(), Status::WorkInProgress.into())
+        {
+            tracing::error!(
+                "Actor Backend failed to update status of prove-action {request_key}: {err:?}, status: {status}",
+                status = Status::WorkInProgress,
+            );
+            return;
+        }
+
+        // 2. Start the proving work in a separate thread
+        let mut actor = self.clone();
+        let proving_semaphore = self.proving_semaphore.clone();
+        let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
+        tokio::spawn(async move {
+            // Acquire a permit from the semaphore before starting the proving work
+            let _permit = proving_semaphore
+                .acquire()
+                .await
+                .expect("semaphore should not be closed");
+            semaphore_acquired_tx.send(()).unwrap();
+
+            // 2.1. Start the proving work
+            let proven_status = do_prove_batch(
+                &mut actor.pool,
+                &actor.chain_specs,
+                request_key.clone(),
+                request_entity,
+            )
+            .await
+            .map(|proof| Status::Success { proof })
+            .unwrap_or_else(|error| Status::Failed { error });
+
+            // 2.2. Update the request status in pool to the resulted status
+            if let Err(err) = actor
+                .pool
+                .update_status(request_key.clone(), proven_status.clone().into())
+            {
+                tracing::error!(
+                    "Actor Backend failed to update status of prove-action {request_key}: {err:?}, status: {proven_status}"
+                );
+                return;
+            }
+            // The permit is automatically dropped here, releasing the semaphore
+        });
+
+        // Wait for the semaphore to be acquired
+        semaphore_acquired_rx.await.unwrap();
+    }
+
     async fn halt(&mut self) -> Result<(), String> {
         // TODO: implement halt for pause
         Ok(())
@@ -497,12 +566,15 @@ pub async fn do_prove_single(
         proof_type: request_entity.proof_type().clone(),
         blob_proof_type: request_entity.blob_proof_type().clone(),
         prover_args: request_entity.prover_args().clone(),
+        batch_id: 0,
+        l2_block_numbers: Vec::new(),
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
         &taiko_chain_spec.rpc.clone(),
         request_entity.block_number() - 1,
     )
+    .await
     .map_err(|err| format!("failed to create rpc block data provider: {err:?}"))?;
 
     // 1. Generate the proof input
@@ -542,5 +614,66 @@ async fn do_prove_aggregation(
         .await
         .map_err(|err| format!("failed to generate aggregation proof: {err:?}"))?;
 
+    Ok(proof)
+}
+
+async fn do_prove_batch(
+    pool: &mut dyn IdWrite,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: BatchProofRequestEntity,
+) -> Result<Proof, String> {
+    tracing::info!("Generating proof for {request_key}");
+
+    let l1_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.l1_network())
+        .expect("unsupported l1 network");
+    let taiko_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.network())
+        .expect("unsupported taiko network");
+    let batch_id = request_entity.batch_id();
+    let l1_include_block_number = request_entity.l1_inclusion_block_number();
+    // parse the batch proposal tx to get all prove blocks
+    let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
+        &l1_chain_spec,
+        &taiko_chain_spec,
+        *batch_id,
+        *l1_include_block_number,
+    )
+    .await
+    .expect("Could not parse L1 batch proposal tx");
+    // provider target blocks are all blocks in the batch and the parent block of block[0]
+    let provider_target_blocks =
+        (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
+    let provider = RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
+        .await
+        .expect("Could not create RpcBlockDataProvider");
+    let proof_request = ProofRequest {
+        batch_id: *request_entity.batch_id(),
+        l1_inclusion_block_number: *request_entity.l1_inclusion_block_number(),
+        network: request_entity.network().clone(),
+        l1_network: request_entity.l1_network().clone(),
+        graffiti: request_entity.graffiti().clone(),
+        prover: request_entity.prover().clone(),
+        proof_type: request_entity.proof_type().clone(),
+        blob_proof_type: request_entity.blob_proof_type().clone(),
+        prover_args: request_entity.prover_args().clone(),
+        l2_block_numbers: Vec::new(),
+        block_number: 0,
+    };
+    let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
+    let input = raiko
+        .generate_batch_input(provider)
+        .await
+        .map_err(|e| format!("failed to generateg guest batch input: {e:?}"))?;
+    trace!("batch guest input: {input:?}");
+    let output = raiko
+        .get_batch_output(&input)
+        .map_err(|e| format!("failed to get guest batch output: {e:?}"))?;
+    debug!("batch guest output: {output:?}");
+    let proof = raiko
+        .batch_prove(input, &output, Some(pool))
+        .await
+        .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
     Ok(proof)
 }
