@@ -1,6 +1,7 @@
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::interfaces::RaikoError;
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
+use raiko_lib::proof_type::ProofType;
 use raiko_reqpool::{SingleProofRequestEntity, SingleProofRequestKey};
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -43,7 +44,7 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
 
     // For zk_any request, draw zk proof type based on the block hash.
     //
-    // A zk_any request is: { "proof_type": "zk_any" }
+    // A zk_any request looks like: { "proof_type": "zk_any", "zk_any": { "aggregation": <bool> } }
     let is_zk_any = config.proof_type == Some("zk_any".to_string());
     if is_zk_any {
         let network = config
@@ -62,6 +63,21 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
                 return Err(HostError::ZKAnyNotDrawn);
             }
         }
+    }
+    if is_zk_any && config.proof_type == Some(ProofType::Sp1.to_string()) {
+        // Parse req, extract the aggregation field
+        // { "proof_type": "zk_any", "zk_any": { "aggregation": <bool> } }
+        let aggregation = req["zk_any"]["aggregation"].as_bool().unwrap_or(false);
+        let mut sp1_opts = config
+            .prover_args
+            .sp1
+            .expect("config.merge() should have set sp1");
+        if aggregation {
+            sp1_opts["recursion"] = serde_json::Value::String("compressed".to_string());
+        } else {
+            sp1_opts["recursion"] = serde_json::Value::String("plonk".to_string());
+        }
+        config.prover_args.sp1 = Some(sp1_opts);
     }
 
     // Construct the actual proof request from the available configs.
