@@ -197,8 +197,8 @@ impl BlockMetaDataFork {
                     batch_proposed.info.lastBlockTimestamp,
                 );
                 // checked in anchor_check()
-                let anchor_block_id = batch_proposed.info.anchorBlockId;
-                let anchor_block_hash = batch_proposed.info.anchorBlockHash;
+                let anchor_block_id = batch_input.taiko.l1_header.number;
+                let anchor_block_hash = batch_input.taiko.l1_header.hash_slow();
                 let base_fee_config = batch_proposed.info.baseFeeConfig.clone();
                 BlockMetaDataFork::Pacaya(BatchMetadata {
                     // todo: keccak data based on input

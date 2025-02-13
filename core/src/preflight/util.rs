@@ -348,11 +348,11 @@ pub async fn prepare_taiko_chain_batch_input(
             l1_header: l1_state_header.try_into().unwrap(),
             chain_spec: taiko_chain_spec.clone(),
             prover_data: prover_data,
+            tx_data_from_calldata,
             tx_data_from_blob: blob_tx_buffers
                 .iter()
-                .map(|(tx, _, _)| tx.clone())
+                .map(|(blob_tx_data, _, _)| blob_tx_data.clone())
                 .collect(),
-            tx_data_from_calldata,
             blob_commitments: blob_tx_buffers
                 .iter()
                 .map(|(_, commmit, _)| commmit.clone())

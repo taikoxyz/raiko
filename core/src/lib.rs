@@ -9,7 +9,7 @@ use raiko_lib::{
     input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, TaikoProverData},
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey},
-    utils::{generate_batch_transactions, generate_transactions},
+    utils::{generate_transactions, generate_transactions_for_batch_blocks},
 };
 use reth_primitives::{Block, Header};
 use serde_json::Value;
@@ -94,10 +94,7 @@ impl Raiko {
     ) -> RaikoResult<GuestBatchInput> {
         //TODO: read fork from config
         let preflight_data = self.get_batch_preflight_data();
-        info!(
-            "Generating batch input for batch {}",
-            self.request.batch_id
-        );
+        info!("Generating batch input for batch {}", self.request.batch_id);
         batch_preflight(provider, preflight_data)
             .await
             .map_err(Into::<RaikoError>::into)
@@ -144,8 +141,7 @@ impl Raiko {
     }
 
     pub fn get_batch_output(&self, batch_input: &GuestBatchInput) -> RaikoResult<GuestBatchOutput> {
-        let pool_txs_list =
-            generate_batch_transactions(&batch_input.taiko.chain_spec, &batch_input.taiko);
+        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input.taiko);
         let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
             Vec::new(),
             |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
