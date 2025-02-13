@@ -1,7 +1,5 @@
 use reth_primitives::{ChainId, B256};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::sync::Mutex;
 use utoipa::ToSchema;
 
 use crate::input::{

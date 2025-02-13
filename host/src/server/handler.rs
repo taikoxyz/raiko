@@ -1,7 +1,7 @@
 use raiko_reqactor::{Action, Actor};
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, RequestEntity, RequestKey,
-    SingleProofRequestEntity, SingleProofRequestKey, Status,
+    SingleProofRequestKey, Status,
 };
 
 // NOTE: HTTP handlers should not check the status of the request, but just send the request to the Actor. In

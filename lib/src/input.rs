@@ -181,7 +181,6 @@ impl BlockProposedFork {
             BlockProposedFork::Hekla(block) => block.meta.blobHash,
             BlockProposedFork::Ontake(block) => block.meta.blobHash,
             // meaningless for pakaya
-            BlockProposedFork::Pacaya(batch) => B256::default(),
             _ => B256::default(),
         }
     }

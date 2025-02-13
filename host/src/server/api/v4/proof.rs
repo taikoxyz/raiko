@@ -3,16 +3,11 @@ use crate::{
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::{
         api::{v2, v3::Status},
-        prove_aggregation,
         utils::to_v3_status,
     },
 };
 use axum::{extract::State, routing::post, Json, Router};
-use raiko_core::{
-    interfaces::{AggregationRequest, ProofRequest, ProofRequestOpt},
-    provider::{get_batch_task_data, get_task_data},
-};
-use raiko_lib::proof_type;
+use raiko_core::interfaces::ProofRequest;
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, BatchProofRequestEntity, BatchProofRequestKey,
@@ -41,7 +36,7 @@ use utoipa::OpenApi;
 /// - risc0 - uses the risc0 prover
 async fn proof_handler(
     State(actor): State<Actor>,
-    Json(mut batch_request_opt): Json<Value>,
+    Json(batch_request_opt): Json<Value>,
 ) -> HostResult<Status> {
     inc_current_req();
 

@@ -309,7 +309,7 @@ pub async fn prepare_taiko_chain_batch_input(
     let fork = taiko_chain_spec.active_fork(batch_blocks[0].number, batch_blocks[0].timestamp)?;
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
     // todo: duplicate code with parse_l1_batch_proposal_tx_for_pacaya_fork(), better to make these values fn parameters
-    let (l1_inclusion_height, batch_proposal_tx, batch_proposed_fork) =
+    let (l1_inclusion_height, _batch_proposal_tx, batch_proposed_fork) =
         get_block_proposed_event_by_height(
             provider_l1.provider(),
             taiko_chain_spec.clone(),
@@ -328,10 +328,7 @@ pub async fn prepare_taiko_chain_batch_input(
 
     if let BlockProposedFork::Pacaya(batch_proposed) = batch_proposed_fork {
         let batch_info = &batch_proposed.info;
-        let batch_meta = &batch_proposed.meta;
         let blob_hashes = batch_info.blobHashes.clone();
-        let blob_byte_offset = batch_info.blobByteOffset as usize;
-        let blob_byte_size = batch_info.blobByteSize as usize;
         let blob_tx_buffers = get_batch_tx_data_with_proofs(
             blob_hashes,
             l1_inclusion_header.timestamp,

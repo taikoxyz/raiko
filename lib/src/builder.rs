@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
-use crate::utils::{generate_transactions_for_batch_blocks, generate_transactions};
+use crate::utils::{generate_transactions, generate_transactions_for_batch_blocks};
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
     guest_mem_forget,
@@ -15,9 +15,7 @@ use anyhow::{bail, ensure, Result};
 use reth_chainspec::{
     ChainSpecBuilder, Hardfork, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET,
 };
-use reth_evm::execute::{
-    self, BlockExecutionOutput, BlockValidationError, Executor, ProviderError,
-};
+use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
 use reth_evm_ethereum::execute::{
     validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
 };
