@@ -14,9 +14,10 @@ use crate::{
     provider::BlockDataProvider,
     MerkleProof,
 };
+use tracing::{info, trace};
 
-pub struct ProviderDb<BDP: BlockDataProvider> {
-    pub provider: BDP,
+pub struct ProviderDb<'a, BDP: BlockDataProvider> {
+    pub provider: &'a BDP,
     pub block_number: u64,
     pub initial_db: MemDb,
     pub initial_headers: HashMap<u64, Header>,
@@ -30,8 +31,12 @@ pub struct ProviderDb<BDP: BlockDataProvider> {
     pub pending_block_hashes: HashSet<u64>,
 }
 
-impl<BDP: BlockDataProvider> ProviderDb<BDP> {
-    pub async fn new(provider: BDP, chain_spec: ChainSpec, block_number: u64) -> RaikoResult<Self> {
+impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
+    pub async fn new(
+        provider: &'a BDP,
+        chain_spec: ChainSpec,
+        block_number: u64,
+    ) -> RaikoResult<Self> {
         let mut provider_db = ProviderDb {
             provider,
             block_number,
@@ -71,6 +76,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                     .insert(block_number, block.header.try_into().unwrap());
             }
         }
+        info!("Initial new provider_db {:?}", provider_db.block_number);
         Ok(provider_db)
     }
 
@@ -155,7 +161,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
     }
 }
 
-impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
+impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
     type Error = ProviderError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -191,7 +197,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         // Fetch the account
         let account = &tokio::task::block_in_place(|| {
             self.async_executor
-                .block_on(self.provider.get_accounts(&[address]))
+                .block_on(self.provider.get_accounts(self.block_number, &[address]))
         })
         .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
@@ -224,6 +230,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         if self.optimistic {
             self.basic(address)?;
             self.pending_slots.insert((address, index));
+            trace!("optimistic storage to be fetch: {:?}", (address, index));
             return Ok(U256::default());
         }
 
@@ -232,8 +239,10 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
 
         // Fetch the storage value
         let value = tokio::task::block_in_place(|| {
-            self.async_executor
-                .block_on(self.provider.get_storage_values(&[(address, index)]))
+            self.async_executor.block_on(
+                self.provider
+                    .get_storage_values(self.block_number, &[(address, index)]),
+            )
         })
         .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
@@ -288,13 +297,13 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
     }
 }
 
-impl<BDP: BlockDataProvider> DatabaseCommit for ProviderDb<BDP> {
+impl<'a, BDP: BlockDataProvider> DatabaseCommit for ProviderDb<'a, BDP> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
         self.current_db.commit(changes);
     }
 }
 
-impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
+impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
     async fn fetch_data(&mut self) -> bool {
         //println!("all accounts touched: {:?}", self.pending_accounts);
         //println!("all slots touched: {:?}", self.pending_slots);
@@ -305,7 +314,10 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
 
         let Ok(accounts) = self
             .provider
-            .get_accounts(&self.pending_accounts.iter().copied().collect::<Vec<_>>())
+            .get_accounts(
+                self.block_number,
+                &self.pending_accounts.iter().copied().collect::<Vec<_>>(),
+            )
             .await
         else {
             return false;
@@ -320,7 +332,10 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
 
         let Ok(slots) = self
             .provider
-            .get_storage_values(&self.pending_slots.iter().copied().collect::<Vec<_>>())
+            .get_storage_values(
+                self.block_number,
+                &self.pending_slots.iter().copied().collect::<Vec<_>>(),
+            )
             .await
         else {
             return false;

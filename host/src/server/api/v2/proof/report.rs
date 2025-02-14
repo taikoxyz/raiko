@@ -3,7 +3,8 @@ use axum::{extract::State, routing::get, Json, Router};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{RequestKey, Status, StatusWithContext};
 use raiko_tasks::{
-    AggregationTaskDescriptor, ProofTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus,
+    AggregationTaskDescriptor, BatchProofTaskDescriptor, ProofTaskDescriptor, TaskDescriptor,
+    TaskReport, TaskStatus,
 };
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -39,6 +40,13 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
         RequestKey::Aggregation(key) => TaskDescriptor::Aggregation(AggregationTaskDescriptor {
             aggregation_ids: key.block_numbers().clone(),
             proof_type: Some(key.proof_type().to_string()),
+        }),
+        RequestKey::BatchProof(key) => TaskDescriptor::BatchProof(BatchProofTaskDescriptor {
+            chain_id: *key.chain_id(),
+            batch_id: *key.batch_id(),
+            l1_height: *key.l1_inclusion_height(),
+            proof_system: *key.proof_type(),
+            prover: key.prover_address().clone(),
         }),
     };
 
