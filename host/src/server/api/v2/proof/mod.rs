@@ -3,16 +3,18 @@ use raiko_core::interfaces::RaikoError;
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
 use raiko_lib::proof_type::ProofType;
 use raiko_reqpool::{SingleProofRequestEntity, SingleProofRequestKey};
+use raiko_tasks::TaskStatus;
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::interfaces::HostError;
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::{api::v2::Status, to_v2_status},
 };
 use raiko_reqactor::Actor;
+
+use super::ProofResponse;
 
 pub mod cancel;
 pub mod list;
@@ -60,7 +62,12 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
         match actor.draw(&blockhash) {
             Some(proof_type) => config.proof_type = Some(proof_type.to_string()),
             None => {
-                return Err(HostError::ZKAnyNotDrawn);
+                return Ok(Status::Ok {
+                    proof_type: ProofType::Native,
+                    data: ProofResponse::Status {
+                        status: TaskStatus::ZKAnyNotDrawn,
+                    },
+                });
             }
         }
     }

@@ -43,5 +43,5 @@ Response:
 Error response:
 
 ```json
-{"error":"zk_any_not_drawn_error","message":"The zk_any request is not drawn","status":"error"}
+{"data":{"status":"zk_any_not_drawn"},"proof_type":"native","status":"ok"}
 ```
