@@ -18,7 +18,9 @@ anyhow = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 utoipa = { workspace = true }
-redis = { workspace = true, optional = true }
+redis = { workspace = true, optional = true, features = [
+    "disable-client-setinfo",
+] }
 backoff = { workspace = true }
 
 [dev-dependencies]
