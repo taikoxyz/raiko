@@ -7,7 +7,7 @@
     "proof_type": "risc0",
     "blob_proof_type": "proof_of_equivalence",
     "sgx": {
-        "instance_id": 456,
+        "instance_id": 1,
         "setup": true,
         "bootstrap": true,
         "prove": true,
@@ -21,7 +21,7 @@
     },
     "sp1": {
 		"recursion": "core",
-		"prover": "mock",
+		"prover": "network",
         "verify": false
 	},
     "native" : {
