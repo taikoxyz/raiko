@@ -48,6 +48,23 @@ if [ "$proof" == "native" ]; then
         "json_guest_input": null
 	}
   '
+elif [ "$proof" == "zk_any" ]; then
+	proofParam='
+    "proof_type": "zk_any",
+	"native" : {
+        "json_guest_input": null
+	},
+	"zk_any": { "aggregation": false}
+  '
+elif [ "$proof" == "zk_any_aggregation" ]; then
+	proofParam='
+    "proof_type": "zk_any",
+	"native" : {
+        "json_guest_input": null
+	},
+	"zk_any": { "aggregation": false }
+  '
+
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
