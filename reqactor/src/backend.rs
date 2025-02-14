@@ -355,6 +355,19 @@ impl Backend {
             .map(|proof| Status::Success { proof })
             .unwrap_or_else(|error| Status::Failed { error });
 
+            match &proven_status {
+                Status::Success { proof } => {
+                    tracing::info!(
+                        "Actor Backend successfully proved {request_key}, {:?}",
+                        proof
+                    );
+                }
+                Status::Failed { error } => {
+                    tracing::error!("Actor Backend failed to prove {request_key}: {error}");
+                }
+                _ => {}
+            }
+
             // 2.2. Update the request status in pool to the resulted status
             if let Err(err) = actor
                 .pool
@@ -370,29 +383,22 @@ impl Backend {
 
         let mut pool_ = self.pool.clone();
         tokio::spawn(async move {
-            match handle.await {
-                Ok(()) => {
-                    tracing::debug!(
-                        "Actor Backend proved single proof {request_key_} successfully"
-                    );
-                }
-                Err(e) => {
-                    if e.is_panic() {
-                        tracing::error!("Actor Backend panicked while proving single proof: {e:?}");
-                        let status = Status::Failed {
-                            error: e.to_string(),
-                        };
-                        if let Err(err) =
-                            pool_.update_status(request_key_.clone(), status.clone().into())
-                        {
-                            tracing::error!(
-                                "Actor Backend failed to update status of prove-action {request_key_}: {err:?}, status: {status}",
-                                status = status,
-                            );
-                        }
-                    } else {
-                        tracing::error!("Actor Backend failed to prove single proof: {e:?}");
+            if let Err(e) = handle.await {
+                if e.is_panic() {
+                    tracing::error!("Actor Backend panicked while proving single proof: {e:?}");
+                    let status = Status::Failed {
+                        error: e.to_string(),
+                    };
+                    if let Err(err) =
+                        pool_.update_status(request_key_.clone(), status.clone().into())
+                    {
+                        tracing::error!(
+                            "Actor Backend failed to update status of prove-action {request_key_}: {err:?}, status: {status}",
+                            status = status,
+                        );
                     }
+                } else {
+                    tracing::error!("Actor Backend failed to prove single proof: {e:?}");
                 }
             }
         });
