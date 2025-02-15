@@ -175,6 +175,7 @@ impl Prover for Sp1Prover {
             let proof_id = network_client
                 .prove(&pk, &stdin)
                 .mode(param.recursion.clone().into())
+                .cycle_limit(1_000_000_000_000)
                 .skip_simulation(true)
                 .strategy(FulfillmentStrategy::Reserved)
                 .request_async()
@@ -378,6 +379,7 @@ impl Prover for Sp1Prover {
             let proof_id = network_client
                 .prove(&pk, &stdin)
                 .mode(param.recursion.clone().into())
+                .cycle_limit(1_000_000_000_000)
                 .skip_simulation(true)
                 .strategy(FulfillmentStrategy::Reserved)
                 .request_async()
