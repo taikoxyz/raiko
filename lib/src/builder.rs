@@ -188,6 +188,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
                 base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
+                gas_limit: self.input.taiko.block_proposed.gas_limit_with_anchor(),
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {

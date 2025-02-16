@@ -3,7 +3,7 @@ use core::{fmt::Debug, str::FromStr};
 use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
 use pacaya::{BatchInfo, BatchProposed};
-use reth_evm_ethereum::taiko::ProtocolBaseFeeConfig;
+use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
     Block, Header, TransactionSigned,
@@ -196,6 +196,15 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Pacaya(batch) => Some(&batch.info),
             _ => None,
+        }
+    }
+
+    pub fn gas_limit_with_anchor(&self) -> u64 {
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
+            BlockProposedFork::Ontake(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
+            BlockProposedFork::Pacaya(batch) => batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT,
+            _ => 0,
         }
     }
 }
