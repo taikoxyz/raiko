@@ -8,13 +8,13 @@ use std::{
 use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
-    builder::calculate_block_header,
-    input::{GuestInput, RawAggregationGuestInput},
+    builder::{calculate_batch_blocks_final_header, calculate_block_header},
+    input::{GuestBatchInput, GuestInput, RawAggregationGuestInput},
     primitives::{keccak, Address, B256},
     proof_type::ProofType,
     protocol_instance::{aggregation_output_combine, ProtocolInstance},
 };
-use secp256k1::{Keypair, SecretKey};
+use secp256k1::{Keypair, PublicKey, SecretKey};
 use serde::Serialize;
 
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
@@ -140,6 +140,68 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     println!(
         "Block {}. PI data to be signed: {pi_hash}",
         input.block.number
+    );
+
+    // Sign the public input hash which contains all required block inputs and outputs
+    let sig = sign_message(&prev_privkey, pi_hash)?;
+
+    // Create the proof for the onchain SGX verifier
+    // 4(id) + 20(new) + 65(sig) = 89
+    const SGX_PROOF_LEN: usize = 89;
+    let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+    proof.extend(args.sgx_instance_id.to_be_bytes());
+    proof.extend(new_instance);
+    proof.extend(sig);
+    let proof = hex::encode(proof);
+
+    // Store the public key address in the attestation data
+    save_attestation_user_report_data(new_instance)?;
+
+    // Print out the proof and updated public info
+    let quote = get_sgx_quote()?;
+    let data = serde_json::json!({
+        "proof": format!("0x{proof}"),
+        "quote": hex::encode(quote),
+        "public_key": format!("0x{new_pubkey}"),
+        "instance_address": new_instance.to_string(),
+        "input": pi_hash.to_string(),
+    });
+    println!("{data}");
+
+    // Print out general SGX information
+    print_sgx_info()
+}
+
+pub fn load_bootstrap_privkey(secrets_dir: &Path) -> Result<(SecretKey, PublicKey, Address)> {
+    // Make sure this SGX instance was bootstrapped
+    let prev_privkey = load_bootstrap(secrets_dir)
+        .or_else(|_| bail!("Application was not bootstrapped or has a deprecated bootstrap."))
+        .unwrap();
+
+    let new_pubkey = public_key(&prev_privkey);
+    let new_instance = public_key_to_address(&new_pubkey);
+    Ok((prev_privkey, new_pubkey, new_instance))
+}
+
+pub async fn one_shot_batch(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> {
+    println!("Global options: {global_opts:?}, OneShot options: {args:?}");
+    let (prev_privkey, new_pubkey, new_instance) =
+        load_bootstrap_privkey(&global_opts.secrets_dir)?;
+    let batch_input: GuestBatchInput =
+        bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize batch input");
+
+    // Process the block
+    let final_blocks = calculate_batch_blocks_final_header(&batch_input);
+    // Calculate the public input hash
+    let pi = ProtocolInstance::new_batch(&batch_input, final_blocks, ProofType::Sgx)?
+        .sgx_instance(new_instance);
+    let pi_hash = pi.instance_hash();
+
+    println!(
+        "Block batch {} for blocks[{}..={}]. PI data to be signed: {pi_hash}",
+        batch_input.taiko.batch_id,
+        batch_input.inputs.first().unwrap().block.number,
+        batch_input.inputs.last().unwrap().block.number
     );
 
     // Sign the public input hash which contains all required block inputs and outputs
