@@ -1,27 +1,27 @@
 {
   "network": "taiko_dev",
   "l1_network": "taiko_dev_l1",
-    "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
+  "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
   "sgx": {
     "instance_id": 10,
-        "setup": true,
-        "bootstrap": true,
-        "prove": true,
-        "input_path": null
+    "setup": true,
+    "bootstrap": true,
+    "prove": true,
+    "input_path": null
   },
-    "risc0": {
-        "bonsai": true,
-        "snark": true,
-        "profile": false,
-        "execution_po2": 20
-    },
-    "sp1": {
-		"recursion": "core",
-		"prover": "network",
-        "verify": false
-	},
-    "native" : {
-        "json_guest_input": null
-	}
+  "risc0": {
+    "bonsai": true,
+    "snark": true,
+    "profile": false,
+    "execution_po2": 20
+  },
+  "sp1": {
+    "recursion": "core",
+    "prover": "network",
+    "verify": false
+  },
+  "native": {
+    "json_guest_input": null
+  }
 }
