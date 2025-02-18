@@ -48,7 +48,8 @@ async fn v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
                             | TaskStatus::WorkInProgress
                             | TaskStatus::Success,
                         ..
-                    }
+                    },
+                    ..
                 }
             ),
             "status: {status:?}"
@@ -75,7 +76,8 @@ async fn v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
                         | TaskStatus::WorkInProgress
                         | TaskStatus::Success,
                     ..
-                }
+                },
+                ..
             }
         ),
         "status: {status:?}"

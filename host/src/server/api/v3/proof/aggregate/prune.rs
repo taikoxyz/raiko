@@ -1,8 +1,7 @@
-use axum::{extract::State, routing::post, Router};
-use utoipa::OpenApi;
-
 use crate::interfaces::HostResult;
+use axum::{extract::State, routing::post, Router};
 use raiko_reqactor::Actor;
+use utoipa::OpenApi;
 
 #[utoipa::path(post, path = "/proof/aggregate/prune",
     tag = "Proving",
