@@ -11,7 +11,7 @@ use serde::Serialize;
 /// ```
 pub struct Client {
     url: String,
-    reqwest_client: reqwest::Client,
+    pub reqwest_client: reqwest::Client,
 }
 
 impl Client {
@@ -51,7 +51,7 @@ impl Client {
         Ok(response)
     }
 
-    fn build_url(&self, path: &str) -> String {
+    pub fn build_url(&self, path: &str) -> String {
         format!("{}/{}", self.url, path.trim_start_matches('/'))
     }
 }
