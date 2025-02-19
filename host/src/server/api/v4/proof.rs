@@ -107,7 +107,7 @@ async fn proof_handler(
         sub_request_entities,
     )
     .await;
-    Ok(to_v3_status(result))
+    Ok(to_v3_status(batch_request.proof_type, result))
 }
 
 #[derive(OpenApi)]

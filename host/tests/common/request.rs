@@ -3,7 +3,7 @@ use raiko_host::server::api;
 use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
 use raiko_lib::prover::Proof;
-use raiko_tasks::{TaskDescriptor, TaskReport, TaskStatus};
+use raiko_tasks::{AggregationTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus};
 use serde_json::json;
 
 use crate::common::Client;
@@ -41,7 +41,7 @@ pub fn make_proof_request(
                 "bonsai": false, // run locally
                 "snark": false,
                 "profile": false,
-                "execution_po2" : 20, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
+                "execution_po2" : 21, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
             })),
             sgx: None,
             sp1: None,
@@ -78,7 +78,7 @@ pub async fn make_aggregate_proof_request(
                 "bonsai": false, // run locally
                 "snark": false,
                 "profile": false,
-                "execution_po2" : 20, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
+                "execution_po2" : 21, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
             })),
             sgx: None,
             sp1: None,
@@ -124,6 +124,7 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
             // Proof generation is in progress
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Status { status, .. },
+                ..
             } => {
                 assert!(
                     matches!(status, TaskStatus::Registered | TaskStatus::WorkInProgress),
@@ -134,6 +135,7 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
             // Proof generation is successfully completed
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Proof { proof },
+                ..
             } => {
                 println!("proof generation completed, proof: {}", json!(proof));
                 return proof;
@@ -189,6 +191,7 @@ pub async fn v3_complete_aggregate_proof_request(
             // Proof generation is in progress
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Status { status, .. },
+                ..
             } => {
                 assert!(
                     matches!(status, TaskStatus::Registered | TaskStatus::WorkInProgress),
@@ -199,6 +202,7 @@ pub async fn v3_complete_aggregate_proof_request(
             // Proof generation is successfully completed
             api::v2::Status::Ok {
                 data: api::v2::ProofResponse::Proof { proof },
+                ..
             } => {
                 println!(
                     "aggregation proof generation completed, proof: {}",
@@ -231,8 +235,6 @@ pub async fn get_status_of_proof_request(client: &Client, request: &ProofRequest
     for (task_descriptor, task_status) in report {
         if let TaskDescriptor::SingleProof(proof_task_descriptor) = task_descriptor {
             if proof_task_descriptor.block_id == request.block_number.unwrap()
-                && &proof_task_descriptor.proof_system.to_string()
-                    == request.proof_type.as_ref().unwrap()
                 && &proof_task_descriptor.prover == request.prover.as_ref().unwrap()
             {
                 return task_status;
@@ -246,7 +248,11 @@ pub async fn get_status_of_aggregation_proof_request(
     client: &Client,
     request: &AggregationOnlyRequest,
 ) -> TaskStatus {
-    let expected_task_descriptor: TaskDescriptor = TaskDescriptor::Aggregation(request.into());
+    let descriptor = AggregationTaskDescriptor {
+        aggregation_ids: request.aggregation_ids.clone(),
+        proof_type: request.proof_type.clone().map(|p| p.to_string()),
+    };
+    let expected_task_descriptor: TaskDescriptor = TaskDescriptor::Aggregation(descriptor);
     let report = v2_assert_report(client).await;
     for (task_descriptor, task_status) in &report {
         if task_descriptor == &expected_task_descriptor {

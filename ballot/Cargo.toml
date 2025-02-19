@@ -1,0 +1,11 @@
+[package]
+name = "raiko-ballot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-lib = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+serde = { workspace = true }

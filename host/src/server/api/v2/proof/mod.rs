@@ -1,6 +1,9 @@
 use axum::{extract::State, routing::post, Json, Router};
+use raiko_core::interfaces::{ProofRequestOpt, RaikoError};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
+use raiko_lib::proof_type::ProofType;
 use raiko_reqpool::{SingleProofRequestEntity, SingleProofRequestKey};
+use raiko_tasks::TaskStatus;
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -10,6 +13,8 @@ use crate::{
     server::{api::v2::Status, to_v2_status},
 };
 use raiko_reqactor::Actor;
+
+use super::ProofResponse;
 
 pub mod cancel;
 pub mod list;
@@ -39,6 +44,28 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     let mut config = actor.default_request_config().clone();
     config.merge(&req)?;
 
+    // For zk_any request, draw zk proof type based on the block hash.
+    if is_zk_any_request(&config) {
+        match draw_for_zk_any_request(&actor, &config).await? {
+            Some(proof_type) => config.proof_type = Some(proof_type.to_string()),
+            None => {
+                return Ok(Status::Ok {
+                    proof_type: ProofType::Native,
+                    data: ProofResponse::Status {
+                        status: TaskStatus::ZKAnyNotDrawn,
+                    },
+                });
+            }
+        }
+        // Specially process zk_any requests with sp1 parameters.
+        if config.proof_type == Some(ProofType::Sp1.to_string()) {
+            // Parse req, extract the aggregation field
+            // { "proof_type": "zk_any", "zk_any": { "aggregation": <bool> } }
+            let sp1_opts = sp1_params_for_zk_any_request(&req, &config);
+            config.prover_args.sp1 = Some(sp1_opts);
+        }
+    }
+
     // Construct the actual proof request from the available configs.
     let proof_request = ProofRequest::try_from(config)?;
     inc_host_req_count(proof_request.block_number);
@@ -51,6 +78,7 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     )
     .await?;
 
+    let proof_type = proof_request.proof_type;
     let request_key = SingleProofRequestKey::new(
         chain_id,
         proof_request.block_number,
@@ -73,7 +101,7 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     .into();
 
     let result = crate::server::prove(&actor, request_key, request_entity).await;
-    Ok(to_v2_status(result))
+    Ok(to_v2_status(proof_type, result))
 }
 
 #[derive(OpenApi)]
@@ -101,4 +129,44 @@ pub fn create_router() -> Router<Actor> {
         .nest("/report", report::create_router())
         .nest("/list", list::create_router())
         .nest("/prune", prune::create_router())
+}
+
+// A zk_any request looks like: { "proof_type": "zk_any", "zk_any": { "aggregation": <bool> } }
+fn is_zk_any_request(proof_request_opt: &ProofRequestOpt) -> bool {
+    proof_request_opt.proof_type == Some("zk_any".to_string())
+}
+
+async fn draw_for_zk_any_request(
+    actor: &Actor,
+    proof_request_opt: &ProofRequestOpt,
+) -> HostResult<Option<ProofType>> {
+    let network = proof_request_opt
+        .network
+        .as_ref()
+        .ok_or(RaikoError::InvalidRequestConfig(
+            "Missing network".to_string(),
+        ))?;
+    let block_number = proof_request_opt
+        .block_number
+        .ok_or(RaikoError::InvalidRequestConfig(
+            "Missing block number".to_string(),
+        ))?;
+    let (_, blockhash) = get_task_data(&network, block_number, actor.chain_specs()).await?;
+    Ok(actor.draw(&blockhash))
+}
+
+fn sp1_params_for_zk_any_request(req: &Value, proof_request_opt: &ProofRequestOpt) -> Value {
+    let aggregation = req["zk_any"]["aggregation"].as_bool().unwrap_or(false);
+    let mut sp1_opts = proof_request_opt
+        .prover_args
+        .sp1
+        .as_ref()
+        .expect("config.merge() should have set sp1")
+        .to_owned();
+    if aggregation {
+        sp1_opts["recursion"] = serde_json::Value::String("compressed".to_string());
+    } else {
+        sp1_opts["recursion"] = serde_json::Value::String("plonk".to_string());
+    }
+    sp1_opts
 }

@@ -26,7 +26,7 @@
         "beacon_rpc": "https://l1beacon.internal.taiko.xyz/",
         "verifier_address_forks": {
             "FRONTIER": {
-                "SGX": null,
+                "SGX": "0x2Ec730f0830803A022262e46375E33023faD65e5",
                 "SP1": null,
                 "RISC0": null
             }
@@ -73,9 +73,9 @@
                 "RISC0": "0xDf8038e9f4535040D7421A89ead398b3A38366EC"
             },
             "PACAYA": {
-                "SGX": "0xebB0DA61818F639f460F67940EB269b36d1F104E",
-                "SP1": "0x748d4a7e3a49adEbA2157B2d581434A6Cc226D1F",
-                "RISC0": "0xDf8038e9f4535040D7421A89ead398b3A38366EC"
+                "SGX": "0x2Ec730f0830803A022262e46375E33023faD65e5",
+                "SP1": "0x5D3c9a2fC60873e82fB44a65C7Ad038DF167E16f",
+                "RISC0": "0x8b93ED8567013837e75994A7cB182AFB83E85f4b"
             }
         },
         "genesis_time": 0,

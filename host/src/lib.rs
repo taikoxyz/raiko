@@ -1,26 +1,21 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::collections::BTreeMap;
 use std::{alloc, path::PathBuf};
 
 use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
-use raiko_core::{
-    interfaces::{AggregationOnlyRequest, ProofRequest, ProofRequestOpt},
-    merge,
-};
+use raiko_ballot::Ballot;
+use raiko_core::{interfaces::ProofRequestOpt, merge};
 use raiko_lib::consts::SupportedChainSpecs;
-use raiko_tasks::{get_task_manager, ProofTaskDescriptor, TaskManagerOpts, TaskManagerWrapperImpl};
+use raiko_lib::proof_type::ProofType;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::mpsc;
 
-use crate::{interfaces::HostResult, proof::ProofActor};
+use crate::interfaces::HostResult;
 
 pub mod cache;
 pub mod interfaces;
 pub mod metrics;
-pub mod proof;
 pub mod server;
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]
@@ -87,7 +82,16 @@ pub struct Opts {
     pub redis_ttl: u64,
 
     #[arg(long, default_value = "false")]
-    pub use_memory_backend: bool,
+    pub enable_redis_pool: bool,
+
+    /// Ballot config in json format. If not provided, '{}' will be used.
+    #[arg(
+        long,
+        require_equals = true,
+        default_value = "{}",
+        help = "e.g. {\"Sp1\":0.1,\"Risc0\":0.2}"
+    )]
+    pub ballot: String,
 }
 
 impl Opts {
@@ -131,112 +135,6 @@ impl Opts {
     }
 }
 
-impl From<Opts> for TaskManagerOpts {
-    fn from(val: Opts) -> Self {
-        Self {
-            max_db_size: val.max_db_size,
-            redis_url: val.redis_url.to_string(),
-            redis_ttl: val.redis_ttl,
-        }
-    }
-}
-
-impl From<&Opts> for TaskManagerOpts {
-    fn from(val: &Opts) -> Self {
-        Self {
-            max_db_size: val.max_db_size,
-            redis_url: val.redis_url.to_string(),
-            redis_ttl: val.redis_ttl,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ProverState {
-    pub opts: Opts,
-    pub chain_specs: SupportedChainSpecs,
-    pub task_channel: mpsc::Sender<Message>,
-    pause_flag: Arc<AtomicBool>,
-}
-
-#[derive(Debug)]
-pub enum Message {
-    Cancel(ProofTaskDescriptor),
-    Task(ProofRequest),
-    TaskComplete(ProofRequest),
-    CancelAggregate(AggregationOnlyRequest),
-    Aggregate(AggregationOnlyRequest),
-    SystemPause(tokio::sync::oneshot::Sender<HostResult<()>>),
-}
-
-impl ProverState {
-    pub fn init() -> HostResult<Self> {
-        let opts = parse_opts()?;
-        Self::init_with_opts(opts)
-    }
-
-    pub fn init_with_opts(opts: Opts) -> HostResult<Self> {
-        // Check if the cache path exists and create it if it doesn't.
-        if let Some(cache_path) = &opts.cache_path {
-            if !cache_path.exists() {
-                std::fs::create_dir_all(cache_path).context("Could not create cache dir")?;
-            }
-        }
-
-        let (task_channel, receiver) = mpsc::channel::<Message>(opts.concurrency_limit);
-        let pause_flag = Arc::new(AtomicBool::new(false));
-
-        let opts_clone = opts.clone();
-        let chain_specs = parse_chain_specs(&opts);
-        let chain_specs_clone = chain_specs.clone();
-        let sender = task_channel.clone();
-        tokio::spawn(async move {
-            ProofActor::new(sender, receiver, opts_clone, chain_specs_clone)
-                .run()
-                .await;
-        });
-
-        Ok(Self {
-            opts,
-            chain_specs,
-            task_channel,
-            pause_flag,
-        })
-    }
-
-    pub fn task_manager(&self) -> TaskManagerWrapperImpl {
-        get_task_manager(&(&self.opts).into())
-    }
-
-    pub fn request_config(&self) -> ProofRequestOpt {
-        self.opts.proof_request_opt.clone()
-    }
-
-    pub fn is_paused(&self) -> bool {
-        self.pause_flag.load(Ordering::SeqCst)
-    }
-
-    /// Set the pause flag and notify the task manager to pause, then wait for the task manager to
-    /// finish the pause process.
-    ///
-    /// Note that this function is blocking until the task manager finishes the pause process.
-    pub async fn set_pause(&self, paused: bool) -> HostResult<()> {
-        self.pause_flag.store(paused, Ordering::SeqCst);
-        if paused {
-            // Notify task manager to start pause process
-            let (sender, receiver) = tokio::sync::oneshot::channel();
-            self.task_channel
-                .try_send(Message::SystemPause(sender))
-                .context("Failed to send pause message")?;
-
-            // Wait for the pause message to be processed
-            let result = receiver.await.context("Failed to receive pause message")?;
-            return result;
-        }
-        Ok(())
-    }
-}
-
 pub fn parse_opts() -> HostResult<Opts> {
     // Read the command line arguments;
     let mut opts = Opts::parse();
@@ -256,9 +154,18 @@ pub fn parse_chain_specs(opts: &Opts) -> SupportedChainSpecs {
     }
 }
 
+pub fn parse_ballot(opts: &Opts) -> Ballot {
+    let probs: BTreeMap<ProofType, f64> =
+        serde_json::from_str(&opts.ballot).expect("Failed to parse ballot config");
+    let ballot = Ballot::new(probs).expect("Failed to create ballot");
+    ballot.validate().expect("Failed to validate ballot");
+    ballot
+}
+
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
 
+#[allow(unused)]
 mod memory {
     use tracing::debug;
 

@@ -1,5 +1,5 @@
 #![no_main]
-harness::entrypoint!(main, tests, zk_op::tests);
+sp1_zkvm::entrypoint!(main);
 
 use raiko_lib::{
     builder::calculate_block_header, input::GuestInput, proof_type::ProofType,

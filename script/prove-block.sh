@@ -48,6 +48,23 @@ if [ "$proof" == "native" ]; then
         "json_guest_input": null
 	}
   '
+elif [ "$proof" == "zk_any" ]; then
+	proofParam='
+    "proof_type": "zk_any",
+	"native" : {
+        "json_guest_input": null
+	},
+	"zk_any": { "aggregation": false}
+  '
+elif [ "$proof" == "zk_any_aggregation" ]; then
+	proofParam='
+    "proof_type": "zk_any",
+	"native" : {
+        "json_guest_input": null
+	},
+	"zk_any": { "aggregation": false }
+  '
+
 elif [ "$proof" == "sp1" ]; then
 	proofParam='
     "proof_type": "sp1",
@@ -87,7 +104,7 @@ elif [ "$proof" == "risc0" ]; then
         "bonsai": false,
         "snark": false,
         "profile": true,
-        "execution_po2": 18
+        "execution_po2": 21
     }
   '
 elif [ "$proof" == "risc0-bonsai" ]; then
@@ -98,7 +115,7 @@ elif [ "$proof" == "risc0-bonsai" ]; then
         "bonsai": true,
         "snark": true,
         "profile": false,
-        "execution_po2": 20
+        "execution_po2": 21
     }
   '
 else

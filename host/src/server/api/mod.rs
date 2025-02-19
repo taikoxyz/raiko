@@ -41,7 +41,6 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
     let v3_api = v3::create_router();
     let v4_api = v4::create_router();
     let admin_api = admin::create_router();
-
     let router = Router::new()
         .nest("/v1", v1_api)
         .nest("/v2", v2_api)

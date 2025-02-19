@@ -1,54 +1,10 @@
-use std::io::{Error as IOError, ErrorKind as IOErrorKind};
-
-use chrono::{DateTime, Utc};
 use raiko_core::interfaces::AggregationOnlyRequest;
 use raiko_lib::{
     primitives::{ChainId, B256},
     proof_type::ProofType,
-    prover::{IdStore, IdWrite, ProofKey, ProverResult},
 };
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 use utoipa::ToSchema;
-
-#[cfg(feature = "in-memory")]
-use crate::mem_db::InMemoryTaskManager;
-#[cfg(feature = "redis-db")]
-use crate::redis_db::RedisTaskManager;
-
-#[cfg(feature = "in-memory")]
-mod mem_db;
-#[cfg(feature = "redis-db")]
-mod redis_db;
-
-// Types
-// ----------------------------------------------------------------
-#[derive(Debug, thiserror::Error)]
-pub enum TaskManagerError {
-    #[error("IO Error {0}")]
-    IOError(IOErrorKind),
-    #[cfg(feature = "redis-db")]
-    #[error("Redis Error {0}")]
-    RedisError(#[from] crate::redis_db::RedisDbError),
-    #[error("No data for query")]
-    NoData,
-    #[error("Anyhow error: {0}")]
-    Anyhow(String),
-}
-
-pub type TaskManagerResult<T> = Result<T, TaskManagerError>;
-
-impl From<IOError> for TaskManagerError {
-    fn from(error: IOError) -> TaskManagerError {
-        TaskManagerError::IOError(error.kind())
-    }
-}
-
-impl From<anyhow::Error> for TaskManagerError {
-    fn from(value: anyhow::Error) -> Self {
-        TaskManagerError::Anyhow(value.to_string())
-    }
-}
 
 #[allow(non_camel_case_types)]
 #[rustfmt::skip]
@@ -66,6 +22,8 @@ pub enum TaskStatus {
     Cancelled_Aborted,
     CancellationInProgress,
     InvalidOrUnsupportedBlock,
+    #[serde(rename = "zk_any_not_drawn")]
+    ZKAnyNotDrawn,
     IoFailure(String),
     AnyhowError(String),
     GuestProverFailure(String),
@@ -88,6 +46,7 @@ impl From<TaskStatus> for i32 {
             TaskStatus::Cancelled_Aborted => -3200,
             TaskStatus::CancellationInProgress => -3210,
             TaskStatus::InvalidOrUnsupportedBlock => -4000,
+            TaskStatus::ZKAnyNotDrawn => -4100,
             TaskStatus::IoFailure(_) => -5000,
             TaskStatus::AnyhowError(_) => -6000,
             TaskStatus::GuestProverFailure(_) => -7000,
@@ -112,6 +71,7 @@ impl From<i32> for TaskStatus {
             -3200 => TaskStatus::Cancelled_Aborted,
             -3210 => TaskStatus::CancellationInProgress,
             -4000 => TaskStatus::InvalidOrUnsupportedBlock,
+            -4100 => TaskStatus::ZKAnyNotDrawn,
             -5000 => TaskStatus::IoFailure("".to_string()),
             -6000 => TaskStatus::AnyhowError("".to_string()),
             -7000 => TaskStatus::GuestProverFailure("".to_string()),
@@ -149,38 +109,6 @@ pub struct ProofTaskDescriptor {
     pub prover: String,
 }
 
-impl From<(ChainId, u64, B256, ProofType, String)> for ProofTaskDescriptor {
-    fn from(
-        (chain_id, block_id, blockhash, proof_system, prover): (
-            ChainId,
-            u64,
-            B256,
-            ProofType,
-            String,
-        ),
-    ) -> Self {
-        ProofTaskDescriptor {
-            chain_id,
-            block_id,
-            blockhash,
-            proof_system,
-            prover,
-        }
-    }
-}
-
-impl From<ProofTaskDescriptor> for (ChainId, B256) {
-    fn from(
-        ProofTaskDescriptor {
-            chain_id,
-            blockhash,
-            ..
-        }: ProofTaskDescriptor,
-    ) -> Self {
-        (chain_id, blockhash)
-    }
-}
-
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(default)]
 /// A request for proof aggregation of multiple proofs.
@@ -211,11 +139,6 @@ pub struct BatchProofTaskDescriptor {
     pub prover: String,
 }
 
-/// Task status triplet (status, proof, timestamp).
-pub type TaskProvingStatus = (TaskStatus, Option<String>, DateTime<Utc>);
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct TaskProvingStatusRecords(pub Vec<TaskProvingStatus>);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskDescriptor {
@@ -227,218 +150,3 @@ pub enum TaskDescriptor {
 pub type TaskReport = (TaskDescriptor, TaskStatus);
 
 pub type AggregationTaskReport = (AggregationOnlyRequest, TaskStatus);
-
-#[derive(Debug, Clone, Default)]
-pub struct TaskManagerOpts {
-    pub max_db_size: usize,
-    pub redis_url: String,
-    pub redis_ttl: u64,
-}
-
-#[async_trait::async_trait]
-pub trait TaskManager: IdStore + IdWrite + Send + Sync {
-    /// Create a new task manager.
-    fn new(opts: &TaskManagerOpts) -> Self;
-
-    /// Enqueue a new task to the tasks database.
-    async fn enqueue_task(
-        &mut self,
-        request: &ProofTaskDescriptor,
-    ) -> TaskManagerResult<TaskProvingStatusRecords>;
-
-    /// Update a specific tasks progress.
-    async fn update_task_progress(
-        &mut self,
-        key: ProofTaskDescriptor,
-        status: TaskStatus,
-        proof: Option<&[u8]>,
-    ) -> TaskManagerResult<()>;
-
-    /// Returns the latest triplet (status, proof - if any, last update time).
-    async fn get_task_proving_status(
-        &mut self,
-        key: &ProofTaskDescriptor,
-    ) -> TaskManagerResult<TaskProvingStatusRecords>;
-
-    /// Returns the proof for the given task.
-    async fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<Vec<u8>>;
-
-    /// Returns the total and detailed database size.
-    async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)>;
-
-    /// Prune old tasks.
-    async fn prune_db(&mut self) -> TaskManagerResult<()>;
-
-    /// List all tasks in the db.
-    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>>;
-
-    /// List all stored ids.
-    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>>;
-
-    /// Enqueue a new aggregation task to the tasks database.
-    async fn enqueue_aggregation_task(
-        &mut self,
-        request: &AggregationOnlyRequest,
-    ) -> TaskManagerResult<()>;
-
-    /// Update a specific aggregation tasks progress.
-    async fn update_aggregation_task_progress(
-        &mut self,
-        request: &AggregationOnlyRequest,
-        status: TaskStatus,
-        proof: Option<&[u8]>,
-    ) -> TaskManagerResult<()>;
-
-    /// Returns the latest triplet (status, proof - if any, last update time).
-    async fn get_aggregation_task_proving_status(
-        &mut self,
-        request: &AggregationOnlyRequest,
-    ) -> TaskManagerResult<TaskProvingStatusRecords>;
-
-    /// Returns the proof for the given aggregation task.
-    async fn get_aggregation_task_proof(
-        &mut self,
-        request: &AggregationOnlyRequest,
-    ) -> TaskManagerResult<Vec<u8>>;
-
-    /// Prune old tasks.
-    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()>;
-
-    /// List all tasks in the db.
-    async fn list_all_aggregation_tasks(&mut self)
-        -> TaskManagerResult<Vec<AggregationTaskReport>>;
-}
-
-pub fn ensure(expression: bool, message: &str) -> TaskManagerResult<()> {
-    if !expression {
-        return Err(TaskManagerError::Anyhow(message.to_string()));
-    }
-    Ok(())
-}
-
-pub struct TaskManagerWrapper<T: TaskManager> {
-    manager: T,
-}
-
-#[async_trait::async_trait]
-impl<T: TaskManager> IdWrite for TaskManagerWrapper<T> {
-    async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()> {
-        self.manager.store_id(key, id).await
-    }
-
-    async fn remove_id(&mut self, key: ProofKey) -> ProverResult<()> {
-        self.manager.remove_id(key).await
-    }
-}
-
-#[async_trait::async_trait]
-impl<T: TaskManager> IdStore for TaskManagerWrapper<T> {
-    async fn read_id(&mut self, key: ProofKey) -> ProverResult<String> {
-        self.manager.read_id(key).await
-    }
-}
-
-#[async_trait::async_trait]
-impl<T: TaskManager> TaskManager for TaskManagerWrapper<T> {
-    fn new(opts: &TaskManagerOpts) -> Self {
-        let manager = T::new(opts);
-        Self { manager }
-    }
-
-    async fn enqueue_task(
-        &mut self,
-        request: &ProofTaskDescriptor,
-    ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        self.manager.enqueue_task(request).await
-    }
-
-    async fn update_task_progress(
-        &mut self,
-        key: ProofTaskDescriptor,
-        status: TaskStatus,
-        proof: Option<&[u8]>,
-    ) -> TaskManagerResult<()> {
-        self.manager.update_task_progress(key, status, proof).await
-    }
-
-    async fn get_task_proving_status(
-        &mut self,
-        key: &ProofTaskDescriptor,
-    ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        self.manager.get_task_proving_status(key).await
-    }
-
-    async fn get_task_proof(&mut self, key: &ProofTaskDescriptor) -> TaskManagerResult<Vec<u8>> {
-        self.manager.get_task_proof(key).await
-    }
-
-    async fn get_db_size(&mut self) -> TaskManagerResult<(usize, Vec<(String, usize)>)> {
-        self.manager.get_db_size().await
-    }
-
-    async fn prune_db(&mut self) -> TaskManagerResult<()> {
-        self.manager.prune_db().await
-    }
-
-    async fn list_all_tasks(&mut self) -> TaskManagerResult<Vec<TaskReport>> {
-        self.manager.list_all_tasks().await
-    }
-
-    async fn list_stored_ids(&mut self) -> TaskManagerResult<Vec<(ProofKey, String)>> {
-        self.manager.list_stored_ids().await
-    }
-
-    async fn enqueue_aggregation_task(
-        &mut self,
-        request: &AggregationOnlyRequest,
-    ) -> TaskManagerResult<()> {
-        self.manager.enqueue_aggregation_task(request).await
-    }
-
-    async fn update_aggregation_task_progress(
-        &mut self,
-        request: &AggregationOnlyRequest,
-        status: TaskStatus,
-        proof: Option<&[u8]>,
-    ) -> TaskManagerResult<()> {
-        self.manager
-            .update_aggregation_task_progress(request, status, proof)
-            .await
-    }
-
-    async fn get_aggregation_task_proving_status(
-        &mut self,
-        request: &AggregationOnlyRequest,
-    ) -> TaskManagerResult<TaskProvingStatusRecords> {
-        self.manager
-            .get_aggregation_task_proving_status(request)
-            .await
-    }
-
-    async fn get_aggregation_task_proof(
-        &mut self,
-        request: &AggregationOnlyRequest,
-    ) -> TaskManagerResult<Vec<u8>> {
-        self.manager.get_aggregation_task_proof(request).await
-    }
-
-    async fn prune_aggregation_db(&mut self) -> TaskManagerResult<()> {
-        self.manager.prune_aggregation_db().await
-    }
-
-    async fn list_all_aggregation_tasks(
-        &mut self,
-    ) -> TaskManagerResult<Vec<AggregationTaskReport>> {
-        self.manager.list_all_aggregation_tasks().await
-    }
-}
-
-#[cfg(feature = "in-memory")]
-pub type TaskManagerWrapperImpl = TaskManagerWrapper<InMemoryTaskManager>;
-#[cfg(feature = "redis-db")]
-pub type TaskManagerWrapperImpl = TaskManagerWrapper<RedisTaskManager>;
-
-pub fn get_task_manager(opts: &TaskManagerOpts) -> TaskManagerWrapperImpl {
-    debug!("get task manager with options: {:?}", opts);
-    TaskManagerWrapperImpl::new(opts)
-}
