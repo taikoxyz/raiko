@@ -50,6 +50,7 @@ raiko-ballot = { path = "./ballot" }
 reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
     "alloy-compat",
     "taiko",
+    "k256",
 ] }
 reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
@@ -61,9 +62,9 @@ reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = 
 reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 
 # risc zero
-risc0-zkvm = { version = "=1.2.0", features = ["prove", "getrandom"] }
-bonsai-sdk = { version = "=1.2.0" }
-risc0-binfmt = { version = "=1.2.0" }
+risc0-zkvm = { version = "=1.2.3", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "=1.2.3" }
+risc0-binfmt = { version = "=1.2.3" }
 
 # SP1
 sp1-sdk = { version = "=4.0.0-rc.8" }
