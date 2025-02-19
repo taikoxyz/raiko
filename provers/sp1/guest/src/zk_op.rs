@@ -1,11 +1,7 @@
-use ::secp256k1::SECP256K1;
+use k256 as sp1_k256;
+use raiko_lib::primitives::keccak256;
 use num_bigint::BigUint;
-use reth_primitives::public_key_to_address;
 use revm_precompile::{bn128::ADD_INPUT_LEN, utilities::right_pad, zk_op::ZkvmOperator, Error};
-use secp256k1::{
-    ecdsa::{RecoverableSignature, RecoveryId},
-    Message,
-};
 use sha2 as sp1_sha2;
 use sp1_curves::{weierstrass::bn254::Bn254, AffinePoint};
 
@@ -54,19 +50,34 @@ impl ZkvmOperator for Sp1Operator {
     fn secp256k1_ecrecover(
         &self,
         sig: &[u8; 64],
-        recid: u8,
+        mut recid: u8,
         msg: &[u8; 32],
     ) -> Result<[u8; 32], Error> {
-        let sig =
-            RecoverableSignature::from_compact(sig, RecoveryId::from_i32(recid as i32).unwrap())
-                .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
-        let msg =
-            Message::from_digest_slice(msg).map_err(|e| Error::ZkvmOperation(e.to_string()))?;
-        let pk = SECP256K1
-            .recover_ecdsa(&msg, &sig)
-            .map_err(|e| Error::ZkvmOperation(e.to_string()))?;
+        use sp1_k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 
-        Ok(public_key_to_address(pk).into_word().0)
+        // parse signature
+        let mut sig = Signature::from_slice(sig.as_slice()).map_err(|_| {
+            Error::ZkvmOperation("Patched k256 deserialize signature failed".to_string())
+        })?;
+        // normalize signature and flip recovery id if needed.
+        if let Some(sig_normalized) = sig.normalize_s() {
+            sig = sig_normalized;
+            recid ^= 1;
+        }
+        let recid = RecoveryId::from_byte(recid).expect("recovery ID is valid");
+        // recover key
+        let recovered_key = VerifyingKey::recover_from_prehash(&msg[..], &sig, recid)
+            .map_err(|_| Error::ZkvmOperation("Patched k256 recover key failed".to_string()))?;
+        // hash it
+        let mut hash = keccak256(
+            &recovered_key
+                .to_encoded_point(/* compress = */ false)
+                .as_bytes()[1..],
+        );
+
+        // truncate to 20 bytes
+        hash[..12].fill(0);
+        Ok(*hash)
     }
 }
 
