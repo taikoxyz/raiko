@@ -46,7 +46,17 @@ impl Backend {
         key: &str,
     ) -> RedisResult<Vec<K>> {
         match self {
-            Backend::Redis(conn) => conn.keys(key),
+            Backend::Redis(conn) => {
+                // NOTE: For compatibility reasons, we convert the redis keys to strings first, and then
+                // deserialize them to the desired type and filter out the invalid ones. This is because
+                // the redis may stored old items that are in the old and incompatible format.
+                let string_keys: Vec<String> = conn.keys(key)?;
+                let keys: Vec<K> = string_keys
+                    .iter()
+                    .filter_map(|k| serde_json::from_str(k).ok())
+                    .collect();
+                Ok(keys)
+            }
             Backend::Memory(conn) => conn.keys(key),
         }
     }
