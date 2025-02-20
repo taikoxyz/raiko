@@ -221,3 +221,62 @@ impl From<RequestEntityAndStatus> for (RequestEntity, StatusWithContext) {
 }
 
 impl_display_using_json_pretty!(RequestEntityAndStatus);
+
+#[cfg(test)]
+mod tests {
+    use crate::{SingleProofRequestEntity, SingleProofRequestKey};
+
+    use super::*;
+    use alloy_primitives::Address;
+    use raiko_lib::{input::BlobProofType, primitives::B256, proof_type::ProofType};
+    use std::collections::HashMap;
+
+    #[ignore]
+    #[test]
+    fn test_redis_pool_list() {
+        // Create Redis pool
+        let config = RedisPoolConfig {
+            enable_redis_pool: true,
+            redis_url: "redis://127.0.0.1:6379".to_string(),
+            redis_ttl: 3600,
+        };
+        let mut pool = Pool::open(config).map_err(|e| e.to_string()).unwrap();
+
+        // Create valid request key and entity
+        let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
+            1,
+            1234,
+            B256::ZERO,
+            ProofType::Native,
+            "0x1234567890123456789012345678901234567890".to_string(),
+        ));
+
+        let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
+            1234,
+            5678,
+            "sepolia".to_string(),
+            "sepolia".to_string(),
+            B256::ZERO,
+            Address::ZERO,
+            ProofType::Native,
+            BlobProofType::ProofOfEquivalence,
+            HashMap::new(),
+        ));
+
+        let status = StatusWithContext::new_registered();
+
+        // Add valid request
+        pool.add(request_key.clone(), request_entity, status)
+            .unwrap();
+
+        // Try to add invalid data directly to Redis
+        let mut conn = pool.conn().unwrap();
+        conn.set_ex::<String, String>("invalid_key".to_string(), "invalid_value".to_string(), 3600)
+            .unwrap();
+
+        // List should only return valid entries
+        let result = pool.list().unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result.contains_key(&request_key));
+    }
+}
