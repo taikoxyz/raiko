@@ -124,6 +124,8 @@ pub struct SingleProofRequestKey {
     proof_type: ProofType,
     /// The prover of the request
     prover_address: String,
+
+    patch: String,
 }
 
 impl SingleProofRequestKey {
@@ -134,12 +136,15 @@ impl SingleProofRequestKey {
         proof_type: ProofType,
         prover_address: String,
     ) -> Self {
+        let patch = proof_type.to_string();
         Self {
             chain_id,
             block_number,
             block_hash,
             proof_type,
             prover_address,
+
+            patch,
         }
     }
 }
@@ -152,13 +157,17 @@ pub struct AggregationRequestKey {
     // TODO add chain_id
     proof_type: ProofType,
     block_numbers: Vec<u64>,
+    patch: String,
 }
 
 impl AggregationRequestKey {
     pub fn new(proof_type: ProofType, block_numbers: Vec<u64>) -> Self {
+        let patch = proof_type.to_string();
         Self {
             proof_type,
             block_numbers,
+
+            patch,
         }
     }
 }
