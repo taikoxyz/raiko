@@ -95,6 +95,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         ..Default::default()
     };
 
+    let measurement = Measurement::start("Fetching and execution...", true);
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(provider, taiko_chain_spec, parent_block_number).await?;
 
@@ -103,7 +104,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
     execute_txs(&mut builder).await?;
-
+    measurement.stop();
     let Some(db) = builder.db.as_mut() else {
         return Err(RaikoError::Preflight("No db in builder".to_owned()));
     };

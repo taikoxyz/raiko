@@ -1,5 +1,5 @@
 use axum::{response::IntoResponse, Router};
-use raiko_lib::input::GuestOutput;
+use raiko_lib::input::{GuestInput, GuestOutput};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tower::ServiceBuilder;
@@ -11,6 +11,7 @@ use crate::interfaces::HostError;
 use raiko_reqactor::Actor;
 
 pub mod health;
+pub mod input;
 pub mod metrics;
 pub mod proof;
 
@@ -52,13 +53,12 @@ pub struct Docs;
 #[derive(Debug, Serialize, ToSchema, Deserialize)]
 /// The response body of a proof request.
 pub struct ProofResponse {
+    #[schema(value_type = Option<GuestInput>)]
+    /// The input of the prover.
+    pub input: Option<GuestInput>,
     #[schema(value_type = Option<GuestOutputDoc>)]
     /// The output of the prover.
     pub output: Option<GuestOutput>,
-    /// The proof.
-    pub proof: Option<String>,
-    /// The quote.
-    pub quote: Option<String>,
 }
 
 impl ProofResponse {
@@ -128,6 +128,7 @@ pub fn create_router(concurrency_limit: usize) -> Router<Actor> {
             proof::create_router()
                 .layer(ServiceBuilder::new().concurrency_limit(concurrency_limit)),
         )
+        .nest("/input", input::create_router())
         .nest("/health", health::create_router())
         .nest("/metrics", metrics::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))

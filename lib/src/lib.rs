@@ -14,7 +14,7 @@ mod no_std {
     };
 }
 
-use tracing::debug;
+use tracing::{debug, info};
 
 pub mod builder;
 pub mod consts;
@@ -148,7 +148,7 @@ impl Measurement {
 }
 
 pub fn print_duration(title: &str, duration: time::Duration) {
-    debug!(
+    info!(
         "{title}{}.{:03} seconds",
         duration.as_secs(),
         duration.subsec_millis()
