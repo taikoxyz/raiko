@@ -363,7 +363,10 @@ mod tests {
         let provider = IpcBlockDataProvider::new("ipc:/tmp/geth.ipc", 1)
             .await
             .unwrap();
-        let blocks = provider.get_blocks(&[(1, true)]).await.unwrap();
+        let blocks = provider
+            .get_blocks((1..=1).map(|i| (i, true)).collect::<Vec<_>>().as_slice())
+            .await
+            .unwrap();
         assert_eq!(blocks.len(), 1);
     }
 
