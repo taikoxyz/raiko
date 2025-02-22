@@ -329,6 +329,7 @@ impl BlockDataProvider for IpcBlockDataProvider {
 #[cfg(test)]
 mod tests {
     use alloy_primitives::{Address, U256};
+    use alloy_rpc_types::BlockTransactionsKind;
 
     use super::*;
     use std::collections::HashMap;
@@ -339,6 +340,22 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(provider.block_number, 1);
+    }
+
+    #[tokio::test]
+    async fn test_ipc_block_data_provider_get_block() {
+        let provider = IpcBlockDataProvider::new("ipc:/tmp/geth.ipc", 1)
+            .await
+            .unwrap();
+        let latest_block = provider.provider.get_block_number().await;
+        println!("Latest block: {latest_block:?}");
+
+        let block = provider
+            .provider
+            .get_block(1.into(), BlockTransactionsKind::Full)
+            .await
+            .unwrap();
+        print!("block info: {:?}", block);
     }
 
     #[tokio::test]
