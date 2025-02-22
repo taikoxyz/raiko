@@ -18,7 +18,7 @@ pub type IpcProvider<N = alloy_network::Ethereum> = RootProvider<PubSubFrontend,
 #[derive(Clone)]
 pub struct IpcBlockDataProvider {
     pub provider: IpcProvider,
-    block_number: u64,
+    pub block_number: u64,
 }
 
 impl IpcBlockDataProvider {
@@ -334,6 +334,19 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    async fn test_provider() -> IpcBlockDataProvider {
+        let block_number = std::env::var("BLOCK_NUMBER")
+            .unwrap_or_else(|_| "1".to_string())
+            .parse::<u64>()
+            .unwrap_or_else(|_| 1u64);
+        let ipc_path =
+            std::env::var("IPC_PATH").unwrap_or_else(|_| "ipc:/tmp/geth.ipc".to_string());
+        let provider = IpcBlockDataProvider::new(&ipc_path, block_number)
+            .await
+            .unwrap();
+        provider
+    }
+
     #[tokio::test]
     async fn test_ipc_block_data_provider() {
         let provider = IpcBlockDataProvider::new("ipc:/tmp/geth.ipc", 1)
@@ -344,15 +357,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_ipc_block_data_provider_get_block() {
-        let provider = IpcBlockDataProvider::new("ipc:/tmp/geth.ipc", 1)
-            .await
-            .unwrap();
+        let provider = test_provider().await;
         let latest_block = provider.provider.get_block_number().await;
         println!("Latest block: {latest_block:?}");
 
         let block = provider
             .provider
-            .get_block(1.into(), BlockTransactionsKind::Full)
+            .get_block(provider.block_number.into(), BlockTransactionsKind::Full)
             .await
             .unwrap();
         print!("block info: {:?}", block);
@@ -360,34 +371,34 @@ mod tests {
 
     #[tokio::test]
     async fn test_ipc_block_data_provider_get_blocks() {
-        let provider = IpcBlockDataProvider::new("ipc:/tmp/geth.ipc", 1)
-            .await
-            .unwrap();
+        let provider = test_provider().await;
+        let block_number = provider.block_number;
         let blocks = provider
-            .get_blocks((1..=5).map(|i| (i, true)).collect::<Vec<_>>().as_slice())
+            .get_blocks(
+                (block_number..=(block_number + 5))
+                    .map(|i| (i, true))
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            )
             .await
             .unwrap();
-        assert_eq!(blocks.len(), 5);
+        assert_eq!(blocks.len(), 6);
         assert!(blocks
             .iter()
             .enumerate()
-            .all(|(i, b)| b.header.number == Some(i as u64)));
+            .all(|(i, b)| b.header.number == Some(i as u64 + block_number)));
     }
 
     #[tokio::test]
     async fn test_ipc_block_data_provider_get_accounts() {
-        let provider = IpcBlockDataProvider::new("ipc:/tmp/geth.ipc", 1)
-            .await
-            .unwrap();
+        let provider = test_provider().await;
         let accounts = provider.get_accounts(&[Address::default()]).await.unwrap();
         assert_eq!(accounts.len(), 1);
     }
 
     #[tokio::test]
     async fn test_ipc_block_data_provider_get_storage_values() {
-        let provider = IpcBlockDataProvider::new("ipc:/tmp/geth.ipc", 1)
-            .await
-            .unwrap();
+        let provider = test_provider().await;
         let values = provider
             .get_storage_values(&[(Address::default(), U256::default())])
             .await
