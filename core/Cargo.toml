@@ -26,11 +26,12 @@ alloy-rlp-derive = { workspace = true }
 alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-rpc-types = { workspace = true }
-alloy-provider = { workspace = true }
+alloy-provider = { workspace = true, features = ['ipc'] }
 alloy-transport-http = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
+alloy-pubsub = {workspace = true}
 
 # tracing and logging
 tracing = { workspace = true }

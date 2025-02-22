@@ -12,6 +12,7 @@ use crate::{
 
 pub mod db;
 pub mod rpc;
+pub mod ipc;
 
 #[allow(async_fn_in_trait)]
 pub trait BlockDataProvider {
