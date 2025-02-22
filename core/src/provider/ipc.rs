@@ -364,10 +364,14 @@ mod tests {
             .await
             .unwrap();
         let blocks = provider
-            .get_blocks((1..=1).map(|i| (i, true)).collect::<Vec<_>>().as_slice())
+            .get_blocks((1..=5).map(|i| (i, true)).collect::<Vec<_>>().as_slice())
             .await
             .unwrap();
-        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks.len(), 5);
+        assert!(blocks
+            .iter()
+            .enumerate()
+            .all(|(i, b)| b.header.number == Some(i as u64)));
     }
 
     #[tokio::test]
