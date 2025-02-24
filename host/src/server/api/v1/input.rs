@@ -61,7 +61,20 @@ async fn input_handler(
         .expect("input generation failed");
     let elapsed = start_time.elapsed();
     observe_prepare_input_time(block_number, elapsed, true);
+    info!(
+        "generate guest input for block_number: {}, done",
+        block_number
+    );
+
+    let start_time = Instant::now();
     raiko.get_output(&input).expect("output generation failed");
+    let elapsed = start_time.elapsed();
+    observe_prepare_input_time(block_number, elapsed, true);
+    info!(
+        "generate guest output for block_number: {}, done",
+        block_number
+    );
+
     Ok(axum::Json(Status::Ok {
         data: ProofResponse {
             input: Some(input),
