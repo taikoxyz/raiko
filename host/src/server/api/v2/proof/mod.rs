@@ -59,7 +59,11 @@ async fn proof_handler(
                 #[cfg(not(feature = "sgx"))]
                 return Ok(TaskStatus::AnyhowError("SGX not supported".to_string()).into());
             }
-            _ => return Ok(TaskStatus::AnyhowError(format!("Unknown proof type: {}", proof_type)).into()),
+            _ => {
+                return Ok(
+                    TaskStatus::AnyhowError(format!("Unknown proof type: {}", proof_type)).into(),
+                )
+            }
         }
     }
 
@@ -117,11 +121,18 @@ async fn proof_handler(
             }
         }
         None => {
-            manager.enqueue_task(&key).await?;
-
-            prover_state
+            if prover_state
                 .task_channel
-                .try_send(Message::Task(proof_request))?;
+                .try_send(Message::Task(proof_request))
+                .is_err()
+            {
+                return Ok(TaskStatus::AnyhowError("Task queue is full".to_string()).into());
+            }
+
+            if manager.enqueue_task(&key).await.is_err() {
+                tracing::error!("Unable to enqueue the task");
+                return Ok(TaskStatus::AnyhowError("Unable to enqueue the task".to_string()).into());
+            }
 
             Ok(TaskStatus::Registered.into())
         }

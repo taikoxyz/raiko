@@ -220,6 +220,8 @@ pub struct ProofRequest {
     #[serde(flatten)]
     /// Additional prover params.
     pub prover_args: HashMap<String, Value>,
+    /// GPU number to use for proof generation
+    pub gpu_number: Option<u32>,
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
@@ -350,7 +352,14 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                     RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
                 })?,
             prover_args: value.prover_args.into(),
+            gpu_number: None,
         })
+    }
+}
+
+impl ProofRequest {
+    pub fn set_gpu_number(&mut self, gpu_number: Option<u32>) {
+        self.gpu_number = gpu_number;
     }
 }
 

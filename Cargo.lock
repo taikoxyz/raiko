@@ -8932,7 +8932,7 @@ dependencies = [
 [[package]]
 name = "sp1-build"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "anyhow",
  "cargo_metadata 0.18.1",
@@ -8951,7 +8951,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-executor"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -8989,7 +8989,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "bincode",
  "cbindgen",
@@ -9045,7 +9045,7 @@ dependencies = [
 [[package]]
 name = "sp1-cuda"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "bincode",
  "prost",
@@ -9060,7 +9060,7 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "cfg-if",
  "dashu",
@@ -9081,7 +9081,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -9122,7 +9122,7 @@ dependencies = [
 [[package]]
 name = "sp1-helper"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "sp1-build",
 ]
@@ -9130,7 +9130,7 @@ dependencies = [
 [[package]]
 name = "sp1-primitives"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "bincode",
  "hex",
@@ -9147,7 +9147,7 @@ dependencies = [
 [[package]]
 name = "sp1-prover"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "anyhow",
  "bincode",
@@ -9189,7 +9189,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -9222,7 +9222,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -9243,7 +9243,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "backtrace",
  "cbindgen",
@@ -9285,7 +9285,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -9294,7 +9294,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "anyhow",
  "bincode",
@@ -9319,7 +9319,7 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "alloy-primitives 0.8.19",
  "alloy-signer 0.8.3",
@@ -9366,7 +9366,7 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "4.0.1"
-source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-no-ctrlc#717c67df97b513dfb56a7df0ec47f53c45449b9d"
+source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.0.1-single-gpu#5261016502a7b1576ec527a6e997a9d82f02d3e7"
 dependencies = [
  "arrayref",
  "hashbrown 0.14.5",

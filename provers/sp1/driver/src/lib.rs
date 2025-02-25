@@ -110,10 +110,16 @@ impl Prover for Sp1Prover {
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 
+        let gpu_number: u32 = config.get("gpu_number")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as u32)
+            .unwrap();
+        info!("GPU Number: {}", gpu_number);
+
         let network_client = Arc::new(ProverClient::builder().network().build());
         let client: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
             ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
-            ProverMode::Local => Box::new(ProverClient::builder().cuda().build()),
+            ProverMode::Local => Box::new(ProverClient::builder().cuda().with_gpu_number(gpu_number).build()),
             ProverMode::Network => Box::new(ProverClient::builder().network().build()),
         };
 
@@ -287,11 +293,18 @@ impl Prover for Sp1Prover {
             }
         }
 
+        // TODO Produce aggregation proof on a single gpu. gpu_number is None now
+       let gpu_number: u32 = config.get("gpu_number")
+            .and_then(|v| v.as_i64())
+            .map(|v| v as u32)
+            .unwrap();
+        info!("GPU Number: {}", gpu_number);
+
         // Generate the proof for the given program.
         let network_client = Arc::new(ProverClient::builder().network().build());
         let client: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
             ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
-            ProverMode::Local => Box::new(ProverClient::builder().cuda().build()),
+            ProverMode::Local => Box::new(ProverClient::builder().cuda().with_gpu_number(gpu_number).build()),
             ProverMode::Network => Box::new(ProverClient::builder().network().build()),
         };
 

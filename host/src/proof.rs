@@ -46,6 +46,7 @@ use crate::{
 pub struct ProofActor {
     opts: Opts,
     chain_specs: SupportedChainSpecs,
+    available_gpus: Arc<Mutex<VecDeque<u32>>>,
     aggregate_tasks: Arc<Mutex<HashMap<AggregationOnlyRequest, CancellationToken>>>,
     running_tasks: Arc<Mutex<HashMap<ProofTaskDescriptor, CancellationToken>>>,
     pending_tasks: Arc<Mutex<VecDeque<ProofRequest>>>,
@@ -69,9 +70,14 @@ impl ProofActor {
         >::new()));
         let pending_tasks = Arc::new(Mutex::new(VecDeque::<ProofRequest>::new()));
 
+        let available_gpus: Arc<Mutex<VecDeque<u32>>> = Arc::new(Mutex::new(
+            VecDeque::from((0..opts.concurrency_limit).map(|x| x as u32).collect::<Vec<u32>>()),
+        ));
+
         Self {
             opts,
             chain_specs,
+            available_gpus,
             aggregate_tasks,
             running_tasks,
             pending_tasks,
@@ -148,6 +154,7 @@ impl ProofActor {
 
         let sender = self.sender.clone();
         let tasks = self.running_tasks.clone();
+        let gpus = self.available_gpus.clone();
         let opts = self.opts.clone();
         let chain_specs = self.chain_specs.clone();
 
@@ -167,8 +174,14 @@ impl ProofActor {
                     };
                 }
             }
-            let mut tasks = tasks.lock().await;
-            tasks.remove(&key);
+            {
+                let mut gpus = gpus.lock().await;
+                gpus.push_back(proof_request.gpu_number.unwrap());
+            }
+            {
+                let mut tasks = tasks.lock().await;
+                tasks.remove(&key);
+            }
             // notify complete task to let next pending task run
             sender
                 .send(Message::TaskComplete(proof_request))
@@ -256,10 +269,21 @@ impl ProofActor {
                         error!("Failed to cancel task: {error}")
                     }
                 }
-                Message::Task(proof_request) => {
+                Message::Task(mut proof_request) => {
                     debug!("Message::Task({proof_request:?})");
                     let running_task_count = self.running_tasks.lock().await.len();
                     if running_task_count < self.opts.concurrency_limit {
+                        // Set gpu number for task
+                        if proof_request.gpu_number.is_some() {
+                            panic!("GPU number is already set");
+                        }
+                        {
+                            let mut available_gpus = self.available_gpus.lock().await;
+                            let gpu_number = available_gpus.pop_front().expect("No available GPU");
+                            proof_request.set_gpu_number(Some(gpu_number));
+                        }
+
+
                         info!("Running task {proof_request:?}");
                         self.run_task(proof_request).await;
                     } else {
