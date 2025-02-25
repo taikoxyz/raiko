@@ -1,0 +1,4 @@
+[submodule "gaiko"]
+	path = gaiko
+	url = git@github.com:taikoxyz/gaiko.git
+	branch = pacaya
