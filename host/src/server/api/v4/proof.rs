@@ -16,7 +16,6 @@ use raiko_reqpool::{
 use serde_json::Value;
 use utoipa::OpenApi;
 
-// mod aggregate;
 // mod cancel;
 
 #[utoipa::path(post, path = "/proof",
@@ -117,7 +116,6 @@ struct Docs;
 pub fn create_docs() -> utoipa::openapi::OpenApi {
     [
         // cancel::create_docs(),
-        // aggregate::create_docs(),
         v2::proof::report::create_docs(),
         v2::proof::list::create_docs(),
         v2::proof::prune::create_docs(),
@@ -134,7 +132,6 @@ pub fn create_router() -> Router<Actor> {
     Router::new()
         .route("/", post(proof_handler))
         // .nest("/cancel", cancel::create_router())
-        // .nest("/aggregate", aggregate::create_router())
         .nest("/report", v2::proof::report::create_router())
         .nest("/list", v2::proof::list::create_router())
         .nest("/prune", v2::proof::prune::create_router())

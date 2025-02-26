@@ -7,7 +7,7 @@ use raiko_lib::{
     consts::ChainSpec,
     input::{BlobProofType, GuestBatchInput, GuestInput, TaikoGuestInput, TaikoProverData},
     primitives::mpt::proofs_to_tries,
-    utils::{generate_transactions_for_batch_blocks, generate_transactions},
+    utils::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
 };
 use reth_primitives::TransactionSigned;

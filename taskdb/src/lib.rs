@@ -139,7 +139,6 @@ pub struct BatchProofTaskDescriptor {
     pub prover: String,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskDescriptor {
     SingleProof(ProofTaskDescriptor),

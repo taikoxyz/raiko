@@ -12,6 +12,7 @@ use raiko_lib::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
+use std::str::FromStr;
 use std::{collections::HashMap, fmt::Display, path::Path};
 use utoipa::ToSchema;
 
@@ -266,49 +267,80 @@ pub struct ProofRequest {
     pub prover_args: HashMap<String, Value>,
 }
 
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct BatchMetadata {
+    pub batch_id: u64,
+    pub l1_inclusion_block_number: u64,
+}
+
+impl std::str::FromStr for BatchMetadata {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() != 2 {
+            return Err(anyhow::anyhow!(
+                "Invalid BatchMetadata format. Expected 'batch_id:l1_inclusion_block_number'"
+            ));
+        }
+
+        let batch_id = parts[0]
+            .parse::<u64>()
+            .map_err(|_| anyhow::anyhow!("Invalid batch_id"))?;
+        let l1_inclusion_block_number = parts[1]
+            .parse::<u64>()
+            .map_err(|_| anyhow::anyhow!("Invalid l1_inclusion_block_number"))?;
+
+        Ok(Self {
+            batch_id,
+            l1_inclusion_block_number,
+        })
+    }
+}
+
+impl std::fmt::Display for BatchMetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.batch_id, self.l1_inclusion_block_number)
+    }
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct BatchProofRequest {
+    pub batches: Vec<BatchMetadata>,
+
+    pub network: String,
+    pub l1_network: String,
+    pub graffiti: B256,
+    #[serde_as(as = "DisplayFromStr")]
+    pub prover: Address,
+    pub proof_type: ProofType,
+    pub blob_proof_type: BlobProofType,
+    #[serde(flatten)]
+    pub prover_args: ProverSpecificOpts,
+}
+
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
-#[serde(default)]
-/// A partial proof request config.
-pub struct ProofRequestOpt {
-    #[arg(long, require_equals = true)]
-    /// The block number for the block to generate a proof for.
-    pub block_number: Option<u64>,
-    #[arg(long, require_equals = true)]
-    /// The batch id for the batch of blocks to generate a proof for.
-    pub batch_id: Option<u64>,
-    #[arg(long, require_equals = true)]
-    /// The block number for the l2 block to be proposed.
-    /// in hekla, it is the anchored l1 block height - 1
-    /// in ontake, it is the anchored l1 block height - (1..64)
-    /// both above can be optional because raiko know anchor block id.
-    /// in pacaya, it is the height of the l1 block which proposed the l2 block and must be presented
-    /// as raiko does not know the anchor block id.
-    pub l1_inclusion_block_number: Option<u64>,
-    /// To support batch proof generation.
-    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
-    /// This is used for batch proof generation.
-    pub l2_block_numbers: Option<Vec<u64>>,
-    #[arg(long, require_equals = true)]
-    /// The network to generate the proof for.
-    pub network: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The L1 network to generate the proof for.
-    pub l1_network: Option<String>,
-    #[arg(long, require_equals = true)]
-    // Graffiti.
+pub struct BatchProofRequestOpt {
+    // Required fields
+    #[arg(long, value_delimiter = ',', value_parser = clap::builder::ValueParser::new(parse_batch_anchor))]
+    pub batches: Vec<BatchMetadata>,
+    pub network: String,
+    pub l1_network: String,
+    pub proof_type: ProofType,
+
+    // Optional fields
     pub graffiti: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The protocol instance data.
     pub prover: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The proof type.
-    pub proof_type: Option<String>,
-    /// Blob proof type.
-    pub blob_proof_type: Option<String>,
+    pub blob_proof_type: Option<BlobProofType>,
     #[command(flatten)]
     #[serde(flatten)]
-    /// Any additional prover params in JSON format.
     pub prover_args: ProverSpecificOpts,
+}
+
+fn parse_batch_anchor(s: &str) -> Result<BatchMetadata, anyhow::Error> {
+    BatchMetadata::from_str(s)
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args, PartialEq, Eq, Hash)]
@@ -408,7 +440,52 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
     }
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
+#[serde(default)]
+/// A partial proof request config.
+pub struct ProofRequestOpt {
+    #[arg(long, require_equals = true)]
+    /// The block number for the block to generate a proof for.
+    pub block_number: Option<u64>,
+    #[arg(long, require_equals = true)]
+    /// The batch id for the batch of blocks to generate a proof for.
+    pub batch_id: Option<u64>,
+    #[arg(long, require_equals = true)]
+    /// The block number for the l2 block to be proposed.
+    /// in hekla, it is the anchored l1 block height - 1
+    /// in ontake, it is the anchored l1 block height - (1..64)
+    /// both above can be optional because raiko know anchor block id.
+    /// in pacaya, it is the height of the l1 block which proposed the l2 block and must be presented
+    /// as raiko does not know the anchor block id.
+    pub l1_inclusion_block_number: Option<u64>,
+    /// To support batch proof generation.
+    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
+    /// This is used for batch proof generation.
+    pub l2_block_numbers: Option<Vec<u64>>,
+    #[arg(long, require_equals = true)]
+    /// The network to generate the proof for.
+    pub network: Option<String>,
+    #[arg(long, require_equals = true)]
+    /// The L1 network to generate the proof for.
+    pub l1_network: Option<String>,
+    #[arg(long, require_equals = true)]
+    // Graffiti.
+    pub graffiti: Option<String>,
+    #[arg(long, require_equals = true)]
+    /// The protocol instance data.
+    pub prover: Option<String>,
+    #[arg(long, require_equals = true)]
+    /// The proof type.
+    pub proof_type: Option<String>,
+    /// Blob proof type.
+    pub blob_proof_type: Option<String>,
+    #[command(flatten)]
+    #[serde(flatten)]
+    /// Any additional prover params in JSON format.
+    pub prover_args: ProverSpecificOpts,
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq, Eq, Hash)]
 #[serde(default)]
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationRequest {

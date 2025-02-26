@@ -9,6 +9,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::server::api::v1::{self, GuestOutputDoc};
 use raiko_reqactor::Actor;
 
+mod batch;
 mod proof;
 
 #[derive(OpenApi)]
@@ -31,6 +32,8 @@ mod proof;
         schemas(
             raiko_core::interfaces::ProofRequestOpt,
             raiko_core::interfaces::ProverSpecificOpts,
+            raiko_core::interfaces::BatchProofRequest,
+            raiko_core::interfaces::BatchMetadata,
             crate::interfaces::HostError,
             GuestOutputDoc,
             ProofResponse,
@@ -148,6 +151,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
         v1::health::create_docs(),
         v1::metrics::create_docs(),
         proof::create_docs(),
+        batch::create_docs(),
     ]
     .into_iter()
     .fold(Docs::openapi(), |mut doc, sub_doc| {
@@ -163,6 +167,7 @@ pub fn create_router() -> Router<Actor> {
         // Only add the concurrency limit to the proof route. We want to still be able to call
         // healthchecks and metrics to have insight into the system.
         .nest("/proof", proof::create_router())
+        .nest("/batch", batch::create_router())
         .nest("/health", v1::health::create_router())
         .nest("/metrics", v1::metrics::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
