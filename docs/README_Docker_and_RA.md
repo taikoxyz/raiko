@@ -526,3 +526,13 @@ Navigate to the `docker` folder in the raiko repo, export the below variables as
 ```
 
 You can now restart your raiko instance (skipping the init/bootstrapping step) and operate as normal with `docker compose up raiko -d`! Monitor the logs and run the above `./script/prove-block` script to make sure it's functioning normally.
+
+## Verify that your Raiko instance can successfully batch prove
+
+Now that we offer batch proving, it may be useful to test if the functionality is as you expect. Run the following script:
+
+`./script/prove-batch-blocks.sh taiko_mainnet native 800000`.
+
+This will test the batch proving on block 799999 and 800000. If you see the log `Batch proof successful.` then it is functioning normally! 
+
+If you use blocks that are too old, it may hang and fail; please try to use more recent blocks.
