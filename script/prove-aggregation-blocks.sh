@@ -5,7 +5,7 @@ chain="$1"
 # Use the second command line argument as the proof type
 proof="$2"
 # Use the third command line argument as the block number
-# Script will batch prove the block before this number and this number
+# Script will aggregate prove the block before this number and this number
 block="$3"
 # Use the fifth parameter as a custom proofParam
 customParam="$4"
@@ -137,7 +137,7 @@ if [ "$proof" == "native" ]; then
                         }")
 
                 if [[ "$RESPONSE" == *'"proof":{"input":null,"kzg_proof":null,"proof":null,"quote":null,"uuid":null}'* ]]; then
-                        echo "Batch proof successful."
+                        echo "Aggreggate proof successful."
                         break
                 fi
 
