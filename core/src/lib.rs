@@ -333,6 +333,7 @@ mod tests {
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
 
+    #[ignore = "holesky down"]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7() {
         let proof_type = get_proof_type_from_env();
@@ -435,6 +436,7 @@ mod tests {
         }
     }
 
+    #[ignore = "holesky down"]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7_aggregated() {
         let proof_type = get_proof_type_from_env();
