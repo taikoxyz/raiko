@@ -2,7 +2,7 @@ use core::{fmt::Debug, str::FromStr};
 
 use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
-use pacaya::{BatchInfo, BatchProposed};
+use pacaya::{BatchInfo, BatchProposed, Config};
 use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
@@ -50,6 +50,7 @@ pub struct GuestInput {
 pub struct TaikoGuestBatchInput {
     pub batch_id: u64,
     pub l1_header: Header,
+    pub batch_parent_header: Header,
     pub batch_proposed: BlockProposedFork,
     pub chain_spec: ChainSpec,
     pub prover_data: TaikoProverData,
@@ -137,7 +138,7 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.timestamp,
             BlockProposedFork::Ontake(block) => block.meta.timestamp,
-            BlockProposedFork::Pacaya(_batch) => 0,
+            BlockProposedFork::Pacaya(_batch) => _batch.meta.proposedAt,
             _ => 0,
         }
     }
@@ -151,13 +152,16 @@ impl BlockProposedFork {
                 min_gas_excess: block.meta.baseFeeConfig.minGasExcess,
                 max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
             },
-            BlockProposedFork::Pacaya(batch) => ProtocolBaseFeeConfig {
-                adjustment_quotient: batch.info.baseFeeConfig.adjustmentQuotient,
-                sharing_pctg: batch.info.baseFeeConfig.sharingPctg,
-                gas_issuance_per_second: batch.info.baseFeeConfig.gasIssuancePerSecond,
-                min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
-                max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
-            },
+            BlockProposedFork::Pacaya(batch) => {
+                let base_fee_config = &batch.info.config.baseFeeConfig;
+                ProtocolBaseFeeConfig {
+                    adjustment_quotient: base_fee_config.adjustmentQuotient,
+                    sharing_pctg: base_fee_config.sharingPctg,
+                    gas_issuance_per_second: base_fee_config.gasIssuancePerSecond,
+                    min_gas_excess: base_fee_config.minGasExcess,
+                    max_gas_issuance_per_block: base_fee_config.maxGasIssuancePerBlock,
+                }
+            }
             _ => ProtocolBaseFeeConfig::default(),
         }
     }
@@ -173,6 +177,13 @@ impl BlockProposedFork {
                 batch.info.blobByteSize as usize,
             )),
             _ => None,
+        }
+    }
+
+    pub fn pacaya_meta_config(&self) -> Config {
+        match self {
+            BlockProposedFork::Pacaya(batch) => batch.info.config.clone(),
+            _ => Config::default(),
         }
     }
 
