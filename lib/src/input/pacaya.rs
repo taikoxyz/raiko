@@ -14,15 +14,6 @@ sol! {
 
     #[derive(Debug, Default, Deserialize, Serialize)]
     struct BlockParams {
-        // the max number of transactions in this block. Note that if there are not enough
-        // transactions in calldata or blobs, the block will contains as many transactions as
-        // possible.
-        uint16 numTransactions;
-        // For the first block in a batch,  the block timestamp is the batch params' `timestamp`
-        // plus this time shift value;
-        // For all other blocks in the same batch, the block timestamp is its parent block's
-        // timestamp plus this time shift value.
-        uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
     }
@@ -41,6 +32,8 @@ sol! {
         uint32 byteOffset;
         // The byte size of the blob.
         uint32 byteSize;
+        // The block number when the blob was created.
+        uint64 createdIn;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -49,7 +42,6 @@ sol! {
         address coinbase;
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
-        uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
@@ -67,17 +59,17 @@ sol! {
         bytes32 extraData;
         address coinbase;
         uint64 proposedIn; // Used by node/client
+        uint64 blobCreatedIn;
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
         uint64 lastBlockId;
-        uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
         uint64 anchorBlockId;
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
-        BaseFeeConfig baseFeeConfig;
+        Config config;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -89,11 +81,56 @@ sol! {
         uint64 proposedAt; // Used by node/client
     }
 
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
     /// @notice Struct representing transition to be proven.
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
+    struct ForkHeights {
+        uint64 ontake;
+        uint64 pacaya;
+        uint64 shasta;
+        uint64 unzen;
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
+    /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
+    struct Config {
+        /// @notice The chain ID of the network where Taiko contracts are deployed.
+        uint64 chainId;
+        /// @notice The maximum number of unverified batches the protocol supports.
+        uint64 maxUnverifiedBatches;
+        /// @notice Size of the batch ring buffer, allowing extra space for proposals.
+        uint64 batchRingBufferSize;
+        /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
+        uint64 maxBatchesToVerify;
+        /// @notice The maximum gas limit allowed for a block.
+        uint32 blockMaxGasLimit;
+        /// @notice The amount of Taiko token as a prover liveness bond per batch.
+        uint96 livenessBondBase;
+        /// @notice The amount of Taiko token as a prover liveness bond per block.
+        uint96 livenessBondPerBlock;
+        /// @notice The number of batches between two L2-to-L1 state root sync.
+        uint8 stateRootSyncInternal;
+        /// @notice The max differences of the anchor height and the current block number.
+        uint64 maxAnchorHeightOffset;
+        /// @notice Base fee configuration
+        BaseFeeConfig baseFeeConfig;
+        /// @notice The proving window in seconds.
+        uint16 provingWindow;
+        /// @notice The time required for a transition to be used for verifying a batch.
+        uint24 cooldownWindow;
+        /// @notice The maximum number of signals to be received by TaikoL2.
+        uint8 maxSignalsToReceive;
+        /// @notice The maximum number of blocks per batch.
+        uint16 maxBlocksPerBatch;
+        /// @notice Historical heights of the forks.
+        ForkHeights forkHeights;
     }
 
     /// @notice Emitted when a batch is proposed.

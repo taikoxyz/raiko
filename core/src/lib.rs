@@ -9,7 +9,7 @@ use raiko_lib::{
     input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, TaikoProverData},
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey},
-    utils::{generate_transactions, generate_transactions_for_batch_blocks},
+    utils::{generate_transactions, get_batch_mode_block_meta_list},
 };
 use reth_primitives::{Block, Header};
 use serde_json::Value;
@@ -141,12 +141,12 @@ impl Raiko {
     }
 
     pub fn get_batch_output(&self, batch_input: &GuestBatchInput) -> RaikoResult<GuestBatchOutput> {
-        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input.taiko);
-        let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
+        let block_meta_list = get_batch_mode_block_meta_list(&batch_input.taiko);
+        let blocks = batch_input.inputs.iter().zip(block_meta_list).try_fold(
             Vec::new(),
-            |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
-                let (input, pool_txs) = input_and_txs;
-                let output = self.single_output_for_batch(pool_txs, input)?;
+            |mut acc, input_and_block_meta| -> RaikoResult<Vec<Block>> {
+                let (input, block_meta) = input_and_block_meta;
+                let output = self.single_output_for_batch(block_meta.txs, input)?;
                 acc.push(output);
                 Ok(acc)
             },
