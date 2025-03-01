@@ -3,6 +3,7 @@ use std::{collections::HashMap, hint::black_box};
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use interfaces::{cancel_proof, run_prover};
+use provider::GuestInputProvider;
 use raiko_lib::{
     builder::{create_mem_db, RethBlockBuilder},
     consts::ChainSpec,
@@ -58,6 +59,20 @@ impl Raiko {
             },
             self.request.blob_proof_type.clone(),
         )
+    }
+
+    pub async fn generate_input_sidecar<GIP: GuestInputProvider>(
+        &self,
+        provider: GIP,
+    ) -> RaikoResult<GuestInput> {
+        info!("Generating input for block {}", self.request.block_number);
+        provider
+            .get_guest_input(
+                &self.taiko_chain_spec.beacon_rpc.clone().unwrap(),
+                &self.request,
+            )
+            .await
+            .map_err(Into::<RaikoError>::into)
     }
 
     pub async fn generate_input<BDP: BlockDataProvider>(
@@ -215,9 +230,11 @@ pub fn merge(a: &mut Value, b: &Value) {
 #[cfg(test)]
 mod tests {
     use crate::interfaces::aggregate_proofs;
+    use crate::provider::GuestInputProviderImpl;
     use crate::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, ChainSpec, Raiko};
     use alloy_primitives::Address;
     use alloy_provider::Provider;
+    use env_logger;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
         input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType},
@@ -479,5 +496,46 @@ mod tests {
         .await
         .expect("proof aggregation failed");
         println!("aggregated proof: {aggregated_proof:?}");
+    }
+
+    #[ignore = "side car input provider is not available"]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_sidecar_input_generation() {
+        env_logger::init();
+        let proof_type = get_proof_type_from_env();
+        let l1_network = "ethereum".to_owned();
+        let network = "taiko_mainnet".to_owned();
+        let block_number = 600001;
+        let chain_specs = SupportedChainSpecs::merge_from_file(
+            "../host/config/chain_spec_list_default.json".into(),
+        )
+        .unwrap();
+        let taiko_chain_spec = chain_specs.get_chain_spec(&network).unwrap();
+        let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
+
+        let proof_request = ProofRequest {
+            block_number,
+            l1_inclusion_block_number: 0,
+            network,
+            graffiti: B256::ZERO,
+            prover: Address::ZERO,
+            l1_network,
+            proof_type,
+            blob_proof_type: BlobProofType::ProofOfEquivalence,
+            prover_args: test_proof_params(false),
+        };
+
+        let provider = GuestInputProviderImpl {};
+        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
+        let input = raiko
+            .generate_input_sidecar(provider)
+            .await
+            .expect("input generation failed");
+        let output = raiko.get_output(&input).expect("output generation failed");
+        let proof = raiko
+            .prove(input, &output, None)
+            .await
+            .expect("proof generation failed");
+        println!("proof: {proof:?}");
     }
 }

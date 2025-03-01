@@ -17,6 +17,7 @@ use crate::{
 use util::{execute_txs, get_block_and_parent_data, prepare_taiko_chain_input};
 
 mod util;
+pub mod sidecar;
 
 pub struct PreflightData {
     pub block_number: u64,
