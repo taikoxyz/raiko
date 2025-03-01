@@ -137,7 +137,7 @@ if [ "$proof" == "native" ]; then
                         }")
 
                 if [[ "$RESPONSE" == *'"proof":{"input":null,"kzg_proof":null,"proof":null,"quote":null,"uuid":null}'* ]]; then
-                        echo "Aggreggate proof successful."
+                        echo "Aggregate proof successful."
                         break
                 fi
 
