@@ -94,3 +94,29 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 pub fn create_router() -> Router<Actor> {
     Router::new().route("/", post(input_handler))
 }
+
+#[cfg(test)]
+mod test {
+    use axum::response::IntoResponse;
+
+    #[derive(serde::Serialize, serde::Deserialize, Debug)]
+    struct JsonRef {
+        data: u128,
+    }
+
+    #[test]
+    fn test_axum_json() {
+        let json_str = serde_json::to_string(&JsonRef {
+            data: u128::MAX - 1,
+        });
+        println!("json_str = {:?}.", json_str);
+
+        let json_obj = serde_json::from_str::<JsonRef>(&json_str.unwrap());
+        println!("json_obj = {:?}.", json_obj);
+
+        let axum_json = axum::Json(JsonRef {
+            data: u128::MAX - 1,
+        });
+        println!("json_str = {:?}.", axum_json.into_response());
+    }
+}

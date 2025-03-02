@@ -1,6 +1,7 @@
 use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types::Block;
 use raiko_lib::{consts::SupportedChainSpecs, input::GuestInput};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use reth_primitives::revm_primitives::AccountInfo;
 use std::collections::HashMap;
 use tracing::{info, warn};
@@ -33,8 +34,12 @@ impl GuestInputProvider for GuestInputProviderImpl {
         let url = format!("{}/v1/input", input_provider_url.trim_end_matches('/'),);
         info!("Retrieve side car guest input from {url}.");
 
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
         let response = reqwest::Client::new()
             .post(url.clone())
+            .headers(headers)
             .json(request)
             .send()
             .await
@@ -56,7 +61,7 @@ impl GuestInputProvider for GuestInputProviderImpl {
         let response_text = response.text().await.map_err(|e| {
             RaikoError::RPC(format!("Failed to get response text: {}", e.to_string()).to_owned())
         })?;
-        info!("Received response: {}", &response_text[..100]);
+        info!("Received response: {}", &response_text);
         let response_json: Status = serde_json::from_str(&response_text).map_err(|e| {
             RaikoError::RPC(format!("Failed to parse JSON: {}", e.to_string()).to_owned())
         })?;
@@ -167,5 +172,45 @@ impl BlockDataProvider for BlockDataProviderType {
                     .await
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use alloy_primitives::Address;
+    use raiko_lib::{input::BlobProofType, proof_type::ProofType};
+    use reth_primitives::B256;
+
+    use crate::{
+        interfaces::ProofRequest,
+        provider::{GuestInputProvider, GuestInputProviderImpl},
+    };
+
+    #[ignore = "too many output"]
+    #[tokio::test]
+    async fn test_gip() {
+        let gip = GuestInputProviderImpl {};
+        let url = "http://34.124.151.77:8888";
+        let proof_type = ProofType::Native;
+        let l1_network = "ethereum".to_owned();
+        let network = "taiko_mainnet".to_owned();
+        let block_number = std::env::var("BLOCK_NUMBER")
+            .unwrap_or_else(|_| "1".to_string())
+            .parse::<u64>()
+            .unwrap();
+
+        let proof_request = ProofRequest {
+            block_number,
+            l1_inclusion_block_number: 0,
+            network,
+            graffiti: B256::ZERO,
+            prover: Address::ZERO,
+            l1_network,
+            proof_type,
+            blob_proof_type: BlobProofType::ProofOfEquivalence,
+            prover_args: Default::default(),
+        };
+        let response = gip.get_guest_input(url, &proof_request).await;
+        println!("response: {:?}", response);
     }
 }

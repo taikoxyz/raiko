@@ -505,7 +505,10 @@ mod tests {
         let proof_type = get_proof_type_from_env();
         let l1_network = "ethereum".to_owned();
         let network = "taiko_mainnet".to_owned();
-        let block_number = 600001;
+        let block_number = std::env::var("BLOCK_NUMBER")
+            .unwrap_or_else(|_| "1".to_string())
+            .parse::<u64>()
+            .unwrap();
         let chain_specs = SupportedChainSpecs::merge_from_file(
             "../host/config/chain_spec_list_default.json".into(),
         )

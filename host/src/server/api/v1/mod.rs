@@ -85,7 +85,7 @@ impl TryFrom<Value> for ProofResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
-#[serde(tag = "status", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 #[allow(dead_code)]
 pub enum Status {
     Ok { data: ProofResponse },
