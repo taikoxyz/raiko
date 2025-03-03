@@ -7,9 +7,10 @@ use raiko_lib::{
     consts::ChainSpec,
     input::{BlobProofType, GuestBatchInput, GuestInput, TaikoGuestInput, TaikoProverData},
     primitives::mpt::proofs_to_tries,
-    utils::{generate_transactions, get_batch_mode_block_meta_list, InboxBlockMeta},
+    utils::{generate_transactions_for_batch_blocks, generate_transactions},
     Measurement,
 };
+use reth_primitives::TransactionSigned;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
@@ -203,16 +204,12 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         .iter()
         .map(|(block, _)| block.clone())
         .collect::<Vec<_>>();
-    let batch_parent_block =
-        reth_primitives::Block::try_from(block_parent_pairs.first().unwrap().1.clone())
-            .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
     let taiko_guest_batch_input = if taiko_chain_spec.is_taiko() {
         prepare_taiko_chain_batch_input(
             &l1_chain_spec,
             &taiko_chain_spec,
             l1_inclusion_block_number,
             batch_id,
-            &batch_parent_block,
             &all_prove_blocks,
             prover_data,
             &blob_proof_type,
@@ -228,14 +225,14 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
     info!("block_parent_pairs.len(): {:?}", block_parent_pairs.len());
 
     // distrubute txs to each block
-    let block_meta_list: Vec<InboxBlockMeta> =
-        get_batch_mode_block_meta_list(&taiko_guest_batch_input);
+    let pool_txs_list: Vec<Vec<TransactionSigned>> =
+        generate_transactions_for_batch_blocks(&taiko_guest_batch_input);
 
-    assert_eq!(block_parent_pairs.len(), block_meta_list.len());
+    assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
 
     let mut batch_guest_input = Vec::new();
-    for ((prove_block, parent_block), block_meta) in
-        block_parent_pairs.iter().zip(block_meta_list.iter())
+    for ((prove_block, parent_block), pure_pool_txs) in
+        block_parent_pairs.iter().zip(pool_txs_list.iter())
     {
         let parent_header: reth_primitives::Header =
             parent_block.header.clone().try_into().map_err(|e| {
@@ -273,7 +270,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
         // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
         let mut pool_txs = vec![anchor_tx.clone()];
-        pool_txs.extend_from_slice(&block_meta.txs);
+        pool_txs.extend_from_slice(pure_pool_txs);
         execute_txs(&mut builder, pool_txs).await?;
 
         let Some(db) = builder.db.as_mut() else {
