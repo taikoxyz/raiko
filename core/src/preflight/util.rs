@@ -281,7 +281,6 @@ pub async fn prepare_taiko_chain_batch_input(
     taiko_chain_spec: &ChainSpec,
     l1_inclusion_block_number: u64,
     batch_id: u64,
-    batch_parent: &RethBlock,
     batch_blocks: &[RethBlock],
     prover_data: TaikoProverData,
     blob_proof_type: &BlobProofType,
@@ -330,7 +329,7 @@ pub async fn prepare_taiko_chain_batch_input(
     if let BlockProposedFork::Pacaya(batch_proposed) = batch_proposed_fork {
         let batch_info = &batch_proposed.info;
         let blob_hashes = batch_info.blobHashes.clone();
-        let blob_block_meta_buffers = get_inbox_block_meta_with_blob_proofs(
+        let blob_tx_buffers = get_batch_tx_data_with_proofs(
             blob_hashes,
             l1_inclusion_header.timestamp,
             l1_chain_spec,
@@ -342,21 +341,20 @@ pub async fn prepare_taiko_chain_batch_input(
         let tx_data_from_calldata = Vec::new();
         return Ok(TaikoGuestBatchInput {
             batch_id: batch_id,
-            l1_header: l1_state_header.try_into().unwrap(),
-            batch_parent_header: batch_parent.header.clone(),
             batch_proposed: BlockProposedFork::Pacaya(batch_proposed),
+            l1_header: l1_state_header.try_into().unwrap(),
             chain_spec: taiko_chain_spec.clone(),
             prover_data: prover_data,
             tx_data_from_calldata,
-            tx_data_from_blob: blob_block_meta_buffers
+            tx_data_from_blob: blob_tx_buffers
                 .iter()
                 .map(|(blob_tx_data, _, _)| blob_tx_data.clone())
                 .collect(),
-            blob_commitments: blob_block_meta_buffers
+            blob_commitments: blob_tx_buffers
                 .iter()
                 .map(|(_, commmit, _)| commmit.clone())
                 .collect(),
-            blob_proofs: blob_block_meta_buffers
+            blob_proofs: blob_tx_buffers
                 .iter()
                 .map(|(_, _, proof)| proof.clone())
                 .collect(),
@@ -409,13 +407,9 @@ pub async fn get_tx_blob(
     Ok((blob, Some(commitment.to_vec()), blob_proof))
 }
 
-/// get inbox_block_meta:
-/// type InboxBlockMeta struct {
-///     Timestamp uint64
-///	    Txs       types.Transactions
-/// }
+/// get tx data(blob data) vec from blob hashs
 /// and get proofs for each blobs
-pub async fn get_inbox_block_meta_with_blob_proofs(
+pub async fn get_batch_tx_data_with_proofs(
     blob_hashs: Vec<B256>,
     timestamp: u64,
     chain_spec: &ChainSpec,

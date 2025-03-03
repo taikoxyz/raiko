@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
-use crate::utils::{generate_transactions, get_batch_mode_block_meta_list};
+use crate::utils::{generate_transactions, generate_transactions_for_batch_blocks};
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
     guest_mem_forget,
@@ -56,16 +56,16 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
 }
 
 pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block> {
-    let block_meta_list = get_batch_mode_block_meta_list(&input.taiko);
+    let pool_txs_list = generate_transactions_for_batch_blocks(&input.taiko);
     let mut final_blocks = Vec::new();
-    for (i, block_meta) in block_meta_list.iter().enumerate() {
+    for (i, pool_txs) in pool_txs_list.iter().enumerate() {
         let mut builder = RethBlockBuilder::new(
             &input.inputs[i],
             create_mem_db(&mut input.inputs[i].clone()).unwrap(),
         );
 
         let mut execute_tx = vec![input.inputs[i].taiko.anchor_tx.clone().unwrap()];
-        execute_tx.extend_from_slice(&block_meta.txs);
+        execute_tx.extend_from_slice(&pool_txs);
         builder
             .execute_transactions(execute_tx.clone(), false)
             .expect("execute");

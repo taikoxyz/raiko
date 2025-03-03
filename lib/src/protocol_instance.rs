@@ -154,15 +154,27 @@ impl BlockMetaDataFork {
                 let blocks = final_blocks
                     .iter()
                     .enumerate()
-                    .map(|(index, _)| {
+                    .map(|(index, block)| {
                         let anchor_tx = batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
                         let anchor_data = decode_anchor_pacaya(&anchor_tx.input()).unwrap();
                         let singal_slots = anchor_data._signalSlots.clone();
                         BlockParams {
+                            numTransactions: block.body.len() as u16 - 1, // exclude anchor tx
+                            timeShift: (block.timestamp - batch_proposed.meta.proposedAt) as u8,
                             signalSlots: singal_slots,
                         }
                     })
                     .collect::<Vec<BlockParams>>();
+                assert!(
+                    blocks
+                        .iter()
+                        .zip(batch_proposed.info.blocks.iter())
+                        .all(|(a, b)| a.numTransactions == b.numTransactions
+                            && a.timeShift == b.timeShift),
+                    "blocks mismatch, expected: {:?}, got: {:?}",
+                    blocks,
+                    batch_proposed.info.blocks,
+                );
                 let blob_hashes = batch_proposed.info.blobHashes.clone();
                 let extra_data = batch_proposed.info.extraData;
                 let coinbase = batch_proposed.info.coinbase;
@@ -177,9 +189,17 @@ impl BlockMetaDataFork {
                     last_block_id,
                     batch_proposed.info.lastBlockId,
                 );
+                let last_block_timestamp = final_blocks.last().unwrap().header.timestamp;
+                assert!(
+                    last_block_timestamp == batch_proposed.info.lastBlockTimestamp,
+                    "last block timestamp mismatch, expected: {:?}, got: {:?}",
+                    last_block_timestamp,
+                    batch_proposed.info.lastBlockTimestamp,
+                );
                 // checked in anchor_check()
                 let anchor_block_id = batch_input.taiko.l1_header.number;
                 let anchor_block_hash = batch_input.taiko.l1_header.hash_slow();
+                let base_fee_config = batch_proposed.info.baseFeeConfig.clone();
                 BlockMetaDataFork::Pacaya(BatchMetadata {
                     // todo: keccak data based on input
                     infoHash: keccak(
@@ -190,14 +210,14 @@ impl BlockMetaDataFork {
                             extraData: extra_data,
                             coinbase,
                             proposedIn: proposed_in,
-                            blobCreatedIn: batch_proposed.info.blobCreatedIn,
                             blobByteOffset: blob_byte_offset,
                             blobByteSize: blob_byte_size,
                             gasLimit: gas_limit,
                             lastBlockId: last_block_id,
+                            lastBlockTimestamp: last_block_timestamp,
                             anchorBlockId: anchor_block_id,
                             anchorBlockHash: anchor_block_hash,
-                            config: batch_proposed.info.config.clone(),
+                            baseFeeConfig: base_fee_config,
                         }
                         .abi_encode(),
                     )
