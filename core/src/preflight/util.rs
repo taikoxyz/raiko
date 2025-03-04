@@ -330,7 +330,9 @@ pub async fn prepare_taiko_chain_batch_input(
         let batch_info = &batch_proposed.info;
         let blob_hashes = batch_info.blobHashes.clone();
         let force_inclusion_block_number = batch_info.blobCreatedIn;
-        let l1_blob_timestamp = if force_inclusion_block_number != l1_inclusion_block_number {
+        let l1_blob_timestamp = if force_inclusion_block_number != 0
+            && force_inclusion_block_number != l1_inclusion_block_number
+        {
             // force inclusion block
             info!(
                 "process force inclusion block: {l1_inclusion_block_number:?} -> {force_inclusion_block_number:?}"
