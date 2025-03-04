@@ -31,7 +31,7 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1739191500,
+        "genesis_time": 1741055200,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
@@ -57,7 +57,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0x8096ba9b2ba1bf0C34777309a58eF88926A009a8",
+        "l1_contract": "0x6d2D299fEe48F3490Ed74d581bbDF4AD7b5Aa275",
         "l2_contract": "0x1670010000000000000000000000000000010001",
         "rpc": "https://rpc.internal.taiko.xyz",
         "beacon_rpc": null,

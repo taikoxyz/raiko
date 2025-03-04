@@ -329,9 +329,27 @@ pub async fn prepare_taiko_chain_batch_input(
     if let BlockProposedFork::Pacaya(batch_proposed) = batch_proposed_fork {
         let batch_info = &batch_proposed.info;
         let blob_hashes = batch_info.blobHashes.clone();
+        let force_inclusion_block_number = batch_info.blobCreatedIn;
+        let l1_blob_timestamp = if force_inclusion_block_number != 0
+            && force_inclusion_block_number != l1_inclusion_block_number
+        {
+            // force inclusion block
+            info!(
+                "process force inclusion block: {l1_inclusion_block_number:?} -> {force_inclusion_block_number:?}"
+            );
+            let (force_inclusion_header, _) = get_headers(
+                &provider_l1,
+                (force_inclusion_block_number, anchor_block_height),
+            )
+            .await?;
+            force_inclusion_header.timestamp
+        } else {
+            l1_inclusion_header.timestamp
+        };
+
         let blob_tx_buffers = get_batch_tx_data_with_proofs(
             blob_hashes,
-            l1_inclusion_header.timestamp,
+            l1_blob_timestamp,
             l1_chain_spec,
             blob_proof_type,
         )

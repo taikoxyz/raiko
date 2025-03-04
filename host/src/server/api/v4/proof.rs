@@ -48,10 +48,10 @@ async fn proof_handler(
     let batch_request: ProofRequest = ProofRequest::try_from(config.clone())?;
     assert!(
         batch_request.block_number == 0,
-        "balock_number is 0 in batch mode"
+        "block_number is 0 in batch mode"
     );
     assert!(
-        !batch_request.l1_inclusion_block_number > 0,
+        batch_request.l1_inclusion_block_number > 0,
         "l1_inclusion_block_number must present in batch mode"
     );
 

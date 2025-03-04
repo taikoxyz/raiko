@@ -179,6 +179,7 @@ impl BlockMetaDataFork {
                 let extra_data = batch_proposed.info.extraData;
                 let coinbase = batch_proposed.info.coinbase;
                 let proposed_in = batch_proposed.info.proposedIn;
+                let blob_created_in = batch_proposed.info.blobCreatedIn;
                 let blob_byte_offset = batch_proposed.info.blobByteOffset;
                 let blob_byte_size = batch_proposed.info.blobByteSize;
                 let gas_limit = batch_proposed.info.gasLimit;
@@ -210,6 +211,7 @@ impl BlockMetaDataFork {
                             extraData: extra_data,
                             coinbase,
                             proposedIn: proposed_in,
+                            blobCreatedIn: blob_created_in,
                             blobByteOffset: blob_byte_offset,
                             blobByteSize: blob_byte_size,
                             gasLimit: gas_limit,
