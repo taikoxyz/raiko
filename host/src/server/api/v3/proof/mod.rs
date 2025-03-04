@@ -20,6 +20,7 @@ use raiko_reqpool::{
 use utoipa::OpenApi;
 
 mod aggregate;
+mod batch;
 mod cancel;
 
 #[utoipa::path(post, path = "/proof",
@@ -125,6 +126,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     [
         cancel::create_docs(),
         aggregate::create_docs(),
+        batch::create_docs(),
         v2::proof::report::create_docs(),
         v2::proof::list::create_docs(),
         v2::proof::prune::create_docs(),
@@ -141,6 +143,7 @@ pub fn create_router() -> Router<Actor> {
         .route("/", post(proof_handler))
         .nest("/cancel", cancel::create_router())
         .nest("/aggregate", aggregate::create_router())
+        .nest("/batch", batch::create_router())
         .nest("/report", v2::proof::report::create_router())
         .nest("/list", v2::proof::list::create_router())
         .nest("/prune", v2::proof::prune::create_router())
