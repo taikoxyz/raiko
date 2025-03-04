@@ -1,6 +1,10 @@
 use raiko_lib::input::{GuestInput, GuestOutput};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use tracing::{debug, info, warn};
 use utoipa::ToSchema;
+
+use crate::interfaces::{ProofRequest, RaikoError, RaikoResult};
 
 /// for raiko use
 /// to support use case like raiko reads guest input from remote raiko
@@ -24,84 +28,106 @@ pub enum Status {
     Error { error: String, message: String },
 }
 
+#[allow(async_fn_in_trait)]
+pub trait GuestInputProvider {
+    async fn get_guest_input(&self, url: &str, request: &ProofRequest) -> RaikoResult<GuestInput>;
+}
+
+pub struct GuestInputProviderImpl;
+
+impl GuestInputProvider for GuestInputProviderImpl {
+    async fn get_guest_input(
+        &self,
+        input_provider_url: &str,
+        request: &ProofRequest,
+    ) -> RaikoResult<GuestInput> {
+        // use request client to post request
+        let url = format!("{}/v1/input", input_provider_url.trim_end_matches('/'),);
+        info!("Retrieve side car guest input from {url}.");
+
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+        let response = reqwest::Client::new()
+            .post(url.clone())
+            .headers(headers)
+            .json(request)
+            .send()
+            .await
+            .map_err(|e| {
+                RaikoError::RPC(
+                    format!("Failed to send POST request: {}", e.to_string()).to_owned(),
+                )
+            })?;
+
+        if !response.status().is_success() {
+            warn!(
+                "Request {url} failed with status code: {}",
+                response.status()
+            );
+            return Err(RaikoError::RPC(
+                format!("Request failed with status code: {}", response.status()).to_owned(),
+            ));
+        }
+        let response_text = response.text().await.map_err(|e| {
+            RaikoError::RPC(format!("Failed to get response text: {}", e.to_string()).to_owned())
+        })?;
+        debug!("Received response: {}", &response_text);
+        let response_json: Status = serde_json::from_str(&response_text).map_err(|e| {
+            RaikoError::RPC(format!("Failed to parse JSON: {}", e.to_string()).to_owned())
+        })?;
+
+        match response_json {
+            Status::Ok { data } => data
+                .input
+                .ok_or_else(|| RaikoError::RPC("No guest input in response".to_string())),
+            Status::Error { error, message } => {
+                Err(RaikoError::RPC(format!("Error: {} - {}", error, message)))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use core::{fmt::Debug, str::FromStr};
+    use core::fmt::Debug;
     use std::u128;
 
-    use anyhow::{anyhow, Error, Result};
-    use raiko_lib::input::{
-        ontake::BlockProposedV2, BlobProofType, BlockProposed, BlockProposedFork, GuestOutput,
-        TaikoProverData,
-    };
-    use reth_primitives::{
-        revm_primitives::{Address, Bytes, HashMap, B256, U256},
-        Header, TransactionSigned, TxEip1559,
-    };
+    use reth_primitives::{TransactionSigned, TxEip1559};
     use serde::{Deserialize, Serialize};
     use serde_with::serde_as;
 
-    pub type StorageEntry = (MptNode, Vec<U256>);
-
-    use raiko_lib::{consts::ChainSpec, input::TaikoGuestInput, primitives::mpt::MptNode};
     use utoipa::ToSchema;
 
-    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 
     pub enum BlockProposedForkRef {
         #[default]
         Nothing,
-        Hekla(BlockProposed),
         Ontake(BlockProposedV2Ref),
     }
 
     #[serde_as]
-    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
     pub struct TaikoGuestInputRef {
-        /// header
-        // pub l1_header: Header,
-        // pub tx_data: Vec<u8>,
         pub anchor_tx: Option<TransactionSigned>,
         pub block_proposed: BlockProposedForkRef,
-        // pub prover_data: TaikoProverData,
-        // pub blob_commitment: Option<Vec<u8>>,
-        // pub blob_proof: Option<Vec<u8>>,
-        // pub blob_proof_type: BlobProofType,
     }
 
     #[serde_as]
-    #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+    #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
     pub struct GuestInputRef {
-        // /// Reth block
-        // pub block: BlockV2,
-        // /// The network to generate the proof for
-        // pub chain_spec: ChainSpec,
-        // /// Previous block header
-        // pub parent_header: Header,
-        // /// State trie of the parent block.
-        // pub parent_state_trie: MptNode,
-        // /// Maps each address with its storage trie and the used storage slots.
-        // pub parent_storage: HashMap<Address, StorageEntry>,
-        // /// The code of all unique contracts.
-        // pub contracts: Vec<Bytes>,
-        // /// List of at most 256 previous block headers
-        // pub ancestor_headers: Vec<Header>,
-        // // /// Taiko specific data
+        /// Taiko specific data
         pub taiko: TaikoGuestInputRef,
     }
 
-    #[derive(Debug, Serialize, ToSchema, Deserialize)]
+    #[derive(Debug, Serialize, ToSchema, Deserialize, PartialEq)]
     /// The response body of a proof request.
     pub struct ProofResponse {
-        #[schema(value_type = Option<GuestInput>)]
-        /// The input of the prover.
         pub input: Option<GuestInputRef>,
-        // #[schema(value_type = Option<GuestOutputDoc>)]
-        // /// The output of the prover.
-        // pub output: Option<GuestOutput>,
     }
 
-    #[derive(Debug, Deserialize, Serialize, ToSchema)]
+    #[derive(Debug, Deserialize, Serialize, ToSchema, PartialEq)]
     // #[serde(tag = "status", rename_all = "lowercase")]
     #[serde(rename_all = "lowercase")]
     pub enum Status {
@@ -110,22 +136,15 @@ mod test {
     }
 
     #[test]
-    fn test_ser_der_status() {
+    fn test_ser_der_status_for_u128() {
         let mut tx = TxEip1559::default();
         tx.max_fee_per_gas = u128::MAX - 5;
         let anchor_tx = TransactionSigned {
             hash: Default::default(),
             signature: Default::default(),
-            transaction: reth_primitives::Transaction::Eip1559(tx)
+            transaction: reth_primitives::Transaction::Eip1559(tx),
         };
         let input = GuestInputRef {
-            // block: BlockV2::default(), 
-            // chain_spec: ChainSpec::default(),
-            // parent_header: Header::default(),
-            // parent_state_trie: MptNode::default(),
-            // parent_storage: HashMap::default(),
-            // contracts: vec![Bytes::default()],
-            // ancestor_headers: vec![Header::default()],
             taiko: TaikoGuestInputRef {
                 block_proposed: BlockProposedForkRef::Ontake(BlockProposedV2Ref {
                     blockId: Default::default(),
@@ -144,20 +163,13 @@ mod test {
         let serialized = serde_json::to_string(&status).unwrap();
         let deserialized: Status = serde_json::from_str(&serialized).unwrap();
 
-        // assert_eq!(input, deserialized);
-        print!("{:?}", deserialized);
+        // print!("{:?}", deserialized);
+        assert_eq!(deserialized, status);
     }
 
     #[test]
     fn test_ser_der() {
         let input = GuestInputRef {
-            // block: BlockV2::default(),
-            // chain_spec: ChainSpec::default(),
-            // parent_header: Header::default(),
-            // parent_state_trie: MptNode::default(),
-            // parent_storage: HashMap::default(),
-            // contracts: vec![Bytes::default()],
-            // ancestor_headers: vec![Header::default()],
             taiko: TaikoGuestInputRef {
                 block_proposed: BlockProposedForkRef::Ontake(BlockProposedV2Ref {
                     blockId: Default::default(),
@@ -172,8 +184,8 @@ mod test {
         let serialized = serde_json::to_string(&input).unwrap();
         let deserialized: GuestInputRef = serde_json::from_str(&serialized).unwrap();
 
-        // assert_eq!(input, deserialized);
-        print!("{:?}", deserialized);
+        // print!("{:?}", deserialized);
+        assert_eq!(input, deserialized);
     }
 
     #[test]
@@ -186,37 +198,16 @@ mod test {
     use alloy_sol_types::sol;
     sol! {
         #[derive(Serialize, Deserialize, Debug)]
-        struct SolRef {
+        struct SolTypeReference {
             uint96 data;
         }
 
-        #[derive(Debug, Default, Deserialize, Serialize)]
+        #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
         struct BlockMetadataV2Ref {
-            // bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
-            // bytes32 difficulty;
-            // bytes32 blobHash;
-            // bytes32 extraData;
-            // address coinbase;
-            // uint64 id;
-            // uint32 gasLimit;
-            // uint64 timestamp;
-            // uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
-            // uint16 minTier;
-            // bool blobUsed;
-            // bytes32 parentMetaHash;
-            // address proposer;
             uint96 livenessBond;
-            // // Time this block is proposed at, used to check proving window and cooldown window.
-            // uint64 proposedAt;
-            // // L1 block number, required/used by node/client.
-            // uint64 proposedIn;
-            // uint32 blobTxListOffset;
-            // uint32 blobTxListLength;
-            // uint8 blobIndex;
-            // BaseFeeConfig baseFeeConfig;
         }
 
-        #[derive(Debug, Default, Deserialize, Serialize)]
+        #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
         event BlockProposedV2Ref(uint256 indexed blockId, BlockMetadataV2Ref meta);
 
     }
@@ -244,7 +235,7 @@ mod test {
     #[test]
     fn test_simple_sol_u96_json() {
         let test_json_str = "{\"data\": 125000000000000000000}";
-        let json_obj = serde_json::from_str::<SolRef>(test_json_str);
+        let json_obj = serde_json::from_str::<SolTypeReference>(test_json_str);
         println!("json_obj from str= {:?}.", json_obj);
     }
 }

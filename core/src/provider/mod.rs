@@ -1,14 +1,11 @@
 use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types::Block;
-use raiko_lib::{consts::SupportedChainSpecs, input::GuestInput};
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use raiko_lib::consts::SupportedChainSpecs;
 use reth_primitives::revm_primitives::AccountInfo;
 use std::collections::HashMap;
-use tracing::{info, warn};
 
 use crate::{
-    interfaces::{ProofRequest, RaikoError, RaikoResult},
-    preflight::sidecar::Status,
+    interfaces::{RaikoError, RaikoResult},
     provider::{ipc::IpcBlockDataProvider, rpc::RpcBlockDataProvider},
     MerkleProof,
 };
@@ -16,66 +13,6 @@ use crate::{
 pub mod db;
 pub mod ipc;
 pub mod rpc;
-
-#[allow(async_fn_in_trait)]
-pub trait GuestInputProvider {
-    async fn get_guest_input(&self, url: &str, request: &ProofRequest) -> RaikoResult<GuestInput>;
-}
-
-pub struct GuestInputProviderImpl;
-
-impl GuestInputProvider for GuestInputProviderImpl {
-    async fn get_guest_input(
-        &self,
-        input_provider_url: &str,
-        request: &ProofRequest,
-    ) -> RaikoResult<GuestInput> {
-        // use request client to post request
-        let url = format!("{}/v1/input", input_provider_url.trim_end_matches('/'),);
-        info!("Retrieve side car guest input from {url}.");
-
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-
-        let response = reqwest::Client::new()
-            .post(url.clone())
-            .headers(headers)
-            .json(request)
-            .send()
-            .await
-            .map_err(|e| {
-                RaikoError::RPC(
-                    format!("Failed to send POST request: {}", e.to_string()).to_owned(),
-                )
-            })?;
-
-        if !response.status().is_success() {
-            warn!(
-                "Request {url} failed with status code: {}",
-                response.status()
-            );
-            return Err(RaikoError::RPC(
-                format!("Request failed with status code: {}", response.status()).to_owned(),
-            ));
-        }
-        let response_text = response.text().await.map_err(|e| {
-            RaikoError::RPC(format!("Failed to get response text: {}", e.to_string()).to_owned())
-        })?;
-        info!("Received response: {}", &response_text);
-        let response_json: Status = serde_json::from_str(&response_text).map_err(|e| {
-            RaikoError::RPC(format!("Failed to parse JSON: {}", e.to_string()).to_owned())
-        })?;
-
-        match response_json {
-            Status::Ok { data } => data
-                .input
-                .ok_or_else(|| RaikoError::RPC("No guest input in response".to_string())),
-            Status::Error { error, message } => {
-                Err(RaikoError::RPC(format!("Error: {} - {}", error, message)))
-            }
-        }
-    }
-}
 
 #[allow(async_fn_in_trait)]
 pub trait BlockDataProvider {
@@ -123,10 +60,10 @@ impl BlockDataProviderType {
     pub async fn new(url: &str, block_number: u64, use_ipc: bool) -> RaikoResult<Self> {
         if use_ipc {
             Ok(Self::Ipc(
-                IpcBlockDataProvider::new(url, block_number - 1).await?,
+                IpcBlockDataProvider::new(url, block_number).await?,
             ))
         } else {
-            Ok(Self::Rpc(RpcBlockDataProvider::new(url, block_number - 1)?))
+            Ok(Self::Rpc(RpcBlockDataProvider::new(url, block_number)?))
         }
     }
 }
@@ -183,7 +120,7 @@ mod test {
 
     use crate::{
         interfaces::ProofRequest,
-        provider::{GuestInputProvider, GuestInputProviderImpl},
+        preflight::sidecar::{GuestInputProvider, GuestInputProviderImpl},
     };
 
     #[ignore = "too many output"]

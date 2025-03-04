@@ -3,7 +3,7 @@ use std::{collections::HashMap, hint::black_box};
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use interfaces::{cancel_proof, run_prover};
-use provider::GuestInputProvider;
+use preflight::sidecar::GuestInputProvider;
 use raiko_lib::{
     builder::{create_mem_db, RethBlockBuilder},
     consts::ChainSpec,
@@ -88,6 +88,10 @@ impl Raiko {
     }
 
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
+        info!(
+            "Building block output for block {}",
+            self.request.block_number
+        );
         let db = create_mem_db(&mut input.clone()).unwrap();
         let mut builder = RethBlockBuilder::new(input, db);
         builder.execute_transactions(false).expect("execute");
@@ -230,7 +234,7 @@ pub fn merge(a: &mut Value, b: &Value) {
 #[cfg(test)]
 mod tests {
     use crate::interfaces::aggregate_proofs;
-    use crate::provider::GuestInputProviderImpl;
+    use crate::preflight::sidecar::GuestInputProviderImpl;
     use crate::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, ChainSpec, Raiko};
     use alloy_primitives::Address;
     use alloy_provider::Provider;

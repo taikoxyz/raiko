@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use raiko_core::{
     interfaces::{aggregate_proofs, ProofRequest},
+    preflight::sidecar::GuestInputProviderImpl,
     provider::rpc::RpcBlockDataProvider,
     Raiko,
 };
@@ -512,10 +513,14 @@ pub async fn do_prove_single(
     .map_err(|err| format!("failed to create rpc block data provider: {err:?}"))?;
 
     // 1. Generate the proof input
-    let input = raiko
-        .generate_input(provider)
-        .await
-        .map_err(|e| format!("failed to generate input: {e:?}"))?;
+    let input = if let Ok(gi) = raiko.generate_input_sidecar(GuestInputProviderImpl).await {
+        gi
+    } else {
+        raiko
+            .generate_input(provider)
+            .await
+            .map_err(|e| format!("failed to generate input: {e:?}"))?
+    };
 
     // 2. Generate the proof output
     let output = raiko

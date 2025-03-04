@@ -1,6 +1,9 @@
 use axum::{extract::State, routing::post, Json, Router};
-use raiko_core::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, Raiko};
-use raiko_lib::consts::SupportedChainSpecs;
+use raiko_core::{
+    interfaces::ProofRequest,
+    provider::BlockDataProviderType,
+    Raiko,
+};
 use serde_json::Value;
 use tokio::time::Instant;
 use tracing::info;
@@ -42,18 +45,24 @@ async fn input_handler(
     let network = proof_request.network.clone();
     // Skip test on SP1 for now because it's too slow on CI
     let l1_network = proof_request.l1_network.clone();
-    let taiko_chain_spec = SupportedChainSpecs::default()
-        .get_chain_spec(&network)
-        .unwrap();
-    let l1_chain_spec = SupportedChainSpecs::default()
-        .get_chain_spec(&l1_network)
-        .unwrap();
+    let taiko_chain_spec = actor.chain_specs().get_chain_spec(&network).unwrap();
+    let l1_chain_spec = actor.chain_specs().get_chain_spec(&l1_network).unwrap();
     let block_number = proof_request.block_number;
     info!("generate guest input for block_number: {}", block_number);
 
     let start_time = Instant::now();
-    let provider = RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
-        .expect("Could not create RpcBlockDataProvider");
+    let use_ipc = std::env::var("USE_IPC_PROVIDER")
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .unwrap();
+    let provider = BlockDataProviderType::new(
+        &taiko_chain_spec.rpc,
+        proof_request.block_number - 1,
+        use_ipc,
+    )
+    .await
+    .expect("Could not create BlockDataProviderType");
+
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
     let input = raiko
         .generate_input(provider)

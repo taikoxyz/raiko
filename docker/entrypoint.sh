@@ -88,6 +88,14 @@ function update_docker_chain_specs() {
     if [ -n "${TAIKO_MAINNET_RPC}" ]; then
         update_chain_spec_json $CONFIG_FILE "taiko_mainnet" "rpc" $TAIKO_MAINNET_RPC
     fi
+
+    if [ -n "${TAIKO_DEV_L1_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "taiko_dev_l1" "rpc" $TAIKO_DEV_L1_RPC
+    fi
+
+    if [ -n "${TAIKO_DEV_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "taiko_dev" "rpc" $TAIKO_DEV_RPC
+    fi
 }
 
 function update_config_json() {
