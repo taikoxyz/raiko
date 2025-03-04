@@ -41,6 +41,8 @@ sol! {
         uint32 byteOffset;
         // The byte size of the blob.
         uint32 byteSize;
+        // The block number when the blob was created.
+        uint64 createdIn;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -67,6 +69,7 @@ sol! {
         bytes32 extraData;
         address coinbase;
         uint64 proposedIn; // Used by node/client
+        uint64 blobCreatedIn;
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
@@ -116,11 +119,4 @@ sol! {
     )
         external
         returns (BatchInfo memory info_, BatchMetadata memory meta_);
-
-    /// @notice Proves state transitions for multiple batches with a single aggregated proof.
-    /// @param _params ABI-encoded parameter containing:
-    /// - metas: Array of metadata for each batch being proved.
-    /// - transitions: Array of batch transitions to be proved.
-    /// @param _proof The aggregated cryptographic proof proving the batches transitions.
-    function proveBatches(bytes calldata _params, bytes calldata _proof) external;
 }
