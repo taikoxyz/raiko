@@ -35,30 +35,11 @@ pub async fn prove_aggregation(
     sub_request_entities: Vec<RequestEntity>,
 ) -> Result<Status, String> {
     // Prove the sub-requests
-    let mut statuses = Vec::with_capacity(sub_request_keys.len());
-    for (sub_request_key, sub_request_entity) in
-        sub_request_keys.into_iter().zip(sub_request_entities)
-    {
-        match (sub_request_key, sub_request_entity) {
-            (RequestKey::SingleProof(key), RequestEntity::SingleProof(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
-                statuses.push(status);
-            }
-            (RequestKey::BatchProof(key), RequestEntity::BatchProof(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
-                statuses.push(status);
-            }
-            _ => return Err("Invalid request key and entity".to_string()),
-        }
-    }
-
+    let statuses = prove_many(actor, sub_request_keys, sub_request_entities).await?;
     let is_all_sub_success = statuses
         .iter()
         .all(|status| matches!(status, Status::Success { .. }));
     if !is_all_sub_success {
-        tracing::info!(
-            "Not all sub-requests are successful proven {request_key}, return registered"
-        );
         return Ok(Status::Registered);
     }
 
@@ -77,6 +58,30 @@ pub async fn prove_aggregation(
         request_entity_without_proofs.prover_args().clone(),
     );
     prove(actor, request_key.into(), request_entity.into()).await
+}
+
+/// Prove many requests.
+pub(crate) async fn prove_many(
+    actor: &Actor,
+    request_keys: Vec<RequestKey>,
+    request_entities: Vec<RequestEntity>,
+) -> Result<Vec<Status>, String> {
+    let mut statuses = Vec::with_capacity(request_keys.len());
+    for (request_key, request_entity) in request_keys.into_iter().zip(request_entities) {
+        match (request_key, request_entity) {
+            (RequestKey::SingleProof(key), RequestEntity::SingleProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            (RequestKey::BatchProof(key), RequestEntity::BatchProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            _ => return Err("Invalid request key and entity".to_string()),
+        }
+    }
+
+    Ok(statuses)
 }
 
 pub async fn cancel_aggregation(

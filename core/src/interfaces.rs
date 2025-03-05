@@ -12,7 +12,6 @@ use raiko_lib::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
-use std::str::FromStr;
 use std::{collections::HashMap, fmt::Display, path::Path};
 use utoipa::ToSchema;
 
@@ -309,6 +308,7 @@ impl std::fmt::Display for BatchMetadata {
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct BatchProofRequest {
     pub batches: Vec<BatchMetadata>,
+    pub aggregate: Option<bool>,
 
     pub network: String,
     pub l1_network: String,
@@ -319,28 +319,6 @@ pub struct BatchProofRequest {
     pub blob_proof_type: BlobProofType,
     #[serde(flatten)]
     pub prover_args: ProverSpecificOpts,
-}
-
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
-pub struct BatchProofRequestOpt {
-    // Required fields
-    #[arg(long, value_delimiter = ',', value_parser = clap::builder::ValueParser::new(parse_batch_anchor))]
-    pub batches: Vec<BatchMetadata>,
-    pub network: String,
-    pub l1_network: String,
-    pub proof_type: ProofType,
-
-    // Optional fields
-    pub graffiti: Option<String>,
-    pub prover: Option<String>,
-    pub blob_proof_type: Option<BlobProofType>,
-    #[command(flatten)]
-    #[serde(flatten)]
-    pub prover_args: ProverSpecificOpts,
-}
-
-fn parse_batch_anchor(s: &str) -> Result<BatchMetadata, anyhow::Error> {
-    BatchMetadata::from_str(s)
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args, PartialEq, Eq, Hash)]

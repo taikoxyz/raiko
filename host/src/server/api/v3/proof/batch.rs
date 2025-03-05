@@ -1,12 +1,13 @@
 use crate::{
     interfaces::HostResult,
-    server::{api::v3::Status, prove_aggregation, utils::to_v3_status},
+    server::{api::v3::Status, handler::prove_many, prove_aggregation, utils::to_v3_status},
 };
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{
     interfaces::{BatchMetadata, BatchProofRequest},
     merge,
 };
+use raiko_lib::prover::Proof;
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, BatchProofRequestEntity, BatchProofRequestKey,
@@ -81,29 +82,43 @@ async fn batch_handler(
             batch_request.prover_args.clone().into(),
         )
         .into();
+
         sub_request_keys.push(request_key);
         sub_request_entities.push(request_entity);
         sub_batch_ids.push(*batch_id);
     }
 
-    let agg_request_key =
-        AggregationRequestKey::new(batch_request.proof_type, sub_batch_ids.clone()).into();
-    let agg_request_entity_without_proofs = AggregationRequestEntity::new(
-        sub_batch_ids,
-        vec![],
-        batch_request.proof_type,
-        batch_request.prover_args,
-    )
-    .into();
-    let result = prove_aggregation(
-        &actor,
-        agg_request_key,
-        agg_request_entity_without_proofs,
-        sub_request_keys,
-        sub_request_entities,
-    )
-    .await;
-
+    let result = if batch_request.aggregate.unwrap_or(false) {
+        prove_aggregation(
+            &actor,
+            AggregationRequestKey::new(batch_request.proof_type, sub_batch_ids.clone()).into(),
+            AggregationRequestEntity::new(
+                sub_batch_ids,
+                vec![],
+                batch_request.proof_type,
+                batch_request.prover_args,
+            )
+            .into(),
+            sub_request_keys,
+            sub_request_entities,
+        )
+        .await
+    } else {
+        prove_many(&actor, sub_request_keys, sub_request_entities)
+            .await
+            .map(|statuses| {
+                let is_all_sub_success = statuses
+                    .iter()
+                    .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
+                if !is_all_sub_success {
+                    raiko_reqpool::Status::Registered
+                } else {
+                    raiko_reqpool::Status::Success {
+                        proof: Proof::default(),
+                    }
+                }
+            })
+    };
     Ok(to_v3_status(batch_request.proof_type, result))
 }
 
