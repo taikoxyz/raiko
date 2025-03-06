@@ -407,7 +407,7 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn test_merge_from_file() {
-        let mut known_chain_specs = SupportedChainSpecs::default();
+        let known_chain_specs = SupportedChainSpecs::default();
         assert!(
             known_chain_specs.get_chain_spec("taiko_dev").is_none(),
             "taiko_dev is not presented in default specs"
