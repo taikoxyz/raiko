@@ -11,8 +11,8 @@ use bonsai::{cancel_proof, maybe_prove};
 use log::{info, warn};
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
-        ZkAggregationGuestInput,
+        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
+        GuestInput, GuestOutput, ZkAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -217,6 +217,15 @@ impl Prover for Risc0Prover {
             .await
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
         id_store.remove_id(key).await
+    }
+
+    async fn batch_run(
+        _input: GuestBatchInput,
+        _output: &GuestBatchOutput,
+        _config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        unimplemented!();
     }
 }
 

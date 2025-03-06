@@ -133,7 +133,7 @@ pub async fn run_batch_prover(
             .map_err(<ProverError as Into<RaikoError>>::into),
         ProofType::Sp1 => {
             #[cfg(feature = "sp1")]
-            return sp1_driver::Sp1Prover::run(input.clone(), output, config, store)
+            return sp1_driver::Sp1Prover::batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sp1"))]
@@ -141,7 +141,7 @@ pub async fn run_batch_prover(
         }
         ProofType::Risc0 => {
             #[cfg(feature = "risc0")]
-            return risc0_driver::Risc0Prover::run(input.clone(), output, config, store)
+            return risc0_driver::Risc0Prover::batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "risc0"))]
