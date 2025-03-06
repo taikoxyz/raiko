@@ -370,7 +370,7 @@ pub async fn prepare_taiko_chain_batch_input(
                 .collect(),
             blob_commitments: blob_tx_buffers
                 .iter()
-                .map(|(_, commmit, _)| commmit.clone())
+                .map(|(_, commit, _)| commit.clone())
                 .collect(),
             blob_proofs: blob_tx_buffers
                 .iter()
@@ -425,16 +425,16 @@ pub async fn get_tx_blob(
     Ok((blob, Some(commitment.to_vec()), blob_proof))
 }
 
-/// get tx data(blob data) vec from blob hashs
+/// get tx data(blob data) vec from blob hashes
 /// and get proofs for each blobs
 pub async fn get_batch_tx_data_with_proofs(
-    blob_hashs: Vec<B256>,
+    blob_hashes: Vec<B256>,
     timestamp: u64,
     chain_spec: &ChainSpec,
     blob_proof_type: &BlobProofType,
 ) -> RaikoResult<Vec<(Vec<u8>, Option<Vec<u8>>, Option<Vec<u8>>)>> {
     let mut tx_data = Vec::new();
-    for hash in blob_hashs {
+    for hash in blob_hashes {
         let data = get_tx_blob(hash, timestamp, chain_spec, blob_proof_type).await?;
         tx_data.push(data);
     }
