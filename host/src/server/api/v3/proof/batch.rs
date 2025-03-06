@@ -114,7 +114,14 @@ async fn batch_handler(
                     raiko_reqpool::Status::Registered
                 } else {
                     raiko_reqpool::Status::Success {
-                        proof: Proof::default(),
+                        // NOTE: Return the proof of the first sub-request
+                        proof: {
+                            if let raiko_reqpool::Status::Success { proof, .. } = &statuses[0] {
+                                proof.clone()
+                            } else {
+                                Proof::default()
+                            }
+                        },
                     }
                 }
             })
