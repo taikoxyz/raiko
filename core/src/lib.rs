@@ -528,7 +528,7 @@ mod tests {
         batch_prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
 
-    #[ignore]
+    #[ignore = "holesky down"]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7() {
         env_logger::init();
@@ -638,7 +638,7 @@ mod tests {
         }
     }
 
-    #[ignore]
+    #[ignore = "holesky down"]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7_aggregated() {
         let proof_type = get_proof_type_from_env();

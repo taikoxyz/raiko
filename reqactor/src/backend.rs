@@ -83,11 +83,9 @@ impl Backend {
                     // handled even when something unexpected happens.
                     self.ensure_internal_signal(request_key).await;
 
-                    if let Err(err) = resp_tx.send(response.clone()) {
-                        tracing::error!(
-                            "Actor Backend failed to send response {response:?} to action {action}: {err:?}"
-                        );
-                    }
+                    // When the client side is closed, the response channel is closed, and sending response to the
+                    // channel will return an error. So we discard the result of sending response to the external actor.
+                    let _discard = resp_tx.send(response.clone());
                 }
                 Some(request_key) = internal_rx.recv() => {
                     self.handle_internal_signal(request_key.clone()).await;

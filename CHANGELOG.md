@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.5.0](https://github.com/taikoxyz/raiko/compare/v1.4.0...v1.5.0) (2025-02-27)
+
+
+### Features
+
+* complete v3 Aggregation APIs ([#424](https://github.com/taikoxyz/raiko/issues/424)) ([5dade7a](https://github.com/taikoxyz/raiko/commit/5dade7aaf2db1b76e1a4c59ce4a22f0a63bb7118))
+* **Dockerfile.pccs:** bump base image to ubuntu 24.04 ([#468](https://github.com/taikoxyz/raiko/issues/468)) ([1d6fa3d](https://github.com/taikoxyz/raiko/commit/1d6fa3dfd49988a83d7677c619d3be964cd3776a))
+* **docs:** docs improvements ([#451](https://github.com/taikoxyz/raiko/issues/451)) ([d137f2f](https://github.com/taikoxyz/raiko/commit/d137f2fdb8615aa5d4699eb88d32618d0e8c50a6))
+* **host:** apply reqactor,reqpool ([#453](https://github.com/taikoxyz/raiko/issues/453)) ([0c7f20f](https://github.com/taikoxyz/raiko/commit/0c7f20f0ce520c54e27e57a803142de66c6658e0))
+* **host:** impl API "/admin/pause" ([#440](https://github.com/taikoxyz/raiko/issues/440)) ([ddba6b0](https://github.com/taikoxyz/raiko/commit/ddba6b0add73f05778617e3950ffafc371b9293d))
+* impl redis-derive ([#446](https://github.com/taikoxyz/raiko/issues/446)) ([ac752ee](https://github.com/taikoxyz/raiko/commit/ac752ee35f966c28a7a24a537204dc3c1cc2e4c3))
+* impl reqactor ([#448](https://github.com/taikoxyz/raiko/issues/448)) ([26470be](https://github.com/taikoxyz/raiko/commit/26470beaa823c0e715f11140abdcef37e35be64d))
+* impl reqpool ([#447](https://github.com/taikoxyz/raiko/issues/447)) ([9a243c0](https://github.com/taikoxyz/raiko/commit/9a243c00b8173cea5c211f76b696a45c0f5630c4))
+* **make:** add make help message ([#435](https://github.com/taikoxyz/raiko/issues/435)) ([bbe246b](https://github.com/taikoxyz/raiko/commit/bbe246b1932d42452afed590fe25c1066b6f0539))
+* **raiko:** all-in-one dependency install script ([#427](https://github.com/taikoxyz/raiko/issues/427)) ([7139be0](https://github.com/taikoxyz/raiko/commit/7139be0fbd0afcbdac4a56e267ee0230732de4c2))
+* **raiko:** make redis able to re-connect ([#432](https://github.com/taikoxyz/raiko/issues/432)) ([e530f4f](https://github.com/taikoxyz/raiko/commit/e530f4f55ec8d1e4511ac1178e4c50bdba0f2342))
+* **raiko:** retry task if previous running failed. ([#408](https://github.com/taikoxyz/raiko/issues/408)) ([3432737](https://github.com/taikoxyz/raiko/commit/3432737265602098d1db546b95541542360d64e2))
+* **raiko:** upgrade both rust toolchain and sp1/risc0 sdk. ([#445](https://github.com/taikoxyz/raiko/issues/445)) ([fd2be53](https://github.com/taikoxyz/raiko/commit/fd2be536141bc5109b806f955cf288c6fcb89142))
+* **repo:** don't run CI on draft PRs ([#428](https://github.com/taikoxyz/raiko/issues/428)) ([be2746b](https://github.com/taikoxyz/raiko/commit/be2746be5dbafd81ef49b15d3bbe102b9bd1d842))
+* **repo:** run native tests on pr in taskdb dir ([#433](https://github.com/taikoxyz/raiko/issues/433)) ([9ed4ac2](https://github.com/taikoxyz/raiko/commit/9ed4ac2958eaf742d8c191ef73b9f9ed510e202b))
+* support ballot ([#460](https://github.com/taikoxyz/raiko/issues/460)) ([3cb93ca](https://github.com/taikoxyz/raiko/commit/3cb93ca95130fab3a2abb7a4d5d2c757a91e2077))
+* support ballot feature ([#454](https://github.com/taikoxyz/raiko/issues/454)) ([9a5900b](https://github.com/taikoxyz/raiko/commit/9a5900b44cc256d6dd1d12957d22fd02eb70870a))
+* **taskdb:** remove sqlite task manager ([#423](https://github.com/taikoxyz/raiko/issues/423)) ([89f748f](https://github.com/taikoxyz/raiko/commit/89f748f67eb78383ec978e156e5511a721af4e71))
+* union proof type relevant stuff ([#422](https://github.com/taikoxyz/raiko/issues/422)) ([4b0df41](https://github.com/taikoxyz/raiko/commit/4b0df4105f2b599d88455fc020d25eaa5a0d7c3d))
+
+
+### Bug Fixes
+
+* bump sp1 version + new patch ([#412](https://github.com/taikoxyz/raiko/issues/412)) ([64fd81f](https://github.com/taikoxyz/raiko/commit/64fd81f09a7305412286942ab0abb7cb8086c394))
+* **host:** limit body size using DefaultBodyLimit ([#437](https://github.com/taikoxyz/raiko/issues/437)) ([a720df5](https://github.com/taikoxyz/raiko/commit/a720df594a48abf63b96828462a512aec85cca9e))
+* **raiko:** add config for taiko_hekla,taiko_mainnet ([#463](https://github.com/taikoxyz/raiko/issues/463)) ([15608d0](https://github.com/taikoxyz/raiko/commit/15608d05ad907c0cebd181f873a73127f280895a))
+* **raiko:** avoid duplicate image uploads ([#439](https://github.com/taikoxyz/raiko/issues/439)) ([5804f23](https://github.com/taikoxyz/raiko/commit/5804f23298b832d956070c8f4f656f8c039e788e))
+* **raiko:** fix some misleading info prints ([#425](https://github.com/taikoxyz/raiko/issues/425)) ([32bc6a9](https://github.com/taikoxyz/raiko/commit/32bc6a994e4ce26f3bac1aebf7c7e60facd8e909))
+* **raiko:** ignore holesky related tests due to holesky down ([#471](https://github.com/taikoxyz/raiko/issues/471)) ([8eb0482](https://github.com/taikoxyz/raiko/commit/8eb04825f7a78b125e77dcf06dbdc4d835a99c0a))
+* **repo:** missed one workflow ([#429](https://github.com/taikoxyz/raiko/issues/429)) ([0c22438](https://github.com/taikoxyz/raiko/commit/0c22438527c819eec046b5e61c84ccc3c4551e4e))
+* **reqpool:** filter type-error items when list ([#467](https://github.com/taikoxyz/raiko/issues/467)) ([87fa02c](https://github.com/taikoxyz/raiko/commit/87fa02c10579cb3f94a92b55c2adc0369737a387))
+* tencentcloud redis doesnot support client info ([#458](https://github.com/taikoxyz/raiko/issues/458)) ([4e3ae27](https://github.com/taikoxyz/raiko/commit/4e3ae27a4916e5b29508eb5723d73dba245c59ea))
+
+
+### Performance Improvements
+
+* **host:** release running_tasks lock asap ([#417](https://github.com/taikoxyz/raiko/issues/417)) ([6e98484](https://github.com/taikoxyz/raiko/commit/6e984840a8038a6654ab1ecbb1caea7c036feb3a))
+* **provers:** accelerate Secp256k1 by using k256 ([#462](https://github.com/taikoxyz/raiko/issues/462)) ([f1640de](https://github.com/taikoxyz/raiko/commit/f1640de49568cc9c8e877165feb457418bd95d9b))
+
 ## [1.4.0](https://github.com/taikoxyz/raiko/compare/v1.3.0...v1.4.0) (2024-11-11)
 
 

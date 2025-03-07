@@ -1,0 +1,25 @@
+name: "Add a new FMSPC to Raiko"
+description: "Add a new FMSPC to Raiko"
+title: "Add a new FMSPC to Raiko"
+labels: ["category.add-fmspc"]
+assignees:
+  - "RogerLamTd"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is an application to add your FMSPC to Raiko for testing. Please follow the guide and bootstrap your instance before creating an issue. You can find your machine's FMSPC by following the instructions in the guide, and the quote in your `bootstrap.json` file generated from the bootstrapping process.
+        
+  - type: input
+    id: fmspc
+    attributes:
+      label: What is the new FMSPC?
+    validations:
+      required: true
+    
+  - type: input
+    id: quote
+    attributes:
+      label: V3Quote
+    validations:
+      required: true

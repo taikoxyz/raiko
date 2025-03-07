@@ -162,7 +162,7 @@ if [ "$1" == "sp1" ]; then
             cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf
             cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
 
-            # Don't wannt to span Succinct Network and wait 2 hours in CI
+            # Don't want to span Succinct Network and wait 2 hours in CI
             # echo "Running Sp1 verification"
             # cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier --features enable,sp1-verifier
         fi
