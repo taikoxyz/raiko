@@ -27,10 +27,6 @@ curl --location \
          "block_numbers": [[4, null], [5, null]],
          "block_number": 4,
          "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-         "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
-         "zk_any": {
-             "aggregation": false
-         }
        }'
 ```
 
@@ -90,11 +86,7 @@ curl --location \
            {"batch_id": 213, "l1_inclusion_block_number": 1656}
          ],
          "aggregate": true,
-         "proof_type": "sgx",
-         "blob_proof_type": "proof_of_equivalence",
-         "sgx": {
-            "instance": 1,
-         }
+         "proof_type": "sgx"
        }'
 ```
 
@@ -110,10 +102,4 @@ Success response (when proof is ready):
 
 ```json
 {"data": {"status": "success", "proof": ...}, "proof_type": "risc0", "status": "ok"}
-```
-
-Error response:
-
-```json
-{"data":{"status":"failed","error":"Error message"},"proof_type":"risc0","status":"ok"}
 ```
