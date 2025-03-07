@@ -308,17 +308,84 @@ impl std::fmt::Display for BatchMetadata {
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct BatchProofRequest {
     pub batches: Vec<BatchMetadata>,
-    pub aggregate: Option<bool>,
+    pub aggregate: bool,
+    pub proof_type: ProofType,
 
     pub network: String,
     pub l1_network: String,
     pub graffiti: B256,
     #[serde_as(as = "DisplayFromStr")]
     pub prover: Address,
-    pub proof_type: ProofType,
     pub blob_proof_type: BlobProofType,
     #[serde(flatten)]
     pub prover_args: ProverSpecificOpts,
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct BatchProofRequestOpt {
+    // Required fields
+    pub batches: Vec<BatchMetadata>,
+    pub aggregate: Option<bool>,
+    pub proof_type: String,
+
+    // Optional fields, if not provided, the default values will be used
+    pub network: Option<String>,
+    pub l1_network: Option<String>,
+    pub graffiti: Option<String>,
+    pub prover: Option<String>,
+    pub blob_proof_type: Option<String>,
+    #[serde(flatten)]
+    pub prover_args: Option<ProverSpecificOpts>,
+}
+
+impl TryFrom<BatchProofRequestOpt> for BatchProofRequest {
+    type Error = RaikoError;
+
+    fn try_from(value: BatchProofRequestOpt) -> Result<Self, Self::Error> {
+        Ok(Self {
+            batches: value.batches,
+            aggregate: value.aggregate.unwrap_or(false),
+            proof_type: value
+                .proof_type
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
+
+            network: value.network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?,
+            l1_network: value.l1_network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing l1_network".to_string(),
+            ))?,
+            graffiti: value
+                .graffiti
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing graffiti".to_string(),
+                ))?
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid graffiti".to_string()))?,
+            prover: value
+                .prover
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing prover".to_string(),
+                ))?
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid prover".to_string()))?,
+            blob_proof_type: value
+                .blob_proof_type
+                .unwrap_or("proof_of_equivalence".to_string())
+                .parse()
+                .map_err(|_| {
+                    RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
+                })?,
+            prover_args: value
+                .prover_args
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing prover_args".to_string(),
+                ))?
+                .into(),
+        })
+    }
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args, PartialEq, Eq, Hash)]

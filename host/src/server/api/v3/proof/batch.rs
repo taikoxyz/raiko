@@ -4,7 +4,7 @@ use crate::{
 };
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{
-    interfaces::{BatchMetadata, BatchProofRequest},
+    interfaces::{BatchMetadata, BatchProofRequest, BatchProofRequestOpt},
     merge,
 };
 use raiko_lib::prover::Proof;
@@ -39,7 +39,8 @@ async fn batch_handler(
         // options with the request from the client, and convert to a BatchProofRequest.
         let mut opts = serde_json::to_value(actor.default_request_config())?;
         merge(&mut opts, &batch_request_opt);
-        let batch_request: BatchProofRequest = serde_json::from_value(opts)?;
+        let batch_request_opt: BatchProofRequestOpt = serde_json::from_value(opts)?;
+        let batch_request: BatchProofRequest = batch_request_opt.try_into()?;
 
         // Validate the batch request
         if batch_request.batches.is_empty() {
@@ -88,7 +89,7 @@ async fn batch_handler(
         sub_batch_ids.push(*batch_id);
     }
 
-    let result = if batch_request.aggregate.unwrap_or(false) {
+    let result = if batch_request.aggregate {
         prove_aggregation(
             &actor,
             AggregationRequestKey::new(batch_request.proof_type, sub_batch_ids.clone()).into(),
