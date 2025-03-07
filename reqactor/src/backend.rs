@@ -598,7 +598,7 @@ async fn do_prove_batch(
         *batch_id,
     )
     .await
-    .expect("Could not parse L1 batch proposal tx");
+    .map_err(|err| format!("Could not parse L1 batch proposal tx: {err:?}"))?;
     // provider target blocks are all blocks in the batch and the parent block of block[0]
     let provider_target_blocks =
         (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
