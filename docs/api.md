@@ -56,7 +56,7 @@ Submit a batch proof task with requested config, get task status, or get proof v
 - l1_network(string): The L1 network to generate the proof for (e.g., "holesky").
 - graffiti(string): A 32-byte hex string used as graffiti.
 - prover(address): The Ethereum address of the prover.
-- proof_type(string): The type of proof to generate. Allowed values: `native`, `sgx`, `risc0`, `sp1`.
+- proof_type(string): The type of proof to generate. Allowed values: `native`, `sgx`, `risc0`, `sp1`, "zk_any"
 - blob_proof_type(string): The type of blob proof. Allowed values: `kzg_versioned_hash`, `proof_of_equivalence`.
 - prover_args(object, optional): Additional prover-specific parameters:
   - native(object, optional): Native prover specific options.
