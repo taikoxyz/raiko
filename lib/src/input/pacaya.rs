@@ -92,6 +92,7 @@ sol! {
         uint64 proposedAt; // Used by node/client
     }
 
+    #[derive(Debug, Default, Deserialize, Serialize)]
     /// @notice Struct representing transition to be proven.
     struct Transition {
         bytes32 parentHash;
