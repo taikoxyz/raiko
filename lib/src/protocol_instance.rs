@@ -10,7 +10,7 @@ use crate::{
     consts::SupportedChainSpecs,
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
-        pacaya::{BatchInfo, BatchMetadata, BlockParams},
+        pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, EthDeposit,
         GuestBatchInput, GuestInput, Transition,
     },
@@ -251,8 +251,15 @@ impl BlockMetaDataFork {
 }
 
 #[derive(Debug, Clone)]
+pub enum TransitionFork {
+    Hekla(Transition),
+    OnTake(Transition),
+    Pacaya(PacayaTransition),
+}
+
+#[derive(Debug, Clone)]
 pub struct ProtocolInstance {
-    pub transition: Transition,
+    pub transition: TransitionFork,
     pub block_metadata: BlockMetaDataFork,
     pub prover: Address,
     pub sgx_instance: Address, // only used for SGX
@@ -406,13 +413,24 @@ impl ProtocolInstance {
             .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
             .unwrap_or_default();
 
-        let pi = ProtocolInstance {
-            transition: Transition {
+        let transition = match input.taiko.block_proposed {
+            BlockProposedFork::Hekla(_) => TransitionFork::Hekla(Transition {
                 parentHash: header.parent_hash,
                 blockHash: header.hash_slow(),
                 stateRoot: header.state_root,
                 graffiti: input.taiko.prover_data.graffiti,
-            },
+            }),
+            BlockProposedFork::Ontake(_) => TransitionFork::OnTake(Transition {
+                parentHash: header.parent_hash,
+                blockHash: header.hash_slow(),
+                stateRoot: header.state_root,
+                graffiti: input.taiko.prover_data.graffiti,
+            }),
+            _ => return Err(anyhow::Error::msg("unknown transition fork")),
+        };
+
+        let pi = ProtocolInstance {
+            transition: transition,
             block_metadata: BlockMetaDataFork::from(input, header, tx_list_hash),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
@@ -488,13 +506,19 @@ impl ProtocolInstance {
             .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
             .unwrap_or_default();
 
+        let first_block = blocks.first().unwrap();
+        let last_block = blocks.last().unwrap();
+        let transition = match batch_input.taiko.batch_proposed {
+            BlockProposedFork::Pacaya(_) => TransitionFork::Pacaya(PacayaTransition {
+                parentHash: first_block.header.parent_hash,
+                blockHash: last_block.header.hash_slow(),
+                stateRoot: last_block.header.state_root,
+            }),
+            _ => return Err(anyhow::Error::msg("unknown transition fork")),
+        };
+
         let pi = ProtocolInstance {
-            transition: Transition {
-                parentHash: blocks.first().unwrap().header.parent_hash,
-                blockHash: blocks.last().unwrap().header.hash_slow(),
-                stateRoot: blocks.last().unwrap().header.state_root,
-                graffiti: input.taiko.prover_data.graffiti,
-            },
+            transition: transition,
             block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
@@ -541,26 +565,43 @@ impl ProtocolInstance {
             prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
             self.chain_id,
             self.verifier_address,
-            self.transition.clone(),
+            &self.transition,
             self.sgx_instance,
             self.prover,
-            self.block_metadata,
+            &self.block_metadata,
             self.meta_hash(),
         );
-        let data = (
-            "VERIFY_PROOF",
-            self.chain_id,
-            self.verifier_address,
-            self.transition.clone(),
-            self.sgx_instance,
-            self.prover,
-            self.meta_hash(),
-        )
-            .abi_encode()
-            .iter()
-            .skip(32)
-            .copied()
-            .collect::<Vec<u8>>();
+
+        let data = match &self.transition {
+            TransitionFork::Hekla(transition) | TransitionFork::OnTake(transition) => (
+                "VERIFY_PROOF",
+                self.chain_id,
+                self.verifier_address,
+                transition.clone(),
+                self.sgx_instance,
+                self.prover,
+                self.meta_hash(),
+            )
+                .abi_encode()
+                .iter()
+                .skip(32)
+                .copied()
+                .collect::<Vec<u8>>(),
+            TransitionFork::Pacaya(pacaya_trans) => (
+                "VERIFY_PROOF",
+                self.chain_id,
+                self.verifier_address,
+                pacaya_trans.clone(),
+                self.sgx_instance,
+                self.prover,
+                self.meta_hash(),
+            )
+                .abi_encode()
+                .iter()
+                .skip(32)
+                .copied()
+                .collect::<Vec<u8>>(),
+        };
         keccak(data).into()
     }
 }
