@@ -157,11 +157,11 @@ impl BlockMetaDataFork {
                     .map(|(index, block)| {
                         let anchor_tx = batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
                         let anchor_data = decode_anchor_pacaya(&anchor_tx.input()).unwrap();
-                        let singal_slots = anchor_data._signalSlots.clone();
+                        let signal_slots = anchor_data._signalSlots.clone();
                         BlockParams {
                             numTransactions: block.body.len() as u16 - 1, // exclude anchor tx
                             timeShift: (block.timestamp - batch_proposed.meta.proposedAt) as u8,
-                            signalSlots: singal_slots,
+                            signalSlots: signal_slots,
                         }
                     })
                     .collect::<Vec<BlockParams>>();

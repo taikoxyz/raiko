@@ -43,6 +43,10 @@ pub async fn test_manual_prove() {
         network: Some(network.clone()),
         proof_type: Some(proof_type.clone()),
 
+        // batch request parameters
+        batch_id: None,
+        l2_block_numbers: None,
+
         // Untesting parameters
         l1_inclusion_block_number: None,
         l1_network: Some("ethereum".to_string()),

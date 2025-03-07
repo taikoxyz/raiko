@@ -16,7 +16,6 @@ pub mod admin;
 pub mod v1;
 pub mod v2;
 pub mod v3;
-pub mod v4;
 
 pub const MAX_BODY_SIZE: usize = 1 << 20;
 
@@ -39,13 +38,11 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
     let v1_api = v1::create_router(concurrency_limit);
     let v2_api = v2::create_router();
     let v3_api = v3::create_router();
-    let v4_api = v4::create_router();
     let admin_api = admin::create_router();
     let router = Router::new()
         .nest("/v1", v1_api)
         .nest("/v2", v2_api)
         .nest("/v3", v3_api.clone())
-        .nest("/v4", v4_api)
         .merge(v3_api)
         .nest("/admin", admin_api)
         .layer(middleware)

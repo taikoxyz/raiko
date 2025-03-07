@@ -7,7 +7,7 @@ use raiko_lib::{
     consts::ChainSpec,
     input::{BlobProofType, GuestBatchInput, GuestInput, TaikoGuestInput, TaikoProverData},
     primitives::mpt::proofs_to_tries,
-    utils::{generate_transactions_for_batch_blocks, generate_transactions},
+    utils::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
 };
 use reth_primitives::TransactionSigned;
@@ -224,7 +224,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
     info!("block_parent_pairs.len(): {:?}", block_parent_pairs.len());
 
-    // distrubute txs to each block
+    // distribute txs to each block
     let pool_txs_list: Vec<Vec<TransactionSigned>> =
         generate_transactions_for_batch_blocks(&taiko_guest_batch_input);
 

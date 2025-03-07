@@ -174,7 +174,7 @@ pub struct BatchProofRequestKey {
     chain_id: ChainId,
     /// The block number of the request
     batch_id: u64,
-    /// The l1 block humber of the request
+    /// The l1 block number of the request
     l1_inclusion_height: u64,
     /// The proof type of the request
     proof_type: ProofType,

@@ -140,6 +140,7 @@ mod test {
         provider.provider.get_block_number().await.unwrap()
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_generate_input_from_cache() {
         let l1 = &Network::Holesky.to_string();

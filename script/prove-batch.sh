@@ -29,6 +29,7 @@ fi
 if [ "$proof" == "native" ]; then
 	proofParam='
     "proof_type": "NATIVE",
+    "blob_proof_type": "proof_of_equivalence",
 	"native" : {
         "json_guest_input": null
 	}
@@ -97,18 +98,18 @@ graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
 
 echo "- proving batch $batch_id @ $batch_proposal_height on $chain with $proof proof"
-curl --location --request POST 'http://localhost:8080/v4/proof' \
+curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --header 'Content-Type: application/json' \
     --header 'Authorization: Bearer' \
     --data-raw "{
         \"network\": \"$chain\",
         \"l1_network\": \"$l1_network\",
-        \"batch_id\": $batch_id,
-        \"l1_inclusion_block_number\": $batch_proposal_height,
+        \"batches\": [{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $batch_proposal_height}],
         \"prover\": \"$prover\",
         \"graffiti\": \"$graffiti\",
         $proofParam
     }"
+set +x
 echo ""
 
 sleep 1.0
