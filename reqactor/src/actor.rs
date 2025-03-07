@@ -8,7 +8,10 @@ use std::{
 
 use raiko_ballot::Ballot;
 use raiko_core::interfaces::ProofRequestOpt;
-use raiko_lib::{consts::SupportedChainSpecs, proof_type::ProofType};
+use raiko_lib::{
+    consts::{ChainSpec, SupportedChainSpecs},
+    proof_type::ProofType,
+};
 use raiko_reqpool::{Pool, RequestKey, StatusWithContext};
 use reth_primitives::BlockHash;
 use tokio::sync::{mpsc::Sender, oneshot};
@@ -58,6 +61,12 @@ impl Actor {
     /// Return the chain specs.
     pub fn chain_specs(&self) -> &SupportedChainSpecs {
         &self.chain_specs
+    }
+
+    pub fn get_chain_spec(&self, network: &str) -> Result<ChainSpec, String> {
+        self.chain_specs
+            .get_chain_spec(network)
+            .ok_or_else(|| format!("unsupported network: {}", network))
     }
 
     /// Check if the system is paused.

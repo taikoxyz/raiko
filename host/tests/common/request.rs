@@ -25,6 +25,10 @@ pub fn make_proof_request(
         network: Some(network.to_string()),
         proof_type: Some(proof_type.to_string()),
 
+        // batch request parameters
+        l2_block_numbers: None,
+        batch_id: None,
+
         // Untesting parameters
         l1_inclusion_block_number: None,
         l1_network: Some("ethereum".to_string()),
