@@ -1,17 +1,23 @@
 use crate::{
     interfaces::HostResult,
-    server::{api::v3::Status, handler::prove_many, prove_aggregation, utils::to_v3_status},
+    server::{
+        api::v3::{ProofResponse, Status},
+        handler::prove_many,
+        prove_aggregation,
+        utils::{is_zk_any_request, to_v3_status},
+    },
 };
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{
     interfaces::{BatchMetadata, BatchProofRequest, BatchProofRequestOpt},
     merge,
 };
-use raiko_lib::prover::Proof;
+use raiko_lib::{proof_type::ProofType, prover::Proof};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, BatchProofRequestEntity, BatchProofRequestKey,
 };
+use raiko_tasks::TaskStatus;
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -34,6 +40,15 @@ async fn batch_handler(
     State(actor): State<Actor>,
     Json(batch_request_opt): Json<Value>,
 ) -> HostResult<Status> {
+    if is_zk_any_request(&batch_request_opt) {
+        return Ok(Status::Ok {
+            proof_type: ProofType::Native,
+            data: ProofResponse::Status {
+                status: TaskStatus::ZKAnyNotDrawn,
+            },
+        });
+    }
+
     let batch_request = {
         // Override the existing proof request config from the config file and command line
         // options with the request from the client, and convert to a BatchProofRequest.
