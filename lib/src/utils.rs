@@ -147,26 +147,37 @@ pub fn generate_transactions_for_batch_blocks(
         ),
         "only pacaya batch supported"
     );
+    assert!(
+        taiko_guest_batch_input.tx_data_from_calldata.is_empty()
+            || taiko_guest_batch_input.tx_data_from_blob.is_empty(),
+        "Txlist comes from either calldata or blob, but not both"
+    );
+
     let batch_proposal = &taiko_guest_batch_input.batch_proposed;
-    let blob_data_bufs = taiko_guest_batch_input.tx_data_from_blob.clone();
-    let compressed_tx_list_buf = blob_data_bufs
-        .iter()
-        .map(|blob_data_buf| decode_blob_data(blob_data_buf))
-        .collect::<Vec<Vec<u8>>>()
-        .concat();
-    let (blob_offset, blob_size) = batch_proposal.blob_tx_slice_param().unwrap_or_else(|| {
-        warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
-        (0, compressed_tx_list_buf.len())
-    });
-    let tx_list_buf =
-        zlib_decompress_data(&compressed_tx_list_buf[blob_offset..blob_offset + blob_size])
-            .unwrap_or_default();
+    let use_blob = batch_proposal.blob_used();
+    let compressed_tx_list_buf = if use_blob {
+        let blob_data_bufs = taiko_guest_batch_input.tx_data_from_blob.clone();
+        let compressed_tx_list_buf = blob_data_bufs
+            .iter()
+            .map(|blob_data_buf| decode_blob_data(blob_data_buf))
+            .collect::<Vec<Vec<u8>>>()
+            .concat();
+        let (blob_offset, blob_size) = batch_proposal.blob_tx_slice_param().unwrap_or_else(|| {
+            warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
+            (0, compressed_tx_list_buf.len())
+        });
+        compressed_tx_list_buf[blob_offset..blob_offset + blob_size].to_vec()
+    } else {
+        taiko_guest_batch_input.tx_data_from_calldata.clone()
+    };
+
+    let tx_list_buf = zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
     let txs = decode_transactions(&tx_list_buf);
     // todo: deal with invalid proposal, to name a few:
     // - txs.len() != tx_num_sizes.sum()
     // - random blob tx bytes
 
-    distribute_txs(&txs, &taiko_guest_batch_input.batch_proposed)
+    distribute_txs(&txs, batch_proposal)
 }
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;

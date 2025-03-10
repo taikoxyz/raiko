@@ -15,7 +15,7 @@ use raiko_lib::{
     inplace_print,
     input::{
         ontake::{BlockProposedV2, CalldataTxList},
-        pacaya::BatchProposed,
+        pacaya::{proposeBatchCall, BatchProposed},
         proposeBlockCall, BlobProofType, BlockProposed, BlockProposedFork, TaikoGuestBatchInput,
         TaikoGuestInput, TaikoProverData,
     },
@@ -309,7 +309,7 @@ pub async fn prepare_taiko_chain_batch_input(
     let fork = taiko_chain_spec.active_fork(batch_blocks[0].number, batch_blocks[0].timestamp)?;
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
     // todo: duplicate code with parse_l1_batch_proposal_tx_for_pacaya_fork(), better to make these values fn parameters
-    let (l1_inclusion_height, _batch_proposal_tx, batch_proposed_fork) =
+    let (l1_inclusion_height, batch_proposal_tx, batch_proposed_fork) =
         get_block_proposed_event_by_height(
             provider_l1.provider(),
             taiko_chain_spec.clone(),
@@ -347,16 +347,24 @@ pub async fn prepare_taiko_chain_batch_input(
             l1_inclusion_header.timestamp
         };
 
-        let blob_tx_buffers = get_batch_tx_data_with_proofs(
-            blob_hashes,
-            l1_blob_timestamp,
-            l1_chain_spec,
-            blob_proof_type,
-        )
-        .await?;
+        // according to protocol, calldata is mutex with blob
+        let (tx_data_from_calldata, blob_tx_buffers_with_proofs) = if blob_hashes.is_empty() {
+            let proposeBatchCall { _txList, .. } =
+                proposeBatchCall::abi_decode(&batch_proposal_tx.input, false).map_err(|_| {
+                    RaikoError::Preflight("Could not decode proposeBatchCall".to_owned())
+                })?;
+            (_txList.to_vec(), Vec::new())
+        } else {
+            let blob_tx_buffers = get_batch_tx_data_with_proofs(
+                blob_hashes,
+                l1_blob_timestamp,
+                l1_chain_spec,
+                blob_proof_type,
+            )
+            .await?;
+            (Vec::new(), blob_tx_buffers)
+        };
 
-        // todo: extract tx from tx calldata
-        let tx_data_from_calldata = Vec::new();
         return Ok(TaikoGuestBatchInput {
             batch_id: batch_id,
             batch_proposed: BlockProposedFork::Pacaya(batch_proposed),
@@ -364,15 +372,15 @@ pub async fn prepare_taiko_chain_batch_input(
             chain_spec: taiko_chain_spec.clone(),
             prover_data: prover_data,
             tx_data_from_calldata,
-            tx_data_from_blob: blob_tx_buffers
+            tx_data_from_blob: blob_tx_buffers_with_proofs
                 .iter()
                 .map(|(blob_tx_data, _, _)| blob_tx_data.clone())
                 .collect(),
-            blob_commitments: blob_tx_buffers
+            blob_commitments: blob_tx_buffers_with_proofs
                 .iter()
                 .map(|(_, commit, _)| commit.clone())
                 .collect(),
-            blob_proofs: blob_tx_buffers
+            blob_proofs: blob_tx_buffers_with_proofs
                 .iter()
                 .map(|(_, _, proof)| proof.clone())
                 .collect(),
