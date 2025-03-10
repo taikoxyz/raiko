@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, TxHash, B256};
+use alloy_primitives::{b256, Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use reth_evm_ethereum::taiko::decode_anchor_pacaya;
