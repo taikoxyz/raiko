@@ -709,19 +709,19 @@ mod tests {
     #[test]
     fn test_calc_eip712_pi_hash() {
         let trans = PacayaTransition {
-            parentHash: b256!("d1af4ba3d08f7e612c3048c8789cbef6bf7dd45410ca1e9c258422cb19248294"),
-            blockHash: b256!("9207676f04048011f9f22321c9a478f4b1824e6fbc6d3e9302984892dde45663"),
-            stateRoot: b256!("ec149a56661247a84dbf36621ab37396ebc1682c2fd876647b996722aeae56d4"),
+            parentHash: b256!("0b8cbe268ead34bf55d650ea6e456bf50ed0fe16324b3570c01233735fd58add"),
+            blockHash: b256!("77292283b80b9082ae261ce71a2997b1e7d1f50b9d0c992aeeca4017a7363075"),
+            stateRoot: b256!("f57a1a8ed47fab33d3dc754d116993fcdf2530299c9ad2f8424e01b4b02637b9"),
         };
 
-        let meta_hash = b256!("4a9858484077cfaee065c8dd5be426a918135c74bbae2647d5de74324ff1762a");
+        let meta_hash = b256!("27b5964fa27493b7ecd120f8bae4280b4616a1fd8fe200d219c41178e29b28fa");
         let pi_hash = keccak::keccak(
             (
                 "VERIFY_PROOF",
                 167001u64,
                 address!("0Cf58F3E8514d993cAC87Ca8FC142b83575cC4D3"),
                 trans.clone(),
-                address!("021b9c4A769B423f34952E0C4ae19B8240566EB6"),
+                address!("5EA7F24Afb55295586aCeFCeA81d48A4C3F543fa"),
                 meta_hash,
             )
                 .abi_encode()
@@ -732,7 +732,30 @@ mod tests {
         );
         assert_eq!(
             hex::encode(pi_hash),
-            "2544a0f4b8dc723f69dc6916223f728674f2ee1001a115983e79966d662ee183"
+            "eec345cd2a4dce74689e5e8b021f142a9d51d2791d7e06d130ae8ac14676f1df"
+        );
+    }
+
+    #[test]
+    fn test_aggregation_pi() {
+        let old_instance =
+            Address::from_slice(&hex::decode("5EA7F24Afb55295586aCeFCeA81d48A4C3F543fa").unwrap());
+        let agg_pi = keccak::keccak(aggregation_output_combine(
+            [
+                vec![
+                    B256::left_padding_from(old_instance.as_ref()),
+                    B256::left_padding_from(old_instance.as_ref()),
+                ],
+                vec![b256!(
+                    "eec345cd2a4dce74689e5e8b021f142a9d51d2791d7e06d130ae8ac14676f1df"
+                )],
+            ]
+            .concat(),
+        ));
+        // println!("agg_pi = {:?}", hex::encode(agg_pi));
+        assert_eq!(
+            hex::encode(agg_pi),
+            "57c0a252e84a6f366a8124a45dde00ffc2a28875d1d347fba9835d316e20b74a"
         );
     }
 
