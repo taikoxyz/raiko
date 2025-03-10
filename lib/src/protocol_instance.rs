@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, TxHash, B256};
+use alloy_primitives::{b256, Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use reth_evm_ethereum::taiko::decode_anchor_pacaya;
@@ -614,12 +614,11 @@ impl ProtocolInstance {
                 .collect::<Vec<u8>>(),
             TransitionFork::Pacaya(pacaya_trans) => (
                 "VERIFY_PROOF",
-                self.chain_id,
-                self.verifier_address,
                 pacaya_trans.clone(),
+                self.verifier_address,
                 self.sgx_instance,
-                self.prover,
                 self.meta_hash(),
+                self.chain_id,
             )
                 .abi_encode()
                 .iter()
