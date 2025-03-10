@@ -708,25 +708,21 @@ mod tests {
 
     #[test]
     fn test_calc_eip712_pi_hash() {
-        let trans = Transition {
-            parentHash: b256!("07828133348460fab349c7e0e9fd8e08555cba34b34f215ffc846bfbce0e8f52"),
-            blockHash: b256!("e2105909de032b913abfa4c8b6101f9863d82be109ef32890b771ae214784efa"),
-            stateRoot: b256!("abbd12b3bcb836b024c413bb8c9f58f5bb626d6d835f5554a8240933e40b2d3b"),
-            graffiti: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
+        let trans = PacayaTransition {
+            parentHash: b256!("d1af4ba3d08f7e612c3048c8789cbef6bf7dd45410ca1e9c258422cb19248294"),
+            blockHash: b256!("9207676f04048011f9f22321c9a478f4b1824e6fbc6d3e9302984892dde45663"),
+            stateRoot: b256!("ec149a56661247a84dbf36621ab37396ebc1682c2fd876647b996722aeae56d4"),
         };
-        let meta_hash = b256!("9608088f69e586867154a693565b4f3234f26f82d44ef43fb99fd774e7266024");
-        let proof_of_equivalence = ([0u8; 32], [0u8; 32]);
 
+        let meta_hash = b256!("4a9858484077cfaee065c8dd5be426a918135c74bbae2647d5de74324ff1762a");
         let pi_hash = keccak::keccak(
             (
                 "VERIFY_PROOF",
                 167001u64,
-                address!("4F3F0D5B22338f1f991a1a9686C7171389C97Ff7"),
+                address!("0Cf58F3E8514d993cAC87Ca8FC142b83575cC4D3"),
                 trans.clone(),
-                address!("741E45D08C70c1C232802711bBFe1B7C0E1acc55"),
-                address!("70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+                address!("021b9c4A769B423f34952E0C4ae19B8240566EB6"),
                 meta_hash,
-                proof_of_equivalence,
             )
                 .abi_encode()
                 .iter()
@@ -736,7 +732,7 @@ mod tests {
         );
         assert_eq!(
             hex::encode(pi_hash),
-            "dc1696a5289616fa5eaa9b6ce97d53765b79db948caedb6887f21a26e4c29511"
+            "2544a0f4b8dc723f69dc6916223f728674f2ee1001a115983e79966d662ee183"
         );
     }
 
