@@ -11,8 +11,8 @@ use crate::{
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
-        BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, EthDeposit,
-        GuestBatchInput, GuestInput, Transition,
+        BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
+        GuestInput, Transition,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
@@ -614,11 +614,11 @@ impl ProtocolInstance {
                 .collect::<Vec<u8>>(),
             TransitionFork::Pacaya(pacaya_trans) => (
                 "VERIFY_PROOF",
-                pacaya_trans.clone(),
+                self.chain_id,
                 self.verifier_address,
+                pacaya_trans.clone(),
                 self.sgx_instance,
                 self.meta_hash(),
-                self.chain_id,
             )
                 .abi_encode()
                 .iter()
