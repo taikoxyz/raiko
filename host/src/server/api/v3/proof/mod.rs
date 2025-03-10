@@ -14,12 +14,13 @@ use raiko_core::{
 };
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
-    AggregationRequestEntity, AggregationRequestKey, SingleProofRequestEntity,
-    SingleProofRequestKey,
+    AggregationRequestEntity, AggregationRequestKey, RequestEntity, RequestKey,
+    SingleProofRequestEntity, SingleProofRequestKey,
 };
 use utoipa::OpenApi;
 
 mod aggregate;
+mod batch;
 mod cancel;
 
 #[utoipa::path(post, path = "/proof",
@@ -69,14 +70,14 @@ async fn proof_handler(
         )
         .await?;
 
-        let request_key = SingleProofRequestKey::new(
+        let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
             chain_id,
             proof_request.block_number,
             blockhash,
             proof_request.proof_type,
             proof_request.prover.to_string(),
-        );
-        let request_entity = SingleProofRequestEntity::new(
+        ));
+        let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
             proof_request.block_number,
             proof_request.l1_inclusion_block_number,
             proof_request.network,
@@ -86,7 +87,7 @@ async fn proof_handler(
             proof_request.proof_type,
             proof_request.blob_proof_type,
             proof_request.prover_args,
-        );
+        ));
 
         sub_request_keys.push(request_key);
         sub_request_entities.push(request_entity);
@@ -125,6 +126,7 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     [
         cancel::create_docs(),
         aggregate::create_docs(),
+        batch::create_docs(),
         v2::proof::report::create_docs(),
         v2::proof::list::create_docs(),
         v2::proof::prune::create_docs(),
@@ -141,6 +143,7 @@ pub fn create_router() -> Router<Actor> {
         .route("/", post(proof_handler))
         .nest("/cancel", cancel::create_router())
         .nest("/aggregate", aggregate::create_router())
+        .nest("/batch", batch::create_router())
         .nest("/report", v2::proof::report::create_router())
         .nest("/list", v2::proof::list::create_router())
         .nest("/prune", v2::proof::prune::create_router())
