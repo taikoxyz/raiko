@@ -147,6 +147,12 @@ pub fn generate_transactions_for_batch_blocks(
         ),
         "only pacaya batch supported"
     );
+    assert!(
+        taiko_guest_batch_input.tx_data_from_calldata.is_empty()
+            || taiko_guest_batch_input.tx_data_from_blob.is_empty(),
+        "Txlist comes from either calldata or blob, but not both"
+    );
+
     let batch_proposal = &taiko_guest_batch_input.batch_proposed;
     let blob_data_bufs = taiko_guest_batch_input.tx_data_from_blob.clone();
     let compressed_tx_list_buf = blob_data_bufs

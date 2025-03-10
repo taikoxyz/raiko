@@ -309,6 +309,27 @@ fn verify_batch_mode_blob_usage(
     let blob_proof_type =
         get_blob_proof_type(proof_type, batch_input.taiko.blob_proof_type.clone());
 
+    match blob_proof_type {
+        crate::input::BlobProofType::KzgVersionedHash => assert_eq!(
+            batch_input.taiko.tx_data_from_blob.len(),
+            batch_input
+                .taiko
+                .blob_commitments
+                .as_ref()
+                .map_or(0, |c| c.len()),
+            "Each blob should have its own hash commit"
+        ),
+        crate::input::BlobProofType::ProofOfEquivalence => assert_eq!(
+            batch_input.taiko.tx_data_from_blob.len(),
+            batch_input
+                .taiko
+                .blob_proofs
+                .as_ref()
+                .map_or(0, |p| p.len()),
+            "Each blob should have its own proof"
+        ),
+    }
+
     for blob_verify_param in batch_input
         .taiko
         .tx_data_from_blob
