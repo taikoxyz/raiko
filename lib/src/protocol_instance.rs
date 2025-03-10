@@ -24,6 +24,10 @@ use crate::{
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 use tracing::{debug, info};
 
+// The empty root of [`Vec<EthDeposit>`]
+const EMPTY_ETH_DEPOSIT_ROOT: B256 =
+    b256!("569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd");
+
 #[derive(Debug, Clone)]
 pub enum BlockMetaDataFork {
     None,
@@ -53,7 +57,7 @@ impl From<(&GuestInput, &Header, B256, &BlockProposed)> for BlockMetadata {
 
             blobHash: tx_list_hash,
 
-            depositsHash: keccak(Vec::<EthDeposit>::new().abi_encode()).into(),
+            depositsHash: EMPTY_ETH_DEPOSIT_ROOT,
 
             difficulty: block_proposed.meta.difficulty,
             minTier: block_proposed.meta.minTier,
