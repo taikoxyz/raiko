@@ -24,6 +24,7 @@ pub struct Actor {
     default_request_config: ProofRequestOpt,
     chain_specs: SupportedChainSpecs,
     action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
+    high_priority_action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
     pause_tx: Sender<()>,
     is_paused: Arc<AtomicBool>,
 
@@ -40,12 +41,17 @@ impl Actor {
         default_request_config: ProofRequestOpt,
         chain_specs: SupportedChainSpecs,
         action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
+        high_priority_action_tx: Sender<(
+            Action,
+            oneshot::Sender<Result<StatusWithContext, String>>,
+        )>,
         pause_tx: Sender<()>,
     ) -> Self {
         Self {
             default_request_config,
             chain_specs,
             action_tx,
+            high_priority_action_tx,
             pause_tx,
             is_paused: Arc::new(AtomicBool::new(false)),
             ballot: Arc::new(Mutex::new(ballot)),
@@ -94,11 +100,18 @@ impl Actor {
     pub async fn act(&self, action: Action) -> Result<StatusWithContext, String> {
         let (resp_tx, resp_rx) = oneshot::channel();
 
-        // Send the action to the backend
-        self.action_tx
-            .send((action, resp_tx))
-            .await
-            .map_err(|e| format!("failed to send action: {e}"))?;
+        // Send the action to the backend with is_high_priority
+        {
+            let is_high_priority = action.is_high_priority();
+            if is_high_priority {
+                &self.high_priority_action_tx
+            } else {
+                &self.action_tx
+            }
+        }
+        .send((action, resp_tx))
+        .await
+        .map_err(|e| format!("failed to send action: {e}"))?;
 
         // Wait for response of the action
         resp_rx
