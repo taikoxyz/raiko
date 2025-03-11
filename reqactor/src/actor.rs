@@ -175,6 +175,7 @@ mod tests {
             Ballot::default(),
             ProofRequestOpt::default(),
             SupportedChainSpecs::default(),
+            action_tx.clone(),
             action_tx,
             pause_tx,
         );
@@ -199,6 +200,7 @@ mod tests {
             Ballot::default(),
             ProofRequestOpt::default(),
             SupportedChainSpecs::default(),
+            action_tx.clone(),
             action_tx,
             pause_tx,
         );

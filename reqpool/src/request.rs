@@ -355,7 +355,6 @@ pub enum RequestEntity {
     SingleProof(SingleProofRequestEntity),
     Aggregation(AggregationRequestEntity),
     BatchProof(BatchProofRequestEntity),
-    //todo: AggregationBatch(AggregationBatchRequestEntity),
 }
 
 impl From<SingleProofRequestEntity> for RequestEntity {

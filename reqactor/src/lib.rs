@@ -28,6 +28,8 @@ pub async fn start_actor(
     let channel_size = 1024;
     let (action_tx, action_rx) =
         mpsc::channel::<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>(channel_size);
+    let (high_priority_action_tx, high_priority_action_rx) =
+        mpsc::channel::<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>(channel_size);
     let (pause_tx, pause_rx) = mpsc::channel::<()>(1);
 
     Backend::serve_in_background(
@@ -35,6 +37,7 @@ pub async fn start_actor(
         chain_specs.clone(),
         pause_rx,
         action_rx,
+        high_priority_action_rx,
         max_proving_concurrency,
     )
     .await;
@@ -45,6 +48,7 @@ pub async fn start_actor(
         default_request_config,
         chain_specs.clone(),
         action_tx,
+        high_priority_action_tx,
         pause_tx,
     )
 }

@@ -31,6 +31,7 @@ pub(crate) struct Backend {
     pool: Pool,
     chain_specs: SupportedChainSpecs,
     internal_tx: Sender<RequestKey>,
+    high_priority_internal_tx: Sender<RequestKey>,
     proving_semaphore: Arc<Semaphore>,
 }
 
@@ -45,18 +46,31 @@ impl Backend {
         chain_specs: SupportedChainSpecs,
         pause_rx: Receiver<()>,
         action_rx: Receiver<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
+        high_priority_action_rx: Receiver<(
+            Action,
+            oneshot::Sender<Result<StatusWithContext, String>>,
+        )>,
         max_proving_concurrency: usize,
     ) {
         let channel_size = 1024;
         let (internal_tx, internal_rx) = mpsc::channel::<RequestKey>(channel_size);
+        let (high_priority_internal_tx, high_priority_internal_rx) =
+            mpsc::channel::<RequestKey>(channel_size);
         tokio::spawn(async move {
             Backend {
                 pool,
                 chain_specs,
                 internal_tx,
+                high_priority_internal_tx,
                 proving_semaphore: Arc::new(Semaphore::new(max_proving_concurrency)),
             }
-            .serve(action_rx, internal_rx, pause_rx)
+            .serve(
+                action_rx,
+                high_priority_action_rx,
+                internal_rx,
+                high_priority_internal_rx,
+                pause_rx,
+            )
             .await;
         });
     }
@@ -65,44 +79,77 @@ impl Backend {
     // 1. action_rx: actions from the external Actor
     // 2. internal_rx: internal signals from the backend itself
     // 3. pause_rx: pause signal from the external Actor
+    /// This behavior can be overridden by adding `biased;` to the beginning of the
+    /// macro usage. See the examples for details. This will cause `select` to poll
+    /// the futures in the order they appear from top to bottom. There are a few
+    /// reasons you may want this:
     async fn serve(
         mut self,
         mut action_rx: Receiver<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
+        mut high_priority_action_rx: Receiver<(
+            Action,
+            oneshot::Sender<Result<StatusWithContext, String>>,
+        )>,
         mut internal_rx: Receiver<RequestKey>,
+        mut high_priority_internal_rx: Receiver<RequestKey>,
         mut pause_rx: Receiver<()>,
     ) {
         loop {
             tokio::select! {
-                Some((action, resp_tx)) = action_rx.recv() => {
-                    let request_key = action.request_key().clone();
-                    let response = self.handle_external_action(action.clone()).await;
+                // NOTE: `biased` ensure the `select!` to poll the futures in the order they appear from top to bottom,
+                //       so that the high-priority requests will be handled first.
+                biased;
 
-                    // Signal the request key to the internal channel, to move on to the next step, whatever the result is
-                    //
-                    // NOTE: Why signal whatever the result is? It's for fault tolerance, to ensure the request will be
-                    // handled even when something unexpected happens.
-                    self.ensure_internal_signal(request_key).await;
-
-                    // When the client side is closed, the response channel is closed, and sending response to the
-                    // channel will return an error. So we discard the result of sending response to the external actor.
-                    let _discard = resp_tx.send(response.clone());
-                }
-                Some(request_key) = internal_rx.recv() => {
-                    self.handle_internal_signal(request_key.clone()).await;
-                }
                 Some(()) = pause_rx.recv() => {
                     tracing::info!("Actor Backend received pause-signal, halting");
                     if let Err(err) = self.halt().await {
                         tracing::error!("Actor Backend failed to halt: {err:?}");
                     }
                 }
+
+                Some(request_key) = high_priority_internal_rx.recv() => {
+                    self.handle_internal_signal(request_key.clone(), true).await;
+                }
+
+                Some((action, resp_tx)) = high_priority_action_rx.recv() => {
+                    self.handle_external_action_and_respond(action, resp_tx, true).await;
+                }
+
+                Some(request_key) = internal_rx.recv() => {
+                    self.handle_internal_signal(request_key.clone(), false).await;
+                }
+
+                Some((action, resp_tx)) = action_rx.recv() => {
+                    self.handle_external_action_and_respond(action, resp_tx, false).await;
+                }
+
                 else => {
-                    // All channels are closed, exit the loop
-                    tracing::info!("Actor Backend exited");
+                    tracing::info!("All channels are closed, Actor exit the loop");
                     break;
                 }
             }
         }
+    }
+
+    async fn handle_external_action_and_respond(
+        &mut self,
+        action: Action,
+        resp_tx: oneshot::Sender<Result<StatusWithContext, String>>,
+        is_high_priority: bool,
+    ) {
+        let request_key = action.request_key().clone();
+        let response = self.handle_external_action(action.clone()).await;
+
+        // Signal the request key to the internal channel, to move on to the next step, whatever the result is
+        //
+        // NOTE: Why signal whatever the result is? It's for fault tolerance, to ensure the request will be
+        // handled even when something unexpected happens.
+        self.ensure_internal_signal(request_key, is_high_priority)
+            .await;
+
+        // When the client side is closed, the response channel is closed, and sending response to the
+        // channel will return an error. So we discard the result of sending response to the external actor.
+        let _discard = resp_tx.send(response.clone());
     }
 
     async fn handle_external_action(
@@ -166,24 +213,27 @@ impl Backend {
     }
 
     // Check the request status and then move on to the next step accordingly.
-    async fn handle_internal_signal(&mut self, request_key: RequestKey) {
+    async fn handle_internal_signal(&mut self, request_key: RequestKey, is_high_priority: bool) {
         match self.pool.get(&request_key) {
             Ok(Some((request_entity, status))) => match status.status() {
                 Status::Registered => match request_entity {
                     RequestEntity::SingleProof(entity) => {
                         tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
                         self.prove_single(request_key.clone(), entity).await;
-                        self.ensure_internal_signal(request_key).await;
+                        self.ensure_internal_signal(request_key, is_high_priority)
+                            .await;
                     }
                     RequestEntity::Aggregation(entity) => {
                         tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving aggregation proof");
                         self.prove_aggregation(request_key.clone(), entity).await;
-                        self.ensure_internal_signal(request_key).await;
+                        self.ensure_internal_signal(request_key, is_high_priority)
+                            .await;
                     }
                     RequestEntity::BatchProof(entity) => {
                         tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving batch proof");
                         self.prove_batch(request_key.clone(), entity).await;
-                        self.ensure_internal_signal(request_key).await;
+                        self.ensure_internal_signal(request_key, is_high_priority)
+                            .await;
                     }
                 },
                 Status::WorkInProgress => {
@@ -192,8 +242,12 @@ impl Backend {
                         "Actor Backend checks a work-in-progress request {request_key}, elapsed: {elapsed:?}",
                         elapsed = chrono::Utc::now() - status.timestamp(),
                     );
-                    self.ensure_internal_signal_after(request_key, Duration::from_secs(3))
-                        .await;
+                    self.ensure_internal_signal_after(
+                        request_key,
+                        Duration::from_secs(3),
+                        is_high_priority,
+                    )
+                    .await;
                 }
                 Status::Success { .. } | Status::Cancelled { .. } | Status::Failed { .. } => {
                     tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, done");
@@ -209,8 +263,12 @@ impl Backend {
                 tracing::warn!(
                     "Actor Backend failed to get status of internal signal {request_key}: {err:?}, performing fault tolerance and retrying later"
                 );
-                self.ensure_internal_signal_after(request_key, Duration::from_secs(3))
-                    .await;
+                self.ensure_internal_signal_after(
+                    request_key,
+                    Duration::from_secs(3),
+                    is_high_priority,
+                )
+                .await;
             }
         }
     }
@@ -218,9 +276,13 @@ impl Backend {
     // Ensure signal the request key to the internal channel.
     //
     // Note that this function will retry sending the signal until success.
-    async fn ensure_internal_signal(&mut self, request_key: RequestKey) {
+    async fn ensure_internal_signal(&mut self, request_key: RequestKey, is_high_priority: bool) {
         let mut ticker = tokio::time::interval(Duration::from_secs(3));
-        let internal_tx = self.internal_tx.clone();
+        let internal_tx = if is_high_priority {
+            self.high_priority_internal_tx.clone()
+        } else {
+            self.internal_tx.clone()
+        };
         tokio::spawn(async move {
             loop {
                 ticker.tick().await; // first tick is immediate
@@ -233,11 +295,17 @@ impl Backend {
         });
     }
 
-    async fn ensure_internal_signal_after(&mut self, request_key: RequestKey, after: Duration) {
+    async fn ensure_internal_signal_after(
+        &mut self,
+        request_key: RequestKey,
+        after: Duration,
+        is_high_priority: bool,
+    ) {
         let mut timer = tokio::time::interval(after);
         timer.tick().await; // first tick is immediate
         timer.tick().await;
-        self.ensure_internal_signal(request_key).await
+        self.ensure_internal_signal(request_key, is_high_priority)
+            .await
     }
 
     // Register a new request to the pool and notify the actor.
