@@ -381,7 +381,10 @@ impl Backend {
         .await;
     }
 
-    /// Generic method to handle proving for different types of proofs
+    /// Generic method to handle proving for different types of proofs.
+    ///
+    /// Note that this method will block the current thread until the proving thread acquires the
+    /// semaphore.
     async fn prove<F, Fut>(
         &mut self,
         request_key: RequestKey,
