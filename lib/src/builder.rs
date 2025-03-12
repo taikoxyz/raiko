@@ -95,10 +95,11 @@ fn verify_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) {
         .for_each(|window| {
             let (_parent_input, parent_block) = &window[0];
             let (current_input, current_block) = &window[1];
+            let calculated_parent_hash = parent_block.header.hash_slow();
             assert!(
-                parent_block.header.hash_slow() == current_block.header.parent_hash,
+                calculated_parent_hash == current_block.header.parent_hash,
                 "Parent hash mismatch, expected: {}, got: {}",
-                parent_block.header.hash_slow(),
+                calculated_parent_hash,
                 current_block.header.parent_hash
             );
             assert!(
