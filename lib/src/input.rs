@@ -129,7 +129,7 @@ impl BlockProposedFork {
             BlockProposedFork::Hekla(block) => block.meta.id,
             BlockProposedFork::Ontake(block) => block.meta.id,
             BlockProposedFork::Pacaya(_batch) => {
-                _batch.info.lastBlockId - (_batch.info.blocks.len() as u64)
+                _batch.info.lastBlockId - (_batch.info.blocks.len() as u64) + 1
             }
             _ => 0,
         }
