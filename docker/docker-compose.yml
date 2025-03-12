@@ -172,6 +172,8 @@ services:
       dockerfile: Dockerfile.pccs
     image: us-docker.pkg.dev/evmchain/images/pccs:latest
     container_name: pccs
+    ports:
+      - "8081:8081"
     volumes:
       - ${HOME}/.config/sgx-pccs/default.json:/opt/intel/pccs/config/default.json
       - ${HOME}/.config/sgx-pccs/file.crt:/opt/intel/pccs/ssl_key/file.crt
