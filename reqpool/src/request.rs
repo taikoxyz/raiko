@@ -405,3 +405,25 @@ impl std::fmt::Display for StatusWithContext {
         write!(f, "{}", self.status())
     }
 }
+
+impl raiko_metrics::ToLabel for &RequestKey {
+    fn to_label(&self) -> &'static str {
+        match self {
+            RequestKey::SingleProof(_) => "single",
+            RequestKey::Aggregation(_) => "aggr",
+            RequestKey::BatchProof(_) => "batch",
+        }
+    }
+}
+
+impl raiko_metrics::ToLabel for &Status {
+    fn to_label(&self) -> &'static str {
+        match self {
+            Status::Registered => "registered",
+            Status::WorkInProgress => "wip",
+            Status::Success { .. } => "success",
+            Status::Cancelled => "cancelled",
+            Status::Failed { .. } => "failed",
+        }
+    }
+}

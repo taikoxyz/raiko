@@ -104,7 +104,8 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --data-raw "{
         \"network\": \"$chain\",
         \"l1_network\": \"$l1_network\",
-        \"batches\": [{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $batch_proposal_height}],
+        \"batches\": [{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $batch_proposal_height}, {\"batch_id\": 23361, \"l1_inclusion_block_number\": 46835} ],
+        \"aggregate\": true,
         \"prover\": \"$prover\",
         \"graffiti\": \"$graffiti\",
         $proofParam

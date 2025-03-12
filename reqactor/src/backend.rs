@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::time::Duration;
+use std::{sync::Arc, time::Instant};
 
 use raiko_core::{
     interfaces::{aggregate_proofs, ProofRequest},
@@ -95,6 +95,19 @@ impl Backend {
         mut pause_rx: Receiver<()>,
     ) {
         loop {
+            {
+                // Although this way to observe the length of the channels is not in-time, it's close
+                // enough.
+                raiko_metrics::set_actor_action_rx_length(action_rx.len());
+                raiko_metrics::set_actor_high_priority_action_rx_length(
+                    high_priority_action_rx.len(),
+                );
+                raiko_metrics::set_actor_internal_rx_length(internal_rx.len());
+                raiko_metrics::set_actor_high_priority_internal_rx_length(
+                    high_priority_internal_rx.len(),
+                );
+            }
+
             tokio::select! {
                 // NOTE: `biased` ensure the `select!` to poll the futures in the order they appear from top to bottom,
                 //       so that the high-priority requests will be handled first.
@@ -481,17 +494,35 @@ impl Backend {
 
         let handle = tokio::spawn(async move {
             // Acquire a permit from the semaphore before starting the proving work
-            let _permit = proving_semaphore
-                .acquire()
-                .await
-                .expect("semaphore should not be closed");
+            let _permit = {
+                let start_time = Instant::now();
+                let _permit = proving_semaphore
+                    .acquire()
+                    .await
+                    .expect("semaphore should not be closed");
+                raiko_metrics::observe_action_wait_semaphore_duration(
+                    &request_key,
+                    start_time.elapsed(),
+                );
+                _permit
+            };
             semaphore_acquired_tx.send(()).unwrap();
 
             // 2.1. Start the proving work
-            let proven_status = prove_fn(actor.clone(), request_key.clone())
-                .await
-                .map(|proof| Status::Success { proof })
-                .unwrap_or_else(|error| Status::Failed { error });
+            let proven_status = {
+                let start_time = Instant::now();
+                let proven_status = prove_fn(actor.clone(), request_key.clone())
+                    .await
+                    .map(|proof| Status::Success { proof })
+                    .unwrap_or_else(|error| Status::Failed { error });
+                raiko_metrics::observe_action_prove_duration(
+                    request_key.proof_type(),
+                    &request_key,
+                    &proven_status,
+                    start_time.elapsed(),
+                );
+                proven_status
+            };
 
             match &proven_status {
                 Status::Success { proof } => {

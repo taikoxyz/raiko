@@ -1,6 +1,5 @@
 use crate::{
     interfaces::HostResult,
-    metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::{
         api::{v2, v3::Status},
         prove_aggregation,
@@ -42,8 +41,6 @@ async fn proof_handler(
     State(actor): State<Actor>,
     Json(mut aggregation_request): Json<AggregationRequest>,
 ) -> HostResult<Status> {
-    inc_current_req();
-
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     aggregation_request.merge(&actor.default_request_config())?;
@@ -59,9 +56,6 @@ async fn proof_handler(
     let mut sub_request_entities = Vec::with_capacity(proof_request_opts.len());
     for proof_request_opt in proof_request_opts {
         let proof_request = ProofRequest::try_from(proof_request_opt)?;
-
-        inc_host_req_count(proof_request.block_number);
-        inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
         let (chain_id, blockhash) = get_task_data(
             &proof_request.network,
