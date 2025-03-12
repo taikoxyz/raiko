@@ -75,7 +75,48 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
                 .expect("execute single batched block"),
         );
     }
+    assert!(
+        verify_final_batch_blocks(input, &final_blocks).is_ok(),
+        "Invalid batch blocks"
+    );
     final_blocks
+}
+
+// to check the linkages between the blocks
+// 1. connect parent hash & state root
+// 2. block number should be in sequence
+fn verify_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) -> Result<()> {
+    input
+        .inputs
+        .iter()
+        .zip(final_blocks.iter())
+        .collect::<Vec<_>>()
+        .windows(2)
+        .for_each(|window| {
+            let (_parent_input, parent_block) = &window[0];
+            let (current_input, current_block) = &window[1];
+            assert!(
+                parent_block.header.hash_slow() == current_block.header.parent_hash,
+                "Parent hash mismatch, expected: {}, got: {}",
+                parent_block.header.hash_slow(),
+                current_block.header.parent_hash
+            );
+            assert!(
+                parent_block.header.number + 1 == current_block.header.number,
+                "Block number mismatch, expected: {}, got: {}",
+                parent_block.header.number + 1,
+                current_block.header.number
+            );
+            assert!(
+                parent_block.header.state_root == current_input.parent_header.state_root,
+                "Parent hash mismatch, expected: {}, got: {}",
+                parent_block.header.hash_slow(),
+                current_block.header.parent_hash
+            );
+            // state root is checked in finalize(), skip here
+            // assert!(current_block.state_root == current_input.block.state_root)
+        });
+    Ok(())
 }
 
 /// Optimistic database

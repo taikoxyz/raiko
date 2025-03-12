@@ -9,6 +9,7 @@ libos.entrypoint = "/sgx-guest"
 loader.entrypoint = "file:{{ gramine.libos }}"
 loader.env.HOME = "/root"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
+loader.env.DEV_PACAYA_HEIGHT = "50"
 loader.env.RUST_LOG = "info"
 loader.insecure__use_cmdline_argv = true
 loader.log_level = "{{ log_level }}"
