@@ -75,17 +75,14 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
                 .expect("execute single batched block"),
         );
     }
-    assert!(
-        verify_final_batch_blocks(input, &final_blocks).is_ok(),
-        "Invalid batch blocks"
-    );
+    validate_final_batch_blocks(input, &final_blocks);
     final_blocks
 }
 
 // to check the linkages between the blocks
 // 1. connect parent hash & state root
 // 2. block number should be in sequence
-fn verify_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) -> Result<()> {
+fn validate_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) {
     input
         .inputs
         .iter()
@@ -117,7 +114,6 @@ fn verify_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) ->
             // state root is checked in finalize(), skip here
             // assert!(current_block.state_root == current_input.block.state_root)
         });
-    Ok(())
 }
 
 /// Optimistic database
