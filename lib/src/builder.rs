@@ -85,7 +85,7 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
 // to check the linkages between the blocks
 // 1. connect parent hash & state root
 // 2. block number should be in sequence
-fn verify_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) -> Result<()> {
+fn verify_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) {
     input
         .inputs
         .iter()
