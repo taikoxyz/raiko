@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::time::Duration;
+use std::{sync::Arc, time::Instant};
 
 use raiko_core::{
     interfaces::{aggregate_proofs, ProofRequest},
@@ -413,17 +413,35 @@ impl Backend {
 
         let handle = tokio::spawn(async move {
             // Acquire a permit from the semaphore before starting the proving work
-            let _permit = proving_semaphore
-                .acquire()
-                .await
-                .expect("semaphore should not be closed");
+            let _permit = {
+                let start_time = Instant::now();
+                let _permit = proving_semaphore
+                    .acquire()
+                    .await
+                    .expect("semaphore should not be closed");
+                raiko_metrics::observe_action_wait_semaphore_duration(
+                    &request_key,
+                    start_time.elapsed(),
+                );
+                _permit
+            };
             semaphore_acquired_tx.send(()).unwrap();
 
             // 2.1. Start the proving work
-            let proven_status = prove_fn(actor.clone(), request_key.clone())
-                .await
-                .map(|proof| Status::Success { proof })
-                .unwrap_or_else(|error| Status::Failed { error });
+            let proven_status = {
+                let start_time = Instant::now();
+                let proven_status = prove_fn(actor.clone(), request_key.clone())
+                    .await
+                    .map(|proof| Status::Success { proof })
+                    .unwrap_or_else(|error| Status::Failed { error });
+                raiko_metrics::observe_action_prove_duration(
+                    request_key.proof_type(),
+                    &request_key,
+                    &proven_status,
+                    start_time.elapsed(),
+                );
+                proven_status
+            };
 
             match &proven_status {
                 Status::Success { proof } => {

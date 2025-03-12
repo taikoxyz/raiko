@@ -4,6 +4,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
+    time::Instant,
 };
 
 use raiko_ballot::Ballot;
@@ -92,18 +93,34 @@ impl Actor {
 
     /// Send an action to the backend and wait for the response.
     pub async fn act(&self, action: Action) -> Result<StatusWithContext, String> {
+        raiko_metrics::increment_in_actions(
+            &action,
+            action.request_key().proof_type(),
+            action.request_key(),
+        );
+
+        let start = Instant::now();
         let (resp_tx, resp_rx) = oneshot::channel();
 
         // Send the action to the backend
         self.action_tx
-            .send((action, resp_tx))
+            .send((action.clone(), resp_tx))
             .await
             .map_err(|e| format!("failed to send action: {e}"))?;
 
         // Wait for response of the action
-        resp_rx
+        let status = resp_rx
             .await
-            .map_err(|e| format!("failed to receive action response: {e}"))?
+            .map_err(|e| format!("failed to receive action response: {e}"))??;
+
+        raiko_metrics::observe_out_action_duration(
+            &action,
+            action.request_key().proof_type(),
+            action.request_key(),
+            status.status(),
+            start.elapsed(),
+        );
+        Ok(status)
     }
 
     /// Set the pause flag and notify the task manager to pause, then wait for the task manager to

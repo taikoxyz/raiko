@@ -31,4 +31,13 @@ impl Action {
     }
 }
 
+impl raiko_metrics::ToLabel for &Action {
+    fn to_label(&self) -> &'static str {
+        match self {
+            Action::Prove { .. } => "prove",
+            Action::Cancel { .. } => "cancel",
+        }
+    }
+}
+
 impl_display_using_json_pretty!(Action);
