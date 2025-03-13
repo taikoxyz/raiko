@@ -12,12 +12,6 @@ lazy_static! {
         &["action_type", "proof_type", "request_type"]
     )
     .unwrap();
-    pub static ref OUT_ACTION_DURATION_MILLIS: HistogramVec = register_histogram_vec!(
-        "raiko_out_action_duration_millis",
-        "raiko_out_action_duration_millis",
-        &["action_type", "proof_type", "request_type", "status"]
-    )
-    .unwrap();
     pub static ref ACTION_WAIT_SEMAPHORE_DURATION_MILLIS: HistogramVec = register_histogram_vec!(
         "raiko_action_wait_semaphore_duration_millis",
         "raiko_action_wait_semaphore_duration_millis",
@@ -44,23 +38,6 @@ pub fn increment_in_actions(
             request_type.to_label(),
         ])
         .inc();
-}
-
-pub fn observe_out_action_duration(
-    action_type: impl ToLabel,
-    proof_type: impl ToLabel,
-    request_type: impl ToLabel,
-    status: impl ToLabel,
-    duration: Duration,
-) {
-    OUT_ACTION_DURATION_MILLIS
-        .with_label_values(&[
-            action_type.to_label(),
-            proof_type.to_label(),
-            request_type.to_label(),
-            status.to_label(),
-        ])
-        .observe((duration.as_secs_f64() * 1_000.0).round() / 1_000.0);
 }
 
 pub fn observe_action_wait_semaphore_duration(request_type: impl ToLabel, duration: Duration) {

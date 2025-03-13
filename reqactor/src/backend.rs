@@ -44,7 +44,7 @@ impl Backend {
         pool: Pool,
         chain_specs: SupportedChainSpecs,
         pause_rx: Receiver<()>,
-        action_rx: Receiver<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
+        action_rx: Receiver<Action>,
         max_proving_concurrency: usize,
     ) {
         let channel_size = 1024;
@@ -67,25 +67,23 @@ impl Backend {
     // 3. pause_rx: pause signal from the external Actor
     async fn serve(
         mut self,
-        mut action_rx: Receiver<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
+        mut action_rx: Receiver<Action>,
         mut internal_rx: Receiver<RequestKey>,
         mut pause_rx: Receiver<()>,
     ) {
         loop {
             tokio::select! {
-                Some((action, resp_tx)) = action_rx.recv() => {
+                Some(action) = action_rx.recv() => {
                     let request_key = action.request_key().clone();
-                    let response = self.handle_external_action(action.clone()).await;
+                    if let Err(err) = self.handle_external_action(action.clone()).await {
+                        tracing::error!("Actor Backend failed to handle external action {request_key}: {err:?}");
+                    }
 
                     // Signal the request key to the internal channel, to move on to the next step, whatever the result is
                     //
                     // NOTE: Why signal whatever the result is? It's for fault tolerance, to ensure the request will be
                     // handled even when something unexpected happens.
                     self.ensure_internal_signal(request_key).await;
-
-                    // When the client side is closed, the response channel is closed, and sending response to the
-                    // channel will return an error. So we discard the result of sending response to the external actor.
-                    let _discard = resp_tx.send(response.clone());
                 }
                 Some(request_key) = internal_rx.recv() => {
                     self.handle_internal_signal(request_key.clone()).await;

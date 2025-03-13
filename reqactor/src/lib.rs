@@ -5,7 +5,7 @@ mod backend;
 use raiko_ballot::Ballot;
 use raiko_core::interfaces::ProofRequestOpt;
 use raiko_lib::consts::SupportedChainSpecs;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 
 pub(crate) use backend::Backend;
 
@@ -26,8 +26,7 @@ pub async fn start_actor(
     max_proving_concurrency: usize,
 ) -> Actor {
     let channel_size = 1024;
-    let (action_tx, action_rx) =
-        mpsc::channel::<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>(channel_size);
+    let (action_tx, action_rx) = mpsc::channel::<Action>(channel_size);
     let (pause_tx, pause_rx) = mpsc::channel::<()>(1);
 
     Backend::serve_in_background(

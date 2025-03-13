@@ -4,7 +4,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
-    time::Instant,
 };
 
 use raiko_ballot::Ballot;
@@ -15,7 +14,7 @@ use raiko_lib::{
 };
 use raiko_reqpool::{Pool, RequestKey, StatusWithContext};
 use reth_primitives::BlockHash;
-use tokio::sync::{mpsc::Sender, oneshot};
+use tokio::sync::mpsc::Sender;
 
 use crate::Action;
 
@@ -24,7 +23,7 @@ use crate::Action;
 pub struct Actor {
     default_request_config: ProofRequestOpt,
     chain_specs: SupportedChainSpecs,
-    action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
+    action_tx: Sender<Action>,
     pause_tx: Sender<()>,
     is_paused: Arc<AtomicBool>,
 
@@ -40,7 +39,7 @@ impl Actor {
         ballot: Ballot,
         default_request_config: ProofRequestOpt,
         chain_specs: SupportedChainSpecs,
-        action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
+        action_tx: Sender<Action>,
         pause_tx: Sender<()>,
     ) -> Self {
         Self {
@@ -91,7 +90,7 @@ impl Actor {
         self.pool.lock().unwrap().remove(request_key)
     }
 
-    /// Send an action to the backend and wait for the response.
+    /// Return the pool_status of the action from the pool, and asynchronously send the action to the backend.
     pub async fn act(&self, action: Action) -> Result<StatusWithContext, String> {
         raiko_metrics::increment_in_actions(
             &action,
@@ -99,28 +98,15 @@ impl Actor {
             action.request_key(),
         );
 
-        let start = Instant::now();
-        let (resp_tx, resp_rx) = oneshot::channel();
-
         // Send the action to the backend
         self.action_tx
-            .send((action.clone(), resp_tx))
+            .send(action.clone())
             .await
             .map_err(|e| format!("failed to send action: {e}"))?;
 
-        // Wait for response of the action
-        let status = resp_rx
-            .await
-            .map_err(|e| format!("failed to receive action response: {e}"))??;
-
-        raiko_metrics::observe_out_action_duration(
-            &action,
-            action.request_key().proof_type(),
-            action.request_key(),
-            status.status(),
-            start.elapsed(),
-        );
-        Ok(status)
+        // Return the pool_status of the action from the pool
+        self.pool_get_status(&action.request_key())
+            .map(|status| status.unwrap_or_else(|| StatusWithContext::new_registered()))
     }
 
     /// Set the pause flag and notify the task manager to pause, then wait for the task manager to

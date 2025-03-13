@@ -104,26 +104,6 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
         return Err("System is paused".to_string());
     }
 
-    // Return early if the request is already succeeded
-    if let Ok(Some(status)) = actor.pool_get_status(&action.request_key()) {
-        if matches!(status.status(), Status::Success { .. }) {
-            return Ok(status.into_status());
-        }
-    }
-
-    // Just logging the status of the request
-    let _ = actor
-        .pool_get_status(&action.request_key())
-        .map(|status_opt| {
-            tracing::trace!(
-                "trace request in {request_key}: {status}",
-                request_key = action.request_key(),
-                status = status_opt
-                    .map(|status| status.into_status().to_string())
-                    .unwrap_or("None".to_string()),
-            )
-        });
-
     // Send the action to the Actor and return the response status
     actor.act(action.clone()).await.map(|status| {
         tracing::trace!(
