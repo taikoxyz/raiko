@@ -54,8 +54,7 @@ impl ActorInner {
         action_opt
     }
 
-    pub fn remove_in_flight(&mut self, action: &Action) {
-        let request_key = action.request_key();
-        self.in_flight.remove(&request_key);
+    pub fn remove_in_flight(&mut self, request_key: &RequestKey) {
+        self.in_flight.remove(request_key);
     }
 }

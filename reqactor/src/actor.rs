@@ -103,16 +103,22 @@ impl Actor {
     /// Return the pool_status of the action from the pool, and asynchronously send the action to the backend.
     pub async fn act(&self, action: Action) -> Result<StatusWithContext, String> {
         let request_key = action.request_key();
-        let status = match self.pool_get_status(&request_key).await? {
+        let status = match self.pool_get_status(request_key).await? {
             Some(status) => status,
             None => {
-                let status = StatusWithContext::new_registered();
-                let _ = self
-                    .pool
-                    .lock()
-                    .await
-                    .update_status(request_key.clone(), status.clone());
-                status
+                match &action {
+                    Action::Prove { request_entity, .. } => {
+                        // register the request in the pool if it is not in pool
+                        let status = StatusWithContext::new_registered();
+                        let _ = self.pool.lock().await.add(
+                            request_key.clone(),
+                            request_entity.clone(),
+                            status.clone(),
+                        )?;
+                        status
+                    }
+                    Action::Cancel { .. } => StatusWithContext::new_cancelled(),
+                }
             }
         };
 
@@ -155,9 +161,9 @@ impl Actor {
         let (done_tx, mut done_rx) = mpsc::channel(max_concurrency);
 
         loop {
-            while let Ok(action) = done_rx.try_recv() {
+            while let Ok(request_key) = done_rx.try_recv() {
                 let mut inner = self.inner.lock().await;
-                inner.remove_in_flight(&action);
+                inner.remove_in_flight(&request_key);
             }
 
             let action = {
@@ -177,12 +183,12 @@ impl Actor {
             let pool_ = self.pool.lock().await.clone();
             let chain_specs = self.chain_specs.clone();
             let semaphore_ = semaphore.clone();
-            let done_tx_ = done_tx.clone();
             let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
             let handle = tokio::spawn(async move {
                 let _permit = semaphore_.acquire().await.unwrap();
                 let _ = semaphore_acquired_tx.send(());
 
+                tracing::info!("Actor is proving {}", action.request_key());
                 match action.clone() {
                     Action::Prove {
                         request_key,
@@ -199,17 +205,19 @@ impl Actor {
                         }
                     },
                     Action::Cancel { request_key } => {
-                        let _ = cancel(pool_, request_key).await;
+                        if let Err(err) = cancel(pool_, request_key.clone()).await {
+                            tracing::error!("Actor failed to cancel {request_key}: {err:?}");
+                        }
                     }
                 }
-
-                let _ = done_tx_.send(action);
             });
 
             // Wait for the semaphore to be acquired
             let _ = semaphore_acquired_rx.await;
 
             let mut pool_ = self.pool.lock().await.clone();
+            let notifier_ = self.notifier.clone();
+            let done_tx_ = done_tx.clone();
             tokio::spawn(async move {
                 if let Err(e) = handle.await {
                     if e.is_panic() {
@@ -229,6 +237,9 @@ impl Actor {
                         tracing::error!("Actor failed to prove: {e:?}");
                     }
                 }
+
+                let _ = done_tx_.send(request_key);
+                notifier_.notify_one();
             });
         }
     }
@@ -357,9 +368,9 @@ where
     // 1. Update the request status in pool to WorkInProgress
     if let Err(err) = pool.update_status(request_key.clone(), Status::WorkInProgress.into()) {
         tracing::error!(
-                "Actor failed to update status of prove-action {request_key}: {err:?}, status: {status}",
-                status = Status::WorkInProgress,
-            );
+            "Actor failed to update status {request_key}: {err:?}, status: {status}",
+            status = Status::WorkInProgress,
+        );
         return;
     }
 
