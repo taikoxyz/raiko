@@ -166,6 +166,10 @@ impl BlockMetaDataFork {
                         let anchor_tx = batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
                         let anchor_data = decode_anchor_pacaya(&anchor_tx.input()).unwrap();
                         let signal_slots = anchor_data._signalSlots.clone();
+                        assert!(
+                            block.timestamp >= parent_ts
+                                && (block.timestamp - parent_ts) <= u8::MAX as u64
+                        );
                         block_params.push(BlockParams {
                             numTransactions: block.body.len() as u16 - 1, // exclude anchor tx
                             timeShift: (block.timestamp - parent_ts) as u8,
