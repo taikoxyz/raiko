@@ -158,20 +158,22 @@ impl BlockMetaDataFork {
                     "txs hash mismatch, expected: {:?}, got: {:?}",
                     txs_hash, batch_proposed.info.txsHash,
                 );
-                let blocks = final_blocks
-                    .iter()
-                    .enumerate()
-                    .map(|(index, block)| {
+                let ts_base = final_blocks.first().unwrap().timestamp;
+                let (_, blocks) = final_blocks.iter().enumerate().fold(
+                    (ts_base, Vec::new()),
+                    |parent_ts_with_block_params, (index, block)| {
+                        let (parent_ts, mut block_params) = parent_ts_with_block_params;
                         let anchor_tx = batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
                         let anchor_data = decode_anchor_pacaya(&anchor_tx.input()).unwrap();
                         let signal_slots = anchor_data._signalSlots.clone();
-                        BlockParams {
+                        block_params.push(BlockParams {
                             numTransactions: block.body.len() as u16 - 1, // exclude anchor tx
-                            timeShift: (block.timestamp - batch_proposed.meta.proposedAt) as u8,
+                            timeShift: (block.timestamp - parent_ts) as u8,
                             signalSlots: signal_slots,
-                        }
-                    })
-                    .collect::<Vec<BlockParams>>();
+                        });
+                        (block.timestamp, block_params)
+                    },
+                );
                 assert!(
                     blocks
                         .iter()
