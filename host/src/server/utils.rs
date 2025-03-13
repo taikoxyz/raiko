@@ -1,7 +1,13 @@
-use crate::server::api::{v2, v3};
+use crate::{
+    interfaces::HostResult,
+    server::api::{v2, v3},
+};
+use raiko_core::{interfaces::RaikoError, provider::get_task_data};
 use raiko_lib::proof_type::ProofType;
+use raiko_reqactor::Actor;
 use raiko_reqpool::Status;
 use raiko_tasks::TaskStatus;
+use serde_json::Value;
 
 pub fn to_v2_status(proof_type: ProofType, result: Result<Status, String>) -> v2::Status {
     match result {
@@ -57,4 +63,56 @@ pub fn to_v3_status(proof_type: ProofType, result: Result<Status, String>) -> v3
 
 pub fn to_v3_cancel_status(result: Result<Status, String>) -> v3::CancelStatus {
     to_v2_cancel_status(result)
+}
+
+// A zk_any request looks like: { "proof_type": "zk_any", "zk_any": { "aggregation": <bool> } }
+pub fn is_zk_any_request(proof_request_opt: &Value) -> bool {
+    let proof_type = proof_request_opt["proof_type"].as_str();
+    return proof_type == Some("zk_any");
+}
+
+pub async fn draw_for_zk_any_request(
+    actor: &Actor,
+    proof_request_opt: &Value,
+) -> HostResult<Option<ProofType>> {
+    let network = proof_request_opt["network"]
+        .as_str()
+        .ok_or(RaikoError::InvalidRequestConfig(
+            "Missing network".to_string(),
+        ))?;
+    let block_number =
+        proof_request_opt["block_number"]
+            .as_u64()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing block number".to_string(),
+            ))?;
+    let (_, blockhash) = get_task_data(&network, block_number, actor.chain_specs()).await?;
+    Ok(actor.draw(&blockhash))
+}
+
+pub fn fulfill_sp1_params(req: &mut Value) {
+    let zk_any_opts = req["zk_any"].as_object().clone();
+    let sp1_recursion = match zk_any_opts {
+        None => serde_json::Value::String("plonk".to_string()),
+        Some(zk_any) => {
+            let aggregation = zk_any["aggregation"].as_bool().unwrap_or(false);
+            if aggregation {
+                serde_json::Value::String("compressed".to_string())
+            } else {
+                serde_json::Value::String("plonk".to_string())
+            }
+        }
+    };
+
+    let sp1_opts = req["sp1"].as_object_mut();
+    match sp1_opts {
+        None => {
+            let mut sp1_opts = serde_json::Map::new();
+            sp1_opts["recursion"] = sp1_recursion;
+            req["sp1"] = serde_json::Value::Object(sp1_opts);
+        }
+        Some(sp1_opts) => {
+            sp1_opts.insert("recursion".to_string(), sp1_recursion);
+        }
+    }
 }

@@ -110,6 +110,12 @@ impl<T> From<TrySendError<T>> for HostError {
     }
 }
 
+impl From<String> for HostError {
+    fn from(msg: String) -> Self {
+        HostError::Anyhow(anyhow::anyhow!(msg))
+    }
+}
+
 /// A type alias for the standardized result type returned by the Raiko host.
 pub type HostResult<T> = axum::response::Result<T, HostError>;
 

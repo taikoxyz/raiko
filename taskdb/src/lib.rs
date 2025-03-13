@@ -119,10 +119,31 @@ pub struct AggregationTaskDescriptor {
     pub proof_type: Option<String>,
 }
 
+impl From<&AggregationOnlyRequest> for AggregationTaskDescriptor {
+    fn from(request: &AggregationOnlyRequest) -> Self {
+        Self {
+            aggregation_ids: request.aggregation_ids.clone(),
+            proof_type: request.proof_type.clone().map(|p| p.to_string()),
+        }
+    }
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[serde(default)]
+/// A request for proof aggregation of multiple proofs.
+pub struct BatchProofTaskDescriptor {
+    pub chain_id: ChainId,
+    pub batch_id: u64,
+    pub l1_height: u64,
+    pub proof_system: ProofType,
+    pub prover: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskDescriptor {
     SingleProof(ProofTaskDescriptor),
     Aggregation(AggregationTaskDescriptor),
+    BatchProof(BatchProofTaskDescriptor),
 }
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);
