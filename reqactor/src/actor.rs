@@ -1,22 +1,29 @@
 use crate::{actor_inner::ActorInner, Action};
 use raiko_ballot::Ballot;
-use raiko_core::interfaces::ProofRequestOpt;
+use raiko_core::{
+    interfaces::{aggregate_proofs, ProofRequest, ProofRequestOpt},
+    preflight::parse_l1_batch_proposal_tx_for_pacaya_fork,
+    provider::rpc::RpcBlockDataProvider,
+    Raiko,
+};
 use raiko_lib::{
     consts::{ChainSpec, SupportedChainSpecs},
+    input::{AggregationGuestInput, AggregationGuestOutput},
     proof_type::ProofType,
-    prover::IdWrite,
+    prover::{IdWrite, Proof},
 };
 use raiko_reqpool::{
-    AggregationRequestEntity, Pool, RequestEntity, RequestKey, SingleProofRequestEntity, Status,
-    StatusWithContext,
+    AggregationRequestEntity, BatchProofRequestEntity, Pool, RequestEntity, RequestKey,
+    SingleProofRequestEntity, Status, StatusWithContext,
 };
-use reth_primitives::BlockHash;
+use reth_primitives::{BlockHash, B256};
 use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    time::Instant,
 };
 use tokio::sync::{mpsc, oneshot, Semaphore};
 use tokio::sync::{Mutex, Notify};
@@ -43,16 +50,15 @@ impl Actor {
         ballot: Ballot,
         default_request_config: ProofRequestOpt,
         chain_specs: SupportedChainSpecs,
-        max_concurrency: usize,
     ) -> Self {
         Self {
             default_request_config,
             chain_specs,
             is_paused: Arc::new(AtomicBool::new(false)),
             ballot: Arc::new(Mutex::new(ballot)),
-            pool: Arc::new(Mutex::new(pool.clone())),
+            pool: Arc::new(Mutex::new(pool)),
 
-            inner: Arc::new(Mutex::new(ActorInner::new(pool, max_concurrency))),
+            inner: Arc::new(Mutex::new(ActorInner::new())),
             notifier: Arc::new(Notify::new()),
         }
     }
@@ -151,7 +157,7 @@ impl Actor {
         loop {
             while let Ok(action) = done_rx.try_recv() {
                 let mut inner = self.inner.lock().await;
-                inner.remove(&action);
+                inner.remove_in_flight(&action);
             }
 
             let action = {
@@ -166,51 +172,75 @@ impl Actor {
 
                 action
             };
+            let request_key = action.request_key().clone();
 
             let pool_ = self.pool.lock().await.clone();
+            let chain_specs = self.chain_specs.clone();
             let semaphore_ = semaphore.clone();
             let done_tx_ = done_tx.clone();
             let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
-            tokio::spawn(async move {
+            let handle = tokio::spawn(async move {
                 let _permit = semaphore_.acquire().await.unwrap();
                 let _ = semaphore_acquired_tx.send(());
 
-                match action {
+                match action.clone() {
                     Action::Prove {
                         request_key,
                         request_entity,
                     } => match request_entity {
                         RequestEntity::SingleProof(entity) => {
-                            prove_single(pool_, request_key, entity).await;
+                            prove_single(pool_, chain_specs, request_key, entity).await;
                         }
                         RequestEntity::Aggregation(entity) => {
                             prove_aggregation(pool_, request_key, entity).await;
                         }
                         RequestEntity::BatchProof(entity) => {
-                            prove_batch(pool_, request_key, entity).await;
+                            prove_batch(pool_, chain_specs, request_key, entity).await;
                         }
                     },
                     Action::Cancel { request_key } => {
-                        cancel(pool_, request_key).await;
+                        let _ = cancel(pool_, request_key).await;
                     }
                 }
 
                 let _ = done_tx_.send(action);
             });
 
+            // Wait for the semaphore to be acquired
             let _ = semaphore_acquired_rx.await;
+
+            let mut pool_ = self.pool.lock().await.clone();
+            tokio::spawn(async move {
+                if let Err(e) = handle.await {
+                    if e.is_panic() {
+                        tracing::error!("Actor panicked while proving: {e:?}");
+                        let status = Status::Failed {
+                            error: e.to_string(),
+                        };
+                        if let Err(err) =
+                            pool_.update_status(request_key.clone(), status.clone().into())
+                        {
+                            tracing::error!(
+                                "Actor failed to update status of prove-action {request_key}: {err:?}, status: {status}",
+                                status = status,
+                            );
+                        }
+                    } else {
+                        tracing::error!("Actor failed to prove: {e:?}");
+                    }
+                }
+            });
         }
     }
 }
 
-async fn cancel(
-    pool: &mut Pool,
-    request_key: RequestKey,
-    old_status: StatusWithContext,
-) -> Result<StatusWithContext, String> {
+async fn cancel(mut pool: Pool, request_key: RequestKey) -> Result<StatusWithContext, String> {
+    let old_status = pool
+        .get_status(&request_key)?
+        .unwrap_or(StatusWithContext::new_registered());
     if old_status.status() != &Status::Registered && old_status.status() != &Status::WorkInProgress
     {
-        tracing::warn!("Actor Backend received cancel-action {request_key}, but it is not registered or work-in-progress, skipping");
+        tracing::warn!("Actor received cancel-action {request_key}, but it is not registered or work-in-progress, skipping");
         return Ok(old_status);
     }
 
@@ -240,11 +270,11 @@ async fn cancel(
                 .await
                 .or_else(|e| {
                     if e.to_string().contains("No data for query") {
-                        tracing::warn!("Actor Backend received cancel-action {request_key}, but it is already cancelled or not yet started, skipping");
+                        tracing::warn!("Actor received cancel-action {request_key}, but it is already cancelled or not yet started, skipping");
                         Ok(())
                     } else {
                         tracing::error!(
-                            "Actor Backend received cancel-action {request_key}, but failed to cancel proof: {e:?}"
+                            "Actor received cancel-action {request_key}, but failed to cancel proof: {e:?}"
                         );
                         Err(format!("failed to cancel proof: {e:?}"))
                     }
@@ -269,49 +299,48 @@ async fn cancel(
 }
 
 async fn prove_single(
-    pool: &mut Pool,
-    chain_specs: &SupportedChainSpecs,
+    pool: Pool,
+    chain_specs: SupportedChainSpecs,
     request_key: RequestKey,
     request_entity: SingleProofRequestEntity,
 ) {
     prove(
+        pool,
         request_key.clone(),
-        |mut actor, request_key| async move {
-            do_prove_single(&mut pool, chain_specs, request_key.clone(), request_entity).await
+        |mut pool, request_key| async move {
+            do_prove_single(&mut pool, &chain_specs, request_key.clone(), request_entity).await
         },
-        Some(request_key.clone()),
     )
     .await;
 }
 
 async fn prove_aggregation(
-    pool: &mut Pool,
-    chain_specs: &SupportedChainSpecs,
+    pool: Pool,
     request_key: RequestKey,
     request_entity: AggregationRequestEntity,
 ) {
-    self.prove(
+    prove(
+        pool,
         request_key.clone(),
-        |mut actor, request_key| async move {
-            do_prove_aggregation(pool, request_key.clone(), request_entity).await
+        |mut pool, request_key| async move {
+            do_prove_aggregation(&mut pool, request_key.clone(), request_entity).await
         },
-        None,
     )
     .await;
 }
 
 async fn prove_batch(
-    pool: &mut Pool,
-    chain_specs: &SupportedChainSpecs,
+    pool: Pool,
+    chain_specs: SupportedChainSpecs,
     request_key: RequestKey,
     request_entity: BatchProofRequestEntity,
 ) {
     prove(
+        pool,
         request_key.clone(),
-        |mut actor, request_key| async move {
-            do_prove_batch(pool, chain_specs, request_key.clone(), request_entity).await
+        |mut pool, request_key| async move {
+            do_prove_batch(&mut pool, chain_specs, request_key.clone(), request_entity).await
         },
-        None,
     )
     .await;
 }
@@ -320,116 +349,53 @@ async fn prove_batch(
 ///
 /// Note that this method will block the current thread until the proving thread acquires the
 /// semaphore.
-async fn prove<F, Fut>(
-    pool: &mut Pool,
-    request_key: RequestKey,
-    prove_fn: F,
-    backup_request_key: Option<RequestKey>,
-) where
-    F: FnOnce(Backend, RequestKey) -> Fut + Send + 'static,
+async fn prove<F, Fut>(mut pool: Pool, request_key: RequestKey, prove_fn: F)
+where
+    F: FnOnce(Pool, RequestKey) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<Proof, String>> + Send + 'static,
 {
     // 1. Update the request status in pool to WorkInProgress
-    if let Err(err) = self
-        .pool
-        .update_status(request_key.clone(), Status::WorkInProgress.into())
-    {
+    if let Err(err) = pool.update_status(request_key.clone(), Status::WorkInProgress.into()) {
         tracing::error!(
-                "Actor Backend failed to update status of prove-action {request_key}: {err:?}, status: {status}",
+                "Actor failed to update status of prove-action {request_key}: {err:?}, status: {status}",
                 status = Status::WorkInProgress,
             );
         return;
     }
 
-    // 2. Start the proving work in a separate thread
-    let mut actor = self.clone();
-    let proving_semaphore = self.proving_semaphore.clone();
-    let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
+    // 2.1. Start the proving work
+    let proven_status = {
+        let start_time = Instant::now();
+        let proven_status = prove_fn(pool.clone(), request_key.clone())
+            .await
+            .map(|proof| Status::Success { proof })
+            .unwrap_or_else(|error| Status::Failed { error });
+        raiko_metrics::observe_action_prove_duration(
+            request_key.proof_type(),
+            &request_key,
+            &proven_status,
+            start_time.elapsed(),
+        );
+        proven_status
+    };
 
-    let handle = tokio::spawn(async move {
-        // Acquire a permit from the semaphore before starting the proving work
-        let _permit = {
-            let start_time = Instant::now();
-            let _permit = proving_semaphore
-                .acquire()
-                .await
-                .expect("semaphore should not be closed");
-            raiko_metrics::observe_action_wait_semaphore_duration(
-                &request_key,
-                start_time.elapsed(),
-            );
-            _permit
-        };
-        semaphore_acquired_tx.send(()).unwrap();
-
-        // 2.1. Start the proving work
-        let proven_status = {
-            let start_time = Instant::now();
-            let proven_status = prove_fn(actor.clone(), request_key.clone())
-                .await
-                .map(|proof| Status::Success { proof })
-                .unwrap_or_else(|error| Status::Failed { error });
-            raiko_metrics::observe_action_prove_duration(
-                request_key.proof_type(),
-                &request_key,
-                &proven_status,
-                start_time.elapsed(),
-            );
-            proven_status
-        };
-
-        match &proven_status {
-            Status::Success { proof } => {
-                tracing::info!(
-                    "Actor Backend successfully proved {request_key}, {:?}",
-                    proof
-                );
-            }
-            Status::Failed { error } => {
-                tracing::error!("Actor Backend failed to prove {request_key}: {error}");
-            }
-            _ => {}
+    match &proven_status {
+        Status::Success { proof } => {
+            tracing::info!("Actor successfully proved {request_key}, {:?}", proof);
         }
-
-        // 2.2. Update the request status in pool to the resulted status
-        if let Err(err) = actor
-            .pool
-            .update_status(request_key.clone(), proven_status.clone().into())
-        {
-            tracing::error!(
-                    "Actor Backend failed to update status of prove-action {request_key}: {err:?}, status: {proven_status}"
-                );
-            return;
+        Status::Failed { error } => {
+            tracing::error!("Actor failed to prove {request_key}: {error}");
         }
-        // The permit is automatically dropped here, releasing the semaphore
-    });
-
-    // Only set up panic handler if we have a backup request key (for single proofs)
-    if let Some(backup_key) = backup_request_key {
-        let mut pool_ = self.pool.clone();
-        tokio::spawn(async move {
-            if let Err(e) = handle.await {
-                if e.is_panic() {
-                    tracing::error!("Actor Backend panicked while proving: {e:?}");
-                    let status = Status::Failed {
-                        error: e.to_string(),
-                    };
-                    if let Err(err) = pool_.update_status(backup_key.clone(), status.clone().into())
-                    {
-                        tracing::error!(
-                                "Actor Backend failed to update status of prove-action {backup_key}: {err:?}, status: {status}",
-                                status = status,
-                            );
-                    }
-                } else {
-                    tracing::error!("Actor Backend failed to prove: {e:?}");
-                }
-            }
-        });
+        _ => {}
     }
 
-    // Wait for the semaphore to be acquired
-    semaphore_acquired_rx.await.unwrap();
+    // 2.2. Update the request status in pool to the resulted status
+    if let Err(err) = pool.update_status(request_key.clone(), proven_status.clone().into()) {
+        tracing::error!(
+                    "Actor failed to update status of prove-action {request_key}: {err:?}, status: {proven_status}"
+                );
+        return;
+    }
 }
 
 // TODO: cache input, reference to raiko_host::cache
@@ -523,7 +489,7 @@ async fn do_prove_aggregation(
 
 async fn do_prove_batch(
     pool: &mut dyn IdWrite,
-    chain_specs: &SupportedChainSpecs,
+    chain_specs: SupportedChainSpecs,
     request_key: RequestKey,
     request_entity: BatchProofRequestEntity,
 ) -> Result<Proof, String> {
@@ -570,11 +536,11 @@ async fn do_prove_batch(
         .generate_batch_input(provider)
         .await
         .map_err(|e| format!("failed to generateg guest batch input: {e:?}"))?;
-    trace!("batch guest input: {input:?}");
+    tracing::trace!("batch guest input: {input:?}");
     let output = raiko
         .get_batch_output(&input)
         .map_err(|e| format!("failed to get guest batch output: {e:?}"))?;
-    debug!("batch guest output: {output:?}");
+    tracing::debug!("batch guest output: {output:?}");
     let proof = raiko
         .batch_prove(input, &output, Some(pool))
         .await

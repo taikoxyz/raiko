@@ -1,14 +1,6 @@
 mod action;
 mod actor;
 mod actor_inner;
-mod backend;
-
-use raiko_ballot::Ballot;
-use raiko_core::interfaces::ProofRequestOpt;
-use raiko_lib::consts::SupportedChainSpecs;
-use tokio::sync::mpsc;
-
-pub(crate) use backend::Backend;
 
 // re-export
 pub use action::Action;
@@ -17,33 +9,3 @@ pub use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, Pool, RequestEntity, RequestKey,
     SingleProofRequestEntity, SingleProofRequestKey, StatusWithContext,
 };
-
-/// Run the actor backend in background, and return the actor.
-pub async fn start_actor(
-    pool: Pool,
-    ballot: Ballot,
-    chain_specs: SupportedChainSpecs,
-    default_request_config: ProofRequestOpt,
-    max_proving_concurrency: usize,
-) -> Actor {
-    let channel_size = 1024;
-    let (action_tx, action_rx) = mpsc::channel::<Action>(channel_size);
-    let (pause_tx, pause_rx) = mpsc::channel::<()>(1);
-
-    Backend::serve_in_background(
-        pool.clone(),
-        chain_specs.clone(),
-        pause_rx,
-        action_rx,
-        max_proving_concurrency,
-    )
-    .await;
-
-    Actor::new(
-        pool,
-        ballot,
-        default_request_config,
-        chain_specs.clone(),
-        max_proving_concurrency,
-    )
-}

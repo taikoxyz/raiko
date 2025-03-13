@@ -1,12 +1,8 @@
-use raiko_reqpool::Pool;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::Arc;
 
 use crate::{Action, RequestKey};
 
 pub struct ActorInner {
-    pool: Pool,
-
     high_queue: VecDeque<RequestKey>,
     low_queue: VecDeque<RequestKey>,
     in_flight: HashSet<RequestKey>,
@@ -14,9 +10,8 @@ pub struct ActorInner {
 }
 
 impl ActorInner {
-    pub fn new(pool: Pool, max_concurrency: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            pool,
             high_queue: VecDeque::new(),
             low_queue: VecDeque::new(),
             in_flight: HashSet::new(),
@@ -59,7 +54,7 @@ impl ActorInner {
         action_opt
     }
 
-    pub fn remove(&mut self, action: &Action) {
+    pub fn remove_in_flight(&mut self, action: &Action) {
         let request_key = action.request_key();
         self.in_flight.remove(&request_key);
     }

@@ -2,6 +2,7 @@
 use raiko_host::{
     interfaces::HostResult, parse_ballot, parse_chain_specs, parse_opts, server::serve,
 };
+use raiko_reqactor::Actor;
 use raiko_reqpool::RedisPoolConfig;
 use std::path::PathBuf;
 use tracing::{debug, info};
@@ -28,14 +29,16 @@ async fn main() -> HostResult<()> {
         enable_redis_pool: opts.enable_redis_pool,
     })
     .map_err(|e| anyhow::anyhow!(e))?;
-    let actor = raiko_reqactor::start_actor(
+    let actor = Actor::new(
         pool,
         ballot,
-        chain_specs.clone(),
         default_request_config.clone(),
-        max_proving_concurrency,
-    )
-    .await;
+        chain_specs.clone(),
+    );
+    let actor_ = actor.clone();
+    tokio::spawn(async move {
+        actor_.serve_in_background(max_proving_concurrency).await;
+    });
 
     let _guard = subscribe_log(&opts.log_path, &opts.log_level, opts.max_log);
     debug!("Start config:\n{:#?}", default_request_config);
