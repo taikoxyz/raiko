@@ -7,7 +7,7 @@ use reth_primitives::{Block, Header};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::SupportedChainSpecs,
+    consts::{Network, SupportedChainSpecs},
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
@@ -90,8 +90,11 @@ impl From<(&GuestInput, &Header, B256, &BlockProposedV2)> for BlockMetadataV2 {
             extraData: bytes_to_bytes32(&header.extra_data).into(),
 
             anchorBlockId: input.taiko.l1_header.number,
-            anchorBlockHash: input.taiko.l1_header.hash_slow(),
-
+            anchorBlockHash: if input.chain_spec.network() == Network::TaikoA7.to_string() {
+                block_proposed.meta.anchorBlockHash
+            } else {
+                input.taiko.l1_header.hash_slow()
+            },
             blobHash: tx_list_hash,
 
             difficulty: block_proposed.meta.difficulty,
@@ -203,7 +206,13 @@ impl BlockMetaDataFork {
                 );
                 // checked in anchor_check()
                 let anchor_block_id = batch_input.taiko.l1_header.number;
-                let anchor_block_hash = batch_input.taiko.l1_header.hash_slow();
+                let anchor_block_hash =
+                    if batch_input.taiko.chain_spec.network() == Network::TaikoA7.to_string() {
+                        batch_proposed.info.anchorBlockHash
+                    } else {
+                        batch_input.taiko.l1_header.hash_slow()
+                    };
+
                 let base_fee_config = batch_proposed.info.baseFeeConfig.clone();
                 BlockMetaDataFork::Pacaya(BatchMetadata {
                     // todo: keccak data based on input
