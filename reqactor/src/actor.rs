@@ -1,36 +1,40 @@
-use std::{
-    collections::HashMap,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
-};
-
+use crate::{actor_inner::ActorInner, Action};
 use raiko_ballot::Ballot;
 use raiko_core::interfaces::ProofRequestOpt;
 use raiko_lib::{
     consts::{ChainSpec, SupportedChainSpecs},
     proof_type::ProofType,
+    prover::IdWrite,
 };
-use raiko_reqpool::{Pool, RequestKey, StatusWithContext};
+use raiko_reqpool::{
+    AggregationRequestEntity, Pool, RequestEntity, RequestKey, SingleProofRequestEntity, Status,
+    StatusWithContext,
+};
 use reth_primitives::BlockHash;
-use tokio::sync::mpsc::Sender;
-
-use crate::Action;
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
+use tokio::sync::{mpsc, oneshot, Semaphore};
+use tokio::sync::{Mutex, Notify};
 
 /// Actor is the main interface interacting with the backend and the pool.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Actor {
     default_request_config: ProofRequestOpt,
     chain_specs: SupportedChainSpecs,
-    action_tx: Sender<Action>,
-    pause_tx: Sender<()>,
     is_paused: Arc<AtomicBool>,
 
     // TODO: Remove Mutex. currently, in order to pass `&mut Pool`, we need to use Arc<Mutex<Pool>>.
     pool: Arc<Mutex<Pool>>,
     // In order to support dynamic config via HTTP, we need to use Arc<Mutex<Ballot>>.
     ballot: Arc<Mutex<Ballot>>,
+
+    inner: Arc<Mutex<ActorInner>>,
+    notifier: Arc<Notify>,
 }
 
 impl Actor {
@@ -39,17 +43,17 @@ impl Actor {
         ballot: Ballot,
         default_request_config: ProofRequestOpt,
         chain_specs: SupportedChainSpecs,
-        action_tx: Sender<Action>,
-        pause_tx: Sender<()>,
+        max_concurrency: usize,
     ) -> Self {
         Self {
             default_request_config,
             chain_specs,
-            action_tx,
-            pause_tx,
             is_paused: Arc::new(AtomicBool::new(false)),
             ballot: Arc::new(Mutex::new(ballot)),
-            pool: Arc::new(Mutex::new(pool)),
+            pool: Arc::new(Mutex::new(pool.clone())),
+
+            inner: Arc::new(Mutex::new(ActorInner::new(pool, max_concurrency))),
+            notifier: Arc::new(Notify::new()),
         }
     }
 
@@ -75,168 +79,609 @@ impl Actor {
     }
 
     /// Get the status of the request from the pool.
-    pub fn pool_get_status(
+    pub async fn pool_get_status(
         &self,
         request_key: &RequestKey,
     ) -> Result<Option<StatusWithContext>, String> {
-        self.pool.lock().unwrap().get_status(request_key)
+        self.pool.lock().await.get_status(request_key)
     }
 
-    pub fn pool_list_status(&self) -> Result<HashMap<RequestKey, StatusWithContext>, String> {
-        self.pool.lock().unwrap().list()
+    pub async fn pool_list_status(&self) -> Result<HashMap<RequestKey, StatusWithContext>, String> {
+        self.pool.lock().await.list()
     }
 
-    pub fn pool_remove_request(&self, request_key: &RequestKey) -> Result<usize, String> {
-        self.pool.lock().unwrap().remove(request_key)
+    pub async fn pool_remove_request(&self, request_key: &RequestKey) -> Result<usize, String> {
+        self.pool.lock().await.remove(request_key)
     }
 
     /// Return the pool_status of the action from the pool, and asynchronously send the action to the backend.
     pub async fn act(&self, action: Action) -> Result<StatusWithContext, String> {
-        raiko_metrics::increment_in_actions(
-            &action,
-            action.request_key().proof_type(),
-            action.request_key(),
-        );
+        let request_key = action.request_key();
+        let status = match self.pool_get_status(&request_key).await? {
+            Some(status) => status,
+            None => {
+                let status = StatusWithContext::new_registered();
+                let _ = self
+                    .pool
+                    .lock()
+                    .await
+                    .update_status(request_key.clone(), status.clone());
+                status
+            }
+        };
 
-        // Send the action to the backend
-        self.action_tx
-            .send(action.clone())
-            .await
-            .map_err(|e| format!("failed to send action: {e}"))?;
+        // push new request into the queue and notify to start the action
+        let mut inner = self.inner.lock().await;
+        if !inner.contains(&action) {
+            inner.push(action);
+            self.notifier.notify_one();
+        }
 
-        // Return the pool_status of the action from the pool
-        self.pool_get_status(&action.request_key())
-            .map(|status| status.unwrap_or_else(|| StatusWithContext::new_registered()))
+        return Ok(status);
     }
 
     /// Set the pause flag and notify the task manager to pause, then wait for the task manager to
     /// finish the pause process.
     ///
     /// Note that this function is blocking until the task manager finishes the pause process.
-    pub async fn pause(&self) -> Result<(), String> {
+    pub fn pause(&self) {
         self.is_paused.store(true, Ordering::SeqCst);
-        self.pause_tx
-            .send(())
-            .await
-            .map_err(|e| format!("failed to send pause signal: {e}"))?;
-        Ok(())
     }
 
-    pub fn get_ballot(&self) -> Ballot {
-        self.ballot.lock().unwrap().clone()
+    pub async fn get_ballot(&self) -> Ballot {
+        let ballot = self.ballot.lock().await;
+        ballot.clone()
     }
 
-    pub fn set_ballot(&self, new_ballot: Ballot) {
-        let mut ballot = self.ballot.lock().unwrap();
+    pub async fn set_ballot(&self, new_ballot: Ballot) {
+        let mut ballot = self.ballot.lock().await;
         *ballot = new_ballot;
     }
 
     /// Draw proof types based on the block hash.
-    pub fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
-        self.ballot.lock().unwrap().draw(block_hash)
+    pub async fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
+        let ballot = self.ballot.lock().await;
+        ballot.draw(block_hash)
+    }
+
+    pub async fn serve_in_background(&self, max_concurrency: usize) {
+        let semaphore = Arc::new(Semaphore::new(max_concurrency));
+        let (done_tx, mut done_rx) = mpsc::channel(max_concurrency);
+
+        loop {
+            while let Ok(action) = done_rx.try_recv() {
+                let mut inner = self.inner.lock().await;
+                inner.remove(&action);
+            }
+
+            let action = {
+                let mut inner = self.inner.lock().await;
+                let action = if let Some(action) = inner.pop() {
+                    action
+                } else {
+                    drop(inner);
+                    self.notifier.notified().await;
+                    continue;
+                };
+
+                action
+            };
+
+            let pool_ = self.pool.lock().await.clone();
+            let semaphore_ = semaphore.clone();
+            let done_tx_ = done_tx.clone();
+            let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
+            tokio::spawn(async move {
+                let _permit = semaphore_.acquire().await.unwrap();
+                let _ = semaphore_acquired_tx.send(());
+
+                match action {
+                    Action::Prove {
+                        request_key,
+                        request_entity,
+                    } => match request_entity {
+                        RequestEntity::SingleProof(entity) => {
+                            prove_single(pool_, request_key, entity).await;
+                        }
+                        RequestEntity::Aggregation(entity) => {
+                            prove_aggregation(pool_, request_key, entity).await;
+                        }
+                        RequestEntity::BatchProof(entity) => {
+                            prove_batch(pool_, request_key, entity).await;
+                        }
+                    },
+                    Action::Cancel { request_key } => {
+                        cancel(pool_, request_key).await;
+                    }
+                }
+
+                let _ = done_tx_.send(action);
+            });
+
+            let _ = semaphore_acquired_rx.await;
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use alloy_primitives::Address;
-    use raiko_lib::{
-        consts::SupportedChainSpecs,
-        input::BlobProofType,
-        primitives::{ChainId, B256},
-        proof_type::ProofType,
-    };
-    use raiko_reqpool::{
-        memory_pool, RequestEntity, RequestKey, SingleProofRequestEntity, SingleProofRequestKey,
-        StatusWithContext,
-    };
-    use std::collections::HashMap;
-    use tokio::sync::mpsc;
-
-    #[tokio::test]
-    async fn test_pause_sets_is_paused_flag() {
-        let (action_tx, _) = mpsc::channel(1);
-        let (pause_tx, _pause_rx) = mpsc::channel(1);
-
-        let pool = memory_pool("test_pause_sets_is_paused_flag");
-        let actor = Actor::new(
-            pool,
-            Ballot::default(),
-            ProofRequestOpt::default(),
-            SupportedChainSpecs::default(),
-            action_tx,
-            pause_tx,
-        );
-
-        assert!(!actor.is_paused(), "Actor should not be paused initially");
-
-        actor.pause().await.expect("Pause should succeed");
-        assert!(
-            actor.is_paused(),
-            "Actor should be paused after calling pause()"
-        );
+async fn cancel(
+    pool: &mut Pool,
+    request_key: RequestKey,
+    old_status: StatusWithContext,
+) -> Result<StatusWithContext, String> {
+    if old_status.status() != &Status::Registered && old_status.status() != &Status::WorkInProgress
+    {
+        tracing::warn!("Actor Backend received cancel-action {request_key}, but it is not registered or work-in-progress, skipping");
+        return Ok(old_status);
     }
 
-    #[tokio::test]
-    async fn test_act_sends_action_and_returns_response() {
-        let (action_tx, mut action_rx) = mpsc::channel(1);
-        let (pause_tx, _) = mpsc::channel(1);
+    // Case: old_status is registered: mark the request as cancelled in the pool and return directly
+    if old_status.status() == &Status::Registered {
+        let status = StatusWithContext::new_cancelled();
+        pool.update_status(request_key, status.clone())?;
+        return Ok(status);
+    }
 
-        let pool = memory_pool("test_act_sends_action_and_returns_response");
-        let actor = Actor::new(
-            pool,
-            Ballot::default(),
-            ProofRequestOpt::default(),
-            SupportedChainSpecs::default(),
-            action_tx,
-            pause_tx,
-        );
+    // Case: old_status is work-in-progress:
+    // 1. Cancel the proving work by the cancel token // TODO: cancel token
+    // 2. Remove the proof id from the pool
+    // 3. Mark the request as cancelled in the pool
+    match &request_key {
+        RequestKey::SingleProof(key) => {
+            raiko_core::interfaces::cancel_proof(
+                    key.proof_type().clone(),
+                    (
+                        key.chain_id().clone(),
+                        key.block_number().clone(),
+                        key.block_hash().clone(),
+                        *key.proof_type() as u8,
+                    ),
+                    Box::new(&mut pool),
+                )
+                .await
+                .or_else(|e| {
+                    if e.to_string().contains("No data for query") {
+                        tracing::warn!("Actor Backend received cancel-action {request_key}, but it is already cancelled or not yet started, skipping");
+                        Ok(())
+                    } else {
+                        tracing::error!(
+                            "Actor Backend received cancel-action {request_key}, but failed to cancel proof: {e:?}"
+                        );
+                        Err(format!("failed to cancel proof: {e:?}"))
+                    }
+                })?;
 
-        // Create a test action
-        let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
-            ChainId::default(),
-            1,
-            B256::default(),
-            ProofType::default(),
-            "test_prover".to_string(),
-        ));
-        let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
-            1,
-            1,
-            "test_network".to_string(),
-            "test_l1_network".to_string(),
-            B256::default(),
-            Address::default(),
-            ProofType::default(),
-            BlobProofType::default(),
-            HashMap::new(),
-        ));
-        let test_action = Action::Prove {
-            request_key: request_key.clone(),
-            request_entity,
+            // 3. Mark the request as cancelled in the pool
+            let status = StatusWithContext::new_cancelled();
+            pool.update_status(request_key, status.clone())?;
+            Ok(status)
+        }
+        RequestKey::Aggregation(..) => {
+            let status = StatusWithContext::new_cancelled();
+            pool.update_status(request_key, status.clone())?;
+            Ok(status)
+        }
+        RequestKey::BatchProof(..) => {
+            let status = StatusWithContext::new_cancelled();
+            pool.update_status(request_key, status.clone())?;
+            Ok(status)
+        }
+    }
+}
+
+async fn prove_single(
+    pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: SingleProofRequestEntity,
+) {
+    prove(
+        request_key.clone(),
+        |mut actor, request_key| async move {
+            do_prove_single(&mut pool, chain_specs, request_key.clone(), request_entity).await
+        },
+        Some(request_key.clone()),
+    )
+    .await;
+}
+
+async fn prove_aggregation(
+    pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: AggregationRequestEntity,
+) {
+    self.prove(
+        request_key.clone(),
+        |mut actor, request_key| async move {
+            do_prove_aggregation(pool, request_key.clone(), request_entity).await
+        },
+        None,
+    )
+    .await;
+}
+
+async fn prove_batch(
+    pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: BatchProofRequestEntity,
+) {
+    prove(
+        request_key.clone(),
+        |mut actor, request_key| async move {
+            do_prove_batch(pool, chain_specs, request_key.clone(), request_entity).await
+        },
+        None,
+    )
+    .await;
+}
+
+/// Generic method to handle proving for different types of proofs.
+///
+/// Note that this method will block the current thread until the proving thread acquires the
+/// semaphore.
+async fn prove<F, Fut>(
+    pool: &mut Pool,
+    request_key: RequestKey,
+    prove_fn: F,
+    backup_request_key: Option<RequestKey>,
+) where
+    F: FnOnce(Backend, RequestKey) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<Proof, String>> + Send + 'static,
+{
+    // 1. Update the request status in pool to WorkInProgress
+    if let Err(err) = self
+        .pool
+        .update_status(request_key.clone(), Status::WorkInProgress.into())
+    {
+        tracing::error!(
+                "Actor Backend failed to update status of prove-action {request_key}: {err:?}, status: {status}",
+                status = Status::WorkInProgress,
+            );
+        return;
+    }
+
+    // 2. Start the proving work in a separate thread
+    let mut actor = self.clone();
+    let proving_semaphore = self.proving_semaphore.clone();
+    let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
+
+    let handle = tokio::spawn(async move {
+        // Acquire a permit from the semaphore before starting the proving work
+        let _permit = {
+            let start_time = Instant::now();
+            let _permit = proving_semaphore
+                .acquire()
+                .await
+                .expect("semaphore should not be closed");
+            raiko_metrics::observe_action_wait_semaphore_duration(
+                &request_key,
+                start_time.elapsed(),
+            );
+            _permit
+        };
+        semaphore_acquired_tx.send(()).unwrap();
+
+        // 2.1. Start the proving work
+        let proven_status = {
+            let start_time = Instant::now();
+            let proven_status = prove_fn(actor.clone(), request_key.clone())
+                .await
+                .map(|proof| Status::Success { proof })
+                .unwrap_or_else(|error| Status::Failed { error });
+            raiko_metrics::observe_action_prove_duration(
+                request_key.proof_type(),
+                &request_key,
+                &proven_status,
+                start_time.elapsed(),
+            );
+            proven_status
         };
 
-        // Spawn a task to handle the action and send back a response
-        let status = StatusWithContext::new_registered();
-        let status_clone = status.clone();
-        let handle = tokio::spawn(async move {
-            let (action, resp_tx) = action_rx.recv().await.expect("Should receive action");
-            // Verify we received the expected action
-            assert_eq!(action.request_key(), &request_key);
-            // Send back a mock response with Registered status
-            resp_tx
-                .send(Ok(status_clone))
-                .expect("Should send response");
+        match &proven_status {
+            Status::Success { proof } => {
+                tracing::info!(
+                    "Actor Backend successfully proved {request_key}, {:?}",
+                    proof
+                );
+            }
+            Status::Failed { error } => {
+                tracing::error!("Actor Backend failed to prove {request_key}: {error}");
+            }
+            _ => {}
+        }
+
+        // 2.2. Update the request status in pool to the resulted status
+        if let Err(err) = actor
+            .pool
+            .update_status(request_key.clone(), proven_status.clone().into())
+        {
+            tracing::error!(
+                    "Actor Backend failed to update status of prove-action {request_key}: {err:?}, status: {proven_status}"
+                );
+            return;
+        }
+        // The permit is automatically dropped here, releasing the semaphore
+    });
+
+    // Only set up panic handler if we have a backup request key (for single proofs)
+    if let Some(backup_key) = backup_request_key {
+        let mut pool_ = self.pool.clone();
+        tokio::spawn(async move {
+            if let Err(e) = handle.await {
+                if e.is_panic() {
+                    tracing::error!("Actor Backend panicked while proving: {e:?}");
+                    let status = Status::Failed {
+                        error: e.to_string(),
+                    };
+                    if let Err(err) = pool_.update_status(backup_key.clone(), status.clone().into())
+                    {
+                        tracing::error!(
+                                "Actor Backend failed to update status of prove-action {backup_key}: {err:?}, status: {status}",
+                                status = status,
+                            );
+                    }
+                } else {
+                    tracing::error!("Actor Backend failed to prove: {e:?}");
+                }
+            }
         });
-
-        // Send the action and wait for response
-        let result = actor.act(test_action).await;
-
-        // Make sure we got back an Ok response
-        assert_eq!(result, Ok(status), "Should receive successful response");
-
-        // Wait for the handler to complete
-        handle.await.expect("Handler should complete");
     }
+
+    // Wait for the semaphore to be acquired
+    semaphore_acquired_rx.await.unwrap();
 }
+
+// TODO: cache input, reference to raiko_host::cache
+// TODO: memory tracking
+// TODO: metrics
+// TODO: measurement
+pub async fn do_prove_single(
+    pool: &mut dyn IdWrite,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: SingleProofRequestEntity,
+) -> Result<Proof, String> {
+    tracing::info!("Generating proof for {request_key}");
+
+    let l1_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.l1_network())
+        .ok_or_else(|| {
+            format!(
+                "unsupported l1 network: {}, it should not happen, please issue a bug report",
+                request_entity.l1_network()
+            )
+        })?;
+    let taiko_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.network())
+        .ok_or_else(|| {
+            format!(
+                "unsupported raiko network: {}, it should not happen, please issue a bug report",
+                request_entity.network()
+            )
+        })?;
+    let proof_request = ProofRequest {
+        block_number: *request_entity.block_number(),
+        l1_inclusion_block_number: *request_entity.l1_inclusion_block_number(),
+        network: request_entity.network().clone(),
+        l1_network: request_entity.l1_network().clone(),
+        graffiti: request_entity.graffiti().clone(),
+        prover: request_entity.prover().clone(),
+        proof_type: request_entity.proof_type().clone(),
+        blob_proof_type: request_entity.blob_proof_type().clone(),
+        prover_args: request_entity.prover_args().clone(),
+        batch_id: 0,
+        l2_block_numbers: Vec::new(),
+    };
+    let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
+    let provider = RpcBlockDataProvider::new(
+        &taiko_chain_spec.rpc.clone(),
+        request_entity.block_number() - 1,
+    )
+    .await
+    .map_err(|err| format!("failed to create rpc block data provider: {err:?}"))?;
+
+    // 1. Generate the proof input
+    let input = raiko
+        .generate_input(provider)
+        .await
+        .map_err(|e| format!("failed to generate input: {e:?}"))?;
+
+    // 2. Generate the proof output
+    let output = raiko
+        .get_output(&input)
+        .map_err(|e| format!("failed to get output: {e:?}"))?;
+
+    // 3. Generate the proof
+    let proof = raiko
+        .prove(input, &output, Some(pool))
+        .await
+        .map_err(|err| format!("failed to generate single proof: {err:?}"))?;
+
+    Ok(proof)
+}
+
+async fn do_prove_aggregation(
+    pool: &mut dyn IdWrite,
+    request_key: RequestKey,
+    request_entity: AggregationRequestEntity,
+) -> Result<Proof, String> {
+    let proof_type = request_key.proof_type().clone();
+    let proofs = request_entity.proofs().clone();
+
+    let input = AggregationGuestInput { proofs };
+    let output = AggregationGuestOutput { hash: B256::ZERO };
+    let config = serde_json::to_value(request_entity.prover_args())
+        .map_err(|err| format!("failed to serialize prover args: {err:?}"))?;
+
+    let proof = aggregate_proofs(proof_type, input, &output, &config, Some(pool))
+        .await
+        .map_err(|err| format!("failed to generate aggregation proof: {err:?}"))?;
+
+    Ok(proof)
+}
+
+async fn do_prove_batch(
+    pool: &mut dyn IdWrite,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: BatchProofRequestEntity,
+) -> Result<Proof, String> {
+    tracing::info!("Generating proof for {request_key}");
+
+    let l1_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.l1_network())
+        .expect("unsupported l1 network");
+    let taiko_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.network())
+        .expect("unsupported taiko network");
+    let batch_id = request_entity.batch_id();
+    let l1_include_block_number = request_entity.l1_inclusion_block_number();
+    // parse the batch proposal tx to get all prove blocks
+    let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
+        &l1_chain_spec,
+        &taiko_chain_spec,
+        *l1_include_block_number,
+        *batch_id,
+    )
+    .await
+    .map_err(|err| format!("Could not parse L1 batch proposal tx: {err:?}"))?;
+    // provider target blocks are all blocks in the batch and the parent block of block[0]
+    let provider_target_blocks =
+        (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
+    let provider = RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
+        .await
+        .expect("Could not create RpcBlockDataProvider");
+    let proof_request = ProofRequest {
+        block_number: 0,
+        batch_id: *request_entity.batch_id(),
+        l1_inclusion_block_number: *request_entity.l1_inclusion_block_number(),
+        network: request_entity.network().clone(),
+        l1_network: request_entity.l1_network().clone(),
+        graffiti: request_entity.graffiti().clone(),
+        prover: request_entity.prover().clone(),
+        proof_type: request_entity.proof_type().clone(),
+        blob_proof_type: request_entity.blob_proof_type().clone(),
+        prover_args: request_entity.prover_args().clone(),
+        l2_block_numbers: all_prove_blocks.clone(),
+    };
+    let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
+    let input = raiko
+        .generate_batch_input(provider)
+        .await
+        .map_err(|e| format!("failed to generateg guest batch input: {e:?}"))?;
+    trace!("batch guest input: {input:?}");
+    let output = raiko
+        .get_batch_output(&input)
+        .map_err(|e| format!("failed to get guest batch output: {e:?}"))?;
+    debug!("batch guest output: {output:?}");
+    let proof = raiko
+        .batch_prove(input, &output, Some(pool))
+        .await
+        .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
+    Ok(proof)
+}
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use alloy_primitives::Address;
+//     use raiko_lib::{
+//         consts::SupportedChainSpecs,
+//         input::BlobProofType,
+//         primitives::{ChainId, B256},
+//         proof_type::ProofType,
+//     };
+//     use raiko_reqpool::{
+//         memory_pool, RequestEntity, RequestKey, SingleProofRequestEntity, SingleProofRequestKey,
+//         StatusWithContext,
+//     };
+//     use std::collections::HashMap;
+//     use tokio::sync::mpsc;
+
+//     #[tokio::test]
+//     async fn test_pause_sets_is_paused_flag() {
+//         let (action_tx, _) = mpsc::channel(1);
+//         let (pause_tx, _pause_rx) = mpsc::channel(1);
+
+//         let pool = memory_pool("test_pause_sets_is_paused_flag");
+//         let actor = Actor::new(
+//             pool,
+//             Ballot::default(),
+//             ProofRequestOpt::default(),
+//             SupportedChainSpecs::default(),
+//             action_tx,
+//             pause_tx,
+//         );
+
+//         assert!(!actor.is_paused(), "Actor should not be paused initially");
+
+//         actor.pause().await.expect("Pause should succeed");
+//         assert!(
+//             actor.is_paused(),
+//             "Actor should be paused after calling pause()"
+//         );
+//     }
+
+//     #[tokio::test]
+//     async fn test_act_sends_action_and_returns_response() {
+//         let (action_tx, mut action_rx) = mpsc::channel(1);
+//         let (pause_tx, _) = mpsc::channel(1);
+
+//         let pool = memory_pool("test_act_sends_action_and_returns_response");
+//         let actor = Actor::new(
+//             pool,
+//             Ballot::default(),
+//             ProofRequestOpt::default(),
+//             SupportedChainSpecs::default(),
+//             action_tx,
+//             pause_tx,
+//         );
+
+//         // Create a test action
+//         let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
+//             ChainId::default(),
+//             1,
+//             B256::default(),
+//             ProofType::default(),
+//             "test_prover".to_string(),
+//         ));
+//         let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
+//             1,
+//             1,
+//             "test_network".to_string(),
+//             "test_l1_network".to_string(),
+//             B256::default(),
+//             Address::default(),
+//             ProofType::default(),
+//             BlobProofType::default(),
+//             HashMap::new(),
+//         ));
+//         let test_action = Action::Prove {
+//             request_key: request_key.clone(),
+//             request_entity,
+//         };
+
+//         // Spawn a task to handle the action and send back a response
+//         let status = StatusWithContext::new_registered();
+//         let status_clone = status.clone();
+//         let handle = tokio::spawn(async move {
+//             let (action, resp_tx) = action_rx.recv().await.expect("Should receive action");
+//             // Verify we received the expected action
+//             assert_eq!(action.request_key(), &request_key);
+//             // Send back a mock response with Registered status
+//             resp_tx
+//                 .send(Ok(status_clone))
+//                 .expect("Should send response");
+//         });
+
+//         // Send the action and wait for response
+//         let result = actor.act(test_action).await;
+
+//         // Make sure we got back an Ok response
+//         assert_eq!(result, Ok(status), "Should receive successful response");
+
+//         // Wait for the handler to complete
+//         handle.await.expect("Handler should complete");
+//     }
+// }

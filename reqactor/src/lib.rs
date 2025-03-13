@@ -1,5 +1,6 @@
 mod action;
 mod actor;
+mod actor_inner;
 mod backend;
 
 use raiko_ballot::Ballot;
@@ -43,7 +44,6 @@ pub async fn start_actor(
         ballot,
         default_request_config,
         chain_specs.clone(),
-        action_tx,
-        pause_tx,
+        max_proving_concurrency,
     )
 }

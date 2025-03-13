@@ -1,3 +1,4 @@
+use std::collections::{HashSet, VecDeque};
 use std::time::Duration;
 use std::{sync::Arc, time::Instant};
 
@@ -24,6 +25,20 @@ use tokio::sync::{
 use tracing::{debug, trace};
 
 use crate::{Action, Pool};
+
+struct ActorInner {
+    high_queue: VecDeque<Action>,
+    low_queue: VecDeque<Action>,
+    in_flight: HashSet<String>,
+    max_concurrency: usize,
+    semaphore: Arc<Semaphore>,
+}
+
+impl ActorInner {
+    pub fn new(&self, action: &Action) {
+        let _ = self.high_queue.contains(action);
+    }
+}
 
 /// Backend runs in the background, and handles the actions from the actor.
 #[derive(Clone)]

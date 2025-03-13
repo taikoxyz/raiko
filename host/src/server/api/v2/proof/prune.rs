@@ -11,11 +11,15 @@ use utoipa::OpenApi;
 )]
 /// Prune all tasks.
 async fn prune_handler(State(actor): State<Actor>) -> HostResult<()> {
-    let statuses = actor.pool_list_status().map_err(|e| anyhow::anyhow!(e))?;
+    let statuses = actor
+        .pool_list_status()
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
     for (key, status) in statuses {
         tracing::info!("Pruning task: {key} with status: {status}");
         let _ = actor
             .pool_remove_request(&key)
+            .await
             .map_err(|e| anyhow::anyhow!(e))?;
     }
     Ok(())

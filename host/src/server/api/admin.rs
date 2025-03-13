@@ -18,7 +18,7 @@ pub fn create_router() -> Router<Actor> {
 }
 
 async fn pause(State(actor): State<Actor>) -> HostResult<&'static str> {
-    actor.pause().await.map_err(|e| anyhow::anyhow!(e))?;
+    actor.pause();
     Ok("System paused successfully")
 }
 
@@ -27,11 +27,11 @@ async fn set_ballot(
     Json(probs): Json<BTreeMap<ProofType, f64>>,
 ) -> HostResult<&'static str> {
     let ballot = Ballot::new(probs).map_err(|e| anyhow::anyhow!(e))?;
-    actor.set_ballot(ballot);
+    actor.set_ballot(ballot).await;
     Ok("Ballot set successfully")
 }
 
 async fn get_ballot(State(actor): State<Actor>) -> Response {
-    let ballot = actor.get_ballot().probabilities().to_owned();
+    let ballot = actor.get_ballot().await.probabilities().to_owned();
     Json(ballot).into_response()
 }
