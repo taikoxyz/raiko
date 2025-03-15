@@ -1,6 +1,7 @@
 #![cfg(feature = "enable")]
 
 use std::{
+    collections::HashMap,
     env,
     fs::{copy, create_dir_all, remove_file},
     path::{Path, PathBuf},
@@ -10,6 +11,7 @@ use std::{
 
 use once_cell::sync::Lazy;
 use raiko_lib::{
+    consts::SpecId,
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput, RawAggregationGuestInput, RawProof,
@@ -34,7 +36,7 @@ mod sgx_register_utils;
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SgxParam {
-    pub instance_id: u64,
+    pub instance_ids: HashMap<SpecId, u64>,
     pub setup: bool,
     pub bootstrap: bool,
     pub prove: bool,
@@ -147,7 +149,8 @@ impl Prover for SgxProver {
 
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
-            sgx_proof = prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
+            let instance_id = get_instance_id_from_params(&input, &sgx_param)?;
+            sgx_proof = prove(gramine_cmd(), input.clone(), instance_id).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -227,8 +230,7 @@ impl Prover for SgxProver {
         };
 
         if sgx_param.prove {
-            // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
-            sgx_proof = aggregate(gramine_cmd(), input.clone(), sgx_param.instance_id).await
+            sgx_proof = aggregate(gramine_cmd(), input.clone()).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -313,7 +315,8 @@ impl Prover for SgxProver {
 
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
-            sgx_proof = batch_prove(gramine_cmd(), input.clone(), sgx_param.instance_id).await
+            let instance_id = get_instance_id_from_params(&input.inputs[0], &sgx_param)?;
+            sgx_proof = batch_prove(gramine_cmd(), input.clone(), instance_id).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -510,7 +513,6 @@ async fn batch_prove(
 async fn aggregate(
     mut gramine_cmd: StdCommand,
     input: AggregationGuestInput,
-    instance_id: u64,
 ) -> ProverResult<SgxResponse, ProverError> {
     // Extract the useful parts of the proof here so the guest doesn't have to do it
     let raw_input = RawAggregationGuestInput {
@@ -523,6 +525,9 @@ async fn aggregate(
             })
             .collect(),
     };
+    // Extract the instance id from the first proof
+    let instance_id =
+        u64::from_be_bytes(raw_input.proofs[0].proof.clone()[4..24].try_into().unwrap());
 
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
@@ -599,4 +604,18 @@ fn handle_output(output: &Output, name: &str) -> ProverResult<(), String> {
         ));
     }
     Ok(())
+}
+
+pub fn get_instance_id_from_params(input: &GuestInput, sgx_param: &SgxParam) -> ProverResult<u64> {
+    let spec_id = input
+        .chain_spec
+        .active_fork(input.block.number, input.block.timestamp)
+        .map_err(|e| ProverError::GuestError(e.to_string()))?;
+    sgx_param
+        .instance_ids
+        .get(&spec_id)
+        .cloned()
+        .ok_or_else(|| {
+            ProverError::GuestError(format!("No instance id found for spec id: {:?}", spec_id))
+        })
 }
