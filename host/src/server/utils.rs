@@ -108,7 +108,7 @@ pub fn fulfill_sp1_params(req: &mut Value) {
     match sp1_opts {
         None => {
             let mut sp1_opts = serde_json::Map::new();
-            sp1_opts["recursion"] = sp1_recursion;
+            sp1_opts.insert("recursion".to_string(), sp1_recursion);
             req["sp1"] = serde_json::Value::Object(sp1_opts);
         }
         Some(sp1_opts) => {
