@@ -349,7 +349,7 @@ mod test {
     #[test]
     fn test_tx_call_register() {
         env_logger::Builder::new()
-            .filter_level(LevelFilter::Trace)
+            .filter_level(LevelFilter::Info)
             .init();
         let rt = tokio::runtime::Runtime::new().unwrap();
         let res = rt
@@ -360,21 +360,27 @@ mod test {
 
     async fn simple_test_register_sgx_instance(
         quote_str: &str,
-    ) -> Result<u64, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
         // change chain_id & sgx_verifier_address to anvil env accordingly
-        register_sgx_instance(
+        let id0 = register_sgx_instance(
             quote_str,
             "https://l1rpc.internal.taiko.xyz",
             32382,
             address!("2Ec730f0830803A022262e46375E33023faD65e5"),
         )
         .await?;
-        register_sgx_instance(
+        let id1 = register_sgx_instance(
             quote_str,
             "https://l1rpc.internal.taiko.xyz",
             32382,
             address!("b8160f1317A990956622DD8AAE95a4695e58F9be"),
         )
-        .await
+        .await?;
+        let mut fork_ids = ForkRegisterId::new();
+        fork_ids.insert(SpecId::HEKLA, id0);
+        fork_ids.insert(SpecId::ONTAKE, id0);
+        fork_ids.insert(SpecId::PACAYA, id1);
+        set_instance_id(Path::new("/tmp"), &fork_ids)?;
+        Ok(vec![id0, id1])
     }
 }

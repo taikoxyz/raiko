@@ -163,10 +163,11 @@ mod test {
     }
 
     #[test]
-    fn test_save_config_file() {
+    fn test_update_save_read_config_file() {
         let registered_fork_ids: ForkRegisterId =
             serde_json::from_str("{\"HEKLA\": 1, \"ONTAKE\": 2}").expect("serde json ok");
-        let file = File::open("/tmp/test.config.json").expect("open tmp config file");
+        let file =
+            File::open("../../../host/config/config.sgx.json").expect("open tmp config file");
         let reader = BufReader::new(file);
         let mut file_config: Value = serde_json::from_reader(reader).expect("read file");
         println!("in file_config: {file_config}");
@@ -174,7 +175,16 @@ mod test {
             serde_json::to_value(registered_fork_ids.clone()).expect("btree to value");
         file_config["sgx"]["instance_ids"] = sgx_instance_json_value;
         println!("updated file_config: {file_config}");
-        set_instance_id(Path::new("/tmp"), &registered_fork_ids).expect("save register ids")
+        let dir = Path::new("/tmp");
+        set_instance_id(dir, &registered_fork_ids).expect("save register ids");
+
+        let fork_ids = get_instance_id(dir)
+            .expect("get register ids")
+            .expect("fork ids exist");
+        assert_eq!(
+            fork_ids, registered_fork_ids,
+            "fork ids {fork_ids:?} is different than {registered_fork_ids:?}"
+        );
     }
 
     #[test]
@@ -188,6 +198,7 @@ mod test {
             .get_chain_spec(&Network::TaikoMainnet.to_string())
             .unwrap();
         let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec);
+        println!("fork_verifier_pairs = {fork_verifier_pairs:?}");
         let need_init = fork_verifier_pairs
             .clone()
             .into_values()
@@ -195,7 +206,7 @@ mod test {
             .any(|id| !registered_fork_ids.clone().contains_key(&id));
         assert!(
             need_init,
-            "{fork_verifier_pairs:?} is different than {registered_fork_ids:?}"
+            "{fork_verifier_pairs:?} is different than {registered_fork_ids:?}, so we need init"
         )
     }
 }
