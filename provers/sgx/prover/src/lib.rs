@@ -526,8 +526,11 @@ async fn aggregate(
             .collect(),
     };
     // Extract the instance id from the first proof
-    let instance_id =
-        u64::from_be_bytes(raw_input.proofs[0].proof.clone()[4..24].try_into().unwrap());
+    let instance_id = {
+        let mut instance_id_bytes = [0u8; 8];
+        instance_id_bytes[0..4].copy_from_slice(&raw_input.proofs[0].proof.clone()[0..4]);
+        u64::from_be_bytes(instance_id_bytes)
+    };
 
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
