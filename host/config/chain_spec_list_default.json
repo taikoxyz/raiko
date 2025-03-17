@@ -85,6 +85,9 @@
             "ONTAKE": {
                 "Block": 840512
             },
+            "PACAYA": {
+                "Block": 1099999
+            },
             "CANCUN": "TBD"
         },
         "eip_1559_constants": {
@@ -107,6 +110,11 @@
                 "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
                 "SP1": "0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD",
                 "RISC0": "0x4fEd801C5a876D4289e869cbEfA1E1A448b10714"
+            },
+            "PACAYA": {
+                "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
+                "SP1": "0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD",
+                "RISC0": "0x4fEd801C5a876D4289e869cbEfA1E1A448b10714"
             }
         },
         "genesis_time": 0,
@@ -123,6 +131,9 @@
             },
             "ONTAKE": {
                 "Block": 538304
+            },
+            "PACAYA": {
+                "Block": 99999999
             },
             "CANCUN": "TBD"
         },
@@ -143,6 +154,11 @@
                 "RISC0": "0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc"
             },
             "ONTAKE": {
+                "SGX": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
+                "SP1": "0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452",
+                "RISC0": "0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc"
+            },
+            "PACAYA": {
                 "SGX": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
                 "SP1": "0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452",
                 "RISC0": "0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc"

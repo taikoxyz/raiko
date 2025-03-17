@@ -6,24 +6,31 @@ use alloy_sol_types::sol;
 use alloy_transport_http::Http;
 use anyhow::Result;
 use pem::parse_many;
-use raiko_lib::primitives::{hex, Address, Bytes, FixedBytes, U256};
-use std::{env, fs, io, path::Path};
+use raiko_lib::{
+    consts::SpecId,
+    primitives::{hex, Address, Bytes, FixedBytes, U256},
+};
+use serde_json;
+use std::{collections::BTreeMap, env, fs, io, path::Path};
 use url::Url;
 
-const REGISTERED_FILE: &str = "registered";
+const REGISTERED_FILE: &str = "registered.json";
 
-pub fn get_instance_id(dir: &Path) -> Result<Option<u64>> {
+pub type ForkRegisterId = BTreeMap<SpecId, u64>;
+
+pub fn get_instance_id(dir: &Path) -> Result<Option<ForkRegisterId>> {
     let file = dir.join(REGISTERED_FILE);
     match fs::read_to_string(file) {
-        Ok(t) => Ok(Some(t.parse()?)),
+        Ok(t) => Ok(Some(serde_json::from_str(&t)?)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e.into()),
     }
 }
 
-pub fn set_instance_id(dir: &Path, id: u64) -> io::Result<()> {
+pub fn set_instance_id(dir: &Path, fork_ids: &ForkRegisterId) -> io::Result<()> {
     let file = dir.join(REGISTERED_FILE);
-    fs::write(file, id.to_string())?;
+    let json_str = serde_json::to_string_pretty(fork_ids)?;
+    fs::write(file, json_str)?;
     Ok(())
 }
 

@@ -2,6 +2,10 @@
     "network": "taiko_a7",
     "l1_network": "holesky",
     "sgx": {
-        "instance_id": 123456
+        "instance_ids": {
+            "HEKLA": 0,
+            "ONTAKE": 0,
+            "PACAYA": 0
+        }
     }
 }

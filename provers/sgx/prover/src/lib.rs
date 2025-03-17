@@ -25,7 +25,7 @@ use serde_with::serde_as;
 use tokio::{process::Command, sync::OnceCell};
 
 pub use crate::sgx_register_utils::{
-    get_instance_id, register_sgx_instance, remove_instance_id, set_instance_id,
+    get_instance_id, register_sgx_instance, remove_instance_id, set_instance_id, ForkRegisterId,
 };
 
 pub const PRIV_KEY_FILENAME: &str = "priv.key";
