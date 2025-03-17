@@ -36,6 +36,7 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
         provider: &'a BDP,
         chain_spec: ChainSpec,
         block_number: u64,
+        initial_db: Option<MemDb>,
     ) -> RaikoResult<Self> {
         let mut provider_db = ProviderDb {
             provider,
@@ -44,7 +45,7 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
             // defaults
             optimistic: false,
             staging_db: Default::default(),
-            initial_db: Default::default(),
+            initial_db: initial_db.map_or(Default::default(), |db| db),
             initial_headers: Default::default(),
             current_db: Default::default(),
             pending_accounts: HashSet::new(),
@@ -55,9 +56,18 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
             // Get the 256 history block hashes from the provider at first time for anchor
             // transaction.
             let start = block_number.saturating_sub(255);
-            let block_numbers = (start..=block_number)
+            let all_init_block_numbers = (start..=block_number)
                 .map(|block_number| (block_number, false))
                 .collect::<Vec<_>>();
+            let block_numbers = all_init_block_numbers
+                .into_iter()
+                .filter(|(block_number, _)| {
+                    !provider_db
+                        .initial_db
+                        .block_hashes
+                        .contains_key(block_number)
+                })
+                .collect::<Vec<(u64, bool)>>();
             let initial_history_blocks = provider_db.provider.get_blocks(&block_numbers).await?;
             for block in initial_history_blocks {
                 let block_number: u64 = block

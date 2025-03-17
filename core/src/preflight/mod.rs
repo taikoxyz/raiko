@@ -6,6 +6,7 @@ use raiko_lib::{
     builder::RethBlockBuilder,
     consts::ChainSpec,
     input::{BlobProofType, GuestBatchInput, GuestInput, TaikoGuestInput, TaikoProverData},
+    mem_db::MemDb,
     primitives::mpt::proofs_to_tries,
     utils::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
@@ -115,7 +116,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
     };
 
     // Create the block builder, run the transactions and extract the DB
-    let provider_db = ProviderDb::new(&provider, taiko_chain_spec, parent_block_number).await?;
+    let provider_db =
+        ProviderDb::new(&provider, taiko_chain_spec, parent_block_number, None).await?;
 
     // Now re-execute the transactions in the block to collect all required data
     let mut builder = RethBlockBuilder::new(&input, provider_db);
@@ -231,6 +233,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
     assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
 
     let mut batch_guest_input = Vec::new();
+    let mut initial_db = None;
     for ((prove_block, parent_block), pure_pool_txs) in
         block_parent_pairs.iter().zip(pool_txs_list.iter())
     {
@@ -262,8 +265,13 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         };
 
         // Create the block builder, run the transactions and extract the DB
-        let provider_db =
-            ProviderDb::new(&provider, taiko_chain_spec.clone(), parent_block_number).await?;
+        let provider_db = ProviderDb::new(
+            &provider,
+            taiko_chain_spec.clone(),
+            parent_block_number,
+            initial_db,
+        )
+        .await?;
 
         // Now re-execute the transactions in the block to collect all required data
         let mut builder = RethBlockBuilder::new(&input, provider_db);
@@ -273,7 +281,14 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         pool_txs.extend_from_slice(pure_pool_txs);
         execute_txs(&mut builder, pool_txs).await?;
 
-        let Some(db) = builder.db.as_mut() else {
+        let db = if let Some(db) = builder.db.as_mut() {
+            let mut base_db = MemDb::default();
+            base_db.merge(db.initial_db.clone());
+            base_db.merge(db.staging_db.clone());
+            base_db.merge(db.current_db.clone());
+            initial_db = Some(base_db);
+            db
+        } else {
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
         };
 
