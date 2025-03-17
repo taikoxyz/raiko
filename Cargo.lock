@@ -8538,14 +8538,18 @@ dependencies = [
  "alloy-transport-http",
  "anyhow",
  "bincode",
+ "env_logger",
  "hex",
  "once_cell",
  "pem 3.0.4",
  "raiko-lib",
+ "reqwest 0.11.27",
+ "reqwest 0.12.5",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
  "tokio",
+ "tracing",
  "url",
 ]
 
