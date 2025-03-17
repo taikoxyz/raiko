@@ -125,7 +125,7 @@ fn get_hard_fork_verifiers(taiko_chain_spec: &ChainSpec) -> BTreeMap<Address, Ve
         .iter()
         .for_each(
             |(spec_id, verifiers)| match verifiers.get(&ProofType::Sgx) {
-                Some(verifer_addr) => match verifer_addr {
+                Some(verifier_addr) => match verifier_addr {
                     Some(addr) => {
                         fork_verifiers
                             .entry(addr.clone())
