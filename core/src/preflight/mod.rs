@@ -6,7 +6,6 @@ use raiko_lib::{
     builder::RethBlockBuilder,
     consts::ChainSpec,
     input::{BlobProofType, GuestBatchInput, GuestInput, TaikoGuestInput, TaikoProverData},
-    mem_db::MemDb,
     primitives::mpt::proofs_to_tries,
     utils::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
@@ -282,10 +281,8 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         execute_txs(&mut builder, pool_txs).await?;
 
         let db = if let Some(db) = builder.db.as_mut() {
-            let mut base_db = MemDb::default();
             // use committed state as the init state of next block
-            base_db.merge(db.current_db.clone());
-            initial_db = Some(base_db);
+            initial_db = Some(db.current_db.clone());
             db
         } else {
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
