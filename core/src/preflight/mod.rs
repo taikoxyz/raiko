@@ -283,8 +283,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
         let db = if let Some(db) = builder.db.as_mut() {
             let mut base_db = MemDb::default();
-            base_db.merge(db.initial_db.clone());
-            base_db.merge(db.staging_db.clone());
+            // use committed state as the init state of next block
             base_db.merge(db.current_db.clone());
             initial_db = Some(base_db);
             db
