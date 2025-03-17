@@ -25,6 +25,12 @@ pem = { version = "3.0.4", optional = true }
 url = { workspace = true }
 anyhow = { workspace = true }
 hex = { workspace = true }
+reqwest = { workspace = true }
+reqwest_alloy = { workspace = true }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+tracing = { workspace = true }
 
 [features]
 default = ["dep:pem"]

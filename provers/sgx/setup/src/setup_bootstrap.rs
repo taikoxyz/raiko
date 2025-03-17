@@ -1,19 +1,24 @@
+use alloy_primitives::Address;
+use anyhow::{anyhow, Context, Result};
+use file_lock::{FileLock, FileOptions};
+use raiko_lib::{
+    consts::{ChainSpec, SpecId, SupportedChainSpecs},
+    proof_type::ProofType,
+};
+use serde_json::Value;
+use sgx_prover::{
+    bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
+    set_instance_id, ForkRegisterId, ELF_NAME,
+};
 use std::{
+    collections::BTreeMap,
     env,
     fs::{self, File},
     io::BufReader,
     path::PathBuf,
     process::Command,
 };
-
-use anyhow::{anyhow, Context, Result};
-use file_lock::{FileLock, FileOptions};
-use raiko_lib::{consts::SupportedChainSpecs, proof_type::ProofType};
-use serde_json::{Number, Value};
-use sgx_prover::{
-    bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
-    set_instance_id, ELF_NAME,
-};
+use tracing::warn;
 
 use crate::app_args::BootstrapArgs;
 
@@ -53,7 +58,8 @@ pub(crate) async fn setup_bootstrap(
         cmd
     };
 
-    let mut instance_id = get_instance_id(&config_dir)?;
+    let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec);
+    let mut registered_fork_ids = get_instance_id(&config_dir)?;
     let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd())
         .await
         .map_err(|e| {
@@ -61,35 +67,44 @@ pub(crate) async fn setup_bootstrap(
             e
         })
         .is_err()
-        || instance_id.is_none();
+        || registered_fork_ids.is_none()
+        || fork_verifier_pairs
+            .clone()
+            .into_values()
+            .flat_map(|v| v)
+            .any(|id| !registered_fork_ids.clone().unwrap().contains_key(&id));
 
-    println!("Instance ID: {instance_id:?}");
+    println!("Instance ID: {registered_fork_ids:?}");
 
     if need_init {
         // clean check file
         remove_instance_id(&config_dir)?;
         let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
-        let verifier_address =
-            taiko_chain_spec.get_fork_verifier_address(bootstrap_args.block_num, ProofType::Sgx)?;
-        let register_id = register_sgx_instance(
-            &bootstrap_proof.quote,
-            &l1_chain_spec.rpc,
-            l1_chain_spec.chain_id,
-            verifier_address,
-        )
-        .await
-        .map_err(|e| anyhow::Error::msg(e.to_string()))?;
-        println!("Saving instance id {register_id}");
+        let mut fork_register_id: ForkRegisterId = BTreeMap::new();
+        for (verifier_addr, spec_ids) in fork_verifier_pairs.iter() {
+            let register_id = register_sgx_instance(
+                &bootstrap_proof.quote,
+                &l1_chain_spec.rpc,
+                l1_chain_spec.chain_id,
+                *verifier_addr,
+            )
+            .await
+            .map_err(|e| anyhow::Error::msg(e.to_string()))?;
+            for spec_id in spec_ids {
+                fork_register_id.insert(*spec_id, register_id);
+            }
+        }
+        println!("Saving instance id {registered_fork_ids:?}");
         // set check file
-        set_instance_id(&config_dir, register_id)?;
-
-        instance_id = Some(register_id);
+        set_instance_id(&config_dir, &fork_register_id)?;
+        registered_fork_ids = Some(fork_register_id);
     }
     // Always reset the configuration with a persistent instance ID upon restart.
     let file = File::open(&bootstrap_args.config_path)?;
     let reader = BufReader::new(file);
     let mut file_config: Value = serde_json::from_reader(reader)?;
-    file_config["sgx"]["instance_id"] = Value::Number(Number::from(instance_id.unwrap()));
+    let sgx_instance_json_value = serde_json::to_value(registered_fork_ids)?;
+    file_config["sgx"]["instance_ids"] = sgx_instance_json_value;
 
     //save to the same file
     let new_config_path = config_dir.join("config.sgx.json");
@@ -100,4 +115,98 @@ pub(crate) async fn setup_bootstrap(
         new_config_path.display()
     ))?;
     Ok(())
+}
+
+fn get_hard_fork_verifiers(taiko_chain_spec: &ChainSpec) -> BTreeMap<Address, Vec<SpecId>> {
+    let mut fork_verifiers: BTreeMap<Address, Vec<SpecId>> =
+        BTreeMap::<Address, Vec<SpecId>>::new();
+    taiko_chain_spec
+        .verifier_address_forks
+        .iter()
+        .for_each(
+            |(spec_id, verifiers)| match verifiers.get(&ProofType::Sgx) {
+                Some(verifier_addr) => match verifier_addr {
+                    Some(addr) => {
+                        fork_verifiers
+                            .entry(addr.clone())
+                            .or_insert_with(Vec::new)
+                            .push(*spec_id);
+                    }
+                    None => warn!("No verifier for fork {spec_id:?}"),
+                },
+                None => warn!("No verifier for fork {spec_id:?}"),
+            },
+        );
+    fork_verifiers
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::Path;
+
+    use super::*;
+    use env_logger;
+    use raiko_lib::consts::Network;
+    use tracing::info;
+    use tracing::log::LevelFilter;
+
+    #[test]
+    fn test_hard_fork_verifier() {
+        env_logger::Builder::new()
+            .filter_level(LevelFilter::Trace)
+            .init();
+        let taiko_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoMainnet.to_string())
+            .unwrap();
+        let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec);
+        info!("fork_verifier_pairs = {fork_verifier_pairs:?}")
+    }
+
+    #[test]
+    fn test_update_save_read_config_file() {
+        let registered_fork_ids: ForkRegisterId =
+            serde_json::from_str("{\"HEKLA\": 1, \"ONTAKE\": 2}").expect("serde json ok");
+        let file =
+            File::open("../../../host/config/config.sgx.json").expect("open tmp config file");
+        let reader = BufReader::new(file);
+        let mut file_config: Value = serde_json::from_reader(reader).expect("read file");
+        println!("in file_config: {file_config}");
+        let sgx_instance_json_value =
+            serde_json::to_value(registered_fork_ids.clone()).expect("btree to value");
+        file_config["sgx"]["instance_ids"] = sgx_instance_json_value;
+        println!("updated file_config: {file_config}");
+        let dir = Path::new("/tmp");
+        set_instance_id(dir, &registered_fork_ids).expect("save register ids");
+
+        let fork_ids = get_instance_id(dir)
+            .expect("get register ids")
+            .expect("fork ids exist");
+        assert_eq!(
+            fork_ids, registered_fork_ids,
+            "fork ids {fork_ids:?} is different than {registered_fork_ids:?}"
+        );
+    }
+
+    #[test]
+    fn test_reload_config_file_need_init() {
+        let file = File::open("/tmp/registered.json").expect("open tmp config file");
+        let reader = BufReader::new(file);
+        let registered_fork_ids: ForkRegisterId =
+            serde_json::from_reader(reader).expect("read file");
+        println!("in file_config: {registered_fork_ids:?}");
+        let taiko_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoMainnet.to_string())
+            .unwrap();
+        let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec);
+        println!("fork_verifier_pairs = {fork_verifier_pairs:?}");
+        let need_init = fork_verifier_pairs
+            .clone()
+            .into_values()
+            .flat_map(|v| v)
+            .any(|id| !registered_fork_ids.clone().contains_key(&id));
+        assert!(
+            need_init,
+            "{fork_verifier_pairs:?} is different than {registered_fork_ids:?}, so we need init"
+        )
+    }
 }

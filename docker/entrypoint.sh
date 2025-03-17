@@ -118,9 +118,23 @@ function update_raiko_sgx_instance_id() {
     if [[ -n $SGX_INSTANCE_ID ]]; then
         jq \
         --arg update_value "$SGX_INSTANCE_ID" \
-        '.sgx.instance_id = ($update_value | tonumber)' $CONFIG_FILE \
+        '.sgx.instance_ids.HEKLA = ($update_value | tonumber)' $CONFIG_FILE \
         >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
-        echo "Update old sgx instance id to $SGX_INSTANCE_ID"
+        echo "Update hekla sgx instance id to $SGX_INSTANCE_ID"
+    fi
+    if [[ -n $SGX_ONTAKE_INSTANCE_ID ]]; then
+        jq \
+        --arg update_value "$SGX_ONTAKE_INSTANCE_ID" \
+        '.sgx.instance_ids.ONTAKE = ($update_value | tonumber)' $CONFIG_FILE \
+        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+        echo "Update ontake sgx instance id to $SGX_ONTAKE_INSTANCE_ID"
+    fi
+    if [[ -n $SGX_PACAYA_INSTANCE_ID ]]; then
+        jq \
+        --arg update_value "$SGX_PACAYA_INSTANCE_ID" \
+        '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+        echo "Update pacaya sgx instance id to $SGX_PACAYA_INSTANCE_ID"
     fi
 }
 
