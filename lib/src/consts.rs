@@ -7,11 +7,13 @@ use alloc::collections::BTreeMap;
 use alloy_primitives::Address;
 use anyhow::{anyhow, bail, Result};
 use once_cell::sync::Lazy;
-use reth_primitives::revm_primitives::SpecId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::{collections::HashMap, env::var};
+
+// re-export from reth_primitives
+pub use reth_primitives::revm_primitives::SpecId;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
