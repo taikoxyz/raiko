@@ -148,15 +148,16 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                 .map_err(|_| RaikoError::Conversion("Could not convert u64 to usize".to_owned()))?,
         );
         for block_number in (*earliest_block..self.block_number).rev() {
-            match self.initial_headers.get(&block_number) {
-                Some(header) => headers.push(header.clone()),
-                None => {
+            let header = match self.initial_headers.entry(block_number) {
+                std::collections::hash_map::Entry::Occupied(header) => header.get().clone(),
+                std::collections::hash_map::Entry::Vacant(entry) => {
                     let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
                     let header: Header = block.header.clone().try_into().unwrap();
-                    self.initial_headers.insert(block_number, header.clone());
-                    headers.push(header);
+                    entry.insert(header.clone());
+                    header
                 }
-            }
+            };
+            headers.push(header);
         }
         Ok(headers)
     }
