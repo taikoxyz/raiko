@@ -8,7 +8,6 @@ use utoipa::OpenApi;
 
 use crate::{
     interfaces::HostResult,
-    metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::{api::v3::Status, to_v3_status, HostError},
 };
 use raiko_reqactor::Actor;
@@ -36,7 +35,8 @@ async fn aggregation_handler(
     State(actor): State<Actor>,
     Json(mut aggregation_request): Json<AggregationOnlyRequest>,
 ) -> HostResult<Status> {
-    inc_current_req();
+    raiko_metrics::inc_http_request_count();
+
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     let default_request_config = actor.default_request_config();
@@ -49,8 +49,6 @@ async fn aggregation_handler(
             .unwrap_or_default(),
     )
     .map_err(HostError::Conversion)?;
-    inc_host_req_count(0);
-    inc_guest_req_count(&proof_type, 0);
 
     if aggregation_request.proofs.is_empty() {
         return Err(anyhow::anyhow!("No proofs provided").into());

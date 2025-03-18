@@ -9,7 +9,6 @@ use utoipa::OpenApi;
 use crate::server::utils::{draw_for_zk_any_request, fulfill_sp1_params, is_zk_any_request};
 use crate::{
     interfaces::HostResult,
-    metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::{api::v2::Status, to_v2_status},
 };
 use raiko_reqactor::Actor;
@@ -40,7 +39,7 @@ async fn proof_handler(
     State(actor): State<Actor>,
     Json(mut req): Json<Value>,
 ) -> HostResult<Status> {
-    inc_current_req();
+    raiko_metrics::inc_http_request_count();
 
     if is_zk_any_request(&req) {
         fulfill_sp1_params(&mut req);
@@ -68,8 +67,6 @@ async fn proof_handler(
 
     // Construct the actual proof request from the available configs.
     let proof_request = ProofRequest::try_from(config)?;
-    inc_host_req_count(proof_request.block_number);
-    inc_guest_req_count(&proof_request.proof_type, proof_request.block_number);
 
     let (chain_id, blockhash) = get_task_data(
         &proof_request.network,

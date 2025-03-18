@@ -13,6 +13,7 @@ use tower_http::{
 };
 
 pub mod admin;
+pub mod metrics;
 pub mod v1;
 pub mod v2;
 pub mod v3;
@@ -39,12 +40,14 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
     let v2_api = v2::create_router();
     let v3_api = v3::create_router();
     let admin_api = admin::create_router();
+    let metrics_api = metrics::create_router();
     let router = Router::new()
         .nest("/v1", v1_api)
         .nest("/v2", v2_api)
         .nest("/v3", v3_api.clone())
         .merge(v3_api)
         .nest("/admin", admin_api)
+        .nest("/metrics", metrics_api)
         .layer(middleware)
         .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
         .layer(trace)
