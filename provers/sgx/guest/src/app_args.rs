@@ -6,10 +6,10 @@ const DEFAULT_RAIKO_USER_CONFIG_SUBDIR_PATH: &str = ".config/raiko";
 
 #[derive(Debug, Parser)]
 pub struct App {
-    #[clap(flatten)]
+    #[command(flatten)]
     pub global_opts: GlobalOpts,
 
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub command: Command,
 }
 
@@ -29,7 +29,7 @@ pub enum Command {
 
 #[derive(Debug, Args)]
 pub struct OneShotArgs {
-    #[clap(long)]
+    #[arg(long)]
     pub sgx_instance_id: u32,
 }
 
@@ -42,13 +42,13 @@ fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {
 
 #[derive(Debug, Args)]
 pub struct GlobalOpts {
-    #[clap(short, long, default_value=get_default_raiko_user_config_path("secrets").into_os_string())]
+    #[arg(short, long, default_value=get_default_raiko_user_config_path("secrets").into_os_string())]
     /// Path to the directory with the encrypted private keys being used to sign the
     /// blocks. For more details on the encryption see:
     /// https://gramine.readthedocs.io/en/stable/manifest-syntax.html#encrypted-files
     pub secrets_dir: PathBuf,
 
-    #[clap(short, long, default_value=get_default_raiko_user_config_path("config").into_os_string())]
+    #[arg(short, long, default_value=get_default_raiko_user_config_path("config").into_os_string())]
     /// Path to the directory containing Raiko configuration files.
     pub config_dir: PathBuf,
 }
