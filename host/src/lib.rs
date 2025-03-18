@@ -15,7 +15,6 @@ use crate::interfaces::HostResult;
 
 pub mod cache;
 pub mod interfaces;
-pub mod metrics;
 pub mod server;
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Parser)]

@@ -11,7 +11,6 @@ use crate::interfaces::HostError;
 use raiko_reqactor::Actor;
 
 pub mod health;
-pub mod metrics;
 pub mod proof;
 
 #[derive(OpenApi)]
@@ -43,7 +42,6 @@ pub mod proof;
     tags(
         (name = "Proving", description = "Routes that handle proving requests"),
         (name = "Health", description = "Routes that report the server health status"),
-        (name = "Metrics", description = "Routes that give detailed insight into the server")
     )
 )]
 /// The root API struct which is generated from the `OpenApi` derive macro.
@@ -105,31 +103,24 @@ pub struct GuestOutputDoc {
 
 #[must_use]
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    [
-        health::create_docs(),
-        metrics::create_docs(),
-        proof::create_docs(),
-    ]
-    .into_iter()
-    .fold(Docs::openapi(), |mut doc, sub_doc| {
-        doc.merge(sub_doc);
-        doc
-    })
+    [health::create_docs(), proof::create_docs()]
+        .into_iter()
+        .fold(Docs::openapi(), |mut doc, sub_doc| {
+            doc.merge(sub_doc);
+            doc
+        })
 }
 
 pub fn create_router(concurrency_limit: usize) -> Router<Actor> {
     let docs = create_docs();
 
     Router::new()
-        // Only add the concurrency limit to the proof route. We want to still be able to call
-        // healthchecks and metrics to have insight into the system.
         .nest(
             "/proof",
             proof::create_router()
                 .layer(ServiceBuilder::new().concurrency_limit(concurrency_limit)),
         )
         .nest("/health", health::create_router())
-        .nest("/metrics", metrics::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
         .merge(Scalar::with_url("/scalar", docs))
 }

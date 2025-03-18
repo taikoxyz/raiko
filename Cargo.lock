@@ -6181,6 +6181,7 @@ dependencies = [
  "bytemuck",
  "cap",
  "cfg-if",
+ "chrono",
  "clap 4.5.9",
  "dotenv",
  "env_logger",
@@ -6195,6 +6196,7 @@ dependencies = [
  "raiko-ballot",
  "raiko-core",
  "raiko-lib",
+ "raiko-metrics",
  "raiko-reqactor",
  "raiko-reqpool",
  "raiko-tasks",
@@ -6274,6 +6276,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "raiko-metrics"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "prometheus",
+ "raiko-lib",
+]
+
+[[package]]
 name = "raiko-pipeline"
 version = "0.1.0"
 dependencies = [
@@ -6308,6 +6319,7 @@ dependencies = [
  "raiko-ballot",
  "raiko-core",
  "raiko-lib",
+ "raiko-metrics",
  "raiko-reqpool",
  "reth-primitives",
  "serde",
@@ -6330,6 +6342,7 @@ dependencies = [
  "quote",
  "raiko-core",
  "raiko-lib",
+ "raiko-metrics",
  "raiko-redis-derive",
  "redis",
  "serde",

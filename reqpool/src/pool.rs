@@ -17,6 +17,16 @@ pub struct Pool {
 }
 
 impl Pool {
+    pub fn add_new(
+        &mut self,
+        request_key: RequestKey,
+        request_entity: RequestEntity,
+        status: StatusWithContext,
+    ) -> Result<(), String> {
+        raiko_metrics::inc_pool_request_count(&request_key, request_key.proof_type());
+        self.add(request_key, request_entity, status)
+    }
+
     pub fn add(
         &mut self,
         request_key: RequestKey,
@@ -77,6 +87,16 @@ impl Pool {
         tracing::info!("RedisPool.update_status: {request_key}, {status}");
         match self.get(&request_key)? {
             Some((entity, old_status)) => {
+                raiko_metrics::observe_pool_transition_duration(
+                    &request_key,
+                    request_key.proof_type(),
+                    old_status.status(),
+                    status.status(),
+                    (chrono::Utc::now() - old_status.timestamp())
+                        .to_std()
+                        .unwrap(),
+                );
+
                 self.add(request_key, entity, status)?;
                 Ok(old_status)
             }

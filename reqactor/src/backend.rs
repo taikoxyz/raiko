@@ -75,6 +75,11 @@ impl Backend {
             tokio::select! {
                 Some((action, resp_tx)) = action_rx.recv() => {
                     let request_key = action.request_key().clone();
+                    raiko_metrics::inc_actor_channel_out_count(
+                        action.request_key(),
+                        action.request_key().proof_type(),
+                    );
+
                     let response = self.handle_external_action(action.clone()).await;
 
                     // Signal the request key to the internal channel, to move on to the next step, whatever the result is
@@ -113,10 +118,12 @@ impl Backend {
             Action::Prove {
                 request_key,
                 request_entity,
+                start_time,
             } => match self.pool.get_status(&request_key) {
                 Ok(None) => {
                     tracing::debug!("Actor Backend received prove-action {request_key}, and it is not in pool, registering");
-                    self.register(request_key.clone(), request_entity).await
+                    self.register(request_key.clone(), request_entity, start_time)
+                        .await
                 }
                 Ok(Some(status)) => match status.status() {
                     Status::Registered | Status::WorkInProgress | Status::Success { .. } => {
@@ -125,11 +132,11 @@ impl Backend {
                     }
                     Status::Cancelled { .. } => {
                         tracing::warn!("Actor Backend received prove-action {request_key}, and it is cancelled, re-registering");
-                        self.register(request_key, request_entity).await
+                        self.register(request_key, request_entity, start_time).await
                     }
                     Status::Failed { .. } => {
                         tracing::warn!("Actor Backend received prove-action {request_key}, and it is failed, re-registering");
-                        self.register(request_key, request_entity).await
+                        self.register(request_key, request_entity, start_time).await
                     }
                 },
                 Err(err) => {
@@ -245,12 +252,13 @@ impl Backend {
         &mut self,
         request_key: RequestKey,
         request_entity: RequestEntity,
+        start_time: chrono::DateTime<chrono::Utc>,
     ) -> Result<StatusWithContext, String> {
         // 1. Register to the pool
-        let status = StatusWithContext::new_registered();
+        let status = StatusWithContext::new(Status::Registered, start_time);
         if let Err(err) = self
             .pool
-            .add(request_key.clone(), request_entity, status.clone())
+            .add_new(request_key.clone(), request_entity, status.clone())
         {
             return Err(err);
         }
@@ -517,22 +525,52 @@ pub async fn do_prove_single(
     .map_err(|err| format!("failed to create rpc block data provider: {err:?}"))?;
 
     // 1. Generate the proof input
-    let input = raiko
-        .generate_input(provider)
-        .await
-        .map_err(|e| format!("failed to generate input: {e:?}"))?;
+    let input = {
+        let start_time = chrono::Utc::now();
+        let input = raiko
+            .generate_input(provider)
+            .await
+            .map_err(|e| format!("failed to generate input: {e:?}"))?;
+        raiko_metrics::observe_actor_generating_input_duration(
+            &request_key,
+            (chrono::Utc::now() - start_time)
+                .to_std()
+                .unwrap_or_default(),
+        );
+        input
+    };
 
     // 2. Generate the proof output
-    let output = raiko
-        .get_output(&input)
-        .map_err(|e| format!("failed to get output: {e:?}"))?;
+    let output = {
+        let start_time = chrono::Utc::now();
+        let output = raiko
+            .get_output(&input)
+            .map_err(|e| format!("failed to get output: {e:?}"))?;
+        raiko_metrics::observe_actor_generating_output_duration(
+            &request_key,
+            (chrono::Utc::now() - start_time)
+                .to_std()
+                .unwrap_or_default(),
+        );
+        output
+    };
 
     // 3. Generate the proof
-    let proof = raiko
-        .prove(input, &output, Some(pool))
-        .await
-        .map_err(|err| format!("failed to generate single proof: {err:?}"))?;
-
+    let proof = {
+        let start_time = chrono::Utc::now();
+        let proof = raiko
+            .prove(input, &output, Some(pool))
+            .await
+            .map_err(|err| format!("failed to generate single proof: {err:?}"))?;
+        raiko_metrics::observe_actor_proving_duration(
+            &request_key,
+            request_key.proof_type(),
+            (chrono::Utc::now() - start_time)
+                .to_std()
+                .unwrap_or_default(),
+        );
+        proof
+    };
     Ok(proof)
 }
 
@@ -601,18 +639,54 @@ async fn do_prove_batch(
         l2_block_numbers: all_prove_blocks.clone(),
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
-    let input = raiko
-        .generate_batch_input(provider)
-        .await
-        .map_err(|e| format!("failed to generateg guest batch input: {e:?}"))?;
+
+    let input = {
+        let start_time = chrono::Utc::now();
+        let input = raiko
+            .generate_batch_input(provider)
+            .await
+            .map_err(|e| format!("failed to generateg guest batch input: {e:?}"))?;
+        raiko_metrics::observe_actor_generating_input_duration(
+            &request_key,
+            (chrono::Utc::now() - start_time)
+                .to_std()
+                .unwrap_or_default(),
+        );
+        raiko_metrics::observe_batch_request_block_count(input.inputs.len() as u64);
+        input
+    };
     trace!("batch guest input: {input:?}");
-    let output = raiko
-        .get_batch_output(&input)
-        .map_err(|e| format!("failed to get guest batch output: {e:?}"))?;
+
+    let output = {
+        let start_time = chrono::Utc::now();
+        let output = raiko
+            .get_batch_output(&input)
+            .map_err(|e| format!("failed to get guest batch output: {e:?}"))?;
+        raiko_metrics::observe_actor_generating_output_duration(
+            &request_key,
+            (chrono::Utc::now() - start_time)
+                .to_std()
+                .unwrap_or_default(),
+        );
+        output
+    };
     debug!("batch guest output: {output:?}");
-    let proof = raiko
-        .batch_prove(input, &output, Some(pool))
-        .await
-        .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
+
+    let proof = {
+        let start_time = chrono::Utc::now();
+        let proof = raiko
+            .batch_prove(input, &output, Some(pool))
+            .await
+            .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
+        raiko_metrics::observe_actor_proving_duration(
+            &request_key,
+            request_key.proof_type(),
+            (chrono::Utc::now() - start_time)
+                .to_std()
+                .unwrap_or_default(),
+        );
+        proof
+    };
+
     Ok(proof)
 }

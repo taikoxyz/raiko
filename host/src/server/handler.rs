@@ -16,6 +16,7 @@ pub async fn prove(
     let action = Action::Prove {
         request_key,
         request_entity,
+        start_time: chrono::Utc::now(),
     };
     act(actor, action).await
 }
