@@ -36,17 +36,18 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
         provider: &'a BDP,
         chain_spec: ChainSpec,
         block_number: u64,
-        initial_db: Option<MemDb>,
+        initial_db_with_headers: Option<(MemDb, HashMap<u64, Header>)>,
     ) -> RaikoResult<Self> {
+        let (initial_db, initial_headers) = initial_db_with_headers.unwrap_or_default();
         let mut provider_db = ProviderDb {
             provider,
             block_number,
             async_executor: Handle::current(),
             // defaults
             optimistic: false,
-            staging_db: Default::default(),
-            initial_db: initial_db.map_or(Default::default(), |db| db),
-            initial_headers: Default::default(),
+            staging_db: initial_db.clone(),
+            initial_db: initial_db,
+            initial_headers: initial_headers,
             current_db: Default::default(),
             pending_accounts: HashSet::new(),
             pending_slots: HashSet::new(),
@@ -59,7 +60,9 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
             let all_init_block_numbers = (start..=block_number)
                 .map(|block_number| (block_number, false))
                 .collect::<Vec<_>>();
-            let block_numbers = all_init_block_numbers
+            // can filter out the block numbers that are already in the initial_db
+            // but need to handle the block header db as well
+            let absent_block_numbers = all_init_block_numbers
                 .into_iter()
                 .filter(|(block_number, _)| {
                     !provider_db
@@ -68,7 +71,10 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                         .contains_key(block_number)
                 })
                 .collect::<Vec<(u64, bool)>>();
-            let initial_history_blocks = provider_db.provider.get_blocks(&block_numbers).await?;
+            let initial_history_blocks = provider_db
+                .provider
+                .get_blocks(&absent_block_numbers)
+                .await?;
             for block in initial_history_blocks {
                 let block_number: u64 = block
                     .header
@@ -136,30 +142,21 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
     }
 
     pub async fn get_ancestor_headers(&mut self) -> RaikoResult<Vec<Header>> {
-        let earliest_block = self
-            .initial_db
-            .block_hashes
-            .keys()
-            .min()
-            .unwrap_or(&self.block_number);
-
+        let earliest_block = &self.block_number.saturating_sub(255);
         let mut headers = Vec::with_capacity(
             usize::try_from(self.block_number - *earliest_block)
                 .map_err(|_| RaikoError::Conversion("Could not convert u64 to usize".to_owned()))?,
         );
         for block_number in (*earliest_block..self.block_number).rev() {
-            if let std::collections::hash_map::Entry::Vacant(e) =
-                self.initial_headers.entry(block_number)
-            {
-                let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
-                e.insert(block.header.clone().try_into().unwrap());
+            match self.initial_headers.get(&block_number) {
+                Some(header) => headers.push(header.clone()),
+                None => {
+                    let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
+                    let header: Header = block.header.clone().try_into().unwrap();
+                    self.initial_headers.insert(block_number, header.clone());
+                    headers.push(header);
+                }
             }
-            headers.push(
-                self.initial_headers
-                    .get(&block_number)
-                    .expect("The header is inserted if it was not present")
-                    .clone(),
-            );
         }
         Ok(headers)
     }
