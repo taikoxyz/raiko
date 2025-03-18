@@ -15,7 +15,7 @@ use raiko_lib::{
     Measurement,
 };
 use reth_primitives::TransactionSigned;
-use tracing::info;
+use tracing::{debug, info};
 
 use util::{
     execute_txs, get_batch_blocks_and_parent_data, get_block_and_parent_data,
@@ -241,7 +241,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
     };
     measurement.stop();
 
-    info!("proven (block, parent) pairs: {:?}", block_parent_pairs);
+    debug!("proven (block, parent) pairs: {:?}", block_parent_pairs);
 
     // distribute txs to each block
     let pool_txs_list: Vec<Vec<TransactionSigned>> =

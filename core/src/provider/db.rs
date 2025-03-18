@@ -92,7 +92,7 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                     .insert(block_number, block.header.try_into().unwrap());
             }
         }
-        info!("Initial new provider_db {:?}", provider_db.block_number);
+        info!("Initial new provider_db of parent block: {:?}", provider_db.block_number);
         Ok(provider_db)
     }
 
