@@ -527,9 +527,9 @@ async fn aggregate(
     };
     // Extract the instance id from the first proof
     let instance_id = {
-        let mut instance_id_bytes = [0u8; 8];
+        let mut instance_id_bytes = [0u8; 4];
         instance_id_bytes[0..4].copy_from_slice(&raw_input.proofs[0].proof.clone()[0..4]);
-        u64::from_be_bytes(instance_id_bytes)
+        u32::from_be_bytes(instance_id_bytes)
     };
 
     tokio::task::spawn_blocking(move || {
