@@ -2,6 +2,10 @@ use std::collections::HashSet;
 
 use alloy_primitives::Bytes;
 // use alloy_rpc_types::Block;
+use crate::{
+    interfaces::{RaikoError, RaikoResult},
+    provider::{db::ProviderDb, BlockDataProvider},
+};
 use raiko_lib::{
     builder::RethBlockBuilder,
     consts::ChainSpec,
@@ -11,12 +15,7 @@ use raiko_lib::{
     Measurement,
 };
 use reth_primitives::TransactionSigned;
-
-use crate::{
-    interfaces::{RaikoError, RaikoResult},
-    provider::{db::ProviderDb, BlockDataProvider},
-};
-use tracing::info;
+use tracing::{debug, info};
 
 use util::{
     execute_txs, get_batch_blocks_and_parent_data, get_block_and_parent_data,
@@ -24,6 +23,11 @@ use util::{
 };
 
 pub use util::parse_l1_batch_proposal_tx_for_pacaya_fork;
+
+#[cfg(feature = "statedb_lru")]
+use lru::{load_state_db, save_state_db};
+#[cfg(feature = "statedb_lru")]
+mod lru;
 
 mod util;
 
@@ -107,15 +111,27 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
     // Create the guest input
     let input = GuestInput {
-        block,
+        block: block.clone(),
         parent_header,
         chain_spec: taiko_chain_spec.clone(),
         taiko: taiko_guest_input,
         ..Default::default()
     };
 
+    #[cfg(feature = "statedb_lru")]
+    let initial_db_with_headers =
+        load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
+    #[cfg(not(feature = "statedb_lru"))]
+    let initial_db_with_headers = None;
+
     // Create the block builder, run the transactions and extract the DB
-    let provider_db = ProviderDb::new(&provider, taiko_chain_spec, parent_block_number).await?;
+    let provider_db = ProviderDb::new(
+        &provider,
+        taiko_chain_spec,
+        parent_block_number,
+        initial_db_with_headers,
+    )
+    .await?;
 
     // Now re-execute the transactions in the block to collect all required data
     let mut builder = RethBlockBuilder::new(&input, provider_db);
@@ -130,7 +146,19 @@ pub async fn preflight<BDP: BlockDataProvider>(
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
     execute_txs(&mut builder, pool_tx).await?;
 
-    let Some(db) = builder.db.as_mut() else {
+    let db = if let Some(db) = builder.db.as_mut() {
+        // use committed state as the init state of next block
+        #[cfg(feature = "statedb_lru")]
+        save_state_db(
+            (parent_block_number + 1, block.hash_slow()),
+            (db.current_db.clone(), {
+                let mut current_headers = db.initial_headers.clone();
+                current_headers.insert(block_number, block.header.clone());
+                current_headers
+            }),
+        );
+        db
+    } else {
         return Err(RaikoError::Preflight("No db in builder".to_owned()));
     };
 
@@ -161,7 +189,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
                 .info
                 .code
                 .clone()
-                .map(|code| Bytes(code.bytecode().0.clone()))
+                .map(|code| Bytes(code.original_bytes().0.clone()))
         }))
         .into_iter()
         .collect::<Vec<Bytes>>();
@@ -222,7 +250,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
     };
     measurement.stop();
 
-    info!("block_parent_pairs.len(): {:?}", block_parent_pairs.len());
+    debug!("proven (block, parent) pairs: {:?}", block_parent_pairs);
 
     // distribute txs to each block
     let pool_txs_list: Vec<Vec<TransactionSigned>> =
@@ -239,6 +267,10 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                 RaikoError::Conversion(format!("Failed converting to reth header: {e}"))
             })?;
         let parent_block_number = parent_header.number;
+        #[cfg(feature = "statedb_lru")]
+        let initial_db = load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
+        #[cfg(not(feature = "statedb_lru"))]
+        let initial_db = None;
 
         let anchor_tx = prove_block.body.first().unwrap().clone();
         let taiko_input = TaikoGuestInput {
@@ -262,8 +294,13 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         };
 
         // Create the block builder, run the transactions and extract the DB
-        let provider_db =
-            ProviderDb::new(&provider, taiko_chain_spec.clone(), parent_block_number).await?;
+        let provider_db = ProviderDb::new(
+            &provider,
+            taiko_chain_spec.clone(),
+            parent_block_number,
+            initial_db,
+        )
+        .await?;
 
         // Now re-execute the transactions in the block to collect all required data
         let mut builder = RethBlockBuilder::new(&input, provider_db);
@@ -273,7 +310,19 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         pool_txs.extend_from_slice(pure_pool_txs);
         execute_txs(&mut builder, pool_txs).await?;
 
-        let Some(db) = builder.db.as_mut() else {
+        let db = if let Some(db) = builder.db.as_mut() {
+            // save committed state as the init state of next block
+            #[cfg(feature = "statedb_lru")]
+            save_state_db(
+                (prove_block.header.number, prove_block.hash_slow()),
+                (db.current_db.clone(), {
+                    let mut current_headers = db.initial_headers.clone();
+                    current_headers.insert(prove_block.header.number, prove_block.header.clone());
+                    current_headers
+                }),
+            );
+            db
+        } else {
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
         };
 

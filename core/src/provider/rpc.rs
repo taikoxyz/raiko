@@ -7,7 +7,7 @@ use raiko_lib::clear_line;
 use reqwest_alloy::Client;
 use reth_primitives::revm_primitives::{AccountInfo, Bytecode};
 use std::collections::HashMap;
-use tracing::info;
+use tracing::debug;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
@@ -27,7 +27,10 @@ impl RpcBlockDataProvider {
     pub async fn new(url: &str, block_number: u64) -> RaikoResult<Self> {
         let url =
             reqwest::Url::parse(url).map_err(|_| RaikoError::RPC("Invalid RPC URL".to_owned()))?;
-        info!("RPC URL: {:?} block_number {}", url, block_number);
+        debug!(
+            "provider rpc url: {:?} for block_number {}",
+            url, block_number
+        );
         Ok(Self {
             provider: ProviderBuilder::new().on_provider(RootProvider::new_http(url.clone())),
             client: ClientBuilder::default().http(url),
@@ -42,7 +45,10 @@ impl RpcBlockDataProvider {
         );
         let url =
             reqwest::Url::parse(url).map_err(|_| RaikoError::RPC("Invalid RPC URL".to_owned()))?;
-        info!("BATCH RPC URL: {:?} block_number {}", url, block_numbers[0]);
+        debug!(
+            "Batch provider rpc: {:?} for block_number {}",
+            url, block_numbers[0]
+        );
         Ok(Self {
             provider: ProviderBuilder::new().on_provider(RootProvider::new_http(url.clone())),
             client: ClientBuilder::default().http(url),
@@ -106,7 +112,6 @@ impl BlockDataProvider for RpcBlockDataProvider {
         block_number: u64,
         accounts: &[Address],
     ) -> RaikoResult<Vec<AccountInfo>> {
-        info!("get_accounts block_number: {}", block_number);
         assert!(
             self.block_numbers.contains(&block_number),
             "Block number {} not found in {:?}",
@@ -204,8 +209,6 @@ impl BlockDataProvider for RpcBlockDataProvider {
         block_number: u64,
         accounts: &[(Address, U256)],
     ) -> RaikoResult<Vec<U256>> {
-        info!("get_storage_values block_number: {}", block_number);
-
         assert!(
             self.block_numbers.contains(&block_number),
             "Block number {} not found in {:?}",
@@ -263,8 +266,6 @@ impl BlockDataProvider for RpcBlockDataProvider {
         offset: usize,
         num_storage_proofs: usize,
     ) -> RaikoResult<MerkleProof> {
-        info!("get_merkle_proofs block_number: {}", block_number);
-
         assert!(
             self.block_numbers.contains(&block_number),
             "Block number {} not found in {:?}",

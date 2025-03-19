@@ -373,6 +373,11 @@ fn verify_batch_mode_blob_usage(
         let blob_data = blob_verify_param.0 .0;
         let commitment = blob_verify_param.0 .1;
         let versioned_hash = commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+        debug!(
+            "verify_batch_mode_blob_usage commitment: {:?}, hash: {:?}",
+            hex::encode(commitment),
+            versioned_hash
+        );
         verify_blob(
             blob_proof_type.clone(),
             blob_data,

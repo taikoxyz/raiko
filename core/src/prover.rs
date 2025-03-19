@@ -89,7 +89,7 @@ impl Prover for NativeProver {
             std::fs::write(path, json)?;
         }
 
-        trace!("Running the native prover for input {batch_input:?}");
+        trace!("Running the native prover for batch input: {batch_input:?}");
 
         let pi = ProtocolInstance::new_batch(
             &batch_input,
