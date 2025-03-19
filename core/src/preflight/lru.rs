@@ -1,3 +1,4 @@
+#![cfg(feature = "statedb_lru")]
 use lazy_static::lazy_static;
 use std::{collections::HashMap, sync::Mutex};
 
@@ -18,6 +19,7 @@ lazy_static! {
 pub(crate) fn save_state_db(key: ChainBlockCacheKey, value: ChainBlockCacheEntry) {
     debug!("save state db: ({:?} => {:?})", key, value);
     let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
+    tracing::info!("save state db: {:?}", value.0.accounts);
     hashmap.insert(key, value);
 }
 

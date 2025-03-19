@@ -24,9 +24,11 @@ use util::{
 
 pub use util::parse_l1_batch_proposal_tx_for_pacaya_fork;
 
+#[cfg(feature = "statedb_lru")]
 use lru::{load_state_db, save_state_db};
-
+#[cfg(feature = "statedb_lru")]
 mod lru;
+
 mod util;
 
 pub struct PreflightData {
@@ -116,8 +118,12 @@ pub async fn preflight<BDP: BlockDataProvider>(
         ..Default::default()
     };
 
+    #[cfg(feature = "statedb_lru")]
     let initial_db_with_headers =
         load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
+    #[cfg(not(feature = "statedb_lru"))]
+    let initial_db_with_headers = None;
+
     // Create the block builder, run the transactions and extract the DB
     let provider_db = ProviderDb::new(
         &provider,
@@ -142,11 +148,14 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
     let db = if let Some(db) = builder.db.as_mut() {
         // use committed state as the init state of next block
-        let mut next_initial_headers = db.initial_headers.clone();
-        next_initial_headers.insert(block_number, block.header.clone());
+        #[cfg(feature = "statedb_lru")]
         save_state_db(
             (parent_block_number + 1, block.hash_slow()),
-            (db.current_db.clone(), next_initial_headers),
+            (db.current_db.clone(), {
+                let mut current_headers = db.initial_headers.clone();
+                current_headers.insert(block_number, block.header.clone());
+                current_headers
+            }),
         );
         db
     } else {
@@ -258,7 +267,10 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                 RaikoError::Conversion(format!("Failed converting to reth header: {e}"))
             })?;
         let parent_block_number = parent_header.number;
+        #[cfg(feature = "statedb_lru")]
         let initial_db = load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
+        #[cfg(not(feature = "statedb_lru"))]
+        let initial_db = None;
 
         let anchor_tx = prove_block.body.first().unwrap().clone();
         let taiko_input = TaikoGuestInput {
@@ -299,12 +311,15 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         execute_txs(&mut builder, pool_txs).await?;
 
         let db = if let Some(db) = builder.db.as_mut() {
-            let mut next_initial_headers = db.initial_headers.clone();
-            next_initial_headers.insert(prove_block.header.number, prove_block.header.clone());
-            // use committed state as the init state of next block
+            // save committed state as the init state of next block
+            #[cfg(feature = "statedb_lru")]
             save_state_db(
                 (prove_block.header.number, prove_block.hash_slow()),
-                (db.current_db.clone(), next_initial_headers),
+                (db.current_db.clone(), {
+                    let mut current_headers = db.initial_headers.clone();
+                    current_headers.insert(prove_block.header.number, prove_block.header.clone());
+                    current_headers
+                }),
             );
             db
         } else {
