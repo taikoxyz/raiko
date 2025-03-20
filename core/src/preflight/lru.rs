@@ -17,6 +17,7 @@ lazy_static! {
 }
 
 pub(crate) fn save_state_db(key: ChainBlockCacheKey, value: ChainBlockCacheEntry) {
+    debug!("save state db key: {:?}", key);
     let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
     tracing::trace!("save state db account: {:?}", value.0.accounts);
     tracing::trace!("save state history headers: {:?}", value.1);
