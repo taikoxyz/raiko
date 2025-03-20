@@ -7,7 +7,7 @@ use reth_primitives::{Block, Header};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::{Network, SupportedChainSpecs},
+    consts::SupportedChainSpecs,
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
@@ -90,11 +90,7 @@ impl From<(&GuestInput, &Header, B256, &BlockProposedV2)> for BlockMetadataV2 {
             extraData: bytes_to_bytes32(&header.extra_data).into(),
 
             anchorBlockId: input.taiko.l1_header.number,
-            anchorBlockHash: if input.chain_spec.network() == Network::TaikoA7.to_string() {
-                block_proposed.meta.anchorBlockHash
-            } else {
-                input.taiko.l1_header.hash_slow()
-            },
+            anchorBlockHash: input.taiko.l1_header.hash_slow(),
             blobHash: tx_list_hash,
 
             difficulty: block_proposed.meta.difficulty,
@@ -135,10 +131,7 @@ impl BlockMetaDataFork {
             tx_list_hash, blob_hashes
         );
 
-        let abi_encode_data: Vec<u8> = (
-            tx_list_hash,
-            blob_hashes.iter().map(|hash| hash).collect::<Vec<_>>(),
-        )
+        let abi_encode_data: Vec<u8> = (tx_list_hash, blob_hashes.iter().collect::<Vec<_>>())
             .abi_encode()
             .split_off(32);
         debug!("abi_encode_data: {:?}", hex::encode(&abi_encode_data));
@@ -164,7 +157,7 @@ impl BlockMetaDataFork {
                     |parent_ts_with_block_params, (index, block)| {
                         let (parent_ts, mut block_params) = parent_ts_with_block_params;
                         let anchor_tx = batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
-                        let anchor_data = decode_anchor_pacaya(&anchor_tx.input()).unwrap();
+                        let anchor_data = decode_anchor_pacaya(anchor_tx.input()).unwrap();
                         let signal_slots = anchor_data._signalSlots.clone();
                         assert!(
                             block.timestamp >= parent_ts
@@ -212,13 +205,7 @@ impl BlockMetaDataFork {
                 );
                 // checked in anchor_check()
                 let anchor_block_id = batch_input.taiko.l1_header.number;
-                let anchor_block_hash =
-                    if batch_input.taiko.chain_spec.network() == Network::TaikoA7.to_string() {
-                        batch_proposed.info.anchorBlockHash
-                    } else {
-                        batch_input.taiko.l1_header.hash_slow()
-                    };
-
+                let anchor_block_hash = batch_input.taiko.l1_header.hash_slow();
                 let base_fee_config = batch_proposed.info.baseFeeConfig.clone();
                 BlockMetaDataFork::Pacaya(BatchMetadata {
                     // todo: keccak data based on input
@@ -297,10 +284,10 @@ fn verify_blob(
     match blob_proof_type {
         crate::input::BlobProofType::ProofOfEquivalence => {
             let ct = CycleTracker::start("proof_of_equivalence");
-            let (x, y) = eip4844::proof_of_equivalence(&blob_data, &versioned_hash)?;
+            let (x, y) = eip4844::proof_of_equivalence(blob_data, &versioned_hash)?;
             ct.end();
             let verified = eip4844::verify_kzg_proof_impl(
-                commitment.clone().try_into().unwrap(),
+                *commitment,
                 x,
                 y,
                 blob_proof
@@ -381,7 +368,7 @@ fn verify_batch_mode_blob_usage(
         verify_blob(
             blob_proof_type.clone(),
             blob_data,
-            versioned_hash.clone(),
+            versioned_hash,
             &commitment.clone().try_into().unwrap(),
             Some(blob_verify_param.1.clone()),
         )?;
@@ -408,7 +395,7 @@ impl ProtocolInstance {
             verify_blob(
                 get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()),
                 &input.taiko.tx_data,
-                versioned_hash.clone(),
+                versioned_hash,
                 &commitment.clone().try_into().unwrap(),
                 input.taiko.blob_proof.clone(),
             )?;
@@ -475,7 +462,7 @@ impl ProtocolInstance {
         };
 
         let pi = ProtocolInstance {
-            transition: transition,
+            transition,
             block_metadata: BlockMetaDataFork::from(input, header, tx_list_hash),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
@@ -563,7 +550,7 @@ impl ProtocolInstance {
         };
 
         let pi = ProtocolInstance {
-            transition: transition,
+            transition,
             block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
