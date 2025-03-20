@@ -161,7 +161,7 @@ dependencies = [
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-rlp",
- "alloy-serde 0.1.4 (git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix)",
+ "alloy-serde 0.1.4",
  "c-kzg 1.0.2",
  "serde",
 ]
@@ -169,12 +169,12 @@ dependencies = [
 [[package]]
 name = "alloy-consensus"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-rlp",
- "alloy-serde 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
+ "alloy-serde 0.1.4",
  "c-kzg 1.0.2",
  "serde",
 ]
@@ -272,11 +272,11 @@ dependencies = [
 [[package]]
 name = "alloy-eips"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rlp",
- "alloy-serde 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
+ "alloy-serde 0.1.4",
  "c-kzg 1.0.2",
  "derive_more 0.99.18",
  "once_cell",
@@ -309,7 +309,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bca15afde1b6d15e3fc1c97421262b1bbb37aee45752e3c8b6d6f13f776554ff"
 dependencies = [
  "alloy-primitives 0.7.7",
- "alloy-serde 0.1.4 (git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix)",
+ "alloy-serde 0.1.4",
  "serde",
 ]
 
@@ -353,7 +353,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-rpc"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-primitives 0.7.7",
  "serde",
@@ -379,14 +379,14 @@ dependencies = [
 [[package]]
 name = "alloy-network"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-eips 0.1.4",
  "alloy-json-rpc 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-primitives 0.7.7",
  "alloy-rpc-types-eth 0.1.4",
- "alloy-serde 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
+ "alloy-serde 0.1.4",
  "alloy-signer 0.1.4",
  "alloy-sol-types 0.7.7",
  "async-trait",
@@ -566,7 +566,7 @@ checksum = "184a7a42c7ba9141cc9e76368356168c282c3bc3d9e5d78f3556bdfe39343447"
 dependencies = [
  "alloy-rpc-types-engine 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-rpc-types-eth 0.1.4",
- "alloy-serde 0.1.4 (git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix)",
+ "alloy-serde 0.1.4",
 ]
 
 [[package]]
@@ -588,7 +588,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c7cf4356a9d00df76d6e90d002e2a7b5edc1c8476e90e6f17ab868d99db6435"
 dependencies = [
  "alloy-primitives 0.7.7",
- "alloy-serde 0.1.4 (git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix)",
+ "alloy-serde 0.1.4",
  "serde",
 ]
 
@@ -606,7 +606,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-beacon"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
@@ -627,7 +627,7 @@ dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rlp",
  "alloy-rpc-types-eth 0.1.4",
- "alloy-serde 0.1.4 (git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix)",
+ "alloy-serde 0.1.4",
  "jsonrpsee-types",
  "jsonwebtoken 9.3.0",
  "rand 0.8.5",
@@ -638,14 +638,14 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-engine"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-rlp",
  "alloy-rpc-types-eth 0.1.4",
- "alloy-serde 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
+ "alloy-serde 0.1.4",
  "jsonwebtoken 9.3.0",
  "rand 0.8.5",
  "serde",
@@ -655,13 +655,13 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-eth"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-rlp",
- "alloy-serde 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
+ "alloy-serde 0.1.4",
  "alloy-sol-types 0.7.7",
  "itertools 0.13.0",
  "jsonrpsee-types",
@@ -698,7 +698,7 @@ checksum = "567933b1d95fd42cb70b75126e32afec2e5e2c3c16e7100a3f83dc1c80f4dc0e"
 dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rpc-types-eth 0.1.4",
- "alloy-serde 0.1.4 (git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix)",
+ "alloy-serde 0.1.4",
  "serde",
  "serde_json",
  "thiserror 1.0.63",
@@ -712,24 +712,14 @@ checksum = "3115f4eb1bb9ae9aaa0b24ce875a1d86d6689b16438a12377832def2b09e373c"
 dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rpc-types-eth 0.1.4",
- "alloy-serde 0.1.4 (git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix)",
+ "alloy-serde 0.1.4",
  "serde",
 ]
 
 [[package]]
 name = "alloy-serde"
 version = "0.1.4"
-source = "git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix#a95c679c0a6a38803f76d0406a636765e265e378"
-dependencies = [
- "alloy-primitives 0.7.7",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "alloy-serde"
-version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-primitives 0.7.7",
  "serde",
@@ -750,7 +740,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-primitives 0.7.7",
  "async-trait",
@@ -777,7 +767,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer-local"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#b2da83e472efcada781fbeb5e3e0c06eaeb20481"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
 dependencies = [
  "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-network 0.1.4",
@@ -1652,7 +1642,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -4561,7 +4551,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -6007,7 +5997,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "157c5a9d7ea5c2ed2d9fb8f495b64759f7816c7eaea54ba3978f0d63000162e3"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.95",
@@ -7292,7 +7282,7 @@ dependencies = [
  "alloy-rpc-types-engine 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-rpc-types-trace",
  "alloy-rpc-types-txpool",
- "alloy-serde 0.1.4 (git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix)",
+ "alloy-serde 0.1.4",
  "jsonrpsee-types",
  "serde",
  "serde_json",
