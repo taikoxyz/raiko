@@ -1,6 +1,9 @@
+use core::fmt::Display;
+
 use alloy_primitives::{b256, Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
+use pretty_assertions::Comparison;
 use reth_evm_ethereum::taiko::decode_anchor_pacaya;
 use reth_primitives::{Block, Header};
 
@@ -236,17 +239,25 @@ impl BlockMetaDataFork {
         }
     }
 
-    fn match_block_proposal(&self, other: &BlockProposedFork) -> bool {
+    fn match_block_proposal<'a>(
+        &'a self,
+        other: &'a BlockProposedFork,
+    ) -> (bool, Option<Box<dyn Display + 'a>>) {
         match (self, other) {
-            (Self::Hekla(a), BlockProposedFork::Hekla(b)) => a.abi_encode() == b.meta.abi_encode(),
-            (Self::Ontake(a), BlockProposedFork::Ontake(b)) => {
-                a.abi_encode() == b.meta.abi_encode()
-            }
-            (Self::Pacaya(a), BlockProposedFork::Pacaya(b)) => {
-                a.abi_encode() == b.meta.abi_encode()
-            }
-            (Self::None, BlockProposedFork::Nothing) => true,
-            _ => false,
+            (Self::Hekla(a), BlockProposedFork::Hekla(b)) => (
+                a.abi_encode() == b.meta.abi_encode(),
+                Some(Box::new(Comparison::new(a, &b.meta))),
+            ),
+            (Self::Ontake(a), BlockProposedFork::Ontake(b)) => (
+                a.abi_encode() == b.meta.abi_encode(),
+                Some(Box::new(Comparison::new(a, &b.meta))),
+            ),
+            (Self::Pacaya(a), BlockProposedFork::Pacaya(b)) => (
+                a.abi_encode() == b.meta.abi_encode(),
+                Some(Box::new(Comparison::new(a, &b.meta))),
+            ),
+            (Self::None, BlockProposedFork::Nothing) => (true, None),
+            _ => (false, None),
         }
     }
 }
@@ -467,13 +478,12 @@ impl ProtocolInstance {
 
         // Sanity check
         if input.chain_spec.is_taiko() {
+            let (same, pretty_display) = pi
+                .block_metadata
+                .match_block_proposal(&input.taiko.block_proposed);
             ensure!(
-                pi.block_metadata
-                    .match_block_proposal(&input.taiko.block_proposed),
-                format!(
-                    "block hash mismatch, expected: {:?}, got: {:?}",
-                    input.taiko.block_proposed, pi.block_metadata
-                )
+                same,
+                format!("block hash mismatch: {}", pretty_display.unwrap(),)
             );
         }
 
@@ -555,13 +565,12 @@ impl ProtocolInstance {
 
         // Sanity check
         if input.chain_spec.is_taiko() {
+            let (same, pretty_display) = pi
+                .block_metadata
+                .match_block_proposal(&batch_input.taiko.batch_proposed);
             ensure!(
-                pi.block_metadata
-                    .match_block_proposal(&batch_input.taiko.batch_proposed),
-                format!(
-                    "batch block hash mismatch, expected: {:?}, got: {:?}",
-                    input.taiko.block_proposed, pi.block_metadata
-                )
+                same,
+                format!("batch block hash mismatch: {}", pretty_display.unwrap(),)
             );
         }
 
