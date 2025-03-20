@@ -120,7 +120,7 @@ dependencies = [
  "getrandom 0.2.15",
  "hex-literal",
  "itoa",
- "k256 0.13.3",
+ "k256",
  "keccak-asm",
  "proptest",
  "rand",
@@ -144,7 +144,7 @@ dependencies = [
  "hashbrown 0.15.2",
  "indexmap 2.7.1",
  "itoa",
- "k256 0.13.3",
+ "k256",
  "keccak-asm",
  "paste",
  "proptest",
@@ -1126,6 +1126,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1830,20 +1836,6 @@ dependencies = [
 
 [[package]]
 name = "k256"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "956ff9b67e26e1a6a866cb758f12c6f8746208489e3e4a4b5580802f2f0a587b"
-dependencies = [
- "cfg-if",
- "ecdsa 0.16.9 (git+https://github.com/sp1-patches/signatures?tag=patch-0.16.9-sp1-4.0.0-rc.3-v2)",
- "elliptic-curve",
- "once_cell",
- "sha2",
- "signature",
-]
-
-[[package]]
-name = "k256"
 version = "0.13.4"
 source = "git+https://github.com/sp1-patches/elliptic-curves?tag=patch-k256-13.4-sp1-4.1.0#dbb97456cb6bda207eb212011ac834582263e88b"
 dependencies = [
@@ -2515,6 +2507,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pretty_assertions"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
+dependencies = [
+ "diff",
+ "yansi",
+]
+
+[[package]]
 name = "primeorder"
 version = "0.13.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2640,6 +2642,7 @@ dependencies = [
  "libflate",
  "log",
  "once_cell",
+ "pretty_assertions",
  "reth-chainspec",
  "reth-evm",
  "reth-evm-ethereum",
@@ -3013,7 +3016,7 @@ dependencies = [
  "bytes",
  "c-kzg",
  "derive_more 0.99.19",
- "k256 0.13.3",
+ "k256",
  "modular-bitfield",
  "once_cell",
  "rayon",
@@ -3219,7 +3222,7 @@ source = "git+https://github.com/taikoxyz/revm.git?branch=v36-taiko#337a98f982e1
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
- "k256 0.13.3",
+ "k256",
  "once_cell",
  "revm-primitives 4.0.0 (git+https://github.com/taikoxyz/revm.git?branch=v36-taiko)",
  "ripemd",
@@ -3236,7 +3239,7 @@ dependencies = [
  "aurora-engine-modexp",
  "blst",
  "c-kzg",
- "k256 0.13.3",
+ "k256",
  "once_cell",
  "revm-primitives 4.0.0 (git+https://github.com/taikoxyz/revm.git?branch=v36-taiko-pacaya)",
  "ripemd",
@@ -3740,7 +3743,7 @@ dependencies = [
  "elliptic-curve",
  "generic-array 1.1.0",
  "itertools 0.13.0",
- "k256 0.13.3",
+ "k256",
  "num",
  "p256",
  "p3-field",
@@ -3768,7 +3771,7 @@ dependencies = [
  "bincode",
  "harness",
  "harness-core",
- "k256 0.13.4",
+ "k256",
  "lazy_static",
  "num-bigint 0.4.6",
  "raiko-lib",
@@ -4632,6 +4635,12 @@ checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
 dependencies = [
  "tap",
 ]
+
+[[package]]
+name = "yansi"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "yoke"
