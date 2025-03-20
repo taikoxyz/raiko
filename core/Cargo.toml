@@ -71,6 +71,7 @@ ethers-core = { workspace = true }
 env_logger = { workspace = true }
 
 [features]
+default = ["statedb_lru"]
 # powdr = ["dep:powdr"]
 sp1 = ["dep:sp1-driver", "sp1-driver/enable"]
 risc0 = ["dep:risc0-driver", "risc0-driver/enable"]
