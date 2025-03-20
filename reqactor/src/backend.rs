@@ -329,19 +329,15 @@ impl Backend {
         request_key: RequestKey,
         request_entity: SingleProofRequestEntity,
     ) {
-        self.prove(
-            request_key.clone(),
-            |mut actor, request_key| async move {
-                do_prove_single(
-                    &mut actor.pool,
-                    &actor.chain_specs,
-                    request_key.clone(),
-                    request_entity,
-                )
-                .await
-            },
-            Some(request_key.clone()),
-        )
+        self.prove(request_key.clone(), |mut actor, request_key| async move {
+            do_prove_single(
+                &mut actor.pool,
+                &actor.chain_specs,
+                request_key,
+                request_entity,
+            )
+            .await
+        })
         .await;
     }
 
@@ -350,13 +346,9 @@ impl Backend {
         request_key: RequestKey,
         request_entity: AggregationRequestEntity,
     ) {
-        self.prove(
-            request_key.clone(),
-            |mut actor, request_key| async move {
-                do_prove_aggregation(&mut actor.pool, request_key.clone(), request_entity).await
-            },
-            None,
-        )
+        self.prove(request_key.clone(), |mut actor, request_key| async move {
+            do_prove_aggregation(&mut actor.pool, request_key.clone(), request_entity).await
+        })
         .await;
     }
 
@@ -365,32 +357,26 @@ impl Backend {
         request_key: RequestKey,
         request_entity: BatchProofRequestEntity,
     ) {
-        self.prove(
-            request_key.clone(),
-            |mut actor, request_key| async move {
-                do_prove_batch(
-                    &mut actor.pool,
-                    &actor.chain_specs,
-                    request_key.clone(),
-                    request_entity,
-                )
-                .await
-            },
-            None,
-        )
+        self.prove(request_key.clone(), |mut actor, request_key| async move {
+            do_prove_batch(
+                &mut actor.pool,
+                &actor.chain_specs,
+                request_key.clone(),
+                request_entity,
+            )
+            .await
+        })
         .await;
     }
 
     /// Generic method to handle proving for different types of proofs
-    async fn prove<F, Fut>(
-        &mut self,
-        request_key: RequestKey,
-        prove_fn: F,
-        backup_request_key: Option<RequestKey>,
-    ) where
+    async fn prove<F, Fut>(&mut self, request_key: RequestKey, prove_fn: F)
+    where
         F: FnOnce(Backend, RequestKey) -> Fut + Send + 'static,
         Fut: std::future::Future<Output = Result<Proof, String>> + Send + 'static,
     {
+        let request_key_ = request_key.clone();
+
         // 1. Update the request status in pool to WorkInProgress
         if let Err(err) = self
             .pool
@@ -449,29 +435,27 @@ impl Backend {
         });
 
         // Only set up panic handler if we have a backup request key (for single proofs)
-        if let Some(backup_key) = backup_request_key {
-            let mut pool_ = self.pool.clone();
-            tokio::spawn(async move {
-                if let Err(e) = handle.await {
-                    if e.is_panic() {
-                        tracing::error!("Actor Backend panicked while proving: {e:?}");
-                        let status = Status::Failed {
-                            error: e.to_string(),
-                        };
-                        if let Err(err) =
-                            pool_.update_status(backup_key.clone(), status.clone().into())
-                        {
-                            tracing::error!(
-                                "Actor Backend failed to update status of prove-action {backup_key}: {err:?}, status: {status}",
+        let mut pool_ = self.pool.clone();
+        tokio::spawn(async move {
+            if let Err(e) = handle.await {
+                if e.is_panic() {
+                    tracing::error!("Actor Backend panicked while proving: {e:?}");
+                    let status = Status::Failed {
+                        error: e.to_string(),
+                    };
+                    if let Err(err) =
+                        pool_.update_status(request_key_.clone(), status.clone().into())
+                    {
+                        tracing::error!(
+                                "Actor Backend failed to update status of prove-action {request_key_}: {err:?}, status: {status}",
                                 status = status,
                             );
-                        }
-                    } else {
-                        tracing::error!("Actor Backend failed to prove: {e:?}");
                     }
+                } else {
+                    tracing::error!("Actor Backend failed to prove: {e:?}");
                 }
-            });
-        }
+            }
+        });
 
         // Wait for the semaphore to be acquired
         semaphore_acquired_rx.await.unwrap();
