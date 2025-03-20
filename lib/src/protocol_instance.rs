@@ -152,35 +152,30 @@ impl BlockMetaDataFork {
                     txs_hash, batch_proposed.info.txsHash,
                 );
                 let ts_base = final_blocks.first().unwrap().timestamp;
-                let (_, blocks) = final_blocks.iter().enumerate().fold(
-                    (ts_base, Vec::new()),
-                    |parent_ts_with_block_params, (index, block)| {
-                        let (parent_ts, mut block_params) = parent_ts_with_block_params;
-                        let anchor_tx = batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
-                        let anchor_data = decode_anchor_pacaya(anchor_tx.input()).unwrap();
-                        let signal_slots = anchor_data._signalSlots.clone();
-                        assert!(
-                            block.timestamp >= parent_ts
-                                && (block.timestamp - parent_ts) <= u8::MAX as u64
-                        );
-                        block_params.push(BlockParams {
-                            numTransactions: block.body.len() as u16 - 1, // exclude anchor tx
-                            timeShift: (block.timestamp - parent_ts) as u8,
-                            signalSlots: signal_slots,
-                        });
-                        (block.timestamp, block_params)
-                    },
-                );
-                assert!(
-                    blocks
-                        .iter()
-                        .zip(batch_proposed.info.blocks.iter())
-                        .all(|(a, b)| a.numTransactions == b.numTransactions
-                            && a.timeShift == b.timeShift),
-                    "blocks mismatch, expected: {:?}, got: {:?}",
-                    blocks,
-                    batch_proposed.info.blocks,
-                );
+                let (_, blocks) = final_blocks
+                    .iter()
+                    .zip(batch_proposed.info.blocks.iter())
+                    .enumerate()
+                    .fold(
+                        (ts_base, Vec::new()),
+                        |parent_ts_with_block_params, (index, (block, proposal_info))| {
+                            let (parent_ts, mut block_params) = parent_ts_with_block_params;
+                            let anchor_tx =
+                                batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
+                            let anchor_data = decode_anchor_pacaya(anchor_tx.input()).unwrap();
+                            let signal_slots = anchor_data._signalSlots.clone();
+                            assert!(
+                                block.timestamp >= parent_ts
+                                    && (block.timestamp - parent_ts) <= u8::MAX as u64
+                            );
+                            block_params.push(BlockParams {
+                                numTransactions: proposal_info.numTransactions, // exclude anchor tx
+                                timeShift: (block.timestamp - parent_ts) as u8,
+                                signalSlots: signal_slots,
+                            });
+                            (block.timestamp, block_params)
+                        },
+                    );
                 let blob_hashes = batch_proposed.info.blobHashes.clone();
                 let extra_data = batch_proposed.info.extraData;
                 let coinbase = batch_proposed.info.coinbase;
