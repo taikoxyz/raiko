@@ -169,7 +169,7 @@ dependencies = [
 [[package]]
 name = "alloy-consensus"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
@@ -272,7 +272,7 @@ dependencies = [
 [[package]]
 name = "alloy-eips"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rlp",
@@ -353,7 +353,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-rpc"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-primitives 0.7.7",
  "serde",
@@ -379,7 +379,7 @@ dependencies = [
 [[package]]
 name = "alloy-network"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-eips 0.1.4",
@@ -606,7 +606,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-beacon"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
@@ -638,7 +638,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-engine"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-eips 0.1.4",
@@ -655,7 +655,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-eth"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-eips 0.1.4",
@@ -719,7 +719,7 @@ dependencies = [
 [[package]]
 name = "alloy-serde"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-primitives 0.7.7",
  "serde",
@@ -740,7 +740,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-primitives 0.7.7",
  "async-trait",
@@ -767,7 +767,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer-local"
 version = "0.1.4"
-source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#cbb31f00d5708575bc1d8395d79da6ff8597ec62"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-network 0.1.4",
