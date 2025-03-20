@@ -168,6 +168,19 @@ dependencies = [
 
 [[package]]
 name = "alloy-consensus"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+dependencies = [
+ "alloy-eips 0.1.4",
+ "alloy-primitives 0.7.7",
+ "alloy-rlp",
+ "alloy-serde 0.1.4",
+ "c-kzg 1.0.2",
+ "serde",
+]
+
+[[package]]
+name = "alloy-consensus"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88e1edea70787c33e11197d3f32ae380f3db19e6e061e539a5bcf8184a6b326"
@@ -259,8 +272,7 @@ dependencies = [
 [[package]]
 name = "alloy-eips"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f76ecab54890cdea1e4808fc0891c7e6cfcf71fe1a9fe26810c7280ef768f4ed"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rlp",
@@ -340,6 +352,18 @@ dependencies = [
 
 [[package]]
 name = "alloy-json-rpc"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+dependencies = [
+ "alloy-primitives 0.7.7",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.63",
+ "tracing",
+]
+
+[[package]]
+name = "alloy-json-rpc"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e29040b9d5fe2fb70415531882685b64f8efd08dfbd6cc907120650504821105"
@@ -355,12 +379,11 @@ dependencies = [
 [[package]]
 name = "alloy-network"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25f6895fc31b48fa12306ef9b4f78b7764f8bd6d7d91cdb0a40e233704a0f23f"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-eips 0.1.4",
- "alloy-json-rpc 0.1.4",
+ "alloy-json-rpc 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-primitives 0.7.7",
  "alloy-rpc-types-eth 0.1.4",
  "alloy-serde 0.1.4",
@@ -467,9 +490,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c538bfa893d07e27cb4f3c1ab5f451592b7c526d511d62b576a2ce59e146e4a"
 dependencies = [
  "alloy-chains",
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-eips 0.1.4",
- "alloy-json-rpc 0.1.4",
+ "alloy-json-rpc 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-network 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-rpc-client",
@@ -520,7 +543,7 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ba31bae67773fd5a60020bea900231f8396202b7feca4d0c70c6b59308ab4a8"
 dependencies = [
- "alloy-json-rpc 0.1.4",
+ "alloy-json-rpc 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-transport",
  "alloy-transport-http",
  "futures",
@@ -541,7 +564,7 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "184a7a42c7ba9141cc9e76368356168c282c3bc3d9e5d78f3556bdfe39343447"
 dependencies = [
- "alloy-rpc-types-engine",
+ "alloy-rpc-types-engine 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-rpc-types-eth 0.1.4",
  "alloy-serde 0.1.4",
 ]
@@ -583,12 +606,11 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-beacon"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5f2e67d3e2478902b71bbadcd564ee5bbcc71945a0010a1f0e87a2339c6f3f9"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
- "alloy-rpc-types-engine",
+ "alloy-rpc-types-engine 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "serde",
  "serde_with 3.9.0",
  "thiserror 1.0.63",
@@ -600,7 +622,7 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e765962e3b82fd6f276a0873b5bd897e5d75a25f78fa9a6a21bd350d8e98a4e"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-rlp",
@@ -614,12 +636,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-rpc-types-engine"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+dependencies = [
+ "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
+ "alloy-eips 0.1.4",
+ "alloy-primitives 0.7.7",
+ "alloy-rlp",
+ "alloy-rpc-types-eth 0.1.4",
+ "alloy-serde 0.1.4",
+ "jsonwebtoken 9.3.0",
+ "rand 0.8.5",
+ "serde",
+ "thiserror 1.0.63",
+]
+
+[[package]]
 name = "alloy-rpc-types-eth"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab4123ee21f99ba4bd31bfa36ba89112a18a500f8b452f02b35708b1b951e2b9"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-rlp",
@@ -681,7 +719,7 @@ dependencies = [
 [[package]]
 name = "alloy-serde"
 version = "0.1.4"
-source = "git+https://github.com/CeciliaZ030/alloy.git?branch=v0.1.4-fix#a95c679c0a6a38803f76d0406a636765e265e378"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-primitives 0.7.7",
  "serde",
@@ -702,8 +740,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b33753c09fa1ad85e5b092b8dc2372f1e337a42e84b9b4cff9fede75ba4adb32"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
  "alloy-primitives 0.7.7",
  "async-trait",
@@ -730,10 +767,9 @@ dependencies = [
 [[package]]
 name = "alloy-signer-local"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dfc9c26fe6c6f1bad818c9a976de9044dd12e1f75f1f156a801ee3e8148c1b6"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch)",
  "alloy-network 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-signer 0.1.4",
@@ -904,7 +940,7 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01b51a291f949f755e6165c3ed562883175c97423703703355f4faa4b7d0a57c"
 dependencies = [
- "alloy-json-rpc 0.1.4",
+ "alloy-json-rpc 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.22.1",
  "futures-util",
  "futures-utils-wasm",
@@ -923,7 +959,7 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86d65871f9f1cafe1ed25cde2f1303be83e6473e995a2d56c275ae4fcce6119c"
 dependencies = [
- "alloy-json-rpc 0.1.4",
+ "alloy-json-rpc 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-transport",
  "reqwest 0.12.5",
  "serde_json",
@@ -1606,7 +1642,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -4515,7 +4551,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -5024,7 +5060,7 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
 dependencies = [
- "proc-macro-crate 3.1.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.95",
@@ -5961,7 +5997,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "157c5a9d7ea5c2ed2d9fb8f495b64759f7816c7eaea54ba3978f0d63000162e3"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.95",
@@ -6067,7 +6103,7 @@ dependencies = [
 name = "raiko-core"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-network 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-provider",
@@ -6112,7 +6148,7 @@ dependencies = [
 name = "raiko-host"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-network 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-provider",
@@ -6182,7 +6218,7 @@ dependencies = [
 name = "raiko-lib"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-rlp",
@@ -6291,7 +6327,7 @@ dependencies = [
 name = "raiko-setup"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-network 0.1.4",
  "alloy-primitives 0.7.7",
  "alloy-provider",
@@ -6673,7 +6709,7 @@ dependencies = [
 [[package]]
 name = "reth-blockchain-tree-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "reth-consensus",
  "reth-execution-errors",
@@ -6685,7 +6721,7 @@ dependencies = [
 [[package]]
 name = "reth-chainspec"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-chains",
  "alloy-eips 0.1.4",
@@ -6704,9 +6740,9 @@ dependencies = [
 [[package]]
 name = "reth-codecs"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-eips 0.1.4",
  "alloy-genesis",
  "alloy-primitives 0.7.7",
@@ -6719,7 +6755,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs-derive"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -6730,7 +6766,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "auto_impl",
  "reth-primitives",
@@ -6740,7 +6776,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus-common"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "reth-chainspec",
  "reth-consensus",
@@ -6750,7 +6786,7 @@ dependencies = [
 [[package]]
 name = "reth-db"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "bytes",
  "derive_more 0.99.18",
@@ -6776,7 +6812,7 @@ dependencies = [
 [[package]]
 name = "reth-db-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "bytes",
  "derive_more 0.99.18",
@@ -6795,7 +6831,7 @@ dependencies = [
 [[package]]
 name = "reth-discv4"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rlp",
@@ -6819,7 +6855,7 @@ dependencies = [
 [[package]]
 name = "reth-ecies"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "aes 0.8.4",
  "alloy-primitives 0.7.7",
@@ -6850,7 +6886,7 @@ dependencies = [
 [[package]]
 name = "reth-errors"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "reth-blockchain-tree-api",
  "reth-consensus",
@@ -6863,7 +6899,7 @@ dependencies = [
 [[package]]
 name = "reth-eth-wire"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-rlp",
  "bytes",
@@ -6890,7 +6926,7 @@ dependencies = [
 [[package]]
 name = "reth-eth-wire-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-rlp",
  "bytes",
@@ -6905,7 +6941,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-consensus"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "reth-chainspec",
  "reth-consensus",
@@ -6917,7 +6953,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-forks"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-chains",
  "alloy-primitives 0.7.7",
@@ -6930,7 +6966,7 @@ dependencies = [
 [[package]]
 name = "reth-evm"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "auto_impl",
  "futures-util",
@@ -6947,7 +6983,7 @@ dependencies = [
 [[package]]
 name = "reth-evm-ethereum"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-eips 0.1.4",
  "alloy-sol-types 0.7.7",
@@ -6968,7 +7004,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-errors"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-eips 0.1.4",
  "alloy-primitives 0.7.7",
@@ -6982,7 +7018,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "reth-execution-errors",
  "reth-primitives",
@@ -6993,7 +7029,7 @@ dependencies = [
 [[package]]
 name = "reth-fs-util"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "serde_json",
  "thiserror 1.0.63",
@@ -7002,7 +7038,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "metrics",
  "reth-metrics-derive",
@@ -7011,7 +7047,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics-derive"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "once_cell",
  "proc-macro2",
@@ -7023,7 +7059,7 @@ dependencies = [
 [[package]]
 name = "reth-net-common"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-primitives 0.7.7",
  "tokio",
@@ -7032,7 +7068,7 @@ dependencies = [
 [[package]]
 name = "reth-net-nat"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "futures-util",
  "reqwest 0.12.5",
@@ -7044,7 +7080,7 @@ dependencies = [
 [[package]]
 name = "reth-network-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-primitives 0.7.7",
  "enr 0.12.1",
@@ -7059,7 +7095,7 @@ dependencies = [
 [[package]]
 name = "reth-network-p2p"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "auto_impl",
  "futures",
@@ -7077,7 +7113,7 @@ dependencies = [
 [[package]]
 name = "reth-network-peers"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rlp",
@@ -7092,7 +7128,7 @@ dependencies = [
 [[package]]
 name = "reth-nippy-jar"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "anyhow",
  "bincode",
@@ -7112,9 +7148,9 @@ dependencies = [
 [[package]]
 name = "reth-primitives"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-eips 0.1.4",
  "alloy-genesis",
  "alloy-primitives 0.7.7",
@@ -7147,9 +7183,9 @@ dependencies = [
 [[package]]
 name = "reth-primitives-traits"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-eips 0.1.4",
  "alloy-genesis",
  "alloy-primitives 0.7.7",
@@ -7166,9 +7202,9 @@ dependencies = [
 [[package]]
 name = "reth-provider"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
- "alloy-rpc-types-engine",
+ "alloy-rpc-types-engine 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "auto_impl",
  "dashmap",
  "itertools 0.12.1",
@@ -7204,7 +7240,7 @@ dependencies = [
 [[package]]
 name = "reth-prune-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-primitives 0.7.7",
  "bytes",
@@ -7218,7 +7254,7 @@ dependencies = [
 [[package]]
 name = "reth-revm"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-eips 0.1.4",
  "alloy-rlp",
@@ -7236,14 +7272,14 @@ dependencies = [
 [[package]]
 name = "reth-rpc-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rpc-types",
  "alloy-rpc-types-admin",
  "alloy-rpc-types-anvil",
  "alloy-rpc-types-beacon",
- "alloy-rpc-types-engine",
+ "alloy-rpc-types-engine 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-rpc-types-trace",
  "alloy-rpc-types-txpool",
  "alloy-serde 0.1.4",
@@ -7255,7 +7291,7 @@ dependencies = [
 [[package]]
 name = "reth-stages-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-primitives 0.7.7",
  "bytes",
@@ -7268,7 +7304,7 @@ dependencies = [
 [[package]]
 name = "reth-static-file-types"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-primitives 0.7.7",
  "derive_more 0.99.18",
@@ -7279,7 +7315,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-api"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "auto_impl",
  "reth-chainspec",
@@ -7296,7 +7332,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-errors"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "reth-fs-util",
  "reth-primitives",
@@ -7306,7 +7342,7 @@ dependencies = [
 [[package]]
 name = "reth-tracing"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "clap 4.5.9",
  "eyre",
@@ -7321,7 +7357,7 @@ dependencies = [
 [[package]]
 name = "reth-trie"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
  "alloy-rlp",
  "auto_impl",
@@ -7342,9 +7378,9 @@ dependencies = [
 [[package]]
 name = "reth-trie-common"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#276b431c5900204046096025e1ba6a14807d39e9"
+source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko-pacaya#043668882483120535b85e501d460ba4fd1792bc"
 dependencies = [
- "alloy-consensus 0.1.4",
+ "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloy-genesis",
  "alloy-primitives 0.7.7",
  "alloy-rlp",
