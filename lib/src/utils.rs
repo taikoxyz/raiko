@@ -289,7 +289,14 @@ fn reassemble_bytes(
 pub fn zlib_decompress_data(data: &[u8]) -> Result<Vec<u8>> {
     let mut decoder = zlibDecoder::new(data)?;
     let mut decoded_buf = Vec::new();
-    decoder.read_to_end(&mut decoded_buf)?;
+    match decoder.read_to_end(&mut decoded_buf) {
+        Ok(_) => (),
+        Err(e) => {
+            if e.kind() != std::io::ErrorKind::UnexpectedEof {
+                return Err(e.into());
+            }
+        }
+    }
     Ok(decoded_buf)
 }
 
