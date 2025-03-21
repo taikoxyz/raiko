@@ -888,3 +888,80 @@ async fn get_blob_data_blobscan(
     let blob = response.json::<BlobScanData>().await?;
     Ok(blob_to_bytes(&blob.data))
 }
+
+#[cfg(test)]
+mod test {
+    use raiko_lib::{
+        consts::{Network, SupportedChainSpecs},
+        utils::{
+            decode_blob_data, decode_transactions, unzip_tx_list_from_data_buf,
+            zlib_decompress_data,
+        },
+    };
+    use reth_primitives::b256;
+    use std::{fs::File, io::Write};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_decode_blob_data() {
+        let _chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoMainnet.to_string())
+            .unwrap();
+        let blob = get_blob_data(
+            "https://ethereum-beacon-api.publicnode.com/",
+            11305935,
+            b256!("0141958bf6816467b11c75721b5268e57b0dba25cf98f6d49f74b344fa3ca349"),
+        )
+        .await
+        .expect("blob data");
+
+        File::create("raw_blob.hex")
+            .unwrap()
+            .write_all(&hex::encode(blob.clone()).as_bytes())
+            .expect("write blob data to file");
+
+        // let tx_raw_buf = unzip_tx_list_from_data_buf(&chain_spec, true, Some((0, 126957)), &blob);
+        let compressed_tx_list = decode_blob_data(&blob);
+        // save to binary file
+        // let mut file = File::create("decode_raw_blob.hex").unwrap();
+        // // file.write_all(&hex::encode(compressed_tx_list).to_string()).unwrap();
+        // file.write(&hex::encode(compressed_tx_list.clone()).as_bytes())
+        //     .unwrap();
+
+        println!("compressed_tx_list.len(): {:?}", compressed_tx_list.len());
+        let slice_compressed_tx_list = if let Some((offset, length)) = Some((0, 126957)) {
+            if offset + length > compressed_tx_list.len() {
+                error!("blob_slice_param ({offset},{length}) out of range, use empty tx_list");
+                vec![]
+            } else {
+                compressed_tx_list[offset..offset + length].to_vec()
+            }
+        } else {
+            compressed_tx_list.to_vec()
+        };
+        println!(
+            "slice_compressed_tx_list.len(): {:?}",
+            slice_compressed_tx_list.len()
+        );
+        let tx_raw_buf = zlib_decompress_data(&slice_compressed_tx_list)
+            .map_err(|e| {
+                println!("zlib decompress tx list failed: {e:?}");
+                e
+            })
+            .unwrap_or_default();
+        println!("tx_raw_buf.len(): {:?}", tx_raw_buf.len());
+        let transactions = decode_transactions(&tx_raw_buf);
+        assert_eq!(transactions.len(), 284);
+    }
+
+    static COMPRESS_BUF: &[u8] = include_bytes!("../../dec_blob.bin");
+    #[test]
+    fn test_zlib_decompress_data() {
+        println!("COMPRESS_BUF.len(): {:?}", COMPRESS_BUF.len());
+        let tx_raw_buf = zlib_decompress_data(COMPRESS_BUF).unwrap();
+        println!("tx_raw_buf.len(): {:?}", tx_raw_buf.len());
+        let transactions = decode_transactions(&tx_raw_buf);
+        assert_eq!(transactions.len(), 284);
+    }
+}

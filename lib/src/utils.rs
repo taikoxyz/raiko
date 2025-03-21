@@ -25,7 +25,7 @@ fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
     tx_list.len() <= CALL_DATA_CAPACITY
 }
 
-fn unzip_tx_list_from_data_buf(
+pub fn unzip_tx_list_from_data_buf(
     chain_spec: &ChainSpec,
     is_blob_data: bool,
     blob_slice_param: Option<(usize, usize)>,
@@ -190,7 +190,7 @@ const BLOB_ENCODING_VERSION: u8 = 0;
 const MAX_BLOB_DATA_SIZE: usize = (4 * 31 + 3) * 1024 - 4;
 
 // decoding https://github.com/ethereum-optimism/optimism/blob/develop/op-service/eth/blob.go
-fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
+pub fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     // check the version
     if blob_buf[BLOB_VERSION_OFFSET] != BLOB_ENCODING_VERSION {
         return Vec::new();
