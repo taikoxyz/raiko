@@ -40,6 +40,8 @@ async fn batch_handler(
     State(actor): State<Actor>,
     Json(batch_request_opt): Json<Value>,
 ) -> HostResult<Status> {
+    raiko_metrics::inc_http_request_count();
+
     if is_zk_any_request(&batch_request_opt) {
         return Ok(Status::Ok {
             proof_type: ProofType::Native,

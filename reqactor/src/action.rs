@@ -8,6 +8,7 @@ pub enum Action {
     Prove {
         request_key: RequestKey,
         request_entity: RequestEntity,
+        start_time: chrono::DateTime<chrono::Utc>,
     },
     Cancel {
         request_key: RequestKey,

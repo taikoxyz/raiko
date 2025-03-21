@@ -8,6 +8,7 @@ raiko-lib = { workspace = true }
 raiko-core = { workspace = true }
 raiko-reqpool = { workspace = true }
 raiko-ballot = { workspace = true }
+raiko-metrics = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
