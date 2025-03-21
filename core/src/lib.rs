@@ -141,7 +141,10 @@ impl Raiko {
     }
 
     pub fn get_batch_output(&self, batch_input: &GuestBatchInput) -> RaikoResult<GuestBatchOutput> {
-        info!("Generating output for batch id: {}", batch_input.taiko.batch_id);
+        info!(
+            "Generating output for batch id: {}",
+            batch_input.taiko.batch_id
+        );
         let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input.taiko);
         let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
             Vec::new(),
