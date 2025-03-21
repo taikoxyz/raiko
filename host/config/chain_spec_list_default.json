@@ -77,7 +77,7 @@
     {
         "name": "taiko_a7",
         "chain_id": 167009,
-        "max_spec_id": "ONTAKE",
+        "max_spec_id": "PACAYA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
