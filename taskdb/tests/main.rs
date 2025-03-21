@@ -11,7 +11,7 @@ mod tests {
 
     use alloy_primitives::Address;
     use raiko_core::interfaces::ProofRequest;
-    use rand::{Rng, SeedableRng};
+    use rand::{distr, Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
     use raiko_lib::{input::BlobProofType, primitives::B256, proof_type::ProofType};
@@ -46,6 +46,7 @@ mod tests {
                 prover_args,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 l1_inclusion_block_number: 0,
+                gpu_number: Some(0)
             },
         )
     }
@@ -235,7 +236,8 @@ mod tests {
 
             std::thread::sleep(Duration::from_millis(1));
 
-            let proof: Vec<_> = (&mut rng).gen_iter::<u8>().take(128).collect();
+
+            let proof: Vec<_> = (&mut rng).sample_iter(distr::StandardUniform).take(128).collect();
             tama.update_task_progress(task_2_desc.clone(), TaskStatus::Success, Some(&proof))
                 .await
                 .unwrap();
@@ -307,7 +309,7 @@ mod tests {
 
             std::thread::sleep(Duration::from_millis(1));
 
-            let proof: Vec<_> = (&mut rng).gen_iter::<u8>().take(128).collect();
+            let proof: Vec<_> = (&mut rng).sample_iter(distr::StandardUniform).take(128).collect();
             tama.update_task_progress(
                 task_3_desc.clone(),
                 TaskStatus::Success,

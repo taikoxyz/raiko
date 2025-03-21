@@ -329,6 +329,7 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            gpu_number: Some(0)
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -358,6 +359,7 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            gpu_number: Some(0)
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -397,6 +399,7 @@ mod tests {
                 proof_type,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
+                gpu_number: Some(0)
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -430,6 +433,7 @@ mod tests {
                 proof_type,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
+                gpu_number: Some(0)
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -460,6 +464,7 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(true),
+            gpu_number: Some(0)
         };
         let proof = prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
 

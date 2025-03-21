@@ -626,6 +626,7 @@ mod tests {
             proof_type: Default::default(),
             blob_proof_type: Default::default(),
             prover_args: HashMap::new(),
+            gpu_number: Some(0)
         });
 
         let result = actor.handle_system_pause().await;
@@ -699,6 +700,7 @@ mod tests {
                 proof_type: Default::default(),
                 blob_proof_type: Default::default(),
                 prover_args: HashMap::new(),
+                gpu_number: Some(0)
             });
         }
 
