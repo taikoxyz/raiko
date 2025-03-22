@@ -3,15 +3,7 @@ name: CI - SP1
 on:
   workflow_call:
   push:
-    paths:
-      - "provers/sp1/**"
-      - "!docs/**"
-      - "!**/README.md"
   pull_request:
-    paths:
-      - "provers/sp1/**"
-      - "!docs/**"
-      - "!**/README.md"
 
 jobs:
   build-test-sp1:
