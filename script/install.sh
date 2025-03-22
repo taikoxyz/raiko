@@ -78,8 +78,13 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 		PROFILE=$HOME/.profile
 		echo ${PROFILE}
 		source ${PROFILE}
-		sp1up -v v4.0.0-rc.1
-		source ${PROFILE}
+		if command -v sp1up >/dev/null 2>&1; then
+			echo "sp1 found in path"
+			sp1up -v v4.0.0-rc.1
+		else
+			echo "sp1 not found in path"
+			"$HOME/.sp1/bin/sp1up" -v v4.0.0-rc.1
+		fi
 	# else
 	# 	echo "CI environment"
 	# 	source /home/runner/.bashrc
