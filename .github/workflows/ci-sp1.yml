@@ -3,7 +3,6 @@ name: CI - SP1
 on:
   workflow_call:
   push:
-    branches: ["main"]
     paths:
       - "provers/sp1/**"
       - "!docs/**"
