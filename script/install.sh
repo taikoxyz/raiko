@@ -75,7 +75,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	# if [ -z "${CI}" ] || [ ! command -v sp1up &> /dev/null ]; then
 	# echo "Non-CI environment"
 		# Need to add sp1up to the path here
-		PROFILE=$HOME/.bashrc
+		PROFILE=$HOME/.profile
 		echo ${PROFILE}
 		source ${PROFILE}
 		sp1up -v v4.0.0-rc.1
