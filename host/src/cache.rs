@@ -99,6 +99,7 @@ mod test {
             .get_chain_spec(network)
             .unwrap();
         let proof_request = ProofRequest {
+            batch_id: 0,
             block_number,
             network: network.to_string(),
             l1_network: l1_network.to_string(),
@@ -108,6 +109,7 @@ mod test {
             blob_proof_type: BlobProofType::KzgVersionedHash,
             prover_args: Default::default(),
             l1_inclusion_block_number: 0,
+            l2_block_numbers: Default::default(),
         };
         let raiko = Raiko::new(
             l1_chain_spec.clone(),
@@ -118,6 +120,7 @@ mod test {
             &taiko_chain_spec.rpc.clone(),
             proof_request.block_number - 1,
         )
+        .await
         .expect("provider init ok");
 
         let input = raiko
@@ -132,7 +135,7 @@ mod test {
     }
 
     async fn get_latest_block_num(chain_spec: &ChainSpec) -> u64 {
-        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
+        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).await.unwrap();
 
         provider.provider.get_block_number().await.unwrap()
     }

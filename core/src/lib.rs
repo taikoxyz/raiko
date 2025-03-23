@@ -2,21 +2,22 @@ use std::{collections::HashMap, hint::black_box};
 
 use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
-use interfaces::{cancel_proof, run_prover};
+use interfaces::{cancel_proof, run_batch_prover, run_prover};
 use raiko_lib::{
     builder::{create_mem_db, RethBlockBuilder},
     consts::ChainSpec,
-    input::{GuestInput, GuestOutput, TaikoProverData},
+    input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, TaikoProverData},
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey},
+    utils::{generate_transactions, generate_transactions_for_batch_blocks},
 };
-use reth_primitives::Header;
+use reth_primitives::{Block, Header};
 use serde_json::Value;
 use tracing::{debug, error, info, warn};
 
 use crate::{
     interfaces::{ProofRequest, RaikoError, RaikoResult},
-    preflight::{preflight, PreflightData},
+    preflight::{batch_preflight, preflight, BatchPreflightData, PreflightData},
     provider::BlockDataProvider,
 };
 
@@ -60,6 +61,21 @@ impl Raiko {
         )
     }
 
+    fn get_batch_preflight_data(&self) -> BatchPreflightData {
+        BatchPreflightData {
+            batch_id: self.request.batch_id,
+            block_numbers: self.request.l2_block_numbers.clone(),
+            l1_inclusion_block_number: self.request.l1_inclusion_block_number, // todo: user input
+            l1_chain_spec: self.l1_chain_spec.to_owned(),
+            taiko_chain_spec: self.taiko_chain_spec.to_owned(),
+            prover_data: TaikoProverData {
+                graffiti: self.request.graffiti,
+                prover: self.request.prover,
+            },
+            blob_proof_type: self.request.blob_proof_type.clone(),
+        }
+    }
+
     pub async fn generate_input<BDP: BlockDataProvider>(
         &self,
         provider: BDP,
@@ -72,10 +88,30 @@ impl Raiko {
             .map_err(Into::<RaikoError>::into)
     }
 
+    pub async fn generate_batch_input<BDP: BlockDataProvider>(
+        &self,
+        provider: BDP,
+    ) -> RaikoResult<GuestBatchInput> {
+        //TODO: read fork from config
+        let preflight_data = self.get_batch_preflight_data();
+        info!("Generating batch input for batch {}", self.request.batch_id);
+        batch_preflight(provider, preflight_data)
+            .await
+            .map_err(Into::<RaikoError>::into)
+    }
+
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
         let db = create_mem_db(&mut input.clone()).unwrap();
         let mut builder = RethBlockBuilder::new(input, db);
-        builder.execute_transactions(false).expect("execute");
+        let pool_tx = generate_transactions(
+            &input.chain_spec,
+            &input.taiko.block_proposed,
+            &input.taiko.tx_data,
+            &input.taiko.anchor_tx,
+        );
+        builder
+            .execute_transactions(pool_tx, false)
+            .expect("execute");
         let result = builder.finalize();
 
         match result {
@@ -104,6 +140,79 @@ impl Raiko {
         }
     }
 
+    pub fn get_batch_output(&self, batch_input: &GuestBatchInput) -> RaikoResult<GuestBatchOutput> {
+        info!(
+            "Generating output for batch id: {}",
+            batch_input.taiko.batch_id
+        );
+        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input.taiko);
+        let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
+            Vec::new(),
+            |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
+                let (input, pool_txs) = input_and_txs;
+                let output = self.single_output_for_batch(pool_txs, input)?;
+                acc.push(output);
+                Ok(acc)
+            },
+        )?;
+
+        blocks.windows(2).try_for_each(|window| {
+            let parent = &window[0];
+            let current = &window[1];
+            if parent.header.hash_slow() != current.header.parent_hash {
+                return Err(RaikoError::Guest(
+                    raiko_lib::prover::ProverError::GuestError("Parent hash mismatch".to_string()),
+                ));
+            }
+            Ok(())
+        })?;
+
+        Ok(GuestBatchOutput {
+            blocks: blocks.clone(),
+            hash: ProtocolInstance::new_batch(batch_input, blocks, self.request.proof_type)?
+                .instance_hash(),
+        })
+    }
+
+    fn single_output_for_batch(
+        &self,
+        origin_pool_txs: Vec<reth_primitives::TransactionSigned>,
+        input: &GuestInput,
+    ) -> RaikoResult<Block> {
+        let db = create_mem_db(&mut input.clone()).unwrap();
+        let mut builder = RethBlockBuilder::new(input, db);
+
+        let mut pool_txs = vec![input.taiko.anchor_tx.clone().unwrap()];
+        pool_txs.extend_from_slice(&origin_pool_txs);
+
+        builder
+            .execute_transactions(pool_txs, false)
+            .expect("execute");
+        let result = builder.finalize_block();
+
+        match result {
+            Ok(block) => {
+                let header = block.header.clone();
+                info!("Verifying final state using provider data ...");
+                info!(
+                    "Final block hash derived successfully. {}",
+                    header.hash_slow()
+                );
+                debug!("Final block derived successfully. {block:?}");
+                // Check if the header is the expected one
+                check_header(&input.block.header, &header)?;
+
+                Ok(block.clone())
+            }
+            Err(e) => {
+                warn!("Proving bad block construction!");
+                Err(RaikoError::Guest(
+                    raiko_lib::prover::ProverError::GuestError(e.to_string()),
+                ))
+            }
+        }
+    }
+
     pub async fn prove(
         &self,
         input: GuestInput,
@@ -112,6 +221,16 @@ impl Raiko {
     ) -> RaikoResult<Proof> {
         let config = serde_json::to_value(&self.request)?;
         run_prover(self.request.proof_type, input, output, &config, store).await
+    }
+
+    pub async fn batch_prove(
+        &self,
+        input: GuestBatchInput,
+        output: &GuestBatchOutput,
+        store: Option<&mut dyn IdWrite>,
+    ) -> RaikoResult<Proof> {
+        let config = serde_json::to_value(&self.request)?;
+        run_batch_prover(self.request.proof_type, input, output, &config, store).await
     }
 
     pub async fn cancel(
@@ -215,9 +334,11 @@ pub fn merge(a: &mut Value, b: &Value) {
 #[cfg(test)]
 mod tests {
     use crate::interfaces::aggregate_proofs;
+    use crate::preflight::parse_l1_batch_proposal_tx_for_pacaya_fork;
     use crate::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, ChainSpec, Raiko};
     use alloy_primitives::Address;
     use alloy_provider::Provider;
+    use env_logger;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
         input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType},
@@ -227,6 +348,7 @@ mod tests {
     };
     use serde_json::{json, Value};
     use std::{collections::HashMap, env, str::FromStr};
+    use tracing::{debug, trace};
 
     fn get_proof_type_from_env() -> ProofType {
         let proof_type = env::var("TARGET").unwrap_or("native".to_string());
@@ -290,6 +412,7 @@ mod tests {
     ) -> Proof {
         let provider =
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
+                .await
                 .expect("Could not create RpcBlockDataProvider");
         let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
         let input = raiko
@@ -303,15 +426,49 @@ mod tests {
             .expect("proof generation failed")
     }
 
+    async fn batch_prove_block(
+        l1_chain_spec: ChainSpec,
+        taiko_chain_spec: ChainSpec,
+        proof_request: ProofRequest,
+    ) -> Proof {
+        let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
+            &l1_chain_spec,
+            &taiko_chain_spec,
+            proof_request.l1_inclusion_block_number,
+            proof_request.batch_id,
+        )
+        .await
+        .expect("Could not parse L1 batch proposal tx");
+        // provider target blocks are all blocks in the batch and the parent block of block[0]
+        let provider_target_blocks =
+            (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
+        let provider =
+            RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
+                .await
+                .expect("Could not create RpcBlockDataProvider");
+        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
+        let input = raiko
+            .generate_batch_input(provider)
+            .await
+            .expect("input generation failed");
+        trace!("batch guest input: {input:?}");
+        let output = raiko
+            .get_batch_output(&input)
+            .expect("output generation failed");
+        debug!("batch guest output: {output:?}");
+        raiko
+            .batch_prove(input, &output, None)
+            .await
+            .expect("proof generation failed")
+    }
+
     #[ignore]
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_block_taiko_dev() {
+    async fn test_prove_batch_block_taiko_dev() {
+        env_logger::init();
         let proof_type = get_proof_type_from_env();
         let l1_network = "taiko_dev_l1".to_owned();
         let network = "taiko_dev".to_owned();
-        // Give the CI an simpler block to test because it doesn't have enough memory.
-        // Unfortunately that also means that kzg is not getting fully verified by CI.
-        let block_number = 20;
         let chain_specs = SupportedChainSpecs::merge_from_file(
             "../host/config/chain_spec_list_devnet.json".into(),
         )
@@ -320,8 +477,10 @@ mod tests {
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
 
         let proof_request = ProofRequest {
-            block_number,
-            l1_inclusion_block_number: 80,
+            block_number: 0,
+            batch_id: 164,
+            l1_inclusion_block_number: 363,
+            l2_block_numbers: vec![164],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -330,12 +489,53 @@ mod tests {
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
         };
-        prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
+        batch_prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
+    }
+
+    #[ignore]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_batch_prove_block_taiko_mainnet() {
+        env_logger::init();
+        let proof_type = get_proof_type_from_env();
+        let l1_network = Network::Ethereum.to_string();
+        let network = Network::TaikoMainnet.to_string();
+        // Give the CI an simpler block to test because it doesn't have enough memory.
+        // Unfortunately that also means that kzg is not getting fully verified by CI.
+        let block_number = if is_ci() {
+            800000
+        } else {
+            std::env::var("BLOCK_NUMBER")
+                .unwrap_or("800000".to_string())
+                .parse::<u64>()
+                .unwrap()
+        };
+        let taiko_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&network)
+            .unwrap();
+        let l1_chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&l1_network)
+            .unwrap();
+
+        let proof_request = ProofRequest {
+            block_number: 0,
+            batch_id: 1,
+            l1_inclusion_block_number: 1000,
+            l2_block_numbers: vec![block_number],
+            network,
+            graffiti: B256::ZERO,
+            prover: Address::ZERO,
+            l1_network,
+            proof_type,
+            blob_proof_type: BlobProofType::ProofOfEquivalence,
+            prover_args: test_proof_params(false),
+        };
+        batch_prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
 
     #[ignore = "holesky down"]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_block_taiko_a7() {
+        env_logger::init();
         let proof_type = get_proof_type_from_env();
         let l1_network = Network::Holesky.to_string();
         let network = Network::TaikoA7.to_string();
@@ -351,7 +551,9 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number,
+            batch_id: 0,
             l1_inclusion_block_number: 0,
+            l2_block_numbers: vec![],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
@@ -364,7 +566,7 @@ mod tests {
     }
 
     async fn get_recent_block_num(chain_spec: &ChainSpec) -> u64 {
-        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).unwrap();
+        let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).await.unwrap();
         let height = provider.provider.get_block_number().await.unwrap();
         height - 100
     }
@@ -390,7 +592,9 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
+                batch_id: 0,
                 l1_inclusion_block_number: 0,
+                l2_block_numbers: Vec::new(),
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
@@ -423,7 +627,9 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
+                batch_id: 0,
                 l1_inclusion_block_number: 0,
+                l2_block_numbers: Vec::new(),
                 network,
                 graffiti: B256::ZERO,
                 prover: Address::ZERO,
@@ -454,7 +660,9 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number,
+            batch_id: 0,
             l1_inclusion_block_number: 0,
+            l2_block_numbers: Vec::new(),
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,

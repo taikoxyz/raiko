@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use raiko_lib::{
-    input::{GuestInput, GuestOutput},
+    input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput},
     proof_type::ProofType,
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -59,6 +59,52 @@ impl Prover for NativeProver {
 
         Ok(Proof {
             input: None,
+            proof: None,
+            quote: None,
+            uuid: None,
+            kzg_proof: None,
+        })
+    }
+
+    async fn batch_run(
+        batch_input: GuestBatchInput,
+        batch_output: &GuestBatchOutput,
+        config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        let param =
+            config
+                .get("native")
+                .map(NativeParam::deserialize)
+                .ok_or(ProverError::Param(serde_json::Error::custom(
+                    "native param not provided",
+                )))??;
+
+        if let Some(path) = param.json_guest_input {
+            let path = Path::new(&path);
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let json = serde_json::to_string(&batch_input)?;
+            std::fs::write(path, json)?;
+        }
+
+        trace!("Running the native prover for batch input: {batch_input:?}");
+
+        let pi = ProtocolInstance::new_batch(
+            &batch_input,
+            batch_output.blocks.clone(),
+            ProofType::Native,
+        )
+        .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        if pi.instance_hash() != batch_output.hash {
+            return Err(ProverError::GuestError(
+                "Protocol Instance hash not matched".to_string(),
+            ));
+        }
+
+        Ok(Proof {
+            input: Some(batch_output.hash),
             proof: None,
             quote: None,
             uuid: None,

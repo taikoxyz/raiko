@@ -72,17 +72,23 @@ fi
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	curl -L https://sp1.succinct.xyz | bash
 	echo "SP1 installed"
-	if [ -z "${CI}" ] || [ ! command -v sp1up &> /dev/null ]; then
-		echo "Non-CI environment"
+	# if [ -z "${CI}" ] || [ ! command -v sp1up &> /dev/null ]; then
+	# echo "Non-CI environment"
 		# Need to add sp1up to the path here
-		PROFILE=$HOME/.bashrc
+		PROFILE=$HOME/.profile
 		echo ${PROFILE}
 		source ${PROFILE}
-		sp1up -v v4.0.0-rc.1
-	else
-		echo "CI environment"
-		source /home/runner/.bashrc
-		echo "/home/runner/.sp1/bin" >> $GITHUB_PATH
-		/home/runner/.sp1/bin/sp1up
-	fi
+		if command -v sp1up >/dev/null 2>&1; then
+			echo "sp1 found in path"
+			sp1up -v v4.0.0-rc.1
+		else
+			echo "sp1 not found in path"
+			"$HOME/.sp1/bin/sp1up" -v v4.0.0-rc.1
+		fi
+	# else
+	# 	echo "CI environment"
+	# 	source /home/runner/.bashrc
+	# 	echo "/home/runner/.sp1/bin" >> $GITHUB_PATH
+	# 	/home/runner/.sp1/bin/sp1up
+	# fi
 fi

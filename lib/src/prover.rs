@@ -2,7 +2,10 @@ use reth_primitives::{ChainId, B256};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::input::{AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput};
+use crate::input::{
+    AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput,
+    GuestOutput,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProverError {
@@ -60,6 +63,13 @@ pub trait Prover {
     async fn run(
         input: GuestInput,
         output: &GuestOutput,
+        config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof>;
+
+    async fn batch_run(
+        input: GuestBatchInput,
+        output: &GuestBatchOutput,
         config: &ProverConfig,
         store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;

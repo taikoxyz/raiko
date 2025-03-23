@@ -3,7 +3,8 @@ use alloy_primitives::{Address, B256};
 use clap::Args;
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestInput, GuestOutput,
+        AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestBatchInput,
+        GuestBatchOutput, GuestInput, GuestOutput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
@@ -119,6 +120,45 @@ pub async fn run_prover(
 }
 
 /// Run the prover driver depending on the proof type.
+pub async fn run_batch_prover(
+    proof_type: ProofType,
+    input: GuestBatchInput,
+    output: &GuestBatchOutput,
+    config: &Value,
+    store: Option<&mut dyn IdWrite>,
+) -> RaikoResult<Proof> {
+    match proof_type {
+        ProofType::Native => NativeProver::batch_run(input.clone(), output, config, store)
+            .await
+            .map_err(<ProverError as Into<RaikoError>>::into),
+        ProofType::Sp1 => {
+            #[cfg(feature = "sp1")]
+            return sp1_driver::Sp1Prover::batch_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sp1"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover::batch_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Sgx => {
+            #[cfg(feature = "sgx")]
+            return sgx_prover::SgxProver::batch_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+    }
+}
+
+/// Run the prover driver depending on the proof type.
 pub async fn aggregate_proofs(
     proof_type: ProofType,
     input: AggregationGuestInput,
@@ -202,8 +242,12 @@ pub async fn cancel_proof(
 pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
+    /// The block number for the block to generate a proof for.
+    pub batch_id: u64,
     /// The l1 block number of the l2 block be proposed.
     pub l1_inclusion_block_number: u64,
+    /// To support batch proof generation.
+    pub l2_block_numbers: Vec<u64>,
     /// The network to generate the proof for.
     pub network: String,
     /// The L1 network to generate the proof for.
@@ -222,39 +266,126 @@ pub struct ProofRequest {
     pub prover_args: HashMap<String, Value>,
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
-#[serde(default)]
-/// A partial proof request config.
-pub struct ProofRequestOpt {
-    #[arg(long, require_equals = true)]
-    /// The block number for the block to generate a proof for.
-    pub block_number: Option<u64>,
-    #[arg(long, require_equals = true)]
-    /// The block number for the l2 block to be proposed.
-    /// in hekla, it is the anchored l1 block height - 1
-    /// in ontake, it is the anchored l1 block height - (1..64)
-    pub l1_inclusion_block_number: Option<u64>,
-    #[arg(long, require_equals = true)]
-    /// The network to generate the proof for.
-    pub network: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The L1 network to generate the proof for.
-    pub l1_network: Option<String>,
-    #[arg(long, require_equals = true)]
-    // Graffiti.
-    pub graffiti: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The protocol instance data.
-    pub prover: Option<String>,
-    #[arg(long, require_equals = true)]
-    /// The proof type.
-    pub proof_type: Option<String>,
-    /// Blob proof type.
-    pub blob_proof_type: Option<String>,
-    #[command(flatten)]
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct BatchMetadata {
+    pub batch_id: u64,
+    pub l1_inclusion_block_number: u64,
+}
+
+impl std::str::FromStr for BatchMetadata {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() != 2 {
+            return Err(anyhow::anyhow!(
+                "Invalid BatchMetadata format. Expected 'batch_id:l1_inclusion_block_number'"
+            ));
+        }
+
+        let batch_id = parts[0]
+            .parse::<u64>()
+            .map_err(|_| anyhow::anyhow!("Invalid batch_id"))?;
+        let l1_inclusion_block_number = parts[1]
+            .parse::<u64>()
+            .map_err(|_| anyhow::anyhow!("Invalid l1_inclusion_block_number"))?;
+
+        Ok(Self {
+            batch_id,
+            l1_inclusion_block_number,
+        })
+    }
+}
+
+impl std::fmt::Display for BatchMetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.batch_id, self.l1_inclusion_block_number)
+    }
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct BatchProofRequest {
+    pub batches: Vec<BatchMetadata>,
+    pub aggregate: bool,
+    pub proof_type: ProofType,
+
+    pub network: String,
+    pub l1_network: String,
+    pub graffiti: B256,
+    #[serde_as(as = "DisplayFromStr")]
+    pub prover: Address,
+    pub blob_proof_type: BlobProofType,
     #[serde(flatten)]
-    /// Any additional prover params in JSON format.
     pub prover_args: ProverSpecificOpts,
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct BatchProofRequestOpt {
+    // Required fields
+    pub batches: Vec<BatchMetadata>,
+    pub aggregate: Option<bool>,
+    pub proof_type: String,
+
+    // Optional fields, if not provided, the default values will be used
+    pub network: Option<String>,
+    pub l1_network: Option<String>,
+    pub graffiti: Option<String>,
+    pub prover: Option<String>,
+    pub blob_proof_type: Option<String>,
+    #[serde(flatten)]
+    pub prover_args: Option<ProverSpecificOpts>,
+}
+
+impl TryFrom<BatchProofRequestOpt> for BatchProofRequest {
+    type Error = RaikoError;
+
+    fn try_from(value: BatchProofRequestOpt) -> Result<Self, Self::Error> {
+        Ok(Self {
+            batches: value.batches,
+            aggregate: value.aggregate.unwrap_or(false),
+            proof_type: value
+                .proof_type
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
+
+            network: value.network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?,
+            l1_network: value.l1_network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing l1_network".to_string(),
+            ))?,
+            graffiti: value
+                .graffiti
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing graffiti".to_string(),
+                ))?
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid graffiti".to_string()))?,
+            prover: value
+                .prover
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing prover".to_string(),
+                ))?
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid prover".to_string()))?,
+            blob_proof_type: value
+                .blob_proof_type
+                .unwrap_or("proof_of_equivalence".to_string())
+                .parse()
+                .map_err(|_| {
+                    RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
+                })?,
+            prover_args: value
+                .prover_args
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing prover_args".to_string(),
+                ))?
+                .into(),
+        })
+    }
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args, PartialEq, Eq, Hash)]
@@ -311,13 +442,13 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
 
     fn try_from(value: ProofRequestOpt) -> Result<Self, Self::Error> {
         Ok(Self {
-            block_number: value.block_number.ok_or(RaikoError::InvalidRequestConfig(
-                "Missing block number".to_string(),
-            ))?,
+            block_number: value.block_number.unwrap_or_default(),
+            batch_id: value.batch_id.unwrap_or_default(),
             l1_inclusion_block_number: value.l1_inclusion_block_number.unwrap_or_default(),
             network: value.network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing network".to_string(),
             ))?,
+            l2_block_numbers: value.l2_block_numbers.unwrap_or_default(),
             l1_network: value.l1_network.ok_or(RaikoError::InvalidRequestConfig(
                 "Missing l1_network".to_string(),
             ))?,
@@ -354,7 +485,52 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
     }
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args)]
+#[serde(default)]
+/// A partial proof request config.
+pub struct ProofRequestOpt {
+    #[arg(long, require_equals = true)]
+    /// The block number for the block to generate a proof for.
+    pub block_number: Option<u64>,
+    #[arg(long, require_equals = true)]
+    /// The batch id for the batch of blocks to generate a proof for.
+    pub batch_id: Option<u64>,
+    #[arg(long, require_equals = true)]
+    /// The block number for the l2 block to be proposed.
+    /// in hekla, it is the anchored l1 block height - 1
+    /// in ontake, it is the anchored l1 block height - (1..64)
+    /// both above can be optional because raiko know anchor block id.
+    /// in pacaya, it is the height of the l1 block which proposed the l2 block and must be presented
+    /// as raiko does not know the anchor block id.
+    pub l1_inclusion_block_number: Option<u64>,
+    /// To support batch proof generation.
+    /// The block numbers and l1 inclusion block numbers for the blocks to aggregate proofs for.
+    /// This is used for batch proof generation.
+    pub l2_block_numbers: Option<Vec<u64>>,
+    #[arg(long, require_equals = true)]
+    /// The network to generate the proof for.
+    pub network: Option<String>,
+    #[arg(long, require_equals = true)]
+    /// The L1 network to generate the proof for.
+    pub l1_network: Option<String>,
+    #[arg(long, require_equals = true)]
+    // Graffiti.
+    pub graffiti: Option<String>,
+    #[arg(long, require_equals = true)]
+    /// The protocol instance data.
+    pub prover: Option<String>,
+    #[arg(long, require_equals = true)]
+    /// The proof type.
+    pub proof_type: Option<String>,
+    /// Blob proof type.
+    pub blob_proof_type: Option<String>,
+    #[command(flatten)]
+    #[serde(flatten)]
+    /// Any additional prover params in JSON format.
+    pub prover_args: ProverSpecificOpts,
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq, Eq, Hash)]
 #[serde(default)]
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationRequest {
@@ -396,7 +572,9 @@ impl From<AggregationRequest> for Vec<ProofRequestOpt> {
             .map(
                 |&(block_number, l1_inclusion_block_number)| ProofRequestOpt {
                     block_number: Some(block_number),
+                    batch_id: None,
                     l1_inclusion_block_number,
+                    l2_block_numbers: None,
                     network: value.network.clone(),
                     l1_network: value.l1_network.clone(),
                     graffiti: value.graffiti.clone(),
@@ -407,6 +585,24 @@ impl From<AggregationRequest> for Vec<ProofRequestOpt> {
                 },
             )
             .collect()
+    }
+}
+
+impl From<AggregationRequest> for ProofRequestOpt {
+    fn from(value: AggregationRequest) -> Self {
+        ProofRequestOpt {
+            block_number: None,
+            batch_id: None,
+            l1_inclusion_block_number: None,
+            l2_block_numbers: None,
+            network: value.network,
+            l1_network: value.l1_network,
+            graffiti: value.graffiti,
+            prover: value.prover,
+            proof_type: value.proof_type,
+            blob_proof_type: value.blob_proof_type,
+            prover_args: value.prover_args,
+        }
     }
 }
 

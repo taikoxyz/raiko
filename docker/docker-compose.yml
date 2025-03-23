@@ -71,6 +71,8 @@ services:
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
+      - SGX_ONTAKE_INSTANCE_ID=${SGX_ONTAKE_INSTANCE_ID}
+      - SGX_PACAYA_INSTANCE_ID=${SGX_PACAYA_INSTANCE_ID}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
       - HOLESKY_RPC=${HOLESKY_RPC}
@@ -172,6 +174,8 @@ services:
       dockerfile: Dockerfile.pccs
     image: us-docker.pkg.dev/evmchain/images/pccs:latest
     container_name: pccs
+    ports:
+      - "8081:8081"
     volumes:
       - ${HOME}/.config/sgx-pccs/default.json:/opt/intel/pccs/config/default.json
       - ${HOME}/.config/sgx-pccs/file.crt:/opt/intel/pccs/ssl_key/file.crt

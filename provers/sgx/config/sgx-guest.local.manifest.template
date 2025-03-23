@@ -6,10 +6,12 @@
 # To learn more, visit: https://gramine.readthedocs.io/en/stable/manifest-syntax.html
 
 libos.entrypoint = "/sgx-guest"
-loader.entrypoint = "file:{{ gramine.libos }}"
+loader.entrypoint.uri = "file:{{ gramine.libos }}"
 loader.env.HOME = "/root"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
-loader.env.RUST_LOG = "info"
+loader.env.DEV_PACAYA_HEIGHT = "50"
+loader.env.DEV_ONTAKE_HEIGHT = "0"
+loader.env.RUST_LOG = "debug"
 loader.insecure__use_cmdline_argv = true
 loader.log_level = "{{ log_level }}"
 fs.mounts = [

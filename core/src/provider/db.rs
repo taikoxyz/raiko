@@ -14,9 +14,10 @@ use crate::{
     provider::BlockDataProvider,
     MerkleProof,
 };
+use tracing::{info, trace};
 
-pub struct ProviderDb<BDP: BlockDataProvider> {
-    pub provider: BDP,
+pub struct ProviderDb<'a, BDP: BlockDataProvider> {
+    pub provider: &'a BDP,
     pub block_number: u64,
     pub initial_db: MemDb,
     pub initial_headers: HashMap<u64, Header>,
@@ -30,17 +31,23 @@ pub struct ProviderDb<BDP: BlockDataProvider> {
     pub pending_block_hashes: HashSet<u64>,
 }
 
-impl<BDP: BlockDataProvider> ProviderDb<BDP> {
-    pub async fn new(provider: BDP, chain_spec: ChainSpec, block_number: u64) -> RaikoResult<Self> {
+impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
+    pub async fn new(
+        provider: &'a BDP,
+        chain_spec: ChainSpec,
+        block_number: u64,
+        initial_db_with_headers: Option<(MemDb, HashMap<u64, Header>)>,
+    ) -> RaikoResult<Self> {
+        let (initial_db, initial_headers) = initial_db_with_headers.unwrap_or_default();
         let mut provider_db = ProviderDb {
             provider,
             block_number,
             async_executor: Handle::current(),
             // defaults
             optimistic: false,
-            staging_db: Default::default(),
-            initial_db: Default::default(),
-            initial_headers: Default::default(),
+            staging_db: initial_db.clone(),
+            initial_db: initial_db,
+            initial_headers: initial_headers,
             current_db: Default::default(),
             pending_accounts: HashSet::new(),
             pending_slots: HashSet::new(),
@@ -50,10 +57,24 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
             // Get the 256 history block hashes from the provider at first time for anchor
             // transaction.
             let start = block_number.saturating_sub(255);
-            let block_numbers = (start..=block_number)
+            let all_init_block_numbers = (start..=block_number)
                 .map(|block_number| (block_number, false))
                 .collect::<Vec<_>>();
-            let initial_history_blocks = provider_db.provider.get_blocks(&block_numbers).await?;
+            // can filter out the block numbers that are already in the initial_db
+            // but need to handle the block header db as well
+            let absent_block_numbers = all_init_block_numbers
+                .into_iter()
+                .filter(|(block_number, _)| {
+                    !provider_db
+                        .initial_db
+                        .block_hashes
+                        .contains_key(block_number)
+                })
+                .collect::<Vec<(u64, bool)>>();
+            let initial_history_blocks = provider_db
+                .provider
+                .get_blocks(&absent_block_numbers)
+                .await?;
             for block in initial_history_blocks {
                 let block_number: u64 = block
                     .header
@@ -71,6 +92,10 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
                     .insert(block_number, block.header.try_into().unwrap());
             }
         }
+        info!(
+            "Initial new provider_db of parent block: {:?}",
+            provider_db.block_number
+        );
         Ok(provider_db)
     }
 
@@ -120,30 +145,22 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
     }
 
     pub async fn get_ancestor_headers(&mut self) -> RaikoResult<Vec<Header>> {
-        let earliest_block = self
-            .initial_db
-            .block_hashes
-            .keys()
-            .min()
-            .unwrap_or(&self.block_number);
-
+        let earliest_block = &self.block_number.saturating_sub(255);
         let mut headers = Vec::with_capacity(
             usize::try_from(self.block_number - *earliest_block)
                 .map_err(|_| RaikoError::Conversion("Could not convert u64 to usize".to_owned()))?,
         );
         for block_number in (*earliest_block..self.block_number).rev() {
-            if let std::collections::hash_map::Entry::Vacant(e) =
-                self.initial_headers.entry(block_number)
-            {
-                let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
-                e.insert(block.header.clone().try_into().unwrap());
-            }
-            headers.push(
-                self.initial_headers
-                    .get(&block_number)
-                    .expect("The header is inserted if it was not present")
-                    .clone(),
-            );
+            let header = match self.initial_headers.entry(block_number) {
+                std::collections::hash_map::Entry::Occupied(header) => header.get().clone(),
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
+                    let header: Header = block.header.clone().try_into().unwrap();
+                    entry.insert(header.clone());
+                    header
+                }
+            };
+            headers.push(header);
         }
         Ok(headers)
     }
@@ -155,7 +172,7 @@ impl<BDP: BlockDataProvider> ProviderDb<BDP> {
     }
 }
 
-impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
+impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
     type Error = ProviderError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -191,7 +208,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         // Fetch the account
         let account = &tokio::task::block_in_place(|| {
             self.async_executor
-                .block_on(self.provider.get_accounts(&[address]))
+                .block_on(self.provider.get_accounts(self.block_number, &[address]))
         })
         .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
@@ -224,6 +241,7 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
         if self.optimistic {
             self.basic(address)?;
             self.pending_slots.insert((address, index));
+            trace!("optimistic storage to be fetch: {:?}", (address, index));
             return Ok(U256::default());
         }
 
@@ -232,8 +250,10 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
 
         // Fetch the storage value
         let value = tokio::task::block_in_place(|| {
-            self.async_executor
-                .block_on(self.provider.get_storage_values(&[(address, index)]))
+            self.async_executor.block_on(
+                self.provider
+                    .get_storage_values(self.block_number, &[(address, index)]),
+            )
         })
         .map_err(|e| ProviderError::RPC(e.to_string()))?
         .first()
@@ -288,13 +308,13 @@ impl<BDP: BlockDataProvider> Database for ProviderDb<BDP> {
     }
 }
 
-impl<BDP: BlockDataProvider> DatabaseCommit for ProviderDb<BDP> {
+impl<'a, BDP: BlockDataProvider> DatabaseCommit for ProviderDb<'a, BDP> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
         self.current_db.commit(changes);
     }
 }
 
-impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
+impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
     async fn fetch_data(&mut self) -> bool {
         //println!("all accounts touched: {:?}", self.pending_accounts);
         //println!("all slots touched: {:?}", self.pending_slots);
@@ -305,7 +325,10 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
 
         let Ok(accounts) = self
             .provider
-            .get_accounts(&self.pending_accounts.iter().copied().collect::<Vec<_>>())
+            .get_accounts(
+                self.block_number,
+                &self.pending_accounts.iter().copied().collect::<Vec<_>>(),
+            )
             .await
         else {
             return false;
@@ -320,7 +343,10 @@ impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<BDP> {
 
         let Ok(slots) = self
             .provider
-            .get_storage_values(&self.pending_slots.iter().copied().collect::<Vec<_>>())
+            .get_storage_values(
+                self.block_number,
+                &self.pending_slots.iter().copied().collect::<Vec<_>>(),
+            )
             .await
         else {
             return false;

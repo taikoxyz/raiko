@@ -4,8 +4,8 @@ use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestInput, GuestOutput,
-        ZkAggregationGuestInput,
+        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
+        GuestInput, GuestOutput, ZkAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -427,6 +427,15 @@ impl Prover for Sp1Prover {
             .into(),
         )
     }
+
+    async fn batch_run(
+        _input: GuestBatchInput,
+        _output: &GuestBatchOutput,
+        _config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        unimplemented!();
+    }
 }
 
 fn get_env_mock() -> ProverMode {
@@ -478,6 +487,7 @@ mod test {
         println!("{json:?} {deserialized:?}");
     }
 
+    #[ignore = "elf needs input, ignore for now"]
     #[test]
     fn run_unittest_elf() {
         // TODO(Cecilia): imple GuestInput::mock() for unit test

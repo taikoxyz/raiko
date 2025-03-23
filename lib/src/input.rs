@@ -2,7 +2,8 @@ use core::{fmt::Debug, str::FromStr};
 
 use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
-use reth_evm_ethereum::taiko::ProtocolBaseFeeConfig;
+use pacaya::{BatchInfo, BatchProposed};
+use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
     Block, Header, TransactionSigned,
@@ -41,6 +42,30 @@ pub struct GuestInput {
     pub ancestor_headers: Vec<Header>,
     /// Taiko specific data
     pub taiko: TaikoGuestInput,
+}
+
+/// External block input.
+#[serde_as]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct TaikoGuestBatchInput {
+    pub batch_id: u64,
+    pub l1_header: Header,
+    pub batch_proposed: BlockProposedFork,
+    pub chain_spec: ChainSpec,
+    pub prover_data: TaikoProverData,
+    pub tx_data_from_calldata: Vec<u8>,
+    pub tx_data_from_blob: Vec<Vec<u8>>,
+    pub blob_commitments: Option<Vec<Vec<u8>>>,
+    pub blob_proofs: Option<Vec<Vec<u8>>>,
+    pub blob_proof_type: BlobProofType,
+}
+
+/// External block input.
+#[serde_as]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct GuestBatchInput {
+    pub inputs: Vec<GuestInput>,
+    pub taiko: TaikoGuestBatchInput,
 }
 
 /// External aggregation input.
@@ -86,6 +111,7 @@ pub enum BlockProposedFork {
     Nothing,
     Hekla(BlockProposed),
     Ontake(BlockProposedV2),
+    Pacaya(BatchProposed),
 }
 
 impl BlockProposedFork {
@@ -93,6 +119,7 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.blobUsed,
             BlockProposedFork::Ontake(block) => block.meta.blobUsed,
+            BlockProposedFork::Pacaya(batch) => batch.info.blobHashes.len() > 0,
             _ => false,
         }
     }
@@ -101,6 +128,9 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.id,
             BlockProposedFork::Ontake(block) => block.meta.id,
+            BlockProposedFork::Pacaya(_batch) => {
+                _batch.info.lastBlockId - (_batch.info.blocks.len() as u64) + 1
+            }
             _ => 0,
         }
     }
@@ -109,6 +139,7 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.timestamp,
             BlockProposedFork::Ontake(block) => block.meta.timestamp,
+            BlockProposedFork::Pacaya(_batch) => 0,
             _ => 0,
         }
     }
@@ -122,6 +153,13 @@ impl BlockProposedFork {
                 min_gas_excess: block.meta.baseFeeConfig.minGasExcess,
                 max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
             },
+            BlockProposedFork::Pacaya(batch) => ProtocolBaseFeeConfig {
+                adjustment_quotient: batch.info.baseFeeConfig.adjustmentQuotient,
+                sharing_pctg: batch.info.baseFeeConfig.sharingPctg,
+                gas_issuance_per_second: batch.info.baseFeeConfig.gasIssuancePerSecond,
+                min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
+                max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
+            },
             _ => ProtocolBaseFeeConfig::default(),
         }
     }
@@ -132,6 +170,10 @@ impl BlockProposedFork {
                 block.meta.blobTxListOffset as usize,
                 block.meta.blobTxListLength as usize,
             )),
+            BlockProposedFork::Pacaya(batch) => Some((
+                batch.info.blobByteOffset as usize,
+                batch.info.blobByteSize as usize,
+            )),
             _ => None,
         }
     }
@@ -140,7 +182,31 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.blobHash,
             BlockProposedFork::Ontake(block) => block.meta.blobHash,
+            // meaningless for pakaya
             _ => B256::default(),
+        }
+    }
+
+    pub fn blob_hashes(&self) -> &[B256] {
+        match self {
+            BlockProposedFork::Pacaya(batch) => &batch.info.blobHashes,
+            _ => &[],
+        }
+    }
+
+    pub fn batch_info(&self) -> Option<&BatchInfo> {
+        match self {
+            BlockProposedFork::Pacaya(batch) => Some(&batch.info),
+            _ => None,
+        }
+    }
+
+    pub fn gas_limit_with_anchor(&self) -> u64 {
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
+            BlockProposedFork::Ontake(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
+            BlockProposedFork::Pacaya(batch) => batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT,
+            _ => 0,
         }
     }
 }
@@ -216,6 +282,13 @@ pub struct GuestOutput {
     pub hash: B256,
 }
 
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuestBatchOutput {
+    pub blocks: Vec<Block>,
+    pub hash: B256,
+}
+
 #[cfg(feature = "std")]
 use std::path::Path;
 #[cfg(feature = "std")]
@@ -228,5 +301,6 @@ pub fn get_input_path(dir: &Path, block_number: u64, network: &str) -> PathBuf {
 
 mod hekla;
 pub mod ontake;
+pub mod pacaya;
 
 pub use hekla::*;

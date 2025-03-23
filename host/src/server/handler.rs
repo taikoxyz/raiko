@@ -1,7 +1,7 @@
 use raiko_reqactor::{Action, Actor};
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, RequestEntity, RequestKey,
-    SingleProofRequestEntity, SingleProofRequestKey, Status,
+    SingleProofRequestKey, Status,
 };
 
 // NOTE: HTTP handlers should not check the status of the request, but just send the request to the Actor. In
@@ -31,25 +31,15 @@ pub async fn prove_aggregation(
     actor: &Actor,
     request_key: AggregationRequestKey,
     request_entity_without_proofs: AggregationRequestEntity,
-    sub_request_keys: Vec<SingleProofRequestKey>,
-    sub_request_entities: Vec<SingleProofRequestEntity>,
+    sub_request_keys: Vec<RequestKey>,
+    sub_request_entities: Vec<RequestEntity>,
 ) -> Result<Status, String> {
     // Prove the sub-requests
-    let mut statuses = Vec::with_capacity(sub_request_keys.len());
-    for (sub_request_key, sub_request_entity) in
-        sub_request_keys.into_iter().zip(sub_request_entities)
-    {
-        let status = prove(actor, sub_request_key.into(), sub_request_entity.into()).await?;
-        statuses.push(status);
-    }
-
+    let statuses = prove_many(actor, sub_request_keys, sub_request_entities).await?;
     let is_all_sub_success = statuses
         .iter()
         .all(|status| matches!(status, Status::Success { .. }));
     if !is_all_sub_success {
-        tracing::info!(
-            "Not all sub-requests are successful proven {request_key}, return registered"
-        );
         return Ok(Status::Registered);
     }
 
@@ -70,6 +60,30 @@ pub async fn prove_aggregation(
     prove(actor, request_key.into(), request_entity.into()).await
 }
 
+/// Prove many requests.
+pub(crate) async fn prove_many(
+    actor: &Actor,
+    request_keys: Vec<RequestKey>,
+    request_entities: Vec<RequestEntity>,
+) -> Result<Vec<Status>, String> {
+    let mut statuses = Vec::with_capacity(request_keys.len());
+    for (request_key, request_entity) in request_keys.into_iter().zip(request_entities) {
+        match (request_key, request_entity) {
+            (RequestKey::SingleProof(key), RequestEntity::SingleProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            (RequestKey::BatchProof(key), RequestEntity::BatchProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            _ => return Err("Invalid request key and entity".to_string()),
+        }
+    }
+
+    Ok(statuses)
+}
+
 pub async fn cancel_aggregation(
     actor: &Actor,
     request_key: AggregationRequestKey,
@@ -88,6 +102,13 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
     // Check if the system is paused
     if actor.is_paused() {
         return Err("System is paused".to_string());
+    }
+
+    // Return early if the request is already succeeded
+    if let Ok(Some(status)) = actor.pool_get_status(&action.request_key()) {
+        if matches!(status.status(), Status::Success { .. }) {
+            return Ok(status.into_status());
+        }
     }
 
     // Just logging the status of the request

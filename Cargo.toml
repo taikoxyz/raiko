@@ -197,6 +197,7 @@ dotenv = "0.15.0"
 backoff = "0.4.0"
 derive-getters = "0.5.0"
 test-log = "0.2.16"
+pretty_assertions = "1.4.1"
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
@@ -204,4 +205,10 @@ revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
-alloy-serde = { git = "https://github.com/CeciliaZ030/alloy.git", branch = "v0.1.4-fix" }
+alloy-serde = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
+alloy-rpc-types-eth = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
+alloy-network = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
+alloy-signer-local = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
+alloy-signer = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
+alloy-rpc-types-beacon = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
+alloy-eips = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
