@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.0](https://github.com/taikoxyz/raiko/compare/v1.5.0...v1.6.0) (2025-03-24)
+
+
+### Features
+
+* **raiko:** support pacaya fork ([#456](https://github.com/taikoxyz/raiko/issues/456)) ([76ed149](https://github.com/taikoxyz/raiko/commit/76ed149dda1080a48403721caed093d6b90287b9))
+* **repo:** add issue template for adding fmspc and fix workflow call condition ([#474](https://github.com/taikoxyz/raiko/issues/474)) ([2b6a950](https://github.com/taikoxyz/raiko/commit/2b6a95069ca546efac3d4057bb4033c626f699f8))
+* **script:** add batch prove test script and update doc ([#470](https://github.com/taikoxyz/raiko/issues/470)) ([f2d7412](https://github.com/taikoxyz/raiko/commit/f2d741247d0712aaf01703e2e58338c8c5fd8c12))
+
 ## [1.5.0](https://github.com/taikoxyz/raiko/compare/v1.4.0...v1.5.0) (2025-02-27)
 
 
