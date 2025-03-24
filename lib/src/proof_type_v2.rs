@@ -56,9 +56,14 @@ impl Serialize for ProofTypeV2 {
             ProofTypeV2::Sp1 => "sp1".to_string(),
             ProofTypeV2::Risc0 => "risc0".to_string(),
             ProofTypeV2::Pivot => "pivot".to_string(),
-            ProofTypeV2::PivotAnd(base) => {
-                format!("pivotand{}", format!("{:?}", base).to_lowercase())
+            ProofTypeV2::PivotAnd(base) => match base {
+                BaseProofType::Native => "pivotandnative",
+                BaseProofType::Sgx => "pivotandsgx",
+                BaseProofType::Sp1 => "pivotandsp1",
+                BaseProofType::Risc0 => "pivotandrisc0",
+                BaseProofType::Pivot => "pivotandpivot",
             }
+            .to_string(),
         };
         serializer.serialize_str(&s)
     }
@@ -98,6 +103,7 @@ impl<'de> Deserialize<'de> for ProofTypeV2 {
                             "sgx" => Ok(ProofTypeV2::PivotAnd(BaseProofType::Sgx)),
                             "sp1" => Ok(ProofTypeV2::PivotAnd(BaseProofType::Sp1)),
                             "risc0" => Ok(ProofTypeV2::PivotAnd(BaseProofType::Risc0)),
+                            "pivot" => Ok(ProofTypeV2::PivotAnd(BaseProofType::Pivot)),
                             _ => Err(E::custom(format!(
                                 "Unsupported pivotand variant: {}",
                                 inner
