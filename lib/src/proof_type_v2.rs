@@ -3,7 +3,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 #[macro_export]
-macro_rules! generate_proof_types_from_pairs {
+macro_rules! generate_proof_types_from_type_alias_paris {
     ( ($first:ident, $first_alias:expr) $(, ($other:ident, $other_alias:expr) )* $(,)? ) => {
         #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         #[serde(rename_all = "lowercase")]
@@ -36,7 +36,8 @@ macro_rules! generate_proof_types_from_pairs {
 }
 
 // create ProofTypeV2 with BaseTypes & PivotAnd(BaseTypes)
-generate_proof_types_from_pairs!(
+// todo: handle zk_any here?
+generate_proof_types_from_type_alias_paris!(
     (Native, "NATIVE"),
     (Sp1, "SP1"),
     (Sgx, "SGX"),
