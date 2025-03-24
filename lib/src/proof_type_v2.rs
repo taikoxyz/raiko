@@ -97,12 +97,16 @@ impl<'de> Deserialize<'de> for ProofTypeV2 {
                             "native" => Ok(ProofTypeV2::PivotAnd(BaseProofType::Native)),
                             "sgx" => Ok(ProofTypeV2::PivotAnd(BaseProofType::Sgx)),
                             "sp1" => Ok(ProofTypeV2::PivotAnd(BaseProofType::Sp1)),
-                            _ => Err(E::custom(format!("Unknown pivotand variant: {}", inner))),
+                            "risc0" => Ok(ProofTypeV2::PivotAnd(BaseProofType::Risc0)),
+                            _ => Err(E::custom(format!(
+                                "Unsupported pivotand variant: {}",
+                                inner
+                            ))),
                         }
                     }
                     _ => Err(E::unknown_variant(
                         value,
-                        &["native", "sgx", "sp1", "pivotand<variant>"],
+                        &["native", "sgx", "sp1", "risc0", "pivotand<variant>"],
                     )),
                 }
             }
