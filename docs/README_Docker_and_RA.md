@@ -414,7 +414,9 @@ Once you've completed the above steps, you can actually run a prover.
 
 Raiko now supports more configurations, which need to be carefully checked to avoid errors.
 
-    - SGX_INSTANCE_ID: Your `SGX_INSTANCE_ID` is the one emitted in the `InstanceAdded` event above.
+    - SGX_INSTANCE_ID: Your `SGX_INSTANCE_ID` is the one emitted in the `InstanceAdded` event above. (Deprecated)
+    - SGX_ONTAKE_INSTANCE_ID: SGX registered ID for ontake fork. (if raiko start before/in ontake, set this one)
+    - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko start before/in pacaya, set this one)
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
     - ETHEREUM_BEACON_RPC: ethereum beacon node url, from which you query the ethereum data.
     - HOLESKY_RPC: ethereum holesky test node url.
@@ -424,10 +426,11 @@ Raiko now supports more configurations, which need to be carefully checked to av
     - L1_NETWORK: specify the l1 network if exist, default is "holesky".
     - NETWORK: specify the network to be proven, could be one of ["taiko_a7", "taiko_mainnet", "ethereum", "holesky"], default is "taiko_a7". make sure both L1_NETWORK & NETWORK in chain_spec_list.docker.json
 
-A most common setup for hekla is:
+A most common setup in hekla testnet when it comes to ontake/pacaya fork is:
 ```
 cd ~/raiko/docker
-export SGX_INSTANCE_ID={YOUR_INSTANCE_ID}
+export SGX_ONTAKE_INSTANCE_ID={YOUR_ONTAKE_INSTANCE_ID}
+export SGX_PACAYA_INSTANCE_ID={YOUR_PACAYA_INSTANCE_ID}
 export L1_NETWORK="holesky"
 export NETWORK="taiko_a7"
 export HOLESKY_RPC={YOUR_FAST_HOLESKY_NODE}
