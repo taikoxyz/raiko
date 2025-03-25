@@ -341,7 +341,7 @@ impl Backend {
         request_entity: GuestInputRequestEntity,
     ) {
         self.prove(request_key.clone(), |mut actor, request_key| async move {
-            do_generage_guest_input(
+            do_generate_guest_input(
                 &mut actor.pool,
                 &actor.chain_specs,
                 request_key,
@@ -495,7 +495,7 @@ impl Backend {
     }
 }
 
-pub async fn do_generage_guest_input(
+pub async fn do_generate_guest_input(
     _pool: &mut Pool,
     chain_specs: &SupportedChainSpecs,
     request_key: RequestKey,
