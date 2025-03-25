@@ -3,8 +3,8 @@ use axum::{extract::State, routing::get, Json, Router};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{RequestKey, Status, StatusWithContext};
 use raiko_tasks::{
-    AggregationTaskDescriptor, BatchProofTaskDescriptor, GuestInputTaskDescriptor,
-    ProofTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus,
+    AggregationTaskDescriptor, BatchGuestInputTaskDescriptor, BatchProofTaskDescriptor,
+    GuestInputTaskDescriptor, ProofTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus,
 };
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -47,12 +47,19 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
             proof_type: Some(key.proof_type().to_string()),
         }),
         RequestKey::BatchProof(key) => TaskDescriptor::BatchProof(BatchProofTaskDescriptor {
-            chain_id: *key.chain_id(),
-            batch_id: *key.batch_id(),
-            l1_height: *key.l1_inclusion_height(),
+            chain_id: *key.guest_input_key().chain_id(),
+            batch_id: *key.guest_input_key().batch_id(),
+            l1_height: *key.guest_input_key().l1_inclusion_height(),
             proof_system: *key.proof_type(),
             prover: key.prover_address().clone(),
         }),
+        RequestKey::BatchGuestInput(key) => {
+            TaskDescriptor::BatchGuestInput(BatchGuestInputTaskDescriptor {
+                chain_id: *key.chain_id(),
+                batch_id: *key.batch_id(),
+                l1_height: *key.l1_inclusion_height(),
+            })
+        }
     };
 
     let task_report: Vec<TaskReport> = statuses

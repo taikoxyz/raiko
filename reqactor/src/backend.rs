@@ -13,8 +13,9 @@ use raiko_lib::{
     prover::{IdWrite, Proof},
 };
 use raiko_reqpool::{
-    AggregationRequestEntity, BatchProofRequestEntity, GuestInputRequestEntity, RequestEntity,
-    RequestKey, SingleProofRequestEntity, Status, StatusWithContext,
+    AggregationRequestEntity, BatchGuestInputRequestEntity, BatchProofRequestEntity,
+    GuestInputRequestEntity, RequestEntity, RequestKey, SingleProofRequestEntity, Status,
+    StatusWithContext,
 };
 use reth_primitives::B256;
 use tokio::sync::{
@@ -190,7 +191,12 @@ impl Backend {
                         self.generate_guest_input(request_key.clone(), entity).await;
                         self.ensure_internal_signal(request_key).await;
                     }
-                    RequestEntity::GuestBatchInput(_guest_batch_input_request_entity) => todo!(),
+                    RequestEntity::BatchGuestInput(entity) => {
+                        tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
+                        self.generate_batch_guest_input(request_key.clone(), entity)
+                            .await;
+                        self.ensure_internal_signal(request_key).await;
+                    }
                 },
                 Status::WorkInProgress => {
                     // Wait for proving completion
@@ -332,6 +338,11 @@ impl Backend {
                 self.pool.update_status(request_key, status.clone())?;
                 Ok(status)
             }
+            RequestKey::BatchGuestInput(..) => {
+                let status = StatusWithContext::new_cancelled();
+                self.pool.update_status(request_key, status.clone())?;
+                Ok(status)
+            }
         }
     }
 
@@ -342,6 +353,23 @@ impl Backend {
     ) {
         self.prove(request_key.clone(), |mut actor, request_key| async move {
             do_generate_guest_input(
+                &mut actor.pool,
+                &actor.chain_specs,
+                request_key,
+                request_entity,
+            )
+            .await
+        })
+        .await;
+    }
+
+    async fn generate_batch_guest_input(
+        &mut self,
+        request_key: RequestKey,
+        request_entity: BatchGuestInputRequestEntity,
+    ) {
+        self.prove(request_key.clone(), |mut actor, request_key| async move {
+            do_generate_batch_guest_input(
                 &mut actor.pool,
                 &actor.chain_specs,
                 request_key,
@@ -552,6 +580,15 @@ pub async fn do_generate_guest_input(
     })
 }
 
+pub async fn do_generate_batch_guest_input(
+    _pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: BatchGuestInputRequestEntity,
+) -> Result<Proof, String> {
+    Ok(Proof::default())
+}
+
 // TODO: cache input, reference to raiko_host::cache
 // TODO: memory tracking
 // TODO: metrics
@@ -659,13 +696,15 @@ async fn do_prove_batch(
     tracing::info!("Generating proof for {request_key}");
 
     let l1_chain_spec = chain_specs
-        .get_chain_spec(&request_entity.l1_network())
+        .get_chain_spec(&request_entity.guest_input_entity().l1_network())
         .expect("unsupported l1 network");
     let taiko_chain_spec = chain_specs
-        .get_chain_spec(&request_entity.network())
+        .get_chain_spec(&request_entity.guest_input_entity().network())
         .expect("unsupported taiko network");
-    let batch_id = request_entity.batch_id();
-    let l1_include_block_number = request_entity.l1_inclusion_block_number();
+    let batch_id = request_entity.guest_input_entity().batch_id();
+    let l1_include_block_number = request_entity
+        .guest_input_entity()
+        .l1_inclusion_block_number();
     // parse the batch proposal tx to get all prove blocks
     let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
         &l1_chain_spec,
@@ -683,14 +722,19 @@ async fn do_prove_batch(
         .expect("Could not create RpcBlockDataProvider");
     let proof_request = ProofRequest {
         block_number: 0,
-        batch_id: *request_entity.batch_id(),
-        l1_inclusion_block_number: *request_entity.l1_inclusion_block_number(),
-        network: request_entity.network().clone(),
-        l1_network: request_entity.l1_network().clone(),
-        graffiti: request_entity.graffiti().clone(),
+        batch_id: *request_entity.guest_input_entity().batch_id(),
+        l1_inclusion_block_number: *request_entity
+            .guest_input_entity()
+            .l1_inclusion_block_number(),
+        network: request_entity.guest_input_entity().network().clone(),
+        l1_network: request_entity.guest_input_entity().l1_network().clone(),
+        graffiti: request_entity.guest_input_entity().graffiti().clone(),
         prover: request_entity.prover().clone(),
         proof_type: request_entity.proof_type().clone(),
-        blob_proof_type: request_entity.blob_proof_type().clone(),
+        blob_proof_type: request_entity
+            .guest_input_entity()
+            .blob_proof_type()
+            .clone(),
         prover_args: request_entity.prover_args().clone(),
         l2_block_numbers: all_prove_blocks.clone(),
     };
