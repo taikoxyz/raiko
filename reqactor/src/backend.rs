@@ -9,7 +9,7 @@ use raiko_core::{
 };
 use raiko_lib::{
     consts::SupportedChainSpecs,
-    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput},
+    input::{AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput},
     prover::{IdWrite, Proof},
 };
 use raiko_reqpool::{
@@ -580,15 +580,6 @@ pub async fn do_generate_guest_input(
     })
 }
 
-pub async fn do_generate_batch_guest_input(
-    _pool: &mut Pool,
-    chain_specs: &SupportedChainSpecs,
-    request_key: RequestKey,
-    request_entity: BatchGuestInputRequestEntity,
-) -> Result<Proof, String> {
-    Ok(Proof::default())
-}
-
 // TODO: cache input, reference to raiko_host::cache
 // TODO: memory tracking
 // TODO: metrics
@@ -687,14 +678,10 @@ async fn do_prove_aggregation(
     Ok(proof)
 }
 
-async fn do_prove_batch(
-    pool: &mut dyn IdWrite,
+async fn new_raiko_for_batch_request(
     chain_specs: &SupportedChainSpecs,
-    request_key: RequestKey,
     request_entity: BatchProofRequestEntity,
-) -> Result<Proof, String> {
-    tracing::info!("Generating proof for {request_key}");
-
+) -> Result<Raiko, String> {
     let l1_chain_spec = chain_specs
         .get_chain_spec(&request_entity.guest_input_entity().l1_network())
         .expect("unsupported l1 network");
@@ -714,12 +701,7 @@ async fn do_prove_batch(
     )
     .await
     .map_err(|err| format!("Could not parse L1 batch proposal tx: {err:?}"))?;
-    // provider target blocks are all blocks in the batch and the parent block of block[0]
-    let provider_target_blocks =
-        (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
-    let provider = RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
-        .await
-        .expect("Could not create RpcBlockDataProvider");
+
     let proof_request = ProofRequest {
         block_number: 0,
         batch_id: *request_entity.guest_input_entity().batch_id(),
@@ -738,12 +720,74 @@ async fn do_prove_batch(
         prover_args: request_entity.prover_args().clone(),
         l2_block_numbers: all_prove_blocks.clone(),
     };
-    let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
+
+    Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
+}
+
+async fn generate_input_for_batch(raiko: &Raiko) -> Result<GuestBatchInput, String> {
+    let provider_target_blocks = (raiko.request.l2_block_numbers[0] - 1
+        ..=*raiko.request.l2_block_numbers.last().unwrap())
+        .collect();
+    let provider =
+        RpcBlockDataProvider::new_batch(&raiko.taiko_chain_spec.rpc, provider_target_blocks)
+            .await
+            .expect("Could not create RpcBlockDataProvider");
     let input = raiko
         .generate_batch_input(provider)
         .await
-        .map_err(|e| format!("failed to generateg guest batch input: {e:?}"))?;
-    trace!("batch guest input: {input:?}");
+        .map_err(|e| format!("failed to generate batch input: {e:?}"))?;
+    Ok(input)
+}
+
+pub async fn do_generate_batch_guest_input(
+    _pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: BatchGuestInputRequestEntity,
+) -> Result<Proof, String> {
+    trace!("batch guest input for: {request_key:?}");
+    let batch_proof_request_entity = BatchProofRequestEntity::new_with_guest_input_entity(
+        request_entity.clone(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    );
+    let raiko = new_raiko_for_batch_request(chain_specs, batch_proof_request_entity)
+        .await
+        .map_err(|err| format!("failed to create raiko: {err:?}"))?;
+    let input = generate_input_for_batch(&raiko)
+        .await
+        .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?;
+    let input_proof = serde_json::to_string(&input).expect("input serialize ok");
+    Ok(Proof {
+        proof: Some(input_proof),
+        ..Default::default()
+    })
+}
+
+async fn do_prove_batch(
+    pool: &mut dyn IdWrite,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: BatchProofRequestEntity,
+) -> Result<Proof, String> {
+    tracing::info!("Generating proof for {request_key}");
+
+    let raiko = new_raiko_for_batch_request(chain_specs, request_entity).await?;
+    let input = if let Some(batch_guest_input) = raiko.request.prover_args.get("batch_guest_input")
+    {
+        let guest_input_json: String = serde_json::from_value(batch_guest_input.clone())
+            .map_err(|err| format!("failed to serialize batch_guest_input: {err:?}"))?;
+        let guest_input: GuestBatchInput = serde_json::from_str(&guest_input_json)
+            .map_err(|err| format!("failed to deserialize guest_input: {err:?}"))?;
+        guest_input
+    } else {
+        tracing::warn!("rebuild batch guest input for request: {request_key:?}");
+        generate_input_for_batch(&raiko)
+            .await
+            .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?
+    };
+
     let output = raiko
         .get_batch_output(&input)
         .map_err(|e| format!("failed to get guest batch output: {e:?}"))?;

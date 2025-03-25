@@ -135,6 +135,36 @@ async fn batch_handler(
         if !is_all_sub_success {
             Ok(raiko_reqpool::Status::Registered)
         } else {
+            let guest_inputs_of_entities = statuses
+                .iter()
+                .map(|status| match status {
+                    raiko_reqpool::Status::Success { proof, .. } => proof.proof.clone().unwrap(),
+                    _ => unreachable!("is_all_sub_success checked"),
+                })
+                .collect::<Vec<_>>();
+            let sub_request_entities = sub_request_entities
+                .iter()
+                .zip(guest_inputs_of_entities)
+                .to_owned()
+                .map(|(entity, guest_input)| match entity {
+                    raiko_reqpool::RequestEntity::BatchProof(request_entity) => {
+                        let mut prover_args = request_entity.prover_args().clone();
+                        prover_args.insert(
+                            "batch_guest_input".to_string(),
+                            serde_json::to_value(guest_input).expect(""),
+                        );
+                        BatchProofRequestEntity::new_with_guest_input_entity(
+                            request_entity.guest_input_entity().clone(),
+                            request_entity.prover().clone(),
+                            *request_entity.proof_type(),
+                            prover_args,
+                        )
+                        .into()
+                    }
+                    _ => entity.clone(),
+                })
+                .collect::<Vec<_>>();
+
             prove_many(&actor, sub_request_keys, sub_request_entities)
                 .await
                 .map(|statuses| {
