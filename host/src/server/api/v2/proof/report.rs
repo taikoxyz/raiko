@@ -3,8 +3,8 @@ use axum::{extract::State, routing::get, Json, Router};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{RequestKey, Status, StatusWithContext};
 use raiko_tasks::{
-    AggregationTaskDescriptor, BatchProofTaskDescriptor, ProofTaskDescriptor, TaskDescriptor,
-    TaskReport, TaskStatus,
+    AggregationTaskDescriptor, BatchProofTaskDescriptor, GuestInputTaskDescriptor,
+    ProofTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus,
 };
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -30,6 +30,11 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
         Status::Failed { error } => TaskStatus::AnyhowError(error),
     };
     let to_task_descriptor = |request_key: RequestKey| match request_key {
+        RequestKey::GuestInput(key) => TaskDescriptor::GuestInput(GuestInputTaskDescriptor {
+            chain_id: *key.chain_id(),
+            block_id: *key.block_number(),
+            blockhash: *key.block_hash(),
+        }),
         RequestKey::SingleProof(key) => TaskDescriptor::SingleProof(ProofTaskDescriptor {
             chain_id: *key.chain_id(),
             block_id: *key.block_number(),

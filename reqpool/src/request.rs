@@ -96,6 +96,7 @@ impl From<Status> for StatusWithContext {
     PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord, Hash, RedisValue,
 )]
 pub enum RequestKey {
+    GuestInput(GuestInputRequestKey),
     SingleProof(SingleProofRequestKey),
     Aggregation(AggregationRequestKey),
     BatchProof(BatchProofRequestKey),
@@ -104,9 +105,33 @@ pub enum RequestKey {
 impl RequestKey {
     pub fn proof_type(&self) -> &ProofType {
         match self {
+            RequestKey::GuestInput(_) => &ProofType::Native,
             RequestKey::SingleProof(key) => &key.proof_type,
             RequestKey::Aggregation(key) => &key.proof_type,
             RequestKey::BatchProof(key) => &key.proof_type,
+        }
+    }
+}
+
+/// The key to identify a request in the pool
+#[derive(
+    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord, Hash, RedisValue, Getters,
+)]
+pub struct GuestInputRequestKey {
+    /// The chain ID of the request
+    chain_id: ChainId,
+    /// The block number of the request
+    block_number: u64,
+    /// The block hash of the request
+    block_hash: B256,
+}
+
+impl GuestInputRequestKey {
+    pub fn new(chain_id: ChainId, block_number: u64, block_hash: B256) -> Self {
+        Self {
+            chain_id,
+            block_number,
+            block_hash,
         }
     }
 }
@@ -200,6 +225,12 @@ impl BatchProofRequestKey {
     }
 }
 
+impl From<GuestInputRequestKey> for RequestKey {
+    fn from(key: GuestInputRequestKey) -> Self {
+        RequestKey::GuestInput(key)
+    }
+}
+
 impl From<SingleProofRequestKey> for RequestKey {
     fn from(key: SingleProofRequestKey) -> Self {
         RequestKey::SingleProof(key)
@@ -215,6 +246,48 @@ impl From<AggregationRequestKey> for RequestKey {
 impl From<BatchProofRequestKey> for RequestKey {
     fn from(key: BatchProofRequestKey) -> Self {
         RequestKey::BatchProof(key)
+    }
+}
+
+#[serde_as]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue, Getters)]
+pub struct GuestInputRequestEntity {
+    /// The block number for the block to generate a proof for.
+    block_number: u64,
+    /// The l1 block number of the l2 block be proposed.
+    l1_inclusion_block_number: u64,
+    /// The network to generate the proof for.
+    network: String,
+    /// The L1 network to generate the proof for.
+    l1_network: String,
+    /// Graffiti.
+    graffiti: B256,
+    /// Blob proof type.
+    blob_proof_type: BlobProofType,
+    #[serde(flatten)]
+    /// Additional prover params.
+    prover_args: HashMap<String, serde_json::Value>,
+}
+
+impl GuestInputRequestEntity {
+    pub fn new(
+        block_number: u64,
+        l1_inclusion_block_number: u64,
+        network: String,
+        l1_network: String,
+        graffiti: B256,
+        blob_proof_type: BlobProofType,
+        prover_args: HashMap<String, serde_json::Value>,
+    ) -> Self {
+        Self {
+            block_number,
+            l1_inclusion_block_number,
+            network,
+            l1_network,
+            graffiti,
+            blob_proof_type,
+            prover_args,
+        }
     }
 }
 
@@ -300,6 +373,48 @@ impl AggregationRequestEntity {
 
 #[serde_as]
 #[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue, Getters)]
+pub struct GuestBatchInputRequestEntity {
+    /// The block number for the block to generate a proof for.
+    batch_id: u64,
+    /// The l1 block number of the l2 block be proposed.
+    l1_inclusion_block_number: u64,
+    /// The network to generate the proof for.
+    network: String,
+    /// The L1 network to generate the proof for.
+    l1_network: String,
+    /// Graffiti.
+    graffiti: B256,
+    /// Blob proof type.
+    blob_proof_type: BlobProofType,
+    #[serde(flatten)]
+    /// Additional prover params.
+    prover_args: HashMap<String, serde_json::Value>,
+}
+
+impl GuestBatchInputRequestEntity {
+    pub fn new(
+        batch_id: u64,
+        l1_inclusion_block_number: u64,
+        network: String,
+        l1_network: String,
+        graffiti: B256,
+        blob_proof_type: BlobProofType,
+        prover_args: HashMap<String, serde_json::Value>,
+    ) -> Self {
+        Self {
+            batch_id,
+            l1_inclusion_block_number,
+            network,
+            l1_network,
+            graffiti,
+            blob_proof_type,
+            prover_args,
+        }
+    }
+}
+
+#[serde_as]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue, Getters)]
 pub struct BatchProofRequestEntity {
     /// The block number for the block to generate a proof for.
     batch_id: u64,
@@ -352,10 +467,17 @@ impl BatchProofRequestEntity {
 /// The entity of a request
 #[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue)]
 pub enum RequestEntity {
+    GuestInput(GuestInputRequestEntity),
     SingleProof(SingleProofRequestEntity),
     Aggregation(AggregationRequestEntity),
+    GuestBatchInput(GuestBatchInputRequestEntity),
     BatchProof(BatchProofRequestEntity),
-    //todo: AggregationBatch(AggregationBatchRequestEntity),
+}
+
+impl From<GuestInputRequestEntity> for RequestEntity {
+    fn from(entity: GuestInputRequestEntity) -> Self {
+        RequestEntity::GuestInput(entity)
+    }
 }
 
 impl From<SingleProofRequestEntity> for RequestEntity {
@@ -367,6 +489,12 @@ impl From<SingleProofRequestEntity> for RequestEntity {
 impl From<AggregationRequestEntity> for RequestEntity {
     fn from(entity: AggregationRequestEntity) -> Self {
         RequestEntity::Aggregation(entity)
+    }
+}
+
+impl From<GuestBatchInputRequestEntity> for RequestEntity {
+    fn from(entity: GuestBatchInputRequestEntity) -> Self {
+        RequestEntity::GuestBatchInput(entity)
     }
 }
 

@@ -9,12 +9,12 @@ use raiko_core::{
 };
 use raiko_lib::{
     consts::SupportedChainSpecs,
-    input::{AggregationGuestInput, AggregationGuestOutput},
+    input::{AggregationGuestInput, AggregationGuestOutput, GuestInput},
     prover::{IdWrite, Proof},
 };
 use raiko_reqpool::{
-    AggregationRequestEntity, BatchProofRequestEntity, RequestEntity, RequestKey,
-    SingleProofRequestEntity, Status, StatusWithContext,
+    AggregationRequestEntity, BatchProofRequestEntity, GuestInputRequestEntity, RequestEntity,
+    RequestKey, SingleProofRequestEntity, Status, StatusWithContext,
 };
 use reth_primitives::B256;
 use tokio::sync::{
@@ -185,6 +185,12 @@ impl Backend {
                         self.prove_batch(request_key.clone(), entity).await;
                         self.ensure_internal_signal(request_key).await;
                     }
+                    RequestEntity::GuestInput(entity) => {
+                        tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
+                        self.generate_guest_input(request_key.clone(), entity).await;
+                        self.ensure_internal_signal(request_key).await;
+                    }
+                    RequestEntity::GuestBatchInput(_guest_batch_input_request_entity) => todo!(),
                 },
                 Status::WorkInProgress => {
                     // Wait for proving completion
@@ -282,6 +288,11 @@ impl Backend {
         // 2. Remove the proof id from the pool
         // 3. Mark the request as cancelled in the pool
         match &request_key {
+            RequestKey::GuestInput(..) => {
+                let status = StatusWithContext::new_cancelled();
+                self.pool.update_status(request_key, status.clone())?;
+                Ok(status)
+            }
             RequestKey::SingleProof(key) => {
                 raiko_core::interfaces::cancel_proof(
                     key.proof_type().clone(),
@@ -322,6 +333,23 @@ impl Backend {
                 Ok(status)
             }
         }
+    }
+
+    async fn generate_guest_input(
+        &mut self,
+        request_key: RequestKey,
+        request_entity: GuestInputRequestEntity,
+    ) {
+        self.prove(request_key.clone(), |mut actor, request_key| async move {
+            do_generage_guest_input(
+                &mut actor.pool,
+                &actor.chain_specs,
+                request_key,
+                request_entity,
+            )
+            .await
+        })
+        .await;
     }
 
     async fn prove_single(
@@ -467,6 +495,63 @@ impl Backend {
     }
 }
 
+pub async fn do_generage_guest_input(
+    _pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: GuestInputRequestEntity,
+) -> Result<Proof, String> {
+    tracing::info!("Generating proof for {request_key}");
+
+    let l1_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.l1_network())
+        .ok_or_else(|| {
+            format!(
+                "unsupported l1 network: {}, it should not happen, please issue a bug report",
+                request_entity.l1_network()
+            )
+        })?;
+    let taiko_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.network())
+        .ok_or_else(|| {
+            format!(
+                "unsupported raiko network: {}, it should not happen, please issue a bug report",
+                request_entity.network()
+            )
+        })?;
+    let proof_request = ProofRequest {
+        block_number: *request_entity.block_number(),
+        l1_inclusion_block_number: *request_entity.l1_inclusion_block_number(),
+        network: request_entity.network().clone(),
+        l1_network: request_entity.l1_network().clone(),
+        graffiti: request_entity.graffiti().clone(),
+        prover: Default::default(),
+        proof_type: Default::default(),
+        blob_proof_type: request_entity.blob_proof_type().clone(),
+        prover_args: request_entity.prover_args().clone(),
+        batch_id: 0,
+        l2_block_numbers: Vec::new(),
+    };
+    let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
+    let provider = RpcBlockDataProvider::new(
+        &taiko_chain_spec.rpc.clone(),
+        request_entity.block_number() - 1,
+    )
+    .await
+    .map_err(|err| format!("failed to create rpc block data provider: {err:?}"))?;
+
+    let input = raiko
+        .generate_input(provider)
+        .await
+        .map_err(|e| format!("failed to generate input: {e:?}"))?;
+
+    let input_proof = serde_json::to_string(&input).expect("input serialize ok");
+    Ok(Proof {
+        proof: Some(input_proof),
+        ..Default::default()
+    })
+}
+
 // TODO: cache input, reference to raiko_host::cache
 // TODO: memory tracking
 // TODO: metrics
@@ -516,11 +601,20 @@ pub async fn do_prove_single(
     .await
     .map_err(|err| format!("failed to create rpc block data provider: {err:?}"))?;
 
-    // 1. Generate the proof input
-    let input = raiko
-        .generate_input(provider)
-        .await
-        .map_err(|e| format!("failed to generate input: {e:?}"))?;
+    // double check if we already have the guest_input
+    let input: GuestInput =
+        if let Some(guest_input_value) = request_entity.prover_args().get("guest_input") {
+            let guest_input_json: String = serde_json::from_value(guest_input_value.clone())
+                .expect("guest_input should be a string");
+            serde_json::from_str(&guest_input_json)
+                .map_err(|err| format!("failed to deserialize guest_input: {err:?}"))?
+        } else {
+            // 1. Generate the proof input
+            raiko
+                .generate_input(provider)
+                .await
+                .map_err(|e| format!("failed to generate input: {e:?}"))?
+        };
 
     // 2. Generate the proof output
     let output = raiko

@@ -100,6 +100,14 @@ impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
     }
 }
 
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+pub struct GuestInputTaskDescriptor {
+    pub chain_id: ChainId,
+    pub block_id: u64,
+    pub blockhash: B256,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub struct ProofTaskDescriptor {
     pub chain_id: ChainId,
@@ -141,6 +149,7 @@ pub struct BatchProofTaskDescriptor {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskDescriptor {
+    GuestInput(GuestInputTaskDescriptor),
     SingleProof(ProofTaskDescriptor),
     Aggregation(AggregationTaskDescriptor),
     BatchProof(BatchProofTaskDescriptor),
