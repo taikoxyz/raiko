@@ -466,10 +466,8 @@ impl Backend {
 
             match &proven_status {
                 Status::Success { proof } => {
-                    tracing::info!(
-                        "Actor Backend successfully proved {request_key}, {:?}",
-                        proof
-                    );
+                    tracing::info!("Actor Backend successfully proved {request_key}");
+                    tracing::debug!("Actor Backend get proof {proof:?}",)
                 }
                 Status::Failed { error } => {
                     tracing::error!("Actor Backend failed to prove {request_key}: {error}");
@@ -776,6 +774,10 @@ async fn do_prove_batch(
     let raiko = new_raiko_for_batch_request(chain_specs, request_entity).await?;
     let input = if let Some(batch_guest_input) = raiko.request.prover_args.get("batch_guest_input")
     {
+        // Tricky: originally the input was created (and pass around) by prove() infra,
+        // so it's a string(in Proof).
+        // after we get it from db somewhere above, we need to pass it down here, but there is no known
+        // string carrier in key / entity, so we call deser twice, value -> string -> struct.
         let guest_input_json: String = serde_json::from_value(batch_guest_input.clone())
             .map_err(|err| format!("failed to serialize batch_guest_input: {err:?}"))?;
         let guest_input: GuestBatchInput = serde_json::from_str(&guest_input_json)
