@@ -8,7 +8,7 @@ use raiko_lib::{
 use serde_json::Value;
 use sgx_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
-    set_instance_id, ForkRegisterId, ELF_NAME,
+    set_instance_id, ForkRegisterId, ELF_NAME, GAIKO_ELF_NAME,
 };
 use std::{
     collections::BTreeMap,
@@ -51,7 +51,18 @@ pub(crate) async fn setup_bootstrap(
         .unwrap()
         .to_path_buf();
 
+    let is_pivot = match env::var("PIVOT") {
+        Ok(value) => value == "true",
+        Err(_) => false,
+    };
+
     let gramine_cmd = || -> Command {
+        if is_pivot {
+            let mut cmd = Command::new("ego");
+            cmd.arg("run");
+            cmd.current_dir(&cur_dir).arg(GAIKO_ELF_NAME);
+            return cmd;
+        }
         let mut cmd = Command::new("sudo");
         cmd.arg("gramine-sgx");
         cmd.current_dir(&cur_dir).arg(ELF_NAME);

@@ -1,3 +1,24 @@
+FROM ghcr.io/edgelesssys/ego-dev:v1.7.0 AS build-gaiko
+
+ENV DEBIAN_FRONTEND=noninteractive
+ARG BUILD_FLAGS=""
+
+WORKDIR /opt/gaiko
+
+# Install dependencies
+COPY gaiko/go.mod .
+COPY gaiko/go.sum .
+RUN go mod download
+
+# Build
+COPY gaiko/ .
+RUN ego-go build -o gaiko ./cmd/gaiko
+
+# Sign with our enclave config and private key
+COPY gaiko/ego/enclave.json .
+COPY docker/enclave-key.pem private.pem
+RUN ego sign
+
 FROM rust:1.81.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -15,6 +36,11 @@ RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_bui
 FROM gramineproject/gramine:1.8-jammy AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
+
+COPY --from=builder /opt/raiko/docker/install-ego.sh ./
+
+RUN chmod +x ./install-ego.sh && \
+    ./install-ego.sh
 
 RUN apt-get update && \
     apt-get install -y \
@@ -36,6 +62,7 @@ RUN mkdir -p \
     ./provers/sgx \
     /var/log/raiko
 
+COPY --from=build-gaiko /opt/gaiko/gaiko ./bin/
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
 COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/config/sgx-guest.local.manifest.template
 # copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.

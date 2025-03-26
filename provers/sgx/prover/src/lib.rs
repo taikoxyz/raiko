@@ -64,6 +64,7 @@ impl From<SgxResponse> for Proof {
 }
 
 pub const ELF_NAME: &str = "sgx-guest";
+pub const GAIKO_ELF_NAME: &str = "gaiko";
 #[cfg(feature = "docker_build")]
 pub const CONFIG: &str = "../provers/sgx/config";
 #[cfg(not(feature = "docker_build"))]
@@ -248,6 +249,11 @@ impl Prover for SgxProver {
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
+        let is_pivot = match env::var("PIVOT") {
+            Ok(value) => value == "true",
+            Err(_) => false,
+        };
+
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
             Ok(value) => value == "1",
@@ -290,19 +296,23 @@ impl Prover for SgxProver {
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
-            let mut cmd = if direct_mode {
-                StdCommand::new("gramine-direct")
+            let (mut cmd, elf) = if direct_mode {
+                (StdCommand::new("gramine-direct"), ELF_NAME)
+            } else if is_pivot {
+                let mut cmd = StdCommand::new("ego");
+                cmd.arg("run");
+                (cmd, GAIKO_ELF_NAME)
             } else {
                 let mut cmd = StdCommand::new("sudo");
                 cmd.arg("gramine-sgx");
-                cmd
+                (cmd, ELF_NAME)
             };
-            cmd.current_dir(&cur_dir).arg(ELF_NAME);
+            cmd.current_dir(&cur_dir).arg(elf);
             cmd
         };
 
         // Setup: run this once while setting up your SGX instance
-        if sgx_param.setup {
+        if sgx_param.setup && !is_pivot {
             setup(&cur_dir, direct_mode).await?;
         }
 
