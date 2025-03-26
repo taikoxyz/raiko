@@ -172,7 +172,7 @@ async fn batch_handler(
                         .iter()
                         .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
                     if !is_all_sub_success {
-                        raiko_reqpool::Status::Registered
+                        raiko_reqpool::Status::WorkInProgress
                     } else {
                         raiko_reqpool::Status::Success {
                             // NOTE: Return the proof of the first sub-request
