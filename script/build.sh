@@ -2,9 +2,10 @@
 
 # Any error will result in failure
 set -e
+set -x
 
 TOOLCHAIN_RISC0=+nightly-2024-12-20
-TOOLCHAIN_SP1=+nightly-2024-12-20
+TOOLCHAIN_SP1="+1.82.0"
 TOOLCHAIN_SGX=+nightly-2024-12-20
 
 check_toolchain() {

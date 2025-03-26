@@ -72,7 +72,17 @@ elif [ "$proof" == "sp1" ]; then
 	"sp1": {
 		"recursion": "plonk",
 		"prover": "network",
-		"verify": true
+		"verify": false
+	}
+  '
+elif [ "$proof" == "sp1-mock" ]; then
+	proofParam='
+    "proof_type": "sp1",
+    "blob_proof_type": "proof_of_equivalence",
+	"sp1": {
+		"recursion": "plonk",
+		"prover": "mock",
+		"verify": false
 	}
   '
 elif [ "$proof" == "sp1-aggregation" ]; then

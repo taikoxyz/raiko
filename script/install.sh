@@ -70,16 +70,17 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
-	curl -L https://sp1.succinct.xyz | bash
+	curl -L https://sp1.succinct.xyz | zsh
 	echo "SP1 installed"
 	# if [ -z "${CI}" ] || [ ! command -v sp1up &> /dev/null ]; then
 	# echo "Non-CI environment"
 		# Need to add sp1up to the path here
-		PROFILE=$HOME/.bashrc
-		echo ${PROFILE}
-		source ${PROFILE}
+		# PROFILE=$HOME/.zshrc
+		# echo ${PROFILE}
+		# source ${PROFILE}
+        export PATH="$PATH:/home/ubuntu/.sp1/bin"
 		sp1up -v v4.0.0-rc.1
-		source ${PROFILE}
+		# source ${PROFILE}
 	# else
 	# 	echo "CI environment"
 	# 	source /home/runner/.bashrc
