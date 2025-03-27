@@ -410,6 +410,8 @@ pub struct ProverSpecificOpts {
     pub native: Option<Value>,
     /// SGX prover specific options.
     pub sgx: Option<Value>,
+    /// Pivot prover specific options.
+    pub pivot: Option<Value>,
     /// SP1 prover specific options.
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
@@ -423,6 +425,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
         [
             ("native", value.native.clone()),
             ("sgx", value.sgx.clone()),
+            ("pivot", value.pivot.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
         ]
