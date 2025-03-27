@@ -104,7 +104,7 @@ impl Actor {
             },
         }
 
-        let (resp_tx, resp_rx) = oneshot::channel();
+        let (resp_tx, _resp_rx) = oneshot::channel();
 
         // Send the action to the backend
         let start_time = chrono::Utc::now();
@@ -113,9 +113,20 @@ impl Actor {
             action.request_key().proof_type(),
         );
 
-        self.action_tx
-            .try_send((action.clone(), resp_tx))
-            .map_err(|e| format!("failed to send action: {e}"))?;
+        let request_key = action.request_key();
+        match request_key {
+            RequestKey::Aggregation(_) => {
+                self.action_tx
+                    .send((action.clone(), resp_tx))
+                    .await
+                    .map_err(|e| format!("failed to send action: {e}"))?;
+            }
+            _ => {
+                self.action_tx
+                    .try_send((action.clone(), resp_tx))
+                    .map_err(|e| format!("failed to send action: {e}"))?;
+            }
+        }
 
         raiko_metrics::observe_actor_channel_in_duration(
             action.request_key(),
