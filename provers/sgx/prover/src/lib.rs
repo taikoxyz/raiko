@@ -299,7 +299,7 @@ impl Prover for SgxProver {
             let (mut cmd, elf) = if direct_mode {
                 (StdCommand::new("gramine-direct"), Some(ELF_NAME))
             } else if is_pivot {
-                let mut cmd = StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
+                let cmd = StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
                 (cmd, None)
             } else {
                 let mut cmd = StdCommand::new("sudo");
