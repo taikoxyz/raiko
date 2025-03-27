@@ -72,7 +72,15 @@ pub const CONFIG: &str = "../../provers/sgx/config";
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 
-pub struct SgxProver;
+pub struct SgxProver {
+    is_pivot: bool,
+}
+
+impl SgxProver {
+    pub fn new(is_pivot: bool) -> Self {
+        Self { is_pivot }
+    }
+}
 
 impl Prover for SgxProver {
     async fn run(
@@ -165,11 +173,6 @@ impl Prover for SgxProver {
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
-        let is_pivot = match env::var("PIVOT") {
-            Ok(value) => value == "true",
-            Err(_) => false,
-        };
-
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
             Ok(value) => value == "1",
@@ -212,7 +215,7 @@ impl Prover for SgxProver {
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
-            if is_pivot {
+            if self.is_pivot {
                 return StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
             }
             let mut cmd = if direct_mode {
@@ -239,7 +242,7 @@ impl Prover for SgxProver {
         };
 
         if sgx_param.prove {
-            sgx_proof = aggregate(gramine_cmd(), input.clone(), is_pivot).await
+            sgx_proof = aggregate(gramine_cmd(), input.clone(), self.is_pivot).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -256,11 +259,6 @@ impl Prover for SgxProver {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
-
-        let is_pivot = match env::var("PIVOT") {
-            Ok(value) => value == "true",
-            Err(_) => false,
-        };
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
@@ -306,7 +304,7 @@ impl Prover for SgxProver {
         let gramine_cmd = || -> StdCommand {
             let (mut cmd, elf) = if direct_mode {
                 (StdCommand::new("gramine-direct"), Some(ELF_NAME))
-            } else if is_pivot {
+            } else if self.is_pivot {
                 let cmd = StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
                 (cmd, None)
             } else {
@@ -321,7 +319,7 @@ impl Prover for SgxProver {
         };
 
         // Setup: run this once while setting up your SGX instance
-        if sgx_param.setup && !is_pivot {
+        if sgx_param.setup && !self.is_pivot {
             setup(&cur_dir, direct_mode).await?;
         }
 
@@ -335,7 +333,7 @@ impl Prover for SgxProver {
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             let instance_id = get_instance_id_from_params(&input.inputs[0], &sgx_param)?;
-            sgx_proof = batch_prove(gramine_cmd(), input.clone(), instance_id, is_pivot).await
+            sgx_proof = batch_prove(gramine_cmd(), input.clone(), instance_id, self.is_pivot).await
         }
 
         sgx_proof.map(|r| r.into())

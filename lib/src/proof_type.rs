@@ -26,6 +26,12 @@ pub enum ProofType {
     /// Uses the RISC0 prover to build the block.
     #[serde(alias = "RISC0")]
     Risc0 = 3u8,
+
+    /// # PIVOT
+    ///
+    /// Uses the PIVOT prover to build the block.
+    #[serde(alias = "PIVOT")]
+    Pivot = 4u8,
 }
 
 impl std::fmt::Display for ProofType {
@@ -35,6 +41,7 @@ impl std::fmt::Display for ProofType {
             ProofType::Sp1 => "sp1",
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
+            ProofType::Pivot => "pivot",
         })
     }
 }
@@ -48,6 +55,7 @@ impl std::str::FromStr for ProofType {
             "sp1" => Ok(ProofType::Sp1),
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
+            "pivot" => Ok(ProofType::Pivot),
             _ => Err(format!("Unknown proof type {}", s)),
         }
     }
@@ -62,6 +70,7 @@ impl TryFrom<u8> for ProofType {
             1 => Ok(Self::Sp1),
             2 => Ok(Self::Sgx),
             3 => Ok(Self::Risc0),
+            4 => Ok(Self::Pivot),
             _ => Err(format!("Unknown proof type {}", value)),
         }
     }
