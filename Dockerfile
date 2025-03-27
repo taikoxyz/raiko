@@ -1,8 +1,4 @@
 FROM ghcr.io/edgelesssys/ego-dev:v1.7.0 AS build-gaiko
-
-ENV DEBIAN_FRONTEND=noninteractive
-ARG BUILD_FLAGS=""
-
 WORKDIR /opt/gaiko
 
 # Install dependencies
@@ -19,21 +15,27 @@ COPY gaiko/ego/enclave.json .
 COPY docker/enclave-key.pem private.pem
 RUN ego sign && ego bundle gaiko-ego gaiko && ego uniqueid gaiko-ego
 
-FROM rust:1.81.0 AS builder
-
+FROM rust:1.85.0 AS chef
+RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+RUN cargo binstall -y cargo-chef
+WORKDIR /opt/raiko
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
+
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
 # risc0 dependencies
 # RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
 #     cargo binstall -y --force cargo-risczero && \
 #     cargo risczero install
 
-WORKDIR /opt/raiko
+FROM chef AS builder
+COPY --from=planner /opt/raiko/recipe.json recipe.json
+RUN cargo chef cook --release ${BUILD_FLAGS} --features "sgx" --features "docker_build" --recipe-path recipe.json
 COPY . .
-RUN --mount=type=cache,target=/usr/local/cargo/git/db \
-    --mount=type=cache,target=/usr/local/cargo/registry/ \
-    cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
+RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 FROM gramineproject/gramine:1.8-jammy AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
