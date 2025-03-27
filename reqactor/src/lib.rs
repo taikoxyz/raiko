@@ -25,7 +25,7 @@ pub async fn start_actor(
     default_request_config: ProofRequestOpt,
     max_proving_concurrency: usize,
 ) -> Actor {
-    let channel_size = 1024;
+    let channel_size = 100;
     let (action_tx, action_rx) =
         mpsc::channel::<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>(channel_size);
     let (pause_tx, pause_rx) = mpsc::channel::<()>(1);
