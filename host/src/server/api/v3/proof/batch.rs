@@ -122,7 +122,7 @@ async fn batch_handler(
         )
         .await
     } else {
-        prove_many(&actor, sub_request_keys, sub_request_entities)
+        prove_many(&actor, sub_request_keys, sub_request_entities, false)
             .await
             .map(|statuses| {
                 let is_all_sub_success = statuses

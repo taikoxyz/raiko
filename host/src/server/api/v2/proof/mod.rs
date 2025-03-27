@@ -97,7 +97,7 @@ async fn proof_handler(
     )
     .into();
 
-    let result = crate::server::prove(&actor, request_key, request_entity).await;
+    let result = crate::server::prove(&actor, request_key, request_entity, false).await;
     Ok(to_v2_status(proof_type, result))
 }
 

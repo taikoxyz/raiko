@@ -12,19 +12,20 @@ pub async fn prove(
     actor: &Actor,
     request_key: RequestKey,
     request_entity: RequestEntity,
+    is_high_priority: bool,
 ) -> Result<Status, String> {
     let action = Action::Prove {
         request_key,
         request_entity,
         start_time: chrono::Utc::now(),
     };
-    act(actor, action).await
+    act(actor, action, is_high_priority).await
 }
 
 /// Cancel the request.
 pub async fn cancel(actor: &Actor, request_key: RequestKey) -> Result<Status, String> {
     let action = Action::Cancel { request_key };
-    act(actor, action).await
+    act(actor, action, false).await
 }
 
 /// Prove the aggregation request and its sub-requests.
@@ -36,7 +37,7 @@ pub async fn prove_aggregation(
     sub_request_entities: Vec<RequestEntity>,
 ) -> Result<Status, String> {
     // Prove the sub-requests
-    let statuses = prove_many(actor, sub_request_keys, sub_request_entities).await?;
+    let statuses = prove_many(actor, sub_request_keys, sub_request_entities, true).await?;
     let is_all_sub_success = statuses
         .iter()
         .all(|status| matches!(status, Status::Success { .. }));
@@ -58,7 +59,7 @@ pub async fn prove_aggregation(
         request_entity_without_proofs.proof_type().clone(),
         request_entity_without_proofs.prover_args().clone(),
     );
-    prove(actor, request_key.into(), request_entity.into()).await
+    prove(actor, request_key.into(), request_entity.into(), true).await
 }
 
 /// Prove many requests.
@@ -66,16 +67,17 @@ pub(crate) async fn prove_many(
     actor: &Actor,
     request_keys: Vec<RequestKey>,
     request_entities: Vec<RequestEntity>,
+    is_high_priority: bool,
 ) -> Result<Vec<Status>, String> {
     let mut statuses = Vec::with_capacity(request_keys.len());
     for (request_key, request_entity) in request_keys.into_iter().zip(request_entities) {
         match (request_key, request_entity) {
             (RequestKey::SingleProof(key), RequestEntity::SingleProof(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
+                let status = prove(actor, key.into(), entity.into(), is_high_priority).await?;
                 statuses.push(status);
             }
             (RequestKey::BatchProof(key), RequestEntity::BatchProof(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
+                let status = prove(actor, key.into(), entity.into(), is_high_priority).await?;
                 statuses.push(status);
             }
             _ => return Err("Invalid request key and entity".to_string()),
@@ -99,7 +101,7 @@ pub async fn cancel_aggregation(
 // === Helper functions ===
 
 // Send the action to the Actor and return the response status
-async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
+async fn act(actor: &Actor, action: Action, is_high_priority: bool) -> Result<Status, String> {
     // Check if the system is paused
     if actor.is_paused() {
         return Err("System is paused".to_string());
@@ -126,12 +128,15 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
         });
 
     // Send the action to the Actor and return the response status
-    actor.act(action.clone()).await.map(|status| {
-        tracing::trace!(
-            "trace request out {request_key}: {status}",
-            request_key = action.request_key(),
-            status = status.status()
-        );
-        status.into_status()
-    })
+    actor
+        .act(action.clone(), is_high_priority)
+        .await
+        .map(|status| {
+            tracing::trace!(
+                "trace request out {request_key}: {status}",
+                request_key = action.request_key(),
+                status = status.status()
+            );
+            status.into_status()
+        })
 }
