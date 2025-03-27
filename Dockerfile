@@ -31,7 +31,7 @@ ARG BUILD_FLAGS=""
 
 WORKDIR /opt/raiko
 COPY . .
-RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
+RUN --mount=type=cache,target=/usr/local/cargo/registry cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 FROM gramineproject/gramine:1.8-jammy AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
