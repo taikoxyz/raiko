@@ -12,12 +12,12 @@ RUN go mod download
 
 # Build
 COPY gaiko/ .
-RUN ego-go build -o gaiko ./cmd/gaiko
+RUN ego-go build -o gaiko-ego ./cmd/gaiko
 
 # Sign with our enclave config and private key
 COPY gaiko/ego/enclave.json .
 COPY docker/enclave-key.pem private.pem
-RUN ego sign
+RUN ego sign && ego bundle gaiko-ego gaiko && ego uniqueid gaiko-ego
 
 FROM rust:1.81.0 AS builder
 
@@ -37,11 +37,6 @@ FROM gramineproject/gramine:1.8-jammy AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
 
-COPY --from=builder /opt/raiko/docker/install-ego.sh ./
-
-RUN chmod +x ./install-ego.sh && \
-    ./install-ego.sh
-
 RUN apt-get update && \
     apt-get install -y \
     cracklib-runtime \
@@ -49,9 +44,11 @@ RUN apt-get update && \
     libsgx-dcap-ql \
     libsgx-urts \
     sgx-pck-id-retrieval-tool \
+    build-essential \
+    libssl-dev \
     jq \
     sudo && \
-    apt-get clean && \
+    apt-get clean all && \
     rm -rf /var/lib/apt/lists/*
 
 RUN sed -i 's/#default quoting type = ecdsa_256/default quoting type = ecdsa_256/' /etc/aesmd.conf && \

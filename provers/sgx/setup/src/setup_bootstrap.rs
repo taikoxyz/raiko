@@ -58,10 +58,7 @@ pub(crate) async fn setup_bootstrap(
 
     let gramine_cmd = || -> Command {
         if is_pivot {
-            let mut cmd = Command::new("ego");
-            cmd.arg("run");
-            cmd.current_dir(&cur_dir).arg(GAIKO_ELF_NAME);
-            return cmd;
+            return StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
         }
         let mut cmd = Command::new("sudo");
         cmd.arg("gramine-sgx");

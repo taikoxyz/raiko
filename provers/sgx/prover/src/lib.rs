@@ -297,17 +297,18 @@ impl Prover for SgxProver {
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
             let (mut cmd, elf) = if direct_mode {
-                (StdCommand::new("gramine-direct"), ELF_NAME)
+                (StdCommand::new("gramine-direct"), Some(ELF_NAME))
             } else if is_pivot {
-                let mut cmd = StdCommand::new("ego");
-                cmd.arg("run");
-                (cmd, GAIKO_ELF_NAME)
+                let mut cmd = StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
+                (cmd, None)
             } else {
                 let mut cmd = StdCommand::new("sudo");
                 cmd.arg("gramine-sgx");
-                (cmd, ELF_NAME)
+                (cmd, Some(ELF_NAME))
             };
-            cmd.current_dir(&cur_dir).arg(elf);
+            if let Some(elf) = elf {
+                cmd.current_dir(&cur_dir).arg(elf);
+            }
             cmd
         };
 
