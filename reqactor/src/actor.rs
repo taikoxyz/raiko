@@ -95,20 +95,7 @@ impl Actor {
         // get pool status
         let status_opt = self.pool_get_status(action.request_key())?;
         match status_opt {
-            None => match action.clone() {
-                Action::Prove {
-                    request_key,
-                    request_entity,
-                    start_time,
-                } => {
-                    let _ = self.pool.lock().unwrap().add(
-                        request_key,
-                        request_entity,
-                        StatusWithContext::new(Status::Registered, start_time),
-                    );
-                }
-                _ => {}
-            },
+            None => {}
             Some(status) => match status.status() {
                 Status::Registered | Status::WorkInProgress | Status::Success { .. } => {
                     return Ok(status);
@@ -127,8 +114,7 @@ impl Actor {
         );
 
         self.action_tx
-            .send((action.clone(), resp_tx))
-            .await
+            .try_send((action.clone(), resp_tx))
             .map_err(|e| format!("failed to send action: {e}"))?;
 
         raiko_metrics::observe_actor_channel_in_duration(
