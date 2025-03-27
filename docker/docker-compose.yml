@@ -6,6 +6,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init
     command: --init
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -30,6 +32,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init-self-register
     command: --init-self-register
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -59,6 +63,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -103,6 +109,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-self-register
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -140,6 +148,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
     container_name: raiko-zk
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    env_file:
+      - .env
     volumes:
       - /var/log/raiko:/var/log/raiko
     ports:
@@ -178,6 +188,8 @@ services:
       dockerfile: Dockerfile.pccs
     image: us-docker.pkg.dev/evmchain/images/pccs:latest
     container_name: pccs
+    env_file:
+      - .env
     ports:
       - "8081:8081"
     volumes:
@@ -187,6 +199,8 @@ services:
   redis:
     image: redis
     container_name: redis
+    env_file:
+      - .env
     ports:
       - "6379:6379"
     profiles:
