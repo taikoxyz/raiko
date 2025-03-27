@@ -108,14 +108,12 @@ elif [[ "$proof" == "sgx" || "$proof" == "pivot" ]]; then
         \"input_path\": null
     }
   "
-  echo $proofParam
 elif [[ "$proof" == "sgx-agg" || "$proof" == "pivot-agg" ]]; then
   real_type="${proof%-agg}"
-  echo $real_type
   proofParam="
-    \"proof_type\": \"$proof\",
+    \"proof_type\": \"$real_type\",
     \"aggregate\": true,
-    \"$proof\" : {
+    \"$real_type\" : {
         \"instance_id\": 123,
         \"setup\": false,
         \"bootstrap\": false,
@@ -123,7 +121,6 @@ elif [[ "$proof" == "sgx-agg" || "$proof" == "pivot-agg" ]]; then
         \"input_path\": null
     }
   "
-  echo $proofParam
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
@@ -156,7 +153,7 @@ prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
 
-echo "- proving batch $batch_id @ $batch_proposal_height on $chain with $proof proof"
+echo "- proving batch $batch_info on $chain with $proof proof"
 curl --location --request POST 'http://localhost:8088/v3/proof/batch' \
     --header 'Content-Type: application/json' \
     --header 'Authorization: Bearer' \
