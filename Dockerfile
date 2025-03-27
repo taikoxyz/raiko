@@ -32,8 +32,8 @@ ARG BUILD_FLAGS=""
 WORKDIR /opt/raiko
 COPY . .
 RUN --mount=type=cache,target=/opt/raiko/target \
-    --mount=type=cache,id=cargo-git,target=/usr/local/cargo/git/db,sharing=locked \
-    --mount=type=cache,id=cargo-registery,target=/usr/local/cargo/registry/,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/ \
     cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 FROM gramineproject/gramine:1.8-jammy AS runtime
