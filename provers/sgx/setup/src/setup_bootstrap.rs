@@ -57,7 +57,7 @@ pub(crate) async fn setup_bootstrap_inner(
         .get_chain_spec(&bootstrap_args.l1_network)
         .ok_or_else(|| {
             anyhow!(
-                "Unsupported l1 network: {}, pivot: {proof_type}",
+                "Unsupported l1 network: {}, proof_type: {proof_type}",
                 bootstrap_args.l1_network
             )
         })?;
@@ -66,7 +66,7 @@ pub(crate) async fn setup_bootstrap_inner(
         .get_chain_spec(&bootstrap_args.network)
         .ok_or_else(|| {
             anyhow!(
-                "Unsupported l2 network: {}, pivot: {proof_type}",
+                "Unsupported l2 network: {}, proof_type: {proof_type}",
                 bootstrap_args.l1_network
             )
         })?;
@@ -92,7 +92,7 @@ pub(crate) async fn setup_bootstrap_inner(
     let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd(), proof_type)
         .await
         .map_err(|e| {
-            println!("Error checking bootstrap: {e:?}, pivot: {proof_type}");
+            println!("Error checking bootstrap: {e:?}, proof_type: {proof_type}");
             e
         })
         .is_err()
@@ -103,7 +103,7 @@ pub(crate) async fn setup_bootstrap_inner(
             .flat_map(|v| v)
             .any(|id| !registered_fork_ids.clone().unwrap().contains_key(&id));
 
-    println!("Instance ID: {registered_fork_ids:?}, pivot: {proof_type}");
+    println!("Instance ID: {registered_fork_ids:?}, proof_type: {proof_type}");
 
     if need_init {
         // clean check file
