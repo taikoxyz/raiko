@@ -111,18 +111,9 @@ pub async fn run_prover(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx => {
+        ProofType::Sgx | ProofType::Pivot => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::new(false)
-                .run(input.clone(), output, config, store)
-                .await
-                .map_err(|e| e.into());
-            #[cfg(not(feature = "sgx"))]
-            Err(RaikoError::FeatureNotSupportedError(proof_type))
-        }
-        ProofType::Pivot => {
-            #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::new(true)
+            return sgx_prover::SgxProver::new(proof_type)
                 .run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
@@ -163,18 +154,9 @@ pub async fn run_batch_prover(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx => {
+        ProofType::Sgx | ProofType::Pivot => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::new(false)
-                .batch_run(input.clone(), output, config, store)
-                .await
-                .map_err(|e| e.into());
-            #[cfg(not(feature = "sgx"))]
-            Err(RaikoError::FeatureNotSupportedError(proof_type))
-        }
-        ProofType::Pivot => {
-            #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::new(true)
+            return sgx_prover::SgxProver::new(proof_type)
                 .batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
@@ -215,18 +197,9 @@ pub async fn aggregate_proofs(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx => {
+        ProofType::Sgx | ProofType::Pivot => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::new(false)
-                .aggregate(input.clone(), output, config, store)
-                .await
-                .map_err(|e| e.into());
-            #[cfg(not(feature = "sgx"))]
-            Err(RaikoError::FeatureNotSupportedError(proof_type))
-        }
-        ProofType::Pivot => {
-            #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::new(true)
+            return sgx_prover::SgxProver::new(proof_type)
                 .aggregate(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
@@ -266,18 +239,9 @@ pub async fn cancel_proof(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx => {
+        ProofType::Sgx | ProofType::Pivot => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::new(false)
-                .cancel(proof_key, read)
-                .await
-                .map_err(|e| e.into());
-            #[cfg(not(feature = "sgx"))]
-            Err(RaikoError::FeatureNotSupportedError(proof_type))
-        }
-        ProofType::Pivot => {
-            #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::new(true)
+            return sgx_prover::SgxProver::new(proof_type)
                 .cancel(proof_key, read)
                 .await
                 .map_err(|e| e.into());
