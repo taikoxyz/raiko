@@ -36,7 +36,13 @@ pub(crate) async fn setup_bootstrap(
         true,
         FileOptions::new().create(true).write(true),
     )?;
-    setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Sgx).await?;
+    setup_bootstrap_inner(
+        secret_dir.clone(),
+        config_dir.clone(),
+        bootstrap_args,
+        ProofType::Sgx,
+    )
+    .await?;
     setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Pivot).await
 }
 
@@ -102,7 +108,7 @@ pub(crate) async fn setup_bootstrap_inner(
     if need_init {
         // clean check file
         remove_instance_id(&config_dir, proof_type)?;
-        let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
+        let bootstrap_proof = bootstrap(secret_dir, gramine_cmd(), proof_type).await?;
         let mut fork_register_id: ForkRegisterId = BTreeMap::new();
         for (verifier_addr, spec_ids) in fork_verifier_pairs.iter() {
             let register_id = register_sgx_instance(
