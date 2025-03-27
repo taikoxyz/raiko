@@ -17,6 +17,7 @@ use raiko_lib::{
         GuestInput, GuestOutput, RawAggregationGuestInput, RawProof,
     },
     primitives::{keccak, Address, B256},
+    proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,15 @@ pub use crate::sgx_register_utils::{
 };
 
 pub const PRIV_KEY_FILENAME: &str = "priv.key";
+pub const PRIV_KEY_FILENAME_GAIKO: &str = "priv.gaiko.key";
+
+pub fn get_priv_key_filename(proof_type: ProofType) -> &'static str {
+    match proof_type {
+        ProofType::Sgx => PRIV_KEY_FILENAME,
+        ProofType::Pivot => PRIV_KEY_FILENAME_GAIKO,
+        _ => panic!("Invalid proof type for SGX prover"),
+    }
+}
 
 // to register the instance id
 mod sgx_register_utils;
@@ -64,6 +74,7 @@ impl From<SgxResponse> for Proof {
 }
 
 pub const ELF_NAME: &str = "sgx-guest";
+pub const GAIKO_ELF_NAME: &str = "gaiko";
 #[cfg(feature = "docker_build")]
 pub const CONFIG: &str = "../provers/sgx/config";
 #[cfg(not(feature = "docker_build"))]
@@ -71,16 +82,26 @@ pub const CONFIG: &str = "../../provers/sgx/config";
 static GRAMINE_MANIFEST_TEMPLATE: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 static PRIVATE_KEY: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
 
-pub struct SgxProver;
+pub struct SgxProver {
+    proof_type: ProofType,
+}
+
+impl SgxProver {
+    pub fn new(proof_type: ProofType) -> Self {
+        Self { proof_type }
+    }
+}
 
 impl Prover for SgxProver {
     async fn run(
+        &self,
         input: GuestInput,
         _output: &GuestOutput,
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
+        let sgx_param =
+            SgxParam::deserialize(config.get(&self.proof_type.to_string()).unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
@@ -141,7 +162,12 @@ impl Prover for SgxProver {
         }
 
         let mut sgx_proof = if sgx_param.bootstrap {
-            bootstrap(cur_dir.clone().join("secrets"), gramine_cmd()).await
+            bootstrap(
+                cur_dir.clone().join("secrets"),
+                gramine_cmd(),
+                self.proof_type,
+            )
+            .await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -157,12 +183,14 @@ impl Prover for SgxProver {
     }
 
     async fn aggregate(
+        &self,
         input: AggregationGuestInput,
         _output: &AggregationGuestOutput,
         config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
+        let sgx_param =
+            SgxParam::deserialize(config.get(&self.proof_type.to_string()).unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
@@ -206,6 +234,9 @@ impl Prover for SgxProver {
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
+            if self.proof_type == ProofType::Pivot {
+                return StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
+            }
             let mut cmd = if direct_mode {
                 StdCommand::new("gramine-direct")
             } else {
@@ -223,30 +254,37 @@ impl Prover for SgxProver {
         }
 
         let mut sgx_proof = if sgx_param.bootstrap {
-            bootstrap(cur_dir.clone().join("secrets"), gramine_cmd()).await
+            bootstrap(
+                cur_dir.clone().join("secrets"),
+                gramine_cmd(),
+                self.proof_type,
+            )
+            .await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
         };
 
         if sgx_param.prove {
-            sgx_proof = aggregate(gramine_cmd(), input.clone()).await
+            sgx_proof = aggregate(gramine_cmd(), input.clone(), self.proof_type).await
         }
 
         sgx_proof.map(|r| r.into())
     }
 
-    async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
+    async fn cancel(&self, _proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
 
     async fn batch_run(
+        &self,
         input: GuestBatchInput,
         _output: &GuestBatchOutput,
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
+        let sgx_param =
+            SgxParam::deserialize(config.get(&self.proof_type.to_string()).unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
@@ -290,24 +328,34 @@ impl Prover for SgxProver {
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
-            let mut cmd = if direct_mode {
-                StdCommand::new("gramine-direct")
+            let (mut cmd, elf) = if direct_mode {
+                (StdCommand::new("gramine-direct"), Some(ELF_NAME))
+            } else if self.proof_type == ProofType::Pivot {
+                let cmd = StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
+                (cmd, None)
             } else {
                 let mut cmd = StdCommand::new("sudo");
                 cmd.arg("gramine-sgx");
-                cmd
+                (cmd, Some(ELF_NAME))
             };
-            cmd.current_dir(&cur_dir).arg(ELF_NAME);
+            if let Some(elf) = elf {
+                cmd.current_dir(&cur_dir).arg(elf);
+            }
             cmd
         };
 
         // Setup: run this once while setting up your SGX instance
-        if sgx_param.setup {
+        if sgx_param.setup && self.proof_type != ProofType::Pivot {
             setup(&cur_dir, direct_mode).await?;
         }
 
         let mut sgx_proof = if sgx_param.bootstrap {
-            bootstrap(cur_dir.clone().join("secrets"), gramine_cmd()).await
+            bootstrap(
+                cur_dir.clone().join("secrets"),
+                gramine_cmd(),
+                self.proof_type,
+            )
+            .await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -316,7 +364,8 @@ impl Prover for SgxProver {
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             let instance_id = get_instance_id_from_params(&input.inputs[0], &sgx_param)?;
-            sgx_proof = batch_prove(gramine_cmd(), input.clone(), instance_id).await
+            sgx_proof =
+                batch_prove(gramine_cmd(), input.clone(), instance_id, self.proof_type).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -389,10 +438,11 @@ async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
 pub async fn check_bootstrap(
     secret_dir: PathBuf,
     mut gramine_cmd: StdCommand,
+    proof_type: ProofType,
 ) -> ProverResult<(), ProverError> {
     tokio::task::spawn_blocking(move || {
         // Check if the private key exists
-        let path = secret_dir.join(PRIV_KEY_FILENAME);
+        let path = secret_dir.join(get_priv_key_filename(proof_type));
         if !path.exists() {
             Err(ProverError::GuestError(
                 "Private key does not exist".to_string(),
@@ -416,11 +466,12 @@ pub async fn check_bootstrap(
 pub async fn bootstrap(
     secret_dir: PathBuf,
     mut gramine_cmd: StdCommand,
+    proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
         // Bootstrap with new private key for signing proofs
         // First delete the private key if it already exists
-        let path = secret_dir.join(PRIV_KEY_FILENAME);
+        let path = secret_dir.join(get_priv_key_filename(proof_type));
         if path.exists() {
             if let Err(e) = remove_file(&path) {
                 println!("Error deleting file: {e}");
@@ -537,6 +588,7 @@ async fn batch_prove(
     mut gramine_cmd: StdCommand,
     input: GuestBatchInput,
     instance_id: u64,
+    proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     if fake_signing() {
         println!("Fake sgx prove signing mode enabled");
@@ -601,7 +653,13 @@ async fn batch_prove(
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = bincode::serialize_into(stdin, &input);
+        let input_success = if proof_type == ProofType::Pivot {
+            serde_json::to_writer(stdin, &input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+        } else {
+            bincode::serialize_into(stdin, &input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+        };
         let output_success = child.wait_with_output();
 
         match (input_success, output_success) {
@@ -624,6 +682,7 @@ async fn batch_prove(
 async fn aggregate(
     mut gramine_cmd: StdCommand,
     input: AggregationGuestInput,
+    proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     // Extract the useful parts of the proof here so the guest doesn't have to do it
     let raw_input = RawAggregationGuestInput {
@@ -726,7 +785,13 @@ async fn aggregate(
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = bincode::serialize_into(stdin, &raw_input);
+        let input_success = if proof_type == ProofType::Pivot {
+            serde_json::to_writer(stdin, &raw_input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+        } else {
+            bincode::serialize_into(stdin, &raw_input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+        };
         let output_success = child.wait_with_output();
 
         match (input_success, output_success) {
