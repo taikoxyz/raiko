@@ -165,6 +165,11 @@ impl Prover for SgxProver {
     ) -> ProverResult<Proof> {
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
+        let is_pivot = match env::var("PIVOT") {
+            Ok(value) => value == "true",
+            Err(_) => false,
+        };
+
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
             Ok(value) => value == "1",
@@ -207,6 +212,9 @@ impl Prover for SgxProver {
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
+            if is_pivot {
+                return StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
+            }
             let mut cmd = if direct_mode {
                 StdCommand::new("gramine-direct")
             } else {
@@ -231,7 +239,7 @@ impl Prover for SgxProver {
         };
 
         if sgx_param.prove {
-            sgx_proof = aggregate(gramine_cmd(), input.clone()).await
+            sgx_proof = aggregate(gramine_cmd(), input.clone(), is_pivot).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -327,7 +335,7 @@ impl Prover for SgxProver {
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             let instance_id = get_instance_id_from_params(&input.inputs[0], &sgx_param)?;
-            sgx_proof = batch_prove(gramine_cmd(), input.clone(), instance_id).await
+            sgx_proof = batch_prove(gramine_cmd(), input.clone(), instance_id, is_pivot).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -489,6 +497,7 @@ async fn batch_prove(
     mut gramine_cmd: StdCommand,
     input: GuestBatchInput,
     instance_id: u64,
+    is_pivot: bool,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
@@ -501,7 +510,11 @@ async fn batch_prove(
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = bincode::serialize_into(stdin, &input);
+        let input_success = if is_pivot {
+            serde_json::to_writer(stdin, &input)
+        } else {
+            bincode::serialize_into(stdin, &input)
+        };
         let output_success = child.wait_with_output();
 
         match (input_success, output_success) {
@@ -524,6 +537,7 @@ async fn batch_prove(
 async fn aggregate(
     mut gramine_cmd: StdCommand,
     input: AggregationGuestInput,
+    is_pivot: bool,
 ) -> ProverResult<SgxResponse, ProverError> {
     // Extract the useful parts of the proof here so the guest doesn't have to do it
     let raw_input = RawAggregationGuestInput {
@@ -554,7 +568,11 @@ async fn aggregate(
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = bincode::serialize_into(stdin, &raw_input);
+        let input_success = if is_pivot {
+            serde_json::to_writer(stdin, &raw_input)
+        } else {
+            bincode::serialize_into(stdin, &raw_input)
+        };
         let output_success = child.wait_with_output();
 
         match (input_success, output_success) {
