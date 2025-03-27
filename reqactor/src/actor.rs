@@ -12,7 +12,7 @@ use raiko_lib::{
     consts::{ChainSpec, SupportedChainSpecs},
     proof_type::ProofType,
 };
-use raiko_reqpool::{Pool, RequestKey, StatusWithContext};
+use raiko_reqpool::{Pool, RequestKey, Status, StatusWithContext};
 use reth_primitives::BlockHash;
 use tokio::sync::{mpsc::Sender, oneshot};
 
@@ -92,6 +92,31 @@ impl Actor {
 
     /// Send an action to the backend and wait for the response.
     pub async fn act(&self, action: Action) -> Result<StatusWithContext, String> {
+        // get pool status
+        let status_opt = self.pool_get_status(action.request_key())?;
+        match status_opt {
+            None => match action.clone() {
+                Action::Prove {
+                    request_key,
+                    request_entity,
+                    start_time,
+                } => {
+                    let _ = self.pool.lock().unwrap().add(
+                        request_key,
+                        request_entity,
+                        StatusWithContext::new(Status::Registered, start_time),
+                    );
+                }
+                _ => {}
+            },
+            Some(status) => match status.status() {
+                Status::Registered | Status::WorkInProgress | Status::Success { .. } => {
+                    return Ok(status);
+                }
+                Status::Cancelled | Status::Failed { .. } => {}
+            },
+        }
+
         let (resp_tx, resp_rx) = oneshot::channel();
 
         // Send the action to the backend
@@ -114,10 +139,12 @@ impl Actor {
                 .unwrap_or_default(),
         );
 
-        // Wait for response of the action
-        resp_rx
-            .await
-            .map_err(|e| format!("failed to receive action response: {e}"))?
+        return Ok(StatusWithContext::new_registered());
+
+        // // Wait for response of the action
+        // resp_rx
+        //     .await
+        //     .map_err(|e| format!("failed to receive action response: {e}"))?
     }
 
     /// Set the pause flag and notify the task manager to pause, then wait for the task manager to
