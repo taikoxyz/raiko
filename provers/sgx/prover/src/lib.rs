@@ -17,6 +17,7 @@ use raiko_lib::{
         GuestInput, GuestOutput, RawAggregationGuestInput, RawProof,
     },
     primitives::B256,
+    proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,15 @@ pub use crate::sgx_register_utils::{
 };
 
 pub const PRIV_KEY_FILENAME: &str = "priv.key";
+pub const PRIV_KEY_FILENAME_GAIKO: &str = "priv.gaiko.key";
+
+pub fn get_priv_key_filename(proof_type: ProofType) -> &'static str {
+    match proof_type {
+        ProofType::Sgx => PRIV_KEY_FILENAME,
+        ProofType::Pivot => PRIV_KEY_FILENAME_GAIKO,
+        _ => panic!("Invalid proof type for SGX prover"),
+    }
+}
 
 // to register the instance id
 mod sgx_register_utils;
@@ -84,6 +94,7 @@ impl SgxProver {
 
 impl Prover for SgxProver {
     async fn run(
+        &self,
         input: GuestInput,
         _output: &GuestOutput,
         config: &ProverConfig,
@@ -166,6 +177,7 @@ impl Prover for SgxProver {
     }
 
     async fn aggregate(
+        &self,
         input: AggregationGuestInput,
         _output: &AggregationGuestOutput,
         config: &ProverConfig,
@@ -248,11 +260,12 @@ impl Prover for SgxProver {
         sgx_proof.map(|r| r.into())
     }
 
-    async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
+    async fn cancel(&self, _proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
 
     async fn batch_run(
+        &self,
         input: GuestBatchInput,
         _output: &GuestBatchOutput,
         config: &ProverConfig,
@@ -406,10 +419,11 @@ async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
 pub async fn check_bootstrap(
     secret_dir: PathBuf,
     mut gramine_cmd: StdCommand,
+    proof_type: ProofType,
 ) -> ProverResult<(), ProverError> {
     tokio::task::spawn_blocking(move || {
         // Check if the private key exists
-        let path = secret_dir.join(PRIV_KEY_FILENAME);
+        let path = secret_dir.join(get_priv_key_filename(proof_type));
         if !path.exists() {
             Err(ProverError::GuestError(
                 "Private key does not exist".to_string(),
