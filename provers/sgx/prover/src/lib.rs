@@ -612,7 +612,7 @@ async fn batch_prove(
         let pi = raiko_lib::protocol_instance::ProtocolInstance::new_batch(
             &batch_input,
             final_blocks,
-            raiko_lib::proof_type::ProofType::Sgx,
+            proof_type,
         )
         .map_err(|e| ProverError::GuestError(e.to_string()))?
         .sgx_instance(new_instance);
