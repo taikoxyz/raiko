@@ -5,6 +5,6 @@ protocol = "sparse"
 linker = "clang"
 rustflags = ["-C", "link-arg=--ld-path=wild"]
 
-[buid]
+[build]
 incremental = true
 rustflags = ["-Z", "threads=16"]
