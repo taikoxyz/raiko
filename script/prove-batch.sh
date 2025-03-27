@@ -97,17 +97,33 @@ elif [ "$proof" == "sp1-aggregation" ]; then
 		"verify": false
 	}
   '
-elif [ "$proof" == "sgx" ]; then
-	proofParam='
-    "proof_type": "sgx",
-    "sgx" : {
-        "instance_id": 123,
-        "setup": false,
-        "bootstrap": false,
-        "prove": true,
-        "input_path": null
+elif [[ "$proof" == "sgx" || "$proof" == "pivot" ]]; then
+  proofParam="
+    \"proof_type\": \"$proof\",
+    \"$proof\" : {
+        \"instance_id\": 123,
+        \"setup\": false,
+        \"bootstrap\": false,
+        \"prove\": true,
+        \"input_path\": null
     }
-'
+  "
+  echo $proofParam
+elif [[ "$proof" == "sgx-agg" || "$proof" == "pivot-agg" ]]; then
+  real_type="${proof%-agg}"
+  echo $real_type
+  proofParam="
+    \"proof_type\": \"$proof\",
+    \"aggregate\": true,
+    \"$proof\" : {
+        \"instance_id\": 123,
+        \"setup\": false,
+        \"bootstrap\": false,
+        \"prove\": true,
+        \"input_path\": null
+    }
+  "
+  echo $proofParam
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
