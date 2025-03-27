@@ -31,8 +31,7 @@ ARG BUILD_FLAGS=""
 
 WORKDIR /opt/raiko
 COPY . .
-RUN --mount=type=cache,target=/opt/raiko/target \
-    --mount=type=cache,target=/usr/local/cargo/git/db \
+RUN --mount=type=cache,target=/usr/local/cargo/git/db \
     --mount=type=cache,target=/usr/local/cargo/registry/ \
     cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
