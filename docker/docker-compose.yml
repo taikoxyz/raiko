@@ -15,9 +15,10 @@ services:
       - ${HOME}/.config/raiko:/root/.config/raiko
     environment:
       - SGX=true
+      - PIVOT=${PIVOT}
     # environment:
-      # you can use your own PCCS host
-      #- PCCS_HOST=host.docker.internal:8081
+    # you can use your own PCCS host
+    #- PCCS_HOST=host.docker.internal:8081
     depends_on:
       - pccs
   init-self-register:
@@ -39,6 +40,7 @@ services:
       - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
     environment:
       - SGX=true
+      - PIVOT=${PIVOT}
       - SENDER_PRIV_KEY=${SENDER_PRIV_KEY}
       - L1_RPC=${L1_RPC}
       - L1_CHAIN_ID=${L1_CHAIN_ID}
@@ -68,6 +70,7 @@ services:
       - "8080:8080"
     environment:
       - SGX=true
+      - PIVOT=${PIVOT}
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
@@ -115,6 +118,7 @@ services:
       # you can use your own PCCS host
       # - PCCS_HOST=host.docker.internal:8081
       - SGX=true
+      - PIVOT=${PIVOT}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
       - HOLESKY_RPC=${HOLESKY_RPC}
