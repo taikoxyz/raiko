@@ -36,8 +36,8 @@ pub(crate) async fn setup_bootstrap(
         true,
         FileOptions::new().create(true).write(true),
     )?;
-    setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Sgx)?;
-    setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Pivot)
+    setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Sgx).await?;
+    setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Pivot).await
 }
 
 pub(crate) async fn setup_bootstrap_inner(
@@ -119,7 +119,7 @@ pub(crate) async fn setup_bootstrap_inner(
         }
         println!("Saving instance id {registered_fork_ids:?}");
         // set check file
-        set_instance_id(&config_dir, &fork_register_id, proof_type)?;
+        set_instance_id(&config_dir, proof_type, &fork_register_id)?;
         registered_fork_ids = Some(fork_register_id);
     }
     // Always reset the configuration with a persistent instance ID upon restart.
