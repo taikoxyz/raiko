@@ -512,8 +512,10 @@ async fn batch_prove(
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         let input_success = if is_pivot {
             serde_json::to_writer(stdin, &input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
         } else {
             bincode::serialize_into(stdin, &input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
         };
         let output_success = child.wait_with_output();
 
@@ -570,8 +572,10 @@ async fn aggregate(
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         let input_success = if is_pivot {
             serde_json::to_writer(stdin, &raw_input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
         } else {
             bincode::serialize_into(stdin, &raw_input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
         };
         let output_success = child.wait_with_output();
 
