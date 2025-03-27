@@ -662,8 +662,14 @@ fn handle_gramine_error(context: &str, err: std::io::Error) -> String {
 }
 
 fn handle_output(output: &Output, name: &str) -> ProverResult<(), String> {
-    println!("{name} stderr: {}", str::from_utf8(&output.stderr).unwrap());
-    println!("{name} stdout: {}", str::from_utf8(&output.stdout).unwrap());
+    println!(
+        "{name} stderr: {}",
+        str::from_utf8(&output.stderr).unwrap_or_default()
+    );
+    println!(
+        "{name} stdout: {}",
+        str::from_utf8(&output.stdout).unwrap_or_default()
+    );
     if !output.status.success() {
         return Err(format!(
             "{name} encountered an error ({}): {}",
