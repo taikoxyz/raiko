@@ -17,13 +17,15 @@ RUN ego sign && ego bundle gaiko-ego gaiko && ego uniqueid gaiko-ego
 
 FROM rust:1.85.0 AS chef
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-RUN cargo binstall -y cargo-chef
+RUN cargo binstall -y cargo-chef wild-linker
+RUN apt-get update && apt-get install -y clang
 WORKDIR /opt/raiko
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
 
 FROM chef AS planner
 COPY . .
+COPY docker/cargo-config.toml .cargo/config.toml
 RUN cargo chef prepare --recipe-path recipe.json
 
 # risc0 dependencies
@@ -35,6 +37,7 @@ FROM chef AS builder
 COPY --from=planner /opt/raiko/recipe.json recipe.json
 RUN cargo chef cook --release ${BUILD_FLAGS} --features "sgx" --features "docker_build" --recipe-path recipe.json
 COPY . .
+COPY docker/cargo-config.toml .cargo/config.toml
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 FROM gramineproject/gramine:1.8-jammy AS runtime
