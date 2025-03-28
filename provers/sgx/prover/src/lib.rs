@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::serde_as;
 use tokio::{process::Command, sync::OnceCell};
+use tracing::info;
 
 pub use crate::sgx_register_utils::{
     get_instance_id, register_sgx_instance, remove_instance_id, set_instance_id,
