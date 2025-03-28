@@ -556,8 +556,10 @@ pub async fn handle_proof(
             input
         }
     };
+    info!("handle_proof: input done");
     memory::reset_stats();
     let output = raiko.get_output(&input)?;
+    info!("handle_proof: output done");
     memory::print_stats("Guest program peak memory used: ");
 
     memory::reset_stats();
@@ -566,6 +568,7 @@ pub async fn handle_proof(
         .prove(input.clone(), &output, store.map(|s| s as &mut dyn IdWrite))
         .await
         .map_err(|e| {
+            info!("handle_proof: proof generation failed");
             let total_time = total_time.stop_with("====> Proof generation failed");
             observe_total_time(proof_request.block_number, total_time, false);
             match e {
@@ -579,6 +582,7 @@ pub async fn handle_proof(
                 }
             }
         })?;
+    info!("handle_proof: proof done");
     let guest_time = measurement.stop_with("=> Proof generated");
     observe_guest_time(
         &proof_request.proof_type,

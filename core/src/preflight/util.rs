@@ -160,6 +160,8 @@ pub async fn prepare_taiko_chain_input(
             &blob_proof_type,
         )
         .await?
+
+        info!("get_tx_data done");
     } else {
         match fork {
             SpecId::ONTAKE => {
@@ -183,6 +185,8 @@ pub async fn prepare_taiko_chain_input(
             }
         }
     };
+
+    info!("prepare_taiko_chain_input done");
 
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {

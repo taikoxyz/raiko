@@ -87,6 +87,7 @@ pub async fn run_prover(
     config: &Value,
     store: Option<&mut dyn IdWrite>,
 ) -> RaikoResult<Proof> {
+    info!("run_prover: start");
     match proof_type {
         ProofType::Native => NativeProver::run(input.clone(), output, config, store)
             .await

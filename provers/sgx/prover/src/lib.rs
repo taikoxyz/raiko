@@ -78,6 +78,7 @@ impl Prover for SgxProver {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
+        info!("sgx prover: run start");
         let sgx_param = SgxParam::deserialize(config.get("sgx").unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
