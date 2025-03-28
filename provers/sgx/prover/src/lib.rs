@@ -198,14 +198,16 @@ impl Prover for SgxProver {
             Err(_) => false,
         };
 
-        println!(
-            "WARNING: running SGX in {} mode!",
-            if direct_mode {
-                "direct (a.k.a. simulation)"
-            } else {
-                "hardware"
-            }
-        );
+        if self.proof_type == ProofType::Sgx {
+            println!(
+                "WARNING: running SGX in {} mode!",
+                if direct_mode {
+                    "direct (a.k.a. simulation)"
+                } else {
+                    "hardware"
+                }
+            );
+        }
 
         // The working directory
         let mut cur_dir = env::current_exe()
@@ -292,14 +294,16 @@ impl Prover for SgxProver {
             Err(_) => false,
         };
 
-        println!(
-            "WARNING: running SGX in {} mode!",
-            if direct_mode {
-                "direct (a.k.a. simulation)"
-            } else {
-                "hardware"
-            }
-        );
+        if self.proof_type == ProofType::Sgx {
+            println!(
+                "WARNING: running SGX in {} mode!",
+                if direct_mode {
+                    "direct (a.k.a. simulation)"
+                } else {
+                    "hardware"
+                }
+            );
+        }
 
         // The working directory
         let mut cur_dir = env::current_exe()
