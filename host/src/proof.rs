@@ -158,7 +158,7 @@ impl ProofActor {
         let opts = self.opts.clone();
         let chain_specs = self.chain_specs.clone();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             select! {
                 _ = cancel_token.cancelled() => {
                     info!("Task cancelled");
@@ -187,6 +187,13 @@ impl ProofActor {
                 .send(Message::TaskComplete(proof_request))
                 .await
                 .expect("Couldn't send message");
+        });
+        // Monitor the task for panics
+        tokio::spawn(async move {
+            if let Err(e) = handle.await {
+                error!("Task panicked: {}", e);
+                // Could add more panic recovery logic here if needed
+            }
         });
     }
 
