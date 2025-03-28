@@ -161,7 +161,9 @@ async fn test_native_prover() {
             "json_guest_input": null
         }
     });
-    NativeProver::run(input, &output, &param, None)
+    let prover = NativeProver;
+    prover
+        .run(input, &output, &param, None)
         .await
         .expect_err("Default output should not match input.");
 }

@@ -62,7 +62,7 @@ clap = { workspace = true }
 
 # db cache
 lazy_static = { workspace = true }
-lru_time_cache = { workspace = true }
+lru = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

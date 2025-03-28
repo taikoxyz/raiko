@@ -42,7 +42,6 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 tower = { workspace = true }
-lru_time_cache = { workspace = true }
 prometheus = { workspace = true }
 lazy_static = { workspace = true }
 once_cell = { workspace = true }
