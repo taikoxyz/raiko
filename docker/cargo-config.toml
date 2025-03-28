@@ -1,0 +1,10 @@
+[registries.crates-io]
+protocol = "sparse"
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=--ld-path=wild"]
+
+[build]
+incremental = true
+rustflags = ["-Z", "threads=16"]
