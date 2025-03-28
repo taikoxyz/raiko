@@ -1,7 +1,10 @@
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
 use raiko_lib::proof_type::ProofType;
-use raiko_reqpool::{SingleProofRequestEntity, SingleProofRequestKey};
+use raiko_reqpool::{
+    GuestInputRequestEntity, GuestInputRequestKey, SingleProofRequestEntity, SingleProofRequestKey,
+    Status as InPoolStatus,
+};
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -79,29 +82,55 @@ async fn proof_handler(
     .await?;
 
     let proof_type = proof_request.proof_type;
-    let request_key = SingleProofRequestKey::new(
-        chain_id,
-        proof_request.block_number,
-        blockhash,
-        proof_request.proof_type,
-        proof_request.prover.to_string(),
-    )
-    .into();
-    let request_entity = SingleProofRequestEntity::new(
+    let request_key =
+        GuestInputRequestKey::new(chain_id, proof_request.block_number, blockhash).into();
+    let request_entity = GuestInputRequestEntity::new(
         proof_request.block_number,
         proof_request.l1_inclusion_block_number,
-        proof_request.network,
-        proof_request.l1_network,
+        proof_request.network.clone(),
+        proof_request.l1_network.clone(),
         proof_request.graffiti,
-        proof_request.prover,
-        proof_request.proof_type,
-        proof_request.blob_proof_type,
-        proof_request.prover_args,
+        proof_request.blob_proof_type.clone(),
+        proof_request.prover_args.clone(),
     )
     .into();
 
+    // deal with guest input first
     let result = crate::server::prove(&actor, request_key, request_entity).await;
-    Ok(to_v2_status(proof_type, result))
+    match result {
+        Ok(InPoolStatus::Success { proof }) => {
+            let request_key = SingleProofRequestKey::new(
+                chain_id,
+                proof_request.block_number,
+                blockhash,
+                proof_request.proof_type,
+                proof_request.prover.to_string(),
+            )
+            .into();
+            let mut prover_args = proof_request.prover_args.clone();
+            prover_args.insert(
+                "guest_input".to_string(),
+                serde_json::to_value(proof.proof)?,
+            );
+            let request_entity = SingleProofRequestEntity::new(
+                proof_request.block_number,
+                proof_request.l1_inclusion_block_number,
+                proof_request.network,
+                proof_request.l1_network,
+                proof_request.graffiti,
+                proof_request.prover,
+                proof_request.proof_type,
+                proof_request.blob_proof_type,
+                prover_args,
+            )
+            .into();
+
+            let result = crate::server::prove(&actor, request_key, request_entity).await;
+            Ok(to_v2_status(proof_type, result))
+        }
+        Ok(_) => Ok(to_v2_status(proof_type, result)),
+        Err(_) => Ok(to_v2_status(proof_type, result)),
+    }
 }
 
 #[derive(OpenApi)]

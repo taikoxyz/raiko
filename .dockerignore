@@ -7,6 +7,7 @@
 !/config.json
 !/docker/entrypoint.sh
 !/docker/enclave-key.pem
+!/docker/cargo-config.toml
 !/lib
 !/primitives
 !/provers
@@ -16,7 +17,6 @@
 !/rust-toolchain
 !/taiko.toml
 !/tests
-!/provers/sgx/setup
 !/kzg_settings_raw.bin
 !/core
 !/taskdb
@@ -26,3 +26,7 @@
 !/reqactor
 !/ballot
 !/redis-derive
+!/gaiko
+
+/provers/sp1/guest/target
+/provers/risc0/guest/target

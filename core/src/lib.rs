@@ -29,9 +29,9 @@ pub mod provider;
 pub type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
 pub struct Raiko {
-    l1_chain_spec: ChainSpec,
-    taiko_chain_spec: ChainSpec,
-    request: ProofRequest,
+    pub l1_chain_spec: ChainSpec,
+    pub taiko_chain_spec: ChainSpec,
+    pub request: ProofRequest,
 }
 
 impl Raiko {

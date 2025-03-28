@@ -1,14 +1,57 @@
 #!/usr/bin/env bash
 
+if [ "$#" -ne 3 ]; then
+  echo "Usage: prove-batch.sh <chain> <proof> <batch_info>"
+  echo "  chain: taiko_mainnet, taiko_a7, taiko_dev"
+  echo "  proof: native, risc0[-bonsai], sp1, sgx"
+  echo "  batch_info: [(batch_id, batch_proposal_height), ...]"
+  echo "Example:"
+  echo "  prove-batch.sh ethereum native [(1, 2), (3, 4)]"
+  exit 1
+fi
+
 # Use the first command line argument as the chain name
 chain="$1"
 # Use the second command line argument as the proof type
 proof="$2"
 # Use the third parameter(s) as the batch number as a range
-batch_id="$3"
-# Use the fourth parameter(s) as the batch number as a range
-batch_proposal_height="$4"
+batch_info="$3"
 
+parse_batch_pair() {
+  local input="$1"
+
+  local cleaned
+  cleaned=$(echo "$input" | sed 's/[][]//g' | sed 's/ //g' | tr -d '()')
+
+  local pairs
+  pairs=$(echo "$cleaned" | grep -oE '[0-9]+,[0-9]+')
+
+  if [[ -z "$pairs" ]]; then
+    echo "❌ Invalid input format: expected something like [(1,2), (3,4)]" >&2
+    return 1
+  fi
+
+  local json_array="["
+  local first=1
+
+  while IFS=',' read -r batch_id height; do
+    if [[ $first -eq 0 ]]; then
+      json_array+=", "
+    fi
+    json_array+="{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $height}"
+    first=0
+  done <<< "$pairs"
+
+  json_array+="]"
+  echo "$json_array"
+}
+
+batch_request=$(parse_batch_pair "$batch_info")
+if [[ $? -ne 0 ]]; then
+  exit 1
+fi
+
+echo "Parsed batch request: $batch_request"
 
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
@@ -98,15 +141,16 @@ graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
 
 echo "- proving batch $batch_id @ $batch_proposal_height on $chain with $proof proof"
-curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
+curl --location --request POST 'http://localhost:8088/v3/proof/batch' \
     --header 'Content-Type: application/json' \
     --header 'Authorization: Bearer' \
     --data-raw "{
         \"network\": \"$chain\",
         \"l1_network\": \"$l1_network\",
-        \"batches\": [{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $batch_proposal_height}],
+        \"batches\": $batch_request,
         \"prover\": \"$prover\",
         \"graffiti\": \"$graffiti\",
+        \"aggregate\": false,
         $proofParam
     }"
 set +x

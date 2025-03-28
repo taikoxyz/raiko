@@ -6,6 +6,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init
     command: --init
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -15,9 +17,10 @@ services:
       - ${HOME}/.config/raiko:/root/.config/raiko
     environment:
       - SGX=true
+      - PIVOT=${PIVOT}
     # environment:
-      # you can use your own PCCS host
-      #- PCCS_HOST=host.docker.internal:8081
+    # you can use your own PCCS host
+    #- PCCS_HOST=host.docker.internal:8081
     depends_on:
       - pccs
   init-self-register:
@@ -29,6 +32,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init-self-register
     command: --init-self-register
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -39,6 +44,7 @@ services:
       - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
     environment:
       - SGX=true
+      - PIVOT=${PIVOT}
       - SENDER_PRIV_KEY=${SENDER_PRIV_KEY}
       - L1_RPC=${L1_RPC}
       - L1_CHAIN_ID=${L1_CHAIN_ID}
@@ -57,6 +63,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -68,6 +76,7 @@ services:
       - "8080:8080"
     environment:
       - SGX=true
+      - PIVOT=${PIVOT}
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
@@ -100,6 +109,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-self-register
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -115,6 +126,7 @@ services:
       # you can use your own PCCS host
       # - PCCS_HOST=host.docker.internal:8081
       - SGX=true
+      - PIVOT=${PIVOT}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
       - HOLESKY_RPC=${HOLESKY_RPC}
@@ -136,6 +148,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
     container_name: raiko-zk
     command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    env_file:
+      - .env
     volumes:
       - /var/log/raiko:/var/log/raiko
     ports:
@@ -174,6 +188,8 @@ services:
       dockerfile: Dockerfile.pccs
     image: us-docker.pkg.dev/evmchain/images/pccs:latest
     container_name: pccs
+    env_file:
+      - .env
     ports:
       - "8081:8081"
     volumes:
@@ -183,6 +199,8 @@ services:
   redis:
     image: redis
     container_name: redis
+    env_file:
+      - .env
     ports:
       - "6379:6379"
     profiles:

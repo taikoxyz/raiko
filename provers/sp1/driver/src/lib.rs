@@ -113,6 +113,7 @@ static AGGREGATION_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::ne
 
 impl Prover for Sp1Prover {
     async fn run(
+        &self,
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
@@ -254,7 +255,7 @@ impl Prover for Sp1Prover {
         )
     }
 
-    async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+    async fn cancel(&self, key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
         // let proof_id = match id_store.read_id(key).await {
         //     Ok(proof_id) => proof_id,
         //     Err(e) => {
@@ -281,6 +282,7 @@ impl Prover for Sp1Prover {
     }
 
     async fn aggregate(
+        &self,
         input: AggregationGuestInput,
         _output: &AggregationGuestOutput,
         config: &ProverConfig,
@@ -429,6 +431,7 @@ impl Prover for Sp1Prover {
     }
 
     async fn batch_run(
+        &self,
         _input: GuestBatchInput,
         _output: &GuestBatchOutput,
         _config: &ProverConfig,

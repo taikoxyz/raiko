@@ -48,6 +48,7 @@ pub fn make_proof_request(
                 "execution_po2" : 21, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
             })),
             sgx: None,
+            pivot: None,
             sp1: None,
         },
     }

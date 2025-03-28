@@ -61,6 +61,7 @@ pub trait IdStore: IdWrite {
 #[allow(async_fn_in_trait)]
 pub trait Prover {
     async fn run(
+        &self,
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
@@ -68,6 +69,7 @@ pub trait Prover {
     ) -> ProverResult<Proof>;
 
     async fn batch_run(
+        &self,
         input: GuestBatchInput,
         output: &GuestBatchOutput,
         config: &ProverConfig,
@@ -75,11 +77,12 @@ pub trait Prover {
     ) -> ProverResult<Proof>;
 
     async fn aggregate(
+        &self,
         input: AggregationGuestInput,
         output: &AggregationGuestOutput,
         config: &ProverConfig,
         store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;
 
-    async fn cancel(proof_key: ProofKey, read: Box<&mut dyn IdStore>) -> ProverResult<()>;
+    async fn cancel(&self, proof_key: ProofKey, read: Box<&mut dyn IdStore>) -> ProverResult<()>;
 }

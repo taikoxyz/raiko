@@ -101,6 +101,13 @@ impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+pub struct GuestInputTaskDescriptor {
+    pub chain_id: ChainId,
+    pub block_id: u64,
+    pub blockhash: B256,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub struct ProofTaskDescriptor {
     pub chain_id: ChainId,
     pub block_id: u64,
@@ -131,6 +138,15 @@ impl From<&AggregationOnlyRequest> for AggregationTaskDescriptor {
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(default)]
 /// A request for proof aggregation of multiple proofs.
+pub struct BatchGuestInputTaskDescriptor {
+    pub chain_id: ChainId,
+    pub batch_id: u64,
+    pub l1_height: u64,
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[serde(default)]
+/// A request for proof aggregation of multiple proofs.
 pub struct BatchProofTaskDescriptor {
     pub chain_id: ChainId,
     pub batch_id: u64,
@@ -141,9 +157,11 @@ pub struct BatchProofTaskDescriptor {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskDescriptor {
+    GuestInput(GuestInputTaskDescriptor),
     SingleProof(ProofTaskDescriptor),
     Aggregation(AggregationTaskDescriptor),
     BatchProof(BatchProofTaskDescriptor),
+    BatchGuestInput(BatchGuestInputTaskDescriptor),
 }
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);
