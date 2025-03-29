@@ -160,8 +160,6 @@ pub async fn prepare_taiko_chain_input(
             &blob_proof_type,
         )
         .await?
-
-        info!("get_tx_data done");
     } else {
         match fork {
             SpecId::ONTAKE => {
@@ -214,11 +212,15 @@ pub async fn get_tx_data(
         chain_spec.genesis_time,
         chain_spec.seconds_per_slot,
     )?;
+    info!("get_tx_data: slot_id done");
     let beacon_rpc_url: String = chain_spec.beacon_rpc.clone().ok_or_else(|| {
         RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
     })?;
+    info!("get_tx_data: beacon_rpc_url done");
     let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
+    info!("get_tx_data: blob done");
     let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
+    info!("get_tx_data: commitment done");
     let blob_proof = match blob_proof_type {
         BlobProofType::KzgVersionedHash => None,
         BlobProofType::ProofOfEquivalence => {
@@ -237,6 +239,8 @@ pub async fn get_tx_data(
             )
         }
     };
+
+    info!("get_tx_data: blob_proof done");
 
     Ok((blob, Some(commitment.to_vec()), blob_proof))
 }
