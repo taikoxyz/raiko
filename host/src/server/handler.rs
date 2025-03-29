@@ -116,8 +116,13 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
             }
         }
         _ => {
+            if let Ok(Some(status)) = actor.pool_get_status(&action.request_key()) {
+                if matches!(status.status(), Status::Success { .. }) {
+                    return Ok(status.into_status());
+                }
+            }
             tracing::warn!(
-                "Only BatchProof request can be checked for status, process {:?}",
+                "No success status for the non-batch request {:?}, process it",
                 key
             );
         }
