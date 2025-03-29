@@ -765,7 +765,7 @@ async fn aggregate(
         proof.extend(old_instance);
         proof.extend(new_instance);
         proof.extend(sig);
-        let proof = hex::encode(proof);
+        let proof = format!("0x{}", hex::encode(proof));
 
         return Ok(SgxResponse {
             proof,
