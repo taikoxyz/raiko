@@ -28,7 +28,7 @@ use reth_primitives::revm_primitives::{
     Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap,
 };
 use reth_primitives::{Address, BlockWithSenders, Header, B256, KECCAK_EMPTY, U256};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 pub static SURGE_DEV: Lazy<Arc<RethChainSpec>> = Lazy::new(|| {
     RethChainSpec {
@@ -118,6 +118,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 
     /// Executes all input transactions.
     pub fn execute_transactions(&mut self, optimistic: bool) -> Result<()> {
+        info!("execute_transactions: start");
         // Get the chain spec
         let chain_spec = &self.input.chain_spec;
         let total_difficulty = U256::ZERO;
@@ -139,6 +140,8 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             "surge_dev" => SURGE_DEV.clone(),
             _ => unimplemented!(),
         };
+
+        info!("execute_transactions: reth_chain_spec done");
 
         if reth_chain_spec.is_taiko() {
             let block_num = self.input.taiko.block_proposed.block_number();
@@ -162,6 +165,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                     "evm fork is not active, please update the chain spec"
                 );
             }
+            info!("execute_transactions: is_taiko done");
         }
 
         // Generate the transactions from the tx list
@@ -172,11 +176,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             &self.input.taiko.tx_data,
             &self.input.taiko.anchor_tx,
         );
+        info!("execute_transactions: generate_transactions done");
         // Recover senders
         let mut block = block
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
-
+        info!("execute_transactions: with_recovered_senders done");
         // Execute transactions
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
@@ -187,6 +192,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
             })
             .optimistic(optimistic);
+        info!("execute_transactions: executor done");
         let BlockExecutionOutput {
             state,
             receipts,
@@ -200,27 +206,34 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 error!("Error executing block: {e:?}");
                 e
             })?;
+        info!("execute_transactions: execute done");
         // Filter out the valid transactions so that the header checks only take these into account
         block.body = valid_transaction_indices
             .iter()
             .map(|&i| block.body[i].clone())
             .collect();
-
+        info!("execute_transactions: valid_transaction_indices done");
         // Header validation
         let block = block.seal_slow();
         if !optimistic {
+            info!("execute_transactions: !optimistic start");
             let consensus = EthBeaconConsensus::new(reth_chain_spec.clone());
+            info!("execute_transactions: consensus done");
             // Validates extra data
             consensus.validate_header_with_total_difficulty(&block.header, total_difficulty)?;
+            info!("execute_transactions: validate_header_with_total_difficulty done");
             // Validates if some values are set that should not be set for the current HF
             consensus.validate_header(&block.header)?;
+            info!("execute_transactions: validate_header done");
             // Validates parent block hash, block number and timestamp
             consensus.validate_header_against_parent(
                 &block.header,
                 &self.input.parent_header.clone().seal_slow(),
             )?;
+            info!("execute_transactions: validate_header_against_parent done");
             // Validates ommers hash, transaction root, withdrawals root
             consensus.validate_block_pre_execution(&block)?;
+            info!("execute_transactions: validate_block_pre_execution done");
             // Validates the gas used, the receipts root and the logs bloom
             validate_block_post_execution(
                 &BlockWithSenders {
@@ -231,10 +244,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 &receipts,
                 &requests,
             )?;
+            info!("execute_transactions: validate_block_post_execution done");
         }
 
         // Apply DB changes
         self.db = Some(full_state.database);
+        info!("execute_transactions: changes start");
         let changes: HashMap<Address, Account> = state
             .state
             .into_iter()
@@ -254,8 +269,9 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 (address, account)
             })
             .collect();
+        info!("execute_transactions: changes done");
         self.db.as_mut().unwrap().commit(changes);
-
+        info!("execute_transactions: commit done");
         Ok(())
     }
 }

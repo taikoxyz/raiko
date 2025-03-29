@@ -38,23 +38,30 @@ where
     BDP: BlockDataProvider,
 {
     let max_iterations = 100;
+    info!("execute_txs: start");
     for num_iterations in 0.. {
+        info!("execute_txs: iteration {num_iterations}");
         inplace_print(&format!("Executing iteration {num_iterations}..."));
 
         let Some(db) = builder.db.as_mut() else {
+            info!("execute_txs: No db in builder before execute_transactions");
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
         };
         db.optimistic = num_iterations + 1 < max_iterations;
 
+        info!("execute_txs: execute_transactions start");
         builder
             .execute_transactions(num_iterations + 1 < max_iterations)
             .map_err(|e| {
                 RaikoError::Preflight(format!("Executing transactions in builder failed: {e}"))
             })?;
+        info!("execute_txs: execute_transactions done");
 
         let Some(db) = builder.db.as_mut() else {
+            info!("execute_txs: No db in builder after execute_transactions");
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
         };
+        info!("execute_txs: fetch_data start");
         if db.fetch_data().await {
             clear_line();
             info!("State data fetched in {num_iterations} iterations");
