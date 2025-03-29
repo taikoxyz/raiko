@@ -106,7 +106,7 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
 
     // Return early if the request is already succeeded
     if let Ok(Some(status)) = actor.pool_get_status(&action.request_key()) {
-        if !matches!(status.status(), Status::Failed { .. }) {
+        if matches!(status.status(), Status::Success { .. }) {
             return Ok(status.into_status());
         }
     }
