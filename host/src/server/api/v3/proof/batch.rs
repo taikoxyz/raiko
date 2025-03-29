@@ -122,15 +122,19 @@ async fn batch_handler(
     } else {
         let refuse_non_agg = std::env::var("REFUSE_NON_AGG").unwrap_or("0".to_string()) == "1";
         if refuse_non_agg {
-            for (request_key, _request_entity) in request_keys.into_iter().zip(request_entities) {
-                if let Ok(Some(status)) = actor.pool_get_status(request_key) {
-                    Ok(status.into_status())
-                } else {
-                    Ok(raiko_reqpool::Status::Failed {
-                        error: "Fail".to_string(),
-                    })
+            for (request_key, _request_entity) in
+                sub_request_keys.into_iter().zip(sub_request_entities)
+            {
+                if let Ok(Some(status)) = actor.pool_get_status(&request_key) {
+                    return Ok(to_v3_status(
+                        batch_request.proof_type,
+                        Ok(status.into_status()),
+                    ));
                 }
             }
+            Ok(raiko_reqpool::Status::Failed {
+                error: "Fail".to_string(),
+            })
         } else {
             prove_many(&actor, sub_request_keys, sub_request_entities)
                 .await
