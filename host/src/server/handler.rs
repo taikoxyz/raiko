@@ -105,9 +105,26 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
     }
 
     // Return early if the request is already succeeded
-    if let Ok(Some(status)) = actor.pool_get_status(&action.request_key()) {
-        if matches!(status.status(), Status::Success { .. }) {
-            return Ok(status.into_status());
+    let key = action.request_key();
+    match key {
+        RequestKey::BatchProof(_) => {
+            if let Ok(Some(status)) = actor.pool_get_status(&action.request_key()) {
+                if !matches!(status.status(), Status::Failed { .. }) {
+                    tracing::info!("Request already exist: {:?}, {:?}", key, status);
+                    return Ok(status.into_status());
+                }
+            }
+        }
+        _ => {
+            if let Ok(Some(status)) = actor.pool_get_status(&action.request_key()) {
+                if matches!(status.status(), Status::Success { .. }) {
+                    return Ok(status.into_status());
+                }
+            }
+            tracing::warn!(
+                "No success status for the non-batch request {:?}, process it",
+                key
+            );
         }
     }
 
