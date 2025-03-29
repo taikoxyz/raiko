@@ -120,27 +120,34 @@ async fn batch_handler(
         )
         .await
     } else {
-        prove_many(&actor, sub_request_keys, sub_request_entities)
-            .await
-            .map(|statuses| {
-                let is_all_sub_success = statuses
-                    .iter()
-                    .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
-                if !is_all_sub_success {
-                    raiko_reqpool::Status::Registered
-                } else {
-                    raiko_reqpool::Status::Success {
-                        // NOTE: Return the proof of the first sub-request
-                        proof: {
-                            if let raiko_reqpool::Status::Success { proof, .. } = &statuses[0] {
-                                proof.clone()
-                            } else {
-                                Proof::default()
-                            }
-                        },
-                    }
-                }
+        let refuse_non_agg = std::env::var("REFUSE_NON_AGG").unwrap_or("0".to_string()) == "1";
+        if refuse_non_agg {
+            Ok(raiko_reqpool::Status::Failed {
+                error: "Fail".to_string(),
             })
+        } else {
+            prove_many(&actor, sub_request_keys, sub_request_entities)
+                .await
+                .map(|statuses| {
+                    let is_all_sub_success = statuses
+                        .iter()
+                        .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
+                    if !is_all_sub_success {
+                        raiko_reqpool::Status::Registered
+                    } else {
+                        raiko_reqpool::Status::Success {
+                            // NOTE: Return the proof of the first sub-request
+                            proof: {
+                                if let raiko_reqpool::Status::Success { proof, .. } = &statuses[0] {
+                                    proof.clone()
+                                } else {
+                                    Proof::default()
+                                }
+                            },
+                        }
+                    }
+                })
+        }
     };
     Ok(to_v3_status(batch_request.proof_type, result))
 }
