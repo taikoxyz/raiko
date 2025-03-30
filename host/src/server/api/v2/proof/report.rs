@@ -19,7 +19,10 @@ use utoipa::OpenApi;
 ///
 /// Retrieve a list of `{ chain_id, blockhash, prover_type, prover, status }` items.
 async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
-    let statuses = actor.pool_list_status().map_err(|e| anyhow::anyhow!(e))?;
+    let statuses = actor
+        .pool_list_status()
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
 
     // For compatibility with the old API, we need to convert the statuses to the old format.
     let to_task_status = |status: StatusWithContext| match status.into_status() {

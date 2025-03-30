@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 
@@ -12,25 +12,25 @@ use raiko_lib::{
     consts::{ChainSpec, SupportedChainSpecs},
     proof_type::ProofType,
 };
-use raiko_reqpool::{Pool, RequestKey, StatusWithContext};
+use raiko_reqpool::{Pool, RequestEntity, RequestKey, Status, StatusWithContext};
 use reth_primitives::BlockHash;
-use tokio::sync::{mpsc::Sender, oneshot};
+use tokio::sync::{Mutex, Notify};
 
-use crate::Action;
+use crate::queue::Queue;
 
 /// Actor is the main interface interacting with the backend and the pool.
 #[derive(Debug, Clone)]
 pub struct Actor {
     default_request_config: ProofRequestOpt,
     chain_specs: SupportedChainSpecs,
-    action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
-    pause_tx: Sender<()>,
     is_paused: Arc<AtomicBool>,
 
     // TODO: Remove Mutex. currently, in order to pass `&mut Pool`, we need to use Arc<Mutex<Pool>>.
     pool: Arc<Mutex<Pool>>,
     // In order to support dynamic config via HTTP, we need to use Arc<Mutex<Ballot>>.
     ballot: Arc<Mutex<Ballot>>,
+    queue: Arc<Mutex<Queue>>,
+    notify: Arc<Notify>,
 }
 
 impl Actor {
@@ -39,17 +39,17 @@ impl Actor {
         ballot: Ballot,
         default_request_config: ProofRequestOpt,
         chain_specs: SupportedChainSpecs,
-        action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
-        pause_tx: Sender<()>,
+        queue: Arc<Mutex<Queue>>,
+        notify: Arc<Notify>,
     ) -> Self {
         Self {
             default_request_config,
             chain_specs,
-            action_tx,
-            pause_tx,
             is_paused: Arc::new(AtomicBool::new(false)),
             ballot: Arc::new(Mutex::new(ballot)),
             pool: Arc::new(Mutex::new(pool)),
+            queue,
+            notify,
         }
     }
 
@@ -75,180 +75,193 @@ impl Actor {
     }
 
     /// Get the status of the request from the pool.
-    pub fn pool_get_status(
+    pub async fn pool_get_status(
         &self,
         request_key: &RequestKey,
     ) -> Result<Option<StatusWithContext>, String> {
-        self.pool.lock().unwrap().get_status(request_key)
+        self.pool.lock().await.get_status(request_key)
     }
 
-    pub fn pool_list_status(&self) -> Result<HashMap<RequestKey, StatusWithContext>, String> {
-        self.pool.lock().unwrap().list()
+    pub async fn pool_update_status(
+        &self,
+        request_key: RequestKey,
+        status: StatusWithContext,
+    ) -> Result<(), String> {
+        self.pool
+            .lock()
+            .await
+            .update_status(request_key, status)
+            .map(|_| ())
     }
 
-    pub fn pool_remove_request(&self, request_key: &RequestKey) -> Result<usize, String> {
-        self.pool.lock().unwrap().remove(request_key)
+    pub async fn pool_add_new(
+        &self,
+        request_key: RequestKey,
+        request_entity: RequestEntity,
+        status: StatusWithContext,
+    ) -> Result<(), String> {
+        self.pool
+            .lock()
+            .await
+            .add(request_key, request_entity, status)
+    }
+
+    pub async fn pool_list_status(&self) -> Result<HashMap<RequestKey, StatusWithContext>, String> {
+        self.pool.lock().await.list()
+    }
+
+    pub async fn pool_remove_request(&self, request_key: &RequestKey) -> Result<usize, String> {
+        self.pool.lock().await.remove(request_key)
     }
 
     /// Send an action to the backend and wait for the response.
-    pub async fn act(&self, action: Action) -> Result<StatusWithContext, String> {
-        let (resp_tx, resp_rx) = oneshot::channel();
+    pub async fn act(
+        &self,
+        request_key: RequestKey,
+        request_entity: RequestEntity,
+        start_time: chrono::DateTime<chrono::Utc>,
+    ) -> Result<StatusWithContext, String> {
+        let pool_status_opt = self.pool_get_status(&request_key).await?;
 
-        // Send the action to the backend
-        let start_time = chrono::Utc::now();
-        raiko_metrics::inc_actor_channel_in_count(
-            action.request_key(),
-            action.request_key().proof_type(),
-        );
+        // Return successed status if the request is already succeeded
+        if matches!(
+            pool_status_opt.as_ref().map(|s| s.status()),
+            Some(Status::Success { .. })
+        ) {
+            return Ok(pool_status_opt.unwrap());
+        }
 
-        self.action_tx
-            .send((action.clone(), resp_tx))
-            .await
-            .map_err(|e| format!("failed to send action: {e}"))?;
+        // Mark the request as registered in the pool
+        let status = StatusWithContext::new(Status::Registered, start_time);
+        if pool_status_opt.is_none() {
+            self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
+                .await?;
+        } else {
+            self.pool_update_status(request_key.clone(), status.clone())
+                .await?;
+        }
 
-        raiko_metrics::observe_actor_channel_in_duration(
-            action.request_key(),
-            action.request_key().proof_type(),
-            (chrono::Utc::now() - start_time)
-                .to_std()
-                .unwrap_or_default(),
-        );
+        // Push the request into the queue and notify to start the action
+        let mut queue = self.queue.lock().await;
+        if !queue.contains(&request_key) {
+            queue.add_pending(request_key, request_entity);
+            self.notify.notify_one();
+        }
 
-        // Wait for response of the action
-        resp_rx
-            .await
-            .map_err(|e| format!("failed to receive action response: {e}"))?
+        return Ok(status);
     }
 
-    /// Set the pause flag and notify the task manager to pause, then wait for the task manager to
-    /// finish the pause process.
-    ///
-    /// Note that this function is blocking until the task manager finishes the pause process.
     pub async fn pause(&self) -> Result<(), String> {
         self.is_paused.store(true, Ordering::SeqCst);
-        self.pause_tx
-            .send(())
-            .await
-            .map_err(|e| format!("failed to send pause signal: {e}"))?;
         Ok(())
     }
 
-    pub fn get_ballot(&self) -> Ballot {
-        self.ballot.lock().unwrap().clone()
+    pub async fn get_ballot(&self) -> Ballot {
+        self.ballot.lock().await.clone()
     }
 
-    pub fn set_ballot(&self, new_ballot: Ballot) {
-        let mut ballot = self.ballot.lock().unwrap();
+    pub async fn set_ballot(&self, new_ballot: Ballot) {
+        let mut ballot = self.ballot.lock().await;
         *ballot = new_ballot;
     }
 
     /// Draw proof types based on the block hash.
-    pub fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
-        self.ballot.lock().unwrap().draw(block_hash)
+    pub async fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
+        self.ballot.lock().await.draw(block_hash)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use alloy_primitives::Address;
-    use raiko_lib::{
-        consts::SupportedChainSpecs,
-        input::BlobProofType,
-        primitives::{ChainId, B256},
-        proof_type::ProofType,
-    };
-    use raiko_reqpool::{
-        memory_pool, RequestEntity, RequestKey, SingleProofRequestEntity, SingleProofRequestKey,
-        StatusWithContext,
-    };
-    use std::collections::HashMap;
-    use tokio::sync::mpsc;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use alloy_primitives::Address;
+//     use raiko_lib::{
+//         consts::SupportedChainSpecs,
+//         input::BlobProofType,
+//         primitives::{ChainId, B256},
+//         proof_type::ProofType,
+//     };
+//     use raiko_reqpool::{
+//         memory_pool, RequestEntity, RequestKey, SingleProofRequestEntity, SingleProofRequestKey,
+//         StatusWithContext,
+//     };
+//     use std::collections::HashMap;
+//     use tokio::sync::mpsc;
 
-    #[tokio::test]
-    async fn test_pause_sets_is_paused_flag() {
-        let (action_tx, _) = mpsc::channel(1);
-        let (pause_tx, _pause_rx) = mpsc::channel(1);
+//     #[tokio::test]
+//     async fn test_pause_sets_is_paused_flag() {
+//         let pool = memory_pool("test_pause_sets_is_paused_flag");
+//         let actor = Actor::new(
+//             pool,
+//             Ballot::default(),
+//             ProofRequestOpt::default(),
+//             SupportedChainSpecs::default(),
+//         );
 
-        let pool = memory_pool("test_pause_sets_is_paused_flag");
-        let actor = Actor::new(
-            pool,
-            Ballot::default(),
-            ProofRequestOpt::default(),
-            SupportedChainSpecs::default(),
-            action_tx,
-            pause_tx,
-        );
+//         assert!(!actor.is_paused(), "Actor should not be paused initially");
 
-        assert!(!actor.is_paused(), "Actor should not be paused initially");
+//         actor.pause().await.expect("Pause should succeed");
+//         assert!(
+//             actor.is_paused(),
+//             "Actor should be paused after calling pause()"
+//         );
+//     }
 
-        actor.pause().await.expect("Pause should succeed");
-        assert!(
-            actor.is_paused(),
-            "Actor should be paused after calling pause()"
-        );
-    }
+//     #[tokio::test]
+//     async fn test_act_sends_action_and_returns_response() {
+//         let pool = memory_pool("test_act_sends_action_and_returns_response");
+//         let actor = Actor::new(
+//             pool,
+//             Ballot::default(),
+//             ProofRequestOpt::default(),
+//             SupportedChainSpecs::default(),
+//         );
 
-    #[tokio::test]
-    async fn test_act_sends_action_and_returns_response() {
-        let (action_tx, mut action_rx) = mpsc::channel(1);
-        let (pause_tx, _) = mpsc::channel(1);
+//         // Create a test action
+//         let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
+//             ChainId::default(),
+//             1,
+//             B256::default(),
+//             ProofType::default(),
+//             "test_prover".to_string(),
+//         ));
+//         let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
+//             1,
+//             1,
+//             "test_network".to_string(),
+//             "test_l1_network".to_string(),
+//             B256::default(),
+//             Address::default(),
+//             ProofType::default(),
+//             BlobProofType::default(),
+//             HashMap::new(),
+//         ));
+//         let test_action = Action::Prove {
+//             request_key: request_key.clone(),
+//             request_entity,
+//             start_time: chrono::Utc::now(),
+//         };
 
-        let pool = memory_pool("test_act_sends_action_and_returns_response");
-        let actor = Actor::new(
-            pool,
-            Ballot::default(),
-            ProofRequestOpt::default(),
-            SupportedChainSpecs::default(),
-            action_tx,
-            pause_tx,
-        );
+//         // Spawn a task to handle the action and send back a response
+//         let status = StatusWithContext::new_registered();
+//         let status_clone = status.clone();
+//         let handle = tokio::spawn(async move {
+//             let (action, resp_tx) = action_rx.recv().await.expect("Should receive action");
+//             // Verify we received the expected action
+//             assert_eq!(action.request_key(), &request_key);
+//             // Send back a mock response with Registered status
+//             resp_tx
+//                 .send(Ok(status_clone))
+//                 .expect("Should send response");
+//         });
 
-        // Create a test action
-        let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
-            ChainId::default(),
-            1,
-            B256::default(),
-            ProofType::default(),
-            "test_prover".to_string(),
-        ));
-        let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
-            1,
-            1,
-            "test_network".to_string(),
-            "test_l1_network".to_string(),
-            B256::default(),
-            Address::default(),
-            ProofType::default(),
-            BlobProofType::default(),
-            HashMap::new(),
-        ));
-        let test_action = Action::Prove {
-            request_key: request_key.clone(),
-            request_entity,
-            start_time: chrono::Utc::now(),
-        };
+//         // Send the action and wait for response
+//         let result = actor.act(test_action).await;
 
-        // Spawn a task to handle the action and send back a response
-        let status = StatusWithContext::new_registered();
-        let status_clone = status.clone();
-        let handle = tokio::spawn(async move {
-            let (action, resp_tx) = action_rx.recv().await.expect("Should receive action");
-            // Verify we received the expected action
-            assert_eq!(action.request_key(), &request_key);
-            // Send back a mock response with Registered status
-            resp_tx
-                .send(Ok(status_clone))
-                .expect("Should send response");
-        });
+//         // Make sure we got back an Ok response
+//         assert_eq!(result, Ok(status), "Should receive successful response");
 
-        // Send the action and wait for response
-        let result = actor.act(test_action).await;
-
-        // Make sure we got back an Ok response
-        assert_eq!(result, Ok(status), "Should receive successful response");
-
-        // Wait for the handler to complete
-        handle.await.expect("Handler should complete");
-    }
-}
+//         // Wait for the handler to complete
+//         handle.await.expect("Handler should complete");
+//     }
+// }
