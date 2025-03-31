@@ -394,7 +394,7 @@ mod test {
         fork_ids.insert(SpecId::HEKLA, id0);
         fork_ids.insert(SpecId::ONTAKE, id0);
         fork_ids.insert(SpecId::PACAYA, id1);
-        set_instance_id(Path::new("/tmp"), &fork_ids, ProofType::Sgx)?;
+        set_instance_id(Path::new("/tmp"), ProofType::Sgx, &fork_ids)?;
         Ok(vec![id0, id1])
     }
 }
