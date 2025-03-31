@@ -87,7 +87,7 @@ pub async fn draw_for_zk_any_request(
                 "Missing block number".to_string(),
             ))?;
     let (_, blockhash) = get_task_data(&network, block_number, actor.chain_specs()).await?;
-    Ok(actor.draw(&blockhash))
+    Ok(actor.draw(&blockhash).await)
 }
 
 pub fn fulfill_sp1_params(req: &mut Value) {
