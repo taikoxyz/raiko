@@ -136,6 +136,13 @@ function update_raiko_sgx_instance_id() {
             >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update pacaya sgx instance id to $SGX_PACAYA_INSTANCE_ID"
     fi
+    if [[ -n $PIVOT_PACAYA_INSTANCE_ID ]]; then
+        jq \
+            --arg update_value "$PIVOT_PACAYA_INSTANCE_ID" \
+            '.pivot.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+        echo "Update pacaya pivot instance id to $PIVOT_PACAYA_INSTANCE_ID"
+    fi
 }
 
 if [[ -z "${PCCS_HOST}" ]]; then
