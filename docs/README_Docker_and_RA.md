@@ -296,7 +296,7 @@ docker compose build raiko
 
 If you do not wish to build the image locally, you can optionally pull them from our registry.
 
-If you are using a SGX2 machine, please use `1.6.0-rc1-edmm`. If you are using a SGX1 machine, please use `1.6.0-rc1-non-edmm`.
+If you are using a SGX2 machine, please use `1.6.0-hotfix-edmm`. If you are using a SGX1 machine, please use `1.6.0-hotfix`.
 
 ```
 docker pull us-docker.pkg.dev/evmchain/images/raiko:{TAG}
@@ -537,6 +537,58 @@ The response should look like this:
 
 If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
 
+## Verify that your Raiko instance can successfully prove batches (Pacaya)
+
+As of the Pacaya fork (currently only in Hekla), you will need to check that your Raiko instance can prove batches.
+
+Please make sure that you have done the On Chain RA step with the Pacaya addresses and exported the your `SGX_PACAYA_INSTANCE_ID` before running Raiko.
+
+Use `./script/prove-batch.sh taiko_a7 native 1303526 3591029` to check readiness. 
+
+The initial response will be as follows:
+```
+- proving batch 1303526 @ 3591021 on taiko_a7 with native proof
+{"data":{"status":"registered"},"proof_type":"native","status":"ok"}
+```
+
+You may then navigate to `raiko/docker` and check the logs with `docker compose logs raiko`. If you see the following log, your prover is functional and working as intended!
+
+```
+raiko  | 2025-03-31T22:41:16.762651Z  INFO raiko_reqpool::pool: RedisPool.update_status: {"BatchProof":{"chain_id":167009,"batch_id":1303526,"l1_inclusion_height":3591029,"proof_type":"Native","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
+raiko  | 2025-03-31T22:41:16.762696Z  INFO raiko_reqpool::pool: RedisPool.add: {"BatchProof":{"chain_id":167009,"batch_id":1303526,"l1_inclusion_height":3591029,"proof_type":"Native","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
+```
+
+Alternatively, you may wait a minute or so and call `./script/prove-batch.sh taiko_a7 native 1303526 3591029` again: this time if the response is as follows:
+
+```
+- proving batch 1303526 @ 3591029 on taiko_a7 with native proof
+{"data":{"proof":{"input":"0x779c2bc712311b754f7a71fd2065f337fbabd7473b4b231164ea1a51e39816d9","kzg_proof":null,"proof":null,"quote":null,"uuid":null}},"proof_type":"native","status":"ok"}
+```
+
+Your Raiko instance is correctly configured and working for the Pacaya fork.
+
+If you would like to use a curl request instead, try the following:
+
+```
+curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
+    --header 'Content-Type: application/json' \
+    --header 'Authorization: Bearer' \
+    --data-raw '{
+        "network": "taiko_a7",
+        "l1_network": "holesky",
+        "batches": [{"batch_id": 1303526, "l1_inclusion_block_number": 3591029}],
+        "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
+        "proof_type": "NATIVE",
+        "blob_proof_type": "proof_of_equivalence",
+        "native" : {
+            "json_guest_input": null
+        }
+    }'
+```
+
+The responses should be the same as listed above.
+
 ## Change your Raiko instance's RPCs to your personal RPC (Optional but recommended)
 
 If you've successfully set up your raiko instance as above, you may want to change the RPCs raiko uses to ones you trust / your own deployed L1 Node and Beacon Node. Doing so will prevent random outages on PublicNode from affecting your proving, which you will want to do when running a mainnet prover/proposer.
@@ -565,3 +617,4 @@ Now that we offer aggregation proving, it may be useful to test if the functiona
 This will test the batch proving on block 799999 and 800000. If you see the log `Aggregate proof successful.` then it is functioning normally! 
 
 If you use blocks that are too old, it may hang and fail; please try to use more recent blocks.
+
