@@ -87,6 +87,7 @@ pub async fn make_aggregate_proof_request(
             })),
             sgx: None,
             sp1: None,
+            pivot: None,
         },
     }
 }
