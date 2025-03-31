@@ -207,7 +207,7 @@ mod test {
         file_config["sgx"]["instance_ids"] = sgx_instance_json_value;
         println!("updated file_config: {file_config}");
         let dir = Path::new("/tmp");
-        set_instance_id(dir, &registered_fork_ids, ProofType::Sgx).expect("save register ids");
+        set_instance_id(dir, ProofType::Sgx, &registered_fork_ids).expect("save register ids");
 
         let fork_ids = get_instance_id(dir, ProofType::Sgx)
             .expect("get register ids")
