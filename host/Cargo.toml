@@ -18,6 +18,7 @@ raiko-tasks = { workspace = true }
 raiko-reqpool = { workspace = true }
 raiko-reqactor = { workspace = true }
 raiko-ballot = { workspace = true }
+raiko-metrics = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -72,6 +73,7 @@ url = { workspace = true }
 cfg-if = { workspace = true }
 cap = { workspace = true }
 dotenv = { workspace = true }
+chrono = { workspace = true }
 
 
 # reth

@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 raiko-lib = { workspace = true }
 raiko-core = { workspace = true }
+raiko-metrics = { workspace = true }
 raiko-redis-derive = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 serde = { workspace = true }

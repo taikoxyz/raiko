@@ -95,10 +95,24 @@ impl Actor {
         let (resp_tx, resp_rx) = oneshot::channel();
 
         // Send the action to the backend
+        let start_time = chrono::Utc::now();
+        raiko_metrics::inc_actor_channel_in_count(
+            action.request_key(),
+            action.request_key().proof_type(),
+        );
+
         self.action_tx
-            .send((action, resp_tx))
+            .send((action.clone(), resp_tx))
             .await
             .map_err(|e| format!("failed to send action: {e}"))?;
+
+        raiko_metrics::observe_actor_channel_in_duration(
+            action.request_key(),
+            action.request_key().proof_type(),
+            (chrono::Utc::now() - start_time)
+                .to_std()
+                .unwrap_or_default(),
+        );
 
         // Wait for response of the action
         resp_rx
@@ -212,6 +226,7 @@ mod tests {
         let test_action = Action::Prove {
             request_key: request_key.clone(),
             request_entity,
+            start_time: chrono::Utc::now(),
         };
 
         // Spawn a task to handle the action and send back a response
