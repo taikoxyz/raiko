@@ -87,6 +87,7 @@ pub async fn make_aggregate_proof_request(
             })),
             sgx: None,
             sp1: None,
+            pivot: None,
         },
     }
 }
@@ -117,10 +118,6 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
             "proof generation failed, task_status: {task_status:?}, request: {request:?}",
         );
 
-        if task_status != TaskStatus::Success {
-            continue;
-        }
-
         match client
             .post("/v2/proof", request)
             .await
@@ -131,10 +128,9 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
                 data: api::v2::ProofResponse::Status { status, .. },
                 ..
             } => {
-                assert!(
-                    matches!(status, TaskStatus::Registered | TaskStatus::WorkInProgress),
-                    "status should be either Registered or WorkInProgress, got: {status:?}"
-                );
+                if matches!(status, TaskStatus::Registered | TaskStatus::WorkInProgress) {
+                    continue;
+                }
             }
 
             // Proof generation is successfully completed
@@ -237,16 +233,23 @@ pub async fn v2_assert_report(client: &Client) -> Vec<TaskReport> {
 
 pub async fn get_status_of_proof_request(client: &Client, request: &ProofRequestOpt) -> TaskStatus {
     let report = v2_assert_report(client).await;
-    for (task_descriptor, task_status) in report {
+    for (task_descriptor, task_status) in report.iter() {
         if let TaskDescriptor::SingleProof(proof_task_descriptor) = task_descriptor {
             if proof_task_descriptor.block_id == request.block_number.unwrap()
                 && &proof_task_descriptor.prover == request.prover.as_ref().unwrap()
             {
-                return task_status;
+                return task_status.clone();
+            }
+        }
+        // If the task is a guest input task, check if the block id matches the request
+        if let TaskDescriptor::GuestInput(guest_input_desc) = task_descriptor {
+            if guest_input_desc.block_id == request.block_number.unwrap() {
+                // return working in progress status
+                return TaskStatus::WorkInProgress;
             }
         }
     }
-    panic!("proof request not found in report: request: {request:?}");
+    panic!("proof request {request:?} not found in report: {report:?}.");
 }
 
 pub async fn get_status_of_aggregation_proof_request(
