@@ -18,6 +18,12 @@ lazy_static! {
         ));
 }
 
+fn clear_state_db() {
+    debug!("clear state db");
+    let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
+    hashmap.clear();
+}
+
 pub(crate) fn save_state_db(key: ChainBlockCacheKey, value: ChainBlockCacheEntry) {
     debug!("save state db key: {:?}", key);
     let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
@@ -63,13 +69,18 @@ mod test {
 
     #[test]
     fn test_lru_cache_replace() {
-        for i in 0..256+4 {
+        clear_state_db();
+        for i in 0..256 + 4 {
             let key = (i, B256::ZERO);
             let value = (MemDb::default(), HashMap::new());
             save_state_db(key, value.clone());
         }
         // 0 is out
         let key = (0, B256::ZERO);
+        assert!(load_state_db(key).is_none());
+
+        // 1 is out
+        let key = (1, B256::ZERO);
         assert!(load_state_db(key).is_none());
 
         // 4 is still in
