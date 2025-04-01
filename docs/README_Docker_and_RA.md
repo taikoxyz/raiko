@@ -578,7 +578,7 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
         "l1_network": "holesky",
         "batches": [{"batch_id": 1303526, "l1_inclusion_block_number": 3591029}],
         "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-        "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
+        "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "proof_type": "NATIVE",
         "blob_proof_type": "proof_of_equivalence",
         "native" : {
