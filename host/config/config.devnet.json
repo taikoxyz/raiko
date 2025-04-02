@@ -5,9 +5,18 @@
   "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
   "sgx": {
     "instance_ids": {
-        "HEKLA": 0,
-        "ONTAKE": 0,
-        "PACAYA": 0
+      "HEKLA": 0,
+      "ONTAKE": 0,
+      "PACAYA": 0
+    },
+    "setup": false,
+    "bootstrap": false,
+    "prove": true,
+    "input_path": null
+  },
+  "pivot": {
+    "instance_ids": {
+      "PACAYA": 0
     },
     "setup": false,
     "bootstrap": false,

@@ -15,7 +15,8 @@ use raiko_core::{
 use raiko_lib::{proof_type::ProofType, prover::Proof};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
-    AggregationRequestEntity, AggregationRequestKey, BatchProofRequestEntity, BatchProofRequestKey,
+    AggregationRequestEntity, AggregationRequestKey, BatchGuestInputRequestEntity,
+    BatchGuestInputRequestKey, BatchProofRequestEntity, BatchProofRequestKey,
 };
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
@@ -70,6 +71,8 @@ async fn batch_handler(
     );
 
     let chain_id = actor.get_chain_spec(&batch_request.network)?.chain_id;
+    let mut sub_input_request_keys = Vec::with_capacity(batch_request.batches.len());
+    let mut sub_input_request_entities = Vec::with_capacity(batch_request.batches.len());
     let mut sub_request_keys = Vec::with_capacity(batch_request.batches.len());
     let mut sub_request_entities = Vec::with_capacity(batch_request.batches.len());
     let mut sub_batch_ids = Vec::with_capacity(batch_request.batches.len());
@@ -78,29 +81,33 @@ async fn batch_handler(
         l1_inclusion_block_number,
     } in batch_request.batches.iter()
     {
-        let request_key = BatchProofRequestKey::new(
-            chain_id,
-            *batch_id,
-            *l1_inclusion_block_number,
+        let input_request_key =
+            BatchGuestInputRequestKey::new(chain_id, *batch_id, *l1_inclusion_block_number);
+        let request_key = BatchProofRequestKey::new_with_input_key(
+            input_request_key.clone(),
             batch_request.proof_type,
             batch_request.prover.to_string(),
-        )
-        .into();
-        let request_entity = BatchProofRequestEntity::new(
+        );
+
+        let input_request_entity = BatchGuestInputRequestEntity::new(
             *batch_id,
             *l1_inclusion_block_number,
             batch_request.network.clone(),
             batch_request.l1_network.clone(),
             batch_request.graffiti.clone(),
+            batch_request.blob_proof_type.clone(),
+        );
+        let request_entity = BatchProofRequestEntity::new_with_guest_input_entity(
+            input_request_entity.clone(),
             batch_request.prover.clone(),
             batch_request.proof_type,
-            batch_request.blob_proof_type.clone(),
             batch_request.prover_args.clone().into(),
-        )
-        .into();
+        );
 
-        sub_request_keys.push(request_key);
-        sub_request_entities.push(request_entity);
+        sub_input_request_keys.push(input_request_key.into());
+        sub_request_keys.push(request_key.into());
+        sub_input_request_entities.push(input_request_entity.into());
+        sub_request_entities.push(request_entity.into());
         sub_batch_ids.push(*batch_id);
     }
 
@@ -120,27 +127,66 @@ async fn batch_handler(
         )
         .await
     } else {
-        prove_many(&actor, sub_request_keys, sub_request_entities)
-            .await
-            .map(|statuses| {
-                let is_all_sub_success = statuses
-                    .iter()
-                    .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
-                if !is_all_sub_success {
-                    raiko_reqpool::Status::Registered
-                } else {
-                    raiko_reqpool::Status::Success {
-                        // NOTE: Return the proof of the first sub-request
-                        proof: {
-                            if let raiko_reqpool::Status::Success { proof, .. } = &statuses[0] {
-                                proof.clone()
-                            } else {
-                                Proof::default()
-                            }
-                        },
+        let statuses =
+            prove_many(&actor, sub_input_request_keys, sub_input_request_entities).await?;
+        let is_all_sub_success = statuses
+            .iter()
+            .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
+        if !is_all_sub_success {
+            Ok(raiko_reqpool::Status::Registered)
+        } else {
+            let guest_inputs_of_entities = statuses
+                .iter()
+                .map(|status| match status {
+                    raiko_reqpool::Status::Success { proof, .. } => proof.proof.clone().unwrap(),
+                    _ => unreachable!("is_all_sub_success checked"),
+                })
+                .collect::<Vec<_>>();
+            let sub_request_entities = sub_request_entities
+                .iter()
+                .zip(guest_inputs_of_entities)
+                .to_owned()
+                .map(|(entity, guest_input)| match entity {
+                    raiko_reqpool::RequestEntity::BatchProof(request_entity) => {
+                        let mut prover_args = request_entity.prover_args().clone();
+                        prover_args.insert(
+                            "batch_guest_input".to_string(),
+                            serde_json::to_value(guest_input).expect(""),
+                        );
+                        BatchProofRequestEntity::new_with_guest_input_entity(
+                            request_entity.guest_input_entity().clone(),
+                            request_entity.prover().clone(),
+                            *request_entity.proof_type(),
+                            prover_args,
+                        )
+                        .into()
                     }
-                }
-            })
+                    _ => entity.clone(),
+                })
+                .collect::<Vec<_>>();
+
+            prove_many(&actor, sub_request_keys, sub_request_entities)
+                .await
+                .map(|statuses| {
+                    let is_all_sub_success = statuses
+                        .iter()
+                        .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
+                    if !is_all_sub_success {
+                        raiko_reqpool::Status::WorkInProgress
+                    } else {
+                        raiko_reqpool::Status::Success {
+                            // NOTE: Return the proof of the first sub-request
+                            proof: {
+                                if let raiko_reqpool::Status::Success { proof, .. } = &statuses[0] {
+                                    proof.clone()
+                                } else {
+                                    Proof::default()
+                                }
+                            },
+                        }
+                    }
+                })
+        }
     };
     Ok(to_v3_status(batch_request.proof_type, result))
 }

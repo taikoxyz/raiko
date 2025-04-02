@@ -7,17 +7,27 @@ use pem::parse_many;
 use raiko_lib::{
     consts::SpecId,
     primitives::{hex, Address, Bytes, FixedBytes, U256},
+    proof_type::ProofType,
 };
 use reqwest::Url;
 use serde_json;
 use std::{collections::BTreeMap, env, fs, io, path::Path};
 
 const REGISTERED_FILE: &str = "registered.json";
+const REGISTERED_FILE_GAIKO: &str = "registered.gaiko.json";
+
+fn get_registered_file(proof_type: ProofType) -> &'static str {
+    match proof_type {
+        ProofType::Sgx => REGISTERED_FILE,
+        ProofType::Pivot => REGISTERED_FILE_GAIKO,
+        _ => unreachable!("Unsupported proof type"),
+    }
+}
 
 pub type ForkRegisterId = BTreeMap<SpecId, u64>;
 
-pub fn get_instance_id(dir: &Path) -> Result<Option<ForkRegisterId>> {
-    let file = dir.join(REGISTERED_FILE);
+pub fn get_instance_id(dir: &Path, proof_type: ProofType) -> Result<Option<ForkRegisterId>> {
+    let file = dir.join(get_registered_file(proof_type));
     match fs::read_to_string(file) {
         Ok(t) => Ok(Some(serde_json::from_str(&t)?)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -25,15 +35,19 @@ pub fn get_instance_id(dir: &Path) -> Result<Option<ForkRegisterId>> {
     }
 }
 
-pub fn set_instance_id(dir: &Path, fork_ids: &ForkRegisterId) -> io::Result<()> {
-    let file = dir.join(REGISTERED_FILE);
+pub fn set_instance_id(
+    dir: &Path,
+    proof_type: ProofType,
+    fork_ids: &ForkRegisterId,
+) -> io::Result<()> {
+    let file = dir.join(get_registered_file(proof_type));
     let json_str = serde_json::to_string_pretty(fork_ids)?;
     fs::write(file, json_str)?;
     Ok(())
 }
 
-pub fn remove_instance_id(dir: &Path) -> io::Result<()> {
-    let file = dir.join(REGISTERED_FILE);
+pub fn remove_instance_id(dir: &Path, proof_type: ProofType) -> io::Result<()> {
+    let file = dir.join(get_registered_file(proof_type));
     fs::remove_file(file).or_else(|e| {
         if e.kind() == io::ErrorKind::NotFound {
             Ok(())
@@ -380,7 +394,7 @@ mod test {
         fork_ids.insert(SpecId::HEKLA, id0);
         fork_ids.insert(SpecId::ONTAKE, id0);
         fork_ids.insert(SpecId::PACAYA, id1);
-        set_instance_id(Path::new("/tmp"), &fork_ids)?;
+        set_instance_id(Path::new("/tmp"), ProofType::Sgx, &fork_ids)?;
         Ok(vec![id0, id1])
     }
 }

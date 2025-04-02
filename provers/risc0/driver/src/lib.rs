@@ -63,6 +63,7 @@ pub struct Risc0Prover;
 
 impl Prover for Risc0Prover {
     async fn run(
+        &self,
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
@@ -121,6 +122,7 @@ impl Prover for Risc0Prover {
     }
 
     async fn aggregate(
+        &self,
         input: AggregationGuestInput,
         _output: &AggregationGuestOutput,
         config: &ProverConfig,
@@ -202,7 +204,7 @@ impl Prover for Risc0Prover {
         proof_gen_result
     }
 
-    async fn cancel(key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
+    async fn cancel(&self, key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
         let uuid = match id_store.read_id(key).await {
             Ok(uuid) => uuid,
             Err(e) => {
@@ -220,6 +222,7 @@ impl Prover for Risc0Prover {
     }
 
     async fn batch_run(
+        &self,
         _input: GuestBatchInput,
         _output: &GuestBatchOutput,
         _config: &ProverConfig,

@@ -117,24 +117,31 @@ function update_raiko_sgx_instance_id() {
     CONFIG_FILE=$1
     if [[ -n $SGX_INSTANCE_ID ]]; then
         jq \
-        --arg update_value "$SGX_INSTANCE_ID" \
-        '.sgx.instance_ids.HEKLA = ($update_value | tonumber)' $CONFIG_FILE \
-        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+            --arg update_value "$SGX_INSTANCE_ID" \
+            '.sgx.instance_ids.HEKLA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update hekla sgx instance id to $SGX_INSTANCE_ID"
     fi
     if [[ -n $SGX_ONTAKE_INSTANCE_ID ]]; then
         jq \
-        --arg update_value "$SGX_ONTAKE_INSTANCE_ID" \
-        '.sgx.instance_ids.ONTAKE = ($update_value | tonumber)' $CONFIG_FILE \
-        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+            --arg update_value "$SGX_ONTAKE_INSTANCE_ID" \
+            '.sgx.instance_ids.ONTAKE = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update ontake sgx instance id to $SGX_ONTAKE_INSTANCE_ID"
     fi
     if [[ -n $SGX_PACAYA_INSTANCE_ID ]]; then
         jq \
-        --arg update_value "$SGX_PACAYA_INSTANCE_ID" \
-        '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
-        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+            --arg update_value "$SGX_PACAYA_INSTANCE_ID" \
+            '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update pacaya sgx instance id to $SGX_PACAYA_INSTANCE_ID"
+    fi
+    if [[ -n $PIVOT_PACAYA_INSTANCE_ID ]]; then
+        jq \
+            --arg update_value "$PIVOT_PACAYA_INSTANCE_ID" \
+            '.pivot.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+        echo "Update pacaya pivot instance id to $PIVOT_PACAYA_INSTANCE_ID"
     fi
 }
 
@@ -187,15 +194,15 @@ fi
 
 if [[ -n $ZK ]]; then
     echo "running raiko in zk mode"
-        if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
-            echo "$RAIKO_CONF_BASE_CONFIG file not found."
-            exit 1
-        fi
+    if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
+        echo "$RAIKO_CONF_BASE_CONFIG file not found."
+        exit 1
+    fi
 
-        #update raiko server config
-        update_raiko_network $RAIKO_CONF_BASE_CONFIG
-        update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
-        update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
+    #update raiko server config
+    update_raiko_network $RAIKO_CONF_BASE_CONFIG
+    update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
+    update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
-        /opt/raiko/bin/raiko-host "$@"
+    /opt/raiko/bin/raiko-host "$@"
 fi
