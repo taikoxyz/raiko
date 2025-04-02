@@ -356,7 +356,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     .info
                     .code
                     .clone()
-                    .map(|code| Bytes(code.bytecode().0.clone()))
+                    .map(|code| Bytes(code.original_bytes().0.clone()))
             }))
             .into_iter()
             .collect::<Vec<Bytes>>();
