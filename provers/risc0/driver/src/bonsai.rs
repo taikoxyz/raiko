@@ -1,5 +1,4 @@
 use crate::{
-    methods::risc0_guest::RISC0_GUEST_ID,
     snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
 };
@@ -313,8 +312,10 @@ pub async fn bonsai_stark_to_snark(
     stark_uuid: String,
     stark_receipt: Receipt,
     input: B256,
+    elf: &[u8],
 ) -> ProverResult<Risc0Response> {
-    let image_id = Digest::from(RISC0_GUEST_ID);
+    let image_id = risc0_zkvm::compute_image_id(elf)
+        .map_err(|e| ProverError::GuestError(format!("Failed to compute image id: {e:?}")))?;
     let (snark_uuid, snark_receipt) = stark2snark(
         image_id,
         stark_uuid.clone(),

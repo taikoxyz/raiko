@@ -4,7 +4,9 @@ use crate::{
         api::v3::{ProofResponse, Status},
         handler::prove_many,
         prove_aggregation,
-        utils::{is_zk_any_request, to_v3_status},
+        utils::{
+            draw_for_zk_any_batch_request, fulfill_sp1_params, is_zk_any_request, to_v3_status,
+        },
     },
 };
 use axum::{extract::State, routing::post, Json, Router};
@@ -39,15 +41,10 @@ use utoipa::OpenApi;
 /// - risc0 - uses the risc0 prover
 async fn batch_handler(
     State(actor): State<Actor>,
-    Json(batch_request_opt): Json<Value>,
+    Json(mut batch_request_opt): Json<Value>,
 ) -> HostResult<Status> {
     if is_zk_any_request(&batch_request_opt) {
-        return Ok(Status::Ok {
-            proof_type: ProofType::Native,
-            data: ProofResponse::Status {
-                status: TaskStatus::ZKAnyNotDrawn,
-            },
-        });
+        fulfill_sp1_params(&mut batch_request_opt);
     }
 
     let batch_request = {
@@ -55,6 +52,23 @@ async fn batch_handler(
         // options with the request from the client, and convert to a BatchProofRequest.
         let mut opts = serde_json::to_value(actor.default_request_config())?;
         merge(&mut opts, &batch_request_opt);
+
+        // For zk_any request, draw zk proof type based on the block hash.
+        if is_zk_any_request(&opts) {
+            tracing::info!("bilibili is_zk_any");
+            match draw_for_zk_any_batch_request(&actor, &opts).await? {
+                Some(proof_type) => opts["proof_type"] = serde_json::to_value(proof_type).unwrap(),
+                None => {
+                    return Ok(Status::Ok {
+                        proof_type: ProofType::Native,
+                        data: ProofResponse::Status {
+                            status: TaskStatus::ZKAnyNotDrawn,
+                        },
+                    });
+                }
+            }
+        }
+
         let batch_request_opt: BatchProofRequestOpt = serde_json::from_value(opts)?;
         let batch_request: BatchProofRequest = batch_request_opt.try_into()?;
 
