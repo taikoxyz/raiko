@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.0](https://github.com/taikoxyz/raiko/compare/v1.6.0...v1.7.0) (2025-04-03)
+
+
+### Features
+
+* **raiko:** test 2 phases prove ([#512](https://github.com/taikoxyz/raiko/issues/512)) ([d6fd5b6](https://github.com/taikoxyz/raiko/commit/d6fd5b68c471713f9dd1d3ae2a022feebf827c35))
+
+
+### Bug Fixes
+
+* **raiko:** use original code bytes in batch preflight ([#525](https://github.com/taikoxyz/raiko/issues/525)) ([f43ab2b](https://github.com/taikoxyz/raiko/commit/f43ab2bc7bb3820ee96a64aa2a793a8e8de95293))
+
 ## [1.6.0](https://github.com/taikoxyz/raiko/compare/v1.5.0...v1.6.0) (2025-03-24)
 
 
