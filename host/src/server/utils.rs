@@ -90,6 +90,33 @@ pub async fn draw_for_zk_any_request(
     Ok(actor.draw(&blockhash))
 }
 
+pub async fn draw_for_zk_any_batch_request(
+    actor: &Actor,
+    batch_proof_request_opt: &Value,
+) -> HostResult<Option<ProofType>> {
+    let l1_network =
+        batch_proof_request_opt["l1_network"]
+            .as_str()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?;
+    let batches =
+        batch_proof_request_opt["batches"]
+            .as_array()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing batches".to_string(),
+            ))?;
+    let first_batch = batches.first().ok_or(RaikoError::InvalidRequestConfig(
+        "batches is empty".to_string(),
+    ))?;
+    let l1_inclusion_block_number = first_batch["l1_inclusion_block_number"].as_u64().ok_or(
+        RaikoError::InvalidRequestConfig("Missing l1_inclusion_block_number".to_string()),
+    )?;
+    let (_, blockhash) =
+        get_task_data(&l1_network, l1_inclusion_block_number, actor.chain_specs()).await?;
+    Ok(actor.draw(&blockhash))
+}
+
 pub fn fulfill_sp1_params(req: &mut Value) {
     let zk_any_opts = req["zk_any"].as_object().clone();
     let sp1_recursion = match zk_any_opts {
