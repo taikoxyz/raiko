@@ -3,6 +3,7 @@
 ## image
 
 us-docker.pkg.dev/evmchain/images/raiko:1.7.0
+ghcr.io/taikoxyz/raiko:1.7.0
 
 ## gaiko
 
@@ -20,6 +21,7 @@ us-docker.pkg.dev/evmchain/images/raiko:1.7.0
 ## image
 
 us-docker.pkg.dev/evmchain/images/raiko:1.7.0-edmm
+ghcr.io/taikoxyz/raiko:1.7.0-edmm
 
 ## gaiko
 
