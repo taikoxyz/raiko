@@ -12,6 +12,8 @@ ARG TASKDB=${TASKDB:-raiko-tasks/in-memory}
 WORKDIR /opt/raiko
 COPY . .
 RUN echo "Building for sgx with taskdb: ${TASKDB}"
+RUN cargo clean
+RUN cargo update
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build" --features ${TASKDB}
 
 FROM gramineproject/gramine:1.8-jammy AS runtime
