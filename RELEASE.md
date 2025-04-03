@@ -3,7 +3,6 @@
 ## image
 
 us-docker.pkg.dev/evmchain/images/raiko:1.7.0
-ghcr.io/taikoxyz/raiko:1.7.0
 
 ## gaiko
 
@@ -12,7 +11,7 @@ ghcr.io/taikoxyz/raiko:1.7.0
 
 ## raiko
 
-- mrenclave: b5735522150f1b2e80d6a32d8a58cef76844633403f0bf0c8d7a5b7a3936f0b0
+- mrenclave: b1190d92e7abe39f2987ef5e3df90b98220b584f4372a45bea1b467a997f6839
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
 
 # v1.7.0-edmm
@@ -20,7 +19,6 @@ ghcr.io/taikoxyz/raiko:1.7.0
 ## image
 
 us-docker.pkg.dev/evmchain/images/raiko:1.7.0-edmm
-ghcr.io/taikoxyz/raiko:1.7.0-edmm
 
 ## gaiko
 
@@ -29,5 +27,5 @@ ghcr.io/taikoxyz/raiko:1.7.0-edmm
 
 ## raiko
 
-- mrenclave: 26e4ae60303c560f11d38a9e4a1185f5ceac2d8bf5b406936b45d634f4cf6b97
+- mrenclave: b5cd6a283fcd221ffa893f56e8d9d533e07a2ece7e772d68c22949fd4783d16c
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
