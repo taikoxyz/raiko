@@ -8,7 +8,6 @@ ghcr.io/taikoxyz/raiko:1.7.0
 ## gaiko
 
 - mrenclave: d48cfb584cc40520a87bbcdfc1c927e4a67701c34834a8dbf332f6c204c2b68d
-
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
 
 ## raiko
@@ -26,7 +25,6 @@ ghcr.io/taikoxyz/raiko:1.7.0-edmm
 ## gaiko
 
 - mrenclave: d48cfb584cc40520a87bbcdfc1c927e4a67701c34834a8dbf332f6c204c2b68d
-
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
 
 ## raiko
