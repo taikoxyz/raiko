@@ -31,7 +31,7 @@ pub(crate) async fn setup_bootstrap(
     // Block until the lock is acquired.
     // Create the lock file if it does not exist.
     // Drop the lock file when the lock goes out of scope by drop guard.
-    let _filelock = FileLock::lock(
+    let filelock = FileLock::lock(
         config_dir.join("bootstrap.lock"),
         true,
         FileOptions::new().create(true).write(true),
@@ -43,7 +43,9 @@ pub(crate) async fn setup_bootstrap(
         ProofType::Sgx,
     )
     .await?;
-    setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Pivot).await
+    setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Pivot).await?;
+    drop(filelock);
+    Ok(())
 }
 
 pub(crate) async fn setup_bootstrap_inner(
@@ -123,10 +125,10 @@ pub(crate) async fn setup_bootstrap_inner(
                 fork_register_id.insert(*spec_id, register_id);
             }
         }
-        println!("Saving instance id {registered_fork_ids:?}");
         // set check file
         set_instance_id(&config_dir, proof_type, &fork_register_id)?;
         registered_fork_ids = Some(fork_register_id);
+        println!("Saving instance id {registered_fork_ids:?}");
     }
     // Always reset the configuration with a persistent instance ID upon restart.
     let file = File::open(&bootstrap_args.config_path)?;
@@ -140,6 +142,7 @@ pub(crate) async fn setup_bootstrap_inner(
     let new_config_path = config_dir.join("config.sgx.json");
     println!("Saving bootstrap data file {}", new_config_path.display());
     let json = serde_json::to_string_pretty(&file_config)?;
+    println!("Saving config content {}", json);
     fs::write(&new_config_path, json).context(format!(
         "Saving bootstrap data file {} failed",
         new_config_path.display()

@@ -23,5 +23,6 @@ docker buildx build ./ \
 	--progress=plain
 
 docker tag raiko:$tag us-docker.pkg.dev/evmchain/images/raiko:$tag
+docker tag raiko:$tag ghcr.io/evmchain/raiko:$tag
 
 echo "Done"

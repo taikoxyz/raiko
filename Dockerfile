@@ -13,7 +13,9 @@ RUN ego-go build -o gaiko-ego ./cmd/gaiko
 # Sign with our enclave config and private key
 COPY gaiko/ego/enclave.json .
 COPY docker/enclave-key.pem private.pem
-RUN ego sign && ego bundle gaiko-ego gaiko && ego uniqueid gaiko-ego
+RUN ego sign && ego bundle gaiko-ego gaiko
+RUN ego uniqueid gaiko-ego
+RUN ego signerid gaiko-ego
 
 FROM rust:1.85.0 AS chef
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
