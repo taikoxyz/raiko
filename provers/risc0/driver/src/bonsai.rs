@@ -1,3 +1,4 @@
+use crate::Risc0Param;
 use crate::{
     snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
@@ -9,6 +10,8 @@ use raiko_lib::{
     primitives::keccak::keccak,
     prover::{IdWrite, ProofKey, ProverError, ProverResult},
 };
+use risc0_binfmt::ProgramBinary;
+use risc0_zkos_v1compat::V1COMPAT_ELF;
 use risc0_zkvm::{
     compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, AssumptionReceipt, ExecutorEnv,
     ExecutorImpl, Receipt,
@@ -20,8 +23,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio::time::{sleep as tokio_async_sleep, Duration};
-
-use crate::Risc0Param;
 
 const MAX_REQUEST_RETRY: usize = 8;
 
@@ -132,7 +133,12 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
 
     let encoded_output =
         to_vec(expected_output).expect("Could not serialize expected proving output!");
-    let computed_image_id = compute_image_id(elf).expect("Failed to compute elf image id!");
+
+    let program_binary = ProgramBinary::new(&elf, V1COMPAT_ELF);
+
+    let elf = program_binary.encode();
+
+    let computed_image_id = compute_image_id(&elf).expect("Failed to compute elf image id!");
 
     let receipt_label = format!(
         "{}-{}",
@@ -187,7 +193,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                 20,
                 prove_bonsai(
                     encoded_input.clone(),
-                    elf,
+                    &elf,
                     expected_output,
                     assumption_uuids.clone(),
                     proof_key,
@@ -203,7 +209,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             match prove_locally(
                 param.execution_po2,
                 encoded_input,
-                elf,
+                &elf,
                 assumption_instances,
                 param.profile,
             ) {
@@ -364,10 +370,10 @@ pub fn prove_locally(
             .segment_limit_po2(segment_limit_po2)
             .write_slice(&encoded_input);
 
-        if profile {
-            info!("Profiling enabled.");
-            env_builder.enable_profiler("profile_r0_local.pb");
-        }
+        // if profile {
+        //     info!("Profiling enabled.");
+        //     env_builder.enable_profiler("profile_r0_local.pb");
+        // }
 
         for assumption in assumptions {
             env_builder.add_assumption(assumption);

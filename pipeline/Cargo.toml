@@ -15,10 +15,11 @@ once_cell = { workspace = true }
 anyhow = { workspace = true }
 dirs = { workspace = true }
 risc0-binfmt = { workspace = true, optional = true }
+risc0-zkos-v1compat = { workspace = true, optional = true }
 pathdiff = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
 sp1-sdk = { workspace = true, optional = true }
 
 [features]
-risc0 = ["dep:risc0-binfmt", "dep:pathdiff", "dep:hex"]
+risc0 = ["dep:risc0-binfmt", "dep:pathdiff", "dep:hex", "dep:risc0-zkos-v1compat"]
 sp1 = ["dep:sp1-sdk"]

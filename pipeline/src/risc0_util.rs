@@ -1,4 +1,6 @@
 use anyhow::Result;
+use risc0_binfmt::ProgramBinary;
+use risc0_zkos_v1compat::V1COMPAT_ELF;
 use std::{
     borrow::Cow,
     fs,
@@ -25,7 +27,11 @@ impl GuestListEntry {
     /// Builds the [GuestListEntry] by reading the ELF from disk, and calculating the associated
     /// image ID.
     pub fn build(name: &str, elf_path: &str) -> Result<Self> {
-        let elf = std::fs::read(elf_path)?;
+        let guest_elf = std::fs::read(elf_path)?;
+        let program_binary = ProgramBinary::new(&guest_elf, V1COMPAT_ELF);
+
+        let elf = program_binary.encode();
+
         let image_id = risc0_binfmt::compute_image_id(&elf)?;
 
         println!("risc0 elf image id: {}", hex::encode(image_id.as_bytes()));
