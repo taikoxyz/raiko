@@ -206,6 +206,7 @@ async fn batch_handler(
                 })
         }
     };
+    tracing::debug!("Batch proof result: {}", serde_json::to_string(&result)?);
     Ok(to_v3_status(batch_request.proof_type, result))
 }
 
