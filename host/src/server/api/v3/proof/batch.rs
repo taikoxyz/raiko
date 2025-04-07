@@ -43,6 +43,11 @@ async fn batch_handler(
     State(actor): State<Actor>,
     Json(mut batch_request_opt): Json<Value>,
 ) -> HostResult<Status> {
+    tracing::debug!(
+        "Received batch request: {}",
+        serde_json::to_string(&batch_request_opt)?
+    );
+
     if is_zk_any_request(&batch_request_opt) {
         fulfill_sp1_params(&mut batch_request_opt);
     }

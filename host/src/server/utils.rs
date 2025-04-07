@@ -118,17 +118,11 @@ pub async fn draw_for_zk_any_batch_request(
 }
 
 pub fn fulfill_sp1_params(req: &mut Value) {
-    let zk_any_opts = req["zk_any"].as_object().clone();
-    let sp1_recursion = match zk_any_opts {
-        None => serde_json::Value::String("plonk".to_string()),
-        Some(zk_any) => {
-            let aggregation = zk_any["aggregation"].as_bool().unwrap_or(false);
-            if aggregation {
-                serde_json::Value::String("compressed".to_string())
-            } else {
-                serde_json::Value::String("plonk".to_string())
-            }
-        }
+    let aggregate = req["aggregate"].as_bool().unwrap_or(false);
+    let sp1_recursion = if aggregate {
+        serde_json::Value::String("compressed".to_string())
+    } else {
+        serde_json::Value::String("plonk".to_string())
     };
 
     let sp1_opts = req["sp1"].as_object_mut();
