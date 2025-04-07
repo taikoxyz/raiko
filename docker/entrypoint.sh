@@ -33,12 +33,12 @@ function bootstrap() {
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
     if [[ -n $PIVOT ]]; then
-        echo "bootstrap sgx prover with pivot"
+        echo "bootstrap PIVOT sgx prover"
         ./"$GAIKO_GUEST_APP_FILENAME" bootstrap
-    else
-	echo "bootstrap sgx prover"
-        gramine-sgx "$RAIKO_GUEST_APP_FILENAME" bootstrap
     fi
+
+    echo "bootstrap sgx prover"
+    gramine-sgx "$RAIKO_GUEST_APP_FILENAME" bootstrap
     cd -
 }
 
