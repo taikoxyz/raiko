@@ -108,6 +108,17 @@ elif [ "$proof" == "sgx" ]; then
         "input_path": null
     }
 '
+elif [ "$proof" == "pivot" ]; then
+	proofParam='
+    "proof_type": "pivot",
+    "pivot" : {
+        "instance_id": 456,
+        "setup": false,
+        "bootstrap": false,
+        "prove": true,
+        "input_path": null
+    }
+'
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
@@ -135,13 +146,10 @@ else
 	exit 1
 fi
 
-
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-graffiti="8008500000000000000000000000000000000000000000000000000000000000"
-
 
 echo "- proving batch $batch_id @ $batch_proposal_height on $chain with $proof proof"
-curl --location --request POST 'http://localhost:8088/v3/proof/batch' \
+curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --header 'Content-Type: application/json' \
     --header 'Authorization: Bearer' \
     --data-raw "{
@@ -149,11 +157,8 @@ curl --location --request POST 'http://localhost:8088/v3/proof/batch' \
         \"l1_network\": \"$l1_network\",
         \"batches\": $batch_request,
         \"prover\": \"$prover\",
-        \"graffiti\": \"$graffiti\",
         \"aggregate\": false,
         $proofParam
     }"
-set +x
-echo ""
 
 sleep 1.0
