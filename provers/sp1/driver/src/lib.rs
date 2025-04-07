@@ -121,7 +121,11 @@ impl Prover for Sp1Prover {
         config: &ProverConfig,
         id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+        let mut param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+
+        // TODO: remove param.recursion, hardcode to Plonk
+        param.recursion = RecursionMode::Compressed;
+
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
         println!("param: {param:?}");
@@ -290,7 +294,11 @@ impl Prover for Sp1Prover {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+        let mut param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+
+        // TODO: remove param.recursion, hardcode to Plonk
+        param.recursion = RecursionMode::Plonk;
+
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
         let block_inputs: Vec<B256> = input
             .proofs
@@ -323,7 +331,7 @@ impl Prover for Sp1Prover {
                     stdin.write_proof(*block_proof, stark_vk.clone());
                 }
                 _ => {
-                    panic!("unsupported proof type for aggregation: {sp1_proof:?}");
+                    tracing::error!("unsupported proof type for aggregation: {sp1_proof:?}");
                 }
             }
         }
@@ -440,7 +448,11 @@ impl Prover for Sp1Prover {
         config: &ProverConfig,
         id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+        let mut param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+
+        // TODO: remove param.recursion, hardcode to Compressed
+        param.recursion = RecursionMode::Compressed;
+
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
         println!("batch_run param: {param:?}");
