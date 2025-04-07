@@ -433,6 +433,17 @@ impl Backend {
     {
         let request_key_ = request_key.clone();
 
+        let pool_status = self
+            .pool
+            .get_status(&request_key)
+            .unwrap()
+            .unwrap()
+            .into_status();
+        if matches!(pool_status, Status::Success { .. } | Status::WorkInProgress) {
+            tracing::warn!("Actor Backend received prove-action {request_key}, but it is not registered, skipping");
+            return;
+        }
+
         // 1. Update the request status in pool to WorkInProgress
         if let Err(err) = self
             .pool
