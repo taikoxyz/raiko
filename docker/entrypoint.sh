@@ -32,15 +32,12 @@ function sign_gramine_manifest() {
 function bootstrap() {
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
-    if [[ -n $SGX ]]; then
-        echo "bootstrap sgx prover"
-        gramine-sgx "$RAIKO_GUEST_APP_FILENAME" bootstrap
-    fi
-
-    echo $PIVOT
     if [[ -n $PIVOT ]]; then
         echo "bootstrap sgx prover with pivot"
         ./"$GAIKO_GUEST_APP_FILENAME" bootstrap
+    else
+	echo "bootstrap sgx prover"
+        gramine-sgx "$RAIKO_GUEST_APP_FILENAME" bootstrap
     fi
     cd -
 }
