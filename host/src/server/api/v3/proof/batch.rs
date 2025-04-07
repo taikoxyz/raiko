@@ -4,9 +4,7 @@ use crate::{
         api::v3::{ProofResponse, Status},
         handler::prove_many,
         prove_aggregation,
-        utils::{
-            draw_for_zk_any_batch_request, fulfill_sp1_params, is_zk_any_request, to_v3_status,
-        },
+        utils::{draw_for_zk_any_batch_request, is_zk_any_request, to_v3_status},
     },
 };
 use axum::{extract::State, routing::post, Json, Router};
@@ -41,16 +39,12 @@ use utoipa::OpenApi;
 /// - risc0 - uses the risc0 prover
 async fn batch_handler(
     State(actor): State<Actor>,
-    Json(mut batch_request_opt): Json<Value>,
+    Json(batch_request_opt): Json<Value>,
 ) -> HostResult<Status> {
     tracing::debug!(
         "Received batch request: {}",
         serde_json::to_string(&batch_request_opt)?
     );
-
-    if is_zk_any_request(&batch_request_opt) {
-        fulfill_sp1_params(&mut batch_request_opt);
-    }
 
     let batch_request = {
         // Override the existing proof request config from the config file and command line

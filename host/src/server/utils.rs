@@ -125,24 +125,3 @@ pub async fn draw_for_zk_any_batch_request(
         get_task_data(&l1_network, l1_inclusion_block_number, actor.chain_specs()).await?;
     Ok(actor.draw(&blockhash))
 }
-
-pub fn fulfill_sp1_params(req: &mut Value) {
-    let aggregate = req["aggregate"].as_bool().unwrap_or(false);
-    let sp1_recursion = if aggregate {
-        serde_json::Value::String("compressed".to_string())
-    } else {
-        serde_json::Value::String("plonk".to_string())
-    };
-
-    let sp1_opts = req["sp1"].as_object_mut();
-    match sp1_opts {
-        None => {
-            let mut sp1_opts = serde_json::Map::new();
-            sp1_opts.insert("recursion".to_string(), sp1_recursion);
-            req["sp1"] = serde_json::Value::Object(sp1_opts);
-        }
-        Some(sp1_opts) => {
-            sp1_opts.insert("recursion".to_string(), sp1_recursion);
-        }
-    }
-}

@@ -9,7 +9,7 @@ use raiko_tasks::TaskStatus;
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::server::utils::{draw_for_zk_any_request, fulfill_sp1_params, is_zk_any_request};
+use crate::server::utils::{draw_for_zk_any_request, is_zk_any_request};
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
@@ -39,15 +39,8 @@ pub mod report;
 /// - sgx - uses the sgx environment to construct a block and produce proof of execution
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
-async fn proof_handler(
-    State(actor): State<Actor>,
-    Json(mut req): Json<Value>,
-) -> HostResult<Status> {
+async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> HostResult<Status> {
     inc_current_req();
-
-    if is_zk_any_request(&req) {
-        fulfill_sp1_params(&mut req);
-    }
 
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
