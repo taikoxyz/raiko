@@ -14,6 +14,10 @@ name = "risc0-aggregation"
 path = "src/aggregation.rs"
 
 [[bin]]
+name = "risc0-batch"
+path = "src/batch.rs"
+
+[[bin]]
 name = "sha256"
 path = "src/benchmark/sha256.rs"
 

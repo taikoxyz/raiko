@@ -4,12 +4,12 @@ use crate::{
         api::v3::{ProofResponse, Status},
         handler::prove_many,
         prove_aggregation,
-        utils::{is_zk_any_request, to_v3_status},
+        utils::{draw_for_zk_any_batch_request, is_zk_any_request, to_v3_status},
     },
 };
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{
-    interfaces::{BatchMetadata, BatchProofRequest, BatchProofRequestOpt},
+    interfaces::{BatchMetadata, BatchProofRequest, BatchProofRequestOpt, RaikoError},
     merge,
 };
 use raiko_lib::{proof_type::ProofType, prover::Proof};
@@ -41,20 +41,46 @@ async fn batch_handler(
     State(actor): State<Actor>,
     Json(batch_request_opt): Json<Value>,
 ) -> HostResult<Status> {
-    if is_zk_any_request(&batch_request_opt) {
-        return Ok(Status::Ok {
-            proof_type: ProofType::Native,
-            data: ProofResponse::Status {
-                status: TaskStatus::ZKAnyNotDrawn,
-            },
-        });
-    }
+    tracing::debug!(
+        "Received batch request: {}",
+        serde_json::to_string(&batch_request_opt)?
+    );
 
     let batch_request = {
         // Override the existing proof request config from the config file and command line
         // options with the request from the client, and convert to a BatchProofRequest.
         let mut opts = serde_json::to_value(actor.default_request_config())?;
         merge(&mut opts, &batch_request_opt);
+
+        let first_batch_id = {
+            let batches = opts["batches"]
+                .as_array()
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing batches".to_string(),
+                ))?;
+            let first_batch = batches.first().ok_or(RaikoError::InvalidRequestConfig(
+                "batches is empty".to_string(),
+            ))?;
+            let first_batch_id = first_batch["batch_id"].as_u64().expect("checked above");
+            first_batch_id
+        };
+
+        // For zk_any request, draw zk proof type based on the block hash.
+        if is_zk_any_request(&opts) {
+            match draw_for_zk_any_batch_request(&actor, &opts).await? {
+                Some(proof_type) => opts["proof_type"] = serde_json::to_value(proof_type).unwrap(),
+                None => {
+                    return Ok(Status::Ok {
+                        proof_type: ProofType::Native,
+                        batch_id: Some(first_batch_id),
+                        data: ProofResponse::Status {
+                            status: TaskStatus::ZKAnyNotDrawn,
+                        },
+                    });
+                }
+            }
+        }
+
         let batch_request_opt: BatchProofRequestOpt = serde_json::from_value(opts)?;
         let batch_request: BatchProofRequest = batch_request_opt.try_into()?;
 
@@ -188,7 +214,12 @@ async fn batch_handler(
                 })
         }
     };
-    Ok(to_v3_status(batch_request.proof_type, result))
+    tracing::debug!("Batch proof result: {}", serde_json::to_string(&result)?);
+    Ok(to_v3_status(
+        batch_request.proof_type,
+        Some(batch_request.batches.first().unwrap().batch_id),
+        result,
+    ))
 }
 
 #[derive(OpenApi)]
