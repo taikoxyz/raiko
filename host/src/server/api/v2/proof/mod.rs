@@ -61,6 +61,7 @@ async fn proof_handler(
             None => {
                 return Ok(Status::Ok {
                     proof_type: ProofType::Native,
+                    batch_id: None,
                     data: ProofResponse::Status {
                         status: TaskStatus::ZKAnyNotDrawn,
                     },
@@ -126,10 +127,10 @@ async fn proof_handler(
             .into();
 
             let result = crate::server::prove(&actor, request_key, request_entity).await;
-            Ok(to_v2_status(proof_type, result))
+            Ok(to_v2_status(proof_type, None, result))
         }
-        Ok(_) => Ok(to_v2_status(proof_type, result)),
-        Err(_) => Ok(to_v2_status(proof_type, result)),
+        Ok(_) => Ok(to_v2_status(proof_type, None, result)),
+        Err(_) => Ok(to_v2_status(proof_type, None, result)),
     }
 }
 

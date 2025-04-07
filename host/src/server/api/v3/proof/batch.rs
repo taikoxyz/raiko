@@ -11,7 +11,7 @@ use crate::{
 };
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{
-    interfaces::{BatchMetadata, BatchProofRequest, BatchProofRequestOpt},
+    interfaces::{BatchMetadata, BatchProofRequest, BatchProofRequestOpt, RaikoError},
     merge,
 };
 use raiko_lib::{proof_type::ProofType, prover::Proof};
@@ -58,6 +58,19 @@ async fn batch_handler(
         let mut opts = serde_json::to_value(actor.default_request_config())?;
         merge(&mut opts, &batch_request_opt);
 
+        let first_batch_id = {
+            let batches = opts["batches"]
+                .as_array()
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing batches".to_string(),
+                ))?;
+            let first_batch = batches.first().ok_or(RaikoError::InvalidRequestConfig(
+                "batches is empty".to_string(),
+            ))?;
+            let first_batch_id = first_batch["batch_id"].as_u64().expect("checked above");
+            first_batch_id
+        };
+
         // For zk_any request, draw zk proof type based on the block hash.
         if is_zk_any_request(&opts) {
             match draw_for_zk_any_batch_request(&actor, &opts).await? {
@@ -65,6 +78,7 @@ async fn batch_handler(
                 None => {
                     return Ok(Status::Ok {
                         proof_type: ProofType::Native,
+                        batch_id: Some(first_batch_id),
                         data: ProofResponse::Status {
                             status: TaskStatus::ZKAnyNotDrawn,
                         },
@@ -207,7 +221,11 @@ async fn batch_handler(
         }
     };
     tracing::debug!("Batch proof result: {}", serde_json::to_string(&result)?);
-    Ok(to_v3_status(batch_request.proof_type, result))
+    Ok(to_v3_status(
+        batch_request.proof_type,
+        Some(batch_request.batches.first().unwrap().batch_id),
+        result,
+    ))
 }
 
 #[derive(OpenApi)]

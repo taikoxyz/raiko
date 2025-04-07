@@ -9,10 +9,15 @@ use raiko_reqpool::Status;
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
 
-pub fn to_v2_status(proof_type: ProofType, result: Result<Status, String>) -> v2::Status {
+pub fn to_v2_status(
+    proof_type: ProofType,
+    batch_id: Option<u64>,
+    result: Result<Status, String>,
+) -> v2::Status {
     match result {
         Ok(status) => v2::Status::Ok {
             proof_type,
+            batch_id,
             data: {
                 match status {
                     Status::Registered => v2::ProofResponse::Status {
@@ -57,8 +62,12 @@ pub fn to_v2_cancel_status(result: Result<Status, String>) -> v2::CancelStatus {
 }
 
 // TODO: remove the staled interface
-pub fn to_v3_status(proof_type: ProofType, result: Result<Status, String>) -> v3::Status {
-    to_v2_status(proof_type, result)
+pub fn to_v3_status(
+    proof_type: ProofType,
+    batch_id: Option<u64>,
+    result: Result<Status, String>,
+) -> v3::Status {
+    to_v2_status(proof_type, batch_id, result)
 }
 
 pub fn to_v3_cancel_status(result: Result<Status, String>) -> v3::CancelStatus {
