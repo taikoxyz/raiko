@@ -15,6 +15,7 @@ RAIKO_CONF_DIR="/etc/raiko"
 RAIKO_CONF_BASE_CONFIG="$RAIKO_CONF_DIR/config.sgx.json"
 RAIKO_CONF_CHAIN_SPECS="$RAIKO_CONF_DIR/chain_spec_list.docker.json"
 RAIKO_GUEST_APP_FILENAME="sgx-guest"
+GAIKO_GUEST_APP_FILENAME="gaiko-ego"
 RAIKO_GUEST_SETUP_FILENAME="raiko-setup"
 RAIKO_INPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.docker.manifest.template"
 RAIKO_OUTPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.manifest.sgx"
@@ -31,7 +32,14 @@ function sign_gramine_manifest() {
 function bootstrap() {
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
-    gramine-sgx "$RAIKO_GUEST_APP_FILENAME" bootstrap
+    if [[ -z $PIVOT ]]; then
+        echo "bootstrap sgx prover"
+        gramine-sgx "$RAIKO_GUEST_APP_FILENAME" bootstrap
+    else
+        echo "bootstrap sgx prover with pivot"
+        "$RAIKO_GUEST_APP_FILENAME" bootstrap
+
+    fi
     cd -
 }
 
