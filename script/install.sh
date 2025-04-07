@@ -61,7 +61,10 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		PROFILE=$HOME/.bashrc
 		echo ${PROFILE}
 		source ${PROFILE}
-		rzup install
+		rzup install rust 1.81.0
+		rzup install cpp 2024.1.5
+		rzup install r0vm 1.2.5
+		rzup install cargo-risczero 1.2.5
 	else
 		echo "/home/runner/.config/.risc0/bin" >> $GITHUB_PATH
 		echo $GITHUB_PATH
