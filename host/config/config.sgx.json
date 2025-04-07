@@ -30,7 +30,6 @@
         "verify": true
     },
     "sp1": {
-        "recursion": "core",
         "prover": "network",
         "verify": true
     },
