@@ -55,7 +55,6 @@ async fn batch_handler(
 
         // For zk_any request, draw zk proof type based on the block hash.
         if is_zk_any_request(&opts) {
-            tracing::info!("bilibili is_zk_any");
             match draw_for_zk_any_batch_request(&actor, &opts).await? {
                 Some(proof_type) => opts["proof_type"] = serde_json::to_value(proof_type).unwrap(),
                 None => {
