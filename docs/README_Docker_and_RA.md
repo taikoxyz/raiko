@@ -368,30 +368,7 @@ pnpm install
 pnpm compile
 ```
 
-3. Ensure the values in the `script/layer1/provers/config_dcap_sgx_verifier.sh` script match whichever network you are registering for.
-
-> **_NOTE:_** You will have to do this step twice for Hekla: once for the Ontake addresses and once for the Pacaya addresses. Please keep both SGX_INSTANCE_IDs.
-
-Hekla Ontake Addresses:
-`SGX_VERIFIER_ADDRESS`=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9 
-`ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398 
-`PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E 
-
-Hekla Pacaya Addresses:
-`SGX_VERIFIER_ADDRESS`=0xa8cD459E3588D6edE42177193284d40332c3bcd4
-`ATTESTATION_ADDRESS`=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
-`PEM_CERTCHAIN_ADDRESS`=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
-
-Mainnet Addresses:
-`SGX_VERIFIER_ADDRESS`=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
-`ATTESTATION_ADDRESS`=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
-`PEM_CERTCHAIN_ADDRESS`=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
-
-These values are already in the script, it defaults to Hekla; please comment those lines out and uncomment the Mainnet ones if performing RA on Mainnet.
-
-4. In the `script/layer1/provers/config_dcap_sgx_verifier.sh` script, replace `--fork-url https://any-holesky-rpc-url/` with the RPC URL of the hekla/mainnet network. Alternatively, export it like so: `export FORK_URL="https://any-holesky-rpc-url/"`.
-
-5. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
+3. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
 
 ```
 "public_key": "0x02ab85f14dcdc93832f4bb9b40ad908a5becb840d36f64d21645550ba4a2b28892",
@@ -401,11 +378,13 @@ These values are already in the script, it defaults to Hekla; please comment tho
 
 You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
 
-Copy your quote and use in the following step.
+4. Export an RPC url for the L1 network you are registering for. i.e. `FORK_URL=https://any_holesky_rpc_url/` for Hekla.
 
-6. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/layer1/config_dcap_sgx_verifier.sh --quote {YOUR_QUOTE_HERE}`. "YOUR_QUOTE_HERE" comes from above step 5.
+5. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/layer1/provers/config_dcap_sgx_verifier.sh --env {NETWORK} --quote {YOUR_QUOTE_HERE}`. "YOUR_QUOTE_HERE" comes from above step 5.
 
-> **_NOTE:_** You can use the same command for registering both verifiers, just comment out the Ontake addresses and uncomment the Pacaya ones in the script and re-run. 
+`NETWORK` will be `hekla-<ontake|pacaya|pivot>` or `mainnet` depending on which verifier you are registering to.
+
+> **_NOTE:_** You will have to do this step twice for Hekla: once for Ontake and once for Pacaya. Please keep both SGX_INSTANCE_IDs.
 
 7. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
@@ -424,7 +403,7 @@ Once you've completed the above steps, you can actually run a prover.
 
 Raiko now supports more configurations, which need to be carefully checked to avoid errors.
 
-> **_NOTE:_** We have deprecated `SGX_INSTANCE_ID`, if you only register with the Ontake addresses please export to `SGX_ONTAKE_INSTANCE_ID`.
+> **_NOTE:_** We have deprecated `SGX_INSTANCE_ID`, if you only register for Pacaya please export to `SGX_PACAYA_INSTANCE_ID`.
 
     - SGX_ONTAKE_INSTANCE_ID: SGX registered ID for ontake fork. (if raiko start before/in ontake, set this one)
     - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko start before/in pacaya, set this one)

@@ -451,11 +451,17 @@ mod tests {
             .generate_batch_input(provider)
             .await
             .expect("input generation failed");
+        // let filename = format!("batch-input-{}.json", proof_request.batch_id);
+        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
+        // serde_json::to_writer(writer, &input).expect("Unable to write data");
         trace!("batch guest input: {input:?}");
         let output = raiko
             .get_batch_output(&input)
             .expect("output generation failed");
         debug!("batch guest output: {output:?}");
+        // let filename = format!("batch-output-{}.json", proof_request.batch_id);
+        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
+        // serde_json::to_writer(writer, &output).expect("Unable to write data");
         raiko
             .batch_prove(input, &output, None)
             .await
@@ -481,6 +487,33 @@ mod tests {
             batch_id: 164,
             l1_inclusion_block_number: 363,
             l2_block_numbers: vec![164],
+            network,
+            graffiti: B256::ZERO,
+            prover: Address::ZERO,
+            l1_network,
+            proof_type,
+            blob_proof_type: BlobProofType::ProofOfEquivalence,
+            prover_args: test_proof_params(false),
+        };
+        batch_prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
+    }
+
+    #[ignore]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_prove_batch_block_taiko_a7() {
+        env_logger::init();
+        let proof_type = get_proof_type_from_env();
+        let l1_network = "holesky".to_owned();
+        let network = "taiko_a7".to_owned();
+        let chain_specs = SupportedChainSpecs::default();
+        let taiko_chain_spec = chain_specs.get_chain_spec(&network).unwrap();
+        let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
+
+        let proof_request = ProofRequest {
+            block_number: 0,
+            batch_id: 1306738,
+            l1_inclusion_block_number: 3606914,
+            l2_block_numbers: vec![1306738],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,
