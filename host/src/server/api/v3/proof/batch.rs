@@ -204,7 +204,12 @@ async fn batch_handler(
                             // NOTE: Return the proof of the first sub-request
                             proof: {
                                 if let raiko_reqpool::Status::Success { proof, .. } = &statuses[0] {
-                                    proof.clone()
+                                    // no need to return single proof, leave input as a indicator that
+                                    // a single batch proof is ready
+                                    Proof {
+                                        input: proof.input.clone(),
+                                        ..Default::default()
+                                    }
                                 } else {
                                     Proof::default()
                                 }
