@@ -399,7 +399,7 @@ Raiko now supports more configurations, which need to be carefully checked to av
 > **_NOTE:_** We have deprecated `SGX_INSTANCE_ID`. Please fill in 
 
     - SGX_ONTAKE_INSTANCE_ID: SGX registered ID for ontake fork. 
-    - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko start in pacaya, set this one)
+    - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko is started in pacaya, set this one)
     - PIVOT_PACAYA_INSTANCE_ID： registered instance ID for the pivot proof for pacaya fork. (must be set to prepare for pacaya with pivot)
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
     - ETHEREUM_BEACON_RPC: ethereum beacon node url, from which you query the ethereum data.
@@ -410,7 +410,7 @@ Raiko now supports more configurations, which need to be carefully checked to av
     - L1_NETWORK: specify the l1 network if exist, default is "holesky".
     - NETWORK: specify the network to be proven, could be one of ["taiko_a7", "taiko_mainnet", "ethereum", "holesky"], default is "taiko_a7". make sure both L1_NETWORK & NETWORK in chain_spec_list.docker.json
 
-A most common setup in hekla testnet when it comes to ontake/pacaya fork is:
+A most common setup in hekla testnet when as of the Pacaya fork is:
 ```
 cd ~/raiko/docker
 export SGX_PACAYA_INSTANCE_ID={YOUR_PACAYA_INSTANCE_ID}
@@ -516,11 +516,11 @@ If you received this response, then at this point, your prover is up and running
 
 As of the Pacaya fork (currently only in Hekla), you will need to check that your Raiko instance can prove batches.
 
-Please make sure that you have done the On Chain RA step with the Pacaya addresses and exported the your `SGX_PACAYA_INSTANCE_ID` before running Raiko.
+Please make sure that you have done the On Chain RA step with the Pacaya addresses and exported the your `SGX_PACAYA_INSTANCE_ID` before running Raiko. The same must be done for the Pivot proof, and `PIVOT_PACAYA_INSTANCE_ID` must be set too.
 
 Use `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029)]"` to check readiness. 
 
-> **_NOTE:_** If you would like to check the pivot is set up properly too, simply replace `sgx` with `pivot`. The responses should look the same, except with `proof_type: pivot`. For the curl response, check the script for the `proofParams` to replace.
+> **_NOTE:_** If you would like to check the pivot is set up properly, simply replace `sgx` with `pivot`. The responses should look the same, except with `proof_type: pivot`. For the curl response, check the script for the `proofParams` to replace.
 
 The initial response will be as follows:
 ```
@@ -538,7 +538,7 @@ raiko  | 2025-03-31T22:41:16.762696Z  INFO raiko_reqpool::pool: RedisPool.add: {
 Alternatively, you may wait a minute or so and call `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029)]"` again: this time if the response is as follows:
 
 ```
-- proving batch 1303526 @ 3591029 on taiko_a7 with native proof
+Parsed batch request: [{"batch_id": 1303526, "l1_inclusion_block_number": 3591029}]
 {"data":{"proof":{"input":"0x779c2bc712311b754f7a71fd2065f337fbabd7473b4b231164ea1a51e39816d9","kzg_proof":null,"proof":0x0000...,"quote":03002...,"uuid":null}},"proof_type":"sgx","status":"ok"}
 ```
 
