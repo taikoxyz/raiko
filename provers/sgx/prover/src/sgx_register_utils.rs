@@ -10,7 +10,6 @@ use raiko_lib::{
     proof_type::ProofType,
 };
 use reqwest::Url;
-use serde_json;
 use std::{collections::BTreeMap, env, fs, io, path::Path};
 
 const REGISTERED_FILE: &str = "registered.json";
