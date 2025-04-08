@@ -3,10 +3,10 @@
 if [ "$#" -ne 3 ]; then
   echo "Usage: prove-batch.sh <chain> <proof> <batch_info>"
   echo "  chain: taiko_mainnet, taiko_a7, taiko_dev"
-  echo "  proof: native, risc0[-bonsai], sp1, sgx"
-  echo "  batch_info: [(batch_id, batch_proposal_height), ...]"
+  echo "  proof: native, risc0[-bonsai], sp1, sgx, pivot"
+  echo "  batch_info: \"[(batch_id, batch_proposal_height)]\""
   echo "Example:"
-  echo "  prove-batch.sh ethereum native [(1, 2), (3, 4)]"
+  echo "  prove-batch.sh ethereum native \"[(1, 2)]\" "
   exit 1
 fi
 
@@ -14,8 +14,11 @@ fi
 chain="$1"
 # Use the second command line argument as the proof type
 proof="$2"
-# Use the third parameter(s) as the batch number as a range
+# Use the third command line argument as a tuple of the batch number and l1 inclusion number
 batch_info="$3"
+
+batch_id=""
+height=""
 
 parse_batch_pair() {
   local input="$1"
@@ -23,11 +26,11 @@ parse_batch_pair() {
   local cleaned
   cleaned=$(echo "$input" | sed 's/[][]//g' | sed 's/ //g' | tr -d '()')
 
-  local pairs
-  pairs=$(echo "$cleaned" | grep -oE '[0-9]+,[0-9]+')
+  local pair
+  pair=$(echo "$cleaned" | grep -oE '[0-9]+,[0-9]+')
 
-  if [[ -z "$pairs" ]]; then
-    echo "❌ Invalid input format: expected something like [(1,2), (3,4)]" >&2
+  if [[ -z "$pair" ]]; then
+    echo "❌ Invalid input format: expected something like \"[(1,2)]\"" >&2
     return 1
   fi
 
@@ -40,7 +43,7 @@ parse_batch_pair() {
     fi
     json_array+="{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $height}"
     first=0
-  done <<< "$pairs"
+  done <<< "$pair"
 
   json_array+="]"
   echo "$json_array"
@@ -108,6 +111,17 @@ elif [ "$proof" == "sgx" ]; then
         "input_path": null
     }
 '
+elif [ "$proof" == "pivot" ]; then
+	proofParam='
+    "proof_type": "pivot",
+    "pivot" : {
+        "instance_id": 456,
+        "setup": false,
+        "bootstrap": false,
+        "prove": true,
+        "input_path": null
+    }
+'
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
@@ -131,17 +145,13 @@ elif [ "$proof" == "risc0-bonsai" ]; then
     }
   '
 else
-	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
+	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'pivot' or 'sgx'."
 	exit 1
 fi
 
-
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
-
-echo "- proving batch $batch_id @ $batch_proposal_height on $chain with $proof proof"
-curl --location --request POST 'http://localhost:8088/v3/proof/batch' \
+curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --header 'Content-Type: application/json' \
     --header 'Authorization: Bearer' \
     --data-raw "{
@@ -149,11 +159,8 @@ curl --location --request POST 'http://localhost:8088/v3/proof/batch' \
         \"l1_network\": \"$l1_network\",
         \"batches\": $batch_request,
         \"prover\": \"$prover\",
-        \"graffiti\": \"$graffiti\",
         \"aggregate\": false,
         $proofParam
     }"
-set +x
-echo ""
 
 sleep 1.0
