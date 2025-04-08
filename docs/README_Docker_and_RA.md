@@ -284,30 +284,25 @@ mkdir ~/.config/raiko/config
 mkdir ~/.config/raiko/secrets
 ```
 
-5. Now, clone raiko and check out the `main` branch and navigate to the `docker` folder. From here you can build the docker images that we will be using.
+5. Now, clone raiko and check out the `main` branch and navigate to the `docker` folder. From here you can pull the images from our registry.
 
 ```
 git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
-docker compose build raiko
 ```
 
-> **_NOTE:_** This step will take some time, sometimes ~5 minutes. Do NOT do `docker compose build` alone, this will build the zk image which will take >30mins and will not be used!
+You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.7.0-rc1-edmm`. If you are using a SGX1 machine, please use `1.7.0-rc1`.
 
-If you do not wish to build the image locally, you can optionally pull them from our registry.
-
-If you are using a SGX2 machine, please use `1.6.0-hotfix-edmm`. If you are using a SGX1 machine, please use `1.6.0-hotfix`.
+In your `docker-compose.yml` file, search for `raiko:latest` and change all instances to `raiko:{TAG}`. Use the following commands to pull the respective images.
 
 ```
 docker pull us-docker.pkg.dev/evmchain/images/raiko:{TAG}
 docker pull us-docker.pkg.dev/evmchain/images/pccs:latest
 ```
 
-If you do this step, you need to change your raiko docker-compose.yml to use this image. Navigate to `raiko/docker` and search for `raiko:latest` and change all instances to `raiko:{TAG}`.
+It is not recommended, but you can also build the raiko image locally with `docker compose build raiko`. If you do so, you do not need to change `raiko:latest` in your docker-compose.yml. You may run into issues if the versions do not line up with the verifier, so we highly recommend using the registry images.
 
-You can continue on with the following steps as usual after this.
-
-6. Check that the images have been built
+6. Check that the images have been pulled
 
 ```
 docker image ls
@@ -315,26 +310,24 @@ docker image ls
 
 You should see at least two images, `us-docker.pkg.dev/evmchain/raiko` and `us-docker.pkg.dev/evmchain/pccs`.
 
-7. If both are present, bootstrap Raiko with the following command:
+7. Create a `.env` using the `.env.sample` template. Ensure `PIVOT=true` is in the `.env`.
+
+You can copy the template with the following:
+
+```
+cp .env.sample .env
+```
+
+8. If both are present, bootstrap Raiko with the following command:
 
 ```
 docker compose up init
 ```
 
-If everything is configured correctly, raiko-init should run without errors and generate a `bootstrap.json`. Check that it exists with the following command:
+If everything is configured correctly, raiko-init should run without errors and generate a `bootstrap.json` and `bootstrap.gaiko.json`. Check that they exist with the following command:
 
 ```
-cat ~/.config/raiko/config/bootstrap.json
-```
-
-It should look something like this:
-
-```
-{
-  "public_key": "0x0319c008667385c53cc66202eb961c624481f7317bff679d2f3c7571e06e4d9877",
-  "new_instance": "0x768691497b3e5de5c5b7a8bd5e0910eba0672992",
-  "quote": "03000200000000000a....................................000f00939a7"
-}
+ls ~/.config/raiko/config
 ```
 
 You've now prepared your machine for running Raiko through Docker. Now, you need to perform On-Chain Remote Attestation to receive TTKOh from moderators and begin proving for Taiko!
@@ -368,7 +361,7 @@ pnpm install
 pnpm compile
 ```
 
-3. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained a quote:
+3. If you've followed the Raiko Docker guide, you will have bootstrapped raiko and obtained two bootstrap.json files. Both will look like the following:
 
 ```
 "public_key": "0x02ab85f14dcdc93832f4bb9b40ad908a5becb840d36f64d21645550ba4a2b28892",
@@ -376,7 +369,7 @@ pnpm compile
 "quote": "0x030002......f00939a7233f79c4ca......9434154452d2d2d2d2d0a00"
 ```
 
-You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
+You can find it with `cat ~/.config/raiko/config/bootstrap.json` or  `cat ~/.config/raiko/config/bootstrap.gaiko.json`.
 
 4. Export an RPC url for the L1 network you are registering for. i.e. `FORK_URL=https://any_holesky_rpc_url/` for Hekla.
 
@@ -384,7 +377,7 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` as shown above.
 
 `NETWORK` will be `hekla-<ontake|pacaya|pivot>` or `mainnet` depending on which verifier you are registering to.
 
-> **_NOTE:_** You will have to do this step twice for Hekla: once for Ontake and once for Pacaya. Please keep both SGX_INSTANCE_IDs.
+ You will have to do this step twice for Hekla: once for Pivot and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `hekla-pivot` and the quote from `bootstrap.json` to register for `hekla-pacaya`. Keep both instance IDs.
 
 7. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
@@ -395,7 +388,7 @@ emit InstanceAdded(id: 1, instance: 0xc369eedf4C69CacceDa551390576EAd2383E6f9E, 
 ```
 
 If you accidentally cleared your terminal or somehow otherwise fail to view this event log, you can find this value in the Etherscan at your prover EOA.
-You should see a new transaction with the method `Register Instance` sent to the respective `SGX_VERIFIER_ADDRESS`; viewing the transaction details and accessing the transaction receipt event logs should show the InstanceAdded event!
+You should see a new transaction with the method `Register Instance` sent to the respective `SGX_VERIFIER_ADDRESS`; viewing the transaction details and accessing the transaction receipt event logs should show the InstanceAdded event.
 
 ## Running Raiko
 
@@ -403,10 +396,11 @@ Once you've completed the above steps, you can actually run a prover.
 
 Raiko now supports more configurations, which need to be carefully checked to avoid errors.
 
-> **_NOTE:_** We have deprecated `SGX_INSTANCE_ID`, if you only register for Pacaya please export to `SGX_PACAYA_INSTANCE_ID`.
+> **_NOTE:_** We have deprecated `SGX_INSTANCE_ID`. Please fill in 
 
-    - SGX_ONTAKE_INSTANCE_ID: SGX registered ID for ontake fork. (if raiko start before/in ontake, set this one)
-    - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko start before/in pacaya, set this one)
+    - SGX_ONTAKE_INSTANCE_ID: SGX registered ID for ontake fork. 
+    - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko start in pacaya, set this one)
+    - PIVOT_PACAYA_INSTANCE_ID： registered instance ID for the pivot proof for pacaya fork. (must be set to prepare for pacaya with pivot)
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
     - ETHEREUM_BEACON_RPC: ethereum beacon node url, from which you query the ethereum data.
     - HOLESKY_RPC: ethereum holesky test node url.
@@ -419,8 +413,8 @@ Raiko now supports more configurations, which need to be carefully checked to av
 A most common setup in hekla testnet when it comes to ontake/pacaya fork is:
 ```
 cd ~/raiko/docker
-export SGX_ONTAKE_INSTANCE_ID={YOUR_ONTAKE_INSTANCE_ID}
 export SGX_PACAYA_INSTANCE_ID={YOUR_PACAYA_INSTANCE_ID}
+export PIVOT_PACAYA_INSTANCE_ID={YOUR_PIVOT_INSTANCE_ID}
 export L1_NETWORK="holesky"
 export NETWORK="taiko_a7"
 export HOLESKY_RPC={YOUR_FAST_HOLESKY_NODE}
@@ -428,6 +422,8 @@ export HOLESKY_BEACON_RPC={YOUR_FAST_HOLESKY_BEACON_NODE}
 export TAIKO_A7_RPC={YOUR_FAST_A7_NODE}
 docker compose up raiko -d
 ```
+
+You can alternatively set all these values in the `.env` file in `raiko/docker`.
 
 If everything is working, you should see something like the following when executing `docker compose logs raiko`:
 
@@ -459,15 +455,15 @@ Opt {
 
 ...
 
- + jq --arg update_value {SGX_ONTAKE_INSTANCE_ID} '.sgx.instance_ids.ONTAKE = ($update_value | tonumber)' /etc/raiko/config.sgx.json
+raiko  | + jq --arg update_value X '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' /etc/raiko/config.sgx.json
 raiko  | + mv /tmp/config_tmp.json /etc/raiko/config.sgx.json
-raiko  | + echo 'Update ontake sgx instance id to {SGX_ONTAKE_INSTANCE_ID}'
-raiko  | Update ontake sgx instance id to {SGX_ONTAKE_INSTANCE_ID}
-raiko  | + [[ -n 1 ]]
-raiko  | + jq --arg update_value {SGX_PACAYA_INSTANCE_ID} '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' /etc/raiko/config.sgx.json
+raiko  | + echo 'Update pacaya sgx instance id to X'
+raiko  | Update pacaya sgx instance id to X
+raiko  | + [[ -n Y ]]
+raiko  | + jq --arg update_value Y '.pivot.instance_ids.PACAYA = ($update_value | tonumber)' /etc/raiko/config.sgx.json
 raiko  | + mv /tmp/config_tmp.json /etc/raiko/config.sgx.json
-raiko  | + echo 'Update pacaya sgx instance id to {SGX_PACAYA_INSTANCE_ID}'
-raiko  | Update pacaya sgx instance id to {SGX_PACAYA_INSTANCE_ID}
+raiko  | + echo 'Update pacaya pivot instance id to Y'
+raiko  | Update pacaya pivot instance id to Y
 
 ...
 
@@ -516,32 +512,34 @@ The response should look like this:
 
 If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
 
-## Verify that your Raiko instance can successfully prove batches (Pacaya)
+## Verify that your Raiko instance is running properly (Pacaya and Pivot)
 
 As of the Pacaya fork (currently only in Hekla), you will need to check that your Raiko instance can prove batches.
 
 Please make sure that you have done the On Chain RA step with the Pacaya addresses and exported the your `SGX_PACAYA_INSTANCE_ID` before running Raiko.
 
-Use `./script/prove-batch.sh taiko_a7 native 1303526 3591029` to check readiness. 
+Use `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029)]"` to check readiness. 
+
+> **_NOTE:_** If you would like to check the pivot is set up properly too, simply replace `sgx` with `pivot`. The responses should look the same, except with `proof_type: pivot`. For the curl response, check the script for the `proofParams` to replace.
 
 The initial response will be as follows:
 ```
-- proving batch 1303526 @ 3591021 on taiko_a7 with native proof
-{"data":{"status":"registered"},"proof_type":"native","status":"ok"}
+Parsed batch request: [{"batch_id": 1303526, "l1_inclusion_block_number": 3591029}]
+{"data":{"status":"registered"},"proof_type":"sgx","status":"ok"}
 ```
 
 You may then navigate to `raiko/docker` and check the logs with `docker compose logs raiko`. If you see the following log, your prover is functional and working as intended!
 
 ```
-raiko  | 2025-03-31T22:41:16.762651Z  INFO raiko_reqpool::pool: RedisPool.update_status: {"BatchProof":{"chain_id":167009,"batch_id":1303526,"l1_inclusion_height":3591029,"proof_type":"Native","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
-raiko  | 2025-03-31T22:41:16.762696Z  INFO raiko_reqpool::pool: RedisPool.add: {"BatchProof":{"chain_id":167009,"batch_id":1303526,"l1_inclusion_height":3591029,"proof_type":"Native","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
+raiko  | 2025-03-31T22:41:16.762651Z  INFO raiko_reqpool::pool: RedisPool.update_status: {"BatchProof":{"chain_id":167009,"batch_id":1303526,"l1_inclusion_height":3591029,"proof_type":"sgx","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
+raiko  | 2025-03-31T22:41:16.762696Z  INFO raiko_reqpool::pool: RedisPool.add: {"BatchProof":{"chain_id":167009,"batch_id":1303526,"l1_inclusion_height":3591029,"proof_type":"sgx","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
 ```
 
-Alternatively, you may wait a minute or so and call `./script/prove-batch.sh taiko_a7 native 1303526 3591029` again: this time if the response is as follows:
+Alternatively, you may wait a minute or so and call `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029)]"` again: this time if the response is as follows:
 
 ```
 - proving batch 1303526 @ 3591029 on taiko_a7 with native proof
-{"data":{"proof":{"input":"0x779c2bc712311b754f7a71fd2065f337fbabd7473b4b231164ea1a51e39816d9","kzg_proof":null,"proof":null,"quote":null,"uuid":null}},"proof_type":"native","status":"ok"}
+{"data":{"proof":{"input":"0x779c2bc712311b754f7a71fd2065f337fbabd7473b4b231164ea1a51e39816d9","kzg_proof":null,"proof":0x0000...,"quote":03002...,"uuid":null}},"proof_type":"sgx","status":"ok"}
 ```
 
 Your Raiko instance is correctly configured and working for the Pacaya fork.
@@ -558,34 +556,23 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
         "batches": [{"batch_id": 1303526, "l1_inclusion_block_number": 3591029}],
         "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
         "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "proof_type": "NATIVE",
+        "proof_type": "sgx",
         "blob_proof_type": "proof_of_equivalence",
-        "native" : {
-            "json_guest_input": null
+        "proof_type": "sgx",
+        "sgx" : {
+            "instance_id": 123,
+            "setup": false,
+            "bootstrap": false,
+            "prove": true,
+            "input_path": null
         }
     }'
 ```
 
 The responses should be the same as listed above.
 
-## Change your Raiko instance's RPCs to your personal RPC (Optional but recommended)
-
-If you've successfully set up your raiko instance as above, you may want to change the RPCs raiko uses to ones you trust / your own deployed L1 Node and Beacon Node. Doing so will prevent random outages on PublicNode from affecting your proving, which you will want to do when running a mainnet prover/proposer.
-
-If your raiko instance is still running, take it down temporarily with `docker compose down`.
-
-Navigate to the `docker` folder in the raiko repo, export the below variables as necessary in the `docker-compose.yml` on L69-74 depending on which network you are running an SGX prover for.
-
-```
-- ETHEREUM_RPC=${ETHEREUM_RPC}
-- ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
-- HOLESKY_RPC=${HOLESKY_RPC}
-- HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
-- TAIKO_A7_RPC=${TAIKO_A7_RPC}
-- TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
-```
-
-You can now restart your raiko instance (skipping the init/bootstrapping step) and operate as normal with `docker compose up raiko -d`! Monitor the logs and run the above `./script/prove-block` script to make sure it's functioning normally.
+If you would like to test multiple batches, you can add them like so: `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029), ($batch_id2,$batch_height2)]"`
+You will only see logs for one of the batches in the format as above but you can check `docker compose logs raiko` to see if both batches were proved successfully.
 
 ## Verify that your Raiko instance can successfully aggregation prove
 
