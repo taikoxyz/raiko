@@ -318,7 +318,7 @@ You can copy the template with the following:
 cp .env.sample .env
 ```
 
-8. If both are present, bootstrap Raiko with the following command:
+8. Bootstrap Raiko with the following command:
 
 ```
 docker compose up init
