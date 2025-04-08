@@ -296,7 +296,6 @@ mod test {
     #[test]
     fn run_unittest_elf() {
         std::env::set_var("RISC0_PROVER", "local");
-
         let env = ExecutorEnv::builder().build().unwrap();
         let prover = default_prover();
         let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();

@@ -131,7 +131,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
 
     let encoded_output =
         to_vec(expected_output).expect("Could not serialize expected proving output!");
-    let computed_image_id = compute_image_id(&elf).expect("Failed to compute elf image id!");
+    let computed_image_id = compute_image_id(elf).expect("Failed to compute elf image id!");
 
     let receipt_label = format!(
         "{}-{}",
