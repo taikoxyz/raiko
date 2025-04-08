@@ -291,7 +291,6 @@ mod test {
     use super::*;
     use methods::risc0_guest::RISC0_GUEST_ID;
     use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
-
     use risc0_zkvm::{default_prover, ExecutorEnv};
     #[test]
     fn run_unittest_elf() {
