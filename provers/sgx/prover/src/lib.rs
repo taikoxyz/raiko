@@ -101,7 +101,7 @@ impl Prover for SgxProver {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param =
-            SgxParam::deserialize(config.get(&self.proof_type.to_string()).unwrap()).unwrap();
+            SgxParam::deserialize(config.get(self.proof_type.to_string()).unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
@@ -190,7 +190,7 @@ impl Prover for SgxProver {
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param =
-            SgxParam::deserialize(config.get(&self.proof_type.to_string()).unwrap()).unwrap();
+            SgxParam::deserialize(config.get(self.proof_type.to_string()).unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
@@ -286,7 +286,7 @@ impl Prover for SgxProver {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param =
-            SgxParam::deserialize(config.get(&self.proof_type.to_string()).unwrap()).unwrap();
+            SgxParam::deserialize(config.get(self.proof_type.to_string()).unwrap()).unwrap();
 
         // Support both SGX and the direct backend for testing
         let direct_mode = match env::var("SGX_DIRECT") {
