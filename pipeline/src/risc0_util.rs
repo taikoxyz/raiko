@@ -28,9 +28,7 @@ impl GuestListEntry {
     /// image ID.
     pub fn build(name: &str, elf_path: &str) -> Result<Self> {
         let guest_elf = std::fs::read(elf_path)?;
-        let program_binary = ProgramBinary::new(&guest_elf, V1COMPAT_ELF);
-
-        let elf = program_binary.encode();
+        let elf = ProgramBinary::new(&guest_elf, V1COMPAT_ELF).encode();
 
         let image_id = risc0_binfmt::compute_image_id(&elf)?;
 

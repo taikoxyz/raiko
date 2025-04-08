@@ -134,9 +134,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     let encoded_output =
         to_vec(expected_output).expect("Could not serialize expected proving output!");
 
-    let program_binary = ProgramBinary::new(&elf, V1COMPAT_ELF);
-
-    let elf = program_binary.encode();
+    let elf = ProgramBinary::new(&elf, V1COMPAT_ELF).encode();
 
     let computed_image_id = compute_image_id(&elf).expect("Failed to compute elf image id!");
 
@@ -370,10 +368,11 @@ pub fn prove_locally(
             .segment_limit_po2(segment_limit_po2)
             .write_slice(&encoded_input);
 
-        // if profile {
-        //     info!("Profiling enabled.");
-        //     env_builder.enable_profiler("profile_r0_local.pb");
-        // }
+        if profile {
+            warn!("Profiling is currently not working in v2");
+            // info!("Profiling enabled.");
+            // env_builder.enable_profiler("profile_r0_local.pb");
+        }
 
         for assumption in assumptions {
             env_builder.add_assumption(assumption);
