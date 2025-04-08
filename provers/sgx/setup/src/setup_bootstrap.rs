@@ -36,14 +36,28 @@ pub(crate) async fn setup_bootstrap(
         true,
         FileOptions::new().create(true).write(true),
     )?;
+
+    // NB: Origin config file is static and should not be changed.
+    let file = File::open(&bootstrap_args.config_path)?;
+    let reader = BufReader::new(file);
+    let mut file_config: Value = serde_json::from_reader(reader)?;
+
     setup_bootstrap_inner(
         secret_dir.clone(),
         config_dir.clone(),
         bootstrap_args,
         ProofType::Sgx,
+        &mut file_config,
     )
     .await?;
-    setup_bootstrap_inner(secret_dir, config_dir, bootstrap_args, ProofType::Pivot).await?;
+    setup_bootstrap_inner(
+        secret_dir,
+        config_dir,
+        bootstrap_args,
+        ProofType::Pivot,
+        &mut file_config,
+    )
+    .await?;
     drop(filelock);
     Ok(())
 }
@@ -53,6 +67,7 @@ pub(crate) async fn setup_bootstrap_inner(
     config_dir: PathBuf,
     bootstrap_args: &BootstrapArgs,
     proof_type: ProofType,
+    file_config: &mut serde_json::Value,
 ) -> Result<()> {
     let chain_specs = SupportedChainSpecs::merge_from_file(bootstrap_args.chain_spec_path.clone())?;
     let l1_chain_spec = chain_specs
@@ -102,7 +117,7 @@ pub(crate) async fn setup_bootstrap_inner(
         || fork_verifier_pairs
             .clone()
             .into_values()
-            .flat_map(|v| v)
+            .flatten()
             .any(|id| !registered_fork_ids.clone().unwrap().contains_key(&id));
 
     println!("Instance ID: {registered_fork_ids:?}, proof_type: {proof_type}");
@@ -130,10 +145,6 @@ pub(crate) async fn setup_bootstrap_inner(
         registered_fork_ids = Some(fork_register_id);
         println!("Saving instance id {registered_fork_ids:?}");
     }
-    // Always reset the configuration with a persistent instance ID upon restart.
-    let file = File::open(&bootstrap_args.config_path)?;
-    let reader = BufReader::new(file);
-    let mut file_config: Value = serde_json::from_reader(reader)?;
     let sgx_instance_json_value = serde_json::to_value(registered_fork_ids)?;
     let type_key = proof_type.to_string();
     file_config[&type_key]["instance_ids"] = sgx_instance_json_value;
@@ -162,10 +173,7 @@ fn get_hard_fork_verifiers(
         .for_each(|(spec_id, verifiers)| match verifiers.get(&proof_type) {
             Some(verifier_addr) => match verifier_addr {
                 Some(addr) => {
-                    fork_verifiers
-                        .entry(addr.clone())
-                        .or_insert_with(Vec::new)
-                        .push(*spec_id);
+                    fork_verifiers.entry(*addr).or_default().push(*spec_id);
                 }
                 None => warn!("No verifier for fork {spec_id:?}"),
             },
