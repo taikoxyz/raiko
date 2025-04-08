@@ -291,14 +291,15 @@ mod test {
     use super::*;
     use methods::risc0_guest::RISC0_GUEST_ID;
     use methods::test_risc0_guest::{TEST_RISC0_GUEST_ELF, TEST_RISC0_GUEST_ID};
-    use risc0_zkvm::{default_prover, ExecutorEnv};
 
+    use risc0_zkvm::{default_prover, ExecutorEnv};
     #[test]
     fn run_unittest_elf() {
         std::env::set_var("RISC0_PROVER", "local");
+
         let env = ExecutorEnv::builder().build().unwrap();
         let prover = default_prover();
-        let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
+        let receipt = prover.prove(env, &elf).unwrap();
         receipt.receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
     }
 

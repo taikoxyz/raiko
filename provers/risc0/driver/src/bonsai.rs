@@ -10,8 +10,6 @@ use raiko_lib::{
     primitives::keccak::keccak,
     prover::{IdWrite, ProofKey, ProverError, ProverResult},
 };
-use risc0_binfmt::ProgramBinary;
-use risc0_zkos_v1compat::V1COMPAT_ELF;
 use risc0_zkvm::{
     compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, AssumptionReceipt, ExecutorEnv,
     ExecutorImpl, Receipt,
@@ -133,8 +131,6 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
 
     let encoded_output =
         to_vec(expected_output).expect("Could not serialize expected proving output!");
-
-    let elf = ProgramBinary::new(&elf, V1COMPAT_ELF).encode();
 
     let computed_image_id = compute_image_id(&elf).expect("Failed to compute elf image id!");
 
@@ -369,7 +365,7 @@ pub fn prove_locally(
             .write_slice(&encoded_input);
 
         if profile {
-            warn!("Profiling is currently not working in v2");
+            warn!("Profiling disabled. Currently not working in v2");
             // info!("Profiling enabled.");
             // env_builder.enable_profiler("profile_r0_local.pb");
         }

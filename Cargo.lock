@@ -8105,8 +8105,6 @@ dependencies = [
  "once_cell",
  "raiko-lib",
  "reqwest 0.11.27",
- "risc0-binfmt",
- "risc0-zkos-v1compat",
  "risc0-zkvm",
  "serde",
  "serde_json",

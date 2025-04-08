@@ -1,6 +1,3 @@
-pub const TEST_RISC0_GUEST_ELF: &[u8] = include_bytes!(
-    "../../../guest/target/riscv32im-risc0-zkvm-elf/release/deps/risc0_guest-0bc1e8b3751fcce9"
-);
-pub const TEST_RISC0_GUEST_ID: [u32; 8] = [
-    421024105, 3054720816, 1934771990, 3546695673, 239189973, 3330335383, 2486808766, 4291756183,
-];
+
+pub const TEST_RISC0_GUEST_ELF: &[u8] = include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/deps/risc0_guest-ec21105eb19a1b6f");
+pub const TEST_RISC0_GUEST_ID: [u32; 8] = [125096490, 2519681774, 4263816311, 3060211224, 655017739, 1014246946, 859911810, 2337502337];

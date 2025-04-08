@@ -11,8 +11,6 @@ harness = true
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
 
-risc0-binfmt = { workspace = true, optional = true }
-risc0-zkos-v1compat = { workspace = true, optional = true }
 risc0-zkvm = { workspace = true, optional = true }
 bonsai-sdk = { workspace = true, optional = true }
 
@@ -46,8 +44,6 @@ thiserror = { workspace = true }
 enable = [
     "raiko-lib",
     "risc0-zkvm",
-    "risc0-binfmt",
-    "risc0-zkos-v1compat",
     "bonsai-sdk",
     "alloy-primitives",
     "alloy-sol-types",
