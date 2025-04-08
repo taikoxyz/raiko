@@ -204,10 +204,11 @@ async fn batch_handler(
                             // NOTE: Return the proof of the first sub-request
                             proof: {
                                 if let raiko_reqpool::Status::Success { proof, .. } = &statuses[0] {
-                                    // no need to return single proof, leave input as a indicator that
-                                    // a single batch proof is ready
+                                    // no need to return single proof, especially the quote,
+                                    // which is used internally as the input of aggregation.
                                     Proof {
                                         input: proof.input.clone(),
+                                        proof: proof.proof.clone(),
                                         ..Default::default()
                                     }
                                 } else {
