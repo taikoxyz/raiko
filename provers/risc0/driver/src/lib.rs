@@ -299,7 +299,7 @@ mod test {
 
         let env = ExecutorEnv::builder().build().unwrap();
         let prover = default_prover();
-        let receipt = prover.prove(env, &elf).unwrap();
+        let receipt = prover.prove(env, TEST_RISC0_GUEST_ELF).unwrap();
         receipt.receipt.verify(TEST_RISC0_GUEST_ID).unwrap();
     }
 
