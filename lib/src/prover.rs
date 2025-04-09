@@ -57,7 +57,7 @@ impl std::fmt::Display for Proof {
                     if p.len() <= 120 {
                         format!("{}", p)
                     } else {
-                        format!("{:?}...", p.chars().take(120))
+                        format!("{:?}...", p.chars().take(120).collect::<String>())
                     }
                 })
                 .unwrap_or("None".to_string()),
