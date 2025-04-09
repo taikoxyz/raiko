@@ -99,14 +99,12 @@ pub async fn preflight<BDP: BlockDataProvider>(
     } else {
         // For Ethereum blocks we just convert the block transactions in a tx_list
         // so that we don't have to supports separate paths.
-        TaikoGuestInput::try_from(block.body.clone()).map_err(|e| RaikoError::Conversion(e.0))?
+        TaikoGuestInput::try_from(block.body.transactions.clone())
+            .map_err(|e| RaikoError::Conversion(e.0))?
     };
     measurement.stop();
 
-    let parent_header: reth_primitives::Header =
-        parent_block.header.clone().try_into().map_err(|e| {
-            RaikoError::Conversion(format!("Failed converting to reth header: {e}"))
-        })?;
+    let parent_header: reth_primitives::Header = parent_block.header.inner.clone();
     let parent_block_number = parent_header.number;
 
     // Create the guest input
@@ -119,8 +117,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     };
 
     #[cfg(feature = "statedb_lru")]
-    let initial_db_with_headers =
-        load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
+    let initial_db_with_headers = load_state_db((parent_block_number, parent_block.header.hash));
     #[cfg(not(feature = "statedb_lru"))]
     let initial_db_with_headers = None;
 
@@ -142,6 +139,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
         &input.taiko.tx_data,
         &input.taiko.anchor_tx,
     );
+
+    println!("TXS: {:#?}", pool_tx.first().unwrap());
 
     // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
     execute_txs(&mut builder, pool_tx).await?;
@@ -262,17 +261,14 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
     for ((prove_block, parent_block), pure_pool_txs) in
         block_parent_pairs.iter().zip(pool_txs_list.iter())
     {
-        let parent_header: reth_primitives::Header =
-            parent_block.header.clone().try_into().map_err(|e| {
-                RaikoError::Conversion(format!("Failed converting to reth header: {e}"))
-            })?;
+        let parent_header: reth_primitives::Header = parent_block.header.inner.clone();
         let parent_block_number = parent_header.number;
         #[cfg(feature = "statedb_lru")]
-        let initial_db = load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
+        let initial_db = load_state_db((parent_block_number, parent_block.header.hash));
         #[cfg(not(feature = "statedb_lru"))]
         let initial_db = None;
 
-        let anchor_tx = prove_block.body.first().unwrap().clone();
+        let anchor_tx = prove_block.body.transactions.first().unwrap().clone();
         let taiko_input = TaikoGuestInput {
             l1_header: taiko_guest_batch_input.l1_header.clone(),
             tx_data: Vec::new(),

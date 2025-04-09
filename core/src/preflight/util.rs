@@ -1,3 +1,4 @@
+use alloy_consensus::Transaction;
 use alloy_primitives::{hex, Log as LogStruct, B256};
 use alloy_provider::{Provider, ReqwestProvider};
 use alloy_rpc_types::{Filter, Header, Log, Transaction as AlloyRpcTransaction};
@@ -21,9 +22,10 @@ use raiko_lib::{
     },
     primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
 };
-use reth_evm_ethereum::taiko::{decode_anchor, decode_anchor_ontake, decode_anchor_pacaya};
+
 use reth_primitives::{Block as RethBlock, TransactionSigned};
 use reth_revm::primitives::SpecId;
+use reth_taiko_consensus::{decode_anchor, decode_anchor_ontake, decode_anchor_pacaya};
 use serde::{Deserialize, Serialize};
 use std::iter;
 use tracing::{debug, error, info, warn};
@@ -83,6 +85,7 @@ pub async fn prepare_taiko_chain_input(
     // Decode the anchor tx to find out which L1 blocks we need to fetch
     let anchor_tx = block
         .body
+        .transactions
         .first()
         .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
 
@@ -141,12 +144,8 @@ pub async fn prepare_taiko_chain_input(
     )
     .await?;
     assert_eq!(anchor_state_root, l1_state_header.state_root);
-    let l1_state_block_hash = l1_state_header.hash.ok_or_else(|| {
-        RaikoError::Preflight("No L1 state block hash for the requested block".to_owned())
-    })?;
-    let l1_inclusion_block_hash = l1_inclusion_header.hash.ok_or_else(|| {
-        RaikoError::Preflight("No L1 inclusion block hash for the requested block".to_owned())
-    })?;
+    let l1_state_block_hash = l1_state_header.hash;
+    let l1_inclusion_block_hash = l1_inclusion_header.hash;
     info!(
         "L1 inclusion block number: {l1_inclusion_block_number:?}, hash: {l1_inclusion_block_hash:?}. L1 state block number: {:?}, hash: {l1_state_block_hash:?}",
         l1_state_header.number,
@@ -155,7 +154,7 @@ pub async fn prepare_taiko_chain_input(
     // Fetch the tx data from either calldata or blobdata
     let (tx_data, blob_commitment, blob_proof) = if block_proposed.blob_used() {
         let expected_blob_hash = block_proposed.blob_hash();
-        let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
+        let blob_hashes = proposal_tx.blob_versioned_hashes().unwrap_or_default();
         // Get the blob hashes attached to the propose tx and make sure the expected blob hash is in there
         require(
             blob_hashes.contains(&expected_blob_hash),
@@ -195,7 +194,7 @@ pub async fn prepare_taiko_chain_input(
             _ => {
                 // Get the tx list data directly from the propose transaction data
                 let proposeBlockCall { txList, .. } =
-                    proposeBlockCall::abi_decode(&proposal_tx.input, false).map_err(|_| {
+                    proposeBlockCall::abi_decode(&proposal_tx.input(), false).map_err(|_| {
                         RaikoError::Preflight("Could not decode proposeBlockCall".to_owned())
                     })?;
                 (txList.to_vec(), None, None)
@@ -205,7 +204,7 @@ pub async fn prepare_taiko_chain_input(
 
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {
-        l1_header: l1_state_header.try_into().unwrap(),
+        l1_header: l1_state_header.inner,
         tx_data,
         anchor_tx: Some(anchor_tx.clone()),
         blob_commitment,
@@ -291,6 +290,7 @@ pub async fn prepare_taiko_chain_batch_input(
     let batch_anchor_tx_info = batch_blocks.iter().try_fold(Vec::new(), |mut acc, block| {
         let anchor_tx = block
             .body
+            .transactions
             .first()
             .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
         let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
@@ -350,7 +350,7 @@ pub async fn prepare_taiko_chain_batch_input(
         // according to protocol, calldata is mutex with blob
         let (tx_data_from_calldata, blob_tx_buffers_with_proofs) = if blob_hashes.is_empty() {
             let proposeBatchCall { _txList, .. } =
-                proposeBatchCall::abi_decode(&batch_proposal_tx.input, false).map_err(|_| {
+                proposeBatchCall::abi_decode(&batch_proposal_tx.input(), false).map_err(|_| {
                     RaikoError::Preflight("Could not decode proposeBatchCall".to_owned())
                 })?;
             (_txList.to_vec(), Vec::new())
@@ -368,7 +368,7 @@ pub async fn prepare_taiko_chain_batch_input(
         return Ok(TaikoGuestBatchInput {
             batch_id: batch_id,
             batch_proposed: BlockProposedFork::Pacaya(batch_proposed),
-            l1_header: l1_state_header.try_into().unwrap(),
+            l1_header: l1_state_header.inner,
             chain_spec: taiko_chain_spec.clone(),
             prover_data: prover_data,
             tx_data_from_calldata,
@@ -674,8 +674,7 @@ where
 
     info!(
         "Processing block {:?} with hash: {:?}",
-        block.header.number,
-        block.header.hash.unwrap(),
+        block.header.number, block.header.hash
     );
     debug!("block.parent_hash: {:?}", block.header.parent_hash);
     debug!("block gas used: {:?}", block.header.gas_used);
@@ -707,9 +706,9 @@ where
         "Processing {} blocks with (num, hash) from:({:?}, {:?}) to ({:?}, {:?})",
         block_numbers.len(),
         blocks.first().unwrap().header.number,
-        blocks.first().unwrap().header.hash.unwrap(),
+        blocks.first().unwrap().header.hash,
         blocks.last().unwrap().header.number,
-        blocks.last().unwrap().header.hash.unwrap(),
+        blocks.last().unwrap().header.hash,
     );
 
     let pairs = blocks

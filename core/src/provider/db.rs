@@ -76,20 +76,14 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                 .get_blocks(&absent_block_numbers)
                 .await?;
             for block in initial_history_blocks {
-                let block_number: u64 = block
-                    .header
-                    .number
-                    .ok_or_else(|| RaikoError::RPC("No block number".to_owned()))?;
-                let block_hash = block
-                    .header
-                    .hash
-                    .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?;
+                let block_number = block.header.number;
+                let block_hash = block.header.hash;
                 provider_db
                     .initial_db
                     .insert_block_hash(block_number, block_hash);
                 provider_db
                     .initial_headers
-                    .insert(block_number, block.header.try_into().unwrap());
+                    .insert(block_number, block.header.inner);
             }
         }
         info!(
@@ -155,7 +149,7 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                 std::collections::hash_map::Entry::Occupied(header) => header.get().clone(),
                 std::collections::hash_map::Entry::Vacant(entry) => {
                     let block = &self.provider.get_blocks(&[(block_number, false)]).await?[0];
-                    let header: Header = block.header.clone().try_into().unwrap();
+                    let header: Header = block.header.inner.clone();
                     entry.insert(header.clone());
                     header
                 }
@@ -264,16 +258,12 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
         Ok(value)
     }
 
-    fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        let block_number: u64 = number
-            .try_into()
-            .map_err(|_| ProviderError::BlockNumberOverflow(number))?;
-
+    fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
         // Check if the block hash is in the current database.
-        if let Ok(block_hash) = self.initial_db.block_hash(number) {
+        if let Ok(block_hash) = self.initial_db.block_hash(block_number) {
             return Ok(block_hash);
         }
-        if let Ok(db_result) = self.staging_db.block_hash(number) {
+        if let Ok(db_result) = self.staging_db.block_hash(block_number) {
             if self.is_valid_run() {
                 self.initial_db.insert_block_hash(block_number, db_result);
             }
@@ -295,10 +285,7 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
         .first()
         .ok_or(ProviderError::RPC("No block".to_owned()))?
         .header
-        .hash
-        .ok_or_else(|| ProviderError::RPC("No block hash".to_owned()))?
-        .0
-        .into();
+        .hash;
         self.initial_db.insert_block_hash(block_number, block_hash);
         Ok(block_hash)
     }
@@ -376,9 +363,9 @@ impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
             .zip(blocks.iter())
         {
             self.staging_db
-                .insert_block_hash(block_number, block.header.hash.unwrap());
+                .insert_block_hash(block_number, block.header.hash);
             self.initial_headers
-                .insert(block_number, block.header.clone().try_into().unwrap());
+                .insert(block_number, block.header.inner.clone());
         }
 
         // If this wasn't a valid run, clear the post execution database
