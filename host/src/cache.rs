@@ -54,7 +54,7 @@ pub async fn validate_input(
             .ok_or_else(|| RaikoError::RPC("No block data for the requested block".to_owned()))?;
 
         let cached_block_hash = cache_input.block.header.hash_slow();
-        let real_block_hash = block.header.hash.unwrap();
+        let real_block_hash = block.header.hash;
         debug!("cache_block_hash={cached_block_hash:?}, real_block_hash={real_block_hash:?}");
 
         // double check if cache is valid

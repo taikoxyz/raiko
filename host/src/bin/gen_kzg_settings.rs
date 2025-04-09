@@ -1,23 +1,31 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs::{self, File},
+    io::Read,
+    path::PathBuf,
+};
 
 use kzg::kzg_proofs::KZGSettings;
-use reth_primitives::revm_primitives::kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS};
 static FILE_NAME: &str = "zkcrypto_kzg_settings.bin";
+const TRUSTED_SETUP_PATH: &str = "src/bin/trusted_setup.txt";
 
 fn main() {
-    let kzg_setting: KZGSettings = kzg_traits::eip_4844::load_trusted_setup_rust(
-        &G1Points::as_ref(G1_POINTS)
-            .into_iter()
-            .flatten()
-            .cloned()
-            .collect::<Vec<_>>(),
-        &G2Points::as_ref(G2_POINTS)
-            .into_iter()
-            .flatten()
-            .cloned()
-            .collect::<Vec<_>>(),
-    )
-    .expect("failed to load trusted setup");
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+    let path = PathBuf::from(manifest)
+        .join(TRUSTED_SETUP_PATH)
+        .into_os_string()
+        .into_string()
+        .unwrap();
+
+    let mut file = File::open(path).unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+
+    let (g1, g2) =
+        kzg_traits::eip_4844::load_trusted_setup_string(&contents).expect("Failed to load points");
+
+    let kzg_setting: KZGSettings = kzg_traits::eip_4844::load_trusted_setup_rust(&g1, &g2)
+        .expect("failed to load trusted setup");
 
     let path = PathBuf::from("./lib/kzg_settings");
     if !path.exists() {
