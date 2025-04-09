@@ -35,7 +35,7 @@ pub const PRIV_KEY_FILENAME_GAIKO: &str = "priv.gaiko.key";
 pub fn get_priv_key_filename(proof_type: ProofType) -> &'static str {
     match proof_type {
         ProofType::Sgx => PRIV_KEY_FILENAME,
-        ProofType::Pivot => PRIV_KEY_FILENAME_GAIKO,
+        ProofType::SgxGeth => PRIV_KEY_FILENAME_GAIKO,
         _ => panic!("Invalid proof type for SGX prover"),
     }
 }
@@ -236,7 +236,7 @@ impl Prover for SgxProver {
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
-            if self.proof_type == ProofType::Pivot {
+            if self.proof_type == ProofType::SgxGeth {
                 return StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
             }
             let mut cmd = if direct_mode {
@@ -334,7 +334,7 @@ impl Prover for SgxProver {
         let gramine_cmd = || -> StdCommand {
             let (mut cmd, elf) = if direct_mode {
                 (StdCommand::new("gramine-direct"), Some(ELF_NAME))
-            } else if self.proof_type == ProofType::Pivot {
+            } else if self.proof_type == ProofType::SgxGeth {
                 let cmd = StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
                 (cmd, None)
             } else {
@@ -349,7 +349,7 @@ impl Prover for SgxProver {
         };
 
         // Setup: run this once while setting up your SGX instance
-        if sgx_param.setup && self.proof_type != ProofType::Pivot {
+        if sgx_param.setup && self.proof_type != ProofType::SgxGeth {
             setup(&cur_dir, direct_mode).await?;
         }
 
@@ -546,7 +546,7 @@ async fn batch_prove(
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = if proof_type == ProofType::Pivot {
+        let input_success = if proof_type == ProofType::SgxGeth {
             serde_json::to_writer(stdin, &input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
         } else {
@@ -606,7 +606,7 @@ async fn aggregate(
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = if proof_type == ProofType::Pivot {
+        let input_success = if proof_type == ProofType::SgxGeth {
             serde_json::to_writer(stdin, &raw_input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
         } else {

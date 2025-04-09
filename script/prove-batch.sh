@@ -3,7 +3,7 @@
 if [ "$#" -ne 3 ]; then
   echo "Usage: prove-batch.sh <chain> <proof> <batch_info>"
   echo "  chain: taiko_mainnet, taiko_a7, taiko_dev"
-  echo "  proof: native, risc0[-bonsai], sp1, sgx, pivot"
+  echo "  proof: native, risc0[-bonsai], sp1, sgx, sgxgeth"
   echo "  batch_info: \"[(batch_id, batch_proposal_height)]\""
   echo "Example:"
   echo "  prove-batch.sh ethereum native \"[(1, 2)]\" "
@@ -111,10 +111,10 @@ elif [ "$proof" == "sgx" ]; then
         "input_path": null
     }
 '
-elif [ "$proof" == "pivot" ]; then
+elif [ "$proof" == "sgxgeth" ]; then
 	proofParam='
-    "proof_type": "pivot",
-    "pivot" : {
+    "proof_type": "sgxgeth",
+    "sgxgeth" : {
         "instance_id": 456,
         "setup": false,
         "bootstrap": false,
@@ -145,7 +145,7 @@ elif [ "$proof" == "risc0-bonsai" ]; then
     }
   '
 else
-	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'pivot' or 'sgx'."
+	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'sgxgeth' or 'sgx'."
 	exit 1
 fi
 
