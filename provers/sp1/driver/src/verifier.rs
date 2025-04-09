@@ -39,7 +39,7 @@ async fn main() {
 
     let header = calculate_block_header(&input);
 
-    let _pi = ProtocolInstance::new(&input, &header, ProofType::SP1)
+    let _pi = ProtocolInstance::new(&input, &header, ProofType::Sp1)
         .unwrap()
         .instance_hash();
 

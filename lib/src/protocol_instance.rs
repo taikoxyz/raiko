@@ -1,11 +1,12 @@
 use core::fmt::Display;
 
+use alloy_consensus::Transaction;
 use alloy_primitives::{b256, Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use pretty_assertions::Comparison;
-use reth_evm_ethereum::taiko::decode_anchor_pacaya;
 use reth_primitives::{Block, Header};
+use reth_taiko_consensus::{decode_anchor_pacaya, ANCHOR_GAS_LIMIT};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -24,7 +25,6 @@ use crate::{
     proof_type::ProofType,
     CycleTracker,
 };
-use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 use tracing::{debug, info};
 
 // The empty root of [`Vec<EthDeposit>`]

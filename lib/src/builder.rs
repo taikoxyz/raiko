@@ -11,22 +11,27 @@ use crate::{
     mem_db::{AccountState, DbAccount, MemDb},
     CycleTracker,
 };
+use alloy_primitives::Sealable;
 use anyhow::{bail, ensure, Result};
-use reth_chainspec::{
-    ChainSpecBuilder, Hardfork, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET,
+use reth_chainspec::{ChainSpecBuilder, EthChainSpec, HOLESKY, MAINNET};
+use reth_consensus::{Consensus, HeaderValidator};
+use reth_ethereum_consensus::validate_block_post_execution;
+use reth_evm::execute::{
+    BlockExecutionOutput, BlockExecutorProvider, BlockValidationError, ProviderError,
 };
-use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
-use reth_evm_ethereum::execute::{
-    validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
-};
-use reth_evm_ethereum::taiko::TaikoData;
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{
-    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap, SpecId,
+    Account, AccountInfo, AccountStatus, Bytecode, Bytes, EvmStorageSlot, HashMap, SpecId,
+    KECCAK_EMPTY,
 };
 use reth_primitives::{
-    Address, Block, BlockWithSenders, Header, TransactionSigned, B256, KECCAK_EMPTY, U256,
+    Address, Block, BlockExt, BlockWithSenders, Header, TransactionSigned, B256, U256,
 };
+use reth_taiko_chainspec::spec::{TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET};
+use reth_taiko_chainspec::TaikoChainSpec;
+use reth_taiko_consensus::{TaikoData, TaikoSimpleBeaconConsensus};
+use reth_taiko_evm::TaikoExecutorProviderBuilder;
+use reth_taiko_forks::TaikoHardfork;
 use tracing::{debug, error};
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
@@ -185,7 +190,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 SpecId::HEKLA => {
                     assert!(
                         reth_chain_spec
-                            .fork(Hardfork::Hekla)
+                            .fork(TaikoHardfork::Hekla)
                             .active_at_block(block_num),
                         "evm fork HEKLA is not active, please update the chain spec"
                     );
@@ -193,7 +198,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 SpecId::ONTAKE => {
                     assert!(
                         reth_chain_spec
-                            .fork(Hardfork::Ontake)
+                            .fork(TaikoHardfork::Ontake)
                             .active_at_block(block_num),
                         "evm fork ONTAKE is not active, please update the chain spec"
                     );
@@ -201,7 +206,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 SpecId::PACAYA => {
                     assert!(
                         reth_chain_spec
-                            .fork(Hardfork::Pacaya)
+                            .fork(TaikoHardfork::Pacaya)
                             .active_at_block(block_num),
                         "evm fork PACAYA is not active, please update the chain spec"
                     );
@@ -212,55 +217,69 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 
         // Generate the transactions from the tx list
         let mut block = self.input.block.clone();
-        block.body = pool_txs;
+        block.body.transactions = pool_txs;
         // Recover senders
         let mut block = block
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
-        // Execute transactions
-        let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
-            .eth_executor(self.db.take().unwrap())
-            .taiko_data(TaikoData {
+        let base_fee_config = self.input.taiko.block_proposed.base_fee_config();
+        let gas_limit = self.input.taiko.block_proposed.gas_limit_with_anchor();
+
+        let taiko_chain_spec = Arc::new(TaikoChainSpec::from((*reth_chain_spec).clone()));
+
+        let executor = TaikoExecutorProviderBuilder::taiko(
+            taiko_chain_spec.clone(),
+            TaikoData {
                 l1_header: self.input.taiko.l1_header.clone(),
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
-                base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
-                gas_limit: self.input.taiko.block_proposed.gas_limit_with_anchor(),
-            })
-            .optimistic(optimistic);
-        let BlockExecutionOutput {
-            state,
-            receipts,
-            requests,
-            gas_used: _,
-            db: full_state,
-            valid_transaction_indices,
-        } = executor
-            .execute((&block, total_difficulty).into())
+                base_fee_config,
+                gas_limit,
+            },
+        )
+        .optimistic(optimistic)
+        .build()
+        .executor(self.db.take().unwrap());
+
+        let (
+            BlockExecutionOutput {
+                state,
+                receipts,
+                requests,
+                gas_used: _,
+                skipped_list,
+            },
+            full_state,
+        ) = executor
+            .execute_and_get_state((&block, total_difficulty).into())
             .map_err(|e| {
                 error!("Error executing block: {e:?}");
                 e
             })?;
+
         // Filter out the valid transactions so that the header checks only take these into account
-        block.body = valid_transaction_indices
+        block.body.transactions = block
+            .body
+            .transactions
             .iter()
-            .map(|&i| block.body[i].clone())
+            .enumerate()
+            .filter(|(i, _)| !skipped_list.contains(i))
+            .map(|(_, tx)| tx.clone())
             .collect();
 
         // Header validation
+        // TODO: Use TaikoConsensus for this?
         let block = block.seal_slow();
         if !optimistic {
-            let consensus = EthBeaconConsensus::new(reth_chain_spec.clone());
+            let consensus = TaikoSimpleBeaconConsensus::new(reth_chain_spec.clone());
             // Validates extra data
             consensus.validate_header_with_total_difficulty(&block.header, total_difficulty)?;
             // Validates if some values are set that should not be set for the current HF
             consensus.validate_header(&block.header)?;
             // Validates parent block hash, block number and timestamp
-            consensus.validate_header_against_parent(
-                &block.header,
-                &self.input.parent_header.clone().seal_slow(),
-            )?;
+            let parent = self.input.parent_header.clone().seal_slow();
+            consensus.validate_header_against_parent(&block.header, &parent.into())?;
             // Validates ommers hash, transaction root, withdrawals root
             consensus.validate_block_pre_execution(&block)?;
             // Validates the gas used, the receipts root and the logs bloom
@@ -283,7 +302,21 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .map(|(address, bundle_account)| {
                 let mut account = Account {
                     info: bundle_account.account_info().unwrap_or_default(),
-                    storage: bundle_account.storage,
+                    storage: bundle_account
+                        .storage
+                        .into_iter()
+                        .map(|(k, v)| {
+                            (
+                                k,
+                                EvmStorageSlot {
+                                    original_value: v.original_value(),
+                                    present_value: v.present_value(),
+                                    // is_cold used in EIP-2929 for optimizing gas costs for slot accesses, we don't need this in proving
+                                    is_cold: false,
+                                },
+                            )
+                        })
+                        .collect(),
                     status: AccountStatus::default(),
                 };
                 account.mark_touch();

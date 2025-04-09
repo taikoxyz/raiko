@@ -1,13 +1,14 @@
 use core::{fmt::Debug, str::FromStr};
 
+use alloy_consensus::serde_bincode_compat;
 use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
 use pacaya::{BatchInfo, BatchProposed};
-use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
     Block, Header, TransactionSigned,
 };
+use reth_taiko_consensus::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
@@ -16,6 +17,8 @@ use crate::no_std::*;
 use crate::{
     consts::ChainSpec, primitives::mpt::MptNode, prover::Proof, utils::zlib_compress_data,
 };
+use alloy_consensus::serde_bincode_compat::Header as BincodeCompactHeader;
+use reth_primitives::serde_bincode_compat::Block as BincodeCompactBlock;
 
 /// Represents the state of an account's storage.
 /// The storage trie together with the used storage slots allow us to reconstruct all the
@@ -26,10 +29,12 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 #[serde_as]
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput {
+    #[serde_as(as = "BincodeCompactBlock")]
     /// Reth block
     pub block: Block,
     /// The network to generate the proof for
     pub chain_spec: ChainSpec,
+    #[serde_as(as = "BincodeCompactHeader")]
     /// Previous block header
     pub parent_header: Header,
     /// State trie of the parent block.
@@ -214,6 +219,7 @@ impl BlockProposedFork {
 #[serde_as]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TaikoGuestInput {
+    #[serde_as(as = "serde_bincode_compat::Header")]
     /// header
     pub l1_header: Header,
     pub tx_data: Vec<u8>,

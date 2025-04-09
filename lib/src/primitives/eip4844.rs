@@ -136,7 +136,6 @@ mod test {
         eip_4844::{verify_kzg_proof_rust, BYTES_PER_FIELD_ELEMENT},
         G1,
     };
-    use reth_primitives::revm_primitives::kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS};
     use reth_primitives::revm_primitives::Bytes;
 
     pub fn verify_kzg_proof_evm(
@@ -162,25 +161,6 @@ mod test {
             &reth_primitives::revm_primitives::env::Env::default(),
         )
         .is_ok())
-    }
-
-    #[test]
-    fn test_kzg_settings_equivalence() {
-        let kzg_settings: KZGSettings = kzg_traits::eip_4844::load_trusted_setup_rust(
-            &G1Points::as_ref(G1_POINTS)
-                .into_iter()
-                .flatten()
-                .cloned()
-                .collect::<Vec<_>>(),
-            &G2Points::as_ref(G2_POINTS)
-                .into_iter()
-                .flatten()
-                .cloned()
-                .collect::<Vec<_>>(),
-        )
-        .expect("failed to load trusted setup");
-        assert_eq!(KZG_SETTINGS.clone().secret_g1, kzg_settings.secret_g1);
-        assert_eq!(KZG_SETTINGS.clone().secret_g2, kzg_settings.secret_g2);
     }
 
     #[test]

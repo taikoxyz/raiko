@@ -9,6 +9,11 @@ reth-primitives = { workspace = true }
 reth-evm-ethereum = { workspace = true }
 reth-evm = { workspace = true }
 reth-chainspec = { workspace = true }
+reth-taiko-consensus = { workspace = true }
+reth-taiko-evm = { workspace = true }
+reth-taiko-forks = { workspace = true }
+reth-taiko-chainspec = { workspace = true }
+
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -54,6 +59,9 @@ log = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
 lazy_static = { workspace = true }
+
+reth-ethereum-consensus = { workspace = true }
+reth-consensus = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true }

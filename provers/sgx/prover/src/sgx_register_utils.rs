@@ -289,9 +289,9 @@ pub async fn register_sgx_instance(
     let balance = provider.get_balance(wallet.address()).await?;
     let nonce = provider.get_transaction_count(wallet.address()).await?;
     let gas_price = provider.get_gas_price().await?;
-    let gas_limit = 4000000u128;
+    let gas_limit = 4000000u64;
     assert!(
-        balance > U256::from(gas_price * gas_limit),
+        balance > U256::from(gas_price * gas_limit as u128),
         "insufficient balance to send tx"
     );
 

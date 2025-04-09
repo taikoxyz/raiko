@@ -23,6 +23,7 @@ use alloy_primitives::{b256, TxNumber, B256, U256};
 use alloy_rlp::Encodable;
 use alloy_rlp_derive::{RlpDecodable, RlpEncodable, RlpMaxEncodedLen};
 use alloy_rpc_types::EIP1186AccountProofResponse;
+
 use anyhow::{Context, Result};
 use reth_primitives::revm_primitives::{Address, HashMap};
 use rlp::{Decodable, DecoderError, Prototype, Rlp};
@@ -1090,7 +1091,7 @@ pub fn proofs_to_tries(
         // assure that slots can be deleted from the storage trie
         for storage_proof in &fini_proofs.storage_proof {
             add_orphaned_leafs(
-                storage_proof.key.0 .0,
+                storage_proof.key.as_b256().0,
                 &storage_proof.proof,
                 &mut storage_nodes,
             )?;
@@ -1103,7 +1104,7 @@ pub fn proofs_to_tries(
         let slots = proof
             .storage_proof
             .iter()
-            .map(|p| U256::from_be_bytes(p.key.0 .0))
+            .map(|p| U256::from_be_bytes(p.key.as_b256().0))
             .collect();
         storage.insert(address, (storage_trie, slots));
     }

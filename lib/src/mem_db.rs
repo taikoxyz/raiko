@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use anyhow::anyhow;
 use reth_evm::execute::ProviderError;
 use reth_primitives::revm_primitives::{
     db::{Database, DatabaseCommit},
@@ -195,19 +194,9 @@ impl Database for MemDb {
         }
     }
 
-    fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        let block_no: u64 = number
-            .try_into()
-            .map_err(|_| {
-                anyhow!(
-                    "invalid block number: expected <= {}, got {}",
-                    u64::MAX,
-                    &number
-                )
-            })
-            .expect("block hash not found");
+    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
         self.block_hashes
-            .get(&block_no)
+            .get(&number)
             .copied()
             .ok_or(ProviderError::BestBlockNotFound)
     }
