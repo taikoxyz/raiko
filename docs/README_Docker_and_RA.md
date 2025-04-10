@@ -379,7 +379,7 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` or  `cat ~/.con
 
  You will have to do this step twice for Hekla: once for Pivot and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `hekla-pivot` and the quote from `bootstrap.json` to register for `hekla-pacaya`. Keep both instance IDs.
 
-7. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
+6. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
 It should look like this:
 
