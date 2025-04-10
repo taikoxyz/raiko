@@ -1,3 +1,4 @@
+use crate::Risc0Param;
 use crate::{
     snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
@@ -20,8 +21,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio::time::{sleep as tokio_async_sleep, Duration};
-
-use crate::Risc0Param;
 
 const MAX_REQUEST_RETRY: usize = 8;
 
@@ -365,8 +364,9 @@ pub fn prove_locally(
             .write_slice(&encoded_input);
 
         if profile {
-            info!("Profiling enabled.");
-            env_builder.enable_profiler("profile_r0_local.pb");
+            warn!("Profiling disabled. Currently not working in v2");
+            // info!("Profiling enabled.");
+            // env_builder.enable_profiler("profile_r0_local.pb");
         }
 
         for assumption in assumptions {
