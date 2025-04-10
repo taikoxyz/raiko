@@ -32,8 +32,8 @@ function sign_gramine_manifest() {
 function bootstrap() {
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
-    if [[ -n $PIVOT ]]; then
-        echo "bootstrap PIVOT sgx prover"
+    if [[ -n $SGXGETH ]]; then
+        echo "bootstrap geth sgx prover"
         ./"$GAIKO_GUEST_APP_FILENAME" bootstrap
     fi
 
@@ -143,12 +143,12 @@ function update_raiko_sgx_instance_id() {
             >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update pacaya sgx instance id to $SGX_PACAYA_INSTANCE_ID"
     fi
-    if [[ -n $PIVOT_PACAYA_INSTANCE_ID ]]; then
+    if [[ -n $SGXGETH_PACAYA_INSTANCE_ID ]]; then
         jq \
-            --arg update_value "$PIVOT_PACAYA_INSTANCE_ID" \
-            '.pivot.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+            --arg update_value "$SGXGETH_PACAYA_INSTANCE_ID" \
+            '.sgxgeth.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
             >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
-        echo "Update pacaya pivot instance id to $PIVOT_PACAYA_INSTANCE_ID"
+        echo "Update pacaya sgxgeth instance id to $SGXGETH_PACAYA_INSTANCE_ID"
     fi
 }
 

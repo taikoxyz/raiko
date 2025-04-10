@@ -46,6 +46,35 @@ pub struct Proof {
     pub kzg_proof: Option<String>,
 }
 
+// impl display for proof to easy read log
+impl std::fmt::Display for Proof {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!(
+            "Proof {{ proof: {}, input: {}, quote: {}, uuid: {}, kzg_proof: {} }}",
+            self.proof
+                .as_ref()
+                .map(|p| {
+                    if p.len() <= 120 {
+                        format!("{}", p)
+                    } else {
+                        format!("{:?}...", p.chars().take(120).collect::<String>())
+                    }
+                })
+                .unwrap_or("None".to_string()),
+            self.input
+                .as_ref()
+                .map(|v| format!("{:?}", v))
+                .unwrap_or("None".to_string()),
+            self.quote
+                .as_ref()
+                .map(|v| format!("quote size:{}", v.len()))
+                .unwrap_or("None".to_string()),
+            self.uuid.as_ref().unwrap_or(&"None".to_string()),
+            self.kzg_proof.as_ref().unwrap_or(&"None".to_string())
+        ))
+    }
+}
+
 #[async_trait::async_trait]
 pub trait IdWrite: Send {
     async fn store_id(&mut self, key: ProofKey, id: String) -> ProverResult<()>;
