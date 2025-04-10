@@ -2,7 +2,7 @@
 
 ## image
 
-us-docker.pkg.dev/evmchain/images/raiko:1.7.0
+us-docker.pkg.dev/evmchain/images/raiko:1.7.1-rc1
 
 ## gaiko
 
@@ -18,7 +18,7 @@ us-docker.pkg.dev/evmchain/images/raiko:1.7.0
 
 ## image
 
-us-docker.pkg.dev/evmchain/images/raiko:1.7.0-edmm
+us-docker.pkg.dev/evmchain/images/raiko:1.7.1-rc1-edmm
 
 ## gaiko
 
