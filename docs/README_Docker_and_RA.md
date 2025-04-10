@@ -291,7 +291,7 @@ git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 ```
 
-You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.7.0-rc1-edmm`. If you are using a SGX1 machine, please use `1.7.0-rc1`.
+You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.7.1-rc1-edmm`. If you are using a SGX1 machine, please use `1.7.1-rc1`.
 
 In your `docker-compose.yml` file, search for `raiko:latest` and change all instances to `raiko:{TAG}`. Use the following commands to pull the respective images.
 
