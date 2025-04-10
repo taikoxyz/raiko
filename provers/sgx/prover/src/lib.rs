@@ -237,7 +237,9 @@ impl Prover for SgxProver {
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> StdCommand {
             if self.proof_type == ProofType::SgxGeth {
-                return StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
+                let mut cmd = StdCommand::new("sudo");
+                cmd.arg(cur_dir.join(GAIKO_ELF_NAME));
+                return cmd;
             }
             let mut cmd = if direct_mode {
                 StdCommand::new("gramine-direct")
@@ -335,7 +337,8 @@ impl Prover for SgxProver {
             let (mut cmd, elf) = if direct_mode {
                 (StdCommand::new("gramine-direct"), Some(ELF_NAME))
             } else if self.proof_type == ProofType::SgxGeth {
-                let cmd = StdCommand::new(cur_dir.join(GAIKO_ELF_NAME));
+                let mut cmd = StdCommand::new("sudo");
+                cmd.arg(cur_dir.join(GAIKO_ELF_NAME));
                 (cmd, None)
             } else {
                 let mut cmd = StdCommand::new("sudo");
