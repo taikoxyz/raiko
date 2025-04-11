@@ -477,8 +477,9 @@ impl Backend {
 
             match &proven_status {
                 Status::Success { proof } => {
-                    tracing::info!("Actor Backend successfully proved {request_key}");
-                    tracing::debug!("Actor Backend get proof {proof:?}",)
+                    tracing::info!(
+                        "Actor Backend successfully proved {request_key}. Proof: {proof}"
+                    );
                 }
                 Status::Failed { error } => {
                     tracing::error!("Actor Backend failed to prove {request_key}: {error}");

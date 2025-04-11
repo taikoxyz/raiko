@@ -31,7 +31,7 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1742375700,
+        "genesis_time": 1744256500,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
@@ -47,7 +47,7 @@
                 "Block": 0
             },
             "PACAYA": {
-                "Block": 10
+                "Block": 0
             },
             "CANCUN": "TBD"
         },
@@ -57,7 +57,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0xbE71D121291517c85Ab4d3ac65d70F6b1FD57118",
+        "l1_contract": "0x6d2D299fEe48F3490Ed74d581bbDF4AD7b5Aa275",
         "l2_contract": "0x1670010000000000000000000000000000010001",
         "rpc": "https://rpc.internal.taiko.xyz",
         "beacon_rpc": null,
@@ -73,10 +73,10 @@
                 "RISC0": "0xde28533011Ef2d6484A03beFD8ffbF31d179AE6A"
             },
             "PACAYA": {
-                "SGX": "0x6f6E456354A33BDe7B0ED4A10759b79AC0192e68",
-                "SP1": "0xf92809b39561F3f64f78Df469EE39CCfb62fe92D",
-                "RISC0": "0xde28533011Ef2d6484A03beFD8ffbF31d179AE6A",
-                "PIVOT": "0x9016078d9870e432cb47122609F83DeE025bC060"
+                "SGX": "0x0Cf58F3E8514d993cAC87Ca8FC142b83575cC4D3",
+                "SP1": "0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D",
+                "RISC0": "0x9C53004a840bbF58bF5C7084addD50498E12E9A9",
+                "SGXGETH": "0x698ceB7EF2E001347B1672389d6ca6aCE04b13C8"
             }
         },
         "genesis_time": 0,
