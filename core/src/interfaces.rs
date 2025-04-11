@@ -70,16 +70,17 @@ pub enum RaikoError {
     #[error("There was an unexpected error: {0}")]
     #[schema(value_type = Value)]
     Anyhow(#[from] anyhow::Error),
-
-    /// A catch-all error for any other error type.
-    #[error("There was an unexpected error: {0}")]
-    #[schema(value_type = Value)]
-    Eyre(#[from] eyre::Error),
 }
 
 impl From<raiko_lib::mem_db::DbError> for RaikoError {
     fn from(e: raiko_lib::mem_db::DbError) -> Self {
         RaikoError::Db(e)
+    }
+}
+
+impl From<eyre::Report> for RaikoError {
+    fn from(e: eyre::Report) -> Self {
+        RaikoError::Anyhow(anyhow::anyhow!(e.to_string()))
     }
 }
 
