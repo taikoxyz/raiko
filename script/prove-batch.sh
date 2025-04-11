@@ -43,7 +43,7 @@ parse_batch_pair() {
     fi
     json_array+="{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $height}"
     first=0
-  done <<< "$pair"
+  done <<<"$pair"
 
   json_array+="]"
   echo "$json_array"
@@ -58,22 +58,22 @@ echo "Parsed batch request: $batch_request"
 
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
-	l1_network="ethereum"
+  l1_network="ethereum"
 elif [ "$chain" == "holesky" ]; then
-	l1_network="holesky"
+  l1_network="holesky"
 elif [ "$chain" == "taiko_mainnet" ]; then
-	l1_network="ethereum"
+  l1_network="ethereum"
 elif [ "$chain" == "taiko_a7" ]; then
-	l1_network="holesky"
+  l1_network="holesky"
 elif [ "$chain" == "taiko_dev" ]; then
-	l1_network="taiko_dev_l1"
+  l1_network="taiko_dev_l1"
 else
-	echo "Using customized chain name $1. Please double check the RPCs."
-	l1_network="holesky"
+  echo "Using customized chain name $1. Please double check the RPCs."
+  l1_network="holesky"
 fi
 
 if [ "$proof" == "native" ]; then
-	proofParam='
+  proofParam='
     "proof_type": "NATIVE",
     "blob_proof_type": "proof_of_equivalence",
 	"native" : {
@@ -81,7 +81,7 @@ if [ "$proof" == "native" ]; then
 	}
   '
 elif [ "$proof" == "sp1" ]; then
-	proofParam='
+  proofParam='
     "proof_type": "sp1",
     "blob_proof_type": "proof_of_equivalence",
 	"sp1": {
@@ -91,7 +91,7 @@ elif [ "$proof" == "sp1" ]; then
 	}
   '
 elif [ "$proof" == "sp1-aggregation" ]; then
-	proofParam='
+  proofParam='
     "proof_type": "sp1",
     "blob_proof_type": "proof_of_equivalence",
 	"sp1": {
@@ -101,7 +101,7 @@ elif [ "$proof" == "sp1-aggregation" ]; then
 	}
   '
 elif [ "$proof" == "sgx" ]; then
-	proofParam='
+  proofParam='
     "proof_type": "sgx",
     "sgx" : {
         "instance_id": 123,
@@ -123,7 +123,7 @@ elif [ "$proof" == "sgxgeth" ]; then
     }
 '
 elif [ "$proof" == "risc0" ]; then
-	proofParam='
+  proofParam='
     "proof_type": "risc0",
     "blob_proof_type": "proof_of_equivalence",
     "risc0": {
@@ -134,7 +134,7 @@ elif [ "$proof" == "risc0" ]; then
     }
   '
 elif [ "$proof" == "risc0-bonsai" ]; then
-	proofParam='
+  proofParam='
     "proof_type": "risc0",
     "blob_proof_type": "proof_of_equivalence",
     "risc0": {
@@ -150,16 +150,22 @@ else
 fi
 
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+aggregate=${AGG:-false}
+# assert aggregate is true or false
+if [ "$aggregate" != "true" ] && [ "$aggregate" != "false" ]; then
+    echo "aggregate is either true or false, setting: '$aggregate' is invalid"
+    exit 1
+fi
 
 curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
-    --header 'Content-Type: application/json' \
-    --header 'Authorization: Bearer' \
-    --data-raw "{
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer' \
+  --data-raw "{
         \"network\": \"$chain\",
         \"l1_network\": \"$l1_network\",
         \"batches\": $batch_request,
         \"prover\": \"$prover\",
-        \"aggregate\": false,
+        \"aggregate\": $aggregate,
         $proofParam
     }"
 

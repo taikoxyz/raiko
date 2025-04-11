@@ -7,6 +7,7 @@ use raiko_lib::proof_type::ProofType;
 use raiko_reqactor::Actor;
 use raiko_reqpool::Status;
 use raiko_tasks::TaskStatus;
+use reth_primitives::keccak256;
 use serde_json::Value;
 
 pub fn to_v2_status(
@@ -109,6 +110,12 @@ pub async fn draw_for_zk_any_batch_request(
             .ok_or(RaikoError::InvalidRequestConfig(
                 "Missing network".to_string(),
             ))?;
+    let l2_network =
+        batch_proof_request_opt["network"]
+            .as_str()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?;
     let batches =
         batch_proof_request_opt["batches"]
             .as_array()
@@ -121,7 +128,13 @@ pub async fn draw_for_zk_any_batch_request(
     let l1_inclusion_block_number = first_batch["l1_inclusion_block_number"].as_u64().ok_or(
         RaikoError::InvalidRequestConfig("Missing l1_inclusion_block_number".to_string()),
     )?;
-    let (_, blockhash) =
-        get_task_data(&l1_network, l1_inclusion_block_number, actor.chain_specs()).await?;
-    Ok(actor.draw(&blockhash))
+    let random = keccak256(
+        format!(
+            "{}{}{}{}",
+            l1_network, l1_inclusion_block_number, l2_network, first_batch
+        )
+        .bytes()
+        .collect::<Vec<u8>>(),
+    );
+    Ok(actor.draw(&random))
 }
