@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/taikoxyz/raiko/compare/v1.7.1...v1.7.2) (2025-04-11)
+
+
+### Bug Fixes
+
+* **docs:** fix script instructions ([#539](https://github.com/taikoxyz/raiko/issues/539)) ([0b39207](https://github.com/taikoxyz/raiko/commit/0b392078fd6fd8dc4c1a52e68575a2e7051956b4))
+
 ## [1.7.0](https://github.com/taikoxyz/raiko/compare/v1.6.1...v1.7.0) (2025-04-08)
 
 
