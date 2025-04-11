@@ -13,7 +13,7 @@ use crate::{
 };
 use alloy_primitives::Sealable;
 use anyhow::{bail, ensure, Result};
-use reth_chainspec::{ChainSpecBuilder, EthChainSpec, HOLESKY, MAINNET};
+use reth_chainspec::{EthChainSpec, Hardforks};
 use reth_consensus::{Consensus, HeaderValidator};
 use reth_ethereum_consensus::validate_block_post_execution;
 use reth_evm::execute::{
@@ -162,18 +162,6 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         let reth_chain_spec = match chain_spec.name.as_str() {
             "taiko_a7" => TAIKO_A7.clone(),
             "taiko_mainnet" => TAIKO_MAINNET.clone(),
-            "ethereum" => {
-                //MAINNET.clone()
-                // TODO(Brecht): for some reason using the spec directly doesn't work
-                Arc::new(
-                    ChainSpecBuilder::default()
-                        .chain(MAINNET.chain)
-                        .genesis(MAINNET.genesis.clone())
-                        .cancun_activated()
-                        .build(),
-                )
-            }
-            "holesky" => HOLESKY.clone(),
             "taiko_dev" => TAIKO_DEV.clone(),
             _ => unimplemented!(),
         };
@@ -228,7 +216,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 
         let taiko_chain_spec = Arc::new(TaikoChainSpec::from((*reth_chain_spec).clone()));
 
-        let executor = TaikoExecutorProviderBuilder::taiko(
+        let executor = TaikoExecutorProviderBuilder::new(
             taiko_chain_spec.clone(),
             TaikoData {
                 l1_header: self.input.taiko.l1_header.clone(),
@@ -238,7 +226,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 gas_limit,
             },
         )
-        .optimistic(optimistic)
+        .with_optimistic(optimistic)
         .build()
         .executor(self.db.take().unwrap());
 
