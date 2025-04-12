@@ -375,9 +375,9 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` or  `cat ~/.con
 
 5. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/layer1/provers/config_dcap_sgx_verifier.sh --env {NETWORK} --quote {YOUR_QUOTE_HERE}`. "YOUR_QUOTE_HERE" comes from above step 5.
 
-`NETWORK` will be `hekla-<ontake|pacaya|sgxgeth>` or `mainnet` depending on which verifier you are registering to.
+`NETWORK` will be `hekla-pacaya<sgxreth|sgxgeth>` or `mainnet` depending on which verifier you are registering to.
 
- You will have to do this step twice for Hekla: once for SgxGeth and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `hekla-sgxgeth` and the quote from `bootstrap.json` to register for `hekla-pacaya`. Keep both instance IDs.
+ You will have to do this step twice for Hekla: once for SgxGeth and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `hekla-pacaya-sgxgeth` and the quote from `bootstrap.json` to register for `hekla-pacaya-sgxreth`. Keep both instance IDs.
 
 7. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
@@ -398,7 +398,6 @@ Raiko now supports more configurations, which need to be carefully checked to av
 
 > **_NOTE:_** We have deprecated `SGX_INSTANCE_ID`. Please fill in 
 
-    - SGX_ONTAKE_INSTANCE_ID: SGX registered ID for ontake fork. 
     - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko is started in pacaya, set this one)
     - SGXGETH_PACAYA_INSTANCE_ID： registered instance ID for the sgxgeth proof for pacaya fork. (must be set to prepare for pacaya with sgxgeth)
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
