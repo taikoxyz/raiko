@@ -1,7 +1,5 @@
 #![cfg(feature = "enable")]
 
-#[cfg(feature = "bonsai-auto-scaling")]
-use crate::bonsai::auto_scaling::shutdown_bonsai;
 use crate::{
     methods::risc0_aggregation::RISC0_AGGREGATION_ELF, methods::risc0_batch::RISC0_BATCH_ELF,
     methods::risc0_guest::RISC0_GUEST_ELF,
@@ -112,14 +110,6 @@ impl Prover for Risc0Prover {
             .into())
         };
 
-        #[cfg(feature = "bonsai-auto-scaling")]
-        if config.bonsai {
-            // shutdown bonsai
-            shutdown_bonsai()
-                .await
-                .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        }
-
         proof_gen_result
     }
 
@@ -199,14 +189,6 @@ impl Prover for Risc0Prover {
         }
         .into());
 
-        #[cfg(feature = "bonsai-auto-scaling")]
-        if config.bonsai {
-            // shutdown bonsai
-            shutdown_bonsai()
-                .await
-                .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        }
-
         proof_gen_result
     }
 
@@ -273,14 +255,6 @@ impl Prover for Risc0Prover {
             }
             .into())
         };
-
-        #[cfg(feature = "bonsai-auto-scaling")]
-        if config.bonsai {
-            // shutdown bonsai
-            shutdown_bonsai()
-                .await
-                .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        }
 
         proof_gen_result
     }
