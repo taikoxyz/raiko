@@ -18,7 +18,7 @@ const REGISTERED_FILE_GAIKO: &str = "registered.gaiko.json";
 fn get_registered_file(proof_type: ProofType) -> &'static str {
     match proof_type {
         ProofType::Sgx => REGISTERED_FILE,
-        ProofType::Pivot => REGISTERED_FILE_GAIKO,
+        ProofType::SgxGeth => REGISTERED_FILE_GAIKO,
         _ => unreachable!("Unsupported proof type"),
     }
 }

@@ -54,7 +54,7 @@ pub(crate) async fn setup_bootstrap(
         secret_dir,
         config_dir,
         bootstrap_args,
-        ProofType::Pivot,
+        ProofType::SgxGeth,
         &mut file_config,
     )
     .await?;
@@ -95,7 +95,7 @@ pub(crate) async fn setup_bootstrap_inner(
         .to_path_buf();
 
     let gramine_cmd = || -> Command {
-        if proof_type == ProofType::Pivot {
+        if proof_type == ProofType::SgxGeth {
             return Command::new(cur_dir.join(GAIKO_ELF_NAME));
         }
         let mut cmd = Command::new("sudo");

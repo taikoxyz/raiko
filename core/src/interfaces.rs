@@ -111,7 +111,7 @@ pub async fn run_prover(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx | ProofType::Pivot => {
+        ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
             return sgx_prover::SgxProver::new(proof_type)
                 .run(input.clone(), output, config, store)
@@ -154,7 +154,7 @@ pub async fn run_batch_prover(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx | ProofType::Pivot => {
+        ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
             return sgx_prover::SgxProver::new(proof_type)
                 .batch_run(input.clone(), output, config, store)
@@ -197,7 +197,7 @@ pub async fn aggregate_proofs(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx | ProofType::Pivot => {
+        ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
             return sgx_prover::SgxProver::new(proof_type)
                 .aggregate(input.clone(), output, config, store)
@@ -239,7 +239,7 @@ pub async fn cancel_proof(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx | ProofType::Pivot => {
+        ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
             return sgx_prover::SgxProver::new(proof_type)
                 .cancel(proof_key, read)
@@ -410,8 +410,8 @@ pub struct ProverSpecificOpts {
     pub native: Option<Value>,
     /// SGX prover specific options.
     pub sgx: Option<Value>,
-    /// Pivot prover specific options.
-    pub pivot: Option<Value>,
+    /// SgxGeth prover specific options.
+    pub sgxgeth: Option<Value>,
     /// SP1 prover specific options.
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
@@ -425,7 +425,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
         [
             ("native", value.native.clone()),
             ("sgx", value.sgx.clone()),
-            ("pivot", value.pivot.clone()),
+            ("sgxgeth", value.sgxgeth.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
         ]

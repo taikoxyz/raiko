@@ -291,7 +291,7 @@ git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 ```
 
-You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.7.0-rc1-edmm`. If you are using a SGX1 machine, please use `1.7.0-rc1`.
+You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.7.1-rc1-edmm`. If you are using a SGX1 machine, please use `1.7.1-rc1`.
 
 In your `docker-compose.yml` file, search for `raiko:latest` and change all instances to `raiko:{TAG}`. Use the following commands to pull the respective images.
 
@@ -310,7 +310,7 @@ docker image ls
 
 You should see at least two images, `us-docker.pkg.dev/evmchain/raiko` and `us-docker.pkg.dev/evmchain/pccs`.
 
-7. Create a `.env` using the `.env.sample` template. Ensure `PIVOT=true` is in the `.env`.
+7. Create a `.env` using the `.env.sample` template. Ensure `SGXGETH=true` is in the `.env`.
 
 You can copy the template with the following:
 
@@ -375,9 +375,9 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` or  `cat ~/.con
 
 5. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/layer1/provers/config_dcap_sgx_verifier.sh --env {NETWORK} --quote {YOUR_QUOTE_HERE}`. "YOUR_QUOTE_HERE" comes from above step 5.
 
-`NETWORK` will be `hekla-<ontake|pacaya|pivot>` or `mainnet` depending on which verifier you are registering to.
+`NETWORK` will be `hekla-pacaya<sgxreth|sgxgeth>` or `mainnet` depending on which verifier you are registering to.
 
- You will have to do this step twice for Hekla: once for Pivot and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `hekla-pivot` and the quote from `bootstrap.json` to register for `hekla-pacaya`. Keep both instance IDs.
+ You will have to do this step twice for Hekla: once for SgxGeth and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `hekla-pacaya-sgxgeth` and the quote from `bootstrap.json` to register for `hekla-pacaya-sgxreth`. Keep both instance IDs.
 
 7. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
@@ -398,9 +398,8 @@ Raiko now supports more configurations, which need to be carefully checked to av
 
 > **_NOTE:_** We have deprecated `SGX_INSTANCE_ID`. Please fill in 
 
-    - SGX_ONTAKE_INSTANCE_ID: SGX registered ID for ontake fork. 
     - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko is started in pacaya, set this one)
-    - PIVOT_PACAYA_INSTANCE_ID： registered instance ID for the pivot proof for pacaya fork. (must be set to prepare for pacaya with pivot)
+    - SGXGETH_PACAYA_INSTANCE_ID： registered instance ID for the sgxgeth proof for pacaya fork. (must be set to prepare for pacaya with sgxgeth)
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
     - ETHEREUM_BEACON_RPC: ethereum beacon node url, from which you query the ethereum data.
     - HOLESKY_RPC: ethereum holesky test node url.
@@ -414,7 +413,7 @@ A most common setup in hekla testnet when as of the Pacaya fork is:
 ```
 cd ~/raiko/docker
 export SGX_PACAYA_INSTANCE_ID={YOUR_PACAYA_INSTANCE_ID}
-export PIVOT_PACAYA_INSTANCE_ID={YOUR_PIVOT_INSTANCE_ID}
+export SGXGETH_PACAYA_INSTANCE_ID={YOUR_SGXGETH_INSTANCE_ID}
 export L1_NETWORK="holesky"
 export NETWORK="taiko_a7"
 export HOLESKY_RPC={YOUR_FAST_HOLESKY_NODE}
@@ -460,10 +459,10 @@ raiko  | + mv /tmp/config_tmp.json /etc/raiko/config.sgx.json
 raiko  | + echo 'Update pacaya sgx instance id to X'
 raiko  | Update pacaya sgx instance id to X
 raiko  | + [[ -n Y ]]
-raiko  | + jq --arg update_value Y '.pivot.instance_ids.PACAYA = ($update_value | tonumber)' /etc/raiko/config.sgx.json
+raiko  | + jq --arg update_value Y '.sgxgeth.instance_ids.PACAYA = ($update_value | tonumber)' /etc/raiko/config.sgx.json
 raiko  | + mv /tmp/config_tmp.json /etc/raiko/config.sgx.json
-raiko  | + echo 'Update pacaya pivot instance id to Y'
-raiko  | Update pacaya pivot instance id to Y
+raiko  | + echo 'Update pacaya sgxgeth instance id to Y'
+raiko  | Update pacaya sgxgeth instance id to Y
 
 ...
 
@@ -512,15 +511,15 @@ The response should look like this:
 
 If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
 
-## Verify that your Raiko instance is running properly (Pacaya and Pivot)
+## Verify that your Raiko instance is running properly (Pacaya and SgxGeth)
 
 As of the Pacaya fork (currently only in Hekla), you will need to check that your Raiko instance can prove batches.
 
-Please make sure that you have done the On Chain RA step with the Pacaya addresses and exported the your `SGX_PACAYA_INSTANCE_ID` before running Raiko. The same must be done for the Pivot proof, and `PIVOT_PACAYA_INSTANCE_ID` must be set too.
+Please make sure that you have done the On Chain RA step with the Pacaya addresses and exported the your `SGX_PACAYA_INSTANCE_ID` before running Raiko. The same must be done for the SgxGeth proof, and `SGXGETH_PACAYA_INSTANCE_ID` must be set too.
 
 Use `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029)]"` to check readiness. 
 
-> **_NOTE:_** If you would like to check the pivot is set up properly, simply replace `sgx` with `pivot`. The responses should look the same, except with `proof_type: pivot`. For the curl response, check the script for the `proofParams` to replace.
+> **_NOTE:_** If you would like to check the sgxgeth is set up properly, simply replace `sgx` with `sgxgeth`. The responses should look the same, except with `proof_type: sgxgeth`. For the curl response, check the script for the `proofParams` to replace.
 
 The initial response will be as follows:
 ```

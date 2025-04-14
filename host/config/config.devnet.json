@@ -14,7 +14,7 @@
     "prove": true,
     "input_path": null
   },
-  "pivot": {
+  "sgxgeth": {
     "instance_ids": {
       "PACAYA": 0
     },

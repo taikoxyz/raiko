@@ -20,7 +20,7 @@
     "prover": "network",
     "verify": true
   },
-  "pivot": {
+  "sgxgeth": {
     "instance_ids": {
       "PACAYA": 0
     },

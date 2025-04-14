@@ -5,7 +5,7 @@ set -e
 
 # report the CI image status
 if [ -n "$CI" ]; then
-    source ./script/ci-env-check.sh
+	source ./script/ci-env-check.sh
 fi
 
 # toolchain necessary to compile c-kzg in SP1/risc0
@@ -37,39 +37,52 @@ fi
 
 # SGX
 if [ -z "$1" ] || [ "$1" == "sgx" ]; then
-    # also check if sgx is already installed
-    if command -v gramine-sgx >/dev/null 2>&1; then
-        echo "gramine already installed"
-    else
-        echo "gramine not installed, installing..."
-        # For SGX, install gramine: https://github.com/gramineproject/gramine.
-        wget -O /tmp/gramine.deb https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
-        sudo apt install -y /tmp/gramine.deb
-    fi
+	# also check if sgx is already installed
+	if command -v gramine-sgx >/dev/null 2>&1; then
+		echo "gramine already installed"
+	else
+		echo "gramine not installed, installing..."
+		# For SGX, install gramine: https://github.com/gramineproject/gramine.
+		wget -O /tmp/gramine.deb https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
+		sudo apt install -y /tmp/gramine.deb
+	fi
 fi
 # RISC0
 if [ -z "$1" ] || [ "$1" == "risc0" ]; then
-    echo "Current TERM: $TERM"
-    if [ -z "$TERM" ] || [ "$TERM" = "dumb" ]; then
-        # Set TERM to xterm-color256
-        echo "Setting TERM to xterm"
-        export TERM=xterm
-    fi
-    curl -L https://risczero.com/install | bash
-
-	if [ -z "${CI}" ] || [ ! command -v rzup &> /dev/null ]; then
-		PROFILE=$HOME/.bashrc
-		echo ${PROFILE}
-		source ${PROFILE}
-		rzup install rust 1.81.0
-		rzup install cpp 2024.1.5
-		rzup install r0vm 1.2.5
-		rzup install cargo-risczero 1.2.5
-	else
-		echo "/home/runner/.config/.risc0/bin" >> $GITHUB_PATH
-		echo $GITHUB_PATH
-		/home/runner/.risc0/bin/rzup --verbose install
+	echo "Current TERM: $TERM"
+	if [ -z "$TERM" ] || [ "$TERM" = "dumb" ]; then
+		# Set TERM to xterm-color256
+		echo "Setting TERM to xterm"
+		export TERM=xterm
 	fi
+	curl -L https://risczero.com/install | bash
+
+	env_rzup=rzup
+	if [ -z "${CI}" ] || ! command -v rzup >/dev/null 2>&1; then
+		PROFILE=$HOME/.bashrc
+		echo "Load PROFILE: $PROFILE"
+		if [ -f "$PROFILE" ]; then
+			source "$PROFILE"
+		fi
+		if ! command -v rzup >/dev/null 2>&1; then
+			export PATH="$HOME/.risc0/bin:$PATH"
+			env_rzup="$HOME/.risc0/bin/rzup"
+		fi
+	else
+		echo "/home/runner/.risc0/bin" >>"$GITHUB_PATH"
+		echo "/home/runner/.config/.risc0/bin" >>$GITHUB_PATH
+		echo $GITHUB_PATH
+		env_rzup=/home/runner/.risc0/bin/rzup
+	fi
+	echo "start running $env_rzup"
+	if ! command -v "$env_rzup" >/dev/null 2>&1; then
+		echo "env_rzup is not working, please re-install rzup."
+		exit 1
+	fi
+	$env_rzup install rust 1.81.0
+	$env_rzup install cpp 2024.1.5
+	$env_rzup install r0vm 1.2.5
+	$env_rzup install cargo-risczero 1.2.5
 fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
@@ -77,17 +90,17 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	echo "SP1 installed"
 	# if [ -z "${CI}" ] || [ ! command -v sp1up &> /dev/null ]; then
 	# echo "Non-CI environment"
-		# Need to add sp1up to the path here
-		PROFILE=$HOME/.profile
-		echo ${PROFILE}
-		source ${PROFILE}
-		if command -v sp1up >/dev/null 2>&1; then
-			echo "sp1 found in path"
-			sp1up -v v4.0.0-rc.1
-		else
-			echo "sp1 not found in path"
-			"$HOME/.sp1/bin/sp1up" -v v4.0.0-rc.1
-		fi
+	# Need to add sp1up to the path here
+	PROFILE=$HOME/.profile
+	echo ${PROFILE}
+	source ${PROFILE}
+	if command -v sp1up >/dev/null 2>&1; then
+		echo "sp1 found in path"
+		sp1up -v v4.0.0-rc.1
+	else
+		echo "sp1 not found in path"
+		"$HOME/.sp1/bin/sp1up" -v v4.0.0-rc.1
+	fi
 	# else
 	# 	echo "CI environment"
 	# 	source /home/runner/.bashrc

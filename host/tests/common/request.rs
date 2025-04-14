@@ -48,7 +48,7 @@ pub fn make_proof_request(
                 "execution_po2" : 21, // DEFAULT_SEGMENT_LIMIT_PO2 = 20
             })),
             sgx: None,
-            pivot: None,
+            sgxgeth: None,
             sp1: None,
         },
     }
@@ -87,7 +87,7 @@ pub async fn make_aggregate_proof_request(
             })),
             sgx: None,
             sp1: None,
-            pivot: None,
+            sgxgeth: None,
         },
     }
 }
