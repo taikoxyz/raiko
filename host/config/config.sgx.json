@@ -19,7 +19,7 @@
         },
         "setup": false,
         "bootstrap": false,
-        "prove": false,
+        "prove": true,
         "input_path": null
     },
     "risc0": {
