@@ -33,15 +33,9 @@ impl Pipeline for Sp1Pipeline {
     }
 
     fn builder(&self) -> CommandBuilder {
-        let atomic_lower_pass = if version > &semver::Version::new(1, 81, 0) {
-            "passes=lower-atomic"
-        } else {
-            "passes=loweratomic"
-        };
-
         CommandBuilder::new(&self.meta, "riscv32im-succinct-zkvm-elf", "succinct")
             .rust_flags(&[
-                atomic_lower_pass,
+                "passes=lower-atomic",
                 "link-arg=-Ttext=0x00200800",
                 "panic=abort",
             ])
