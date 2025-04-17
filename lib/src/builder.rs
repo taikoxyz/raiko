@@ -1,5 +1,6 @@
 use core::mem;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
@@ -13,7 +14,7 @@ use crate::{
 };
 use alloy_primitives::Sealable;
 use anyhow::{bail, ensure, Result};
-use reth_chainspec::{EthChainSpec, Hardforks};
+use reth_chainspec::{ChainHardforks, EthChainSpec, EthereumHardfork, ForkCondition, Hardforks};
 use reth_consensus::{Consensus, HeaderValidator};
 use reth_ethereum_consensus::validate_block_post_execution;
 use reth_evm::execute::{
@@ -32,7 +33,65 @@ use reth_taiko_chainspec::TaikoChainSpec;
 use reth_taiko_consensus::{TaikoData, TaikoSimpleBeaconConsensus};
 use reth_taiko_evm::TaikoExecutorProviderBuilder;
 use reth_taiko_forks::TaikoHardfork;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
+
+/// Surge dev list of hardforks.
+pub static SURGE_DEV_HARDFORKS: LazyLock<reth_chainspec::ChainHardforks> = LazyLock::new(|| {
+    ChainHardforks::new(vec![
+        (EthereumHardfork::Frontier.boxed(), ForkCondition::Block(0)),
+        (EthereumHardfork::Homestead.boxed(), ForkCondition::Block(0)),
+        (EthereumHardfork::Dao.boxed(), ForkCondition::Block(0)),
+        (EthereumHardfork::Tangerine.boxed(), ForkCondition::Block(0)),
+        (
+            EthereumHardfork::SpuriousDragon.boxed(),
+            ForkCondition::Block(0),
+        ),
+        (EthereumHardfork::Byzantium.boxed(), ForkCondition::Block(0)),
+        (
+            EthereumHardfork::Constantinople.boxed(),
+            ForkCondition::Block(0),
+        ),
+        (
+            EthereumHardfork::Petersburg.boxed(),
+            ForkCondition::Block(0),
+        ),
+        (EthereumHardfork::Istanbul.boxed(), ForkCondition::Block(0)),
+        (EthereumHardfork::Berlin.boxed(), ForkCondition::Block(0)),
+        (EthereumHardfork::London.boxed(), ForkCondition::Block(0)),
+        (
+            EthereumHardfork::Paris.boxed(),
+            ForkCondition::TTD {
+                fork_block: None,
+                total_difficulty: U256::from(0),
+            },
+        ),
+        (
+            EthereumHardfork::Shanghai.boxed(),
+            ForkCondition::Timestamp(0),
+        ),
+        (TaikoHardfork::Hekla.boxed(), ForkCondition::Block(0)),
+        (
+            TaikoHardfork::Ontake.boxed(),
+            ForkCondition::Block(
+                std::env::var("SURGE_DEV_ONTAKE_HEIGHT").map_or(1, |h| h.parse().unwrap_or(1)),
+            ),
+        ),
+    ])
+});
+
+pub static SURGE_DEV: LazyLock<Arc<TaikoChainSpec>> = LazyLock::new(|| {
+    let hardforks = SURGE_DEV_HARDFORKS.clone();
+    TaikoChainSpec {
+        inner: reth_chainspec::ChainSpec {
+            chain: 763375.into(),
+            paris_block_and_final_difficulty: None,
+            hardforks,
+            deposit_contract: None,
+            ..Default::default()
+        },
+    }
+    .into()
+});
 
 pub fn calculate_block_header(input: &GuestInput) -> Header {
     let cycle_tracker = CycleTracker::start("initialize_database");
@@ -156,6 +215,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         pool_txs: Vec<TransactionSigned>,
         optimistic: bool,
     ) -> Result<()> {
+        info!("execute_transactions: start");
         // Get the chain spec
         let chain_spec = &self.input.chain_spec;
         let total_difficulty = U256::ZERO;
@@ -163,17 +223,22 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             "taiko_a7" => TAIKO_A7.clone(),
             "taiko_mainnet" => TAIKO_MAINNET.clone(),
             "taiko_dev" => TAIKO_DEV.clone(),
+            "surge_dev" => SURGE_DEV.clone(),
             _ => unimplemented!(),
         };
+
+        info!("execute_transactions: reth_chain_spec done");
 
         if reth_chain_spec.is_taiko() {
             let block_num = self.input.taiko.block_proposed.block_number();
             let block_timestamp = 0u64; // self.input.taiko.block_proposed.block_timestamp();
+
             let taiko_fork = self
                 .input
                 .chain_spec
                 .spec_id(block_num, block_timestamp)
                 .unwrap();
+
             match taiko_fork {
                 SpecId::HEKLA => {
                     assert!(
@@ -201,6 +266,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 }
                 _ => unimplemented!(),
             }
+            info!("execute_transactions: is_taiko done");
         }
 
         // Generate the transactions from the tx list
@@ -246,6 +312,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 e
             })?;
 
+        info!("execute_transactions: execute done");
         // Filter out the valid transactions so that the header checks only take these into account
         block.body.transactions = block
             .body
@@ -255,7 +322,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .filter(|(i, _)| !skipped_list.contains(i))
             .map(|(_, tx)| tx.clone())
             .collect();
-
+        info!("execute_transactions: valid_transaction_indices done");
         // Header validation
         // TODO: Use TaikoConsensus for this?
         let block = block.seal_slow();
@@ -263,13 +330,17 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             let consensus = TaikoSimpleBeaconConsensus::new(reth_chain_spec.clone());
             // Validates extra data
             consensus.validate_header_with_total_difficulty(&block.header, total_difficulty)?;
+            info!("execute_transactions: validate_header_with_total_difficulty done");
             // Validates if some values are set that should not be set for the current HF
             consensus.validate_header(&block.header)?;
+            info!("execute_transactions: validate_header done");
             // Validates parent block hash, block number and timestamp
             let parent = self.input.parent_header.clone().seal_slow();
             consensus.validate_header_against_parent(&block.header, &parent.into())?;
+            info!("execute_transactions: validate_header_against_parent done");
             // Validates ommers hash, transaction root, withdrawals root
             consensus.validate_block_pre_execution(&block)?;
+            info!("execute_transactions: validate_block_pre_execution done");
             // Validates the gas used, the receipts root and the logs bloom
             validate_block_post_execution(
                 &BlockWithSenders {
@@ -280,10 +351,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 &receipts,
                 &requests,
             )?;
+            info!("execute_transactions: validate_block_post_execution done");
         }
 
         // Apply DB changes
         self.db = Some(full_state.database);
+        info!("execute_transactions: changes start");
         let changes: HashMap<Address, Account> = state
             .state
             .into_iter()
@@ -317,8 +390,9 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 (address, account)
             })
             .collect();
+        info!("execute_transactions: changes done");
         self.db.as_mut().unwrap().commit(changes);
-
+        info!("execute_transactions: commit done");
         Ok(())
     }
 }

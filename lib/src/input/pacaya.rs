@@ -9,7 +9,7 @@ sol! {
         uint8 sharingPctg;
         uint32 gasIssuancePerSecond;
         uint64 minGasExcess;
-        uint32 maxGasIssuancePerBlock;
+        uint64 maxGasIssuancePerBlock;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]

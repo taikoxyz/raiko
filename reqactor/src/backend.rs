@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::time::Duration;
+use std::{collections::VecDeque, sync::Arc};
 
 use raiko_core::{
     interfaces::{aggregate_proofs, ProofRequest},
@@ -19,7 +19,7 @@ use raiko_reqpool::{
 use reth_primitives::B256;
 use tokio::sync::{
     mpsc::{self, Receiver, Sender},
-    oneshot, Semaphore,
+    oneshot, Mutex, Semaphore,
 };
 use tracing::{debug, trace};
 
@@ -32,6 +32,7 @@ pub(crate) struct Backend {
     chain_specs: SupportedChainSpecs,
     internal_tx: Sender<RequestKey>,
     proving_semaphore: Arc<Semaphore>,
+    available_gpus: Arc<Mutex<VecDeque<u32>>>,
 }
 
 // TODO: load pool and notify internal channel
@@ -49,12 +50,19 @@ impl Backend {
     ) {
         let channel_size = 1024;
         let (internal_tx, internal_rx) = mpsc::channel::<RequestKey>(channel_size);
+
+        let available_gpus: Arc<Mutex<VecDeque<u32>>> = Arc::new(Mutex::new(VecDeque::from(
+            (0..max_proving_concurrency)
+                .map(|x| x as u32)
+                .collect::<Vec<u32>>(),
+        )));
         tokio::spawn(async move {
             Backend {
                 pool,
                 chain_specs,
                 internal_tx,
                 proving_semaphore: Arc::new(Semaphore::new(max_proving_concurrency)),
+                available_gpus,
             }
             .serve(action_rx, internal_rx, pause_rx)
             .await;
@@ -329,12 +337,14 @@ impl Backend {
         request_key: RequestKey,
         request_entity: SingleProofRequestEntity,
     ) {
+        let available_gpus = self.available_gpus.clone();
         self.prove(request_key.clone(), |mut actor, request_key| async move {
             do_prove_single(
                 &mut actor.pool,
                 &actor.chain_specs,
                 request_key,
                 request_entity,
+                available_gpus,
             )
             .await
         })
@@ -357,12 +367,14 @@ impl Backend {
         request_key: RequestKey,
         request_entity: BatchProofRequestEntity,
     ) {
+        let available_gpus = self.available_gpus.clone();
         self.prove(request_key.clone(), |mut actor, request_key| async move {
             do_prove_batch(
                 &mut actor.pool,
                 &actor.chain_specs,
                 request_key.clone(),
                 request_entity,
+                available_gpus,
             )
             .await
         })
@@ -476,6 +488,7 @@ pub async fn do_prove_single(
     chain_specs: &SupportedChainSpecs,
     request_key: RequestKey,
     request_entity: SingleProofRequestEntity,
+    available_gpus: Arc<Mutex<VecDeque<u32>>>,
 ) -> Result<Proof, String> {
     tracing::info!("Generating proof for {request_key}");
 
@@ -495,6 +508,13 @@ pub async fn do_prove_single(
                 request_entity.network()
             )
         })?;
+
+    let gpu_number = {
+        let mut available_gpus = available_gpus.lock().await;
+        let gpu_number = available_gpus.pop_front().expect("No available GPU");
+        Some(gpu_number)
+    };
+
     let proof_request = ProofRequest {
         block_number: *request_entity.block_number(),
         l1_inclusion_block_number: *request_entity.l1_inclusion_block_number(),
@@ -507,6 +527,7 @@ pub async fn do_prove_single(
         prover_args: request_entity.prover_args().clone(),
         batch_id: 0,
         l2_block_numbers: Vec::new(),
+        gpu_number,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -532,6 +553,12 @@ pub async fn do_prove_single(
         .prove(input, &output, Some(pool))
         .await
         .map_err(|err| format!("failed to generate single proof: {err:?}"))?;
+
+    // 4. Release the GPU number
+    {
+        let mut available_gpus = available_gpus.lock().await;
+        available_gpus.push_back(gpu_number.unwrap());
+    }
 
     Ok(proof)
 }
@@ -561,6 +588,7 @@ async fn do_prove_batch(
     chain_specs: &SupportedChainSpecs,
     request_key: RequestKey,
     request_entity: BatchProofRequestEntity,
+    available_gpus: Arc<Mutex<VecDeque<u32>>>,
 ) -> Result<Proof, String> {
     tracing::info!("Generating proof for {request_key}");
 
@@ -587,6 +615,13 @@ async fn do_prove_batch(
     let provider = RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
         .await
         .expect("Could not create RpcBlockDataProvider");
+
+    let gpu_number = {
+        let mut available_gpus = available_gpus.lock().await;
+        let gpu_number = available_gpus.pop_front().expect("No available GPU");
+        Some(gpu_number)
+    };
+
     let proof_request = ProofRequest {
         block_number: 0,
         batch_id: *request_entity.batch_id(),
@@ -599,6 +634,7 @@ async fn do_prove_batch(
         blob_proof_type: request_entity.blob_proof_type().clone(),
         prover_args: request_entity.prover_args().clone(),
         l2_block_numbers: all_prove_blocks.clone(),
+        gpu_number,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
     let input = raiko
@@ -614,5 +650,12 @@ async fn do_prove_batch(
         .batch_prove(input, &output, Some(pool))
         .await
         .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
+
+    // Release the GPU number
+    {
+        let mut available_gpus = available_gpus.lock().await;
+        available_gpus.push_back(gpu_number.unwrap());
+    }
+
     Ok(proof)
 }

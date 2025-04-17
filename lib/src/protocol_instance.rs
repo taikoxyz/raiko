@@ -93,7 +93,9 @@ impl From<(&GuestInput, &Header, B256, &BlockProposedV2)> for BlockMetadataV2 {
             extraData: bytes_to_bytes32(&header.extra_data).into(),
 
             anchorBlockId: input.taiko.l1_header.number,
-            anchorBlockHash: input.taiko.l1_header.hash_slow(),
+            //hotfix: uncheck the anchor hash due to pectra fork
+            anchorBlockHash: block_proposed.meta.anchorBlockHash,
+
             blobHash: tx_list_hash,
 
             difficulty: block_proposed.meta.difficulty,

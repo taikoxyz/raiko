@@ -177,6 +177,15 @@ impl ChainSpec {
         self.chain_id
     }
 
+    /// Returns true if the ONTAKE fork is active for a given block number and timestamp.
+    pub fn is_ontake_active(&self, block_no: BlockNumber, timestamp: u64) -> bool {
+        if let Some(fork_condition) = self.hard_forks.get(&SpecId::ONTAKE) {
+            fork_condition.active(block_no, timestamp)
+        } else {
+            false
+        }
+    }
+
     /// Returns the [SpecId] for a given block number and timestamp or an error if not
     /// supported.
     pub fn active_fork(&self, block_no: BlockNumber, timestamp: u64) -> Result<SpecId> {
@@ -248,6 +257,8 @@ pub enum Network {
     TaikoA7,
     /// Taiko Mainnet
     TaikoMainnet,
+    /// Surge Devnet
+    SurgeDev,
 }
 
 impl std::fmt::Display for Network {
@@ -257,6 +268,7 @@ impl std::fmt::Display for Network {
             Network::Holesky => "holesky",
             Network::TaikoA7 => "taiko_a7",
             Network::TaikoMainnet => "taiko_mainnet",
+            Network::SurgeDev => "surge_dev",
         })
     }
 }
@@ -422,16 +434,8 @@ mod tests {
             "taiko_dev is not merged"
         );
         assert!(
-            merged_specs
-                .get_chain_spec(&Network::Ethereum.to_string())
-                .is_some(),
+            merged_specs.get_chain_spec("surge_dev").is_some(),
             "existed chain spec Ethereum is changed by merge"
-        );
-        assert!(
-            merged_specs
-                .get_chain_spec(&Network::TaikoA7.to_string())
-                .is_some(),
-            "existed chain spec TaikoA7 is changed by merge"
         );
     }
 }

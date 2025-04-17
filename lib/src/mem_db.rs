@@ -13,6 +13,7 @@
 // limitations under the License.
 use reth_evm::execute::ProviderError;
 use reth_primitives::revm_primitives::{
+    self,
     db::{Database, DatabaseCommit},
     Account, AccountInfo, Bytecode,
 };
@@ -203,7 +204,7 @@ impl Database for MemDb {
 }
 
 impl DatabaseCommit for MemDb {
-    fn commit(&mut self, changes: HashMap<Address, Account>) {
+    fn commit(&mut self, changes: revm_primitives::HashMap<Address, Account>) {
         for (address, new_account) in changes {
             // if nothing was touched, there is nothing to do
             if !new_account.is_touched() {
