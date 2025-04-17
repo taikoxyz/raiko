@@ -45,23 +45,30 @@ where
     BDP: BlockDataProvider,
 {
     let max_iterations = 100;
+    info!("execute_txs: start");
     for num_iterations in 0.. {
+        info!("execute_txs: iteration {num_iterations}");
         inplace_print(&format!("Executing iteration {num_iterations}..."));
 
         let Some(db) = builder.db.as_mut() else {
+            info!("execute_txs: No db in builder before execute_transactions");
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
         };
         db.optimistic = num_iterations + 1 < max_iterations;
 
+        info!("execute_txs: execute_transactions start");
         builder
             .execute_transactions(pool_txs.clone(), num_iterations + 1 < max_iterations)
             .map_err(|e| {
                 RaikoError::Preflight(format!("Executing transactions in builder failed: {e}"))
             })?;
+        info!("execute_txs: execute_transactions done");
 
         let Some(db) = builder.db.as_mut() else {
+            info!("execute_txs: No db in builder after execute_transactions");
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
         };
+        info!("execute_txs: fetch_data start");
         if db.fetch_data().await {
             clear_line();
             info!("State data fetched in {num_iterations} iterations");
@@ -90,7 +97,7 @@ pub async fn prepare_taiko_chain_input(
         .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
 
     // get anchor block num and state root
-    let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
+    let fork: SpecId = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
     let (anchor_block_height, anchor_state_root) = match fork {
         SpecId::PACAYA => {
             warn!("pacaya fork does not support prepare_taiko_chain_input for single block");
@@ -201,6 +208,8 @@ pub async fn prepare_taiko_chain_input(
             }
         }
     };
+
+    info!("prepare_taiko_chain_input done");
 
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {
@@ -406,11 +415,15 @@ pub async fn get_tx_blob(
         chain_spec.genesis_time,
         chain_spec.seconds_per_slot,
     )?;
+    info!("get_tx_data: slot_id done");
     let beacon_rpc_url: String = chain_spec.beacon_rpc.clone().ok_or_else(|| {
         RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
     })?;
+    info!("get_tx_data: beacon_rpc_url done");
     let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
+    info!("get_tx_data: blob done");
     let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
+    info!("get_tx_data: commitment done");
     let blob_proof = match blob_proof_type {
         BlobProofType::KzgVersionedHash => None,
         BlobProofType::ProofOfEquivalence => {
@@ -429,6 +442,8 @@ pub async fn get_tx_blob(
             )
         }
     };
+
+    info!("get_tx_data: blob_proof done");
 
     Ok((blob, Some(commitment.to_vec()), blob_proof))
 }
@@ -639,10 +654,21 @@ pub async fn get_block_proposed_event_by_traversal(
     l2_block_number: u64,
     fork: SpecId,
 ) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
+    let from_block = l1_anchor_block_number + 1;
+    let block_number: u64 = provider.get_block_number().await?;
+    let to_block = std::cmp::min(block_number, l1_anchor_block_number + 65);
+
+    let filter = if from_block < to_block {
+        EventFilterConditioin::Range((from_block, to_block))
+    } else {
+        warn!("Height is low or equal to l1_anchor_block_number+1. Height = {:?}", to_block);
+        EventFilterConditioin::Height(to_block)
+    };
+
     filter_block_proposed_event(
         provider,
         chain_spec,
-        EventFilterConditioin::Range((l1_anchor_block_number + 1, l1_anchor_block_number + 65)),
+        filter,
         l2_block_number,
         fork,
     )

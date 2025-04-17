@@ -1,8 +1,9 @@
 #![cfg(feature = "statedb_lru")]
 use lazy_static::lazy_static;
-use std::{collections::HashMap, sync::Mutex};
+use std::sync::Mutex;
 
 use raiko_lib::mem_db::MemDb;
+use reth_primitives::revm_primitives::HashMap;
 use reth_primitives::{Header, B256};
 use tracing::debug;
 

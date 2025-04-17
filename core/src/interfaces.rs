@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
 use std::{collections::HashMap, fmt::Display, path::Path};
+use tracing::info;
 use utoipa::ToSchema;
 
 #[derive(Debug, thiserror::Error, ToSchema)]
@@ -94,6 +95,7 @@ pub async fn run_prover(
     config: &Value,
     store: Option<&mut dyn IdWrite>,
 ) -> RaikoResult<Proof> {
+    info!("run_prover: start");
     match proof_type {
         ProofType::Native => NativeProver::run(input.clone(), output, config, store)
             .await
@@ -270,6 +272,14 @@ pub struct ProofRequest {
     #[serde(flatten)]
     /// Additional prover params.
     pub prover_args: HashMap<String, Value>,
+    /// GPU number to use for proof generation
+    pub gpu_number: Option<u32>,
+}
+
+impl ProofRequest {
+    pub fn set_gpu_number(&mut self, gpu_number: Option<u32>) {
+        self.gpu_number = gpu_number;
+    }
 }
 
 #[serde_as]
@@ -487,6 +497,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                     RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
                 })?,
             prover_args: value.prover_args.into(),
+            gpu_number: None,
         })
     }
 }
@@ -536,7 +547,7 @@ pub struct ProofRequestOpt {
     pub prover_args: ProverSpecificOpts,
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema)]
 #[serde(default)]
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationRequest {

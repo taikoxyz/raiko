@@ -103,9 +103,12 @@ pub async fn preflight<BDP: BlockDataProvider>(
             .map_err(|e| RaikoError::Conversion(e.0))?
     };
     measurement.stop();
+    info!("preflight: guest input done");
 
     let parent_header: reth_primitives::Header = parent_block.header.inner.clone();
     let parent_block_number = parent_header.number;
+
+    info!("preflight: parent header done");
 
     // Create the guest input
     let input = GuestInput {
@@ -130,8 +133,11 @@ pub async fn preflight<BDP: BlockDataProvider>(
     )
     .await?;
 
+    info!("preflight: provider db done");
+
     // Now re-execute the transactions in the block to collect all required data
     let mut builder = RethBlockBuilder::new(&input, provider_db);
+    info!("preflight: builder done");
 
     let pool_tx = generate_transactions(
         &input.chain_spec,
@@ -161,6 +167,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
         return Err(RaikoError::Preflight("No db in builder".to_owned()));
     };
 
+    info!("preflight: db done");
+
     // Gather inclusion proofs for the initial and final state
     let measurement = Measurement::start("Fetching storage proofs...", true);
     let (parent_proofs, proofs, num_storage_proofs) = db.get_proofs().await?;
@@ -169,16 +177,22 @@ pub async fn preflight<BDP: BlockDataProvider>(
         parent_proofs.len() + proofs.len(),
     ));
 
+    info!("preflight: get proofs done");
+
     // Construct the state trie and storage from the storage proofs.
     let measurement = Measurement::start("Constructing MPT...", true);
     let (parent_state_trie, parent_storage) =
         proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
     measurement.stop();
 
+    info!("preflight: construct mpt done");
+
     // Gather proofs for block history
     let measurement = Measurement::start("Fetching historical block headers...", true);
     let ancestor_headers = db.get_ancestor_headers().await?;
     measurement.stop();
+
+    info!("preflight: get ancestor headers done");
 
     // Get the contracts from the initial db.
     let measurement = Measurement::start("Fetching contract code...", true);
@@ -194,6 +208,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
         .collect::<Vec<Bytes>>();
     measurement.stop();
 
+    info!("preflight: get contract code done");
+
     // Fill in remaining generated guest input data
     let input = GuestInput {
         parent_state_trie,
@@ -202,6 +218,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
         ancestor_headers,
         ..input
     };
+
+    info!("preflight: input done");
 
     Ok(input)
 }

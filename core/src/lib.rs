@@ -467,8 +467,11 @@ mod tests {
     async fn test_prove_batch_block_taiko_dev() {
         env_logger::init();
         let proof_type = get_proof_type_from_env();
-        let l1_network = "taiko_dev_l1".to_owned();
-        let network = "taiko_dev".to_owned();
+        let l1_network = "surge_dev_l1".to_owned();
+        let network = "surge_dev".to_owned();
+        // Give the CI an simpler block to test because it doesn't have enough memory.
+        // Unfortunately that also means that kzg is not getting fully verified by CI.
+        let block_number = 20;
         let chain_specs = SupportedChainSpecs::merge_from_file(
             "../host/config/chain_spec_list_devnet.json".into(),
         )
@@ -477,7 +480,7 @@ mod tests {
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
 
         let proof_request = ProofRequest {
-            block_number: 0,
+            block_number,
             batch_id: 164,
             l1_inclusion_block_number: 363,
             l2_block_numbers: vec![164],
@@ -488,6 +491,7 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            gpu_number: Some(0),
         };
         batch_prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -528,6 +532,7 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            gpu_number: Some(0),
         };
         batch_prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -561,6 +566,7 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            gpu_number: Some(0),
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -602,6 +608,7 @@ mod tests {
                 proof_type,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
+                gpu_number: Some(0),
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -637,6 +644,7 @@ mod tests {
                 proof_type,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
+                gpu_number: Some(0),
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -670,6 +678,7 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(true),
+            gpu_number: Some(0),
         };
         let proof = prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
 
