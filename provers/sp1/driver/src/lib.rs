@@ -14,7 +14,7 @@ use raiko_lib::{
 use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use sp1_prover::components::CpuProverComponents;
+use sp1_prover::{components::CpuProverComponents, Groth16Bn254Proof};
 use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover as SP1ProverTrait, SP1Proof, SP1ProofMode,
     SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
@@ -497,15 +497,28 @@ impl Prover for Sp1Prover {
         );
 
         let prove_result = if !matches!(mode, ProverMode::Network) {
-            debug!("Proving locally with recursion mode: {:?}", param.recursion);
             let prove_mode = match param.recursion {
                 RecursionMode::Core => SP1ProofMode::Core,
                 RecursionMode::Compressed => SP1ProofMode::Compressed,
                 RecursionMode::Plonk => SP1ProofMode::Plonk,
             };
-            client
-                .prove(&pk, &stdin, prove_mode)
-                .map_err(|e| ProverError::GuestError(format!("Sp1: local proving failed: {e}")))?
+            let profiling = std::env::var("PROFILING").unwrap_or_default() == "1";
+            if prifiling {
+                info!("Profiling locally with recursion mode: {:?}", param.recursion);
+                client.execute(BATCH_ELF, &stdin).map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: local proving failed: {e}"))
+                })?;
+                SP1ProofWithPublicValues {
+                    proof: SP1Proof::Groth16(Groth16Bn254Proof::default()),
+                    public_values: sp1_primitives::io::SP1PublicValues::new(),
+                    sp1_version: "0".to_owned(),
+                }
+            } else {
+                info!("Execute locally with recursion mode: {:?}", param.recursion);
+                client.prove(&pk, &stdin, prove_mode).map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: local proving failed: {e}"))
+                })?
+            }
         } else {
             let proof_id = network_client
                 .prove(&pk, &stdin)
