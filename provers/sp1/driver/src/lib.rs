@@ -122,10 +122,6 @@ impl Prover for Sp1Prover {
         id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let mut param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
-
-        // TODO: remove param.recursion, hardcode to Plonk
-        param.recursion = RecursionMode::Compressed;
-
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
         println!("param: {param:?}");
