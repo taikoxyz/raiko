@@ -30,6 +30,8 @@ pub fn main() {
 
 harness::zk_suits!(
     pub mod tests {
+
+        use reth_primitives::alloy_primitives::PrimitiveSignature as Signature;
         use reth_primitives::U256;
         use std::str::FromStr;
         #[test]
@@ -38,22 +40,22 @@ harness::zk_suits!(
             assert_eq!(1, 1);
         }
         pub fn test_signature() {
-            let signature = reth_primitives::Signature {
-                r: U256::from_str(
+            let signature = Signature::new(
+                U256::from_str(
                     "18515461264373351373200002665853028612451056578545711640558177340181847433846",
                 )
                 .unwrap(),
-                s: U256::from_str(
+                U256::from_str(
                     "46948507304638947509940763649030358759909902576025900602547168820602576006531",
                 )
                 .unwrap(),
-                odd_y_parity: false,
-            };
+                false,
+            );
             let hash = reth_primitives::B256::from_str(
                 "daf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53",
             )
             .unwrap();
-            signature.recover_signer(hash).unwrap();
+            signature.recover_address_from_msg(hash).unwrap();
         }
     }
 );

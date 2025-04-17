@@ -6,15 +6,14 @@ use crate::{
     methods::risc0_aggregation::RISC0_AGGREGATION_ELF,
     methods::risc0_guest::{RISC0_GUEST_ELF, RISC0_GUEST_ID},
 };
-use alloy_primitives::{hex::ToHexExt, B256};
+use alloy_primitives::B256;
 use bonsai::{cancel_proof, maybe_prove};
-use log::{info, warn};
+use log::info;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput, ZkAggregationGuestInput,
     },
-    proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{
@@ -61,6 +60,8 @@ impl From<Risc0Response> for Proof {
 
 pub struct Risc0Prover;
 
+const RISC0_PROVER_CODE: u8 = 3;
+
 impl Prover for Risc0Prover {
     async fn run(
         input: GuestInput,
@@ -73,14 +74,14 @@ impl Prover for Risc0Prover {
         let proof_key = (
             input.chain_spec.chain_id,
             input.block.header.number,
-            output.hash,
-            ProofType::Risc0 as u8,
+            output.hash.clone(),
+            RISC0_PROVER_CODE,
         );
 
         debug!("elf code length: {}", RISC0_GUEST_ELF.len());
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
 
-        let (uuid, receipt) = maybe_prove::<GuestInput, B256>(
+        let result = maybe_prove::<GuestInput, B256>(
             &config,
             encoded_input,
             RISC0_GUEST_ELF,
@@ -89,24 +90,26 @@ impl Prover for Risc0Prover {
             proof_key,
             &mut id_store,
         )
-        .await?;
+        .await;
 
-        let proof_gen_result = if config.snark && config.bonsai {
-            bonsai::bonsai_stark_to_snark(uuid, receipt, output.hash)
-                .await
-                .map(|r0_response| r0_response.into())
-                .map_err(|e| ProverError::GuestError(e.to_string()))
+        let proof_gen_result = if result.is_some() {
+            if config.snark && config.bonsai {
+                let (stark_uuid, stark_receipt) = result.clone().unwrap();
+                bonsai::bonsai_stark_to_snark(stark_uuid, stark_receipt, output.hash)
+                    .await
+                    .map(|r0_response| r0_response.into())
+                    .map_err(|e| ProverError::GuestError(e.to_string()))
+            } else {
+                let (snark_uuid, snark_receipt) = result.clone().unwrap();
+                bonsai::locally_verify_snark(snark_uuid, snark_receipt, output.hash)
+                    .await
+                    .map(|r0_response| r0_response.into())
+                    .map_err(|e| ProverError::GuestError(e.to_string()))
+            }
         } else {
-            if !config.snark {
-                warn!("proof is not in snark mode, please check.");
-            }
-            Ok(Risc0Response {
-                proof: receipt.journal.encode_hex_with_prefix(),
-                receipt: serde_json::to_string(&receipt).unwrap(),
-                uuid,
-                input: output.hash,
-            }
-            .into())
+            Err(ProverError::GuestError(
+                "Failed to generate proof".to_string(),
+            ))
         };
 
         #[cfg(feature = "bonsai-auto-scaling")]
@@ -168,8 +171,8 @@ impl Prover for Risc0Prover {
             .receipt;
 
         info!(
-            "Generate aggregation receipt journal: {:?}",
-            alloy_primitives::hex::encode_prefixed(receipt.journal.bytes.clone())
+            "Generate aggregatino receipt journal: {:?}",
+            receipt.journal
         );
         let block_proof_image_id = compute_image_id(RISC0_GUEST_ELF).unwrap();
         let aggregation_image_id = compute_image_id(RISC0_AGGREGATION_ELF).unwrap();
@@ -187,7 +190,7 @@ impl Prover for Risc0Prover {
             proof: snark_proof,
             receipt: serde_json::to_string(&receipt).unwrap(),
             uuid: "".to_owned(),
-            input: B256::from_slice(receipt.journal.digest().as_bytes()),
+            input: B256::from_slice(&receipt.journal.digest().as_bytes()),
         }
         .into());
 
