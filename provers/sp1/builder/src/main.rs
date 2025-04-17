@@ -35,7 +35,7 @@ impl Pipeline for Sp1Pipeline {
     fn builder(&self) -> CommandBuilder {
         CommandBuilder::new(&self.meta, "riscv32im-succinct-zkvm-elf", "succinct")
             .rust_flags(&[
-                "passes=loweratomic",
+                "passes=lower-atomic",
                 "link-arg=-Ttext=0x00200800",
                 "panic=abort",
             ])

@@ -168,17 +168,20 @@ services:
       - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
       - L1_NETWORK=${L1_NETWORK}
       - NETWORK=${NETWORK}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # risc0 service env
       - BONSAI_API_KEY=${BONSAI_API_KEY}
       - BONSAI_API_URL=${BONSAI_API_URL}
-      - MAX_BONSAI_GPU_NUM=300
+      # risc0 verifier
       - GROTH16_VERIFIER_RPC_URL=${GROTH16_VERIFIER_RPC_URL}
       - GROTH16_VERIFIER_ADDRESS=${GROTH16_VERIFIER_ADDRESS}
-      - SP1_PRIVATE_KEY=${SP1_PRIVATE_KEY}
+      # sp1 service env
+      - NETWORK_RPC_URL=${NETWORK_RPC_URL}
+      - NETWORK_PRIVATE_KEY=${NETWORK_PRIVATE_KEY}
       - SKIP_SIMULATION=true
+      # sp1 verifier
       - SP1_VERIFIER_RPC_URL=${SP1_VERIFIER_RPC_URL}
       - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
-      - PROVER_NETWORK_RPC=${PROVER_NETWORK_RPC}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     depends_on:
       - redis
     profiles:

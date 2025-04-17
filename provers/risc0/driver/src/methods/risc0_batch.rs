@@ -1,5 +1,5 @@
 pub const RISC0_BATCH_ELF: &[u8] =
-    include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/risc0-batch");
+    include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/risc0-batch.bin");
 pub const RISC0_BATCH_ID: [u32; 8] = [
-    1585630346, 345989788, 4151101683, 819276391, 4218347574, 861965425, 3025423219, 3488057193,
+    2799826313, 1146822635, 4144432365, 299604400, 536823753, 1503986349, 3698813577, 2002202435,
 ];

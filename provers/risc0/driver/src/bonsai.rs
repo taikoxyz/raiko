@@ -1,3 +1,4 @@
+use crate::Risc0Param;
 use crate::{
     snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
@@ -21,8 +22,6 @@ use std::{
 };
 use tokio::time::{sleep as tokio_async_sleep, Duration};
 
-use crate::Risc0Param;
-
 const MAX_REQUEST_RETRY: usize = 8;
 
 #[derive(thiserror::Error, Debug)]
@@ -36,9 +35,6 @@ pub enum BonsaiExecutionError {
     #[error("bonsai execution fatal error: {0}")]
     Fatal(String),
 }
-
-#[cfg(feature = "bonsai-auto-scaling")]
-pub mod auto_scaling;
 
 pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     image_id: Digest,
@@ -146,16 +142,6 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             info!("Loaded locally cached stark receipt {receipt_label:?}");
             (cached_data.0, cached_data.1, true)
         } else if param.bonsai {
-            #[cfg(feature = "bonsai-auto-scaling")]
-            match auto_scaling::maxpower_bonsai().await {
-                Ok(_) => {}
-                Err(e) => {
-                    error!("Failed to scale up bonsai: {e:?}");
-                    return Err(ProverError::GuestError(
-                        "Failed to scale up bonsai".to_string(),
-                    ));
-                }
-            }
             // query bonsai service until it works
             macro_rules! retry_with_backoff {
                 ($max_retries:expr, $retry_delay:expr, $operation:expr, $err_transform:expr) => {{
@@ -257,8 +243,6 @@ pub async fn cancel_proof(uuid: String) -> anyhow::Result<()> {
     let client = Client::from_env(risc0_zkvm::VERSION)?;
     let session = SessionId { uuid };
     session.stop(&client)?;
-    #[cfg(feature = "bonsai-auto-scaling")]
-    auto_scaling::shutdown_bonsai().await?;
     Ok(())
 }
 
@@ -365,8 +349,9 @@ pub fn prove_locally(
             .write_slice(&encoded_input);
 
         if profile {
-            info!("Profiling enabled.");
-            env_builder.enable_profiler("profile_r0_local.pb");
+            warn!("Profiling disabled. Currently not working in v2");
+            // info!("Profiling enabled.");
+            // env_builder.enable_profiler("profile_r0_local.pb");
         }
 
         for assumption in assumptions {

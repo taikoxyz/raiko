@@ -81,8 +81,8 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 	fi
 	$env_rzup install rust 1.81.0
 	$env_rzup install cpp 2024.1.5
-	$env_rzup install r0vm 1.2.5
-	$env_rzup install cargo-risczero 1.2.5
+	$env_rzup install r0vm 2.0.1
+	$env_rzup install cargo-risczero 2.0.1
 fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
@@ -96,10 +96,10 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	source ${PROFILE}
 	if command -v sp1up >/dev/null 2>&1; then
 		echo "sp1 found in path"
-		sp1up -v v4.0.0-rc.1
+		sp1up -v v4.1.7
 	else
 		echo "sp1 not found in path"
-		"$HOME/.sp1/bin/sp1up" -v v4.0.0-rc.1
+		"$HOME/.sp1/bin/sp1up" -v v4.1.7
 	fi
 	# else
 	# 	echo "CI environment"
