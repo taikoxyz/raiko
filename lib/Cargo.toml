@@ -23,6 +23,7 @@ alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-consensus = { workspace = true }
+alloy-chains = { workspace = true }
 
 # errors
 anyhow = { workspace = true }

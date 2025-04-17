@@ -47,45 +47,52 @@ raiko-reqactor = { path = "./reqactor" }
 raiko-ballot = { path = "./ballot" }
 
 # reth
-reth-chainspec = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-taiko-evm = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false, features = [
+reth-chainspec = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-taiko-evm = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false, features = [
     "std",
 ] }
-reth-primitives = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false, features = [
+reth-primitives = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false, features = [
     "alloy-compat",
     "c-kzg",
     "serde-bincode-compat",
     # "taiko",
     # "k256",
 ] }
-reth-evm-ethereum = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-consensus = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-ethereum-consensus = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-evm = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-rpc-types-compat = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-revm = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-provider = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-taiko-consensus = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-taiko-forks = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
-reth-taiko-chainspec = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-raiko-integration", default-features = false }
+
+
+reth-evm-ethereum = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-consensus = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-ethereum-consensus = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-evm = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-rpc-types-compat = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-revm = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-provider = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-taiko-consensus = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-taiko-forks = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+reth-taiko-chainspec = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "feat/surge-related-changes", default-features = false }
+
+
+reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
 
 
 # risc zero
-risc0-zkvm = { version = "=1.2.3", features = ["prove", "getrandom"] }
-bonsai-sdk = { version = "=1.2.3" }
-risc0-binfmt = { version = "=1.2.3" }
+risc0-zkvm = { version = "=1.2.2", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "=1.2.2" }
+risc0-binfmt = { version = "=1.2.2" }
 
 # SP1
-sp1-sdk = { version = "4.0.0" }
-sp1-core-executor = { version = "4.0.0" }
-sp1-core-machine = { version = "4.0.0" }
-sp1-prover = { version = "4.0.0" }
-sp1-zkvm = { version = "4.0.0" }
-sp1-helper = { version = "4.0.0" }
-sp1-recursion-circuit = { version = "4.0.0" }
-sp1-recursion-compiler = { version = "4.0.0" }
-sp1-recursion-core = { version = "4.0.0" }
-sp1-recursion-gnark-ffi = { version = "4.0.0" }
+sp1-prover = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-zkvm = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-helper = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-sdk = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu", features = [
+    "cuda",
+] }
+sp1-core-executor = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-core-machine = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-recursion-circuit = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-recursion-compiler = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-recursion-core = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-recursion-gnark-ffi = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
@@ -93,9 +100,9 @@ alloy-rlp-derive = { version = "0.3.4", default-features = false }
 alloy-core = { version = "0.7.2", default-features = false }
 alloy-dyn-abi = { version = "0.7.2", default-features = false }
 alloy-json-abi = { version = "0.7.2", default-features = false }
-alloy-primitives = { version = "0.8.25", default-features = false }
 alloy-sol-types = { version = "0.8.25", default-features = false }
-reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
+alloy-primitives = { version = "0.8.25", default-features = false }
+alloy-chains = { version = "0.1.15", default-features = false }
 alloy-rpc-types = { version = "0.7.2", default-features = false }
 alloy-rpc-client = { version = "0.7.3", default-features = false, features = [
     "reqwest",
