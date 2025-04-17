@@ -66,6 +66,38 @@ async fn proof_handler(
         }
     }
 
+    if let Some(ref proof_type) = config.proof_type {
+        match proof_type.as_str() {
+            "risc0" => {
+                #[cfg(not(feature = "risc0"))]
+                return Ok(Status::new_from_task_status(
+                    ProofType::from_str(proof_type)?,
+                    TaskStatus::AnyhowError("RISC0 not supported".to_string()),
+                ));
+            }
+            "sp1" => {
+                #[cfg(not(feature = "sp1"))]
+                return Ok(Status::new_from_task_status(
+                    ProofType::from_str(proof_type)?,
+                    TaskStatus::AnyhowError("SP1 not supported".to_string()),
+                ));
+            }
+            "sgx" => {
+                #[cfg(not(feature = "sgx"))]
+                return Ok(Status::new_from_task_status(
+                    ProofType::from_str(proof_type)?,
+                    TaskStatus::AnyhowError("SGX not supported".to_string()),
+                ));
+            }
+            _ => {
+                return Ok(Status::new_from_task_status(
+                    ProofType::from_str(proof_type)?,
+                    TaskStatus::AnyhowError(format!("Unknown proof type: {}", proof_type)),
+                ))
+            }
+        }
+    }
+
     // Construct the actual proof request from the available configs.
     let proof_request = ProofRequest::try_from(config)?;
     inc_host_req_count(proof_request.block_number);

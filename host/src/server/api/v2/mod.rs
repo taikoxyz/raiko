@@ -77,6 +77,21 @@ pub enum Status {
     },
 }
 
+impl Status {
+    pub fn new_from_task_status(proof_type: ProofType, status: TaskStatus) -> Self {
+        match status {
+            TaskStatus::Success | TaskStatus::WorkInProgress | TaskStatus::Registered => Self::Ok {
+                proof_type,
+                data: ProofResponse::Status { status },
+            },
+            _ => Self::Error {
+                error: "task_failed".to_string(),
+                message: format!("Task failed with status: {status:?}"),
+            },
+        }
+    }
+}
+
 impl IntoResponse for Status {
     fn into_response(self) -> axum::response::Response {
         Json(serde_json::to_value(self).unwrap()).into_response()
