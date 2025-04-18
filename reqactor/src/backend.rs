@@ -644,8 +644,19 @@ pub async fn do_prove_single(
         if let Some(guest_input_value) = request_entity.prover_args().get("guest_input") {
             let guest_input_json: String = serde_json::from_value(guest_input_value.clone())
                 .expect("guest_input should be a string");
-            serde_json::from_str(&guest_input_json)
-                .map_err(|err| format!("failed to deserialize guest_input: {err:?}"))?
+            let mut input: GuestInput = serde_json::from_str(&guest_input_json)
+                .map_err(|err| format!("failed to deserialize guest_input: {err:?}"))?;
+            // update missing fields
+            let prover_data = &input.taiko.prover_data;
+            if !(prover_data.graffiti.eq(request_entity.graffiti())
+                && prover_data.prover.eq(request_entity.prover()))
+            {
+                input.taiko.prover_data = raiko_lib::input::TaikoProverData {
+                    graffiti: request_entity.graffiti().clone(),
+                    prover: request_entity.prover().clone(),
+                }
+            }
+            input
         } else {
             // 1. Generate the proof input
             raiko
