@@ -499,7 +499,7 @@ impl Prover for Sp1Prover {
                 RecursionMode::Plonk => SP1ProofMode::Plonk,
             };
             let profiling = std::env::var("PROFILING").unwrap_or_default() == "1";
-            if prifiling {
+            if profiling {
                 info!("Profiling locally with recursion mode: {:?}", param.recursion);
                 client.execute(BATCH_ELF, &stdin).map_err(|e| {
                     ProverError::GuestError(format!("Sp1: local proving failed: {e}"))
