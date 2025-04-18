@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.0](https://github.com/taikoxyz/raiko/compare/v1.7.1...v1.8.0) (2025-04-18)
+
+
+### Features
+
+* **raiko:** update r0 to v2.0.1 & sp1 to v4.1.7 ([#543](https://github.com/taikoxyz/raiko/issues/543)) ([abfedbb](https://github.com/taikoxyz/raiko/commit/abfedbbe2d100a4844af0f77cdf2deee07aa978e))
+
+
+### Bug Fixes
+
+* **docs:** fix script instructions ([#539](https://github.com/taikoxyz/raiko/issues/539)) ([0b39207](https://github.com/taikoxyz/raiko/commit/0b392078fd6fd8dc4c1a52e68575a2e7051956b4))
+* **gaiko:** ignore geth mpt reduce error ([#540](https://github.com/taikoxyz/raiko/issues/540)) ([a8623ad](https://github.com/taikoxyz/raiko/commit/a8623ad03aade51dcb401ab448dc74f16ebb4c0d))
+* **raiko:** add missing prover_data back to input data ([#546](https://github.com/taikoxyz/raiko/issues/546)) ([b5eec39](https://github.com/taikoxyz/raiko/commit/b5eec3943e704147ba6edc8d94155c17a65a8a23))
+* **raiko:** enable hekla sgxgeth prove ([#542](https://github.com/taikoxyz/raiko/issues/542)) ([a2e32ab](https://github.com/taikoxyz/raiko/commit/a2e32abff0cec7626afc45976eff9dac7efff17c))
+
 ## [1.7.0](https://github.com/taikoxyz/raiko/compare/v1.6.1...v1.7.0) (2025-04-08)
 
 
