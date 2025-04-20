@@ -48,7 +48,7 @@ docker buildx build . \
 	$build_flags \
 	--build-arg TARGETPLATFORM=linux/amd64 \
 	--progress=plain \
-	| tee log.build.$image_name.$tag
+	2>&1 | tee log.build.$image_name.$tag
 
 # check docker build status
 if [ $? -ne 0 ]; then
