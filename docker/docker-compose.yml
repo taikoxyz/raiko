@@ -62,7 +62,7 @@ services:
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    command:
     env_file:
       - .env
     devices:
@@ -77,6 +77,8 @@ services:
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
+      - BASE_CONIG_FILE=${BASE_CONIG_FILE::-config.sgx.json}
+      - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
@@ -109,7 +111,7 @@ services:
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-self-register
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    command:
     env_file:
       - .env
     devices:
@@ -128,6 +130,8 @@ services:
       # - PCCS_HOST=host.docker.internal:8081
       - SGX=true
       - SGXGETH=${SGXGETH}
+      - BASE_CONIG_FILE=${BASE_CONIG_FILE:-config.sgx.json}
+      - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
       - HOLESKY_RPC=${HOLESKY_RPC}
@@ -148,7 +152,7 @@ services:
       dockerfile: Dockerfile.zk
     image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
     container_name: raiko-zk
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    command:
     env_file:
       - .env
     volumes:
@@ -160,6 +164,8 @@ services:
       # - PCCS_HOST=host.docker.internal:8081
       - RUST_LOG=${RUST_LOG:-info}
       - ZK=true
+      - BASE_CONIG_FILE=${BASE_CONIG_FILE::-config.sgx.json}
+      - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
       - HOLESKY_RPC=${HOLESKY_RPC}

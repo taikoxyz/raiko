@@ -5,15 +5,19 @@ set -xeo pipefail
 
 export IN_CONTAINER=1
 
-GRAMINE_PRIV_KEY="$HOME/.config/gramine/enclave-key.pem"
+# the config file & chain spec used inside raiko
+BASE_CONIG_FILE={$BASE_CONIG_FILE:-config.sgx.json}
+BASE_CHAINSPEC_FILE={$BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
 RAIKO_DOCKER_VOLUME_PATH="/root/.config/raiko"
 RAIKO_DOCKER_VOLUME_CONFIG_PATH="$RAIKO_DOCKER_VOLUME_PATH/config"
 RAIKO_DOCKER_VOLUME_SECRETS_PATH="$RAIKO_DOCKER_VOLUME_PATH/secrets"
 RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH="$RAIKO_DOCKER_VOLUME_SECRETS_PATH/priv.key"
 RAIKO_APP_DIR="/opt/raiko/bin"
 RAIKO_CONF_DIR="/etc/raiko"
-RAIKO_CONF_BASE_CONFIG="$RAIKO_CONF_DIR/config.sgx.json"
-RAIKO_CONF_CHAIN_SPECS="$RAIKO_CONF_DIR/chain_spec_list.docker.json"
+RAIKO_CONF_BASE_CONFIG="$RAIKO_CONF_DIR/$BASE_CONIG_FILE"
+RAIKO_CONF_CHAIN_SPECS="$RAIKO_CONF_DIR/$BASE_CHAINSPEC_FILE"
+DEVNET_CHAINSPEC_FILE=$RAIKO_CONF_DIR/chain_spec_list_devnet.json
+PRODUCT_CHAINSPEC_FILE=$RAIKO_CONF_DIR/chain_spec_list_default.json
 RAIKO_GUEST_APP_FILENAME="sgx-guest"
 GAIKO_GUEST_APP_FILENAME="gaiko"
 RAIKO_GUEST_SETUP_FILENAME="raiko-setup"
@@ -68,7 +72,7 @@ function update_chain_spec_json() {
 function update_docker_chain_specs() {
     CONFIG_FILE=$1
     if [ ! -f $CONFIG_FILE ]; then
-        echo "chain_spec_list.docker.json file not found."
+        echo "$BASE_CHAINSPEC_FILE file not found."
         return 1
     fi
 
@@ -152,6 +156,27 @@ function update_raiko_sgx_instance_id() {
     fi
 }
 
+# merge devnet & product chain spec here
+function merge_json_arrays() {
+  local input1="$1"
+  local input2="$2"
+  local output="$3"
+
+  if [[ ! -f "$input1" || ! -f "$input2" ]]; then
+    echo "❌ $input1 or $input2 not found！"
+    return 1
+  fi
+
+  jq -s 'add' "$input1" "$input2" > "$output"
+
+  if [[ $? -eq 0 ]]; then
+    echo "✅ merge chainspec success to: $output"
+  else
+    echo "❌ merge failed!"
+    return 1
+  fi
+}
+
 if [[ -z "${PCCS_HOST}" ]]; then
     MY_PCCS_HOST=pccs:8081
 else
@@ -193,9 +218,12 @@ if [[ -n $SGX ]]; then
         #update raiko server config
         update_raiko_network $RAIKO_CONF_BASE_CONFIG
         update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
+
+        #merge chain spec to a all-in-one file
+        merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
         update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
-        /opt/raiko/bin/raiko-host "$@"
+        /opt/raiko/bin/raiko-host --config-path=$RAIKO_CONF_BASE_CONFIG "$@"
     fi
 fi
 
@@ -209,7 +237,10 @@ if [[ -n $ZK ]]; then
     #update raiko server config
     update_raiko_network $RAIKO_CONF_BASE_CONFIG
     update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
+
+    #update raiko server chainspec
+    merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
     update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
-    /opt/raiko/bin/raiko-host "$@"
+    /opt/raiko/bin/raiko-host --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
 fi
