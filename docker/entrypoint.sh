@@ -6,8 +6,8 @@ set -xeo pipefail
 export IN_CONTAINER=1
 
 # the config file & chain spec used inside raiko
-BASE_CONIG_FILE={$BASE_CONIG_FILE:-config.sgx.json}
-BASE_CHAINSPEC_FILE={$BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
+BASE_CONIG_FILE=${BASE_CONIG_FILE:-config.sgx.json}
+BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
 RAIKO_DOCKER_VOLUME_PATH="/root/.config/raiko"
 RAIKO_DOCKER_VOLUME_CONFIG_PATH="$RAIKO_DOCKER_VOLUME_PATH/config"
 RAIKO_DOCKER_VOLUME_SECRETS_PATH="$RAIKO_DOCKER_VOLUME_PATH/secrets"
