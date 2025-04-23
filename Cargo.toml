@@ -59,10 +59,13 @@ bonsai-sdk = { version = "=1.2.2" }
 risc0-binfmt = { version = "=1.2.2" }
 
 # SP1
-sp1-sdk = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu", features = ["cuda"] }
-sp1-prover = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
-sp1-zkvm = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
-sp1-helper = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.0.1-single-gpu" }
+sp1-sdk = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.1.7-single-gpu", features = [
+    "cuda",
+] }
+sp1-prover = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.1.7-single-gpu" }
+sp1-zkvm = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.1.7-single-gpu" }
+sp1-helper = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.1.7-single-gpu" }
+sp1-primitives = { git = "https://github.com/NethermindEth/sp1.git", branch = "v4.1.7-single-gpu" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
