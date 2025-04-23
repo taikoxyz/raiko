@@ -6,7 +6,7 @@ use raiko_lib::{
     proof_type::ProofType,
 };
 use serde_json::Value;
-use sgx_prover::{
+use sgx_prover::local_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
     set_instance_id, ForkRegisterId, ELF_NAME, GAIKO_ELF_NAME,
 };
