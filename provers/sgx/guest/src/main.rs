@@ -12,6 +12,7 @@ use crate::{
 
 mod app_args;
 mod one_shot;
+mod sgx_server;
 mod signature;
 
 #[tokio::main]
@@ -39,6 +40,10 @@ pub async fn main() -> Result<()> {
             println!("Checking if bootstrap is readable");
             load_bootstrap(&args.global_opts.secrets_dir)
                 .map_err(|err| anyhow!("check booststrap failed: {err}"))?;
+        }
+        Command::Serve(server_args) => {
+            println!("Sgx proof server");
+            sgx_server::serve(server_args, args.global_opts).await;
         }
     }
 
