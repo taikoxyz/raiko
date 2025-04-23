@@ -1,12 +1,12 @@
 use crate::{
-    app_args::{GlobalOpts, ServerArgs},
-    one_shot::{bootstrap, one_shot},
+    app_args::{GlobalOpts, OneShotArgs, ServerArgs},
+    one_shot::{aggregate, bootstrap, one_shot, one_shot_batch},
 };
 use anyhow::Context;
 use axum::{extract::State, Json};
 use axum::{routing::post, Router};
 use raiko_lib::{
-    input::{GuestBatchInput, GuestInput},
+    input::{GuestBatchInput, GuestInput, RawAggregationGuestInput},
     primitives::B256,
 };
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
 
     let router = Router::new()
         .route("/prove/block", post(prove_block))
-        .route("/prove/batcn", post(prove_batch))
+        .route("/prove/batch", post(prove_batch))
         .route("/prove/aggregate", post(prove_aggregation))
         .route("/check", post(check_server))
         .route("/bootstrap", post(bootstrap_server))
@@ -42,9 +42,14 @@ pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+pub struct ServerResponse {
+    pub status: String,
+    pub message: String,
+    pub proof: SgxResponse,
+}
+
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct SgxResponse {
-    /// proof format: 4b(id)+20b(pubkey)+65b(signature)
     pub proof: String,
     pub quote: String,
     pub input: B256,
@@ -59,22 +64,76 @@ pub struct ServerStateConfig {
 async fn prove_block(
     State(state): State<ServerStateConfig>,
     Json(input): Json<GuestInput>,
-) -> String {
-    todo!();
+) -> Json<ServerResponse> {
+    let args = OneShotArgs {
+        sgx_instance_id: state.server_args.sgx_instance_id,
+    };
+    match one_shot(state.global_opts, args, input).await {
+        Ok(sgx_proof) => {
+            let sgx_response: SgxResponse =
+                serde_json::from_value(sgx_proof).expect("deserialize proof to response");
+            Json(ServerResponse {
+                status: "success".to_owned(),
+                message: "".to_owned(),
+                proof: sgx_response,
+            })
+        }
+        Err(e) => Json(ServerResponse {
+            status: "error".to_owned(),
+            message: e.to_string(),
+            ..Default::default()
+        }),
+    }
 }
 
 async fn prove_batch(
     State(state): State<ServerStateConfig>,
     Json(batch_input): Json<GuestBatchInput>,
-) -> String {
-    todo!();
+) -> Json<ServerResponse> {
+    let args = OneShotArgs {
+        sgx_instance_id: state.server_args.sgx_instance_id,
+    };
+    match one_shot_batch(state.global_opts, args, batch_input).await {
+        Ok(sgx_proof) => {
+            let sgx_response: SgxResponse =
+                serde_json::from_value(sgx_proof).expect("deserialize proof to response");
+            Json(ServerResponse {
+                status: "success".to_owned(),
+                message: "".to_owned(),
+                proof: sgx_response,
+            })
+        }
+        Err(e) => Json(ServerResponse {
+            status: "error".to_owned(),
+            message: e.to_string(),
+            ..Default::default()
+        }),
+    }
 }
 
 async fn prove_aggregation(
     State(state): State<ServerStateConfig>,
-    Json(proofs): Json<GuestBatchInput>,
-) -> String {
-    todo!();
+    Json(input): Json<RawAggregationGuestInput>,
+) -> Json<ServerResponse> {
+    let args = OneShotArgs {
+        sgx_instance_id: state.server_args.sgx_instance_id,
+    };
+    match aggregate(state.global_opts, args, input).await {
+        Ok(sgx_proof) => {
+            let sgx_response: SgxResponse =
+                serde_json::from_value(sgx_proof).expect("deserialize proof to response");
+            Json(ServerResponse {
+                status: "success".to_owned(),
+                message: "".to_owned(),
+                proof: sgx_response,
+            })
+        }
+        Err(e) => Json(ServerResponse {
+            status: "error".to_owned(),
+            message: e.to_string(),
+            ..Default::default()
+        }),
+    }
 }
 
 async fn bootstrap_server(State(state): State<ServerStateConfig>) -> String {
@@ -83,8 +142,8 @@ async fn bootstrap_server(State(state): State<ServerStateConfig>) -> String {
 }
 
 async fn check_server(
-    State(state): State<ServerStateConfig>,
-    Json(proofs): Json<GuestBatchInput>,
+    State(_state): State<ServerStateConfig>,
+    Json(_proofs): Json<GuestBatchInput>,
 ) -> String {
     todo!();
 }
