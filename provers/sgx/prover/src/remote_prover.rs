@@ -38,7 +38,7 @@ impl RemoteSgxProver {
             match proof_type {
                 ProofType::SgxGeth => std::env::var("GAIKO_REMOTE_URL")
                     .unwrap_or_else(|_| GAIKO_REMOTE_URL.to_string()),
-                ProofType::Sgx => std::env::var("GAIKO_REMOTE_URL")
+                ProofType::Sgx => std::env::var("RAIKO_REMOTE_URL")
                     .unwrap_or_else(|_| RAIKO_REMOTE_URL.to_string()),
                 _ => panic!("Unsupported proof type for remote prover"),
             };
@@ -99,6 +99,8 @@ impl Prover for RemoteSgxProver {
         if sgx_param.bootstrap {
             unimplemented!("SGX bootstrap not implemented for aggregation request");
         };
+
+        println!("input: {:?}", input);
 
         let sgx_proof = aggregate(&self.remote_prover_url, input.clone(), self.proof_type).await?;
         Ok(sgx_proof.into())
@@ -332,7 +334,7 @@ async fn aggregate(
     // post to remote sgx provider/bootstrap
     let client = Client::new();
     let post_url = format!("{}/prove/aggregate", remote_sgx_url);
-    let json_input = serde_json::to_string(&input)
+    let json_input = serde_json::to_string(&raw_input)
         .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
     let response = client
         .post(post_url)
@@ -347,11 +349,20 @@ async fn aggregate(
             .text()
             .await
             .map_err(|e| ProverError::GuestError(format!("Failed to read response: {e}")))?;
-        println!("Response: {}", response_text);
-        serde_json::from_str(&response_text)
-            .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))
+        tracing::info!("Response: {}", response_text);
+        let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
+            .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))?;
+        if sgx_proof.status == "success" {
+            Ok(sgx_proof.sgx_response)
+        } else {
+            tracing::error!("Request failed with status: {}", sgx_proof.status);
+            Err(ProverError::GuestError(format!(
+                "Failed to read error response: {}",
+                sgx_proof.message
+            )))
+        }
     } else {
-        println!("Request failed with status: {}", response.status());
+        tracing::error!("Request failed with status: {}", response.status());
         Err(ProverError::GuestError(format!(
             "Failed to read error response: {}",
             response.status()

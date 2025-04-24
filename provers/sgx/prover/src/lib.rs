@@ -22,7 +22,7 @@ pub mod local_prover;
 use local_prover::LocalSgxProver;
 mod remote_prover;
 use remote_prover::RemoteSgxProver;
-use tracing::info;
+use tracing::debug;
 // to register the instance id
 mod sgx_register_utils;
 
@@ -92,7 +92,7 @@ impl SgxProver {
             .unwrap_or_else(|_| "local".to_string())
             .parse::<SgxProverType>()
             .unwrap_or_default();
-        info!("sgx mode: {:?}", service_type);
+        debug!("sgx mode: {:?}, prove_tpye: {}", service_type, prove_type);
         let prover = match service_type {
             SgxProverType::Local => SgxProver::Local(local_prover::LocalSgxProver::new(prove_type)),
             SgxProverType::Remote => {
