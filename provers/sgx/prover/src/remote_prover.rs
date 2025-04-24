@@ -13,36 +13,39 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{SgxParam, SgxResponse};
 
-fn from_json_str<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: serde::de::DeserializeOwned,
-{
-    let s = String::deserialize(deserializer)?;
-    serde_json::from_str(&s).map_err(serde::de::Error::custom)
-}
-
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct RemoteSgxResponse {
     pub status: String,
     pub message: String,
-    #[serde(alias = "proof", deserialize_with = "from_json_str")]
+    #[serde(alias = "proof")]
     pub sgx_response: SgxResponse,
 }
 
 // raiko end point
-const RAIKO_REMOTE_URL: &str = "http://43.153.195.212:8090";
+const RAIKO_REMOTE_URL: &str = "http://localhost:9090";
 // gaiko end point
-const GAIKO_REMOTE_URL: &str = "http://43.153.195.212:8091";
+const GAIKO_REMOTE_URL: &str = "http://localhost:8090";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RemoteSgxProver {
     proof_type: ProofType,
+    remote_prover_url: String,
 }
 
 impl RemoteSgxProver {
     pub fn new(proof_type: ProofType) -> Self {
-        Self { proof_type }
+        let remote_prover_url =
+            match proof_type {
+                ProofType::SgxGeth => std::env::var("GAIKO_REMOTE_URL")
+                    .unwrap_or_else(|_| GAIKO_REMOTE_URL.to_string()),
+                ProofType::Sgx => std::env::var("GAIKO_REMOTE_URL")
+                    .unwrap_or_else(|_| RAIKO_REMOTE_URL.to_string()),
+                _ => panic!("Unsupported proof type for remote prover"),
+            };
+        Self {
+            proof_type,
+            remote_prover_url,
+        }
     }
 }
 
@@ -62,16 +65,8 @@ impl Prover for RemoteSgxProver {
             unimplemented!("SGX setup not implemented for remote prover");
         }
 
-        let remote_url = || -> &str {
-            if self.proof_type == ProofType::SgxGeth {
-                GAIKO_REMOTE_URL
-            } else {
-                RAIKO_REMOTE_URL
-            }
-        };
-
         let mut sgx_proof = if sgx_param.bootstrap {
-            bootstrap(remote_url(), self.proof_type).await
+            bootstrap(&self.remote_prover_url, self.proof_type).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -80,7 +75,7 @@ impl Prover for RemoteSgxProver {
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             let instance_id = get_instance_id_from_params(&input, &sgx_param)?;
-            sgx_proof = prove(remote_url(), input.clone(), instance_id).await
+            sgx_proof = prove(&self.remote_prover_url, input.clone(), instance_id).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -105,15 +100,7 @@ impl Prover for RemoteSgxProver {
             unimplemented!("SGX bootstrap not implemented for aggregation request");
         };
 
-        let remote_url = || -> &str {
-            if self.proof_type == ProofType::SgxGeth {
-                GAIKO_REMOTE_URL
-            } else {
-                RAIKO_REMOTE_URL
-            }
-        };
-
-        let sgx_proof = aggregate(remote_url(), input.clone(), self.proof_type).await?;
+        let sgx_proof = aggregate(&self.remote_prover_url, input.clone(), self.proof_type).await?;
         Ok(sgx_proof.into())
     }
 
@@ -136,16 +123,8 @@ impl Prover for RemoteSgxProver {
             unimplemented!("SGX setup not implemented for remote prover");
         }
 
-        let remote_url = || -> &str {
-            if self.proof_type == ProofType::SgxGeth {
-                GAIKO_REMOTE_URL
-            } else {
-                RAIKO_REMOTE_URL
-            }
-        };
-
         let mut sgx_proof = if sgx_param.bootstrap {
-            bootstrap(remote_url(), self.proof_type).await
+            bootstrap(&self.remote_prover_url, self.proof_type).await
         } else {
             // Dummy proof: it's ok when only setup/bootstrap was requested
             Ok(SgxResponse::default())
@@ -154,7 +133,13 @@ impl Prover for RemoteSgxProver {
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             let instance_id = get_instance_id_from_params(&input.inputs[0], &sgx_param)?;
-            sgx_proof = batch_prove(remote_url(), input.clone(), instance_id, self.proof_type).await
+            sgx_proof = batch_prove(
+                &self.remote_prover_url,
+                input.clone(),
+                instance_id,
+                self.proof_type,
+            )
+            .await
         }
 
         sgx_proof.map(|r| r.into())
@@ -324,7 +309,7 @@ async fn batch_prove(
 async fn aggregate(
     remote_sgx_url: &str,
     input: AggregationGuestInput,
-    proof_type: ProofType,
+    _proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     // Extract the useful parts of the proof here so the guest doesn't have to do it
     let raw_input = RawAggregationGuestInput {
