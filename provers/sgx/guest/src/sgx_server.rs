@@ -3,7 +3,10 @@ use crate::{
     one_shot::{aggregate, bootstrap, one_shot, one_shot_batch},
 };
 use anyhow::Context;
-use axum::{extract::State, Json};
+use axum::{
+    extract::{DefaultBodyLimit, State},
+    Json,
+};
 use axum::{routing::post, Router};
 use raiko_lib::{
     input::{GuestBatchInput, GuestInput, RawAggregationGuestInput},
@@ -25,6 +28,7 @@ pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
         .route("/prove/aggregate", post(prove_aggregation))
         .route("/check", post(check_server))
         .route("/bootstrap", post(bootstrap_server))
+        .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // max 100M
         .with_state(state.clone());
 
     let address = format!("{}:{}", state.server_args.address, state.server_args.port);
