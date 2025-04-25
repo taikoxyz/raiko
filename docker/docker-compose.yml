@@ -76,6 +76,9 @@ services:
       - "8080:8080"
     environment:
       - SGX=true
+      - SGX_MODE=${SGX_MODE:-local}
+      - RAIKO_REMOTE_URL=${RAIKO_REMOTE_URL}
+      - GAIKO_REMOTE_URL=${GAIKO_REMOTE_URL}
       - SGXGETH=${SGXGETH}
       - BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
       - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
