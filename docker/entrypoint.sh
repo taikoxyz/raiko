@@ -51,7 +51,7 @@ function bootstrap_with_self_register() {
     NETWORK="${NETWORK:-taiko_a7}"
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
-    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-network $L1_NETWORK --network $NETWORK
+    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-network $L1_NETWORK --network $NETWORK --chain-spec-path $RAIKO_CONF_CHAIN_SPECS
     cd -
 }
 
@@ -158,23 +158,23 @@ function update_raiko_sgx_instance_id() {
 
 # merge devnet & product chain spec here
 function merge_json_arrays() {
-  local input1="$1"
-  local input2="$2"
-  local output="$3"
+    local input1="$1"
+    local input2="$2"
+    local output="$3"
 
-  if [[ ! -f "$input1" || ! -f "$input2" ]]; then
-    echo "❌ $input1 or $input2 not found！"
-    return 1
-  fi
+    if [[ ! -f "$input1" || ! -f "$input2" ]]; then
+        echo "❌ $input1 or $input2 not found！"
+        return 1
+    fi
 
-  jq -s 'add' "$input1" "$input2" > "$output"
+    jq -s 'add' "$input1" "$input2" >"$output"
 
-  if [[ $? -eq 0 ]]; then
-    echo "✅ merge chainspec success to: $output"
-  else
-    echo "❌ merge failed!"
-    return 1
-  fi
+    if [[ $? -eq 0 ]]; then
+        echo "✅ merge chainspec success to: $output"
+    else
+        echo "❌ merge failed!"
+        return 1
+    fi
 }
 
 if [[ -z "${PCCS_HOST}" ]]; then
@@ -201,6 +201,9 @@ if [[ -n $SGX ]]; then
         bootstrap
     elif [[ $# -eq 1 && $1 == "--init-self-register" ]]; then
         echo "start bootstrap with self register"
+        #merge chain spec to a all-in-one file
+        merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
+        update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
         bootstrap_with_self_register
     else
         echo "start proving"
