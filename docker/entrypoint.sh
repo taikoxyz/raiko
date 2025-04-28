@@ -189,7 +189,7 @@ if [[ -n $TEST ]]; then
 fi
 
 # sgx mode
-if [[ -n $SGX ]]; then
+if [[ -n $SGX || -n $SGX_SERVER ]]; then
     sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
     /restart_aesm.sh
 fi
@@ -243,4 +243,26 @@ if [[ -n $ZK ]]; then
     update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
     /opt/raiko/bin/raiko-host --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
+fi
+
+if [[ -n $SGX_SERVER ]]; then
+    echo "running sgx in sgx server mode"
+
+    if [[ $# -eq 1 && $1 == "--init" ]]; then
+        echo "start server bootstrap"
+        # useless here, as it can share same raiko init
+        # keep it now for future refactory
+        bootstrap
+    else
+        if [[ -z $SGX_PACAYA_INSTANCE_ID || -z $SGXGETH_PACAYA_INSTANCE_ID ]]; then 
+            echo "SGX_PACAYA_INSTANCE_ID and SGXGETH_PACAYA_INSTANCE_ID must be presented, please check."
+            exit 1
+        fi
+
+        echo "start sgx-guest --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090"
+        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
+        echo "start gaiko serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8080"
+        /opt/raiko/bin/gaiko serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8090 | sed 's/^/[gaiko] /' &
+        wait
+    fi
 fi
