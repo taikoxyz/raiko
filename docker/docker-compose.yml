@@ -192,6 +192,35 @@ services:
       - redis
     profiles:
       - prod-redis
+  raiko-sgx-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
+    container_name: sgx-server
+    command:
+    env_file:
+      - .env
+    devices:
+      - "/dev/sgx_enclave:/dev/sgx_enclave"
+      - "/dev/sgx_provision:/dev/sgx_provision"
+    volumes:
+      - /var/log/raiko:/var/log/raiko
+      - ${HOME}/.config/gramine:/root/.config/gramine
+      - ${HOME}/.config/raiko:/root/.config/raiko
+    ports:
+      - "8091:8090"
+      - "9091:9090"
+    environment:
+      - SGXGETH=${SGXGETH}
+      - SGX_SERVER=true
+      - SGX_PACAYA_INSTANCE_ID=${SGX_PACAYA_INSTANCE_ID}
+      - SGXGETH_PACAYA_INSTANCE_ID=${SGXGETH_PACAYA_INSTANCE_ID}
+      # you can use your own PCCS host
+      #- PCCS_HOST=host.docker.internal:8081
+      # use the host's network to connect to the PCCS
+      #extra_hosts:
+      #  - "host.docker.internal:host-gateway"
   pccs:
     build:
       context: ..
