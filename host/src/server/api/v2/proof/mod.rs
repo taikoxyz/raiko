@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
 use raiko_lib::proof_type::ProofType;

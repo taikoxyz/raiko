@@ -230,12 +230,11 @@ revm = { git = "https://github.com/NethermindEth/surge-revm.git", branch = "feat
 revm-precompile = { git = "https://github.com/NethermindEth/surge-revm.git", branch = "feat/surge-reth-integration" }
 revm-primitives = { git = "https://github.com/NethermindEth/surge-revm.git", branch = "feat/surge-reth-integration" }
 
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", tag = "patch-0.29.1-sp1-4.0.0" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
 alloy-serde = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-rpc-types-eth = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-network = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 # alloy-signer-local = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 # alloy-signer = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-alloy-rpc-types-beacon = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-eips = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }

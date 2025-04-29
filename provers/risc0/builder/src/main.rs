@@ -35,7 +35,7 @@ impl Pipeline for Risc0Pipeline {
             //       and can be removed in the future.
             .custom_env([("RISC0_FEATURE_bigint2".to_string(), "1".to_string())].into())
             .rust_flags(&[
-                "passes=loweratomic",
+                "passes=lower-atomic",
                 "link-arg=-Ttext=0x00200800",
                 "panic=abort",
             ])
