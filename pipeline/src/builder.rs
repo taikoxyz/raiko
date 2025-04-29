@@ -382,15 +382,15 @@ impl CommandBuilder {
             }),
         );
 
+        let mut encoded_flags: Vec<String> = vec![];
         if let Some(rust_flags) = rust_flags {
-            let mut encoded_flags = format_flags("-C", &rust_flags);
-            rust_cfgs.map(|cfgs| {
-                let rust_cfgs = format_flags("--cfg", &cfgs);
-                encoded_flags.extend(rust_cfgs)
-            });
-
-            cmd.env("CARGO_ENCODED_RUSTFLAGS", encoded_flags.join("\x1f"));
+            encoded_flags = format_flags("-C", &rust_flags);
         }
+
+        if let Some(cfgs) = rust_cfgs {
+            encoded_flags.extend(format_flags("--cfg", &cfgs));
+        }
+        cmd.env("CARGO_ENCODED_RUSTFLAGS", encoded_flags.join("\x1f"));
 
         // Set C compiler path and flags
         if let Some(cc_compiler) = cc_compiler {
