@@ -1,17 +1,17 @@
 [
     {
-        "name": "holesky",
-        "chain_id": 17000,
+        "name": "taiko_dev_l1",
+        "chain_id": 32382,
         "max_spec_id": "CANCUN",
         "hard_forks": {
             "FRONTIER": {
                 "Block": 0
             },
             "SHANGHAI": {
-                "Timestamp": 1696000704
+                "Timestamp": 0
             },
             "CANCUN": {
-                "Timestamp": 1707305664
+                "Timestamp": 0
             }
         },
         "eip_1559_constants": {
@@ -22,16 +22,16 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "https://ethereum-holesky-rpc.publicnode.com",
-        "beacon_rpc": "https://fabled-weathered-cherry.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/",
+        "rpc": "https://l1rpc.internal.taiko.xyz",
+        "beacon_rpc": "https://l1beacon.internal.taiko.xyz/",
         "verifier_address_forks": {
             "FRONTIER": {
-                "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
+                "SGX": "0x2Ec730f0830803A022262e46375E33023faD65e5",
                 "SP1": null,
-                "RISC0": "0x0000000000000000000000000000000000000000"
+                "RISC0": null
             }
         },
-        "genesis_time": 1695902400,
+        "genesis_time": 1744256500,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
