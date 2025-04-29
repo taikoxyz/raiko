@@ -151,6 +151,8 @@ fi
 
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 
+AGG=${AGG:-false}
+
 curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --header 'Content-Type: application/json' \
     --header 'Authorization: Bearer' \
@@ -159,8 +161,8 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
         \"l1_network\": \"$l1_network\",
         \"batches\": $batch_request,
         \"prover\": \"$prover\",
-        \"aggregate\": false,
+        \"aggregate\": $AGG,
         $proofParam
     }"
-
+echo ""
 sleep 1.0
