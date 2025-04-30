@@ -27,13 +27,13 @@ path = "src/benchmark/ecdsa.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "risc0"] }
-risc0-zkvm = { version = "=2.0.1", default-features = false, features = [
+risc0-zkvm = { version = "=2.0.2", default-features = false, features = [
     'std',
     "getrandom",
     "heap-embedded-alloc",
     "unstable",
 ] }
-risc0-zkvm-platform = { version = "=2.0.1", default-features = false, features = [
+risc0-zkvm-platform = { version = "=2.0.2", default-features = false, features = [
     "sys-getenv",
 ] }
 k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.3-risczero.1" }

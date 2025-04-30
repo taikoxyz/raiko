@@ -79,10 +79,10 @@ if [ -z "$1" ] || [ "$1" == "risc0" ]; then
 		echo "env_rzup is not working, please re-install rzup."
 		exit 1
 	fi
-	$env_rzup install rust 1.81.0
+	$env_rzup install rust 1.85.0
 	$env_rzup install cpp 2024.1.5
-	$env_rzup install r0vm 2.0.1
-	$env_rzup install cargo-risczero 2.0.1
+	$env_rzup install r0vm 2.0.2
+	$env_rzup install cargo-risczero 2.0.2
 fi
 # SP1
 if [ -z "$1" ] || [ "$1" == "sp1" ]; then
