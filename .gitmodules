@@ -1,4 +1,4 @@
 [submodule "gaiko"]
 	path = gaiko
 	url = https://github.com/taikoxyz/gaiko
-	branch = main
+	branch = masaya-test
