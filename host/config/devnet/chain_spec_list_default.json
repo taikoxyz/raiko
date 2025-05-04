@@ -1,0 +1,77 @@
+[
+    {
+        "name": "hoodi",
+        "chain_id": 560048,
+        "max_spec_id": "CANCUN",
+        "hard_forks": {
+            "FRONTIER": {
+                "Block": 0
+            },
+            "SHANGHAI": {
+                "Timestamp": 0
+            },
+            "CANCUN": {
+                "Timestamp": 0
+            }
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": null,
+        "l2_contract": null,
+        "rpc": "https://l1-rpc-internal.hoodi.surge.wtf",
+        "beacon_rpc": "https://l1-beacon-internal.hoodi.surge.wtf",
+        "verifier_address_forks": {
+            "FRONTIER": {
+                "SGX": null,
+                "SP1": null,
+                "RISC0": null
+            }
+        },
+        "genesis_time": 1742213400,
+        "seconds_per_slot": 12,
+        "is_taiko": false
+    },
+    {
+        "name": "surge_dev",
+        "chain_id": 763375,
+        "max_spec_id": "ONTAKE",
+        "hard_forks": {
+            "HEKLA": {
+                "Block": 0
+            },
+            "ONTAKE": {
+                "Block": 1
+            },
+            "CANCUN": "TBD"
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": "0xA4edF73b44940fB1Be0b896BF8410C29c285e442",
+        "l2_contract": "0x7633750000000000000000000000000000010001",
+        "rpc": "https://l2-rpc-internal.hoodi.surge.wtf",
+        "beacon_rpc": null,
+        "verifier_address_forks": {
+            "HEKLA": {
+                "SGX": "0xf397b2727c4845bdD53f9fA2a840630CEAC03b50",
+                "SP1": "0x29614C68E47e7fe69C6509a53F141d8F6D362D90",
+                "RISC0": "0x9C01Ff2990545695DE8A2828832939bDcFCA3886"
+            },
+            "ONTAKE": {
+                "SGX": "0xf397b2727c4845bdD53f9fA2a840630CEAC03b50",
+                "SP1": "0x29614C68E47e7fe69C6509a53F141d8F6D362D90",
+                "RISC0": "0x9C01Ff2990545695DE8A2828832939bDcFCA3886"
+            }
+        },
+        "genesis_time": 0,
+        "seconds_per_slot": 1,
+        "is_taiko": true
+    }
+]
