@@ -24,6 +24,7 @@ RUN apt-get update && \
     libsgx-urts \
     sgx-pck-id-retrieval-tool \
     jq \
+    clang \
     sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
