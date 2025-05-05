@@ -1,7 +1,7 @@
 [
     {
-        "name": "hoodi",
-        "chain_id": 560048,
+        "name": "surge_dev_l1",
+        "chain_id": 3151908,
         "max_spec_id": "CANCUN",
         "hard_forks": {
             "FRONTIER": {
@@ -22,8 +22,8 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "https://l1-rpc-internal.hoodi.surge.wtf",
-        "beacon_rpc": "https://l1-beacon-internal.hoodi.surge.wtf",
+        "rpc": "http://ip:32002",
+        "beacon_rpc": "http://ip:33001",
         "verifier_address_forks": {
             "FRONTIER": {
                 "SGX": null,
@@ -31,13 +31,13 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1742213400,
+        "genesis_time": 1746409898,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
     {
         "name": "surge_dev",
-        "chain_id": 763375,
+        "chain_id": 763374,
         "max_spec_id": "ONTAKE",
         "hard_forks": {
             "HEKLA": {
@@ -45,6 +45,9 @@
             },
             "ONTAKE": {
                 "Block": 1
+            },
+            "PACAYA": {
+                "Block": 1299888
             },
             "CANCUN": "TBD"
         },
@@ -54,20 +57,20 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0xA4edF73b44940fB1Be0b896BF8410C29c285e442",
-        "l2_contract": "0x7633750000000000000000000000000000010001",
-        "rpc": "https://l2-rpc-internal.hoodi.surge.wtf",
+        "l1_contract": "0xaE37C7A711bcab9B0f8655a97B738d6ccaB6560B",
+        "l2_contract": "0x7633740000000000000000000000000000010001",
+        "rpc": "http://ip:8547",
         "beacon_rpc": null,
         "verifier_address_forks": {
             "HEKLA": {
-                "SGX": "0xf397b2727c4845bdD53f9fA2a840630CEAC03b50",
-                "SP1": "0x29614C68E47e7fe69C6509a53F141d8F6D362D90",
-                "RISC0": "0x9C01Ff2990545695DE8A2828832939bDcFCA3886"
+                "SGX": "0x86A0679C7987B5BA9600affA994B78D0660088ff",
+                "SP1": "0xD7d1678E63Ec1d3609F404659Ff6C4d6C590825b",
+                "RISC0": "0xCd9f348aeBF4649BFF58654da5C7A008b9008e7d"
             },
             "ONTAKE": {
-                "SGX": "0xf397b2727c4845bdD53f9fA2a840630CEAC03b50",
-                "SP1": "0x29614C68E47e7fe69C6509a53F141d8F6D362D90",
-                "RISC0": "0x9C01Ff2990545695DE8A2828832939bDcFCA3886"
+                "SGX": "0x86A0679C7987B5BA9600affA994B78D0660088ff",
+                "SP1": "0xD7d1678E63Ec1d3609F404659Ff6C4d6C590825b",
+                "RISC0": "0xCd9f348aeBF4649BFF58654da5C7A008b9008e7d"
             }
         },
         "genesis_time": 0,
