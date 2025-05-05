@@ -28,7 +28,7 @@ pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
         .route("/prove/aggregate", post(prove_aggregation))
         .route("/check", post(check_server))
         .route("/bootstrap", post(bootstrap_server))
-        .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // max 100M
+        .layer(DefaultBodyLimit::max(10000 * 1024 * 1024)) // max 10G
         .with_state(state.clone());
 
     let address = format!("{}:{}", state.server_args.address, state.server_args.port);
