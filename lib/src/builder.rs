@@ -83,7 +83,7 @@ pub static SURGE_DEV: LazyLock<Arc<TaikoChainSpec>> = LazyLock::new(|| {
     let hardforks = SURGE_DEV_HARDFORKS.clone();
     TaikoChainSpec {
         inner: reth_chainspec::ChainSpec {
-            chain: 763375.into(), // TODO: make this dynamic based on the chain spec
+            chain: 763374.into(), // TODO: make this dynamic based on the chain spec
             paris_block_and_final_difficulty: None,
             hardforks,
             deposit_contract: None,
