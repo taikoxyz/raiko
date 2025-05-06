@@ -76,10 +76,11 @@ services:
       - "8080:8080"
     environment:
       - SGX=true
+      - SGXGETH=${SGXGETH}
       - SGX_MODE=${SGX_MODE:-local}
       - RAIKO_REMOTE_URL=${RAIKO_REMOTE_URL:-http://raiko-sgx-server:9090}
       - GAIKO_REMOTE_URL=${GAIKO_REMOTE_URL:-http://raiko-sgx-server:8090}
-      - SGXGETH=${SGXGETH}
+      - PREFETCH_CHUNK_SIZE=${PREFETCH_CHUNK_SIZE}
       - BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
       - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing

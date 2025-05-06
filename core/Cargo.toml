@@ -53,6 +53,7 @@ kzg_traits = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
+futures =  { workspace = true }
 
 # docs
 utoipa = { workspace = true }
