@@ -6,7 +6,9 @@ if [ -z "$1" ]; then
 fi
 
 set -a
-source "$1"
+grep -v -E '^\s*($|#|=)' "$1" > /tmp/filtered_env_$$
+source /tmp/filtered_env_$$
+rm /tmp/filtered_env_$$
 set +a
 
 IMAGE="${IMAGE:-nethsurge/protocol:devnet}"
