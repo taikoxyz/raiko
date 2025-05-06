@@ -153,6 +153,7 @@ reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 async-trait = "0.1.80"
 dashmap = "5.5.3"
+futures = "0.3.31"
 
 # crypto
 kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
