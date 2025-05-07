@@ -77,6 +77,7 @@ services:
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
+      - PREFETCH_CHUNK_SIZE=${PREFETCH_CHUNK_SIZE}
       - BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
       - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
@@ -164,6 +165,7 @@ services:
       # - PCCS_HOST=host.docker.internal:8081
       - RUST_LOG=${RUST_LOG:-info}
       - ZK=true
+      - PREFETCH_CHUNK_SIZE=${PREFETCH_CHUNK_SIZE}
       - BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
       - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
