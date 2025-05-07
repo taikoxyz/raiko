@@ -92,7 +92,7 @@ impl SgxProver {
             .unwrap_or_else(|_| "local".to_string())
             .parse::<SgxProverType>()
             .unwrap_or_default();
-        debug!("sgx mode: {:?}, prove_tpye: {}", service_type, prove_type);
+        debug!("sgx mode: {:?}, prove_type: {}", service_type, prove_type);
         let prover = match service_type {
             SgxProverType::Local => SgxProver::Local(local_prover::LocalSgxProver::new(prove_type)),
             SgxProverType::Remote => {
