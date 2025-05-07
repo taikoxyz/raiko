@@ -83,8 +83,8 @@ COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/config.devnet.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/config.taiko_hekla.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/config.taiko_mainnet.json /etc/raiko/
-COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list.docker.json
-COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raiko/chain_spec_list.devnet.json
+COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list_default.json
+COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raiko/chain_spec_list_devnet.json
 COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
 
 WORKDIR /opt/raiko/bin

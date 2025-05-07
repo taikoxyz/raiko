@@ -16,8 +16,7 @@ else
 	"")
 		tag=latest
 		;;
-	*)
-		;;
+	*) ;;
 	esac
 fi
 echo "build tag is $tag"
@@ -25,18 +24,18 @@ echo "build tag is $tag"
 # docker build
 read -p "Do you want to build tee(0) or zk(1): " proof_type
 case "$proof_type" in
-  0 | tee )
-    image_name=raiko
+0 | tee)
+	image_name=raiko
 	target_dockerfile=Dockerfile
-    ;;
-  1 | zk)
-    image_name=raiko-zk
+	;;
+1 | zk)
+	image_name=raiko-zk
 	target_dockerfile=Dockerfile.zk
-    ;;
-  *)
-    echo "unknown proof type to build"
-    exit 1
-    ;;
+	;;
+*)
+	echo "unknown proof type to build"
+	exit 1
+	;;
 esac
 
 echo "Build and push $image_name:$tag..."
@@ -52,8 +51,8 @@ docker buildx build . \
 
 # check docker build status
 if [ $? -ne 0 ]; then
-  echo "❌ Docker build failed!"
-  exit 1
+	echo "❌ Docker build failed!"
+	exit 1
 fi
 
 DOCKER_REPOSITORY=us-docker.pkg.dev/evmchain/images
@@ -61,13 +60,13 @@ docker tag $image_name:$tag $DOCKER_REPOSITORY/$image_name:$tag
 
 read -p "Do you want to push $image_name:$tag to registry? (y/N) " confirm
 case "$confirm" in
-  [yY][eE][sS]|[yY])
-    docker push $DOCKER_REPOSITORY/$image_name:$version
-    ;;
-  *)
-    echo "⏭️ Skipped: docker push $DOCKER_REPOSITORY/$image_name:$version."
+[yY][eE][sS] | [yY])
+	docker push $DOCKER_REPOSITORY/$image_name:$tag
+	;;
+*)
+	echo "⏭️ Skipped: docker push $DOCKER_REPOSITORY/$image_name:$tag."
 	echo "you can do it manually"
-    ;;
+	;;
 esac
 
 echo "Done"
