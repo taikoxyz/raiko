@@ -291,7 +291,9 @@ git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
 ```
 
-You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.7.2-edmm`. If you are using a SGX1 machine, please use `1.7.2`.
+> **_NOTE:_** FOR TAIKO HEKLA: You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.7.2-edmm`. If you are using a SGX1 machine, please use `1.7.2`.
+
+> **_NOTE:_** FOR TAIKO ALETHIA: You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.7.3-edmm`. If you are using a SGX1 machine, please use `1.7.3`.
 
 In your `docker-compose.yml` file, search for `raiko:latest` and change all instances to `raiko:{TAG}`. Use the following commands to pull the respective images.
 
@@ -310,13 +312,16 @@ docker image ls
 
 You should see at least two images, `us-docker.pkg.dev/evmchain/raiko` and `us-docker.pkg.dev/evmchain/pccs`.
 
-7. Create a `.env` using the `.env.sample` template. Ensure `SGXGETH=true` is in the `.env`.
+7. Create a `.env` using the `.env.sample` template. 
 
 You can copy the template with the following:
 
 ```
 cp .env.sample .env
 ```
+
+If you are running Raiko for Taiko Hekla, ensure `SGXGETH=true`, `NETWORK=taiko_a7` and `L1_NETWORK=holesky` in `.env`.
+If you are running Raiko for Taiko Alethia, ensure `SGXGETH=false`, `NETWORK=taiko_mainnet` and `L1_NETWORK=ethereum` in `.env`.
 
 8. Bootstrap Raiko with the following command:
 
@@ -332,7 +337,7 @@ ls ~/.config/raiko/config
 
 You've now prepared your machine for running Raiko through Docker. Now, you need to perform On-Chain Remote Attestation to receive TTKOh from moderators and begin proving for Taiko!
 
-> **_NOTE:_** We are no longer automatically distributing TTKOh to people who perform on-chain RA, please reach out to a moderator for TTKOh if you'd like to test SGX proving.
+> **_NOTE:_** If you are running Raiko for Taiko Alethia, you can ignore `bootstrap.gaiko.json`. You will only use `bootstrap.json` for the following steps.
 
 ## On-Chain RA
 
@@ -342,6 +347,7 @@ You've now prepared your machine for running Raiko through Docker. Now, you need
 cd ~
 git clone https://github.com/taikoxyz/taiko-mono.git
 cd taiko-mono
+git checkout tags/taiko-alethia-protocol-v2.3.0
 cd packages/protocol
 ```
 
@@ -379,6 +385,8 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` or  `cat ~/.con
 
  You will have to do this step twice for Hekla: once for SgxGeth and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `hekla-pacaya-sgxgeth` and the quote from `bootstrap.json` to register for `hekla-pacaya-sgxreth`. Keep both instance IDs.
 
+ For Taiko Alethia, you only need to do this step once. Copy the quote from `bootstrap.json` and use `--env mainnet` for the script.
+
 6. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
 It should look like this:
@@ -398,6 +406,7 @@ Raiko now supports more configurations, which need to be carefully checked to av
 
 > **_NOTE:_** We have deprecated `SGX_INSTANCE_ID`. Please fill in 
 
+    - SGX_ONTAKE_INSTANCE_ID: SGX registered ID for pacaya fork. (If you are running a Taiko Alethia node, this replaces the deprecated SGX_INSTANCE_ID.)
     - SGX_PACAYA_INSTANCE_ID: SGX registered ID for pacaya fork. (if raiko is started in pacaya, set this one)
     - SGXGETH_PACAYA_INSTANCE_ID： registered instance ID for the sgxgeth proof for pacaya fork. (must be set to prepare for pacaya with sgxgeth)
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
@@ -468,6 +477,71 @@ raiko  | Update pacaya sgxgeth instance id to Y
 
 2024-04-18T12:50:09.400319Z  INFO raiko_host::server: Listening on http://0.0.0.0:8080
 ```
+## Upgrading Raiko (Mainnet)
+
+If you previously ran an instance of Raiko and are looking to upgrade it, this section covers the only necessary steps.
+
+1. Take down your previous Raiko instance
+
+Navigate to `raiko/docker` and run the following command:
+
+`docker compose down raiko -v`
+
+2. Checkout the relevant tag/branch
+
+`git checkout tags/v1.7.3` (SGX1) or `git checkout tags/v1.7.3-edmm` (SGX2) for the upcoming Mainnet upgrade.
+
+3. Copy the sample `.env` and make the following changes:
+
+```bash
+cp .env.sample .env
+vi .env
+- SGXGETH=false 
+- NETWORK=taiko_mainnet
+- L1_NETWORK=ethereum
+```
+
+4. Build the image locally or pull the image from our registry:
+
+You can build the image with the following command: `docker compose build raiko`.
+
+If you want to pull the image from the registry, use `docker compose pull us-docker.pkg.dev/evmchain/images/raiko:{TAG}`
+
+5. Modify your docker-compose.yml file to use the image.
+
+`vi docker-compose.yml`
+set all instances of raiko image to raiko:1.7.3 or raiko:1.7.3-edmm
+
+6. Bootstrap your instance
+
+`docker compose up init`
+If there are no errors, you will use ~/.config/raiko/config/bootstrap.json to do the following steps. You can safely ignore ~/.config/raiko/config/bootstrap.gaiko.json.
+
+7. Navigate to `taiko-mono` and register your instance.
+
+If you haven't done so yet, clone `taiko-mono`. Checkout `taiko-alethia-protocol-v2.3.0`.
+
+```bash
+cd packages/protocol
+export PRIVATE_KEY=0x{YOUR_PRIVATE_KEY}
+export FORK_URL={ETH_RPC_URL}
+./script/layer1/provers/config_dcap_sgx_verifier.sh --env mainnet --quote {QUOTE_FROM_BOOTSTRAP.JSON}
+```
+You will use the instance id for the next step.
+
+8. Navigate back to Raiko and modify .env again.
+
+```bash
+cd raiko/docker
+vi .env
+```
+
+Set SGX_ONTAKE_INSTANCE_ID= the instance id from previous step. 
+
+9. Start your Raiko instance again
+
+`docker compose up raiko -d`. You can verify if it's running properly with the tests described in the guide below.
+
 
 ## Verify that your Raiko instance is running properly
 
