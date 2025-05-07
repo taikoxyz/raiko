@@ -10,6 +10,11 @@ ARG BUILD_FLAGS=""
 
 WORKDIR /opt/raiko
 COPY . .
+
+RUN apt-get update && \
+    apt-get install -y \
+    libclang-dev
+
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 FROM gramineproject/gramine:1.8-jammy AS runtime
