@@ -157,8 +157,6 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --header 'Content-Type: application/json' \
     --header 'Authorization: Bearer' \
     --data-raw "{
-        \"network\": \"$chain\",
-        \"l1_network\": \"$l1_network\",
         \"batches\": $batch_request,
         \"prover\": \"$prover\",
         \"aggregate\": $AGG,
