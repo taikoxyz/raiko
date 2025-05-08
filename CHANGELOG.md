@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.0](https://github.com/taikoxyz/raiko/compare/v1.7.3...v1.8.0) (2025-05-08)
+
+
+### Features
+
+* **raiko:** enable sgx web service ([#550](https://github.com/taikoxyz/raiko/issues/550)) ([f6e14a5](https://github.com/taikoxyz/raiko/commit/f6e14a5add5aadf7a20e413eb6ef099046595b51))
+* **raiko:** support parallel prefetch ([#557](https://github.com/taikoxyz/raiko/issues/557)) ([ffb25e3](https://github.com/taikoxyz/raiko/commit/ffb25e30d1e596d4ea8a650cac1a8285df8da2fc))
+
 ## [1.7.0](https://github.com/taikoxyz/raiko/compare/v1.6.1...v1.7.0) (2025-04-08)
 
 
