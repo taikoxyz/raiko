@@ -21,6 +21,7 @@ use raiko_lib::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::{process::Command, sync::OnceCell};
+use tracing::error;
 
 pub use crate::sgx_register_utils::{
     get_instance_id, register_sgx_instance, remove_instance_id, set_instance_id, ForkRegisterId,
@@ -478,19 +479,20 @@ async fn prove(
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = bincode::serialize_into(stdin, &input);
+        let stdin = child.stdin.take().expect("Failed to open stdin");
+        tokio::task::spawn_blocking(move || {
+            let _ = bincode::serialize_into(stdin, &input).inspect_err(|e| {
+                error!("Failed to serialize input: {e}");
+            });
+        });
         let output_success = child.wait_with_output();
 
-        match (input_success, output_success) {
-            (Ok(_), Ok(output)) => {
+        match output_success {
+            Ok(output) => {
                 handle_output(&output, "SGX prove")?;
                 Ok(parse_sgx_result(output.stdout)?)
             }
-            (Err(i), output_success) => Err(ProverError::GuestError(format!(
-                "Can not serialize input for SGX {i}, output is {output_success:?}"
-            ))),
-            (Ok(_), Err(output_err)) => Err(ProverError::GuestError(
+            Err(output_err) => Err(ProverError::GuestError(
                 handle_gramine_error("Could not run SGX guest prover", output_err).to_string(),
             )),
         }
@@ -515,25 +517,27 @@ async fn batch_prove(
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = if proof_type == ProofType::SgxGeth {
-            serde_json::to_writer(stdin, &input)
-                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
-        } else {
-            bincode::serialize_into(stdin, &input)
-                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
-        };
+        let stdin = child.stdin.take().expect("Failed to open stdin");
+        tokio::task::spawn_blocking(move || {
+            let _ = if proof_type == ProofType::SgxGeth {
+                serde_json::to_writer(stdin, &input)
+                    .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+            } else {
+                bincode::serialize_into(stdin, &input)
+                    .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+            }
+            .inspect_err(|e| {
+                error!("Failed to serialize input: {e}");
+            });
+        });
         let output_success = child.wait_with_output();
 
-        match (input_success, output_success) {
-            (Ok(_), Ok(output)) => {
+        match output_success {
+            Ok(output) => {
                 handle_output(&output, "SGX prove")?;
                 Ok(parse_sgx_result(output.stdout)?)
             }
-            (Err(i), output_success) => Err(ProverError::GuestError(format!(
-                "Can not serialize input for SGX {i}, output is {output_success:?}"
-            ))),
-            (Ok(_), Err(output_err)) => Err(ProverError::GuestError(
+            Err(output_err) => Err(ProverError::GuestError(
                 handle_gramine_error("Could not run SGX guest prover", output_err).to_string(),
             )),
         }
@@ -575,25 +579,27 @@ async fn aggregate(
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let input_success = if proof_type == ProofType::SgxGeth {
-            serde_json::to_writer(stdin, &raw_input)
-                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
-        } else {
-            bincode::serialize_into(stdin, &raw_input)
-                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
-        };
+        let stdin = child.stdin.take().expect("Failed to open stdin");
+        tokio::task::spawn_blocking(move || {
+            let _ = if proof_type == ProofType::SgxGeth {
+                serde_json::to_writer(stdin, &raw_input)
+                    .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+            } else {
+                bincode::serialize_into(stdin, &raw_input)
+                    .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+            }
+            .inspect_err(|e| {
+                error!("Failed to serialize input: {e}");
+            });
+        });
         let output_success = child.wait_with_output();
 
-        match (input_success, output_success) {
-            (Ok(_), Ok(output)) => {
+        match output_success {
+            Ok(output) => {
                 handle_output(&output, "SGX prove")?;
                 Ok(parse_sgx_result(output.stdout)?)
             }
-            (Err(i), output_success) => Err(ProverError::GuestError(format!(
-                "Can not serialize input for SGX {i}, output is {output_success:?}"
-            ))),
-            (Ok(_), Err(output_err)) => Err(ProverError::GuestError(
+            Err(output_err) => Err(ProverError::GuestError(
                 handle_gramine_error("Could not run SGX guest prover", output_err).to_string(),
             )),
         }
