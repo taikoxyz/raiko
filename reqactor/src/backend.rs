@@ -433,16 +433,24 @@ impl Backend {
     {
         let request_key_ = request_key.clone();
 
-        let pool_status = self
-            .pool
-            .get_status(&request_key)
-            .unwrap()
-            .unwrap()
-            .into_status();
-        if matches!(pool_status, Status::Success { .. } | Status::WorkInProgress) {
-            tracing::warn!("Actor Backend received prove-action {request_key}, but it is not registered, skipping");
+        if let Ok(pool_status_in_db) = self.pool.get_status(&request_key) {
+            let pool_status = pool_status_in_db.map(|s| s.into_status());
+            if let Some(status) = pool_status {
+                if matches!(status, Status::Success { .. } | Status::WorkInProgress) {
+                    tracing::warn!("Actor Backend received prove-action {request_key}, but status is {status:?}, skipping");
+                    return;
+                }
+            } else {
+                // pool_status is None
+                tracing::error!("Actor Backend received prove-action {request_key}, but status is None, skipping");
+                return;
+            }
+        } else {
+            tracing::error!(
+                "Actor Backend failed to get status of prove-action {request_key}, please check memdb connection"
+            );
             return;
-        }
+        };
 
         // 1. Update the request status in pool to WorkInProgress
         if let Err(err) = self
