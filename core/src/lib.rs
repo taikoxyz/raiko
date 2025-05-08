@@ -193,9 +193,13 @@ impl Raiko {
         match result {
             Ok(block) => {
                 let header = block.header.clone();
-                info!("Verifying final state using provider data ...");
                 info!(
-                    "Final block hash derived successfully. {}",
+                    "Verifying final block {} state using provider data ...",
+                    header.number
+                );
+                info!(
+                    "Final block {} hash derived successfully. {}",
+                    header.number,
                     header.hash_slow()
                 );
                 debug!("Final block derived successfully. {block:?}");
@@ -446,7 +450,13 @@ mod tests {
             RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
                 .await
                 .expect("Could not create RpcBlockDataProvider");
-        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
+        let mut updated_proof_request = proof_request.clone();
+        updated_proof_request.l2_block_numbers = all_prove_blocks.clone();
+        let raiko = Raiko::new(
+            l1_chain_spec,
+            taiko_chain_spec,
+            updated_proof_request.clone(),
+        );
         let input = raiko
             .generate_batch_input(provider)
             .await
@@ -484,9 +494,9 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 164,
-            l1_inclusion_block_number: 363,
-            l2_block_numbers: vec![164],
+            batch_id: 21289,
+            l1_inclusion_block_number: 145988,
+            l2_block_numbers: vec![],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,

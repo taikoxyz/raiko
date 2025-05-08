@@ -26,6 +26,7 @@ base64-serde = { workspace = true }
 base64 = { workspace = true }
 dirs = { workspace = true }
 bincode = { workspace = true }
+axum = { workspace = true }
 
 [features]
 default = []

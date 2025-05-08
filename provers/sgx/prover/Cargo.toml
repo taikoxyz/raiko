@@ -27,10 +27,10 @@ anyhow = { workspace = true }
 hex = { workspace = true }
 reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }
-tracing = { workspace = true }
 
 [features]
 default = ["dep:pem"]
