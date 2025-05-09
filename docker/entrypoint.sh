@@ -24,6 +24,7 @@ RAIKO_GUEST_SETUP_FILENAME="raiko-setup"
 RAIKO_INPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.docker.manifest.template"
 RAIKO_OUTPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.manifest.sgx"
 RAIKO_SIGNED_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.sig"
+GAIKO_GUEST_APP_VERBOSE_LEVEL=${GAIKO_GUEST_APP_VERBOSE_LEVEL:-3}
 
 function sign_gramine_manifest() {
     cd "$RAIKO_APP_DIR"
@@ -265,7 +266,7 @@ if [[ -n $SGX_SERVER ]]; then
         echo "start sgx-guest --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090"
         gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
         echo "start gaiko serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8080"
-        /opt/raiko/bin/gaiko serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8090 | sed 's/^/[gaiko] /' &
+        /opt/raiko/bin/gaiko --verbosity $GAIKO_GUEST_APP_VERBOSE_LEVEL serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8090 | sed 's/^/[gaiko] /' &
         wait
     fi
 fi
