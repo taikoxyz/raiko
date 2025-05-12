@@ -171,8 +171,8 @@ services:
       - ${HOME}/.config/gramine:/root/.config/gramine
       - ${HOME}/.config/raiko:/root/.config/raiko
     ports:
-      - "8091:8090"
-      - "9091:9090"
+      - "8090:8090"
+      - "9090:9090"
     environment:
       - SGXGETH=${SGXGETH}
       - SGX_SERVER=true
