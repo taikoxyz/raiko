@@ -1,6 +1,5 @@
-use std::sync::Arc;
-use std::time::Duration;
-
+use base64::{engine::general_purpose, Engine as _};
+use bincode;
 use raiko_core::{
     interfaces::{aggregate_proofs, ProofRequest},
     preflight::parse_l1_batch_proposal_tx_for_pacaya_fork,
@@ -11,6 +10,7 @@ use raiko_lib::{
     consts::SupportedChainSpecs,
     input::{AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput},
     prover::{IdWrite, Proof},
+    utils::{zlib_compress_data, zlib_decompress_data},
 };
 use raiko_reqpool::{
     AggregationRequestEntity, BatchGuestInputRequestEntity, BatchProofRequestEntity,
@@ -18,6 +18,8 @@ use raiko_reqpool::{
     StatusWithContext,
 };
 use reth_primitives::B256;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{
     mpsc::{self, Receiver, Sender},
     oneshot, Semaphore,
@@ -779,9 +781,17 @@ pub async fn do_generate_batch_guest_input(
     let input = generate_input_for_batch(&raiko)
         .await
         .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?;
-    let input_proof = serde_json::to_string(&input).expect("input serialize ok");
+    let input_proof = bincode::serialize(&input)
+        .map_err(|err| format!("failed to serialize input to bincode: {err:?}"))?;
+    let compressed_bytes = zlib_compress_data(&input_proof).unwrap();
+    let compressed_b64: String = general_purpose::STANDARD.encode(&compressed_bytes);
+    tracing::info!(
+        "input_proof len: {}, compressed_b64 len: {}.",
+        input_proof.len(),
+        compressed_b64.len()
+    );
     Ok(Proof {
-        proof: Some(input_proof),
+        proof: Some(compressed_b64),
         ..Default::default()
     })
 }
@@ -798,13 +808,20 @@ async fn do_prove_batch(
     let input = if let Some(batch_guest_input) = raiko.request.prover_args.get("batch_guest_input")
     {
         // Tricky: originally the input was created (and pass around) by prove() infra,
-        // so it's a string(in Proof).
-        // after we get it from db somewhere above, we need to pass it down here, but there is no known
+        // so it's a base64 string(in Proof).
+        // after we get it from db somewhere before, we need to pass it down here, but there is no known
         // string carrier in key / entity, so we call deser twice, value -> string -> struct.
-        let guest_input_json: String = serde_json::from_value(batch_guest_input.clone())
-            .map_err(|err| format!("failed to serialize batch_guest_input: {err:?}"))?;
-        let guest_input: GuestBatchInput = serde_json::from_str(&guest_input_json)
-            .map_err(|err| format!("failed to deserialize guest_input: {err:?}"))?;
+        let b64_encoded_string: String = serde_json::from_value(batch_guest_input.clone())
+            .map_err(|err| {
+                format!("failed to deserialize batch_guest_input from value: {err:?}")
+            })?;
+        let compressed_bytes = general_purpose::STANDARD
+            .decode(&b64_encoded_string)
+            .unwrap();
+        let decompressed_bytes = zlib_decompress_data(&compressed_bytes)
+            .map_err(|err| format!("failed to decompress batch_guest_input: {err:?}"))?;
+        let guest_input: GuestBatchInput = bincode::deserialize(&decompressed_bytes)
+            .map_err(|err| format!("failed to deserialize bincode batch_guest_input: {err:?}"))?;
         guest_input
     } else {
         tracing::warn!("rebuild batch guest input for request: {request_key:?}");
