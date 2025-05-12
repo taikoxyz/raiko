@@ -785,8 +785,8 @@ pub async fn do_generate_batch_guest_input(
         .map_err(|err| format!("failed to serialize input to bincode: {err:?}"))?;
     let compressed_bytes = zlib_compress_data(&input_proof).unwrap();
     let compressed_b64: String = general_purpose::STANDARD.encode(&compressed_bytes);
-    tracing::info!(
-        "input_proof len: {}, compressed_b64 len: {}.",
+    tracing::debug!(
+        "compress redis input: input_proof {} bytes to compressed_b64 {} bytes.",
         input_proof.len(),
         compressed_b64.len()
     );
