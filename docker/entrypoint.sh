@@ -208,10 +208,12 @@ if [[ -n $SGX ]]; then
         bootstrap_with_self_register
     else
         echo "start proving"
-        if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
-            echo "Application was not bootstrapped. " \
-                "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
-            exit 1
+        if [ "$SGX_MODE" = "local" ]; then
+            if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
+                echo "Application was not bootstrapped. " \
+                    "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
+                exit 1
+            fi
         fi
 
         if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
