@@ -201,6 +201,7 @@ backoff = "0.4.0"
 derive-getters = "0.5.0"
 test-log = "0.2.16"
 pretty_assertions = "1.4.1"
+serial_test = "2"
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
