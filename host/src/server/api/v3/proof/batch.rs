@@ -164,6 +164,7 @@ async fn batch_handler(
             let guest_inputs_of_entities = statuses
                 .iter()
                 .map(|status| match status {
+                    // get saved guest input and pass down to real prover
                     raiko_reqpool::Status::Success { proof, .. } => proof.proof.clone().unwrap(),
                     _ => unreachable!("is_all_sub_success checked"),
                 })
