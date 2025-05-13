@@ -3,7 +3,7 @@
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
-    io::Write,
+    io::{Seek, Write},
     path::{Path, PathBuf},
     process::{Command as StdCommand, Output, Stdio},
     str::{self, FromStr},
@@ -545,10 +545,9 @@ async fn batch_prove(
 
         if proof_type == ProofType::SgxGeth {
             let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            let bytes = serde_json::to_vec(&input)
+            serde_json::to_writer(mfd.as_file(), &input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-            mfd.as_file().set_len(bytes.len() as u64)?;
-            mfd.as_file().write_all(&bytes)?;
+            mfd.as_file().seek(std::io::SeekFrom::Start(0)).unwrap();
             gramine_cmd = gramine_cmd.stdin_file(mfd);
         } else {
             let bytes = bincode::serialize(&input)
