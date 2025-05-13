@@ -3,13 +3,12 @@
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
-    os::fd::{AsRawFd, FromRawFd, OwnedFd},
     path::{Path, PathBuf},
     process::{Command as StdCommand, Output, Stdio},
     str::{self, FromStr},
 };
 
-use command_fds::{CommandFdExt, FdMapping};
+use duct::{cmd, Expression};
 use memfd::MemfdOptions;
 use once_cell::sync::Lazy;
 use raiko_lib::{
@@ -304,22 +303,14 @@ impl Prover for LocalSgxProver {
             .await;
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
-        let gramine_cmd = || -> StdCommand {
-            let (mut cmd, elf) = if direct_mode {
-                (StdCommand::new("gramine-direct"), Some(ELF_NAME))
+        let gramine_cmd = || -> Expression {
+            if direct_mode {
+                cmd!("gramine-direct", ELF_NAME).dir(&cur_dir)
             } else if self.proof_type == ProofType::SgxGeth {
-                let mut cmd = StdCommand::new("sudo");
-                cmd.arg(cur_dir.join(GAIKO_ELF_NAME));
-                (cmd, None)
+                cmd!("sudo", cur_dir.join(GAIKO_ELF_NAME))
             } else {
-                let mut cmd = StdCommand::new("sudo");
-                cmd.arg("gramine-sgx");
-                (cmd, Some(ELF_NAME))
-            };
-            if let Some(elf) = elf {
-                cmd.current_dir(&cur_dir).arg(elf);
+                cmd!("sudo", "gramine-sgx", ELF_NAME).dir(&cur_dir)
             }
-            cmd
         };
 
         // Setup: run this once while setting up your SGX instance
@@ -328,7 +319,7 @@ impl Prover for LocalSgxProver {
         }
 
         let mut sgx_proof = if sgx_param.bootstrap {
-            bootstrap(
+            duct_bootstrap(
                 cur_dir.clone().join("secrets"),
                 gramine_cmd(),
                 self.proof_type,
@@ -441,6 +432,36 @@ pub async fn check_bootstrap(
     .map_err(|e| ProverError::GuestError(e.to_string()))?
 }
 
+pub async fn duct_bootstrap(
+    secret_dir: PathBuf,
+    gramine_cmd: Expression,
+    proof_type: ProofType,
+) -> ProverResult<SgxResponse, ProverError> {
+    tokio::task::spawn_blocking(move || {
+        // Bootstrap with new private key for signing proofs
+        // First delete the private key if it already exists
+        let path = secret_dir.join(get_priv_key_filename(proof_type));
+        if path.exists() {
+            if let Err(e) = remove_file(&path) {
+                println!("Error deleting file: {e}");
+            }
+        }
+        let output = gramine_cmd
+            .before_spawn(|cmd| {
+                cmd.arg("bootstrap");
+                Ok(())
+            })
+            .stdout_capture()
+            .run()
+            .map_err(|e| handle_gramine_error("Could not run SGX guest bootstrap", e))?;
+        handle_output(&output, "SGX bootstrap")?;
+
+        Ok(parse_sgx_result(output.stdout)?)
+    })
+    .await
+    .map_err(|e| ProverError::GuestError(e.to_string()))?
+}
+
 pub async fn bootstrap(
     secret_dir: PathBuf,
     mut gramine_cmd: StdCommand,
@@ -505,52 +526,38 @@ async fn prove(
 }
 
 async fn batch_prove(
-    mut gramine_cmd: StdCommand,
+    mut gramine_cmd: Expression,
     input: GuestBatchInput,
     instance_id: u64,
     proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
-        let cmd = gramine_cmd
-            .arg("one-batch-shot")
-            .arg("--sgx-instance-id")
-            .arg(instance_id.to_string())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        gramine_cmd = gramine_cmd
+            .before_spawn(move |cmd| {
+                cmd.arg("one-batch-shot")
+                    .arg("--sgx-instance-id")
+                    .arg(instance_id.to_string());
+                Ok(())
+            })
+            .stdout_capture()
+            .stderr_capture();
 
-        let mfd = if proof_type == ProofType::SgxGeth {
+        if proof_type == ProofType::SgxGeth {
             let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            cmd.fd_mappings(vec![
-                // Map `memfd` as stdin in the child process.
-                FdMapping {
-                    parent_fd: unsafe { OwnedFd::from_raw_fd(mfd.as_raw_fd()) },
-                    child_fd: 0,
-                },
-            ])
-            .unwrap();
-            Some(mfd)
+            serde_json::to_writer(mfd.as_file(), &input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+            gramine_cmd = gramine_cmd.stdin_file(mfd);
         } else {
-            cmd.stdin(Stdio::piped());
-            None
-        };
-        let mut child = cmd
-            .spawn()
+            let bytes = bincode::serialize(&input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+            gramine_cmd = gramine_cmd.stdin_bytes(bytes);
+        }
+
+        let child = gramine_cmd
+            .start()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
-        let stdin = child.stdin.take().expect("Failed to open stdin");
-        tokio::task::spawn_blocking(move || {
-            let _ = if proof_type == ProofType::SgxGeth {
-                let mfd = mfd.as_ref().map(|memfd| memfd.as_file());
-                serde_json::to_writer(mfd.unwrap(), &input)
-                    .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
-            } else {
-                bincode::serialize_into(stdin, &input)
-                    .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
-            }
-            .inspect_err(|e| {
-                error!("Failed to serialize input: {e}");
-            });
-        });
-        let output_success = child.wait_with_output();
+
+        let output_success = child.into_output();
 
         match output_success {
             Ok(output) => {
