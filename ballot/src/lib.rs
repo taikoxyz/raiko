@@ -11,6 +11,8 @@ mod poisson;
 /// block hash and get the same result.
 #[derive(Debug, Clone, Default)]
 pub struct Ballot {
+    /// A map of ProofType to their (probability, per_day) tuples
+    initial_config: BTreeMap<ProofType, (f64, u64)>,
     /// A map of ProofType to their probabilities (between 0 and 1)
     probabilities: BTreeMap<ProofType, f64>,
     /// A PoissonDrawer to check if the proof type can be drawn
@@ -27,6 +29,7 @@ impl Ballot {
             .map(|(k, v)| (*k, v.0))
             .collect::<BTreeMap<_, _>>();
         let ballot = Self {
+            initial_config: ballot_config,
             probabilities: probs,
             poisson_drawer: poisson_check,
         };
@@ -34,8 +37,8 @@ impl Ballot {
         Ok(ballot)
     }
 
-    pub fn probabilities(&self) -> &BTreeMap<ProofType, f64> {
-        &self.probabilities
+    pub fn probabilities(&self) -> &BTreeMap<ProofType, (f64, u64)> {
+        &self.initial_config
     }
 
     pub fn validate(&self) -> Result<(), String> {
