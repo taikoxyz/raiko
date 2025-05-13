@@ -3,12 +3,13 @@
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
-    os::fd::AsRawFd,
+    os::fd::{AsRawFd, FromRawFd, OwnedFd},
     path::{Path, PathBuf},
     process::{Command as StdCommand, Output, Stdio},
     str::{self, FromStr},
 };
 
+use command_fds::{CommandFdExt, FdMapping};
 use memfd::MemfdOptions;
 use once_cell::sync::Lazy;
 use raiko_lib::{
@@ -514,15 +515,22 @@ async fn batch_prove(
             .arg("one-batch-shot")
             .arg("--sgx-instance-id")
             .arg(instance_id.to_string())
-            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
         let mfd = if proof_type == ProofType::SgxGeth {
             let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            cmd.arg("--witness").arg(format!("{}", mfd.as_raw_fd()));
+            cmd.fd_mappings(vec![
+                // Map `memfd` as stdin in the child process.
+                FdMapping {
+                    parent_fd: unsafe { OwnedFd::from_raw_fd(mfd.as_raw_fd()) },
+                    child_fd: 0,
+                },
+            ])
+            .unwrap();
             Some(mfd)
         } else {
+            cmd.stdin(Stdio::piped());
             None
         };
         let mut child = cmd
