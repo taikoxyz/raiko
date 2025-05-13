@@ -543,22 +543,20 @@ async fn batch_prove(
             .stderr_capture();
 
         if proof_type == ProofType::SgxGeth {
-            let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            serde_json::to_writer(mfd.as_file(), &input)
+            // let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
+            // serde_json::to_writer(mfd.as_file(), &input)
+            //     .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+            let bytes = serde_json::to_vec(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-            gramine_cmd = gramine_cmd.stdin_file(mfd);
+            //
+            gramine_cmd = gramine_cmd.stdin_bytes(bytes);
         } else {
             let bytes = bincode::serialize(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
             gramine_cmd = gramine_cmd.stdin_bytes(bytes);
         }
 
-        let child = gramine_cmd
-            .start()
-            .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
-
-        let output_success = child.into_output();
-
+        let output_success = gramine_cmd.run();
         match output_success {
             Ok(output) => {
                 handle_output(&output, "SGX prove")?;
