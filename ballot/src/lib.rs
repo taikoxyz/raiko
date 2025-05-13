@@ -1,5 +1,8 @@
+use poisson::PoissionDrawer;
 use raiko_lib::{primitives::BlockHash, proof_type::ProofType};
 use std::collections::BTreeMap;
+
+mod poisson;
 
 /// Ballot is a proof type selection mechanism using the block hash.
 ///
@@ -10,13 +13,22 @@ use std::collections::BTreeMap;
 pub struct Ballot {
     /// A map of ProofType to their probabilities (between 0 and 1)
     probabilities: BTreeMap<ProofType, f64>,
+    /// A PoissonDrawer to check if the proof type can be drawn
+    /// based on the per-day limit and the last draw time
+    poisson_drawer: PoissionDrawer,
 }
 
 impl Ballot {
     /// Create a new Ballot
-    pub fn new(probs: BTreeMap<ProofType, f64>) -> Result<Self, String> {
+    pub fn new(ballot_config: BTreeMap<ProofType, (f64, u64)>) -> Result<Self, String> {
+        let poisson_check = PoissionDrawer::new(ballot_config.clone());
+        let probs = ballot_config
+            .iter()
+            .map(|(k, v)| (*k, v.0))
+            .collect::<BTreeMap<_, _>>();
         let ballot = Self {
             probabilities: probs,
+            poisson_drawer: poisson_check,
         };
         ballot.validate()?;
         Ok(ballot)
@@ -66,17 +78,33 @@ impl Ballot {
 
         None
     }
+
+    /// Draw proof types based on the block hash.
+    pub fn draw_with_poisson(&mut self, block_hash: &BlockHash) -> Option<ProofType> {
+        let draw_result = self.draw(block_hash);
+        match draw_result {
+            Some(ptype) => {
+                if self.poisson_drawer.draw(&ptype) {
+                    Some(ptype)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread::sleep;
 
     #[test]
     fn test_draw_deserialize() {
         {
-            let serialized = "{\"Sp1\":0.1,\"Risc0\":0.2}";
-            let probs: BTreeMap<ProofType, f64> = serde_json::from_str(serialized).unwrap();
+            let serialized = "{\"Sp1\":[0.1, 100],\"Risc0\":[0.2, 100]}";
+            let probs: BTreeMap<ProofType, (f64, u64)> = serde_json::from_str(serialized).unwrap();
             let ballot = Ballot::new(probs).unwrap();
             assert_eq!(ballot.probabilities.len(), 2);
             assert_eq!(ballot.probabilities.get(&ProofType::Sp1), Some(&0.1));
@@ -84,7 +112,7 @@ mod tests {
         }
         {
             let serialized = "{}";
-            let probs: BTreeMap<ProofType, f64> = serde_json::from_str(serialized).unwrap();
+            let probs: BTreeMap<ProofType, (f64, u64)> = serde_json::from_str(serialized).unwrap();
             let ballot = Ballot::new(probs).unwrap();
             assert_eq!(ballot.probabilities.len(), 0);
         }
@@ -100,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_draw_single_proof_type() {
-        let ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, 1.0)])).unwrap();
+        let ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (1.0, 100))])).unwrap();
         let block_hash = BlockHash::ZERO;
         let proof_type = ballot.draw(&block_hash);
         assert_eq!(proof_type, Some(ProofType::Sp1));
@@ -109,8 +137,8 @@ mod tests {
     #[test]
     fn test_draw_multiple_proof_types() {
         let ballot = Ballot::new(BTreeMap::from([
-            (ProofType::Sp1, 0.5),
-            (ProofType::Risc0, 0.5),
+            (ProofType::Sp1, (0.5, 500)),
+            (ProofType::Risc0, (0.5, 500)),
         ]))
         .unwrap();
 
@@ -133,7 +161,54 @@ mod tests {
 
     #[test]
     fn test_draw_single_50_proof_types() {
-        let ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, 0.5)])).unwrap();
+        let ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (0.5, 100))])).unwrap();
+
+        let mut proof_type_counts = BTreeMap::new();
+        for u in 0..=u8::MAX {
+            let block_hash = BlockHash::with_last_byte(u);
+            let proof_type = ballot.draw(&block_hash);
+            *proof_type_counts.entry(proof_type).or_insert(0) += 1;
+        }
+        assert_eq!(proof_type_counts.len(), 2);
+        assert_eq!(
+            proof_type_counts.get(&Some(ProofType::Sp1)),
+            Some(&((u8::MAX / 2) + 1))
+        );
+        assert_eq!(proof_type_counts.get(&None), Some(&((u8::MAX / 2) + 1)));
+    }
+
+    #[test]
+    fn test_draw_1_proof_types_with_poisson_checker() {
+        let mut ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (1.0, 1))])).unwrap();
+
+        let mut proof_type_counts = BTreeMap::new();
+        for u in 0..=u8::MAX {
+            let block_hash = BlockHash::with_last_byte(u);
+            let proof_type = ballot.draw_with_poisson(&block_hash);
+            *proof_type_counts.entry(proof_type).or_insert(0) += 1;
+        }
+        assert_eq!(proof_type_counts.len(), 2);
+        assert_eq!(proof_type_counts[&Some(ProofType::Sp1)], 1);
+    }
+
+    #[test]
+    fn test_draw_256_proof_types_with_poisson_checker() {
+        let mut ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (1.0, 3600 * 24))])).unwrap();
+
+        let mut proof_type_counts = BTreeMap::new();
+        for u in 0..5 {
+            let block_hash = BlockHash::with_last_byte(u);
+            let proof_type = ballot.draw_with_poisson(&block_hash);
+            *proof_type_counts.entry(proof_type).or_insert(0) += 1;
+            sleep(std::time::Duration::from_secs(1));
+        }
+        assert_eq!(proof_type_counts.len(), 1);
+        assert_eq!(proof_type_counts[&Some(ProofType::Sp1)], 5);
+    }
+
+    #[test]
+    fn test_draw_single_50_proof_types_with_0_poisson_check() {
+        let ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (0.5, 0))])).unwrap();
 
         let mut proof_type_counts = BTreeMap::new();
         for u in 0..=u8::MAX {

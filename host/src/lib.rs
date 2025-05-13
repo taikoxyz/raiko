@@ -155,7 +155,7 @@ pub fn parse_chain_specs(opts: &Opts) -> SupportedChainSpecs {
 }
 
 pub fn parse_ballot(opts: &Opts) -> Ballot {
-    let probs: BTreeMap<ProofType, f64> =
+    let probs: BTreeMap<ProofType, (f64, u64)> =
         serde_json::from_str(&opts.ballot).expect("Failed to parse ballot config");
     let ballot = Ballot::new(probs).expect("Failed to create ballot");
     ballot.validate().expect("Failed to validate ballot");
