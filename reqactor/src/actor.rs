@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    ops::DerefMut,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -130,7 +131,11 @@ impl Actor {
 
     /// Draw proof types based on the block hash.
     pub fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
-        self.ballot.lock().unwrap().draw(block_hash)
+        self.ballot
+            .lock()
+            .unwrap()
+            .deref_mut()
+            .draw_with_poisson(block_hash)
     }
 }
 
