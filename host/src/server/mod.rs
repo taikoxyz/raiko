@@ -8,7 +8,7 @@ pub mod api;
 pub mod handler;
 pub mod utils;
 
-pub use handler::{cancel, cancel_aggregation, prove, prove_aggregation};
+pub use handler::{cancel, cancel_aggregation, prove, prove_aggregation, wait_prove};
 pub use utils::{to_v2_cancel_status, to_v2_status, to_v3_cancel_status, to_v3_status};
 
 /// Starts the HTTP server.

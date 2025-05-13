@@ -3,6 +3,10 @@ use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, RequestEntity, RequestKey,
     SingleProofRequestKey, Status,
 };
+use tracing::error;
+
+const PROOF_TIMEOUT_SEC: u64 = 20 * 60; // 20 minutes
+const PROOF_WAIT_INTERVAL_SEC: u64 = 30; // 30 seconds
 
 // NOTE: HTTP handlers should not check the status of the request, but just send the request to the Actor. In
 // another word, Actor should be the only one guarding the status of the request.
@@ -18,6 +22,34 @@ pub async fn prove(
         request_entity,
     };
     act(actor, action).await
+}
+
+/// Prove the request and wait for the result.
+pub async fn wait_prove(
+    actor: &Actor,
+    request_key: RequestKey,
+    request_entity: RequestEntity,
+) -> Result<Status, String> {
+    let action = Action::Prove {
+        request_key,
+        request_entity,
+    };
+
+    let timeout = tokio::time::Duration::from_secs(PROOF_TIMEOUT_SEC);
+    let interval = tokio::time::Duration::from_secs(PROOF_WAIT_INTERVAL_SEC);
+    let start_time = tokio::time::Instant::now();
+
+    while start_time.elapsed() < timeout {
+        let status = act(actor, action.clone()).await?;
+        if status.is_done() {
+            return Ok(status);
+        }
+
+        tokio::time::sleep(interval).await;
+    }
+
+    error!("Timeout while waiting for proof");
+    Err("Timeout while waiting for proof".to_string())
 }
 
 /// Cancel the request.

@@ -54,6 +54,13 @@ impl Status {
     pub fn is_success(&self) -> bool {
         matches!(self, Status::Success { .. })
     }
+
+    pub fn is_done(&self) -> bool {
+        matches!(
+            self,
+            Status::Success { .. } | Status::Cancelled | Status::Failed { .. }
+        )
+    }
 }
 
 #[derive(

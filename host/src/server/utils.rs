@@ -1,6 +1,6 @@
 use crate::{
     interfaces::HostResult,
-    server::api::{v2, v3},
+    server::api::{v1, v2, v3},
 };
 use raiko_core::{interfaces::RaikoError, provider::get_task_data};
 use raiko_lib::proof_type::ProofType;
@@ -8,6 +8,34 @@ use raiko_reqactor::Actor;
 use raiko_reqpool::Status;
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
+
+pub fn to_v1_status(result: Status) -> axum::Json<v1::Status> {
+    axum::Json(match result {
+        Status::Registered => v1::Status::Error {
+            error: "task_failed".to_string(),
+            message: "task returned status Registered, expected Result".to_string(),
+        },
+        Status::WorkInProgress => v1::Status::Error {
+            error: "task_failed".to_string(),
+            message: "task return status WorkInProgress, expected Result".to_string(),
+        },
+        Status::Cancelled => v1::Status::Error {
+            error: "task_failed".to_string(),
+            message: "task has been cancelled".to_string(),
+        },
+        Status::Failed { error } => v1::Status::Error {
+            error: "task_failed".to_string(),
+            message: format!("task failed with error: {error}"),
+        },
+        Status::Success { proof } => v1::Status::Ok {
+            data: v1::ProofResponse {
+                output: None,
+                proof: proof.proof,
+                quote: proof.quote,
+            },
+        },
+    })
+}
 
 pub fn to_v2_status(proof_type: ProofType, result: Result<Status, String>) -> v2::Status {
     match result {
