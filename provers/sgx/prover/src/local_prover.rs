@@ -539,8 +539,8 @@ async fn batch_prove(
         let stdin = child.stdin.take().expect("Failed to open stdin");
         tokio::task::spawn_blocking(move || {
             let _ = if proof_type == ProofType::SgxGeth {
-                let mfd = mfd.unwrap();
-                serde_json::to_writer(mfd.as_file(), &input)
+                let mfd = mfd.as_ref().map(|memfd| memfd.as_file());
+                serde_json::to_writer(mfd.unwrap(), &input)
                     .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
             } else {
                 bincode::serialize_into(stdin, &input)
