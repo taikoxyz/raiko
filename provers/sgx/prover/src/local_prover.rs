@@ -545,8 +545,10 @@ async fn batch_prove(
 
         if proof_type == ProofType::SgxGeth {
             let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            serde_json::to_writer(mfd.as_file(), &input)
+            let bytes = serde_json::to_vec(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+            mfd.as_file().set_len(bytes.len() as u64)?;
+            mfd.as_file().write_all(&bytes)?;
             gramine_cmd = gramine_cmd.stdin_file(mfd);
         } else {
             let bytes = bincode::serialize(&input)
