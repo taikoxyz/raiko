@@ -305,13 +305,14 @@ impl Prover for LocalSgxProver {
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> Expression {
-            if direct_mode {
+            let cmd = if direct_mode {
                 cmd!("gramine-direct", ELF_NAME).dir(&cur_dir)
             } else if self.proof_type == ProofType::SgxGeth {
                 cmd!("sudo", cur_dir.join(GAIKO_ELF_NAME))
             } else {
                 cmd!("sudo", "gramine-sgx", ELF_NAME).dir(&cur_dir)
-            }
+            };
+            cmd.unchecked()
         };
 
         // Setup: run this once while setting up your SGX instance
