@@ -28,6 +28,7 @@ hex = { workspace = true }
 reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
 tracing = { workspace = true }
+memfd = "0.6.4"
 
 [dev-dependencies]
 env_logger = { workspace = true }

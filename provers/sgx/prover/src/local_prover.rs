@@ -3,11 +3,13 @@
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
+    os::fd::AsRawFd,
     path::{Path, PathBuf},
     process::{Command as StdCommand, Output, Stdio},
     str::{self, FromStr},
 };
 
+use memfd::MemfdOptions;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
@@ -508,19 +510,29 @@ async fn batch_prove(
     proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
-        let mut child = gramine_cmd
+        let cmd = gramine_cmd
             .arg("one-batch-shot")
             .arg("--sgx-instance-id")
             .arg(instance_id.to_string())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        let mfd = if proof_type == ProofType::SgxGeth {
+            let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
+            cmd.arg("--witness").arg(format!("{}", mfd.as_raw_fd()));
+            Some(mfd)
+        } else {
+            None
+        };
+        let mut child = cmd
             .spawn()
             .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
         let stdin = child.stdin.take().expect("Failed to open stdin");
         tokio::task::spawn_blocking(move || {
             let _ = if proof_type == ProofType::SgxGeth {
-                serde_json::to_writer(stdin, &input)
+                let mfd = mfd.unwrap();
+                serde_json::to_writer(mfd.as_file(), &input)
                     .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
             } else {
                 bincode::serialize_into(stdin, &input)
