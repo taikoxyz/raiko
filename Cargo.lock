@@ -6477,6 +6477,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.9.0",
+ "serial_test 2.0.0",
  "sgx-prover",
  "sp1-driver",
  "thiserror 1.0.63",
@@ -6502,6 +6503,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "axum",
+ "base64 0.22.1",
  "bincode",
  "bytemuck",
  "cap",
@@ -6629,6 +6631,8 @@ name = "raiko-reqactor"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives 0.7.7",
+ "base64 0.22.1",
+ "bincode",
  "chrono",
  "raiko-ballot",
  "raiko-core",
@@ -8919,6 +8923,20 @@ dependencies = [
 
 [[package]]
 name = "serial_test"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e56dd856803e253c8f298af3f4d7eb0ae5e23a737252cd90bb4f3b435033b2d"
+dependencies = [
+ "dashmap",
+ "futures",
+ "lazy_static",
+ "log",
+ "parking_lot 0.12.3",
+ "serial_test_derive 2.0.0",
+]
+
+[[package]]
+name = "serial_test"
 version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b4b487fe2acf240a021cf57c6b2b4903b1e78ca0ecd862a71b71d2a51fed77d"
@@ -8928,7 +8946,18 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.3",
  "scc",
- "serial_test_derive",
+ "serial_test_derive 3.1.1",
+]
+
+[[package]]
+name = "serial_test_derive"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91d129178576168c589c9ec973feedf7d3126c01ac2bf08795109aa35b69fb8f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.95",
 ]
 
 [[package]]
@@ -9412,7 +9441,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
- "serial_test",
+ "serial_test 3.1.1",
  "sha2",
  "sp1-core-executor",
  "sp1-core-machine",

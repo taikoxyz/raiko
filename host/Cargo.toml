@@ -71,7 +71,7 @@ url = { workspace = true }
 cfg-if = { workspace = true }
 cap = { workspace = true }
 dotenv = { workspace = true }
-
+base64 = { workspace = true }
 
 # reth
 reth-primitives = { workspace = true }

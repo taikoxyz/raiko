@@ -43,8 +43,10 @@ mod test {
     use super::*;
     use raiko_lib::mem_db::MemDb;
     use reth_primitives::B256;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_lru_cache_save_load() {
         let key = (1, B256::ZERO);
         let value = (MemDb::default(), HashMap::new());
@@ -68,6 +70,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn test_lru_cache_replace() {
         clear_state_db();
         for i in 0..256 + 4 {
