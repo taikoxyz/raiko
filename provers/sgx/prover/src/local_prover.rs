@@ -3,6 +3,7 @@
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
+    io::Write,
     path::{Path, PathBuf},
     process::{Command as StdCommand, Output, Stdio},
     str::{self, FromStr},
@@ -543,13 +544,11 @@ async fn batch_prove(
             .stderr_capture();
 
         if proof_type == ProofType::SgxGeth {
-            // let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            // serde_json::to_writer(mfd.as_file(), &input)
-            //     .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+            let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
             let bytes = serde_json::to_vec(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-            //
-            gramine_cmd = gramine_cmd.stdin_bytes(bytes);
+            mfd.as_file().write_all(&bytes)?;
+            gramine_cmd = gramine_cmd.stdin_file(mfd);
         } else {
             let bytes = bincode::serialize(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
