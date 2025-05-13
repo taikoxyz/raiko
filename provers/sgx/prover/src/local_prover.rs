@@ -320,7 +320,7 @@ impl Prover for LocalSgxProver {
         }
 
         let mut sgx_proof = if sgx_param.bootstrap {
-            duct_bootstrap(
+            bootstrap2(
                 cur_dir.clone().join("secrets"),
                 gramine_cmd(),
                 self.proof_type,
@@ -433,7 +433,7 @@ pub async fn check_bootstrap(
     .map_err(|e| ProverError::GuestError(e.to_string()))?
 }
 
-pub async fn duct_bootstrap(
+pub async fn bootstrap2(
     secret_dir: PathBuf,
     gramine_cmd: Expression,
     proof_type: ProofType,
