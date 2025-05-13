@@ -54,7 +54,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0xa7B208DE7F35E924D59C2b5f7dE3bb346E8A138C",
+        "l1_contract": "0xd25769EFD97d42076fCB7Ae568D7F7d315f52A1f",
         "l2_contract": "0x1670110000000000000000000000000000010001",
         "rpc": "https://rpc.masaya.taiko.xyz",
         "beacon_rpc": null,
@@ -70,10 +70,10 @@
                 "RISC0": "0x0000000000000000000000000000000000000000"
             },
             "PACAYA": {
-                "SGX": "0xFE163727436424f6997BF1B7Be65b16F1136D94d",
-                "SP1": "0x9384dA78FfA6aB739DAb2ddec1BEE5709105c021",
-                "RISC0": "0xE474D7a6D533BFdc34eC06EBF451bF01249fBBBA",
-                "SGXGETH": "0x5B9C6Df584C2427806CcA9432536E6BB708Cb679"
+                "SGX": "0x503D5487Aee2ce0b42152454298f1A4f26E54649",
+                "SP1": "0xa96D9BBBA253920fDa99489C13fe709A9Fb45ee1",
+                "RISC0": "0x7CA76386A2568b55214665E24CC2394ceE538A60",
+                "SGXGETH": "0x60b5A61F849227B84e25995F36B0A51154e9bEd0"
             }
         },
         "genesis_time": 0,
