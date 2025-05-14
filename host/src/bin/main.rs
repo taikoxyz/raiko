@@ -39,7 +39,7 @@ async fn main() -> HostResult<()> {
 
     let _guard = subscribe_log(&opts.log_path, &opts.log_level, opts.max_log);
     debug!("Start config:\n{:#?}", default_request_config);
-    debug!("Args:\n{:#?}", opts);
+    info!("Args:\n{:#?}", opts);
     info!("Supported chains: {:?}", chain_specs);
 
     let address = opts.address.as_str();

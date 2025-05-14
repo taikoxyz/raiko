@@ -5,7 +5,7 @@ use anyhow::Context;
 use cap::Cap;
 use clap::Parser;
 use raiko_ballot::Ballot;
-use raiko_core::{interfaces::ProofRequestOpt, merge};
+use raiko_core::interfaces::ProofRequestOpt;
 use raiko_lib::consts::SupportedChainSpecs;
 use raiko_lib::proof_type::ProofType;
 use serde::{Deserialize, Serialize};
@@ -119,12 +119,26 @@ impl Opts {
     pub fn merge_from_file(&mut self) -> HostResult<()> {
         let file = std::fs::File::open(&self.config_path).context("Failed to open config file")?;
         let reader = std::io::BufReader::new(file);
-        let mut config: Value =
+        let config: Value =
             serde_json::from_reader(reader).context("Failed to read config file")?;
-        let this = serde_json::to_value(&self).context("Failed to deserialize Opts")?;
-        merge(&mut config, &this);
 
-        *self = serde_json::from_value(config)?;
+        // Convert current `Opts` to `Value`
+        let mut current_opts = serde_json::to_value(&self).context("Failed to serialize Opts")?;
+
+        // Merge the config into the current options
+        current_opts
+            .as_object_mut()
+            .expect("Opts should be a JSON object")
+            .extend(
+                config
+                    .as_object()
+                    .expect("Config should be a JSON object")
+                    .clone(),
+            );
+
+        // Convert the merged `Value` back into `Opts`
+        *self =
+            serde_json::from_value(current_opts).context("Failed to deserialize merged Opts")?;
         Ok(())
     }
 
@@ -138,6 +152,7 @@ impl Opts {
 pub fn parse_opts() -> HostResult<Opts> {
     // Read the command line arguments;
     let mut opts = Opts::parse();
+
     // Read env supported options.
     opts.merge_from_env();
     // Read the config file.
