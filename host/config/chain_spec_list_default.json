@@ -160,9 +160,10 @@
                 "RISC0": "0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc"
             },
             "PACAYA": {
-                "SGX": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
-                "SP1": "0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452",
-                "RISC0": "0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc"
+                "SGX": "0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136",
+                "SP1": "0xbee1040D0Aab17AE19454384904525aE4A3602B9",
+                "RISC0": "0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE",
+                "SGXGETH": "0x7e6409e9b6c5e2064064a6cC994f9a2e95680782"
             }
         },
         "genesis_time": 0,
