@@ -10,7 +10,6 @@ use std::{
 };
 
 use duct::{cmd, Expression};
-use memfd::MemfdOptions;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
@@ -507,11 +506,11 @@ async fn prove(
             .stderr_capture();
 
         if proof_type == ProofType::SgxGeth {
-            let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            serde_json::to_writer(mfd.as_file(), &input)
+            let mut temp_file = tempfile::tempfile()?;
+            serde_json::to_writer(&temp_file, &input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-            mfd.as_file().seek(std::io::SeekFrom::Start(0)).unwrap();
-            gramine_cmd = gramine_cmd.stdin_file(mfd);
+            temp_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+            gramine_cmd = gramine_cmd.stdin_file(temp_file);
         } else {
             let bytes = bincode::serialize(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
@@ -551,11 +550,11 @@ async fn batch_prove(
             .stderr_capture();
 
         if proof_type == ProofType::SgxGeth {
-            let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            serde_json::to_writer(mfd.as_file(), &input)
+            let mut temp_file = tempfile::tempfile()?;
+            serde_json::to_writer(&temp_file, &input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-            mfd.as_file().seek(std::io::SeekFrom::Start(0)).unwrap();
-            gramine_cmd = gramine_cmd.stdin_file(mfd);
+            temp_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+            gramine_cmd = gramine_cmd.stdin_file(temp_file);
         } else {
             let bytes = bincode::serialize(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
