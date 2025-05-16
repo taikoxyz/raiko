@@ -43,6 +43,7 @@ pub struct GuestInput {
     pub parent_storage: HashMap<Address, StorageEntry>,
     /// The code of all unique contracts.
     pub contracts: Vec<Bytes>,
+    #[serde_as(as = "Vec<BincodeCompactHeader>")]
     /// List of at most 256 previous block headers
     pub ancestor_headers: Vec<Header>,
     /// Taiko specific data
