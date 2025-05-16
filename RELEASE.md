@@ -6,12 +6,12 @@ us-docker.pkg.dev/evmchain/images/raiko:1.8.0
 
 ## gaiko
 
-- mrenclave: 1f7b4895fec82cd0bef34fd8704ee885a6263ad5b7a24293210d6196065edf82
+- mrenclave: fda8bb1fc9938700c25353c0a5fabc96a238e69ce8e35f08e558831a20db33a6
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
 
 ## raiko
 
-- mrenclave: f69cc86986edd0eeb358c6a27d5b5cf890b3e520ae9fe0f142fd4fb2d0022bbf
+- mrenclave: dcd483d3406d9b1871bb92420f5a080c4372e0d6b8522a4a2cb91a0f736669c6
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
 
 # v1.8.0-edmm
@@ -22,15 +22,16 @@ us-docker.pkg.dev/evmchain/images/raiko:1.8.0-edmm
 
 ## gaiko
 
-- mrenclave: 1f7b4895fec82cd0bef34fd8704ee885a6263ad5b7a24293210d6196065edf82
+- mrenclave: fda8bb1fc9938700c25353c0a5fabc96a238e69ce8e35f08e558831a20db33a6
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
 
 ## raiko
 
-- mrenclave: dda39b0861e0a412406a92073c6943c352dd4598f88e73a4f22d543f03c0db7b
+- mrenclave: 3b589538b775ddbfc5fb028167ff846116159e6687aef9f849ca5a70a7871ea5
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
 
 # v1.8.0-zk
+
 -risc0
 risc0 elf image id: 49c8f13fdfbec7c03fc8516ef7d32d8fa43fa4f495d62e9ff6bf63710df402d4
 "/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/risc0-aggregation"
