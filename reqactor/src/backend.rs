@@ -7,6 +7,7 @@ use raiko_core::{
     provider::rpc::RpcBlockDataProvider,
     Raiko,
 };
+use raiko_lib::proof_type::ProofType;
 use raiko_lib::{
     consts::SupportedChainSpecs,
     input::{AggregationGuestInput, AggregationGuestOutput},
@@ -332,21 +333,58 @@ impl Backend {
         }
     }
 
+    /// Get the GPU number for the given proof type.
+    /// Currently, only SP1 proof type is needs GPU number.
+    async fn get_gpu_number(&self, proof_type: ProofType) -> Option<u32> {
+        match proof_type {
+            ProofType::Sp1 => {
+                let mut available_gpus = self.available_gpus.lock().await;
+
+                // We could expect here becuase semaphore is used to limit the concurrency and
+                // available_gpus.len() == semaphore.available_permits() == max_proving_concurrency
+                let gpu_number = available_gpus
+                    .pop_front()
+                    .expect("GPU number should be available");
+
+                Some(gpu_number)
+            }
+            _ => None,
+        }
+    }
+
+    /// Release the GPU number after the proof is generated.
+    async fn release_gpu_number(&self, gpu_number: Option<u32>) {
+        if let Some(gpu_number) = gpu_number {
+            let mut available_gpus = self.available_gpus.lock().await;
+            available_gpus.push_back(gpu_number);
+        }
+    }
+
     async fn prove_single(
         &mut self,
         request_key: RequestKey,
         request_entity: SingleProofRequestEntity,
     ) {
-        let available_gpus = self.available_gpus.clone();
         self.prove(request_key.clone(), |mut actor, request_key| async move {
-            do_prove_single(
+            // 1. Get the GPU number for the given proof type
+            let gpu_number = actor
+                .get_gpu_number(request_entity.proof_type().clone())
+                .await;
+
+            // 2. Generate the proof
+            let res = do_prove_single(
                 &mut actor.pool,
                 &actor.chain_specs,
                 request_key,
                 request_entity,
-                available_gpus,
+                gpu_number,
             )
-            .await
+            .await;
+
+            // 3. Release the GPU number
+            actor.release_gpu_number(gpu_number).await;
+
+            res
         })
         .await;
     }
@@ -367,16 +405,26 @@ impl Backend {
         request_key: RequestKey,
         request_entity: BatchProofRequestEntity,
     ) {
-        let available_gpus = self.available_gpus.clone();
         self.prove(request_key.clone(), |mut actor, request_key| async move {
-            do_prove_batch(
+            // 1. Get the GPU number for the given proof type
+            let gpu_number = actor
+                .get_gpu_number(request_entity.proof_type().clone())
+                .await;
+
+            // 2. Generate the proof
+            let res = do_prove_batch(
                 &mut actor.pool,
                 &actor.chain_specs,
                 request_key.clone(),
                 request_entity,
-                available_gpus,
+                gpu_number,
             )
-            .await
+            .await;
+
+            // 3. Release the GPU number
+            actor.release_gpu_number(gpu_number).await;
+
+            res
         })
         .await;
     }
@@ -488,7 +536,7 @@ pub async fn do_prove_single(
     chain_specs: &SupportedChainSpecs,
     request_key: RequestKey,
     request_entity: SingleProofRequestEntity,
-    available_gpus: Arc<Mutex<VecDeque<u32>>>,
+    gpu_number: Option<u32>,
 ) -> Result<Proof, String> {
     tracing::info!("Generating proof for {request_key}");
 
@@ -508,12 +556,6 @@ pub async fn do_prove_single(
                 request_entity.network()
             )
         })?;
-
-    let gpu_number = {
-        let mut available_gpus = available_gpus.lock().await;
-        let gpu_number = available_gpus.pop_front().expect("No available GPU");
-        Some(gpu_number)
-    };
 
     let proof_request = ProofRequest {
         block_number: *request_entity.block_number(),
@@ -554,12 +596,6 @@ pub async fn do_prove_single(
         .await
         .map_err(|err| format!("failed to generate single proof: {err:?}"))?;
 
-    // 4. Release the GPU number
-    {
-        let mut available_gpus = available_gpus.lock().await;
-        available_gpus.push_back(gpu_number.unwrap());
-    }
-
     Ok(proof)
 }
 
@@ -588,7 +624,7 @@ async fn do_prove_batch(
     chain_specs: &SupportedChainSpecs,
     request_key: RequestKey,
     request_entity: BatchProofRequestEntity,
-    available_gpus: Arc<Mutex<VecDeque<u32>>>,
+    gpu_number: Option<u32>,
 ) -> Result<Proof, String> {
     tracing::info!("Generating proof for {request_key}");
 
@@ -615,12 +651,6 @@ async fn do_prove_batch(
     let provider = RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
         .await
         .expect("Could not create RpcBlockDataProvider");
-
-    let gpu_number = {
-        let mut available_gpus = available_gpus.lock().await;
-        let gpu_number = available_gpus.pop_front().expect("No available GPU");
-        Some(gpu_number)
-    };
 
     let proof_request = ProofRequest {
         block_number: 0,
@@ -650,12 +680,6 @@ async fn do_prove_batch(
         .batch_prove(input, &output, Some(pool))
         .await
         .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
-
-    // Release the GPU number
-    {
-        let mut available_gpus = available_gpus.lock().await;
-        available_gpus.push_back(gpu_number.unwrap());
-    }
 
     Ok(proof)
 }
