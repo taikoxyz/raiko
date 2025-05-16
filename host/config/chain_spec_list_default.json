@@ -125,7 +125,7 @@
     {
         "name": "taiko_mainnet",
         "chain_id": 167000,
-        "max_spec_id": "ONTAKE",
+        "max_spec_id": "PACAYA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
