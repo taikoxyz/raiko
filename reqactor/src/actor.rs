@@ -124,6 +124,10 @@ impl Actor {
         self.ballot.lock().unwrap().clone()
     }
 
+    pub fn is_ballot_disabled(&self) -> bool {
+        self.ballot.lock().unwrap().probabilities().is_empty()
+    }
+
     pub fn set_ballot(&self, new_ballot: Ballot) {
         let mut ballot = self.ballot.lock().unwrap();
         *ballot = new_ballot;

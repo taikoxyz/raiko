@@ -87,7 +87,7 @@ impl Ballot {
         let draw_result = self.draw(block_hash);
         match draw_result {
             Some(ptype) => {
-                if self.poisson_drawer.draw(&ptype) {
+                if self.poisson_drawer.poisson_freq_check(&ptype) {
                     Some(ptype)
                 } else {
                     None
@@ -118,6 +118,12 @@ mod tests {
             let probs: BTreeMap<ProofType, (f64, u64)> = serde_json::from_str(serialized).unwrap();
             let ballot = Ballot::new(probs).unwrap();
             assert_eq!(ballot.probabilities.len(), 0);
+        }
+        {
+            let serialized = "";
+            let probs: BTreeMap<ProofType, (f64, u64)> = serde_json::from_str(serialized).unwrap_or_default();
+            let ballot = Ballot::new(probs).unwrap();
+            assert_eq!(ballot.probabilities.is_empty(), true);
         }
     }
 
