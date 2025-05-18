@@ -1,6 +1,64 @@
+# v1.8.0
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.8.0
+
+## gaiko
+
+- mrenclave: fda8bb1fc9938700c25353c0a5fabc96a238e69ce8e35f08e558831a20db33a6
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: dcd483d3406d9b1871bb92420f5a080c4372e0d6b8522a4a2cb91a0f736669c6
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+# v1.8.0-edmm
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.8.0-edmm
+
+## gaiko
+
+- mrenclave: fda8bb1fc9938700c25353c0a5fabc96a238e69ce8e35f08e558831a20db33a6
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: 3b589538b775ddbfc5fb028167ff846116159e6687aef9f849ca5a70a7871ea5
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+# v1.8.0-zk
+
+-risc0
+risc0 elf image id: 49c8f13fdfbec7c03fc8516ef7d32d8fa43fa4f495d62e9ff6bf63710df402d4
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/risc0-aggregation"
+
+risc0 elf image id: 052010a130f9957a9d218a173242070c47af1c5d2c3ccae1d8e8d85ce6c7d78e
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/risc0-batch"
+
+risc0 elf image id: 2548c096b0c3f17c5c879dd9524da88d68cfeb4ddcaeb72561c880801497a776
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/risc0-guest"
+
+-sp1
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-aggregation"
+sp1 elf vk bn256 is: 0x00380861a3c05aa16421c66921e7b952005ddad5b91b81e56d1a5f92a88db099
+sp1 elf vk hash_bytes is: 1c0430d17016a8590438cd241e7b952002eed6ad646e07955a34bf25288db099
+
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-batch"
+sp1 elf vk bn256 is: 0x00745853e47349fb2ddb364dae473e099c19890da8c786490da83066a0959689
+sp1 elf vk hash_bytes is: 3a2c29f21cd27ecb3b66c9b56473e09960cc486d231e19241b5060cd20959689
+
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-guest"
+sp1 elf vk bn256 is: 0x0034ec939d3130695cae1cbc4e8cc5fe729a99ded3370a3e1a4d53a23043cea3
+sp1 elf vk hash_bytes is: 1a7649ce4c4c1a5715c3978968cc5fe714d4cef64cdc28f8349aa7443043cea3
+
 # v1.7.4-zk
 
 ## zk image
+
 "/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/risc0-aggregation"
 risc0 elf image id: 02ca31a77475bbef11606b3a35464b0d94d5042f33cb483c4ba10de924a204fb
 "/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/risc0-batch"

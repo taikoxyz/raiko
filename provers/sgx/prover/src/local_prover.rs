@@ -3,14 +3,13 @@
 use std::{
     env,
     fs::{copy, create_dir_all, remove_file},
-    io::{Seek, Write},
+    io::Seek,
     path::{Path, PathBuf},
     process::{Command as StdCommand, Output, Stdio},
     str::{self, FromStr},
 };
 
 use duct::{cmd, Expression};
-use memfd::MemfdOptions;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
@@ -115,16 +114,15 @@ impl Prover for LocalSgxProver {
             .await;
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
-        let gramine_cmd = || -> StdCommand {
-            let mut cmd = if direct_mode {
-                StdCommand::new("gramine-direct")
+        let gramine_cmd = || -> Expression {
+            let cmd = if direct_mode {
+                cmd!("gramine-direct", ELF_NAME).dir(&cur_dir)
+            } else if self.proof_type == ProofType::SgxGeth {
+                cmd!("sudo", cur_dir.join(GAIKO_ELF_NAME))
             } else {
-                let mut cmd = StdCommand::new("sudo");
-                cmd.arg("gramine-sgx");
-                cmd
+                cmd!("sudo", "gramine-sgx", ELF_NAME).dir(&cur_dir)
             };
-            cmd.current_dir(&cur_dir).arg(ELF_NAME);
-            cmd
+            cmd.unchecked()
         };
 
         // Setup: run this once while setting up your SGX instance
@@ -133,7 +131,7 @@ impl Prover for LocalSgxProver {
         }
 
         let mut sgx_proof = if sgx_param.bootstrap {
-            bootstrap(
+            bootstrap2(
                 cur_dir.clone().join("secrets"),
                 gramine_cmd(),
                 self.proof_type,
@@ -147,7 +145,7 @@ impl Prover for LocalSgxProver {
         if sgx_param.prove {
             // overwrite sgx_proof as the bootstrap quote stays the same in bootstrap & prove.
             let instance_id = get_instance_id_from_params(&input, &sgx_param)?;
-            sgx_proof = prove(gramine_cmd(), input.clone(), instance_id).await
+            sgx_proof = prove(gramine_cmd(), input.clone(), instance_id, self.proof_type).await
         }
 
         sgx_proof.map(|r| r.into())
@@ -305,13 +303,14 @@ impl Prover for LocalSgxProver {
 
         // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
         let gramine_cmd = || -> Expression {
-            if direct_mode {
+            let cmd = if direct_mode {
                 cmd!("gramine-direct", ELF_NAME).dir(&cur_dir)
             } else if self.proof_type == ProofType::SgxGeth {
                 cmd!("sudo", cur_dir.join(GAIKO_ELF_NAME))
             } else {
                 cmd!("sudo", "gramine-sgx", ELF_NAME).dir(&cur_dir)
-            }
+            };
+            cmd.unchecked()
         };
 
         // Setup: run this once while setting up your SGX instance
@@ -490,28 +489,35 @@ pub async fn bootstrap(
 }
 
 async fn prove(
-    mut gramine_cmd: StdCommand,
+    mut gramine_cmd: Expression,
     input: GuestInput,
     instance_id: u64,
+    proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     tokio::task::spawn_blocking(move || {
-        let mut child = gramine_cmd
-            .arg("one-shot")
-            .arg("--sgx-instance-id")
-            .arg(instance_id.to_string())
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
-        let stdin = child.stdin.take().expect("Failed to open stdin");
-        tokio::task::spawn_blocking(move || {
-            let _ = bincode::serialize_into(stdin, &input).inspect_err(|e| {
-                error!("Failed to serialize input: {e}");
-            });
-        });
-        let output_success = child.wait_with_output();
+        gramine_cmd = gramine_cmd
+            .before_spawn(move |cmd| {
+                cmd.arg("one-shot")
+                    .arg("--sgx-instance-id")
+                    .arg(instance_id.to_string());
+                Ok(())
+            })
+            .stdout_capture()
+            .stderr_capture();
 
+        if proof_type == ProofType::SgxGeth {
+            let mut temp_file = tempfile::tempfile()?;
+            serde_json::to_writer(&temp_file, &input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+            temp_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+            gramine_cmd = gramine_cmd.stdin_file(temp_file);
+        } else {
+            let bytes = bincode::serialize(&input)
+                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+            gramine_cmd = gramine_cmd.stdin_bytes(bytes);
+        }
+
+        let output_success = gramine_cmd.run();
         match output_success {
             Ok(output) => {
                 handle_output(&output, "SGX prove")?;
@@ -544,11 +550,11 @@ async fn batch_prove(
             .stderr_capture();
 
         if proof_type == ProofType::SgxGeth {
-            let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            serde_json::to_writer(mfd.as_file(), &input)
+            let mut temp_file = tempfile::tempfile()?;
+            serde_json::to_writer(&temp_file, &input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-            mfd.as_file().seek(std::io::SeekFrom::Start(0)).unwrap();
-            gramine_cmd = gramine_cmd.stdin_file(mfd);
+            temp_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+            gramine_cmd = gramine_cmd.stdin_file(temp_file);
         } else {
             let bytes = bincode::serialize(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
