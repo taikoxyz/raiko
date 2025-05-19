@@ -1,7 +1,11 @@
 use lru::LruCache;
 use poisson::PoissionDrawer;
 use raiko_lib::{primitives::BlockHash, proof_type::ProofType};
-use std::{collections::BTreeMap, num::NonZeroUsize, sync::Mutex};
+use std::{
+    collections::BTreeMap,
+    num::NonZeroUsize,
+    sync::{Arc, Mutex},
+};
 
 type BallotDrawKey = BlockHash;
 type BallotDrawResult = Option<ProofType>;
@@ -15,7 +19,7 @@ mod poisson;
 /// Note that Ballot is deterministic and does not require any randomness, it uses the deterministic
 /// block hash to select the proof type, so that we can replay the proof type selection for the same
 /// block hash and get the same result.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone)]
 pub struct Ballot {
     /// A map of ProofType to their (probability, per_day) tuples
     initial_config: BTreeMap<ProofType, (f64, u64)>,
@@ -25,7 +29,13 @@ pub struct Ballot {
     /// based on the per-day limit and the last draw time
     poisson_drawer: PoissionDrawer,
     /// A cache saves every block hash that has been drawn
-    block_hash_cache: Option<Mutex<LruCache<BallotDrawKey, BallotDrawResult>>>,
+    block_hash_cache: Arc<Mutex<LruCache<BallotDrawKey, BallotDrawResult>>>,
+}
+
+impl Default for Ballot {
+    fn default() -> Self {
+        Self::new(BTreeMap::new()).unwrap()
+    }
 }
 
 impl Ballot {
@@ -36,7 +46,7 @@ impl Ballot {
             .iter()
             .map(|(k, v)| (*k, v.0))
             .collect::<BTreeMap<_, _>>();
-        let block_hash_cache = Some(Mutex::new(
+        let block_hash_cache = Arc::new(Mutex::new(
             LruCache::<BallotDrawKey, BallotDrawResult>::new(
                 NonZeroUsize::new(CACHE_SIZE).unwrap(),
             ),
@@ -78,18 +88,18 @@ impl Ballot {
     }
 
     fn update_cache(&mut self, block_hash: &BlockHash, proof_type: BallotDrawResult) {
-        if let Some(cache) = &mut self.block_hash_cache {
-            cache.lock().unwrap().put(*block_hash, proof_type);
-        }
+        self.block_hash_cache
+            .lock()
+            .unwrap()
+            .put(*block_hash, proof_type);
     }
 
     fn query_cache(&self, block_hash: &BlockHash) -> Option<BallotDrawResult> {
-        if let Some(cache) = &self.block_hash_cache {
-            let mut cache = cache.lock().unwrap();
-            cache.get(block_hash).cloned()
-        } else {
-            None
-        }
+        self.block_hash_cache
+            .lock()
+            .unwrap()
+            .get(block_hash)
+            .cloned()
     }
 
     /// Draw proof types based on the block hash.
