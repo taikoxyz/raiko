@@ -87,27 +87,8 @@ impl Ballot {
         Ok(())
     }
 
-    fn update_cache(&mut self, block_hash: &BlockHash, proof_type: BallotDrawResult) {
-        self.block_hash_cache
-            .lock()
-            .unwrap()
-            .put(*block_hash, proof_type);
-    }
-
-    fn query_cache(&self, block_hash: &BlockHash) -> Option<BallotDrawResult> {
-        self.block_hash_cache
-            .lock()
-            .unwrap()
-            .get(block_hash)
-            .cloned()
-    }
-
     /// Draw proof types based on the block hash.
-    pub fn draw(&mut self, block_hash: &BlockHash) -> BallotDrawResult {
-        if let Some(res) = self.query_cache(block_hash) {
-            return res;
-        }
-
+    fn draw(&self, block_hash: &BlockHash) -> BallotDrawResult {
         let block_hash_bytes = block_hash.as_slice();
 
         // Take the last 16 bytes (least significant) and convert to u128
@@ -124,13 +105,14 @@ impl Ballot {
             }
         }
 
-        self.update_cache(block_hash, res);
         res
     }
 
     /// Draw proof types based on the block hash.
     pub fn draw_with_poisson(&mut self, block_hash: &BlockHash) -> Option<ProofType> {
-        if let Some(res) = self.query_cache(block_hash) {
+        let mut cache = self.block_hash_cache.lock().unwrap();
+        // Check cache while holding the lock
+        if let Some(res) = cache.get(block_hash).cloned() {
             return res;
         }
 
@@ -145,7 +127,8 @@ impl Ballot {
             }
             None => None,
         };
-        self.update_cache(block_hash, res);
+
+        cache.put(*block_hash, res);
         res
     }
 }
@@ -182,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_draw_empty_probabilities() {
-        let mut ballot = Ballot::new(BTreeMap::new()).unwrap();
+        let ballot = Ballot::new(BTreeMap::new()).unwrap();
         let block_hash = BlockHash::ZERO;
         let proof_type = ballot.draw(&block_hash);
         assert_eq!(proof_type, None);
@@ -190,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_draw_single_proof_type() {
-        let mut ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (1.0, 100))])).unwrap();
+        let ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (1.0, 100))])).unwrap();
         let block_hash = BlockHash::ZERO;
         let proof_type = ballot.draw(&block_hash);
         assert_eq!(proof_type, Some(ProofType::Sp1));
@@ -198,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_draw_multiple_proof_types() {
-        let mut ballot = Ballot::new(BTreeMap::from([
+        let ballot = Ballot::new(BTreeMap::from([
             (ProofType::Sp1, (0.5, 500)),
             (ProofType::Risc0, (0.5, 500)),
         ]))
@@ -223,7 +206,7 @@ mod tests {
 
     #[test]
     fn test_draw_single_50_proof_types() {
-        let mut ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (0.5, 100))])).unwrap();
+        let ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (0.5, 100))])).unwrap();
         let mut proof_type_counts = BTreeMap::new();
         for u in 0..=u8::MAX {
             let block_hash = BlockHash::with_last_byte(u);
@@ -269,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_draw_single_50_proof_types_with_0_poisson_check() {
-        let mut ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (0.5, 0))])).unwrap();
+        let ballot = Ballot::new(BTreeMap::from([(ProofType::Sp1, (0.5, 0))])).unwrap();
 
         let mut proof_type_counts = BTreeMap::new();
         for u in 0..=u8::MAX {
