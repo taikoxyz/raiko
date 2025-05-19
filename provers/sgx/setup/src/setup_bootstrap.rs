@@ -6,7 +6,7 @@ use raiko_lib::{
     proof_type::ProofType,
 };
 use serde_json::Value;
-use sgx_prover::{
+use sgx_prover::local_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
     set_instance_id, ForkRegisterId, ELF_NAME, GAIKO_ELF_NAME,
 };
@@ -42,6 +42,7 @@ pub(crate) async fn setup_bootstrap(
     let reader = BufReader::new(file);
     let mut file_config: Value = serde_json::from_reader(reader)?;
 
+    println!("Setup SGX bootstrap");
     setup_bootstrap_inner(
         secret_dir.clone(),
         config_dir.clone(),
@@ -50,6 +51,7 @@ pub(crate) async fn setup_bootstrap(
         &mut file_config,
     )
     .await?;
+    println!("Setup SGXGETH bootstrap");
     setup_bootstrap_inner(
         secret_dir,
         config_dir,
@@ -96,7 +98,10 @@ pub(crate) async fn setup_bootstrap_inner(
 
     let gramine_cmd = || -> Command {
         if proof_type == ProofType::SgxGeth {
-            return Command::new(cur_dir.join(GAIKO_ELF_NAME));
+            // return Command::new(cur_dir.join(GAIKO_ELF_NAME));
+            let mut cmd = Command::new("sudo");
+            cmd.arg(cur_dir.join(GAIKO_ELF_NAME));
+            return cmd;
         }
         let mut cmd = Command::new("sudo");
         cmd.arg("gramine-sgx");
@@ -128,6 +133,7 @@ pub(crate) async fn setup_bootstrap_inner(
         let bootstrap_proof = bootstrap(secret_dir, gramine_cmd(), proof_type).await?;
         let mut fork_register_id: ForkRegisterId = BTreeMap::new();
         for (verifier_addr, spec_ids) in fork_verifier_pairs.iter() {
+            println!("Registering verifier {verifier_addr:?} for forks {spec_ids:?}");
             let register_id = register_sgx_instance(
                 &bootstrap_proof.quote,
                 &l1_chain_spec.rpc,

@@ -53,6 +53,7 @@ kzg_traits = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
+futures =  { workspace = true }
 
 # docs
 utoipa = { workspace = true }
@@ -69,6 +70,7 @@ assert_cmd = { workspace = true }
 rstest = { workspace = true }
 ethers-core = { workspace = true }
 env_logger = { workspace = true }
+serial_test = { workspace = true }
 
 [features]
 default = ["statedb_lru"]

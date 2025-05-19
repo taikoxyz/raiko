@@ -24,6 +24,7 @@ RAIKO_GUEST_SETUP_FILENAME="raiko-setup"
 RAIKO_INPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.docker.manifest.template"
 RAIKO_OUTPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.manifest.sgx"
 RAIKO_SIGNED_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.sig"
+GAIKO_GUEST_APP_VERBOSE_LEVEL=${GAIKO_GUEST_APP_VERBOSE_LEVEL:-3}
 
 function sign_gramine_manifest() {
     cd "$RAIKO_APP_DIR"
@@ -189,7 +190,7 @@ if [[ -n $TEST ]]; then
 fi
 
 # sgx mode
-if [[ -n $SGX ]]; then
+if [[ -n $SGX || -n $SGX_SERVER ]]; then
     sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
     /restart_aesm.sh
 fi
@@ -207,10 +208,12 @@ if [[ -n $SGX ]]; then
         bootstrap_with_self_register
     else
         echo "start proving"
-        if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
-            echo "Application was not bootstrapped. " \
-                "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
-            exit 1
+        if [ "$SGX_MODE" = "local" ]; then
+            if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
+                echo "Application was not bootstrapped. " \
+                    "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
+                exit 1
+            fi
         fi
 
         if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
@@ -246,4 +249,26 @@ if [[ -n $ZK ]]; then
     update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
     /opt/raiko/bin/raiko-host --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
+fi
+
+if [[ -n $SGX_SERVER ]]; then
+    echo "running sgx in sgx server mode"
+
+    if [[ $# -eq 1 && $1 == "--init" ]]; then
+        echo "start server bootstrap"
+        # useless here, as it can share same raiko init
+        # keep it now for future refactory
+        bootstrap
+    else
+        if [[ -z $SGX_PACAYA_INSTANCE_ID || -z $SGXGETH_PACAYA_INSTANCE_ID ]]; then 
+            echo "SGX_PACAYA_INSTANCE_ID and SGXGETH_PACAYA_INSTANCE_ID must be presented, please check."
+            exit 1
+        fi
+
+        echo "start sgx-guest --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090"
+        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
+        echo "start gaiko serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8080"
+        /opt/raiko/bin/gaiko --verbosity $GAIKO_GUEST_APP_VERBOSE_LEVEL serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8090 | sed 's/^/[gaiko] /' &
+        wait
+    fi
 fi

@@ -500,7 +500,10 @@ impl Prover for Sp1Prover {
             };
             let profiling = std::env::var("PROFILING").unwrap_or_default() == "1";
             if profiling {
-                info!("Profiling locally with recursion mode: {:?}", param.recursion);
+                info!(
+                    "Profiling locally with recursion mode: {:?}",
+                    param.recursion
+                );
                 client.execute(BATCH_ELF, &stdin).map_err(|e| {
                     ProverError::GuestError(format!("Sp1: local proving failed: {e}"))
                 })?;

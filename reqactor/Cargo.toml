@@ -17,6 +17,8 @@ chrono = { workspace = true, features = ["serde"] }
 
 reth-primitives = { workspace = true }
 alloy-primitives = { workspace = true }
+base64 = { workspace = true }
+bincode = { workspace = true }
 
 [dev-dependencies]
 

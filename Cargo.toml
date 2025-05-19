@@ -62,10 +62,10 @@ reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = 
 reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 
 # risc zero
-risc0-zkvm = { version = "=2.0.1", features = ["prove", "getrandom"] }
+risc0-zkvm = { version = "=2.0.2", features = ["prove", "getrandom"] }
 bonsai-sdk = { version = "=1.4.0" }
-risc0-binfmt = { version = "=2.0.0" }
-risc0-zkos-v1compat = { version = "=2.0.0" }
+risc0-binfmt = { version = "=2.0.1" }
+risc0-zkos-v1compat = { version = "=2.0.1" }
 
 # SP1
 sp1-sdk = { version = "=4.1.7" }
@@ -153,6 +153,7 @@ reqwest = { version = "0.11.22", features = ["json"] }
 url = "2.5.0"
 async-trait = "0.1.80"
 dashmap = "5.5.3"
+futures = "0.3.31"
 
 # crypto
 kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
@@ -200,6 +201,7 @@ backoff = "0.4.0"
 derive-getters = "0.5.0"
 test-log = "0.2.16"
 pretty_assertions = "1.4.1"
+serial_test = "2"
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
