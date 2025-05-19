@@ -7,6 +7,7 @@ edition = "2021"
 chrono =  { workspace = true }
 raiko-lib = { workspace = true }
 tracing = { workspace = true }
+lru = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

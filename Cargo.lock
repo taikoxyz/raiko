@@ -6463,6 +6463,7 @@ name = "raiko-ballot"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "lru 0.13.0",
  "raiko-lib",
  "serde",
  "serde_json",
