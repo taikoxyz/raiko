@@ -381,7 +381,7 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` or  `cat ~/.con
 
  You will have to do this step twice: once for SgxGeth and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `<mainnet|hekla>-pacaya-sgxgeth` and the quote from `bootstrap.json` to register for `<mainnet|hekla>-pacaya-sgxreth`. Keep both instance IDs.
 
-> **_NOTE:_** If you are running pre-pacaya, you will have to do an extra step. `./script/layer1/provers/config_dcap_sgx_verifier.sh --env mainnet-ontake --quote {QUOTE_FROM_BOOTSTRAP.JSON}` and add `SGX_ONTAKE_INSTANCE_ID` in your .env from that.
+> **_NOTE:_** If you are running pre-pacaya, you will have to do an extra step. `./script/layer1/provers/config_dcap_sgx_verifier.sh --env mainnet-ontake --quote {QUOTE_FROM_BOOTSTRAP.JSON}` and add `SGX_ONTAKE_INSTANCE_ID` in your .env from that. If Pacaya fork has already happened, you can skip this!
 
 6. If you've been successful, you will get a SGX instance `id` which can be used to run Raiko!
 
@@ -525,7 +525,7 @@ If there are no errors, please use `ls ~/.config/raiko/config` to check that the
 
 If you haven't done so yet, clone `taiko-mono`. Checkout `main`.
 
-> **_NOTE:_** If you are running pre-pacaya, you will have to do an extra step. `./script/layer1/provers/config_dcap_sgx_verifier.sh --env mainnet-ontake --quote {QUOTE_FROM_BOOTSTRAP.JSON}` and add `SGX_ONTAKE_INSTANCE_ID` from that.
+> **_NOTE:_** If you are running pre-pacaya, you will have to do an extra step. `./script/layer1/provers/config_dcap_sgx_verifier.sh --env mainnet-ontake --quote {QUOTE_FROM_BOOTSTRAP.JSON}` and add `SGX_ONTAKE_INSTANCE_ID` from that. If Pacaya fork has already happened, you can skip this!
 
 ```bash
 cd packages/protocol
