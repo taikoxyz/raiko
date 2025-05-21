@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.0](https://github.com/taikoxyz/raiko/compare/v1.7.0...v1.8.0) (2025-05-16)
+
+
+### Features
+
+* **raiko:** compress redis entry to optimize db storage ([#561](https://github.com/taikoxyz/raiko/issues/561)) ([a7248bb](https://github.com/taikoxyz/raiko/commit/a7248bb79323bfb51c9d832a52c5a0fb7cad5428))
+* **raiko:** enable sgx web service ([#550](https://github.com/taikoxyz/raiko/issues/550)) ([f6e14a5](https://github.com/taikoxyz/raiko/commit/f6e14a5add5aadf7a20e413eb6ef099046595b51))
+* **raiko:** support parallel prefetch ([#557](https://github.com/taikoxyz/raiko/issues/557)) ([ffb25e3](https://github.com/taikoxyz/raiko/commit/ffb25e30d1e596d4ea8a650cac1a8285df8da2fc))
+* **raiko:** update docker compose for raiko sgx server ([#559](https://github.com/taikoxyz/raiko/issues/559)) ([70c0304](https://github.com/taikoxyz/raiko/commit/70c03043b815b05c56877781da7792672d4e899c))
+* **raiko:** support mainnet pacaya fork with prerelease-v1.8.0 ([#563](https://github.com/taikoxyz/raiko/pull/563))
+
+### Bug Fixes
+
+* use memfd instead of pipe in stdin to avoid deadlock in ego ([#560](https://github.com/taikoxyz/raiko/issues/560)) ([b703d9a](https://github.com/taikoxyz/raiko/commit/b703d9ae0389b5777639374a677dff69d4a75e51))
+
 ## [1.7.0](https://github.com/taikoxyz/raiko/compare/v1.6.1...v1.7.0) (2025-04-08)
 
 
