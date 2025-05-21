@@ -1,8 +1,11 @@
 use anyhow::Result;
+use risc0_binfmt::ProgramBinary;
+use risc0_zkos_v1compat::V1COMPAT_ELF;
 use std::{
     borrow::Cow,
     fs,
     path::{Path, PathBuf},
+    str::FromStr as _,
 };
 
 pub const DIGEST_WORDS: usize = 8;
@@ -22,11 +25,21 @@ pub struct GuestListEntry {
 }
 
 impl GuestListEntry {
-    /// Builds the [GuestListEntry] by reading the ELF from disk, and calculating the associated
+    /// Builds the [GuestListEntry] by reading the user ELF from disk, combines with V1COMPAT_ELF kernel, and calculating the associated
     /// image ID.
     pub fn build(name: &str, elf_path: &str) -> Result<Self> {
-        let elf = std::fs::read(elf_path)?;
+        let mut elf_path = elf_path.to_owned();
+        // Because the R0 build system isn't used, this does not include the kernel portion of the ELF
+        let user_elf = std::fs::read(&elf_path)?;
+
+        // Combines the user ELF with the kernel ELF
+        let elf = ProgramBinary::new(&user_elf, V1COMPAT_ELF).encode();
+
         let image_id = risc0_binfmt::compute_image_id(&elf)?;
+
+        let combined_path = PathBuf::from_str(&(elf_path + ".bin"))?;
+        std::fs::write(&combined_path, &elf)?;
+        elf_path = combined_path.to_str().unwrap().to_owned();
 
         println!("risc0 elf image id: {}", hex::encode(image_id.as_bytes()));
         Ok(Self {

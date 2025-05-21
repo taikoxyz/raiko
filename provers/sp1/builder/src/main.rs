@@ -5,7 +5,10 @@ use std::path::PathBuf;
 
 fn main() {
     let pipeline = Sp1Pipeline::new("provers/sp1/guest", "release");
-    pipeline.bins(&["sp1-guest", "sp1-aggregation"], "provers/sp1/guest/elf");
+    pipeline.bins(
+        &["sp1-guest", "sp1-aggregation", "sp1-batch"],
+        "provers/sp1/guest/elf",
+    );
     #[cfg(feature = "test")]
     pipeline.tests(&["sp1-guest"], "provers/sp1/guest/elf");
     #[cfg(feature = "bench")]
@@ -32,7 +35,7 @@ impl Pipeline for Sp1Pipeline {
     fn builder(&self) -> CommandBuilder {
         CommandBuilder::new(&self.meta, "riscv32im-succinct-zkvm-elf", "succinct")
             .rust_flags(&[
-                "passes=loweratomic",
+                "passes=lower-atomic",
                 "link-arg=-Ttext=0x00200800",
                 "panic=abort",
             ])

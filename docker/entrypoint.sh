@@ -5,20 +5,26 @@ set -xeo pipefail
 
 export IN_CONTAINER=1
 
-GRAMINE_PRIV_KEY="$HOME/.config/gramine/enclave-key.pem"
+# the config file & chain spec used inside raiko
+BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
+BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
 RAIKO_DOCKER_VOLUME_PATH="/root/.config/raiko"
 RAIKO_DOCKER_VOLUME_CONFIG_PATH="$RAIKO_DOCKER_VOLUME_PATH/config"
 RAIKO_DOCKER_VOLUME_SECRETS_PATH="$RAIKO_DOCKER_VOLUME_PATH/secrets"
 RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH="$RAIKO_DOCKER_VOLUME_SECRETS_PATH/priv.key"
 RAIKO_APP_DIR="/opt/raiko/bin"
 RAIKO_CONF_DIR="/etc/raiko"
-RAIKO_CONF_BASE_CONFIG="$RAIKO_CONF_DIR/config.sgx.json"
-RAIKO_CONF_CHAIN_SPECS="$RAIKO_CONF_DIR/chain_spec_list.docker.json"
+RAIKO_CONF_BASE_CONFIG="$RAIKO_CONF_DIR/$BASE_CONFIG_FILE"
+RAIKO_CONF_CHAIN_SPECS="$RAIKO_CONF_DIR/$BASE_CHAINSPEC_FILE"
+DEVNET_CHAINSPEC_FILE=$RAIKO_CONF_DIR/chain_spec_list_devnet.json
+PRODUCT_CHAINSPEC_FILE=$RAIKO_CONF_DIR/chain_spec_list_default.json
 RAIKO_GUEST_APP_FILENAME="sgx-guest"
+GAIKO_GUEST_APP_FILENAME="gaiko"
 RAIKO_GUEST_SETUP_FILENAME="raiko-setup"
 RAIKO_INPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.docker.manifest.template"
 RAIKO_OUTPUT_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.manifest.sgx"
 RAIKO_SIGNED_MANIFEST_FILENAME="$RAIKO_GUEST_APP_FILENAME.sig"
+GAIKO_GUEST_APP_VERBOSE_LEVEL=${GAIKO_GUEST_APP_VERBOSE_LEVEL:-3}
 
 function sign_gramine_manifest() {
     cd "$RAIKO_APP_DIR"
@@ -31,6 +37,12 @@ function sign_gramine_manifest() {
 function bootstrap() {
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
+    if [[ -n $SGXGETH ]]; then
+        echo "bootstrap geth sgx prover"
+        ./"$GAIKO_GUEST_APP_FILENAME" bootstrap
+    fi
+
+    echo "bootstrap sgx prover"
     gramine-sgx "$RAIKO_GUEST_APP_FILENAME" bootstrap
     cd -
 }
@@ -40,7 +52,7 @@ function bootstrap_with_self_register() {
     NETWORK="${NETWORK:-taiko_a7}"
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
-    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-network $L1_NETWORK --network $NETWORK
+    ./$RAIKO_GUEST_SETUP_FILENAME bootstrap --l1-network $L1_NETWORK --network $NETWORK --chain-spec-path $RAIKO_CONF_CHAIN_SPECS
     cd -
 }
 
@@ -61,7 +73,7 @@ function update_chain_spec_json() {
 function update_docker_chain_specs() {
     CONFIG_FILE=$1
     if [ ! -f $CONFIG_FILE ]; then
-        echo "chain_spec_list.docker.json file not found."
+        echo "$BASE_CHAINSPEC_FILE file not found."
         return 1
     fi
 
@@ -117,24 +129,52 @@ function update_raiko_sgx_instance_id() {
     CONFIG_FILE=$1
     if [[ -n $SGX_INSTANCE_ID ]]; then
         jq \
-        --arg update_value "$SGX_INSTANCE_ID" \
-        '.sgx.instance_ids.HEKLA = ($update_value | tonumber)' $CONFIG_FILE \
-        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+            --arg update_value "$SGX_INSTANCE_ID" \
+            '.sgx.instance_ids.HEKLA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update hekla sgx instance id to $SGX_INSTANCE_ID"
     fi
     if [[ -n $SGX_ONTAKE_INSTANCE_ID ]]; then
         jq \
-        --arg update_value "$SGX_ONTAKE_INSTANCE_ID" \
-        '.sgx.instance_ids.ONTAKE = ($update_value | tonumber)' $CONFIG_FILE \
-        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+            --arg update_value "$SGX_ONTAKE_INSTANCE_ID" \
+            '.sgx.instance_ids.ONTAKE = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update ontake sgx instance id to $SGX_ONTAKE_INSTANCE_ID"
     fi
     if [[ -n $SGX_PACAYA_INSTANCE_ID ]]; then
         jq \
-        --arg update_value "$SGX_PACAYA_INSTANCE_ID" \
-        '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
-        >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+            --arg update_value "$SGX_PACAYA_INSTANCE_ID" \
+            '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update pacaya sgx instance id to $SGX_PACAYA_INSTANCE_ID"
+    fi
+    if [[ -n $SGXGETH_PACAYA_INSTANCE_ID ]]; then
+        jq \
+            --arg update_value "$SGXGETH_PACAYA_INSTANCE_ID" \
+            '.sgxgeth.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+        echo "Update pacaya sgxgeth instance id to $SGXGETH_PACAYA_INSTANCE_ID"
+    fi
+}
+
+# merge devnet & product chain spec here
+function merge_json_arrays() {
+    local input1="$1"
+    local input2="$2"
+    local output="$3"
+
+    if [[ ! -f "$input1" || ! -f "$input2" ]]; then
+        echo "❌ $input1 or $input2 not found！"
+        return 1
+    fi
+
+    jq -s 'add' "$input1" "$input2" >"$output"
+
+    if [[ $? -eq 0 ]]; then
+        echo "✅ merge chainspec success to: $output"
+    else
+        echo "❌ merge failed!"
+        return 1
     fi
 }
 
@@ -150,7 +190,7 @@ if [[ -n $TEST ]]; then
 fi
 
 # sgx mode
-if [[ -n $SGX ]]; then
+if [[ -n $SGX || -n $SGX_SERVER ]]; then
     sed -i "s/https:\/\/localhost:8081/https:\/\/${MY_PCCS_HOST}/g" /etc/sgx_default_qcnl.conf
     /restart_aesm.sh
 fi
@@ -162,13 +202,18 @@ if [[ -n $SGX ]]; then
         bootstrap
     elif [[ $# -eq 1 && $1 == "--init-self-register" ]]; then
         echo "start bootstrap with self register"
+        #merge chain spec to a all-in-one file
+        merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
+        update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
         bootstrap_with_self_register
     else
         echo "start proving"
-        if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
-            echo "Application was not bootstrapped. " \
-                "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
-            exit 1
+        if [ "$SGX_MODE" = "local" ]; then
+            if [[ ! -f "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH" ]]; then
+                echo "Application was not bootstrapped. " \
+                    "$RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH is missing. Bootstrap it first." >&2
+                exit 1
+            fi
         fi
 
         if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
@@ -179,23 +224,51 @@ if [[ -n $SGX ]]; then
         #update raiko server config
         update_raiko_network $RAIKO_CONF_BASE_CONFIG
         update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
+
+        #merge chain spec to a all-in-one file
+        merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
         update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
-        /opt/raiko/bin/raiko-host "$@"
+        /opt/raiko/bin/raiko-host --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
     fi
 fi
 
 if [[ -n $ZK ]]; then
     echo "running raiko in zk mode"
-        if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
-            echo "$RAIKO_CONF_BASE_CONFIG file not found."
+    if [ ! -f $RAIKO_CONF_BASE_CONFIG ]; then
+        echo "$RAIKO_CONF_BASE_CONFIG file not found."
+        exit 1
+    fi
+
+    #update raiko server config
+    update_raiko_network $RAIKO_CONF_BASE_CONFIG
+    update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
+
+    #update raiko server chainspec
+    merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
+    update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
+
+    /opt/raiko/bin/raiko-host --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
+fi
+
+if [[ -n $SGX_SERVER ]]; then
+    echo "running sgx in sgx server mode"
+
+    if [[ $# -eq 1 && $1 == "--init" ]]; then
+        echo "start server bootstrap"
+        # useless here, as it can share same raiko init
+        # keep it now for future refactory
+        bootstrap
+    else
+        if [[ -z $SGX_PACAYA_INSTANCE_ID || -z $SGXGETH_PACAYA_INSTANCE_ID ]]; then 
+            echo "SGX_PACAYA_INSTANCE_ID and SGXGETH_PACAYA_INSTANCE_ID must be presented, please check."
             exit 1
         fi
 
-        #update raiko server config
-        update_raiko_network $RAIKO_CONF_BASE_CONFIG
-        update_raiko_sgx_instance_id $RAIKO_CONF_BASE_CONFIG
-        update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
-
-        /opt/raiko/bin/raiko-host "$@"
+        echo "start sgx-guest --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090"
+        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
+        echo "start gaiko serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8080"
+        /opt/raiko/bin/gaiko --verbosity $GAIKO_GUEST_APP_VERBOSE_LEVEL serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8090 | sed 's/^/[gaiko] /' &
+        wait
+    fi
 fi

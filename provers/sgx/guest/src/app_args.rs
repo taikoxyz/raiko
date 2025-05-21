@@ -27,12 +27,24 @@ pub enum Command {
     Bootstrap,
     /// Check if bootstrap is readable
     Check,
+    /// Sgx server to process incoming
+    Serve(ServerArgs),
 }
 
 #[derive(Debug, Args)]
 pub struct OneShotArgs {
     #[clap(long)]
     pub sgx_instance_id: u32,
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct ServerArgs {
+    #[clap(long)]
+    pub sgx_instance_id: u32,
+    #[clap(long)]
+    pub address: String,
+    #[clap(long)]
+    pub port: u32,
 }
 
 fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {
@@ -42,7 +54,7 @@ fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {
     home_dir
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Clone)]
 pub struct GlobalOpts {
     #[clap(short, long, default_value=get_default_raiko_user_config_path("secrets").into_os_string())]
     /// Path to the directory with the encrypted private keys being used to sign the

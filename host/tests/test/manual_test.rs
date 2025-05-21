@@ -58,6 +58,7 @@ pub async fn test_manual_prove() {
         prover_args: ProverSpecificOpts {
             native: None,
             sgx: None,
+            sgxgeth: None,
             sp1: None,
             risc0: None,
         },

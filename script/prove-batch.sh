@@ -1,14 +1,60 @@
 #!/usr/bin/env bash
 
+if [ "$#" -ne 3 ]; then
+  echo "Usage: prove-batch.sh <chain> <proof> <batch_info>"
+  echo "  chain: taiko_mainnet, taiko_a7, taiko_dev"
+  echo "  proof: native, risc0[-bonsai], sp1, sgx, sgxgeth"
+  echo "  batch_info: \"[(batch_id, batch_proposal_height)]\""
+  echo "Example:"
+  echo "  prove-batch.sh ethereum native \"[(1, 2)]\" "
+  exit 1
+fi
+
 # Use the first command line argument as the chain name
 chain="$1"
 # Use the second command line argument as the proof type
 proof="$2"
-# Use the third parameter(s) as the batch number as a range
-batch_id="$3"
-# Use the fourth parameter(s) as the batch number as a range
-batch_proposal_height="$4"
+# Use the third command line argument as a tuple of the batch number and l1 inclusion number
+batch_info="$3"
 
+batch_id=""
+height=""
+
+parse_batch_pair() {
+  local input="$1"
+
+  local cleaned
+  cleaned=$(echo "$input" | sed 's/[][]//g' | sed 's/ //g' | tr -d '()')
+
+  local pair
+  pair=$(echo "$cleaned" | grep -oE '[0-9]+,[0-9]+')
+
+  if [[ -z "$pair" ]]; then
+    echo "❌ Invalid input format: expected something like \"[(1,2)]\"" >&2
+    return 1
+  fi
+
+  local json_array="["
+  local first=1
+
+  while IFS=',' read -r batch_id height; do
+    if [[ $first -eq 0 ]]; then
+      json_array+=", "
+    fi
+    json_array+="{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $height}"
+    first=0
+  done <<< "$pair"
+
+  json_array+="]"
+  echo "$json_array"
+}
+
+batch_request=$(parse_batch_pair "$batch_info")
+if [[ $? -ne 0 ]]; then
+  exit 1
+fi
+
+echo "Parsed batch request: $batch_request"
 
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
@@ -65,6 +111,17 @@ elif [ "$proof" == "sgx" ]; then
         "input_path": null
     }
 '
+elif [ "$proof" == "sgxgeth" ]; then
+	proofParam='
+    "proof_type": "sgxgeth",
+    "sgxgeth" : {
+        "instance_id": 456,
+        "setup": false,
+        "bootstrap": false,
+        "prove": true,
+        "input_path": null
+    }
+'
 elif [ "$proof" == "risc0" ]; then
 	proofParam='
     "proof_type": "risc0",
@@ -88,28 +145,24 @@ elif [ "$proof" == "risc0-bonsai" ]; then
     }
   '
 else
-	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', or 'sgx'."
+	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'sgxgeth' or 'sgx'."
 	exit 1
 fi
 
-
 prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-graffiti="8008500000000000000000000000000000000000000000000000000000000000"
 
+AGG=${AGG:-false}
 
-echo "- proving batch $batch_id @ $batch_proposal_height on $chain with $proof proof"
 curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --header 'Content-Type: application/json' \
     --header 'Authorization: Bearer' \
     --data-raw "{
         \"network\": \"$chain\",
         \"l1_network\": \"$l1_network\",
-        \"batches\": [{\"batch_id\": $batch_id, \"l1_inclusion_block_number\": $batch_proposal_height}],
+        \"batches\": $batch_request,
         \"prover\": \"$prover\",
-        \"graffiti\": \"$graffiti\",
+        \"aggregate\": $AGG,
         $proofParam
     }"
-set +x
 echo ""
-
 sleep 1.0

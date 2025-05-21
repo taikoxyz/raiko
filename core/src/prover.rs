@@ -25,6 +25,7 @@ pub struct NativeResponse {
 
 impl Prover for NativeProver {
     async fn run(
+        &self,
         input: GuestInput,
         output: &GuestOutput,
         config: &ProverConfig,
@@ -67,6 +68,7 @@ impl Prover for NativeProver {
     }
 
     async fn batch_run(
+        &self,
         batch_input: GuestBatchInput,
         batch_output: &GuestBatchOutput,
         config: &ProverConfig,
@@ -112,11 +114,12 @@ impl Prover for NativeProver {
         })
     }
 
-    async fn cancel(_proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
+    async fn cancel(&self, _proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())
     }
 
     async fn aggregate(
+        &self,
         _input: raiko_lib::input::AggregationGuestInput,
         _output: &raiko_lib::input::AggregationGuestOutput,
         _config: &ProverConfig,
@@ -158,7 +161,9 @@ async fn test_native_prover() {
             "json_guest_input": null
         }
     });
-    NativeProver::run(input, &output, &param, None)
+    let prover = NativeProver;
+    prover
+        .run(input, &output, &param, None)
         .await
         .expect_err("Default output should not match input.");
 }

@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.0](https://github.com/taikoxyz/raiko/compare/v1.6.1...v1.7.0) (2025-04-08)
+
+
+### Features
+
+* **gaiko:** support hekla pacaya ([#528](https://github.com/taikoxyz/raiko/issues/528)) ([e2f3ac6](https://github.com/taikoxyz/raiko/commit/e2f3ac616ba712c1ab9c6ec589f7197144df5ed3))
+* impl zkvm support for pacaya ([#526](https://github.com/taikoxyz/raiko/issues/526)) ([0762618](https://github.com/taikoxyz/raiko/commit/0762618331b00cc5bd80bf24737c5d875f7d27f1))
+* **raiko:** update docker cmd script ([#530](https://github.com/taikoxyz/raiko/issues/530)) ([8cb5449](https://github.com/taikoxyz/raiko/commit/8cb54493d1c8b40ad59f3311be1ff1fcd52b4c45))
+* **raiko:** update script to support batch prove ([#531](https://github.com/taikoxyz/raiko/issues/531)) ([29c7c5c](https://github.com/taikoxyz/raiko/commit/29c7c5c55d8bb410bf11b08da251019f17c726e2))
+
+
+### Bug Fixes
+
+* **ballot:** correct validation logic for probability values ([#529](https://github.com/taikoxyz/raiko/issues/529)) ([72aa660](https://github.com/taikoxyz/raiko/commit/72aa660cf2d0c83f26995ee718012e425f3b1318))
+* **setup:** origin config file is different from saved config file ([#532](https://github.com/taikoxyz/raiko/issues/532)) ([6b4d90c](https://github.com/taikoxyz/raiko/commit/6b4d90c4f475206d4db43c3287c35c624e7d6969))
+
 ## [1.6.0](https://github.com/taikoxyz/raiko/compare/v1.5.0...v1.6.0) (2025-03-24)
 
 

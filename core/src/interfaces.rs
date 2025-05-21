@@ -95,12 +95,14 @@ pub async fn run_prover(
     store: Option<&mut dyn IdWrite>,
 ) -> RaikoResult<Proof> {
     match proof_type {
-        ProofType::Native => NativeProver::run(input.clone(), output, config, store)
+        ProofType::Native => NativeProver
+            .run(input.clone(), output, config, store)
             .await
             .map_err(<ProverError as Into<RaikoError>>::into),
         ProofType::Sp1 => {
             #[cfg(feature = "sp1")]
-            return sp1_driver::Sp1Prover::run(input.clone(), output, config, store)
+            return sp1_driver::Sp1Prover
+                .run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sp1"))]
@@ -108,15 +110,17 @@ pub async fn run_prover(
         }
         ProofType::Risc0 => {
             #[cfg(feature = "risc0")]
-            return risc0_driver::Risc0Prover::run(input.clone(), output, config, store)
+            return risc0_driver::Risc0Prover
+                .run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx => {
+        ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::run(input.clone(), output, config, store)
+            return sgx_prover::SgxProver::new(proof_type)
+                .run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
@@ -134,12 +138,14 @@ pub async fn run_batch_prover(
     store: Option<&mut dyn IdWrite>,
 ) -> RaikoResult<Proof> {
     match proof_type {
-        ProofType::Native => NativeProver::batch_run(input.clone(), output, config, store)
+        ProofType::Native => NativeProver
+            .batch_run(input.clone(), output, config, store)
             .await
             .map_err(<ProverError as Into<RaikoError>>::into),
         ProofType::Sp1 => {
             #[cfg(feature = "sp1")]
-            return sp1_driver::Sp1Prover::batch_run(input.clone(), output, config, store)
+            return sp1_driver::Sp1Prover
+                .batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sp1"))]
@@ -147,15 +153,17 @@ pub async fn run_batch_prover(
         }
         ProofType::Risc0 => {
             #[cfg(feature = "risc0")]
-            return risc0_driver::Risc0Prover::batch_run(input.clone(), output, config, store)
+            return risc0_driver::Risc0Prover
+                .batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx => {
+        ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::batch_run(input.clone(), output, config, store)
+            return sgx_prover::SgxProver::new(proof_type)
+                .batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
@@ -173,12 +181,14 @@ pub async fn aggregate_proofs(
     store: Option<&mut dyn IdWrite>,
 ) -> RaikoResult<Proof> {
     let proof = match proof_type {
-        ProofType::Native => NativeProver::aggregate(input.clone(), output, config, store)
+        ProofType::Native => NativeProver
+            .aggregate(input.clone(), output, config, store)
             .await
             .map_err(<ProverError as Into<RaikoError>>::into),
         ProofType::Sp1 => {
             #[cfg(feature = "sp1")]
-            return sp1_driver::Sp1Prover::aggregate(input.clone(), output, config, store)
+            return sp1_driver::Sp1Prover
+                .aggregate(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sp1"))]
@@ -186,15 +196,17 @@ pub async fn aggregate_proofs(
         }
         ProofType::Risc0 => {
             #[cfg(feature = "risc0")]
-            return risc0_driver::Risc0Prover::aggregate(input.clone(), output, config, store)
+            return risc0_driver::Risc0Prover
+                .aggregate(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx => {
+        ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::aggregate(input.clone(), output, config, store)
+            return sgx_prover::SgxProver::new(proof_type)
+                .aggregate(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
@@ -211,12 +223,14 @@ pub async fn cancel_proof(
     read: Box<&mut dyn IdStore>,
 ) -> RaikoResult<()> {
     match proof_type {
-        ProofType::Native => NativeProver::cancel(proof_key, read)
+        ProofType::Native => NativeProver
+            .cancel(proof_key, read)
             .await
             .map_err(<ProverError as Into<RaikoError>>::into),
         ProofType::Sp1 => {
             #[cfg(feature = "sp1")]
-            return sp1_driver::Sp1Prover::cancel(proof_key, read)
+            return sp1_driver::Sp1Prover
+                .cancel(proof_key, read)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sp1"))]
@@ -224,15 +238,17 @@ pub async fn cancel_proof(
         }
         ProofType::Risc0 => {
             #[cfg(feature = "risc0")]
-            return risc0_driver::Risc0Prover::cancel(proof_key, read)
+            return risc0_driver::Risc0Prover
+                .cancel(proof_key, read)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Sgx => {
+        ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
-            return sgx_prover::SgxProver::cancel(proof_key, read)
+            return sgx_prover::SgxProver::new(proof_type)
+                .cancel(proof_key, read)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
@@ -400,6 +416,8 @@ pub struct ProverSpecificOpts {
     pub native: Option<Value>,
     /// SGX prover specific options.
     pub sgx: Option<Value>,
+    /// SgxGeth prover specific options.
+    pub sgxgeth: Option<Value>,
     /// SP1 prover specific options.
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
@@ -413,6 +431,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
         [
             ("native", value.native.clone()),
             ("sgx", value.sgx.clone()),
+            ("sgxgeth", value.sgxgeth.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
         ]
