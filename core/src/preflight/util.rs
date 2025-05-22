@@ -15,7 +15,7 @@ use raiko_lib::{
     inplace_print,
     input::{
         ontake::{BlockProposedV2, CalldataTxList},
-        pacaya::{proposeBatchCall, BatchProposed},
+        pacaya::BatchProposed,
         proposeBlockCall, BlobProofType, BlockProposed, BlockProposedFork, TaikoGuestBatchInput,
         TaikoGuestInput, TaikoProverData,
     },
@@ -309,15 +309,14 @@ pub async fn prepare_taiko_chain_batch_input(
     let fork = taiko_chain_spec.active_fork(batch_blocks[0].number, batch_blocks[0].timestamp)?;
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
     // todo: duplicate code with parse_l1_batch_proposal_tx_for_pacaya_fork(), better to make these values fn parameters
-    let (l1_inclusion_height, batch_proposal_tx, batch_proposed_fork) =
-        get_block_proposed_event_by_height(
-            provider_l1.provider(),
-            taiko_chain_spec.clone(),
-            l1_inclusion_block_number,
-            batch_id,
-            fork,
-        )
-        .await?;
+    let (l1_inclusion_height, _, batch_proposed_fork) = get_block_proposed_event_by_height(
+        provider_l1.provider(),
+        taiko_chain_spec.clone(),
+        l1_inclusion_block_number,
+        batch_id,
+        fork,
+    )
+    .await?;
     assert_eq!(l1_inclusion_block_number, l1_inclusion_height);
     let (l1_inclusion_header, l1_state_header) = get_headers(
         &provider_l1,
@@ -349,11 +348,8 @@ pub async fn prepare_taiko_chain_batch_input(
 
         // according to protocol, calldata is mutex with blob
         let (tx_data_from_calldata, blob_tx_buffers_with_proofs) = if blob_hashes.is_empty() {
-            let proposeBatchCall { _txList, .. } =
-                proposeBatchCall::abi_decode(&batch_proposal_tx.input, false).map_err(|_| {
-                    RaikoError::Preflight("Could not decode proposeBatchCall".to_owned())
-                })?;
-            (_txList.to_vec(), Vec::new())
+            let tx_list = &batch_proposed.txList;
+            (tx_list.to_vec(), Vec::new())
         } else {
             let blob_tx_buffers = get_batch_tx_data_with_proofs(
                 blob_hashes,
