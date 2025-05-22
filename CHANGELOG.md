@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/taikoxyz/raiko/compare/v1.8.0...v1.9.0) (2025-05-22)
+
+
+### Features
+
+* **raiko:** enable poisson check of the zk draw ([#562](https://github.com/taikoxyz/raiko/issues/562)) ([f1e2a98](https://github.com/taikoxyz/raiko/commit/f1e2a985708b931ec9c11c8f1ce52fab00a4b474))
+* **raiko:** read blob only once ([#568](https://github.com/taikoxyz/raiko/issues/568)) ([00940d0](https://github.com/taikoxyz/raiko/commit/00940d004cf8cbfc5c844a529d88b861f8f19e45))
+
 ## [1.8.0](https://github.com/taikoxyz/raiko/compare/v1.7.0...v1.8.0) (2025-05-16)
 
 
