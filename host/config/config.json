@@ -10,14 +10,14 @@
     "instance_id": 0
   },
   "risc0": {
-    "bonsai": true,
+    "bonsai": false,
     "snark": true,
     "profile": false,
     "execution_po2": 20
   },
   "sp1": {
     "recursion": "core",
-    "prover": "mock",
+    "prover": "local",
     "verify": true
   },
   "native": {

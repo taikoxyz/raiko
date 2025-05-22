@@ -57,6 +57,6 @@ async fn main() {
     });
     let time = Measurement::start("prove_groth16 & verify", false);
     input.taiko.blob_proof_type = BlobProofType::ProofOfEquivalence;
-    Sp1Prover::run(input, &output, &param, None).await.unwrap();
+    Sp1Prover.run(input, &output, &param, None).await.unwrap();
     time.stop_with("==> Verification complete");
 }

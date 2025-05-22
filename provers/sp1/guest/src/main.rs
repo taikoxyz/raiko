@@ -30,10 +30,10 @@ pub fn main() {
 
 harness::zk_suits!(
     pub mod tests {
-
         use reth_primitives::alloy_primitives::PrimitiveSignature as Signature;
         use reth_primitives::U256;
         use std::str::FromStr;
+
         #[test]
         pub fn test_build_from_mock_input() {
             // Todo: impl mock input for static unit test

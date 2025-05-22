@@ -6,9 +6,9 @@ use raiko_lib::{
     proof_type::ProofType,
 };
 use serde_json::Value;
-use sgx_prover::{
+use sgx_prover::local_prover::{
     bootstrap, check_bootstrap, get_instance_id, register_sgx_instance, remove_instance_id,
-    set_instance_id, ForkRegisterId, ELF_NAME,
+    set_instance_id, ForkRegisterId, ELF_NAME, GAIKO_ELF_NAME,
 };
 use std::{
     collections::BTreeMap,
@@ -31,19 +31,64 @@ pub(crate) async fn setup_bootstrap(
     // Block until the lock is acquired.
     // Create the lock file if it does not exist.
     // Drop the lock file when the lock goes out of scope by drop guard.
-    let _filelock = FileLock::lock(
+    let filelock = FileLock::lock(
         config_dir.join("bootstrap.lock"),
         true,
         FileOptions::new().create(true).write(true),
     )?;
+
+    // NB: Origin config file is static and should not be changed.
+    let file = File::open(&bootstrap_args.config_path)?;
+    let reader = BufReader::new(file);
+    let mut file_config: Value = serde_json::from_reader(reader)?;
+
+    println!("Setup SGX bootstrap");
+    setup_bootstrap_inner(
+        secret_dir.clone(),
+        config_dir.clone(),
+        bootstrap_args,
+        ProofType::Sgx,
+        &mut file_config,
+    )
+    .await?;
+    println!("Setup SGXGETH bootstrap");
+    setup_bootstrap_inner(
+        secret_dir,
+        config_dir,
+        bootstrap_args,
+        ProofType::SgxGeth,
+        &mut file_config,
+    )
+    .await?;
+    drop(filelock);
+    Ok(())
+}
+
+pub(crate) async fn setup_bootstrap_inner(
+    secret_dir: PathBuf,
+    config_dir: PathBuf,
+    bootstrap_args: &BootstrapArgs,
+    proof_type: ProofType,
+    file_config: &mut serde_json::Value,
+) -> Result<()> {
     let chain_specs = SupportedChainSpecs::merge_from_file(bootstrap_args.chain_spec_path.clone())?;
     let l1_chain_spec = chain_specs
         .get_chain_spec(&bootstrap_args.l1_network)
-        .ok_or_else(|| anyhow!("Unsupported l1 network: {}", bootstrap_args.l1_network))?;
+        .ok_or_else(|| {
+            anyhow!(
+                "Unsupported l1 network: {}, proof_type: {proof_type}",
+                bootstrap_args.l1_network
+            )
+        })?;
 
     let taiko_chain_spec = chain_specs
         .get_chain_spec(&bootstrap_args.network)
-        .ok_or_else(|| anyhow!("Unsupported l2 network: {}", bootstrap_args.l1_network))?;
+        .ok_or_else(|| {
+            anyhow!(
+                "Unsupported l2 network: {}, proof_type: {proof_type}",
+                bootstrap_args.l1_network
+            )
+        })?;
 
     let cur_dir = env::current_exe()
         .expect("Fail to get current directory")
@@ -52,18 +97,24 @@ pub(crate) async fn setup_bootstrap(
         .to_path_buf();
 
     let gramine_cmd = || -> Command {
+        if proof_type == ProofType::SgxGeth {
+            // return Command::new(cur_dir.join(GAIKO_ELF_NAME));
+            let mut cmd = Command::new("sudo");
+            cmd.arg(cur_dir.join(GAIKO_ELF_NAME));
+            return cmd;
+        }
         let mut cmd = Command::new("sudo");
         cmd.arg("gramine-sgx");
         cmd.current_dir(&cur_dir).arg(ELF_NAME);
         cmd
     };
 
-    let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec);
-    let mut registered_fork_ids = get_instance_id(&config_dir)?;
-    let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd())
+    let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec, proof_type);
+    let mut registered_fork_ids = get_instance_id(&config_dir, proof_type)?;
+    let need_init = check_bootstrap(secret_dir.clone(), gramine_cmd(), proof_type)
         .await
         .map_err(|e| {
-            println!("Error checking bootstrap: {e:?}");
+            println!("Error checking bootstrap: {e:?}, proof_type: {proof_type}");
             e
         })
         .is_err()
@@ -71,17 +122,18 @@ pub(crate) async fn setup_bootstrap(
         || fork_verifier_pairs
             .clone()
             .into_values()
-            .flat_map(|v| v)
+            .flatten()
             .any(|id| !registered_fork_ids.clone().unwrap().contains_key(&id));
 
-    println!("Instance ID: {registered_fork_ids:?}");
+    println!("Instance ID: {registered_fork_ids:?}, proof_type: {proof_type}");
 
     if need_init {
         // clean check file
-        remove_instance_id(&config_dir)?;
-        let bootstrap_proof = bootstrap(secret_dir, gramine_cmd()).await?;
+        remove_instance_id(&config_dir, proof_type)?;
+        let bootstrap_proof = bootstrap(secret_dir, gramine_cmd(), proof_type).await?;
         let mut fork_register_id: ForkRegisterId = BTreeMap::new();
         for (verifier_addr, spec_ids) in fork_verifier_pairs.iter() {
+            println!("Registering verifier {verifier_addr:?} for forks {spec_ids:?}");
             let register_id = register_sgx_instance(
                 &bootstrap_proof.quote,
                 &l1_chain_spec.rpc,
@@ -94,22 +146,20 @@ pub(crate) async fn setup_bootstrap(
                 fork_register_id.insert(*spec_id, register_id);
             }
         }
-        println!("Saving instance id {registered_fork_ids:?}");
         // set check file
-        set_instance_id(&config_dir, &fork_register_id)?;
+        set_instance_id(&config_dir, proof_type, &fork_register_id)?;
         registered_fork_ids = Some(fork_register_id);
+        println!("Saving instance id {registered_fork_ids:?}");
     }
-    // Always reset the configuration with a persistent instance ID upon restart.
-    let file = File::open(&bootstrap_args.config_path)?;
-    let reader = BufReader::new(file);
-    let mut file_config: Value = serde_json::from_reader(reader)?;
     let sgx_instance_json_value = serde_json::to_value(registered_fork_ids)?;
-    file_config["sgx"]["instance_ids"] = sgx_instance_json_value;
+    let type_key = proof_type.to_string();
+    file_config[&type_key]["instance_ids"] = sgx_instance_json_value;
 
     //save to the same file
     let new_config_path = config_dir.join("config.sgx.json");
     println!("Saving bootstrap data file {}", new_config_path.display());
     let json = serde_json::to_string_pretty(&file_config)?;
+    println!("Saving config content {}", json);
     fs::write(&new_config_path, json).context(format!(
         "Saving bootstrap data file {} failed",
         new_config_path.display()
@@ -117,26 +167,24 @@ pub(crate) async fn setup_bootstrap(
     Ok(())
 }
 
-fn get_hard_fork_verifiers(taiko_chain_spec: &ChainSpec) -> BTreeMap<Address, Vec<SpecId>> {
+fn get_hard_fork_verifiers(
+    taiko_chain_spec: &ChainSpec,
+    proof_type: ProofType,
+) -> BTreeMap<Address, Vec<SpecId>> {
     let mut fork_verifiers: BTreeMap<Address, Vec<SpecId>> =
         BTreeMap::<Address, Vec<SpecId>>::new();
     taiko_chain_spec
         .verifier_address_forks
         .iter()
-        .for_each(
-            |(spec_id, verifiers)| match verifiers.get(&ProofType::Sgx) {
-                Some(verifier_addr) => match verifier_addr {
-                    Some(addr) => {
-                        fork_verifiers
-                            .entry(addr.clone())
-                            .or_insert_with(Vec::new)
-                            .push(*spec_id);
-                    }
-                    None => warn!("No verifier for fork {spec_id:?}"),
-                },
+        .for_each(|(spec_id, verifiers)| match verifiers.get(&proof_type) {
+            Some(verifier_addr) => match verifier_addr {
+                Some(addr) => {
+                    fork_verifiers.entry(*addr).or_default().push(*spec_id);
+                }
                 None => warn!("No verifier for fork {spec_id:?}"),
             },
-        );
+            None => warn!("No verifier for fork {spec_id:?}"),
+        });
     fork_verifiers
 }
 
@@ -158,7 +206,7 @@ mod test {
         let taiko_chain_spec = SupportedChainSpecs::default()
             .get_chain_spec(&Network::TaikoMainnet.to_string())
             .unwrap();
-        let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec);
+        let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec, ProofType::Sgx);
         info!("fork_verifier_pairs = {fork_verifier_pairs:?}")
     }
 
@@ -176,9 +224,9 @@ mod test {
         file_config["sgx"]["instance_ids"] = sgx_instance_json_value;
         println!("updated file_config: {file_config}");
         let dir = Path::new("/tmp");
-        set_instance_id(dir, &registered_fork_ids).expect("save register ids");
+        set_instance_id(dir, ProofType::Sgx, &registered_fork_ids).expect("save register ids");
 
-        let fork_ids = get_instance_id(dir)
+        let fork_ids = get_instance_id(dir, ProofType::Sgx)
             .expect("get register ids")
             .expect("fork ids exist");
         assert_eq!(
@@ -194,10 +242,10 @@ mod test {
         let registered_fork_ids: ForkRegisterId =
             serde_json::from_reader(reader).expect("read file");
         println!("in file_config: {registered_fork_ids:?}");
-        let taiko_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::TaikoMainnet.to_string())
+        let chain_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::SurgeDev.to_string())
             .unwrap();
-        let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec);
+        let fork_verifier_pairs = get_hard_fork_verifiers(&chain_spec, ProofType::Sgx);
         println!("fork_verifier_pairs = {fork_verifier_pairs:?}");
         let need_init = fork_verifier_pairs
             .clone()
@@ -205,7 +253,7 @@ mod test {
             .flat_map(|v| v)
             .any(|id| !registered_fork_ids.clone().contains_key(&id));
         assert!(
-            need_init,
+            !need_init,
             "{fork_verifier_pairs:?} is different than {registered_fork_ids:?}, so we need init"
         )
     }

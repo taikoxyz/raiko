@@ -234,6 +234,8 @@ pub struct TaikoGuestInput {
 
 pub struct ZlibCompressError(pub String);
 
+// for non-taiko chain use only. As we need to decompress txs buffer in raiko, if txs comes from non-taiko chain,
+// we simply compress before sending to raiko, then, decompress will give the same txs inside raiko.
 impl TryFrom<Vec<TransactionSigned>> for TaikoGuestInput {
     type Error = ZlibCompressError;
 
@@ -311,3 +313,42 @@ pub mod ontake;
 pub mod pacaya;
 
 pub use hekla::*;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_guest_input_se_de() {
+        let input = GuestInput {
+            block: Block::default(),
+            chain_spec: ChainSpec::default(),
+            parent_header: Header::default(),
+            parent_state_trie: MptNode::default(),
+            parent_storage: HashMap::default(),
+            contracts: vec![],
+            ancestor_headers: vec![],
+            taiko: TaikoGuestInput::default(),
+        };
+        let input_ser = serde_json::to_string(&input).unwrap();
+        let input_de: GuestInput = serde_json::from_str(&input_ser).unwrap();
+        print!("{:?}", input_de);
+    }
+
+    #[test]
+    fn test_guest_input_value_sede() {
+        let input = GuestInput {
+            block: Block::default(),
+            chain_spec: ChainSpec::default(),
+            parent_header: Header::default(),
+            parent_state_trie: MptNode::default(),
+            parent_storage: HashMap::default(),
+            contracts: vec![],
+            ancestor_headers: vec![],
+            taiko: TaikoGuestInput::default(),
+        };
+        let input_ser = serde_json::to_value(&input).unwrap();
+        let input_de: GuestInput = serde_json::from_value(input_ser).unwrap();
+        print!("{:?}", input_de);
+    }
+}

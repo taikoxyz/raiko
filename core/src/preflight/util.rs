@@ -654,21 +654,14 @@ pub async fn get_block_proposed_event_by_traversal(
     l2_block_number: u64,
     fork: SpecId,
 ) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
-    let from_block = l1_anchor_block_number + 1;
-    let block_number: u64 = provider.get_block_number().await?;
-    let to_block = std::cmp::min(block_number, l1_anchor_block_number + 65);
-
-    let filter = if from_block < to_block {
-        EventFilterConditioin::Range((from_block, to_block))
-    } else {
-        warn!("Height is low or equal to l1_anchor_block_number+1. Height = {:?}", to_block);
-        EventFilterConditioin::Height(to_block)
-    };
-
+    let latest_block_number = provider.get_block_number().await?;
+    let range_start = l1_anchor_block_number + 1;
+    let range_end = std::cmp::min(l1_anchor_block_number + 64, latest_block_number);
+    info!("traversal proposal event in L1 range: ({range_start}, {range_end})");
     filter_block_proposed_event(
         provider,
         chain_spec,
-        filter,
+        EventFilterConditioin::Range((range_start, range_end)),
         l2_block_number,
         fork,
     )

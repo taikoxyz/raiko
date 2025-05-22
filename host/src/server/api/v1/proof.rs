@@ -11,7 +11,7 @@ use crate::{
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::{
         api::v1::Status,
-        utils::{draw_for_zk_any_request, fulfill_sp1_params, is_zk_any_request, to_v1_status},
+        utils::{draw_for_zk_any_request, is_zk_any_request, to_v1_status},
     },
 };
 
@@ -32,14 +32,10 @@ use crate::{
 /// - risc0 - uses the risc0 prover
 async fn proof_handler(
     State(actor): State<Actor>,
-    Json(mut req): Json<Value>,
+    Json(req): Json<Value>,
 ) -> HostResult<Json<Status>> {
     warn!("Using deprecated v1 proof handler");
     inc_current_req();
-
-    if is_zk_any_request(&req) {
-        fulfill_sp1_params(&mut req);
-    }
 
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.

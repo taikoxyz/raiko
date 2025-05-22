@@ -29,9 +29,9 @@ pub mod provider;
 pub type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
 pub struct Raiko {
-    l1_chain_spec: ChainSpec,
-    taiko_chain_spec: ChainSpec,
-    request: ProofRequest,
+    pub l1_chain_spec: ChainSpec,
+    pub taiko_chain_spec: ChainSpec,
+    pub request: ProofRequest,
 }
 
 impl Raiko {
@@ -142,8 +142,8 @@ impl Raiko {
 
     pub fn get_batch_output(&self, batch_input: &GuestBatchInput) -> RaikoResult<GuestBatchOutput> {
         info!(
-            "Generating output for batch id: {}",
-            batch_input.taiko.batch_id
+            "Generating {} output for batch id: {}",
+            self.request.proof_type, batch_input.taiko.batch_id
         );
         let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input.taiko);
         let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
@@ -193,9 +193,13 @@ impl Raiko {
         match result {
             Ok(block) => {
                 let header = block.header.clone();
-                info!("Verifying final state using provider data ...");
                 info!(
-                    "Final block hash derived successfully. {}",
+                    "Verifying final block {} state using provider data ...",
+                    header.number
+                );
+                info!(
+                    "Final block {} hash derived successfully. {}",
+                    header.number,
                     header.hash_slow()
                 );
                 debug!("Final block derived successfully. {block:?}");
@@ -446,16 +450,28 @@ mod tests {
             RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
                 .await
                 .expect("Could not create RpcBlockDataProvider");
-        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
+        let mut updated_proof_request = proof_request.clone();
+        updated_proof_request.l2_block_numbers = all_prove_blocks.clone();
+        let raiko = Raiko::new(
+            l1_chain_spec,
+            taiko_chain_spec,
+            updated_proof_request.clone(),
+        );
         let input = raiko
             .generate_batch_input(provider)
             .await
             .expect("input generation failed");
+        // let filename = format!("batch-input-{}.json", proof_request.batch_id);
+        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
+        // serde_json::to_writer(writer, &input).expect("Unable to write data");
         trace!("batch guest input: {input:?}");
         let output = raiko
             .get_batch_output(&input)
             .expect("output generation failed");
         debug!("batch guest output: {output:?}");
+        // let filename = format!("batch-output-{}.json", proof_request.batch_id);
+        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
+        // serde_json::to_writer(writer, &output).expect("Unable to write data");
         raiko
             .batch_prove(input, &output, None)
             .await

@@ -62,3 +62,5 @@ make_prove_request_taiko_mainnet_native_*_*.json
 # -----------------------------------------------------------------------------------------
 .idea/
 .vscode/
+
+log.build.*

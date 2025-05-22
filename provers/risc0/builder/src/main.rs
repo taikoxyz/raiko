@@ -6,7 +6,7 @@ use std::path::PathBuf;
 fn main() {
     let pipeline = Risc0Pipeline::new("provers/risc0/guest", "release");
     pipeline.bins(
-        &["risc0-guest", "risc0-aggregation"],
+        &["risc0-guest", "risc0-aggregation", "risc0-batch"],
         "provers/risc0/driver/src/methods",
     );
     #[cfg(feature = "test")]
@@ -37,8 +37,10 @@ impl Pipeline for Risc0Pipeline {
             .rust_flags(&[
                 "passes=lower-atomic",
                 "link-arg=-Ttext=0x00200800",
+                "link-arg=--fatal-warnings",
                 "panic=abort",
             ])
+            .rust_cfgs(&["getrandom_backend=\"custom\""])
             .cc_compiler("gcc".into())
             .c_flags(&[
                 "/opt/riscv/bin/riscv32-unknown-elf-gcc",

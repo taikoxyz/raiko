@@ -1,20 +1,45 @@
-FROM rust:1.81.0 AS builder
+FROM ghcr.io/edgelesssys/ego-dev:v1.7.0 AS build-gaiko
+WORKDIR /opt/gaiko
 
+# Install dependencies
+COPY gaiko/go.mod .
+COPY gaiko/go.sum .
+RUN go mod download
+
+# Build
+COPY gaiko/ .
+RUN ego-go build -o gaiko-ego ./cmd/gaiko
+
+# Sign with our enclave config and private key
+COPY gaiko/ego/enclave.json .
+COPY docker/enclave-key.pem private.pem
+RUN ego sign && ego bundle gaiko-ego gaiko
+RUN ego uniqueid gaiko-ego
+RUN ego signerid gaiko-ego
+
+FROM rust:1.85.0 AS chef
+RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+RUN cargo binstall -y cargo-chef wild-linker
+RUN apt-get update && apt-get install -y clang
+WORKDIR /opt/raiko
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
+
+FROM chef AS planner
+COPY . .
+COPY docker/cargo-config.toml .cargo/config.toml
+RUN cargo chef prepare --recipe-path recipe.json
 
 # risc0 dependencies
 # RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
 #     cargo binstall -y --force cargo-risczero && \
 #     cargo risczero install
 
-WORKDIR /opt/raiko
+FROM chef AS builder
+COPY --from=planner /opt/raiko/recipe.json recipe.json
+RUN cargo chef cook --release ${BUILD_FLAGS} --features "sgx" --features "docker_build" --recipe-path recipe.json
 COPY . .
-
-RUN apt-get update && \
-    apt-get install -y \
-    libclang-dev
-
+COPY docker/cargo-config.toml .cargo/config.toml
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
 FROM gramineproject/gramine:1.8-jammy AS runtime
@@ -28,10 +53,12 @@ RUN apt-get update && \
     libsgx-dcap-ql \
     libsgx-urts \
     sgx-pck-id-retrieval-tool \
+    build-essential \
+    libssl-dev \
     jq \
     clang \
     sudo && \
-    apt-get clean && \
+    apt-get clean all && \
     rm -rf /var/lib/apt/lists/*
 
 RUN sed -i 's/#default quoting type = ecdsa_256/default quoting type = ecdsa_256/' /etc/aesmd.conf && \
@@ -42,11 +69,14 @@ RUN mkdir -p \
     ./provers/sgx \
     /var/log/raiko
 
+COPY --from=build-gaiko /opt/gaiko/gaiko ./bin/
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
 COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/config/sgx-guest.local.manifest.template
 # copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.
-COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
-COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list.docker.json
+COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/config.sgx.json
+COPY --from=builder /opt/raiko/host/config/config.devnet.json /etc/raiko/config.devnet.json
+COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list_default.json
+COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raiko/chain_spec_list_devnet.json
 COPY --from=builder /opt/raiko/target/release/sgx-guest ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-setup ./bin/

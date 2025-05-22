@@ -6,6 +6,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init
     command: --init
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -15,9 +17,10 @@ services:
       - ${HOME}/.config/raiko:/root/.config/raiko
     environment:
       - SGX=true
+      - SGXGETH=${SGXGETH}
     # environment:
-      # you can use your own PCCS host
-      #- PCCS_HOST=host.docker.internal:8081
+    # you can use your own PCCS host
+    #- PCCS_HOST=host.docker.internal:8081
     depends_on:
       - pccs
   init-self-register:
@@ -29,6 +32,8 @@ services:
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init-self-register
     command: --init-self-register
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -39,9 +44,8 @@ services:
       - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
     environment:
       - SGX=true
+      - SGXGETH=${SGXGETH}
       - SENDER_PRIV_KEY=${SENDER_PRIV_KEY}
-      - L1_RPC=${L1_RPC}
-      - L1_CHAIN_ID=${L1_CHAIN_ID}
       - SGX_VERIFIER_ADDRESS=${SGX_VERIFIER_ADDRESS}
       - HOLESKY_RPC=${HOLESKY_RPC}
       - HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
@@ -56,7 +60,9 @@ services:
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    command:
+    env_file:
+      - .env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -68,11 +74,19 @@ services:
       - "8080:8080"
     environment:
       - SGX=true
+      - SGXGETH=${SGXGETH}
+      - SGX_MODE=${SGX_MODE:-local}
+      - RAIKO_REMOTE_URL=${RAIKO_REMOTE_URL:-http://raiko-sgx-server:9090}
+      - GAIKO_REMOTE_URL=${GAIKO_REMOTE_URL:-http://raiko-sgx-server:8090}
+      - PREFETCH_CHUNK_SIZE=${PREFETCH_CHUNK_SIZE}
+      - BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
+      - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
       - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
       - SGX_ONTAKE_INSTANCE_ID=${SGX_ONTAKE_INSTANCE_ID}
       - SGX_PACAYA_INSTANCE_ID=${SGX_PACAYA_INSTANCE_ID}
+      - SGXGETH_PACAYA_INSTANCE_ID=${SGXGETH_PACAYA_INSTANCE_ID}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
       - HOLESKY_RPC=${HOLESKY_RPC}
@@ -93,49 +107,15 @@ services:
       - pccs
     profiles:
       - prod-redis
-  raiko-self-register:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:latest
-    container_name: raiko-self-register
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
-    devices:
-      - "/dev/sgx_enclave:/dev/sgx_enclave"
-      - "/dev/sgx_provision:/dev/sgx_provision"
-    volumes:
-      - /var/log/raiko:/var/log/raiko
-      - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
-      - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
-      - ${HOME}/.config/raiko/config/chain_spec_list.docker.json:/etc/raiko/chain_spec_list.docker.json
-    ports:
-      - "8080:8080"
-    environment:
-      # you can use your own PCCS host
-      # - PCCS_HOST=host.docker.internal:8081
-      - SGX=true
-      - ETHEREUM_RPC=${ETHEREUM_RPC}
-      - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
-      - HOLESKY_RPC=${HOLESKY_RPC}
-      - HOLESKY_BEACON_RPC=${HOLESKY_BEACON_RPC}
-      - TAIKO_A7_RPC=${TAIKO_A7_RPC}
-      - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
-      - L1_NETWORK=${L1_NETWORK}
-      - NETWORK=${NETWORK}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-    # use the host's network to connect to the PCCS
-    #extra_hosts:
-    #  - "host.docker.internal:host-gateway"
-    depends_on:
-      - pccs
   raiko-zk:
     build:
       context: ..
       dockerfile: Dockerfile.zk
     image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
     container_name: raiko-zk
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    command:
+    env_file:
+      - .env
     volumes:
       - /var/log/raiko:/var/log/raiko
     ports:
@@ -145,6 +125,9 @@ services:
       # - PCCS_HOST=host.docker.internal:8081
       - RUST_LOG=${RUST_LOG:-info}
       - ZK=true
+      - PREFETCH_CHUNK_SIZE=${PREFETCH_CHUNK_SIZE}
+      - BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
+      - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
       - HOLESKY_RPC=${HOLESKY_RPC}
@@ -153,27 +136,62 @@ services:
       - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
       - L1_NETWORK=${L1_NETWORK}
       - NETWORK=${NETWORK}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # risc0 service env
       - BONSAI_API_KEY=${BONSAI_API_KEY}
       - BONSAI_API_URL=${BONSAI_API_URL}
-      - MAX_BONSAI_GPU_NUM=300
+      # risc0 verifier
       - GROTH16_VERIFIER_RPC_URL=${GROTH16_VERIFIER_RPC_URL}
       - GROTH16_VERIFIER_ADDRESS=${GROTH16_VERIFIER_ADDRESS}
-      - SP1_PRIVATE_KEY=${SP1_PRIVATE_KEY}
+      # sp1 service env
+      - NETWORK_RPC_URL=${NETWORK_RPC_URL}
+      - NETWORK_PRIVATE_KEY=${NETWORK_PRIVATE_KEY}
       - SKIP_SIMULATION=true
+      # sp1 verifier
       - SP1_VERIFIER_RPC_URL=${SP1_VERIFIER_RPC_URL}
       - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
-      - PROVER_NETWORK_RPC=${PROVER_NETWORK_RPC}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     depends_on:
       - redis
     profiles:
       - prod-redis
+  raiko-sgx-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
+    container_name: sgx-server
+    command:
+    env_file:
+      - .env
+    devices:
+      - "/dev/sgx_enclave:/dev/sgx_enclave"
+      - "/dev/sgx_provision:/dev/sgx_provision"
+    volumes:
+      - /var/log/raiko:/var/log/raiko
+      - ${HOME}/.config/gramine:/root/.config/gramine
+      - ${HOME}/.config/raiko:/root/.config/raiko
+    ports:
+      - "8090:8090"
+      - "9090:9090"
+    environment:
+      - SGXGETH=${SGXGETH}
+      - SGX_SERVER=true
+      - SGX_PACAYA_INSTANCE_ID=${SGX_PACAYA_INSTANCE_ID}
+      - SGXGETH_PACAYA_INSTANCE_ID=${SGXGETH_PACAYA_INSTANCE_ID}
+      - GAIKO_GUEST_APP_VERBOSE_LEVEL=${GAIKO_GUEST_APP_VERBOSE_LEVEL}
+      # you can use your own PCCS host
+      #- PCCS_HOST=host.docker.internal:8081
+      # use the host's network to connect to the PCCS
+      #extra_hosts:
+      #  - "host.docker.internal:host-gateway"
   pccs:
     build:
       context: ..
       dockerfile: Dockerfile.pccs
     image: us-docker.pkg.dev/evmchain/images/pccs:latest
     container_name: pccs
+    env_file:
+      - .env
     ports:
       - "8081:8081"
     volumes:
@@ -183,6 +201,8 @@ services:
   redis:
     image: redis
     container_name: redis
+    env_file:
+      - .env
     ports:
       - "6379:6379"
     profiles:

@@ -29,7 +29,7 @@ impl Ballot {
     pub fn validate(&self) -> Result<(), String> {
         // Validate each probability
         for (&proof_type, &prob) in self.probabilities.iter() {
-            if 0.0 > prob && 1.0 < prob {
+            if !(0.0..=1.0).contains(&prob) {
                 return Err(format!(
                     "Invalid probability value {} for proof type {:?}, must be between 0 and 1",
                     prob, proof_type

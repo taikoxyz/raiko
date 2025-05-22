@@ -48,7 +48,6 @@ pub async fn test_v2_mainnet_zk_any_prove() {
     let network = Network::SurgeDev;
 
     let block_number = crate::test::TEST_BLOCK_NUMBER;
-    let block_number = 32;
     let (_server, client) = setup().await;
     let mut request = make_proof_request(&network, &ProofType::Native, block_number);
 

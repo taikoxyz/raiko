@@ -69,6 +69,8 @@ pub enum Status {
     Ok {
         #[serde(with = "raiko_lib::proof_type::lowercase")]
         proof_type: ProofType,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        batch_id: Option<u64>,
         data: ProofResponse,
     },
     Error {
@@ -82,6 +84,7 @@ impl Status {
         match status {
             TaskStatus::Success | TaskStatus::WorkInProgress | TaskStatus::Registered => Self::Ok {
                 proof_type,
+                batch_id: None,
                 data: ProofResponse::Status { status },
             },
             _ => Self::Error {

@@ -3,12 +3,15 @@ use std::str::FromStr;
 use axum::{extract::State, routing::post, Json, Router};
 use raiko_core::{interfaces::ProofRequest, provider::get_task_data};
 use raiko_lib::proof_type::ProofType;
-use raiko_reqpool::{SingleProofRequestEntity, SingleProofRequestKey};
+use raiko_reqpool::{
+    GuestInputRequestEntity, GuestInputRequestKey, SingleProofRequestEntity, SingleProofRequestKey,
+    Status as InPoolStatus,
+};
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
 use utoipa::OpenApi;
 
-use crate::server::utils::{draw_for_zk_any_request, fulfill_sp1_params, is_zk_any_request};
+use crate::server::utils::{draw_for_zk_any_request, is_zk_any_request};
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
@@ -38,15 +41,8 @@ pub mod report;
 /// - sgx - uses the sgx environment to construct a block and produce proof of execution
 /// - sp1 - uses the sp1 prover
 /// - risc0 - uses the risc0 prover
-async fn proof_handler(
-    State(actor): State<Actor>,
-    Json(mut req): Json<Value>,
-) -> HostResult<Status> {
+async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> HostResult<Status> {
     inc_current_req();
-
-    if is_zk_any_request(&req) {
-        fulfill_sp1_params(&mut req);
-    }
 
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
@@ -60,6 +56,7 @@ async fn proof_handler(
             None => {
                 return Ok(Status::Ok {
                     proof_type: ProofType::Native,
+                    batch_id: None,
                     data: ProofResponse::Status {
                         status: TaskStatus::ZKAnyNotDrawn,
                     },
@@ -113,29 +110,55 @@ async fn proof_handler(
     .await?;
 
     let proof_type = proof_request.proof_type;
-    let request_key = SingleProofRequestKey::new(
-        chain_id,
-        proof_request.block_number,
-        blockhash,
-        proof_request.proof_type,
-        proof_request.prover.to_string(),
-    )
-    .into();
-    let request_entity = SingleProofRequestEntity::new(
+    let request_key =
+        GuestInputRequestKey::new(chain_id, proof_request.block_number, blockhash).into();
+    let request_entity = GuestInputRequestEntity::new(
         proof_request.block_number,
         proof_request.l1_inclusion_block_number,
-        proof_request.network,
-        proof_request.l1_network,
+        proof_request.network.clone(),
+        proof_request.l1_network.clone(),
         proof_request.graffiti,
-        proof_request.prover,
-        proof_request.proof_type,
-        proof_request.blob_proof_type,
-        proof_request.prover_args,
+        proof_request.blob_proof_type.clone(),
+        proof_request.prover_args.clone(),
     )
     .into();
 
+    // deal with guest input first
     let result = crate::server::prove(&actor, request_key, request_entity).await;
-    Ok(to_v2_status(proof_type, result))
+    match result {
+        Ok(InPoolStatus::Success { proof }) => {
+            let request_key = SingleProofRequestKey::new(
+                chain_id,
+                proof_request.block_number,
+                blockhash,
+                proof_request.proof_type,
+                proof_request.prover.to_string(),
+            )
+            .into();
+            let mut prover_args = proof_request.prover_args.clone();
+            prover_args.insert(
+                "guest_input".to_string(),
+                serde_json::to_value(proof.proof)?,
+            );
+            let request_entity = SingleProofRequestEntity::new(
+                proof_request.block_number,
+                proof_request.l1_inclusion_block_number,
+                proof_request.network,
+                proof_request.l1_network,
+                proof_request.graffiti,
+                proof_request.prover,
+                proof_request.proof_type,
+                proof_request.blob_proof_type,
+                prover_args,
+            )
+            .into();
+
+            let result = crate::server::prove(&actor, request_key, request_entity).await;
+            Ok(to_v2_status(proof_type, None, result))
+        }
+        Ok(_) => Ok(to_v2_status(proof_type, None, result)),
+        Err(_) => Ok(to_v2_status(proof_type, None, result)),
+    }
 }
 
 #[derive(OpenApi)]

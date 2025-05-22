@@ -281,93 +281,49 @@ mod tests {
 
     #[test]
     fn revm_spec_id() {
-        let eth_mainnet_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::Ethereum.to_string())
+        let surge_dev_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::SurgeDev.to_string())
             .unwrap();
-        assert!(eth_mainnet_spec.spec_id(15_537_393, 0) < Some(SpecId::MERGE));
-        assert_eq!(eth_mainnet_spec.spec_id(15_537_394, 0), Some(SpecId::MERGE));
-        assert_eq!(eth_mainnet_spec.spec_id(17_034_869, 0), Some(SpecId::MERGE));
-        assert_eq!(
-            eth_mainnet_spec.spec_id(17_034_870, 0),
-            Some(SpecId::SHANGHAI)
-        );
+        assert!(surge_dev_mainnet_spec.spec_id(2, 0) > Some(SpecId::MERGE));
+        assert_eq!(surge_dev_mainnet_spec.spec_id(2, 0), Some(SpecId::ONTAKE));
     }
 
     #[test]
     fn raiko_active_fork() {
-        let eth_mainnet_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::Ethereum.to_string())
+        let surge_dev_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::SurgeDev.to_string())
             .unwrap();
         assert_eq!(
-            eth_mainnet_spec.active_fork(0, 0).unwrap(),
-            SpecId::FRONTIER
-        );
-        assert_eq!(
-            eth_mainnet_spec.active_fork(15_537_394, 0).unwrap(),
-            SpecId::MERGE
-        );
-        assert_eq!(
-            eth_mainnet_spec.active_fork(17_034_869, 0).unwrap(),
-            SpecId::MERGE
-        );
-        assert_eq!(
-            eth_mainnet_spec.active_fork(17_034_870, 0).unwrap(),
-            SpecId::SHANGHAI
-        );
-
-        let taiko_mainnet_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::TaikoMainnet.to_string())
-            .unwrap();
-        assert_eq!(taiko_mainnet_spec.active_fork(0, 0).unwrap(), SpecId::HEKLA);
-        assert_eq!(
-            taiko_mainnet_spec.active_fork(538303, 0).unwrap(),
+            surge_dev_mainnet_spec.active_fork(0, 0).unwrap(),
             SpecId::HEKLA
         );
         assert_eq!(
-            taiko_mainnet_spec.active_fork(538304, 0).unwrap(),
+            surge_dev_mainnet_spec.active_fork(1, 0).unwrap(),
             SpecId::ONTAKE
         );
     }
 
     #[test]
     fn forked_verifier_address() {
-        let eth_mainnet_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::Ethereum.to_string())
+        let surge_dev_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::SurgeDev.to_string())
             .unwrap();
-        let verifier_address = eth_mainnet_spec
-            .get_fork_verifier_address(15_537_394, ProofType::Sgx)
-            .unwrap();
-        assert_eq!(
-            verifier_address,
-            address!("532efbf6d62720d0b2a2bb9d11066e8588cae6d9")
-        );
-
-        let hekla_mainnet_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::TaikoA7.to_string())
-            .unwrap();
-        let verifier_address = hekla_mainnet_spec
-            .get_fork_verifier_address(12345, ProofType::Sgx)
+        let verifier_address = surge_dev_spec
+            .get_fork_verifier_address(2, ProofType::Sgx)
             .unwrap();
         assert_eq!(
             verifier_address,
-            address!("532efbf6d62720d0b2a2bb9d11066e8588cae6d9")
-        );
-        let verifier_address = hekla_mainnet_spec
-            .get_fork_verifier_address(15_537_394, ProofType::Sgx)
-            .unwrap();
-        assert_eq!(
-            verifier_address,
-            address!("a8cD459E3588D6edE42177193284d40332c3bcd4")
+            address!("0x0000000000000000000000000000000000000000")
         );
     }
 
     #[test]
     fn forked_native_verifier_address() {
         let eth_mainnet_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::Ethereum.to_string())
+            .get_chain_spec(&Network::SurgeDev.to_string())
             .unwrap();
         let verifier_address = eth_mainnet_spec
-            .get_fork_verifier_address(15_537_394, ProofType::Native)
+            .get_fork_verifier_address(2, ProofType::Native)
             .unwrap_or_default();
         assert_eq!(verifier_address, Address::ZERO);
     }

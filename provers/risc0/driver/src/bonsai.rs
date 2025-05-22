@@ -1,5 +1,5 @@
+use crate::Risc0Param;
 use crate::{
-    methods::risc0_guest::RISC0_GUEST_ID,
     snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
 };
@@ -12,7 +12,7 @@ use raiko_lib::{
 };
 use risc0_zkvm::{
     compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, AssumptionReceipt, ExecutorEnv,
-    Receipt,
+    ExecutorImpl, Receipt,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -21,8 +21,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio::time::{sleep as tokio_async_sleep, Duration};
-
-use crate::Risc0Param;
 
 const MAX_REQUEST_RETRY: usize = 8;
 
@@ -37,9 +35,6 @@ pub enum BonsaiExecutionError {
     #[error("bonsai execution fatal error: {0}")]
     Fatal(String),
 }
-
-#[cfg(feature = "bonsai-auto-scaling")]
-pub mod auto_scaling;
 
 pub async fn verify_bonsai_receipt<O: Eq + Debug + DeserializeOwned>(
     image_id: Digest,
@@ -128,7 +123,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     assumptions: (Vec<impl Into<AssumptionReceipt>>, Vec<String>),
     proof_key: ProofKey,
     id_store: &mut Option<&mut dyn IdWrite>,
-) -> Option<(String, Receipt)> {
+) -> ProverResult<(String, Receipt)> {
     let (assumption_instances, assumption_uuids) = assumptions;
 
     let encoded_output =
@@ -147,17 +142,36 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
             info!("Loaded locally cached stark receipt {receipt_label:?}");
             (cached_data.0, cached_data.1, true)
         } else if param.bonsai {
-            #[cfg(feature = "bonsai-auto-scaling")]
-            match auto_scaling::maxpower_bonsai().await {
-                Ok(_) => {}
-                Err(e) => {
-                    error!("Failed to scale up bonsai: {e:?}");
-                    return None;
-                }
-            }
             // query bonsai service until it works
-            loop {
-                match prove_bonsai(
+            macro_rules! retry_with_backoff {
+                ($max_retries:expr, $retry_delay:expr, $operation:expr, $err_transform:expr) => {{
+                    let mut attempt = 0;
+                    loop {
+                        match $operation {
+                            Ok(result) => break Ok(result),
+                            Err(e) => {
+                                if attempt >= $max_retries {
+                                    error!("Max retries ({}) reached, aborting...", $max_retries);
+                                    break Err($err_transform(e));
+                                }
+                                warn!(
+                                    "Operation failed (attempt {}/{}): {:?}",
+                                    attempt + 1,
+                                    $max_retries,
+                                    e
+                                );
+                                tokio_async_sleep(Duration::from_secs($retry_delay)).await;
+                                attempt += 1;
+                            }
+                        }
+                    }
+                }};
+            }
+
+            let (uuid, receipt) = retry_with_backoff!(
+                MAX_REQUEST_RETRY,
+                20,
+                prove_bonsai(
                     encoded_input.clone(),
                     elf,
                     expected_output,
@@ -165,25 +179,10 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                     proof_key,
                     id_store,
                 )
-                .await
-                {
-                    Ok((receipt_uuid, receipt)) => {
-                        break (receipt_uuid, receipt, false);
-                    }
-                    Err(BonsaiExecutionError::SdkFailure(err)) => {
-                        warn!("Bonsai SDK fail: {err:?}, keep tracking...");
-                        tokio_async_sleep(Duration::from_secs(15)).await;
-                    }
-                    Err(BonsaiExecutionError::Other(err)) => {
-                        warn!("Something wrong: {err:?}, keep tracking...");
-                        tokio_async_sleep(Duration::from_secs(15)).await;
-                    }
-                    Err(BonsaiExecutionError::Fatal(err)) => {
-                        error!("Fatal error on Bonsai: {err:?}");
-                        return None;
-                    }
-                }
-            }
+                .await,
+                |e| ProverError::GuestError(format!("Bonsai SDK call fail: {e:?}").to_string())
+            )?;
+            (uuid, receipt, false)
         } else {
             // run prover
             info!("start running local prover");
@@ -197,7 +196,9 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                 Ok(receipt) => (Default::default(), receipt, false),
                 Err(e) => {
                     warn!("Failed to prove locally: {e:?}");
-                    return None;
+                    return Err(ProverError::GuestError(
+                        "Failed to prove locally".to_string(),
+                    ));
                 }
             }
         };
@@ -211,6 +212,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
         info!("Prover succeeded");
     } else {
         error!("Output mismatch! Prover: {output_guest:?}, expected: {expected_output:?}");
+        return Err(ProverError::GuestError("Output mismatch!".to_string()));
     }
 
     // upload receipt to bonsai
@@ -229,7 +231,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
     }
 
     // return result
-    Some(result)
+    Ok(result)
 }
 
 pub async fn upload_receipt(receipt: &Receipt) -> anyhow::Result<String> {
@@ -241,8 +243,6 @@ pub async fn cancel_proof(uuid: String) -> anyhow::Result<()> {
     let client = Client::from_env(risc0_zkvm::VERSION)?;
     let session = SessionId { uuid };
     session.stop(&client)?;
-    #[cfg(feature = "bonsai-auto-scaling")]
-    auto_scaling::shutdown_bonsai().await?;
     Ok(())
 }
 
@@ -296,8 +296,10 @@ pub async fn bonsai_stark_to_snark(
     stark_uuid: String,
     stark_receipt: Receipt,
     input: B256,
+    elf: &[u8],
 ) -> ProverResult<Risc0Response> {
-    let image_id = Digest::from(RISC0_GUEST_ID);
+    let image_id = risc0_zkvm::compute_image_id(elf)
+        .map_err(|e| ProverError::GuestError(format!("Failed to compute image id: {e:?}")))?;
     let (snark_uuid, snark_receipt) = stark2snark(
         image_id,
         stark_uuid.clone(),
@@ -339,67 +341,42 @@ pub fn prove_locally(
     );
 
     info!("Running the prover...");
-    // Build the environment
-    let mut env_builder = ExecutorEnv::builder();
-    env_builder
-        .session_limit(None)
-        .segment_limit_po2(segment_limit_po2)
-        .write_slice(&encoded_input);
+    let session = {
+        let mut env_builder = ExecutorEnv::builder();
+        env_builder
+            .session_limit(None)
+            .segment_limit_po2(segment_limit_po2)
+            .write_slice(&encoded_input);
 
-    if profile {
-        info!("Profiling enabled.");
-        env_builder.enable_profiler("profile_r0_local.pb");
-    }
+        if profile {
+            warn!("Profiling disabled. Currently not working in v2");
+            // info!("Profiling enabled.");
+            // env_builder.enable_profiler("profile_r0_local.pb");
+        }
 
-    for assumption in assumptions {
-        env_builder.add_assumption(assumption);
-    }
+        for assumption in assumptions {
+            env_builder.add_assumption(assumption);
+        }
 
-    let segment_dir = PathBuf::from("/tmp/risc0-cache");
-    if !segment_dir.exists() {
-        fs::create_dir(segment_dir.clone()).map_err(|e| ProverError::FileIo(e))?;
-    }
-    let env = env_builder
-        .segment_path(segment_dir)
-        .build()
-        .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        let segment_dir = PathBuf::from("/tmp/risc0-cache");
+        if !segment_dir.exists() {
+            fs::create_dir(segment_dir.clone()).map_err(ProverError::FileIo)?;
+        }
+        let env = env_builder
+            .segment_path(segment_dir)
+            .build()
+            .map_err(|e| ProverError::GuestError(e.to_string()))?;
+        let mut exec =
+            ExecutorImpl::from_elf(env, elf).map_err(|e| ProverError::GuestError(e.to_string()))?;
 
-    // prove
-    let prover = risc0_zkvm::default_prover();
-    let receipt = prover
-        .prove_with_opts(
-            env,
-            elf,
-            &risc0_zkvm::ProverOpts::groth16(),
-        )
+        exec.run()
+            .map_err(|e| ProverError::GuestError(e.to_string()))?
+    };
+    let receipt = session
+        .prove()
         .map_err(|e| ProverError::GuestError(e.to_string()))?
         .receipt;
-
     Ok(receipt)
-}
-
-pub async fn locally_verify_snark(
-    snark_uuid: String,
-    snark_receipt: Receipt,
-    input: B256,
-) -> ProverResult<Risc0Response> {
-    let image_id = Digest::from(RISC0_GUEST_ID);
-
-    info!("Validating SNARK uuid: {snark_uuid}");
-
-    let receipt = serde_json::to_string(&snark_receipt).unwrap();
-
-    let enc_proof = verify_groth16_from_snark_receipt(image_id, snark_receipt)
-        .await
-        .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
-
-    let snark_proof = format!("0x{}", hex::encode(enc_proof));
-    Ok(Risc0Response {
-        proof: snark_proof,
-        receipt,
-        uuid: snark_uuid,
-        input,
-    })
 }
 
 pub fn load_receipt<T: serde::de::DeserializeOwned>(
