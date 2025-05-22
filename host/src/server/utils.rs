@@ -84,6 +84,10 @@ pub async fn draw_for_zk_any_request(
     actor: &Actor,
     proof_request_opt: &Value,
 ) -> HostResult<Option<ProofType>> {
+    if actor.is_ballot_disabled() {
+        return Ok(None);
+    }
+
     let network = proof_request_opt["network"]
         .as_str()
         .ok_or(RaikoError::InvalidRequestConfig(
@@ -103,6 +107,10 @@ pub async fn draw_for_zk_any_batch_request(
     actor: &Actor,
     batch_proof_request_opt: &Value,
 ) -> HostResult<Option<ProofType>> {
+    if actor.is_ballot_disabled() {
+        return Ok(None);
+    }
+
     let l1_network =
         batch_proof_request_opt["l1_network"]
             .as_str()
