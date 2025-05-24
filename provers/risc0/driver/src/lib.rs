@@ -164,7 +164,7 @@ impl Prover for Risc0Prover {
         let receipt = match default_prover().prove_with_opts(env, RISC0_AGGREGATION_ELF, &opts) {
             Ok(receipt) => receipt.receipt,
             Err(e) => {
-                error!("Failed to generate RISC0 aggregation proof: {:?}", e);
+                tracing::error!("Failed to generate RISC0 aggregation proof: {:?}", e);
                 return Err(ProverError::GuestError(format!(
                     "RISC0 aggregation proof generation failed: {}",
                     e
