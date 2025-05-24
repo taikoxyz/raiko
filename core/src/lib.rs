@@ -651,7 +651,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_block_taiko_mainnet() {
+    async fn test_prove_pacaya_batch_taiko_mainnet() {
         let proof_type = get_proof_type_from_env();
         // Skip test on SP1 for now because it's too slow on CI
         if !(is_ci() && proof_type == ProofType::Sp1) {
@@ -670,8 +670,8 @@ mod tests {
             );
             let proof_request = ProofRequest {
                 block_number,
-                batch_id: 0,
-                l1_inclusion_block_number: 0,
+                batch_id: 1167616,
+                l1_inclusion_block_number: 22536616,
                 l2_block_numbers: Vec::new(),
                 network,
                 graffiti: B256::ZERO,
@@ -681,7 +681,7 @@ mod tests {
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
             };
-            prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
+            batch_prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
     }
 

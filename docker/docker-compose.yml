@@ -83,8 +83,6 @@ services:
       - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       # Set to 0 (which is the default) to run on real hardware; use 1 for testing
       - SGX_DIRECT=${SGX_DIRECT}
-      - SGX_INSTANCE_ID=${SGX_INSTANCE_ID}
-      - SGX_ONTAKE_INSTANCE_ID=${SGX_ONTAKE_INSTANCE_ID}
       - SGX_PACAYA_INSTANCE_ID=${SGX_PACAYA_INSTANCE_ID}
       - SGXGETH_PACAYA_INSTANCE_ID=${SGXGETH_PACAYA_INSTANCE_ID}
       - ETHEREUM_RPC=${ETHEREUM_RPC}

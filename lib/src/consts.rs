@@ -333,13 +333,8 @@ mod tests {
         let hekla_mainnet_spec = SupportedChainSpecs::default()
             .get_chain_spec(&Network::TaikoA7.to_string())
             .unwrap();
-        let verifier_address = hekla_mainnet_spec
-            .get_fork_verifier_address(12345, ProofType::Sgx)
-            .unwrap();
-        assert_eq!(
-            verifier_address,
-            address!("532efbf6d62720d0b2a2bb9d11066e8588cae6d9")
-        );
+        let verifier_address = hekla_mainnet_spec.get_fork_verifier_address(12345, ProofType::Sgx);
+        assert!(verifier_address.is_err()); // deprecated fork has no verifier address
         let verifier_address = hekla_mainnet_spec
             .get_fork_verifier_address(15_537_394, ProofType::Sgx)
             .unwrap();
