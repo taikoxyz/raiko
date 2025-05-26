@@ -14,7 +14,7 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${PROD_DIR}/.config/raiko:/root/.config/raiko
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
@@ -40,8 +40,8 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
-      - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
+      - ${PROD_DIR}/raiko:/root/.config/raiko
+      - ${PROD_DIR}/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
@@ -71,7 +71,7 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${PROD_DIR}/.config/raiko:/root/.config/raiko
     ports:
       - "8080:8080"
     environment:
@@ -169,7 +169,7 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${PROD_DIR}/raiko:/root/.config/raiko
     ports:
       - "8090:8090"
       - "9090:9090"

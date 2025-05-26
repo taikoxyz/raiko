@@ -3,7 +3,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:latest
+    image: us-docker.pkg.dev/evmchain/images/raiko:1.8.0
     container_name: raiko-init
     command: --init
     env_file:
@@ -14,7 +14,7 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${MAINNET_HOME}/raiko:/root/.config/raiko
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
@@ -29,7 +29,7 @@ services:
       args:
         ENABLE_SELF_REGISTER: "true"
       dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:latest
+    image: us-docker.pkg.dev/evmchain/images/raiko:1.8.0
     container_name: raiko-init-self-register
     command: --init-self-register
     env_file:
@@ -40,8 +40,8 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
-      - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
+      - ${MAINNET_HOME}/raiko:/root/.config/raiko
+      - ${MAINNET_HOME}/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
@@ -60,7 +60,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:latest
+    image: us-docker.pkg.dev/evmchain/images/raiko:1.8.0
     container_name: raiko
     command:
     env_file:
@@ -71,7 +71,7 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${MAINNET_HOME}/raiko:/root/.config/raiko
     ports:
       - "8080:8080"
     environment:
@@ -154,12 +154,12 @@ services:
       - redis
     profiles:
       - prod-redis
-  raiko-sgx-server:
+  mainnet-raiko-sgx-server:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:latest
-    container_name: sgx-server
+    image: us-docker.pkg.dev/evmchain/images/raiko:1.8.0
+    container_name: mainnet-sgx-server
     command:
     env_file:
       - .env
@@ -169,10 +169,10 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${MAINNET_HOME}/raiko:/root/.config/raiko
     ports:
-      - "8090:8090"
-      - "9090:9090"
+      - "8091:8090"
+      - "9091:9090"
     environment:
       - SGXGETH=${SGXGETH}
       - SGX_SERVER=true
