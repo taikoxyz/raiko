@@ -43,7 +43,7 @@ docker buildx build . \
 	-f $target_dockerfile \
 	--load \
 	--platform linux/amd64 \
-	-t $image_name:$tag \
+	-t $image_name:latest \
 	$build_flags \
 	--build-arg TARGETPLATFORM=linux/amd64 \
 	--progress=plain \
@@ -55,8 +55,10 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
+# update latest tag at same time for local docker compose running
 DOCKER_REPOSITORY=us-docker.pkg.dev/evmchain/images
-docker tag $image_name:$tag $DOCKER_REPOSITORY/$image_name:$tag
+docker tag $image_name:latest $DOCKER_REPOSITORY/$image_name:latest
+docker tag $image_name:latest $DOCKER_REPOSITORY/$image_name:$tag
 
 read -p "Do you want to push $image_name:$tag to registry? (y/N) " confirm
 case "$confirm" in
