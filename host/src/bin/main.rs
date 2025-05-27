@@ -56,6 +56,7 @@ fn subscribe_log(
 ) -> Option<WorkerGuard> {
     let subscriber_builder = FmtSubscriber::builder()
         .with_env_filter(log_level)
+        .with_ansi(false)
         .with_test_writer();
     match log_path {
         Some(ref log_path) => {
