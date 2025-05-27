@@ -42,26 +42,32 @@ COPY . .
 COPY docker/cargo-config.toml .cargo/config.toml
 RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_build"
 
-FROM gramineproject/gramine:1.8-jammy AS runtime
+# FROM gramineproject/gramine:1.8-jammy AS runtime
+# ENV DEBIAN_FRONTEND=noninteractive
+# WORKDIR /opt/raiko
+
+# RUN apt-get update && \
+#     apt-get install -y \
+#     cracklib-runtime \
+#     libsgx-dcap-default-qpl \
+#     libsgx-dcap-ql \
+#     libsgx-urts \
+#     sgx-pck-id-retrieval-tool \
+#     build-essential \
+#     libssl-dev \
+#     jq \
+#     sudo && \
+#     apt-get clean all && \
+#     rm -rf /var/lib/apt/lists/*
+
+# RUN sed -i 's/#default quoting type = ecdsa_256/default quoting type = ecdsa_256/' /etc/aesmd.conf && \
+#     sed -i 's/,"use_secure_cert": true/,"use_secure_cert": false/' /etc/sgx_default_qcnl.conf
+
+# use base image from us-docker.pkg.dev/evmchain/images/raiko:base
+# to avoid re-setup all intel sgx dependencies, some of them are not available in respository
+FROM us-docker.pkg.dev/evmchain/images/raiko:base AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
-
-RUN apt-get update && \
-    apt-get install -y \
-    cracklib-runtime \
-    libsgx-dcap-default-qpl \
-    libsgx-dcap-ql \
-    libsgx-urts \
-    sgx-pck-id-retrieval-tool \
-    build-essential \
-    libssl-dev \
-    jq \
-    sudo && \
-    apt-get clean all && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN sed -i 's/#default quoting type = ecdsa_256/default quoting type = ecdsa_256/' /etc/aesmd.conf && \
-    sed -i 's/,"use_secure_cert": true/,"use_secure_cert": false/' /etc/sgx_default_qcnl.conf
 
 RUN mkdir -p \
     ./bin \

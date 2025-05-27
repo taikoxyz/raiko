@@ -670,6 +670,8 @@ pub async fn get_block_proposed_event_by_height(
     .await
 }
 
+const MAX_ANCHOR_BLOCK_RANGE: u64 = 96;
+
 pub async fn get_block_proposed_event_by_traversal(
     provider: &ReqwestProvider,
     chain_spec: ChainSpec,
@@ -679,7 +681,10 @@ pub async fn get_block_proposed_event_by_traversal(
 ) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
     let latest_block_number = provider.get_block_number().await?;
     let range_start = l1_anchor_block_number + 1;
-    let range_end = std::cmp::min(l1_anchor_block_number + 64, latest_block_number);
+    let range_end = std::cmp::min(
+        l1_anchor_block_number + MAX_ANCHOR_BLOCK_RANGE,
+        latest_block_number,
+    );
     info!("traversal proposal event in L1 range: ({range_start}, {range_end})");
     filter_block_proposed_event(
         provider,
