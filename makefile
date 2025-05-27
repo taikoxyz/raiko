@@ -32,3 +32,8 @@ update: ## Run cargo update
 	@cargo update
 	cd ./provers/sp1/guest && cargo update
 	cd ./provers/risc0/guest && cargo update
+
+clean: ## Run cargo clean
+	@cargo clean
+	@cd ./provers/sp1/guest && cargo clean
+	@cd ./provers/risc0/guest && cargo clean
