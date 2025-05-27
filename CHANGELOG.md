@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.9.0](https://github.com/taikoxyz/raiko/compare/v1.8.0...v1.9.0) (2025-05-27)
+
+
+### Features
+
+* **raiko:** code refine and clean deprecated ontake stuffs. ([#573](https://github.com/taikoxyz/raiko/issues/573)) ([74dc854](https://github.com/taikoxyz/raiko/commit/74dc854d33ca2be0a2f86a38f6c2f32723693948))
+* **raiko:** enable poisson check of the zk draw ([#562](https://github.com/taikoxyz/raiko/issues/562)) ([f1e2a98](https://github.com/taikoxyz/raiko/commit/f1e2a985708b931ec9c11c8f1ce52fab00a4b474))
+* **raiko:** read blob only once ([#568](https://github.com/taikoxyz/raiko/issues/568)) ([00940d0](https://github.com/taikoxyz/raiko/commit/00940d004cf8cbfc5c844a529d88b861f8f19e45))
+* **raiko:** update compose file for new deployment mode ([#574](https://github.com/taikoxyz/raiko/issues/574)) ([2c0e16c](https://github.com/taikoxyz/raiko/commit/2c0e16c8530e3ba051d8d06cf1924f6a9fa30dd2))
+
 ## [1.8.0](https://github.com/taikoxyz/raiko/compare/v1.7.0...v1.8.0) (2025-05-16)
 
 
