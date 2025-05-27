@@ -1,21 +1,21 @@
-FROM ghcr.io/edgelesssys/ego-dev:v1.7.0 AS build-gaiko
-WORKDIR /opt/gaiko
+# FROM ghcr.io/edgelesssys/ego-dev:v1.7.0 AS build-gaiko
+# WORKDIR /opt/gaiko
 
-# Install dependencies
-COPY gaiko/go.mod .
-COPY gaiko/go.sum .
-RUN go mod download
+# # Install dependencies
+# COPY gaiko/go.mod .
+# COPY gaiko/go.sum .
+# RUN go mod download
 
-# Build
-COPY gaiko/ .
-RUN ego-go build -o gaiko-ego ./cmd/gaiko
+# # Build
+# COPY gaiko/ .
+# RUN ego-go build -o gaiko-ego ./cmd/gaiko
 
-# Sign with our enclave config and private key
-COPY gaiko/ego/enclave.json .
-COPY docker/enclave-key.pem private.pem
-RUN ego sign && ego bundle gaiko-ego gaiko
-RUN ego uniqueid gaiko-ego
-RUN ego signerid gaiko-ego
+# # Sign with our enclave config and private key
+# COPY gaiko/ego/enclave.json .
+# COPY docker/enclave-key.pem private.pem
+# RUN ego sign && ego bundle gaiko-ego gaiko
+# RUN ego uniqueid gaiko-ego
+# RUN ego signerid gaiko-ego
 
 FROM rust:1.85.0 AS chef
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
@@ -47,7 +47,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
 
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y wget && \
+    echo "deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main" > /etc/apt/sources.list.d/intel-sgx.list && \
+    wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | apt-key add - && \
+    apt-get update && \
+    apt-get install -y --fix-missing \
     cracklib-runtime \
     libsgx-dcap-default-qpl \
     libsgx-dcap-ql \
@@ -56,7 +60,6 @@ RUN apt-get update && \
     build-essential \
     libssl-dev \
     jq \
-    clang \
     sudo && \
     apt-get clean all && \
     rm -rf /var/lib/apt/lists/*
@@ -69,7 +72,7 @@ RUN mkdir -p \
     ./provers/sgx \
     /var/log/raiko
 
-COPY --from=build-gaiko /opt/gaiko/gaiko ./bin/
+# COPY --from=build-gaiko /opt/gaiko/gaiko ./bin/
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
 COPY --from=builder /opt/raiko/provers/sgx/config/sgx-guest.docker.manifest.template ./provers/sgx/config/sgx-guest.local.manifest.template
 # copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.

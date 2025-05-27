@@ -109,8 +109,8 @@ struct Sp1ProverClient {
 }
 
 //TODO: use prover object to save such local storage members.
-static BLOCK_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
-static AGGREGATION_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
+// static BLOCK_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
+// static AGGREGATION_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 static BATCH_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 
 impl Prover for Sp1Prover {
@@ -133,30 +133,39 @@ impl Prover for Sp1Prover {
             pk,
             vk,
             network_client,
-        } = BLOCK_PROOF_CLIENT
-            .entry(mode.clone())
-            .or_insert_with(|| {
-                let network_client = Arc::new(ProverClient::builder().network().build());
-                let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
-                    ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
-                    ProverMode::Local => Box::new(ProverClient::builder().cpu().build()),
-                    ProverMode::Network => Box::new(ProverClient::builder().network().build()),
-                };
+        } = {
+            let gpu_number: u32 = config
+                .get("gpu_number")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as u32)
+                .unwrap();
+            info!("GPU Number: {}", gpu_number);
 
-                let client = Arc::new(base_client);
-                let (pk, vk) = client.setup(ELF);
-                info!(
-                    "new client and setup() for block {:?}.",
-                    output.header.number
-                );
-                Sp1ProverClient {
-                    client,
-                    network_client,
-                    pk,
-                    vk,
-                }
-            })
-            .clone();
+            let network_client = Arc::new(ProverClient::builder().network().build());
+            let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
+                ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
+                ProverMode::Local => Box::new(
+                    ProverClient::builder()
+                        .cuda()
+                        .with_gpu_number(gpu_number)
+                        .build(),
+                ),
+                ProverMode::Network => Box::new(ProverClient::builder().network().build()),
+            };
+
+            let client = Arc::new(base_client);
+            let (pk, vk) = client.setup(ELF);
+            info!(
+                "new client and setup() for block {:?}.",
+                output.header.number
+            );
+            Sp1ProverClient {
+                client,
+                network_client,
+                pk,
+                vk,
+            }
+        };
 
         info!(
             "Sp1 Prover: block {:?} with vk {:?}",
@@ -338,39 +347,48 @@ impl Prover for Sp1Prover {
             pk,
             vk,
             network_client,
-        } = AGGREGATION_CLIENT
-            .entry(param.prover.clone().unwrap_or_else(get_env_mock))
-            .or_insert_with(|| {
-                let network_client = Arc::new(ProverClient::builder().network().build());
-                let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = param
-                    .prover
-                    .map(|mode| {
-                        let prover: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
-                            ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
-                            ProverMode::Local => Box::new(ProverClient::builder().cpu().build()),
-                            ProverMode::Network => {
-                                Box::new(ProverClient::builder().network().build())
-                            }
-                        };
-                        prover
-                    })
-                    .unwrap_or_else(|| Box::new(ProverClient::from_env()));
+        } = {
+            let gpu_number: u32 = config
+                .get("gpu_number")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as u32)
+                .unwrap();
 
-                let client = Arc::new(base_client);
-                let (pk, vk) = client.setup(AGGREGATION_ELF);
-                info!(
-                    "new client and setup() for aggregation based on {:?} proofs with vk {:?}",
-                    input.proofs.len(),
-                    vk.bytes32()
-                );
-                Sp1ProverClient {
-                    client,
-                    pk,
-                    vk,
-                    network_client,
-                }
-            })
-            .clone();
+            info!("GPU Number: {}", gpu_number);
+
+            let network_client = Arc::new(ProverClient::builder().network().build());
+            let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = param
+                .prover
+                .map(|mode| {
+                    let prover: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
+                        ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
+                        ProverMode::Local => Box::new(
+                            ProverClient::builder()
+                                .cuda()
+                                .with_gpu_number(gpu_number)
+                                .build(),
+                        ),
+                        ProverMode::Network => Box::new(ProverClient::builder().network().build()),
+                    };
+                    prover
+                })
+                .unwrap_or_else(|| Box::new(ProverClient::from_env()));
+
+            let client = Arc::new(base_client);
+            let (pk, vk) = client.setup(AGGREGATION_ELF);
+            info!(
+                "new client and setup() for aggregation based on {:?} proofs with vk {:?}",
+                input.proofs.len(),
+                vk.bytes32()
+            );
+            Sp1ProverClient {
+                client,
+                pk,
+                vk,
+                network_client,
+            }
+        };
+
         info!(
             "sp1 aggregate: {:?} based {:?} blocks with vk {:?}",
             reth_primitives::hex::encode_prefixed(stark_vk.hash_bytes()),
