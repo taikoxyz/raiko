@@ -64,7 +64,7 @@ RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_bui
 #     sed -i 's/,"use_secure_cert": true/,"use_secure_cert": false/' /etc/sgx_default_qcnl.conf
 
 # use base image from us-docker.pkg.dev/evmchain/images/raiko:base
-# to avoid re-setup all intel sgx dependencies, some of them are not available in respository
+# to avoid re-setup all intel sgx dependencies, some of them are not available in repository
 FROM us-docker.pkg.dev/evmchain/images/raiko:base AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
