@@ -14,6 +14,7 @@ use risc0_zkvm::{
     compute_image_id, is_dev_mode, serde::to_vec, sha::Digest, AssumptionReceipt, ExecutorEnv,
     ExecutorImpl, Receipt,
 };
+use risc0_zkvm::{get_prover_server, ProverOpts, VerifierContext};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     fmt::Debug,
@@ -292,6 +293,32 @@ pub async fn prove_bonsai<O: Eq + Debug + DeserializeOwned>(
     .await
 }
 
+pub async fn locally_verify_snark(
+    snark_uuid: String,
+    snark_receipt: Receipt,
+    input: B256,
+    elf: &[u8],
+) -> ProverResult<Risc0Response> {
+    let image_id = risc0_zkvm::compute_image_id(elf)
+        .map_err(|e| ProverError::GuestError(format!("Failed to compute image id: {e:?}")))?;
+
+    info!("Validating SNARK uuid: {snark_uuid}");
+
+    let receipt = serde_json::to_string(&snark_receipt).unwrap();
+
+    let enc_proof = verify_groth16_from_snark_receipt(image_id, snark_receipt)
+        .await
+        .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
+
+    let snark_proof = format!("0x{}", hex::encode(enc_proof));
+    Ok(Risc0Response {
+        proof: snark_proof,
+        receipt,
+        uuid: snark_uuid,
+        input,
+    })
+}
+
 pub async fn bonsai_stark_to_snark(
     stark_uuid: String,
     stark_receipt: Receipt,
@@ -372,10 +399,15 @@ pub fn prove_locally(
         exec.run()
             .map_err(|e| ProverError::GuestError(e.to_string()))?
     };
-    let receipt = session
-        .prove()
+
+    let prover = get_prover_server(&ProverOpts::groth16())
+        .map_err(|e| ProverError::GuestError(e.to_string()))?;
+
+    let receipt = prover
+        .prove_session(&VerifierContext::default(), &session)
         .map_err(|e| ProverError::GuestError(e.to_string()))?
         .receipt;
+
     Ok(receipt)
 }
 
