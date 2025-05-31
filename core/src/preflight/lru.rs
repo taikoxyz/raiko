@@ -18,12 +18,6 @@ lazy_static! {
         ));
 }
 
-fn clear_state_db() {
-    debug!("clear state db");
-    let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
-    hashmap.clear();
-}
-
 pub(crate) fn save_state_db(key: ChainBlockCacheKey, value: ChainBlockCacheEntry) {
     debug!("save state db key: {:?}", key);
     let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
@@ -44,6 +38,12 @@ mod test {
     use raiko_lib::mem_db::MemDb;
     use reth_primitives::B256;
     use serial_test::serial;
+
+    fn clear_state_db() {
+        debug!("clear state db");
+        let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
+        hashmap.clear();
+    }
 
     #[test]
     #[serial]
