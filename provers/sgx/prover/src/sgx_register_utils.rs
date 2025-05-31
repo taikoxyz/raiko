@@ -120,7 +120,6 @@ sol! {
     }
 
     #[sol(rpc)]
-    #[allow(dead_code)]
     contract SgxVerifier {
         event InstanceAdded(
             uint256 indexed id, address indexed instance, address replaced, uint256 validSince

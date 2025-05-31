@@ -11,7 +11,6 @@ use crate::RaikoProofFixture;
 
 sol!(
     #[sol(rpc)]
-    #[allow(dead_code)]
     contract ISP1Verifier {
         #[derive(Debug)]
         function verifyProof(

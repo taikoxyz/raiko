@@ -86,14 +86,12 @@ impl TryFrom<Value> for ProofResponse {
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "lowercase")]
-#[allow(dead_code)]
 pub enum Status {
     Ok { data: ProofResponse },
     Error { error: String, message: String },
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-#[allow(dead_code)]
 #[schema(example = json!({"header": [0, 0, 0, 0], "hash":"0x0...0"}))]
 /// The output of the prover when the proof generation was successful.
 pub struct GuestOutputDoc {
