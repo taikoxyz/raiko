@@ -29,7 +29,7 @@ use tracing::debug;
 pub mod bonsai;
 pub mod methods;
 pub mod snarks;
-pub mod boundless;
+// pub mod boundless;
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]

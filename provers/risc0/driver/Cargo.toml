@@ -16,6 +16,7 @@ bonsai-sdk = { workspace = true, optional = true }
 
 alloy-primitives = { workspace = true, optional = true }
 alloy-sol-types = { workspace = true, optional = true }
+alloy-signer-local = { workspace = true }
 
 ethers-contract = { workspace = true, optional = true }
 ethers-core = { workspace = true, optional = true }

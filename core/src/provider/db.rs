@@ -76,14 +76,8 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                 .get_blocks(&absent_block_numbers)
                 .await?;
             for block in initial_history_blocks {
-                let block_number: u64 = block
-                    .header
-                    .number
-                    .ok_or_else(|| RaikoError::RPC("No block number".to_owned()))?;
-                let block_hash = block
-                    .header
-                    .hash
-                    .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?;
+                let block_number: u64 = block.header.number;
+                let block_hash = block.header.hash;
                 provider_db
                     .initial_db
                     .insert_block_hash(block_number, block_hash);
@@ -296,7 +290,6 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
         .ok_or(ProviderError::RPC("No block".to_owned()))?
         .header
         .hash
-        .ok_or_else(|| ProviderError::RPC("No block hash".to_owned()))?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
@@ -376,7 +369,7 @@ impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
             .zip(blocks.iter())
         {
             self.staging_db
-                .insert_block_hash(block_number, block.header.hash.unwrap());
+                .insert_block_hash(block_number, block.header.hash);
             self.initial_headers
                 .insert(block_number, block.header.clone().try_into().unwrap());
         }

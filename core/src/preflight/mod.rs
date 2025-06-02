@@ -1,11 +1,11 @@
 use std::{collections::HashSet, env};
 
-use alloy_primitives::Bytes;
-use futures::future::join_all;
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
+use alloy_primitives::Bytes;
+use futures::future::join_all;
 use raiko_lib::{
     builder::RethBlockBuilder,
     consts::ChainSpec,
@@ -119,8 +119,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     };
 
     #[cfg(feature = "statedb_lru")]
-    let initial_db_with_headers =
-        load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
+    let initial_db_with_headers = load_state_db((parent_block_number, parent_block.header.hash));
     #[cfg(not(feature = "statedb_lru"))]
     let initial_db_with_headers = None;
 
@@ -287,8 +286,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     })?;
                 let parent_block_number = parent_header.number;
                 #[cfg(feature = "statedb_lru")]
-                let initial_db =
-                    load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
+                let initial_db = load_state_db((parent_block_number, parent_block.header.hash));
                 #[cfg(not(feature = "statedb_lru"))]
                 let initial_db = None;
 
