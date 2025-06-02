@@ -53,10 +53,7 @@ pub async fn get_task_data(
     let block = blocks
         .first()
         .ok_or_else(|| RaikoError::RPC("No block for requested block number".to_string()))?;
-    let blockhash = block
-        .header
-        .hash
-        .ok_or_else(|| RaikoError::RPC("No block hash for requested block".to_string()))?;
+    let blockhash = block.header.hash;
     Ok((taiko_chain_spec.chain_id, blockhash))
 }
 
@@ -93,7 +90,6 @@ pub async fn get_batch_task_data(
         .ok_or_else(|| RaikoError::RPC("No block for requested block number".to_string()))?;
     let blockhash = block
         .header
-        .hash
-        .ok_or_else(|| RaikoError::RPC("No block hash for requested block".to_string()))?;
+        .hash;
     Ok((taiko_chain_spec.chain_id, blockhash))
 }
