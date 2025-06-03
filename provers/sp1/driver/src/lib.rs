@@ -511,6 +511,7 @@ impl Prover for Sp1Prover {
                     proof: SP1Proof::Groth16(Groth16Bn254Proof::default()),
                     public_values: sp1_primitives::io::SP1PublicValues::new(),
                     sp1_version: "0".to_owned(),
+                    tee_proof: None,
                 }
             } else {
                 info!("Execute locally with recursion mode: {:?}", param.recursion);

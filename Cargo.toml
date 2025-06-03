@@ -68,11 +68,11 @@ risc0-binfmt = { version = "=2.0.1" }
 risc0-zkos-v1compat = { version = "=2.0.1" }
 
 # SP1
-sp1-sdk = { version = "=4.1.7" }
-sp1-prover = { version = "=4.1.7" }
-sp1-zkvm = { version = "=4.1.7" }
-sp1-helper = { version = "=4.1.7" }
-sp1-primitives = { version = "=4.1.7" }
+sp1-sdk = { version = "5.0.2" }
+sp1-prover = { version = "5.0.1" }
+sp1-zkvm = { version = "5.0.0" }
+sp1-helper = { version = "5.0.0" }
+sp1-primitives = { version = "5.0.0" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
