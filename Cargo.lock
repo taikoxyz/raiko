@@ -115,9 +115,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-chains"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5848366a4f08dca1caca0a6151294a4799fe2e59ba25df100491d92e0b921b1c"
+checksum = "d6967ca1ed656766e471bc323da42fb0db320ca5e1418b408650e98e4757b3d2"
 dependencies = [
  "alloy-primitives 1.1.2",
  "alloy-rlp",
@@ -612,7 +612,7 @@ dependencies = [
  "lru 0.12.5",
  "parking_lot",
  "pin-project",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "schnellru",
  "serde",
  "serde_json",
@@ -657,7 +657,7 @@ dependencies = [
  "alloy-transport-http",
  "futures",
  "pin-project",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "serde",
  "serde_json",
  "tokio",
@@ -1039,7 +1039,7 @@ checksum = "2e02ffd5d93ffc51d72786e607c97de3b60736ca3e636ead0ec1f7dce68ea3fd"
 dependencies = [
  "alloy-json-rpc 0.7.3",
  "alloy-transport",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "serde_json",
  "tower 0.5.2",
  "tracing",
@@ -1966,7 +1966,7 @@ checksum = "0bce8d6acc5286a16e94c29e9c885d1869358885e08a6feeb6bc54e36fe20055"
 dependencies = [
  "duplicate",
  "maybe-async",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "serde",
  "thiserror 1.0.69",
 ]
@@ -2103,9 +2103,9 @@ dependencies = [
 
 [[package]]
 name = "camino"
-version = "1.1.9"
+version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b96ec4966b5813e2c0507c1f86115c8c5abaadc3980879c3424042a02fd1ad3"
+checksum = "0da45bc31171d8d6960122e222a67740df867c1dd53b4d51caa297084c185cab"
 dependencies = [
  "serde",
 ]
@@ -2172,7 +2172,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fce8dd7fcfcbf3a0a87d8f515194b49d6135acab73e18bd380d1d93bb1a15eb"
 dependencies = [
- "clap 4.5.38",
+ "clap 4.5.39",
  "heck 0.4.1",
  "indexmap 2.9.0",
  "log",
@@ -2187,9 +2187,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.23"
+version = "1.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f4ac86a9e5bc1e2b3449ab9d7d3a6a405e3d1bb28d7b9be8614f55846ae3766"
+checksum = "d0fc897dc1e865cc67c0e05a836d9d3f1df3cbe442aa4a9473b18e12624a4951"
 dependencies = [
  "jobserver",
  "libc",
@@ -2260,9 +2260,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.38"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed93b9805f8ba930df42c2590f05453d5ec36cbb85d018868a5b24d31f6ac000"
+checksum = "fd60e63e9be68e5fb56422e397cf9baddded06dae1d2e523401542383bc72a9f"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -2270,9 +2270,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.38"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "379026ff283facf611b0ea629334361c4211d1b12ee01024eec1591133b04120"
+checksum = "89cc6392a1f72bbeb820d71f32108f61fdaf18bc526e1d23954168a67759ef51"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2405,9 +2405,9 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b55271e5c8c478ad3f38ad24ef34923091e0548492a266d19b3c0b4d82574c63"
+checksum = "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -2995,7 +2995,7 @@ dependencies = [
  "digest 0.10.7",
  "futures",
  "rand 0.8.5",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -4073,9 +4073,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.3.9"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
+checksum = "f154ce46856750ed433c8649605bf7ed2de3bc35fd9d2a9f30cddd873c80cb08"
 
 [[package]]
 name = "hex"
@@ -4254,11 +4254,10 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.27.5"
+version = "0.27.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d191583f3da1305256f22463b9bb0471acad48a4e534a5218b9963e9c1f59b2"
+checksum = "03a01595e11bdcec50946522c32dde3fc6914743000a68b93000965f2f02406d"
 dependencies = [
- "futures-util",
  "http 1.3.1",
  "hyper 1.6.0",
  "hyper-util",
@@ -4267,7 +4266,7 @@ dependencies = [
  "tokio",
  "tokio-rustls 0.26.2",
  "tower-service",
- "webpki-roots 0.26.11",
+ "webpki-roots 1.0.0",
 ]
 
 [[package]]
@@ -4314,22 +4313,28 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9f1e950e0d9d1d3c47184416723cf29c0d1f93bd8cccf37e4beb6b44f31710"
+checksum = "b1c293b6b3d21eca78250dc7dbebd6b9210ec5530e038cbfe0661b5c47ab06e8"
 dependencies = [
+ "base64 0.22.1",
  "bytes",
  "futures-channel",
+ "futures-core",
  "futures-util",
  "http 1.3.1",
  "http-body 1.0.1",
  "hyper 1.6.0",
+ "ipnet",
  "libc",
+ "percent-encoding",
  "pin-project-lite",
  "socket2",
+ "system-configuration 0.6.1",
  "tokio",
  "tower-service",
  "tracing",
+ "windows-registry",
 ]
 
 [[package]]
@@ -4867,9 +4872,9 @@ dependencies = [
 
 [[package]]
 name = "libloading"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a793df0d7afeac54f95b471d3af7f0d4fb975699f972341a4b76988d49cdf0c"
+checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
  "windows-targets 0.53.0",
@@ -4912,9 +4917,9 @@ checksum = "241eaef5fd12c88705a01fc1066c48c4b36e0dd4377dcdc7ec3942cea7a69956"
 
 [[package]]
 name = "lock_api"
-version = "0.4.12"
+version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07af8b9cdd281b7915f413fa73f29ebd5d55d0d3f0155584dade1ff18cea1b17"
+checksum = "96936507f153605bddfcda068dd804796c84324ed2510809e5b2a624c81da765"
 dependencies = [
  "autocfg",
  "scopeguard",
@@ -5202,13 +5207,13 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2886843bf800fba2e3377cff24abf6379b4c4d5c6681eaf9ea5b0d15090450bd"
+checksum = "78bed444cc8a2160f01cbcf811ef18cac863ad68ae8ca62092e8db51d51c761c"
 dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5443,11 +5448,11 @@ dependencies = [
 
 [[package]]
 name = "num_cpus"
-version = "1.16.0"
+version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
+checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
 dependencies = [
- "hermit-abi 0.3.9",
+ "hermit-abi 0.5.1",
  "libc",
 ]
 
@@ -5629,9 +5634,9 @@ dependencies = [
 
 [[package]]
 name = "openssl"
-version = "0.10.72"
+version = "0.10.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fedfea7d58a1f73118430a55da6a286e7b044961736ce96a16a17068ea25e5da"
+checksum = "8505734d46c8ab1e19a1dce3aef597ad87dcb4c37e7188231769bd6bd51cebf8"
 dependencies = [
  "bitflags 2.9.1",
  "cfg-if",
@@ -5661,9 +5666,9 @@ checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.108"
+version = "0.9.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e145e1651e858e820e4860f7b9c5e169bc1d8ce1c86043be79fa7b7634821847"
+checksum = "90096e2e47630d78b7d1c20952dc621f957103f8bc2c8359ec81290d75238571"
 dependencies = [
  "cc",
  "libc",
@@ -5679,9 +5684,9 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "os_pipe"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ffd2b0a5634335b135d5728d84c5e0fd726954b87111f7506a61c502280d982"
+checksum = "db335f4760b14ead6290116f2427bf33a14d4f0617d49f78a246de10c1831224"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
@@ -6012,9 +6017,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1bf18183cf54e8d6059647fc3063646a1801cf30896933ec2311622cc4b9a27"
+checksum = "70d58bf43669b5795d1576d0641cfb6fbb2057bf629506267a92807158584a13"
 dependencies = [
  "lock_api",
  "parking_lot_core",
@@ -6022,9 +6027,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.9.10"
+version = "0.9.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e401f977ab385c9e4e3ab30627d6f26d00e2c73eef317493c4ec6d468726cf8"
+checksum = "bc838d2a56b5b1a6c25f55575dfc605fabb63bb2365f6c2353ef9159aa69e4a5"
 dependencies = [
  "cfg-if",
  "libc",
@@ -6269,9 +6274,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.32"
+version = "0.2.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "664ec5419c51e34154eec046ebcba56312d5a2fc3b09a06da188e1ad21afadf6"
+checksum = "9dee91521343f4c5c6a63edd65e54f31f5c92fe8978c40a4282f8372194c6a7d"
 dependencies = [
  "proc-macro2",
  "syn 2.0.101",
@@ -6596,7 +6601,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "bincode",
- "clap 4.5.38",
+ "clap 4.5.39",
  "env_logger",
  "ethers-core",
  "eyre",
@@ -6606,7 +6611,7 @@ dependencies = [
  "lru 0.13.0",
  "raiko-lib",
  "reqwest 0.11.27",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "reth-evm",
  "reth-evm-ethereum",
  "reth-primitives",
@@ -6651,7 +6656,7 @@ dependencies = [
  "bytemuck",
  "cap",
  "cfg-if",
- "clap 4.5.38",
+ "clap 4.5.39",
  "dotenv",
  "env_logger",
  "ethers-core",
@@ -6669,7 +6674,7 @@ dependencies = [
  "raiko-tasks",
  "rand 0.8.5",
  "reqwest 0.11.27",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "reth-evm",
  "reth-evm-ethereum",
  "reth-primitives",
@@ -6689,7 +6694,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tower 0.5.2",
- "tower-http",
+ "tower-http 0.5.2",
  "tracing",
  "tracing-appender",
  "tracing-subscriber 0.3.19",
@@ -6840,7 +6845,7 @@ dependencies = [
  "bytemuck",
  "cap",
  "cfg-if",
- "clap 4.5.38",
+ "clap 4.5.39",
  "dirs",
  "env_logger",
  "ethers-core",
@@ -6852,7 +6857,7 @@ dependencies = [
  "proptest",
  "raiko-lib",
  "reqwest 0.11.27",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "rlp",
  "rstest",
  "serde",
@@ -7131,9 +7136,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.15"
+version = "0.12.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d19c46a6fdd48bc4dab94b6103fccc55d34c67cc0ad04653aad4ea2a07cd7bbb"
+checksum = "a2f8e5513d63f2e5b386eb5106dc67eaf3f84e95258e210489136b8b92ad6119"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -7146,7 +7151,7 @@ dependencies = [
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.6.0",
- "hyper-rustls 0.27.5",
+ "hyper-rustls 0.27.6",
  "hyper-tls 0.6.0",
  "hyper-util",
  "ipnet",
@@ -7159,26 +7164,24 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "rustls 0.23.27",
- "rustls-pemfile 2.2.0",
  "rustls-pki-types",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "sync_wrapper 1.0.2",
- "system-configuration 0.6.1",
  "tokio",
  "tokio-native-tls",
  "tokio-rustls 0.26.2",
  "tokio-util",
  "tower 0.5.2",
+ "tower-http 0.6.5",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
- "webpki-roots 0.26.11",
- "windows-registry",
+ "webpki-roots 1.0.0",
 ]
 
 [[package]]
@@ -7190,7 +7193,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "http 1.3.1",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "serde",
  "thiserror 1.0.69",
  "tower-service",
@@ -7199,7 +7202,7 @@ dependencies = [
 [[package]]
 name = "reth-blockchain-tree-api"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7215,7 +7218,7 @@ dependencies = [
 [[package]]
 name = "reth-chain-state"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7241,9 +7244,9 @@ dependencies = [
 [[package]]
 name = "reth-chainspec"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
- "alloy-chains 0.2.1",
+ "alloy-chains 0.2.3",
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
  "alloy-genesis",
@@ -7261,7 +7264,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7278,7 +7281,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs-derive"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -7289,7 +7292,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7303,7 +7306,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus-common"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7318,7 +7321,7 @@ dependencies = [
 [[package]]
 name = "reth-db"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7350,7 +7353,7 @@ dependencies = [
 [[package]]
 name = "reth-db-api"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-genesis",
@@ -7375,7 +7378,7 @@ dependencies = [
 [[package]]
 name = "reth-db-models"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-eips 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7389,7 +7392,7 @@ dependencies = [
 [[package]]
 name = "reth-engine-primitives"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7411,7 +7414,7 @@ dependencies = [
 [[package]]
 name = "reth-errors"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "reth-blockchain-tree-api",
  "reth-consensus",
@@ -7424,9 +7427,9 @@ dependencies = [
 [[package]]
 name = "reth-eth-wire-types"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
- "alloy-chains 0.2.1",
+ "alloy-chains 0.2.3",
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7444,7 +7447,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-consensus"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7460,9 +7463,9 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-forks"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
- "alloy-chains 0.2.1",
+ "alloy-chains 0.2.3",
  "alloy-primitives 0.8.25",
  "alloy-rlp",
  "auto_impl",
@@ -7477,7 +7480,7 @@ dependencies = [
 [[package]]
 name = "reth-evm"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7503,7 +7506,7 @@ dependencies = [
 [[package]]
 name = "reth-evm-ethereum"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7523,7 +7526,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-errors"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-eips 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7539,7 +7542,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-types"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7556,7 +7559,7 @@ dependencies = [
 [[package]]
 name = "reth-fs-util"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "serde",
  "serde_json",
@@ -7566,7 +7569,7 @@ dependencies = [
 [[package]]
 name = "reth-libmdbx"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "bitflags 2.9.1",
  "byteorder",
@@ -7583,7 +7586,7 @@ dependencies = [
 [[package]]
 name = "reth-mdbx-sys"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "bindgen",
  "cc",
@@ -7592,7 +7595,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "metrics",
  "metrics-derive",
@@ -7601,7 +7604,7 @@ dependencies = [
 [[package]]
 name = "reth-net-banlist"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-primitives 0.8.25",
 ]
@@ -7609,7 +7612,7 @@ dependencies = [
 [[package]]
 name = "reth-network-p2p"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7631,7 +7634,7 @@ dependencies = [
 [[package]]
 name = "reth-network-peers"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-primitives 0.8.25",
  "alloy-rlp",
@@ -7644,7 +7647,7 @@ dependencies = [
 [[package]]
 name = "reth-network-types"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "reth-ethereum-forks",
  "reth-net-banlist",
@@ -7656,7 +7659,7 @@ dependencies = [
 [[package]]
 name = "reth-nippy-jar"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "anyhow",
  "bincode",
@@ -7672,7 +7675,7 @@ dependencies = [
 [[package]]
 name = "reth-node-types"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "reth-chainspec",
  "reth-db-api",
@@ -7684,7 +7687,7 @@ dependencies = [
 [[package]]
 name = "reth-payload-builder-primitives"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-rpc-types-engine",
  "async-trait",
@@ -7698,7 +7701,7 @@ dependencies = [
 [[package]]
 name = "reth-payload-primitives"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-eips 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7717,7 +7720,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7751,7 +7754,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives-traits"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7773,7 +7776,7 @@ dependencies = [
 [[package]]
 name = "reth-provider"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7818,7 +7821,7 @@ dependencies = [
 [[package]]
 name = "reth-prune-types"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-primitives 0.8.25",
  "bytes",
@@ -7832,7 +7835,7 @@ dependencies = [
 [[package]]
 name = "reth-revm"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-eips 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7848,7 +7851,7 @@ dependencies = [
 [[package]]
 name = "reth-stages-types"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-primitives 0.8.25",
  "bytes",
@@ -7861,7 +7864,7 @@ dependencies = [
 [[package]]
 name = "reth-static-file-types"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-primitives 0.8.25",
  "derive_more 1.0.0",
@@ -7872,7 +7875,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-api"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7898,7 +7901,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-errors"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-eips 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7912,9 +7915,9 @@ dependencies = [
 [[package]]
 name = "reth-taiko-chainspec"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
- "alloy-chains 0.2.1",
+ "alloy-chains 0.2.3",
  "alloy-consensus 0.7.3",
  "alloy-genesis",
  "alloy-primitives 0.8.25",
@@ -7931,7 +7934,7 @@ dependencies = [
 [[package]]
 name = "reth-taiko-consensus"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7949,7 +7952,7 @@ dependencies = [
 [[package]]
 name = "reth-taiko-engine-types"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-eips 0.7.3",
  "alloy-primitives 0.8.25",
@@ -7965,7 +7968,7 @@ dependencies = [
 [[package]]
 name = "reth-taiko-evm"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -7991,9 +7994,9 @@ dependencies = [
 [[package]]
 name = "reth-taiko-forks"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
- "alloy-chains 0.2.1",
+ "alloy-chains 0.2.3",
  "alloy-primitives 0.8.25",
  "reth-ethereum-forks",
 ]
@@ -8001,7 +8004,7 @@ dependencies = [
 [[package]]
 name = "reth-taiko-primitives"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-primitives 0.8.25",
  "alloy-rlp",
@@ -8016,9 +8019,9 @@ dependencies = [
 [[package]]
 name = "reth-tracing"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
- "clap 4.5.38",
+ "clap 4.5.39",
  "eyre",
  "rolling-file",
  "tracing",
@@ -8031,7 +8034,7 @@ dependencies = [
 [[package]]
 name = "reth-trie"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-eips 0.7.3",
@@ -8056,7 +8059,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-common"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-consensus 0.7.3",
  "alloy-genesis",
@@ -8077,7 +8080,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-db"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-primitives 0.8.25",
  "alloy-rlp",
@@ -8097,7 +8100,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-sparse"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "alloy-primitives 0.8.25",
  "alloy-rlp",
@@ -8112,7 +8115,7 @@ dependencies = [
 [[package]]
 name = "reth-zstd-compressors"
 version = "1.1.4"
-source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#2b39ca872f0865c9b68dc8353880a54b873d7704"
+source = "git+https://github.com/NethermindEth/surge-reth.git?branch=feat%2Fsurge-related-changes#1dfcc8d352637729dd8a0134bfb5e07fbf0f8aca"
 dependencies = [
  "zstd",
 ]
@@ -8705,9 +8708,9 @@ dependencies = [
 
 [[package]]
 name = "ruint"
-version = "1.14.0"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78a46eb779843b2c4f21fac5773e25d6d5b7c8f0922876c91541790d2ca27eef"
+checksum = "11256b5fe8c68f56ac6f39ef0720e592f33d2367a4782740d9c9142e889c7fb4"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
@@ -8949,9 +8952,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.20"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eded382c5f5f786b989652c49544c4877d9f015cc22e145a5ea8ea66c2921cd2"
+checksum = "8a0d197bd2c9dc6e53b84da9556a69ba4cdfab8619eb41a8bd1cc2027a0f6b1d"
 
 [[package]]
 name = "rusty-fork"
@@ -9136,7 +9139,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "271720403f46ca04f7ba6f55d438f8bd878d6b8ca0a1046e8228c4145bcbb316"
 dependencies = [
  "bitflags 2.9.1",
- "core-foundation 0.10.0",
+ "core-foundation 0.10.1",
  "core-foundation-sys",
  "libc",
  "security-framework-sys",
@@ -9372,7 +9375,7 @@ dependencies = [
  "base64 0.22.1",
  "base64-serde",
  "bincode",
- "clap 4.5.38",
+ "clap 4.5.39",
  "dirs",
  "hex",
  "raiko-lib",
@@ -9406,7 +9409,7 @@ dependencies = [
  "pem 3.0.5",
  "raiko-lib",
  "reqwest 0.11.27",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "serde",
  "serde_json",
  "serde_with 3.12.0",
@@ -9574,9 +9577,9 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.5.9"
+version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f5fd57c80058a56cf5c777ab8a126398ece8e442983605d280a44ce79d0edef"
+checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
@@ -9590,7 +9593,7 @@ dependencies = [
  "anyhow",
  "cargo_metadata 0.18.1",
  "chrono",
- "clap 4.5.38",
+ "clap 4.5.39",
  "dirs",
 ]
 
@@ -9608,7 +9611,7 @@ source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.1.7-single-gpu#
 dependencies = [
  "bincode",
  "bytemuck",
- "clap 4.5.38",
+ "clap 4.5.39",
  "elf",
  "enum-map",
  "eyre",
@@ -9836,7 +9839,7 @@ source = "git+https://github.com/NethermindEth/sp1.git?branch=v4.1.7-single-gpu#
 dependencies = [
  "anyhow",
  "bincode",
- "clap 4.5.38",
+ "clap 4.5.39",
  "dirs",
  "downloader",
  "enum-map",
@@ -10028,7 +10031,7 @@ dependencies = [
  "p3-field",
  "p3-fri",
  "prost",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "reqwest-middleware",
  "serde",
  "serde_json",
@@ -10669,14 +10672,14 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.45.0"
+version = "1.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
+checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
 dependencies = [
  "backtrace",
  "bytes",
  "libc",
- "mio 1.0.3",
+ "mio 1.0.4",
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
@@ -10937,6 +10940,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "tower-http"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cc2d9e086a412a451384326f521c8123a99a466b329941a9403696bff9b0da2"
+dependencies = [
+ "bitflags 2.9.1",
+ "bytes",
+ "futures-util",
+ "http 1.3.1",
+ "http-body 1.0.1",
+ "iri-string",
+ "pin-project-lite",
+ "tower 0.5.2",
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
 name = "tower-layer"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11129,7 +11150,7 @@ dependencies = [
  "http-body-util",
  "hyper 1.6.0",
  "prost",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -11331,7 +11352,7 @@ dependencies = [
  "axum",
  "mime_guess",
  "regex",
- "reqwest 0.12.15",
+ "reqwest 0.12.19",
  "rust-embed",
  "serde",
  "serde_json",
@@ -11342,11 +11363,13 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.16.0"
+version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "458f7a779bf54acc9f347480ac654f68407d3aab21269a6e3c9f922acd9e2da9"
+checksum = "3cf4199d1e5d15ddd86a694e4d0dffa9c323ce759fea589f00fef9d81cc1931d"
 dependencies = [
  "getrandom 0.3.3",
+ "js-sys",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -11554,15 +11577,6 @@ name = "webpki-roots"
 version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
-
-[[package]]
-name = "webpki-roots"
-version = "0.26.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
-dependencies = [
- "webpki-roots 1.0.0",
-]
 
 [[package]]
 name = "webpki-roots"

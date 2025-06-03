@@ -204,7 +204,7 @@ mod test {
             .filter_level(LevelFilter::Trace)
             .init();
         let taiko_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::TaikoMainnet.to_string())
+            .get_chain_spec(&Network::SurgeDev.to_string())
             .unwrap();
         let fork_verifier_pairs = get_hard_fork_verifiers(&taiko_chain_spec, ProofType::Sgx);
         info!("fork_verifier_pairs = {fork_verifier_pairs:?}")
