@@ -196,5 +196,3 @@ services:
       - "6379:6379"
     profiles:
       - prod-redis
-    labels:
-      logs_enabled: "true"
