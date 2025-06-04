@@ -59,7 +59,7 @@ services:
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
-    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json
+    command: --config-path=/etc/raiko/config.sgx.json --chain-spec-path=/etc/raiko/chain_spec_list.docker.json --concurrency-limit=1
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
