@@ -96,6 +96,7 @@ services:
       metrics_enabled: "true"
       metrics_port: "8080"
       logs_enabled: "true"
+      custom_network: "placeholder"
     profiles:
       - prod-redis
   raiko-self-register:
