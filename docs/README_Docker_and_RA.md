@@ -138,7 +138,7 @@ You will need this info to retrieve your FMSPC.
 curl -v "https://api.trustedservices.intel.com/sgx/certification/v4/pckcert?encrypted_ppid={}&cpusvn={}&pcesvn={}&pceid={}" -H "Ocp-Apim-Subscription-Key:{YOUR_API_KEY}"
 ```
 
-Replace the curly braces in the above command with the values acquired from `pckid_retrieval.csv` and `YOUR_API_KEY` with your API key from subsribing to Intel's PCS Service.
+Replace the curly braces in the above command with the values acquired from `pckid_retrieval.csv` and `YOUR_API_KEY` with your API key from subscribing to Intel's PCS Service.
 
 The response should look as follows:
 
