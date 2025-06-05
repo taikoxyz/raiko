@@ -2632,7 +2632,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.13.0",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -7704,7 +7704,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "157c5a9d7ea5c2ed2d9fb8f495b64759f7816c7eaea54ba3978f0d63000162e3"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -9516,6 +9516,7 @@ name = "risc0-driver"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-signer-local 0.12.6",
  "alloy-signer-local 0.3.6",
  "alloy-sol-types",
  "anyhow",
@@ -9524,6 +9525,7 @@ dependencies = [
  "boundless-market",
  "bytemuck",
  "cfg-if",
+ "env_logger",
  "ethers-contract",
  "ethers-core",
  "ethers-providers",

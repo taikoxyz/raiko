@@ -5,6 +5,8 @@ Retrieves the proof from Boundless.
 Sends the proof to the application contract.
  */
 
+use anyhow::Error;
+
 pub struct IpfsUtils;
 
 impl IpfsUtils {

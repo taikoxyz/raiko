@@ -111,6 +111,15 @@ pub async fn run_prover(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
+        ProofType::Boundless => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover
+                .run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
         ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
             return sgx_prover::SgxProver::new(proof_type)
@@ -151,6 +160,18 @@ pub async fn run_batch_prover(
                 .batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Boundless => {
+            #[cfg(feature = "risc0")]
+            {
+                let boundless_prover = risc0_driver::Risc0BoundlessProver::get().await;
+                return boundless_prover
+                    .batch_run(input.clone(), output, config, store)
+                    .await
+                    .map_err(|e| e.into());
+            }
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
@@ -197,6 +218,15 @@ pub async fn aggregate_proofs(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
+        ProofType::Boundless => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover
+                .aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
         ProofType::Sgx | ProofType::SgxGeth => {
             #[cfg(feature = "sgx")]
             return sgx_prover::SgxProver::new(proof_type)
@@ -231,6 +261,15 @@ pub async fn cancel_proof(
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
         ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover
+                .cancel(proof_key, read)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Boundless => {
             #[cfg(feature = "risc0")]
             return risc0_driver::Risc0Prover
                 .cancel(proof_key, read)

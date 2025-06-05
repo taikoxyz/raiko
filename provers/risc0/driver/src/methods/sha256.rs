@@ -1,5 +1,3 @@
-pub const SHA256_ELF: &[u8] =
-    include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/sha256.bin");
-pub const SHA256_ID: [u32; 8] = [
-    3791678387, 389417266, 1663207407, 3612103821, 4041460591, 138927380, 416185380, 2918433343,
-];
+
+pub const SHA256_ELF: &[u8] = include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/sha256.bin");
+pub const SHA256_ID: [u32; 8] = [2347600457, 3117752306, 581778673, 401442486, 1247219232, 1873498042, 1892366624, 3498508623];

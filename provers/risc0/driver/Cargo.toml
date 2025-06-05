@@ -41,6 +41,11 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 thiserror = { workspace = true }
 boundless-market = { workspace = true }
+# risc0-ethereum-contracts = { workspace = true }
+alloy-signer-local-v12 = { package = "alloy-signer-local", version = "0.12" }
+
+[dev-dependencies]
+env_logger = { workspace = true }
 
 [features]
 enable = [
