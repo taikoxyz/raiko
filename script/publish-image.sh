@@ -42,7 +42,6 @@ echo "Build and push $image_name:$tag..."
 docker buildx build . \
 	-f $target_dockerfile \
 	--load \
-	--network=host \
 	--platform linux/amd64 \
 	-t $image_name:latest \
 	$build_flags \
