@@ -263,8 +263,51 @@ pub async fn verify_groth16_snark_impl(
     if verify_call_res.is_ok() {
         tracing_info!("SNARK verified successfully using {groth16_verifier_addr:?}!");
     } else {
-        tracing_err!("SNARK verification failed: {verify_call_res:?}!");
+        tracing_err!(
+            "SNARK verification call to {groth16_verifier_addr:?} failed: {verify_call_res:?}!"
+        );
     }
 
     Ok(enc_seal)
+}
+
+pub async fn verify_boundless_groth16_snark_impl(
+    image_id: Digest,
+    seal: Vec<u8>,
+    journal_digest: Digest,
+) -> Result<Vec<u8>> {
+    let verifier_rpc_url =
+        std::env::var("GROTH16_VERIFIER_RPC_URL").expect("env GROTH16_VERIFIER_RPC_URL");
+    let groth16_verifier_addr = {
+        let addr = std::env::var("GROTH16_VERIFIER_ADDRESS").expect("env GROTH16_VERIFIER_RPC_URL");
+        H160::from_str(&addr).unwrap()
+    };
+
+    let http_client = Arc::new(Provider::<RetryClient<Http>>::new_client(
+        &verifier_rpc_url,
+        3,
+        500,
+    )?);
+
+    tracing_info!("Verifying SNARK:");
+    tracing_info!("Seal: {}", hex::encode(&seal));
+    tracing_info!("Image ID: {}", hex::encode(image_id.as_bytes()));
+    tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
+    let verify_call_res = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
+        .verify(
+            seal.clone().into(),
+            image_id.as_bytes().try_into().unwrap(),
+            journal_digest.into(),
+        )
+        .await;
+
+    if verify_call_res.is_ok() {
+        tracing_info!("SNARK verified successfully using {groth16_verifier_addr:?}!");
+    } else {
+        tracing_err!(
+            "SNARK verification call to {groth16_verifier_addr:?} failed: {verify_call_res:?}!"
+        );
+    }
+
+    Ok(seal)
 }

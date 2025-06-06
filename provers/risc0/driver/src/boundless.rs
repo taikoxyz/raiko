@@ -1,14 +1,15 @@
 use crate::{
-    methods::risc0_aggregation::RISC0_AGGREGATION_ELF, methods::risc0_batch::RISC0_BATCH_ELF,
-    snarks::verify_groth16_snark_impl,
+    methods::{risc0_aggregation::RISC0_AGGREGATION_ELF, risc0_batch::RISC0_BATCH_ELF},
+    snarks::verify_boundless_groth16_snark_impl,
 };
 use alloy_primitives::B256;
 use alloy_signer_local_v12::PrivateKeySigner;
+use alloy_sol_types::SolValue;
 use boundless_market::{
-    client::{Client, ClientBuilder},
+    client::ClientBuilder,
     contracts::{Input, Offer, Predicate, ProofRequestBuilder, Requirements},
     input::InputBuilder,
-    storage::{storage_provider_from_env, BuiltinStorageProvider},
+    storage::storage_provider_from_env,
 };
 use raiko_lib::primitives::address;
 use raiko_lib::primitives::utils::parse_ether;
@@ -21,7 +22,7 @@ use raiko_lib::{
 };
 use reqwest::Url;
 // use risc0_ethereum_contracts::receipt::Receipt as ContractReceipt; kzg version conflict
-use risc0_zkvm::{compute_image_id, default_executor, guest::env, serde::to_vec, sha::Digestible};
+use risc0_zkvm::{compute_image_id, default_executor, serde::to_vec, sha::Digestible, Digest};
 use std::time::Duration;
 
 // mod helper;
@@ -177,7 +178,7 @@ impl Prover for Risc0BoundlessProver {
             let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
             let order_stream_url = Url::parse("https://eth-sepolia.beboundless.xyz/").ok();
             let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
-                panic!("BOUNDLESS_PRIVATE_KEY is not set");
+                panic!("BOUNDLESS_SIGNER_KEY is not set");
             });
             let signer: PrivateKeySigner = sender_priv_key.parse().unwrap();
 
@@ -425,10 +426,10 @@ impl Prover for Risc0BoundlessProver {
         let request = ProofRequestBuilder::new()
             .with_image_url(image_url.to_string())
             .with_input(request_input)
-            .with_requirements(Requirements::new(
-                image_id,
-                Predicate::digest_match(journal.digest()),
-            ))
+            .with_requirements(
+                Requirements::new(image_id, Predicate::digest_match(journal.digest()))
+                    .with_groth16_proof(),
+            )
             .with_offer(
                 Offer::default()
                     // The market uses a reverse Dutch auction mechanism to match requests with provers.
@@ -437,21 +438,21 @@ impl Prover for Risc0BoundlessProver {
                     // by the number of cycles. Alternatively, you can use the `with_min_price` and
                     // `with_max_price` methods to set the price directly.
                     .with_min_price_per_mcycle(
-                        parse_ether("0.000001").unwrap_or_default(),
+                        parse_ether("0.0001").unwrap_or_default(),
                         mcycles_count,
                     )
                     // NOTE: If your offer is not being accepted, try increasing the max price.
                     .with_max_price_per_mcycle(
-                        parse_ether("0.00005").unwrap_or_default(),
+                        parse_ether("0.0005").unwrap_or_default(),
                         mcycles_count,
                     )
                     // The timeout is the maximum number of blocks the request can stay
                     // unfulfilled in the market before it expires. If a prover locks in
                     // the request and does not fulfill it before the timeout, the prover can be
                     // slashed.
-                    .with_timeout(1000)
-                    .with_lock_timeout(500)
-                    .with_ramp_up_period(100),
+                    .with_timeout(2000)
+                    .with_lock_timeout(1000)
+                    .with_ramp_up_period(500),
             )
             .build()
             .unwrap();
@@ -483,7 +484,12 @@ impl Prover for Risc0BoundlessProver {
             .map_err(|e| {
                 ProverError::GuestError(format!("Failed to wait for request fulfillment: {e}"))
             })?;
-        tracing::info!("Request 0x{request_id:x} fulfilled");
+        tracing::info!(
+            "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}, image_id: {:?}",
+            journal,
+            seal,
+            image_id
+        );
 
         // Decode the resulting RISC0-ZKVM receipt.
         // let Ok(ContractReceipt::Base(batch_receipt)) =
@@ -493,17 +499,21 @@ impl Prover for Risc0BoundlessProver {
         // };
 
         let journal_digest = journal.digest();
-        // let encoded_proof =
-        //     verify_groth16_snark_impl(image_id, seal, journal_digest, post_state_digest).await?;
-        // let proof = (encoded_proof, B256::from_slice(image_id.as_bytes()))
-        //     .abi_encode()
-        //     .iter()
-        //     .skip(32)
-        //     .copied()
-        //     .collect();
+        let encoded_proof =
+            verify_boundless_groth16_snark_impl(image_id, seal.to_vec(), journal_digest)
+                .await
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Failed to verify groth16 snark: {e}"))
+                })?;
+        let proof: Vec<u8> = (encoded_proof, B256::from_slice(image_id.as_bytes()))
+            .abi_encode()
+            .iter()
+            .skip(32)
+            .copied()
+            .collect();
 
         Ok(Proof {
-            proof: Some(alloy_primitives::hex::encode_prefixed(seal)),
+            proof: Some(alloy_primitives::hex::encode_prefixed(proof)),
             input: Some(B256::from_slice(journal_digest.as_bytes())),
             quote: None, // serde_json::to_string(&batch_receipt).ok(),
             uuid: None,
@@ -542,5 +552,23 @@ mod tests {
             .await
             .unwrap();
         println!("proof: {:?}", proof);
+    }
+
+    #[tokio::test]
+    async fn test_run_prover_with_seal() {
+        env_logger::init();
+
+        let seal = alloy_primitives::hex::decode("0x9f39696c021c04f95caa9962aa0022f0eae58f1cd7e13ccf553a152a3d0e91443d0aab4f25a24e93423c51f1ae46e604e20a360cfe2376e7270a10d1f4a9e665adcc91e713155b2e45e05edb00c7f044ab827a425cac6d0c932e3e14aeddf79200a8fe7711ad2207298cf2004c5dffc5956e9b30d6b98e9e2533b1e6944671f35dacf85823bb4fd3e0dd14a0000bc3304338f844b11095d1dbfedf3e90074bf7c666ed531dd4676c51fdf0111529d5c40719d36ba8ba11db8542fff1bca90c24255c515f1b6e32a396bf2bdb40ad165f949f1d46c533266a666e3b6684ddbbbc8c4ce5c1051676d81b1addd377e8b9665912d32347aac64c1a9b38faaab63ceeb1dcc67c").unwrap();
+        let image_id = compute_image_id(RISC0_BATCH_ELF).unwrap();
+        let journal = alloy_primitives::hex::decode(
+            "0x20000000b0284764aae7f327410ae1355bef23dcccd0f9c723724d6638a8edde86091d65",
+        )
+        .unwrap();
+        let journal_digest = journal.digest();
+        let encoded_proof =
+            verify_boundless_groth16_snark_impl(image_id, seal, journal_digest.into())
+                .await
+                .unwrap();
+        println!("encoded_proof: {:?}", encoded_proof);
     }
 }
