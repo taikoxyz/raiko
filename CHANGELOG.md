@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0-rc.1](https://github.com/taikoxyz/raiko/compare/v1.9.0-rc.1...v1.10.0-rc.1) (2025-06-06)
+
+
+### Features
+
+* **raiko:** update deploy script ([#581](https://github.com/taikoxyz/raiko/issues/581)) ([6f11b79](https://github.com/taikoxyz/raiko/commit/6f11b793201a8da3b054c8316c7e39f9332667f1))
+
 ## [1.8.0](https://github.com/taikoxyz/raiko/compare/v1.7.0...v1.8.0) (2025-05-16)
 
 
