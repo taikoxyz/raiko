@@ -14,6 +14,10 @@ name = "risc0-aggregation"
 path = "src/aggregation.rs"
 
 [[bin]]
+name = "boundless-aggregation"
+path = "src/boundless_agg.rs"
+
+[[bin]]
 name = "risc0-batch"
 path = "src/batch.rs"
 
@@ -46,6 +50,13 @@ revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
     "std",
     "c-kzg",
 ] }
+# Conversion, serialization, codecs, compression
+serde = { version = "1.0", default-features = false, features = [
+    "derive",
+    "alloc",
+] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde_with = { version = "3.0" }
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-alloy" }
@@ -57,3 +68,7 @@ crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag
 k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.3-risczero.1" }
 sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6-risczero.0" }
 tiny-keccak = { git = "https://github.com/risc0/tiny-keccak", tag = "tiny-keccak/v2.0.2-risczero.0"}
+
+[features]
+enable = []
+risc0 = []

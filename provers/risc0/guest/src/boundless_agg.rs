@@ -13,32 +13,34 @@ use risc0_zkvm::{
 };
 
 use raiko_lib::{
-    input::ZkAggregationGuestInput,
     primitives::B256,
     protocol_instance::{aggregation_output, words_to_bytes_le},
 };
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoundlessAggregationGuestInput {
+    pub image_id: Digest,
+    pub receipts: Vec<Receipt>,
+}
+
 risc0_zkvm::guest::entry!(main);
 
 pub fn main() {
-    let bytes = env::read_frame();
-    let (image_id, receipts): (Digest, Vec<Receipt>) =
-        postcard::from_bytes(&bytes).expect("failed to deserialize input");
+    let input: BoundlessAggregationGuestInput = env::read();
 
-    let mut inputs = Vec::new();
+    let image_id = input.image_id;
+    let mut public_inputs = Vec::new();
     // Verify the proofs.
-    for receipt in receipts.iter() {
-        let claim = receipt.claim().unwrap();
+    for receipt in input.receipts.iter() {
         receipt.verify(image_id).unwrap();
-        inputs.push(
-            B256::try_from(receipt.journal.bytes.as_ref())
-                .expect("failed to convert journal bytes to B256"),
-        );
+        public_inputs.push(B256::from_slice(&receipt.journal.bytes[4..]));
     }
 
     // The aggregation output
     env::commit_slice(&aggregation_output(
-        B256::from(words_to_bytes_le(&image_id)),
-        &inputs,
+        B256::from(words_to_bytes_le(image_id.as_ref())),
+        public_inputs,
     ));
 }
