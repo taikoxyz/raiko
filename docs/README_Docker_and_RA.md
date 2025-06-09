@@ -284,15 +284,19 @@ mkdir ~/.config/raiko/config
 mkdir ~/.config/raiko/secrets
 ```
 
-5. Now, clone raiko and check out the `tags/v1.8.0` branch and navigate to the `docker` folder. From here you can pull the images from our registry.
+5. Now, clone raiko and check out the respective branch and navigate to the `docker` folder. From here you can pull the images from our registry.
+
+For Taiko Alethia, the branch should be `v1.8.0`; for Taiko Hekla, the branch should be `v1.9.0-rc.1`.
 
 ```
 git clone https://github.com/taikoxyz/raiko.git
 cd raiko/docker
-git checkout tags/v1.8.0
+git checkout tags/{BRANCH_TAG}
 ```
 
-> **_NOTE:_** For Taiko Alethia AND Hekla: You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.8.0-edmm`. If you are using a SGX1 machine, please use `1.8.0`.
+> **_NOTE:_** For Taiko Alethia: You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.8.0-edmm`. If you are using a SGX1 machine, please use `1.8.0`.
+
+> **_NOTE:_** For Taiko Hekla: You will need to modify your raiko `docker-compose.yml` to use the images you pull. If you are using a SGX2 machine, please use `1.9.0-rc.1-edmm`. If you are using a SGX1 machine, please use `1.9.0-rc.1`.
 
 In your `docker-compose.yml` file, search for `raiko:latest` and change all instances to `raiko:{TAG}`. Use the following commands to pull the respective images.
 
@@ -377,7 +381,7 @@ You can find it with `cat ~/.config/raiko/config/bootstrap.json` or  `cat ~/.con
 
 5. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/layer1/provers/config_dcap_sgx_verifier.sh --env {NETWORK} --quote {YOUR_QUOTE_HERE}`. "YOUR_QUOTE_HERE" comes from above step 5.
 
-`NETWORK` will be `hekla-pacaya<sgxreth|sgxgeth>` or `mainnet-pacaya<sgxreth|sgxgeth>` depending on which verifier you are registering to.
+`NETWORK` will be `hekla-pacaya-<sgxreth|sgxgeth>` or `mainnet-pacaya-<sgxreth|sgxgeth>` depending on which verifier you are registering to.
 
  You will have to do this step twice: once for SgxGeth and once for Pacaya. Please use the quote in `bootstrap.gaiko.json` to register for `<mainnet|hekla>-pacaya-sgxgeth` and the quote from `bootstrap.json` to register for `<mainnet|hekla>-pacaya-sgxreth`. Keep both instance IDs.
 
@@ -469,6 +473,7 @@ raiko  | Update pacaya sgxgeth instance id to Y
 
 2024-04-18T12:50:09.400319Z  INFO raiko_host::server: Listening on http://0.0.0.0:8080
 ```
+
 ## Upgrading Raiko (Mainnet)
 
 If you previously ran an instance of Raiko and are looking to upgrade it, this section covers the only necessary steps.
@@ -543,85 +548,33 @@ Set `SGX_PACAYA_INSTANCE_ID` to the instance id from the sgxreth run, and `SGXGE
 
 `docker compose up raiko -d`. You can verify if it's running properly with the tests described in the guide below.
 
-## Verify that your Raiko instance is running properly
-
-Once your Raiko instance is running, you can verify if it was started properly as follows:
-
-```
- curl --location 'http://localhost:8080/v2/proof' \
---header 'Content-Type: application/json' \
---data '{
-    "proof_type": "sgx",
-    "block_number": 99999,
-    "prover": "0x7b399987d24fc5951f3e94a4cb16e87414bf2229",
-    "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "sgx": {
-        "setup": false,
-        "bootstrap": false,
-        "prove": true
-    }
-}'
-```
-
-Or use `./script/prove-block` like `./script/prove-block.sh taiko_a7 native 99999` to check readiness. You may switch `native` with `sgx` to be doubly sure that the proof generation is functional.
-
-
-The response should look like this:
-
-```
-{
-    "data": {
-        "proof": {
-            "input": "0x.....",
-            "kzg_proof": "null",
-            "proof": "0x.....",
-            "quote": "03000200000000000a000f00939a72....0a2d2d2d2d2d454e442043455254494649434154452d2d2d2d2d0a00",
-            "uuid": null
-        }
-    },
-    "status": "ok"
-}
-```
-
-If you received this response, then at this point, your prover is up and running: you can provide the raiko_host endpoint to your taiko-client instance for SGX proving!
-
-## Verify that your Raiko instance can successfully aggregation prove
-
-Now that we offer aggregation proving, it may be useful to test if the functionality is as you expect. Run the following script:
-
-`./script/prove-aggregation-blocks.sh taiko_mainnet native 800000`. You may switch `native` with `sgx` to be doubly sure that the sgx proof generation is functional.
-
-This will test the batch proving on block 799999 and 800000. If you see the log `Aggregate proof successful.` then it is functioning normally! 
-
-If you use blocks that are too old, it may hang and fail; please try to use more recent blocks.
-
 ## Verify that your Raiko instance is running properly (Pacaya and SgxGeth)
 
 As of the Pacaya fork (currently only in Hekla), you will need to check that your Raiko instance can prove batches.
 
 Please make sure that you have done the On Chain RA step with the Pacaya addresses and exported the your `SGX_PACAYA_INSTANCE_ID` before running Raiko. The same must be done for the SgxGeth proof, and `SGXGETH_PACAYA_INSTANCE_ID` must be set too.
 
-Use `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029)]"` to check readiness. 
+Use `./script/prove-batch.sh taiko_a7 sgx "[(1407735,3881175)]"` to check readiness. 
 
 > **_NOTE:_** If you would like to check the sgxgeth is set up properly, simply replace `sgx` with `sgxgeth`. The responses should look the same, except with `proof_type: sgxgeth`. For the curl response, check the script for the `proofParams` to replace.
 
 The initial response will be as follows:
 ```
-Parsed batch request: [{"batch_id": 1303526, "l1_inclusion_block_number": 3591029}]
+Parsed batch request: [{"batch_id": 1407735, "l1_inclusion_block_number": 3881175}]
 {"data":{"status":"registered"},"proof_type":"sgx","status":"ok"}
 ```
 
 You may then navigate to `raiko/docker` and check the logs with `docker compose logs raiko`. If you see the following log, your prover is functional and working as intended!
 
 ```
-raiko  | 2025-03-31T22:41:16.762651Z  INFO raiko_reqpool::pool: RedisPool.update_status: {"BatchProof":{"chain_id":167009,"batch_id":1303526,"l1_inclusion_height":3591029,"proof_type":"sgx","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
-raiko  | 2025-03-31T22:41:16.762696Z  INFO raiko_reqpool::pool: RedisPool.add: {"BatchProof":{"chain_id":167009,"batch_id":1303526,"l1_inclusion_height":3591029,"proof_type":"sgx","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
+raiko  | 2025-03-31T22:41:16.762651Z  INFO raiko_reqpool::pool: RedisPool.update_status: {"BatchProof":{"chain_id":167009,"batch_id":1407735,"l1_inclusion_height":3881175,"proof_type":"sgx","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
+raiko  | 2025-03-31T22:41:16.762696Z  INFO raiko_reqpool::pool: RedisPool.add: {"BatchProof":{"chain_id":167009,"batch_id":1407735,"l1_inclusion_height":3881175,"proof_type":"sgx","prover_address":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}}, Success
 ```
 
-Alternatively, you may wait a minute or so and call `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029)]"` again: this time if the response is as follows:
+Alternatively, you may wait a minute or so and call `./script/prove-batch.sh taiko_a7 sgx "[(1407735,3881175)]"` again: this time if the response is as follows:
 
 ```
-Parsed batch request: [{"batch_id": 1303526, "l1_inclusion_block_number": 3591029}]
+Parsed batch request: [{"batch_id": 1407735, "l1_inclusion_block_number": 3881175}]
 {"data":{"proof":{"input":"0x779c2bc712311b754f7a71fd2065f337fbabd7473b4b231164ea1a51e39816d9","kzg_proof":null,"proof":0x0000...,"quote":03002...,"uuid":null}},"proof_type":"sgx","status":"ok"}
 ```
 
@@ -636,7 +589,7 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --data-raw '{
         "network": "taiko_a7",
         "l1_network": "holesky",
-        "batches": [{"batch_id": 1303526, "l1_inclusion_block_number": 3591029}],
+        "batches": [{"batch_id": 1407735, "l1_inclusion_block_number": 3881175}],
         "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
         "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "proof_type": "sgx",
@@ -654,6 +607,16 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
 
 The responses should be the same as listed above.
 
-If you would like to test multiple batches, you can add them like so: `./script/prove-batch.sh taiko_a7 sgx "[(1303526,3591029), ($batch_id2,$batch_height2)]"`
+If you would like to test multiple batches, you can add them like so: `./script/prove-batch.sh taiko_a7 sgx "[(1407735,3881175), ($batch_id2,$batch_height2)]"`
 You will only see logs for one of the batches in the format as above but you can check `docker compose logs raiko` to see if both batches were proved successfully.
+
+## Verify that your Raiko instance can successfully aggregation prove
+
+Now that we offer aggregation proving, it may be useful to test if the functionality is as you expect. Run the following script:
+
+`./script/prove-aggregation-blocks.sh taiko_mainnet native 800000`. You may switch `native` with `sgx` to be doubly sure that the sgx proof generation is functional.
+
+This will test the batch proving on block 799999 and 800000. If you see the log `Aggregate proof successful.` then it is functioning normally! 
+
+If you use blocks that are too old, it may hang and fail; please try to use more recent blocks.
 
