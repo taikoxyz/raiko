@@ -27,7 +27,7 @@ path = "src/benchmark/ecdsa.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "risc0"] }
-risc0-zkvm = { version = "2.1.0", default-features = false, features = [
+risc0-zkvm = { version = "=2.1.0", default-features = false, features = [
     'std',
     "getrandom",
     "heap-embedded-alloc",
