@@ -10,7 +10,7 @@ use raiko_lib::{
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-
+use tokio::time::Duration;
 use crate::{SgxParam, SgxResponse};
 
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -238,6 +238,7 @@ async fn batch_prove(
         .post(post_url)
         .header("Content-Type", "application/json")
         .body(json_input)
+        .timeout(Duration::from_secs(200))
         .send()
         .await
         .map_err(|e| ProverError::GuestError(format!("Failed to send request: {e}")))?;
@@ -300,6 +301,7 @@ async fn aggregate(
         .post(post_url)
         .header("Content-Type", "application/json")
         .body(json_input)
+        .timeout(Duration::from_secs(200))
         .send()
         .await
         .map_err(|e| ProverError::GuestError(format!("Failed to send request: {e}")))?;
