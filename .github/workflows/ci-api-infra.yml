@@ -1,0 +1,29 @@
+name: CI - API - Infrastructure
+# This workflow is triggered on changes to the API and web service infrastructure code.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "redis-derive/**"
+      - "reqactor/**"
+      - "reqpool/**"
+  pull_request:
+    paths:
+      - "redis-derive/**"
+      - "reqactor/**"
+      - "reqpool/**"
+
+env:
+  CARGO_TERM_COLOR: always
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # simply run the native tests for compile check
+  build-test-native:
+    uses: ./.github/workflows/ci-native.yml
+
