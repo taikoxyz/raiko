@@ -32,7 +32,16 @@ pub const MAX_BLOCK_HASH_AGE: u64 = 256;
 /// Multiplier for converting gwei to wei.
 pub const GWEI_TO_WEI: U256 = uint!(1_000_000_000_U256);
 
-const DEFAULT_CHAIN_SPECS: &str = include_str!("../../host/config/chain_spec_list_default.json");
+const DEFAULT_CHAIN_SPECS: Lazy<Vec<ChainSpec>> = Lazy::new(|| {
+    let file = std::fs::File::open("./host/config/chain_spec_list_default.json")
+        .expect("Failed to open default chain specs file");
+    let reader = std::io::BufReader::new(file);
+    let config: Value = serde_json::from_reader(reader).unwrap();
+    let chain_spec_list: Vec<ChainSpec> =
+        serde_json::from_value(config).expect("Failed to parse chain specs");
+
+    chain_spec_list
+});
 
 pub static IN_CONTAINER: Lazy<Option<()>> = Lazy::new(|| var("IN_CONTAINER").ok().map(|_| ()));
 
@@ -41,9 +50,8 @@ pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 
 impl Default for SupportedChainSpecs {
     fn default() -> Self {
-        let deserialized: Vec<ChainSpec> =
-            serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap_or_default();
-        let chain_spec_list = deserialized
+        let chain_spec_list = DEFAULT_CHAIN_SPECS
+            .clone()
             .into_iter()
             .map(|cs| (cs.name.clone(), cs))
             .collect::<HashMap<String, ChainSpec>>();
