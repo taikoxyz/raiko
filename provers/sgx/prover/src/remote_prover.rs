@@ -10,7 +10,7 @@ use raiko_lib::{
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-
+use tokio::time::Duration;
 use crate::{SgxParam, SgxResponse};
 
 #[derive(Default, Clone, Serialize, Deserialize)]
