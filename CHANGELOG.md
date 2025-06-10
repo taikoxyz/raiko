@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.10.0-rc.1](https://github.com/taikoxyz/raiko/compare/v1.9.0-rc.1...v1.10.0-rc.1) (2025-06-10)
+## [1.9.0](https://github.com/taikoxyz/raiko/compare/v1.9.0-rc.1...v1.9.0) (2025-06-10)
 
 
 ### Features
