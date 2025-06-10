@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.10.0-rc.1](https://github.com/taikoxyz/raiko/compare/v1.9.0-rc.1...v1.10.0-rc.1) (2025-06-10)
+
+
+### Features
+
+* **pre-release:** v1.9.0-rc.1 ([#580](https://github.com/taikoxyz/raiko/issues/580)) ([fd21666](https://github.com/taikoxyz/raiko/commit/fd216663ec84385ee4456c673366535c82712bdb))
+* **raiko:** update deploy script ([#581](https://github.com/taikoxyz/raiko/issues/581)) ([6f11b79](https://github.com/taikoxyz/raiko/commit/6f11b793201a8da3b054c8316c7e39f9332667f1))
+
+
+### Bug Fixes
+
+* **raiko:** add timeout to sgx server ([#585](https://github.com/taikoxyz/raiko/issues/585)) ([0518a8a](https://github.com/taikoxyz/raiko/commit/0518a8ac3ce5e6504075c310d53085d0aa150015))
+
 ## [1.8.0](https://github.com/taikoxyz/raiko/compare/v1.7.0...v1.8.0) (2025-05-16)
 
 
