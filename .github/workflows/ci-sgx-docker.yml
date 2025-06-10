@@ -27,5 +27,5 @@ jobs:
         run: |
           cd docker
           cp ./.env.sample ./.env
-          docker compose build raiko --no-cache
+          docker compose --profile prod-redis build raiko --no-cache
         shell: bash
