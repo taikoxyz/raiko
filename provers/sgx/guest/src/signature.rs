@@ -18,7 +18,6 @@ pub fn generate_key() -> Keypair {
 ///
 /// This does not ensure that the `s` value in the signature is low, and _just_ wraps the
 /// underlying secp256k1 library.
-#[allow(dead_code)]
 pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Address, Error> {
     let sig = RecoverableSignature::from_compact(
         &sig[0..64],
