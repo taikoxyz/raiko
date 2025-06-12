@@ -260,12 +260,12 @@ impl Prover for Risc0BoundlessProver {
                     // by the number of cycles. Alternatively, you can use the `with_min_price` and
                     // `with_max_price` methods to set the price directly.
                     .with_min_price_per_mcycle(
-                        parse_ether("0.001").unwrap_or_default(),
+                        parse_ether("0.0001").unwrap_or_default(),
                         mcycles_count,
                     )
                     // NOTE: If your offer is not being accepted, try increasing the max price.
                     .with_max_price_per_mcycle(
-                        parse_ether("0.05").unwrap_or_default(),
+                        parse_ether("0.0005").unwrap_or_default(),
                         mcycles_count,
                     )
                     // The timeout is the maximum number of blocks the request can stay
@@ -301,7 +301,7 @@ impl Prover for Risc0BoundlessProver {
         // Wait for the request to be fulfilled by the market, returning the journal and seal.
         tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
         let (journal, seal) = boundless_client
-            .wait_for_request_fulfillment(request_id, Duration::from_secs(5), expires_at)
+            .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
             .await
             .map_err(|e| {
                 ProverError::GuestError(format!("Failed to wait for request fulfillment: {e}"))
@@ -340,7 +340,7 @@ impl Prover for Risc0BoundlessProver {
         input: GuestBatchInput,
         output: &GuestBatchOutput,
         config: &ProverConfig,
-        id_store: Option<&mut dyn IdWrite>,
+        _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         // Encode the input and upload it to the storage provider.
         let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
