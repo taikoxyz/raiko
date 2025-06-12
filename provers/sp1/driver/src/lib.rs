@@ -111,7 +111,7 @@ struct Sp1ProverClient {
 //TODO: use prover object to save such local storage members.
 // static BLOCK_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 // static AGGREGATION_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
-static BATCH_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
+// static BATCH_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 
 impl Prover for Sp1Prover {
     async fn run(
@@ -478,30 +478,39 @@ impl Prover for Sp1Prover {
             pk,
             vk,
             network_client,
-        } = BATCH_PROOF_CLIENT
-            .entry(mode.clone())
-            .or_insert_with(|| {
-                let network_client = Arc::new(ProverClient::builder().network().build());
-                let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
-                    ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
-                    ProverMode::Local => Box::new(ProverClient::builder().cpu().build()),
-                    ProverMode::Network => Box::new(ProverClient::builder().network().build()),
-                };
+        } = {
+            let gpu_number: u32 = config
+                .get("gpu_number")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as u32)
+                .unwrap();
+            info!("GPU Number: {}", gpu_number);
 
-                let client = Arc::new(base_client);
-                let (pk, vk) = client.setup(BATCH_ELF);
-                info!(
-                    "new client and setup() for batch {:?}.",
-                    input.taiko.batch_id
-                );
-                Sp1ProverClient {
-                    client,
-                    network_client,
-                    pk,
-                    vk,
-                }
-            })
-            .clone();
+            let network_client = Arc::new(ProverClient::builder().network().build());
+            let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
+                ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
+                ProverMode::Local => Box::new(
+                    ProverClient::builder()
+                        .cuda()
+                        .with_gpu_number(gpu_number)
+                        .build(),
+                ),
+                ProverMode::Network => Box::new(ProverClient::builder().network().build()),
+            };
+
+            let client = Arc::new(base_client);
+            let (pk, vk) = client.setup(BATCH_ELF);
+            info!(
+                "new client and setup() for batch {:?}.",
+                input.taiko.batch_id
+            );
+            Sp1ProverClient {
+                client,
+                network_client,
+                pk,
+                vk,
+            }
+        };
 
         info!(
             "Sp1 Prover: batch {:?} with vk {:?}, output.hash: {}",
