@@ -3,7 +3,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:1.8.0
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init
     command: --init
     env_file:
@@ -29,7 +29,7 @@ services:
       args:
         ENABLE_SELF_REGISTER: "true"
       dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:1.8.0
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko-init-self-register
     command: --init-self-register
     env_file:
@@ -60,7 +60,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:1.8.0
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
     command:
     env_file:
@@ -158,7 +158,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: us-docker.pkg.dev/evmchain/images/raiko:1.8.0
+    image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: mainnet-sgx-server
     command:
     env_file:
