@@ -9,6 +9,11 @@ edition = "2021"
 name = "zk_op"
 path = "src/zk_op.rs"
 
+# deprecated binary target for ontake fork block processing
+# [[bin]]
+# name = "sp1-block"
+# path = "src/block.rs"
+
 [[bin]]
 name = "sp1-aggregation"
 path = "src/aggregation.rs"
