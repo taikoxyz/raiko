@@ -3276,6 +3276,9 @@ dependencies = [
  "revm-primitives",
  "risc0-zkvm",
  "risc0-zkvm-platform",
+ "serde",
+ "serde_json",
+ "serde_with 3.9.0",
  "sha2 0.10.6",
 ]
 

@@ -1,3 +1,4 @@
+pub mod boundless_aggregation;
 pub mod risc0_aggregation;
 pub mod risc0_batch;
 

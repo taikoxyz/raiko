@@ -23,6 +23,10 @@ name = "risc0-batch"
 path = "src/batch.rs"
 
 [[bin]]
+name = "boundless-aggregation"
+path = "src/boundless_agg.rs"
+
+[[bin]]
 name = "sha256"
 path = "src/benchmark/sha256.rs"
 
@@ -51,6 +55,14 @@ revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-
     "std",
     "c-kzg",
 ] }
+# Conversion, serialization, codecs, compression
+serde = { version = "1.0", default-features = false, features = [
+    "derive",
+    "alloc",
+] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde_with = { version = "3.0" }
+
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
