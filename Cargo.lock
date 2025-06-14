@@ -9494,6 +9494,7 @@ dependencies = [
  "boundless-market",
  "bytemuck",
  "cfg-if",
+ "env_logger",
  "ethers-contract",
  "ethers-core",
  "ethers-providers",

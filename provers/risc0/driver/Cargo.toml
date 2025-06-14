@@ -46,6 +46,9 @@ alloy-signer-local-v12 = { package = "alloy-signer-local", version = "0.12" }
 alloy-primitives-v8 = { package = "alloy-primitives", version = "0.8.25" }
 risc0-ethereum-contracts-boundless = { package = "risc0-ethereum-contracts", version = "2.0.2" }
 
+[dev-dependencies]
+env_logger = { workspace = true }
+
 [features]
 enable = [
     "raiko-lib",
