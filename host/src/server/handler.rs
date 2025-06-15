@@ -128,8 +128,15 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
         }
     }
 
+    let priority = match request_key {
+        RequestKey::SingleProof(_) => 0,
+        RequestKey::GuestInput(_) => 0,
+        RequestKey::BatchGuestInput(_) => 1,
+        RequestKey::BatchProof(_) => 2,
+        RequestKey::Aggregation(_) => 3,
+    };
     // Send the action to the Actor and return the response status
-    actor.act(action.clone()).await.map(|status| {
+    actor.queue(action.clone(), priority).await.map(|status| {
         tracing::trace!(
             "trace request out {request_key}: {status}",
             request_key = request_key,

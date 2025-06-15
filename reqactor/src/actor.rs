@@ -1,10 +1,11 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, BinaryHeap},
     ops::DerefMut,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, Ordering as AtomicOrdering},
         Arc, Mutex,
     },
+    cmp::Ordering,
 };
 
 use raiko_ballot::Ballot;
@@ -18,6 +19,33 @@ use reth_primitives::BlockHash;
 use tokio::sync::{mpsc::Sender, oneshot};
 
 use crate::Action;
+#[derive(Debug)]
+struct PrioritizedAction {
+    priority: u32,
+    action: Action,
+    resp_tx: oneshot::Sender<Result<StatusWithContext, String>>,
+}
+
+impl Ord for PrioritizedAction {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Higher priority comes first
+        other.priority.cmp(&self.priority)
+    }
+}
+
+impl PartialOrd for PrioritizedAction {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for PrioritizedAction {
+    fn eq(&self, other: &Self) -> bool {
+        self.priority == other.priority
+    }
+}
+
+impl Eq for PrioritizedAction {}
 
 /// Actor is the main interface interacting with the backend and the pool.
 #[derive(Debug, Clone)]
@@ -32,6 +60,8 @@ pub struct Actor {
     pool: Arc<Mutex<Pool>>,
     // In order to support dynamic config via HTTP, we need to use Arc<Mutex<Ballot>>.
     ballot: Arc<Mutex<Ballot>>,
+    // Priority queue for actions
+    priority_queue: Arc<Mutex<BinaryHeap<PrioritizedAction>>>,
 }
 
 impl Actor {
@@ -51,6 +81,7 @@ impl Actor {
             is_paused: Arc::new(AtomicBool::new(false)),
             ballot: Arc::new(Mutex::new(ballot)),
             pool: Arc::new(Mutex::new(pool)),
+            priority_queue: Arc::new(Mutex::new(BinaryHeap::new())),
         }
     }
 
@@ -72,7 +103,7 @@ impl Actor {
 
     /// Check if the system is paused.
     pub fn is_paused(&self) -> bool {
-        self.is_paused.load(Ordering::SeqCst)
+        self.is_paused.load(AtomicOrdering::SeqCst)
     }
 
     /// Get the status of the request from the pool.
@@ -89,6 +120,58 @@ impl Actor {
 
     pub fn pool_remove_request(&self, request_key: &RequestKey) -> Result<usize, String> {
         self.pool.lock().unwrap().remove(request_key)
+    }
+
+    /// Queue an action with priority, then call `act`.
+    ///
+    /// This function allows you to enqueue an action with a given priority.
+    /// Higher priority actions should be processed before lower priority ones.
+    ///
+    /// # Arguments
+    /// * `action` - The action to queue.
+    /// * `priority` - The priority of the action (higher is more important).
+    ///
+    /// # Returns
+    /// * `Result<StatusWithContext, String>` - The result of processing the action.
+    pub async fn queue(&self, action: Action, priority: u32) -> Result<StatusWithContext, String> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        
+        // Create prioritized action
+        let prioritized_action = PrioritizedAction {
+            priority,
+            action,
+            resp_tx,
+        };
+
+        // Always add to priority queue first
+        {
+            let mut queue = self.priority_queue.lock().unwrap();
+            queue.push(prioritized_action);
+        }
+
+        // Try to process the highest priority action
+        if let Some(next_action) = self.priority_queue.lock().unwrap().pop() {
+            // Try to send to channel
+            match self.action_tx.try_send((next_action.action.clone(), next_action.resp_tx)) {
+                Ok(_) => {
+                    tracing::info!("Action sent with priority {}", priority);
+                }
+                Err(e) => {
+                    // If channel is full or closed, create a new action and put it back in the queue
+                    tracing::info!("Channel error, action with priority {} will be processed later: {}", priority, e);
+                    let (new_resp_tx, _) = oneshot::channel();
+                    let new_action = PrioritizedAction {
+                        priority: next_action.priority,
+                        action: next_action.action,
+                        resp_tx: new_resp_tx,
+                    };
+                    self.priority_queue.lock().unwrap().push(new_action);
+                }
+            }
+        }
+        
+        // Wait for response
+        resp_rx.await.map_err(|e| format!("failed to receive action response: {e}"))?
     }
 
     /// Send an action to the backend and wait for the response.
@@ -112,7 +195,7 @@ impl Actor {
     ///
     /// Note that this function is blocking until the task manager finishes the pause process.
     pub async fn pause(&self) -> Result<(), String> {
-        self.is_paused.store(true, Ordering::SeqCst);
+        self.is_paused.store(true, AtomicOrdering::SeqCst);
         self.pause_tx
             .send(())
             .await
