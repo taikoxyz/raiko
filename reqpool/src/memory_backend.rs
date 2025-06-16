@@ -29,11 +29,18 @@ pub struct MemoryBackend {
 impl MemoryBackend {
     pub fn new(redis_url: String) -> Self {
         let mut global = GLOBAL_STORAGE.lock().unwrap();
+
+        let mem_capacity = std::env::var("MEMORY_BACKEND_SIZE")
+            .unwrap_or("2048".to_string())
+            .parse::<usize>()
+            .unwrap_or_else(|_| 2048);
         Self {
             storage: global
                 .entry(redis_url)
                 .or_insert_with(|| {
-                    Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(2048).unwrap())))
+                    Arc::new(Mutex::new(LruCache::new(
+                        NonZeroUsize::new(mem_capacity).unwrap(),
+                    )))
                 })
                 .clone(),
         }
