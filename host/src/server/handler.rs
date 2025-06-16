@@ -111,7 +111,7 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
     let request_key = action.request_key();
     // Return early if the request is already registered, except for failed & aggregation requests
     if let Ok(Some(status)) = actor.pool_get_status(request_key) {
-        tracing::trace!("trace request {request_key:?} status: {status:?}");
+        tracing::info!("trace request {request_key:?} status: {status:?}");
         match request_key {
             RequestKey::Aggregation(_) => {
                 // if aggregation, return early only if the request is successful
@@ -126,6 +126,8 @@ async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
                 }
             }
         }
+    } else {
+        tracing::info!("trace request {request_key:?} status: not found");
     }
 
     // Send the action to the Actor and return the response status
