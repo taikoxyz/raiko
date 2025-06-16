@@ -97,7 +97,8 @@ impl Actor {
 
         // Send the action to the backend
         self.action_tx
-            .try_send((action, resp_tx))
+            .send((action, resp_tx))
+            .await
             .map_err(|e| format!("failed to send action: {e}"))?;
 
         // Wait for response of the action
