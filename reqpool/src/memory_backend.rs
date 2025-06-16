@@ -30,7 +30,7 @@ impl MemoryBackend {
     pub fn new(redis_url: String) -> Self {
         let mut global = GLOBAL_STORAGE.lock().unwrap();
 
-        let mem_capacity = std::env::var("MEMOERY_BACKEND_SIZE")
+        let mem_capacity = std::env::var("MEMORY_BACKEND_SIZE")
             .unwrap_or("2048".to_string())
             .parse::<usize>()
             .unwrap_or_else(|_| 2048);
