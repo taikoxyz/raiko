@@ -22,8 +22,8 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "http://ip:32002",
-        "beacon_rpc": "http://ip:33001",
+        "rpc": "http://173.255.233.27:32002",
+        "beacon_rpc": "http://173.255.233.27:33001",
         "verifier_address_forks": {
             "FRONTIER": {
                 "SGX": null,
@@ -57,20 +57,20 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0xaE37C7A711bcab9B0f8655a97B738d6ccaB6560B",
+        "l1_contract": "0x93AaD1588d6125ca2383efbB0AF3EBc57E266f58",
         "l2_contract": "0x7633740000000000000000000000000000010001",
-        "rpc": "http://ip:8547",
+        "rpc": "http://173.255.233.27:8547",
         "beacon_rpc": null,
         "verifier_address_forks": {
             "HEKLA": {
-                "SGX": "0x86A0679C7987B5BA9600affA994B78D0660088ff",
-                "SP1": "0xD7d1678E63Ec1d3609F404659Ff6C4d6C590825b",
-                "RISC0": "0xCd9f348aeBF4649BFF58654da5C7A008b9008e7d"
+                "SGX": "0x1eEffA028fD0df63Aa2dBA8a223DA4D97A6894eE",
+                "SP1": "0x45a2d021E13dBD3f638BFC4c9E829942dEe0C914",
+                "RISC0": "0x7A2Ef16CDB862898D8667094133C2D02d9A9aa9A"
             },
             "ONTAKE": {
-                "SGX": "0x86A0679C7987B5BA9600affA994B78D0660088ff",
-                "SP1": "0xD7d1678E63Ec1d3609F404659Ff6C4d6C590825b",
-                "RISC0": "0xCd9f348aeBF4649BFF58654da5C7A008b9008e7d"
+                "SGX": "0x9DC3b7C24965a90a8e2eacf48F4DB47c0A5f7Eb0",
+                "SP1": "0x45a2d021E13dBD3f638BFC4c9E829942dEe0C914",
+                "RISC0": "0x7A2Ef16CDB862898D8667094133C2D02d9A9aa9A"
             }
         },
         "genesis_time": 0,

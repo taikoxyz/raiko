@@ -1,6 +1,6 @@
 {
     "network": "surge_dev",
-    "l1_network": "hoodi",
+    "l1_network": "surge_dev_l1",
     "cache_path": "/tmp/raiko/",
     "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
