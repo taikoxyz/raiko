@@ -9,6 +9,7 @@ use raiko_reqpool::{
 };
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
+use tracing::info;
 use utoipa::OpenApi;
 
 use crate::server::utils::{draw_for_zk_any_request, is_zk_any_request};
@@ -64,6 +65,9 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
             }
         }
     }
+
+    println!("Proof request config: {:?}", config.proof_type);
+    info!("Proof request config: {:?}", config.proof_type);
 
     if let Some(ref proof_type) = config.proof_type {
         match proof_type.as_str() {

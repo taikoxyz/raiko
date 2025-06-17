@@ -92,6 +92,20 @@ pub struct Opts {
         help = "e.g. {\"Sp1\":0.1,\"Risc0\":0.2}"
     )]
     pub ballot: String,
+
+    #[arg(
+        long,
+        require_equals = true,
+        default_value = "provers/sp1/guest/elf/image_ids.json"
+    )]
+    pub sp1_image_ids_path: PathBuf,
+
+    #[arg(
+        long,
+        require_equals = true,
+        default_value = "provers/risc0/driver/src/methods/image_ids.json"
+    )]
+    pub risc0_image_ids_path: PathBuf,
 }
 
 impl Opts {
@@ -113,6 +127,32 @@ impl Opts {
 
     fn default_log_level() -> String {
         "info".to_string()
+    }
+
+    fn get_image_ids_json(path: &PathBuf) -> Value {
+        let Ok(file) = std::fs::File::open(path) else {
+            return Value::Object(Default::default());
+        };
+
+        serde_json::from_reader(std::io::BufReader::new(file)).expect("Failed to parse risc0 JSON")
+    }
+
+    fn parse_image_ids(&self) {
+        let image_ids_path = PathBuf::from("host/config/image_ids.json");
+
+        let risc0_json = Self::get_image_ids_json(&self.risc0_image_ids_path);
+        let sp1_json = Self::get_image_ids_json(&self.sp1_image_ids_path);
+
+        let mut merged = risc0_json.clone();
+
+        merged
+            .as_object_mut()
+            .unwrap()
+            .extend(sp1_json.as_object().unwrap().clone());
+
+        let pretty = serde_json::to_string_pretty(&merged).unwrap();
+
+        std::fs::write(image_ids_path, pretty).expect("Failed to write merged image IDs to file");
     }
 
     /// Read the options from a file and merge it with the current options.
@@ -157,6 +197,8 @@ pub fn parse_opts() -> HostResult<Opts> {
     opts.merge_from_env();
     // Read the config file.
     opts.merge_from_file()?;
+
+    opts.parse_image_ids();
 
     Ok(opts)
 }

@@ -50,6 +50,14 @@ impl GuestListEntry {
         })
     }
 
+    pub fn get_image_id_hex(&self) -> String {
+        let image_id =
+            risc0_binfmt::compute_image_id(&self.elf).expect("Couldn't compute imdage id"); // Checked in build method
+        let image = hex::encode(image_id.as_bytes());
+
+        image
+    }
+
     pub fn codegen_consts(&self, dest: &PathBuf) -> String {
         if self.path.contains('#') {
             panic!("method path cannot include #: {}", self.path);

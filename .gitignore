@@ -57,6 +57,7 @@ rpc_cache.json
 perf.data
 perf.data.old
 make_prove_request_taiko_mainnet_native_*_*.json
+image_ids.json
 
 # Personal config
 # -----------------------------------------------------------------------------------------
@@ -64,3 +65,5 @@ make_prove_request_taiko_mainnet_native_*_*.json
 .vscode/
 
 log.build.*
+
+

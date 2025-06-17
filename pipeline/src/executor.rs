@@ -1,5 +1,7 @@
 use anyhow::bail;
 use regex::Regex;
+use serde_json::to_string_pretty;
+use std::collections::HashMap;
 use std::io::BufRead;
 use std::path::Path;
 use std::{
@@ -8,6 +10,8 @@ use std::{
     process::{Command, Stdio},
     thread,
 };
+
+const DEFAULT_IMAGE_IDS_FILENAME: &str = "image_ids.json";
 
 #[derive(Debug)]
 pub struct Executor {
@@ -70,6 +74,16 @@ impl Executor {
         Ok(self)
     }
 
+    fn write_images_json(
+        dest: &PathBuf,
+        image_ids: &HashMap<String, String>,
+    ) -> anyhow::Result<()> {
+        let json_path = Path::new(&dest).join(DEFAULT_IMAGE_IDS_FILENAME);
+        let json_data = to_string_pretty(image_ids)?;
+        std::fs::write(json_path, json_data)?;
+        Ok(())
+    }
+
     #[cfg(feature = "sp1")]
     pub fn sp1_placement(&self, dest: &str) -> anyhow::Result<()> {
         use sp1_sdk::{CpuProver, HashableKey, Prover};
@@ -81,6 +95,8 @@ impl Executor {
         if !dest.exists() {
             fs::create_dir_all(&dest).expect("Couldn't create destination directories");
         }
+
+        let mut images_ids = HashMap::new();
 
         for src in &self.artifacts {
             let mut name = file_name(src);
@@ -105,7 +121,11 @@ impl Executor {
                 "sp1 elf vk hash_bytes is: {}",
                 hex::encode(key_pair.1.hash_bytes())
             );
+
+            images_ids.insert(name.clone(), key_pair.1.bytes32());
         }
+
+        Self::write_images_json(&dest, &images_ids)?;
 
         Ok(())
     }
@@ -120,6 +140,8 @@ impl Executor {
         if !dest_dir.exists() {
             fs::create_dir_all(&dest_dir).expect("Couldn't create destination directories");
         }
+
+        let mut image_ids = HashMap::new();
 
         for src in &self.artifacts {
             let mut name = file_name(src);
@@ -151,7 +173,11 @@ impl Executor {
             )?;
 
             println!("Write from\n {src:?}\nto\n {dest_file:?}");
+
+            image_ids.insert(name.clone(), guest.get_image_id_hex());
         }
+
+        Self::write_images_json(&dest_dir, &image_ids)?;
 
         Ok(())
     }

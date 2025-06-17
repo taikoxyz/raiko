@@ -6769,6 +6769,7 @@ dependencies = [
  "regex",
  "risc0-binfmt",
  "risc0-zkos-v1compat",
+ "serde_json",
  "sp1-sdk",
 ]
 
