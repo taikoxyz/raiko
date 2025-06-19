@@ -22,7 +22,7 @@
         },
         "l1_contract": null,
         "l2_contract": null,
-        "rpc": "http://173.255.233.27:32002",
+        "rpc": "http://173.255.233.27:32003",
         "beacon_rpc": "http://173.255.233.27:33001",
         "verifier_address_forks": {
             "FRONTIER": {
@@ -68,7 +68,7 @@
                 "RISC0": "0x7A2Ef16CDB862898D8667094133C2D02d9A9aa9A"
             },
             "ONTAKE": {
-                "SGX": "0x9DC3b7C24965a90a8e2eacf48F4DB47c0A5f7Eb0",
+                "SGX": "0x1eEffA028fD0df63Aa2dBA8a223DA4D97A6894eE",
                 "SP1": "0x45a2d021E13dBD3f638BFC4c9E829942dEe0C914",
                 "RISC0": "0x7A2Ef16CDB862898D8667094133C2D02d9A9aa9A"
             }
