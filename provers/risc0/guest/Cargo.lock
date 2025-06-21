@@ -3268,6 +3268,7 @@ dependencies = [
 name = "risc0-guest"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "harness",
  "harness-core",
  "k256",

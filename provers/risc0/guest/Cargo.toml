@@ -27,6 +27,10 @@ name = "boundless-aggregation"
 path = "src/boundless_agg.rs"
 
 [[bin]]
+name = "boundless-batch"
+path = "src/boundless_batch.rs"
+
+[[bin]]
 name = "sha256"
 path = "src/benchmark/sha256.rs"
 
@@ -62,7 +66,7 @@ serde = { version = "1.0", default-features = false, features = [
 ] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde_with = { version = "3.0" }
-
+bincode = { version = "1.3.3" }
 
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }

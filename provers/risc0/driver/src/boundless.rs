@@ -588,6 +588,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_transfer_input_output() {
+        // init log
+        env_logger::init();
+
+        let input_file =
+            std::fs::read("../../../gaiko/tests/fixtures/batch/input-1306738.json").unwrap();
+        let output_file =
+            std::fs::read("../../../gaiko/tests/fixtures/batch/output-1306738.json").unwrap();
+        let input: GuestBatchInput = serde_json::from_slice(&input_file).unwrap();
+        let output: GuestBatchOutput = serde_json::from_slice(&output_file).unwrap();
+        
+        let input_bytes = bincode::serialize(&input).unwrap();
+        let output_bytes = bincode::serialize(&output).unwrap();
+        // println!("input_bytes: {:?}", input_bytes);
+        // println!("output_bytes: {:?}", output_bytes);
+
+        //save to file
+        let input_file_name = format!("../../../input-1306738.bin");
+        let output_file_name = format!("../../../output-1306738.bin");
+        std::fs::write(&input_file_name, input_bytes).unwrap();
+        std::fs::write(&output_file_name, output_bytes).unwrap();
+        println!("Saved input to file: {}", input_file_name);
+        println!("Saved output to file: {}", output_file_name);
+
+        // deserialize from data & check equality
+        let input_bytes = std::fs::read(&input_file_name).unwrap();
+        let output_bytes = std::fs::read(&output_file_name).unwrap();
+        let input_deserialized: GuestBatchInput = bincode::deserialize(&input_bytes).expect("Failed to deserialize input");
+        let output_deserialized: GuestBatchOutput = bincode::deserialize(&output_bytes).expect("Failed to deserialize output");
+    }
+
+    #[tokio::test]
     async fn test_run_prover_with_seal() {
         env_logger::init();
 

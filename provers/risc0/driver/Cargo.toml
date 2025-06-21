@@ -48,6 +48,7 @@ risc0-ethereum-contracts-boundless = { package = "risc0-ethereum-contracts", ver
 
 [dev-dependencies]
 env_logger = { workspace = true }
+bincode = { workspace = true }
 
 [features]
 enable = [
