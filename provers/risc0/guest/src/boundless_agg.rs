@@ -28,7 +28,10 @@ pub struct BoundlessAggregationGuestInput {
 risc0_zkvm::guest::entry!(main);
 
 pub fn main() {
-    let input: BoundlessAggregationGuestInput = env::read();
+    // let input: BoundlessAggregationGuestInput = env::read();
+    let input_buf: Vec<u8> = env::read_frame();
+    let input: BoundlessAggregationGuestInput =
+        bincode::deserialize::<BoundlessAggregationGuestInput>(&input_buf).unwrap();
 
     let image_id = input.image_id;
     let mut public_inputs = Vec::new();
