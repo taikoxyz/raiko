@@ -444,8 +444,24 @@ impl Risc0BoundlessProver {
 
 #[cfg(test)]
 mod tests {
+    use std::{str::FromStr, sync::Arc};
+
     use super::*;
+    use alloy_primitives_v1p2p0::hex;
     use env_logger;
+    use ethers_contract::abigen;
+    use ethers_core::types::H160;
+    use ethers_providers::{Http, Provider, RetryClient};
+    use log::{error as tracing_err, info as tracing_info};
+    use risc0_zkvm::sha::Digestible;
+    // use boundless_market::alloy::providers::Provider as BoundlessProvider;
+
+    abigen!(
+        IRiscZeroVerifier,
+        r#"[
+            function verify(bytes calldata seal, bytes32 imageId, bytes32 journalDigest) external view
+        ]"#
+    );
 
     #[tokio::test]
     async fn test_batch_run() {
@@ -510,5 +526,70 @@ mod tests {
         let prover = Risc0BoundlessProver::init_prover().await.unwrap();
         let proof = prover.aggregate(input, &output, &config).await.unwrap();
         println!("proof: {:?}", proof);
+    }
+
+    pub async fn verify_boundless_groth16_snark_impl(
+        image_id: Digest,
+        seal: Vec<u8>,
+        journal_digest: Digest,
+    ) -> bool {
+        let verifier_rpc_url =
+            std::env::var("GROTH16_VERIFIER_RPC_URL").expect("env GROTH16_VERIFIER_RPC_URL");
+        let groth16_verifier_addr = {
+            let addr =
+                std::env::var("GROTH16_VERIFIER_ADDRESS").expect("env GROTH16_VERIFIER_RPC_URL");
+            H160::from_str(&addr).unwrap()
+        };
+
+        let http_client = Arc::new(
+            Provider::<RetryClient<Http>>::new_client(&verifier_rpc_url, 3, 500)
+                .expect("Failed to create http client"),
+        );
+
+        tracing_info!("Verifying SNARK:");
+        tracing_info!("Seal: {}", hex::encode(&seal));
+        tracing_info!("Image ID: {}", hex::encode(image_id.as_bytes()));
+        tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
+        // Fix: Use Arc for http_client to satisfy trait bounds for Provider
+        let verify_call_res =
+            IRiscZeroVerifier::new(groth16_verifier_addr, Arc::clone(&http_client))
+                .verify(
+                    seal.clone().into(),
+                    image_id.as_bytes().try_into().unwrap(),
+                    journal_digest.into(),
+                )
+                .await;
+
+        if verify_call_res.is_ok() {
+            tracing_info!("SNARK verified successfully using {groth16_verifier_addr:?}!");
+            return true;
+        } else {
+            tracing_err!(
+                "SNARK verification call to {groth16_verifier_addr:?} failed: {verify_call_res:?}!"
+            );
+            return false;
+        }
+    }
+
+    #[tokio::test]
+    async fn test_verify_eth_receipt() {
+        env_logger::try_init().ok();
+
+        // Load a proof file and deserialize to Risc0Response
+        let file_name = format!("../../../proof-1306738.bin");
+        let proof_bytes: Vec<u8> = std::fs::read(file_name).expect("Failed to read proof file");
+        let proof: Risc0Response =
+            bincode::deserialize(&proof_bytes).expect("Failed to deserialize proof");
+
+        // Call the simulated onchain verification
+        let journal_digest = proof.journal.digest();
+        let verified = verify_boundless_groth16_snark_impl(
+            BOUNDLESS_BATCH_ID.into(),
+            proof.seal,
+            journal_digest,
+        )
+        .await;
+        assert!(verified, "Receipt failed onchain verification");
+        println!("Onchain verification result: {}", verified);
     }
 }
