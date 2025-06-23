@@ -473,9 +473,9 @@ mod tests {
         // init log
         env_logger::init();
 
-        // loading from ../../gaiko/tests/fixtures/batch/input-1306738.json
-        let input_bytes = std::fs::read("../../../input-1306738.bin").unwrap();
-        let output_bytes = std::fs::read("../../../output-1306738.bin").unwrap();
+        // loading from tests/fixtures/input-1306738.bin
+        let input_bytes = std::fs::read("tests/fixtures/input-1306738.bin").unwrap();
+        let output_bytes = std::fs::read("tests/fixtures/output-1306738.bin").unwrap();
 
         let config = serde_json::Value::default();
         let prover = Risc0BoundlessProver::init_prover().await.unwrap();
@@ -489,15 +489,15 @@ mod tests {
         println!("response: {:?}", response);
 
         // Save the proof to a binary file for inspection
-        let bin_path = "../../../proof-1306738.bin";
+        let bin_path = "tests/fixtures/proof-1306738.bin";
         std::fs::write(bin_path, &proof).expect("Failed to write proof to bin file");
         println!("Proof saved to {}", bin_path);
     }
 
     #[test]
     fn test_deserialize_zkvm_receipt() {
-        // let file_name = format!("../../../boundless_receipt_test.json");
-        let file_name = format!("../../../proof-1306738.bin");
+        // let file_name = format!("tests/fixtures/boundless_receipt_test.json");
+        let file_name = format!("tests/fixtures/proof-1306738.bin");
         let bincode_proof: Vec<u8> = std::fs::read(file_name).unwrap();
         let proof: Risc0Response = bincode::deserialize(&bincode_proof).unwrap();
         println!("Deserialized proof: {:#?}", proof);
@@ -510,7 +510,7 @@ mod tests {
     async fn test_run_prover_aggregation() {
         env_logger::init();
 
-        let file_name = format!("../../../proof-1306738.bin");
+        let file_name = format!("tests/fixtures/proof-1306738.bin");
         let proof: Vec<u8> = std::fs::read(file_name).unwrap();
         let proof: Risc0Response = bincode::deserialize(&proof).unwrap();
         println!("Deserialized proof: {:#?}", proof);
@@ -576,7 +576,7 @@ mod tests {
         env_logger::try_init().ok();
 
         // Load a proof file and deserialize to Risc0Response
-        let file_name = format!("../../../proof-1306738.bin");
+        let file_name = format!("tests/fixtures/proof-1306738.bin");
         let proof_bytes: Vec<u8> = std::fs::read(file_name).expect("Failed to read proof file");
         let proof: Risc0Response =
             bincode::deserialize(&proof_bytes).expect("Failed to deserialize proof");
