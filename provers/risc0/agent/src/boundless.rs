@@ -571,6 +571,23 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_image_id() {
+        let image_id = risc0_zkvm::compute_image_id(BOUNDLESS_BATCH_ELF).unwrap();
+        println!("image_id: {:?}", image_id);
+        let image_id_bytes = BOUNDLESS_BATCH_ID
+            .iter()
+            .map(|x| x.to_le_bytes())
+            .flatten()
+            .collect::<Vec<u8>>();
+        println!("image_id_bytes: {:?}", image_id_bytes);
+        assert_eq!(
+            image_id.as_bytes(),
+            image_id_bytes,
+            "Image IDs do not match"
+        );
+    }
+
     #[tokio::test]
     async fn test_verify_eth_receipt() {
         env_logger::try_init().ok();

@@ -2119,6 +2119,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "boundless-market",
+ "clap",
  "env_logger",
  "ethers",
  "ethers-contract",
