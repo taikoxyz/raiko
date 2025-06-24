@@ -8,6 +8,7 @@ export IN_CONTAINER=1
 # the config file & chain spec used inside raiko
 BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
 BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
+BASE_IMAGE_IDS_FILE=${BASE_IMAGE_IDS_FILE:-image_ids.json}
 RAIKO_DOCKER_VOLUME_PATH="/root/.config/raiko"
 RAIKO_DOCKER_VOLUME_CONFIG_PATH="$RAIKO_DOCKER_VOLUME_PATH/config"
 RAIKO_DOCKER_VOLUME_SECRETS_PATH="$RAIKO_DOCKER_VOLUME_PATH/secrets"
@@ -15,6 +16,7 @@ RAIKO_DOCKER_VOLUME_PRIV_KEY_PATH="$RAIKO_DOCKER_VOLUME_SECRETS_PATH/priv.key"
 RAIKO_APP_DIR="/opt/raiko/bin"
 RAIKO_CONF_DIR="/etc/raiko"
 RAIKO_CONF_BASE_CONFIG="$RAIKO_CONF_DIR/$BASE_CONFIG_FILE"
+RAIKO_CONF_BASE_IMAGE_IDS="$RAIKO_CONF_DIR/$BASE_IMAGE_IDS_FILE"
 RAIKO_CONF_CHAIN_SPECS="$RAIKO_CONF_DIR/$BASE_CHAINSPEC_FILE"
 DEVNET_CHAINSPEC_FILE=$RAIKO_CONF_DIR/chain_spec_list_devnet.json
 PRODUCT_CHAINSPEC_FILE=$RAIKO_CONF_DIR/chain_spec_list_default.json
@@ -248,7 +250,7 @@ if [[ -n $ZK ]]; then
     merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
     update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
-    /opt/raiko/bin/raiko-host --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
+    /opt/raiko/bin/raiko-host  --image-ids=$RAIKO_CONF_BASE_IMAGE_IDS --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
 fi
 
 if [[ -n $SGX_SERVER ]]; then
