@@ -231,7 +231,7 @@ if [[ -n $SGX ]]; then
         merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
         update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
-        /opt/raiko/bin/raiko-host --image-ids=$RAIKO_CONF_BASE_IMAGE_IDS --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
+        /opt/raiko/bin/raiko-host --image-ids-path=$RAIKO_CONF_BASE_IMAGE_IDS --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
     fi
 fi
 
@@ -250,7 +250,7 @@ if [[ -n $ZK ]]; then
     merge_json_arrays $PRODUCT_CHAINSPEC_FILE $DEVNET_CHAINSPEC_FILE $RAIKO_CONF_CHAIN_SPECS
     update_docker_chain_specs $RAIKO_CONF_CHAIN_SPECS
 
-    /opt/raiko/bin/raiko-host  --image-ids=$RAIKO_CONF_BASE_IMAGE_IDS --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
+    /opt/raiko/bin/raiko-host  --image-ids-path=$RAIKO_CONF_BASE_IMAGE_IDS --config-path=$RAIKO_CONF_BASE_CONFIG --chain-spec-path=$RAIKO_CONF_CHAIN_SPECS "$@"
 fi
 
 if [[ -n $SGX_SERVER ]]; then
