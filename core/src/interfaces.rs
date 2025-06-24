@@ -125,9 +125,11 @@ pub async fn run_batch_prover(
         ProofType::Risc0Boundless => {
             #[cfg(feature = "risc0")]
             {
-                let prover = risc0_driver::Risc0BoundlessProver::get().await;
-                return prover
-                    .batch_run(input.clone(), output, config, store)
+                risc0_driver::Risc0BoundlessProver::prepare_batch_run(
+                    &input, output, config, store,
+                )
+                .await?;
+                return risc0_driver::Risc0BoundlessProver::batch_run(input, output, config, store)
                     .await
                     .map_err(|e| e.into());
             }
@@ -180,9 +182,11 @@ pub async fn aggregate_proofs(
         ProofType::Risc0Boundless => {
             #[cfg(feature = "risc0")]
             {
-                let prover = risc0_driver::Risc0BoundlessProver::get().await;
-                return prover
-                    .aggregate(input.clone(), output, config, store)
+                risc0_driver::Risc0BoundlessProver::prepare_aggregation_run(
+                    &input, output, config, store,
+                )
+                .await?;
+                return risc0_driver::Risc0BoundlessProver::aggregate(input, output, config, store)
                     .await
                     .map_err(|e| e.into());
             }
@@ -243,7 +247,7 @@ pub async fn cancel_proof(
         ProofType::Risc0Boundless => {
             #[cfg(feature = "risc0")]
             {
-                let prover = risc0_driver::Risc0BoundlessProver::get().await;
+                let prover = risc0_driver::Risc0BoundlessProver::prepare().await;
                 return prover.cancel(proof_key, read).await.map_err(|e| e.into());
             }
             #[cfg(not(feature = "risc0"))]

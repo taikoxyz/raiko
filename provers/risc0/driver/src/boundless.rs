@@ -1,7 +1,6 @@
 use crate::{
     methods::{
-        boundless_aggregation::BOUNDLESS_AGGREGATION_ELF, risc0_batch::RISC0_BATCH_ELF,
-        risc0_batch::RISC0_BATCH_ID,
+        boundless_aggregation::BOUNDLESS_AGGREGATION_ELF, boundless_batch::BOUNDLESS_BATCH_ELF,
     },
     snarks::verify_boundless_groth16_snark_impl,
     Risc0Response,
@@ -34,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BoundlessAggregationGuestInput {
+pub struct Risc0AgengAggGuestInput {
     pub image_id: Digest,
     pub receipts: Vec<ZkvmReceipt>,
 }
@@ -53,74 +52,87 @@ pub async fn get_boundless_prover() -> &'static Risc0BoundlessProver {
         .await
 }
 
+// share with agent, need a unified place for this
+// now just copy from agent
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Risc0AgentResponse {
+    pub seal: Vec<u8>,
+    pub journal: Vec<u8>,
+    pub receipt: Option<String>,
+}
+
 pub struct Risc0BoundlessProver {
     batch_image_url: Option<Url>,
     aggregation_image_url: Option<Url>,
 }
 
 impl Risc0BoundlessProver {
-    pub async fn get() -> &'static Self {
-        get_boundless_prover().await
+    pub async fn prepare_batch_run(
+        input: &GuestBatchInput,
+        _output: &GuestBatchOutput,
+        _config: &ProverConfig,
+        id_store: Option<&mut dyn IdWrite>,
+    ) -> Result<(), ProverError> {
+        // Save the input to a bincode file for debugging or inspection.
+        let file_name = format!("/tmp/batch-{}-input.bin", input.taiko.batch_id);
+        if let Ok(encoded) = bincode::serialize(&input) {
+            if let Err(e) = std::fs::write(&file_name, &encoded) {
+                tracing::warn!("Failed to write input to {}: {}", file_name, e);
+                Err(ProverError::GuestError(format!(
+                    "Failed to write input to {}: {}",
+                    file_name, e
+                )));
+            } else {
+                tracing::info!("Saved input to bincode file: {}", file_name);
+                Ok(())
+            }
+        } else {
+            tracing::warn!(
+                "Failed to serialize input to bincode for file: {}",
+                file_name
+            );
+            Err(ProverError::GuestError(format!(
+                "Failed to serialize input to bincode for file: {}",
+                file_name
+            )));
+        }
     }
 
-    async fn init_prover() -> Result<Self, ProverError> {
-        let boundless_client = {
-            // Create a Boundless client from the provided parameters.
-            // let args = helper::Args::parse();
-            let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            let order_stream_url = Url::parse("https://eth-sepolia.beboundless.xyz/").ok();
-            let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
-                panic!("BOUNDLESS_PRIVATE_KEY is not set");
-            });
-            let signer: PrivateKeySigner = sender_priv_key.parse().unwrap();
-
-            // Create a Boundless client from the provided parameters.
-            ClientBuilder::new()
-                .with_rpc_url(url)
-                .with_boundless_market_address(address!("006b92674E2A8d397884e293969f8eCD9f615f4C"))
-                .with_set_verifier_address(address!("ad2c6335191EA71Ffe2045A8d54b93A851ceca77"))
-                .with_order_stream_url(order_stream_url)
-                // .with_storage_provider_config(args.storage_config).await?
-                .with_storage_provider(Some(
-                    storage_provider_from_env()
-                        .await
-                        .expect("Failed to create storage provider from environment"),
-                ))
-                .with_private_key(signer)
-                .build()
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to create Boundless client: {e}"))
-                })?
+    pub async fn prepare_aggregation_run(
+        input: &AggregationGuestInput,
+        _output: &AggregationGuestOutput,
+        _config: &ProverConfig,
+        _id_store: Option<&mut dyn IdWrite>,
+    ) -> Result<(), ProverError> {
+        let file_name = format!("/tmp/aggregation-input-{}.bin", input.taiko.batch_id);
+        let agent_input = Risc0AgengAggGuestInput {
+            image_id: input.image_id,
+            receipts: input.receipts.clone(),
         };
-
-        // Upload the ELF to the storage provider so that it can be fetched by the market.
-        assert!(
-            boundless_client.storage_provider.is_some(),
-            "a storage provider is required to upload the zkVM guest ELF"
-        );
-
-        let batch_image_url = boundless_client
-            .upload_image(RISC0_BATCH_ELF)
-            .await
-            .map_err(|e| {
-                ProverError::GuestError(format!("Failed to upload RISC0_BATCH_ELF image: {e}"))
-            })?;
-
-        let aggregation_image_url = boundless_client
-            .upload_image(BOUNDLESS_AGGREGATION_ELF)
-            .await
-            .map_err(|e| {
-                ProverError::GuestError(format!(
-                    "Failed to upload BOUNDLESS_AGGREGATION_ELF image: {e}"
-                ))
-            })?;
-
-        Ok(Risc0BoundlessProver {
-            batch_image_url: Some(batch_image_url),
-            aggregation_image_url: Some(aggregation_image_url),
-        })
+        if let Ok(encoded) = bincode::serialize(&agent_input) {
+            if let Err(e) = std::fs::write(&file_name, &encoded) {
+                tracing::warn!("Failed to write input to {}: {}", file_name, e);
+                Err(ProverError::GuestError(format!(
+                    "Failed to write input to {}: {}",
+                    file_name, e
+                )));
+            } else {
+                tracing::info!("Saved input to bincode file: {}", file_name);
+                Ok(())
+            }
+        } else {
+            tracing::warn!(
+                "Failed to serialize input to bincode for file: {}",
+                file_name
+            );
+            Err(ProverError::GuestError(format!(
+                "Failed to serialize input to bincode for file: {}",
+                file_name
+            )));
+        }
     }
+
+    async fn init_prover() -> Result<Self, ProverError> {}
 
     async fn get_batch_image_url(&self) -> Option<Url> {
         self.batch_image_url.clone()
@@ -149,172 +161,58 @@ impl Prover for Risc0BoundlessProver {
         config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        // Encode the input and upload it to the storage provider.
-        // let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
-        let mut receipts = Vec::new();
-        for proof in input.proofs {
-            let receipt: ZkvmReceipt =
-                serde_json::from_str::<ZkvmReceipt>(proof.quote.as_ref().unwrap()).unwrap();
-            receipts.push(receipt);
-        }
-        // let agg_guest_input = (Digest::from(RISC0_BATCH_ID), receipts);
-        let agg_guest_input = BoundlessAggregationGuestInput {
-            image_id: Digest::from(RISC0_BATCH_ID),
-            receipts,
-        };
+        // Construct the input file name for aggregation, consistent with prepare_aggregation_run
+        let input_file = format!("/tmp/aggregation-input-{}.bin", input.taiko.batch_id);
+        let output_file = format!("/tmp/aggregation-proof-{}.bin", input.taiko.batch_id);
 
-        tracing::info!("process agg_guest_input: {:?}", agg_guest_input);
-        let encoded_input = to_vec(&agg_guest_input).expect("Could not serialize proving input!");
-        let input_builder = InputBuilder::new().write_slice(&encoded_input);
-        tracing::debug!("input builder: {:?}", input_builder);
-
-        let guest_env = input_builder.clone().build_env().map_err(|e| {
-            ProverError::GuestError(format!("Failed to build guest environment: {e}"))
+        // Write the input to file
+        let encoded_input = bincode::serialize(&input).map_err(|e| {
+            ProverError::GuestError(format!("Failed to serialize aggregation input: {e}"))
         })?;
-        let guest_env_bytes = guest_env.encode().map_err(|e| {
-            ProverError::GuestError(format!("Failed to encode guest environment: {e}"))
+        std::fs::write(&input_file, &encoded_input).map_err(|e| {
+            ProverError::GuestError(format!("Failed to write aggregation input file: {e}"))
         })?;
 
-        let (mcycles_count, journal) = {
-            // Dry run the ELF with the input to get the journal and cycle count.
-            // This can be useful to estimate the cost of the proving request.
-            // It can also be useful to ensure the guest can be executed correctly and we do not send into
-            // the market unprovable proving requests. If you have a different mechanism to get the expected
-            // journal and set a price, you can skip this step.
-            let session_info = default_executor()
-                .execute(guest_env.try_into().unwrap(), BOUNDLESS_AGGREGATION_ELF)
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to execute guest environment: {e}"))
-                })?;
-            let mcycles_count = session_info
-                .segments
-                .iter()
-                .map(|segment| 1 << segment.po2)
-                .sum::<u64>()
-                .div_ceil(1_000_000);
-            let journal = session_info.journal;
-            (mcycles_count, journal)
-        };
-        tracing::info!("mcycles_count: {}", mcycles_count);
+        // Build the command to run the boundless-agent for aggregation
+        let cmd = format!(
+            "./target/release/boundless-agent --input {} --output {} --proof-type aggregation --verbose",
+            input_file, output_file
+        );
 
-        let boundless_client = {
-            // Create a Boundless client from the provided parameters.
-            // let args = helper::Args::parse();
-            let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            let order_stream_url = Url::parse("https://eth-sepolia.beboundless.xyz/").ok();
-            let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
-                panic!("BOUNDLESS_SIGNER_KEY is not set");
-            });
-            let signer: PrivateKeySigner = sender_priv_key.parse().unwrap();
-
-            // Create a Boundless client from the provided parameters.
-            ClientBuilder::new()
-                .with_rpc_url(url)
-                .with_boundless_market_address(address!("006b92674E2A8d397884e293969f8eCD9f615f4C"))
-                .with_set_verifier_address(address!("ad2c6335191EA71Ffe2045A8d54b93A851ceca77"))
-                .with_order_stream_url(order_stream_url)
-                // .with_storage_provider_config(args.storage_config).await?
-                .with_storage_provider(Some(
-                    storage_provider_from_env()
-                        .await
-                        .expect("Failed to create storage provider from environment"),
-                ))
-                .with_private_key(signer)
-                .build()
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to create Boundless client: {e}"))
-                })?
-        };
-
-        let request_input = if guest_env_bytes.len() > 2 << 10 {
-            let input_url = boundless_client
-                .upload_input(&guest_env_bytes)
-                .await
-                .map_err(|e| ProverError::GuestError(format!("Failed to upload input: {e}")))?;
-            tracing::info!("Uploaded input to {}", input_url);
-            Input::url(input_url)
-        } else {
-            tracing::info!("Sending input inline with request");
-            Input::inline(guest_env_bytes.clone())
-        };
-
-        let image_id = compute_image_id(BOUNDLESS_AGGREGATION_ELF)
-            .map_err(|e| ProverError::GuestError(format!("Failed to compute image ID: {e}")))?;
-        let image_url = self
-            .get_aggregation_image_url()
-            .await
-            .ok_or_else(|| ProverError::GuestError("Failed to get batch image URL".to_string()))?;
-        let request = ProofRequestBuilder::new()
-            .with_image_url(image_url.to_string())
-            .with_input(request_input)
-            .with_requirements(
-                Requirements::new(image_id, Predicate::digest_match(journal.digest()))
-                    .with_groth16_proof(),
-            )
-            .with_offer(
-                Offer::default()
-                    // The market uses a reverse Dutch auction mechanism to match requests with provers.
-                    // Each request has a price range that a prover can bid on. One way to set the price
-                    // is to choose a desired (min and max) price per million cycles and multiply it
-                    // by the number of cycles. Alternatively, you can use the `with_min_price` and
-                    // `with_max_price` methods to set the price directly.
-                    .with_min_price_per_mcycle(
-                        parse_ether("0.0001").unwrap_or_default(),
-                        mcycles_count,
-                    )
-                    // NOTE: If your offer is not being accepted, try increasing the max price.
-                    .with_max_price_per_mcycle(
-                        parse_ether("0.0005").unwrap_or_default(),
-                        mcycles_count,
-                    )
-                    // The timeout is the maximum number of blocks the request can stay
-                    // unfulfilled in the market before it expires. If a prover locks in
-                    // the request and does not fulfill it before the timeout, the prover can be
-                    // slashed.
-                    .with_timeout(2000)
-                    .with_lock_timeout(1000)
-                    .with_ramp_up_period(500),
-            )
-            .build()
-            .unwrap();
-
-        let offchain = config.get("offchain").map_or(false, |v| v == "true");
-        // Send the request and wait for it to be completed.
-        let (request_id, expires_at) = if offchain {
-            boundless_client
-                .submit_request_offchain(&request)
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to submit request offchain: {e}"))
-                })?
-        } else {
-            boundless_client
-                .submit_request(&request)
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to submit request onchain: {e}"))
-                })?
-        };
-        tracing::info!("Request 0x{request_id:x} submitted");
-
-        // Wait for the request to be fulfilled by the market, returning the journal and seal.
-        tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
-        let (journal, seal) = boundless_client
-            .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
-            .await
+        // Run the command
+        let output = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(&cmd)
+            .output()
             .map_err(|e| {
-                ProverError::GuestError(format!("Failed to wait for request fulfillment: {e}"))
+                ProverError::GuestError(format!("Failed to execute aggregation command: {e}"))
             })?;
-        tracing::info!("Request 0x{request_id:x} fulfilled");
 
-        let journal_digest = journal.digest();
-        let encoded_proof =
-            verify_boundless_groth16_snark_impl(image_id, seal.to_vec(), journal_digest)
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to verify groth16 snark: {e}"))
-                })?;
+        if !output.status.success() {
+            return Err(ProverError::GuestError(format!(
+                "Aggregation command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
+
+        // Read the output proof file
+        let agent_proof_bytes = std::fs::read(&output_file).map_err(|e| {
+            ProverError::GuestError(format!("Failed to read aggregation proof file: {e}"))
+        })?;
+        let agent_proof: Risc0AgentResponse =
+            bincode::deserialize(&agent_proof_bytes).map_err(|e| {
+                ProverError::GuestError(format!("Failed to deserialize output file: {e}"))
+            })?;
+
+        let image_id = compute_image_id(BOUNDLESS_AGGREGATION_ELF).unwrap();
+        let journal_digest = agent_proof.journal.digest();
+        let encoded_proof = verify_boundless_groth16_snark_impl(
+            image_id,
+            agent_proof.seal.to_vec(),
+            journal_digest,
+        )
+        .await
+        .map_err(|e| ProverError::GuestError(format!("Failed to verify groth16 snark: {e}")))?;
         let proof: Vec<u8> = (encoded_proof, B256::from_slice(image_id.as_bytes()))
             .abi_encode()
             .iter()
@@ -324,7 +222,7 @@ impl Prover for Risc0BoundlessProver {
 
         Ok(Proof {
             proof: Some(alloy_primitives::hex::encode_prefixed(proof)),
-            input: Some(B256::from_slice(journal_digest.as_bytes())),
+            input: Some(B256::from_slice(agent_proof.journal.as_slice())),
             quote: None,
             uuid: None,
             kzg_proof: None,
@@ -342,199 +240,58 @@ impl Prover for Risc0BoundlessProver {
         config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        // Encode the input and upload it to the storage provider.
-        let encoded_input = to_vec(&input).expect("Could not serialize proving input!");
-        let input_builder = InputBuilder::new().write_slice(&encoded_input);
-        tracing::debug!("input builder: {:?}", input_builder);
+        // Construct the input file name based on the batch id
+        let id = input.taiko.batch_id;
+        let input_file = format!("/tmp/input-{}.bin", id);
+        let output_file = format!("/tmp/batch-proof-{}.bin", id);
 
-        let guest_env = input_builder.clone().build_env().map_err(|e| {
-            ProverError::GuestError(format!("Failed to build guest environment: {e}"))
-        })?;
-        let guest_env_bytes = guest_env.encode().map_err(|e| {
-            ProverError::GuestError(format!("Failed to encode guest environment: {e}"))
-        })?;
-
-        let (mcycles_count, journal) = {
-            // Dry run the ELF with the input to get the journal and cycle count.
-            // This can be useful to estimate the cost of the proving request.
-            // It can also be useful to ensure the guest can be executed correctly and we do not send into
-            // the market unprovable proving requests. If you have a different mechanism to get the expected
-            // journal and set a price, you can skip this step.
-            let session_info = default_executor()
-                .execute(guest_env.try_into().unwrap(), RISC0_BATCH_ELF)
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to execute guest environment: {e}"))
-                })?;
-            let mcycles_count = session_info
-                .segments
-                .iter()
-                .map(|segment| 1 << segment.po2)
-                .sum::<u64>()
-                .div_ceil(1_000_000);
-            let journal = session_info.journal;
-            (mcycles_count, journal)
-        };
-        tracing::info!("mcycles_count: {}", mcycles_count);
-
-        let boundless_client = {
-            // Create a Boundless client from the provided parameters.
-            // let args = helper::Args::parse();
-            let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            let order_stream_url = Url::parse("https://eth-sepolia.beboundless.xyz/").ok();
-            let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
-                panic!("BOUNDLESS_PRIVATE_KEY is not set");
-            });
-            let signer: PrivateKeySigner = sender_priv_key.parse().unwrap();
-
-            // Create a Boundless client from the provided parameters.
-            ClientBuilder::new()
-                .with_rpc_url(url)
-                .with_boundless_market_address(address!("006b92674E2A8d397884e293969f8eCD9f615f4C"))
-                .with_set_verifier_address(address!("ad2c6335191EA71Ffe2045A8d54b93A851ceca77"))
-                .with_order_stream_url(order_stream_url)
-                // .with_storage_provider_config(args.storage_config).await?
-                .with_storage_provider(Some(
-                    storage_provider_from_env()
-                        .await
-                        .expect("Failed to create storage provider from environment"),
-                ))
-                .with_private_key(signer)
-                .build()
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to create Boundless client: {e}"))
-                })?
-        };
-
-        // Create a proof request with the image, input, requirements and offer.
-        // The ELF (i.e. image) is specified by the image URL.
-        // The input can be specified by an URL, as in this example, or can be posted on chain by using
-        // the `with_inline` method with the input bytes.
-        // The requirements are the image ID and the digest of the journal. In this way, the market can
-        // verify that the proof is correct by checking both the committed image id and digest of the
-        // journal. The offer specifies the price range and the timeout for the request.
-        // Additionally, the offer can also specify:
-        // - the bidding start time: the block number when the bidding starts;
-        // - the ramp up period: the number of blocks before the price start increasing until reaches
-        //   the maxPrice, starting from the the bidding start;
-        // - the lockin price: the price at which the request can be locked in by a prover, if the
-        //   request is not fulfilled before the timeout, the prover can be slashed.
-        // If the input exceeds 2 kB, upload the input and provide its URL instead, as a rule of thumb.
-        let request_input = if guest_env_bytes.len() > 2 << 10 {
-            let input_url = boundless_client
-                .upload_input(&guest_env_bytes)
-                .await
-                .map_err(|e| ProverError::GuestError(format!("Failed to upload input: {e}")))?;
-            tracing::info!("Uploaded input to {}", input_url);
-            Input::url(input_url)
-        } else {
-            tracing::info!("Sending input inline with request");
-            Input::inline(guest_env_bytes.clone())
-        };
-
-        let image_id = compute_image_id(RISC0_BATCH_ELF)
-            .map_err(|e| ProverError::GuestError(format!("Failed to compute image ID: {e}")))?;
-        let image_url = self
-            .get_batch_image_url()
-            .await
-            .ok_or_else(|| ProverError::GuestError("Failed to get batch image URL".to_string()))?;
-        let request = ProofRequestBuilder::new()
-            .with_image_url(image_url.to_string())
-            .with_input(request_input)
-            .with_requirements(
-                Requirements::new(image_id, Predicate::digest_match(journal.digest()))
-                    .with_groth16_proof(),
-            )
-            .with_offer(
-                Offer::default()
-                    // The market uses a reverse Dutch auction mechanism to match requests with provers.
-                    // Each request has a price range that a prover can bid on. One way to set the price
-                    // is to choose a desired (min and max) price per million cycles and multiply it
-                    // by the number of cycles. Alternatively, you can use the `with_min_price` and
-                    // `with_max_price` methods to set the price directly.
-                    .with_min_price_per_mcycle(
-                        parse_ether("0.0001").unwrap_or_default(),
-                        mcycles_count,
-                    )
-                    // NOTE: If your offer is not being accepted, try increasing the max price.
-                    .with_max_price_per_mcycle(
-                        parse_ether("0.0005").unwrap_or_default(),
-                        mcycles_count,
-                    )
-                    // The timeout is the maximum number of blocks the request can stay
-                    // unfulfilled in the market before it expires. If a prover locks in
-                    // the request and does not fulfill it before the timeout, the prover can be
-                    // slashed.
-                    .with_timeout(2000)
-                    .with_lock_timeout(1000)
-                    .with_ramp_up_period(500),
-            )
-            .build()
-            .unwrap();
-
-        let offchain = config.get("offchain").map_or(false, |v| v == "true");
-        // Send the request and wait for it to be completed.
-        let (request_id, expires_at) = if offchain {
-            boundless_client
-                .submit_request_offchain(&request)
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to submit request offchain: {e}"))
-                })?
-        } else {
-            boundless_client
-                .submit_request(&request)
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to submit request onchain: {e}"))
-                })?
-        };
-        tracing::info!("Request 0x{request_id:x} submitted");
-
-        // Wait for the request to be fulfilled by the market, returning the journal and seal.
-        tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
-        let (journal, seal) = boundless_client
-            .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
-            .await
-            .map_err(|e| {
-                ProverError::GuestError(format!("Failed to wait for request fulfillment: {e}"))
-            })?;
-        tracing::info!(
-            "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}, image_id: {:?}",
-            journal,
-            seal,
-            image_id
+        // Build the command
+        let cmd = format!(
+            "./target/release/boundless-agent --input {} --output {} --proof-type batch --verbose",
+            input_file, output_file
         );
 
-        let journal_digest = journal.digest();
-        let encoded_proof =
-            verify_boundless_groth16_snark_impl(image_id, seal.to_vec(), journal_digest)
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to verify groth16 snark: {e}"))
-                })?;
-        let proof: Vec<u8> = (encoded_proof, B256::from_slice(image_id.as_bytes()))
+        // Run the command
+        let output = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(&cmd)
+            .output()
+            .map_err(|e| ProverError::GuestError(format!("Failed to run boundless-agent: {e}")))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ProverError::GuestError(format!(
+                "boundless-agent failed: {stderr}"
+            )));
+        }
+
+        // Try to read the output file
+        let agent_proof_bytes = std::fs::read(&output_file)
+            .map_err(|e| ProverError::GuestError(format!("Failed to read output file: {e}")))?;
+        let agent_proof: Risc0AgentResponse =
+            bincode::deserialize(&agent_proof_bytes).map_err(|e| {
+                ProverError::GuestError(format!("Failed to deserialize output file: {e}"))
+            })?;
+
+        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).unwrap();
+        let journal_digest = agent_proof.journal.digest();
+        let encoded_proof = verify_boundless_groth16_snark_impl(
+            image_id,
+            agent_proof.seal.to_vec(),
+            journal_digest,
+        )
+        .await
+        .map_err(|e| ProverError::GuestError(format!("Failed to verify groth16 snark: {e}")))?;
+        let proof_bytes: Vec<u8> = (encoded_proof, B256::from_slice(image_id.as_bytes()))
             .abi_encode()
             .iter()
             .skip(32)
             .copied()
             .collect();
-
-        let Ok(ContractReceipt::Base(boundless_receipt)) =
-            risc0_ethereum_contracts_boundless::receipt::decode_seal(
-                seal,
-                RISC0_BATCH_ID,
-                journal.clone(),
-            )
-        else {
-            return Err(ProverError::GuestError(
-                "did not receive requested unaggregated receipt".to_string(),
-            ));
-        };
-
+        assert_eq!(agent_proof.journal, output.hash);
         Ok(Risc0Response {
-            proof: alloy_primitives::hex::encode_prefixed(proof),
-            receipt: serde_json::to_string(&boundless_receipt).unwrap(),
+            proof: alloy_primitives::hex::encode_prefixed(proof_bytes),
+            receipt: agent_proof.receipt,
             uuid: "".to_string(), // can be request tx hash
             input: output.hash,
         }
@@ -598,7 +355,7 @@ mod tests {
             std::fs::read("../../../gaiko/tests/fixtures/batch/output-1306738.json").unwrap();
         let input: GuestBatchInput = serde_json::from_slice(&input_file).unwrap();
         let output: GuestBatchOutput = serde_json::from_slice(&output_file).unwrap();
-        
+
         let input_bytes = bincode::serialize(&input).unwrap();
         let output_bytes = bincode::serialize(&output).unwrap();
         // println!("input_bytes: {:?}", input_bytes);
@@ -615,8 +372,10 @@ mod tests {
         // deserialize from data & check equality
         let input_bytes = std::fs::read(&input_file_name).unwrap();
         let output_bytes = std::fs::read(&output_file_name).unwrap();
-        let input_deserialized: GuestBatchInput = bincode::deserialize(&input_bytes).expect("Failed to deserialize input");
-        let output_deserialized: GuestBatchOutput = bincode::deserialize(&output_bytes).expect("Failed to deserialize output");
+        let input_deserialized: GuestBatchInput =
+            bincode::deserialize(&input_bytes).expect("Failed to deserialize input");
+        let output_deserialized: GuestBatchOutput =
+            bincode::deserialize(&output_bytes).expect("Failed to deserialize output");
     }
 
     #[tokio::test]
