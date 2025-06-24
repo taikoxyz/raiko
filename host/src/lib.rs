@@ -162,7 +162,6 @@ impl Opts {
         std::fs::write(&self.image_ids_path, pretty)
             .expect("Failed to write merged image IDs to file");
     }
-    }
 
     /// Read the options from a file and merge it with the current options.
     pub fn merge_from_file(&mut self) -> HostResult<()> {
