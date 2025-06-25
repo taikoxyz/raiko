@@ -68,6 +68,9 @@ serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde_with = { version = "3.0" }
 bincode = { version = "1.3.3" }
 
+[features]
+risc0 = []
+
 [patch.crates-io]
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }

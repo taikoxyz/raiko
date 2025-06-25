@@ -126,10 +126,14 @@ pub async fn run_batch_prover(
             #[cfg(feature = "risc0")]
             {
                 risc0_driver::Risc0BoundlessProver::prepare_batch_run(
-                    &input, output, config, store,
+                    input.clone(),
+                    output,
+                    config,
+                    None,
                 )
                 .await?;
-                return risc0_driver::Risc0BoundlessProver::batch_run(input, output, config, store)
+                return risc0_driver::Risc0BoundlessProver
+                    .batch_run(input, output, config, None)
                     .await
                     .map_err(|e| e.into());
             }
@@ -183,10 +187,14 @@ pub async fn aggregate_proofs(
             #[cfg(feature = "risc0")]
             {
                 risc0_driver::Risc0BoundlessProver::prepare_aggregation_run(
-                    &input, output, config, store,
+                    input.clone(),
+                    output,
+                    config,
+                    None,
                 )
                 .await?;
-                return risc0_driver::Risc0BoundlessProver::aggregate(input, output, config, store)
+                return risc0_driver::Risc0BoundlessProver
+                    .aggregate(input, output, config, None)
                     .await
                     .map_err(|e| e.into());
             }
@@ -247,8 +255,7 @@ pub async fn cancel_proof(
         ProofType::Risc0Boundless => {
             #[cfg(feature = "risc0")]
             {
-                let prover = risc0_driver::Risc0BoundlessProver::prepare().await;
-                return prover.cancel(proof_key, read).await.map_err(|e| e.into());
+                unimplemented!("no cancel for boundless");
             }
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))

@@ -38,20 +38,6 @@ pub struct Risc0AgengAggGuestInput {
     pub receipts: Vec<ZkvmReceipt>,
 }
 
-use tokio::sync::OnceCell;
-
-static RISCV_PROVER: OnceCell<Risc0BoundlessProver> = OnceCell::const_new();
-
-pub async fn get_boundless_prover() -> &'static Risc0BoundlessProver {
-    RISCV_PROVER
-        .get_or_init(|| async {
-            Risc0BoundlessProver::init_prover()
-                .await
-                .expect("Failed to initialize Boundless client")
-        })
-        .await
-}
-
 // share with agent, need a unified place for this
 // now just copy from agent
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -61,14 +47,11 @@ pub struct Risc0AgentResponse {
     pub receipt: Option<String>,
 }
 
-pub struct Risc0BoundlessProver {
-    batch_image_url: Option<Url>,
-    aggregation_image_url: Option<Url>,
-}
+pub struct Risc0BoundlessProver;
 
 impl Risc0BoundlessProver {
     pub async fn prepare_batch_run(
-        input: &GuestBatchInput,
+        input: GuestBatchInput,
         _output: &GuestBatchOutput,
         _config: &ProverConfig,
         id_store: Option<&mut dyn IdWrite>,
@@ -81,7 +64,7 @@ impl Risc0BoundlessProver {
                 Err(ProverError::GuestError(format!(
                     "Failed to write input to {}: {}",
                     file_name, e
-                )));
+                )))
             } else {
                 tracing::info!("Saved input to bincode file: {}", file_name);
                 Ok(())
@@ -94,20 +77,33 @@ impl Risc0BoundlessProver {
             Err(ProverError::GuestError(format!(
                 "Failed to serialize input to bincode for file: {}",
                 file_name
-            )));
+            )))
         }
     }
 
     pub async fn prepare_aggregation_run(
-        input: &AggregationGuestInput,
+        input: AggregationGuestInput,
         _output: &AggregationGuestOutput,
         _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> Result<(), ProverError> {
-        let file_name = format!("/tmp/aggregation-input-{}.bin", input.taiko.batch_id);
+        let file_name = format!(
+            "/tmp/aggregation-input-{}.bin",
+            input.proofs[0].input.unwrap_or_default()
+        );
+
+        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).unwrap();
         let agent_input = Risc0AgengAggGuestInput {
-            image_id: input.image_id,
-            receipts: input.receipts.clone(),
+            image_id: image_id,
+            receipts: input
+                .proofs
+                .iter()
+                .map(|p| {
+                    let receipt_json = p.quote.clone().unwrap();
+                    let receipt: ZkvmReceipt = serde_json::from_str(&receipt_json).unwrap();
+                    receipt
+                })
+                .collect(),
         };
         if let Ok(encoded) = bincode::serialize(&agent_input) {
             if let Err(e) = std::fs::write(&file_name, &encoded) {
@@ -115,7 +111,7 @@ impl Risc0BoundlessProver {
                 Err(ProverError::GuestError(format!(
                     "Failed to write input to {}: {}",
                     file_name, e
-                )));
+                )))
             } else {
                 tracing::info!("Saved input to bincode file: {}", file_name);
                 Ok(())
@@ -128,18 +124,8 @@ impl Risc0BoundlessProver {
             Err(ProverError::GuestError(format!(
                 "Failed to serialize input to bincode for file: {}",
                 file_name
-            )));
+            )))
         }
-    }
-
-    async fn init_prover() -> Result<Self, ProverError> {}
-
-    async fn get_batch_image_url(&self) -> Option<Url> {
-        self.batch_image_url.clone()
-    }
-
-    async fn get_aggregation_image_url(&self) -> Option<Url> {
-        self.aggregation_image_url.clone()
     }
 }
 
@@ -158,12 +144,13 @@ impl Prover for Risc0BoundlessProver {
         &self,
         input: AggregationGuestInput,
         _output: &AggregationGuestOutput,
-        config: &ProverConfig,
+        _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         // Construct the input file name for aggregation, consistent with prepare_aggregation_run
-        let input_file = format!("/tmp/aggregation-input-{}.bin", input.taiko.batch_id);
-        let output_file = format!("/tmp/aggregation-proof-{}.bin", input.taiko.batch_id);
+        let task_id = input.proofs[0].input.unwrap_or_default();
+        let input_file = format!("/tmp/aggregation-input-{}.bin", task_id);
+        let output_file = format!("/tmp/aggregation-proof-{}.bin", task_id);
 
         // Write the input to file
         let encoded_input = bincode::serialize(&input).map_err(|e| {
@@ -252,14 +239,14 @@ impl Prover for Risc0BoundlessProver {
         );
 
         // Run the command
-        let output = std::process::Command::new("sh")
+        let cmd_stdout = std::process::Command::new("sh")
             .arg("-c")
             .arg(&cmd)
             .output()
             .map_err(|e| ProverError::GuestError(format!("Failed to run boundless-agent: {e}")))?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        if !cmd_stdout.status.success() {
+            let stderr = String::from_utf8_lossy(&cmd_stdout.stderr);
             return Err(ProverError::GuestError(format!(
                 "boundless-agent failed: {stderr}"
             )));
@@ -288,10 +275,10 @@ impl Prover for Risc0BoundlessProver {
             .skip(32)
             .copied()
             .collect();
-        assert_eq!(agent_proof.journal, output.hash);
+        assert_eq!(agent_proof.journal, output.hash.to_vec());
         Ok(Risc0Response {
             proof: alloy_primitives::hex::encode_prefixed(proof_bytes),
-            receipt: agent_proof.receipt,
+            receipt: agent_proof.receipt.unwrap(),
             uuid: "".to_string(), // can be request tx hash
             input: output.hash,
         }

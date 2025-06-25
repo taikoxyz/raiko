@@ -1,11 +1,11 @@
 use std::{collections::HashSet, env};
 
-use alloy_primitives::Bytes;
-use futures::future::join_all;
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
 };
+use alloy_primitives::Bytes;
+use futures::future::join_all;
 use raiko_lib::{
     builder::RethBlockBuilder,
     consts::ChainSpec,
