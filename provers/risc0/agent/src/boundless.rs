@@ -42,6 +42,7 @@ pub struct Risc0Response {
     pub receipt: Option<String>,
 }
 
+#[derive(Clone, Debug)]
 pub struct Risc0BoundlessProver {
     batch_image_url: Option<Url>,
     aggregation_image_url: Option<Url>,
@@ -52,7 +53,7 @@ impl Risc0BoundlessProver {
         get_boundless_prover().await
     }
 
-    pub async fn init_prover() -> Result<Self, ProverError> {
+    pub async fn init_prover() -> AgentResult<Self> {
         let deployment = Some(SEPOLIA);
         let storage_provider = boundless_market::storage::storage_provider_from_env().ok();
         let boundless_client = {
@@ -74,7 +75,7 @@ impl Risc0BoundlessProver {
                 .build()
                 .await
                 .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to build boundless client: {e}"))
+                    AgentError::AgentError(format!("Failed to build boundless client: {e}"))
                 })?;
             client
         };
@@ -89,14 +90,14 @@ impl Risc0BoundlessProver {
             .upload_program(BOUNDLESS_BATCH_ELF)
             .await
             .map_err(|e| {
-                ProverError::GuestError(format!("Failed to upload BOUNDLESS_BATCH_ELF image: {e}"))
+                AgentError::AgentError(format!("Failed to upload BOUNDLESS_BATCH_ELF image: {e}"))
             })?;
 
         let aggregation_image_url = boundless_client
             .upload_program(BOUNDLESS_AGGREGATION_ELF)
             .await
             .map_err(|e| {
-                ProverError::GuestError(format!(
+                AgentError::AgentError(format!(
                     "Failed to upload BOUNDLESS_AGGREGATION_ELF image: {e}"
                 ))
             })?;
@@ -118,12 +119,12 @@ impl Risc0BoundlessProver {
 
 // Simplified error type
 #[derive(Debug, thiserror::Error)]
-pub enum ProverError {
-    #[error("Guest error: {0}")]
-    GuestError(String),
+pub enum AgentError {
+    #[error("Agent error: {0}")]
+    AgentError(String),
 }
 
-pub type ProverResult<T> = Result<T, ProverError>;
+pub type AgentResult<T> = Result<T, AgentError>;
 
 impl Risc0BoundlessProver {
     pub async fn run(
@@ -131,7 +132,7 @@ impl Risc0BoundlessProver {
         _input: Vec<u8>,
         _output: &[u8],
         _config: &serde_json::Value,
-    ) -> ProverResult<Vec<u8>> {
+    ) -> AgentResult<Vec<u8>> {
         unimplemented!("No need for post pacaya");
     }
 
@@ -140,11 +141,11 @@ impl Risc0BoundlessProver {
         _input: Vec<u8>,
         _output: &[u8],
         _config: &serde_json::Value,
-    ) -> ProverResult<Vec<u8>> {
+    ) -> AgentResult<Vec<u8>> {
         let encoded_input = _input;
         let guest_env = GuestEnv::builder().write_frame(&encoded_input).build_env();
         let guest_env_bytes = guest_env.clone().encode().map_err(|e| {
-            ProverError::GuestError(format!("Failed to encode guest environment: {e}"))
+            AgentError::AgentError(format!("Failed to encode guest environment: {e}"))
         })?;
 
         tracing::info!(
@@ -159,7 +160,7 @@ impl Risc0BoundlessProver {
                     BOUNDLESS_AGGREGATION_ELF,
                 )
                 .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to execute guest environment: {e}"))
+                    AgentError::AgentError(format!("Failed to execute guest environment: {e}"))
                 })?;
             let mcycles_count = session_info
                 .segments
@@ -194,7 +195,7 @@ impl Risc0BoundlessProver {
                 .build()
                 .await
                 .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to build boundless client: {e}"))
+                    AgentError::AgentError(format!("Failed to build boundless client: {e}"))
                 })?;
             client
         };
@@ -203,13 +204,13 @@ impl Risc0BoundlessProver {
         let input_url = boundless_client
             .upload_input(&guest_env_bytes)
             .await
-            .map_err(|e| ProverError::GuestError(format!("Failed to upload input: {e}")))?;
+            .map_err(|e| AgentError::AgentError(format!("Failed to upload input: {e}")))?;
 
         // Prepare the order for aggregation
         let aggregation_image_url = self
             .aggregation_image_url
             .clone()
-            .ok_or_else(|| ProverError::GuestError("Aggregation image URL not set".to_string()))?;
+            .ok_or_else(|| AgentError::AgentError("Aggregation image URL not set".to_string()))?;
 
         // add 1 minute for each 1M cycles to the original timeout
         // Use the input directly as the estimated cycle count, since we are using a loop program.
@@ -240,7 +241,7 @@ impl Risc0BoundlessProver {
         let request = boundless_client
             .build_request(request)
             .await
-            .map_err(|e| ProverError::GuestError(format!("Failed to build request: {e}")))?;
+            .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
         tracing::info!("Request: {:?}", request);
 
         let offchain = false;
@@ -252,7 +253,7 @@ impl Risc0BoundlessProver {
                 .submit_request_onchain(&request)
                 .await
                 .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to submit request onchain: {e}"))
+                    AgentError::AgentError(format!("Failed to submit request onchain: {e}"))
                 })?
         };
         tracing::info!("Request 0x{request_id:x} submitted");
@@ -263,7 +264,7 @@ impl Risc0BoundlessProver {
             .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
             .await
             .map_err(|e| {
-                ProverError::GuestError(format!("Failed to wait for request fulfillment: {e}"))
+                AgentError::AgentError(format!("Failed to wait for request fulfillment: {e}"))
             })?;
         tracing::info!(
             "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}, image_id: {:?}",
@@ -279,11 +280,11 @@ impl Risc0BoundlessProver {
         };
         // Use bincode to serialize the response and return as Vec<u8>
         let proof_bytes = bincode::serialize(&response)
-            .map_err(|e| ProverError::GuestError(format!("Failed to encode response: {e}")))?;
+            .map_err(|e| AgentError::AgentError(format!("Failed to encode response: {e}")))?;
         return Ok(proof_bytes);
     }
 
-    pub async fn cancel(&self, _key: (u64, u64, B256, u8)) -> ProverResult<()> {
+    pub async fn cancel(&self, _key: (u64, u64, B256, u8)) -> AgentResult<()> {
         todo!()
     }
 
@@ -292,12 +293,12 @@ impl Risc0BoundlessProver {
         _input: Vec<u8>,
         _output: &[u8],
         _config: &serde_json::Value,
-    ) -> ProverResult<Vec<u8>> {
+    ) -> AgentResult<Vec<u8>> {
         // Encode the input and upload it to the storage provider.
         let encoded_input = _input;
         let guest_env = GuestEnv::builder().write_frame(&encoded_input).build_env();
         let guest_env_bytes = guest_env.clone().encode().map_err(|e| {
-            ProverError::GuestError(format!("Failed to encode guest environment: {e}"))
+            AgentError::AgentError(format!("Failed to encode guest environment: {e}"))
         })?;
 
         tracing::info!("len guest_env_bytes: {:?}", guest_env_bytes.len());
@@ -310,7 +311,7 @@ impl Risc0BoundlessProver {
             let session_info = default_executor()
                 .execute(guest_env.clone().try_into().unwrap(), BOUNDLESS_BATCH_ELF)
                 .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to execute guest environment: {e}"))
+                    AgentError::AgentError(format!("Failed to execute guest environment: {e}"))
                 })?;
             let mcycles_count = session_info
                 .segments
@@ -345,7 +346,7 @@ impl Risc0BoundlessProver {
                 .build()
                 .await
                 .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to build boundless client: {e}"))
+                    AgentError::AgentError(format!("Failed to build boundless client: {e}"))
                 })?;
             client
         };
@@ -353,7 +354,7 @@ impl Risc0BoundlessProver {
         let input_url = boundless_client
             .upload_input(&guest_env_bytes)
             .await
-            .map_err(|e| ProverError::GuestError(format!("Failed to upload input: {e}")))?;
+            .map_err(|e| AgentError::AgentError(format!("Failed to upload input: {e}")))?;
         tracing::info!("Uploaded input to {}", input_url);
 
         // add 1 minute for each 1M cycles to the original timeout
@@ -386,7 +387,7 @@ impl Risc0BoundlessProver {
         let request = boundless_client
             .build_request(request)
             .await
-            .map_err(|e| ProverError::GuestError(format!("Failed to build request: {e}")))?;
+            .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
         tracing::info!("Request: {:?}", request);
 
         let offchain = false;
@@ -398,7 +399,7 @@ impl Risc0BoundlessProver {
                 .submit_request_onchain(&request)
                 .await
                 .map_err(|e| {
-                    ProverError::GuestError(format!("Failed to submit request onchain: {e}"))
+                    AgentError::AgentError(format!("Failed to submit request onchain: {e}"))
                 })?
         };
         tracing::info!("Request 0x{request_id:x} submitted");
@@ -409,7 +410,7 @@ impl Risc0BoundlessProver {
             .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
             .await
             .map_err(|e| {
-                ProverError::GuestError(format!("Failed to wait for request fulfillment: {e}"))
+                AgentError::AgentError(format!("Failed to wait for request fulfillment: {e}"))
             })?;
         tracing::info!(
             "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}, image_id: {:?}",
@@ -425,7 +426,7 @@ impl Risc0BoundlessProver {
                 journal.clone(),
             )
         else {
-            return Err(ProverError::GuestError(
+            return Err(AgentError::AgentError(
                 "did not receive requested unaggregated receipt".to_string(),
             ));
         };
@@ -437,7 +438,7 @@ impl Risc0BoundlessProver {
         };
         // Use bincode to serialize the response and return as Vec<u8>
         let proof_bytes = bincode::serialize(&response)
-            .map_err(|e| ProverError::GuestError(format!("Failed to encode response: {e}")))?;
+            .map_err(|e| AgentError::AgentError(format!("Failed to encode response: {e}")))?;
         return Ok(proof_bytes);
     }
 }

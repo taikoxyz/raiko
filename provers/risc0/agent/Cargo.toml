@@ -27,6 +27,12 @@ async-trait = "0.1.80"
 bincode = "1.3.3"
 env_logger = "0.11.8"
 
+# Web framework dependencies
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+hyper = { version = "1.0", features = ["full"] }
+
 [dev-dependencies]
 ethers-providers = "2.0.10"
 log = "0.4.27"
