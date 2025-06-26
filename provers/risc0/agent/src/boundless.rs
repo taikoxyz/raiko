@@ -16,6 +16,12 @@ use risc0_zkvm::{Digest, Receipt as ZkvmReceipt, default_executor};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ElfType {
+    Batch,
+    Aggregation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoundlessAggregationGuestInput {
     pub image_id: Digest,
     pub receipts: Vec<ZkvmReceipt>,
@@ -28,7 +34,7 @@ static RISCV_PROVER: OnceCell<Risc0BoundlessProver> = OnceCell::const_new();
 pub async fn get_boundless_prover() -> &'static Risc0BoundlessProver {
     RISCV_PROVER
         .get_or_init(|| async {
-            Risc0BoundlessProver::init_prover()
+            Risc0BoundlessProver::init_prover(ProverConfig { offchain: false })
                 .await
                 .expect("Failed to initialize Boundless client")
         })
@@ -42,25 +48,26 @@ pub struct Risc0Response {
     pub receipt: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProverConfig {
+    pub offchain: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct Risc0BoundlessProver {
     batch_image_url: Option<Url>,
     aggregation_image_url: Option<Url>,
+    config: ProverConfig,
 }
 
 impl Risc0BoundlessProver {
-    pub async fn get() -> &'static Self {
-        get_boundless_prover().await
-    }
-
-    pub async fn init_prover() -> AgentResult<Self> {
+    pub async fn init_prover(config: ProverConfig) -> AgentResult<Self> {
         let deployment = Some(SEPOLIA);
         let storage_provider = boundless_market::storage::storage_provider_from_env().ok();
         let boundless_client = {
             // Create a Boundless client from the provided parameters.
             // let args = helper::Args::parse();
             let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            // let order_stream_url = Url::parse("https://eth-sepolia.beboundless.xyz").ok();
             let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
                 panic!("BOUNDLESS_SIGNER_KEY is not set");
             });
@@ -105,6 +112,7 @@ impl Risc0BoundlessProver {
         Ok(Risc0BoundlessProver {
             batch_image_url: Some(batch_image_url),
             aggregation_image_url: Some(aggregation_image_url),
+            config,
         })
     }
 
@@ -180,7 +188,6 @@ impl Risc0BoundlessProver {
             // Create a Boundless client from the provided parameters.
             // let args = helper::Args::parse();
             let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            // let order_stream_url = Url::parse("https://eth-sepolia.beboundless.xyz").ok();
             let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
                 panic!("BOUNDLESS_SIGNER_KEY is not set");
             });
@@ -218,7 +225,7 @@ impl Risc0BoundlessProver {
         let ramp_up = 1000;
         let lock_timeout = 2000;
         // Give equal time for provers that are fulfilling after lock expiry to prove.
-        let timeout: u32 = 4000;
+        let timeout: u32 = 3600 * 2;
 
         let request = boundless_client
             .new_request()
@@ -232,8 +239,8 @@ impl Risc0BoundlessProver {
                     .ramp_up_period(ramp_up)
                     .lock_timeout(lock_timeout)
                     .timeout(timeout)
-                    .max_price(parse_ether("0.0005").unwrap_or_default() * U256::from(m_cycles))
-                    .min_price(parse_ether("0.0001").unwrap_or_default() * U256::from(m_cycles))
+                    .max_price(parse_ether("0.0003").unwrap_or_default() * U256::from(m_cycles))
+                    .min_price(parse_ether("0.00005").unwrap_or_default() * U256::from(m_cycles))
                     .lock_stake(U256::from(m_cycles * 100)),
             );
 
@@ -244,10 +251,14 @@ impl Risc0BoundlessProver {
             .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
         tracing::info!("Request: {:?}", request);
 
-        let offchain = false;
         // Send the request and wait for it to be completed.
-        let (request_id, expires_at) = if offchain {
-            unimplemented!("offchain is not supported");
+        let (request_id, expires_at) = if self.config.offchain {
+            boundless_client
+                .submit_request_offchain(&request)
+                .await
+                .map_err(|e| {
+                    AgentError::AgentError(format!("Failed to submit request offchain: {e}"))
+                })?
         } else {
             boundless_client
                 .submit_request_onchain(&request)
@@ -331,7 +342,6 @@ impl Risc0BoundlessProver {
             // Create a Boundless client from the provided parameters.
             // let args = helper::Args::parse();
             let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            // let order_stream_url = Url::parse("https://eth-sepolia.beboundless.xyz").ok();
             let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
                 panic!("BOUNDLESS_SIGNER_KEY is not set");
             });
@@ -363,7 +373,7 @@ impl Risc0BoundlessProver {
         let ramp_up = 1000;
         let lock_timeout = 2000;
         // Give equal time for provers that are fulfilling after lock expiry to prove.
-        let timeout: u32 = 4000;
+        let timeout: u32 = 3600 * 24;
 
         let request = boundless_client
             .new_request()
@@ -378,8 +388,8 @@ impl Risc0BoundlessProver {
                     .ramp_up_period(ramp_up)
                     .lock_timeout(lock_timeout)
                     .timeout(timeout)
-                    .max_price(parse_ether("0.0005").unwrap_or_default() * U256::from(m_cycles))
-                    .min_price(parse_ether("0.0001").unwrap_or_default() * U256::from(m_cycles))
+                    .max_price(parse_ether("0.0003").unwrap_or_default() * U256::from(m_cycles))
+                    .min_price(parse_ether("0.00005").unwrap_or_default() * U256::from(m_cycles))
                     .lock_stake(U256::from(m_cycles * 100)),
             );
 
@@ -390,10 +400,15 @@ impl Risc0BoundlessProver {
             .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
         tracing::info!("Request: {:?}", request);
 
-        let offchain = false;
         // Send the request and wait for it to be completed.
-        let (request_id, expires_at) = if offchain {
-            unimplemented!("offchain is not supported");
+        let (request_id, expires_at) = if self.config.offchain {
+            // unimplemented!("offchain is not supported");
+            boundless_client
+                .submit_request_offchain(&request)
+                .await
+                .map_err(|e| {
+                    AgentError::AgentError(format!("Failed to submit request onchain: {e}"))
+                })?
         } else {
             boundless_client
                 .submit_request_onchain(&request)
@@ -462,6 +477,11 @@ impl Risc0BoundlessProver {
             .map_err(|e| AgentError::AgentError(format!("Failed to encode response: {e}")))?;
         return Ok(proof_bytes);
     }
+
+    pub async fn update(&self, _elf: Vec<u8>, _elf_type: ElfType) -> AgentResult<Vec<u8>> {
+        // update elf & upload to storage provider, then update the image_url
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -487,7 +507,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_run() {
-        Risc0BoundlessProver::init_prover().await.unwrap();
+        Risc0BoundlessProver::init_prover(ProverConfig { offchain: false })
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -500,7 +522,9 @@ mod tests {
         let output_bytes = std::fs::read("tests/fixtures/output-1306738.bin").unwrap();
 
         let config = serde_json::Value::default();
-        let prover = Risc0BoundlessProver::init_prover().await.unwrap();
+        let prover = Risc0BoundlessProver::init_prover(ProverConfig { offchain: false })
+            .await
+            .unwrap();
         let proof = prover
             .batch_run(input_bytes, &output_bytes, &config)
             .await
@@ -545,7 +569,9 @@ mod tests {
         let input = bincode::serialize(&input_data).unwrap();
         let output = Vec::<u8>::new();
         let config = serde_json::Value::default();
-        let prover = Risc0BoundlessProver::init_prover().await.unwrap();
+        let prover = Risc0BoundlessProver::init_prover(ProverConfig { offchain: false })
+            .await
+            .unwrap();
         let proof = prover.aggregate(input, &output, &config).await.unwrap();
         println!("proof: {:?}", proof);
     }

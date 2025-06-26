@@ -6,16 +6,7 @@ use crate::{
     Risc0Response,
 };
 use alloy_primitives::B256;
-use alloy_primitives_v8::address;
-use alloy_signer_local_v12::PrivateKeySigner;
 use alloy_sol_types::SolValue;
-use boundless_market::{
-    client::ClientBuilder,
-    contracts::{Input, Offer, Predicate, ProofRequestBuilder, Requirements},
-    input::InputBuilder,
-    storage::storage_provider_from_env,
-};
-use raiko_lib::primitives::utils::parse_ether;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
@@ -23,14 +14,8 @@ use raiko_lib::{
     },
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
-use reqwest::Url;
-use risc0_ethereum_contracts_boundless::receipt::Receipt as ContractReceipt;
-use risc0_zkvm::{
-    compute_image_id, default_executor, serde::to_vec, sha::Digestible, Digest,
-    Receipt as ZkvmReceipt,
-};
+use risc0_zkvm::{compute_image_id, sha::Digestible, Digest, Receipt as ZkvmReceipt};
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Risc0AgengAggGuestInput {
@@ -54,7 +39,7 @@ impl Risc0BoundlessProver {
         input: GuestBatchInput,
         _output: &GuestBatchOutput,
         _config: &ProverConfig,
-        id_store: Option<&mut dyn IdWrite>,
+        _id_store: Option<&mut dyn IdWrite>,
     ) -> Result<(), ProverError> {
         // Save the input to a bincode file for debugging or inspection.
         let file_name = format!("/tmp/batch-{}-input.bin", input.taiko.batch_id);
@@ -174,7 +159,7 @@ impl Prover for Risc0BoundlessProver {
         // Compose the request payload
         let payload = json!({
             "input": agent_input_bytes,
-            "proof_type": "Agg"
+            "proof_type": "Aggregate"
         });
 
         // Send the request to the agent and await the response
@@ -239,7 +224,7 @@ impl Prover for Risc0BoundlessProver {
 
         Ok(Proof {
             proof: Some(alloy_primitives::hex::encode_prefixed(proof)),
-            input: Some(B256::from_slice(agent_proof.journal.as_slice())),
+            input: Some(B256::from_slice(journal_digest.as_bytes())),
             quote: None,
             uuid: None,
             kzg_proof: None,
@@ -254,7 +239,7 @@ impl Prover for Risc0BoundlessProver {
         &self,
         input: GuestBatchInput,
         output: &GuestBatchOutput,
-        config: &ProverConfig,
+        _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         // Serialize the input using bincode
@@ -333,7 +318,6 @@ impl Prover for Risc0BoundlessProver {
             .skip(32)
             .copied()
             .collect();
-        assert_eq!(agent_proof.journal, output.hash.to_vec());
         Ok(Risc0Response {
             proof: alloy_primitives::hex::encode_prefixed(proof_bytes),
             receipt: agent_proof.receipt.unwrap(),
@@ -351,11 +335,6 @@ mod tests {
     use raiko_lib::input::GuestBatchOutput;
 
     #[tokio::test]
-    async fn test_batch_run() {
-        Risc0BoundlessProver::init_prover().await.unwrap();
-    }
-
-    #[tokio::test]
     async fn test_run_prover() {
         // init log
         env_logger::init();
@@ -367,8 +346,7 @@ mod tests {
         let input: GuestBatchInput = serde_json::from_slice(&input_file).unwrap();
         let output: GuestBatchOutput = serde_json::from_slice(&output_file).unwrap();
         let config = ProverConfig::default();
-        let prover = Risc0BoundlessProver::init_prover().await.unwrap();
-        let proof = prover
+        let proof = Risc0BoundlessProver
             .batch_run(input, &output, &config, None)
             .await
             .unwrap();
@@ -417,9 +395,9 @@ mod tests {
         // deserialize from data & check equality
         let input_bytes = std::fs::read(&input_file_name).unwrap();
         let output_bytes = std::fs::read(&output_file_name).unwrap();
-        let input_deserialized: GuestBatchInput =
+        let _input_deserialized: GuestBatchInput =
             bincode::deserialize(&input_bytes).expect("Failed to deserialize input");
-        let output_deserialized: GuestBatchOutput =
+        let _output_deserialized: GuestBatchOutput =
             bincode::deserialize(&output_bytes).expect("Failed to deserialize output");
     }
 
@@ -427,6 +405,7 @@ mod tests {
     async fn test_run_prover_with_seal() {
         env_logger::init();
 
+        use crate::RISC0_BATCH_ELF;
         let seal = alloy_primitives::hex::decode("0x9f39696c021c04f95caa9962aa0022f0eae58f1cd7e13ccf553a152a3d0e91443d0aab4f25a24e93423c51f1ae46e604e20a360cfe2376e7270a10d1f4a9e665adcc91e713155b2e45e05edb00c7f044ab827a425cac6d0c932e3e14aeddf79200a8fe7711ad2207298cf2004c5dffc5956e9b30d6b98e9e2533b1e6944671f35dacf85823bb4fd3e0dd14a0000bc3304338f844b11095d1dbfedf3e90074bf7c666ed531dd4676c51fdf0111529d5c40719d36ba8ba11db8542fff1bca90c24255c515f1b6e32a396bf2bdb40ad165f949f1d46c533266a666e3b6684ddbbbc8c4ce5c1051676d81b1addd377e8b9665912d32347aac64c1a9b38faaab63ceeb1dcc67c").unwrap();
         let image_id = compute_image_id(RISC0_BATCH_ELF).unwrap();
         let journal = alloy_primitives::hex::decode(
@@ -484,8 +463,7 @@ mod tests {
         };
         let output: AggregationGuestOutput = AggregationGuestOutput { hash: B256::ZERO };
         let config = ProverConfig::default();
-        let prover = Risc0BoundlessProver::init_prover().await.unwrap();
-        let proof = prover
+        let proof = Risc0BoundlessProver
             .aggregate(input, &output, &config, None)
             .await
             .unwrap();

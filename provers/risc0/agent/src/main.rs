@@ -1,5 +1,5 @@
 pub mod boundless;
-pub use boundless::{AgentError, AgentResult, Risc0BoundlessProver};
+pub use boundless::{AgentError, AgentResult, ElfType, ProverConfig, Risc0BoundlessProver};
 
 pub mod methods;
 
@@ -16,14 +16,15 @@ use tower_http::cors::{Any, CorsLayer};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum ProofType {
     Batch,
-    Agg,
+    Aggregate,
+    Update(ElfType),
 }
 
 #[derive(Debug, Deserialize)]
 struct ProofRequest {
     input: Vec<u8>,
     proof_type: ProofType,
-    elf_path: Option<String>,
+    elf: Option<Vec<u8>>,
     config: Option<serde_json::Value>,
 }
 
@@ -47,8 +48,8 @@ impl AppState {
         }
     }
 
-    async fn init_prover(&self) -> AgentResult<Risc0BoundlessProver> {
-        let prover = Risc0BoundlessProver::init_prover()
+    async fn init_prover(&self, config: ProverConfig) -> AgentResult<Risc0BoundlessProver> {
+        let prover = Risc0BoundlessProver::init_prover(config)
             .await
             .map_err(|e| AgentError::AgentError(format!("Failed to initialize prover: {}", e)))?;
         self.prover.lock().await.replace(prover.clone());
@@ -83,15 +84,19 @@ async fn proof_handler(
     let proof_result = tokio::time::timeout(
         std::time::Duration::from_secs(3600), // 1 hour timeout
         async {
-            match request.proof_type {
+            match request.proof_type.clone() {
                 ProofType::Batch => prover
                     .batch_run(request.input, &output_data, &config)
                     .await
                     .map_err(|e| format!("Failed to run batch proof: {}", e)),
-                ProofType::Agg => prover
+                ProofType::Aggregate => prover
                     .aggregate(request.input, &output_data, &config)
                     .await
                     .map_err(|e| format!("Failed to run aggregation proof: {}", e)),
+                ProofType::Update(elf_type) => prover
+                    .update(request.elf.unwrap(), elf_type)
+                    .await
+                    .map_err(|e| format!("Failed to run update proof: {}", e)),
             }
         },
     )
@@ -147,10 +152,37 @@ async fn health_check() -> (StatusCode, Json<serde_json::Value>) {
     )
 }
 
+use clap::Parser;
+
+/// Command line arguments for the RISC0 Boundless Agent
+#[derive(Parser, Debug)]
+#[command(name = "risc0-boundless-agent")]
+#[command(about = "RISC0 Boundless Agent Web Service", long_about = None)]
+struct CmdArgs {
+    /// Address to bind the server to (e.g., 0.0.0.0)
+    #[arg(long, default_value = "0.0.0.0")]
+    address: String,
+
+    /// Port to listen on
+    #[arg(long, default_value_t = 9999)]
+    port: u16,
+
+    /// Enable offchain mode for the prover
+    #[arg(long, default_value_t = false)]
+    offchain: bool,
+
+    /// Path to the signer key file (optional)
+    #[arg(long)]
+    signer_key: Option<String>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     tracing::info!("Starting RISC0 Boundless Agent Web Service...");
+
+    let args = CmdArgs::parse();
+    tracing::info!("Input config: {:?}", args);
 
     // Configure CORS
     let cors = CorsLayer::new()
@@ -163,7 +195,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize the prover before starting the server
     tracing::info!("Initializing prover...");
-    match state.init_prover().await {
+    // Parse command line arguments to get config
+    let prover_config = ProverConfig {
+        offchain: args.offchain,
+    };
+
+    match state.init_prover(prover_config).await {
         Ok(_) => {
             tracing::info!("Prover initialized successfully");
         }
