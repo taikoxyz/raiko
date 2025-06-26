@@ -406,12 +406,33 @@ impl Risc0BoundlessProver {
 
         // Wait for the request to be fulfilled by the market, returning the journal and seal.
         tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
-        let (journal, seal) = boundless_client
-            .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
-            .await
-            .map_err(|e| {
-                AgentError::AgentError(format!("Failed to wait for request fulfillment: {e}"))
-            })?;
+        let (journal, seal) = {
+            let mut attempt = 0;
+            loop {
+                match boundless_client
+                    .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
+                    .await
+                {
+                    Ok((journal, seal)) => break (journal, seal),
+                    Err(e) => {
+                        attempt += 1;
+                        if attempt >= 5 {
+                            return Err(AgentError::AgentError(format!(
+                                "Failed to wait for request fulfillment after 5 attempts: {}",
+                                e
+                            )));
+                        }
+                        tracing::warn!(
+                            "Attempt {} to wait for request fulfillment failed: {}. Retrying...",
+                            attempt,
+                            e
+                        );
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+                    }
+                }
+            }
+        };
+
         tracing::info!(
             "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}, image_id: {:?}",
             journal,

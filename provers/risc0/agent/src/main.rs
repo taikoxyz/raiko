@@ -3,7 +3,11 @@ pub use boundless::{AgentError, AgentResult, Risc0BoundlessProver};
 
 pub mod methods;
 
-use axum::{Router, extract::State, http::StatusCode, response::Json, routing::post};
+use axum::{
+    Json,
+    extract::{DefaultBodyLimit, State},
+};
+use axum::{Router, http::StatusCode, routing::post};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -57,8 +61,8 @@ async fn proof_handler(
     Json(request): Json<ProofRequest>,
 ) -> (StatusCode, Json<ProofResponse>) {
     tracing::info!(
-        "Received proof generation request: {:?}",
-        request.proof_type
+        "Received proof generation request size: {:?}",
+        request.input.len()
     );
 
     // Get the initialized prover
@@ -169,10 +173,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Build router
+    // Build router with max body size set to 10GB
     let app = Router::new()
         .route("/health", post(health_check))
         .route("/proof", post(proof_handler))
+        .layer(DefaultBodyLimit::max(10000 * 1024 * 1024)) // max 10G
         .layer(cors)
         .with_state(state);
 

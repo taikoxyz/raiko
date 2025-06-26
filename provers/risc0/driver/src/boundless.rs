@@ -147,45 +147,75 @@ impl Prover for Risc0BoundlessProver {
         _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        // Construct the input file name for aggregation, consistent with prepare_aggregation_run
-        let task_id = input.proofs[0].input.unwrap_or_default();
-        let input_file = format!("/tmp/aggregation-input-{}.bin", task_id);
-        let output_file = format!("/tmp/aggregation-proof-{}.bin", task_id);
+        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).unwrap();
+        let agent_input = Risc0AgengAggGuestInput {
+            image_id: image_id,
+            receipts: input
+                .proofs
+                .iter()
+                .map(|p| {
+                    let receipt_json = p.quote.clone().unwrap();
+                    let receipt: ZkvmReceipt = serde_json::from_str(&receipt_json).unwrap();
+                    receipt
+                })
+                .collect(),
+        };
 
-        // Write the input to file
-        let encoded_input = bincode::serialize(&input).map_err(|e| {
-            ProverError::GuestError(format!("Failed to serialize aggregation input: {e}"))
+        // Make a remote call to the boundless agent at localhost:9999/proof and await the response
+
+        use reqwest::Client as HttpClient;
+        use serde_json::json;
+
+        // Prepare the input for the agent
+        let agent_input_bytes = bincode::serialize(&agent_input).map_err(|e| {
+            ProverError::GuestError(format!("Failed to serialize agent input: {e}"))
         })?;
-        std::fs::write(&input_file, &encoded_input).map_err(|e| {
-            ProverError::GuestError(format!("Failed to write aggregation input file: {e}"))
-        })?;
 
-        // Build the command to run the boundless-agent for aggregation
-        let cmd = format!(
-            "./target/release/boundless-agent --input {} --output {} --proof-type aggregation --verbose",
-            input_file, output_file
-        );
+        // Compose the request payload
+        let payload = json!({
+            "input": agent_input_bytes,
+            "proof_type": "Agg"
+        });
 
-        // Run the command
-        let output = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(&cmd)
-            .output()
+        // Send the request to the agent and await the response
+        let client = HttpClient::new();
+        let resp = client
+            .post("http://localhost:9999/proof")
+            .json(&payload)
+            .send()
+            .await
             .map_err(|e| {
-                ProverError::GuestError(format!("Failed to execute aggregation command: {e}"))
+                ProverError::GuestError(format!("Failed to send request to agent: {e}"))
             })?;
 
-        if !output.status.success() {
+        if !resp.status().is_success() {
             return Err(ProverError::GuestError(format!(
-                "Aggregation command failed: {}",
-                String::from_utf8_lossy(&output.stderr)
+                "Agent returned error status: {}",
+                resp.status()
             )));
         }
 
-        // Read the output proof file
-        let agent_proof_bytes = std::fs::read(&output_file).map_err(|e| {
-            ProverError::GuestError(format!("Failed to read aggregation proof file: {e}"))
-        })?;
+        // Parse the response
+        let resp_json: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| ProverError::GuestError(format!("Failed to parse agent response: {e}")))?;
+
+        // Extract the proof data from the response
+        let agent_proof_bytes = resp_json
+            .get("proof_data")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_u64().map(|b| b as u8))
+                    .collect::<Vec<u8>>()
+            })
+            .ok_or_else(|| {
+                ProverError::GuestError(
+                    "Missing or invalid proof_data in agent response".to_string(),
+                )
+            })?;
+
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
                 ProverError::GuestError(format!("Failed to deserialize output file: {e}"))
@@ -227,34 +257,62 @@ impl Prover for Risc0BoundlessProver {
         config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        // Construct the input file name based on the batch id
-        let id = input.taiko.batch_id;
-        let input_file = format!("/tmp/input-{}.bin", id);
-        let output_file = format!("/tmp/batch-proof-{}.bin", id);
+        // Serialize the input using bincode
+        let input_bytes = bincode::serialize(&input).map_err(|e| {
+            ProverError::GuestError(format!("Failed to serialize input with bincode: {e}"))
+        })?;
 
-        // Build the command
-        let cmd = format!(
-            "./target/release/boundless-agent --input {} --output {} --proof-type batch --verbose",
-            input_file, output_file
-        );
+        // Construct the request payload for the agent
+        let payload = serde_json::json!({
+            "input": input_bytes,
+            "proof_type": "Batch"
+        });
 
-        // Run the command
-        let cmd_stdout = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(&cmd)
-            .output()
-            .map_err(|e| ProverError::GuestError(format!("Failed to run boundless-agent: {e}")))?;
+        println!("payload: {:?}", input_bytes.len());
 
-        if !cmd_stdout.status.success() {
-            let stderr = String::from_utf8_lossy(&cmd_stdout.stderr);
+        // INSERT_YOUR_CODE
+        // Save the serialized input to a file for debugging
+        if let Err(e) = std::fs::write("debug_input.bin", &input_bytes) {
+            eprintln!("Failed to write debug input to file: {}", e);
+        }
+
+        // Send the request to the local agent and handle the response
+        let client = reqwest::Client::new();
+        let resp = client
+            .post("http://localhost:9999/proof")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| {
+                ProverError::GuestError(format!("Failed to send request to agent: {e}"))
+            })?;
+
+        if !resp.status().is_success() {
             return Err(ProverError::GuestError(format!(
-                "boundless-agent failed: {stderr}"
+                "Agent returned error status: {}",
+                resp.status()
             )));
         }
 
-        // Try to read the output file
-        let agent_proof_bytes = std::fs::read(&output_file)
-            .map_err(|e| ProverError::GuestError(format!("Failed to read output file: {e}")))?;
+        let resp_json: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| ProverError::GuestError(format!("Failed to parse agent response: {e}")))?;
+
+        let agent_proof_bytes = resp_json
+            .get("proof_data")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_u64().map(|b| b as u8))
+                    .collect::<Vec<u8>>()
+            })
+            .ok_or_else(|| {
+                ProverError::GuestError(
+                    "Missing or invalid 'proof_data' in agent response".to_string(),
+                )
+            })?;
+
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
                 ProverError::GuestError(format!("Failed to deserialize output file: {e}"))

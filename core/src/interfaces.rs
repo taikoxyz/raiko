@@ -125,13 +125,6 @@ pub async fn run_batch_prover(
         ProofType::Risc0Boundless => {
             #[cfg(feature = "risc0")]
             {
-                risc0_driver::Risc0BoundlessProver::prepare_batch_run(
-                    input.clone(),
-                    output,
-                    config,
-                    None,
-                )
-                .await?;
                 return risc0_driver::Risc0BoundlessProver
                     .batch_run(input, output, config, None)
                     .await
@@ -186,13 +179,6 @@ pub async fn aggregate_proofs(
         ProofType::Risc0Boundless => {
             #[cfg(feature = "risc0")]
             {
-                risc0_driver::Risc0BoundlessProver::prepare_aggregation_run(
-                    input.clone(),
-                    output,
-                    config,
-                    None,
-                )
-                .await?;
                 return risc0_driver::Risc0BoundlessProver
                     .aggregate(input, output, config, None)
                     .await
