@@ -106,6 +106,13 @@ pub struct Opts {
         default_value = "provers/risc0/driver/src/methods/image_ids.json"
     )]
     pub risc0_image_ids_path: PathBuf,
+
+    #[arg(
+        long,
+        require_equals = true,
+        default_value = "host/config/image_ids.json"
+    )]
+    pub image_ids_path: PathBuf,
 }
 
 impl Opts {
@@ -152,7 +159,8 @@ impl Opts {
 
         let pretty = serde_json::to_string_pretty(&merged).unwrap();
 
-        std::fs::write(image_ids_path, pretty).expect("Failed to write merged image IDs to file");
+        std::fs::write(&self.image_ids_path, pretty)
+            .expect("Failed to write merged image IDs to file");
     }
 
     /// Read the options from a file and merge it with the current options.
