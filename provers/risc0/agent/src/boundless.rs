@@ -336,7 +336,10 @@ impl Risc0BoundlessProver {
         tracing::info!("mcycles_count: {}", mcycles_count);
 
         let boundless_client = {
-            let deployment = Some(SEPOLIA);
+            let mut base_deployment = SEPOLIA;
+            base_deployment.order_stream_url =
+                Some("http://18.212.205.215:9090/api/v1/orders".to_owned().into());
+            let deployment = Some(base_deployment);
             let storage_provider = boundless_market::storage::storage_provider_from_env().ok();
 
             // Create a Boundless client from the provided parameters.
