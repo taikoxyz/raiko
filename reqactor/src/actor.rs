@@ -123,7 +123,7 @@ impl Actor {
     ) -> Result<StatusWithContext, String> {
         let pool_status_opt = self.pool_get_status(&request_key).await?;
 
-        // Return successed status if the request is already succeeded
+        // Return successful status if the request is already succeeded
         if matches!(
             pool_status_opt.as_ref().map(|s| s.status()),
             Some(Status::Success { .. })
