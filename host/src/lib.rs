@@ -145,8 +145,6 @@ impl Opts {
     }
 
     fn parse_image_ids(&self) {
-        let image_ids_path = PathBuf::from("host/config/image_ids.json");
-
         let risc0_json = Self::get_image_ids_json(&self.risc0_image_ids_path);
         let sp1_json = Self::get_image_ids_json(&self.sp1_image_ids_path);
 

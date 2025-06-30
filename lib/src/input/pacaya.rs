@@ -50,6 +50,8 @@ sol! {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
+        // Surge: Custom L2 base fee set by the proposer
+        uint96 baseFee;
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
@@ -73,6 +75,8 @@ sol! {
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
+        // Surge: Custom L2 base fee set by the proposer
+        uint96 baseFee;
         uint64 lastBlockId;
         uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch

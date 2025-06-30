@@ -189,6 +189,7 @@ impl BlockMetaDataFork {
                 let blob_byte_offset = batch_proposed.info.blobByteOffset;
                 let blob_byte_size = batch_proposed.info.blobByteSize;
                 let gas_limit = batch_proposed.info.gasLimit;
+                let base_fee = batch_proposed.info.baseFee;
                 let last_block_id = final_blocks.last().unwrap().header.number;
                 assert!(
                     last_block_id == batch_proposed.info.lastBlockId,
@@ -221,6 +222,7 @@ impl BlockMetaDataFork {
                             blobByteOffset: blob_byte_offset,
                             blobByteSize: blob_byte_size,
                             gasLimit: gas_limit,
+                            baseFee: base_fee,
                             lastBlockId: last_block_id,
                             lastBlockTimestamp: last_block_timestamp,
                             anchorBlockId: anchor_block_id,

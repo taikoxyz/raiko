@@ -76,6 +76,7 @@ pub static SURGE_DEV_HARDFORKS: LazyLock<reth_chainspec::ChainHardforks> = LazyL
                 std::env::var("SURGE_DEV_ONTAKE_HEIGHT").map_or(1, |h| h.parse().unwrap_or(1)),
             ),
         ),
+        (TaikoHardfork::Pacaya.boxed(), ForkCondition::Block(1)),
     ])
 });
 

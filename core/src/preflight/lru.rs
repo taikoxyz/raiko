@@ -18,6 +18,7 @@ lazy_static! {
         ));
 }
 
+#[allow(dead_code)] // This function is used in tests to clear the state DB.
 fn clear_state_db() {
     debug!("clear state db");
     let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
