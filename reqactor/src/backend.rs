@@ -94,7 +94,8 @@ impl Backend {
                     }
                     RequestEntity::BatchProof(entity) => {
                         do_prove_batch(&mut pool_, &chain_specs, request_key_.clone(), entity).await
-                    }
+                    },
+                    RequestEntity::GuestInput(_) | RequestEntity::BatchGuestInput(_) => todo!()
                 };
                 let status = match result {
                     Ok(proof) => Status::Success { proof },
