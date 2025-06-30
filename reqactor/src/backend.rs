@@ -453,7 +453,24 @@ impl Backend {
         request_entity: AggregationRequestEntity,
     ) {
         self.prove(request_key.clone(), |mut actor, request_key| async move {
-            do_prove_aggregation(&mut actor.pool, request_key.clone(), request_entity).await
+            // 1. Get the GPU number for the given proof type
+            let gpu_number = actor
+                .get_gpu_number(request_entity.proof_type().clone())
+                .await;
+
+            // 2. Aggregate the proofs
+            let res = do_prove_aggregation(
+                &mut actor.pool,
+                request_key.clone(),
+                request_entity,
+                gpu_number,
+            )
+            .await;
+
+            // 3. Release the GPU number
+            actor.release_gpu_number(gpu_number).await;
+
+            res
         })
         .await;
     }
@@ -749,14 +766,20 @@ async fn do_prove_aggregation(
     pool: &mut dyn IdWrite,
     request_key: RequestKey,
     request_entity: AggregationRequestEntity,
+    gpu_number: Option<u32>,
 ) -> Result<Proof, String> {
     let proof_type = request_key.proof_type().clone();
     let proofs = request_entity.proofs().clone();
 
     let input = AggregationGuestInput { proofs };
     let output = AggregationGuestOutput { hash: B256::ZERO };
-    let config = serde_json::to_value(request_entity.prover_args())
+    let mut config = serde_json::to_value(request_entity.prover_args())
         .map_err(|err| format!("failed to serialize prover args: {err:?}"))?;
+
+    if let Some(gpu_number) = gpu_number {
+        // If gpu_number is provided, we set it in the config
+        config["gpu_number"] = gpu_number.into();
+    }
 
     let proof = aggregate_proofs(proof_type, input, &output, &config, Some(pool))
         .await

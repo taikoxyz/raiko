@@ -535,7 +535,7 @@ impl ProtocolInstance {
                 );
                 ensure!(
                     input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
-                    "unexpected is_taiko value"
+                    "unexpected is_taiko"
                 );
             }
         }
