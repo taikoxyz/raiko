@@ -9,9 +9,18 @@ edition = "2021"
 name = "zk_op"
 path = "src/zk_op.rs"
 
+# deprecated binary target for ontake fork block processing
+# [[bin]]
+# name = "risc0-block"
+# path = "src/block.rs"
+
 [[bin]]
 name = "risc0-aggregation"
 path = "src/aggregation.rs"
+
+[[bin]]
+name = "risc0-batch"
+path = "src/batch.rs"
 
 [[bin]]
 name = "sha256"
@@ -23,13 +32,13 @@ path = "src/benchmark/ecdsa.rs"
 
 [dependencies]
 raiko-lib = { path = "../../../lib", features = ["std", "risc0"] }
-risc0-zkvm = { version = "=1.2.3", default-features = false, features = [
+risc0-zkvm = { version = "=2.1.0", default-features = false, features = [
     'std',
     "getrandom",
     "heap-embedded-alloc",
     "unstable",
 ] }
-risc0-zkvm-platform = { version = "=1.2.3", default-features = false, features = [
+risc0-zkvm-platform = { version = "=2.0.2", default-features = false, features = [
     "sys-getenv",
 ] }
 k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.3-risczero.1" }

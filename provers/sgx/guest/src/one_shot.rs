@@ -16,6 +16,7 @@ use raiko_lib::{
 };
 use secp256k1::{Keypair, PublicKey, SecretKey};
 use serde::Serialize;
+use serde_json::Value;
 
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
@@ -117,7 +118,11 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
     Ok(())
 }
 
-pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> {
+pub async fn one_shot(
+    global_opts: GlobalOpts,
+    args: OneShotArgs,
+    input: GuestInput,
+) -> Result<Value> {
     // Make sure this SGX instance was bootstrapped
     let prev_privkey = load_bootstrap(&global_opts.secrets_dir)
         .or_else(|_| bail!("Application was not bootstrapped or has a deprecated bootstrap."))
@@ -127,9 +132,6 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
 
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
-
-    let input: GuestInput =
-        bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
 
     // Process the block
     let header = calculate_block_header(&input);
@@ -169,7 +171,8 @@ pub async fn one_shot(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> 
     println!("{data}");
 
     // Print out general SGX information
-    print_sgx_info()
+    let _ = print_sgx_info();
+    Ok(data)
 }
 
 pub fn load_bootstrap_privkey(secrets_dir: &Path) -> Result<(SecretKey, PublicKey, Address)> {
@@ -183,12 +186,14 @@ pub fn load_bootstrap_privkey(secrets_dir: &Path) -> Result<(SecretKey, PublicKe
     Ok((prev_privkey, new_pubkey, new_instance))
 }
 
-pub async fn one_shot_batch(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> {
+pub async fn one_shot_batch(
+    global_opts: GlobalOpts,
+    args: OneShotArgs,
+    batch_input: GuestBatchInput,
+) -> Result<Value> {
     println!("Global options: {global_opts:?}, OneShot options: {args:?}");
     let (prev_privkey, new_pubkey, new_instance) =
         load_bootstrap_privkey(&global_opts.secrets_dir)?;
-    let batch_input: GuestBatchInput =
-        bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize batch input");
 
     // Process the block
     let final_blocks = calculate_batch_blocks_final_header(&batch_input);
@@ -231,10 +236,15 @@ pub async fn one_shot_batch(global_opts: GlobalOpts, args: OneShotArgs) -> Resul
     println!("{data}");
 
     // Print out general SGX information
-    print_sgx_info()
+    let _ = print_sgx_info();
+    Ok(data)
 }
 
-pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()> {
+pub async fn aggregate(
+    global_opts: GlobalOpts,
+    args: OneShotArgs,
+    input: RawAggregationGuestInput,
+) -> Result<Value> {
     // Make sure this SGX instance was bootstrapped
     let prev_privkey = load_bootstrap(&global_opts.secrets_dir)
         .or_else(|_| bail!("Application was not bootstrapped or has a deprecated bootstrap."))
@@ -244,9 +254,6 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
 
     let new_pubkey = public_key(&prev_privkey);
     let new_instance = public_key_to_address(&new_pubkey);
-
-    let input: RawAggregationGuestInput =
-        bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
 
     // Make sure the chain of old/new public keys is preserved
     let old_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
@@ -310,7 +317,8 @@ pub async fn aggregate(global_opts: GlobalOpts, args: OneShotArgs) -> Result<()>
     println!("{data}");
 
     // Print out general SGX information
-    print_sgx_info()
+    let _ = print_sgx_info();
+    Ok(data)
 }
 
 pub fn load_bootstrap(secrets_dir: &Path) -> Result<SecretKey, BootStrapError> {

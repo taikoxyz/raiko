@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.9.0](https://github.com/taikoxyz/raiko/compare/v1.9.0-rc.1...v1.9.0) (2025-06-10)
+
+
+### Features
+
+* **pre-release:** v1.9.0-rc.1 ([#580](https://github.com/taikoxyz/raiko/issues/580)) ([fd21666](https://github.com/taikoxyz/raiko/commit/fd216663ec84385ee4456c673366535c82712bdb))
+* **raiko:** update deploy script ([#581](https://github.com/taikoxyz/raiko/issues/581)) ([6f11b79](https://github.com/taikoxyz/raiko/commit/6f11b793201a8da3b054c8316c7e39f9332667f1))
+
+
+### Bug Fixes
+
+* **raiko:** add timeout to sgx server ([#585](https://github.com/taikoxyz/raiko/issues/585)) ([0518a8a](https://github.com/taikoxyz/raiko/commit/0518a8ac3ce5e6504075c310d53085d0aa150015))
+
+## [1.8.0](https://github.com/taikoxyz/raiko/compare/v1.7.0...v1.8.0) (2025-05-16)
+
+
+### Features
+
+* **raiko:** compress redis entry to optimize db storage ([#561](https://github.com/taikoxyz/raiko/issues/561)) ([a7248bb](https://github.com/taikoxyz/raiko/commit/a7248bb79323bfb51c9d832a52c5a0fb7cad5428))
+* **raiko:** enable sgx web service ([#550](https://github.com/taikoxyz/raiko/issues/550)) ([f6e14a5](https://github.com/taikoxyz/raiko/commit/f6e14a5add5aadf7a20e413eb6ef099046595b51))
+* **raiko:** support parallel prefetch ([#557](https://github.com/taikoxyz/raiko/issues/557)) ([ffb25e3](https://github.com/taikoxyz/raiko/commit/ffb25e30d1e596d4ea8a650cac1a8285df8da2fc))
+* **raiko:** update docker compose for raiko sgx server ([#559](https://github.com/taikoxyz/raiko/issues/559)) ([70c0304](https://github.com/taikoxyz/raiko/commit/70c03043b815b05c56877781da7792672d4e899c))
+* **raiko:** support mainnet pacaya fork with prerelease-v1.8.0 ([#563](https://github.com/taikoxyz/raiko/pull/563))
+
+### Bug Fixes
+
+* use memfd instead of pipe in stdin to avoid deadlock in ego ([#560](https://github.com/taikoxyz/raiko/issues/560)) ([b703d9a](https://github.com/taikoxyz/raiko/commit/b703d9ae0389b5777639374a677dff69d4a75e51))
+
+## [1.7.0](https://github.com/taikoxyz/raiko/compare/v1.6.1...v1.7.0) (2025-04-08)
+
+
+### Features
+
+* **gaiko:** support hekla pacaya ([#528](https://github.com/taikoxyz/raiko/issues/528)) ([e2f3ac6](https://github.com/taikoxyz/raiko/commit/e2f3ac616ba712c1ab9c6ec589f7197144df5ed3))
+* impl zkvm support for pacaya ([#526](https://github.com/taikoxyz/raiko/issues/526)) ([0762618](https://github.com/taikoxyz/raiko/commit/0762618331b00cc5bd80bf24737c5d875f7d27f1))
+* **raiko:** update docker cmd script ([#530](https://github.com/taikoxyz/raiko/issues/530)) ([8cb5449](https://github.com/taikoxyz/raiko/commit/8cb54493d1c8b40ad59f3311be1ff1fcd52b4c45))
+* **raiko:** update script to support batch prove ([#531](https://github.com/taikoxyz/raiko/issues/531)) ([29c7c5c](https://github.com/taikoxyz/raiko/commit/29c7c5c55d8bb410bf11b08da251019f17c726e2))
+
+
+### Bug Fixes
+
+* **ballot:** correct validation logic for probability values ([#529](https://github.com/taikoxyz/raiko/issues/529)) ([72aa660](https://github.com/taikoxyz/raiko/commit/72aa660cf2d0c83f26995ee718012e425f3b1318))
+* **setup:** origin config file is different from saved config file ([#532](https://github.com/taikoxyz/raiko/issues/532)) ([6b4d90c](https://github.com/taikoxyz/raiko/commit/6b4d90c4f475206d4db43c3287c35c624e7d6969))
+
 ## [1.6.0](https://github.com/taikoxyz/raiko/compare/v1.5.0...v1.6.0) (2025-03-24)
 
 

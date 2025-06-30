@@ -66,7 +66,9 @@ impl Pool {
         &mut self,
         request_key: &RequestKey,
     ) -> Result<Option<StatusWithContext>, String> {
-        self.get(request_key).map(|v| v.map(|v| v.1))
+        let result = self.get(request_key).map(|v| v.map(|v| v.1));
+        tracing::info!("RedisPool.get_status: {request_key}, {result:?}");
+        result
     }
 
     pub fn update_status(

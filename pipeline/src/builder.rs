@@ -114,6 +114,8 @@ pub struct CommandBuilder {
     pub rustc: Option<PathBuf>,
     // -C flags
     pub rust_flags: Option<Vec<String>>,
+    // --cfg configs
+    pub rust_cfgs: Option<Vec<String>>,
     // -Z flags
     pub z_flags: Option<Vec<String>>,
     // riscv32im gcc
@@ -163,6 +165,7 @@ impl CommandBuilder {
             rustc: CommandBuilder::get_path_buf("rustc", toolchain),
             sanitized_env: Vec::new(),
             rust_flags: None,
+            rust_cfgs: None,
             z_flags: None,
             cc_compiler: None,
             c_flags: None,
@@ -186,6 +189,11 @@ impl CommandBuilder {
 
     pub fn rust_flags(mut self, flags: &[&str]) -> Self {
         self.rust_flags = Some(to_strings(flags));
+        self
+    }
+
+    pub fn rust_cfgs(mut self, flags: &[&str]) -> Self {
+        self.rust_cfgs = Some(to_strings(flags));
         self
     }
 
@@ -321,6 +329,7 @@ impl CommandBuilder {
             cargo,
             rustc,
             rust_flags,
+            rust_cfgs,
             z_flags,
             cc_compiler,
             c_flags,
@@ -373,12 +382,15 @@ impl CommandBuilder {
             }),
         );
 
+        let mut encoded_flags: Vec<String> = vec![];
         if let Some(rust_flags) = rust_flags {
-            cmd.env(
-                "CARGO_ENCODED_RUSTFLAGS",
-                format_flags("-C", &rust_flags).join("\x1f"),
-            );
+            encoded_flags = format_flags("-C", &rust_flags);
         }
+
+        if let Some(cfgs) = rust_cfgs {
+            encoded_flags.extend(format_flags("--cfg", &cfgs));
+        }
+        cmd.env("CARGO_ENCODED_RUSTFLAGS", encoded_flags.join("\x1f"));
 
         // Set C compiler path and flags
         if let Some(cc_compiler) = cc_compiler {

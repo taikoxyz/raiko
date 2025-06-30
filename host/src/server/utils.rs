@@ -9,10 +9,15 @@ use raiko_reqpool::Status;
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
 
-pub fn to_v2_status(proof_type: ProofType, result: Result<Status, String>) -> v2::Status {
+pub fn to_v2_status(
+    proof_type: ProofType,
+    batch_id: Option<u64>,
+    result: Result<Status, String>,
+) -> v2::Status {
     match result {
         Ok(status) => v2::Status::Ok {
             proof_type,
+            batch_id,
             data: {
                 match status {
                     Status::Registered => v2::ProofResponse::Status {
@@ -57,8 +62,12 @@ pub fn to_v2_cancel_status(result: Result<Status, String>) -> v2::CancelStatus {
 }
 
 // TODO: remove the staled interface
-pub fn to_v3_status(proof_type: ProofType, result: Result<Status, String>) -> v3::Status {
-    to_v2_status(proof_type, result)
+pub fn to_v3_status(
+    proof_type: ProofType,
+    batch_id: Option<u64>,
+    result: Result<Status, String>,
+) -> v3::Status {
+    to_v2_status(proof_type, batch_id, result)
 }
 
 pub fn to_v3_cancel_status(result: Result<Status, String>) -> v3::CancelStatus {
@@ -75,6 +84,10 @@ pub async fn draw_for_zk_any_request(
     actor: &Actor,
     proof_request_opt: &Value,
 ) -> HostResult<Option<ProofType>> {
+    if actor.is_ballot_disabled() {
+        return Ok(None);
+    }
+
     let network = proof_request_opt["network"]
         .as_str()
         .ok_or(RaikoError::InvalidRequestConfig(
@@ -90,29 +103,33 @@ pub async fn draw_for_zk_any_request(
     Ok(actor.draw(&blockhash).await)
 }
 
-pub fn fulfill_sp1_params(req: &mut Value) {
-    let zk_any_opts = req["zk_any"].as_object().clone();
-    let sp1_recursion = match zk_any_opts {
-        None => serde_json::Value::String("plonk".to_string()),
-        Some(zk_any) => {
-            let aggregation = zk_any["aggregation"].as_bool().unwrap_or(false);
-            if aggregation {
-                serde_json::Value::String("compressed".to_string())
-            } else {
-                serde_json::Value::String("plonk".to_string())
-            }
-        }
-    };
-
-    let sp1_opts = req["sp1"].as_object_mut();
-    match sp1_opts {
-        None => {
-            let mut sp1_opts = serde_json::Map::new();
-            sp1_opts.insert("recursion".to_string(), sp1_recursion);
-            req["sp1"] = serde_json::Value::Object(sp1_opts);
-        }
-        Some(sp1_opts) => {
-            sp1_opts.insert("recursion".to_string(), sp1_recursion);
-        }
+pub async fn draw_for_zk_any_batch_request(
+    actor: &Actor,
+    batch_proof_request_opt: &Value,
+) -> HostResult<Option<ProofType>> {
+    if actor.is_ballot_disabled() {
+        return Ok(None);
     }
+
+    let l1_network =
+        batch_proof_request_opt["l1_network"]
+            .as_str()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?;
+    let batches =
+        batch_proof_request_opt["batches"]
+            .as_array()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing batches".to_string(),
+            ))?;
+    let first_batch = batches.first().ok_or(RaikoError::InvalidRequestConfig(
+        "batches is empty".to_string(),
+    ))?;
+    let l1_inclusion_block_number = first_batch["l1_inclusion_block_number"].as_u64().ok_or(
+        RaikoError::InvalidRequestConfig("Missing l1_inclusion_block_number".to_string()),
+    )?;
+    let (_, blockhash) =
+        get_task_data(&l1_network, l1_inclusion_block_number, actor.chain_specs()).await?;
+    Ok(actor.draw(&blockhash))
 }

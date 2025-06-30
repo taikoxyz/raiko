@@ -51,11 +51,11 @@ pub async fn test_v2_mainnet_zk_any_prove() {
     let (_server, client) = setup().await;
     let mut request = make_proof_request(&network, &ProofType::Native, block_number);
 
-    // Ensure the ballot is set to {"native": 1.0}, so that our zk_any request will always been drawn
+    // Ensure the ballot is set to {"native": (1.0, 0)}, so that our zk_any request will always been drawn
     let set_response = client
         .reqwest_client
         .post(&client.build_url("/admin/set_ballot"))
-        .json(&serde_json::json!({"Native": 1.0}))
+        .json(&serde_json::json!({"Native": [1.0, 0]}))
         .send()
         .await
         .unwrap();

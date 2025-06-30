@@ -5,9 +5,9 @@
   "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
   "sgx": {
     "instance_ids": {
-        "HEKLA": 123456,
-        "ONTAKE": 123456,
-        "PACAYA": 123456
+      "HEKLA": 123456,
+      "ONTAKE": 123456,
+      "PACAYA": 123456
     }
   },
   "risc0": {
@@ -17,9 +17,17 @@
     "execution_po2": 20
   },
   "sp1": {
-    "recursion": "core",
     "prover": "network",
-    "verify": false
+    "verify": true
+  },
+  "sgxgeth": {
+    "instance_ids": {
+      "PACAYA": 0
+    },
+    "setup": false,
+    "bootstrap": false,
+    "prove": false,
+    "input_path": null
   },
   "native": {
     "json_guest_input": null

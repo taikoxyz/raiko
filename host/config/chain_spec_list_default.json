@@ -101,20 +101,11 @@
         "rpc": "https://rpc.hekla.taiko.xyz",
         "beacon_rpc": null,
         "verifier_address_forks": {
-            "HEKLA": {
-                "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
-                "SP1": "0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD",
-                "RISC0": "0x4fEd801C5a876D4289e869cbEfA1E1A448b10714"
-            },
-            "ONTAKE": {
-                "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
-                "SP1": "0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD",
-                "RISC0": "0x4fEd801C5a876D4289e869cbEfA1E1A448b10714"
-            },
             "PACAYA": {
                 "SGX": "0xa8cD459E3588D6edE42177193284d40332c3bcd4",
                 "SP1": "0x1138aA994477f0880001aa1E8106D749035b6250",
-                "RISC0": "0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2"
+                "RISC0": "0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2",
+                "SGXGETH": "0x4361B85093720bD50d25236693CA58FD6e1b3a53"
             }
         },
         "genesis_time": 0,
@@ -124,7 +115,7 @@
     {
         "name": "taiko_mainnet",
         "chain_id": 167000,
-        "max_spec_id": "ONTAKE",
+        "max_spec_id": "PACAYA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
@@ -133,7 +124,7 @@
                 "Block": 538304
             },
             "PACAYA": {
-                "Block": 99999999
+                "Block": 1166000
             },
             "CANCUN": "TBD"
         },
@@ -148,20 +139,11 @@
         "rpc": "https://rpc.mainnet.taiko.xyz",
         "beacon_rpc": null,
         "verifier_address_forks": {
-            "HEKLA": {
-                "SGX": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
-                "SP1": "0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452",
-                "RISC0": "0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc"
-            },
-            "ONTAKE": {
-                "SGX": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
-                "SP1": "0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452",
-                "RISC0": "0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc"
-            },
             "PACAYA": {
-                "SGX": "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81",
-                "SP1": "0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452",
-                "RISC0": "0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc"
+                "SGX": "0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136",
+                "SP1": "0xbee1040D0Aab17AE19454384904525aE4A3602B9",
+                "RISC0": "0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE",
+                "SGXGETH": "0x7e6409e9b6c5e2064064a6cC994f9a2e95680782"
             }
         },
         "genesis_time": 0,

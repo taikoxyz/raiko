@@ -24,7 +24,7 @@ async fn pause(State(actor): State<Actor>) -> HostResult<&'static str> {
 
 async fn set_ballot(
     State(actor): State<Actor>,
-    Json(probs): Json<BTreeMap<ProofType, f64>>,
+    Json(probs): Json<BTreeMap<ProofType, (f64, u64)>>,
 ) -> HostResult<&'static str> {
     let ballot = Ballot::new(probs).map_err(|e| anyhow::anyhow!(e))?;
     actor.set_ballot(ballot).await;

@@ -20,7 +20,6 @@
     "execution_po2": 20
   },
   "sp1": {
-    "recursion": "core",
     "prover": "network",
     "verify": false
   },

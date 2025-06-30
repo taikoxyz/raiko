@@ -6,11 +6,11 @@ use std::path::PathBuf;
 fn main() {
     let pipeline = Risc0Pipeline::new("provers/risc0/guest", "release");
     pipeline.bins(
-        &["risc0-guest", "risc0-aggregation"],
+        &["risc0-aggregation", "risc0-batch"],
         "provers/risc0/driver/src/methods",
     );
     #[cfg(feature = "test")]
-    pipeline.tests(&["risc0-guest"], "provers/risc0/driver/src/methods");
+    pipeline.tests(&["risc0-batch"], "provers/risc0/driver/src/methods");
     #[cfg(feature = "bench")]
     pipeline.bins(&["ecdsa", "sha256"], "provers/risc0/driver/src/methods");
 }
@@ -35,10 +35,12 @@ impl Pipeline for Risc0Pipeline {
             //       and can be removed in the future.
             .custom_env([("RISC0_FEATURE_bigint2".to_string(), "1".to_string())].into())
             .rust_flags(&[
-                "passes=loweratomic",
+                "passes=lower-atomic",
                 "link-arg=-Ttext=0x00200800",
+                "link-arg=--fatal-warnings",
                 "panic=abort",
             ])
+            .rust_cfgs(&["getrandom_backend=\"custom\""])
             .cc_compiler("gcc".into())
             .c_flags(&[
                 "/opt/riscv/bin/riscv32-unknown-elf-gcc",

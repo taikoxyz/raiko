@@ -21,8 +21,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true 
       - name: Setup and build sgx docker
         run: |
           cd docker
-          docker compose build raiko --no-cache
+          cp ./.env.sample ./.env
+          docker compose --profile prod-redis build raiko --no-cache
         shell: bash

@@ -5,10 +5,13 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
+    num::NonZeroUsize,
     sync::{Arc, Mutex},
 };
 
-type SingleStorage = Arc<Mutex<HashMap<Value, Value>>>;
+use lru::LruCache;
+
+type SingleStorage = Arc<Mutex<LruCache<Value, Value>>>;
 type GlobalStorage = Mutex<HashMap<String, SingleStorage>>;
 
 lazy_static! {
@@ -26,10 +29,19 @@ pub struct MemoryBackend {
 impl MemoryBackend {
     pub fn new(redis_url: String) -> Self {
         let mut global = GLOBAL_STORAGE.lock().unwrap();
+
+        let mem_capacity = std::env::var("MEMORY_BACKEND_SIZE")
+            .unwrap_or("2048".to_string())
+            .parse::<usize>()
+            .unwrap_or_else(|_| 2048);
         Self {
             storage: global
                 .entry(redis_url)
-                .or_insert_with(|| Arc::new(Mutex::new(HashMap::new())))
+                .or_insert_with(|| {
+                    Arc::new(Mutex::new(LruCache::new(
+                        NonZeroUsize::new(mem_capacity).unwrap(),
+                    )))
+                })
                 .clone(),
         }
     }
@@ -41,12 +53,12 @@ impl MemoryBackend {
         _ttl: u64,
     ) -> RedisResult<()> {
         let mut lock = self.storage.lock().unwrap();
-        lock.insert(json!(key), json!(val));
+        lock.put(json!(key), json!(val));
         Ok(())
     }
 
     pub fn get<K: Serialize, V: serde::de::DeserializeOwned>(&mut self, key: &K) -> RedisResult<V> {
-        let lock = self.storage.lock().unwrap();
+        let mut lock = self.storage.lock().unwrap();
         match lock.get(&json!(key)) {
             None => Err(RedisError::from((redis::ErrorKind::TypeError, "not found"))),
             Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
@@ -61,7 +73,7 @@ impl MemoryBackend {
 
     pub fn del<K: Serialize>(&mut self, key: K) -> RedisResult<usize> {
         let mut lock = self.storage.lock().unwrap();
-        if lock.remove(&json!(key)).is_none() {
+        if lock.pop(&json!(key)).is_none() {
             Ok(0)
         } else {
             Ok(1)
@@ -73,8 +85,8 @@ impl MemoryBackend {
 
         let lock = self.storage.lock().unwrap();
         Ok(lock
-            .keys()
-            .map(|k| serde_json::from_value(k.clone()).unwrap())
+            .iter()
+            .map(|(k, _)| serde_json::from_value(k.clone()).unwrap())
             .collect())
     }
 }
@@ -149,6 +161,44 @@ mod tests {
         {
             let actual: RedisResult<String> = conn1.get(&key);
             assert_eq!(actual, Ok(world));
+        }
+    }
+
+    #[test]
+    fn test_memory_pool_lru() {
+        let mut pool = memory_pool("test_memory_pool");
+        let mut conn = pool.conn().expect("memory conn");
+
+        for i in 0..2048 {
+            let key = format!("key{}", i);
+            let val = format!("val{}", i);
+            conn.set_ex(key.clone(), val.clone(), 111)
+                .expect("memory set_ex");
+        }
+
+        for i in 0..2048 {
+            let key = format!("key{}", i);
+            let actual: RedisResult<String> = conn.get(&key);
+            assert_eq!(actual, Ok(format!("val{}", i)));
+        }
+
+        for i in 2048..2048 + 10 {
+            let key = format!("key{}", i);
+            let val = format!("val{}", i);
+            conn.set_ex(key.clone(), val.clone(), 111)
+                .expect("memory set_ex");
+        }
+
+        for i in 0..10 {
+            let key = format!("key{}", i);
+            let actual: RedisResult<String> = conn.get(&key);
+            assert!(actual.is_err());
+        }
+
+        for i in 10..2048 + 10 {
+            let key = format!("key{}", i);
+            let actual: RedisResult<String> = conn.get(&key);
+            assert_eq!(actual, Ok(format!("val{}", i)));
         }
     }
 }
