@@ -55,6 +55,7 @@ pub struct GuestInput {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct TaikoGuestBatchInput {
     pub batch_id: u64,
+    #[serde_as(as = "BincodeCompactHeader")]
     pub l1_header: Header,
     pub batch_proposed: BlockProposedFork,
     pub chain_spec: ChainSpec,

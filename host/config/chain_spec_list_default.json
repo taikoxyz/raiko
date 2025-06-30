@@ -38,7 +38,7 @@
     {
         "name": "surge_dev",
         "chain_id": 763374,
-        "max_spec_id": "ONTAKE",
+        "max_spec_id": "PACAYA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
@@ -47,7 +47,7 @@
                 "Block": 1
             },
             "PACAYA": {
-                "Block": 1299888
+                "Block": 1
             },
             "CANCUN": "TBD"
         },

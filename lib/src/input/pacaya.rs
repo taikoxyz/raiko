@@ -125,3 +125,16 @@ sol! {
         external
         returns (BatchInfo memory info_, BatchMetadata memory meta_);
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate alloc;
+    use crate::input::GuestBatchInput;
+
+    #[test]
+    fn input_serde_roundtrip() {
+        let input = GuestBatchInput::default();
+        let _: GuestBatchInput =
+            bincode::deserialize(&bincode::serialize(&input).unwrap()).unwrap();
+    }
+}
