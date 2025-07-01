@@ -58,3 +58,117 @@ impl Queue {
         self.queued_keys.remove(&request_key);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::Address;
+    use raiko_core::interfaces::ProverSpecificOpts;
+    use raiko_lib::{input::BlobProofType, primitives::B256, proof_type::ProofType, prover::Proof};
+    use raiko_reqpool::{
+        AggregationRequestEntity, AggregationRequestKey, SingleProofRequestEntity,
+        SingleProofRequestKey,
+    };
+    use std::collections::HashMap;
+
+    /// Helper function to create a test SingleProof request key - low priority
+    fn create_low_priority_request_key(block_number: u64) -> RequestKey {
+        let single_proof_key = SingleProofRequestKey::new(
+            1u64,
+            block_number,
+            B256::from([1u8; 32]),
+            ProofType::Native,
+            "test_prover".to_string(),
+        );
+        RequestKey::SingleProof(single_proof_key)
+    }
+
+    /// Helper function to create a test Aggregation request key - high priority
+    fn create_high_priority_request_key(block_numbers: Vec<u64>) -> RequestKey {
+        let aggregation_key = AggregationRequestKey::new(ProofType::Native, block_numbers);
+        RequestKey::Aggregation(aggregation_key)
+    }
+
+    /// Helper function to create a test SingleProof request entity
+    fn create_single_proof_request_entity(block_number: u64) -> RequestEntity {
+        let single_proof_entity = SingleProofRequestEntity::new(
+            block_number,
+            5678u64,
+            "ethereum".to_string(),
+            "ethereum".to_string(),
+            B256::from([0u8; 32]),
+            Address::ZERO,
+            ProofType::Native,
+            BlobProofType::ProofOfEquivalence,
+            HashMap::new(),
+        );
+        RequestEntity::SingleProof(single_proof_entity)
+    }
+
+    /// Helper function to create a test Aggregation request entity
+    fn create_aggregation_request_entity(aggregation_ids: Vec<u64>) -> RequestEntity {
+        let aggregation_entity = AggregationRequestEntity::new(
+            aggregation_ids,
+            vec![Proof::default()],
+            ProofType::Native,
+            ProverSpecificOpts::default(),
+        );
+        RequestEntity::Aggregation(aggregation_entity)
+    }
+
+    #[test]
+    fn test_complex_workflow() {
+        let mut queue = Queue::new();
+
+        // Add multiple requests of different priorities
+        let low1 = create_low_priority_request_key(1);
+        let low2 = create_low_priority_request_key(2);
+        let high1 = create_high_priority_request_key(vec![100]);
+        let high2 = create_high_priority_request_key(vec![200]);
+
+        let low1_entity = create_single_proof_request_entity(1);
+        let low2_entity = create_single_proof_request_entity(2);
+        let high1_entity = create_aggregation_request_entity(vec![100]);
+        let high2_entity = create_aggregation_request_entity(vec![200]);
+
+        queue.add_pending(low1.clone(), low1_entity);
+        queue.add_pending(high1.clone(), high1_entity);
+        queue.add_pending(low2.clone(), low2_entity);
+        queue.add_pending(high2.clone(), high2_entity);
+
+        // Verify all requests are in queue
+        assert_eq!(queue.queued_keys.len(), 4);
+        assert_eq!(queue.high_pending.len(), 2);
+        assert_eq!(queue.low_pending.len(), 2);
+
+        // Process in priority order
+        let (key, _) = queue.try_next().unwrap();
+        assert_eq!(key, high1);
+
+        let (key, _) = queue.try_next().unwrap();
+        assert_eq!(key, high2);
+
+        let (key, _) = queue.try_next().unwrap();
+        assert_eq!(key, low1);
+
+        // Complete one request
+        queue.complete(high1.clone());
+        assert!(!queue.contains(&high1));
+        assert_eq!(queue.working_in_progress.len(), 2); // high2 and low1 still working
+
+        // Get the last request
+        let (key, _) = queue.try_next().unwrap();
+        assert_eq!(key, low2);
+
+        // Complete remaining requests
+        queue.complete(high2);
+        queue.complete(low1);
+        queue.complete(low2);
+
+        // Queue should be completely empty after all requests are completed
+        assert_eq!(queue.queued_keys.len(), 0);
+        assert_eq!(queue.working_in_progress.len(), 0);
+        assert_eq!(queue.high_pending.len(), 0);
+        assert_eq!(queue.low_pending.len(), 0);
+    }
+}

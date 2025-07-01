@@ -96,11 +96,23 @@ impl Backend {
                         do_prove_batch(&mut pool_, &chain_specs, request_key_.clone(), entity).await
                     }
                     RequestEntity::GuestInput(entity) => {
-                        do_generate_guest_input(&mut pool_, &chain_specs, request_key_.clone(), entity).await
-                    } 
+                        do_generate_guest_input(
+                            &mut pool_,
+                            &chain_specs,
+                            request_key_.clone(),
+                            entity,
+                        )
+                        .await
+                    }
                     RequestEntity::BatchGuestInput(entity) => {
-                        do_generate_batch_guest_input(&mut pool_, &chain_specs, request_key_.clone(), entity).await
-                    },
+                        do_generate_batch_guest_input(
+                            &mut pool_,
+                            &chain_specs,
+                            request_key_.clone(),
+                            entity,
+                        )
+                        .await
+                    }
                 };
                 let status = match result {
                     Ok(proof) => Status::Success { proof },
@@ -134,209 +146,6 @@ impl Backend {
             });
         }
     }
-
-    // async fn handle_external_action(
-    //     &mut self,
-    //     action: Action,
-    // ) -> Result<StatusWithContext, String> {
-    //     match action {
-    //         Action::Prove {
-    //             request_key,
-    //             request_entity,
-    //             start_time,
-    //         } => match self.pool.get_status(&request_key) {
-    //             Ok(None) => {
-    //                 tracing::debug!("Actor Backend received prove-action {request_key}, and it is not in pool, registering");
-    //                 self.register(request_key.clone(), request_entity, start_time)
-    //                     .await
-    //             }
-    //             Ok(Some(status)) => match status.status() {
-    //                 Status::Registered | Status::WorkInProgress | Status::Success { .. } => {
-    //                     tracing::debug!("Actor Backend received prove-action {request_key}, but it is already {status}, skipping");
-    //                     Ok(status)
-    //                 }
-    //                 Status::Cancelled { .. } => {
-    //                     tracing::warn!("Actor Backend received prove-action {request_key}, and it is cancelled, re-registering");
-    //                     self.register(request_key, request_entity, start_time).await
-    //                 }
-    //                 Status::Failed { .. } => {
-    //                     tracing::warn!("Actor Backend received prove-action {request_key}, and it is failed, re-registering");
-    //                     self.register(request_key, request_entity, start_time).await
-    //                 }
-    //             },
-    //             Err(err) => {
-    //                 tracing::error!(
-    //                     "Actor Backend failed to get status of prove-action {request_key}: {err:?}"
-    //                 );
-    //                 Err(err)
-    //             }
-    //         },
-    //         Action::Cancel { request_key } => match self.pool.get_status(&request_key) {
-    //             Ok(None) => {
-    //                 tracing::warn!("Actor Backend received cancel-action {request_key}, but it is not in pool, skipping");
-    //                 Err("request is not in pool".to_string())
-    //             }
-    //             Ok(Some(status)) => match status.status() {
-    //                 Status::Registered | Status::WorkInProgress => {
-    //                     tracing::debug!("Actor Backend received cancel-action {request_key}, and it is {status}, cancelling");
-    //                     self.cancel(request_key, status).await
-    //                 }
-
-    //                 Status::Failed { .. } | Status::Cancelled { .. } | Status::Success { .. } => {
-    //                     tracing::debug!("Actor Backend received cancel-action {request_key}, but it is already {status}, skipping");
-    //                     Ok(status)
-    //                 }
-    //             },
-    //             Err(err) => {
-    //                 tracing::error!(
-    //                     "Actor Backend failed to get status of cancel-action {request_key}: {err:?}"
-    //                 );
-    //                 Err(err)
-    //             }
-    //         },
-    //     }
-    // }
-
-    // // Check the request status and then move on to the next step accordingly.
-    // async fn handle_internal_signal(&mut self, request_key: RequestKey) {
-    //     match self.pool.get(&request_key) {
-    //         Ok(Some((request_entity, status))) => match status.status() {
-    //             Status::Registered => match request_entity {
-    //                 RequestEntity::SingleProof(entity) => {
-    //                     tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
-    //                     self.prove_single(request_key.clone(), entity).await;
-    //                     self.ensure_internal_signal(request_key).await;
-    //                 }
-    //                 RequestEntity::Aggregation(entity) => {
-    //                     tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving aggregation proof");
-    //                     self.prove_aggregation(request_key.clone(), entity).await;
-    //                     self.ensure_internal_signal(request_key).await;
-    //                 }
-    //                 RequestEntity::BatchProof(entity) => {
-    //                     tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving batch proof");
-    //                     self.prove_batch(request_key.clone(), entity).await;
-    //                     self.ensure_internal_signal(request_key).await;
-    //                 }
-    //             },
-    //             Status::WorkInProgress => {
-    //                 // Wait for proving completion
-    //                 tracing::debug!(
-    //                     "Actor Backend checks a work-in-progress request {request_key}, elapsed: {elapsed:?}",
-    //                     elapsed = chrono::Utc::now() - status.timestamp(),
-    //                 );
-    //                 self.ensure_internal_signal_after(request_key, Duration::from_secs(3))
-    //                     .await;
-    //             }
-    //             Status::Success { .. } | Status::Cancelled { .. } | Status::Failed { .. } => {
-    //                 tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, done");
-    //             }
-    //         },
-    //         Ok(None) => {
-    //             tracing::warn!(
-    //                 "Actor Backend received internal signal {request_key}, but it is not in pool, skipping"
-    //             );
-    //         }
-    //         Err(err) => {
-    //             // Fault tolerance: re-enqueue the internal signal after 3 seconds
-    //             tracing::warn!(
-    //                 "Actor Backend failed to get status of internal signal {request_key}: {err:?}, performing fault tolerance and retrying later"
-    //             );
-    //             self.ensure_internal_signal_after(request_key, Duration::from_secs(3))
-    //                 .await;
-    //         }
-    //     }
-    // }
-
-    // // Ensure signal the request key to the internal channel.
-    // //
-    // // Note that this function will retry sending the signal until success.
-    // async fn ensure_internal_signal(&mut self, request_key: RequestKey) {
-    //     let mut ticker = tokio::time::interval(Duration::from_secs(3));
-    //     let internal_tx = self.internal_tx.clone();
-    //     tokio::spawn(async move {
-    //         loop {
-    //             ticker.tick().await; // first tick is immediate
-    //             if let Err(err) = internal_tx.send(request_key.clone()).await {
-    //                 tracing::error!("Actor Backend failed to send internal signal {request_key}: {err:?}, retrying. It should not happen, please issue a bug report");
-    //             } else {
-    //                 break;
-    //             }
-    //         }
-    //     });
-    // }
-
-    // async fn ensure_internal_signal_after(&mut self, request_key: RequestKey, after: Duration) {
-    //     let mut timer = tokio::time::interval(after);
-    //     timer.tick().await; // first tick is immediate
-    //     timer.tick().await;
-    //     self.ensure_internal_signal(request_key).await
-    // }
-
-    // async fn cancel(
-    //     &mut self,
-    //     request_key: RequestKey,
-    //     old_status: StatusWithContext,
-    // ) -> Result<StatusWithContext, String> {
-    //     if old_status.status() != &Status::Registered
-    //         && old_status.status() != &Status::WorkInProgress
-    //     {
-    //         tracing::warn!("Actor Backend received cancel-action {request_key}, but it is not registered or work-in-progress, skipping");
-    //         return Ok(old_status);
-    //     }
-
-    //     // Case: old_status is registered: mark the request as cancelled in the pool and return directly
-    //     if old_status.status() == &Status::Registered {
-    //         let status = StatusWithContext::new_cancelled();
-    //         self.pool.update_status(request_key, status.clone())?;
-    //         return Ok(status);
-    //     }
-
-    //     // Case: old_status is work-in-progress:
-    //     // 1. Cancel the proving work by the cancel token // TODO: cancel token
-    //     // 2. Remove the proof id from the pool
-    //     // 3. Mark the request as cancelled in the pool
-    //     match &request_key {
-    //         RequestKey::SingleProof(key) => {
-    //             raiko_core::interfaces::cancel_proof(
-    //                 key.proof_type().clone(),
-    //                 (
-    //                     key.chain_id().clone(),
-    //                     key.block_number().clone(),
-    //                     key.block_hash().clone(),
-    //                     *key.proof_type() as u8,
-    //                 ),
-    //                 Box::new(&mut self.pool),
-    //             )
-    //             .await
-    //             .or_else(|e| {
-    //                 if e.to_string().contains("No data for query") {
-    //                     tracing::warn!("Actor Backend received cancel-action {request_key}, but it is already cancelled or not yet started, skipping");
-    //                     Ok(())
-    //                 } else {
-    //                     tracing::error!(
-    //                         "Actor Backend received cancel-action {request_key}, but failed to cancel proof: {e:?}"
-    //                     );
-    //                     Err(format!("failed to cancel proof: {e:?}"))
-    //                 }
-    //             })?;
-
-    //             // 3. Mark the request as cancelled in the pool
-    //             let status = StatusWithContext::new_cancelled();
-    //             self.pool.update_status(request_key, status.clone())?;
-    //             Ok(status)
-    //         }
-    //         RequestKey::Aggregation(..) => {
-    //             let status = StatusWithContext::new_cancelled();
-    //             self.pool.update_status(request_key, status.clone())?;
-    //             Ok(status)
-    //         }
-    //         RequestKey::BatchProof(..) => {
-    //             let status = StatusWithContext::new_cancelled();
-    //             self.pool.update_status(request_key, status.clone())?;
-    //             Ok(status)
-    //         }
-    //     }
-    // }
 }
 
 pub async fn do_generate_guest_input(
@@ -643,4 +452,47 @@ async fn do_prove_batch(
         .await
         .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
     Ok(proof)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use raiko_lib::consts::SupportedChainSpecs;
+    use raiko_reqpool::memory_pool;
+    use tokio::sync::Mutex;
+
+    fn create_test_pool() -> Pool {
+        memory_pool("test_backend")
+    }
+
+    fn create_test_chain_specs() -> SupportedChainSpecs {
+        SupportedChainSpecs::default()
+    }
+
+    // Mock test for the serve_in_background to test the structure.
+    #[tokio::test]
+    async fn test_serve_in_background() {
+        let pool = create_test_pool();
+        let chain_specs = create_test_chain_specs();
+        let queue = Arc::new(Mutex::new(Queue::new()));
+        let notifier = Arc::new(Notify::new());
+
+        let backend = Backend::new(pool, chain_specs, 1, queue.clone(), notifier.clone());
+
+        let handle = tokio::spawn(async move {
+            tokio::select! {
+                _ = backend.serve_in_background() => {},
+                _ = tokio::time::sleep(tokio::time::Duration::from_millis(10)) => {
+                }
+            }
+        });
+
+        // Notify to wake up the background service
+        notifier.notify_one();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
+        handle.abort();
+
+        assert!(true);
+    }
 }

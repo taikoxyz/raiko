@@ -173,14 +173,190 @@ impl Actor {
     pub async fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
         self.ballot.lock().await.draw_with_poisson(block_hash)
     }
-
-//     pub fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
-//         self.ballot
-//             .lock()
-//             .unwrap()
-//             .deref_mut()
-//             .draw_with_poisson(block_hash)
-//     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::Address;
+    use raiko_ballot::Ballot;
+    use raiko_core::interfaces::ProofRequestOpt;
+    use raiko_lib::input::BlobProofType;
+    use raiko_lib::{consts::SupportedChainSpecs, proof_type::ProofType};
+    use raiko_reqpool::{
+        Pool, RedisPoolConfig, RequestEntity, RequestKey, SingleProofRequestEntity,
+        SingleProofRequestKey, Status,
+    };
+    use reth_primitives::{BlockHash, B256};
+    use std::collections::{BTreeMap, HashMap};
+    use tokio::sync::{Mutex, Notify};
 
+    /// Helper function to create a test Actor with a unique ID
+    fn create_test_actor_with_id(test_id: &str) -> Actor {
+        let config = RedisPoolConfig {
+            enable_redis_pool: false,
+            redis_url: format!("redis://test_{}:6379", test_id), // Unique URL for isolation
+            redis_ttl: 3600,
+        };
+        let pool = Pool::open(config).unwrap();
+        let ballot = Ballot::new(BTreeMap::new()).unwrap();
+        let default_request_config = ProofRequestOpt::default();
+        let chain_specs = SupportedChainSpecs::default();
+        let queue = Arc::new(Mutex::new(Queue::new()));
+        let notify = Arc::new(Notify::new());
+
+        Actor::new(
+            pool,
+            ballot,
+            default_request_config,
+            chain_specs,
+            queue,
+            notify,
+        )
+    }
+
+    /// Helper function to create a test request key
+    fn create_test_request_key() -> RequestKey {
+        let single_proof_key = SingleProofRequestKey::new(
+            1u64,
+            1234u64,
+            B256::from([1u8; 32]),
+            ProofType::Native,
+            "test_prover".to_string(),
+        );
+        RequestKey::SingleProof(single_proof_key)
+    }
+
+    /// Helper function to create a test request entity
+    fn create_test_request_entity() -> RequestEntity {
+        let single_proof_entity = SingleProofRequestEntity::new(
+            1234u64,
+            5678u64,
+            "ethereum".to_string(),
+            "ethereum".to_string(),
+            B256::from([0u8; 32]),
+            Address::ZERO,
+            ProofType::Native,
+            BlobProofType::ProofOfEquivalence,
+            HashMap::new(),
+        );
+        RequestEntity::SingleProof(single_proof_entity)
+    }
+
+    #[tokio::test]
+    async fn test_act_with_new_request() {
+        let actor = create_test_actor_with_id("test_act_with_new_request");
+        let request_key = create_test_request_key();
+        let request_entity = create_test_request_entity();
+        let start_time = chrono::Utc::now();
+
+        // Test acting on a new request
+        let result = actor
+            .act(request_key.clone(), request_entity.clone(), start_time)
+            .await
+            .unwrap();
+
+        assert!(matches!(result.status(), Status::Registered));
+
+        // Verify request was added to pool
+        let pool_status = actor.pool_get_status(&request_key).await.unwrap();
+        assert!(pool_status.is_some());
+        assert!(matches!(pool_status.unwrap().status(), Status::Registered));
+    }
+
+    #[tokio::test]
+    async fn test_ballot_operations() {
+        let actor = create_test_actor_with_id("test_ballot_operations");
+
+        // Test getting ballot
+        let ballot = actor.get_ballot().await;
+        assert!(ballot.probabilities().is_empty()); // Default ballot should be empty
+
+        // Test if ballot is disabled (empty probabilities)
+        assert!(actor.is_ballot_disabled().await);
+
+        // Test setting a new ballot
+        let new_ballot = Ballot::new(BTreeMap::new()).unwrap();
+        actor.set_ballot(new_ballot.clone()).await;
+
+        let retrieved_ballot = actor.get_ballot().await;
+        // The ballot should be the same as what we set
+        assert_eq!(retrieved_ballot.probabilities(), new_ballot.probabilities());
+    }
+
+    #[tokio::test]
+    async fn test_multiple_concurrent_operations() {
+        let actor = create_test_actor_with_id("test_multiple_concurrent_operations");
+        let mut handles = vec![];
+
+        // Spawn multiple concurrent operations
+        for i in 0..10 {
+            let actor_clone = actor.clone();
+            let handle = tokio::spawn(async move {
+                let single_proof_key = SingleProofRequestKey::new(
+                    1u64,
+                    1234u64 + i as u64,
+                    B256::from([i as u8; 32]),
+                    ProofType::Native,
+                    format!("prover_{}", i),
+                );
+                let request_key = RequestKey::SingleProof(single_proof_key);
+                let request_entity = create_test_request_entity();
+                let start_time = chrono::Utc::now();
+
+                actor_clone
+                    .act(request_key, request_entity, start_time)
+                    .await
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all operations to complete
+        for handle in handles {
+            let result = handle.await.unwrap();
+            assert!(result.is_ok());
+            assert!(matches!(result.unwrap().status(), Status::Registered));
+        }
+
+        // Verify all requests were added to the pool
+        let all_statuses = actor.pool_list_status().await.unwrap();
+        assert_eq!(all_statuses.len(), 10);
+    }
+
+    #[tokio::test]
+    async fn test_ballot_with_probabilities() {
+        let actor = create_test_actor_with_id("test_ballot_with_probabilities");
+
+        // Create a ballot with some probabilities
+        let mut ballot_config = BTreeMap::new();
+        ballot_config.insert(ProofType::Native, (0.5, 100));
+        ballot_config.insert(ProofType::Sp1, (0.3, 100));
+
+        let new_ballot = Ballot::new(ballot_config.clone()).unwrap();
+        actor.set_ballot(new_ballot).await;
+
+        // Test that ballot is not disabled
+        assert!(!actor.is_ballot_disabled().await);
+
+        // Test drawing with a specific block hash
+        let block_hash = BlockHash::from(B256::from([1u8; 32]));
+        let _result = actor.draw(&block_hash).await;
+    }
+
+    #[tokio::test]
+    async fn test_queue_integration() {
+        let actor = create_test_actor_with_id("test_queue_integration");
+        let request_key = create_test_request_key();
+        let request_entity = create_test_request_entity();
+        let start_time = chrono::Utc::now();
+
+        let _result = actor
+            .act(request_key.clone(), request_entity.clone(), start_time)
+            .await
+            .unwrap();
+
+        // Verify the request is in the queue
+        let queue = actor.queue.lock().await;
+        assert!(queue.contains(&request_key));
+    }
+}
