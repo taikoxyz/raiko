@@ -49,9 +49,9 @@ impl AppState {
     }
 
     async fn init_prover(&self, config: ProverConfig) -> AgentResult<Risc0BoundlessProver> {
-        let prover = Risc0BoundlessProver::new(config)
-            .await
-            .map_err(|e| AgentError::AgentError(format!("Failed to initialize prover: {}", e)))?;
+        let prover = Risc0BoundlessProver::new(config).await.map_err(|e| {
+            AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
+        })?;
         self.prover.lock().await.replace(prover.clone());
         Ok(prover)
     }

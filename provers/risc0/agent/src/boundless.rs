@@ -4,8 +4,7 @@ use crate::methods::{
     boundless_aggregation::BOUNDLESS_AGGREGATION_ELF,
     boundless_batch::{BOUNDLESS_BATCH_ELF, BOUNDLESS_BATCH_ID},
 };
-use alloy_primitives::B256;
-use alloy_primitives_v1p2p0::{U256, utils::parse_ether};
+use alloy_primitives_v1p2p0::{Bytes, U256, utils::parse_ether};
 use alloy_signer_local_v1p0p12::PrivateKeySigner;
 use boundless_market::{
     Client, ProofRequest,
@@ -31,6 +30,10 @@ pub struct BoundlessAggregationGuestInput {
 }
 
 use tokio::sync::OnceCell;
+
+// Constants
+const MAX_RETRY_ATTEMPTS: u32 = 5;
+const MILLION_CYCLES: u64 = 1_000_000;
 
 static RISCV_PROVER: OnceCell<Risc0BoundlessProver> = OnceCell::const_new();
 
@@ -111,6 +114,35 @@ impl BoundlessOfferParams {
     }
 }
 
+// More specific error types
+#[derive(Debug, thiserror::Error)]
+pub enum AgentError {
+    #[error("Failed to build boundless client: {0}")]
+    ClientBuildError(String),
+    #[error("Failed to encode guest environment: {0}")]
+    GuestEnvEncodeError(String),
+    #[error("Failed to upload input: {0}")]
+    UploadError(String),
+    #[error("Failed to upload program: {0}")]
+    ProgramUploadError(String),
+    #[error("Failed to build request: {0}")]
+    RequestBuildError(String),
+    #[error("Failed to submit request: {0}")]
+    RequestSubmitError(String),
+    #[error("Failed to wait for request fulfillment after {attempts} attempts: {error}")]
+    RequestFulfillmentError { attempts: u32, error: String },
+    #[error("Failed to encode response: {0}")]
+    ResponseEncodeError(String),
+    #[error("Failed to execute guest environment: {0}")]
+    GuestExecutionError(String),
+    #[error("Did not receive requested unaggregated receipt")]
+    InvalidReceiptError,
+    #[error("Storage provider is required")]
+    StorageProviderRequired,
+}
+
+pub type AgentResult<T> = Result<T, AgentError>;
+
 impl Risc0BoundlessProver {
     /// Create a boundless client with the current configuration
     async fn create_boundless_client(&self) -> AgentResult<Client> {
@@ -130,11 +162,87 @@ impl Risc0BoundlessProver {
             .with_private_key(signer)
             .build()
             .await
-            .map_err(|e| {
-                AgentError::AgentError(format!("Failed to build boundless client: {e}"))
-            })?;
+            .map_err(|e| AgentError::ClientBuildError(e.to_string()))?;
 
         Ok(client)
+    }
+
+    /// Submit request and wait for fulfillment with retry logic
+    async fn submit_and_wait_for_fulfillment(
+        &self,
+        boundless_client: &Client,
+        request: ProofRequest,
+    ) -> AgentResult<(U256, Bytes, Bytes)> {
+        // Send the request and wait for it to be completed.
+        let (request_id, expires_at) = if self.config.offchain {
+            tracing::info!(
+                "Submitting request offchain to {:?}",
+                &self.config.order_stream_url
+            );
+            boundless_client
+                .submit_request_offchain(&request)
+                .await
+                .map_err(|e| {
+                    AgentError::RequestSubmitError(format!(
+                        "Failed to submit request offchain: {e}"
+                    ))
+                })?
+        } else {
+            boundless_client
+                .submit_request_onchain(&request)
+                .await
+                .map_err(|e| {
+                    AgentError::RequestSubmitError(format!("Failed to submit request onchain: {e}"))
+                })?
+        };
+        tracing::info!("Request 0x{request_id:x} submitted");
+
+        // Wait for the request to be fulfilled by the market, returning the journal and seal.
+        tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
+        let pull_interval = Duration::from_secs(self.config.pull_interval);
+        let (journal, seal) = {
+            let mut attempt = 0;
+            loop {
+                match boundless_client
+                    .wait_for_request_fulfillment(request_id, pull_interval, expires_at)
+                    .await
+                {
+                    Ok(res) => break res,
+                    Err(e) => {
+                        attempt += 1;
+                        if attempt >= MAX_RETRY_ATTEMPTS {
+                            return Err(AgentError::RequestFulfillmentError {
+                                attempts: attempt,
+                                error: format!("{:?}", e),
+                            });
+                        }
+                        tracing::warn!(
+                            "wait_for_request_fulfillment failed (attempt {}/5), retrying: {:?}",
+                            attempt,
+                            e
+                        );
+                        tokio::time::sleep(pull_interval).await;
+                    }
+                }
+            }
+        };
+
+        tracing::info!(
+            "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}",
+            journal,
+            seal,
+        );
+
+        Ok((request_id, journal, seal))
+    }
+
+    /// Process input and create guest environment
+    fn process_input(&self, input: Vec<u8>) -> AgentResult<(GuestEnv, Vec<u8>)> {
+        let guest_env = GuestEnv::builder().write_frame(&input).build_env();
+        let guest_env_bytes = guest_env.clone().encode().map_err(|e| {
+            AgentError::ClientBuildError(format!("Failed to encode guest environment: {e}"))
+        })?;
+        Ok((guest_env, guest_env_bytes))
     }
 
     pub async fn new(config: ProverConfig) -> AgentResult<Self> {
@@ -155,25 +263,20 @@ impl Risc0BoundlessProver {
         let boundless_client = temp_prover.create_boundless_client().await?;
 
         // Upload the ELF to the storage provider so that it can be fetched by the market.
-        assert!(
-            boundless_client.storage_provider.is_some(),
-            "a storage provider is required to upload the zkVM guest ELF"
-        );
+        if boundless_client.storage_provider.is_none() {
+            return Err(AgentError::StorageProviderRequired);
+        }
 
         let batch_image_url = boundless_client
             .upload_program(BOUNDLESS_BATCH_ELF)
             .await
-            .map_err(|e| {
-                AgentError::AgentError(format!("Failed to upload BOUNDLESS_BATCH_ELF image: {e}"))
-            })?;
+            .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_BATCH_ELF: {e}")))?;
 
         let aggregation_image_url = boundless_client
             .upload_program(BOUNDLESS_AGGREGATION_ELF)
             .await
             .map_err(|e| {
-                AgentError::AgentError(format!(
-                    "Failed to upload BOUNDLESS_AGGREGATION_ELF image: {e}"
-                ))
+                AgentError::ProgramUploadError(format!("BOUNDLESS_AGGREGATION_ELF: {e}"))
             })?;
 
         Ok(Risc0BoundlessProver {
@@ -191,26 +294,6 @@ impl Risc0BoundlessProver {
     pub async fn get_aggregation_image_url(&self) -> Option<Url> {
         self.aggregation_image_url.clone()
     }
-}
-
-// Simplified error type
-#[derive(Debug, thiserror::Error)]
-pub enum AgentError {
-    #[error("Agent error: {0}")]
-    AgentError(String),
-}
-
-pub type AgentResult<T> = Result<T, AgentError>;
-
-impl Risc0BoundlessProver {
-    pub async fn run(
-        &self,
-        _input: Vec<u8>,
-        _output: &[u8],
-        _config: &serde_json::Value,
-    ) -> AgentResult<Vec<u8>> {
-        unimplemented!("No need for post pacaya");
-    }
 
     pub async fn aggregate(
         &self,
@@ -218,16 +301,13 @@ impl Risc0BoundlessProver {
         _output: &[u8],
         _config: &serde_json::Value,
     ) -> AgentResult<Vec<u8>> {
-        let encoded_input = _input;
-        let guest_env = GuestEnv::builder().write_frame(&encoded_input).build_env();
-        let guest_env_bytes = guest_env.clone().encode().map_err(|e| {
-            AgentError::AgentError(format!("Failed to encode guest environment: {e}"))
-        })?;
+        let (guest_env, guest_env_bytes) = self.process_input(_input)?;
 
         tracing::info!(
             "len guest_env_bytes (aggregate): {:?}",
             guest_env_bytes.len()
         );
+
         let (mcycles_count, _) = self
             .evaluate_cost(&guest_env, BOUNDLESS_AGGREGATION_ELF)
             .await?;
@@ -238,7 +318,7 @@ impl Risc0BoundlessProver {
         let input_url = boundless_client
             .upload_input(&guest_env_bytes)
             .await
-            .map_err(|e| AgentError::AgentError(format!("Failed to upload input: {e}")))?;
+            .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}")))?;
 
         let request = self
             .build_boundless_request(
@@ -250,74 +330,20 @@ impl Risc0BoundlessProver {
             )
             .await?;
 
-        // Send the request and wait for it to be completed.
-        let (request_id, expires_at) = if self.config.offchain {
-            boundless_client
-                .submit_request_offchain(&request)
-                .await
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to submit request offchain: {e}"))
-                })?
-        } else {
-            boundless_client
-                .submit_request_onchain(&request)
-                .await
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to submit request onchain: {e}"))
-                })?
-        };
-        tracing::info!("Request 0x{request_id:x} submitted");
-
-        // Wait for the request to be fulfilled by the market, returning the journal and seal.
-        tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
-        let pull_interval = Duration::from_secs(self.config.pull_interval);
-        // retry logic: try up to 5 times
-        let (journal, seal) = {
-            let mut attempt = 0;
-            loop {
-                match boundless_client
-                    .wait_for_request_fulfillment(request_id, pull_interval, expires_at)
-                    .await
-                {
-                    Ok(res) => break res,
-                    Err(e) => {
-                        attempt += 1;
-                        if attempt >= 5 {
-                            return Err(AgentError::AgentError(format!(
-                                "Failed to wait for request fulfillment after {} attempts: {:?}",
-                                attempt, e
-                            )));
-                        }
-                        tracing::warn!(
-                            "wait_for_request_fulfillment failed (attempt {}/5), retrying: {:?}",
-                            attempt,
-                            e
-                        );
-                        tokio::time::sleep(pull_interval).await;
-                    }
-                }
-            }
-        };
-        tracing::info!(
-            "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}, image_id: {:?}",
-            journal,
-            seal,
-            BOUNDLESS_BATCH_ID,
-        );
+        let (_, journal, seal) = self
+            .submit_and_wait_for_fulfillment(&boundless_client, request)
+            .await?;
 
         let response = Risc0Response {
             seal: seal.to_vec(),
             journal: journal.to_vec(),
             receipt: None,
         };
-        // Use bincode to serialize the response and return as Vec<u8>
-        let proof_bytes = bincode::serialize(&response)
-            .map_err(|e| AgentError::AgentError(format!("Failed to encode response: {e}")))?;
-        return Ok(proof_bytes);
-    }
 
-    pub async fn cancel(&self, _key: (u64, u64, B256, u8)) -> AgentResult<()> {
-        todo!()
+        let proof_bytes = bincode::serialize(&response).map_err(|e| {
+            AgentError::ResponseEncodeError(format!("Failed to encode response: {e}"))
+        })?;
+        Ok(proof_bytes)
     }
 
     pub async fn batch_run(
@@ -326,12 +352,7 @@ impl Risc0BoundlessProver {
         _output: &[u8],
         _config: &serde_json::Value,
     ) -> AgentResult<Vec<u8>> {
-        // Encode the input and upload it to the storage provider.
-        let encoded_input = _input;
-        let guest_env = GuestEnv::builder().write_frame(&encoded_input).build_env();
-        let guest_env_bytes = guest_env.clone().encode().map_err(|e| {
-            AgentError::AgentError(format!("Failed to encode guest environment: {e}"))
-        })?;
+        let (guest_env, guest_env_bytes) = self.process_input(_input)?;
 
         tracing::info!("len guest_env_bytes: {:?}", guest_env_bytes.len());
 
@@ -341,10 +362,9 @@ impl Risc0BoundlessProver {
         let input_url = boundless_client
             .upload_input(&guest_env_bytes)
             .await
-            .map_err(|e| AgentError::AgentError(format!("Failed to upload input: {e}")))?;
+            .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}")))?;
         tracing::info!("Uploaded input to {}", input_url);
 
-        // Build the request, including preflight, and assigned the remaining fields.
         let request = self
             .build_boundless_request(
                 &boundless_client,
@@ -354,66 +374,11 @@ impl Risc0BoundlessProver {
                 mcycles_count,
             )
             .await
-            .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
+            .map_err(|e| AgentError::RequestBuildError(format!("Failed to build request: {e}")))?;
 
-        // Send the request and wait for it to be completed.
-        let (request_id, expires_at) = if self.config.offchain {
-            tracing::info!(
-                "Submitting request offchain to {:?}",
-                &self.config.order_stream_url
-            );
-            boundless_client
-                .submit_request_offchain(&request)
-                .await
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to submit request offchain: {e}"))
-                })?
-        } else {
-            boundless_client
-                .submit_request_onchain(&request)
-                .await
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to submit request onchain: {e}"))
-                })?
-        };
-        tracing::info!("Request 0x{request_id:x} submitted");
-
-        // Wait for the request to be fulfilled by the market, returning the journal and seal.
-        tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
-        let pull_interval = Duration::from_secs(self.config.pull_interval);
-        let (journal, seal) = {
-            let mut attempt = 0;
-            loop {
-                match boundless_client
-                    .wait_for_request_fulfillment(request_id, pull_interval, expires_at)
-                    .await
-                {
-                    Ok((journal, seal)) => break (journal, seal),
-                    Err(e) => {
-                        attempt += 1;
-                        if attempt >= 5 {
-                            return Err(AgentError::AgentError(format!(
-                                "Failed to wait for request fulfillment after 5 attempts: {}",
-                                e
-                            )));
-                        }
-                        tracing::warn!(
-                            "Attempt {} to wait for request fulfillment failed: {}. Retrying...",
-                            attempt,
-                            e
-                        );
-                        tokio::time::sleep(pull_interval).await;
-                    }
-                }
-            }
-        };
-
-        tracing::info!(
-            "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}, image_id: {:?}",
-            journal,
-            seal,
-            BOUNDLESS_BATCH_ID,
-        );
+        let (_, journal, seal) = self
+            .submit_and_wait_for_fulfillment(&boundless_client, request)
+            .await?;
 
         let Ok(ContractReceipt::Base(boundless_receipt)) =
             risc0_ethereum_contracts_boundless::receipt::decode_seal(
@@ -422,9 +387,7 @@ impl Risc0BoundlessProver {
                 journal.clone(),
             )
         else {
-            return Err(AgentError::AgentError(
-                "did not receive requested unaggregated receipt".to_string(),
-            ));
+            return Err(AgentError::InvalidReceiptError);
         };
 
         let response = Risc0Response {
@@ -432,10 +395,11 @@ impl Risc0BoundlessProver {
             journal: journal.to_vec(),
             receipt: serde_json::to_string(&boundless_receipt).ok(),
         };
-        // Use bincode to serialize the response and return as Vec<u8>
-        let proof_bytes = bincode::serialize(&response)
-            .map_err(|e| AgentError::AgentError(format!("Failed to encode response: {e}")))?;
-        return Ok(proof_bytes);
+
+        let proof_bytes = bincode::serialize(&response).map_err(|e| {
+            AgentError::ResponseEncodeError(format!("Failed to encode response: {e}"))
+        })?;
+        Ok(proof_bytes)
     }
 
     pub async fn update(&self, _elf: Vec<u8>, _elf_type: ElfType) -> AgentResult<Vec<u8>> {
@@ -453,14 +417,16 @@ impl Risc0BoundlessProver {
             let session_info = default_executor()
                 .execute(guest_env.clone().try_into().unwrap(), elf)
                 .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to execute guest environment: {e}"))
+                    AgentError::GuestExecutionError(format!(
+                        "Failed to execute guest environment: {e}"
+                    ))
                 })?;
             let mcycles_count = session_info
                 .segments
                 .iter()
                 .map(|segment| 1 << segment.po2)
                 .sum::<u64>()
-                .div_ceil(1_000_000);
+                .div_ceil(MILLION_CYCLES);
             let journal = session_info.journal.bytes;
             (mcycles_count, journal)
         };
@@ -498,7 +464,7 @@ impl Risc0BoundlessProver {
         let request = boundless_client
             .build_request(request_params)
             .await
-            .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
+            .map_err(|e| AgentError::ClientBuildError(format!("Failed to build request: {e}")))?;
         tracing::info!("Request: {:?}", request);
         Ok(request)
     }
