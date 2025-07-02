@@ -8,7 +8,10 @@ use alloy_primitives::B256;
 use alloy_primitives_v1p2p0::{U256, utils::parse_ether};
 use alloy_signer_local_v1p0p12::PrivateKeySigner;
 use boundless_market::{
-    Client, deployments::SEPOLIA, input::GuestEnv, request_builder::OfferParams,
+    Client, ProofRequest,
+    deployments::{Deployment, SEPOLIA},
+    input::GuestEnv,
+    request_builder::OfferParams,
 };
 use reqwest::Url;
 use risc0_ethereum_contracts_boundless::receipt::Receipt as ContractReceipt;
@@ -34,7 +37,7 @@ static RISCV_PROVER: OnceCell<Risc0BoundlessProver> = OnceCell::const_new();
 pub async fn get_boundless_prover() -> &'static Risc0BoundlessProver {
     RISCV_PROVER
         .get_or_init(|| async {
-            Risc0BoundlessProver::init_prover(ProverConfig { offchain: false })
+            Risc0BoundlessProver::new(ProverConfig::default())
                 .await
                 .expect("Failed to initialize Boundless client")
         })
@@ -48,9 +51,11 @@ pub struct Risc0Response {
     pub receipt: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ProverConfig {
     pub offchain: bool,
+    pub rpc_url: String,
+    pub order_stream_url: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -58,34 +63,84 @@ pub struct Risc0BoundlessProver {
     batch_image_url: Option<Url>,
     aggregation_image_url: Option<Url>,
     config: ProverConfig,
+    deployment: Deployment,
+}
+
+struct BoundlessOfferParams {
+    pub ramp_up_sec: u32,
+    pub lock_timeout_sec: u32,
+    pub timeout_sec: u32,
+    pub max_price_per_mcycle: U256,
+    pub min_price_per_mcycle: U256,
+    pub lock_stake_per_mcycle: U256,
+}
+
+impl BoundlessOfferParams {
+    fn aggregation() -> Self {
+        Self {
+            ramp_up_sec: 200,
+            lock_timeout_sec: 400,
+            timeout_sec: 1000,
+            max_price_per_mcycle: parse_ether("0.0001").unwrap_or_default(),
+            min_price_per_mcycle: parse_ether("0.00003").unwrap_or_default(),
+            lock_stake_per_mcycle: U256::from(100u64),
+        }
+    }
+
+    fn batch() -> Self {
+        Self {
+            ramp_up_sec: 1000,
+            lock_timeout_sec: 2000,
+            timeout_sec: 3600 * 2,
+            max_price_per_mcycle: parse_ether("0.0003").unwrap_or_default(),
+            min_price_per_mcycle: parse_ether("0.00005").unwrap_or_default(),
+            lock_stake_per_mcycle: U256::from(1000u64),
+        }
+    }
 }
 
 impl Risc0BoundlessProver {
-    pub async fn init_prover(config: ProverConfig) -> AgentResult<Self> {
-        let deployment = Some(SEPOLIA);
+    /// Create a boundless client with the current configuration
+    async fn create_boundless_client(&self) -> AgentResult<Client> {
+        let deployment = Some(self.deployment.clone());
         let storage_provider = boundless_market::storage::storage_provider_from_env().ok();
-        let boundless_client = {
-            // Create a Boundless client from the provided parameters.
-            // let args = helper::Args::parse();
-            let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
-                panic!("BOUNDLESS_SIGNER_KEY is not set");
-            });
-            let signer: PrivateKeySigner = sender_priv_key.parse().unwrap();
 
-            // Create a Boundless client from the provided parameters.
-            let client = Client::builder()
-                .with_rpc_url(url)
-                .with_deployment(deployment)
-                .with_storage_provider(storage_provider)
-                .with_private_key(signer)
-                .build()
-                .await
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to build boundless client: {e}"))
-                })?;
-            client
+        let url = Url::parse(&self.config.rpc_url).unwrap();
+        let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
+            panic!("BOUNDLESS_SIGNER_KEY is not set");
+        });
+        let signer: PrivateKeySigner = sender_priv_key.parse().unwrap();
+
+        let client = Client::builder()
+            .with_rpc_url(url)
+            .with_deployment(deployment)
+            .with_storage_provider(storage_provider)
+            .with_private_key(signer)
+            .build()
+            .await
+            .map_err(|e| {
+                AgentError::AgentError(format!("Failed to build boundless client: {e}"))
+            })?;
+
+        Ok(client)
+    }
+
+    pub async fn new(config: ProverConfig) -> AgentResult<Self> {
+        let mut deployment = SEPOLIA;
+        if let Some(order_stream_url) = config.order_stream_url.clone() {
+            deployment.order_stream_url = Some(order_stream_url.to_owned().into());
+        }
+        tracing::info!("boundless deployment: {:?}", deployment);
+
+        // Create a temporary instance to use the create_boundless_client method
+        let temp_prover = Risc0BoundlessProver {
+            batch_image_url: None,
+            aggregation_image_url: None,
+            config: config.clone(),
+            deployment: deployment.clone(),
         };
+
+        let boundless_client = temp_prover.create_boundless_client().await?;
 
         // Upload the ELF to the storage provider so that it can be fetched by the market.
         assert!(
@@ -113,6 +168,7 @@ impl Risc0BoundlessProver {
             batch_image_url: Some(batch_image_url),
             aggregation_image_url: Some(aggregation_image_url),
             config,
+            deployment,
         })
     }
 
@@ -160,52 +216,11 @@ impl Risc0BoundlessProver {
             "len guest_env_bytes (aggregate): {:?}",
             guest_env_bytes.len()
         );
-        let (mcycles_count, _journal) = {
-            // Dry run the ELF with the input to get the journal and cycle count.
-            let session_info = default_executor()
-                .execute(
-                    guest_env.clone().try_into().unwrap(),
-                    BOUNDLESS_AGGREGATION_ELF,
-                )
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to execute guest environment: {e}"))
-                })?;
-            let mcycles_count = session_info
-                .segments
-                .iter()
-                .map(|segment| 1 << segment.po2)
-                .sum::<u64>()
-                .div_ceil(1_000_000);
-            let journal = session_info.journal;
-            (mcycles_count, journal)
-        };
-        tracing::info!("mcycles_count (aggregate): {}", mcycles_count);
+        let (mcycles_count, _) = self
+            .evaluate_cost(&guest_env, BOUNDLESS_AGGREGATION_ELF)
+            .await?;
 
-        let boundless_client = {
-            let deployment = Some(SEPOLIA);
-            let storage_provider = boundless_market::storage::storage_provider_from_env().ok();
-
-            // Create a Boundless client from the provided parameters.
-            // let args = helper::Args::parse();
-            let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
-                panic!("BOUNDLESS_SIGNER_KEY is not set");
-            });
-            let signer: PrivateKeySigner = sender_priv_key.parse().unwrap();
-
-            // Create a Boundless client from the provided parameters.
-            let client = Client::builder()
-                .with_rpc_url(url)
-                .with_deployment(deployment)
-                .with_storage_provider(storage_provider)
-                .with_private_key(signer)
-                .build()
-                .await
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to build boundless client: {e}"))
-                })?;
-            client
-        };
+        let boundless_client = self.create_boundless_client().await?;
 
         // Upload the input to the storage provider
         let input_url = boundless_client
@@ -213,43 +228,15 @@ impl Risc0BoundlessProver {
             .await
             .map_err(|e| AgentError::AgentError(format!("Failed to upload input: {e}")))?;
 
-        // Prepare the order for aggregation
-        let aggregation_image_url = self
-            .aggregation_image_url
-            .clone()
-            .ok_or_else(|| AgentError::AgentError("Aggregation image URL not set".to_string()))?;
-
-        // add 1 minute for each 1M cycles to the original timeout
-        // Use the input directly as the estimated cycle count, since we are using a loop program.
-        let m_cycles = mcycles_count;
-        let ramp_up = 1000;
-        let lock_timeout = 2000;
-        // Give equal time for provers that are fulfilling after lock expiry to prove.
-        let timeout: u32 = 3600 * 2;
-
-        let request = boundless_client
-            .new_request()
-            .with_program_url(aggregation_image_url)
-            .unwrap()
-            .with_groth16_proof()
-            .with_input_url(input_url)
-            .unwrap()
-            .with_offer(
-                OfferParams::builder()
-                    .ramp_up_period(ramp_up)
-                    .lock_timeout(lock_timeout)
-                    .timeout(timeout)
-                    .max_price(parse_ether("0.0003").unwrap_or_default() * U256::from(m_cycles))
-                    .min_price(parse_ether("0.00005").unwrap_or_default() * U256::from(m_cycles))
-                    .lock_stake(U256::from(m_cycles * 100)),
-            );
-
-        // Build the request, including preflight, and assigned the remaining fields.
-        let request = boundless_client
-            .build_request(request)
-            .await
-            .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
-        tracing::info!("Request: {:?}", request);
+        let request = self
+            .build_boundless_request(
+                &boundless_client,
+                self.aggregation_image_url.clone().unwrap(),
+                input_url,
+                &BoundlessOfferParams::aggregation(),
+                mcycles_count,
+            )
+            .await?;
 
         // Send the request and wait for it to be completed.
         let (request_id, expires_at) = if self.config.offchain {
@@ -313,56 +300,9 @@ impl Risc0BoundlessProver {
         })?;
 
         tracing::info!("len guest_env_bytes: {:?}", guest_env_bytes.len());
-        let (mcycles_count, _journal) = {
-            // Dry run the ELF with the input to get the journal and cycle count.
-            // This can be useful to estimate the cost of the proving request.
-            // It can also be useful to ensure the guest can be executed correctly and we do not send into
-            // the market unprovable proving requests. If you have a different mechanism to get the expected
-            // journal and set a price, you can skip this step.
-            let session_info = default_executor()
-                .execute(guest_env.clone().try_into().unwrap(), BOUNDLESS_BATCH_ELF)
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to execute guest environment: {e}"))
-                })?;
-            let mcycles_count = session_info
-                .segments
-                .iter()
-                .map(|segment| 1 << segment.po2)
-                .sum::<u64>()
-                .div_ceil(1_000_000);
-            let journal = session_info.journal;
-            (mcycles_count, journal)
-        };
-        tracing::info!("mcycles_count: {}", mcycles_count);
 
-        let boundless_client = {
-            let mut base_deployment = SEPOLIA;
-            base_deployment.order_stream_url =
-                Some("http://18.212.205.215:9090/api/v1/orders".to_owned().into());
-            let deployment = Some(base_deployment);
-            let storage_provider = boundless_market::storage::storage_provider_from_env().ok();
-
-            // Create a Boundless client from the provided parameters.
-            // let args = helper::Args::parse();
-            let url = Url::parse("https://ethereum-sepolia-rpc.publicnode.com").unwrap();
-            let sender_priv_key = std::env::var("BOUNDLESS_SIGNER_KEY").unwrap_or_else(|_| {
-                panic!("BOUNDLESS_SIGNER_KEY is not set");
-            });
-            let signer: PrivateKeySigner = sender_priv_key.parse().unwrap();
-
-            // Create a Boundless client from the provided parameters.
-            let client = Client::builder()
-                .with_rpc_url(url)
-                .with_deployment(deployment)
-                .with_storage_provider(storage_provider)
-                .with_private_key(signer)
-                .build()
-                .await
-                .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to build boundless client: {e}"))
-                })?;
-            client
-        };
+        let (mcycles_count, _) = self.evaluate_cost(&guest_env, BOUNDLESS_BATCH_ELF).await?;
+        let boundless_client = self.create_boundless_client().await?;
 
         let input_url = boundless_client
             .upload_input(&guest_env_bytes)
@@ -370,47 +310,30 @@ impl Risc0BoundlessProver {
             .map_err(|e| AgentError::AgentError(format!("Failed to upload input: {e}")))?;
         tracing::info!("Uploaded input to {}", input_url);
 
-        // add 1 minute for each 1M cycles to the original timeout
-        // Use the input directly as the estimated cycle count, since we are using a loop program.
-        let m_cycles = mcycles_count;
-        let ramp_up = 1000;
-        let lock_timeout = 2000;
-        // Give equal time for provers that are fulfilling after lock expiry to prove.
-        let timeout: u32 = 3600 * 24;
-
-        let request = boundless_client
-            .new_request()
-            .with_program_url(self.batch_image_url.clone().unwrap())
-            .unwrap()
-            .with_groth16_proof()
-            // .with_env(guest_env)
-            .with_input_url(input_url)
-            .unwrap()
-            .with_offer(
-                OfferParams::builder()
-                    .ramp_up_period(ramp_up)
-                    .lock_timeout(lock_timeout)
-                    .timeout(timeout)
-                    .max_price(parse_ether("0.0003").unwrap_or_default() * U256::from(m_cycles))
-                    .min_price(parse_ether("0.00005").unwrap_or_default() * U256::from(m_cycles))
-                    .lock_stake(U256::from(m_cycles * 100)),
-            );
-
         // Build the request, including preflight, and assigned the remaining fields.
-        let request = boundless_client
-            .build_request(request)
+        let request = self
+            .build_boundless_request(
+                &boundless_client,
+                self.batch_image_url.clone().unwrap(),
+                input_url,
+                &BoundlessOfferParams::batch(),
+                mcycles_count,
+            )
             .await
             .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
         tracing::info!("Request: {:?}", request);
 
         // Send the request and wait for it to be completed.
         let (request_id, expires_at) = if self.config.offchain {
-            // unimplemented!("offchain is not supported");
+            tracing::info!(
+                "Submitting request offchain to {:?}",
+                &self.config.order_stream_url
+            );
             boundless_client
                 .submit_request_offchain(&request)
                 .await
                 .map_err(|e| {
-                    AgentError::AgentError(format!("Failed to submit request onchain: {e}"))
+                    AgentError::AgentError(format!("Failed to submit request offchain: {e}"))
                 })?
         } else {
             boundless_client
@@ -485,6 +408,66 @@ impl Risc0BoundlessProver {
         // update elf & upload to storage provider, then update the image_url
         todo!()
     }
+
+    async fn evaluate_cost(&self, guest_env: &GuestEnv, elf: &[u8]) -> AgentResult<(u64, Vec<u8>)> {
+        let (mcycles_count, _journal) = {
+            // Dry run the ELF with the input to get the journal and cycle count.
+            // This can be useful to estimate the cost of the proving request.
+            // It can also be useful to ensure the guest can be executed correctly and we do not send into
+            // the market unprovable proving requests. If you have a different mechanism to get the expected
+            // journal and set a price, you can skip this step.
+            let session_info = default_executor()
+                .execute(guest_env.clone().try_into().unwrap(), elf)
+                .map_err(|e| {
+                    AgentError::AgentError(format!("Failed to execute guest environment: {e}"))
+                })?;
+            let mcycles_count = session_info
+                .segments
+                .iter()
+                .map(|segment| 1 << segment.po2)
+                .sum::<u64>()
+                .div_ceil(1_000_000);
+            let journal = session_info.journal.bytes;
+            (mcycles_count, journal)
+        };
+        tracing::info!("mcycles_count: {}", mcycles_count);
+        Ok((mcycles_count, _journal))
+    }
+
+    async fn build_boundless_request(
+        &self,
+        boundless_client: &Client,
+        program_url: Url,
+        input_url: Url,
+        offer_spec: &BoundlessOfferParams,
+        mcycles_count: u64,
+    ) -> AgentResult<ProofRequest> {
+        let request_params = boundless_client
+            .new_request()
+            .with_program_url(program_url)
+            .unwrap()
+            .with_groth16_proof()
+            // .with_env(guest_env)
+            .with_input_url(input_url)
+            .unwrap()
+            .with_offer(
+                OfferParams::builder()
+                    .ramp_up_period(offer_spec.ramp_up_sec)
+                    .lock_timeout(offer_spec.lock_timeout_sec)
+                    .timeout(offer_spec.timeout_sec)
+                    .max_price(offer_spec.max_price_per_mcycle * U256::from(mcycles_count))
+                    .min_price(offer_spec.min_price_per_mcycle * U256::from(mcycles_count))
+                    .lock_stake(offer_spec.lock_stake_per_mcycle * U256::from(mcycles_count)),
+            );
+
+        // Build the request, including preflight, and assigned the remaining fields.
+        let request = boundless_client
+            .build_request(request_params)
+            .await
+            .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
+        tracing::info!("Request: {:?}", request);
+        Ok(request)
+    }
 }
 
 #[cfg(test)]
@@ -510,7 +493,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_run() {
-        Risc0BoundlessProver::init_prover(ProverConfig { offchain: false })
+        Risc0BoundlessProver::new(ProverConfig::default())
             .await
             .unwrap();
     }
@@ -525,7 +508,7 @@ mod tests {
         let output_bytes = std::fs::read("tests/fixtures/output-1306738.bin").unwrap();
 
         let config = serde_json::Value::default();
-        let prover = Risc0BoundlessProver::init_prover(ProverConfig { offchain: false })
+        let prover = Risc0BoundlessProver::new(ProverConfig::default())
             .await
             .unwrap();
         let proof = prover
@@ -572,7 +555,7 @@ mod tests {
         let input = bincode::serialize(&input_data).unwrap();
         let output = Vec::<u8>::new();
         let config = serde_json::Value::default();
-        let prover = Risc0BoundlessProver::init_prover(ProverConfig { offchain: false })
+        let prover = Risc0BoundlessProver::new(ProverConfig::default())
             .await
             .unwrap();
         let proof = prover.aggregate(input, &output, &config).await.unwrap();

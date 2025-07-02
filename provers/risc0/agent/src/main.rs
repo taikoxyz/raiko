@@ -49,7 +49,7 @@ impl AppState {
     }
 
     async fn init_prover(&self, config: ProverConfig) -> AgentResult<Risc0BoundlessProver> {
-        let prover = Risc0BoundlessProver::init_prover(config)
+        let prover = Risc0BoundlessProver::new(config)
             .await
             .map_err(|e| AgentError::AgentError(format!("Failed to initialize prover: {}", e)))?;
         self.prover.lock().await.replace(prover.clone());
@@ -171,6 +171,14 @@ struct CmdArgs {
     #[arg(long, default_value_t = false)]
     offchain: bool,
 
+    /// RPC URL
+    #[arg(long, default_value = "https://ethereum-sepolia-rpc.publicnode.com")]
+    rpc_url: String,
+
+    /// Order stream URL
+    #[arg(long)]
+    order_stream_url: Option<String>,
+
     /// Path to the signer key file (optional)
     #[arg(long)]
     signer_key: Option<String>,
@@ -198,6 +206,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments to get config
     let prover_config = ProverConfig {
         offchain: args.offchain,
+        rpc_url: args.rpc_url,
+        order_stream_url: args.order_stream_url,
     };
 
     match state.init_prover(prover_config).await {
