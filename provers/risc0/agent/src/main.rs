@@ -175,11 +175,15 @@ struct CmdArgs {
     #[arg(long, default_value = "https://ethereum-sepolia-rpc.publicnode.com")]
     rpc_url: String,
 
+    /// Pull interval
+    #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u64).range(5..))]
+    pull_interval: u64,
+
     /// Order stream URL
     #[arg(long)]
     order_stream_url: Option<String>,
 
-    /// Path to the signer key file (optional)
+    /// singer key hex string
     #[arg(long)]
     signer_key: Option<String>,
 }
@@ -206,8 +210,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments to get config
     let prover_config = ProverConfig {
         offchain: args.offchain,
-        rpc_url: args.rpc_url,
         order_stream_url: args.order_stream_url,
+        pull_interval: args.pull_interval,
+        rpc_url: args.rpc_url,
     };
 
     match state.init_prover(prover_config).await {

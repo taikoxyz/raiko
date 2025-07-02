@@ -51,11 +51,23 @@ pub struct Risc0Response {
     pub receipt: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProverConfig {
     pub offchain: bool,
+    pub pull_interval: u64,
     pub rpc_url: String,
     pub order_stream_url: Option<String>,
+}
+
+impl Default for ProverConfig {
+    fn default() -> Self {
+        ProverConfig {
+            offchain: false,
+            pull_interval: 10,
+            rpc_url: "https://ethereum-sepolia-rpc.publicnode.com".to_string(),
+            order_stream_url: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -258,12 +270,34 @@ impl Risc0BoundlessProver {
 
         // Wait for the request to be fulfilled by the market, returning the journal and seal.
         tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
-        let (journal, seal) = boundless_client
-            .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
-            .await
-            .map_err(|e| {
-                AgentError::AgentError(format!("Failed to wait for request fulfillment: {e}"))
-            })?;
+        let pull_interval = Duration::from_secs(self.config.pull_interval);
+        // retry logic: try up to 5 times
+        let (journal, seal) = {
+            let mut attempt = 0;
+            loop {
+                match boundless_client
+                    .wait_for_request_fulfillment(request_id, pull_interval, expires_at)
+                    .await
+                {
+                    Ok(res) => break res,
+                    Err(e) => {
+                        attempt += 1;
+                        if attempt >= 5 {
+                            return Err(AgentError::AgentError(format!(
+                                "Failed to wait for request fulfillment after {} attempts: {:?}",
+                                attempt, e
+                            )));
+                        }
+                        tracing::warn!(
+                            "wait_for_request_fulfillment failed (attempt {}/5), retrying: {:?}",
+                            attempt,
+                            e
+                        );
+                        tokio::time::sleep(pull_interval).await;
+                    }
+                }
+            }
+        };
         tracing::info!(
             "Request 0x{request_id:x} fulfilled. Journal: {:?}, Seal: {:?}, image_id: {:?}",
             journal,
@@ -321,7 +355,6 @@ impl Risc0BoundlessProver {
             )
             .await
             .map_err(|e| AgentError::AgentError(format!("Failed to build request: {e}")))?;
-        tracing::info!("Request: {:?}", request);
 
         // Send the request and wait for it to be completed.
         let (request_id, expires_at) = if self.config.offchain {
@@ -347,11 +380,12 @@ impl Risc0BoundlessProver {
 
         // Wait for the request to be fulfilled by the market, returning the journal and seal.
         tracing::info!("Waiting for 0x{request_id:x} to be fulfilled");
+        let pull_interval = Duration::from_secs(self.config.pull_interval);
         let (journal, seal) = {
             let mut attempt = 0;
             loop {
                 match boundless_client
-                    .wait_for_request_fulfillment(request_id, Duration::from_secs(10), expires_at)
+                    .wait_for_request_fulfillment(request_id, pull_interval, expires_at)
                     .await
                 {
                     Ok((journal, seal)) => break (journal, seal),
@@ -368,7 +402,7 @@ impl Risc0BoundlessProver {
                             attempt,
                             e
                         );
-                        tokio::time::sleep(Duration::from_secs(2)).await;
+                        tokio::time::sleep(pull_interval).await;
                     }
                 }
             }
