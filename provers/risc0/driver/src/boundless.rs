@@ -32,85 +32,15 @@ pub struct Risc0AgentResponse {
     pub receipt: Option<String>,
 }
 
-pub struct Risc0BoundlessProver;
+pub struct Risc0BoundlessProver {
+    remote_prover_url: String,
+}
 
 impl Risc0BoundlessProver {
-    pub async fn prepare_batch_run(
-        input: GuestBatchInput,
-        _output: &GuestBatchOutput,
-        _config: &ProverConfig,
-        _id_store: Option<&mut dyn IdWrite>,
-    ) -> Result<(), ProverError> {
-        // Save the input to a bincode file for debugging or inspection.
-        let file_name = format!("/tmp/batch-{}-input.bin", input.taiko.batch_id);
-        if let Ok(encoded) = bincode::serialize(&input) {
-            if let Err(e) = std::fs::write(&file_name, &encoded) {
-                tracing::warn!("Failed to write input to {}: {}", file_name, e);
-                Err(ProverError::GuestError(format!(
-                    "Failed to write input to {}: {}",
-                    file_name, e
-                )))
-            } else {
-                tracing::info!("Saved input to bincode file: {}", file_name);
-                Ok(())
-            }
-        } else {
-            tracing::warn!(
-                "Failed to serialize input to bincode for file: {}",
-                file_name
-            );
-            Err(ProverError::GuestError(format!(
-                "Failed to serialize input to bincode for file: {}",
-                file_name
-            )))
-        }
-    }
-
-    pub async fn prepare_aggregation_run(
-        input: AggregationGuestInput,
-        _output: &AggregationGuestOutput,
-        _config: &ProverConfig,
-        _id_store: Option<&mut dyn IdWrite>,
-    ) -> Result<(), ProverError> {
-        let file_name = format!(
-            "/tmp/aggregation-input-{}.bin",
-            input.proofs[0].input.unwrap_or_default()
-        );
-
-        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).unwrap();
-        let agent_input = Risc0AgengAggGuestInput {
-            image_id: image_id,
-            receipts: input
-                .proofs
-                .iter()
-                .map(|p| {
-                    let receipt_json = p.quote.clone().unwrap();
-                    let receipt: ZkvmReceipt = serde_json::from_str(&receipt_json).unwrap();
-                    receipt
-                })
-                .collect(),
-        };
-        if let Ok(encoded) = bincode::serialize(&agent_input) {
-            if let Err(e) = std::fs::write(&file_name, &encoded) {
-                tracing::warn!("Failed to write input to {}: {}", file_name, e);
-                Err(ProverError::GuestError(format!(
-                    "Failed to write input to {}: {}",
-                    file_name, e
-                )))
-            } else {
-                tracing::info!("Saved input to bincode file: {}", file_name);
-                Ok(())
-            }
-        } else {
-            tracing::warn!(
-                "Failed to serialize input to bincode for file: {}",
-                file_name
-            );
-            Err(ProverError::GuestError(format!(
-                "Failed to serialize input to bincode for file: {}",
-                file_name
-            )))
-        }
+    pub fn new() -> Self {
+        let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
+            .unwrap_or_else(|_| "http://localhost:9999".to_string());
+        Self { remote_prover_url }
     }
 }
 
@@ -165,7 +95,7 @@ impl Prover for Risc0BoundlessProver {
         // Send the request to the agent and await the response
         let client = HttpClient::new();
         let resp = client
-            .post("http://localhost:9999/proof")
+            .post(&self.remote_prover_url)
             .json(&payload)
             .send()
             .await
@@ -253,18 +183,10 @@ impl Prover for Risc0BoundlessProver {
             "proof_type": "Batch"
         });
 
-        println!("payload: {:?}", input_bytes.len());
-
-        // INSERT_YOUR_CODE
-        // Save the serialized input to a file for debugging
-        if let Err(e) = std::fs::write("debug_input.bin", &input_bytes) {
-            eprintln!("Failed to write debug input to file: {}", e);
-        }
-
         // Send the request to the local agent and handle the response
         let client = reqwest::Client::new();
         let resp = client
-            .post("http://localhost:9999/proof")
+            .post(&self.remote_prover_url)
             .json(&payload)
             .send()
             .await

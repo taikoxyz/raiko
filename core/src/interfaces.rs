@@ -125,7 +125,7 @@ pub async fn run_batch_prover(
         ProofType::Risc0Boundless => {
             #[cfg(feature = "risc0")]
             {
-                return risc0_driver::Risc0BoundlessProver
+                return risc0_driver::Risc0BoundlessProver::new()
                     .batch_run(input, output, config, None)
                     .await
                     .map_err(|e| e.into());
