@@ -144,6 +144,13 @@ elif [ "$proof" == "risc0-bonsai" ]; then
         "execution_po2": 20
     }
   '
+elif [ "$proof" == "risc0-boundless" ]; then
+	proofParam='
+    "proof_type": "risc0boundless",
+    "blob_proof_type": "proof_of_equivalence",
+    "risc0": {
+    }
+  '
 else
 	echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'sgxgeth' or 'sgx'."
 	exit 1

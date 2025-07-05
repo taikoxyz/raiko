@@ -272,3 +272,27 @@ if [[ -n $SGX_SERVER ]]; then
         wait
     fi
 fi
+
+if [[ -n $BOUNDLESS_AGENT_SERVER ]]; then
+    echo "running boundless agent"
+
+    if [[ -z $BOUNDLESS_ORDER_STREAM_URL ]]; then
+        echo "BOUNDLESS_ORDER_STREAM_URL must be presented, please check."
+        exit 1
+    fi
+
+    if [[ -z $BOUNDLESS_SIGNER_KEY ]]; then
+        echo "BOUNDLESS_SIGNER_KEY must be presented, please check."
+        exit 1
+    fi
+
+    # Allow --offchain to be controlled by the BOUNDLESS_OFFCHAIN environment variable (default to true for backward compatibility)
+    if [[ -z $BOUNDLESS_OFFCHAIN ]]; then
+        BOUNDLESS_OFFCHAIN_FLAG=""
+    else
+        BOUNDLESS_OFFCHAIN_FLAG="--offchain"
+    fi
+
+    /opt/raiko/bin/boundless-agent --order-stream-url $BOUNDLESS_ORDER_STREAM_URL $BOUNDLESS_OFFCHAIN_FLAG
+    wait
+fi
