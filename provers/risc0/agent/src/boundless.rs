@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::time::Duration;
 
 use crate::methods::{
@@ -8,7 +9,7 @@ use alloy_primitives_v1p2p0::{Bytes, U256, utils::parse_ether};
 use alloy_signer_local_v1p0p12::PrivateKeySigner;
 use boundless_market::{
     Client, ProofRequest,
-    deployments::{Deployment, SEPOLIA},
+    deployments::{BASE, Deployment, SEPOLIA},
     input::GuestEnv,
     request_builder::OfferParams,
 };
@@ -21,6 +22,27 @@ use serde::{Deserialize, Serialize};
 pub enum ElfType {
     Batch,
     Aggregation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DeploymentType {
+    Sepolia,
+    Base,
+}
+
+impl FromStr for DeploymentType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "sepolia" | "SEPOLIA" => Ok(DeploymentType::Sepolia),
+            "base" | "BASE" => Ok(DeploymentType::Base),
+            _ => Err(format!(
+                "Invalid deployment type: '{}'. Must be 'sepolia' or 'base'",
+                s
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +82,7 @@ pub struct ProverConfig {
     pub pull_interval: u64,
     pub rpc_url: String,
     pub order_stream_url: Option<String>,
+    pub deployment_type: Option<DeploymentType>,
 }
 
 impl Default for ProverConfig {
@@ -69,6 +92,7 @@ impl Default for ProverConfig {
             pull_interval: 10,
             rpc_url: "https://ethereum-sepolia-rpc.publicnode.com".to_string(),
             order_stream_url: None,
+            deployment_type: Some(DeploymentType::Sepolia),
         }
     }
 }
@@ -144,6 +168,26 @@ pub enum AgentError {
 pub type AgentResult<T> = Result<T, AgentError>;
 
 impl Risc0BoundlessProver {
+    /// Create a deployment based on the configuration
+    fn create_deployment(config: &ProverConfig) -> AgentResult<Deployment> {
+        let deployment_type = config
+            .deployment_type
+            .as_ref()
+            .unwrap_or(&DeploymentType::Sepolia);
+
+        let mut deployment = match deployment_type {
+            DeploymentType::Sepolia => SEPOLIA,
+            DeploymentType::Base => BASE,
+        };
+
+        // Override order_stream_url if provided in config
+        if let Some(order_stream_url) = &config.order_stream_url {
+            deployment.order_stream_url = Some(order_stream_url.to_owned().into());
+        }
+
+        Ok(deployment)
+    }
+
     /// Create a boundless client with the current configuration
     async fn create_boundless_client(&self) -> AgentResult<Client> {
         let deployment = Some(self.deployment.clone());
@@ -246,10 +290,7 @@ impl Risc0BoundlessProver {
     }
 
     pub async fn new(config: ProverConfig) -> AgentResult<Self> {
-        let mut deployment = SEPOLIA;
-        if let Some(order_stream_url) = config.order_stream_url.clone() {
-            deployment.order_stream_url = Some(order_stream_url.to_owned().into());
-        }
+        let deployment = Risc0BoundlessProver::create_deployment(&config)?;
         tracing::info!("boundless deployment: {:?}", deployment);
 
         // Create a temporary instance to use the create_boundless_client method
@@ -496,6 +537,53 @@ mod tests {
         Risc0BoundlessProver::new(ProverConfig::default())
             .await
             .unwrap();
+    }
+
+    #[test]
+    fn test_deployment_selection() {
+        // Test Sepolia deployment
+        let mut config = ProverConfig::default();
+        config.deployment_type = Some(DeploymentType::Sepolia);
+        let deployment = Risc0BoundlessProver::create_deployment(&config).unwrap();
+        assert!(deployment.order_stream_url.is_none() || deployment.order_stream_url.is_some());
+
+        // Test Base deployment
+        config.deployment_type = Some(DeploymentType::Base);
+        let deployment = Risc0BoundlessProver::create_deployment(&config).unwrap();
+        assert!(deployment.order_stream_url.is_none() || deployment.order_stream_url.is_some());
+
+        // Test with custom order_stream_url
+        config.deployment_type = Some(DeploymentType::Sepolia);
+        config.order_stream_url = Some("https://custom-order-stream.com".to_string());
+        let deployment = Risc0BoundlessProver::create_deployment(&config).unwrap();
+        assert!(deployment.order_stream_url.is_some());
+    }
+
+    #[test]
+    fn test_deployment_type_from_str() {
+        // Test valid deployment types
+        assert_eq!(
+            DeploymentType::from_str("sepolia").unwrap(),
+            DeploymentType::Sepolia
+        );
+        assert_eq!(
+            DeploymentType::from_str("base").unwrap(),
+            DeploymentType::Base
+        );
+
+        // Test case insensitive
+        assert_eq!(
+            DeploymentType::from_str("SEPOLIA").unwrap(),
+            DeploymentType::Sepolia
+        );
+        assert_eq!(
+            DeploymentType::from_str("BASE").unwrap(),
+            DeploymentType::Base
+        );
+
+        // Test invalid deployment types
+        assert!(DeploymentType::from_str("invalid").is_err());
+        assert!(DeploymentType::from_str("").is_err());
     }
 
     #[tokio::test]

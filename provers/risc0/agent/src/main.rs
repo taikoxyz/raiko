@@ -1,5 +1,5 @@
 pub mod boundless;
-pub use boundless::{AgentError, AgentResult, ElfType, ProverConfig, Risc0BoundlessProver};
+pub use boundless::{AgentError, AgentResult, ElfType, ProverConfig, Risc0BoundlessProver, DeploymentType};
 
 pub mod methods;
 
@@ -183,6 +183,10 @@ struct CmdArgs {
     #[arg(long)]
     order_stream_url: Option<String>,
 
+    /// Deployment type (sepolia or base)
+    #[arg(long, default_value = "sepolia")]
+    deployment_type: String,
+
     /// singer key hex string
     #[arg(long)]
     signer_key: Option<String>,
@@ -208,11 +212,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the prover before starting the server
     tracing::info!("Initializing prover...");
     // Parse command line arguments to get config
+    let deployment_type = DeploymentType::from_str(&args.deployment_type)
+        .map_err(|e| format!("Failed to parse deployment type: {}", e))?;
+
     let prover_config = ProverConfig {
         offchain: args.offchain,
         order_stream_url: args.order_stream_url,
         pull_interval: args.pull_interval,
         rpc_url: args.rpc_url,
+        deployment_type: Some(deployment_type),
     };
 
     match state.init_prover(prover_config).await {
@@ -240,4 +248,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deployment_type_parsing() {
+        // Test valid deployment types
+        assert_eq!(
+            DeploymentType::from_str("sepolia").unwrap(),
+            DeploymentType::Sepolia
+        );
+
+        assert_eq!(
+            DeploymentType::from_str("base").unwrap(),
+            DeploymentType::Base
+        );
+
+        // Test case insensitive
+        assert_eq!(
+            DeploymentType::from_str("SEPOLIA").unwrap(),
+            DeploymentType::Sepolia
+        );
+
+        assert_eq!(
+            DeploymentType::from_str("BASE").unwrap(),
+            DeploymentType::Base
+        );
+
+        // Test invalid deployment type
+        assert!(DeploymentType::from_str("invalid").is_err());
+        assert!(DeploymentType::from_str("").is_err());
+    }
 }

@@ -86,9 +86,29 @@ The application supports JSON-based configuration. See `config.example.json` for
 }
 ```
 
+### Deployment Types
+
+The agent supports two deployment types:
+
+1. **Sepolia** (default): Uses the Sepolia testnet deployment
+2. **Base**: Uses the Base mainnet deployment
+
+The `order_stream_url` can be used to override the default order stream URL for any deployment type.
+
+For detailed configuration examples, see [DEPLOYMENT_CONFIG_EXAMPLES.md](DEPLOYMENT_CONFIG_EXAMPLES.md).
+
 ## Environment Variables
 
 - `BOUNDLESS_SIGNER_KEY`: Private key for signing transactions (required)
+
+## Command Line Arguments
+
+- `--deployment-type`: Deployment type to use (sepolia or base, default: sepolia)
+- `--rpc-url`: RPC URL for the deployment (default: https://ethereum-sepolia-rpc.publicnode.com)
+- `--order-stream-url`: Order stream URL (optional)
+- `--offchain`: Enable offchain mode (default: false)
+- `--pull-interval`: Pull interval in seconds (default: 10)
+- `--signer-key`: Signer private key (optional, can also be set via BOUNDLESS_SIGNER_KEY env var)
 
 ## Output
 
@@ -137,6 +157,22 @@ The application provides detailed error messages for:
 
 # With custom ELF for aggregation
 ./target/release/boundless-agent -i input.bin -o proof.bin -e custom_agg.elf -t agg
+```
+
+### Using Different Deployment Types
+
+```bash
+# Use Sepolia deployment (default)
+./target/release/boundless-agent --deployment-type sepolia
+
+# Use Base deployment
+./target/release/boundless-agent --deployment-type base
+
+# Use custom order stream URL
+./target/release/boundless-agent --deployment-type sepolia --order-stream-url https://custom-order-stream.com
+
+# Use offchain mode
+./target/release/boundless-agent --deployment-type base --offchain --order-stream-url https://offchain-order-stream.com
 ```
 
 ## Development
