@@ -1,5 +1,7 @@
 pub mod boundless;
-pub use boundless::{AgentError, AgentResult, ElfType, ProverConfig, Risc0BoundlessProver, DeploymentType};
+pub use boundless::{
+    AgentError, AgentResult, DeploymentType, ElfType, ProverConfig, Risc0BoundlessProver,
+};
 
 pub mod methods;
 
@@ -9,6 +11,7 @@ use axum::{
 };
 use axum::{Router, http::StatusCode, routing::post};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
