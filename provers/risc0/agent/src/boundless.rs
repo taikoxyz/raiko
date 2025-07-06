@@ -94,8 +94,8 @@ impl BoundlessOfferParams {
     fn aggregation() -> Self {
         Self {
             ramp_up_sec: 200,
-            lock_timeout_sec: 400,
-            timeout_sec: 1000,
+            lock_timeout_sec: 1000,
+            timeout_sec: 3000,
             max_price_per_mcycle: parse_ether("0.0001").unwrap_or_default(),
             min_price_per_mcycle: parse_ether("0.00003").unwrap_or_default(),
             lock_stake_per_mcycle: U256::from(100u64),
@@ -105,8 +105,8 @@ impl BoundlessOfferParams {
     fn batch() -> Self {
         Self {
             ramp_up_sec: 1000,
-            lock_timeout_sec: 2000,
-            timeout_sec: 3600 * 2,
+            lock_timeout_sec: 5000,
+            timeout_sec: 3600 * 3,
             max_price_per_mcycle: parse_ether("0.0003").unwrap_or_default(),
             min_price_per_mcycle: parse_ether("0.00005").unwrap_or_default(),
             lock_stake_per_mcycle: U256::from(1000u64),

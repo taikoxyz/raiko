@@ -39,7 +39,7 @@ pub struct Risc0BoundlessProver {
 impl Risc0BoundlessProver {
     pub fn new() -> Self {
         let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
-            .unwrap_or_else(|_| "http://localhost:9999".to_string());
+            .unwrap_or_else(|_| "http://localhost:9999/proof".to_string());
         Self { remote_prover_url }
     }
 }
@@ -196,7 +196,8 @@ impl Prover for Risc0BoundlessProver {
 
         if !resp.status().is_success() {
             return Err(ProverError::GuestError(format!(
-                "Agent returned error status: {}",
+                "Agent {} returned error status: {}",
+                self.remote_prover_url,
                 resp.status()
             )));
         }
