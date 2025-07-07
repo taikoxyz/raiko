@@ -11,7 +11,6 @@ use axum::{
 };
 use axum::{Router, http::StatusCode, routing::post};
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
@@ -182,17 +181,13 @@ struct CmdArgs {
     #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u64).range(5..))]
     pull_interval: u64,
 
-    /// Order stream URL
-    #[arg(long)]
-    order_stream_url: Option<String>,
-
-    /// Deployment type (sepolia or base)
-    #[arg(long, default_value = "sepolia")]
-    deployment_type: String,
-
     /// singer key hex string
     #[arg(long)]
     signer_key: Option<String>,
+
+    /// Path to boundless config file (JSON format)
+    #[arg(long)]
+    config_file: Option<String>,
 }
 
 #[tokio::main]
@@ -214,17 +209,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize the prover before starting the server
     tracing::info!("Initializing prover...");
-    // Parse command line arguments to get config
-    let deployment_type = DeploymentType::from_str(&args.deployment_type)
-        .map_err(|e| format!("Failed to parse deployment type: {}", e))?;
+
+    // Load boundless config from file if provided, otherwise use default
+    let mut boundless_config = boundless::BoundlessConfig::default();
+    if let Some(config_file) = &args.config_file {
+        let config_content = std::fs::read_to_string(config_file)
+            .map_err(|e| format!("Failed to read config file: {}", e))?;
+        let file_config: boundless::BoundlessConfig = serde_json::from_str(&config_content)
+            .map_err(|e| format!("Failed to parse config file: {}", e))?;
+        boundless_config.merge(&file_config);
+    }
 
     let prover_config = ProverConfig {
         offchain: args.offchain,
-        order_stream_url: args.order_stream_url,
         pull_interval: args.pull_interval,
         rpc_url: args.rpc_url,
-        deployment_type: Some(deployment_type),
+        boundless_config,
     };
+    tracing::info!("Start with prover config: {:?}", prover_config);
 
     match state.init_prover(prover_config).await {
         Ok(_) => {
@@ -256,6 +258,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_deployment_type_parsing() {

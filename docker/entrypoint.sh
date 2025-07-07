@@ -276,7 +276,7 @@ fi
 if [[ -n $BOUNDLESS_AGENT_SERVER ]]; then
     echo "running boundless agent"
 
-    if [[ -z $BOUNDLESS_ORDER_STREAM_URL ]]; then
+    if [[ -z $BOUNDLESS_CONFIG_FILE ]]; then
         echo "BOUNDLESS_ORDER_STREAM_URL must be presented, please check."
         exit 1
     fi
@@ -293,6 +293,6 @@ if [[ -n $BOUNDLESS_AGENT_SERVER ]]; then
         BOUNDLESS_OFFCHAIN_FLAG="--offchain"
     fi
 
-    /opt/raiko/bin/boundless-agent --order-stream-url $BOUNDLESS_ORDER_STREAM_URL $BOUNDLESS_OFFCHAIN_FLAG
+    /opt/raiko/bin/boundless-agent --config-file $BOUNDLESS_CONFIG_FILE $BOUNDLESS_OFFCHAIN_FLAG
     wait
 fi

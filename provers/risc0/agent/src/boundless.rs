@@ -5,7 +5,10 @@ use crate::methods::{
     boundless_aggregation::BOUNDLESS_AGGREGATION_ELF,
     boundless_batch::{BOUNDLESS_BATCH_ELF, BOUNDLESS_BATCH_ID},
 };
-use alloy_primitives_v1p2p0::{Bytes, U256, utils::parse_ether};
+use alloy_primitives_v1p2p0::{
+    Bytes, U256,
+    utils::{parse_ether, parse_units},
+};
 use alloy_signer_local_v1p0p12::PrivateKeySigner;
 use boundless_market::{
     Client, ProofRequest,
@@ -24,7 +27,7 @@ pub enum ElfType {
     Aggregation,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DeploymentType {
     Sepolia,
     Base,
@@ -51,22 +54,31 @@ pub struct BoundlessAggregationGuestInput {
     pub receipts: Vec<ZkvmReceipt>,
 }
 
-use tokio::sync::OnceCell;
+// use tokio::sync::OnceCell;
 
 // Constants
 const MAX_RETRY_ATTEMPTS: u32 = 5;
 const MILLION_CYCLES: u64 = 1_000_000;
+const STAKE_TOKEN_DECIMALS: u8 = 6;
 
-static RISCV_PROVER: OnceCell<Risc0BoundlessProver> = OnceCell::const_new();
+// static RISCV_PROVER: OnceCell<Risc0BoundlessProver> = OnceCell::const_new();
 
-pub async fn get_boundless_prover() -> &'static Risc0BoundlessProver {
-    RISCV_PROVER
-        .get_or_init(|| async {
-            Risc0BoundlessProver::new(ProverConfig::default())
-                .await
-                .expect("Failed to initialize Boundless client")
-        })
-        .await
+// pub async fn get_boundless_prover() -> &'static Risc0BoundlessProver {
+//     RISCV_PROVER
+//         .get_or_init(|| async {
+//             Risc0BoundlessProver::new(ProverConfig::default())
+//                 .await
+//                 .expect("Failed to initialize Boundless client")
+//         })
+//         .await
+// }
+
+// now staking token is USDC, so we need to parse it as USDC whoes decimals is 6
+pub fn parse_staking_token(token: &str) -> AgentResult<U256> {
+    let parsed = parse_units(token, STAKE_TOKEN_DECIMALS).map_err(|e| {
+        AgentError::ClientBuildError(format!("Failed to parse stacking: {} ({})", token, e))
+    })?;
+    Ok(parsed.into())
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -77,12 +89,188 @@ pub struct Risc0Response {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BoundlessOfferParams {
+    pub ramp_up_sec: u32,
+    pub lock_timeout_sec: u32,
+    pub timeout_sec: u32,
+    pub max_price_per_mcycle: String,
+    pub min_price_per_mcycle: String,
+    pub lock_stake_per_mcycle: String,
+}
+
+impl Default for BoundlessOfferParams {
+    fn default() -> Self {
+        Self {
+            ramp_up_sec: 200,
+            lock_timeout_sec: 1000,
+            timeout_sec: 3000,
+            max_price_per_mcycle: "0.00001".to_string(),
+            min_price_per_mcycle: "0.000003".to_string(),
+            lock_stake_per_mcycle: "0.0001".to_string(),
+        }
+    }
+}
+
+impl BoundlessOfferParams {
+    fn aggregation() -> Self {
+        Self {
+            ramp_up_sec: 200,
+            lock_timeout_sec: 1000,
+            timeout_sec: 3000,
+            max_price_per_mcycle: "0.00001".to_string(),
+            min_price_per_mcycle: "0.000003".to_string(),
+            lock_stake_per_mcycle: "0.0001".to_string(),
+        }
+    }
+
+    fn batch() -> Self {
+        Self {
+            ramp_up_sec: 1000,
+            lock_timeout_sec: 5000,
+            timeout_sec: 3600 * 3,
+            max_price_per_mcycle: "0.00003".to_string(),
+            min_price_per_mcycle: "0.000005".to_string(),
+            lock_stake_per_mcycle: "0.0001".to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BoundlessConfig {
+    pub deployment: Option<DeploymentConfig>,
+    pub offer_params: Option<OfferParamsConfig>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DeploymentConfig {
+    pub deployment_type: Option<DeploymentType>,
+    pub overrides: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OfferParamsConfig {
+    pub batch: Option<BoundlessOfferParams>,
+    pub aggregation: Option<BoundlessOfferParams>,
+}
+
+impl Default for BoundlessConfig {
+    fn default() -> Self {
+        Self {
+            deployment: Some(DeploymentConfig {
+                deployment_type: Some(DeploymentType::Sepolia),
+                overrides: None,
+            }),
+            offer_params: Some(OfferParamsConfig {
+                batch: Some(BoundlessOfferParams::batch()),
+                aggregation: Some(BoundlessOfferParams::aggregation()),
+            }),
+        }
+    }
+}
+
+impl BoundlessConfig {
+    /// Merge this config with another config, taking values from other where provided
+    pub fn merge(&mut self, other: &BoundlessConfig) {
+        // Merge deployment config if provided
+        if let Some(other_deployment) = &other.deployment {
+            if let Some(ref mut deployment) = self.deployment {
+                // Merge deployment type
+                if let Some(deployment_type) = &other_deployment.deployment_type {
+                    deployment.deployment_type = Some(deployment_type.clone());
+                }
+
+                // Merge deployment overrides
+                if let Some(other_overrides) = &other_deployment.overrides {
+                    if let Some(ref mut overrides) = deployment.overrides {
+                        // Merge JSON objects
+                        if let (Some(obj1), Some(obj2)) =
+                            (overrides.as_object_mut(), other_overrides.as_object())
+                        {
+                            for (key, value) in obj2 {
+                                obj1.insert(key.clone(), value.clone());
+                            }
+                        }
+                    } else {
+                        deployment.overrides = Some(other_overrides.clone());
+                    }
+                }
+            } else {
+                self.deployment = Some(other_deployment.clone());
+            }
+        }
+
+        // Merge offer params if provided
+        if let Some(other_offer_params) = &other.offer_params {
+            if let Some(ref mut offer_params) = self.offer_params {
+                if let Some(batch) = &other_offer_params.batch {
+                    offer_params.batch = Some(batch.clone());
+                }
+                if let Some(aggregation) = &other_offer_params.aggregation {
+                    offer_params.aggregation = Some(aggregation.clone());
+                }
+            } else {
+                self.offer_params = Some(other_offer_params.clone());
+            }
+        }
+    }
+
+    /// Get the effective deployment type, using default if not specified
+    pub fn get_deployment_type(&self) -> DeploymentType {
+        self.deployment
+            .as_ref()
+            .and_then(|d| d.deployment_type.as_ref())
+            .cloned()
+            .unwrap_or(DeploymentType::Sepolia)
+    }
+
+    /// Get the effective deployment configuration by merging with base deployment
+    pub fn get_effective_deployment(&self) -> Deployment {
+        let deployment_type = self.get_deployment_type();
+        let mut deployment = match deployment_type {
+            DeploymentType::Sepolia => SEPOLIA,
+            DeploymentType::Base => BASE,
+        };
+
+        // Apply deployment overrides if provided
+        if let Some(deployment_config) = &self.deployment {
+            if let Some(overrides) = &deployment_config.overrides {
+                if let Some(order_stream_url) =
+                    overrides.get("order_stream_url").and_then(|v| v.as_str())
+                {
+                    deployment.order_stream_url =
+                        Some(std::borrow::Cow::Owned(order_stream_url.to_string()));
+                }
+            }
+        }
+
+        deployment
+    }
+
+    /// Get the effective batch offer params, using default if not specified
+    pub fn get_batch_offer_params(&self) -> BoundlessOfferParams {
+        self.offer_params
+            .as_ref()
+            .and_then(|o| o.batch.as_ref())
+            .cloned()
+            .unwrap_or_else(BoundlessOfferParams::batch)
+    }
+
+    /// Get the effective aggregation offer params, using default if not specified
+    pub fn get_aggregation_offer_params(&self) -> BoundlessOfferParams {
+        self.offer_params
+            .as_ref()
+            .and_then(|o| o.aggregation.as_ref())
+            .cloned()
+            .unwrap_or_else(BoundlessOfferParams::aggregation)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProverConfig {
     pub offchain: bool,
     pub pull_interval: u64,
     pub rpc_url: String,
-    pub order_stream_url: Option<String>,
-    pub deployment_type: Option<DeploymentType>,
+    pub boundless_config: BoundlessConfig,
 }
 
 impl Default for ProverConfig {
@@ -91,8 +279,7 @@ impl Default for ProverConfig {
             offchain: false,
             pull_interval: 10,
             rpc_url: "https://ethereum-sepolia-rpc.publicnode.com".to_string(),
-            order_stream_url: None,
-            deployment_type: Some(DeploymentType::Sepolia),
+            boundless_config: BoundlessConfig::default(),
         }
     }
 }
@@ -103,39 +290,7 @@ pub struct Risc0BoundlessProver {
     aggregation_image_url: Option<Url>,
     config: ProverConfig,
     deployment: Deployment,
-}
-
-struct BoundlessOfferParams {
-    pub ramp_up_sec: u32,
-    pub lock_timeout_sec: u32,
-    pub timeout_sec: u32,
-    pub max_price_per_mcycle: U256,
-    pub min_price_per_mcycle: U256,
-    pub lock_stake_per_mcycle: U256,
-}
-
-impl BoundlessOfferParams {
-    fn aggregation() -> Self {
-        Self {
-            ramp_up_sec: 200,
-            lock_timeout_sec: 1000,
-            timeout_sec: 3000,
-            max_price_per_mcycle: parse_ether("0.0001").unwrap_or_default(),
-            min_price_per_mcycle: parse_ether("0.00003").unwrap_or_default(),
-            lock_stake_per_mcycle: U256::from(100u64),
-        }
-    }
-
-    fn batch() -> Self {
-        Self {
-            ramp_up_sec: 1000,
-            lock_timeout_sec: 5000,
-            timeout_sec: 3600 * 3,
-            max_price_per_mcycle: parse_ether("0.0003").unwrap_or_default(),
-            min_price_per_mcycle: parse_ether("0.00005").unwrap_or_default(),
-            lock_stake_per_mcycle: U256::from(1000u64),
-        }
-    }
+    boundless_config: BoundlessConfig,
 }
 
 // More specific error types
@@ -170,22 +325,7 @@ pub type AgentResult<T> = Result<T, AgentError>;
 impl Risc0BoundlessProver {
     /// Create a deployment based on the configuration
     fn create_deployment(config: &ProverConfig) -> AgentResult<Deployment> {
-        let deployment_type = config
-            .deployment_type
-            .as_ref()
-            .unwrap_or(&DeploymentType::Sepolia);
-
-        let mut deployment = match deployment_type {
-            DeploymentType::Sepolia => SEPOLIA,
-            DeploymentType::Base => BASE,
-        };
-
-        // Override order_stream_url if provided in config
-        if let Some(order_stream_url) = &config.order_stream_url {
-            deployment.order_stream_url = Some(order_stream_url.to_owned().into());
-        }
-
-        Ok(deployment)
+        Ok(config.boundless_config.get_effective_deployment())
     }
 
     /// Create a boundless client with the current configuration
@@ -221,7 +361,7 @@ impl Risc0BoundlessProver {
         let (request_id, expires_at) = if self.config.offchain {
             tracing::info!(
                 "Submitting request offchain to {:?}",
-                &self.config.order_stream_url
+                &self.deployment.order_stream_url
             );
             boundless_client
                 .submit_request_offchain(&request)
@@ -299,6 +439,7 @@ impl Risc0BoundlessProver {
             aggregation_image_url: None,
             config: config.clone(),
             deployment: deployment.clone(),
+            boundless_config: config.boundless_config.clone(),
         };
 
         let boundless_client = temp_prover.create_boundless_client().await?;
@@ -325,6 +466,7 @@ impl Risc0BoundlessProver {
             aggregation_image_url: Some(aggregation_image_url),
             config,
             deployment,
+            boundless_config: temp_prover.boundless_config.clone(),
         })
     }
 
@@ -361,12 +503,13 @@ impl Risc0BoundlessProver {
             .await
             .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}")))?;
 
+        let offer_params = self.boundless_config.get_aggregation_offer_params();
         let request = self
             .build_boundless_request(
                 &boundless_client,
                 self.aggregation_image_url.clone().unwrap(),
                 input_url,
-                &BoundlessOfferParams::aggregation(),
+                &offer_params,
                 mcycles_count,
             )
             .await?;
@@ -406,12 +549,13 @@ impl Risc0BoundlessProver {
             .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}")))?;
         tracing::info!("Uploaded input to {}", input_url);
 
+        let offer_params = self.boundless_config.get_batch_offer_params();
         let request = self
             .build_boundless_request(
                 &boundless_client,
                 self.batch_image_url.clone().unwrap(),
                 input_url,
-                &BoundlessOfferParams::batch(),
+                &offer_params,
                 mcycles_count,
             )
             .await
@@ -483,6 +627,24 @@ impl Risc0BoundlessProver {
         offer_spec: &BoundlessOfferParams,
         mcycles_count: u64,
     ) -> AgentResult<ProofRequest> {
+        tracing::info!("offer_spec: {:?}", offer_spec);
+        let max_price = parse_ether(&offer_spec.max_price_per_mcycle).map_err(|e| {
+            AgentError::ClientBuildError(format!(
+                "Failed to parse max_price_per_mcycle: {} ({})",
+                offer_spec.max_price_per_mcycle, e
+            ))
+        })? * U256::from(mcycles_count);
+
+        let min_price = parse_ether(&offer_spec.min_price_per_mcycle).map_err(|e| {
+            AgentError::ClientBuildError(format!(
+                "Failed to parse min_price_per_mcycle: {} ({})",
+                offer_spec.min_price_per_mcycle, e
+            ))
+        })? * U256::from(mcycles_count);
+
+        let lock_stake =
+            parse_staking_token(&offer_spec.lock_stake_per_mcycle)? * U256::from(mcycles_count);
+
         let request_params = boundless_client
             .new_request()
             .with_program_url(program_url)
@@ -496,9 +658,9 @@ impl Risc0BoundlessProver {
                     .ramp_up_period(offer_spec.ramp_up_sec)
                     .lock_timeout(offer_spec.lock_timeout_sec)
                     .timeout(offer_spec.timeout_sec)
-                    .max_price(offer_spec.max_price_per_mcycle * U256::from(mcycles_count))
-                    .min_price(offer_spec.min_price_per_mcycle * U256::from(mcycles_count))
-                    .lock_stake(offer_spec.lock_stake_per_mcycle * U256::from(mcycles_count)),
+                    .max_price(max_price)
+                    .min_price(min_price)
+                    .lock_stake(lock_stake),
             );
 
         // Build the request, including preflight, and assigned the remaining fields.
@@ -543,20 +705,20 @@ mod tests {
     fn test_deployment_selection() {
         // Test Sepolia deployment
         let mut config = ProverConfig::default();
-        config.deployment_type = Some(DeploymentType::Sepolia);
+        config.boundless_config.deployment = Some(DeploymentConfig {
+            deployment_type: Some(DeploymentType::Sepolia),
+            overrides: None,
+        });
         let deployment = Risc0BoundlessProver::create_deployment(&config).unwrap();
         assert!(deployment.order_stream_url.is_none() || deployment.order_stream_url.is_some());
 
         // Test Base deployment
-        config.deployment_type = Some(DeploymentType::Base);
+        config.boundless_config.deployment = Some(DeploymentConfig {
+            deployment_type: Some(DeploymentType::Base),
+            overrides: None,
+        });
         let deployment = Risc0BoundlessProver::create_deployment(&config).unwrap();
         assert!(deployment.order_stream_url.is_none() || deployment.order_stream_url.is_some());
-
-        // Test with custom order_stream_url
-        config.deployment_type = Some(DeploymentType::Sepolia);
-        config.order_stream_url = Some("https://custom-order-stream.com".to_string());
-        let deployment = Risc0BoundlessProver::create_deployment(&config).unwrap();
-        assert!(deployment.order_stream_url.is_some());
     }
 
     #[test]
@@ -730,5 +892,136 @@ mod tests {
         .await;
         assert!(verified, "Receipt failed onchain verification");
         println!("Onchain verification result: {}", verified);
+    }
+
+    #[ignore]
+    #[test]
+    fn test_deserialize_boundless_config() {
+        // Create test config
+        let config = BoundlessConfig {
+            deployment: Some(DeploymentConfig {
+                deployment_type: Some(DeploymentType::Sepolia),
+                overrides: None,
+            }),
+            offer_params: Some(OfferParamsConfig {
+                batch: Some(BoundlessOfferParams::batch()),
+                aggregation: Some(BoundlessOfferParams::aggregation()),
+            }),
+        };
+
+        // Test serialization and deserialization
+        let config_json = serde_json::to_string(&config).unwrap();
+        let deserialized_config: BoundlessConfig = serde_json::from_str(&config_json).unwrap();
+
+        // Verify the config was deserialized correctly
+        assert_eq!(
+            deserialized_config.get_deployment_type(),
+            DeploymentType::Sepolia
+        );
+
+        println!("Deserialized config: {:#?}", deserialized_config);
+    }
+
+    #[test]
+    fn test_prover_config_with_boundless_config() {
+        let boundless_config = BoundlessConfig {
+            deployment: Some(DeploymentConfig {
+                deployment_type: Some(DeploymentType::Base),
+                overrides: None,
+            }),
+            offer_params: Some(OfferParamsConfig {
+                batch: Some(BoundlessOfferParams::batch()),
+                aggregation: Some(BoundlessOfferParams::aggregation()),
+            }),
+        };
+
+        let prover_config = ProverConfig {
+            offchain: true,
+            pull_interval: 15,
+            rpc_url: "https://custom-rpc.com".to_string(),
+            boundless_config,
+        };
+
+        // Test that the deployment is created correctly from boundless_config
+        let deployment = Risc0BoundlessProver::create_deployment(&prover_config).unwrap();
+        // Base deployment should have its default order_stream_url
+        assert!(deployment.order_stream_url.is_some());
+    }
+
+    #[test]
+    fn test_partial_config_override() {
+        // Create a config that only overrides deployment type
+        let partial_config = BoundlessConfig {
+            deployment: Some(DeploymentConfig {
+                deployment_type: Some(DeploymentType::Base),
+                overrides: None,
+            }),
+            offer_params: None,
+        };
+
+        // Start with default config
+        let mut default_config = BoundlessConfig::default();
+
+        // Merge the partial config
+        default_config.merge(&partial_config);
+
+        // Verify that deployment type was overridden
+        assert_eq!(default_config.get_deployment_type(), DeploymentType::Base);
+
+        // Verify that offer params still use defaults
+        let batch_params = default_config.get_batch_offer_params();
+        let aggregation_params = default_config.get_aggregation_offer_params();
+
+        // These should match the default values
+        assert_eq!(batch_params.ramp_up_sec, 1000);
+        assert_eq!(aggregation_params.ramp_up_sec, 200);
+    }
+
+    #[test]
+    fn test_deployment_overrides() {
+        // Test deployment overrides functionality
+        let overrides = serde_json::json!({
+            "order_stream_url": "https://custom-order-stream.com",
+        });
+
+        let config = BoundlessConfig {
+            deployment: Some(DeploymentConfig {
+                deployment_type: Some(DeploymentType::Sepolia),
+                overrides: Some(overrides),
+            }),
+            offer_params: None,
+        };
+
+        let deployment = config.get_effective_deployment();
+
+        // Verify that the overrides were applied
+        assert_eq!(
+            deployment.order_stream_url,
+            Some(std::borrow::Cow::Owned(
+                "https://custom-order-stream.com".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn test_offer_params_max_price() {
+        let offer_params = BoundlessOfferParams::batch();
+        let max_price_per_mcycle = parse_ether(&offer_params.max_price_per_mcycle)
+            .expect("Failed to parse max_price_per_mcycle");
+        let max_price = max_price_per_mcycle * U256::from(1000u64);
+        // 0.00003 * 1000 = 0.03 ETH
+        assert_eq!(max_price, U256::from(30000000000000000u128));
+
+        let min_price_per_mcycle = parse_ether(&offer_params.min_price_per_mcycle)
+            .expect("Failed to parse min_price_per_mcycle");
+        let min_price = min_price_per_mcycle * U256::from(1000u64);
+        // 0.000005 * 1000 = 0.005 ETH
+        assert_eq!(min_price, U256::from(5000000000000000u128));
+
+        let lock_stake_per_mcycle = parse_staking_token(&offer_params.lock_stake_per_mcycle)
+            .expect("Failed to parse lock_stake_per_mcycle");
+        let lock_stake = lock_stake_per_mcycle * U256::from(1000u64);
+        // 0.0001 * 1000 = 0.1 USDC
+        assert_eq!(lock_stake, U256::from(100000u64));
     }
 }
