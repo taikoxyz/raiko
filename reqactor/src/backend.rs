@@ -444,8 +444,8 @@ impl Backend {
             .unwrap()
             .unwrap()
             .into_status();
-        if matches!(pool_status, Status::Success { .. } | Status::WorkInProgress) {
-            tracing::warn!("Actor Backend received prove-action {request_key}, but it is not registered, skipping");
+        if matches!(pool_status, Status::Success { .. } | Status::WorkInProgress | Status::Failed { .. } | Status::Cancelled { .. }) {
+            tracing::warn!("Actor Backend received prove-action {request_key}, but it is already in status {:?}, skipping", pool_status);
             return;
         }
 
