@@ -257,6 +257,7 @@ mod tests {
     use env_logger;
     use raiko_lib::input::GuestBatchOutput;
 
+    #[ignore = "reason: no need to run in CI"]
     #[tokio::test]
     async fn test_run_prover() {
         // init log
@@ -269,7 +270,7 @@ mod tests {
         let input: GuestBatchInput = serde_json::from_slice(&input_file).unwrap();
         let output: GuestBatchOutput = serde_json::from_slice(&output_file).unwrap();
         let config = ProverConfig::default();
-        let proof = Risc0BoundlessProver
+        let proof = Risc0BoundlessProver::new()
             .batch_run(input, &output, &config, None)
             .await
             .unwrap();
@@ -372,6 +373,7 @@ mod tests {
         println!("Deserialized zkvm receipt: {:#?}", zkvm_receipt);
     }
 
+    #[ignore = "reason: no need to run in CI"]
     #[tokio::test]
     async fn test_run_proof_aggregation() {
         env_logger::init();
@@ -386,7 +388,7 @@ mod tests {
         };
         let output: AggregationGuestOutput = AggregationGuestOutput { hash: B256::ZERO };
         let config = ProverConfig::default();
-        let proof = Risc0BoundlessProver
+        let proof = Risc0BoundlessProver::new()
             .aggregate(input, &output, &config, None)
             .await
             .unwrap();

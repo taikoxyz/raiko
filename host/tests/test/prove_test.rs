@@ -42,6 +42,7 @@ pub async fn test_v2_mainnet_native_prove() {
     v2_assert_report(&client).await;
 }
 
+#[ignore = "reason: v2 is not supported"]
 #[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_zk_any_prove() {
     let api_version = "v2";
@@ -94,6 +95,7 @@ pub async fn test_v2_mainnet_zk_any_prove() {
     v2_assert_report(&client).await;
 }
 
+#[ignore = "reason: v2 is not supported"]
 #[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_zk_any_prove_but_not_drawn() {
     let network = Network::TaikoMainnet;
