@@ -50,7 +50,10 @@ impl Backend {
         action_rx: Receiver<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
         max_proving_concurrency: usize,
     ) {
-        let channel_size = 1024;
+        let channel_size = std::env::var("INTERNAL_CHANNEL_SIZE")
+            .unwrap_or("1024".to_string())
+            .parse::<usize>()
+            .unwrap_or(1024);
         let (internal_tx, internal_rx) = mpsc::channel::<RequestKey>(channel_size);
         tokio::spawn(async move {
             Backend {
