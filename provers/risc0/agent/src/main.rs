@@ -246,9 +246,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .with_state(state);
 
+    let address = format!("{}:{}", args.address, args.port);
     // Start server
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:9999").await?;
-    tracing::info!("Server listening on http://0.0.0.0:9999");
+    let listener = tokio::net::TcpListener::bind(&address).await?;
+    tracing::info!("Server listening on http://{}", &address);
 
     axum::serve(listener, app).await?;
 

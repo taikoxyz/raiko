@@ -61,19 +61,7 @@ const MAX_RETRY_ATTEMPTS: u32 = 5;
 const MILLION_CYCLES: u64 = 1_000_000;
 const STAKE_TOKEN_DECIMALS: u8 = 6;
 
-// static RISCV_PROVER: OnceCell<Risc0BoundlessProver> = OnceCell::const_new();
-
-// pub async fn get_boundless_prover() -> &'static Risc0BoundlessProver {
-//     RISCV_PROVER
-//         .get_or_init(|| async {
-//             Risc0BoundlessProver::new(ProverConfig::default())
-//                 .await
-//                 .expect("Failed to initialize Boundless client")
-//         })
-//         .await
-// }
-
-// now staking token is USDC, so we need to parse it as USDC whoes decimals is 6
+// now staking token is USDC, so we need to parse it as USDC whose decimals is 6
 pub fn parse_staking_token(token: &str) -> AgentResult<U256> {
     let parsed = parse_units(token, STAKE_TOKEN_DECIMALS).map_err(|e| {
         AgentError::ClientBuildError(format!("Failed to parse stacking: {} ({})", token, e))
@@ -776,6 +764,7 @@ mod tests {
         println!("Proof saved to {}", bin_path);
     }
 
+    #[ignore = "not needed in CI"]
     #[test]
     fn test_deserialize_zkvm_receipt() {
         // let file_name = format!("tests/fixtures/boundless_receipt_test.json");

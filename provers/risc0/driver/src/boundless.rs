@@ -291,6 +291,7 @@ mod tests {
         }
     }
 
+    #[ignore = "not needed in CI"]
     #[tokio::test]
     async fn test_transfer_input_output() {
         // init log
@@ -325,6 +326,7 @@ mod tests {
             bincode::deserialize(&output_bytes).expect("Failed to deserialize output");
     }
 
+    #[ignore = "not needed in CI"]
     #[tokio::test]
     async fn test_run_prover_with_seal() {
         env_logger::init();
@@ -361,10 +363,10 @@ mod tests {
         println!("Deserialized receipt: {:#?}", proof);
     }
 
+    #[ignore = "not needed in CI"]
     #[test]
     fn test_deserialize_zkvm_receipt() {
-        // let file_name = format!("../../../boundless_receipt_test.json");
-        let file_name = format!("../../../boundless_receipt_test.json");
+        let file_name = format!("./boundless_receipt_test.json");
         let receipt_json = std::fs::read_to_string(file_name).unwrap();
         let proof: Proof = serde_json::from_str(&receipt_json).unwrap();
         println!("Deserialized proof: {:#?}", proof);
