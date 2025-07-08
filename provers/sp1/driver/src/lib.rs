@@ -1,6 +1,5 @@
 #![cfg(feature = "enable")]
 
-use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,

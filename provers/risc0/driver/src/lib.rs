@@ -4,7 +4,7 @@ use crate::{
     methods::risc0_aggregation::RISC0_AGGREGATION_ELF, methods::risc0_batch::RISC0_BATCH_ELF,
     methods::risc0_guest::RISC0_GUEST_ELF,
 };
-use alloy_primitives::{hex::ToHexExt, B256};
+use alloy_primitives::B256;
 use bonsai::{cancel_proof, maybe_prove};
 use log::{info, warn};
 use raiko_lib::{
@@ -244,13 +244,11 @@ impl Prover for Risc0Prover {
             if !config.snark {
                 warn!("proof is not in snark mode, please check.");
             }
-            Ok(Risc0Response {
-                proof: receipt.journal.encode_hex_with_prefix(),
-                receipt: serde_json::to_string(&receipt).unwrap(),
-                uuid,
-                input: output.hash,
-            }
-            .into())
+
+            bonsai::locally_verify_snark(uuid, receipt, output.hash, RISC0_BATCH_ELF)
+                .await
+                .map(|r0_response| r0_response.into())
+                .map_err(|e| ProverError::GuestError(e.to_string()))
         };
 
         proof_gen_result
