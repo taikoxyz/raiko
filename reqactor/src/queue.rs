@@ -31,7 +31,7 @@ impl Queue {
 
     pub fn add_pending(&mut self, request_key: RequestKey, request_entity: RequestEntity) {
         if self.queued_keys.insert(request_key.clone()) {
-            let is_high_priority = matches!(request_key, RequestKey::Aggregation(_)) || matches!(request_key, RequestKey::BatchProof(_));
+            let is_high_priority = matches!(request_key, RequestKey::Aggregation(_));
             if is_high_priority {
                 self.high_pending.push_back((request_key, request_entity));
             } else {

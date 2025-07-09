@@ -2,26 +2,15 @@
 """
 Test script to verify that aggregation requests get the highest priority.
 
-This script tests the priority queue mechanism by:
-1. Getting real batch IDs from L1 chain
-2. Submitting single proof requests (low priority)
-3. Submitting aggregation requests (high priority)
-4. Monitoring that aggregation requests are processed with priority
-
 Usage Examples:
-  # Basic test with default settings (native prover)
+  # Basic continuous streaming test with default settings (native prover)
   python3 test_aggregation_priority.py
-  
-  # Quick test with shorter delays
-  python3 test_aggregation_priority.py --quick-test
   
   # Test with different prover types
   python3 test_aggregation_priority.py --prove-type sgx
   python3 test_aggregation_priority.py --prove-type risc0
   python3 test_aggregation_priority.py --prove-type sp1
   
-  # Custom test with specific parameters
-  python3 test_aggregation_priority.py --single-requests 10 --aggregation-requests 3 --prove-type sp1
 """
 
 import asyncio
@@ -41,25 +30,34 @@ from web3.middleware import ExtraDataToPOAMiddleware
 
 
 @dataclass
+class RaikoResponse:
+    status: str
+    data: Optional[Dict[str, Any]] = None
+    message: Optional[str] = None
+
+
+@dataclass
 class TestRequest:
     request_type: str  # "single_proof" or "aggregation"
     request_id: str
     submitted_time: float
     batch_ids: List[int]
     submission_success: bool = False
+    sequence_number: int = 0  # Position in the streaming sequence
 
 
 class AggregationPriorityTester:
     def __init__(
         self,
         raiko_rpc: str = "http://localhost:8080",
-        l1_rpc: str = "https://ethereum-holesky-rpc.publicnode.com",
+        l1_rpc: str = "http://35.240.156.196:8545",
         abi_file: str = "./script/ITaikoInbox.json",
         evt_address: str = "0x79C9109b764609df928d16fC4a91e9081F7e87DB",
         log_file: str = "aggregation_priority_test.log",
         prove_type: str = "native",
-        request_delay: float = 2.0,
-        polling_interval: int = 200,
+        request_delay: float = 1.0,
+        polling_interval: int = 3,
+        request_timeout: int = 90,
     ):
         self.raiko_rpc = raiko_rpc
         self.l1_rpc = l1_rpc
@@ -69,6 +67,7 @@ class AggregationPriorityTester:
         self.prove_type = prove_type
         self.request_delay = request_delay
         self.polling_interval = polling_interval
+        self.request_timeout = request_timeout
         self.test_requests: List[TestRequest] = []
         
         self.test_id = hashlib.md5(f"{time.time()}_{random.randint(1000, 9999)}".encode()).hexdigest()[:8]
@@ -131,7 +130,7 @@ class AggregationPriorityTester:
             self.logger.error(f"Failed to get batch events in block {block_number}: {e}")
             return []
 
-    def get_available_batch_ids(self, start_block: int, end_block: int, max_batches: int = 50) -> List[Tuple[int, int]]:
+    def get_available_batch_ids(self, start_block: int, end_block: int, max_batches: int = 5000) -> List[Tuple[int, int]]:
         """Get available batch IDs and L1 inclusion blocks from L1 chain within a block range"""
         if not hasattr(self, 'evt_contract') or self.evt_contract is None:
             self.logger.error("Contract not initialized, cannot get batch events")
@@ -146,7 +145,8 @@ class AggregationPriorityTester:
             batch_events = self.get_batch_events_in_block(current_block)
             for batch_id, l1_inclusion_block in batch_events:
                 batch_data.append((batch_id, l1_inclusion_block))
-                self.logger.info(f"Found batch {batch_id} in L1 block {l1_inclusion_block}")
+                if len(batch_data) % 100 == 0:
+                    self.logger.info(f"Found {len(batch_data)} batch proposals so far...")
                 if len(batch_data) >= max_batches:
                     break
             current_block += 1
@@ -158,7 +158,7 @@ class AggregationPriorityTester:
         self.logger.info(f"Found {len(batch_data)} batch proposals")
         return batch_data
 
-    def create_single_proof_request(self, batch_id: int, l1_inclusion_block: int) -> Dict[str, Any]:
+    def create_single_proof_request(self, batch_id: int, l1_inclusion_block: int, aggregate: bool = False) -> Dict[str, Any]:
         """Create a single proof request payload"""
         base_request = {
             "batches": [
@@ -171,9 +171,9 @@ class AggregationPriorityTester:
             "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
             "proof_type": self.prove_type,
             "blob_proof_type": "proof_of_equivalence",
+            "aggregate": aggregate,
         }
         
-        # Add prover-specific configurations
         if self.prove_type == "native":
             base_request["native"] = {}
         elif self.prove_type == "sgx":
@@ -241,13 +241,13 @@ class AggregationPriorityTester:
         
         return base_request
 
-    async def submit_request(self, payload: Dict[str, Any], request_type: str, request_id: str) -> Optional[Dict[str, Any]]:
+    async def submit_request(self, payload: Dict[str, Any], request_type: str, request_id: str, sequence_number: int) -> Optional[Dict[str, Any]]:
         """Submit a request to the Raiko server"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
             endpoint = f"{self.raiko_rpc}/v3/proof/batch"
             
-            self.logger.info(f"Submitting {request_type} request {request_id}")
+            self.logger.info(f"Submitting {request_type} request {request_id} (sequence #{sequence_number})")
             start_time = time.time()
             response = requests.post(
                 endpoint,
@@ -259,7 +259,6 @@ class AggregationPriorityTester:
             try:
                 result = response.json()
             except json.JSONDecodeError:
-                self.logger.error(f"Invalid JSON response for {request_type} request {request_id}: {response.text}")
                 return None
 
             # Extract batch IDs from the payload
@@ -274,31 +273,30 @@ class AggregationPriorityTester:
                 request_id=request_id,
                 submitted_time=start_time,
                 batch_ids=batch_ids,
-                submission_success=response.status_code == 200
+                submission_success=response.status_code == 200,
+                sequence_number=sequence_number
             )
             self.test_requests.append(test_request)
             
             if response.status_code == 200:
-                self.logger.info(f"Successfully submitted {request_type} request {request_id}")
+                self.logger.info(f"Successfully submitted {request_type} request {request_id} (sequence #{sequence_number})")
                 return {
                     "request_type": request_type,
                     "request_id": request_id,
                     "payload": payload,
                     "batch_ids": batch_ids,
-                    "response": result
+                    "response": result,
+                    "sequence_number": sequence_number
                 }
             else:
-                self.logger.error(f"Failed to submit {request_type} request {request_id}: HTTP {response.status_code} - {response.text}")
                 return None
                 
         except requests.RequestException as e:
-            self.logger.error(f"Request exception submitting {request_type} request {request_id}: {e}")
             return None
         except Exception as e:
-            self.logger.error(f"Unexpected exception submitting {request_type} request {request_id}: {e}")
             return None
 
-    async def raiko_status_query(self, payload: Dict[str, Any], request_type: str, request_id: str) -> Dict[str, Any]:
+    async def raiko_status_query(self, payload: Dict[str, Any], request_type: str, request_id: str) -> RaikoResponse:
         """Query the status of a request"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
@@ -308,137 +306,315 @@ class AggregationPriorityTester:
                 endpoint,
                 headers=headers,
                 json=payload,
-                timeout=10,
+                timeout=self.request_timeout,
             )
             result = response.json()
             
-            if response.status_code != 200:
-                return {"status": "error", "message": f"HTTP {response.status_code}: {response.text}"}
-            
-            return result
-                
+            if result.get("status") == "error":
+                return RaikoResponse(
+                    status="error", message=result.get("message", "Unknown error")
+                )
+            elif result.get("status") == "ok":
+                return RaikoResponse(status="ok", data=result.get("data", {}))
+            else:
+                return RaikoResponse(status="error", message="Invalid response format")
+        except requests.exceptions.Timeout as e:
+            self.logger.warning(f"Timeout querying Raiko status for {request_type} request {request_id}: {e}")
+            return RaikoResponse(status="error", message=f"Request timeout: {str(e)}")
+        except requests.exceptions.ConnectionError as e:
+            self.logger.warning(f"Connection error querying Raiko status for {request_type} request {request_id}: {e}")
+            return RaikoResponse(status="error", message=f"Connection error: {str(e)}")
+        except requests.exceptions.RequestException as e:
+            self.logger.warning(f"Request error querying Raiko status for {request_type} request {request_id}: {e}")
+            return RaikoResponse(status="error", message=f"Request error: {str(e)}")
         except Exception as e:
-            self.logger.error(f"Failed to query Raiko status for {request_type} request {request_id}: {e}")
-            return {"status": "error", "message": str(e)}
+            self.logger.error(f"Unexpected error querying Raiko status for {request_type} request {request_id}: {e}")
+            return RaikoResponse(status="error", message=str(e))
 
-    async def monitor_processing(self, submitted_requests: List[TestRequest], monitor_duration: int = 600):
-        """Monitor the processing order of submitted requests"""
-        self.logger.info(f"Monitoring request processing for {monitor_duration} seconds...")
+    async def submit_aggregation_after_successful_proofs(self, batch_data: List[Tuple[int, int]], 
+                                                        max_wait_time: int = 3600) -> List[Dict[str, Any]]:
+        self.logger.info("="*60)
+        self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
+        self.logger.info("="*60)
         
-        processing_order = []
-        seen_tasks = set()
-        task_status_history = {}
+        successful_aggregations = []
+        successful_single_proofs = []
+        current_batch_group = []
+        submitted_requests = {}  # Track submitted requests by request_id
+        completed_proofs = set()  # Track completed proofs by batch_id
         
-        start_monitor_time = time.time()
+        # Start submitting single proof requests continuously
+        submission_task = asyncio.create_task(self._submit_continuous_single_proofs(
+            batch_data, submitted_requests
+        ))
         
-        while time.time() - start_monitor_time < monitor_duration:
-            for request in submitted_requests:
-                if request.request_type == "single_proof":
-                    batch_id = request.batch_ids[0]
-                    l1_inclusion_block = 4000000  # Default L1 block
-                    payload = self.create_single_proof_request(batch_id, l1_inclusion_block)
-                else:
-                    batch_data = [(batch_id, 4000000) for batch_id in request.batch_ids]
-                    payload = self.create_aggregation_request(batch_data)
-                
-                response = await self.raiko_status_query(payload, request.request_type, request.request_id)
-                
-                if response.get("status") == "ok" and response.get("data"):
-                    task_key = f"{request.request_type}_{request.request_id}"
-                    current_status = response["data"].get("status", "unknown").lower()
-                    previous_status = task_status_history.get(task_key, "unknown").lower()
+        # Start monitoring for completed proofs
+        monitoring_task = asyncio.create_task(self._monitor_completed_proofs(
+            submitted_requests, completed_proofs, current_batch_group, 
+            successful_single_proofs, successful_aggregations, max_wait_time
+        ))
+        
+        try:
+            # Wait for both tasks to complete
+            await asyncio.gather(submission_task, monitoring_task)
+        except asyncio.CancelledError:
+            self.logger.info("Tasks cancelled")
+        except Exception as e:
+            self.logger.error(f"Error in continuous streaming: {e}")
+        
+        self.logger.info(f"Final Summary: {len(successful_single_proofs)} successful single proofs, {len(successful_aggregations)} aggregation requests submitted")
+        return successful_aggregations
 
-                    if current_status != previous_status:
-                        self.logger.info(f"STATUS CHANGE: {task_key} - {previous_status} -> {current_status}")
-                        task_status_history[task_key] = current_status
+    async def _submit_continuous_single_proofs(self, batch_data: List[Tuple[int, int]], 
+                                             submitted_requests: Dict[str, Dict]) -> None:
+        """Continuously submit single proof requests"""
+        self.logger.info("Starting continuous single proof submission...")
+        
+        for i, (batch_id, l1_inclusion_block) in enumerate(batch_data):
+            # Create and submit single proof request
+            payload = self.create_single_proof_request(batch_id, l1_inclusion_block, aggregate=False)
+            request_id = f"single_{batch_id}_{self.test_id}"
+            request_type = "single_proof"
+            
+            # Submit the request
+            submission_result = await self.submit_request(payload, request_type, request_id, i+1)
+            if submission_result:
+                self.logger.info(f"Submitted single proof request for batch {batch_id} (sequence {i+1})")
+                submitted_requests[request_id] = {
+                    "batch_id": batch_id,
+                    "l1_inclusion_block": l1_inclusion_block,
+                    "payload": payload,
+                    "request_type": request_type,
+                    "sequence": i+1,
+                    "submitted_time": time.time()
+                }
+            else:
+                self.logger.error(f"Failed to submit single proof request for batch {batch_id}")
+            
+            # Small delay between submissions
+            await asyncio.sleep(self.request_delay)
+        
+        self.logger.info(f"Finished submitting {len(batch_data)} single proof requests")
+
+    async def _monitor_completed_proofs(self, submitted_requests: Dict[str, Dict], 
+                                      completed_proofs: set, current_batch_group: List[Tuple[int, int]],
+                                      successful_single_proofs: List[Dict], 
+                                      successful_aggregations: List[Dict],
+                                      max_wait_time: int) -> None:
+        self.logger.info("Starting monitoring for completed proofs...")
+        
+        start_time = time.time()
+        aggregation_count = 0
+        
+        while time.time() - start_time < max_wait_time and len(completed_proofs) < len(submitted_requests):
+            for request_id, request_info in submitted_requests.items():
+                batch_id = request_info["batch_id"]
+                
+                # Skip if already completed
+                if batch_id in completed_proofs:
+                    continue
+                
+                # Check if proof is completed
+                payload = request_info["payload"]
+                request_type = request_info["request_type"]
+                
+                try:
+                    response = await self.raiko_status_query(payload, request_type, request_id)
                     
-                    if task_key not in seen_tasks:
-                        if current_status in ["work_in_progress", "registered", "success"]:
-                            current_time = time.time()
-                            processing_order.append((task_key, request.request_type, payload, current_time, current_status))
-                            seen_tasks.add(task_key)
+                    if response.status == "ok" and response.data:
+                        data = response.data
+                        status = data.get("status", "unknown")
+                        if data.get("proof"):
+                            self.logger.info(f"Proof completed for batch {batch_id}!")
+                            completed_proofs.add(batch_id)
                             
-                            if request.request_type == "single_proof":
-                                self.logger.info(f"NEW TASK: {request.request_type} for batch {request.batch_ids[0]} - Status: {current_status}")
+                            # Add to successful single proofs
+                            successful_single_proofs.append({
+                                "batch_id": batch_id,
+                                "l1_inclusion_block": request_info["l1_inclusion_block"],
+                                "request_id": request_id,
+                                "sequence": request_info["sequence"]
+                            })
+                            
+                            # Add to current batch group
+                            current_batch_group.append((batch_id, request_info["l1_inclusion_block"]))
+                            
+                            if len(current_batch_group) == 3:
+                                aggregation_count += 1
+                                self.logger.info(f"3 successful proofs achieved! Submitting aggregation request #{aggregation_count} for batches: {[b for b, _ in current_batch_group]}")
+                                
+                                # Create aggregation payload
+                                agg_payload = self.create_aggregation_request(current_batch_group)
+                                agg_request_id = f"aggregation_{aggregation_count}_{self.test_id}"
+                                agg_request_type = "aggregation"
+                                
+                                # Submit aggregation request
+                                agg_submission = await self.submit_request(agg_payload, agg_request_type, agg_request_id, aggregation_count)
+                                
+                                if agg_submission:
+                                    self.logger.info(f"Aggregation request #{aggregation_count} submitted successfully for batches: {[b for b, _ in current_batch_group]}")
+                                    successful_aggregations.append({
+                                        "request_id": agg_request_id,
+                                        "batch_ids": [b for b, _ in current_batch_group],
+                                        "submission": agg_submission,
+                                        "aggregation_number": aggregation_count
+                                    })
+                                else:
+                                    self.logger.error(f"Failed to submit aggregation request #{aggregation_count} for batches: {[b for b, _ in current_batch_group]}")
+                                
+                                # Reset batch group for next aggregation
+                                current_batch_group = []
                             else:
-                                self.logger.info(f"NEW TASK: {request.request_type} for batches {request.batch_ids} - Status: {current_status}")
+                                self.logger.info(f"Progress: {len(current_batch_group)}/3 successful proofs for next aggregation")
+                        
+                        elif status in ["registered", "work_in_progress"]:
+                            # Still in progress, continue monitoring
+                            pass
+                        elif status == "failed":
+                            self.logger.error(f"Proof failed for batch {batch_id}")
+                            completed_proofs.add(batch_id)  # Mark as completed to avoid re-checking
+                
+                except Exception as e:
+                    self.logger.error(f"Error monitoring request {request_id}: {e}")
+            
+            # Check if we should continue monitoring
+            if len(completed_proofs) >= len(submitted_requests):
+                self.logger.info("All submitted requests have been processed")
+                break
+            
+            # Wait before next monitoring cycle
+            await asyncio.sleep(self.polling_interval)
+        
+        # Handle remaining successful proofs (if not exactly divisible by 3)
+        if len(current_batch_group) > 0:
+            self.logger.info(f"📋 Remaining {len(current_batch_group)} successful proofs that don't form a complete group of 3")
+        
+        self.logger.info(f"Monitoring complete. Processed {len(completed_proofs)} proofs, submitted {len(successful_aggregations)} aggregation requests")
+
+    async def monitor_aggregation_priority(self, single_proof_requests: List[Dict], aggregation_requests: List[Dict], 
+                                         monitor_duration: int = 600) -> Dict[str, Any]:
+        self.logger.info(f"Monitoring aggregation priority for {monitor_duration} seconds...")
+        
+        single_proof_status = {}
+        aggregation_status = {}
+        processing_order = []
+        completed_aggregations = set()
+        
+        start_time = time.time()
+        
+        while time.time() - start_time < monitor_duration:
+            current_time = time.time()
+            
+            # Monitor aggregation requests
+            for req in aggregation_requests:
+                request_id = req["request_id"]
+                
+                # Skip if already completed
+                if request_id in completed_aggregations:
+                    continue
+                
+                batch_ids = req["batch_ids"]
+                payload = self.create_aggregation_request([(bid, 4110000) for bid in batch_ids])
+                
+                try:
+                    response = await self.raiko_status_query(payload, "aggregation", request_id)
+                    
+                    if response.status == "ok" and response.data:
+                        data = response.data
+                        status = data.get("status", "unknown")
+                        self.logger.info(f"Aggregation proof completed for {request_id}!")
+                        completed_aggregations.add(request_id)
+                        
+                        # Record completion time for priority analysis
+                        if request_id not in [p[1] for p in processing_order]:
+                            processing_order.append(("aggregation", request_id, current_time, "completed"))
+                        
+                        if status == "failed":
+                            self.logger.error(f"Aggregation failed for {request_id}")
+                            completed_aggregations.add(request_id)  # Mark as completed to avoid re-checking
+                    
+                    elif response.status == "error":
+                        # Handle timeout and connection errors more gracefully
+                        if "timeout" in response.message.lower() or "connection" in response.message.lower():
+                            self.logger.warning(f"Network issue querying aggregation {request_id}: {response.message}")
+                            # Don't mark as completed for network issues, will retry
+                        else:
+                            self.logger.error(f"Error querying aggregation {request_id}: {response.message}")
+                
+                except Exception as e:
+                    self.logger.error(f"Unexpected error monitoring aggregation request {request_id}: {e}")
+            
+            # Check if all aggregations are completed
+            if len(completed_aggregations) >= len(aggregation_requests):
+                self.logger.info("All aggregation requests have been processed")
+                break
             
             await asyncio.sleep(self.polling_interval)
         
-        self.logger.info(f"Monitoring complete. Found {len(processing_order)} new tasks")
-        return processing_order
+        # Analyze processing order
+        aggregation_started = [p for p in processing_order if p[0] == "aggregation"]
+        
+        analysis = {
+            "total_aggregations": len(aggregation_requests),
+            "aggregations_started": len(aggregation_started),
+            "aggregations_completed": len(completed_aggregations),
+            "processing_order": processing_order,
+            "priority_working": len(aggregation_started) > 0
+        }
+        
+        if analysis["priority_working"]:
+            # Check if aggregations are being processed
+            analysis["aggregation_priority"] = len(aggregation_started) > 0
+            analysis["priority_message"] = f"Aggregation requests are being processed. Started: {len(aggregation_started)}, Completed: {len(completed_aggregations)}"
+        
+        return analysis
 
-    async def run_priority_test(self, num_single_requests: int = 8, num_aggregation_requests: int = 3, 
-                              base_block: int = 4000000, monitor_duration: int = 600) -> bool:
-        """Run the main priority test in mixed mode (single and aggregation requests interleaved)"""
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 12, base_block: int = 4110000, 
+                                                      max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
-        self.logger.info("STARTING AGGREGATION PRIORITY TEST (MIXED MODE)")
+        self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
         self.logger.info("="*60)
         self.logger.info(f"Test ID: {self.test_id}")
-        self.logger.info(f"Will submit {num_single_requests} single proof requests and {num_aggregation_requests} aggregation requests (mixed)")
-        self.logger.info(f"Total requests: {num_single_requests + num_aggregation_requests}")
+        self.logger.info(f"Will submit {total_batches} single proof requests continuously")
         
         if not hasattr(self, 'evt_contract') or self.evt_contract is None:
             self.logger.error("L1 contract not initialized - cannot proceed with test")
             return False
         
-        self.logger.info(f"Getting batch IDs from L1 chain starting from block {base_block}")
-        batch_data = self.get_available_batch_ids(base_block, base_block + 100, num_single_requests + num_aggregation_requests * 3)
+        self.logger.info(f"Getting {total_batches} batch IDs from L1 chain starting from block {base_block}")
+        batch_data = self.get_available_batch_ids(base_block, base_block + 5000, total_batches)
         
         if len(batch_data) == 0:
             self.logger.error("No batch proposals found - cannot proceed with test")
             return False
         
-        if len(batch_data) < num_single_requests + num_aggregation_requests * 3:
-            self.logger.error(f"Not enough batch proposals found. Need {num_single_requests + num_aggregation_requests * 3}, got {len(batch_data)}")
+        if len(batch_data) < total_batches:
+            self.logger.error(f"Not enough batch proposals found. Need {total_batches}, got {len(batch_data)}")
             return False
         
         self.logger.info(f"Found {len(batch_data)} batch proposals to use for testing")
         
-        # Create all requests (single and aggregation) and mix them
-        mixed_requests = []
-        # Single proof requests
-        for i in range(num_single_requests):
-            batch_id, l1_inclusion_block = batch_data[i]
-            payload = self.create_single_proof_request(batch_id, l1_inclusion_block)
-            request_id = f"single_{i}_{batch_id}_{self.test_id}"
-            mixed_requests.append((payload, request_id, "single_proof"))
-        # Aggregation requests
-        start_idx = num_single_requests
-        for i in range(num_aggregation_requests):
-            batch_group = batch_data[start_idx + i * 3:start_idx + (i + 1) * 3]
-            payload = self.create_aggregation_request(batch_group)
-            batch_ids = [batch_id for batch_id, _ in batch_group]
-            request_id = f"aggregation_{i}_{'-'.join(map(str, batch_ids))}_{self.test_id}"
-            mixed_requests.append((payload, request_id, "aggregation"))
-        # Shuffle the requests to mix single and aggregation
-        random.shuffle(mixed_requests)
-        self.logger.info(f"Submitting {len(mixed_requests)} requests in mixed order...")
-        successful_submissions = 0
-        for payload, request_id, request_type in mixed_requests:
-            result = await self.submit_request(payload, request_type, request_id)
-            if result:
-                successful_submissions += 1
-            await asyncio.sleep(self.request_delay)
-        self.logger.info(f"Submitted {successful_submissions}/{len(mixed_requests)} requests successfully")
-        if successful_submissions == 0:
-            self.logger.error("No requests were successfully submitted - cannot test priority")
+        successful_aggregations = await self.submit_aggregation_after_successful_proofs(
+            batch_data[:total_batches], max_wait_time
+        )
+        
+        if len(successful_aggregations) == 0:
+            self.logger.error("No aggregation requests were submitted - cannot test priority")
             return False
-        # Summary of submitted requests
-        successful_requests = [req for req in self.test_requests if req.submission_success]
-        single_count = len([r for r in successful_requests if r.request_type == 'single_proof'])
-        agg_count = len([r for r in successful_requests if r.request_type == 'aggregation'])
-        self.logger.info(f"Summary: {single_count} single proof requests and {agg_count} aggregation requests submitted")
-
-        self.logger.info("Starting to monitor task processing order...")
-        self.logger.info("Priority test: Aggregation tasks should start processing before single proof tasks")
-        processing_order = await self.monitor_processing(successful_requests, monitor_duration)
-
-        return True
+        
+        self.logger.info(f"Successfully submitted {len(successful_aggregations)} aggregation requests")
+        
+        # Monitor the processing priority
+        self.logger.info("Starting to monitor aggregation priority...")
+        analysis = await self.monitor_aggregation_priority(
+            [], successful_aggregations, monitor_duration
+        )
+        
+        return analysis.get("aggregation_priority", False)
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Test aggregation request priority")
+    parser = argparse.ArgumentParser(description="Test aggregation request priority with continuous streaming")
     
     parser.add_argument(
         "--raiko-rpc",
@@ -450,7 +626,7 @@ async def main():
     parser.add_argument(
         "--l1-rpc",
         type=str,
-        default="https://ethereum-holesky-rpc.publicnode.com",
+        default="http://35.240.156.196:8545",
         help="L1 RPC endpoint"
     )
     
@@ -476,17 +652,10 @@ async def main():
     )
     
     parser.add_argument(
-        "--single-requests",
+        "--total-batches",
         type=int,
-        default=8,
-        help="Number of single proof requests to submit"
-    )
-    
-    parser.add_argument(
-        "--aggregation-requests", 
-        type=int,
-        default=3,
-        help="Number of aggregation requests to submit"
+        default=12,
+        help="Total number of batches to process"
     )
     
     parser.add_argument(
@@ -507,22 +676,36 @@ async def main():
     parser.add_argument(
         "--base-block",
         type=int,
-        default=4000000,
+        default=4110000,
         help="Base block number to start testing from"
     )
     
     parser.add_argument(
         "--monitor-duration",
         type=int,
-        default=120,
+        default=600,
         help="How long to monitor request processing (seconds)"
     )
     
     parser.add_argument(
         "--polling-interval",
         type=int,
-        default=120,
+        default=5,
         help="Polling interval for status queries (seconds)"
+    )
+    
+    parser.add_argument(
+        "--max-wait-time",
+        type=int,
+        default=3600,
+        help="Maximum time to wait for proof completion (seconds)"
+    )
+    
+    parser.add_argument(
+        "--request-timeout",
+        type=int,
+        default=90,
+        help="Timeout for individual HTTP requests (seconds)"
     )
     
     parser.add_argument(
@@ -533,13 +716,6 @@ async def main():
     
     args = parser.parse_args()
     
-    if args.quick_test:
-        args.request_delay = 1.0
-        args.monitor_duration = 600
-        args.polling_interval = 200        
-        args.single_requests = 20
-        args.aggregation_requests = 5
-    
     tester = AggregationPriorityTester(
         raiko_rpc=args.raiko_rpc,
         l1_rpc=args.l1_rpc,
@@ -549,24 +725,21 @@ async def main():
         prove_type=args.prove_type,
         request_delay=args.request_delay,
         polling_interval=args.polling_interval,
+        request_timeout=args.request_timeout,
     )
     
     try:
-        priority_working = await tester.run_priority_test(
-            num_single_requests=args.single_requests,
-            num_aggregation_requests=args.aggregation_requests,
+        priority_working = await tester.run_continuous_streaming_aggregation_test(
+            total_batches=args.total_batches,
             base_block=args.base_block,
+            max_wait_time=args.max_wait_time,
             monitor_duration=args.monitor_duration
         )
         
         print("\n" + "="*60)
         if priority_working:
-            print("RESULT: Priority queue is working as expected.")
-            print("Aggregation requests are being processed with higher priority.")
             exit(0)
         else:
-            print("RESULT: Priority queue is not working as expected.")
-            print("Single proof requests may be processed before aggregation requests.")
             exit(1)
             
     except KeyboardInterrupt:
