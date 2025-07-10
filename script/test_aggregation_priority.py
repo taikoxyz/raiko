@@ -439,9 +439,9 @@ class AggregationPriorityTester:
                             # Add to current batch group
                             current_batch_group.append((batch_id, request_info["l1_inclusion_block"]))
                             
-                            if len(current_batch_group) == 3:
+                            if len(current_batch_group) == 2:
                                 aggregation_count += 1
-                                self.logger.info(f"3 successful proofs achieved! Submitting aggregation request #{aggregation_count} for batches: {[b for b, _ in current_batch_group]}")
+                                self.logger.info(f"2 successful proofs achieved! Submitting aggregation request #{aggregation_count} for batches: {[b for b, _ in current_batch_group]}")
                                 
                                 # Create aggregation payload
                                 agg_payload = self.create_aggregation_request(current_batch_group)
@@ -465,7 +465,7 @@ class AggregationPriorityTester:
                                 # Reset batch group for next aggregation
                                 current_batch_group = []
                             else:
-                                self.logger.info(f"Progress: {len(current_batch_group)}/3 successful proofs for next aggregation")
+                                self.logger.info(f"Progress: {len(current_batch_group)}/2 successful proofs for next aggregation")
                         
                         elif status in ["registered", "work_in_progress"]:
                             # Still in progress, continue monitoring
@@ -485,9 +485,9 @@ class AggregationPriorityTester:
             # Wait before next monitoring cycle
             await asyncio.sleep(self.polling_interval)
         
-        # Handle remaining successful proofs (if not exactly divisible by 3)
+        # Handle remaining successful proofs (if not exactly divisible by 2)
         if len(current_batch_group) > 0:
-            self.logger.info(f"📋 Remaining {len(current_batch_group)} successful proofs that don't form a complete group of 3")
+            self.logger.info(f"Remaining {len(current_batch_group)} successful proofs that don't form a complete group of 2")
         
         self.logger.info(f"Monitoring complete. Processed {len(completed_proofs)} proofs, submitted {len(successful_aggregations)} aggregation requests")
 
@@ -569,7 +569,7 @@ class AggregationPriorityTester:
         
         return analysis
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 12, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 60, base_block: int = 4110000, 
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -654,7 +654,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=12,
+        default=60,
         help="Total number of batches to process"
     )
     

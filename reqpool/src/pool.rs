@@ -67,7 +67,14 @@ impl Pool {
         request_key: &RequestKey,
     ) -> Result<Option<StatusWithContext>, String> {
         let result = self.get(request_key).map(|v| v.map(|v| v.1));
-        tracing::info!("RedisPool.get_status: {request_key}, {result:?}");
+        if let Ok(Some(ref status_with_context)) = &result {
+            tracing::info!(
+                "RedisPool.get_status: {request_key}, {}",
+                status_with_context
+            );
+        } else {
+            tracing::info!("RedisPool.get_status: {request_key}, None");
+        }
         result
     }
 
