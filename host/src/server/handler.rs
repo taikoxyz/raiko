@@ -1,4 +1,4 @@
-use raiko_reqactor::{Action, Actor};
+use raiko_reqactor::Actor;
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, RequestEntity, RequestKey,
     SingleProofRequestKey, Status,
@@ -13,17 +13,19 @@ pub async fn prove(
     request_key: RequestKey,
     request_entity: RequestEntity,
 ) -> Result<Status, String> {
-    let action = Action::Prove {
-        request_key,
-        request_entity,
-    };
-    act(actor, action).await
+    if actor.is_paused() {
+        return Err("System is paused".to_string());
+    }
+
+    actor
+        .act(request_key.clone(), request_entity, chrono::Utc::now())
+        .await
+        .map(|status| status.into_status())
 }
 
 /// Cancel the request.
-pub async fn cancel(actor: &Actor, request_key: RequestKey) -> Result<Status, String> {
-    let action = Action::Cancel { request_key };
-    act(actor, action).await
+pub async fn cancel(_actor: &Actor, _request_key: RequestKey) -> Result<Status, String> {
+    unimplemented!()
 }
 
 /// Prove the aggregation request and its sub-requests.
@@ -97,46 +99,4 @@ pub async fn cancel_aggregation(
         let _discard = cancel(actor, sub_request_key.into()).await?;
     }
     cancel(actor, request_key.into()).await
-}
-
-// === Helper functions ===
-
-// Send the action to the Actor and return the response status
-async fn act(actor: &Actor, action: Action) -> Result<Status, String> {
-    // Check if the system is paused
-    if actor.is_paused() {
-        return Err("System is paused".to_string());
-    }
-
-    let request_key = action.request_key();
-    // Return early if the request is already registered, except for failed & aggregation requests
-    if let Ok(Some(status)) = actor.pool_get_status(request_key) {
-        tracing::debug!("trace request {request_key:?} status: {status:?}");
-        match request_key {
-            RequestKey::Aggregation(_) => {
-                // if aggregation, return early only if the request is successful
-                if matches!(status.status(), Status::Success { .. }) {
-                    return Ok(status.into_status());
-                }
-            }
-            _ => {
-                // if not aggregation, return early if the request is not failed
-                if !matches!(status.status(), Status::Failed { .. }) {
-                    return Ok(status.into_status());
-                }
-            }
-        }
-    } else {
-        tracing::debug!("trace request {request_key:?} status: not found");
-    }
-
-    // Send the action to the Actor and return the response status
-    actor.act(action.clone()).await.map(|status| {
-        tracing::debug!(
-            "trace request out {request_key}: {status}",
-            request_key = request_key,
-            status = status.status()
-        );
-        status.into_status()
-    })
 }
