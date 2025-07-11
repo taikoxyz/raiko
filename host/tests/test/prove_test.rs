@@ -35,7 +35,7 @@ pub async fn test_v2_mainnet_native_prove() {
 
     complete_proof_request(api_version, &client, &request).await;
 
-    // sending the same completed request should should be ok
+    // sending the same completed request should be ok
     complete_proof_request(api_version, &client, &request).await;
 
     // santy check for report format
@@ -87,7 +87,7 @@ pub async fn test_v2_mainnet_zk_any_prove() {
 
     complete_proof_request(api_version, &client, &request).await;
 
-    // sending the same completed request should should be ok
+    // sending the same completed request should be ok
     complete_proof_request(api_version, &client, &request).await;
 
     // santy check for report format
