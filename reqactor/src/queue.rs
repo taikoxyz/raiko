@@ -1,5 +1,4 @@
 use std::collections::{HashSet, VecDeque};
-
 use raiko_reqpool::{RequestEntity, RequestKey};
 
 /// Queue of requests to be processed
@@ -7,6 +6,8 @@ use raiko_reqpool::{RequestEntity, RequestKey};
 pub struct Queue {
     /// High priority pending requests
     high_pending: VecDeque<(RequestKey, RequestEntity)>,
+    /// Medium priority pending requests
+    medium_pending: VecDeque<(RequestKey, RequestEntity)>,
     /// Low priority pending requests
     low_pending: VecDeque<(RequestKey, RequestEntity)>,
     /// Requests that are currently being worked on
@@ -19,6 +20,7 @@ impl Queue {
     pub fn new() -> Self {
         Self {
             high_pending: VecDeque::new(),
+            medium_pending: VecDeque::new(),
             low_pending: VecDeque::new(),
             working_in_progress: HashSet::new(),
             queued_keys: HashSet::new(),
@@ -31,23 +33,29 @@ impl Queue {
 
     pub fn add_pending(&mut self, request_key: RequestKey, request_entity: RequestEntity) {
         if self.queued_keys.insert(request_key.clone()) {
-            let is_high_priority = matches!(request_key, RequestKey::Aggregation(_));
-            if is_high_priority {
-                self.high_pending.push_back((request_key, request_entity));
-            } else {
-                self.low_pending.push_back((request_key, request_entity));
+            // Check priority and add to appropriate queue using pattern matching
+            match &request_key {
+                RequestKey::Aggregation(_) => {
+                    tracing::info!("Adding aggregation request to high priority queue");
+                    self.high_pending.push_back((request_key, request_entity));
+                }
+                RequestKey::BatchProof(_) => {
+                    tracing::info!("Adding batch proof request to medium priority queue");
+                    self.medium_pending.push_back((request_key, request_entity));
+                }
+                _ => {
+                    self.low_pending.push_back((request_key, request_entity));
+                }
             }
         }
     }
 
-    /// Attempts to move a request from either the high or low priority queue into the in-flight set
+    /// Attempts to move a request from either the high, medium or low priority queue into the in-flight set
     /// and starts processing it. High priority requests are processed first.
     pub fn try_next(&mut self) -> Option<(RequestKey, RequestEntity)> {
-        // Try high priority queue first
-        let (request_key, request_entity) = self
-            .high_pending
-            .pop_front()
-            .or_else(|| self.low_pending.pop_front())?;
+        let (request_key, request_entity) = self.high_pending.pop_front().or_else(|| {
+            self.medium_pending.pop_front().or_else(|| self.low_pending.pop_front())
+        })?;
 
         self.working_in_progress.insert(request_key.clone());
         Some((request_key, request_entity))
