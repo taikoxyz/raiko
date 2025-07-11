@@ -58,7 +58,15 @@ impl TestServerBuilder {
 
         let address_clone = address.clone();
         tokio::spawn(async move {
-            let _ = serve(actor, &address_clone, max_proving_concurrency, None).await;
+            let _ = serve(
+                actor,
+                &address_clone,
+                max_proving_concurrency,
+                None,
+                None,
+                None,
+            )
+            .await;
         });
 
         TestServerHandle { address }

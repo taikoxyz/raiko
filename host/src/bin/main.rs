@@ -1,9 +1,14 @@
 #![allow(incomplete_features)]
 use raiko_host::{
-    interfaces::HostResult, parse_ballot, parse_chain_specs, parse_opts, server::serve,
+    interfaces::HostResult,
+    parse_ballot, parse_chain_specs, parse_opts,
+    server::auth::ApiKeyStore,
+    server::logging::{LogFormat, RequestLoggingConfig},
+    server::serve,
 };
 use raiko_reqpool::RedisPoolConfig;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::{debug, info};
 use tracing_appender::{
     non_blocking::WorkerGuard,
@@ -45,7 +50,35 @@ async fn main() -> HostResult<()> {
     let address = opts.address.as_str();
     let concurrency = opts.concurrency_limit;
     let jwt_secret = opts.jwt_secret.clone();
-    serve(actor, address, concurrency, jwt_secret).await?;
+
+    let request_logging_config = if opts.enable_request_logging {
+        let log_format = match opts.request_log_format.as_str() {
+            "csv" => LogFormat::Csv,
+            _ => LogFormat::Json,
+        };
+
+        Some(RequestLoggingConfig {
+            enabled: true,
+            log_file_path: opts.request_log_path.clone(),
+            log_format,
+            retention_days: 30,
+            include_headers: vec!["user-agent".to_string()],
+            exclude_paths: vec!["/health".to_string(), "/metrics".to_string()],
+        })
+    } else {
+        None
+    };
+
+    let api_key_store = Some(Arc::new(ApiKeyStore::new(opts.api_keys)));
+    serve(
+        actor,
+        address,
+        concurrency,
+        jwt_secret,
+        request_logging_config,
+        api_key_store,
+    )
+    .await?;
     Ok(())
 }
 

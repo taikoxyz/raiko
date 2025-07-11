@@ -1,11 +1,14 @@
 use crate::{interfaces::HostError, server::api::create_router};
 use anyhow::Context;
+use std::sync::Arc;
 use std::{net::SocketAddr, str::FromStr};
 use tokio::net::TcpListener;
 use tracing::info;
 
 pub mod api;
+pub mod auth;
 pub mod handler;
+pub mod logging;
 pub mod utils;
 
 pub use handler::{cancel, cancel_aggregation, prove, prove_aggregation};
@@ -17,6 +20,8 @@ pub async fn serve(
     address: &str,
     concurrency_limit: usize,
     jwt_secret: Option<String>,
+    request_logging_config: Option<crate::server::logging::RequestLoggingConfig>,
+    api_key_store: Option<Arc<crate::server::auth::ApiKeyStore>>,
 ) -> anyhow::Result<()> {
     let addr = SocketAddr::from_str(address)
         .map_err(|_| HostError::InvalidAddress(address.to_string()))?;
@@ -24,7 +29,13 @@ pub async fn serve(
 
     info!("Listening on: {}", listener.local_addr()?);
 
-    let router = create_router(concurrency_limit, jwt_secret.as_deref()).with_state(actor);
+    let router = create_router(
+        concurrency_limit,
+        jwt_secret.as_deref(),
+        request_logging_config,
+        api_key_store,
+    )
+    .with_state(actor);
     axum::serve(listener, router)
         .await
         .context("Server couldn't serve")?;

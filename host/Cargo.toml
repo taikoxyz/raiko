@@ -67,6 +67,10 @@ reqwest_alloy = { workspace = true }
 sha2 = { workspace = true }
 proptest = { workspace = true }
 rlp = { workspace = true }
+uuid = { workspace = true }
+dashmap = { workspace = true }
+rand = { workspace = true }
+hex = { workspace = true }
 url = { workspace = true }
 cfg-if = { workspace = true }
 cap = { workspace = true }
