@@ -1,14 +1,15 @@
 use std::collections::{HashSet, VecDeque};
-
 use raiko_reqpool::{RequestEntity, RequestKey};
 
 /// Queue of requests to be processed
 #[derive(Debug)]
 pub struct Queue {
-    /// High priority pending requests
-    high_pending: VecDeque<(RequestKey, RequestEntity)>,
-    /// Low priority pending requests
-    low_pending: VecDeque<(RequestKey, RequestEntity)>,
+    /// High priority pending for aggregation requests
+    agg_queue: VecDeque<(RequestKey, RequestEntity)>,
+    /// Medium priority pending for batch proof requests
+    batch_queue: VecDeque<(RequestKey, RequestEntity)>,
+    /// Low priority pending for preflight requests
+    preflight_queue: VecDeque<(RequestKey, RequestEntity)>,
     /// Requests that are currently being worked on
     working_in_progress: HashSet<RequestKey>,
     /// Requests that have been pushed to the queue or are in-flight
@@ -18,8 +19,9 @@ pub struct Queue {
 impl Queue {
     pub fn new() -> Self {
         Self {
-            high_pending: VecDeque::new(),
-            low_pending: VecDeque::new(),
+            agg_queue: VecDeque::new(),
+            batch_queue: VecDeque::new(),
+            preflight_queue: VecDeque::new(),
             working_in_progress: HashSet::new(),
             queued_keys: HashSet::new(),
         }
@@ -31,23 +33,29 @@ impl Queue {
 
     pub fn add_pending(&mut self, request_key: RequestKey, request_entity: RequestEntity) {
         if self.queued_keys.insert(request_key.clone()) {
-            let is_high_priority = matches!(request_key, RequestKey::Aggregation(_));
-            if is_high_priority {
-                self.high_pending.push_back((request_key, request_entity));
-            } else {
-                self.low_pending.push_back((request_key, request_entity));
+            // Check priority and add to appropriate queue using pattern matching
+            match &request_key {
+                RequestKey::Aggregation(_) => {
+                    tracing::info!("Adding aggregation request to high priority queue");
+                    self.agg_queue.push_back((request_key, request_entity));
+                }
+                RequestKey::BatchProof(_) => {
+                    tracing::info!("Adding batch proof request to medium priority queue");
+                    self.batch_queue.push_back((request_key, request_entity));
+                }
+                _ => {
+                    self.preflight_queue.push_back((request_key, request_entity));
+                }
             }
         }
     }
 
-    /// Attempts to move a request from either the high or low priority queue into the in-flight set
+    /// Attempts to move a request from either the high, medium or low priority queue into the in-flight set
     /// and starts processing it. High priority requests are processed first.
     pub fn try_next(&mut self) -> Option<(RequestKey, RequestEntity)> {
-        // Try high priority queue first
-        let (request_key, request_entity) = self
-            .high_pending
-            .pop_front()
-            .or_else(|| self.low_pending.pop_front())?;
+        let (request_key, request_entity) = self.agg_queue.pop_front().or_else(|| {
+            self.batch_queue.pop_front().or_else(|| self.preflight_queue.pop_front())
+        })?;
 
         self.working_in_progress.insert(request_key.clone());
         Some((request_key, request_entity))
@@ -138,8 +146,8 @@ mod tests {
 
         // Verify all requests are in queue
         assert_eq!(queue.queued_keys.len(), 4);
-        assert_eq!(queue.high_pending.len(), 2);
-        assert_eq!(queue.low_pending.len(), 2);
+        assert_eq!(queue.agg_queue.len(), 2);
+        assert_eq!(queue.preflight_queue.len(), 2);
 
         // Process in priority order
         let (key, _) = queue.try_next().unwrap();
@@ -168,7 +176,7 @@ mod tests {
         // Queue should be completely empty after all requests are completed
         assert_eq!(queue.queued_keys.len(), 0);
         assert_eq!(queue.working_in_progress.len(), 0);
-        assert_eq!(queue.high_pending.len(), 0);
-        assert_eq!(queue.low_pending.len(), 0);
+        assert_eq!(queue.agg_queue.len(), 0);
+        assert_eq!(queue.preflight_queue.len(), 0);
     }
 }

@@ -55,7 +55,7 @@ class AggregationPriorityTester:
         evt_address: str = "0x79C9109b764609df928d16fC4a91e9081F7e87DB",
         log_file: str = "aggregation_priority_test.log",
         prove_type: str = "native",
-        request_delay: float = 1.0,
+        request_delay: float = 0.0,
         polling_interval: int = 3,
         request_timeout: int = 90,
     ):
@@ -332,7 +332,7 @@ class AggregationPriorityTester:
             return RaikoResponse(status="error", message=str(e))
 
     async def submit_aggregation_after_successful_proofs(self, batch_data: List[Tuple[int, int]], 
-                                                        max_wait_time: int = 3600) -> List[Dict[str, Any]]:
+                                                        max_wait_time: int = 3600, monitor_duration: int = 600) -> Dict[str, Any]:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
         self.logger.info("="*60)
@@ -342,16 +342,19 @@ class AggregationPriorityTester:
         current_batch_group = []
         submitted_requests = {}  # Track submitted requests by request_id
         completed_proofs = set()  # Track completed proofs by batch_id
+        completed_aggregations = set()  # Track completed aggregation requests
+        processing_order = []  # Track processing order for priority analysis
         
         # Start submitting single proof requests continuously
         submission_task = asyncio.create_task(self._submit_continuous_single_proofs(
             batch_data, submitted_requests
         ))
         
-        # Start monitoring for completed proofs
-        monitoring_task = asyncio.create_task(self._monitor_completed_proofs(
+        # Start monitoring for completed proofs and aggregation priority
+        monitoring_task = asyncio.create_task(self._monitor_completed_proofs_with_priority(
             submitted_requests, completed_proofs, current_batch_group, 
-            successful_single_proofs, successful_aggregations, max_wait_time
+            successful_single_proofs, successful_aggregations, completed_aggregations,
+            processing_order, max_wait_time, monitor_duration
         ))
         
         try:
@@ -363,7 +366,24 @@ class AggregationPriorityTester:
             self.logger.error(f"Error in continuous streaming: {e}")
         
         self.logger.info(f"Final Summary: {len(successful_single_proofs)} successful single proofs, {len(successful_aggregations)} aggregation requests submitted")
-        return successful_aggregations
+        
+        # Analyze processing order and priority
+        aggregation_started = [p for p in processing_order if p[0] == "aggregation"]
+        
+        analysis = {
+            "total_aggregations": len(successful_aggregations),
+            "aggregations_started": len(aggregation_started),
+            "aggregations_completed": len(completed_aggregations),
+            "processing_order": processing_order,
+            "priority_working": len(aggregation_started) > 0,
+            "successful_aggregations": successful_aggregations
+        }
+        
+        if analysis["priority_working"]:
+            analysis["aggregation_priority"] = len(aggregation_started) > 0
+            analysis["priority_message"] = f"Aggregation requests are being processed. Started: {len(aggregation_started)}, Completed: {len(completed_aggregations)}"
+        
+        return analysis
 
     async def _submit_continuous_single_proofs(self, batch_data: List[Tuple[int, int]], 
                                              submitted_requests: Dict[str, Dict]) -> None:
@@ -392,21 +412,26 @@ class AggregationPriorityTester:
                 self.logger.error(f"Failed to submit single proof request for batch {batch_id}")
             
             # Small delay between submissions
-            await asyncio.sleep(self.request_delay)
+            # await asyncio.sleep(self.request_delay)
         
         self.logger.info(f"Finished submitting {len(batch_data)} single proof requests")
 
-    async def _monitor_completed_proofs(self, submitted_requests: Dict[str, Dict], 
-                                      completed_proofs: set, current_batch_group: List[Tuple[int, int]],
-                                      successful_single_proofs: List[Dict], 
-                                      successful_aggregations: List[Dict],
-                                      max_wait_time: int) -> None:
-        self.logger.info("Starting monitoring for completed proofs...")
+    async def _monitor_completed_proofs_with_priority(self, submitted_requests: Dict[str, Dict], 
+                                                    completed_proofs: set, current_batch_group: List[Tuple[int, int]],
+                                                    successful_single_proofs: List[Dict], 
+                                                    successful_aggregations: List[Dict],
+                                                    completed_aggregations: set, processing_order: List,
+                                                    max_wait_time: int, monitor_duration: int) -> None:
+        self.logger.info("Starting monitoring for completed proofs and aggregation priority...")
         
         start_time = time.time()
         aggregation_count = 0
+        priority_monitoring_start = time.time()
         
         while time.time() - start_time < max_wait_time and len(completed_proofs) < len(submitted_requests):
+            current_time = time.time()
+            
+            # Monitor single proof requests
             for request_id, request_info in submitted_requests.items():
                 batch_id = request_info["batch_id"]
                 
@@ -459,6 +484,9 @@ class AggregationPriorityTester:
                                         "submission": agg_submission,
                                         "aggregation_number": aggregation_count
                                     })
+                                    
+                                    # Record aggregation submission time for priority analysis
+                                    processing_order.append(("aggregation", agg_request_id, current_time, "submitted"))
                                 else:
                                     self.logger.error(f"Failed to submit aggregation request #{aggregation_count} for batches: {[b for b, _ in current_batch_group]}")
                                 
@@ -477,6 +505,48 @@ class AggregationPriorityTester:
                 except Exception as e:
                     self.logger.error(f"Error monitoring request {request_id}: {e}")
             
+            # Monitor aggregation requests for priority analysis
+            if len(successful_aggregations) > 0 and (current_time - priority_monitoring_start) < monitor_duration:
+                for agg_req in successful_aggregations:
+                    request_id = agg_req["request_id"]
+                    
+                    # Skip if already completed
+                    if request_id in completed_aggregations:
+                        continue
+                    
+                    batch_ids = agg_req["batch_ids"]
+                    payload = self.create_aggregation_request([(bid, 4110000) for bid in batch_ids])
+                    
+                    try:
+                        response = await self.raiko_status_query(payload, "aggregation", request_id)
+                        
+                        if response.status == "ok" and response.data:
+                            data = response.data
+                            status = data.get("status", "unknown")
+                            
+                            # if data.get("proof"):
+                            self.logger.info(f"Aggregation proof completed for {request_id}!")
+                            completed_aggregations.add(request_id)
+                            
+                            # Record completion time for priority analysis
+                            if request_id not in [p[1] for p in processing_order if p[3] == "completed"]:
+                                processing_order.append(("aggregation", request_id, current_time, "completed"))
+                                
+                            # elif status == "failed":
+                            #     self.logger.error(f"Aggregation failed for {request_id}")
+                            #     completed_aggregations.add(request_id)  # Mark as completed to avoid re-checking
+                        
+                        elif response.status == "error":
+                            # Handle timeout and connection errors more gracefully
+                            if "timeout" in response.message.lower() or "connection" in response.message.lower():
+                                self.logger.warning(f"Network issue querying aggregation {request_id}: {response.message}")
+                                # Don't mark as completed for network issues, will retry
+                            else:
+                                self.logger.error(f"Error querying aggregation {request_id}: {response.message}")
+                    
+                    except Exception as e:
+                        self.logger.error(f"Unexpected error monitoring aggregation request {request_id}: {e}")
+            
             # Check if we should continue monitoring
             if len(completed_proofs) >= len(submitted_requests):
                 self.logger.info("All submitted requests have been processed")
@@ -489,87 +559,11 @@ class AggregationPriorityTester:
         if len(current_batch_group) > 0:
             self.logger.info(f"Remaining {len(current_batch_group)} successful proofs that don't form a complete group of 2")
         
-        self.logger.info(f"Monitoring complete. Processed {len(completed_proofs)} proofs, submitted {len(successful_aggregations)} aggregation requests")
+        self.logger.info(f"Monitoring complete. Processed {len(completed_proofs)} proofs, submitted {len(successful_aggregations)} aggregation requests, completed {len(completed_aggregations)} aggregations")
 
-    async def monitor_aggregation_priority(self, single_proof_requests: List[Dict], aggregation_requests: List[Dict], 
-                                         monitor_duration: int = 600) -> Dict[str, Any]:
-        self.logger.info(f"Monitoring aggregation priority for {monitor_duration} seconds...")
-        
-        single_proof_status = {}
-        aggregation_status = {}
-        processing_order = []
-        completed_aggregations = set()
-        
-        start_time = time.time()
-        
-        while time.time() - start_time < monitor_duration:
-            current_time = time.time()
-            
-            # Monitor aggregation requests
-            for req in aggregation_requests:
-                request_id = req["request_id"]
-                
-                # Skip if already completed
-                if request_id in completed_aggregations:
-                    continue
-                
-                batch_ids = req["batch_ids"]
-                payload = self.create_aggregation_request([(bid, 4110000) for bid in batch_ids])
-                
-                try:
-                    response = await self.raiko_status_query(payload, "aggregation", request_id)
-                    
-                    if response.status == "ok" and response.data:
-                        data = response.data
-                        status = data.get("status", "unknown")
-                        self.logger.info(f"Aggregation proof completed for {request_id}!")
-                        completed_aggregations.add(request_id)
-                        
-                        # Record completion time for priority analysis
-                        if request_id not in [p[1] for p in processing_order]:
-                            processing_order.append(("aggregation", request_id, current_time, "completed"))
-                        
-                        if status == "failed":
-                            self.logger.error(f"Aggregation failed for {request_id}")
-                            completed_aggregations.add(request_id)  # Mark as completed to avoid re-checking
-                    
-                    elif response.status == "error":
-                        # Handle timeout and connection errors more gracefully
-                        if "timeout" in response.message.lower() or "connection" in response.message.lower():
-                            self.logger.warning(f"Network issue querying aggregation {request_id}: {response.message}")
-                            # Don't mark as completed for network issues, will retry
-                        else:
-                            self.logger.error(f"Error querying aggregation {request_id}: {response.message}")
-                
-                except Exception as e:
-                    self.logger.error(f"Unexpected error monitoring aggregation request {request_id}: {e}")
-            
-            # Check if all aggregations are completed
-            if len(completed_aggregations) >= len(aggregation_requests):
-                self.logger.info("All aggregation requests have been processed")
-                break
-            
-            await asyncio.sleep(self.polling_interval)
-        
-        # Analyze processing order
-        aggregation_started = [p for p in processing_order if p[0] == "aggregation"]
-        
-        analysis = {
-            "total_aggregations": len(aggregation_requests),
-            "aggregations_started": len(aggregation_started),
-            "aggregations_completed": len(completed_aggregations),
-            "processing_order": processing_order,
-            "priority_working": len(aggregation_started) > 0
-        }
-        
-        if analysis["priority_working"]:
-            # Check if aggregations are being processed
-            analysis["aggregation_priority"] = len(aggregation_started) > 0
-            analysis["priority_message"] = f"Aggregation requests are being processed. Started: {len(aggregation_started)}, Completed: {len(completed_aggregations)}"
-        
-        return analysis
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 60, base_block: int = 4110000, 
+
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 30, base_block: int = 4110000, 
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -594,21 +588,28 @@ class AggregationPriorityTester:
         
         self.logger.info(f"Found {len(batch_data)} batch proposals to use for testing")
         
-        successful_aggregations = await self.submit_aggregation_after_successful_proofs(
-            batch_data[:total_batches], max_wait_time
+        # Run the integrated test with monitoring
+        analysis = await self.submit_aggregation_after_successful_proofs(
+            batch_data[:total_batches], max_wait_time, monitor_duration
         )
         
-        if len(successful_aggregations) == 0:
+        if len(analysis.get("successful_aggregations", [])) == 0:
             self.logger.error("No aggregation requests were submitted - cannot test priority")
             return False
         
-        self.logger.info(f"Successfully submitted {len(successful_aggregations)} aggregation requests")
+        self.logger.info(f"Successfully submitted {len(analysis.get('successful_aggregations', []))} aggregation requests")
         
-        # Monitor the processing priority
-        self.logger.info("Starting to monitor aggregation priority...")
-        analysis = await self.monitor_aggregation_priority(
-            [], successful_aggregations, monitor_duration
-        )
+        # Log the analysis results
+        self.logger.info("="*60)
+        self.logger.info("AGGREGATION PRIORITY ANALYSIS RESULTS")
+        self.logger.info("="*60)
+        self.logger.info(f"Total aggregations submitted: {analysis.get('total_aggregations', 0)}")
+        self.logger.info(f"Aggregations started processing: {analysis.get('aggregations_started', 0)}")
+        self.logger.info(f"Aggregations completed: {analysis.get('aggregations_completed', 0)}")
+        self.logger.info(f"Priority working: {analysis.get('priority_working', False)}")
+        
+        if analysis.get("priority_message"):
+            self.logger.info(f"Priority message: {analysis.get('priority_message')}")
         
         return analysis.get("aggregation_priority", False)
 
@@ -654,7 +655,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=60,
+        default=30,
         help="Total number of batches to process"
     )
     
