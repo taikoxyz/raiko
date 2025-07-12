@@ -2,12 +2,13 @@ use crate::{
     interfaces::HostResult,
     server::{
         api::v3::{ProofResponse, Status},
+        auth::AuthenticatedApiKey,
         handler::prove_many,
         prove_aggregation,
         utils::{draw_for_zk_any_batch_request, is_zk_any_request, to_v3_status},
     },
 };
-use axum::{extract::State, routing::post, Json, Router};
+use axum::{extract::State, routing::post, Extension, Json, Router};
 use raiko_core::{
     interfaces::{BatchMetadata, BatchProofRequest, BatchProofRequestOpt, RaikoError},
     merge,
@@ -40,10 +41,12 @@ use utoipa::OpenApi;
 async fn batch_handler(
     State(actor): State<Actor>,
     Json(batch_request_opt): Json<Value>,
+    // Extension(authenticated_key): Extension<AuthenticatedApiKey>,
 ) -> HostResult<Status> {
     tracing::debug!(
-        "Received batch request: {}",
-        serde_json::to_string(&batch_request_opt)?
+        "Incoming batch request: {} from {}",
+        serde_json::to_string(&batch_request_opt)?,
+        "", // authenticated_key.name
     );
 
     let batch_request = {
@@ -92,8 +95,9 @@ async fn batch_handler(
         batch_request
     };
     tracing::info!(
-        "IN Batch request: {}",
-        serde_json::to_string(&batch_request)?
+        "Accepted Batch request: {} from {}",
+        serde_json::to_string(&batch_request)?,
+        "", // authenticated_key.name
     );
 
     let chain_id = actor.get_chain_spec(&batch_request.network)?.chain_id;
@@ -234,3 +238,13 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 pub fn create_router() -> Router<Actor> {
     Router::new().route("/", post(batch_handler))
 }
+
+// use axum::response::IntoResponse;
+
+// async fn batch_handler_wrapper(
+//     State(actor): State<Actor>,
+//     Json(json): Json<Value>,
+//     Extension(auth): Extension<AuthenticatedApiKey>,
+// ) -> impl IntoResponse {
+//     batch_handler(State(actor), Json(json), Extension(auth)).await
+// }

@@ -63,17 +63,6 @@ pub fn create_router(
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
         });
 
-    // API statistics
-    if let Some(logging_config) = request_logging_config {
-        if logging_config.enabled {
-            let logger = Arc::new(AsyncRequestLogger::new(logging_config));
-            router = router.layer(axum::middleware::from_fn_with_state(
-                logger.clone(),
-                crate::server::logging::api_key_logging_middleware,
-            ));
-        }
-    }
-
     // X-API-KEY Authentication
     if let Some(api_key_store) = api_key_store {
         router = router.layer(axum::middleware::from_fn_with_state(

@@ -18,15 +18,12 @@ use uuid::Uuid;
 pub struct ApiKeyRequestLog {
     pub api_key: String,
     pub request_id: String,
-    pub method: String,
-    pub path: String,
+    pub request_detail: String,
     pub start_time: DateTime<Utc>,
     pub end_time: Option<DateTime<Utc>>,
     pub duration_ms: Option<u64>,
     pub status_code: Option<u16>,
     pub error: Option<String>,
-    pub user_agent: Option<String>,
-    pub ip_address: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -207,11 +204,9 @@ impl AsyncRequestLogger {
 
     fn format_csv(log_entry: &ApiKeyRequestLog) -> String {
         format!(
-            "{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{}",
             log_entry.api_key,
             log_entry.request_id,
-            log_entry.method,
-            log_entry.path,
             log_entry.start_time,
             log_entry
                 .end_time
@@ -220,8 +215,6 @@ impl AsyncRequestLogger {
             log_entry.duration_ms.unwrap_or(0),
             log_entry.status_code.unwrap_or(0),
             log_entry.error.as_deref().unwrap_or(""),
-            log_entry.user_agent.as_deref().unwrap_or(""),
-            log_entry.ip_address.as_deref().unwrap_or(""),
         )
     }
 
@@ -229,33 +222,19 @@ impl AsyncRequestLogger {
         &self,
         request_id: &str,
         api_key: &str,
-        req: &Request,
-    ) -> Result<(), StatusCode> {
-    // ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // let log_entry = ApiKeyRequestLog {
-        //     api_key: api_key.to_string(),
-        //     request_id: request_id.to_string(),
-        //     method: req.method().to_string(),
-        //     path: req.uri().path().to_string(),
-        //     start_time: Utc::now(),
-        //     end_time: None,
-        //     duration_ms: None,
-        //     status_code: None,
-        //     error: None,
-        //     user_agent: req
-        //         .headers()
-        //         .get("user-agent")
-        //         .and_then(|h| h.to_str().ok())
-        //         .map(|s| s.to_string()),
-        //     ip_address: req
-        //         .headers()
-        //         .get("x-forwarded-for")
-        //         .or_else(|| req.headers().get("x-real-ip"))
-        //         .and_then(|h| h.to_str().ok())
-        //         .map(|s| s.to_string()),
-        // };
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let log_entry = ApiKeyRequestLog {
+            api_key: api_key.to_string(),
+            request_id: request_id.to_string(),
+            start_time: Utc::now(),
+            end_time: None,
+            duration_ms: None,
+            status_code: None,
+            error: None,
+            request_detail: "".to_string(),
+        };
 
-        // self.sender.send(log_entry)?;
+        self.sender.send(log_entry)?;
         Ok(())
     }
 
@@ -269,15 +248,12 @@ impl AsyncRequestLogger {
         let log_entry = ApiKeyRequestLog {
             api_key: api_key.to_string(),
             request_id: request_id.to_string(),
-            method: "".to_string(),
-            path: "".to_string(),
             start_time: Utc::now(),
             end_time: Some(Utc::now()),
             duration_ms: Some(0),
             status_code: Some(response.status().as_u16()),
             error: None,
-            user_agent: None,
-            ip_address: None,
+            request_detail: "".to_string(),
         };
 
         self.sender.send(log_entry)?;
@@ -320,13 +296,12 @@ pub async fn api_key_logging_middleware(
     };
 
     // log request start
-    // if let Err(e) = logger.log_request_start(&request_id, &api_key, &req).await {
-    //     error!("Failed to log request start: {}", e);
-    // }
-    // let _ = logger.log_request_start(&request_id, &api_key, &req).await;
+    if let Err(e) = logger.log_request_start(&request_id, &api_key).await {
+        error!("Failed to log request start: {}", e);
+    }
 
-    // // handle request
-    // let response = next.run(req).await;
+    // handle request
+    let response = next.run(req).await;
 
     // // log request end
     // if let Err(e) = logger
@@ -336,8 +311,8 @@ pub async fn api_key_logging_middleware(
     //     error!("Failed to log request end: {}", e);
     // }
 
-    // Ok(response)
-    Ok(next.run(req).await)
+    Ok(response)
+    // Ok(next.run(req).await)
 }
 
 fn extract_api_key(req: &Request) -> String {

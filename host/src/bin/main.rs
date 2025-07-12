@@ -1,4 +1,5 @@
 #![allow(incomplete_features)]
+use chrono::Utc;
 use raiko_host::{
     interfaces::HostResult,
     parse_ballot, parse_chain_specs, parse_opts,
@@ -7,6 +8,9 @@ use raiko_host::{
     server::serve,
 };
 use raiko_reqpool::RedisPoolConfig;
+use std::fs::create_dir_all;
+use std::fs::File;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -14,6 +18,10 @@ use tracing_appender::{
     non_blocking::WorkerGuard,
     rolling::{Builder, Rotation},
 };
+use tracing_subscriber::fmt;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
@@ -82,32 +90,56 @@ async fn main() -> HostResult<()> {
     Ok(())
 }
 
-fn subscribe_log(
+use tracing_subscriber::Layer;
+
+pub fn subscribe_log(
     log_path: &Option<PathBuf>,
-    log_level: &String,
+    log_level: &str,
     max_log: usize,
 ) -> Option<WorkerGuard> {
-    let subscriber_builder = FmtSubscriber::builder()
-        .with_env_filter(log_level)
-        .with_ansi(false)
-        .with_test_writer();
-    match log_path {
-        Some(ref log_path) => {
-            let file_appender = Builder::new()
-                .rotation(Rotation::DAILY)
-                .filename_prefix("raiko.log")
-                .max_log_files(max_log)
-                .build(log_path)
-                .expect("initializing rolling file appender failed");
-            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-            let subscriber = subscriber_builder.json().with_writer(non_blocking).finish();
-            tracing::subscriber::set_global_default(subscriber).unwrap();
-            Some(guard)
+    // 构建主过滤器
+    let env_filter = EnvFilter::try_new(log_level).unwrap_or_else(|_| EnvFilter::new("info"));
+
+    // stdout for info/debug/everything
+    let stdout_layer = fmt::layer()
+        .with_writer(std::io::stdout) // 输出到控制台
+        .with_ansi(true)
+        .with_filter(env_filter);
+
+    // access log for billing usage
+    if let Some(dir) = log_path {
+        // 确保目录存在
+        if let Err(e) = create_dir_all(dir) {
+            eprintln!("Failed to create log dir: {e}");
+            return None;
         }
-        None => {
-            let subscriber = subscriber_builder.finish();
-            tracing::subscriber::set_global_default(subscriber).unwrap();
-            None
-        }
+
+        // 获取当前年月
+        let now = Utc::now();
+        let filename = format!("billing-{}.log", now.format("%Y-%m"));
+        let file_path = dir.join(filename);
+
+        // 打开文件 + 构造 non-blocking writer
+        let file = File::create(&file_path)
+            .unwrap_or_else(|e| panic!("Failed to create log file {:?}: {}", file_path, e));
+        let (non_blocking, guard) = tracing_appender::non_blocking(file);
+
+        // 构建 JSON layer
+        let file_layer = fmt::layer()
+            .json()
+            .with_writer(non_blocking)
+            .with_ansi(false)
+            .with_filter(EnvFilter::new("billing=debug"));
+
+        tracing_subscriber::registry()
+            .with(stdout_layer)
+            .with(file_layer)
+            .init();
+
+        Some(guard)
+    } else {
+        // 只有 stdout
+        tracing_subscriber::registry().with(stdout_layer).init();
+        None
     }
 }
