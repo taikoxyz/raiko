@@ -143,7 +143,6 @@ impl ApiKeyStore {
 pub struct AuthenticatedApiKey {
     pub key: String,
     pub name: String,
-    pub permissions: Vec<String>,
 }
 
 pub async fn api_key_auth_middleware(
@@ -180,12 +179,10 @@ pub async fn api_key_auth_middleware(
                 let authenticated_key = AuthenticatedApiKey {
                     key: api_key.clone(),
                     name: key_info.name.clone(),
-                    permissions: key_info.permissions.clone(),
                 };
 
                 let mut req = req;
-                req.extensions_mut()
-                    .insert(Extension::<AuthenticatedApiKey>(authenticated_key));
+                req.extensions_mut().insert(authenticated_key);
 
                 Ok(next.run(req).await)
             }
@@ -216,13 +213,9 @@ fn extract_api_key_from_request<B>(req: &Request<B>) -> String {
 }
 
 // 管理API key的辅助函数
-pub async fn create_api_key(
-    store: &ApiKeyStore,
-    name: &str,
-    permissions: Vec<String>,
-) -> Result<String, String> {
+pub async fn create_api_key(store: &ApiKeyStore, name: &str) -> Result<String, String> {
     let key = generate_api_key();
-    let api_key = ApiKey::new(key.clone(), name.to_string()).with_permissions(permissions);
+    let api_key = ApiKey::new(key.clone(), name.to_string());
 
     store.add_key(api_key).await?;
     Ok(key)

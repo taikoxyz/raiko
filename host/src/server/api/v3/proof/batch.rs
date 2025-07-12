@@ -40,8 +40,8 @@ use utoipa::OpenApi;
 /// - risc0 - uses the risc0 prover
 async fn batch_handler(
     State(actor): State<Actor>,
+    Extension(authenticated_key): Extension<AuthenticatedApiKey>,
     Json(batch_request_opt): Json<Value>,
-    // Extension(authenticated_key): Extension<AuthenticatedApiKey>,
 ) -> HostResult<Status> {
     tracing::debug!(
         "Incoming batch request: {} from {}",
