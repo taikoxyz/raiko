@@ -1,28 +1,20 @@
 #![allow(incomplete_features)]
 use chrono::Utc;
 use raiko_host::{
-    interfaces::HostResult,
-    parse_ballot, parse_chain_specs, parse_opts,
-    server::auth::ApiKeyStore,
-    server::logging::{LogFormat, RequestLoggingConfig},
+    interfaces::HostResult, parse_ballot, parse_chain_specs, parse_opts, server::auth::ApiKeyStore,
     server::serve,
 };
 use raiko_reqpool::RedisPoolConfig;
 use std::fs::create_dir_all;
 use std::fs::File;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, info};
-use tracing_appender::{
-    non_blocking::WorkerGuard,
-    rolling::{Builder, Rotation},
-};
+use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
-use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> HostResult<()> {
@@ -59,34 +51,8 @@ async fn main() -> HostResult<()> {
     let concurrency = opts.concurrency_limit;
     let jwt_secret = opts.jwt_secret.clone();
 
-    let request_logging_config = if opts.enable_request_logging {
-        let log_format = match opts.request_log_format.as_str() {
-            "csv" => LogFormat::Csv,
-            _ => LogFormat::Json,
-        };
-
-        Some(RequestLoggingConfig {
-            enabled: true,
-            log_file_path: opts.request_log_path.clone(),
-            log_format,
-            retention_days: 30,
-            include_headers: vec!["user-agent".to_string()],
-            exclude_paths: vec!["/health".to_string(), "/metrics".to_string()],
-        })
-    } else {
-        None
-    };
-
     let api_key_store = Some(Arc::new(ApiKeyStore::new(opts.api_keys)));
-    serve(
-        actor,
-        address,
-        concurrency,
-        jwt_secret,
-        request_logging_config,
-        api_key_store,
-    )
-    .await?;
+    serve(actor, address, concurrency, jwt_secret, api_key_store).await?;
     Ok(())
 }
 
@@ -95,7 +61,7 @@ use tracing_subscriber::Layer;
 pub fn subscribe_log(
     log_path: &Option<PathBuf>,
     log_level: &str,
-    max_log: usize,
+    _max_log: usize,
 ) -> Option<WorkerGuard> {
     // 构建主过滤器
     let env_filter = EnvFilter::try_new(log_level).unwrap_or_else(|_| EnvFilter::new("info"));

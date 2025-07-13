@@ -46,7 +46,7 @@ async fn batch_handler(
     tracing::debug!(
         "Incoming batch request: {} from {}",
         serde_json::to_string(&batch_request_opt)?,
-        "", // authenticated_key.name
+        authenticated_key.name
     );
 
     let batch_request = {
@@ -97,7 +97,7 @@ async fn batch_handler(
     tracing::info!(
         "Accepted Batch request: {} from {}",
         serde_json::to_string(&batch_request)?,
-        "", // authenticated_key.name
+        authenticated_key.name
     );
 
     let chain_id = actor.get_chain_spec(&batch_request.network)?.chain_id;

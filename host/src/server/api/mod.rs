@@ -1,6 +1,4 @@
 use crate::server::auth::{api_key_auth_middleware, ApiKeyStore};
-use crate::server::logging::AsyncRequestLogger;
-use crate::server::logging::RequestLoggingConfig;
 
 use axum::{
     extract::DefaultBodyLimit,
@@ -27,7 +25,6 @@ pub const MAX_BODY_SIZE: usize = 1 << 20;
 pub fn create_router(
     concurrency_limit: usize,
     jwt_secret: Option<&str>,
-    request_logging_config: Option<RequestLoggingConfig>,
     api_key_store: Option<Arc<ApiKeyStore>>,
 ) -> Router<Actor> {
     let cors = CorsLayer::new()

@@ -64,7 +64,6 @@ impl TestServerBuilder {
                 max_proving_concurrency,
                 None,
                 None,
-                None,
             )
             .await;
         });

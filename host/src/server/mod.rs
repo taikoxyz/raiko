@@ -8,7 +8,6 @@ use tracing::info;
 pub mod api;
 pub mod auth;
 pub mod handler;
-pub mod logging;
 pub mod utils;
 
 pub use handler::{cancel, cancel_aggregation, prove, prove_aggregation};
@@ -20,7 +19,6 @@ pub async fn serve(
     address: &str,
     concurrency_limit: usize,
     jwt_secret: Option<String>,
-    request_logging_config: Option<crate::server::logging::RequestLoggingConfig>,
     api_key_store: Option<Arc<crate::server::auth::ApiKeyStore>>,
 ) -> anyhow::Result<()> {
     let addr = SocketAddr::from_str(address)
@@ -32,7 +30,6 @@ pub async fn serve(
     let router = create_router(
         concurrency_limit,
         jwt_secret.as_deref(),
-        request_logging_config,
         api_key_store,
     )
     .with_state(actor);

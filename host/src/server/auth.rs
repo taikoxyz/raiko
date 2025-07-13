@@ -3,7 +3,6 @@ use axum::{
     http::StatusCode,
     middleware::Next,
     response::Response,
-    Extension,
 };
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
