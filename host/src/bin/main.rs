@@ -6,7 +6,7 @@ use raiko_host::{
 };
 use raiko_reqpool::RedisPoolConfig;
 use std::fs::create_dir_all;
-use std::fs::File;
+use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -87,8 +87,12 @@ pub fn subscribe_log(
         let file_path = dir.join(filename);
 
         // open file + construct non-blocking writer
-        let file = File::create(&file_path)
-            .unwrap_or_else(|e| panic!("Failed to create log file {:?}: {}", file_path, e));
+
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&file_path)
+            .unwrap_or_else(|e| panic!("Failed to open log file {:?}: {}", file_path, e));
         let (non_blocking, guard) = tracing_appender::non_blocking(file);
 
         // build billing file log layer
