@@ -149,15 +149,13 @@ pub async fn api_key_auth_middleware(
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // 提取API key
     let api_key = extract_api_key_from_request(&req);
 
     if api_key.is_empty() {
-        error!("No API key provided");
+        error!("No API key provided, from: {:?}", req);
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    // 验证API key
     let key_info = api_key_store.get_key(&api_key).await;
     if let Some(key_info) = key_info {
         if !key_info.is_active {
@@ -165,7 +163,7 @@ pub async fn api_key_auth_middleware(
             return Err(StatusCode::UNAUTHORIZED);
         }
 
-        // 检查速率限制
+        // check rate limit
         match api_key_store.check_rate_limit(&api_key).await {
             Ok(true) => {
                 if let Err(e) = api_key_store.update_key_usage(&api_key).await {
@@ -174,7 +172,7 @@ pub async fn api_key_auth_middleware(
 
                 debug!("API key authenticated: {}", key_info.name);
 
-                // store the authenticated key in the request extension
+                // store the authenticated key in the request extension, for later use
                 let authenticated_key = AuthenticatedApiKey {
                     key: api_key.clone(),
                     name: key_info.name.clone(),
@@ -211,7 +209,7 @@ fn extract_api_key_from_request<B>(req: &Request<B>) -> String {
     String::new()
 }
 
-// 管理API key的辅助函数
+// helper functions for managing API keys
 pub async fn create_api_key(store: &ApiKeyStore, name: &str) -> Result<String, String> {
     let key = generate_api_key();
     let api_key = ApiKey::new(key.clone(), name.to_string());

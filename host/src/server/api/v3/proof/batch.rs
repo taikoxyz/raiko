@@ -4,6 +4,7 @@ use crate::{
         api::v3::{ProofResponse, Status},
         auth::AuthenticatedApiKey,
         handler::prove_many,
+        metrics::{record_batch_request_in, record_batch_request_out},
         prove_aggregation,
         utils::{draw_for_zk_any_batch_request, is_zk_any_request, to_v3_status},
     },
@@ -94,10 +95,11 @@ async fn batch_handler(
 
         batch_request
     };
+    let request_id = record_batch_request_in(&authenticated_key.name, &batch_request);
     tracing::info!(
-        "Accepted Batch request: {} from {}",
+        "Accepted {}'s batch request: {}",
+        authenticated_key.name,
         serde_json::to_string(&batch_request)?,
-        authenticated_key.name
     );
 
     let chain_id = actor.get_chain_spec(&batch_request.network)?.chain_id;
@@ -220,6 +222,13 @@ async fn batch_handler(
         }
     };
     tracing::debug!("Batch proof result: {}", serde_json::to_string(&result)?);
+
+    if let Ok(raiko_reqpool::Status::Success { .. }) = &result {
+        record_batch_request_out(&request_id, true);
+    } else {
+        record_batch_request_out(&request_id, false);
+    }
+
     Ok(to_v3_status(
         batch_request.proof_type,
         Some(batch_request.batches.first().unwrap().batch_id),

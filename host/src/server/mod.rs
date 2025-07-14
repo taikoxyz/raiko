@@ -8,6 +8,7 @@ use tracing::info;
 pub mod api;
 pub mod auth;
 pub mod handler;
+pub mod metrics;
 pub mod utils;
 
 pub use handler::{cancel, cancel_aggregation, prove, prove_aggregation};
@@ -27,12 +28,8 @@ pub async fn serve(
 
     info!("Listening on: {}", listener.local_addr()?);
 
-    let router = create_router(
-        concurrency_limit,
-        jwt_secret.as_deref(),
-        api_key_store,
-    )
-    .with_state(actor);
+    let router =
+        create_router(concurrency_limit, jwt_secret.as_deref(), api_key_store).with_state(actor);
     axum::serve(listener, router)
         .await
         .context("Server couldn't serve")?;

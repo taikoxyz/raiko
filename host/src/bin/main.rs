@@ -19,9 +19,7 @@ use tracing_subscriber::EnvFilter;
 #[tokio::main]
 async fn main() -> HostResult<()> {
     dotenv::dotenv().ok();
-    env_logger::Builder::from_default_env()
-        .target(env_logger::Target::Stdout)
-        .init();
+
     let opts = parse_opts()?;
     let chain_specs = parse_chain_specs(&opts);
     let ballot = parse_ballot(&opts);
@@ -63,49 +61,61 @@ pub fn subscribe_log(
     log_level: &str,
     _max_log: usize,
 ) -> Option<WorkerGuard> {
+    // back compatible with env_logger
+    // tracing_log::LogTracer::init().expect("log->tracing bridge init failed");
+
     // 构建主过滤器
-    let env_filter = EnvFilter::try_new(log_level).unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_new(log_level).unwrap_or_else(|_| EnvFilter::new(log_level));
 
     // stdout for info/debug/everything
     let stdout_layer = fmt::layer()
-        .with_writer(std::io::stdout) // 输出到控制台
-        .with_ansi(true)
+        .with_writer(std::io::stdout) // output to console
+        .with_ansi(false)
         .with_filter(env_filter);
 
     // access log for billing usage
     if let Some(dir) = log_path {
-        // 确保目录存在
+        // ensure directory exists
         if let Err(e) = create_dir_all(dir) {
             eprintln!("Failed to create log dir: {e}");
             return None;
         }
 
-        // 获取当前年月
+        // get current year and month
         let now = Utc::now();
         let filename = format!("billing-{}.log", now.format("%Y-%m"));
         let file_path = dir.join(filename);
 
-        // 打开文件 + 构造 non-blocking writer
+        // open file + construct non-blocking writer
         let file = File::create(&file_path)
             .unwrap_or_else(|e| panic!("Failed to create log file {:?}: {}", file_path, e));
         let (non_blocking, guard) = tracing_appender::non_blocking(file);
 
-        // 构建 JSON layer
+        // build JSON layer
         let file_layer = fmt::layer()
-            .json()
             .with_writer(non_blocking)
             .with_ansi(false)
-            .with_filter(EnvFilter::new("billing=debug"));
+            .with_filter(EnvFilter::new(format!("billing={}", log_level)));
 
         tracing_subscriber::registry()
             .with(stdout_layer)
             .with(file_layer)
-            .init();
+            .try_init()
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to initialize tracing subscriber: {e}");
+                std::process::exit(1);
+            });
 
         Some(guard)
     } else {
-        // 只有 stdout
-        tracing_subscriber::registry().with(stdout_layer).init();
+        // only stdout
+        tracing_subscriber::registry()
+            .with(stdout_layer)
+            .try_init()
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to initialize tracing subscriber: {e}");
+                std::process::exit(1);
+            });
         None
     }
 }
