@@ -91,7 +91,7 @@ pub fn subscribe_log(
             .unwrap_or_else(|e| panic!("Failed to create log file {:?}: {}", file_path, e));
         let (non_blocking, guard) = tracing_appender::non_blocking(file);
 
-        // build JSON layer
+        // build billing file log layer
         let file_layer = fmt::layer()
             .with_writer(non_blocking)
             .with_ansi(false)
