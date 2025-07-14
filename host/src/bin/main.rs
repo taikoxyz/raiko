@@ -64,7 +64,7 @@ pub fn subscribe_log(
     // back compatible with env_logger
     // tracing_log::LogTracer::init().expect("log->tracing bridge init failed");
 
-    // 构建主过滤器
+    // Build main filter
     let env_filter = EnvFilter::try_new(log_level).unwrap_or_else(|_| EnvFilter::new(log_level));
 
     // stdout for info/debug/everything

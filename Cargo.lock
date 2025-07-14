@@ -6269,11 +6269,9 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber 0.3.18",
- "url",
  "utoipa",
  "utoipa-scalar",
  "utoipa-swagger-ui",
- "uuid",
 ]
 
 [[package]]

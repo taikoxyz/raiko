@@ -28,7 +28,7 @@ impl ApiKey {
             key,
             name,
             permissions: vec!["read".to_string(), "write".to_string()],
-            rate_limit: Some(20), // 默认1000请求/分钟
+            rate_limit: Some(60), // Default 60 requests/minute
             created_at: chrono::Utc::now(),
             last_used: None,
             is_active: true,

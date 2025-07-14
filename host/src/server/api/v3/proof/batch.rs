@@ -247,13 +247,3 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 pub fn create_router() -> Router<Actor> {
     Router::new().route("/", post(batch_handler))
 }
-
-// use axum::response::IntoResponse;
-
-// async fn batch_handler_wrapper(
-//     State(actor): State<Actor>,
-//     Json(json): Json<Value>,
-//     Extension(auth): Extension<AuthenticatedApiKey>,
-// ) -> impl IntoResponse {
-//     batch_handler(State(actor), Json(json), Extension(auth)).await
-// }

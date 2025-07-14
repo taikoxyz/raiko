@@ -76,12 +76,6 @@ async fn get_apikey_stats(
     (StatusCode::OK, Json(response))
 }
 
-
-
-
-
-
-
 #[derive(OpenApi)]
 #[openapi(paths(get_apikey_stats))]
 struct Docs;

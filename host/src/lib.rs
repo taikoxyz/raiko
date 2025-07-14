@@ -84,18 +84,6 @@ pub struct Opts {
     #[arg(long, default_value = "false")]
     pub enable_redis_pool: bool,
 
-    #[arg(long)]
-    /// Enable API key request logging
-    pub enable_request_logging: bool,
-
-    #[arg(long)]
-    /// Path to request log file
-    pub request_log_path: Option<PathBuf>,
-
-    #[arg(long, default_value = "json")]
-    /// Request log format (json or csv)
-    pub request_log_format: String,
-
     /// supported API keys hashset, now using input for simplicity
     #[arg(
         long,
