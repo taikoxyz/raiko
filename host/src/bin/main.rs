@@ -48,7 +48,6 @@ async fn main() -> HostResult<()> {
     let address = opts.address.as_str();
     let concurrency = opts.concurrency_limit;
     let jwt_secret = opts.jwt_secret.clone();
-
     let api_key_store = Some(Arc::new(ApiKeyStore::new(opts.api_keys)));
     serve(actor, address, concurrency, jwt_secret, api_key_store).await?;
     Ok(())

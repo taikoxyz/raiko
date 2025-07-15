@@ -48,12 +48,21 @@ impl ApiKey {
 
 #[derive(Debug, Clone)]
 pub struct ApiKeyStore {
+    enabled: bool,
     keys: Arc<RwLock<DashMap<String, ApiKey>>>,
     rate_limits: Arc<RwLock<DashMap<String, Vec<chrono::DateTime<chrono::Utc>>>>>,
 }
 
 impl ApiKeyStore {
     pub fn new(api_keys: String) -> Self {
+        if api_keys.is_empty() {
+            return Self {
+                enabled: false,
+                keys: Arc::new(RwLock::new(DashMap::new())),
+                rate_limits: Arc::new(RwLock::new(DashMap::new())),
+            };
+        }
+
         let parsed: Result<std::collections::HashMap<String, String>, _> =
             serde_json::from_str(&api_keys);
         let dashmap = DashMap::new();
@@ -64,14 +73,17 @@ impl ApiKeyStore {
                     dashmap.insert(apikey.clone(), ApiKey::new(apikey.clone(), name));
                     rate_limits.insert(apikey, Vec::new());
                 }
+                Self {
+                    enabled: true,
+                    keys: Arc::new(RwLock::new(dashmap)),
+                    rate_limits: Arc::new(RwLock::new(rate_limits)),
+                }
             }
-            Err(e) => {
-                error!("Failed to parse API keys JSON: {}", e);
-            }
-        }
-        Self {
-            keys: Arc::new(RwLock::new(dashmap)),
-            rate_limits: Arc::new(RwLock::new(rate_limits)),
+            Err(_) => Self {
+                enabled: false,
+                keys: Arc::new(RwLock::new(DashMap::new())),
+                rate_limits: Arc::new(RwLock::new(DashMap::new())),
+            },
         }
     }
 
@@ -150,6 +162,16 @@ pub async fn api_key_auth_middleware(
     next: Next,
 ) -> Result<Response, StatusCode> {
     let api_key = extract_api_key_from_request(&req);
+
+    if !api_key_store.enabled {
+        let mut req = req;
+        req.extensions_mut().insert(AuthenticatedApiKey {
+            key: "anonymous".to_string(),
+            name: "anonymous".to_string(),
+        });
+
+        return Ok(next.run(req).await);
+    }
 
     if api_key.is_empty() {
         error!("No API key provided, from: {:?}", req);

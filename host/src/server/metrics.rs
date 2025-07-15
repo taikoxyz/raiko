@@ -32,17 +32,18 @@ impl MetricsCollector {
 
     /// Record the start of a request
     pub fn record_request_in(&self, request_id: &str, api_key: &str) {
-        let metrics = RequestMetrics {
-            api_key: api_key.to_string(),
-            request_data: request_id.to_string(),
-            start_time: Instant::now(),
-            end_time: None,
-            duration: None,
-            has_proof: false,
-        };
-
         if let Ok(mut requests) = self.requests.lock() {
-            requests.insert(request_id.to_string(), metrics);
+            if !requests.contains_key(request_id) {
+                let metrics = RequestMetrics {
+                    api_key: api_key.to_string(),
+                    request_data: request_id.to_string(),
+                    start_time: Instant::now(),
+                    end_time: None,
+                    duration: None,
+                    has_proof: false,
+                };
+                requests.insert(request_id.to_string(), metrics);
+            }
         }
 
         info!(
@@ -64,6 +65,7 @@ impl MetricsCollector {
                 metrics.has_proof = has_proof;
 
                 if has_proof {
+                    requests.remove(request_id);
                     info!(
                         target: "billing",
                         "BATCH_REQUEST_END - ID: {}, DURATION: {:?}, HAS_PROOF: {}",

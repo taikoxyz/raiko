@@ -63,7 +63,7 @@ impl TestServerBuilder {
                 &address_clone,
                 max_proving_concurrency,
                 None,
-                None,
+                Some(Arc::new(ApiKeyStore::new(""))),
             )
             .await;
         });

@@ -88,7 +88,7 @@ pub struct Opts {
     #[arg(
         long,
         require_equals = true,
-        default_value = "{}",
+        default_value = "", // empty string means no api keys control
         help = "e.g. {\"AAA\":\"1234567890\",\"BBB\":\"0987654321\"}"
     )]
     pub api_keys: String,
