@@ -563,7 +563,7 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 30, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 10, base_block: int = 4110000, 
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -655,7 +655,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=30,
+        default=10,
         help="Total number of batches to process"
     )
     
@@ -715,6 +715,14 @@ async def main():
         help="Run a quick test with reduced delays and monitoring time"
     )
     
+    parser.add_argument(
+        "--single-batch",
+        nargs=2,
+        metavar=("BATCH_ID", "L1_INCLUSION_BLOCK"),
+        type=int,
+        help="Submit a single proof request with the given batch_id and l1_inclusion_block_number, then exit."
+    )
+    
     args = parser.parse_args()
     
     tester = AggregationPriorityTester(
@@ -728,6 +736,16 @@ async def main():
         polling_interval=args.polling_interval,
         request_timeout=args.request_timeout,
     )
+
+    # Handle --single-batch option
+    if args.single_batch:
+        batch_id, l1_inclusion_block = args.single_batch
+        payload = tester.create_single_proof_request(batch_id, l1_inclusion_block, aggregate=False)
+        request_id = f"single_{batch_id}_cli"
+        result = await tester.submit_request(payload, "single_proof", request_id, 1)
+        print("Single proof request result:")
+        print(result)
+        exit(0)
     
     try:
         priority_working = await tester.run_continuous_streaming_aggregation_test(

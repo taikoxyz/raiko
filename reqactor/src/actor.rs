@@ -124,32 +124,43 @@ impl Actor {
     ) -> Result<StatusWithContext, String> {
         let pool_status_opt = self.pool_get_status(&request_key).await?;
 
-        // Return successful status if the request is already succeeded
-        if matches!(
-            pool_status_opt.as_ref().map(|s| s.status()),
-            Some(Status::Success { .. })
-        ) {
-            return Ok(pool_status_opt.unwrap());
-        }
+        if let Some(pool_status) = pool_status_opt.as_ref() {
+            match pool_status.status() {
+                Status::Success { .. }
+                | Status::Failed { .. } => {
+                    // Already succeeded, failed, or cancelled, return the result
+                    return Ok(pool_status.clone());
+                }
+                _ => {
+                    // Only re-register and re-enqueue if not terminal
+                    // Mark the request as registered in the pool
+                    let status = StatusWithContext::new(Status::Registered, start_time);
+                    self.pool_update_status(request_key.clone(), status.clone())
+                        .await?;
 
-        // Mark the request as registered in the pool
-        let status = StatusWithContext::new(Status::Registered, start_time);
-        if pool_status_opt.is_none() {
+                    let mut queue = self.queue.lock().await;
+                    if !queue.contains(&request_key) {
+                        queue.add_pending(request_key, request_entity);
+                        self.notify.notify_one();
+                    }
+
+                    return Ok(status);
+                }
+            }
+        } else {
+            // No previous status, add new
+            let status = StatusWithContext::new(Status::Registered, start_time);
             self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
                 .await?;
-        } else {
-            self.pool_update_status(request_key.clone(), status.clone())
-                .await?;
-        }
 
-        // Push the request into the queue and notify to start the action
-        let mut queue = self.queue.lock().await;
-        if !queue.contains(&request_key) {
-            queue.add_pending(request_key, request_entity);
-            self.notify.notify_one();
-        }
+            let mut queue = self.queue.lock().await;
+            if !queue.contains(&request_key) {
+                queue.add_pending(request_key, request_entity);
+                self.notify.notify_one();
+            }
 
-        return Ok(status);
+            return Ok(status);
+        }
     }
 
     pub async fn pause(&self) -> Result<(), String> {
@@ -172,6 +183,11 @@ impl Actor {
     /// Draw proof types based on the block hash.
     pub async fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
         self.ballot.lock().await.draw_with_poisson(block_hash)
+    }
+
+    pub async fn queue_remove(&self, key: &RequestKey) {
+        let mut queue = self.queue.lock().await;
+        queue.complete(key.clone());
     }
 }
 
