@@ -126,40 +126,55 @@ impl Actor {
 
         if let Some(pool_status) = pool_status_opt.as_ref() {
             match pool_status.status() {
-                Status::Success { .. }
-                | Status::Failed { .. } => {
-                    // Already succeeded, failed, or cancelled, return the result
+                Status::Success { .. } => {
+                    return Ok(pool_status.clone());
+                }
+                Status::Failed { .. } => {
+                    // Clean up failed request and resubmit as new
+                    {
+                        let mut queue = self.queue.lock().await;
+                        queue.complete(request_key.clone());
+                    }
+                    self.pool_add_new(
+                        request_key.clone(),
+                        request_entity.clone(),
+                        StatusWithContext::new(Status::Registered, start_time),
+                    )
+                    .await?;
+                    self.enqueue_if_needed(request_key, request_entity).await;
                     return Ok(pool_status.clone());
                 }
                 _ => {
-                    // Only re-register and re-enqueue if not terminal
-                    // Mark the request as registered in the pool
-                    let status = StatusWithContext::new(Status::Registered, start_time);
-                    self.pool_update_status(request_key.clone(), status.clone())
-                        .await?;
-
-                    let mut queue = self.queue.lock().await;
-                    if !queue.contains(&request_key) {
-                        queue.add_pending(request_key, request_entity);
-                        self.notify.notify_one();
-                    }
-
-                    return Ok(status);
+                    // For non-terminal statuses, update to Registered
+                    self.pool_update_status(
+                        request_key.clone(),
+                        StatusWithContext::new(Status::Registered, start_time),
+                    )
+                    .await?;
+                    self.enqueue_if_needed(request_key, request_entity).await;
+                    return Ok(StatusWithContext::new(Status::Registered, start_time));
                 }
             }
         } else {
-            // No previous status, add new
+            // No previous status, add new and enqueue
             let status = StatusWithContext::new(Status::Registered, start_time);
-            self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
-                .await?;
-
-            let mut queue = self.queue.lock().await;
-            if !queue.contains(&request_key) {
-                queue.add_pending(request_key, request_entity);
-                self.notify.notify_one();
-            }
-
+            self.pool_add_new(
+                request_key.clone(),
+                request_entity.clone(),
+                status.clone(),
+            )
+            .await?;
+            self.enqueue_if_needed(request_key, request_entity).await;
             return Ok(status);
+        }
+    }
+
+    // Helper function to enqueue if not already present
+    async fn enqueue_if_needed(&self, request_key: RequestKey, request_entity: RequestEntity) {
+        let mut queue = self.queue.lock().await;
+        if !queue.contains(&request_key) {
+            queue.add_pending(request_key, request_entity);
+            self.notify.notify_one();
         }
     }
 
