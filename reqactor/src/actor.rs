@@ -131,10 +131,6 @@ impl Actor {
                 }
                 Status::Failed { .. } => {
                     // Clean up failed request and resubmit as new
-                    {
-                        let mut queue = self.queue.lock().await;
-                        queue.complete(request_key.clone());
-                    }
                     let new_status = StatusWithContext::new(Status::Registered, start_time);
                     self.pool_add_new(
                         request_key.clone(),
