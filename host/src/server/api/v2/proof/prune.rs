@@ -21,6 +21,8 @@ async fn prune_handler(State(actor): State<Actor>) -> HostResult<()> {
             .pool_remove_request(&key)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
+        // Also remove from the queue
+        actor.queue_remove(&key).await;
     }
     Ok(())
 }
