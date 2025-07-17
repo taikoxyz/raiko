@@ -5,8 +5,7 @@
 BONSAI_API_KEY=$BONSAI_API_KEY
 BONSAI_API_URL=$BONSAI_API_URL
 # reference verifier was deployed in holesky
-# GROTH16_VERIFIER_RPC_URL=https://ethereum-holesky-rpc.publicnode.com
-GROTH16_VERIFIER_RPC_URL=http://35.240.156.196:8545
+GROTH16_VERIFIER_RPC_URL=https://ethereum-holesky-rpc.publicnode.com
 # v2.0.0-rc.3
 # GROTH16_VERIFIER_ADDRESS=0x70d00DF4C2D8a519C9145Badde08E6FD6c34DBad
 # v2.2.0
