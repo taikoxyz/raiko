@@ -412,7 +412,11 @@ pub fn save_receipt<T: serde::Serialize>(receipt_label: &String, receipt_data: &
 }
 
 fn zkp_cache_path(receipt_label: &String) -> String {
-    Path::new("/tmp/risc0-cache")
+    let cache_dir = Path::new("/tmp/risc0-cache");
+    if let Err(e) = fs::create_dir_all(cache_dir) {
+        debug!("Failed to create cache directory: {e:?}");
+    }
+    cache_dir
         .join(format!("{receipt_label}.zkp"))
         .to_str()
         .unwrap()
