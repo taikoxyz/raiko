@@ -124,55 +124,32 @@ impl Actor {
     ) -> Result<StatusWithContext, String> {
         let pool_status_opt = self.pool_get_status(&request_key).await?;
 
-        if let Some(pool_status) = pool_status_opt.as_ref() {
-            match pool_status.status() {
-                Status::Success { .. } => {
-                    return Ok(pool_status.clone());
-                }
-                Status::Failed { .. } => {
-                    // Clean up failed request and resubmit as new
-                    let new_status = StatusWithContext::new(Status::Registered, start_time);
-                    self.pool_add_new(
-                        request_key.clone(),
-                        request_entity.clone(),
-                        new_status.clone(),
-                    )
-                    .await?;
-                    self.enqueue_if_needed(request_key, request_entity).await;
-                    return Ok(new_status);
-                }
-                _ => {
-                    // For non-terminal statuses, update to Registered
-                    self.pool_update_status(
-                        request_key.clone(),
-                        StatusWithContext::new(Status::Registered, start_time),
-                    )
-                    .await?;
-                    self.enqueue_if_needed(request_key, request_entity).await;
-                    return Ok(StatusWithContext::new(Status::Registered, start_time));
-                }
-            }
-        } else {
-            // No previous status, add new and enqueue
-            let status = StatusWithContext::new(Status::Registered, start_time);
-            self.pool_add_new(
-                request_key.clone(),
-                request_entity.clone(),
-                status.clone(),
-            )
-            .await?;
-            self.enqueue_if_needed(request_key, request_entity).await;
-            return Ok(status);
+        // Return successful status if the request is already succeeded
+        if matches!(
+            pool_status_opt.as_ref().map(|s| s.status()),
+            Some(Status::Success { .. })
+        ) {
+            return Ok(pool_status_opt.unwrap());
         }
-    }
 
-    // Helper function to enqueue if not already present
-    async fn enqueue_if_needed(&self, request_key: RequestKey, request_entity: RequestEntity) {
+        // Mark the request as registered in the pool
+        let status = StatusWithContext::new(Status::Registered, start_time);
+        if pool_status_opt.is_none() {
+            self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
+                .await?;
+        } else {
+            self.pool_update_status(request_key.clone(), status.clone())
+                .await?;
+        }
+
+        // Push the request into the queue and notify to start the action
         let mut queue = self.queue.lock().await;
         if !queue.contains(&request_key) {
             queue.add_pending(request_key, request_entity);
             self.notify.notify_one();
         }
+
+        return Ok(status);
     }
 
     pub async fn pause(&self) -> Result<(), String> {

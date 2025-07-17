@@ -58,6 +58,12 @@ impl Backend {
         let (done_tx, mut done_rx) = mpsc::channel(1000);
 
         loop {
+            // Handle completed requests
+            while let Ok(request_key) = done_rx.try_recv() {
+                let mut queue = self.queue.lock().await;
+                queue.complete(request_key);
+            }
+
             let (request_key, request_entity) = {
                 let mut queue = self.queue.lock().await;
                 if let Some((request_key, request_entity)) = queue.try_next() {
@@ -68,11 +74,9 @@ impl Backend {
                     continue;
                 }
             };
-
             let request_key_ = request_key.clone();
             let mut pool_ = self.pool.clone();
             let chain_specs = self.chain_specs.clone();
-            let queue_ = self.queue.clone();
             let semaphore_ = self.semaphore.clone();
             let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
             let handle = tokio::spawn(async move {
@@ -119,20 +123,15 @@ impl Backend {
                     request_key_.clone(),
                     StatusWithContext::new(status, chrono::Utc::now()),
                 );
-                // Mark as complete in the queue for both success and failed statuses
-                let mut queue = queue_.lock().await;
-                queue.complete(request_key_.clone());
             });
 
-            // Wait for the semaphore to be acquired
-            let _ = semaphore_acquired_rx.await;
-
             let mut pool_ = self.pool.clone();
-            let notifier_ = self.notifier.clone();
             let done_tx_ = done_tx.clone();
+            let notifier_ = self.notifier.clone();
+
             tokio::spawn(async move {
-                let _ = done_tx_.send(request_key.clone());
-                notifier_.notify_one();
+                // Wait for the semaphore to be acquired
+                let _ = semaphore_acquired_rx.await;
 
                 if let Err(e) = handle.await {
                     tracing::error!("Actor thread errored while proving {request_key}: {e:?}");
@@ -141,6 +140,9 @@ impl Backend {
                     };
                     let _ = pool_.update_status(request_key.clone(), status.clone().into());
                 }
+
+                let _res = done_tx_.send(request_key.clone()).await;
+                notifier_.notify_one();
             });
         }
     }
