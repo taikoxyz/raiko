@@ -67,11 +67,14 @@ reqwest_alloy = { workspace = true }
 sha2 = { workspace = true }
 proptest = { workspace = true }
 rlp = { workspace = true }
-url = { workspace = true }
+dashmap = { workspace = true }
+rand = { workspace = true }
+hex = { workspace = true }
 cfg-if = { workspace = true }
 cap = { workspace = true }
 dotenv = { workspace = true }
 base64 = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
 
 # reth
 reth-primitives = { workspace = true }

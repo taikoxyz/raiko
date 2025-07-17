@@ -663,15 +663,10 @@ mod tests {
             let l1_chain_spec = SupportedChainSpecs::default()
                 .get_chain_spec(&l1_network)
                 .unwrap();
-            let block_number = get_recent_block_num(&taiko_chain_spec).await;
-            println!(
-                "test_prove_block_taiko_mainnet in block_number: {}",
-                block_number
-            );
             let proof_request = ProofRequest {
-                block_number,
-                batch_id: 1167616,
-                l1_inclusion_block_number: 22536616,
+                block_number: 0,
+                batch_id: 1264376,
+                l1_inclusion_block_number: 22930333,
                 l2_block_numbers: Vec::new(),
                 network,
                 graffiti: B256::ZERO,
