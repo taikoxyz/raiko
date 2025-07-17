@@ -1,9 +1,12 @@
+use crate::server::auth::{api_key_auth_middleware, ApiKeyStore};
+
 use axum::{
     extract::DefaultBodyLimit,
     http::{header, HeaderName, Method, StatusCode, Uri},
     Router,
 };
 use raiko_reqactor::Actor;
+use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
@@ -19,7 +22,11 @@ pub mod v3;
 
 pub const MAX_BODY_SIZE: usize = 1 << 20;
 
-pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Router<Actor> {
+pub fn create_router(
+    concurrency_limit: usize,
+    jwt_secret: Option<&str>,
+    api_key_store: Option<Arc<ApiKeyStore>>,
+) -> Router<Actor> {
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
@@ -39,7 +46,8 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
     let v2_api = v2::create_router();
     let v3_api = v3::create_router();
     let admin_api = admin::create_router();
-    let router = Router::new()
+
+    let mut router = Router::new()
         .nest("/v1", v1_api)
         .nest("/v2", v2_api)
         .nest("/v3", v3_api.clone())
@@ -52,12 +60,19 @@ pub fn create_router(concurrency_limit: usize, jwt_secret: Option<&str>) -> Rout
             (StatusCode::NOT_FOUND, format!("No handler found for {uri}"))
         });
 
-    if let Some(jwt_secret) = jwt_secret {
+    // X-API-KEY Authentication
+    if let Some(api_key_store) = api_key_store {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            api_key_store,
+            api_key_auth_middleware,
+        ));
+    } else if let Some(jwt_secret) = jwt_secret {
+        // JWT Authentication as fallback
         let auth = ValidateRequestHeaderLayer::bearer(jwt_secret);
-        router.layer(auth)
-    } else {
-        router
+        router = router.layer(auth);
     }
+
+    router
 }
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {

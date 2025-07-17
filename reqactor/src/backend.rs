@@ -74,7 +74,6 @@ impl Backend {
                     continue;
                 }
             };
-
             let request_key_ = request_key.clone();
             let mut pool_ = self.pool.clone();
             let chain_specs = self.chain_specs.clone();
@@ -126,15 +125,13 @@ impl Backend {
                 );
             });
 
-            // Wait for the semaphore to be acquired
-            let _ = semaphore_acquired_rx.await;
-
             let mut pool_ = self.pool.clone();
-            let notifier_ = self.notifier.clone();
             let done_tx_ = done_tx.clone();
+            let notifier_ = self.notifier.clone();
+
             tokio::spawn(async move {
-                let _ = done_tx_.send(request_key.clone());
-                notifier_.notify_one();
+                // Wait for the semaphore to be acquired
+                let _ = semaphore_acquired_rx.await;
 
                 if let Err(e) = handle.await {
                     tracing::error!("Actor thread errored while proving {request_key}: {e:?}");
@@ -143,6 +140,9 @@ impl Backend {
                     };
                     let _ = pool_.update_status(request_key.clone(), status.clone().into());
                 }
+
+                let _res = done_tx_.send(request_key.clone()).await;
+                notifier_.notify_one();
             });
         }
     }

@@ -84,6 +84,15 @@ pub struct Opts {
     #[arg(long, default_value = "false")]
     pub enable_redis_pool: bool,
 
+    /// supported API keys hashset, now using input for simplicity
+    #[arg(
+        long,
+        require_equals = true,
+        default_value = "", // empty string means no api keys control
+        help = "e.g. {\"AAA\":\"1234567890\",\"BBB\":\"0987654321\"}"
+    )]
+    pub api_keys: String,
+
     /// Ballot config in json format. If not provided, '{}' will be used.
     #[arg(
         long,

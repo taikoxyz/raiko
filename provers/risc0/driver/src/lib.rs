@@ -23,7 +23,6 @@ use risc0_zkvm::{
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt::Debug;
-use tracing::debug;
 
 pub mod bonsai;
 pub mod methods;
