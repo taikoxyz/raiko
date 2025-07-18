@@ -30,11 +30,11 @@ us-docker.pkg.dev/evmchain/images/raiko:1.10.0-rc1-edmm
 - mrenclave: b09f9005e4612526e378466b5c16ab6028478e81c085812d6ed37166c4cda10e
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
 
-# zk:v1.10-rc.1
+# zk:v1.10.0-rc.1
 
 ## image
 
-us-docker.pkg.dev/evmchain/images/raiko-zk:1.10-rc.1
+us-docker.pkg.dev/evmchain/images/raiko-zk:1.10.0-rc.1
 
 ## risc0
 
