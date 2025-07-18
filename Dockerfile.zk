@@ -65,7 +65,6 @@ RUN make guest
 RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build"
 
 WORKDIR /opt/raiko/provers/risc0/agent
-RUN cp -rf ../driver/src/methods src/
 RUN cargo build --release ${BUILD_FLAGS} --features "risc0"
 
 FROM ubuntu:22.04 AS raiko-zk
