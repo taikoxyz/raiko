@@ -6,9 +6,9 @@ us-docker.pkg.dev/evmchain/images/raiko-zk:1.10-rc.1
 
 ## risc0
 
-risc0 elf image id: d60a547b3d454e13e08c1900d292868c721e6b67f7466023735f20a0d6ce48d5
+risc0 elf image id: a41db9223051c1a6b046829dc372eab4989ff0a3e027c360d8c906d831ca60d4
 "/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/risc0-aggregation"
-risc0 elf image id: 302dba415b23df530619d2d524c4fd98f95e784837cabb0504d100ed9abeeaa0
+risc0 elf image id: a3f175713dc988430192dfd9a6c49ea111e389e2c008428eedd5f38648094404
 "/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/risc0-batch"
 
 ## sp1
