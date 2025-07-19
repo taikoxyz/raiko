@@ -492,6 +492,7 @@ impl Risc0BoundlessProver {
             .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}")))?;
 
         let offer_params = self.boundless_config.get_aggregation_offer_params();
+        tracing::info!("aggregate offer_params: {:?}", offer_params);
         let request = self
             .build_boundless_request(
                 &boundless_client,
@@ -527,7 +528,6 @@ impl Risc0BoundlessProver {
         let (guest_env, guest_env_bytes) = self.process_input(_input)?;
 
         tracing::info!("len guest_env_bytes: {:?}", guest_env_bytes.len());
-
         let (mcycles_count, _) = self.evaluate_cost(&guest_env, BOUNDLESS_BATCH_ELF).await?;
         let boundless_client = self.create_boundless_client().await?;
 
@@ -538,6 +538,7 @@ impl Risc0BoundlessProver {
         tracing::info!("Uploaded input to {}", input_url);
 
         let offer_params = self.boundless_config.get_batch_offer_params();
+        tracing::info!("batch offer_params: {:?}", offer_params);
         let request = self
             .build_boundless_request(
                 &boundless_client,
