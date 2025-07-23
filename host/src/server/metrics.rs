@@ -72,7 +72,7 @@ impl MetricsCollector {
                         request_id, duration, has_proof
                     );
                 } else {
-                    debug!(
+                    info!(
                         target: "billing",
                         "BATCH_REQUEST_CONT - ID: {}, DURATION: {:?}, HAS_PROOF: {}",
                         request_id, duration, has_proof
