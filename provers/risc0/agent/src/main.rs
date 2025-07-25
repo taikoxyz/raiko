@@ -84,7 +84,7 @@ async fn proof_handler(
 
     // Generate proof with timeout
     let proof_result = tokio::time::timeout(
-        std::time::Duration::from_secs(7200), // 2 hour timeout
+        std::time::Duration::from_secs(9600), // 3 hour timeout
         async {
             match request.proof_type.clone() {
                 ProofType::Batch => prover
