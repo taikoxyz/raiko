@@ -351,7 +351,7 @@ impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
         else {
             return false;
         };
-        for ((address, index), value) in take(&mut self.pending_slots).into_iter().zip(slots.iter())
+        for ((address, index), &value) in take(&mut self.pending_slots).into_iter().zip(slots.iter())
         {
             self.staging_db
                 .insert_account_storage(&address, index, *value);
