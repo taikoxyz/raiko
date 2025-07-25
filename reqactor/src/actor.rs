@@ -373,8 +373,20 @@ mod tests {
         let start_time = chrono::Utc::now();
 
         // First, add the request as failed in the pool
-        let failed_status = StatusWithContext::new(Status::Failed { error: "test fail".to_string() }, start_time);
-        actor.pool_add_new(request_key.clone(), request_entity.clone(), failed_status.clone()).await.unwrap();
+        let failed_status = StatusWithContext::new(
+            Status::Failed {
+                error: "test fail".to_string(),
+            },
+            start_time,
+        );
+        actor
+            .pool_add_new(
+                request_key.clone(),
+                request_entity.clone(),
+                failed_status.clone(),
+            )
+            .await
+            .unwrap();
 
         // The request should not be in the queue yet
         {
@@ -384,7 +396,10 @@ mod tests {
 
         // Call act, which should re-register and re-queue the failed request
         let new_start_time = chrono::Utc::now();
-        let result = actor.act(request_key.clone(), request_entity.clone(), new_start_time).await.unwrap();
+        let result = actor
+            .act(request_key.clone(), request_entity.clone(), new_start_time)
+            .await
+            .unwrap();
         assert!(matches!(result.status(), Status::Registered));
 
         // The request should now be in the queue
