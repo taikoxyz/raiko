@@ -79,22 +79,22 @@ pub struct Risc0Response {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BoundlessOfferParams {
     pub ramp_up_sec: u32,
-    pub lock_timeout_sec: u32,
-    pub timeout_sec: u32,
+    pub lock_timeout_ms_per_mcycle: u32,
+    pub timeout_ms_per_mcycle: u32,
     pub max_price_per_mcycle: String,
     pub min_price_per_mcycle: String,
-    pub lock_stake_per_mcycle: String,
+    pub lock_stake: String,
 }
 
 impl Default for BoundlessOfferParams {
     fn default() -> Self {
         Self {
             ramp_up_sec: 200,
-            lock_timeout_sec: 1000,
-            timeout_sec: 3000,
+            lock_timeout_ms_per_mcycle: 1000,
+            timeout_ms_per_mcycle: 3000,
             max_price_per_mcycle: "0.00001".to_string(),
             min_price_per_mcycle: "0.000003".to_string(),
-            lock_stake_per_mcycle: "0.0001".to_string(),
+            lock_stake: "0.0001".to_string(),
         }
     }
 }
@@ -103,22 +103,22 @@ impl BoundlessOfferParams {
     fn aggregation() -> Self {
         Self {
             ramp_up_sec: 200,
-            lock_timeout_sec: 1000,
-            timeout_sec: 3000,
+            lock_timeout_ms_per_mcycle: 1000,
+            timeout_ms_per_mcycle: 3000,
             max_price_per_mcycle: "0.00001".to_string(),
             min_price_per_mcycle: "0.000003".to_string(),
-            lock_stake_per_mcycle: "0.0001".to_string(),
+            lock_stake: "0.0001".to_string(),
         }
     }
 
     fn batch() -> Self {
         Self {
             ramp_up_sec: 1000,
-            lock_timeout_sec: 5000,
-            timeout_sec: 3600 * 3,
+            lock_timeout_ms_per_mcycle: 5000,
+            timeout_ms_per_mcycle: 3600 * 3,
             max_price_per_mcycle: "0.00003".to_string(),
             min_price_per_mcycle: "0.000005".to_string(),
-            lock_stake_per_mcycle: "0.0001".to_string(),
+            lock_stake: "0.0001".to_string(),
         }
     }
 }
@@ -486,10 +486,13 @@ impl Risc0BoundlessProver {
         let boundless_client = self.create_boundless_client().await?;
 
         // Upload the input to the storage provider
-        let input_url = boundless_client
-            .upload_input(&guest_env_bytes)
-            .await
-            .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}")))?;
+        let input_url = None;
+        // Some(
+        //     boundless_client
+        //         .upload_input(&guest_env_bytes)
+        //         .await
+        //         .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}"))),
+        // );
 
         let offer_params = self.boundless_config.get_aggregation_offer_params();
         tracing::info!("aggregate offer_params: {:?}", offer_params);
@@ -498,8 +501,9 @@ impl Risc0BoundlessProver {
                 &boundless_client,
                 self.aggregation_image_url.clone().unwrap(),
                 input_url,
+                guest_env,
                 &offer_params,
-                mcycles_count,
+                mcycles_count as u32,
             )
             .await?;
 
@@ -531,11 +535,12 @@ impl Risc0BoundlessProver {
         let (mcycles_count, _) = self.evaluate_cost(&guest_env, BOUNDLESS_BATCH_ELF).await?;
         let boundless_client = self.create_boundless_client().await?;
 
-        let input_url = boundless_client
-            .upload_input(&guest_env_bytes)
-            .await
-            .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}")))?;
-        tracing::info!("Uploaded input to {}", input_url);
+        let input_url = None;
+        // let input_url = Some(boundless_client
+        //     .upload_input(&guest_env_bytes)
+        //     .await
+        //     .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {e}")))?);
+        // tracing::info!("Uploaded input to {}", input_url);
 
         let offer_params = self.boundless_config.get_batch_offer_params();
         tracing::info!("batch offer_params: {:?}", offer_params);
@@ -544,8 +549,9 @@ impl Risc0BoundlessProver {
                 &boundless_client,
                 self.batch_image_url.clone().unwrap(),
                 input_url,
+                guest_env,
                 &offer_params,
-                mcycles_count,
+                mcycles_count as u32,
             )
             .await
             .map_err(|e| AgentError::RequestBuildError(format!("Failed to build request: {e}")))?;
@@ -612,9 +618,10 @@ impl Risc0BoundlessProver {
         &self,
         boundless_client: &Client,
         program_url: Url,
-        input_url: Url,
+        _input_url: Option<Url>,
+        guest_env: GuestEnv,
         offer_spec: &BoundlessOfferParams,
-        mcycles_count: u64,
+        mcycles_count: u32,
     ) -> AgentResult<ProofRequest> {
         tracing::info!("offer_spec: {:?}", offer_spec);
         let max_price = parse_ether(&offer_spec.max_price_per_mcycle).map_err(|e| {
@@ -624,31 +631,33 @@ impl Risc0BoundlessProver {
             ))
         })? * U256::from(mcycles_count);
 
-        let min_price = parse_ether(&offer_spec.min_price_per_mcycle).map_err(|e| {
-            AgentError::ClientBuildError(format!(
-                "Failed to parse min_price_per_mcycle: {} ({})",
-                offer_spec.min_price_per_mcycle, e
-            ))
-        })? * U256::from(mcycles_count);
+        // let min_price = parse_ether(&offer_spec.min_price_per_mcycle).map_err(|e| {
+        //     AgentError::ClientBuildError(format!(
+        //         "Failed to parse min_price_per_mcycle: {} ({})",
+        //         offer_spec.min_price_per_mcycle, e
+        //     ))
+        // })? * U256::from(mcycles_count);
 
-        let lock_stake =
-            parse_staking_token(&offer_spec.lock_stake_per_mcycle)? * U256::from(mcycles_count);
+        let lock_stake = parse_staking_token(&offer_spec.lock_stake)?;
+        let lock_timeout = (offer_spec.lock_timeout_ms_per_mcycle * mcycles_count / 1000u32) as u32;
+        let timeout = (offer_spec.timeout_ms_per_mcycle * mcycles_count / 1000u32) as u32;
 
         let request_params = boundless_client
             .new_request()
             .with_program_url(program_url)
             .unwrap()
             .with_groth16_proof()
-            // .with_env(guest_env)
-            .with_input_url(input_url)
-            .unwrap()
+            .with_env(guest_env)
+            // .with_input_url(input_url)
+            // .with_env(GuestEnv::builder().write_frame(&guest_env_bytes))
+            // .unwrap()
             .with_offer(
                 OfferParams::builder()
                     .ramp_up_period(offer_spec.ramp_up_sec)
-                    .lock_timeout(offer_spec.lock_timeout_sec)
-                    .timeout(offer_spec.timeout_sec)
+                    .lock_timeout(lock_timeout)
+                    .timeout(timeout)
                     .max_price(max_price)
-                    .min_price(min_price)
+                    // .min_price(min_price)
                     .lock_stake(lock_stake),
             );
 
@@ -1008,7 +1017,7 @@ mod tests {
         // 0.000005 * 1000 = 0.005 ETH
         assert_eq!(min_price, U256::from(5000000000000000u128));
 
-        let lock_stake_per_mcycle = parse_staking_token(&offer_params.lock_stake_per_mcycle)
+        let lock_stake_per_mcycle = parse_staking_token(&offer_params.lock_stake)
             .expect("Failed to parse lock_stake_per_mcycle");
         let lock_stake = lock_stake_per_mcycle * U256::from(1000u64);
         // 0.0001 * 1000 = 0.1 USDC
