@@ -114,7 +114,13 @@ impl Backend {
                     }
                 };
                 let status = match result {
-                    Ok(proof) => Status::Success { proof },
+                    Ok(proof) => {
+                        let proof_str = format!("{}", proof);
+                        tracing::info!(
+                            "Actor Backend successfully proved {request_key_}. Proof: {proof_str}"
+                        );
+                        Status::Success { proof }
+                    },
                     Err(e) => Status::Failed {
                         error: e.to_string(),
                     },

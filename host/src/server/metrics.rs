@@ -3,11 +3,12 @@
 // tracing::info!(target: "billing", "message");
 // This is already reflected in the code below and should be used for all tracing in this file.
 
+use crate::metrics;
 use raiko_core::interfaces::BatchProofRequest;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tracing::{debug, info};
+use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct RequestMetrics {
@@ -54,7 +55,7 @@ impl MetricsCollector {
     }
 
     /// Record the end of a request
-    pub fn record_request_out(&self, request_id: &str, has_proof: bool) {
+    pub fn record_request_out(&self, request_id: &str, has_proof: bool) -> Option<Duration> {
         if let Ok(mut requests) = self.requests.lock() {
             if let Some(metrics) = requests.get_mut(request_id) {
                 let end_time = Instant::now();
@@ -72,14 +73,17 @@ impl MetricsCollector {
                         request_id, duration, has_proof
                     );
                 } else {
-                    debug!(
+                    info!(
                         target: "billing",
                         "BATCH_REQUEST_CONT - ID: {}, DURATION: {:?}, HAS_PROOF: {}",
                         request_id, duration, has_proof
                     );
                 }
+                return Some(duration);
             }
         }
+
+        None
     }
 
     /// Get request metrics by request_id
@@ -135,13 +139,41 @@ pub fn generate_request_id(api_key: &str, batch_request: &BatchProofRequest) -> 
 }
 
 /// Convenience function: record request start
-pub fn record_batch_request_in(api_key: &str, batch_request: &BatchProofRequest) -> String {
-    let request_id = generate_request_id(api_key, batch_request);
-    METRICS_COLLECTOR.record_request_in(&request_id, api_key);
-    request_id
+pub fn record_batch_request_in(api_key_owner: &str, batch_request: &BatchProofRequest) {
+    let request_id = generate_request_id(api_key_owner, batch_request);
+    METRICS_COLLECTOR.record_request_in(&request_id, api_key_owner);
 }
 
 /// Convenience function: record request end
-pub fn record_batch_request_out(request_id: &str, has_proof: bool) {
-    METRICS_COLLECTOR.record_request_out(request_id, has_proof);
+pub fn record_batch_request_out(
+    api_key_owner: &str,
+    batch_request: &BatchProofRequest,
+    has_proof: bool,
+) {
+    let request_id = generate_request_id(api_key_owner, batch_request);
+    if let Some(duration) = METRICS_COLLECTOR.record_request_out(&request_id, has_proof) {
+        let batch_desc = format!(
+            "{}+{}",
+            batch_request.batches.first().unwrap().batch_id,
+            batch_request.batches.len()
+        );
+
+        if has_proof {
+            metrics::accumulate_preconfimer_proof_gen_time(
+                api_key_owner,
+                batch_request.aggregate,
+                &batch_request.proof_type,
+                &batch_desc,
+                duration,
+            );
+        } else {
+            // record current proof generation cost, see if this task can not be done in time
+            metrics::observe_single_proof_gen_time(
+                batch_request.aggregate,
+                &batch_request.proof_type,
+                &batch_desc,
+                duration,
+            );
+        }
+    }
 }

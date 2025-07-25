@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use lazy_static::lazy_static;
 use prometheus::{
-    labels, register_histogram_vec, register_int_counter_vec, register_int_gauge, HistogramVec,
-    IntCounterVec, IntGauge,
+    labels, register_gauge_vec, register_histogram_vec, register_int_counter_vec,
+    register_int_gauge, GaugeVec, HistogramVec, IntCounterVec, IntGauge,
 };
 use raiko_lib::proof_type::ProofType;
 
@@ -59,6 +59,22 @@ lazy_static! {
     pub static ref CONCURRENT_REQUESTS: IntGauge = register_int_gauge!(
         "concurrent_requests",
         "number of requests currently being processed"
+    )
+    .unwrap();
+
+    /// preconfimer proof generation time for each batch & each proof type
+    pub static ref PRECONFIRMER_PROOF_GEN_TIME: GaugeVec = register_gauge_vec!(
+        "preconfimer_proof_gen_time_gauge",
+        "time cost of preconfimer proof generation",
+        &["preconfirmer", "aggregate", "proof_type", "batch_desc"],
+    )
+    .unwrap();
+
+    /// 1 proof generation time
+    pub static ref SINGLE_PROOF_GEN_TIME: GaugeVec = register_gauge_vec!(
+        "single_proof_gen_time_gauge",
+        "time cost of preconfimer proof generation",
+        &["aggregate", "proof_type", "batch_desc"],
     )
     .unwrap();
 }
@@ -166,4 +182,39 @@ pub fn observe_total_time(block_id: u64, time: Duration, success: bool) {
         "success" => &success,
     };
     TOTAL_TIME.with(&labels).observe(duration_to_f64(time));
+}
+
+pub fn accumulate_preconfimer_proof_gen_time(
+    preconfirmer: &str,
+    aggregate: bool,
+    proof_type: &ProofType,
+    batch_desc: &str,
+    duration: Duration,
+) {
+    let preconfirmer = preconfirmer.to_string();
+    let proof_type = proof_type.to_string();
+    PRECONFIRMER_PROOF_GEN_TIME
+        .with_label_values(&[
+            preconfirmer.as_str(),
+            if aggregate { "aggregate" } else { "single" },
+            proof_type.as_str(),
+            batch_desc,
+        ])
+        .add(duration_to_f64(duration));
+}
+
+pub fn observe_single_proof_gen_time(
+    aggregate: bool,
+    proof_type: &ProofType,
+    batch_desc: &str,
+    duration: Duration,
+) {
+    let proof_type = proof_type.to_string();
+    SINGLE_PROOF_GEN_TIME
+        .with_label_values(&[
+            if aggregate { "aggregate" } else { "single" },
+            proof_type.as_str(),
+            batch_desc,
+        ])
+        .set(duration_to_f64(duration));
 }

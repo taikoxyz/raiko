@@ -16,6 +16,7 @@ use tower_http::{
 };
 
 pub mod admin;
+pub mod public;
 pub mod v1;
 pub mod v2;
 pub mod v3;
@@ -72,7 +73,7 @@ pub fn create_router(
         router = router.layer(auth);
     }
 
-    router
+    router.merge(crate::server::api::public::public_routes())
 }
 
 pub fn create_docs() -> utoipa::openapi::OpenApi {
