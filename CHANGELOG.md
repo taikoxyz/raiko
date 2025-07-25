@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.10.0](https://github.com/taikoxyz/raiko/compare/v1.9.0...v1.10.0) (2025-07-25)
+
+
+### Features
+
+* add medium priority queue ([#596](https://github.com/taikoxyz/raiko/issues/596)) ([f00b405](https://github.com/taikoxyz/raiko/commit/f00b4051cf2a7e0dd1ec74e24b991ef7bd372d1c))
+* add priority queue (update) ([#592](https://github.com/taikoxyz/raiko/issues/592)) ([7d895cc](https://github.com/taikoxyz/raiko/commit/7d895cc55272fbb84c070d5ed63a7a80d63e3fa4))
+* **raiko:** add billing log ([#597](https://github.com/taikoxyz/raiko/issues/597)) ([4fb87f8](https://github.com/taikoxyz/raiko/commit/4fb87f83bff2097ef2f388bb30060ae339e3b2da))
+* **raiko:** make lru size configurable ([#590](https://github.com/taikoxyz/raiko/issues/590)) ([6710b96](https://github.com/taikoxyz/raiko/commit/6710b96b1e5bda98e626b1b03f22afa509c29093))
+* **raiko:** update risc0 to v2.1.0 ([#584](https://github.com/taikoxyz/raiko/issues/584)) ([a2051c9](https://github.com/taikoxyz/raiko/commit/a2051c9f653d7f7f3a7d9a071cf3ec45888388d9))
+* **raiko:** update risc0 to v2.2.0  ([#600](https://github.com/taikoxyz/raiko/issues/600)) ([86d21bd](https://github.com/taikoxyz/raiko/commit/86d21bdb57bd2709a08b42389cb61d5e65c625ba))
+
+
+### Bug Fixes
+
+* metrics log issue and recover the successfully proved log info. ([#602](https://github.com/taikoxyz/raiko/issues/602)) ([0a7625e](https://github.com/taikoxyz/raiko/commit/0a7625e0803c446e473d7fb36f63efee7a09a07e))
+* **raiko:** code clean, remove useless units. ([#588](https://github.com/taikoxyz/raiko/issues/588)) ([388a542](https://github.com/taikoxyz/raiko/commit/388a5422c1e6e757f1758b89e447ddb8a6f7107e))
+* **raiko:** fix docker compose file ([#587](https://github.com/taikoxyz/raiko/issues/587)) ([88c58ed](https://github.com/taikoxyz/raiko/commit/88c58ede2cfd9b3fcf4bd6f4401afa03032c06ae))
+
 ## [1.9.0](https://github.com/taikoxyz/raiko/compare/v1.9.0-rc.1...v1.9.0) (2025-06-10)
 
 
