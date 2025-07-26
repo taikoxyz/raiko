@@ -76,8 +76,6 @@ pub fn create_router() -> Router<Actor> {
         // Only add the concurrency limit to the proof route. We want to still be able to call
         // healthchecks and metrics to have insight into the system.
         .nest("/proof", proof::create_router())
-        .nest("/health", v1::health::create_router())
-        .nest("/metrics", v1::metrics::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
         .merge(Scalar::with_url("/scalar", docs))
 }

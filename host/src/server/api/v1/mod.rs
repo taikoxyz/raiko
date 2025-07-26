@@ -128,8 +128,6 @@ pub fn create_router(concurrency_limit: usize) -> Router<Actor> {
             proof::create_router()
                 .layer(ServiceBuilder::new().concurrency_limit(concurrency_limit)),
         )
-        .nest("/health", health::create_router())
-        .nest("/metrics", metrics::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
         .merge(Scalar::with_url("/scalar", docs))
 }
