@@ -8,7 +8,7 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKey {
@@ -208,11 +208,11 @@ pub async fn api_key_auth_middleware(
                 Ok(next.run(req).await)
             }
             Ok(false) => {
-                error!("Rate limit exceeded for API key: {}", api_key);
+                warn!("Rate limit exceeded for API key: {}", api_key);
                 Err(StatusCode::TOO_MANY_REQUESTS)
             }
             Err(e) => {
-                error!("Rate limit check failed: {}", e);
+                warn!("Rate limit check failed: {}", e);
                 Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         }
