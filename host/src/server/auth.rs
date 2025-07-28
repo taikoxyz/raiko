@@ -24,8 +24,8 @@ pub struct ApiKey {
 impl ApiKey {
     // TODO: load from DB, currently we just use a simple map
     pub fn new(key: String, name: String) -> Self {
-        let env_rate_limit = std::env::var("RAIKO_RATE_LIMIT").unwrap_or("100".to_string());
-        let rate_limit = env_rate_limit.parse::<u32>().unwrap_or(100);
+        let env_rate_limit = std::env::var("RAIKO_RATE_LIMIT").unwrap_or("600".to_string());
+        let rate_limit = env_rate_limit.parse::<u32>().unwrap_or(600);
         Self {
             key,
             name,
@@ -176,7 +176,7 @@ pub async fn api_key_auth_middleware(
     }
 
     if api_key.is_empty() {
-        error!("No API key provided, from: {:?}", req);
+        warn!("No API key provided, from: {:?}", req);
         return Err(StatusCode::UNAUTHORIZED);
     }
 
@@ -208,7 +208,7 @@ pub async fn api_key_auth_middleware(
                 Ok(next.run(req).await)
             }
             Ok(false) => {
-                warn!("Rate limit exceeded for API key: {}", api_key);
+                error!("Rate limit exceeded for API key: {}", api_key);
                 Err(StatusCode::TOO_MANY_REQUESTS)
             }
             Err(e) => {
