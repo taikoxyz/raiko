@@ -264,7 +264,10 @@ mod tests {
         assert!(matches!(result.status(), Status::Registered));
 
         // Verify request was added to pool
-        let pool_status = actor.pool_get_status(&request_key).await.unwrap();
+        let pool_status = actor
+            .pool_get_status_with_proof_type(&request_key)
+            .await
+            .unwrap();
         assert!(pool_status.is_some());
         assert!(matches!(pool_status.unwrap().status(), Status::Registered));
     }
@@ -373,8 +376,23 @@ mod tests {
         let start_time = chrono::Utc::now();
 
         // First, add the request as failed in the pool
-        let failed_status = StatusWithContext::new(Status::Failed { error: "test fail".to_string() }, start_time);
-        actor.pool_add_new(request_key.clone(), request_entity.clone(), failed_status.clone()).await.unwrap();
+        let failed_status = StatusWithContext::new(
+            Status::Failed {
+                error: "test fail".to_string(),
+            },
+            start_time,
+        );
+        let proof_type = request_key.proof_type();
+        let image_id = ImageId::from_proof_type(proof_type);
+        actor
+            .pool_add_new(
+                request_key.clone(),
+                request_entity.clone(),
+                failed_status.clone(),
+                image_id,
+            )
+            .await
+            .unwrap();
 
         // The request should not be in the queue yet
         {
@@ -382,9 +400,11 @@ mod tests {
             assert!(!queue.contains(&request_key));
         }
 
-        // Call act, which should re-register and re-queue the failed request
-        let new_start_time = chrono::Utc::now();
-        let result = actor.act(request_key.clone(), request_entity.clone(), new_start_time).await.unwrap();
+        // Act on the request - it should be requeued
+        let result = actor
+            .act(request_key.clone(), request_entity.clone(), start_time)
+            .await
+            .unwrap();
         assert!(matches!(result.status(), Status::Registered));
 
         // The request should now be in the queue
@@ -392,7 +412,11 @@ mod tests {
         assert!(queue.contains(&request_key));
 
         // The pool status should be updated to Registered
-        let pool_status = actor.pool_get_status(&request_key).await.unwrap().unwrap();
+        let pool_status = actor
+            .pool_get_status_with_proof_type(&request_key)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(matches!(pool_status.status(), Status::Registered));
     }
 }

@@ -275,8 +275,13 @@ mod tests {
         let status = StatusWithContext::new_registered();
 
         // Add valid request
-        pool.add(request_key.clone(), request_entity, status)
-            .unwrap();
+        pool.add(
+            request_key.clone(),
+            request_entity,
+            status,
+            ImageId::test_default(),
+        )
+        .unwrap();
 
         // Try to add invalid data directly to Redis
         let mut conn = pool.conn().unwrap();
