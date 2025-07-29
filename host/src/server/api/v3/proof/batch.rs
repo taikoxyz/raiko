@@ -95,7 +95,7 @@ async fn batch_handler(
 
         batch_request
     };
-    let request_id = record_batch_request_in(&authenticated_key.name, &batch_request);
+    record_batch_request_in(&authenticated_key.name, &batch_request);
     tracing::info!(
         "Accepted {}'s batch request: {}",
         authenticated_key.name,
@@ -151,7 +151,7 @@ async fn batch_handler(
                 sub_batch_ids,
                 vec![],
                 batch_request.proof_type,
-                batch_request.prover_args,
+                batch_request.prover_args.clone(),
             )
             .into(),
             sub_request_keys,
@@ -224,9 +224,9 @@ async fn batch_handler(
     tracing::debug!("Batch proof result: {}", serde_json::to_string(&result)?);
 
     if let Ok(raiko_reqpool::Status::Success { .. }) = &result {
-        record_batch_request_out(&request_id, true);
+        record_batch_request_out(&authenticated_key.name, &batch_request, true);
     } else {
-        record_batch_request_out(&request_id, false);
+        record_batch_request_out(&authenticated_key.name, &batch_request, false);
     }
 
     Ok(to_v3_status(
