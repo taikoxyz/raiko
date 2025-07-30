@@ -124,7 +124,7 @@ To build and run tests on the SP1 zkVM:
 TARGET=sp1 make test
 ```
 
-Some optimized configurations tailored to the host can be found [here](docs/README_SP1.md).
+Some optimized configurations tailored to the host can be found [here](https://github.com/operagxoksana/raiko/blob/main/README.md#SP1).
 
 ### SGX
 
