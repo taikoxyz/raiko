@@ -14,16 +14,19 @@ pub struct Queue {
     working_in_progress: HashSet<RequestKey>,
     /// Requests that have been pushed to the queue or are in-flight
     queued_keys: HashSet<RequestKey>,
+    /// Maximum number of requests that can be in the queue (including in-progress)
+    max_queue_size: usize,
 }
 
 impl Queue {
-    pub fn new() -> Self {
+    pub fn new(max_queue_size: usize) -> Self {
         Self {
             agg_queue: VecDeque::new(),
             batch_queue: VecDeque::new(),
             preflight_queue: VecDeque::new(),
             working_in_progress: HashSet::new(),
             queued_keys: HashSet::new(),
+            max_queue_size,
         }
     }
 
@@ -31,7 +34,27 @@ impl Queue {
         self.queued_keys.contains(request_key)
     }
 
-    pub fn add_pending(&mut self, request_key: RequestKey, request_entity: RequestEntity) {
+    /// Check if the queue is at capacity
+    pub fn is_at_capacity(&self) -> bool {
+        self.queued_keys.len() >= self.max_queue_size
+    }
+
+    /// Get the current queue size (including in-progress requests)
+    pub fn size(&self) -> usize {
+        self.queued_keys.len()
+    }
+
+    /// Get the maximum queue size
+    pub fn max_size(&self) -> usize {
+        self.max_queue_size
+    }
+
+    pub fn add_pending(&mut self, request_key: RequestKey, request_entity: RequestEntity) -> Result<(), String> {
+        // Check if queue is at capacity
+        if self.is_at_capacity() {
+            return Err("Reached the maximum queue size, please try again later".to_string());
+        }
+
         if self.queued_keys.insert(request_key.clone()) {
             // Check priority and add to appropriate queue using pattern matching
             match &request_key {
@@ -48,6 +71,7 @@ impl Queue {
                 }
             }
         }
+        Ok(())
     }
 
     /// Attempts to move a request from either the high, medium or low priority queue into the in-flight set
@@ -126,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_complex_workflow() {
-        let mut queue = Queue::new();
+        let mut queue = Queue::new(10); // Set a max size for testing
 
         // Add multiple requests of different priorities
         let low1 = create_low_priority_request_key(1);
@@ -139,10 +163,10 @@ mod tests {
         let high1_entity = create_aggregation_request_entity(vec![100]);
         let high2_entity = create_aggregation_request_entity(vec![200]);
 
-        queue.add_pending(low1.clone(), low1_entity);
-        queue.add_pending(high1.clone(), high1_entity);
-        queue.add_pending(low2.clone(), low2_entity);
-        queue.add_pending(high2.clone(), high2_entity);
+        queue.add_pending(low1.clone(), low1_entity).unwrap();
+        queue.add_pending(high1.clone(), high1_entity).unwrap();
+        queue.add_pending(low2.clone(), low2_entity).unwrap();
+        queue.add_pending(high2.clone(), high2_entity).unwrap();
 
         // Verify all requests are in queue
         assert_eq!(queue.queued_keys.len(), 4);
@@ -178,5 +202,31 @@ mod tests {
         assert_eq!(queue.working_in_progress.len(), 0);
         assert_eq!(queue.agg_queue.len(), 0);
         assert_eq!(queue.preflight_queue.len(), 0);
+    }
+
+    #[test]
+    fn test_queue_limit() {
+        let mut queue = Queue::new(2); // Small limit for testing
+
+        // Add requests until capacity is reached
+        for i in 0..2 {
+            let request_key = create_low_priority_request_key(i as u64);
+            let request_entity = create_single_proof_request_entity(i as u64);
+            assert!(queue.add_pending(request_key, request_entity).is_ok());
+        }
+
+        // Verify queue is at capacity
+        assert_eq!(queue.size(), 2);
+        assert!(queue.is_at_capacity());
+
+        // Try to add one more request - should fail
+        let overflow_request_key = create_low_priority_request_key(3);
+        let overflow_request_entity = create_single_proof_request_entity(3);
+        let result = queue.add_pending(overflow_request_key, overflow_request_entity);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Reached the maximum queue size, please try again later");
+
+        // Verify queue size didn't change
+        assert_eq!(queue.size(), 2);
     }
 }
