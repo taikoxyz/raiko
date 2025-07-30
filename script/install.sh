@@ -44,8 +44,20 @@ if [ -z "$1" ] || [ "$1" == "sgx" ]; then
 	else
 		echo "gramine not installed, installing..."
 		# For SGX, install gramine: https://github.com/gramineproject/gramine.
-		wget -O /tmp/gramine.deb https://packages.gramineproject.io/pool/main/g/gramine/gramine_1.6.2_amd64.deb
-		sudo apt install -y /tmp/gramine.deb
+		sudo curl -fsSLo /etc/apt/keyrings/gramine-keyring-$(lsb_release -sc).gpg https://packages.gramineproject.io/gramine-keyring-$(lsb_release -sc).gpg
+
+		echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/gramine-keyring-$(lsb_release -sc).gpg] https://packages.gramineproject.io/ $(lsb_release -sc) main" \
+		| sudo tee /etc/apt/sources.list.d/gramine.list
+
+		sudo curl -fsSLo /etc/apt/keyrings/intel-sgx-deb.asc https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key
+
+		echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/intel-sgx-deb.asc] https://download.01.org/intel-sgx/sgx_repo/ubuntu $(lsb_release -sc) main" \
+		| sudo tee /etc/apt/sources.list.d/intel-sgx.list
+
+		sudo apt-get update
+		sudo apt-get install -y gramine
+
+		echo "Gramine installed, REBOOT MAY BE REQUIRED."
 	fi
 fi
 # RISC0
