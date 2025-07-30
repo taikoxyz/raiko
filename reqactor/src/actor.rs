@@ -220,7 +220,7 @@ mod tests {
         let ballot = Ballot::new(BTreeMap::new()).unwrap();
         let default_request_config = ProofRequestOpt::default();
         let chain_specs = SupportedChainSpecs::default();
-        let queue = Arc::new(Mutex::new(Queue::new()));
+        let queue = Arc::new(Mutex::new(Queue::new(1000)));
         let notify = Arc::new(Notify::new());
 
         Actor::new(
