@@ -60,7 +60,7 @@ services:
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
     container_name: raiko
-    command:
+    command: --concurrency-limit=1
     env_file:
       - .env
     devices:
@@ -70,6 +70,7 @@ services:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
       - ${HOME}/.config/raiko:/root/.config/raiko
+      # - ${HOME}/raiko/host/config/chain_spec_list_default.json:/etc/raiko/chain_spec_list.docker.json
     ports:
       - "8080:8080"
     environment:
