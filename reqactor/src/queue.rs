@@ -44,11 +44,6 @@ impl Queue {
         self.queued_keys.len()
     }
 
-    /// Get the maximum queue size
-    pub fn max_size(&self) -> usize {
-        self.max_queue_size
-    }
-
     pub fn add_pending(&mut self, request_key: RequestKey, request_entity: RequestEntity) -> Result<(), String> {
         // Check if queue is at capacity
         if self.is_at_capacity() {
