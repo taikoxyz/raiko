@@ -1,6 +1,6 @@
 use crate::{
     backend::Backend, impl_display_using_json_pretty, proof_key_to_hack_request_key, MemoryBackend,
-    RedisPoolConfig, RequestEntity, RequestKey, Status, StatusWithContext, ImageId,
+    RedisPoolConfig, RequestEntity, RequestKey, Status, StatusWithContext,
 };
 use backoff::{exponential::ExponentialBackoff, SystemClock};
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};

@@ -13,7 +13,7 @@ use raiko_lib::{
     consts::{ChainSpec, SupportedChainSpecs},
     proof_type::ProofType,
 };
-use raiko_reqpool::{Pool, RequestEntity, RequestKey, Status, StatusWithContext, ImageId};
+use raiko_reqpool::{Pool, RequestEntity, RequestKey, Status, StatusWithContext};
 use reth_primitives::BlockHash;
 use tokio::sync::{Mutex, Notify};
 
@@ -382,8 +382,6 @@ mod tests {
             },
             start_time,
         );
-        let proof_type = request_key.proof_type();
-        let image_id = ImageId::from_proof_type(proof_type);
         actor
             .pool_add_new(
                 request_key.clone(),
