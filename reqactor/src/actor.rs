@@ -13,7 +13,7 @@ use raiko_lib::{
     consts::{ChainSpec, SupportedChainSpecs},
     proof_type::ProofType,
 };
-use raiko_reqpool::{Pool, RequestEntity, RequestKey, Status, StatusWithContext};
+use raiko_reqpool::{Pool, RequestEntity, RequestKey, Status, StatusWithContext, ImageId};
 use reth_primitives::BlockHash;
 use tokio::sync::{Mutex, Notify};
 
@@ -265,7 +265,7 @@ mod tests {
 
         // Verify request was added to pool
         let pool_status = actor
-            .pool_get_status_with_proof_type(&request_key)
+            .pool_get_status(&request_key)
             .await
             .unwrap();
         assert!(pool_status.is_some());
@@ -389,7 +389,6 @@ mod tests {
                 request_key.clone(),
                 request_entity.clone(),
                 failed_status.clone(),
-                image_id,
             )
             .await
             .unwrap();
@@ -413,7 +412,7 @@ mod tests {
 
         // The pool status should be updated to Registered
         let pool_status = actor
-            .pool_get_status_with_proof_type(&request_key)
+            .pool_get_status(&request_key)
             .await
             .unwrap()
             .unwrap();
