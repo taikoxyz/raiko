@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use std::time::Duration;
+use std::{env, str::FromStr};
 
 use crate::methods::{
     boundless_aggregation::BOUNDLESS_AGGREGATION_ELF,
@@ -555,6 +555,11 @@ impl Risc0BoundlessProver {
             )
             .await
             .map_err(|e| AgentError::RequestBuildError(format!("Failed to build request: {e}")))?;
+
+        if env::var("AGENT_DEBUG_REQUEST").is_ok() {
+            tracing::info!("AGENT_DEBUG_REQUEST is set, skipping request submission");
+            return Ok(Vec::new());
+        }
 
         let (_, journal, seal) = self
             .submit_and_wait_for_fulfillment(&boundless_client, request)
