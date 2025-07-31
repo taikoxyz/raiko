@@ -73,7 +73,7 @@ lazy_static! {
     /// 1 proof generation time
     pub static ref SINGLE_PROOF_GEN_TIME: GaugeVec = register_gauge_vec!(
         "single_proof_gen_time_gauge",
-        "time cost of preconfimer proof generation",
+        "accumulated time cost of one single proof generation",
         &["aggregate", "proof_type", "batch_desc"],
     )
     .unwrap();

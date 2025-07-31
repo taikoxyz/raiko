@@ -8,7 +8,7 @@ use raiko_core::interfaces::BatchProofRequest;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tracing::info;
+use tracing::{debug, info};
 
 #[derive(Debug, Clone)]
 pub struct RequestMetrics {
@@ -73,7 +73,7 @@ impl MetricsCollector {
                         request_id, duration, has_proof
                     );
                 } else {
-                    info!(
+                    debug!(
                         target: "billing",
                         "BATCH_REQUEST_CONT - ID: {}, DURATION: {:?}, HAS_PROOF: {}",
                         request_id, duration, has_proof
