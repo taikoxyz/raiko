@@ -1,5 +1,5 @@
-use std::collections::{HashSet, VecDeque};
 use raiko_reqpool::{RequestEntity, RequestKey};
+use std::collections::{HashSet, VecDeque};
 
 /// Queue of requests to be processed
 #[derive(Debug)]
@@ -44,7 +44,8 @@ impl Queue {
                     self.batch_queue.push_back((request_key, request_entity));
                 }
                 _ => {
-                    self.preflight_queue.push_back((request_key, request_entity));
+                    self.preflight_queue
+                        .push_back((request_key, request_entity));
                 }
             }
         }
@@ -54,7 +55,9 @@ impl Queue {
     /// and starts processing it. High priority requests are processed first.
     pub fn try_next(&mut self) -> Option<(RequestKey, RequestEntity)> {
         let (request_key, request_entity) = self.agg_queue.pop_front().or_else(|| {
-            self.batch_queue.pop_front().or_else(|| self.preflight_queue.pop_front())
+            self.batch_queue
+                .pop_front()
+                .or_else(|| self.preflight_queue.pop_front())
         })?;
 
         self.working_in_progress.insert(request_key.clone());

@@ -3268,6 +3268,7 @@ dependencies = [
 name = "risc0-guest"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "harness",
  "harness-core",
  "k256",
@@ -3276,6 +3277,9 @@ dependencies = [
  "revm-primitives",
  "risc0-zkvm",
  "risc0-zkvm-platform",
+ "serde",
+ "serde_json",
+ "serde_with 3.9.0",
  "sha2 0.10.6",
 ]
 
@@ -3316,9 +3320,9 @@ dependencies = [
 
 [[package]]
 name = "risc0-zkvm"
-version = "2.2.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c59aaf1898f2f5d526a79d53dbe6288aeb1ce52a17184b85af84d06dedb1a367"
+checksum = "9684b333c1c5d83f29ce2a92314ccfafd9d8cdfa6c4e19c07b97015d2f1eb9d0"
 dependencies = [
  "anyhow",
  "borsh",
