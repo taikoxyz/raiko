@@ -60,6 +60,7 @@ impl MetricsCollector {
                 let end_time = Instant::now();
                 let elapsed_time_since_last_req =
                     end_time.duration_since(metrics.last_request_time);
+                metrics.last_request_time = end_time;
 
                 if has_proof {
                     let duration = end_time.duration_since(metrics.start_time);
