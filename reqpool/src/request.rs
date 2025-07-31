@@ -13,7 +13,7 @@ use raiko_redis_derive::RedisValue;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use std::collections::HashMap;
-use std::fs;
+use std::env;
 
 #[derive(RedisValue, PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
@@ -806,80 +806,56 @@ impl ImageId {
         }
     }
 
-    /// Read RISC0 ID (aggregation or batch) from the corresponding file
+    /// Read RISC0 ID (aggregation or batch) from environment variables
     pub fn read_risc0_id(id_type: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let file_path = match id_type {
-            "aggregation" => "provers/risc0/driver/src/methods/risc0_aggregation.rs",
-            "batch" => "provers/risc0/driver/src/methods/risc0_batch.rs",
+        let env_var = match id_type {
+            "aggregation" => "RISC0_AGGREGATION_ID",
+            "batch" => "RISC0_BATCH_ID",
             _ => return Err("Invalid RISC0 ID type. Must be 'aggregation' or 'batch'".into()),
         };
 
-        let content = fs::read_to_string(file_path)?;
-
-        let constant_name = match id_type {
-            "aggregation" => "RISC0_AGGREGATION_ID: [u32; 8] = [",
-            "batch" => "RISC0_BATCH_ID: [u32; 8] = [",
-            _ => unreachable!(),
-        };
-
-        // Extract the array values from the constant
-        if let Some(start) = content.find(constant_name) {
-            if let Some(end) = content[start..].find("];") {
-                let array_content = &content[start + constant_name.len()..start + end];
-                let values: Vec<u32> = array_content
-                    .split(',')
-                    .map(|s| s.trim().parse::<u32>().unwrap_or(0))
-                    .collect();
-
+        match env::var(env_var) {
+            Ok(value) => Ok(value),
+            Err(_) => {
+                // Fallback to default hardcoded values if env var is not set
+                let default_values = match id_type {
+                    "aggregation" => [2069105366u32, 323896637, 1674464, 2357629650, 1735073394, 593512183, 2686476147, 3578318550],
+                    "batch" => [1102720304u32, 1407132507, 3587315974, 2566767652, 1215848185, 96193079, 3976253700, 2699738778],
+                    _ => unreachable!(),
+                };
+                
                 // Convert to hex string format
-                let hex_string = values
+                let hex_string = default_values
                     .iter()
                     .map(|&val| format!("{:08x}", val))
                     .collect::<Vec<String>>()
                     .join("-");
-
-                return Ok(hex_string);
+                
+                Ok(hex_string)
             }
         }
-
-        Err(format!("Failed to parse RISC0_{}_ID", id_type.to_uppercase()).into())
     }
 
-    /// Read SP1 VK hash (aggregation or batch) from the corresponding file
+    /// Read SP1 VK hash (aggregation or batch) from environment variables
     pub fn read_sp1_vk_hash(hash_type: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let file_path = match hash_type {
-            "aggregation" => "provers/sp1/guest/elf/sp1_aggregation.rs",
-            "batch" => "provers/sp1/guest/elf/sp1_batch.rs",
+        let env_var = match hash_type {
+            "aggregation" => "SP1_AGGREGATION_VK_HASH",
+            "batch" => "SP1_BATCH_VK_HASH",
             _ => return Err("Invalid SP1 hash type. Must be 'aggregation' or 'batch'".into()),
         };
 
-        let content = fs::read_to_string(file_path)?;
-
-        let constant_name = match hash_type {
-            "aggregation" => "SP1_AGGREGATION_VK_HASH_BYTES: &str =",
-            "batch" => "SP1_BATCH_VK_HASH_BYTES: &str =",
-            _ => unreachable!(),
-        };
-
-        // Extract the VK hash from the constant
-        if let Some(start) = content.find(constant_name) {
-            if let Some(end) = content[start..].find(';') {
-                let hash_content = &content[start + constant_name.len()..start + end];
-                // Remove quotes and handle escaped quotes
-                let hash = hash_content
-                    .trim()
-                    .trim_matches('"')
-                    .replace("\\\"", "\"") // Unescape any escaped quotes
-                    .to_string();
-                return Ok(hash);
+        match env::var(env_var) {
+            Ok(value) => Ok(value),
+            Err(_) => {
+                // Fallback to default hardcoded values if env var is not set
+                let default_hash = match hash_type {
+                    "aggregation" => "0bba32f024be48ce35f9307d258786a153ac3fa1349710ff220aad0945e2990f",
+                    "batch" => "46ca079b221f94cf4e1a457434a7a323655cf32e30116afe645640c54bcb2fb6",
+                    _ => unreachable!(),
+                };
+                Ok(default_hash.to_string())
             }
         }
-
-        Err(format!(
-            "Failed to parse SP1_{}_VK_HASH_BYTES",
-            hash_type.to_uppercase()
-        )
-        .into())
     }
 
     /// Create an ImageId based on the proof type and request type (aggregation or batch)
