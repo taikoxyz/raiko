@@ -819,8 +819,8 @@ impl ImageId {
             Err(_) => {
                 // Fallback to default hardcoded values if env var is not set
                 let default_values = match id_type {
-                    "aggregation" => [2069105366u32, 323896637, 1674464, 2357629650, 1735073394, 593512183, 2686476147, 3578318550],
-                    "batch" => [1102720304u32, 1407132507, 3587315974, 2566767652, 1215848185, 96193079, 3976253700, 2699738778],
+                    "aggregation" => [0u32, 0, 0, 0, 0, 0, 0, 0],
+                    "batch" => [0u32, 0, 0, 0, 0, 0, 0, 0],
                     _ => unreachable!(),
                 };
                 
@@ -849,8 +849,8 @@ impl ImageId {
             Err(_) => {
                 // Fallback to default hardcoded values if env var is not set
                 let default_hash = match hash_type {
-                    "aggregation" => "0bba32f024be48ce35f9307d258786a153ac3fa1349710ff220aad0945e2990f",
-                    "batch" => "46ca079b221f94cf4e1a457434a7a323655cf32e30116afe645640c54bcb2fb6",
+                    "aggregation" => "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                    "batch" => "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                     _ => unreachable!(),
                 };
                 Ok(default_hash.to_string())
