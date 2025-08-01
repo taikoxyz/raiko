@@ -37,6 +37,7 @@ async fn main() -> HostResult<()> {
         chain_specs.clone(),
         default_request_config.clone(),
         max_proving_concurrency,
+        opts.queue_limit,
     )
     .await;
 

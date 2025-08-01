@@ -480,7 +480,7 @@ mod tests {
     async fn test_serve_in_background() {
         let pool = create_test_pool();
         let chain_specs = create_test_chain_specs();
-        let queue = Arc::new(Mutex::new(Queue::new()));
+        let queue = Arc::new(Mutex::new(Queue::new(1000)));
         let notifier = Arc::new(Notify::new());
 
         let backend = Backend::new(pool, chain_specs, 1, queue.clone(), notifier.clone());

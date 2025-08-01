@@ -84,6 +84,11 @@ pub struct Opts {
     #[arg(long, default_value = "false")]
     pub enable_redis_pool: bool,
 
+    #[arg(long, require_equals = true, default_value = "1000")]
+    #[serde(default = "Opts::default_queue_limit")]
+    /// Limit the max number of requests in the queue (including in-progress)
+    pub queue_limit: usize,
+
     /// supported API keys hashset, now using input for simplicity
     #[arg(
         long,
@@ -122,6 +127,10 @@ impl Opts {
 
     fn default_log_level() -> String {
         "info".to_string()
+    }
+
+    fn default_queue_limit() -> usize {
+        1000
     }
 
     /// Read the options from a file and merge it with the current options.
