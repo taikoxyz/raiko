@@ -818,20 +818,13 @@ impl ImageId {
             Ok(value) => Ok(value),
             Err(_) => {
                 // Fallback to default hardcoded values if env var is not set
-                let default_values = match id_type {
-                    "aggregation" => [0u32, 0, 0, 0, 0, 0, 0, 0],
-                    "batch" => [0u32, 0, 0, 0, 0, 0, 0, 0],
+                let default_hex = match id_type {
+                    "aggregation" => "00000000-00000000-00000000-00000000-00000000-00000000-00000000-00000000",
+                    "batch" => "00000000-00000000-00000000-00000000-00000000-00000000-00000000-00000000",
                     _ => unreachable!(),
                 };
                 
-                // Convert to hex string format
-                let hex_string = default_values
-                    .iter()
-                    .map(|&val| format!("{:08x}", val))
-                    .collect::<Vec<String>>()
-                    .join("-");
-                
-                Ok(hex_string)
+                Ok(default_hex.to_string())
             }
         }
     }
@@ -847,7 +840,9 @@ impl ImageId {
         match env::var(env_var) {
             Ok(value) => Ok(value),
             Err(_) => {
-                // Fallback to default hardcoded values if env var is not set
+                // Fallback to default hardcoded values if env var is not set.
+                // SP1 generates two image IDs per binary (aggregation or batch): vk_hash and vk_bn256.
+                // We use only vk_hash here, which is sufficient to verify the binary version.
                 let default_hash = match hash_type {
                     "aggregation" => "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                     "batch" => "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
