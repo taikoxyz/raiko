@@ -100,8 +100,6 @@ impl Prover for RemoteSgxProver {
             unimplemented!("SGX bootstrap not implemented for aggregation request");
         };
 
-        println!("input: {:?}", input);
-
         let sgx_proof = aggregate(&self.remote_prover_url, input.clone(), self.proof_type).await?;
         Ok(sgx_proof.into())
     }
