@@ -6,6 +6,7 @@ set -e
 TOOLCHAIN_RISC0=+nightly-2024-12-20
 TOOLCHAIN_SP1=+nightly-2024-12-20
 TOOLCHAIN_SGX=+nightly-2024-12-20
+TOOLCHAIN_ZISK=+nightly-2024-12-20
 
 check_toolchain() {
     local TOOLCHAIN=$1
@@ -165,6 +166,52 @@ if [ "$1" == "sp1" ]; then
             # Don't want to span Succinct Network and wait 2 hours in CI
             # echo "Running Sp1 verification"
             # cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier --features enable,sp1-verifier
+        fi
+    fi
+fi
+
+# ZISK
+if [ "$1" == "zisk" ]; then
+    check_toolchain $TOOLCHAIN_ZISK
+    
+    # Clear any RISC-V related environment variables that might interfere
+    unset CC TARGET_CC
+    
+    # Check if cargo-zisk is installed
+    if ! command -v cargo-zisk &> /dev/null; then
+        echo "cargo-zisk not found. Please install Zisk toolchain first:"
+        echo "  TARGET=zisk make install"
+        echo "or manually:"
+        echo "  curl https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash"
+        exit 1
+    fi
+    
+    if [ "$MOCK" = "1" ]; then
+        export ZISK_PROVER=mock
+        echo "ZISK_PROVER is set to $ZISK_PROVER"
+    fi
+    
+    if [ -n "${CLIPPY}" ]; then
+        cargo ${TOOLCHAIN_ZISK} clippy -p raiko-host -p zisk-driver -F "zisk,enable"
+    elif [ -z "${RUN}" ]; then
+        if [ -z "${TEST}" ]; then
+            echo "Building Zisk prover"
+            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder
+        else
+            echo "Building test programs for Zisk prover"
+            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --features test,bench
+        fi
+        if [ -z "${GUEST}" ]; then
+            echo "Building 'cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --features zisk'"
+            cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --features zisk
+        fi
+    else
+        if [ -z "${TEST}" ]; then
+            echo "Running Zisk prover"
+            cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --features zisk
+        else
+            echo "Running Zisk unit tests"
+            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p zisk-driver --features "zisk enable"
         fi
     fi
 fi

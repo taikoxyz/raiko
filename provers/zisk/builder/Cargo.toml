@@ -1,0 +1,9 @@
+[package]
+name = "zisk-builder"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-lib = { path = "../../../lib" }
+serde = "1.0"
+serde_json = "1.0"

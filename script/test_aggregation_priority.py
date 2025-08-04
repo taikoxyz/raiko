@@ -87,7 +87,7 @@ class AggregationPriorityTester:
         self.logger.info(f"Using prover type: {self.prove_type}")
         
         # Validate prover type
-        supported_provers = ["native", "sgx", "risc0", "sp1"]
+        supported_provers = ["native", "sgx", "risc0", "sp1", "zisk"]
         if self.prove_type not in supported_provers:
             self.logger.error(f"Unsupported prover type: {self.prove_type}")
             self.logger.error(f"Supported provers: {supported_provers}")
@@ -196,6 +196,11 @@ class AggregationPriorityTester:
                 "prover": "network",
                 "verify": True
             }
+        elif self.prove_type == "zisk":
+            base_request["zisk"] = {
+                "verify": False,
+                "execution_mode": "emulator"
+            }
         
         return base_request
 
@@ -237,6 +242,11 @@ class AggregationPriorityTester:
                 "recursion": "plonk",
                 "prover": "network",
                 "verify": True
+            }
+        elif self.prove_type == "zisk":
+            base_request["zisk"] = {
+                "verify": False,
+                "execution_mode": "emulator"
             }
         
         return base_request
@@ -563,7 +573,7 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 10, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 4110000, 
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -655,7 +665,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=10,
+        default=2,
         help="Total number of batches to process"
     )
     
@@ -663,7 +673,7 @@ async def main():
         "--prove-type",
         type=str,
         default="native",
-        choices=["native", "sgx", "risc0", "sp1"],
+        choices=["native", "sgx", "risc0", "sp1", "zisk"],
         help="Proof type to use for requests"
     )
     

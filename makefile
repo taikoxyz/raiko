@@ -32,3 +32,4 @@ update: ## Run cargo update
 	@cargo update
 	cd ./provers/sp1/guest && cargo update
 	cd ./provers/risc0/guest && cargo update
+	cd ./provers/zisk/guest && cargo update

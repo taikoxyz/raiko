@@ -108,3 +108,44 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	# 	/home/runner/.sp1/bin/sp1up
 	# fi
 fi
+
+# ZISK
+if [ -z "$1" ] || [ "$1" == "zisk" ]; then
+	# Check if cargo-zisk is already installed
+	if command -v cargo-zisk >/dev/null 2>&1; then
+		echo "Zisk already installed, version: $(cargo-zisk --version)"
+	else
+		echo "Installing Zisk using prebuilt binaries..."
+		
+		# Install Zisk using the official installation script
+		curl -s https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash
+		
+		# Source profile to ensure zisk tools are in PATH
+		PROFILE=$HOME/.profile
+		if [ -f "$PROFILE" ]; then
+			source "$PROFILE"
+		fi
+		
+		# Also try .bashrc if .profile doesn't work
+		if ! command -v cargo-zisk >/dev/null 2>&1; then
+			PROFILE=$HOME/.bashrc
+			if [ -f "$PROFILE" ]; then
+				source "$PROFILE"
+			fi
+		fi
+		
+		# Add to PATH if still not found
+		if ! command -v cargo-zisk >/dev/null 2>&1; then
+			export PATH="$HOME/.zisk/bin:$PATH"
+		fi
+		
+		# Verify installation
+		if command -v cargo-zisk >/dev/null 2>&1; then
+			echo "Zisk installed successfully, version: $(cargo-zisk --version)"
+		else
+			echo "Failed to install Zisk. Please install manually:"
+			echo "curl https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash"
+			exit 1
+		fi
+	fi
+fi

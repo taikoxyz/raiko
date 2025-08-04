@@ -6200,6 +6200,7 @@ dependencies = [
  "tokio",
  "tracing",
  "utoipa",
+ "zisk-driver",
 ]
 
 [[package]]
@@ -11338,6 +11339,32 @@ dependencies = [
  "memchr",
  "thiserror 1.0.63",
  "zopfli",
+]
+
+[[package]]
+name = "zisk-builder"
+version = "0.1.0"
+dependencies = [
+ "raiko-lib",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "zisk-driver"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives 0.7.7",
+ "async-trait",
+ "bincode",
+ "hex",
+ "raiko-lib",
+ "reth-primitives",
+ "serde",
+ "serde_json",
+ "serde_with 3.9.0",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
