@@ -819,11 +819,15 @@ impl ImageId {
             Err(_) => {
                 // Fallback to default hardcoded values if env var is not set
                 let default_hex = match id_type {
-                    "aggregation" => "00000000-00000000-00000000-00000000-00000000-00000000-00000000-00000000",
-                    "batch" => "00000000-00000000-00000000-00000000-00000000-00000000-00000000-00000000",
+                    "aggregation" => {
+                        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                    }
+                    "batch" => {
+                        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                    }
                     _ => unreachable!(),
                 };
-                
+
                 Ok(default_hex.to_string())
             }
         }
@@ -844,8 +848,12 @@ impl ImageId {
                 // SP1 generates two image IDs per binary (aggregation or batch): vk_hash and vk_bn256.
                 // We use only vk_hash here, which is sufficient to verify the binary version.
                 let default_hash = match hash_type {
-                    "aggregation" => "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                    "batch" => "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                    "aggregation" => {
+                        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                    }
+                    "batch" => {
+                        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                    }
                     _ => unreachable!(),
                 };
                 Ok(default_hash.to_string())

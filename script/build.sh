@@ -7,6 +7,49 @@ TOOLCHAIN_RISC0=+nightly-2024-12-20
 TOOLCHAIN_SP1=+nightly-2024-12-20
 TOOLCHAIN_SGX=+nightly-2024-12-20
 
+# Store original CC environment variable to restore later if needed
+ORIGINAL_CC="${CC:-}"
+
+# Function to set up CC environment for different targets
+setup_cc_env() {
+    local TARGET=$1
+    case "$TARGET" in
+        "native")
+            # Use system default compiler for native builds
+            if [ -n "$ORIGINAL_CC" ] && [ "$ORIGINAL_CC" != "riscv64-unknown-elf-gcc" ]; then
+                export CC="$ORIGINAL_CC"
+            else
+                # Force unset CC to use system default (gcc/clang)
+                unset CC
+            fi
+            echo "CC environment for native: ${CC:-system default}"
+            ;;
+        "risc0")
+            # RISC0 requires specific compiler setup
+            export CC="clang"
+            echo "CC environment for risc0: $CC"
+            ;;
+        "sp1")
+            # SP1 requires specific compiler setup
+            export CC="clang"
+            echo "CC environment for sp1: $CC"
+            ;;
+        "sgx")
+            # SGX uses system default
+            if [ -n "$ORIGINAL_CC" ] && [ "$ORIGINAL_CC" != "riscv64-unknown-elf-gcc" ]; then
+                export CC="$ORIGINAL_CC"
+            else
+                # Force unset CC to use system default (gcc/clang)
+                unset CC
+            fi
+            echo "CC environment for sgx: ${CC:-system default}"
+            ;;
+        *)
+            echo "Unknown target for CC setup: $TARGET"
+            ;;
+    esac
+}
+
 check_toolchain() {
     local TOOLCHAIN=$1
 
@@ -46,6 +89,7 @@ fi
 
 # NATIVE
 if [ -z "$1" ] || [ "$1" == "native" ]; then
+    setup_cc_env "native"
     if [ -n "${CLIPPY}" ]; then
         cargo clippy -- -D warnings
     elif [ -z "${RUN}" ]; then
@@ -69,6 +113,7 @@ fi
 
 # SGX
 if [ "$1" == "sgx" ]; then
+    setup_cc_env "sgx"
     check_toolchain $TOOLCHAIN_SGX
     if [ "$MOCK" = "1" ]; then
         export SGX_DIRECT=1
@@ -97,6 +142,7 @@ fi
 
 # RISC0
 if [ "$1" == "risc0" ]; then
+    setup_cc_env "risc0"
     check_toolchain $TOOLCHAIN_RISC0
     ./script/setup-bonsai.sh
     if [ "$MOCK" = "1" ]; then
@@ -112,7 +158,9 @@ if [ "$1" == "risc0" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
+            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder 2>&1 | tee /tmp/risc0_build_output.txt
+            echo "Updating environment with new RISC0 image IDs..."
+            ./script/update_imageid.sh risc0
         else
             echo "Building test elfs for Risc0 prover"
             cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test,bench
@@ -134,6 +182,7 @@ fi
 
 # SP1
 if [ "$1" == "sp1" ]; then
+    setup_cc_env "sp1"
     check_toolchain $TOOLCHAIN_SP1
     if [ "$MOCK" = "1" ]; then
         export SP1_PROVER=mock
@@ -144,7 +193,9 @@ if [ "$1" == "sp1" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder
+            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder 2>&1 | tee /tmp/sp1_build_output.txt
+            echo "Updating environment with new SP1 VK hashes..."
+            ./script/update_imageid.sh sp1
         else
             echo "Building test elfs for Sp1 prover"
             cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench
