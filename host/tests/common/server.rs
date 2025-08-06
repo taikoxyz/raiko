@@ -58,6 +58,7 @@ impl TestServerBuilder {
             chain_specs.clone(),
             default_request_config.clone(),
             max_proving_concurrency,
+            1000, // max_queue_size
         )
         .await;
 

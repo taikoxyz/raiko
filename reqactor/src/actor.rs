@@ -145,8 +145,21 @@ impl Actor {
         // Push the request into the queue and notify to start the action
         let mut queue = self.queue.lock().await;
         if !queue.contains(&request_key) {
-            queue.add_pending(request_key, request_entity);
-            self.notify.notify_one();
+            match queue.add_pending(request_key.clone(), request_entity) {
+                Ok(()) => {
+                    self.notify.notify_one();
+                }
+                Err(error_msg) => {
+                    // If queue is at capacity, update the status to Failed
+                    let failed_status = StatusWithContext::new(
+                        Status::Failed { error: error_msg },
+                        start_time,
+                    );
+                    self.pool_update_status(request_key.clone(), failed_status.clone())
+                        .await?;
+                    return Ok(failed_status);
+                }
+            }
         }
 
         return Ok(status);
@@ -207,7 +220,7 @@ mod tests {
         let ballot = Ballot::new(BTreeMap::new()).unwrap();
         let default_request_config = ProofRequestOpt::default();
         let chain_specs = SupportedChainSpecs::default();
-        let queue = Arc::new(Mutex::new(Queue::new()));
+        let queue = Arc::new(Mutex::new(Queue::new(1000)));
         let notify = Arc::new(Notify::new());
 
         Actor::new(
