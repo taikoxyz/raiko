@@ -10,7 +10,7 @@ pub async fn setup() -> (TestServerHandle, Client) {
     // Wait for the server to be ready
     let mut last_log_time = std::time::Instant::now();
     loop {
-        match client.get("/v2/health").await {
+        match client.get("/health").await {
             Ok(_) => {
                 break;
             }

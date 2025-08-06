@@ -95,6 +95,7 @@ pub async fn test_v2_mainnet_zk_any_prove() {
     v2_assert_report(&client).await;
 }
 
+#[ignore = "v2 prove is not supported"]
 #[test_log::test(tokio::test)]
 pub async fn test_v2_mainnet_zk_any_prove_but_not_drawn() {
     let network = Network::TaikoMainnet;

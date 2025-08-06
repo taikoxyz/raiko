@@ -8,7 +8,7 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKey {
@@ -24,11 +24,13 @@ pub struct ApiKey {
 impl ApiKey {
     // TODO: load from DB, currently we just use a simple map
     pub fn new(key: String, name: String) -> Self {
+        let env_rate_limit = std::env::var("RAIKO_RATE_LIMIT").unwrap_or("600".to_string());
+        let rate_limit = env_rate_limit.parse::<u32>().unwrap_or(600);
         Self {
             key,
             name,
             permissions: vec!["read".to_string(), "write".to_string()],
-            rate_limit: Some(60), // Default 60 requests/minute
+            rate_limit: Some(rate_limit),
             created_at: chrono::Utc::now(),
             last_used: None,
             is_active: true,
@@ -174,7 +176,7 @@ pub async fn api_key_auth_middleware(
     }
 
     if api_key.is_empty() {
-        error!("No API key provided, from: {:?}", req);
+        warn!("No API key provided, from: {:?}", req);
         return Err(StatusCode::UNAUTHORIZED);
     }
 
@@ -210,7 +212,7 @@ pub async fn api_key_auth_middleware(
                 Err(StatusCode::TOO_MANY_REQUESTS)
             }
             Err(e) => {
-                error!("Rate limit check failed: {}", e);
+                warn!("Rate limit check failed: {}", e);
                 Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         }
@@ -252,5 +254,5 @@ fn generate_api_key() -> String {
     use rand::Rng;
     let mut rng = rand::thread_rng();
     let bytes: [u8; 32] = rng.gen();
-    format!("rk_{}", hex::encode(bytes))
+    format!("raiko_{}", hex::encode(bytes))
 }
