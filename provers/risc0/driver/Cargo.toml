@@ -41,7 +41,6 @@ tokio-util = { workspace = true }
 thiserror = { workspace = true }
 
 # boundless API related
-boundless-market = { version = "0.7.0" }
 alloy-signer-local-v12 = { package = "alloy-signer-local", version = "0.12" }
 alloy-primitives-v8 = { package = "alloy-primitives", version = "0.8.25" }
 risc0-ethereum-contracts-boundless = { package = "risc0-ethereum-contracts", version = "2.0.2" }

@@ -646,6 +646,7 @@ impl Risc0BoundlessProver {
         let lock_stake = parse_staking_token(&offer_spec.lock_stake)?;
         let lock_timeout = (offer_spec.lock_timeout_ms_per_mcycle * mcycles_count / 1000u32) as u32;
         let timeout = (offer_spec.timeout_ms_per_mcycle * mcycles_count / 1000u32) as u32;
+        let ramp_up_period = std::cmp::min(offer_spec.ramp_up_sec, lock_timeout);
 
         let request_params = boundless_client
             .new_request()
@@ -658,7 +659,7 @@ impl Risc0BoundlessProver {
             // .unwrap()
             .with_offer(
                 OfferParams::builder()
-                    .ramp_up_period(offer_spec.ramp_up_sec)
+                    .ramp_up_period(ramp_up_period)
                     .lock_timeout(lock_timeout)
                     .timeout(timeout)
                     .max_price(max_price)
@@ -670,7 +671,7 @@ impl Risc0BoundlessProver {
         let request = boundless_client
             .build_request(request_params)
             .await
-            .map_err(|e| AgentError::ClientBuildError(format!("Failed to build request: {e}")))?;
+            .map_err(|e| AgentError::ClientBuildError(format!("Failed to build request: {e:?}")))?;
         tracing::info!("Request: {:?}", request);
         Ok(request)
     }
