@@ -57,7 +57,7 @@ revm-precompile = { git = "https://github.com/NethermindEth/surge-revm.git", tag
 
 
 bincode = "1.3.3"
-reth-primitives = { git = "https://github.com/NethermindEth/surge-reth.git", tag = "v1.1.4-surge", default-features = false, features = [
+reth-primitives = { git = "https://github.com/NethermindEth/surge-reth.git", branch = "surge", default-features = false, features = [
     "alloy-compat",
 ] }
 lazy_static = "1.5.0"
