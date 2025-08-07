@@ -3,6 +3,12 @@
 # Any error will result in failure
 set -e
 
+# Setup workspace for the specific target
+if [ -n "$1" ]; then
+    echo "Setting up workspace for target: $1"
+    ./script/setup-workspace.sh "$1"
+fi
+
 TOOLCHAIN_RISC0=+nightly-2024-12-20
 TOOLCHAIN_SP1=+nightly-2024-12-20
 TOOLCHAIN_SGX=+nightly-2024-12-20
@@ -113,22 +119,22 @@ if [ "$1" == "risc0" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
+            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --no-default-features --features risc0
         else
             echo "Building test elfs for Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test,bench
+            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --no-default-features --features risc0,test,bench
         fi
         if [ -z "${GUEST}" ]; then
-            cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --features risc0
+            cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --no-default-features --features risc0 --package raiko-host --package risc0-driver --package raiko-pipeline --package raiko-core
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --features risc0
+            cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --no-default-features --features risc0
         else
             echo "Running Risc0 tests"
-            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} --lib risc0-driver --features risc0  -- run_unittest_elf
-            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p raiko-host -p risc0-driver --features "risc0 enable"
+            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} --lib risc0-driver --no-default-features --features risc0  -- run_unittest_elf
+            cargo ${TOOLCHAIN_RISC0} test ${FLAGS} -p raiko-host -p risc0-driver --no-default-features --features "risc0,enable"
         fi
     fi
 fi
@@ -145,23 +151,23 @@ if [ "$1" == "sp1" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder
+            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --no-default-features --features sp1
         else
             echo "Building test elfs for Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench
+            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --no-default-features --features sp1,test,bench
         fi
         if [ -z "${GUEST}" ]; then
-            echo "Building 'cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1'" 
-            cargo ${TOOLCHAIN_SP1} build ${FLAGS} --features sp1
+            echo "Building 'cargo ${TOOLCHAIN_SP1} build ${FLAGS} --no-default-features --features sp1'" 
+            cargo ${TOOLCHAIN_SP1} build ${FLAGS} --no-default-features --features sp1 --package raiko-host --package sp1-driver --package raiko-pipeline --package raiko-core
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run ${FLAGS} --features sp1
+            cargo ${TOOLCHAIN_SP1} run ${FLAGS} --no-default-features --features sp1
         else
             echo "Running Sp1 unit tests"
             # cargo ${TOOLCHAIN_SP1} test ${FLAGS} --lib sp1-driver --features sp1 -- run_unittest_elf
-            cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --features "sp1 enable"
+            cargo ${TOOLCHAIN_SP1} test ${FLAGS} -p raiko-host -p sp1-driver --no-default-features --features "sp1,enable"
 
             # Don't want to span Succinct Network and wait 2 hours in CI
             # echo "Running Sp1 verification"
@@ -196,22 +202,22 @@ if [ "$1" == "zisk" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Zisk prover"
-            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder
+            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features zisk
         else
             echo "Building test programs for Zisk prover"
-            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --features test,bench
+            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features zisk,test,bench
         fi
         if [ -z "${GUEST}" ]; then
-            echo "Building 'cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --features zisk'"
-            cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --features zisk
+            echo "Building 'cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features zisk'"
+            cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features zisk --package raiko-host --package zisk-driver --package raiko-pipeline --package raiko-core
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running Zisk prover"
-            cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --features zisk
+            cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --no-default-features --features zisk
         else
             echo "Running Zisk unit tests"
-            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p zisk-driver --features "zisk enable"
+            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p zisk-driver --no-default-features --features "zisk,enable"
         fi
     fi
 fi

@@ -16,9 +16,8 @@ use serde_with::serde_as;
 use std::process::Command;
 use tracing::info;
 
-// Zisk ELF file paths - generated during build via cargo-zisk
-const ZISK_BATCH_ELF: &str = "provers/zisk/guest/target/riscv64ima-zisk-zkvm-elf/release/zisk-batch";
-const ZISK_AGGREGATION_ELF: &str = "provers/zisk/guest/target/riscv64ima-zisk-zkvm-elf/release/zisk-aggregation";
+pub const BATCH_ELF: &[u8] = include_bytes!("../../guest/elf/zisk-batch");
+pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/zisk-aggregation");
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -102,8 +101,8 @@ impl Prover for ZiskProver {
             .map(|proof| proof.input.unwrap())
             .collect::<Vec<_>>();
             
-        // Generate image ID from Zisk aggregation ELF path hash
-        let elf_hash = keccak(ZISK_AGGREGATION_ELF.as_bytes());
+        // Generate image ID from Zisk aggregation ELF hash
+        let elf_hash = keccak(AGGREGATION_ELF);
         let mut image_id = [0u32; 8];
         for (i, chunk) in elf_hash.chunks(4).enumerate().take(8) {
             image_id[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
@@ -133,11 +132,16 @@ impl Prover for ZiskProver {
         std::fs::write(&input_file_path, input_data)
             .map_err(|e| ProverError::GuestError(format!("Failed to write input file: {e}")))?;
 
+        // Write ELF to temporary file since zisk commands expect file paths
+        let temp_elf_path = format!("{}/zisk_aggregation.elf", target_dir);
+        std::fs::write(&temp_elf_path, AGGREGATION_ELF)
+            .map_err(|e| ProverError::GuestError(format!("Failed to write ELF file: {e}")))?;
+
         let prove_result = match param.execution_mode.unwrap_or_default() {
             ExecutionMode::Emulator => {
                 // Run with emulator for testing
                 let output = Command::new("ziskemu")
-                    .args(["-e", ZISK_AGGREGATION_ELF, "-i", &input_file_path])
+                    .args(["-e", &temp_elf_path, "-i", &input_file_path])
                     .output()
                     .map_err(|e| ProverError::GuestError(format!("Zisk emulator failed: {e}")))?;
                 
@@ -159,7 +163,7 @@ impl Prover for ZiskProver {
             ExecutionMode::Prove => {
                 // First ensure ROM setup is done
                 let rom_output = Command::new("cargo-zisk")
-                    .args(["rom-setup", "-e", ZISK_AGGREGATION_ELF])
+                    .args(["rom-setup", "-e", &temp_elf_path])
                     .current_dir(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
                     .output()
                     .map_err(|e| ProverError::GuestError(format!("Zisk ROM setup failed: {e}")))?;
@@ -173,18 +177,15 @@ impl Prover for ZiskProver {
                 
                 info!("ROM setup completed successfully");
                 
-                // Generate proof with memory optimization flags
+                // Generate proof
                 let output = Command::new("cargo-zisk")
                     .args([
                         "prove", 
-                        "-e", ZISK_AGGREGATION_ELF, 
+                        "-e", &temp_elf_path, 
                         "-i", &input_file_path, 
                         "-o", "aggregation_proof", 
                         "-a",                // aggregation mode
-                        "--minimal-memory",  // Use minimal memory mode
-                        "-u",                // Unlock memory mapping
-                        "-p", "23200",       // Use different port to avoid conflicts
-                        "-y"                 // verify after proving
+                        "-p", "23200"        // Use different port to avoid conflicts
                     ])
                     .current_dir(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
                     .output()
@@ -291,11 +292,16 @@ impl Prover for ZiskProver {
         std::fs::write(&input_file_path, input_data)
             .map_err(|e| ProverError::GuestError(format!("Failed to write input file: {e}")))?;
 
+        // Write ELF to temporary file since zisk commands expect file paths
+        let temp_batch_elf_path = format!("{}/zisk_batch.elf", target_dir);
+        std::fs::write(&temp_batch_elf_path, BATCH_ELF)
+            .map_err(|e| ProverError::GuestError(format!("Failed to write batch ELF file: {e}")))?;
+
         let prove_result = match execution_mode {
             ExecutionMode::Emulator => {
                 // Run with emulator for testing
                 let cmd_output = Command::new("ziskemu")
-                    .args(["-e", ZISK_BATCH_ELF, "-i", &input_file_path])
+                    .args(["-e", &temp_batch_elf_path, "-i", &input_file_path])
                     .output()
                     .map_err(|e| ProverError::GuestError(format!("Zisk emulator failed: {e}")))?;
                 
@@ -317,7 +323,7 @@ impl Prover for ZiskProver {
             ExecutionMode::Prove => {
                 // First ensure ROM setup is done
                 let rom_output = Command::new("cargo-zisk")
-                    .args(["rom-setup", "-e", ZISK_BATCH_ELF])
+                    .args(["rom-setup", "-e", &temp_batch_elf_path])
                     .current_dir(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
                     .output()
                     .map_err(|e| ProverError::GuestError(format!("Zisk ROM setup failed: {e}")))?;
@@ -331,17 +337,13 @@ impl Prover for ZiskProver {
                 
                 info!("ROM setup completed successfully");
                 
-                // Generate proof with memory optimization flags
+                // Generate proof
                 let prove_output = Command::new("cargo-zisk")
                     .args([
                         "prove", 
-                        "-e", ZISK_BATCH_ELF, 
+                        "-e", &temp_batch_elf_path, 
                         "-i", &input_file_path, 
                         "-o", "batch_proof",
-                        "--minimal-memory",  // Use minimal memory mode
-                        "-u",                // Unlock memory mapping
-                        "-p", "23200",       // Use different port to avoid conflicts
-                        "-y"                 // verify after proving
                     ])
                     .current_dir(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
                     .output()

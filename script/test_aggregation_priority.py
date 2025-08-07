@@ -199,7 +199,7 @@ class AggregationPriorityTester:
         elif self.prove_type == "zisk":
             base_request["zisk"] = {
                 "verify": False,
-                "execution_mode": "emulator"
+                "execution_mode": "prove"
             }
         
         return base_request
@@ -246,7 +246,7 @@ class AggregationPriorityTester:
         elif self.prove_type == "zisk":
             base_request["zisk"] = {
                 "verify": False,
-                "execution_mode": "emulator"
+                "execution_mode": "prove"
             }
         
         return base_request

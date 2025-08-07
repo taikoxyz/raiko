@@ -1253,17 +1253,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "atty"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
-dependencies = [
- "hermit-abi 0.1.19",
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "aurora-engine-modexp"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1417,16 +1406,6 @@ name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
-name = "base64-serde"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba368df5de76a5bea49aaf0cf1b39ccfbbef176924d1ba5db3e4135216cbe3c7"
-dependencies = [
- "base64 0.21.7",
- "serde",
-]
 
 [[package]]
 name = "base64ct"
@@ -1838,7 +1817,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fce8dd7fcfcbf3a0a87d8f515194b49d6135acab73e18bd380d1d93bb1a15eb"
 dependencies = [
- "clap 4.5.9",
+ "clap",
  "heck 0.4.1",
  "indexmap 2.7.0",
  "log",
@@ -1930,21 +1909,6 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
-dependencies = [
- "ansi_term",
- "atty",
- "bitflags 1.3.2",
- "strsim 0.8.0",
- "textwrap",
- "unicode-width",
- "vec_map",
-]
-
-[[package]]
-name = "clap"
 version = "4.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64acc1846d54c1fe936a78dc189c34e28d3f5afc348403f28ecf53660b9b8462"
@@ -1962,7 +1926,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "clap_lex",
- "strsim 0.11.1",
+ "strsim",
 ]
 
 [[package]]
@@ -2357,7 +2321,7 @@ dependencies = [
  "ident_case",
  "proc-macro2",
  "quote",
- "strsim 0.11.1",
+ "strsim",
  "syn 2.0.95",
 ]
 
@@ -3307,16 +3271,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
-name = "file-lock"
-version = "2.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "040b48f80a749da50292d0f47a1e2d5bf1d772f52836c07f64bfccc62ba6e664"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "find_cuda_helper"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3837,15 +3791,6 @@ dependencies = [
 
 [[package]]
 name = "heck"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
@@ -3855,15 +3800,6 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
-
-[[package]]
-name = "hermit-abi"
-version = "0.1.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "hermit-abi"
@@ -5076,7 +5012,7 @@ version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
 dependencies = [
- "hermit-abi 0.3.9",
+ "hermit-abi",
  "libc",
 ]
 
@@ -6172,7 +6108,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "bincode",
- "clap 4.5.9",
+ "clap",
  "env_logger",
  "ethers-core",
  "futures",
@@ -6226,7 +6162,7 @@ dependencies = [
  "cap",
  "cfg-if",
  "chrono",
- "clap 4.5.9",
+ "clap",
  "dashmap",
  "dotenv",
  "env_logger",
@@ -6387,56 +6323,6 @@ dependencies = [
  "syn 2.0.95",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "raiko-setup"
-version = "0.1.0"
-dependencies = [
- "alloy-consensus 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "alloy-network",
- "alloy-primitives 0.7.7",
- "alloy-provider",
- "alloy-rlp",
- "alloy-rlp-derive",
- "alloy-rpc-client",
- "alloy-rpc-types",
- "alloy-sol-types",
- "alloy-transport-http",
- "anyhow",
- "assert_cmd",
- "bincode",
- "bytemuck",
- "cap",
- "cfg-if",
- "clap 4.5.9",
- "dirs",
- "env_logger",
- "ethers-core",
- "file-lock",
- "flate2",
- "lazy_static",
- "once_cell",
- "prometheus",
- "proptest",
- "raiko-lib",
- "reqwest 0.11.27",
- "reqwest 0.12.15",
- "rlp",
- "rstest",
- "serde",
- "serde_json",
- "serde_with 3.9.0",
- "sgx-prover",
- "sha2",
- "structopt",
- "thiserror 1.0.63",
- "tokio",
- "tower 0.5.2",
- "tracing",
- "tracing-appender",
- "tracing-subscriber 0.3.18",
- "url",
 ]
 
 [[package]]
@@ -7452,7 +7338,7 @@ name = "reth-tracing"
 version = "1.0.0-rc.2"
 source = "git+https://github.com/taikoxyz/taiko-reth.git?branch=v1.0.0-rc.2-taiko#49ea605b0b81b15641842b1c607e126fb5dcf868"
 dependencies = [
- "clap 4.5.9",
+ "clap",
  "eyre",
  "rolling-file",
  "tracing",
@@ -7674,13 +7560,6 @@ dependencies = [
  "rayon",
  "sha2",
  "tempfile",
-]
-
-[[package]]
-name = "risc0-builder"
-version = "0.1.0"
-dependencies = [
- "raiko-pipeline",
 ]
 
 [[package]]
@@ -8743,29 +8622,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sgx-guest"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "base64 0.22.1",
- "base64-serde",
- "bincode",
- "clap 4.5.9",
- "dirs",
- "hex",
- "raiko-lib",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "secp256k1",
- "serde",
- "serde_json",
- "sha3",
- "thiserror 1.0.63",
- "tokio",
-]
-
-[[package]]
 name = "sgx-prover"
 version = "0.1.0"
 dependencies = [
@@ -8986,15 +8842,8 @@ dependencies = [
  "anyhow",
  "cargo_metadata 0.18.1",
  "chrono",
- "clap 4.5.9",
+ "clap",
  "dirs",
-]
-
-[[package]]
-name = "sp1-builder"
-version = "0.1.0"
-dependencies = [
- "raiko-pipeline",
 ]
 
 [[package]]
@@ -9005,7 +8854,7 @@ checksum = "b9049775ff1ab0114a6bce05d4ba9ca2f82494f781780e070f6465c8751644c8"
 dependencies = [
  "bincode",
  "bytemuck",
- "clap 4.5.9",
+ "clap",
  "elf",
  "enum-map",
  "eyre",
@@ -9211,7 +9060,7 @@ checksum = "361f7b36d98cf8874c0fbd7e9401cfd1293652c45d9bdde5904393826c8e54a5"
 dependencies = [
  "anyhow",
  "bincode",
- "clap 4.5.9",
+ "clap",
  "dirs",
  "downloader",
  "enum-map",
@@ -9523,39 +9372,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "strsim"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
-
-[[package]]
-name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "structopt"
-version = "0.3.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c6b5c64445ba8094a6ab0c3cd2ad323e07171012d9c98b0b15651daf1787a10"
-dependencies = [
- "clap 2.34.0",
- "lazy_static",
- "structopt-derive",
-]
-
-[[package]]
-name = "structopt-derive"
-version = "0.4.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcb5ae327f9cc13b68763b5749770cb9e048a99bd9dfdfa58d0cf05d5f64afe0"
-dependencies = [
- "heck 0.3.3",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "strum"
@@ -9793,15 +9612,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.95",
-]
-
-[[package]]
-name = "textwrap"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
-dependencies = [
- "unicode-width",
 ]
 
 [[package]]
@@ -11346,6 +11156,7 @@ name = "zisk-builder"
 version = "0.1.0"
 dependencies = [
  "raiko-lib",
+ "raiko-pipeline",
  "serde",
  "serde_json",
 ]

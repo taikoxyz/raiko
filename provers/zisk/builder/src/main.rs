@@ -1,43 +1,72 @@
-use std::env;
+use raiko_pipeline::{
+    parse_metadata, rerun_if_changed, CommandBuilder, GuestMetadata, Metadata, Pipeline,
+};
 use std::path::PathBuf;
-use std::process::Command;
 
 fn main() {
-    println!("Building Zisk guest programs...");
-    
-    // Get the path to the guest directory
-    let guest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("guest");
-    
-    // Build all guest programs (batch and aggregation)
-    let output = Command::new("cargo-zisk")
-        .args(["build", "--release"])
-        .current_dir(&guest_dir)
-        .output();
+    let pipeline = ZiskPipeline::new("provers/zisk/guest", "release");
+    pipeline.bins(&["zisk-aggregation", "zisk-batch"], "provers/zisk/guest/elf");
+    #[cfg(feature = "test")]
+    pipeline.tests(&["zisk-batch"], "provers/zisk/guest/elf");
+}
 
-    match output {
-        Ok(output) => {
-            if !output.status.success() {
-                eprintln!(
-                    "Failed to build Zisk guest programs: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                );
-                std::process::exit(1);
-            }
-            println!("Successfully built Zisk guest programs");
-        }
-        Err(e) => {
-            eprintln!("Failed to execute cargo-zisk: {}", e);
-            eprintln!("Please ensure cargo-zisk is installed:");
-            eprintln!("  TARGET=zisk make install");
-            eprintln!("or manually:");
-            eprintln!("  curl https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash");
-            std::process::exit(1);
+pub struct ZiskPipeline {
+    pub meta: Metadata,
+    pub profile: String,
+}
+
+impl Pipeline for ZiskPipeline {
+    fn new(root: &str, profile: &str) -> Self {
+        raiko_pipeline::ROOT_DIR.get_or_init(|| PathBuf::from(root));
+        ZiskPipeline {
+            meta: parse_metadata(root),
+            profile: profile.to_string(),
         }
     }
 
-    println!("Zisk guest programs built successfully");
-    println!("Note: ROM setup will be performed automatically during proving");
+    fn builder(&self) -> CommandBuilder {
+        CommandBuilder::new(&self.meta, "riscv64ima-zisk-zkvm-elf", "zisk")
+            .rust_flags(&[
+                "panic=abort",
+            ])
+            .custom_args(&["--ignore-rust-version"])
+    }
+
+    fn bins(&self, names: &[&str], dest: &str) {
+        rerun_if_changed(&[]);
+        let bins = self.meta.get_bins(names);
+        let builder = self.builder();
+        let executor = builder.build_command(&self.profile, &bins);
+        println!(
+            "executor: \n   ${:?}\ntargets: \n   {:?}",
+            executor.cmd, executor.artifacts
+        );
+        if executor.artifacts.is_empty() {
+            panic!("No artifacts to build");
+        }
+        executor
+            .execute()
+            .expect("Execution failed")
+            .zisk_placement(dest)
+            .expect("Failed to export Zisk artifacts");
+    }
+
+    fn tests(&self, names: &[&str], dest: &str) {
+        rerun_if_changed(&[]);
+        let tests = self.meta.get_tests(names);
+        let builder = self.builder();
+        let executor = builder.test_command(&self.profile, &tests);
+        println!(
+            "executor: \n   ${:?}\ntargets: \n   {:?}",
+            executor.cmd, executor.artifacts
+        );
+        if executor.artifacts.is_empty() {
+            panic!("No artifacts to build");
+        }
+        executor
+            .execute()
+            .expect("Execution failed")
+            .zisk_placement(dest)
+            .expect("Failed to export Zisk artifacts");
+    }
 }

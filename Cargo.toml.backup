@@ -15,8 +15,6 @@ members = [
     "reqpool",
     "reqactor",
     "ballot",
-    "provers/zisk/driver",
-    "provers/zisk/builder",
 ]
 
 # Conditional members based on target/features
