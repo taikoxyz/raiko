@@ -41,12 +41,14 @@ struct ProofResponse {
 #[derive(Debug, Clone)]
 struct AppState {
     prover: Arc<Mutex<Option<Risc0BoundlessProver>>>,
+    prover_init_time: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
 impl AppState {
     fn new() -> Self {
         Self {
             prover: Arc::new(Mutex::new(None)),
+            prover_init_time: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -55,7 +57,37 @@ impl AppState {
             AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
         })?;
         self.prover.lock().await.replace(prover.clone());
+        self.prover_init_time
+            .lock()
+            .await
+            .replace(std::time::Instant::now());
         Ok(prover)
+    }
+
+    /// Get the prover, re-initializing if TTL (3600s) has expired.
+    async fn get_or_refresh_prover(&self) -> AgentResult<Risc0BoundlessProver> {
+        let mut prover_guard = self.prover.lock().await;
+        let config_guard = prover_guard.as_ref().unwrap().prover_config();
+        let mut time_guard = self.prover_init_time.lock().await;
+        let now = std::time::Instant::now();
+        let ttl = std::time::Duration::from_secs(3000);
+
+        let should_refresh = match *time_guard {
+            Some(init_time) => now.duration_since(init_time) > ttl,
+            None => true,
+        };
+
+        if should_refresh || prover_guard.is_none() {
+            tracing::info!("Prover TTL exceeded or not initialized, re-initializing prover...");
+            let prover = Risc0BoundlessProver::new(config_guard).await.map_err(|e| {
+                AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
+            })?;
+            *prover_guard = Some(prover.clone());
+            *time_guard = Some(now);
+            Ok(prover)
+        } else {
+            Ok(prover_guard.as_ref().unwrap().clone())
+        }
     }
 }
 
@@ -69,9 +101,20 @@ async fn proof_handler(
     );
 
     // Get the initialized prover
-    let prover = {
-        let prover_guard = state.prover.lock().await;
-        prover_guard.as_ref().unwrap().clone()
+    let prover = match state.get_or_refresh_prover().await {
+        Ok(prover) => prover,
+        Err(e) => {
+            tracing::error!("Failed to get or refresh prover: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ProofResponse {
+                    proof_data: vec![],
+                    proof_type: request.proof_type,
+                    success: false,
+                    error: Some(format!("Failed to get or refresh prover: {}", e)),
+                }),
+            );
+        }
     };
 
     // Use empty output if not provided

@@ -466,6 +466,10 @@ impl Risc0BoundlessProver {
         self.aggregation_image_url.clone()
     }
 
+    pub fn prover_config(&self) -> ProverConfig {
+        self.config.clone()
+    }
+
     pub async fn aggregate(
         &self,
         _input: Vec<u8>,
@@ -654,6 +658,7 @@ impl Risc0BoundlessProver {
             .unwrap()
             .with_groth16_proof()
             .with_env(guest_env)
+            .with_cycles(mcycles_count as u64 * MILLION_CYCLES)
             // .with_input_url(input_url)
             // .with_env(GuestEnv::builder().write_frame(&guest_env_bytes))
             // .unwrap()
