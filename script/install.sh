@@ -24,7 +24,7 @@ if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 		# Create the directory if it doesn't exist
 		if [ ! -d /opt/riscv ]; then
 			sudo mkdir /opt/riscv
-			sudo chown $USER /opt/riscv
+			sudo chown "${USER:-root}:${USER:-root}" /opt/riscv
 		fi
 		# Extract the downloaded archive
 		tar -xzf /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz -C /opt/riscv/
