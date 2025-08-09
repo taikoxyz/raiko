@@ -259,6 +259,7 @@ pub struct ProverConfig {
     pub pull_interval: u64,
     pub rpc_url: String,
     pub boundless_config: BoundlessConfig,
+    pub url_ttl: u64,
 }
 
 impl Default for ProverConfig {
@@ -268,6 +269,7 @@ impl Default for ProverConfig {
             pull_interval: 10,
             rpc_url: "https://ethereum-sepolia-rpc.publicnode.com".to_string(),
             boundless_config: BoundlessConfig::default(),
+            url_ttl: 1800,
         }
     }
 }
@@ -950,6 +952,7 @@ mod tests {
             pull_interval: 15,
             rpc_url: "https://custom-rpc.com".to_string(),
             boundless_config,
+            url_ttl: 1800,
         };
 
         // Test that the deployment is created correctly from boundless_config

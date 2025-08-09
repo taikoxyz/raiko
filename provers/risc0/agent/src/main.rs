@@ -70,7 +70,7 @@ impl AppState {
         let config_guard = prover_guard.as_ref().unwrap().prover_config();
         let mut time_guard = self.prover_init_time.lock().await;
         let now = std::time::Instant::now();
-        let ttl = std::time::Duration::from_secs(3000);
+        let ttl = std::time::Duration::from_secs(config_guard.url_ttl);
 
         let should_refresh = match *time_guard {
             Some(init_time) => now.duration_since(init_time) > ttl,
@@ -224,6 +224,10 @@ struct CmdArgs {
     #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u64).range(5..))]
     pull_interval: u64,
 
+    /// URL TTL
+    #[arg(long, default_value_t = 1800)]
+    url_ttl: u64,
+
     /// singer key hex string
     #[arg(long)]
     signer_key: Option<String>,
@@ -268,6 +272,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         pull_interval: args.pull_interval,
         rpc_url: args.rpc_url,
         boundless_config,
+        url_ttl: args.url_ttl,
     };
     tracing::info!("Start with prover config: {:?}", prover_config);
 
