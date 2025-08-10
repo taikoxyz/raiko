@@ -9,6 +9,9 @@ reth-primitives = { workspace = true }
 reth-evm-ethereum = { workspace = true }
 reth-evm = { workspace = true }
 reth-chainspec = { workspace = true }
+reth-beacon-consensus = { workspace = true }
+reth-consensus = { workspace = true }
+reth-ethereum-consensus = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }
@@ -33,8 +36,8 @@ libflate = { workspace = true }
 once_cell = { workspace = true }
 url = { workspace = true }
 hex = { workspace = true }
-kzg = { workspace = true }
-kzg_traits = { workspace = true }
+#kzg = { workspace = true }
+#kzg_traits = { workspace = true }
 sha2 = { workspace = true }
 rlp = { workspace = true, features = ["std"] }
 

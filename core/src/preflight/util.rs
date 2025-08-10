@@ -1,13 +1,14 @@
-use alloy_primitives::{hex, Log as LogStruct, B256};
+use alloy_consensus::TxEnvelope;
+use alloy_primitives::{hex, FixedBytes, Log as LogStruct, B256};
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{Filter, Header, Log, Transaction as AlloyRpcTransaction};
+use alloy_rpc_types::{serde_helpers::WithOtherFields, Block, BlockTransactions, Filter, Header, Log, Transaction as AlloyRpcTransaction};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, ensure, Result};
-use kzg::kzg_types::ZFr;
-use kzg_traits::{
-    eip_4844::{blob_to_kzg_commitment_rust, Blob},
-    Fr, G1,
-};
+// use kzg::kzg_types::ZFr;
+// use kzg_traits::{
+//     eip_4844::{blob_to_kzg_commitment_rust, Blob},
+//     Fr, G1,
+// };
 use raiko_lib::{
     builder::{OptimisticDatabase, RethBlockBuilder},
     clear_line,
@@ -19,9 +20,9 @@ use raiko_lib::{
         proposeBlockCall, BlobProofType, BlockProposed, BlockProposedFork, TaikoGuestBatchInput,
         TaikoGuestInput, TaikoProverData,
     },
-    primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
+    //primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
 };
-use reth_evm_ethereum::taiko::{decode_anchor, decode_anchor_ontake, decode_anchor_pacaya};
+//use reth_evm_ethereum::taiko::{decode_anchor, decode_anchor_ontake, decode_anchor_pacaya};
 use reth_primitives::{Block as RethBlock, TransactionSigned};
 use reth_revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
@@ -30,13 +31,13 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
-    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
+    provider::{db::{ProviderDb, UltraProviderDb}, rpc::RpcBlockDataProvider, BlockDataProvider},
     require,
 };
 
 /// Optimize data gathering by executing the transactions multiple times so data can be requested in batches
 pub async fn execute_txs<'a, BDP>(
-    builder: &mut RethBlockBuilder<ProviderDb<'a, BDP>>,
+    builder: &mut RethBlockBuilder<UltraProviderDb<'a, BDP>>,
     pool_txs: Vec<reth_primitives::TransactionSigned>,
 ) -> RaikoResult<()>
 where
@@ -49,7 +50,7 @@ where
         let Some(db) = builder.db.as_mut() else {
             return Err(RaikoError::Preflight("No db in builder".to_owned()));
         };
-        db.optimistic = num_iterations + 1 < max_iterations;
+        //db.optimistic = num_iterations + 1 < max_iterations;
 
         builder
             .execute_transactions(pool_txs.clone(), num_iterations + 1 < max_iterations)
@@ -81,138 +82,141 @@ pub async fn prepare_taiko_chain_input(
     blob_proof_type: &BlobProofType,
 ) -> RaikoResult<TaikoGuestInput> {
     // Decode the anchor tx to find out which L1 blocks we need to fetch
-    let anchor_tx = block
-        .body
-        .first()
-        .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
+    // let anchor_tx = block
+    //     .body
+    //     .first()
+    //     .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
 
-    // get anchor block num and state root
-    let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
-    let (anchor_block_height, anchor_state_root) = match fork {
-        SpecId::PACAYA => {
-            warn!("pacaya fork does not support prepare_taiko_chain_input for single block");
-            return Err(RaikoError::Preflight(
-                "pacaya fork does not support prepare_taiko_chain_input for single block"
-                    .to_owned(),
-            ));
-        }
-        SpecId::ONTAKE => {
-            let anchor_call = decode_anchor_ontake(anchor_tx.input())?;
-            (anchor_call._anchorBlockId, anchor_call._anchorStateRoot)
-        }
-        _ => {
-            let anchor_call = decode_anchor(anchor_tx.input())?;
-            (anchor_call.l1BlockId, anchor_call.l1StateRoot)
-        }
-    };
+    // // get anchor block num and state root
+    // let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
+    // let (anchor_block_height, anchor_state_root) = match fork {
+    //     // SpecId::PACAYA => {
+    //     //     warn!("pacaya fork does not support prepare_taiko_chain_input for single block");
+    //     //     return Err(RaikoError::Preflight(
+    //     //         "pacaya fork does not support prepare_taiko_chain_input for single block"
+    //     //             .to_owned(),
+    //     //     ));
+    //     // }
+    //     // SpecId::ONTAKE => {
+    //     //     let anchor_call = decode_anchor_ontake(anchor_tx.input())?;
+    //     //     (anchor_call._anchorBlockId, anchor_call._anchorStateRoot)
+    //     // }
+    //     _ => {
+    //         //let anchor_call = decode_anchor(anchor_tx.input())?;
+    //         //(anchor_call.l1BlockId, anchor_call.l1StateRoot)
+    //         (0, B256::default())
+    //     }
+    // };
 
-    // // Get the L1 block in which the L2 block was included so we can fetch the DA data.
-    // // Also get the L1 state block header so that we can prove the L1 state root.
+    // // // Get the L1 block in which the L2 block was included so we can fetch the DA data.
+    // // // Also get the L1 state block header so that we can prove the L1 state root.
+    // let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
+
+    // info!("current taiko chain fork: {fork:?}");
+
+    // let (l1_inclusion_block_number, proposal_tx, block_proposed) =
+    //     if let Some(l1_block_number) = l1_inclusion_block_number {
+    //         // Get the block proposal data
+    //         get_block_proposed_event_by_height(
+    //             provider_l1.provider(),
+    //             taiko_chain_spec.clone(),
+    //             l1_block_number,
+    //             block_number,
+    //             fork,
+    //         )
+    //         .await?
+    //     } else {
+    //         // traversal next 64 blocks to get proposal data
+    //         get_block_proposed_event_by_traversal(
+    //             provider_l1.provider(),
+    //             taiko_chain_spec.clone(),
+    //             anchor_block_height,
+    //             block_number,
+    //             fork,
+    //         )
+    //         .await?
+    //     };
+
+    // let (l1_inclusion_header, l1_state_header) = get_headers(
+    //     &provider_l1,
+    //     (l1_inclusion_block_number, anchor_block_height),
+    // )
+    // .await?;
+    // assert_eq!(anchor_state_root, l1_state_header.state_root);
+    // let l1_state_block_hash = l1_state_header.hash;
+    // let l1_inclusion_block_hash = l1_inclusion_header.hash;
+    // info!(
+    //     "L1 inclusion block number: {l1_inclusion_block_number:?}, hash: {l1_inclusion_block_hash:?}. L1 state block number: {:?}, hash: {l1_state_block_hash:?}",
+    //     l1_state_header.number,
+    // );
+
+    // // Fetch the tx data from either calldata or blobdata
+    // let (tx_data, blob_commitment, blob_proof) = if block_proposed.blob_used() {
+    //     let expected_blob_hash = block_proposed.blob_hash();
+    //     let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
+    //     // Get the blob hashes attached to the propose tx and make sure the expected blob hash is in there
+    //     require(
+    //         blob_hashes.contains(&expected_blob_hash),
+    //         &format!(
+    //             "Proposal blobs hash mismatch: {:?} not in {:?}",
+    //             expected_blob_hash, blob_hashes
+    //         ),
+    //     )?;
+
+    //     get_tx_blob(
+    //         expected_blob_hash,
+    //         l1_inclusion_header.timestamp,
+    //         l1_chain_spec,
+    //         blob_proof_type,
+    //     )
+    //     .await?
+    // } else {
+    //     match fork {
+    //         // SpecId::PACAYA => {
+    //         //     warn!("pacaya fork does not support prepare_taiko_chain_input for single block");
+    //         //     return Err(RaikoError::Preflight(
+    //         //         "pacaya fork does not support prepare_taiko_chain_input for single block"
+    //         //             .to_owned(),
+    //         //     ));
+    //         // }
+    //         // SpecId::ONTAKE => {
+    //         //     // Get the tx list data directly from the propose block CalldataTxList event
+    //         //     let (_, CalldataTxList { txList, .. }) = get_calldata_txlist_event(
+    //         //         provider_l1.provider(),
+    //         //         taiko_chain_spec.clone(),
+    //         //         l1_inclusion_block_hash,
+    //         //         block_number,
+    //         //     )
+    //         //     .await?;
+    //         //     (txList.to_vec(), None, None)
+    //         // }
+    //         _ => {
+    //             // Get the tx list data directly from the propose transaction data
+    //             let proposeBlockCall { txList, .. } =
+    //                 proposeBlockCall::abi_decode(&proposal_tx.input, false).map_err(|_| {
+    //                     RaikoError::Preflight("Could not decode proposeBlockCall".to_owned())
+    //                 })?;
+    //             (txList.to_vec(), None, None)
+    //         }
+    //     }
+    // };
+
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
 
-    info!("current taiko chain fork: {fork:?}");
-
-    let (l1_inclusion_block_number, proposal_tx, block_proposed) =
-        if let Some(l1_block_number) = l1_inclusion_block_number {
-            // Get the block proposal data
-            get_block_proposed_event_by_height(
-                provider_l1.provider(),
-                taiko_chain_spec.clone(),
-                l1_block_number,
-                block_number,
-                fork,
-            )
-            .await?
-        } else {
-            // traversal next 64 blocks to get proposal data
-            get_block_proposed_event_by_traversal(
-                provider_l1.provider(),
-                taiko_chain_spec.clone(),
-                anchor_block_height,
-                block_number,
-                fork,
-            )
-            .await?
-        };
-
-    let (l1_inclusion_header, l1_state_header) = get_headers(
-        &provider_l1,
-        (l1_inclusion_block_number, anchor_block_height),
-    )
-    .await?;
-    assert_eq!(anchor_state_root, l1_state_header.state_root);
-    let l1_state_block_hash = l1_state_header.hash.ok_or_else(|| {
-        RaikoError::Preflight("No L1 state block hash for the requested block".to_owned())
-    })?;
-    let l1_inclusion_block_hash = l1_inclusion_header.hash.ok_or_else(|| {
-        RaikoError::Preflight("No L1 inclusion block hash for the requested block".to_owned())
-    })?;
-    info!(
-        "L1 inclusion block number: {l1_inclusion_block_number:?}, hash: {l1_inclusion_block_hash:?}. L1 state block number: {:?}, hash: {l1_state_block_hash:?}",
-        l1_state_header.number,
-    );
-
-    // Fetch the tx data from either calldata or blobdata
-    let (tx_data, blob_commitment, blob_proof) = if block_proposed.blob_used() {
-        let expected_blob_hash = block_proposed.blob_hash();
-        let blob_hashes = proposal_tx.blob_versioned_hashes.unwrap_or_default();
-        // Get the blob hashes attached to the propose tx and make sure the expected blob hash is in there
-        require(
-            blob_hashes.contains(&expected_blob_hash),
-            &format!(
-                "Proposal blobs hash mismatch: {:?} not in {:?}",
-                expected_blob_hash, blob_hashes
-            ),
-        )?;
-
-        get_tx_blob(
-            expected_blob_hash,
-            l1_inclusion_header.timestamp,
-            l1_chain_spec,
-            blob_proof_type,
-        )
-        .await?
-    } else {
-        match fork {
-            SpecId::PACAYA => {
-                warn!("pacaya fork does not support prepare_taiko_chain_input for single block");
-                return Err(RaikoError::Preflight(
-                    "pacaya fork does not support prepare_taiko_chain_input for single block"
-                        .to_owned(),
-                ));
-            }
-            SpecId::ONTAKE => {
-                // Get the tx list data directly from the propose block CalldataTxList event
-                let (_, CalldataTxList { txList, .. }) = get_calldata_txlist_event(
-                    provider_l1.provider(),
-                    taiko_chain_spec.clone(),
-                    l1_inclusion_block_hash,
-                    block_number,
-                )
-                .await?;
-                (txList.to_vec(), None, None)
-            }
-            _ => {
-                // Get the tx list data directly from the propose transaction data
-                let proposeBlockCall { txList, .. } =
-                    proposeBlockCall::abi_decode(&proposal_tx.input, false).map_err(|_| {
-                        RaikoError::Preflight("Could not decode proposeBlockCall".to_owned())
-                    })?;
-                (txList.to_vec(), None, None)
-            }
-        }
-    };
+    // let block = provider_l1.get_blocks(&[(block_number, true)]).await?[0];
 
     // Create the input struct without the block data set
     Ok(TaikoGuestInput {
-        l1_header: l1_state_header.try_into().unwrap(),
-        tx_data,
-        anchor_tx: Some(anchor_tx.clone()),
-        blob_commitment,
-        block_proposed,
+        l1_header: None,
+        tx_data: Vec::new(),
+        anchor_tx: None,
+        blob_commitment: None,
+        block_proposed: BlockProposedFork::Nothing,
         prover_data,
-        blob_proof,
+        blob_proof: None,
         blob_proof_type: blob_proof_type.clone(),
+        gwyneth: true,
+        parent_chain_id: 160010,
     })
 }
 
@@ -222,17 +226,18 @@ fn get_anchor_tx_info_by_fork(
     anchor_tx: &TransactionSigned,
 ) -> RaikoResult<(u64, B256)> {
     match fork {
-        SpecId::PACAYA => {
-            let anchor_call = decode_anchor_pacaya(anchor_tx.input())?;
-            Ok((anchor_call._anchorBlockId, anchor_call._anchorStateRoot))
-        }
-        SpecId::ONTAKE => {
-            let anchor_call = decode_anchor_ontake(anchor_tx.input())?;
-            Ok((anchor_call._anchorBlockId, anchor_call._anchorStateRoot))
-        }
+        // SpecId::PACAYA => {
+        //     let anchor_call = decode_anchor_pacaya(anchor_tx.input())?;
+        //     Ok((anchor_call._anchorBlockId, anchor_call._anchorStateRoot))
+        // }
+        // SpecId::ONTAKE => {
+        //     let anchor_call = decode_anchor_ontake(anchor_tx.input())?;
+        //     Ok((anchor_call._anchorBlockId, anchor_call._anchorStateRoot))
+        // }
         _ => {
-            let anchor_call = decode_anchor(anchor_tx.input())?;
-            Ok((anchor_call.l1BlockId, anchor_call.l1StateRoot))
+            //let anchor_call = decode_anchor(anchor_tx.input())?;
+            //Ok((anchor_call.l1BlockId, anchor_call.l1StateRoot))
+            Ok((0, B256::default()))
         }
     }
 }
@@ -253,7 +258,7 @@ pub async fn parse_l1_batch_proposal_tx_for_pacaya_fork(
         taiko_chain_spec.clone(),
         l1_inclusion_block_number,
         batch_id,
-        SpecId::PACAYA,
+        SpecId::LATEST,
     )
     .await?;
 
@@ -294,7 +299,7 @@ pub async fn prepare_taiko_chain_batch_input(
             .first()
             .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
         let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
-        ensure!(fork == SpecId::PACAYA, "Only pacaya fork supports batch");
+        ensure!(fork == SpecId::LATEST, "Only pacaya fork supports batch");
         let anchor_info = get_anchor_tx_info_by_fork(fork, anchor_tx)?;
         acc.push(anchor_info);
         Ok(acc)
@@ -410,25 +415,28 @@ pub async fn get_tx_blob(
         RaikoError::Preflight("Beacon RPC URL is required for Taiko chains".to_owned())
     })?;
     let blob = get_blob_data(&beacon_rpc_url, slot_id, blob_hash).await?;
-    let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
-    let blob_proof = match blob_proof_type {
-        BlobProofType::KzgVersionedHash => None,
-        BlobProofType::ProofOfEquivalence => {
-            let (x, y) =
-                eip4844::proof_of_equivalence(&blob, &commitment_to_version_hash(&commitment))
-                    .map_err(|e| anyhow!(e))?;
+    // let commitment = eip4844::calc_kzg_proof_commitment(&blob).map_err(|e| anyhow!(e))?;
+    // let blob_proof = match blob_proof_type {
+    //     BlobProofType::KzgVersionedHash => None,
+    //     BlobProofType::ProofOfEquivalence => {
+    //         let (x, y) =
+    //             eip4844::proof_of_equivalence(&blob, &commitment_to_version_hash(&commitment))
+    //                 .map_err(|e| anyhow!(e))?;
 
-            debug!("x {x:?} y {y:?}");
-            let point = eip4844::calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap());
-            debug!("calc_kzg_proof_with_point {point:?}");
+    //         debug!("x {x:?} y {y:?}");
+    //         let point = eip4844::calc_kzg_proof_with_point(&blob, ZFr::from_bytes(&x).unwrap());
+    //         debug!("calc_kzg_proof_with_point {point:?}");
 
-            Some(
-                point
-                    .map(|g1| g1.to_bytes().to_vec())
-                    .map_err(|e| anyhow!(e))?,
-            )
-        }
-    };
+    //         Some(
+    //             point
+    //                 .map(|g1| g1.to_bytes().to_vec())
+    //                 .map_err(|e| anyhow!(e))?,
+    //         )
+    //     }
+    // };
+
+    let commitment = [];
+    let blob_proof = None;
 
     Ok((blob, Some(commitment.to_vec()), blob_proof))
 }
@@ -456,7 +464,8 @@ pub async fn filter_blockchain_event(
     // Setup the filter to get the relevant events
     let filter = gen_block_event_filter();
     // Now fetch the events
-    Ok(provider.get_logs(&filter).await?)
+    //Ok(provider.get_logs(&filter).await?)
+    Ok(Vec::new())
 }
 
 pub async fn get_calldata_txlist_event(
@@ -480,28 +489,28 @@ pub async fn get_calldata_txlist_event(
 
     // Run over the logs returned to find the matching event for the specified L2 block number
     // (there can be multiple blocks proposed in the same block and even same tx)
-    for log in logs {
-        let Some(log_struct) = LogStruct::new(
-            log.address(),
-            log.topics().to_vec(),
-            log.data().data.clone(),
-        ) else {
-            bail!("Could not create log")
-        };
-        let event = CalldataTxList::decode_log(&log_struct, false)
-            .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
-        if event.blockId == raiko_lib::primitives::U256::from(l2_block_number) {
-            let Some(log_tx_hash) = log.transaction_hash else {
-                bail!("No transaction hash in the log")
-            };
-            let tx = provider
-                .get_transaction_by_hash(log_tx_hash)
-                .await
-                .expect("couldn't query the propose tx")
-                .expect("Could not find the propose tx");
-            return Ok((tx, event.data));
-        }
-    }
+    // for log in logs {
+    //     let Some(log_struct) = LogStruct::new(
+    //         log.address(),
+    //         log.topics().to_vec(),
+    //         log.data().data.clone(),
+    //     ) else {
+    //         bail!("Could not create log")
+    //     };
+    //     let event = CalldataTxList::decode_log(&log_struct, false)
+    //         .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
+    //     if event.blockId == raiko_lib::primitives::U256::from(l2_block_number) {
+    //         let Some(log_tx_hash) = log.transaction_hash else {
+    //             bail!("No transaction hash in the log")
+    //         };
+    //         let tx = provider
+    //             .get_transaction_by_hash(log_tx_hash)
+    //             .await
+    //             .expect("couldn't query the propose tx")
+    //             .expect("Could not find the propose tx");
+    //         return Ok((tx, event.data));
+    //     }
+    // }
     bail!("No BlockProposedV2 event found for block {l2_block_number}");
 }
 
@@ -526,8 +535,8 @@ pub async fn filter_block_proposed_event(
 
     // Get the event signature (value can differ between chains)
     let event_signature = match fork {
-        SpecId::PACAYA => BatchProposed::SIGNATURE_HASH,
-        SpecId::ONTAKE => BlockProposedV2::SIGNATURE_HASH,
+        //SpecId::PACAYA => BatchProposed::SIGNATURE_HASH,
+        //SpecId::ONTAKE => BlockProposedV2::SIGNATURE_HASH,
         _ => BlockProposed::SIGNATURE_HASH,
     };
     // Setup the filter to get the relevant events
@@ -560,19 +569,19 @@ pub async fn filter_block_proposed_event(
             bail!("Could not create log")
         };
         let (block_or_batch_id, block_propose_event) = match fork {
-            SpecId::PACAYA => {
-                let event = BatchProposed::decode_log(&log_struct, false)
-                    .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
-                (
-                    raiko_lib::primitives::U256::from(event.meta.batchId),
-                    BlockProposedFork::Pacaya(event.data),
-                )
-            }
-            SpecId::ONTAKE => {
-                let event = BlockProposedV2::decode_log(&log_struct, false)
-                    .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
-                (event.blockId, BlockProposedFork::Ontake(event.data))
-            }
+            // SpecId::PACAYA => {
+            //     let event = BatchProposed::decode_log(&log_struct, false)
+            //         .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
+            //     (
+            //         raiko_lib::primitives::U256::from(event.meta.batchId),
+            //         BlockProposedFork::Pacaya(event.data),
+            //     )
+            // }
+            // SpecId::ONTAKE => {
+            //     let event = BlockProposedV2::decode_log(&log_struct, false)
+            //         .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
+            //     (event.blockId, BlockProposedFork::Ontake(event.data))
+            // }
             _ => {
                 let event = BlockProposed::decode_log(&log_struct, false)
                     .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
@@ -580,17 +589,17 @@ pub async fn filter_block_proposed_event(
             }
         };
 
-        if block_or_batch_id == raiko_lib::primitives::U256::from(block_num_or_batch_id) {
-            let Some(log_tx_hash) = log.transaction_hash else {
-                bail!("No transaction hash in the log")
-            };
-            let tx = provider
-                .get_transaction_by_hash(log_tx_hash)
-                .await
-                .expect("couldn't query the propose tx")
-                .expect("Could not find the propose tx");
-            return Ok((log.block_number.unwrap(), tx, block_propose_event));
-        }
+        // if block_or_batch_id == raiko_lib::primitives::U256::from(block_num_or_batch_id) {
+        //     let Some(log_tx_hash) = log.transaction_hash else {
+        //         bail!("No transaction hash in the log")
+        //     };
+        //     let tx = provider
+        //         .get_transaction_by_hash(log_tx_hash)
+        //         .await
+        //         .expect("couldn't query the propose tx")
+        //         .expect("Could not find the propose tx");
+        //     return Ok((log.block_number.unwrap(), tx, block_propose_event));
+        // }
     }
 
     Err(anyhow!(
@@ -653,6 +662,26 @@ pub async fn get_block_proposed_event_by_traversal(
     .await
 }
 
+pub fn convert_block(block: Block::<alloy_rpc_types::Transaction>) -> Block::<WithOtherFields<alloy_rpc_types::Transaction>> {
+    let block_transactions = if block.transactions.is_full() {
+        BlockTransactions::<WithOtherFields<alloy_rpc_types::Transaction>>::Full(block.clone().transactions.into_transactions().map(|tx| WithOtherFields::new(tx.clone())).collect())
+    } else {
+        BlockTransactions::<WithOtherFields<alloy_rpc_types::Transaction>>::Uncle
+    };
+
+    // Convert the alloy block to a reth block
+    //let block: Block<alloy_rpc_types::Transaction> = block.clone();
+    let block_with_fields = Block::<WithOtherFields<alloy_rpc_types::Transaction>> {
+        header: block.header.clone(),
+        uncles: block.uncles.clone(),
+        transactions: block_transactions,
+        size: block.size,
+        withdrawals: block.withdrawals.clone(),
+    };
+
+    block_with_fields
+}
+
 pub async fn get_block_and_parent_data<BDP>(
     provider: &BDP,
     block_number: u64,
@@ -679,15 +708,15 @@ where
     info!(
         "Processing block {:?} with hash: {:?}",
         block.header.number,
-        block.header.hash.unwrap(),
+        block.header.hash,
     );
     debug!("block.parent_hash: {:?}", block.header.parent_hash);
     debug!("block gas used: {:?}", block.header.gas_used);
     debug!("block transactions: {:?}", block.transactions.len());
 
-    // Convert the alloy block to a reth block
-    let block = RethBlock::try_from(block.clone())
+    let block = RethBlock::try_from(convert_block(block.clone()))
         .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
+
     Ok((block, parent_block.clone()))
 }
 
@@ -711,16 +740,16 @@ where
         "Processing {} blocks with (num, hash) from:({:?}, {:?}) to ({:?}, {:?})",
         block_numbers.len(),
         blocks.first().unwrap().header.number,
-        blocks.first().unwrap().header.hash.unwrap(),
+        blocks.first().unwrap().header.hash,
         blocks.last().unwrap().header.number,
-        blocks.last().unwrap().header.hash.unwrap(),
+        blocks.last().unwrap().header.hash,
     );
 
     let pairs = blocks
         .windows(2)
         .map(|window_blocks| {
             let parent_block = &window_blocks[0];
-            let prove_block = RethBlock::try_from(window_blocks[1].clone())
+            let prove_block = RethBlock::try_from(convert_block(window_blocks[1].clone()))
                 .map_err(|e| {
                     RaikoError::Conversion(format!("Failed converting to reth block: {e}"))
                 })
@@ -778,15 +807,16 @@ pub fn blob_to_bytes(blob_str: &str) -> Vec<u8> {
 }
 
 fn calc_blob_versioned_hash(blob_str: &str) -> [u8; 32] {
-    let blob_bytes = hex::decode(blob_str.to_lowercase().trim_start_matches("0x"))
-        .expect("Could not decode blob");
-    let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
-    let commitment = blob_to_kzg_commitment_rust(
-        &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"),
-        &KZG_SETTINGS.clone(),
-    )
-    .expect("Could not create kzg commitment from blob");
-    commitment_to_version_hash(&commitment.to_bytes()).0
+    // let blob_bytes = hex::decode(blob_str.to_lowercase().trim_start_matches("0x"))
+    //     .expect("Could not decode blob");
+    // let blob = Blob::from_bytes(&blob_bytes).expect("Could not create blob");
+    // let commitment = blob_to_kzg_commitment_rust(
+    //     &eip4844::deserialize_blob_rust(&blob).expect("Could not deserialize blob"),
+    //     &KZG_SETTINGS.clone(),
+    // )
+    // .expect("Could not create kzg commitment from blob");
+    // commitment_to_version_hash(&commitment.to_bytes()).0
+    [0; 32]
 }
 
 async fn get_blob_data(beacon_rpc_url: &str, block_id: u64, blob_hash: B256) -> Result<Vec<u8>> {

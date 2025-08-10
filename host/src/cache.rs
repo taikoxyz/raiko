@@ -46,25 +46,26 @@ pub async fn validate_input(
 ) -> HostResult<GuestInput> {
     if let Some(cache_input) = cached_input {
         debug!("Using cached input");
-        let blocks = provider
-            .get_blocks(&[(cache_input.block.number, false)])
-            .await?;
-        let block = blocks
-            .first()
-            .ok_or_else(|| RaikoError::RPC("No block data for the requested block".to_owned()))?;
+        for (chain_id, chain) in cache_input.chains.iter() {
+            let blocks = provider
+                .get_blocks(&[(chain.block.number, false)])
+                .await?;
+            let block = blocks
+                .first()
+                .ok_or_else(|| RaikoError::RPC("No block data for the requested block".to_owned()))?;
 
-        let cached_block_hash = cache_input.block.header.hash_slow();
-        let real_block_hash = block.header.hash.unwrap();
-        debug!("cache_block_hash={cached_block_hash:?}, real_block_hash={real_block_hash:?}");
+            let cached_block_hash = chain.block.header.hash_slow();
+            let real_block_hash = block.header.hash;
+            debug!("cache_block_hash={cached_block_hash:?}, real_block_hash={real_block_hash:?}");
 
-        // double check if cache is valid
-        if cached_block_hash == real_block_hash {
-            Ok(cache_input)
-        } else {
-            Err(HostError::InvalidRequestConfig(
-                "Cached input is not valid".to_owned(),
-            ))
+            // double check if cache is valid
+            if cached_block_hash != real_block_hash {
+                return Err(HostError::InvalidRequestConfig(
+                    "Cached input is not valid".to_owned(),
+                ));
+            }
         }
+        Ok(cache_input)
     } else {
         Err(HostError::InvalidRequestConfig(
             "Cached input is not enabled".to_owned(),

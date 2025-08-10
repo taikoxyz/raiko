@@ -147,11 +147,12 @@ pub fn parse_opts() -> HostResult<Opts> {
 }
 
 pub fn parse_chain_specs(opts: &Opts) -> SupportedChainSpecs {
-    if let Some(cs_path) = &opts.chain_spec_path {
-        SupportedChainSpecs::merge_from_file(cs_path.clone()).expect("Failed to parse chain specs")
-    } else {
-        SupportedChainSpecs::default()
-    }
+    // if let Some(cs_path) = &opts.chain_spec_path {
+    //     SupportedChainSpecs::merge_from_file(cs_path.clone()).expect("Failed to parse chain specs")
+    // } else {
+    //     SupportedChainSpecs::default()
+    // }
+    SupportedChainSpecs::default()
 }
 
 pub fn parse_ballot(opts: &Opts) -> Ballot {

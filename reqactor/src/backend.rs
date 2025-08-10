@@ -18,7 +18,7 @@ use raiko_reqpool::{
     StatusWithContext,
 };
 use reth_primitives::B256;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use std::time::Duration;
 use tokio::sync::{
     mpsc::{self, Receiver, Sender},
@@ -185,8 +185,8 @@ impl Backend {
                     }
                     RequestEntity::BatchProof(entity) => {
                         tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving batch proof");
-                        self.prove_batch(request_key.clone(), entity).await;
-                        self.ensure_internal_signal(request_key).await;
+                        //self.prove_batch(request_key.clone(), entity).await;
+                        //self.ensure_internal_signal(request_key).await;
                     }
                     RequestEntity::GuestInput(entity) => {
                         tracing::debug!("Actor Backend received internal signal {request_key}, status: {status}, proving single proof");
@@ -410,22 +410,22 @@ impl Backend {
         .await;
     }
 
-    async fn prove_batch(
-        &mut self,
-        request_key: RequestKey,
-        request_entity: BatchProofRequestEntity,
-    ) {
-        self.prove(request_key.clone(), |mut actor, request_key| async move {
-            do_prove_batch(
-                &mut actor.pool,
-                &actor.chain_specs,
-                request_key.clone(),
-                request_entity,
-            )
-            .await
-        })
-        .await;
-    }
+    // async fn prove_batch(
+    //     &mut self,
+    //     request_key: RequestKey,
+    //     request_entity: BatchProofRequestEntity,
+    // ) {
+    //     self.prove(request_key.clone(), |mut actor, request_key| async move {
+    //         do_prove_batch(
+    //             &mut actor.pool,
+    //             &actor.chain_specs,
+    //             request_key.clone(),
+    //             request_entity,
+    //         )
+    //         .await
+    //     })
+    //     .await;
+    // }
 
     /// Generic method to handle proving for different types of proofs
     async fn prove<F, Fut>(&mut self, request_key: RequestKey, prove_fn: F)
@@ -580,8 +580,11 @@ pub async fn do_generate_guest_input(
     .await
     .map_err(|err| format!("failed to create rpc block data provider: {err:?}"))?;
 
+    let mut providers = HashMap::new();
+    providers.insert(taiko_chain_spec.chain_id, provider);
+
     let input = raiko
-        .generate_input(provider)
+        .generate_input(providers)
         .await
         .map_err(|e| format!("failed to generate input: {e:?}"))?;
 
@@ -641,6 +644,9 @@ pub async fn do_prove_single(
     .await
     .map_err(|err| format!("failed to create rpc block data provider: {err:?}"))?;
 
+    let mut providers = HashMap::new();
+    providers.insert(taiko_chain_spec.chain_id, provider);
+
     // double check if we already have the guest_input
     let input: GuestInput =
         if let Some(guest_input_value) = request_entity.prover_args().get("guest_input") {
@@ -662,7 +668,7 @@ pub async fn do_prove_single(
         } else {
             // 1. Generate the proof input
             raiko
-                .generate_input(provider)
+                .generate_input(providers)
                 .await
                 .map_err(|e| format!("failed to generate input: {e:?}"))?
         };
@@ -796,47 +802,47 @@ pub async fn do_generate_batch_guest_input(
     })
 }
 
-async fn do_prove_batch(
-    pool: &mut dyn IdWrite,
-    chain_specs: &SupportedChainSpecs,
-    request_key: RequestKey,
-    request_entity: BatchProofRequestEntity,
-) -> Result<Proof, String> {
-    tracing::info!("Generating proof for {request_key}");
+// async fn do_prove_batch(
+//     pool: &mut dyn IdWrite,
+//     chain_specs: &SupportedChainSpecs,
+//     request_key: RequestKey,
+//     request_entity: BatchProofRequestEntity,
+// ) -> Result<Proof, String> {
+//     tracing::info!("Generating proof for {request_key}");
 
-    let raiko = new_raiko_for_batch_request(chain_specs, request_entity).await?;
-    let input = if let Some(batch_guest_input) = raiko.request.prover_args.get("batch_guest_input")
-    {
-        // Tricky: originally the input was created (and pass around) by prove() infra,
-        // so it's a base64 string(in Proof).
-        // after we get it from db somewhere before, we need to pass it down here, but there is no known
-        // string carrier in key / entity, so we call deser twice, value -> string -> struct.
-        let b64_encoded_string: String = serde_json::from_value(batch_guest_input.clone())
-            .map_err(|err| {
-                format!("failed to deserialize batch_guest_input from value: {err:?}")
-            })?;
-        let compressed_bytes = general_purpose::STANDARD
-            .decode(&b64_encoded_string)
-            .unwrap();
-        let decompressed_bytes = zlib_decompress_data(&compressed_bytes)
-            .map_err(|err| format!("failed to decompress batch_guest_input: {err:?}"))?;
-        let guest_input: GuestBatchInput = bincode::deserialize(&decompressed_bytes)
-            .map_err(|err| format!("failed to deserialize bincode batch_guest_input: {err:?}"))?;
-        guest_input
-    } else {
-        tracing::warn!("rebuild batch guest input for request: {request_key:?}");
-        generate_input_for_batch(&raiko)
-            .await
-            .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?
-    };
+//     let raiko = new_raiko_for_batch_request(chain_specs, request_entity).await?;
+//     let input = if let Some(batch_guest_input) = raiko.request.prover_args.get("batch_guest_input")
+//     {
+//         // Tricky: originally the input was created (and pass around) by prove() infra,
+//         // so it's a base64 string(in Proof).
+//         // after we get it from db somewhere before, we need to pass it down here, but there is no known
+//         // string carrier in key / entity, so we call deser twice, value -> string -> struct.
+//         let b64_encoded_string: String = serde_json::from_value(batch_guest_input.clone())
+//             .map_err(|err| {
+//                 format!("failed to deserialize batch_guest_input from value: {err:?}")
+//             })?;
+//         let compressed_bytes = general_purpose::STANDARD
+//             .decode(&b64_encoded_string)
+//             .unwrap();
+//         let decompressed_bytes = zlib_decompress_data(&compressed_bytes)
+//             .map_err(|err| format!("failed to decompress batch_guest_input: {err:?}"))?;
+//         let guest_input: GuestBatchInput = bincode::deserialize(&decompressed_bytes)
+//             .map_err(|err| format!("failed to deserialize bincode batch_guest_input: {err:?}"))?;
+//         guest_input
+//     } else {
+//         tracing::warn!("rebuild batch guest input for request: {request_key:?}");
+//         generate_input_for_batch(&raiko)
+//             .await
+//             .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?
+//     };
 
-    let output = raiko
-        .get_batch_output(&input)
-        .map_err(|e| format!("failed to get guest batch output: {e:?}"))?;
-    debug!("batch guest output: {output:?}");
-    let proof = raiko
-        .batch_prove(input, &output, Some(pool))
-        .await
-        .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
-    Ok(proof)
-}
+//     let output = raiko
+//         .get_batch_output(&input)
+//         .map_err(|e| format!("failed to get guest batch output: {e:?}"))?;
+//     debug!("batch guest output: {output:?}");
+//     let proof = raiko
+//         .batch_prove(input, &output, Some(pool))
+//         .await
+//         .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
+//     Ok(proof)
+// }

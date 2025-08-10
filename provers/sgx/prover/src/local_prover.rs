@@ -10,7 +10,7 @@ use std::{
 };
 
 use duct::{cmd, Expression};
-use memfd::MemfdOptions;
+//use memfd::MemfdOptions;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
@@ -544,11 +544,11 @@ async fn batch_prove(
             .stderr_capture();
 
         if proof_type == ProofType::SgxGeth {
-            let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
-            serde_json::to_writer(mfd.as_file(), &input)
-                .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-            mfd.as_file().seek(std::io::SeekFrom::Start(0)).unwrap();
-            gramine_cmd = gramine_cmd.stdin_file(mfd);
+            // let mfd = MemfdOptions::default().create("sgx-geth-witness").unwrap();
+            // serde_json::to_writer(mfd.as_file(), &input)
+            //     .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+            // mfd.as_file().seek(std::io::SeekFrom::Start(0)).unwrap();
+            // gramine_cmd = gramine_cmd.stdin_file(mfd);
         } else {
             let bytes = bincode::serialize(&input)
                 .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
@@ -685,15 +685,16 @@ fn handle_output(output: &Output, name: &str) -> ProverResult<(), String> {
 }
 
 pub fn get_instance_id_from_params(input: &GuestInput, sgx_param: &SgxParam) -> ProverResult<u64> {
-    let spec_id = input
-        .chain_spec
-        .active_fork(input.block.number, input.block.timestamp)
-        .map_err(|e| ProverError::GuestError(e.to_string()))?;
-    sgx_param
-        .instance_ids
-        .get(&spec_id)
-        .cloned()
-        .ok_or_else(|| {
-            ProverError::GuestError(format!("No instance id found for spec id: {:?}", spec_id))
-        })
+    // let spec_id = input
+    //     .chain_spec
+    //     .active_fork(input.block.number, input.block.timestamp)
+    //     .map_err(|e| ProverError::GuestError(e.to_string()))?;
+    // sgx_param
+    //     .instance_ids
+    //     .get(&spec_id)
+    //     .cloned()
+    //     .ok_or_else(|| {
+    //         ProverError::GuestError(format!("No instance id found for spec id: {:?}", spec_id))
+    //     })
+    Ok(0)
 }

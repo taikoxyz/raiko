@@ -50,7 +50,7 @@ impl Prover for NativeProver {
 
         trace!("Running the native prover for input {input:?}");
 
-        let pi = ProtocolInstance::new(&input, &output.header, ProofType::Native)
+        let pi = ProtocolInstance::new(&input, &output.headers, ProofType::Native)
             .map_err(|e| ProverError::GuestError(e.to_string()))?;
         if pi.instance_hash() != output.hash {
             return Err(ProverError::GuestError(
@@ -74,45 +74,61 @@ impl Prover for NativeProver {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let param =
-            config
-                .get("native")
-                .map(NativeParam::deserialize)
-                .ok_or(ProverError::Param(serde_json::Error::custom(
-                    "native param not provided",
-                )))??;
-
-        if let Some(path) = param.json_guest_input {
-            let path = Path::new(&path);
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            let json = serde_json::to_string(&batch_input)?;
-            std::fs::write(path, json)?;
-        }
-
-        trace!("Running the native prover for batch input: {batch_input:?}");
-
-        let pi = ProtocolInstance::new_batch(
-            &batch_input,
-            batch_output.blocks.clone(),
-            ProofType::Native,
-        )
-        .map_err(|e| ProverError::GuestError(e.to_string()))?;
-        if pi.instance_hash() != batch_output.hash {
-            return Err(ProverError::GuestError(
-                "Protocol Instance hash not matched".to_string(),
-            ));
-        }
-
         Ok(Proof {
-            input: Some(batch_output.hash),
-            proof: None,
-            quote: None,
-            uuid: None,
-            kzg_proof: None,
+            proof: todo!(),
+            input: todo!(),
+            quote: todo!(),
+            uuid: todo!(),
+            kzg_proof: todo!(),
         })
     }
+
+    // async fn batch_run(
+    //     &self,
+    //     batch_input: GuestBatchInput,
+    //     batch_output: &GuestBatchOutput,
+    //     config: &ProverConfig,
+    //     _store: Option<&mut dyn IdWrite>,
+    // ) -> ProverResult<Proof> {
+    //     let param =
+    //         config
+    //             .get("native")
+    //             .map(NativeParam::deserialize)
+    //             .ok_or(ProverError::Param(serde_json::Error::custom(
+    //                 "native param not provided",
+    //             )))??;
+
+    //     if let Some(path) = param.json_guest_input {
+    //         let path = Path::new(&path);
+    //         if let Some(parent) = path.parent() {
+    //             std::fs::create_dir_all(parent)?;
+    //         }
+    //         let json = serde_json::to_string(&batch_input)?;
+    //         std::fs::write(path, json)?;
+    //     }
+
+    //     trace!("Running the native prover for batch input: {batch_input:?}");
+
+    //     let pi = ProtocolInstance::new_batch(
+    //         &batch_input,
+    //         batch_output.blocks.clone(),
+    //         ProofType::Native,
+    //     )
+    //     .map_err(|e| ProverError::GuestError(e.to_string()))?;
+    //     if pi.instance_hash() != batch_output.hash {
+    //         return Err(ProverError::GuestError(
+    //             "Protocol Instance hash not matched".to_string(),
+    //         ));
+    //     }
+
+    //     Ok(Proof {
+    //         input: Some(batch_output.hash),
+    //         proof: None,
+    //         quote: None,
+    //         uuid: None,
+    //         kzg_proof: None,
+    //     })
+    // }
 
     async fn cancel(&self, _proof_key: ProofKey, _read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         Ok(())

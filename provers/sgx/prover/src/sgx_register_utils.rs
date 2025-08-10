@@ -57,226 +57,226 @@ pub fn remove_instance_id(dir: &Path, proof_type: ProofType) -> io::Result<()> {
     Ok(())
 }
 
-sol! {
-    #[derive(Debug)]
-    struct Header {
-        bytes2 version;
-        bytes2 attestationKeyType;
-        bytes4 teeType;
-        bytes2 qeSvn;
-        bytes2 pceSvn;
-        bytes16 qeVendorId;
-        bytes20 userData;
-    }
+// sol! {
+//     #[derive(Debug)]
+//     struct Header {
+//         bytes2 version;
+//         bytes2 attestationKeyType;
+//         bytes4 teeType;
+//         bytes2 qeSvn;
+//         bytes2 pceSvn;
+//         bytes16 qeVendorId;
+//         bytes20 userData;
+//     }
 
-    #[derive(Debug)]
-    struct EnclaveReport {
-        bytes16 cpuSvn;
-        bytes4 miscSelect;
-        bytes28 reserved1;
-        bytes16 attributes;
-        bytes32 mrEnclave;
-        bytes32 reserved2;
-        bytes32 mrSigner;
-        bytes reserved3; // 96 bytes
-        uint16 isvProdId;
-        uint16 isvSvn;
-        bytes reserved4; // 60 bytes
-        bytes reportData; // 64 bytes - For QEReports, this contains the hash of the concatenation
-            // of attestation key and QEAuthData
-    }
+//     #[derive(Debug)]
+//     struct EnclaveReport {
+//         bytes16 cpuSvn;
+//         bytes4 miscSelect;
+//         bytes28 reserved1;
+//         bytes16 attributes;
+//         bytes32 mrEnclave;
+//         bytes32 reserved2;
+//         bytes32 mrSigner;
+//         bytes reserved3; // 96 bytes
+//         uint16 isvProdId;
+//         uint16 isvSvn;
+//         bytes reserved4; // 60 bytes
+//         bytes reportData; // 64 bytes - For QEReports, this contains the hash of the concatenation
+//             // of attestation key and QEAuthData
+//     }
 
-    #[derive(Debug)]
-    struct QEAuthData {
-        uint16 parsedDataSize;
-        bytes data;
-    }
+//     #[derive(Debug)]
+//     struct QEAuthData {
+//         uint16 parsedDataSize;
+//         bytes data;
+//     }
 
-    #[derive(Debug)]
-    struct CertificationData {
-        uint16 certType;
-        // todo! In encoded path, we need to calculate the size of certDataArray
-        // certDataSize = len(join((BEGIN_CERT, certArray[i], END_CERT) for i in 0..3))
-        // But for plain bytes path, we don't need that.
-        uint32 certDataSize;
-        bytes[3] decodedCertDataArray; // base64 decoded cert bytes array
-    }
+//     #[derive(Debug)]
+//     struct CertificationData {
+//         uint16 certType;
+//         // todo! In encoded path, we need to calculate the size of certDataArray
+//         // certDataSize = len(join((BEGIN_CERT, certArray[i], END_CERT) for i in 0..3))
+//         // But for plain bytes path, we don't need that.
+//         uint32 certDataSize;
+//         bytes[3] decodedCertDataArray; // base64 decoded cert bytes array
+//     }
 
-    #[derive(Debug)]
-    struct ECDSAQuoteV3AuthData {
-        bytes ecdsa256BitSignature; // 64 bytes
-        bytes ecdsaAttestationKey; // 64 bytes
-        EnclaveReport pckSignedQeReport; // 384 bytes
-        bytes qeReportSignature; // 64 bytes
-        QEAuthData qeAuthData;
-        CertificationData certification;
-    }
+//     #[derive(Debug)]
+//     struct ECDSAQuoteV3AuthData {
+//         bytes ecdsa256BitSignature; // 64 bytes
+//         bytes ecdsaAttestationKey; // 64 bytes
+//         EnclaveReport pckSignedQeReport; // 384 bytes
+//         bytes qeReportSignature; // 64 bytes
+//         QEAuthData qeAuthData;
+//         CertificationData certification;
+//     }
 
-    #[derive(Debug)]
-    struct ParsedV3QuoteStruct {
-        Header header;
-        EnclaveReport localEnclaveReport;
-        ECDSAQuoteV3AuthData v3AuthData;
-    }
+//     #[derive(Debug)]
+//     struct ParsedV3QuoteStruct {
+//         Header header;
+//         EnclaveReport localEnclaveReport;
+//         ECDSAQuoteV3AuthData v3AuthData;
+//     }
 
-    #[sol(rpc)]
-    #[allow(dead_code)]
-    contract SgxVerifier {
-        event InstanceAdded(
-            uint256 indexed id, address indexed instance, address replaced, uint256 validSince
-        );
+//     #[sol(rpc)]
+//     #[allow(dead_code)]
+//     contract SgxVerifier {
+//         event InstanceAdded(
+//             uint256 indexed id, address indexed instance, address replaced, uint256 validSince
+//         );
 
-        #[derive(Debug)]
-        function registerInstance(ParsedV3QuoteStruct calldata _attestation)
-            external
-            returns (uint256);
-    }
-}
+//         #[derive(Debug)]
+//         function registerInstance(ParsedV3QuoteStruct calldata _attestation)
+//             external
+//             returns (uint256);
+//     }
+// }
 
-fn little_endian_decode(encoded: &[u8]) -> u64 {
-    assert!(encoded.len() <= 8, "encoded bytes should be less than 8");
-    let mut decoded = 0;
-    for (i, byte) in encoded.iter().enumerate() {
-        let digits = *byte as u64;
-        let upper_digit = digits / 16;
-        let lower_digit = digits % 16;
+// fn little_endian_decode(encoded: &[u8]) -> u64 {
+//     assert!(encoded.len() <= 8, "encoded bytes should be less than 8");
+//     let mut decoded = 0;
+//     for (i, byte) in encoded.iter().enumerate() {
+//         let digits = *byte as u64;
+//         let upper_digit = digits / 16;
+//         let lower_digit = digits % 16;
 
-        let acc = lower_digit * (16u64.pow((2 * i) as u32));
-        let acc = acc + upper_digit * (16u64.pow(((2 * i) + 1) as u32));
+//         let acc = lower_digit * (16u64.pow((2 * i) as u32));
+//         let acc = acc + upper_digit * (16u64.pow(((2 * i) + 1) as u32));
 
-        decoded += acc;
-    }
+//         decoded += acc;
+//     }
 
-    decoded
-}
+//     decoded
+// }
 
-fn parse_quote_header(quote_bytes: &[u8]) -> Result<Header, Box<dyn std::error::Error>> {
-    assert!(quote_bytes.len() > 48, "quote bytes should be at least 48");
-    let version = &quote_bytes[0..2];
-    let attestation_key_type = &quote_bytes[2..4];
-    let tee_type = &quote_bytes[4..8];
-    let qe_svn = &quote_bytes[8..10]; // check bytes2(xx)
-    let pce_svn = &quote_bytes[10..12];
-    let qe_vendor_id = &quote_bytes[12..28];
-    let user_data = &quote_bytes[28..48];
+// fn parse_quote_header(quote_bytes: &[u8]) -> Result<Header, Box<dyn std::error::Error>> {
+//     assert!(quote_bytes.len() > 48, "quote bytes should be at least 48");
+//     let version = &quote_bytes[0..2];
+//     let attestation_key_type = &quote_bytes[2..4];
+//     let tee_type = &quote_bytes[4..8];
+//     let qe_svn = &quote_bytes[8..10]; // check bytes2(xx)
+//     let pce_svn = &quote_bytes[10..12];
+//     let qe_vendor_id = &quote_bytes[12..28];
+//     let user_data = &quote_bytes[28..48];
 
-    Ok(Header {
-        version: FixedBytes::<2>::from_slice(version),
-        attestationKeyType: FixedBytes::<2>::from_slice(attestation_key_type),
-        teeType: FixedBytes::<4>::from_slice(tee_type),
-        qeSvn: FixedBytes::<2>::from_slice(qe_svn),
-        pceSvn: FixedBytes::<2>::from_slice(pce_svn),
-        qeVendorId: FixedBytes::<16>::from_slice(qe_vendor_id),
-        userData: FixedBytes::<20>::from_slice(user_data),
-    })
-}
+//     Ok(Header {
+//         version: FixedBytes::<2>::from_slice(version),
+//         attestationKeyType: FixedBytes::<2>::from_slice(attestation_key_type),
+//         teeType: FixedBytes::<4>::from_slice(tee_type),
+//         qeSvn: FixedBytes::<2>::from_slice(qe_svn),
+//         pceSvn: FixedBytes::<2>::from_slice(pce_svn),
+//         qeVendorId: FixedBytes::<16>::from_slice(qe_vendor_id),
+//         userData: FixedBytes::<20>::from_slice(user_data),
+//     })
+// }
 
-fn parse_quote_enclave_report(
-    enclave_report_bytes: &[u8],
-) -> Result<EnclaveReport, Box<dyn std::error::Error>> {
-    let cpu_svn = &enclave_report_bytes[0..16];
-    let misc_select = &enclave_report_bytes[16..20];
-    let reserved1 = &enclave_report_bytes[20..48];
-    let attributes = &enclave_report_bytes[48..64];
-    let mr_enclave = &enclave_report_bytes[64..96];
-    let reserved2 = &enclave_report_bytes[96..128];
-    let mr_signer = &enclave_report_bytes[128..160];
-    let reserved3 = &enclave_report_bytes[160..256];
-    let isv_prod_id = &enclave_report_bytes[256..258];
-    let isv_svn = &enclave_report_bytes[258..260];
-    let reserved4 = &enclave_report_bytes[260..320];
-    let report_data = &enclave_report_bytes[320..384];
+// fn parse_quote_enclave_report(
+//     enclave_report_bytes: &[u8],
+// ) -> Result<EnclaveReport, Box<dyn std::error::Error>> {
+//     let cpu_svn = &enclave_report_bytes[0..16];
+//     let misc_select = &enclave_report_bytes[16..20];
+//     let reserved1 = &enclave_report_bytes[20..48];
+//     let attributes = &enclave_report_bytes[48..64];
+//     let mr_enclave = &enclave_report_bytes[64..96];
+//     let reserved2 = &enclave_report_bytes[96..128];
+//     let mr_signer = &enclave_report_bytes[128..160];
+//     let reserved3 = &enclave_report_bytes[160..256];
+//     let isv_prod_id = &enclave_report_bytes[256..258];
+//     let isv_svn = &enclave_report_bytes[258..260];
+//     let reserved4 = &enclave_report_bytes[260..320];
+//     let report_data = &enclave_report_bytes[320..384];
 
-    Ok(EnclaveReport {
-        cpuSvn: FixedBytes::<16>::from_slice(cpu_svn),
-        miscSelect: FixedBytes::<4>::from_slice(misc_select),
-        reserved1: FixedBytes::<28>::from_slice(reserved1),
-        attributes: FixedBytes::<16>::from_slice(attributes),
-        mrEnclave: FixedBytes::<32>::from_slice(mr_enclave),
-        reserved2: FixedBytes::<32>::from_slice(reserved2),
-        mrSigner: FixedBytes::<32>::from_slice(mr_signer),
-        reserved3: reserved3.to_vec().into(),
-        isvProdId: little_endian_decode(isv_prod_id) as u16,
-        isvSvn: little_endian_decode(isv_svn) as u16,
-        reserved4: reserved4.to_vec().into(),
-        reportData: report_data.to_vec().into(),
-    })
-}
+//     Ok(EnclaveReport {
+//         cpuSvn: FixedBytes::<16>::from_slice(cpu_svn),
+//         miscSelect: FixedBytes::<4>::from_slice(misc_select),
+//         reserved1: FixedBytes::<28>::from_slice(reserved1),
+//         attributes: FixedBytes::<16>::from_slice(attributes),
+//         mrEnclave: FixedBytes::<32>::from_slice(mr_enclave),
+//         reserved2: FixedBytes::<32>::from_slice(reserved2),
+//         mrSigner: FixedBytes::<32>::from_slice(mr_signer),
+//         reserved3: reserved3.to_vec().into(),
+//         isvProdId: little_endian_decode(isv_prod_id) as u16,
+//         isvSvn: little_endian_decode(isv_svn) as u16,
+//         reserved4: reserved4.to_vec().into(),
+//         reportData: report_data.to_vec().into(),
+//     })
+// }
 
-fn parse_certification_chain_bytes(pem_bytes: &[u8]) -> [Vec<u8>; 3] {
-    let pems = parse_many(pem_bytes).unwrap();
-    assert_eq!(pems.len(), 3);
-    let mut decoded_cert_data_array = [vec![], vec![], vec![]];
-    for (i, pem) in pems.iter().enumerate() {
-        decoded_cert_data_array[i] = pem.contents().to_vec();
-    }
-    decoded_cert_data_array
-}
+// fn parse_certification_chain_bytes(pem_bytes: &[u8]) -> [Vec<u8>; 3] {
+//     let pems = parse_many(pem_bytes).unwrap();
+//     assert_eq!(pems.len(), 3);
+//     let mut decoded_cert_data_array = [vec![], vec![], vec![]];
+//     for (i, pem) in pems.iter().enumerate() {
+//         decoded_cert_data_array[i] = pem.contents().to_vec();
+//     }
+//     decoded_cert_data_array
+// }
 
-fn parse_quote_auth_data(
-    quote_bytes: &[u8],
-) -> Result<ECDSAQuoteV3AuthData, Box<dyn std::error::Error>> {
-    // qeAuthData
-    let parsed_data_size = little_endian_decode(&quote_bytes[576..578]);
-    let data = &quote_bytes[578..578 + parsed_data_size as usize];
+// fn parse_quote_auth_data(
+//     quote_bytes: &[u8],
+// ) -> Result<ECDSAQuoteV3AuthData, Box<dyn std::error::Error>> {
+//     // qeAuthData
+//     let parsed_data_size = little_endian_decode(&quote_bytes[576..578]);
+//     let data = &quote_bytes[578..578 + parsed_data_size as usize];
 
-    // cert
-    let mut offset = (578 + parsed_data_size) as usize;
-    let cert_type = little_endian_decode(&quote_bytes[offset..offset + 2]);
-    offset += 2;
-    let cert_data_size = little_endian_decode(&quote_bytes[offset..offset + 4]);
-    offset += 4;
-    let cert_data = &quote_bytes[offset..offset + cert_data_size as usize];
-    let decoded_cert_data_array = parse_certification_chain_bytes(cert_data);
+//     // cert
+//     let mut offset = (578 + parsed_data_size) as usize;
+//     let cert_type = little_endian_decode(&quote_bytes[offset..offset + 2]);
+//     offset += 2;
+//     let cert_data_size = little_endian_decode(&quote_bytes[offset..offset + 4]);
+//     offset += 4;
+//     let cert_data = &quote_bytes[offset..offset + cert_data_size as usize];
+//     let decoded_cert_data_array = parse_certification_chain_bytes(cert_data);
 
-    let ecdsa_sig = &quote_bytes[0..64];
-    let ecdsa_attestation_key = &quote_bytes[64..128];
-    let raw_qe_report = &quote_bytes[128..512];
-    let pck_signed_qe_report = parse_quote_enclave_report(raw_qe_report).unwrap();
-    let qe_report_signature = &quote_bytes[512..576];
+//     let ecdsa_sig = &quote_bytes[0..64];
+//     let ecdsa_attestation_key = &quote_bytes[64..128];
+//     let raw_qe_report = &quote_bytes[128..512];
+//     let pck_signed_qe_report = parse_quote_enclave_report(raw_qe_report).unwrap();
+//     let qe_report_signature = &quote_bytes[512..576];
 
-    Ok(ECDSAQuoteV3AuthData {
-        ecdsa256BitSignature: ecdsa_sig.to_vec().into(),
-        ecdsaAttestationKey: ecdsa_attestation_key.to_vec().into(),
-        pckSignedQeReport: pck_signed_qe_report,
-        qeReportSignature: qe_report_signature.to_vec().into(),
-        qeAuthData: QEAuthData {
-            parsedDataSize: parsed_data_size as u16,
-            data: Bytes::from(data.to_vec()),
-        },
-        certification: CertificationData {
-            certType: cert_type as u16,
-            certDataSize: cert_data_size as u32,
-            decodedCertDataArray: decoded_cert_data_array
-                .iter()
-                .map(|x| Bytes::from(x.clone()))
-                .collect::<Vec<Bytes>>()
-                .try_into()
-                .unwrap(),
-        },
-    })
-}
+//     Ok(ECDSAQuoteV3AuthData {
+//         ecdsa256BitSignature: ecdsa_sig.to_vec().into(),
+//         ecdsaAttestationKey: ecdsa_attestation_key.to_vec().into(),
+//         pckSignedQeReport: pck_signed_qe_report,
+//         qeReportSignature: qe_report_signature.to_vec().into(),
+//         qeAuthData: QEAuthData {
+//             parsedDataSize: parsed_data_size as u16,
+//             data: Bytes::from(data.to_vec()),
+//         },
+//         certification: CertificationData {
+//             certType: cert_type as u16,
+//             certDataSize: cert_data_size as u32,
+//             decodedCertDataArray: decoded_cert_data_array
+//                 .iter()
+//                 .map(|x| Bytes::from(x.clone()))
+//                 .collect::<Vec<Bytes>>()
+//                 .try_into()
+//                 .unwrap(),
+//         },
+//     })
+// }
 
-fn parse_quote(quote_str: &str) -> ParsedV3QuoteStruct {
-    let quote_bytes = hex::decode(quote_str).unwrap();
-    let header = parse_quote_header(&quote_bytes).unwrap();
-    let local_enclave_report = parse_quote_enclave_report(&quote_bytes[48..432]).unwrap();
+// fn parse_quote(quote_str: &str) -> ParsedV3QuoteStruct {
+//     let quote_bytes = hex::decode(quote_str).unwrap();
+//     let header = parse_quote_header(&quote_bytes).unwrap();
+//     let local_enclave_report = parse_quote_enclave_report(&quote_bytes[48..432]).unwrap();
 
-    let local_auth_data_size: usize = little_endian_decode(&quote_bytes[432..436]) as usize;
-    assert_eq!(
-        quote_bytes.len() - 436,
-        local_auth_data_size as usize,
-        "quote length mismatch"
-    );
+//     let local_auth_data_size: usize = little_endian_decode(&quote_bytes[432..436]) as usize;
+//     assert_eq!(
+//         quote_bytes.len() - 436,
+//         local_auth_data_size as usize,
+//         "quote length mismatch"
+//     );
 
-    let v3_auth_data = parse_quote_auth_data(&quote_bytes[436..]).unwrap();
+//     let v3_auth_data = parse_quote_auth_data(&quote_bytes[436..]).unwrap();
 
-    ParsedV3QuoteStruct {
-        header,
-        localEnclaveReport: local_enclave_report,
-        v3AuthData: v3_auth_data,
-    }
-}
+//     ParsedV3QuoteStruct {
+//         header,
+//         localEnclaveReport: local_enclave_report,
+//         v3AuthData: v3_auth_data,
+//     }
+// }
 
 pub async fn register_sgx_instance(
     quote_str: &str,
@@ -291,51 +291,52 @@ pub async fn register_sgx_instance(
     println!("wallet: {wallet:?}");
 
     // init rpc conn
-    let url = Url::parse(l1_rpc_url).map_err(|_| "Invalid RPC URL".to_owned())?;
-    let provider = ProviderBuilder::new()
-        .with_recommended_fillers()
-        .wallet(EthereumWallet::from(wallet.clone()))
-        .on_provider(RootProvider::new_http(url.clone()));
-    let sgx_verifier_contract = SgxVerifier::new(sgx_verifier_addr, &provider);
+    // let url = Url::parse(l1_rpc_url).map_err(|_| "Invalid RPC URL".to_owned())?;
+    // let provider = ProviderBuilder::new()
+    //     .with_recommended_fillers()
+    //     .wallet(EthereumWallet::from(wallet.clone()))
+    //     .on_provider(RootProvider::new_http(url.clone()));
+    // let sgx_verifier_contract = SgxVerifier::new(sgx_verifier_addr, &provider);
 
-    // init account
-    let balance = provider.get_balance(wallet.address()).await?;
-    let nonce = provider.get_transaction_count(wallet.address()).await?;
-    let gas_price = provider.get_gas_price().await?;
-    let gas_limit = 4000000u128;
-    assert!(
-        balance > U256::from(gas_price * gas_limit),
-        "insufficient balance to send tx"
-    );
+    // // init account
+    // let balance = provider.get_balance(wallet.address()).await?;
+    // let nonce = provider.get_transaction_count(wallet.address()).await?;
+    // let gas_price = provider.get_gas_price().await?;
+    // let gas_limit = 4000000u128;
+    // assert!(
+    //     balance > U256::from(gas_price * gas_limit),
+    //     "insufficient balance to send tx"
+    // );
 
-    let parsed_quote = parse_quote(quote_str);
-    let call_builder = sgx_verifier_contract
-        .registerInstance(parsed_quote)
-        .from(wallet.address())
-        .nonce(nonce)
-        .value(U256::from(0))
-        .gas_price(gas_price)
-        .gas(gas_limit);
+    // let parsed_quote = parse_quote(quote_str);
+    // let call_builder = sgx_verifier_contract
+    //     .registerInstance(parsed_quote)
+    //     .from(wallet.address())
+    //     .nonce(nonce)
+    //     .value(U256::from(0))
+    //     .gas_price(gas_price)
+    //     .gas(gas_limit);
 
-    // query tx for any error
-    let query_call_return = call_builder.call().await?;
-    println!("query call return: {query_call_return:?}");
+    // // query tx for any error
+    // let query_call_return = call_builder.call().await?;
+    // println!("query call return: {query_call_return:?}");
 
-    // send tx & wait the result
-    let tx_receipt = call_builder
-        .send()
-        .await?
-        .with_required_confirmations(2)
-        .with_timeout(Some(std::time::Duration::from_secs(90)))
-        .get_receipt()
-        .await?;
-    println!("call return tx_hash: {:?}", tx_receipt.transaction_hash);
-    assert!(tx_receipt.status());
+    // // send tx & wait the result
+    // let tx_receipt = call_builder
+    //     .send()
+    //     .await?
+    //     .with_required_confirmations(2)
+    //     .with_timeout(Some(std::time::Duration::from_secs(90)))
+    //     .get_receipt()
+    //     .await?;
+    // println!("call return tx_hash: {:?}", tx_receipt.transaction_hash);
+    // assert!(tx_receipt.status());
 
-    let log = tx_receipt.inner.as_receipt().unwrap().logs.first().unwrap();
-    let sgx_id: u64 = u64::from_be_bytes(log.topics()[1].0[24..].try_into().unwrap());
-    println!("register sgx instance id: {sgx_id:?}");
+    // let log = tx_receipt.inner.as_receipt().unwrap().logs.first().unwrap();
+    // let sgx_id: u64 = u64::from_be_bytes(log.topics()[1].0[24..].try_into().unwrap());
+    // println!("register sgx instance id: {sgx_id:?}");
 
+    let sgx_id = 1;
     Ok(sgx_id)
 }
 

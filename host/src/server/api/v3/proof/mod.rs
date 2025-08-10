@@ -44,6 +44,8 @@ async fn proof_handler(
 ) -> HostResult<Status> {
     inc_current_req();
 
+    println!("proof handler: requests: {:?}", actor.chain_specs());
+
     // Override the existing proof request config from the config file and command line
     // options with the request from the client.
     aggregation_request.merge(&actor.default_request_config())?;

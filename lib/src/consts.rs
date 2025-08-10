@@ -42,7 +42,8 @@ pub struct SupportedChainSpecs(HashMap<String, ChainSpec>);
 impl Default for SupportedChainSpecs {
     fn default() -> Self {
         let deserialized: Vec<ChainSpec> =
-            serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap_or_default();
+            serde_json::from_str(DEFAULT_CHAIN_SPECS).unwrap();
+        println!("deserialized: {:?}", deserialized);
         let chain_spec_list = deserialized
             .into_iter()
             .map(|cs| (cs.name.clone(), cs))

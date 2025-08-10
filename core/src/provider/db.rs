@@ -3,8 +3,8 @@ use raiko_lib::{builder::OptimisticDatabase, consts::ChainSpec, mem_db::MemDb};
 use reth_primitives::{Header, B256};
 use reth_provider::ProviderError;
 use reth_revm::{
-    primitives::{Account, AccountInfo, Bytecode, HashMap},
-    Database, DatabaseCommit,
+    primitives::{Account, AccountInfo, Bytecode, ChainAddress, HashMap},
+    Database, DatabaseCommit, SyncDatabase,
 };
 use std::{collections::HashSet, mem::take};
 use tokio::runtime::Handle;
@@ -78,12 +78,10 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
             for block in initial_history_blocks {
                 let block_number: u64 = block
                     .header
-                    .number
-                    .ok_or_else(|| RaikoError::RPC("No block number".to_owned()))?;
+                    .number;
                 let block_hash = block
                     .header
-                    .hash
-                    .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?;
+                    .hash;
                 provider_db
                     .initial_db
                     .insert_block_hash(block_number, block_hash);
@@ -264,10 +262,8 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
         Ok(value)
     }
 
-    fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        let block_number: u64 = number
-            .try_into()
-            .map_err(|_| ProviderError::BlockNumberOverflow(number))?;
+    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
+        let block_number: u64 = number;
 
         // Check if the block hash is in the current database.
         if let Ok(block_hash) = self.initial_db.block_hash(number) {
@@ -296,7 +292,6 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
         .ok_or(ProviderError::RPC("No block".to_owned()))?
         .header
         .hash
-        .ok_or_else(|| ProviderError::RPC("No block hash".to_owned()))?
         .0
         .into();
         self.initial_db.insert_block_hash(block_number, block_hash);
@@ -309,8 +304,9 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
 }
 
 impl<'a, BDP: BlockDataProvider> DatabaseCommit for ProviderDb<'a, BDP> {
-    fn commit(&mut self, changes: HashMap<Address, Account>) {
-        self.current_db.commit(changes);
+    fn commit(&mut self, changes: HashMap<ChainAddress, Account>) {
+        // TODO(Brecht)
+        //self.current_db.commit(changes);
     }
 }
 
@@ -376,7 +372,7 @@ impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
             .zip(blocks.iter())
         {
             self.staging_db
-                .insert_block_hash(block_number, block.header.hash.unwrap());
+                .insert_block_hash(block_number, block.header.hash);
             self.initial_headers
                 .insert(block_number, block.header.clone().try_into().unwrap());
         }
@@ -391,5 +387,121 @@ impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
 
     fn is_optimistic(&self) -> bool {
         self.optimistic
+    }
+}
+
+pub struct UltraProviderDb<'a, BDP: BlockDataProvider> {
+    pub chains: HashMap<u64, ProviderDb<'a, BDP>>,
+}
+
+impl<'a, BDP: BlockDataProvider> UltraProviderDb<'a, BDP> {
+    pub fn add(
+        &mut self,
+        chain_id: u64,
+        provider: ProviderDb<'a, BDP>,
+    ) {
+        self.chains.insert(chain_id, provider);
+    }
+
+    pub async fn get_proofs(&mut self) -> RaikoResult<(MerkleProof, MerkleProof, usize)> {
+        let mut num_storage_proofs =  0;
+        let mut initial_proofs = MerkleProof::new();
+        let mut latest_proofs = MerkleProof::new();
+
+        Ok((initial_proofs, latest_proofs, num_storage_proofs))
+    }
+
+    pub async fn get_ancestor_headers(&mut self) -> RaikoResult<Vec<Header>> {
+        let mut headers = Vec::with_capacity(
+            usize::try_from(0)
+                .map_err(|_| RaikoError::Conversion("Could not convert u64 to usize".to_owned()))?,
+        );
+        Ok(headers)
+    }
+
+    pub fn is_valid_run(&self) -> bool {
+        false
+    }
+}
+
+// impl<'a, BDP: BlockDataProvider + Database> BlockDataProvider for UltraProviderDb<'a, BDP> {
+//     async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<alloy_rpc_types::Block>> {
+//         todo!()
+//     }
+
+//     async fn get_accounts(
+//         &self,
+//         block_number: u64,
+//         accounts: &[Address],
+//     ) -> RaikoResult<Vec<AccountInfo>> {
+//         todo!()
+//     }
+
+//     async fn get_storage_values(
+//         &self,
+//         block_number: u64,
+//         accounts: &[(Address, U256)],
+//     ) -> RaikoResult<Vec<U256>> {
+//         todo!()
+//     }
+
+//     async fn get_merkle_proofs(
+//         &self,
+//         block_number: u64,
+//         accounts: HashMap<Address, Vec<U256>>,
+//         offset: usize,
+//         num_storage_proofs: usize,
+//     ) -> RaikoResult<MerkleProof> {
+//         todo!()
+//     }
+// }
+
+impl<'a, BDP: BlockDataProvider> SyncDatabase for UltraProviderDb<'a, BDP> {
+    type Error = ProviderError;
+
+    fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
+        //println!("basic::chain: {:?}", address.0);
+        self.chains.get_mut(&address.0).unwrap().basic(address.1).map_err(|e| ProviderError::RPC("temp".to_string()))
+    }
+
+    fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
+        //println!("storage::chain: {:?}", address.0);
+        self.chains.get_mut(&address.0).unwrap().storage(address.1, index).map_err(|e| ProviderError::RPC("temp".to_string()))
+    }
+
+    fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
+        //println!("block_hash::chain: {:?}", chain_id);
+        self.chains.get_mut(&chain_id).unwrap().block_hash(number).map_err(|e| ProviderError::RPC("temp".to_string()))
+    }
+
+    fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
+        //println!("code_by_hash::chain: {:?}", chain_id);
+        self.chains.get_mut(&chain_id).unwrap().code_by_hash(code_hash).map_err(|e| ProviderError::RPC("temp".to_string()))
+    }
+}
+
+impl<'a, BDP: BlockDataProvider> DatabaseCommit for UltraProviderDb<'a, BDP> {
+    fn commit(&mut self, changes: HashMap<ChainAddress, Account>) {
+        let chain_ids = self.chains.keys().cloned().collect::<Vec<_>>();
+        for chain_id in chain_ids.iter() {
+            let per_chain_changes = changes.iter().filter_map(|(address, account)| {
+                if address.0 == *chain_id {
+                    Some((address.clone(), account.clone()))
+                } else {
+                    None
+                }
+            }).collect();
+            self.chains.get_mut(chain_id).unwrap().commit(per_chain_changes);
+        }
+    }
+}
+
+impl<'a, BDP: BlockDataProvider> OptimisticDatabase for UltraProviderDb<'a, BDP> {
+    async fn fetch_data(&mut self) -> bool {
+        true
+    }
+
+    fn is_optimistic(&self) -> bool {
+        false
     }
 }

@@ -28,7 +28,7 @@ hex = { workspace = true }
 reqwest = { workspace = true }
 reqwest_alloy = { workspace = true }
 tracing = { workspace = true }
-memfd = "0.6.4"
+memfd = "0.6"
 duct = "1.0.0"
 
 [dev-dependencies]

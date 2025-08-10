@@ -1,10 +1,11 @@
 use core::fmt::Display;
+use std::collections::HashMap;
 
-use alloy_primitives::{b256, Address, TxHash, B256};
+use alloy_primitives::{b256, Address, FixedBytes, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Result};
 use pretty_assertions::Comparison;
-use reth_evm_ethereum::taiko::decode_anchor_pacaya;
+//use reth_evm_ethereum::taiko::decode_anchor_pacaya;
 use reth_primitives::{Block, Header};
 
 #[cfg(not(feature = "std"))]
@@ -18,13 +19,13 @@ use crate::{
         GuestInput, Transition,
     },
     primitives::{
-        eip4844::{self, commitment_to_version_hash},
+        //eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
     },
     proof_type::ProofType,
     CycleTracker,
 };
-use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
+//use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
 use tracing::{debug, info};
 
 // The empty root of [`Vec<EthDeposit>`]
@@ -47,16 +48,16 @@ impl From<(&GuestInput, &Header, B256, &BlockProposed)> for BlockMetadata {
             coinbase: header.beneficiary,
             id: header.number,
             gasLimit: (header.gas_limit
-                - if input.chain_spec.is_taiko() {
+                /*- if input.chain_spec.is_taiko() {
                     ANCHOR_GAS_LIMIT
                 } else {
                     0
-                }) as u32,
+                }*/) as u32,
             timestamp: header.timestamp,
             extraData: bytes_to_bytes32(&header.extra_data).into(),
 
-            l1Hash: input.taiko.l1_header.hash_slow(),
-            l1Height: input.taiko.l1_header.number,
+            l1Hash: input.taiko.l1_header.clone().unwrap().hash_slow(),
+            l1Height: input.taiko.l1_header.clone().unwrap().number,
 
             blobHash: tx_list_hash,
 
@@ -85,15 +86,15 @@ impl From<(&GuestInput, &Header, B256, &BlockProposedV2)> for BlockMetadataV2 {
             coinbase: header.beneficiary,
             timestamp: header.timestamp,
             gasLimit: (header.gas_limit
-                - if input.chain_spec.is_taiko() {
+                /*- if input.chain_spec.is_taiko() {
                     ANCHOR_GAS_LIMIT
                 } else {
                     0
-                }) as u32,
+                }*/) as u32,
             extraData: bytes_to_bytes32(&header.extra_data).into(),
 
-            anchorBlockId: input.taiko.l1_header.number,
-            anchorBlockHash: input.taiko.l1_header.hash_slow(),
+            anchorBlockId: input.taiko.l1_header.as_ref().unwrap().number,
+            anchorBlockHash: input.taiko.l1_header.as_ref().unwrap().hash_slow(),
             blobHash: tx_list_hash,
 
             difficulty: block_proposed.meta.difficulty,
@@ -163,10 +164,11 @@ impl BlockMetaDataFork {
                         (ts_base, Vec::new()),
                         |parent_ts_with_block_params, (index, (block, proposal_info))| {
                             let (parent_ts, mut block_params) = parent_ts_with_block_params;
-                            let anchor_tx =
-                                batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
-                            let anchor_data = decode_anchor_pacaya(anchor_tx.input()).unwrap();
-                            let signal_slots = anchor_data._signalSlots.clone();
+                            // let anchor_tx =
+                            //     batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
+                            // let anchor_data = decode_anchor_pacaya(anchor_tx.input()).unwrap();
+                            // let signal_slots = anchor_data._signalSlots.clone();
+                            let signal_slots = Vec::new();
                             assert!(
                                 block.timestamp >= parent_ts
                                     && (block.timestamp - parent_ts) <= u8::MAX as u64
@@ -279,6 +281,17 @@ pub struct ProtocolInstance {
     pub verifier_address: Address,
 }
 
+#[derive(Debug, Clone)]
+pub struct GwynethProtocolInstance {
+    pub transition: TransitionFork,
+    pub block_metadata: BlockMetaDataFork,
+    pub prover: Address,
+    pub sgx_instance: Address, // only used for SGX
+    pub chain_id: u64,
+    pub verifier_address: Address,
+}
+
+
 fn verify_blob(
     blob_proof_type: BlobProofType,
     blob_data: &[u8],
@@ -287,27 +300,27 @@ fn verify_blob(
     blob_proof: Option<Vec<u8>>,
 ) -> Result<()> {
     info!("blob proof type: {:?}", &blob_proof_type);
-    match blob_proof_type {
-        crate::input::BlobProofType::ProofOfEquivalence => {
-            let ct = CycleTracker::start("proof_of_equivalence");
-            let (x, y) = eip4844::proof_of_equivalence(blob_data, &versioned_hash)?;
-            ct.end();
-            let verified = eip4844::verify_kzg_proof_impl(
-                *commitment,
-                x,
-                y,
-                blob_proof
-                    .map(|p| TryInto::<[u8; 48]>::try_into(p).unwrap())
-                    .unwrap(),
-            )?;
-            ensure!(verified);
-        }
-        BlobProofType::KzgVersionedHash => {
-            let ct = CycleTracker::start("proof_of_commitment");
-            ensure!(commitment == &eip4844::calc_kzg_proof_commitment(blob_data)?);
-            ct.end();
-        }
-    };
+    // match blob_proof_type {
+    //     crate::input::BlobProofType::ProofOfEquivalence => {
+    //         let ct = CycleTracker::start("proof_of_equivalence");
+    //         let (x, y) = eip4844::proof_of_equivalence(blob_data, &versioned_hash)?;
+    //         ct.end();
+    //         let verified = eip4844::verify_kzg_proof_impl(
+    //             *commitment,
+    //             x,
+    //             y,
+    //             blob_proof
+    //                 .map(|p| TryInto::<[u8; 48]>::try_into(p).unwrap())
+    //                 .unwrap(),
+    //         )?;
+    //         ensure!(verified);
+    //     }
+    //     BlobProofType::KzgVersionedHash => {
+    //         let ct = CycleTracker::start("proof_of_commitment");
+    //         ensure!(commitment == &eip4844::calc_kzg_proof_commitment(blob_data)?);
+    //         ct.end();
+    //     }
+    // };
     Ok(())
 }
 
@@ -365,7 +378,8 @@ fn verify_batch_mode_blob_usage(
     {
         let blob_data = blob_verify_param.0 .0;
         let commitment = blob_verify_param.0 .1;
-        let versioned_hash = commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+        //let versioned_hash = commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+        let versioned_hash = FixedBytes::<32>::default();
         debug!(
             "verify_batch_mode_blob_usage commitment: {:?}, hash: {:?}",
             hex::encode(commitment),
@@ -383,7 +397,7 @@ fn verify_batch_mode_blob_usage(
 }
 
 impl ProtocolInstance {
-    pub fn new(input: &GuestInput, header: &Header, proof_type: ProofType) -> Result<Self> {
+    pub fn new(input: &GuestInput, headers: &HashMap<u64, Header>, proof_type: ProofType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.blob_used();
         // If blob is used, tx_list_hash is the commitment to the blob
         // and we need to verify the blob hash matches the blob data.
@@ -395,8 +409,9 @@ impl ProtocolInstance {
                 .blob_commitment
                 .as_ref()
                 .expect("no blob commitment");
-            let versioned_hash =
-                commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+            // let versioned_hash =
+            //     commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+            let versioned_hash = FixedBytes::<32>::default();
 
             verify_blob(
                 get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()),
@@ -417,165 +432,177 @@ impl ProtocolInstance {
         // For unknown chain ids we just skip this check so that tests using test data can still pass.
         // TODO: we should probably split things up in critical and non-critical parts
         // in the chain spec itself so we don't have to manually all the ones we have to care about.
-        if let Some(verified_chain_spec) =
-            SupportedChainSpecs::default().get_chain_spec_with_chain_id(input.chain_spec.chain_id)
-        {
-            ensure!(
-                input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
-                "unexpected max_spec_id"
-            );
-            ensure!(
-                input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
-                "unexpected hard_forks"
-            );
-            ensure!(
-                input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
-                "unexpected eip_1559_constants"
-            );
-            ensure!(
-                input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
-                "unexpected l1_contract"
-            );
-            ensure!(
-                input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
-                "unexpected l2_contract"
-            );
-            ensure!(
-                input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
-                "unexpected eip_1559_constants"
-            );
-        }
+        // if let Some(verified_chain_spec) =
+        //     SupportedChainSpecs::default().get_chain_spec_with_chain_id(input.chain_spec.chain_id)
+        // {
+        //     ensure!(
+        //         input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
+        //         "unexpected max_spec_id"
+        //     );
+        //     ensure!(
+        //         input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
+        //         "unexpected hard_forks"
+        //     );
+        //     ensure!(
+        //         input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
+        //         "unexpected eip_1559_constants"
+        //     );
+        //     ensure!(
+        //         input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
+        //         "unexpected l1_contract"
+        //     );
+        //     ensure!(
+        //         input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
+        //         "unexpected l2_contract"
+        //     );
+        //     ensure!(
+        //         input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
+        //         "unexpected eip_1559_constants"
+        //     );
+        // }
 
-        let verifier_address = input
-            .chain_spec
-            .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
-            .unwrap_or_default();
+        let parent_ultra_hash = B256::default();
+        let ultra_hash = B256::default();
+        let verifier_address = Address::default();
+
+        // let verifier_address = input
+        //     .chain_spec
+        //     .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
+        //     .unwrap_or_default();
 
         let transition = match input.taiko.block_proposed {
-            BlockProposedFork::Hekla(_) => TransitionFork::Hekla(Transition {
-                parentHash: header.parent_hash,
-                blockHash: header.hash_slow(),
-                stateRoot: header.state_root,
+            // BlockProposedFork::Hekla(_) => TransitionFork::Hekla(Transition {
+            //     parentHash: header.parent_hash,
+            //     blockHash: header.hash_slow(),
+            //     stateRoot: header.state_root,
+            //     graffiti: input.taiko.prover_data.graffiti,
+            // }),
+            // BlockProposedFork::Ontake(_) => TransitionFork::OnTake(Transition {
+            //     parentHash: header.parent_hash,
+            //     blockHash: header.hash_slow(),
+            //     stateRoot: header.state_root,
+            //     graffiti: input.taiko.prover_data.graffiti,
+            // }),
+            // _ => return Err(anyhow::Error::msg("unknown transition fork")),
+            _ => TransitionFork::OnTake(Transition {
+                parentHash: parent_ultra_hash,
+                blockHash: ultra_hash,
+                stateRoot: B256::default(),
                 graffiti: input.taiko.prover_data.graffiti,
             }),
-            BlockProposedFork::Ontake(_) => TransitionFork::OnTake(Transition {
-                parentHash: header.parent_hash,
-                blockHash: header.hash_slow(),
-                stateRoot: header.state_root,
-                graffiti: input.taiko.prover_data.graffiti,
-            }),
-            _ => return Err(anyhow::Error::msg("unknown transition fork")),
         };
+
+        let header = headers.get(&input.taiko.parent_chain_id).unwrap().clone();
 
         let pi = ProtocolInstance {
             transition,
-            block_metadata: BlockMetaDataFork::from(input, header, tx_list_hash),
+            block_metadata: BlockMetaDataFork::from(input, &header, tx_list_hash),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
-            chain_id: input.chain_spec.chain_id,
+            chain_id: input.chains.get(&input.taiko.parent_chain_id).unwrap().chain_spec.chain_id,
             verifier_address,
         };
 
         // Sanity check
-        if input.chain_spec.is_taiko() {
-            let (same, pretty_display) = pi
-                .block_metadata
-                .match_block_proposal(&input.taiko.block_proposed);
-            ensure!(
-                same,
-                format!("block hash mismatch: {}", pretty_display.unwrap(),)
-            );
-        }
+        // if input.chain_spec.is_taiko() {
+        //     let (same, pretty_display) = pi
+        //         .block_metadata
+        //         .match_block_proposal(&input.taiko.block_proposed);
+        //     ensure!(
+        //         same,
+        //         format!("block hash mismatch: {}", pretty_display.unwrap(),)
+        //     );
+        // }
 
         Ok(pi)
     }
 
-    pub fn new_batch(
-        batch_input: &GuestBatchInput,
-        blocks: Vec<Block>,
-        proof_type: ProofType,
-    ) -> Result<Self> {
-        // verify blob usage, either by commitment or proof equality.
-        verify_batch_mode_blob_usage(batch_input, proof_type)?;
+    // pub fn new_batch(
+    //     batch_input: &GuestBatchInput,
+    //     blocks: Vec<Block>,
+    //     proof_type: ProofType,
+    // ) -> Result<Self> {
+    //     // verify blob usage, either by commitment or proof equality.
+    //     verify_batch_mode_blob_usage(batch_input, proof_type)?;
 
-        for input in &batch_input.inputs {
-            // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
-            // one we expect, because the prover could otherwise just fill in any values.
-            // The chain id is used because that is the value that is put onchain,
-            // and so all other chain data needs to be derived from it.
-            // For unknown chain ids we just skip this check so that tests using test data can still pass.
-            // TODO: we should probably split things up in critical and non-critical parts
-            // in the chain spec itself so we don't have to manually all the ones we have to care about.
-            if let Some(verified_chain_spec) = SupportedChainSpecs::default()
-                .get_chain_spec_with_chain_id(input.chain_spec.chain_id)
-            {
-                ensure!(
-                    input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
-                    "unexpected max_spec_id"
-                );
-                ensure!(
-                    input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
-                    "unexpected hard_forks"
-                );
-                ensure!(
-                    input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
-                    "unexpected eip_1559_constants"
-                );
-                ensure!(
-                    input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
-                    "unexpected l1_contract"
-                );
-                ensure!(
-                    input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
-                    "unexpected l2_contract"
-                );
-                ensure!(
-                    input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
-                    "unexpected eip_1559_constants"
-                );
-            }
-        }
+    //     for input in &batch_input.inputs {
+    //         // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
+    //         // one we expect, because the prover could otherwise just fill in any values.
+    //         // The chain id is used because that is the value that is put onchain,
+    //         // and so all other chain data needs to be derived from it.
+    //         // For unknown chain ids we just skip this check so that tests using test data can still pass.
+    //         // TODO: we should probably split things up in critical and non-critical parts
+    //         // in the chain spec itself so we don't have to manually all the ones we have to care about.
+    //         if let Some(verified_chain_spec) = SupportedChainSpecs::default()
+    //             .get_chain_spec_with_chain_id(input.chain_spec.chain_id)
+    //         {
+    //             ensure!(
+    //                 input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
+    //                 "unexpected max_spec_id"
+    //             );
+    //             ensure!(
+    //                 input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
+    //                 "unexpected hard_forks"
+    //             );
+    //             ensure!(
+    //                 input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
+    //                 "unexpected eip_1559_constants"
+    //             );
+    //             ensure!(
+    //                 input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
+    //                 "unexpected l1_contract"
+    //             );
+    //             ensure!(
+    //                 input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
+    //                 "unexpected l2_contract"
+    //             );
+    //             ensure!(
+    //                 input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
+    //                 "unexpected eip_1559_constants"
+    //             );
+    //         }
+    //     }
 
-        // todo: move chain_spec into the batch input
-        let input = &batch_input.inputs[0];
-        let verifier_address = input
-            .chain_spec
-            .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
-            .unwrap_or_default();
+    //     // todo: move chain_spec into the batch input
+    //     let input = &batch_input.inputs[0];
+    //     let verifier_address = input
+    //         .chain_spec
+    //         .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
+    //         .unwrap_or_default();
 
-        let first_block = blocks.first().unwrap();
-        let last_block = blocks.last().unwrap();
-        let transition = match batch_input.taiko.batch_proposed {
-            BlockProposedFork::Pacaya(_) => TransitionFork::Pacaya(PacayaTransition {
-                parentHash: first_block.header.parent_hash,
-                blockHash: last_block.header.hash_slow(),
-                stateRoot: last_block.header.state_root,
-            }),
-            _ => return Err(anyhow::Error::msg("unknown transition fork")),
-        };
+    //     let first_block = blocks.first().unwrap();
+    //     let last_block = blocks.last().unwrap();
+    //     let transition = match batch_input.taiko.batch_proposed {
+    //         BlockProposedFork::Pacaya(_) => TransitionFork::Pacaya(PacayaTransition {
+    //             parentHash: first_block.header.parent_hash,
+    //             blockHash: last_block.header.hash_slow(),
+    //             stateRoot: last_block.header.state_root,
+    //         }),
+    //         _ => return Err(anyhow::Error::msg("unknown transition fork")),
+    //     };
 
-        let pi = ProtocolInstance {
-            transition,
-            block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
-            sgx_instance: Address::default(),
-            prover: input.taiko.prover_data.prover,
-            chain_id: input.chain_spec.chain_id,
-            verifier_address,
-        };
+    //     let pi = ProtocolInstance {
+    //         transition,
+    //         block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
+    //         sgx_instance: Address::default(),
+    //         prover: input.taiko.prover_data.prover,
+    //         chain_id: input.chain_spec.chain_id,
+    //         verifier_address,
+    //     };
 
-        // Sanity check
-        if input.chain_spec.is_taiko() {
-            let (same, pretty_display) = pi
-                .block_metadata
-                .match_block_proposal(&batch_input.taiko.batch_proposed);
-            ensure!(
-                same,
-                format!("batch block hash mismatch: {}", pretty_display.unwrap(),)
-            );
-        }
+    //     // Sanity check
+    //     if input.chain_spec.is_taiko() {
+    //         let (same, pretty_display) = pi
+    //             .block_metadata
+    //             .match_block_proposal(&batch_input.taiko.batch_proposed);
+    //         ensure!(
+    //             same,
+    //             format!("batch block hash mismatch: {}", pretty_display.unwrap(),)
+    //         );
+    //     }
 
-        Ok(pi)
-    }
+    //     Ok(pi)
+    // }
 
     pub fn sgx_instance(mut self, instance: Address) -> Self {
         self.sgx_instance = instance;

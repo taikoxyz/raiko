@@ -3,9 +3,9 @@ use core::{fmt::Debug, str::FromStr};
 use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
 use pacaya::{BatchInfo, BatchProposed};
-use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
+//use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
 use reth_primitives::{
-    revm_primitives::{Address, Bytes, HashMap, B256, U256},
+    revm_primitives::{Address, Bytes, ChainAddress, HashMap, B256, U256},
     Block, Header, TransactionSigned,
 };
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,15 @@ pub type StorageEntry = (MptNode, Vec<U256>);
 #[serde_as]
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct GuestInput {
+    /// The per chain states
+    pub chains: HashMap<u64, ChainGuestInput>,
+    /// Taiko specific data
+    pub taiko: TaikoGuestInput,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ChainGuestInput {
     /// Reth block
     pub block: Block,
     /// The network to generate the proof for
@@ -40,8 +49,6 @@ pub struct GuestInput {
     pub contracts: Vec<Bytes>,
     /// List of at most 256 previous block headers
     pub ancestor_headers: Vec<Header>,
-    /// Taiko specific data
-    pub taiko: TaikoGuestInput,
 }
 
 /// External block input.
@@ -144,25 +151,25 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn base_fee_config(&self) -> ProtocolBaseFeeConfig {
-        match self {
-            BlockProposedFork::Ontake(block) => ProtocolBaseFeeConfig {
-                adjustment_quotient: block.meta.baseFeeConfig.adjustmentQuotient,
-                sharing_pctg: block.meta.baseFeeConfig.sharingPctg,
-                gas_issuance_per_second: block.meta.baseFeeConfig.gasIssuancePerSecond,
-                min_gas_excess: block.meta.baseFeeConfig.minGasExcess,
-                max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
-            },
-            BlockProposedFork::Pacaya(batch) => ProtocolBaseFeeConfig {
-                adjustment_quotient: batch.info.baseFeeConfig.adjustmentQuotient,
-                sharing_pctg: batch.info.baseFeeConfig.sharingPctg,
-                gas_issuance_per_second: batch.info.baseFeeConfig.gasIssuancePerSecond,
-                min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
-                max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
-            },
-            _ => ProtocolBaseFeeConfig::default(),
-        }
-    }
+    // pub fn base_fee_config(&self) -> ProtocolBaseFeeConfig {
+    //     match self {
+    //         BlockProposedFork::Ontake(block) => ProtocolBaseFeeConfig {
+    //             adjustment_quotient: block.meta.baseFeeConfig.adjustmentQuotient,
+    //             sharing_pctg: block.meta.baseFeeConfig.sharingPctg,
+    //             gas_issuance_per_second: block.meta.baseFeeConfig.gasIssuancePerSecond,
+    //             min_gas_excess: block.meta.baseFeeConfig.minGasExcess,
+    //             max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
+    //         },
+    //         BlockProposedFork::Pacaya(batch) => ProtocolBaseFeeConfig {
+    //             adjustment_quotient: batch.info.baseFeeConfig.adjustmentQuotient,
+    //             sharing_pctg: batch.info.baseFeeConfig.sharingPctg,
+    //             gas_issuance_per_second: batch.info.baseFeeConfig.gasIssuancePerSecond,
+    //             min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
+    //             max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
+    //         },
+    //         _ => ProtocolBaseFeeConfig::default(),
+    //     }
+    // }
 
     pub fn blob_tx_slice_param(&self) -> Option<(usize, usize)> {
         match self {
@@ -201,21 +208,22 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn gas_limit_with_anchor(&self) -> u64 {
-        match self {
-            BlockProposedFork::Hekla(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
-            BlockProposedFork::Ontake(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
-            BlockProposedFork::Pacaya(batch) => batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT,
-            _ => 0,
-        }
-    }
+    // pub fn gas_limit_with_anchor(&self) -> u64 {
+    //     match self {
+    //         BlockProposedFork::Hekla(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
+    //         BlockProposedFork::Ontake(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
+    //         BlockProposedFork::Pacaya(batch) => batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT,
+    //         _ => 0,
+    //     }
+    // }
 }
 
 #[serde_as]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TaikoGuestInput {
-    /// header
-    pub l1_header: Header,
+    pub gwyneth: bool,
+    pub parent_chain_id: u64,
+    pub l1_header: Option<Header>,
     pub tx_data: Vec<u8>,
     pub anchor_tx: Option<TransactionSigned>,
     pub block_proposed: BlockProposedFork,
@@ -237,6 +245,7 @@ impl TryFrom<Vec<TransactionSigned>> for TaikoGuestInput {
             .map_err(|e| ZlibCompressError(e.to_string()))?;
         Ok(Self {
             tx_data,
+            parent_chain_id: 160010,
             ..Self::default()
         })
     }
@@ -280,7 +289,7 @@ pub struct TaikoProverData {
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GuestOutput {
-    pub header: Header,
+    pub headers: HashMap<u64, Header>,
     pub hash: B256,
 }
 
@@ -314,14 +323,8 @@ mod test {
     #[test]
     fn test_guest_input_se_de() {
         let input = GuestInput {
-            block: Block::default(),
-            chain_spec: ChainSpec::default(),
-            parent_header: Header::default(),
-            parent_state_trie: MptNode::default(),
-            parent_storage: HashMap::default(),
-            contracts: vec![],
-            ancestor_headers: vec![],
             taiko: TaikoGuestInput::default(),
+            chains: HashMap::new(),
         };
         let input_ser = serde_json::to_string(&input).unwrap();
         let input_de: GuestInput = serde_json::from_str(&input_ser).unwrap();
@@ -331,14 +334,15 @@ mod test {
     #[test]
     fn test_guest_input_value_sede() {
         let input = GuestInput {
-            block: Block::default(),
-            chain_spec: ChainSpec::default(),
-            parent_header: Header::default(),
-            parent_state_trie: MptNode::default(),
-            parent_storage: HashMap::default(),
-            contracts: vec![],
-            ancestor_headers: vec![],
+            // block: Block::default(),
+            // chain_spec: ChainSpec::default(),
+            // parent_header: Header::default(),
+            // parent_state_trie: MptNode::default(),
+            // parent_storage: HashMap::default(),
+            // contracts: vec![],
+            // ancestor_headers: vec![],
             taiko: TaikoGuestInput::default(),
+            chains: HashMap::new(),
         };
         let input_ser = serde_json::to_value(&input).unwrap();
         let input_de: GuestInput = serde_json::from_value(input_ser).unwrap();

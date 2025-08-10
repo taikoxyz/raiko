@@ -47,19 +47,23 @@ raiko-reqactor = { path = "./reqactor" }
 raiko-ballot = { path = "./ballot" }
 
 # reth
-reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
+
+reth-primitives = { path = "../../gwyneth-private/gwyneth-private/crates/primitives", default-features = false, features = [
     "alloy-compat",
-    "taiko",
-    "k256",
+    #"taiko",
+    #"k256",
 ] }
-reth-evm-ethereum = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-evm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-rpc-types = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
-reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
-    "taiko",
+reth-evm-ethereum = { path = "../../gwyneth-private/gwyneth-private/crates/ethereum/evm", default-features = false }
+reth-evm = { path = "../../gwyneth-private/gwyneth-private/crates/evm", default-features = false }
+reth-rpc-types = { path = "../../gwyneth-private/gwyneth-private/crates/rpc/types", default-features = false }
+reth-revm = { path = "../../gwyneth-private/gwyneth-private/crates/revm", default-features = false }
+reth-chainspec = { path = "../../gwyneth-private/gwyneth-private/crates/chainspec", default-features = false, features = [
+    #"taiko",
 ] }
-reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
+reth-provider = { path = "../../gwyneth-private/gwyneth-private/crates/storage/provider", default-features = false }
+reth-beacon-consensus = { path = "../../gwyneth-private/gwyneth-private/crates/consensus/beacon", default-features = false }
+reth-consensus = { path = "../../gwyneth-private/gwyneth-private/crates/consensus/consensus", default-features = false }
+reth-ethereum-consensus = { path = "../../gwyneth-private/gwyneth-private/crates/ethereum/consensus", default-features = false }
 
 # risc zero
 risc0-zkvm = { version = "=2.0.2", features = ["prove", "getrandom"] }
@@ -77,13 +81,13 @@ sp1-primitives = { version = "=4.1.7" }
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
 alloy-rlp-derive = { version = "0.3.4", default-features = false }
-alloy-core = { version = "0.7.2", default-features = false }
-alloy-dyn-abi = { version = "0.7.2", default-features = false }
-alloy-json-abi = { version = "0.7.2", default-features = false }
-alloy-primitives = { version = "0.7.2", default-features = false }
-alloy-sol-types = { version = "0.7.2", default-features = false }
+alloy-core = { version = "0.8.2", default-features = false }
+alloy-dyn-abi = { version = "0.8.2", default-features = false }
+alloy-json-abi = { version = "0.8.2", default-features = false }
+alloy-primitives = { version = "0.8.2", default-features = false }
+alloy-sol-types = { version = "0.8.2", default-features = false }
 reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
-alloy-rpc-types = { version = "0.1", default-features = false }
+alloy-rpc-types = { version = "0.3.0", default-features = false }
 alloy-rpc-client = { version = "0.1", default-features = false }
 alloy-consensus = { version = "0.1", default-features = false, features = [
     "serde",
@@ -92,7 +96,7 @@ alloy-network = { version = "0.1", default-features = false, features = [
     "k256",
 ] }
 alloy-contract = { version = "0.1", default-features = false }
-alloy-eips = { version = "0.1", default-features = false, features = ["serde"] }
+alloy-eips = { version = "0.3.0", default-features = false, features = ["serde"] }
 alloy-provider = { version = "0.1", default-features = false, features = [
     "reqwest",
 ] }
@@ -156,8 +160,8 @@ dashmap = "5.5.3"
 futures = "0.3.31"
 
 # crypto
-kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
-kzg_traits = { package = "kzg", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
+#kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
+#kzg_traits = { package = "kzg", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 sha2 = "0.10.8"
 secp256k1 = { version = "0.29", default-features = false, features = [
@@ -204,11 +208,12 @@ pretty_assertions = "1.4.1"
 serial_test = "2"
 
 [patch.crates-io]
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+
+revm = { path = "../../revm-gwyneth/revm/crates/revm" }
+revm-primitives = { path = "../../revm-gwyneth/revm/crates/primitives" }
+revm-precompile = { path = "../../revm-gwyneth/revm/crates/precompile" }
 secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
-blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
+#blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
 alloy-serde = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-rpc-types-eth = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-network = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }

@@ -4,7 +4,7 @@ use alloy_primitives::Address;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use interfaces::{cancel_proof, run_batch_prover, run_prover};
 use raiko_lib::{
-    builder::{create_mem_db, RethBlockBuilder},
+    builder::{create_mem_db, create_ultra_mem_db, RethBlockBuilder},
     consts::ChainSpec,
     input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, TaikoProverData},
     protocol_instance::ProtocolInstance,
@@ -17,7 +17,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     interfaces::{ProofRequest, RaikoError, RaikoResult},
-    preflight::{batch_preflight, preflight, BatchPreflightData, PreflightData},
+    preflight::{/*batch_preflight, */preflight, BatchPreflightData, PreflightData},
     provider::BlockDataProvider,
 };
 
@@ -49,7 +49,7 @@ impl Raiko {
 
     fn get_preflight_data(&self) -> PreflightData {
         PreflightData::new(
-            self.request.block_number,
+            HashMap::from([(self.taiko_chain_spec.chain_id, self.request.block_number)]),
             self.request.l1_inclusion_block_number,
             self.l1_chain_spec.to_owned(),
             self.taiko_chain_spec.to_owned(),
@@ -78,12 +78,12 @@ impl Raiko {
 
     pub async fn generate_input<BDP: BlockDataProvider>(
         &self,
-        provider: BDP,
+        providers: HashMap<u64, BDP>,
     ) -> RaikoResult<GuestInput> {
         //TODO: read fork from config
         let preflight_data = self.get_preflight_data();
         info!("Generating input for block {}", self.request.block_number);
-        preflight(provider, preflight_data)
+        preflight(providers, preflight_data)
             .await
             .map_err(Into::<RaikoError>::into)
     }
@@ -95,16 +95,17 @@ impl Raiko {
         //TODO: read fork from config
         let preflight_data = self.get_batch_preflight_data();
         info!("Generating batch input for batch {}", self.request.batch_id);
-        batch_preflight(provider, preflight_data)
-            .await
-            .map_err(Into::<RaikoError>::into)
+        // batch_preflight(provider, preflight_data)
+        //     .await
+        //     .map_err(Into::<RaikoError>::into)
+        Err(RaikoError::RPC("()".to_string()))
     }
 
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
-        let db = create_mem_db(&mut input.clone()).unwrap();
+        let db = create_ultra_mem_db(&mut input.clone()).unwrap();
         let mut builder = RethBlockBuilder::new(input, db);
         let pool_tx = generate_transactions(
-            &input.chain_spec,
+            &input.chains.get(&input.taiko.parent_chain_id).unwrap().chain_spec,
             &input.taiko.block_proposed,
             &input.taiko.tx_data,
             &input.taiko.anchor_tx,
@@ -115,19 +116,20 @@ impl Raiko {
         let result = builder.finalize();
 
         match result {
-            Ok(header) => {
-                info!("Verifying final state using provider data ...");
-                info!(
-                    "Final block hash derived successfully. {}",
-                    header.hash_slow()
-                );
-                debug!("Final block header derived successfully. {header:?}");
-                // Check if the header is the expected one
-                check_header(&input.block.header, &header)?;
-
+            Ok(headers) => {
+                for (chain_id, header) in headers.iter() {
+                    info!("Verifying final state using provider data ...");
+                    info!(
+                        "Final block hash derived successfully. {}",
+                        header.hash_slow()
+                    );
+                    debug!("Final block header derived successfully. {header:?}");
+                    // Check if the header is the expected one
+                    check_header(&input.chains.get(chain_id).unwrap().block.header, &header)?;
+                }
                 Ok(GuestOutput {
-                    header: header.clone(),
-                    hash: ProtocolInstance::new(input, &header, self.request.proof_type)?
+                    headers: headers.clone(),
+                    hash: ProtocolInstance::new(input, &headers, self.request.proof_type)?
                         .instance_hash(),
                 })
             }
@@ -140,82 +142,84 @@ impl Raiko {
         }
     }
 
-    pub fn get_batch_output(&self, batch_input: &GuestBatchInput) -> RaikoResult<GuestBatchOutput> {
-        info!(
-            "Generating {} output for batch id: {}",
-            self.request.proof_type, batch_input.taiko.batch_id
-        );
-        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input.taiko);
-        let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
-            Vec::new(),
-            |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
-                let (input, pool_txs) = input_and_txs;
-                let output = self.single_output_for_batch(pool_txs, input)?;
-                acc.push(output);
-                Ok(acc)
-            },
-        )?;
+    // pub fn get_batch_output(&self, batch_input: &GuestBatchInput) -> RaikoResult<GuestBatchOutput> {
+    //     info!(
+    //         "Generating {} output for batch id: {}",
+    //         self.request.proof_type, batch_input.taiko.batch_id
+    //     );
+    //     let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input.taiko);
+    //     let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
+    //         Vec::new(),
+    //         |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
+    //             let (input, pool_txs) = input_and_txs;
+    //             let output = self.single_output_for_batch(pool_txs, input)?;
+    //             acc.push(output);
+    //             Ok(acc)
+    //         },
+    //     )?;
 
-        blocks.windows(2).try_for_each(|window| {
-            let parent = &window[0];
-            let current = &window[1];
-            if parent.header.hash_slow() != current.header.parent_hash {
-                return Err(RaikoError::Guest(
-                    raiko_lib::prover::ProverError::GuestError("Parent hash mismatch".to_string()),
-                ));
-            }
-            Ok(())
-        })?;
+    //     blocks.windows(2).try_for_each(|window| {
+    //         let parent = &window[0];
+    //         let current = &window[1];
+    //         if parent.header.hash_slow() != current.header.parent_hash {
+    //             return Err(RaikoError::Guest(
+    //                 raiko_lib::prover::ProverError::GuestError("Parent hash mismatch".to_string()),
+    //             ));
+    //         }
+    //         Ok(())
+    //     })?;
 
-        Ok(GuestBatchOutput {
-            blocks: blocks.clone(),
-            hash: ProtocolInstance::new_batch(batch_input, blocks, self.request.proof_type)?
-                .instance_hash(),
-        })
-    }
+    //     Ok(GuestBatchOutput {
+    //         blocks: blocks.clone(),
+    //         hash: ProtocolInstance::new_batch(batch_input, blocks, self.request.proof_type)?
+    //             .instance_hash(),
+    //     })
+    // }
 
-    fn single_output_for_batch(
-        &self,
-        origin_pool_txs: Vec<reth_primitives::TransactionSigned>,
-        input: &GuestInput,
-    ) -> RaikoResult<Block> {
-        let db = create_mem_db(&mut input.clone()).unwrap();
-        let mut builder = RethBlockBuilder::new(input, db);
+    // fn single_output_for_batch(
+    //     &self,
+    //     origin_pool_txs: Vec<reth_primitives::TransactionSigned>,
+    //     input: &GuestInput,
+    // ) -> RaikoResult<Block> {
+    //     let db = create_ultra_mem_db(&mut input.clone()).unwrap();
+    //     let mut builder = RethBlockBuilder::new(input, db);
 
-        let mut pool_txs = vec![input.taiko.anchor_tx.clone().unwrap()];
-        pool_txs.extend_from_slice(&origin_pool_txs);
+    //     let mut pool_txs = vec![input.taiko.anchor_tx.clone().unwrap()];
+    //     pool_txs.extend_from_slice(&origin_pool_txs);
 
-        builder
-            .execute_transactions(pool_txs, false)
-            .expect("execute");
-        let result = builder.finalize_block();
+    //     builder
+    //         .execute_transactions(pool_txs, false)
+    //         .expect("execute");
+    //     let result = builder.finalize_block();
 
-        match result {
-            Ok(block) => {
-                let header = block.header.clone();
-                info!(
-                    "Verifying final block {} state using provider data ...",
-                    header.number
-                );
-                info!(
-                    "Final block {} hash derived successfully. {}",
-                    header.number,
-                    header.hash_slow()
-                );
-                debug!("Final block derived successfully. {block:?}");
-                // Check if the header is the expected one
-                check_header(&input.block.header, &header)?;
+    //     match result {
+    //         Ok(blocks) => {
+    //             for block in blocks.iter() {
+    //                 let header = block.header.clone();
+    //                 info!(
+    //                     "Verifying final block {} state using provider data ...",
+    //                     header.number
+    //                 );
+    //                 info!(
+    //                     "Final block {} hash derived successfully. {}",
+    //                     header.number,
+    //                     header.hash_slow()
+    //                 );
+    //                 debug!("Final block derived successfully. {block:?}");
+    //                 // Check if the header is the expected one
+    //                 check_header(&input.block.header, &header)?;
+    //             }
 
-                Ok(block.clone())
-            }
-            Err(e) => {
-                warn!("Proving bad block construction!");
-                Err(RaikoError::Guest(
-                    raiko_lib::prover::ProverError::GuestError(e.to_string()),
-                ))
-            }
-        }
-    }
+    //             Ok(block.clone())
+    //         }
+    //         Err(e) => {
+    //             warn!("Proving bad block construction!");
+    //             Err(RaikoError::Guest(
+    //                 raiko_lib::prover::ProverError::GuestError(e.to_string()),
+    //             ))
+    //         }
+    //     }
+    // }
 
     pub async fn prove(
         &self,
@@ -414,13 +418,16 @@ mod tests {
         taiko_chain_spec: ChainSpec,
         proof_request: ProofRequest,
     ) -> Proof {
+        println!("L1 chain spec: {:?}", l1_chain_spec);
+        let mut providers = HashMap::new();
         let provider =
             RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
                 .await
                 .expect("Could not create RpcBlockDataProvider");
+        providers.insert(taiko_chain_spec.chain_id, provider);
         let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
         let input = raiko
-            .generate_input(provider)
+            .generate_input(providers)
             .await
             .expect("input generation failed");
         let output = raiko.get_output(&input).expect("output generation failed");
@@ -430,53 +437,53 @@ mod tests {
             .expect("proof generation failed")
     }
 
-    async fn batch_prove_block(
-        l1_chain_spec: ChainSpec,
-        taiko_chain_spec: ChainSpec,
-        proof_request: ProofRequest,
-    ) -> Proof {
-        let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
-            &l1_chain_spec,
-            &taiko_chain_spec,
-            proof_request.l1_inclusion_block_number,
-            proof_request.batch_id,
-        )
-        .await
-        .expect("Could not parse L1 batch proposal tx");
-        // provider target blocks are all blocks in the batch and the parent block of block[0]
-        let provider_target_blocks =
-            (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
-        let provider =
-            RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
-                .await
-                .expect("Could not create RpcBlockDataProvider");
-        let mut updated_proof_request = proof_request.clone();
-        updated_proof_request.l2_block_numbers = all_prove_blocks.clone();
-        let raiko = Raiko::new(
-            l1_chain_spec,
-            taiko_chain_spec,
-            updated_proof_request.clone(),
-        );
-        let input = raiko
-            .generate_batch_input(provider)
-            .await
-            .expect("input generation failed");
-        // let filename = format!("batch-input-{}.json", proof_request.batch_id);
-        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
-        // serde_json::to_writer(writer, &input).expect("Unable to write data");
-        trace!("batch guest input: {input:?}");
-        let output = raiko
-            .get_batch_output(&input)
-            .expect("output generation failed");
-        debug!("batch guest output: {output:?}");
-        // let filename = format!("batch-output-{}.json", proof_request.batch_id);
-        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
-        // serde_json::to_writer(writer, &output).expect("Unable to write data");
-        raiko
-            .batch_prove(input, &output, None)
-            .await
-            .expect("proof generation failed")
-    }
+    // async fn batch_prove_block(
+    //     l1_chain_spec: ChainSpec,
+    //     taiko_chain_spec: ChainSpec,
+    //     proof_request: ProofRequest,
+    // ) -> Proof {
+    //     let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
+    //         &l1_chain_spec,
+    //         &taiko_chain_spec,
+    //         proof_request.l1_inclusion_block_number,
+    //         proof_request.batch_id,
+    //     )
+    //     .await
+    //     .expect("Could not parse L1 batch proposal tx");
+    //     // provider target blocks are all blocks in the batch and the parent block of block[0]
+    //     let provider_target_blocks =
+    //         (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
+    //     let provider =
+    //         RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
+    //             .await
+    //             .expect("Could not create RpcBlockDataProvider");
+    //     let mut updated_proof_request = proof_request.clone();
+    //     updated_proof_request.l2_block_numbers = all_prove_blocks.clone();
+    //     let raiko = Raiko::new(
+    //         l1_chain_spec,
+    //         taiko_chain_spec,
+    //         updated_proof_request.clone(),
+    //     );
+    //     let input = raiko
+    //         .generate_batch_input(provider)
+    //         .await
+    //         .expect("input generation failed");
+    //     // let filename = format!("batch-input-{}.json", proof_request.batch_id);
+    //     // let writer = std::fs::File::create(&filename).expect("Unable to create file");
+    //     // serde_json::to_writer(writer, &input).expect("Unable to write data");
+    //     trace!("batch guest input: {input:?}");
+    //     let output = raiko
+    //         .get_batch_output(&input)
+    //         .expect("output generation failed");
+    //     debug!("batch guest output: {output:?}");
+    //     // let filename = format!("batch-output-{}.json", proof_request.batch_id);
+    //     // let writer = std::fs::File::create(&filename).expect("Unable to create file");
+    //     // serde_json::to_writer(writer, &output).expect("Unable to write data");
+    //     raiko
+    //         .batch_prove(input, &output, None)
+    //         .await
+    //         .expect("proof generation failed")
+    // }
 
     #[ignore]
     #[tokio::test(flavor = "multi_thread")]

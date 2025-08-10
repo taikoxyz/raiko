@@ -371,9 +371,10 @@ async fn aggregate(
 }
 
 pub fn get_instance_id_from_params(input: &GuestInput, sgx_param: &SgxParam) -> ProverResult<u64> {
-    let spec_id = input
+    let chain = input.chains.get(&input.taiko.parent_chain_id).unwrap();
+    let spec_id = chain
         .chain_spec
-        .active_fork(input.block.number, input.block.timestamp)
+        .active_fork(chain.block.number, chain.block.timestamp)
         .map_err(|e| ProverError::GuestError(e.to_string()))?;
     sgx_param
         .instance_ids

@@ -36,6 +36,8 @@ elif [ "$chain" == "taiko_a7" ]; then
 	l1_network="holesky"
 elif [ "$chain" == "taiko_dev" ]; then
 	l1_network="taiko_dev_l1"
+elif [ "$chain" == "gwyneth" ]; then
+	l1_network="gwyneth"
 else
 	echo "Using customized chain name $1. Please double check the RPCs."
 	l1_network="holesky"

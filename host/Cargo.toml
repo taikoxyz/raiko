@@ -32,8 +32,8 @@ alloy-network = { workspace = true }
 alloy-rpc-client = { workspace = true }
 
 # crypto
-kzg = { workspace = true }
-kzg_traits = { workspace = true }
+#kzg = { workspace = true }
+#kzg_traits = { workspace = true }
 
 # server
 axum = { workspace = true }

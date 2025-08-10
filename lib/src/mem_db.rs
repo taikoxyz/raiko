@@ -14,8 +14,8 @@
 use anyhow::anyhow;
 use reth_evm::execute::ProviderError;
 use reth_primitives::revm_primitives::{
-    db::{Database, DatabaseCommit},
-    Account, AccountInfo, Bytecode,
+    db::{Database, DatabaseCommit, SyncDatabase},
+    Account, AccountInfo, Bytecode, ChainAddress,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
@@ -195,7 +195,7 @@ impl Database for MemDb {
         }
     }
 
-    fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
+    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
         let block_no: u64 = number
             .try_into()
             .map_err(|_| {
@@ -213,7 +213,7 @@ impl Database for MemDb {
     }
 }
 
-impl DatabaseCommit for MemDb {
+impl MemDb {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
         for (address, new_account) in changes {
             // if nothing was touched, there is nothing to do
@@ -306,6 +306,73 @@ impl DatabaseCommit for MemDb {
 }
 
 impl OptimisticDatabase for MemDb {
+    async fn fetch_data(&mut self) -> bool {
+        true
+    }
+
+    fn is_optimistic(&self) -> bool {
+        false
+    }
+}
+
+/// In-memory ULTRA EVM database.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct UltraMemDb {
+    pub chains: HashMap<u64, MemDb>,
+}
+
+impl UltraMemDb {
+    pub fn new() -> Self {
+        Self {
+            chains: HashMap::default(),
+        }
+    }
+
+    pub fn add(&mut self, chain_id: u64, db: MemDb) {
+        self.chains.insert(chain_id, db);
+    }
+}
+
+impl SyncDatabase for UltraMemDb {
+    type Error = ProviderError;
+
+    /// Get basic account information.
+    fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
+        self.chains.get_mut(&address.0).unwrap().basic(address.1)
+    }
+
+    /// Get account code by its hash.
+    fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
+        self.chains.get_mut(&chain_id).unwrap().code_by_hash(code_hash)
+    }
+
+    /// Get storage value of address at index.
+    fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
+        self.chains.get_mut(&address.0).unwrap().storage(address.1, index)
+    }
+
+    fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
+        self.chains.get_mut(&chain_id).unwrap().block_hash(number)
+    }
+}
+
+impl DatabaseCommit for UltraMemDb {
+    fn commit(&mut self, changes: HashMap<ChainAddress, Account>) {
+        let chain_ids = self.chains.keys().cloned().collect::<Vec<_>>();
+        for chain_id in chain_ids.iter() {
+            let per_chain_changes = changes.iter().filter_map(|(address, account)| {
+                if address.0 == *chain_id {
+                    Some((address.1, account.clone()))
+                } else {
+                    None
+                }
+            }).collect();
+            self.chains.get_mut(chain_id).unwrap().commit(per_chain_changes);
+        }
+    }
+}
+
+impl OptimisticDatabase for UltraMemDb {
     async fn fetch_data(&mut self) -> bool {
         true
     }

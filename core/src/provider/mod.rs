@@ -39,11 +39,38 @@ pub trait BlockDataProvider {
     ) -> RaikoResult<MerkleProof>;
 }
 
+// #[allow(async_fn_in_trait)]
+// pub trait UltraBlockDataProvider {
+//     async fn get_blocks(&self, blocks_to_fetch: &[(u64, u64, bool)]) -> RaikoResult<Vec<Block>>;
+
+//     async fn get_accounts(
+//         &self,
+//         block_number: u64,
+//         accounts: &[Address],
+//     ) -> RaikoResult<Vec<AccountInfo>>;
+
+//     async fn get_storage_values(
+//         &self,
+//         block_number: u64,
+//         accounts: &[(Address, U256)],
+//     ) -> RaikoResult<Vec<U256>>;
+
+//     async fn get_merkle_proofs(
+//         &self,
+//         block_number: u64,
+//         accounts: HashMap<Address, Vec<U256>>,
+//         offset: usize,
+//         num_storage_proofs: usize,
+//     ) -> RaikoResult<MerkleProof>;
+// }
+
 pub async fn get_task_data(
     network: &str,
     block_number: u64,
     chain_specs: &SupportedChainSpecs,
 ) -> RaikoResult<(u64, B256)> {
+    println!("task data network: {:?}", network);
+    println!("chain_specs: {:?}", chain_specs);
     let taiko_chain_spec = chain_specs
         .get_chain_spec(network)
         .ok_or_else(|| RaikoError::InvalidRequestConfig("Unsupported raiko network".to_string()))?;
@@ -55,8 +82,7 @@ pub async fn get_task_data(
         .ok_or_else(|| RaikoError::RPC("No block for requested block number".to_string()))?;
     let blockhash = block
         .header
-        .hash
-        .ok_or_else(|| RaikoError::RPC("No block hash for requested block".to_string()))?;
+        .hash;
     Ok((taiko_chain_spec.chain_id, blockhash))
 }
 
@@ -93,7 +119,6 @@ pub async fn get_batch_task_data(
         .ok_or_else(|| RaikoError::RPC("No block for requested block number".to_string()))?;
     let blockhash = block
         .header
-        .hash
-        .ok_or_else(|| RaikoError::RPC("No block hash for requested block".to_string()))?;
+        .hash;
     Ok((taiko_chain_spec.chain_id, blockhash))
 }
