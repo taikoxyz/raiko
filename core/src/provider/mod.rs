@@ -16,6 +16,9 @@ pub mod rpc;
 
 #[allow(async_fn_in_trait)]
 pub trait BlockDataProvider {
+
+    async fn set_chain(&self, chain_id: u64) -> RaikoResult<bool>;
+
     async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<Block>>;
 
     async fn get_accounts(
@@ -38,31 +41,6 @@ pub trait BlockDataProvider {
         num_storage_proofs: usize,
     ) -> RaikoResult<MerkleProof>;
 }
-
-// #[allow(async_fn_in_trait)]
-// pub trait UltraBlockDataProvider {
-//     async fn get_blocks(&self, blocks_to_fetch: &[(u64, u64, bool)]) -> RaikoResult<Vec<Block>>;
-
-//     async fn get_accounts(
-//         &self,
-//         block_number: u64,
-//         accounts: &[Address],
-//     ) -> RaikoResult<Vec<AccountInfo>>;
-
-//     async fn get_storage_values(
-//         &self,
-//         block_number: u64,
-//         accounts: &[(Address, U256)],
-//     ) -> RaikoResult<Vec<U256>>;
-
-//     async fn get_merkle_proofs(
-//         &self,
-//         block_number: u64,
-//         accounts: HashMap<Address, Vec<U256>>,
-//         offset: usize,
-//         num_storage_proofs: usize,
-//     ) -> RaikoResult<MerkleProof>;
-// }
 
 pub async fn get_task_data(
     network: &str,

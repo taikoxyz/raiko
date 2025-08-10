@@ -403,79 +403,44 @@ impl<'a, BDP: BlockDataProvider> UltraProviderDb<'a, BDP> {
         self.chains.insert(chain_id, provider);
     }
 
-    pub async fn get_proofs(&mut self) -> RaikoResult<(MerkleProof, MerkleProof, usize)> {
-        let mut num_storage_proofs =  0;
-        let mut initial_proofs = MerkleProof::new();
-        let mut latest_proofs = MerkleProof::new();
-
-        Ok((initial_proofs, latest_proofs, num_storage_proofs))
-    }
-
-    pub async fn get_ancestor_headers(&mut self) -> RaikoResult<Vec<Header>> {
-        let mut headers = Vec::with_capacity(
-            usize::try_from(0)
-                .map_err(|_| RaikoError::Conversion("Could not convert u64 to usize".to_owned()))?,
-        );
-        Ok(headers)
-    }
-
-    pub fn is_valid_run(&self) -> bool {
-        false
+    fn set_chain(&mut self, chain_id: u64) -> Result<bool, ProviderError> {
+        if !self.is_optimistic() {
+            let chain = self.chains.get_mut(&chain_id).unwrap();
+            tokio::task::block_in_place(|| {
+                chain.async_executor
+                    .block_on(chain.provider.set_chain(chain_id))
+            })
+            .map_err(|e| ProviderError::RPC(e.to_string()))
+        } else {
+            Err(ProviderError::RPC("temp".to_string()))
+        }
     }
 }
-
-// impl<'a, BDP: BlockDataProvider + Database> BlockDataProvider for UltraProviderDb<'a, BDP> {
-//     async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<alloy_rpc_types::Block>> {
-//         todo!()
-//     }
-
-//     async fn get_accounts(
-//         &self,
-//         block_number: u64,
-//         accounts: &[Address],
-//     ) -> RaikoResult<Vec<AccountInfo>> {
-//         todo!()
-//     }
-
-//     async fn get_storage_values(
-//         &self,
-//         block_number: u64,
-//         accounts: &[(Address, U256)],
-//     ) -> RaikoResult<Vec<U256>> {
-//         todo!()
-//     }
-
-//     async fn get_merkle_proofs(
-//         &self,
-//         block_number: u64,
-//         accounts: HashMap<Address, Vec<U256>>,
-//         offset: usize,
-//         num_storage_proofs: usize,
-//     ) -> RaikoResult<MerkleProof> {
-//         todo!()
-//     }
-// }
 
 impl<'a, BDP: BlockDataProvider> SyncDatabase for UltraProviderDb<'a, BDP> {
     type Error = ProviderError;
 
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
-        //println!("basic::chain: {:?}", address.0);
+        println!("basic::chain: {:?}", address.0);
+        self.set_chain(address.0)?;
         self.chains.get_mut(&address.0).unwrap().basic(address.1).map_err(|e| ProviderError::RPC("temp".to_string()))
     }
 
     fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
-        //println!("storage::chain: {:?}", address.0);
+        println!("storage::chain: {:?}", address.0);
+        self.set_chain(address.0)?;
         self.chains.get_mut(&address.0).unwrap().storage(address.1, index).map_err(|e| ProviderError::RPC("temp".to_string()))
     }
 
     fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
-        //println!("block_hash::chain: {:?}", chain_id);
+        println!("block_hash::chain: {:?}", chain_id);
+        self.set_chain(chain_id)?;
         self.chains.get_mut(&chain_id).unwrap().block_hash(number).map_err(|e| ProviderError::RPC("temp".to_string()))
     }
 
     fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        //println!("code_by_hash::chain: {:?}", chain_id);
+        println!("code_by_hash::chain: {:?}", chain_id);
+        self.set_chain(chain_id)?;
         self.chains.get_mut(&chain_id).unwrap().code_by_hash(code_hash).map_err(|e| ProviderError::RPC("temp".to_string()))
     }
 }

@@ -62,6 +62,15 @@ impl RpcBlockDataProvider {
 }
 
 impl BlockDataProvider for RpcBlockDataProvider {
+    async fn set_chain(&self, chain_id: u64) -> RaikoResult<bool> {
+        let result: std::result::Result<bool, _> = self
+            .client
+            .request("eth_setActiveChainId", (chain_id,))
+            .await;
+        assert!(result.is_ok());
+        Ok(result.is_ok())
+    }
+
     async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<Block>> {
         let mut all_blocks = Vec::with_capacity(blocks_to_fetch.len());
 

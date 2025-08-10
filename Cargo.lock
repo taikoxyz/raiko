@@ -7530,6 +7530,7 @@ dependencies = [
  "reth-revm",
  "reth-storage-api",
  "revm-primitives",
+ "tracing",
 ]
 
 [[package]]

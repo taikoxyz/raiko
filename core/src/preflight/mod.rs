@@ -191,7 +191,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     for (chain_id, chain_input) in input.chains.iter_mut() {
         // Gather inclusion proofs for the initial and final state
         let measurement = Measurement::start("Fetching storage proofs...", true);
-        let (parent_proofs, proofs, num_storage_proofs) = db.get_proofs().await?;
+        let (parent_proofs, proofs, num_storage_proofs) = db.chains.get_mut(chain_id).unwrap().get_proofs().await?;
         measurement.stop_with_count(&format!(
             "[{} Account/{num_storage_proofs} Storage]",
             parent_proofs.len() + proofs.len(),
@@ -205,7 +205,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
         // Gather proofs for block history
         let measurement = Measurement::start("Fetching historical block headers...", true);
-        let ancestor_headers = db.get_ancestor_headers().await?;
+        let ancestor_headers = db.chains.get_mut(chain_id).unwrap().get_ancestor_headers().await?;
         measurement.stop();
 
         // Get the contracts from the initial db.

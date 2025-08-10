@@ -234,6 +234,8 @@ impl<DB: SyncDatabase<Error = ProviderError> + DatabaseCommit + OptimisticDataba
         //     }
         // }
 
+        println!("num transactions: {:?}", pool_txs.len());
+
         // Generate the transactions from the tx list
         let mut block = self.input.chains.get(&self.input.taiko.parent_chain_id).unwrap().block.clone();
         block.body = pool_txs;
@@ -258,9 +260,10 @@ impl<DB: SyncDatabase<Error = ProviderError> + DatabaseCommit + OptimisticDataba
             state,
             receipts,
             requests,
-            gas_used: _,
+            gas_used,
             //db: full_state,
             //valid_transaction_indices,
+            state_changes,
         }, full_state) = executor
             .execute((&block, total_difficulty).into())
             .map_err(|e| {
@@ -272,6 +275,9 @@ impl<DB: SyncDatabase<Error = ProviderError> + DatabaseCommit + OptimisticDataba
         //     .iter()
         //     .map(|&i| block.body[i].clone())
         //     .collect();
+
+        println!("gas used: {:?}", gas_used);
+        println!("receipts: {:?}", receipts);
 
         // Header validation
         let block = block.seal_slow();
