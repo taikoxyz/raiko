@@ -666,13 +666,6 @@ impl Risc0BoundlessProver {
             // .unwrap()
             .with_offer(
                 OfferParams::builder()
-                    .bidding_start(
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs()
-                            + 60,
-                    )
                     .ramp_up_period(ramp_up_period)
                     .lock_timeout(lock_timeout)
                     .timeout(timeout)
@@ -682,11 +675,20 @@ impl Risc0BoundlessProver {
             );
 
         // Build the request, including preflight, and assigned the remaining fields.
-        let request = boundless_client
+        let mut request = boundless_client
             .build_request(request_params)
             .await
             .map_err(|e| AgentError::ClientBuildError(format!("Failed to build request: {e:?}")))?;
         tracing::info!("Request: {:?}", request);
+
+        // give 60s to the market to accept the request
+        request.offer = request.offer.clone().with_bidding_start(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                + 60,
+        );
         Ok(request)
     }
 }
