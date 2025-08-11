@@ -136,8 +136,8 @@ extract_sgx_mrenclave() {
         --output sgx-guest.manifest.sgx \
         --key ../../../docker/enclave-key.pem
     
-    # Extract MRENCLAVE from signature structure using JSON output
-    local MRENCLAVE_OUTPUT=$(gramine-sgx-sigstruct-view --output-format json --quiet sgx-guest.sig 2>/dev/null | jq -r '.mr_enclave' 2>/dev/null)
+    # Extract MRENCLAVE from signature structure using original text format
+    local MRENCLAVE_OUTPUT=$(gramine-sgx-sigstruct-view sgx-guest.sig 2>&1 | grep -A1 "Measurement:" | tail -1 | tr -d '[:space:]')
     
     if [ -n "$MRENCLAVE_OUTPUT" ] && [ "$MRENCLAVE_OUTPUT" != "null" ]; then
         print_status "Extracted MRENCLAVE: $MRENCLAVE_OUTPUT"
