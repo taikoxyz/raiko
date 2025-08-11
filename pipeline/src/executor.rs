@@ -106,50 +106,8 @@ impl Executor {
                 hex::encode(key_pair.1.hash_bytes())
             );
 
-            // Additional feature: Write VK values to method files
-            self.write_sp1_method_file(&name, &root.join(src), &key_pair.1, &dest)?;
         }
 
-        Ok(())
-    }
-
-    #[cfg(feature = "sp1")]
-    fn write_sp1_method_file(
-        &self,
-        name: &str,
-        elf_path: &PathBuf,
-        _vk: &sp1_sdk::SP1VerifyingKey,
-        dest_dir: &PathBuf,
-    ) -> anyhow::Result<()> {
-        use crate::sp1_util::Sp1GuestListEntry;
-        use std::{fs, io::Write};
-
-        let guest =
-            Sp1GuestListEntry::build(name, elf_path.to_str().expect("Path is not valid UTF-8"))
-                .expect("Couldn't build the SP1 guest list entry");
-
-        // Use the provided dest_dir parameter instead of constructing the path
-        if !dest_dir.exists() {
-            fs::create_dir_all(dest_dir).expect("Couldn't create destination directories");
-        }
-
-        let mut dest_file =
-            fs::File::create(&dest_dir.join(&format!("{}.rs", name.replace('-', "_"))))
-                .expect("Couldn't create destination file");
-
-        dest_file.write_all(
-            guest
-                .codegen_consts(
-                    &std::fs::canonicalize(dest_dir)
-                        .expect("Couldn't canonicalize the destination path"),
-                )
-                .as_bytes(),
-        )?;
-
-        println!(
-            "Write method file from\n {:?}\nto\n {:?}",
-            elf_path, dest_file
-        );
         Ok(())
     }
 

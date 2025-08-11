@@ -2,8 +2,6 @@ mod builder;
 mod executor;
 #[cfg(feature = "risc0")]
 mod risc0_util;
-#[cfg(feature = "sp1")]
-mod sp1_util;
 
 pub use builder::{parse_metadata, CommandBuilder, GuestMetadata};
 pub use cargo_metadata::Metadata;
