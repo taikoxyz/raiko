@@ -666,6 +666,13 @@ impl Risc0BoundlessProver {
             // .unwrap()
             .with_offer(
                 OfferParams::builder()
+                    .bidding_start(
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                            + 60,
+                    )
                     .ramp_up_period(ramp_up_period)
                     .lock_timeout(lock_timeout)
                     .timeout(timeout)
