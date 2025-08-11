@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     tags:
-      - "raiko-client-sp1-v*"
+      - "v*-surge"
     paths:
       - "provers/sp1/**"
       - "!docs/**"
