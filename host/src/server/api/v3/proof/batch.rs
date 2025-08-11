@@ -104,7 +104,7 @@ async fn batch_handler(
 
     let chain_id = actor.get_chain_spec(&batch_request.network)?.chain_id;
 
-    // Create image ID based on proof type for zk provers
+    // Create image ID based on proof type for provers
     let image_id = ImageId::from_proof_type_and_request_type(
         &batch_request.proof_type,
         batch_request.aggregate,

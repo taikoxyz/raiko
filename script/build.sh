@@ -125,6 +125,10 @@ if [ "$1" == "sgx" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building SGX prover"
             cargo ${TOOLCHAIN_SGX} build ${FLAGS} --features sgx
+            
+            # Extract MRENCLAVE after successful build
+            echo "Extracting MRENCLAVE from SGX build..."
+            ./script/update_imageid.sh sgx
         else
             echo "Building SGX tests"
             cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p raiko-host -p sgx-prover --features "sgx enable" --no-run

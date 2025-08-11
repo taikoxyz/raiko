@@ -794,6 +794,10 @@ pub struct ImageId {
     pub sp1_agg_vk_hash: Option<String>,
     /// SP1 batch VK hash
     pub sp1_batch_vk_hash: Option<String>,
+    /// SGX enclave MRENCLAVE
+    pub sgx_enclave: Option<String>,
+    /// SGX Geth enclave MRENCLAVE
+    pub sgxgeth_enclave: Option<String>,
 }
 
 impl ImageId {
@@ -803,6 +807,8 @@ impl ImageId {
             risc0_batch_id: None,
             sp1_agg_vk_hash: None,
             sp1_batch_vk_hash: None,
+            sgx_enclave: None,
+            sgxgeth_enclave: None,
         }
     }
 
@@ -861,6 +867,28 @@ impl ImageId {
         }
     }
 
+    /// Read SGX enclave MRENCLAVE from environment variables
+    pub fn read_sgx_enclave() -> Result<String, Box<dyn std::error::Error>> {
+        match env::var("SGX_MRENCLAVE") {
+            Ok(value) => Ok(value),
+            Err(_) => {
+                // Fallback to default hardcoded value if env var is not set
+                Ok("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string())
+            }
+        }
+    }
+
+    /// Read SGX Geth enclave MRENCLAVE from environment variables
+    pub fn read_sgxgeth_enclave() -> Result<String, Box<dyn std::error::Error>> {
+        match env::var("SGXGETH_MRENCLAVE") {
+            Ok(value) => Ok(value),
+            Err(_) => {
+                // Fallback to default hardcoded value if env var is not set
+                Ok("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string())
+            }
+        }
+    }
+
     /// Create an ImageId based on the proof type and request type (aggregation or batch)
     pub fn from_proof_type_and_request_type(proof_type: &ProofType, is_aggregation: bool) -> Self {
         let mut image_id = Self::new();
@@ -894,8 +922,18 @@ impl ImageId {
                     }
                 }
             }
+            ProofType::Sgx => {
+                if let Ok(mrenclave) = Self::read_sgx_enclave() {
+                    image_id.sgx_enclave = Some(mrenclave);
+                }
+            }
+            ProofType::SgxGeth => {
+                if let Ok(mrenclave) = Self::read_sgxgeth_enclave() {
+                    image_id.sgxgeth_enclave = Some(mrenclave);
+                }
+            }
             _ => {
-                // For other proof types (Native, Sgx, SgxGeth), we don't need image IDs
+                // For proof type Native, we don't need image IDs
                 // so we leave the ImageId empty
             }
         }
