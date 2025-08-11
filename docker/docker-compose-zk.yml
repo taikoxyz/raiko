@@ -1,0 +1,25 @@
+services:
+  raiko:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    #image: raiko:sp1
+    container_name: raiko
+    network_mode: host
+    runtime: nvidia
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/etc/raiko
+    entrypoint: /opt/raiko/bin/raiko-host
+    command: >
+      --chain-spec-path=/etc/raiko/chain_spec_list_devnet.json
+      --config-path=/etc/raiko/config.json
+      --image-ids-path=/etc/raiko/image_ids.json
+    ports:
+      - "8080:8080"
+  redis:
+    image: redis
+    container_name: redis
+    ports:
+      - "6379:6379"
