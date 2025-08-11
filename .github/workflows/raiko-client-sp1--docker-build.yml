@@ -27,8 +27,6 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux/amd64
-          - os: ubuntu-24.04-arm
-            platform: linux/arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,7 +91,6 @@ jobs:
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_DEV }}:temp-ubuntu-latest \
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_DEV }}:temp-ubuntu-24.04-arm
  
       - uses: oras-project/setup-oras@v1
       - run: oras version
