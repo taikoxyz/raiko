@@ -364,7 +364,7 @@ impl Backend {
             ProofType::Sp1 => {
                 let mut available_gpus = self.available_gpus.lock().await;
 
-                // We could expect here becuase semaphore is used to limit the concurrency and
+                // We could expect here because semaphore is used to limit the concurrency and
                 // available_gpus.len() == semaphore.available_permits() == max_proving_concurrency
                 let gpu_number = available_gpus
                     .pop_front()
