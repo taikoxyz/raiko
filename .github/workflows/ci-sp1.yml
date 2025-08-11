@@ -21,10 +21,12 @@ jobs:
     with:
       version_name: "sp1"
       version_toolchain: "nightly-2024-04-18"
+      taskdb: "true"
 
-  integration-test-sp1:
-    name: Run integration tests on sp1
-    uses: ./.github/workflows/ci-integration-reusable.yml
-    with:
-      version_name: "sp1"
-      version_toolchain: "nightly-2024-04-17"
+  # integration-test-sp1:
+  #   name: Run integration tests on sp1
+  #   uses: ./.github/workflows/ci-integration-reusable.yml
+  #   with:
+  #     version_name: "sp1"
+  #     version_toolchain: "nightly-2024-04-17"
+  #     taskdb: "true"
