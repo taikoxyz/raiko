@@ -106,9 +106,9 @@ extract_sp1_vk_hash() {
     echo "$vk_hash"
 }
 
-# Function to extract MRENCLAVE from Gramine SGX build
+# Function to extract MRENCLAVE from SGX runtime quote
 extract_sgx_mrenclave() {
-    print_status "Building Gramine SGX manifest and extracting MRENCLAVE..."
+    print_status "Building SGX guest and extracting MRENCLAVE from runtime quote..."
     
     # Navigate to SGX guest directory
     cd provers/sgx/guest
@@ -136,11 +136,22 @@ extract_sgx_mrenclave() {
         --output sgx-guest.manifest.sgx \
         --key ../../../docker/enclave-key.pem
     
-    # Extract MRENCLAVE from signature structure using original text format
-    local MRENCLAVE_OUTPUT=$(gramine-sgx-sigstruct-view sgx-guest.sig 2>&1 | grep -A1 "Measurement:" | tail -1 | tr -d '[:space:]')
+    # Extract MRENCLAVE from signature structure  
+    print_status "Extracting MRENCLAVE from signed manifest..."
+    local SIGSTRUCT_OUTPUT
+    SIGSTRUCT_OUTPUT=$(gramine-sgx-sigstruct-view sgx-guest.sig 2>&1)
     
-    if [ -n "$MRENCLAVE_OUTPUT" ] && [ "$MRENCLAVE_OUTPUT" != "null" ]; then
-        print_status "Extracted MRENCLAVE: $MRENCLAVE_OUTPUT"
+    print_status "Sigstruct output preview:"
+    echo "$SIGSTRUCT_OUTPUT" | head -10
+    
+    # Extract the MRENCLAVE value from "mr_enclave:" line
+    local MRENCLAVE_OUTPUT
+    MRENCLAVE_OUTPUT=$(echo "$SIGSTRUCT_OUTPUT" | grep "mr_enclave:" | grep -o '[a-fA-F0-9]\{64\}' | head -1)
+    
+    print_status "Raw MRENCLAVE output: '$MRENCLAVE_OUTPUT' (length: ${#MRENCLAVE_OUTPUT})"
+    
+    if [ -n "$MRENCLAVE_OUTPUT" ] && [ ${#MRENCLAVE_OUTPUT} -eq 64 ]; then
+        print_status "Extracted runtime MRENCLAVE: $MRENCLAVE_OUTPUT"
         
         # Clean up temporary files
         print_status "Cleaning up temporary files..."
@@ -152,7 +163,8 @@ extract_sgx_mrenclave() {
         # Update .env file with extracted MRENCLAVE
         update_env_mrenclave "$MRENCLAVE_OUTPUT"
     else
-        print_error "Failed to extract MRENCLAVE from Gramine build"
+        print_error "Failed to extract MRENCLAVE from SGX runtime quote"
+        print_error "Expected 64-character hex string, got: '$MRENCLAVE_OUTPUT'"
         
         # Clean up temporary files even on failure
         print_status "Cleaning up temporary files..."
