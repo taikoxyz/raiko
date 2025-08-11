@@ -21,7 +21,7 @@ jobs:
   build:
     name: Build and push docker image
     runs-on: ${{ matrix.os }}
-    if: github.repository == 'NethermindEth/surge-raiko-mono'
+    if: github.repository == 'NethermindEth/raiko'
     strategy:
       matrix:
         include:
