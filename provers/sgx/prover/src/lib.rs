@@ -2,9 +2,12 @@
 
 use std::{
     collections::HashMap,
+    fs,
+    path::PathBuf,
     str::{self},
 };
 
+use once_cell::sync::Lazy;
 use raiko_lib::{
     consts::SpecId,
     input::{
@@ -13,9 +16,10 @@ use raiko_lib::{
     },
     primitives::B256,
     proof_type::ProofType,
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverResult},
+    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use serde_with::serde_as;
 
 pub mod local_prover;
@@ -25,6 +29,66 @@ use remote_prover::RemoteSgxProver;
 use tracing::debug;
 // to register the instance id
 mod sgx_register_utils;
+
+static SGX_GUEST_DATA: Lazy<Result<Value, String>> = Lazy::new(|| {
+    fn read_bootstrap_quote() -> Result<Vec<u8>, String> {
+        // Get home directory and construct path to bootstrap.json
+        let home_dir =
+            std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
+
+        let bootstrap_path = PathBuf::from(home_dir)
+            .join(".config")
+            .join("raiko")
+            .join("config")
+            .join("bootstrap.json");
+
+        // Read and parse bootstrap.json
+        let bootstrap_content = fs::read_to_string(&bootstrap_path).map_err(|e| {
+            format!(
+                "Failed to read bootstrap.json from {}: {}",
+                bootstrap_path.display(),
+                e
+            )
+        })?;
+
+        let bootstrap_data: serde_json::Value = serde_json::from_str(&bootstrap_content)
+            .map_err(|e| format!("Failed to parse bootstrap.json: {}", e))?;
+
+        // Extract quote field
+        let quote_hex = bootstrap_data["quote"]
+            .as_str()
+            .ok_or_else(|| "Missing or invalid 'quote' field in bootstrap.json".to_string())?;
+
+        // Decode hex string to bytes
+        let quote = hex::decode(quote_hex)
+            .map_err(|e| format!("Failed to decode quote hex string: {}", e))?;
+
+        if quote.len() < 432 {
+            return Err("SGX quote too short".to_string());
+        }
+
+        Ok(quote)
+    }
+
+    match read_bootstrap_quote() {
+        Ok(quote) => {
+            // Extract MR_ENCLAVE (32 bytes at offset 112-144)
+            let mr_enclave = hex::encode(&quote[112..144]);
+
+            // Extract MR_SIGNER (32 bytes at offset 176-208)
+            let mr_signer = hex::encode(&quote[176..208]);
+
+            let quote_hex = hex::encode(&quote);
+
+            Ok(json!({
+                "mr_enclave": mr_enclave,
+                "mr_signer": mr_signer,
+                "quote": quote_hex
+            }))
+        }
+        Err(e) => Err(e),
+    }
+});
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -104,6 +168,12 @@ impl SgxProver {
 }
 
 impl Prover for SgxProver {
+    async fn get_guest_data() -> ProverResult<serde_json::Value> {
+        match SGX_GUEST_DATA.as_ref() {
+            Ok(value) => Ok(value.clone()),
+            Err(e) => Err(ProverError::GuestError(e.clone())),
+        }
+    }
     async fn run(
         &self,
         input: GuestInput,

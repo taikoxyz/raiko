@@ -1,5 +1,6 @@
 #![cfg(feature = "enable")]
 
+use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
@@ -11,10 +12,11 @@ use raiko_lib::{
 };
 use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use serde_with::serde_as;
 use sp1_prover::{components::CpuProverComponents, Groth16Bn254Proof};
 use sp1_sdk::{
-    network::FulfillmentStrategy, NetworkProver, Prover as SP1ProverTrait, SP1Proof, SP1ProofMode,
+    network::FulfillmentStrategy, Prover as SP1ProverTrait, SP1Proof, SP1ProofMode,
     SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
 };
 use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
@@ -109,6 +111,18 @@ struct Sp1ProverClient {
 // static BLOCK_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 // static AGGREGATION_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 // static BATCH_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
+
+static AGGREGATION_PROGRAM_HASH: Lazy<String> = Lazy::new(|| {
+    let prover = sp1_sdk::CpuProver::new();
+    let key_pair = prover.setup(&AGGREGATION_ELF);
+    key_pair.1.bytes32()
+});
+
+static BLOCK_PROGRAM_HASH: Lazy<String> = Lazy::new(|| {
+    let prover = sp1_sdk::CpuProver::new();
+    let key_pair = prover.setup(&BATCH_ELF);
+    reth_primitives::hex::encode(key_pair.1.hash_bytes())
+});
 
 impl Prover for Sp1Prover {
     async fn run(
@@ -593,6 +607,15 @@ impl Prover for Sp1Prover {
             }
             .into(),
         )
+    }
+
+    async fn get_guest_data() -> ProverResult<serde_json::Value> {
+        Ok(json!({
+            "sp1": {
+                "aggregation_program_hash": AGGREGATION_PROGRAM_HASH.to_string(),
+                "block_program_hash": BLOCK_PROGRAM_HASH.to_string(),
+            }
+        }))
     }
 }
 

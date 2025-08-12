@@ -114,4 +114,8 @@ pub trait Prover {
     ) -> ProverResult<Proof>;
 
     async fn cancel(&self, proof_key: ProofKey, read: Box<&mut dyn IdStore>) -> ProverResult<()>;
+
+    /// Returns the guest specific data
+    /// E.g. Sp1 guest program hashes for aggregation and block proofs.
+    async fn get_guest_data() -> ProverResult<serde_json::Value>;
 }

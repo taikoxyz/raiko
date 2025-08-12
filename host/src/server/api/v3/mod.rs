@@ -78,7 +78,7 @@ pub fn create_router() -> Router<Actor> {
         .nest("/proof", proof::create_router())
         .nest("/health", v1::health::create_router())
         .nest("/metrics", v1::metrics::create_router())
-        .nest("/image_ids", v1::image_ids::create_router())
+        .nest("/guest_data", v1::guest_data::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
         .merge(Scalar::with_url("/scalar", docs))
 }

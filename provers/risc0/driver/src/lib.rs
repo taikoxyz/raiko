@@ -7,6 +7,7 @@ use crate::{
 use alloy_primitives::B256;
 use bonsai::{cancel_proof, maybe_prove};
 use log::{info, warn};
+use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
@@ -22,6 +23,7 @@ use risc0_zkvm::{
     ExecutorEnv, ProverOpts, Receipt,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use serde_with::serde_as;
 use std::fmt::Debug;
 use tracing::debug;
@@ -29,6 +31,13 @@ use tracing::debug;
 pub mod bonsai;
 pub mod methods;
 pub mod snarks;
+
+static AGGREGATION_PROGRAM_HASH: Lazy<String> = Lazy::new(|| {
+    hex::encode(Digest::from(methods::risc0_aggregation::RISC0_AGGREGATION_ID).as_bytes())
+});
+
+static BLOCK_PROGRAM_HASH: Lazy<String> =
+    Lazy::new(|| hex::encode(Digest::from(methods::risc0_batch::RISC0_BATCH_ID).as_bytes()));
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -252,6 +261,14 @@ impl Prover for Risc0Prover {
         };
 
         proof_gen_result
+    }
+    async fn get_guest_data() -> ProverResult<serde_json::Value> {
+        Ok(json!({
+            "risc0": {
+                "aggregation_program_hash": AGGREGATION_PROGRAM_HASH.to_string(),
+                "block_program_hash": BLOCK_PROGRAM_HASH.to_string(),
+            }
+        }))
     }
 }
 

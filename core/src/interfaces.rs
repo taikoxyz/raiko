@@ -87,6 +87,27 @@ impl From<eyre::Report> for RaikoError {
 
 pub type RaikoResult<T> = Result<T, RaikoError>;
 
+pub async fn get_guest_data() -> RaikoResult<serde_json::Value> {
+    let mut guest_data_array = Vec::new();
+
+    #[cfg(feature = "sp1")]
+    {
+        guest_data_array.push(sp1_driver::Sp1Prover::get_guest_data().await?);
+    }
+
+    #[cfg(feature = "risc0")]
+    {
+        guest_data_array.push(risc0_driver::Risc0Prover::get_guest_data().await?);
+    }
+
+    #[cfg(feature = "sgx")]
+    {
+        guest_data_array.push(sgx_prover::SgxProver::get_guest_data().await?);
+    }
+
+    Ok(serde_json::to_value(guest_data_array)?)
+}
+
 /// Run the prover driver depending on the proof type.
 pub async fn run_prover(
     proof_type: ProofType,

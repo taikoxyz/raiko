@@ -50,6 +50,9 @@ impl RemoteSgxProver {
 }
 
 impl Prover for RemoteSgxProver {
+    async fn get_guest_data() -> ProverResult<serde_json::Value> {
+        unimplemented!()
+    }
     async fn run(
         &self,
         input: GuestInput,

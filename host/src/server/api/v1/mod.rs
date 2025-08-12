@@ -10,8 +10,8 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::interfaces::HostError;
 use raiko_reqactor::Actor;
 
+pub mod guest_data;
 pub mod health;
-pub mod image_ids;
 pub mod metrics;
 pub mod proof;
 
@@ -131,7 +131,7 @@ pub fn create_router(concurrency_limit: usize) -> Router<Actor> {
         )
         .nest("/health", health::create_router())
         .nest("/metrics", metrics::create_router())
-        .nest("/image_ids", image_ids::create_router())
+        .nest("/guest_data", guest_data::create_router())
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
         .merge(Scalar::with_url("/scalar", docs))
 }

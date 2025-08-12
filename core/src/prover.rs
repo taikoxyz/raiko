@@ -24,6 +24,10 @@ pub struct NativeResponse {
 }
 
 impl Prover for NativeProver {
+    async fn get_guest_data() -> ProverResult<serde_json::Value> {
+        unimplemented!()
+    }
+
     async fn run(
         &self,
         input: GuestInput,
