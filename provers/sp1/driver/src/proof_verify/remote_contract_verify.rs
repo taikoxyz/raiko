@@ -26,7 +26,7 @@ sol!(
 pub(crate) async fn verify_sol_by_contract_call(fixture: &RaikoProofFixture) -> ProverResult<()> {
     let sp1_verifier_rpc_url = env::var("SP1_VERIFIER_RPC_URL").expect("env SP1_VERIFIER_RPC_URL");
     let sp1_verifier_addr = {
-        let addr = env::var("SP1_VERIFIER_ADDRESS").expect("env SP1_VERIFIER_RPC_URL");
+        let addr = env::var("SP1_VERIFIER_ADDRESS").expect("env SP1_VERIFIER_ADDRESS");
         Address::from_str(&addr).unwrap()
     };
 
