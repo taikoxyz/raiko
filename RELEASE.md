@@ -1,3 +1,35 @@
+# v1.10.1
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.10.1
+
+## gaiko
+
+- mrenclave: 692c8624d30a327340b0dfbb67203e941175ac700d1a058c717e5269103d37e6
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: ca349ba0dfeced0bd837a56c97417c11e51d490eec4ff08321dd130776a413bd
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+# v1.10.1-edmm
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.10.1-edmm
+
+## gaiko
+
+- mrenclave: 692c8624d30a327340b0dfbb67203e941175ac700d1a058c717e5269103d37e6
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: e2375b778ee5700a73c7fcf449abb4a62e00127d324b6694898073ba5aff4f5c
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
 # v1.10.0-rc1
 
 ## image
