@@ -105,7 +105,6 @@ impl Executor {
                 "sp1 elf vk hash_bytes is: {}",
                 hex::encode(key_pair.1.hash_bytes())
             );
-
         }
 
         Ok(())

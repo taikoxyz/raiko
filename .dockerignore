@@ -8,6 +8,7 @@
 !/docker/entrypoint.sh
 !/docker/enclave-key.pem
 !/docker/cargo-config.toml
+!/.env
 !/lib
 !/primitives
 !/provers

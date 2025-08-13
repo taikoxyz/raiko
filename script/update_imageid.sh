@@ -80,23 +80,8 @@ extract_sp1_vk_hash() {
     local build_output="$1"
     local binary_name="$2"
     
-    # Look for the pattern "sp1 elf vk hash_bytes is: <hex_string>" in context of the binary
-    local vk_hash=""
-    
-    # Get all lines containing the binary name and nearby VK hash lines
-    local context_lines=$(echo "$build_output" | grep -B5 -A5 "$binary_name")
-    vk_hash=$(echo "$context_lines" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | head -1)
-    
-    # If context search fails, try sequential search based on order
-    if [ -z "$vk_hash" ]; then
-        if [ "$binary_name" = "sp1-aggregation" ]; then
-            # Get first VK hash for aggregation
-            vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | head -1)
-        elif [ "$binary_name" = "sp1-batch" ]; then
-            # Get second VK hash for batch
-            vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | tail -1)
-        fi
-    fi
+    # Find the VK hash that appears after the "Write elf from" line for the specific binary
+    local vk_hash=$(echo "$build_output" | awk "/Write elf from.*$binary_name/ {found=1; next} found && /sp1 elf vk hash_bytes is:/ {gsub(/.*sp1 elf vk hash_bytes is: /, \"\"); print; exit}")
     
     if [ -z "$vk_hash" ]; then
         print_error "Failed to extract SP1 VK hash for $binary_name"

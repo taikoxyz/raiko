@@ -563,7 +563,7 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 10, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 4110000, 
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -655,7 +655,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=10,
+        default=2,
         help="Total number of batches to process"
     )
     

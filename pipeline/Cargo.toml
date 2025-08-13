@@ -22,4 +22,4 @@ sp1-sdk = { workspace = true, optional = true }
 
 [features]
 risc0 = ["dep:risc0-binfmt", "dep:pathdiff", "dep:hex", "dep:risc0-zkos-v1compat"]
-sp1 = ["dep:sp1-sdk", "dep:pathdiff", "dep:hex"]
+sp1 = ["dep:sp1-sdk"]
