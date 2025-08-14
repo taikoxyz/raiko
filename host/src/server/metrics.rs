@@ -8,16 +8,15 @@ use raiko_core::interfaces::BatchProofRequest;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tracing::info;
+use tracing::{debug, info};
 
 #[derive(Debug, Clone)]
 pub struct RequestMetrics {
-    pub api_key: String,
-    pub request_data: String,
+    pub from: String,
+    pub request_desc: String,
     pub start_time: Instant,
+    pub last_request_time: Instant,
     pub end_time: Option<Instant>,
-    pub duration: Option<Duration>,
-    pub has_proof: bool,
 }
 
 pub struct MetricsCollector {
@@ -32,16 +31,16 @@ impl MetricsCollector {
     }
 
     /// Record the start of a request
-    pub fn record_request_in(&self, request_id: &str, api_key: &str) {
+    pub fn record_request_in(&self, request_id: &str, caller: &str) {
         if let Ok(mut requests) = self.requests.lock() {
             if !requests.contains_key(request_id) {
+                let start_time = Instant::now();
                 let metrics = RequestMetrics {
-                    api_key: api_key.to_string(),
-                    request_data: request_id.to_string(),
-                    start_time: Instant::now(),
+                    from: caller.to_string(),
+                    request_desc: request_id.to_string(),
+                    start_time,
+                    last_request_time: start_time,
                     end_time: None,
-                    duration: None,
-                    has_proof: false,
                 };
                 requests.insert(request_id.to_string(), metrics);
             }
@@ -59,13 +58,14 @@ impl MetricsCollector {
         if let Ok(mut requests) = self.requests.lock() {
             if let Some(metrics) = requests.get_mut(request_id) {
                 let end_time = Instant::now();
-                let duration = end_time.duration_since(metrics.start_time);
-
-                metrics.end_time = Some(end_time);
-                metrics.duration = Some(duration);
-                metrics.has_proof = has_proof;
+                let elapsed_time_since_last_req =
+                    end_time.duration_since(metrics.last_request_time);
+                metrics.last_request_time = end_time;
 
                 if has_proof {
+                    let duration = end_time.duration_since(metrics.start_time);
+                    metrics.end_time = Some(end_time);
+
                     requests.remove(request_id);
                     info!(
                         target: "billing",
@@ -73,13 +73,13 @@ impl MetricsCollector {
                         request_id, duration, has_proof
                     );
                 } else {
-                    info!(
+                    debug!(
                         target: "billing",
                         "BATCH_REQUEST_CONT - ID: {}, DURATION: {:?}, HAS_PROOF: {}",
-                        request_id, duration, has_proof
+                        request_id, elapsed_time_since_last_req, has_proof
                     );
-                }
-                return Some(duration);
+                };
+                return Some(elapsed_time_since_last_req);
             }
         }
 
@@ -151,29 +151,22 @@ pub fn record_batch_request_out(
     has_proof: bool,
 ) {
     let request_id = generate_request_id(api_key_owner, batch_request);
-    if let Some(duration) = METRICS_COLLECTOR.record_request_out(&request_id, has_proof) {
+    // record the increment of the request duration for prometheus counter metrics
+    if let Some(duration_inc) = METRICS_COLLECTOR.record_request_out(&request_id, has_proof) {
         let batch_desc = format!(
             "{}+{}",
             batch_request.batches.first().unwrap().batch_id,
             batch_request.batches.len()
         );
 
-        if has_proof {
-            metrics::accumulate_preconfimer_proof_gen_time(
-                api_key_owner,
-                batch_request.aggregate,
-                &batch_request.proof_type,
-                &batch_desc,
-                duration,
-            );
-        } else {
-            // record current proof generation cost, see if this task can not be done in time
-            metrics::observe_single_proof_gen_time(
-                batch_request.aggregate,
-                &batch_request.proof_type,
-                &batch_desc,
-                duration,
-            );
-        }
+        // record accumulated preconfimer proof generation increment
+        metrics::accumulate_caller_proof_time_cost(api_key_owner, duration_inc);
+        // record current proof generation increment, see if this task can not be done in time
+        metrics::accumulate_single_proof_gen_time(
+            batch_request.aggregate,
+            &batch_request.proof_type,
+            &batch_desc,
+            duration_inc,
+        );
     }
 }

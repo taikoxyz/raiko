@@ -27,8 +27,9 @@ pub async fn start_actor(
     chain_specs: SupportedChainSpecs,
     default_request_config: ProofRequestOpt,
     max_proving_concurrency: usize,
+    max_queue_size: usize,
 ) -> Actor {
-    let queue = Arc::new(Mutex::new(Queue::new()));
+    let queue = Arc::new(Mutex::new(Queue::new(max_queue_size)));
     let notify = Arc::new(Notify::new());
     let actor = Actor::new(
         pool.clone(),
