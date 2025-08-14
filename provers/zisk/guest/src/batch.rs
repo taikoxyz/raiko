@@ -1,97 +1,82 @@
 #![no_main]
 ziskos::entrypoint!(main);
 
-use serde::{Deserialize, Serialize};
+use raiko_lib::{
+    builder::calculate_batch_blocks_final_header,
+    input::GuestBatchInput,
+    proof_type::ProofType,
+    protocol_instance::ProtocolInstance,
+};
 
 mod zisk_crypto;
 use zisk_crypto::*;
 
-/// Simplified batch input for Zisk processing
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ZiskBatchInput {
-    pub batch_id: u64,
-    pub chain_id: u64,
-    pub block_numbers: Vec<u64>,
-    pub block_hashes: Vec<[u8; 32]>,
-    pub use_emulator_mode: Option<bool>, // Flag to indicate execution mode
-}
-
-/// Simplified protocol instance computation
-fn compute_batch_hash(input: &ZiskBatchInput) -> [u8; 32] {
-    let use_emulator = input.use_emulator_mode.unwrap_or(true);
-    
-    if use_emulator {
-        // Emulator mode: Use simple safe hash computation
-        let mut result = [0u8; 32];
-        
-        // Use batch_id as the primary component of the hash
-        let batch_bytes = input.batch_id.to_le_bytes();
-        let chain_bytes = input.chain_id.to_le_bytes();
-        
-        // Fill the result with a simple combination of batch_id and chain_id
-        for i in 0..8 {
-            result[i] = batch_bytes[i % 8];
-            result[i + 8] = chain_bytes[i % 8];
-        }
-        
-        // Add some block data if available
-        if !input.block_numbers.is_empty() {
-            let block_bytes = input.block_numbers[0].to_le_bytes();
-            for i in 0..8 {
-                result[i + 16] = block_bytes[i];
-            }
-        }
-        
-        // Use block hash if available
-        if !input.block_hashes.is_empty() {
-            for i in 0..8 {
-                result[i + 24] = input.block_hashes[0][i];
-            }
-        }
-        
-        result
-    } else {
-        // Prover mode: Use proper cryptographic hash with Zisk precompiles
-        let mut data = Vec::new();
-        data.extend_from_slice(&input.batch_id.to_le_bytes());
-        data.extend_from_slice(&input.chain_id.to_le_bytes());
-        
-        // Add block numbers and hashes
-        for (block_num, block_hash) in input.block_numbers.iter().zip(input.block_hashes.iter()) {
-            data.extend_from_slice(&block_num.to_le_bytes());
-            data.extend_from_slice(block_hash);
-        }
-        
-        // Use Zisk's built-in SHA-256 precompile (should work in prover mode)
-        sha256(&data)
-    }
-}
-
 pub fn main() {
-    // Read input data
+    // Read the batch input data from ziskos
     let input_data = ziskos::read_input();
     
-    // Check if we have any input data
+    // Handle empty input
     if input_data.is_empty() {
-        // If no input, set a default output
-        ziskos::set_output(0, 0u32);
+        // Set error output for empty input
+        ziskos::set_output(0, 0xFFFFFFFFu32);
         return;
     }
     
-    // Try to deserialize the input
-    let batch_input: ZiskBatchInput = match bincode::deserialize(&input_data) {
+    // Deserialize the batch input using the standard GuestBatchInput format
+    let batch_input: GuestBatchInput = match bincode::deserialize(&input_data) {
         Ok(input) => input,
         Err(_) => {
             // If deserialization fails, set error output
-            ziskos::set_output(0, 0xFFFFFFFFu32);
+            ziskos::set_output(0, 0xFFFFFFFEu32);
             return;
         }
     };
     
-    // Process the batch
-    let batch_hash = compute_batch_hash(&batch_input);
+    // Validate input structure
+    if batch_input.inputs.is_empty() {
+        // No blocks to process
+        ziskos::set_output(0, 0xFFFFFFFDu32);
+        return;
+    }
     
-    // Set the output - use first 32 bits of the hash as a u32
-    let output_value = u32::from_le_bytes([batch_hash[0], batch_hash[1], batch_hash[2], batch_hash[3]]);
-    ziskos::set_output(0, output_value);
+    // This executes all transactions and validates state transitions
+    let final_blocks = match std::panic::catch_unwind(|| {
+        calculate_batch_blocks_final_header(&batch_input)
+    }) {
+        Ok(blocks) => blocks,
+        Err(_) => {
+            // Block execution failed
+            ziskos::set_output(0, 0xFFFFFFFCu32);
+            return;
+        }
+    };
+    
+    // Create protocol instance from executed blocks
+    let protocol_instance = match ProtocolInstance::new_batch(&batch_input, final_blocks, ProofType::Zisk) {
+        Ok(pi) => pi,
+        Err(_) => {
+            // Protocol instance creation failed
+            ziskos::set_output(0, 0xFFFFFFFBu32);
+            return;
+        }
+    };
+    
+    // Get the instance hash
+    let instance_hash = protocol_instance.instance_hash();
+    
+    // Commit the protocol instance hash in ZisK format
+    // Convert the hash bytes to u32 chunks for ZisK's output format
+    let hash_bytes = instance_hash.0;
+    for (i, chunk) in hash_bytes.chunks(4).enumerate().take(8) {
+        if chunk.len() == 4 {
+            let value = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            ziskos::set_output(i, value);
+        } else {
+            // Handle partial chunk (shouldn't happen with 32-byte hash)
+            let mut padded = [0u8; 4];
+            padded[..chunk.len()].copy_from_slice(chunk);
+            let value = u32::from_le_bytes(padded);
+            ziskos::set_output(i, value);
+        }
+    }
 }
