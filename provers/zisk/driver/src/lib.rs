@@ -13,18 +13,33 @@ use raiko_lib::{
 use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use std::collections::{hash_map::DefaultHasher, HashSet};
+use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::process::Command;
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock};
+use tokio::sync::{Mutex, Notify};
 use tracing::info;
 
 pub const BATCH_ELF: &[u8] = include_bytes!("../../guest/elf/zisk-batch");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/zisk-aggregation");
 
-// Global state to track which ELFs have had ROM setup completed
-static ROM_SETUP_COMPLETED: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+// Global state to coordinate ROM setup across concurrent requests
+static ROM_SETUP_STATE: LazyLock<RomSetupCoordinator> = LazyLock::new(|| RomSetupCoordinator::new());
+
+struct RomSetupCoordinator {
+    completed: Mutex<HashSet<String>>,
+    in_progress: Mutex<HashMap<String, Arc<Notify>>>,
+}
+
+impl RomSetupCoordinator {
+    fn new() -> Self {
+        Self {
+            completed: Mutex::new(HashSet::new()),
+            in_progress: Mutex::new(HashMap::new()),
+        }
+    }
+}
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -39,8 +54,6 @@ pub struct ZiskParam {
     pub threads_per_process: Option<u32>,
     #[serde(default)]
     /// Enable individual proof verification on host before aggregation
-    /// Warning: This creates O(N) verification cost vs SP1/RISC0's O(1)
-    /// Set to true only for extra security validation during development
     pub host_verification: Option<bool>,
 }
 
@@ -138,17 +151,13 @@ impl Prover for ZiskProver {
         for (i, chunk) in elf_hash.chunks(4).enumerate().take(8) {
             image_id[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
         }
-        
-        // Use the standard ZkAggregationGuestInput format for consistency with SP1/RISC0
-        
+
         let zisk_input = ZkAggregationGuestInput {
             image_id,
             block_inputs: block_inputs.clone(),
         };
         
         // Generate deterministic request ID based on proof inputs
-        // Since batch IDs are not directly available in proofs, we use a hash of all proof inputs
-        // This ensures the same set of proofs always generates the same directory name
         let mut hasher = DefaultHasher::new();
         for proof in &input.proofs {
             // Hash the proof input to create deterministic ID
@@ -165,17 +174,11 @@ impl Prover for ZiskProver {
             input.proofs.len(), request_id
         );
 
-        // Check if proof already exists (for polling requests)
-        if let Ok(existing_proof) = read_existing_proof(&build_dir) {
-            info!("Returning existing aggregation proof for request {}", request_id);
-            return Ok(existing_proof.into());
-        }
 
-        // 🔥 CONFIGURABLE HOST VERIFICATION
         // Default: Skip for performance
         // Optional: Enable for extra security validation
         if param.host_verification.unwrap_or(false) {
-            info!("🐌 HOST VERIFICATION ENABLED: This creates O(N) cost vs SP1/RISC0's O(1)");
+            info!("🐌 HOST VERIFICATION ENABLED");
             
             for (i, proof) in input.proofs.iter().enumerate() {
                 if let Some(proof_data) = &proof.quote {
@@ -199,15 +202,13 @@ impl Prover for ZiskProver {
                         )));
                     }
                     
-                    info!("✅ Proof {} verified successfully using ZisK", i);
+                    info!("Proof {} verified successfully using ZisK", i);
                     
                     // Clean up temporary proof file
                     let _ = std::fs::remove_file(&temp_proof_path);
                 }
             }
         } else {
-            info!("⚡ PERFORMANCE MODE: Skipping host verification (matching SP1/RISC0 approach)");
-            info!("Will rely on guest-side cryptographic validation in aggregation guest program");
             info!("To enable host verification, set 'host_verification: true' in zisk config");
         }
 
@@ -230,7 +231,7 @@ impl Prover for ZiskProver {
 
         let prove_result = {
                 // Ensure ROM setup is done (only if not already completed)
-                ensure_rom_setup(&temp_elf_path)?;
+                ensure_rom_setup(&temp_elf_path).await?;
                 
                 // Generate proof with optional MPI concurrency
                 generate_proof_with_mpi(
@@ -274,12 +275,22 @@ impl Prover for ZiskProver {
                 let aggregation_pi = aggregation_output(program_id, block_inputs.clone());
                 let input_hash = keccak(&aggregation_pi);
                 
-                ZiskResponse {
+                // Create response before cleanup
+                let response = ZiskResponse {
                     proof: Some(format!("0x{}", proof_hex)),
                     receipt: Some("zisk_aggregation_receipt".to_string()),
                     input: Some(B256::from_slice(&input_hash)),
                     uuid: Some("zisk_aggregation_uuid".to_string()),
+                };
+
+                // Clean up build directory immediately after successful aggregation
+                if let Err(e) = std::fs::remove_dir_all(&build_dir) {
+                    info!("Warning: Failed to clean up aggregation build directory {}: {}", build_dir, e);
+                } else {
+                    info!("Cleaned up aggregation build directory: {}", build_dir);
                 }
+
+                response
         };
 
         Ok(prove_result.into())
@@ -304,12 +315,6 @@ impl Prover for ZiskProver {
             output.hash,
             request_id
         );
-
-        // Check if proof already exists (for polling requests)
-        if let Ok(existing_proof) = read_existing_proof(&build_dir) {
-            info!("Returning existing batch proof for request {}", request_id);
-            return Ok(existing_proof.into());
-        }
 
         // Transform input to match Zisk guest program expectations
         use serde::{Deserialize, Serialize};
@@ -350,7 +355,7 @@ impl Prover for ZiskProver {
 
         let prove_result = {
                 // Ensure ROM setup is done (only if not already completed)
-                ensure_rom_setup(&temp_batch_elf_path)?;
+                ensure_rom_setup(&temp_batch_elf_path).await?;
                 
                 // Generate proof with optional MPI concurrency
                 generate_proof_with_mpi(
@@ -389,12 +394,22 @@ impl Prover for ZiskProver {
                     time.stop_with("==> Zisk batch verification complete");
                 }
 
-                ZiskResponse {
+                // Create response before cleanup
+                let response = ZiskResponse {
                     proof: Some(format!("0x{}", proof_hex)),
                     receipt: Some("zisk_batch_receipt".to_string()),
                     input: Some(output.hash),
                     uuid: Some("zisk_batch_uuid".to_string()),
+                };
+
+                // Clean up build directory immediately after successful proof generation
+                if let Err(e) = std::fs::remove_dir_all(&build_dir) {
+                    info!("Warning: Failed to clean up build directory {}: {}", build_dir, e);
+                } else {
+                    info!("Cleaned up build directory: {}", build_dir);
                 }
+
+                response
         };
 
         info!(
@@ -426,32 +441,102 @@ fn generate_request_id(batch_id: u64, is_aggregation: bool, batch_ids: Option<&[
 }
 
 /// Run ROM setup only if it hasn't been done for this ELF yet
-fn ensure_rom_setup(elf_path: &str) -> Result<(), ProverError> {
-    let mut completed_elfs = ROM_SETUP_COMPLETED.lock().unwrap();
+/// Multiple concurrent requests coordinate properly - only one does setup, others wait
+async fn ensure_rom_setup(elf_path: &str) -> Result<(), ProverError> {
+    let coordinator = &*ROM_SETUP_STATE;
     
-    // Check if ROM setup was already completed for this ELF
-    if completed_elfs.contains(elf_path) {
-        info!("ROM setup already completed for ELF: {}", elf_path);
-        return Ok(());
+    // Fast path: check if already completed
+    {
+        let completed = coordinator.completed.lock().await;
+        if completed.contains(elf_path) {
+            info!("ROM setup already completed for ELF: {}", elf_path);
+            return Ok(());
+        }
     }
     
-    info!("Running ROM setup for ELF: {} (first time)", elf_path);
-    let rom_output = Command::new("cargo-zisk")
-        .args(["rom-setup", "-e", elf_path])
-        .output()
-        .map_err(|e| ProverError::GuestError(format!("Zisk ROM setup failed: {e}")))?;
+    let notify_handle = {
+        let mut in_progress = coordinator.in_progress.lock().await;
+        
+        // Check again if completed while waiting for lock
+        {
+            let completed = coordinator.completed.lock().await;
+            if completed.contains(elf_path) {
+                info!("ROM setup already completed for ELF: {}", elf_path);
+                return Ok(());
+            }
+        }
+        
+        // Check if ROM setup is already in progress by another request
+        if let Some(existing_notify) = in_progress.get(elf_path) {
+            // Another request is doing ROM setup, wait for it
+            info!("ROM setup already in progress for ELF: {}, waiting...", elf_path);
+            existing_notify.clone()
+        } else {
+            let notify = Arc::new(Notify::new());
+            in_progress.insert(elf_path.to_string(), notify.clone());
+            
+            info!("Starting ROM setup for ELF: {} (first request)", elf_path);
+            
+            // Release the lock before running the blocking ROM setup command
+            drop(in_progress);
+            
+            // Run the actual ROM setup command (blocking)
+            let rom_result = tokio::task::spawn_blocking({
+                let elf_path = elf_path.to_string();
+                move || {
+                    Command::new("cargo-zisk")
+                        .args(["rom-setup", "-e", &elf_path])
+                        .output()
+                        .map_err(|e| ProverError::GuestError(format!("Zisk ROM setup failed: {e}")))
+                }
+            }).await;
+            
+            let rom_output = match rom_result {
+                Ok(result) => result?,
+                Err(e) => return Err(ProverError::GuestError(format!("ROM setup task failed: {e}"))),
+            };
+            
+            if !rom_output.status.success() {
+                // ROM setup failed, clean up in_progress state
+                coordinator.in_progress.lock().await.remove(elf_path);
+                notify.notify_waiters(); // Wake up waiting requests so they can see the failure
+                
+                return Err(ProverError::GuestError(format!(
+                    "Zisk ROM setup failed: {}",
+                    String::from_utf8_lossy(&rom_output.stderr)
+                )));
+            }
+            
+            // ROM setup succeeded, mark as completed
+            {
+                let mut completed = coordinator.completed.lock().await;
+                completed.insert(elf_path.to_string());
+            }
+            
+            // Clean up in_progress state and notify waiting requests
+            coordinator.in_progress.lock().await.remove(elf_path);
+            notify.notify_waiters();
+            
+            info!("ROM setup completed successfully for {}", elf_path);
+            return Ok(());
+        }
+    };
     
-    if !rom_output.status.success() {
-        return Err(ProverError::GuestError(format!(
-            "Zisk ROM setup failed: {}",
-            String::from_utf8_lossy(&rom_output.stderr)
-        )));
+    // Wait for ROM setup to complete by another request
+    notify_handle.notified().await;
+    
+    // Check final result after waiting
+    {
+        let completed = coordinator.completed.lock().await;
+        if completed.contains(elf_path) {
+            info!("ROM setup completed by another request for ELF: {}", elf_path);
+            Ok(())
+        } else {
+            Err(ProverError::GuestError(format!(
+                "ROM setup failed for ELF: {}", elf_path
+            )))
+        }
     }
-    
-    // Mark this ELF as having completed ROM setup
-    completed_elfs.insert(elf_path.to_string());
-    info!("ROM setup completed successfully for {}", elf_path);
-    Ok(())
 }
 
 /// Check if proof already exists and return it
@@ -468,18 +553,34 @@ fn read_existing_proof(build_dir: &str) -> Result<ZiskResponse, ProverError> {
     
     let proof_hex = hex::encode(&proof_data);
     
-    // Try to read metadata for additional info
-    let metadata = if Path::new(&metadata_file).exists() {
-        std::fs::read_to_string(&metadata_file).ok()
+    let (receipt, input, uuid) = if Path::new(&metadata_file).exists() {
+        if let Ok(metadata_str) = std::fs::read_to_string(&metadata_file) {
+            if let Ok(metadata_json) = serde_json::from_str::<serde_json::Value>(&metadata_str) {
+                let receipt = metadata_json.get("receipt")
+                    .and_then(|r| r.as_str())
+                    .map(|s| s.to_string());
+                let input = metadata_json.get("input")
+                    .and_then(|i| i.as_str())
+                    .and_then(|s| s.parse::<B256>().ok());
+                let uuid = metadata_json.get("uuid")
+                    .and_then(|u| u.as_str())
+                    .map(|s| s.to_string());
+                (receipt, input, uuid)
+            } else {
+                (Some(metadata_str), None, None)
+            }
+        } else {
+            (None, None, None)
+        }
     } else {
-        None
+        (None, None, None)
     };
     
     Ok(ZiskResponse {
         proof: Some(proof_hex),
-        receipt: metadata,
-        input: None,
-        uuid: None,
+        receipt,
+        input,
+        uuid,
     })
 }
 
@@ -510,9 +611,6 @@ fn generate_proof_with_mpi(
             .output()
             .map_err(|e| ProverError::GuestError(format!("Zisk MPI prove failed: {e}")))?
     } else {
-        // Use standard single-process proof generation
-        info!("Using standard single-process proof generation");
-        
         Command::new("cargo-zisk")
             .args([
                 "prove",

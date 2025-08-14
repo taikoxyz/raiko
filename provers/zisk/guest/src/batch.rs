@@ -17,7 +17,6 @@ pub fn main() {
     
     // Handle empty input
     if input_data.is_empty() {
-        // Set error output for empty input
         ziskos::set_output(0, 0xFFFFFFFFu32);
         return;
     }
@@ -26,7 +25,6 @@ pub fn main() {
     let batch_input: GuestBatchInput = match bincode::deserialize(&input_data) {
         Ok(input) => input,
         Err(_) => {
-            // If deserialization fails, set error output
             ziskos::set_output(0, 0xFFFFFFFEu32);
             return;
         }
@@ -34,7 +32,6 @@ pub fn main() {
     
     // Validate input structure
     if batch_input.inputs.is_empty() {
-        // No blocks to process
         ziskos::set_output(0, 0xFFFFFFFDu32);
         return;
     }
@@ -45,7 +42,6 @@ pub fn main() {
     }) {
         Ok(blocks) => blocks,
         Err(_) => {
-            // Block execution failed
             ziskos::set_output(0, 0xFFFFFFFCu32);
             return;
         }
@@ -55,7 +51,6 @@ pub fn main() {
     let protocol_instance = match ProtocolInstance::new_batch(&batch_input, final_blocks, ProofType::Zisk) {
         Ok(pi) => pi,
         Err(_) => {
-            // Protocol instance creation failed
             ziskos::set_output(0, 0xFFFFFFFBu32);
             return;
         }
@@ -72,7 +67,6 @@ pub fn main() {
             let value = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
             ziskos::set_output(i, value);
         } else {
-            // Handle partial chunk (shouldn't happen with 32-byte hash)
             let mut padded = [0u8; 4];
             padded[..chunk.len()].copy_from_slice(chunk);
             let value = u32::from_le_bytes(padded);
