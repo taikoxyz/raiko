@@ -120,7 +120,7 @@ impl Backend {
                             "Actor Backend successfully proved {request_key_}. Proof: {proof_str}"
                         );
                         Status::Success { proof }
-                    },
+                    }
                     Err(e) => Status::Failed {
                         error: e.to_string(),
                     },
