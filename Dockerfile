@@ -86,6 +86,8 @@ COPY --from=builder /opt/raiko/target/release/sgx-guest ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-setup ./bin/
 COPY --from=builder /opt/raiko/docker/enclave-key.pem /root/.config/gramine/enclave-key.pem
+# Copy .env file to provide default image ID values
+COPY --from=builder /opt/raiko/.env /opt/raiko/
 
 ARG EDMM=0
 ENV EDMM=${EDMM}

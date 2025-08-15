@@ -1,6 +1,6 @@
 use crate::{
     backend::Backend, impl_display_using_json_pretty, proof_key_to_hack_request_key, MemoryBackend,
-    RedisPoolConfig, RequestEntity, RequestKey, StatusWithContext,
+    RedisPoolConfig, RequestEntity, RequestKey, Status, StatusWithContext,
 };
 use backoff::{exponential::ExponentialBackoff, SystemClock};
 use raiko_lib::prover::{IdStore, IdWrite, ProofKey, ProverError, ProverResult};
@@ -68,10 +68,20 @@ impl Pool {
     ) -> Result<Option<StatusWithContext>, String> {
         let result = self.get(request_key).map(|v| v.map(|v| v.1));
         if let Ok(Some(ref status_with_context)) = &result {
-            tracing::info!(
-                "RedisPool.get_status: {request_key}, {}",
-                status_with_context
-            );
+            match &status_with_context.status() {
+                Status::Failed { error } => {
+                    tracing::error!(
+                        "RedisPool.get_status: {request_key}, Failed with error: {}",
+                        error
+                    );
+                }
+                _ => {
+                    tracing::info!(
+                        "RedisPool.get_status: {request_key}, {}",
+                        status_with_context
+                    );
+                }
+            }
         } else {
             tracing::info!("RedisPool.get_status: {request_key}, None");
         }
@@ -83,9 +93,19 @@ impl Pool {
         request_key: RequestKey,
         status: StatusWithContext,
     ) -> Result<StatusWithContext, String> {
-        tracing::info!("RedisPool.update_status: {request_key}, {status}");
         match self.get(&request_key)? {
             Some((entity, old_status)) => {
+                match &status.status() {
+                    Status::Failed { error } => {
+                        tracing::error!(
+                            "RedisPool.update_status: {request_key}, Failed with error: {}",
+                            error
+                        );
+                    }
+                    _ => {
+                        tracing::info!("RedisPool.update_status: {request_key}, {status}");
+                    }
+                }
                 self.add(request_key, entity, status)?;
                 Ok(old_status)
             }
@@ -275,8 +295,12 @@ mod tests {
         let status = StatusWithContext::new_registered();
 
         // Add valid request
-        pool.add(request_key.clone(), request_entity, status)
-            .unwrap();
+        pool.add(
+            request_key.clone(),
+            request_entity,
+            status,
+        )
+        .unwrap();
 
         // Try to add invalid data directly to Redis
         let mut conn = pool.conn().unwrap();
