@@ -81,7 +81,8 @@ extract_sp1_vk_hash() {
     local binary_name="$2"
     
     # Find the VK hash that appears after the "Write elf from" line for the specific binary
-    local vk_hash=$(echo "$build_output" | awk "/Write elf from.*$binary_name/ {found=1; next} found && /sp1 elf vk hash_bytes is:/ {gsub(/.*sp1 elf vk hash_bytes is: /, \"\"); print; exit}")
+    # The binary path appears on the line after "Write elf from", so we need to handle multi-line pattern
+    local vk_hash=$(echo "$build_output" | awk "/Write elf from/ {getline; if(\$0 ~ /$binary_name/) {found=1} next} found && /sp1 elf vk hash_bytes is:/ {gsub(/.*sp1 elf vk hash_bytes is: /, \"\"); print; found=0; exit}")
     
     if [ -z "$vk_hash" ]; then
         print_error "Failed to extract SP1 VK hash for $binary_name"
