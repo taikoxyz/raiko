@@ -543,7 +543,7 @@ pub async fn get_calldata_txlist_event(
     bail!("No BlockProposedV2 event found for block {l2_block_number}");
 }
 
-pub enum EventFilterConditioin {
+pub enum EventFilterCondition {
     #[allow(dead_code)]
     Hash(B256),
     Height(u64),
@@ -553,7 +553,7 @@ pub enum EventFilterConditioin {
 pub async fn filter_block_proposed_event(
     provider: &ReqwestProvider,
     chain_spec: ChainSpec,
-    filter_condition: EventFilterConditioin,
+    filter_condition: EventFilterCondition,
     block_num_or_batch_id: u64,
     fork: SpecId,
 ) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
@@ -570,16 +570,16 @@ pub async fn filter_block_proposed_event(
     };
     // Setup the filter to get the relevant events
     let logs = filter_blockchain_event(provider, || match filter_condition {
-        EventFilterConditioin::Hash(block_hash) => Filter::new()
+        EventFilterCondition::Hash(block_hash) => Filter::new()
             .address(l1_address)
             .at_block_hash(block_hash)
             .event_signature(event_signature),
-        EventFilterConditioin::Height(block_number) => Filter::new()
+        EventFilterCondition::Height(block_number) => Filter::new()
             .address(l1_address)
             .from_block(block_number)
             .to_block(block_number + 1)
             .event_signature(event_signature),
-        EventFilterConditioin::Range((from_block_number, to_block_number)) => Filter::new()
+        EventFilterCondition::Range((from_block_number, to_block_number)) => Filter::new()
             .address(l1_address)
             .from_block(from_block_number)
             .to_block(to_block_number)
@@ -646,7 +646,7 @@ pub async fn _get_block_proposed_event_by_hash(
     filter_block_proposed_event(
         provider,
         chain_spec,
-        EventFilterConditioin::Hash(l1_inclusion_block_hash),
+        EventFilterCondition::Hash(l1_inclusion_block_hash),
         l2_block_number,
         fork,
     )
@@ -663,7 +663,7 @@ pub async fn get_block_proposed_event_by_height(
     filter_block_proposed_event(
         provider,
         chain_spec,
-        EventFilterConditioin::Height(l1_inclusion_block_number),
+        EventFilterCondition::Height(l1_inclusion_block_number),
         block_num_or_batch_id,
         fork,
     )
@@ -689,7 +689,7 @@ pub async fn get_block_proposed_event_by_traversal(
     filter_block_proposed_event(
         provider,
         chain_spec,
-        EventFilterConditioin::Range((range_start, range_end)),
+        EventFilterCondition::Range((range_start, range_end)),
         l2_block_number,
         fork,
     )
