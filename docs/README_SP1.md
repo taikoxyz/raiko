@@ -1,4 +1,4 @@
-reference: https://succinctlabs.github.io/sp1/generating-proofs/advanced.html
+reference: https://docs.succinct.xyz/docs/sp1/generating-proofs/advanced
 
 ## CPU Acceleration
 
