@@ -37,7 +37,6 @@ WORKDIR /opt/raiko
 # build related files
 COPY Cargo.lock Cargo.lock
 COPY Cargo.toml Cargo.toml
-COPY .env .env
 COPY lib lib
 COPY provers provers
 COPY host host
@@ -59,11 +58,19 @@ RUN cat /tmp/file_list.txt
 ENV TARGET=risc0
 RUN mkdir -p ~/.cargo/bin
 RUN echo "Building for risc0"
-RUN make guest
+RUN make guest 2>&1 | tee /tmp/risc0_build.log
 RUN echo "Building for sp1"
 ENV TARGET=sp1
-RUN make guest
+RUN make guest 2>&1 | tee /tmp/sp1_build.log
 RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build"
+
+# Generate or update .env file with extracted image IDs from build logs
+RUN echo "Updating .env file with extracted image IDs..." && \
+    if [ ! -f ".env" ]; then touch .env; fi && \
+    ./script/update_imageid.sh risc0 /tmp/risc0_build.log && \
+    ./script/update_imageid.sh sp1 /tmp/sp1_build.log && \
+    echo "Updated .env file:" && \
+    cat .env
 
 FROM ubuntu:22.04 AS raiko-zk
 RUN mkdir -p \
@@ -87,8 +94,6 @@ COPY --from=builder /opt/raiko/host/config/config.taiko_mainnet.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list_default.json
 COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raiko/chain_spec_list_devnet.json
 COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
-# Copy .env file to provide default image ID values
-COPY --from=builder /opt/raiko/.env /opt/raiko/
 
 WORKDIR /opt/raiko/bin
 COPY ./docker/entrypoint.sh /opt/raiko/bin/
