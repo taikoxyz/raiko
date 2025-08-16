@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.11.0](https://github.com/taikoxyz/raiko/compare/v1.10.0...v1.11.0) (2025-08-16)
+
+
+### Features
+
+* add image ID to request key ([#608](https://github.com/taikoxyz/raiko/issues/608)) ([7a9a900](https://github.com/taikoxyz/raiko/commit/7a9a900f25bf8fdcad96e5df14ad107fad4f2244))
+
+
+### Bug Fixes
+
+* extracting sp1 vk hash error ([#617](https://github.com/taikoxyz/raiko/issues/617)) ([e2fafd8](https://github.com/taikoxyz/raiko/commit/e2fafd8387d4882df79a7fb1b17a17680bedc5f7))
+* **raiko:** give gramine enclave more memory ([#615](https://github.com/taikoxyz/raiko/issues/615)) ([eb0563a](https://github.com/taikoxyz/raiko/commit/eb0563af89aa75779a85647a7ad1fca1ec7d7040))
+
 ## [1.10.0](https://github.com/taikoxyz/raiko/compare/v1.9.0...v1.10.0) (2025-08-06)
 
 
