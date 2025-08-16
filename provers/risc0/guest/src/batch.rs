@@ -32,8 +32,16 @@ harness::zk_suits!(
     pub mod tests {
         #[test]
         pub fn test_build_from_mock_input() {
-            // Todo: impl mock input for static unit test
-            assert_eq!(1, 1);
+            use raiko_lib::input::GuestBatchInput;
+            
+            let batch_input = GuestBatchInput::mock();
+            let final_blocks = raiko_lib::builder::calculate_batch_blocks_final_header(&batch_input);
+            let pi = raiko_lib::protocol_instance::ProtocolInstance::new_batch(&batch_input, final_blocks, raiko_lib::proof_type::ProofType::Risc0)
+                .unwrap()
+                .instance_hash();
+            
+            // Verify that we can successfully process mock input
+            assert!(!pi.is_zero());
         }
     }
 );
