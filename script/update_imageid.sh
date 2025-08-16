@@ -80,9 +80,13 @@ extract_sp1_vk_hash() {
     local build_output="$1"
     local binary_name="$2"
     
-    # Find the VK hash that appears after the "Write elf from" line for the specific binary
-    # The binary path appears on the line after "Write elf from", so we need to handle multi-line pattern
-    local vk_hash=$(echo "$build_output" | awk "/Write elf from/ {getline; if(\$0 ~ /$binary_name/) {found=1} next} found && /sp1 elf vk hash_bytes is:/ {gsub(/.*sp1 elf vk hash_bytes is: /, \"\"); print; found=0; exit}")
+    # Extract VK hash based on binary order (aggregation first, batch second)
+    local vk_hash=""
+    if [ "$binary_name" = "sp1-aggregation" ]; then
+        vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | head -1)
+    elif [ "$binary_name" = "sp1-batch" ]; then
+        vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | tail -1)
+    fi
     
     if [ -z "$vk_hash" ]; then
         print_error "Failed to extract SP1 VK hash for $binary_name"
@@ -92,35 +96,77 @@ extract_sp1_vk_hash() {
     echo "$vk_hash"
 }
 
+# Function to check if Gramine tools are available
+check_gramine_tools() {
+    if ! command -v gramine-manifest &> /dev/null; then
+        return 1
+    fi
+    if ! command -v gramine-sgx-sign &> /dev/null; then
+        return 1
+    fi
+    if ! command -v gramine-sgx-sigstruct-view &> /dev/null; then
+        return 1
+    fi
+    return 0
+}
+
+# Function to check if EGO tools are available
+check_ego_tools() {
+    if ! command -v ego &> /dev/null; then
+        return 1
+    fi
+    return 0
+}
+
 # Function to extract MRENCLAVE from SGX runtime quote
 extract_sgx_mrenclave() {
     print_status "Building SGX guest and extracting MRENCLAVE from runtime quote..."
     
+    # Check if Gramine tools are available
+    if ! check_gramine_tools; then
+        print_warning "Gramine tools not found on host system!"
+        print_warning "Skipping local MRENCLAVE extraction - Docker build will handle SGX signing"
+        return 0
+    fi
+    
     # Navigate to SGX guest directory
     cd provers/sgx/guest
     
-    # Build the SGX guest binary if needed
+    # Check if SGX guest binary exists
     if [ ! -f "../../../target/release/sgx-guest" ]; then
-        print_status "SGX guest binary not found, building first..."
-        cargo build --release
+        print_warning "SGX guest binary not found at ../../../target/release/sgx-guest"
+        print_status "This might be because:"
+        echo "  - SGX features are not built yet (run: cargo build --release --features sgx)"
+        echo "  - Building in Docker context where paths are different"
+        print_status "Skipping local MRENCLAVE extraction"
+        return 0
     fi
     
     # Copy the binary to current directory for Gramine processing
-    cp ../../../target/release/sgx-guest .
+    if ! cp ../../../target/release/sgx-guest .; then
+        print_error "Failed to copy SGX guest binary"
+        return 1
+    fi
     
     # Generate Gramine manifest
-    gramine-manifest \
+    if ! gramine-manifest \
         -Dlog_level=error \
         -Ddirect_mode=0 \
         -Darch_libdir=/lib/x86_64-linux-gnu/ \
         ../config/sgx-guest.local.manifest.template \
-        sgx-guest.manifest
+        sgx-guest.manifest; then
+        print_error "Failed to generate Gramine manifest"
+        return 1
+    fi
     
     # Sign the manifest to generate SGX signature using project's enclave key
-    gramine-sgx-sign \
+    if ! gramine-sgx-sign \
         --manifest sgx-guest.manifest \
         --output sgx-guest.manifest.sgx \
-        --key ../../../docker/enclave-key.pem
+        --key ../../../docker/enclave-key.pem; then
+        print_error "Failed to sign SGX manifest"
+        return 1
+    fi
     
     # Extract MRENCLAVE from signature structure  
     print_status "Extracting MRENCLAVE from signed manifest..."
@@ -161,38 +207,70 @@ extract_sgx_mrenclave() {
     fi
 }
 
+# Function to extract SGX MRENCLAVE from build log files
+extract_sgx_mrenclave_from_output() {
+    print_status "Extracting SGX MRENCLAVE from build output..."
+    
+    local build_output=""
+    local log_file=""
+    
+    # Read from file if provided
+    if [ -n "$1" ] && [ -f "$1" ]; then
+        log_file="$1"
+        build_output=$(cat "$1")
+        print_status "Reading SGX build output from file: $1"
+    else
+        print_error "No SGX build log file provided"
+        return 1
+    fi
+    
+    # Extract MRENCLAVE from build log
+    # Look for the pattern "mr_enclave:" which appears in the Gramine sigstruct output
+    local MRENCLAVE_OUTPUT
+    MRENCLAVE_OUTPUT=$(echo "$build_output" | grep "mr_enclave:" | grep -o '[a-fA-F0-9]\{64\}' | head -1)
+    
+    if [ -n "$MRENCLAVE_OUTPUT" ] && [ ${#MRENCLAVE_OUTPUT} -eq 64 ]; then
+        print_status "Extracted SGX_MRENCLAVE from build log: $MRENCLAVE_OUTPUT"
+        
+        # Update .env file with extracted MRENCLAVE
+        update_env_mrenclave "$MRENCLAVE_OUTPUT"
+    else
+        print_error "Failed to extract SGX MRENCLAVE from build log"
+        if [ -n "$log_file" ]; then
+            print_error "Searched in log file: $log_file"
+        fi
+        print_error "Expected 64-character hex string, got: '$MRENCLAVE_OUTPUT'"
+        return 1
+    fi
+}
+
 # Function to update .env file with MRENCLAVE value
 update_env_mrenclave() {
     local MRENCLAVE=$1
-    local ENV_FILES=(".env" "docker/.env.sample" "docker/.env.remote-sgx.sample")
+    local ENV_FILE=".env"
     
-    for ENV_FILE in "${ENV_FILES[@]}"; do
-        # Check if file exists, skip docker files if they don't exist
-        if [ ! -f "$ENV_FILE" ]; then
-            if [ "$ENV_FILE" = ".env" ]; then
-                print_status "Creating .env file..."
-                touch "$ENV_FILE"
-            else
-                print_warning "Skipping $ENV_FILE (file not found)"
-                continue
-            fi
-        fi
-        
-        # Update or add SGX_MRENCLAVE in the file
-        if grep -q "^SGX_MRENCLAVE=" "$ENV_FILE"; then
-            # Update existing entry
-            sed -i "s/^SGX_MRENCLAVE=.*/SGX_MRENCLAVE=$MRENCLAVE/" "$ENV_FILE"
-            print_status "Updated SGX_MRENCLAVE in $ENV_FILE: $MRENCLAVE"
-        else
-            # Add new entry
-            echo "SGX_MRENCLAVE=$MRENCLAVE" >> "$ENV_FILE"
-            print_status "Added SGX_MRENCLAVE to $ENV_FILE: $MRENCLAVE"
-        fi
-    done
+    # Check if file exists, create if not
+    if [ ! -f "$ENV_FILE" ]; then
+        print_status "Creating .env file..."
+        touch "$ENV_FILE"
+    fi
+    
+    # Update or add SGX_MRENCLAVE in the file
+    if grep -q "^SGX_MRENCLAVE=" "$ENV_FILE"; then
+        # Update existing entry
+        sed -i "s/^SGX_MRENCLAVE=.*/SGX_MRENCLAVE=$MRENCLAVE/" "$ENV_FILE"
+        print_status "Updated SGX_MRENCLAVE in $ENV_FILE: $MRENCLAVE"
+    else
+        # Add new entry
+        echo "SGX_MRENCLAVE=$MRENCLAVE" >> "$ENV_FILE"
+        print_status "Added SGX_MRENCLAVE to $ENV_FILE: $MRENCLAVE"
+    fi
 }
 
 # Function to extract SGXGETH MRENCLAVE from build log files
 extract_sgxgeth_mrenclave_from_output() {
+    print_status "Extracting SGXGETH MRENCLAVE from build output..."
+    
     local build_output=""
     local log_file=""
     
@@ -214,12 +292,29 @@ extract_sgxgeth_mrenclave_from_output() {
         fi
     fi
     
-    # Extract MRENCLAVE from build log
-    # Look for the pattern "mr_enclave: <hex_string>" which appears in the EGO build output
-    local MRENCLAVE_OUTPUT
-    MRENCLAVE_OUTPUT=$(echo "$build_output" | grep "mr_enclave:" | sed 's/.*mr_enclave: *//' | grep -o '[a-fA-F0-9]\{64\}' | head -1)
+    # Check if ego uniqueid step was cached (no actual uniqueid generated)
+    if echo "$build_output" | grep -A 1 "RUN ego uniqueid" | grep -q "CACHED"; then
+        print_warning "ego uniqueid step was cached - no new uniqueid generated"
+        print_status "Using default SGXGETH_MRENCLAVE value for cached build"
+        local DEFAULT_MRENCLAVE="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        
+        # Update .env file with default MRENCLAVE
+        update_env_sgxgeth_mrenclave "$DEFAULT_MRENCLAVE"
+        return 0
+    fi
     
-    # If pattern search fails, try general hex pattern search
+    # Extract MRENCLAVE from build log
+    # Look for the uniqueid after "RUN ego uniqueid" command in EGO build output
+    # The uniqueid appears on a line by itself after the EGo version info
+    local MRENCLAVE_OUTPUT
+    MRENCLAVE_OUTPUT=$(echo "$build_output" | awk '/RUN ego uniqueid/{getline; getline; if(/^#[0-9]+ [0-9]+\.[0-9]+ [a-fA-F0-9]{64}$/) {gsub(/^#[0-9]+ [0-9]+\.[0-9]+ /, ""); print}}' | head -1)
+    
+    # If the structured search fails, try to find any 64-char hex string after "ego uniqueid"
+    if [ -z "$MRENCLAVE_OUTPUT" ]; then
+        MRENCLAVE_OUTPUT=$(echo "$build_output" | sed -n '/RUN ego uniqueid/,+5p' | grep -o '[a-fA-F0-9]\{64\}' | head -1)
+    fi
+    
+    # If both pattern searches fail, try general hex pattern search
     if [ -z "$MRENCLAVE_OUTPUT" ]; then
         MRENCLAVE_OUTPUT=$(echo "$build_output" | grep -o '[a-fA-F0-9]\{64\}' | head -1)
     fi
@@ -243,79 +338,64 @@ extract_sgxgeth_mrenclave_from_output() {
 # Function to update .env file with SGXGETH_MRENCLAVE value
 update_env_sgxgeth_mrenclave() {
     local MRENCLAVE=$1
-    local ENV_FILES=(".env" "docker/.env.sample" "docker/.env.remote-sgx.sample")
+    local ENV_FILE=".env"
     
-    for ENV_FILE in "${ENV_FILES[@]}"; do
-        # Check if file exists, skip docker files if they don't exist
-        if [ ! -f "$ENV_FILE" ]; then
-            if [ "$ENV_FILE" = ".env" ]; then
-                print_status "Creating .env file..."
-                touch "$ENV_FILE"
-            else
-                print_warning "Skipping $ENV_FILE (file not found)"
-                continue
-            fi
-        fi
-        
-        # Update or add SGXGETH_MRENCLAVE in the file
-        if grep -q "^SGXGETH_MRENCLAVE=" "$ENV_FILE"; then
-            # Update existing entry
-            sed -i "s/^SGXGETH_MRENCLAVE=.*/SGXGETH_MRENCLAVE=$MRENCLAVE/" "$ENV_FILE"
-            print_status "Updated SGXGETH_MRENCLAVE in $ENV_FILE: $MRENCLAVE"
-        else
-            # Add new entry
-            echo "SGXGETH_MRENCLAVE=$MRENCLAVE" >> "$ENV_FILE"
-            print_status "Added SGXGETH_MRENCLAVE to $ENV_FILE: $MRENCLAVE"
-        fi
-    done
+    # Check if file exists, create if not
+    if [ ! -f "$ENV_FILE" ]; then
+        print_status "Creating .env file..."
+        touch "$ENV_FILE"
+    fi
+    
+    # Update or add SGXGETH_MRENCLAVE in the file
+    if grep -q "^SGXGETH_MRENCLAVE=" "$ENV_FILE"; then
+        # Update existing entry
+        sed -i "s/^SGXGETH_MRENCLAVE=.*/SGXGETH_MRENCLAVE=$MRENCLAVE/" "$ENV_FILE"
+        print_status "Updated SGXGETH_MRENCLAVE in $ENV_FILE: $MRENCLAVE"
+    else
+        # Add new entry
+        echo "SGXGETH_MRENCLAVE=$MRENCLAVE" >> "$ENV_FILE"
+        print_status "Added SGXGETH_MRENCLAVE to $ENV_FILE: $MRENCLAVE"
+    fi
 }
 
 # Function to update .env file
 update_env_file() {
-    # RISC0 and SP1 should only go to .env and docker/.env.sample (not docker/.env.remote-sgx.sample)
-    local ENV_FILES=(".env" "docker/.env.sample")
+    local env_file=".env"
     
-    for env_file in "${ENV_FILES[@]}"; do
-        # Check if file exists, skip docker files if they don't exist
-        if [ ! -f "$env_file" ]; then
-            if [ "$env_file" = ".env" ]; then
-                print_error ".env file not found in current directory"
-                return 1
-            else
-                print_warning "Skipping $env_file (file not found)"
-                continue
-            fi
-        fi
-        
-        # Read current file content
-        local env_content=$(cat "$env_file")
-        
-        # Update RISC0 image IDs if provided
-        if [ -n "$RISC0_AGGREGATION_ID" ]; then
-            env_content=$(echo "$env_content" | sed "s/^RISC0_AGGREGATION_ID=.*/RISC0_AGGREGATION_ID=$RISC0_AGGREGATION_ID/")
-            print_status "Updated RISC0_AGGREGATION_ID in $env_file: $RISC0_AGGREGATION_ID"
-        fi
-        
-        if [ -n "$RISC0_BATCH_ID" ]; then
-            env_content=$(echo "$env_content" | sed "s/^RISC0_BATCH_ID=.*/RISC0_BATCH_ID=$RISC0_BATCH_ID/")
-            print_status "Updated RISC0_BATCH_ID in $env_file: $RISC0_BATCH_ID"
-        fi
-        
-        # Update SP1 VK hashes if provided
-        if [ -n "$SP1_AGGREGATION_VK_HASH" ]; then
-            env_content=$(echo "$env_content" | sed "s/^SP1_AGGREGATION_VK_HASH=.*/SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH/")
-            print_status "Updated SP1_AGGREGATION_VK_HASH in $env_file: $SP1_AGGREGATION_VK_HASH"
-        fi
-        
-        if [ -n "$SP1_BATCH_VK_HASH" ]; then
-            env_content=$(echo "$env_content" | sed "s/^SP1_BATCH_VK_HASH=.*/SP1_BATCH_VK_HASH=$SP1_BATCH_VK_HASH/")
-            print_status "Updated SP1_BATCH_VK_HASH in $env_file: $SP1_BATCH_VK_HASH"
-        fi
-        
-        # Write updated content to file
-        echo "$env_content" > "$env_file"
-        print_status "Successfully updated $env_file"
-    done
+    # Check if file exists
+    if [ ! -f "$env_file" ]; then
+        print_error ".env file not found in current directory"
+        return 1
+    fi
+    
+    # Read current file content
+    local env_content=$(cat "$env_file")
+    
+    # Update RISC0 image IDs if provided
+    if [ -n "$RISC0_AGGREGATION_ID" ]; then
+        env_content=$(echo "$env_content" | sed "s/^RISC0_AGGREGATION_ID=.*/RISC0_AGGREGATION_ID=$RISC0_AGGREGATION_ID/")
+        print_status "Updated RISC0_AGGREGATION_ID in $env_file: $RISC0_AGGREGATION_ID"
+    fi
+    
+    if [ -n "$RISC0_BATCH_ID" ]; then
+        env_content=$(echo "$env_content" | sed "s/^RISC0_BATCH_ID=.*/RISC0_BATCH_ID=$RISC0_BATCH_ID/")
+        print_status "Updated RISC0_BATCH_ID in $env_file: $RISC0_BATCH_ID"
+    fi
+    
+    # Update SP1 VK hashes if provided
+    if [ -n "$SP1_AGGREGATION_VK_HASH" ]; then
+        env_content=$(echo "$env_content" | sed "s/^SP1_AGGREGATION_VK_HASH=.*/SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH/")
+        print_status "Updated SP1_AGGREGATION_VK_HASH in $env_file: $SP1_AGGREGATION_VK_HASH"
+    fi
+    
+    if [ -n "$SP1_BATCH_VK_HASH" ]; then
+        env_content=$(echo "$env_content" | sed "s/^SP1_BATCH_VK_HASH=.*/SP1_BATCH_VK_HASH=$SP1_BATCH_VK_HASH/")
+        print_status "Updated SP1_BATCH_VK_HASH in $env_file: $SP1_BATCH_VK_HASH"
+    fi
+    
+    # Write updated content to file
+    echo "$env_content" > "$env_file"
+    print_status "Successfully updated $env_file"
 }
 
 # Function to extract RISC0 image IDs from build output file or stdin
@@ -454,11 +534,22 @@ main() {
     
     # Extract SGX MRENCLAVE
     if [ "$mode" = "sgx" ]; then
-        if extract_sgx_mrenclave; then
-            print_status "SGX MRENCLAVE extracted successfully"
+        # If a build log file is provided, extract from it (Docker build scenario)
+        if [ -n "$2" ] && [ -f "$2" ]; then
+            if extract_sgx_mrenclave_from_output "$2"; then
+                print_status "SGX MRENCLAVE extracted successfully"
+            else
+                print_error "Failed to extract SGX MRENCLAVE from build log"
+                exit 1
+            fi
         else
-            print_error "Failed to extract SGX MRENCLAVE"
-            exit 1
+            # Local build scenario - try to build and extract locally
+            if extract_sgx_mrenclave; then
+                print_status "SGX MRENCLAVE extracted successfully"
+            else
+                print_error "Failed to extract SGX MRENCLAVE"
+                exit 1
+            fi
         fi
     fi
     

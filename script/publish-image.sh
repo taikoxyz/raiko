@@ -91,11 +91,11 @@ if [ "$proof_type" = "0" ] || [ "$proof_type" = "tee" ]; then
 	fi
 	
 	# Extract SGXGETH MRENCLAVE from the Docker build log
-	if grep -q "mr_enclave:" log.build.$image_name.$tag; then
+	if grep -q "RUN ego uniqueid" log.build.$image_name.$tag; then
 		echo "Updating SGXGETH MRENCLAVE from Docker build log..."
 		./script/update_imageid.sh sgxgeth log.build.$image_name.$tag
 	else
-		echo "No SGXGETH MRENCLAVE found in Docker build log"
+		echo "No SGXGETH MRENCLAVE (ego uniqueid) found in Docker build log"
 	fi
 	
 	echo "Local .env file updated with Docker-generated MRENCLAVE values"
