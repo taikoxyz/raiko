@@ -316,30 +316,11 @@ impl Prover for ZiskProver {
             request_id
         );
 
-        // Transform input to match Zisk guest program expectations
-        use serde::{Deserialize, Serialize};
-        
-        #[derive(Debug, Clone, Serialize, Deserialize)]
-        pub struct ZiskBatchInput {
-            pub batch_id: u64,
-            pub chain_id: u64,
-            pub block_numbers: Vec<u64>,
-            pub block_hashes: Vec<[u8; 32]>,
-        }
-        
-        let zisk_input = ZiskBatchInput {
-            batch_id: input.taiko.batch_id,
-            chain_id: input.taiko.chain_spec.chain_id,
-            // For now, just use basic data from the input
-            block_numbers: input.inputs.iter().map(|inp| inp.block.header.number).collect(),
-            // Use parent_hash as a placeholder for block hash  
-            block_hashes: input.inputs.iter().map(|inp| inp.block.header.parent_hash.0).collect(),
-        };
+        // Use the full GuestBatchInput like SP1/RISC0 - contains all blockchain execution data
+        let input_data = bincode::serialize(&input)
+            .map_err(|e| ProverError::GuestError(format!("Failed to serialize GuestBatchInput: {e}")))?;
         
         // Create input file for Zisk - use unique build directory
-        let input_data = bincode::serialize(&zisk_input)
-            .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-        
         // Ensure unique build directory exists
         std::fs::create_dir_all(&build_dir)
             .map_err(|e| ProverError::GuestError(format!("Failed to create build directory: {e}")))?;
@@ -348,10 +329,11 @@ impl Prover for ZiskProver {
         std::fs::write(&input_file_path, input_data)
             .map_err(|e| ProverError::GuestError(format!("Failed to write input file: {e}")))?;
 
-
-
         // Use the permanent ELF file instead of temporary copy
         let temp_batch_elf_path = "provers/zisk/guest/elf/zisk-batch";
+
+        // Verify Zisk constraints before proof generation
+        // verify_zisk_constraints(&temp_batch_elf_path, &input_file_path)?;
 
         let prove_result = {
                 // Ensure ROM setup is done (only if not already completed)
@@ -631,6 +613,64 @@ fn generate_proof_with_mpi(
     }
     
     Ok(())
+}
+
+/// Verify Zisk constraints using the official cargo-zisk verify-constraints command
+fn verify_zisk_constraints(elf_path: &str, input_path: &str) -> Result<(), ProverError> {
+    info!("🔍 Verifying Zisk constraints for GuestBatchInput using cargo-zisk");
+    
+    // Get Zisk binary paths
+    let witness_lib_path = std::env::var("HOME")
+        .map(|home| format!("{}/.zisk/bin/libzisk_witness.so", home))
+        .unwrap_or_else(|_| "$HOME/.zisk/bin/libzisk_witness.so".to_string());
+    
+    let proving_key_path = std::env::var("HOME")
+        .map(|home| format!("{}/.zisk/provingKey", home))
+        .unwrap_or_else(|_| "$HOME/.zisk/provingKey".to_string());
+    
+    info!("📋 Using paths:");
+    info!("  - ELF: {}", elf_path);
+    info!("  - Input: {}", input_path);
+    info!("  - Witness lib: {}", witness_lib_path);
+    info!("  - Proving key: {}", proving_key_path);
+    
+    // Run cargo-zisk verify-constraints command
+    let output = Command::new("cargo-zisk")
+        .args([
+            "verify-constraints",
+            "-e", elf_path,
+            "-i", input_path,
+            "-w", &witness_lib_path,
+            "-k", &proving_key_path,
+        ])
+        .output()
+        .map_err(|e| ProverError::GuestError(format!("Failed to run cargo-zisk verify-constraints: {e}")))?;
+    
+    // Check if verification succeeded
+    if output.status.success() {
+        info!("✅ Zisk constraints verification PASSED");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.is_empty() {
+            info!("📝 Verification output:\n{}", stdout);
+        }
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        
+        info!("❌ Zisk constraints verification FAILED");
+        if !stdout.is_empty() {
+            info!("📝 Verification stdout:\n{}", stdout);
+        }
+        if !stderr.is_empty() {
+            info!("🔥 Verification stderr:\n{}", stderr);
+        }
+        
+        Err(ProverError::GuestError(format!(
+            "Zisk constraints verification failed. This indicates the GuestBatchInput is too large or complex for Zisk to handle. Error: {}",
+            stderr.trim()
+        )))
+    }
 }
 
 

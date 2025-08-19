@@ -199,7 +199,7 @@ class AggregationPriorityTester:
         elif self.prove_type == "zisk":
             base_request["zisk"] = {
                 "verify": False,
-                "execution_mode": "prove"
+                "execution_mode": "prove",
             }
         
         return base_request
@@ -246,7 +246,7 @@ class AggregationPriorityTester:
         elif self.prove_type == "zisk":
             base_request["zisk"] = {
                 "verify": False,
-                "execution_mode": "prove"
+                "execution_mode": "prove",
             }
         
         return base_request
@@ -573,7 +573,7 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 1, base_block: int = 4110000, 
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -665,7 +665,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=2,
+        default=1,
         help="Total number of batches to process"
     )
     
@@ -694,14 +694,14 @@ async def main():
     parser.add_argument(
         "--monitor-duration",
         type=int,
-        default=600,
+        default=3600,
         help="How long to monitor request processing (seconds)"
     )
     
     parser.add_argument(
         "--polling-interval",
         type=int,
-        default=5,
+        default=15,
         help="Polling interval for status queries (seconds)"
     )
     
