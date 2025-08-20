@@ -55,6 +55,52 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
+# Update local .env file with Docker-generated image IDs for zk builds
+if [ "$proof_type" = "1" ] || [ "$proof_type" = "zk" ]; then
+	echo "Updating local .env file with Docker-generated image IDs..."
+	
+	# Extract RISC0 image IDs from the Docker build log
+	if grep -q "risc0 elf image id:" log.build.$image_name.$tag; then
+		echo "Updating RISC0 image IDs from Docker build log..."
+		./script/update_imageid.sh risc0 log.build.$image_name.$tag
+	else
+		echo "No RISC0 image IDs found in Docker build log"
+	fi
+	
+	# Extract SP1 VK hashes from the Docker build log
+	if grep -q "sp1 elf vk hash_bytes is:" log.build.$image_name.$tag; then
+		echo "Updating SP1 VK hashes from Docker build log..."
+		./script/update_imageid.sh sp1 log.build.$image_name.$tag
+	else
+		echo "No SP1 VK hashes found in Docker build log"
+	fi
+	
+	echo "Local .env file updated with Docker-generated image IDs"
+fi
+
+# Update local .env file with Docker-generated MRENCLAVE for tee builds  
+if [ "$proof_type" = "0" ] || [ "$proof_type" = "tee" ]; then
+	echo "Updating local .env file with Docker-generated MRENCLAVE values..."
+	
+	# Extract SGX MRENCLAVE from the Docker build log
+	if grep -q "mr_enclave:" log.build.$image_name.$tag; then
+		echo "Updating SGX MRENCLAVE from Docker build log..."
+		./script/update_imageid.sh sgx log.build.$image_name.$tag
+	else
+		echo "No SGX MRENCLAVE found in Docker build log"
+	fi
+	
+	# Extract SGXGETH MRENCLAVE from the Docker build log
+	if grep -q "RUN ego uniqueid" log.build.$image_name.$tag; then
+		echo "Updating SGXGETH MRENCLAVE from Docker build log..."
+		./script/update_imageid.sh sgxgeth log.build.$image_name.$tag
+	else
+		echo "No SGXGETH MRENCLAVE (ego uniqueid) found in Docker build log"
+	fi
+	
+	echo "Local .env file updated with Docker-generated MRENCLAVE values"
+fi
+
 # update latest tag at same time for local docker compose running
 DOCKER_REPOSITORY=us-docker.pkg.dev/evmchain/images
 docker tag $image_name:latest $DOCKER_REPOSITORY/$image_name:latest

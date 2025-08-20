@@ -18,7 +18,7 @@ use raiko_lib::{proof_type::ProofType, prover::Proof};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, BatchGuestInputRequestEntity,
-    BatchGuestInputRequestKey, BatchProofRequestEntity, BatchProofRequestKey,
+    BatchProofRequestEntity, ImageId, RequestKey,
 };
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
@@ -103,6 +103,13 @@ async fn batch_handler(
     );
 
     let chain_id = actor.get_chain_spec(&batch_request.network)?.chain_id;
+
+    // Create image ID based on proof type for provers
+    let image_id = ImageId::from_proof_type_and_request_type(
+        &batch_request.proof_type,
+        batch_request.aggregate,
+    );
+
     let mut sub_input_request_keys = Vec::with_capacity(batch_request.batches.len());
     let mut sub_input_request_entities = Vec::with_capacity(batch_request.batches.len());
     let mut sub_request_keys = Vec::with_capacity(batch_request.batches.len());
@@ -113,12 +120,21 @@ async fn batch_handler(
         l1_inclusion_block_number,
     } in batch_request.batches.iter()
     {
-        let input_request_key =
-            BatchGuestInputRequestKey::new(chain_id, *batch_id, *l1_inclusion_block_number);
-        let request_key = BatchProofRequestKey::new_with_input_key(
-            input_request_key.clone(),
+        // Create input request key without image ID
+        let input_request_key = RequestKey::batch_guest_input(
+            chain_id,
+            *batch_id,
+            *l1_inclusion_block_number,
+        );
+
+        // Create proof request key with image ID
+        let request_key = RequestKey::batch_proof_with_image_id(
+            chain_id,
+            *batch_id,
+            *l1_inclusion_block_number,
             batch_request.proof_type,
             batch_request.prover.to_string(),
+            image_id.clone(),
         );
 
         let input_request_entity = BatchGuestInputRequestEntity::new(
@@ -146,7 +162,11 @@ async fn batch_handler(
     let result = if batch_request.aggregate {
         prove_aggregation(
             &actor,
-            AggregationRequestKey::new(batch_request.proof_type, sub_batch_ids.clone()).into(),
+            AggregationRequestKey::new_with_image_id(
+                batch_request.proof_type,
+                sub_batch_ids.clone(),
+                image_id.clone(),
+            ),
             AggregationRequestEntity::new(
                 sub_batch_ids,
                 vec![],

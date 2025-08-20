@@ -145,8 +145,21 @@ impl Actor {
         // Push the request into the queue and notify to start the action
         let mut queue = self.queue.lock().await;
         if !queue.contains(&request_key) {
-            queue.add_pending(request_key, request_entity);
-            self.notify.notify_one();
+            match queue.add_pending(request_key.clone(), request_entity) {
+                Ok(()) => {
+                    self.notify.notify_one();
+                }
+                Err(error_msg) => {
+                    // If queue is at capacity, update the status to Failed
+                    let failed_status = StatusWithContext::new(
+                        Status::Failed { error: error_msg },
+                        start_time,
+                    );
+                    self.pool_update_status(request_key.clone(), failed_status.clone())
+                        .await?;
+                    return Ok(failed_status);
+                }
+            }
         }
 
         return Ok(status);
@@ -207,7 +220,7 @@ mod tests {
         let ballot = Ballot::new(BTreeMap::new()).unwrap();
         let default_request_config = ProofRequestOpt::default();
         let chain_specs = SupportedChainSpecs::default();
-        let queue = Arc::new(Mutex::new(Queue::new()));
+        let queue = Arc::new(Mutex::new(Queue::new(1000)));
         let notify = Arc::new(Notify::new());
 
         Actor::new(
@@ -264,7 +277,10 @@ mod tests {
         assert!(matches!(result.status(), Status::Registered));
 
         // Verify request was added to pool
-        let pool_status = actor.pool_get_status(&request_key).await.unwrap();
+        let pool_status = actor
+            .pool_get_status(&request_key)
+            .await
+            .unwrap();
         assert!(pool_status.is_some());
         assert!(matches!(pool_status.unwrap().status(), Status::Registered));
     }
@@ -373,8 +389,20 @@ mod tests {
         let start_time = chrono::Utc::now();
 
         // First, add the request as failed in the pool
-        let failed_status = StatusWithContext::new(Status::Failed { error: "test fail".to_string() }, start_time);
-        actor.pool_add_new(request_key.clone(), request_entity.clone(), failed_status.clone()).await.unwrap();
+        let failed_status = StatusWithContext::new(
+            Status::Failed {
+                error: "test fail".to_string(),
+            },
+            start_time,
+        );
+        actor
+            .pool_add_new(
+                request_key.clone(),
+                request_entity.clone(),
+                failed_status.clone(),
+            )
+            .await
+            .unwrap();
 
         // The request should not be in the queue yet
         {
@@ -382,9 +410,11 @@ mod tests {
             assert!(!queue.contains(&request_key));
         }
 
-        // Call act, which should re-register and re-queue the failed request
-        let new_start_time = chrono::Utc::now();
-        let result = actor.act(request_key.clone(), request_entity.clone(), new_start_time).await.unwrap();
+        // Act on the request - it should be requeued
+        let result = actor
+            .act(request_key.clone(), request_entity.clone(), start_time)
+            .await
+            .unwrap();
         assert!(matches!(result.status(), Status::Registered));
 
         // The request should now be in the queue
@@ -392,7 +422,11 @@ mod tests {
         assert!(queue.contains(&request_key));
 
         // The pool status should be updated to Registered
-        let pool_status = actor.pool_get_status(&request_key).await.unwrap().unwrap();
+        let pool_status = actor
+            .pool_get_status(&request_key)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(matches!(pool_status.status(), Status::Registered));
     }
 }
