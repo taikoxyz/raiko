@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
-use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::{Mutex, Notify};
@@ -202,6 +201,16 @@ impl Prover for ZiskProver {
                         )));
                     }
                     
+                    // Log individual proof verification output
+                    let individual_verify_stdout = String::from_utf8_lossy(&verify_output.stdout);
+                    let individual_verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
+                    if !individual_verify_stdout.is_empty() {
+                        info!("Zisk proof {} verification output: {}", i, individual_verify_stdout);
+                    }
+                    if !individual_verify_stderr.is_empty() {
+                        info!("Zisk proof {} verification stderr: {}", i, individual_verify_stderr);
+                    }
+                    
                     info!("Proof {} verified successfully using ZisK", i);
                     
                     // Clean up temporary proof file
@@ -265,6 +274,16 @@ impl Prover for ZiskProver {
                             "Zisk verification failed: {}",
                             String::from_utf8_lossy(&output.stderr)
                         )));
+                    }
+                    
+                    // Log aggregation verification output
+                    let agg_verify_stdout = String::from_utf8_lossy(&output.stdout);
+                    let agg_verify_stderr = String::from_utf8_lossy(&output.stderr);
+                    if !agg_verify_stdout.is_empty() {
+                        info!("Zisk aggregation verification output: {}", agg_verify_stdout);
+                    }
+                    if !agg_verify_stderr.is_empty() {
+                        info!("Zisk aggregation verification stderr: {}", agg_verify_stderr);
                     }
                     
                     time.stop_with("==> Zisk aggregation verification complete");
@@ -371,6 +390,16 @@ impl Prover for ZiskProver {
                             "Zisk verification failed: {}",
                             String::from_utf8_lossy(&verify_output.stderr)
                         )));
+                    }
+                    
+                    // Log verification output
+                    let verify_stdout = String::from_utf8_lossy(&verify_output.stdout);
+                    let verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
+                    if !verify_stdout.is_empty() {
+                        info!("Zisk verification output: {}", verify_stdout);
+                    }
+                    if !verify_stderr.is_empty() {
+                        info!("Zisk verification stderr: {}", verify_stderr);
                     }
                     
                     time.stop_with("==> Zisk batch verification complete");
@@ -521,51 +550,6 @@ async fn ensure_rom_setup(elf_path: &str) -> Result<(), ProverError> {
     }
 }
 
-/// Check if proof already exists and return it
-fn read_existing_proof(build_dir: &str) -> Result<ZiskResponse, ProverError> {
-    let proof_file_path = format!("{}/proof/vadcop_final_proof.bin", build_dir);
-    let metadata_file = format!("{}/metadata.json", build_dir);
-    
-    if !Path::new(&proof_file_path).exists() {
-        return Err(ProverError::GuestError("Proof file not found".to_string()));
-    }
-    
-    let proof_data = std::fs::read(&proof_file_path)
-        .map_err(|e| ProverError::GuestError(format!("Failed to read existing proof: {}", e)))?;
-    
-    let proof_hex = hex::encode(&proof_data);
-    
-    let (receipt, input, uuid) = if Path::new(&metadata_file).exists() {
-        if let Ok(metadata_str) = std::fs::read_to_string(&metadata_file) {
-            if let Ok(metadata_json) = serde_json::from_str::<serde_json::Value>(&metadata_str) {
-                let receipt = metadata_json.get("receipt")
-                    .and_then(|r| r.as_str())
-                    .map(|s| s.to_string());
-                let input = metadata_json.get("input")
-                    .and_then(|i| i.as_str())
-                    .and_then(|s| s.parse::<B256>().ok());
-                let uuid = metadata_json.get("uuid")
-                    .and_then(|u| u.as_str())
-                    .map(|s| s.to_string());
-                (receipt, input, uuid)
-            } else {
-                (Some(metadata_str), None, None)
-            }
-        } else {
-            (None, None, None)
-        }
-    } else {
-        (None, None, None)
-    };
-    
-    Ok(ZiskResponse {
-        proof: Some(proof_hex),
-        receipt,
-        input,
-        uuid,
-    })
-}
-
 /// Generate proof using MPI for concurrent execution if configured
 fn generate_proof_with_mpi(
     elf_path: &str,
@@ -612,6 +596,16 @@ fn generate_proof_with_mpi(
         )));
     }
     
+    // Log Zisk program output (this includes the public outputs from set_output calls)
+    let stdout_output = String::from_utf8_lossy(&output.stdout);
+    let stderr_output = String::from_utf8_lossy(&output.stderr);
+    if !stdout_output.is_empty() {
+        info!("Zisk program output: {}", stdout_output);
+    }
+    if !stderr_output.is_empty() {
+        info!("Zisk program stderr: {}", stderr_output);
+    }
+    
     Ok(())
 }
 
@@ -627,13 +621,7 @@ fn verify_zisk_constraints(elf_path: &str, input_path: &str) -> Result<(), Prove
     let proving_key_path = std::env::var("HOME")
         .map(|home| format!("{}/.zisk/provingKey", home))
         .unwrap_or_else(|_| "$HOME/.zisk/provingKey".to_string());
-    
-    info!("📋 Using paths:");
-    info!("  - ELF: {}", elf_path);
-    info!("  - Input: {}", input_path);
-    info!("  - Witness lib: {}", witness_lib_path);
-    info!("  - Proving key: {}", proving_key_path);
-    
+        
     // Run cargo-zisk verify-constraints command
     let output = Command::new("cargo-zisk")
         .args([
@@ -648,22 +636,22 @@ fn verify_zisk_constraints(elf_path: &str, input_path: &str) -> Result<(), Prove
     
     // Check if verification succeeded
     if output.status.success() {
-        info!("✅ Zisk constraints verification PASSED");
+        info!("Zisk constraints verification PASSED");
         let stdout = String::from_utf8_lossy(&output.stdout);
         if !stdout.is_empty() {
-            info!("📝 Verification output:\n{}", stdout);
+            info!("Verification output:\n{}", stdout);
         }
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
         
-        info!("❌ Zisk constraints verification FAILED");
+        info!("Zisk constraints verification FAILED");
         if !stdout.is_empty() {
-            info!("📝 Verification stdout:\n{}", stdout);
+            info!("Verification stdout:\n{}", stdout);
         }
         if !stderr.is_empty() {
-            info!("🔥 Verification stderr:\n{}", stderr);
+            info!("Verification stderr:\n{}", stderr);
         }
         
         Err(ProverError::GuestError(format!(

@@ -12,6 +12,9 @@ guest: ## Build the guest binary
 build: # Build the project
 	./script/build.sh $(TARGET)
 
+gpu: ## Build the project with GPU support (NVIDIA GPUs only)
+	GPU=1 ./script/build.sh $(TARGET)
+
 run: ## Run the project
 	RUN=1 ./script/build.sh $(TARGET)
 

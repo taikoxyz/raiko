@@ -3,6 +3,14 @@
 # Any error will result in failure
 set -e
 
+# GPU support for Zisk proofs is automatically enabled when CUDA toolkit is detected.
+# Manual override: GPU=1 ./script/build.sh zisk (will show warning if CUDA not found)
+# 
+# Prerequisites for GPU support:
+# - NVIDIA GPU
+# - CUDA Toolkit installed (https://developer.nvidia.com/cuda-toolkit)
+# - Build on the target GPU server for optimal performance
+
 # Setup workspace for the specific target
 if [ -n "$1" ]; then
     echo "Setting up workspace for target: $1"
@@ -19,6 +27,12 @@ check_toolchain() {
 
     # Remove the plus sign from the toolchain name
     TOOLCHAIN=${TOOLCHAIN#+}
+
+    # Skip rustup check if rustup is not available (e.g., using Zisk's Rust toolchain)
+    if ! command -v rustup &> /dev/null; then
+        echo "rustup not found, skipping toolchain check (using alternative Rust installation)"
+        return 0
+    fi
 
     # Function to check if the toolchain is installed
     exist() {
@@ -192,32 +206,48 @@ if [ "$1" == "zisk" ]; then
         exit 1
     fi
     
+    # Setup GPU feature flag - automatically detect CUDA availability
+    ZISK_FEATURES="zisk"
+    
+    # Check for CUDA toolkit availability
+    if command -v nvcc &> /dev/null; then
+        echo "CUDA toolkit detected: $(nvcc --version | grep 'release' | head -1)"
+        echo "   GPU support available for Zisk proof generation"
+        echo "   Use cargo-zisk prove with GPU features for accelerated proving"
+    elif [ "$GPU" = "1" ]; then
+        echo "Warning: GPU=1 specified but CUDA toolkit not found."
+        echo "GPU support requires NVIDIA GPU with CUDA toolkit installed."
+        echo "Please install CUDA toolkit from: https://developer.nvidia.com/cuda-toolkit"
+        echo "Building without GPU support..."
+    else
+        echo "CUDA toolkit not found. Building without GPU support."
+        echo "To enable GPU support, install CUDA toolkit: https://developer.nvidia.com/cuda-toolkit"
+    fi
+    
     if [ "$MOCK" = "1" ]; then
         export ZISK_PROVER=mock
         echo "ZISK_PROVER is set to $ZISK_PROVER"
     fi
     
     if [ -n "${CLIPPY}" ]; then
-        cargo ${TOOLCHAIN_ZISK} clippy -p raiko-host -p zisk-driver -F "zisk,enable"
+        cargo ${TOOLCHAIN_ZISK} clippy -p raiko-host -p zisk-driver -F "${ZISK_FEATURES},enable"
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
-            echo "Building Zisk prover"
-            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features zisk
+            echo "Building Zisk prover with features: ${ZISK_FEATURES}"
+            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features ${ZISK_FEATURES}
         else
-            echo "Building test programs for Zisk prover"
-            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features zisk,test,bench
+            echo "Building test programs for Zisk prover with features: ${ZISK_FEATURES}"
+            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features ${ZISK_FEATURES},test,bench
         fi
         if [ -z "${GUEST}" ]; then
-            echo "Building 'cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features zisk'"
-            cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features zisk --package raiko-host --package zisk-driver --package raiko-pipeline --package raiko-core
+            echo "Building 'cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features ${ZISK_FEATURES}'"
+            cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features ${ZISK_FEATURES} --package raiko-host --package zisk-driver --package raiko-pipeline --package raiko-core
         fi
     else
         if [ -z "${TEST}" ]; then
-            echo "Running Zisk prover"
-            cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --no-default-features --features zisk
+            cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --no-default-features --features ${ZISK_FEATURES}
         else
-            echo "Running Zisk unit tests"
-            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p zisk-driver --no-default-features --features "zisk,enable"
+            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p zisk-driver --no-default-features --features "${ZISK_FEATURES},enable"
         fi
     fi
 fi

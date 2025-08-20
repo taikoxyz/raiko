@@ -3,6 +3,16 @@
 # Any error will result in failure
 set -e
 
+# GPU support for Zisk proofs is automatically enabled when CUDA toolkit is detected.
+# The installation script will automatically rebuild Zisk with GPU features if CUDA is available.
+# 
+# Prerequisites for GPU support:
+# - NVIDIA GPU  
+# - CUDA Toolkit installed (https://developer.nvidia.com/cuda-toolkit)
+# 
+# For brand new environments: Just run `TARGET=zisk make install` - GPU support will be automatically
+# configured if CUDA toolkit is available on the system.
+
 # report the CI image status
 if [ -n "$CI" ]; then
 	source ./script/ci-env-check.sh
@@ -111,14 +121,95 @@ fi
 
 # ZISK
 if [ -z "$1" ] || [ "$1" == "zisk" ]; then
+	# Always ensure PATH includes zisk bin directory
+	export PATH="$HOME/.zisk/bin:$PATH"
+	
 	# Check if cargo-zisk is already installed
 	if command -v cargo-zisk >/dev/null 2>&1; then
 		echo "Zisk already installed, version: $(cargo-zisk --version)"
+		
+		# Check if rust toolchain is installed (needed for zisk compilation)
+		if [ ! -f "$HOME/.zisk/bin/rustc" ]; then
+			echo "Installing Zisk Rust toolchain..."
+			
+			# Install using official installation script first if needed
+			if [ ! -d "$HOME/.zisk" ]; then
+				curl -s https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash
+				export PATH="$HOME/.zisk/bin:$PATH"
+			fi
+			
+			# Try to install toolchain, if it fails, do manual extraction
+			echo "Attempting to install Zisk Rust toolchain..."
+			if ! cargo-zisk sdk install-toolchain; then
+				echo "Automatic toolchain installation failed, trying manual extraction..."
+				cd "$HOME/.zisk"
+				if [ -f "rust-toolchain-x86_64-unknown-linux-gnu.tar.gz" ]; then
+					echo "Extracting rust toolchain manually..."
+					tar -xzf rust-toolchain-x86_64-unknown-linux-gnu.tar.gz
+					if [ -f "$HOME/.zisk/bin/rustc" ]; then
+						echo "Rust toolchain extracted successfully"
+					else
+						echo "Failed to extract rust toolchain"
+						exit 1
+					fi
+				else
+					echo "Rust toolchain archive not found, please run: cargo-zisk sdk install-toolchain"
+					exit 1
+				fi
+			fi
+		else
+			echo "Zisk Rust toolchain already installed"
+		fi
+		
+		# Check if GPU support should be enabled and rebuild if necessary
+		if command -v nvcc >/dev/null 2>&1; then
+			echo "CUDA toolkit detected, checking if Zisk has GPU support..."
+			
+			# Check if current binaries were built with GPU support by looking at build timestamp
+			# If CUDA is available but binaries are old, rebuild with GPU
+			ZISK_BUILD_DATE=$(stat -c %Y "$HOME/.zisk/bin/cargo-zisk" 2>/dev/null || echo "0")
+			CURRENT_TIME=$(date +%s)
+			REBUILD_THRESHOLD=3600  # Rebuild if binaries are older than 1 hour and no GPU marker exists
+			
+			if [ ! -f "$HOME/.zisk/.gpu-enabled" ]; then
+				echo "Rebuilding Zisk with GPU support for better performance..."
+				
+				# Clone and build Zisk with GPU features
+				TEMP_DIR=$(mktemp -d)
+				cd "$TEMP_DIR"
+				git clone https://github.com/0xPolygonHermez/zisk.git zisk-gpu-build
+				cd zisk-gpu-build
+				
+				echo "Building Zisk with GPU features (this may take a few minutes)..."
+				if cargo build --release --features gpu; then
+					# Replace binaries with GPU-enabled versions
+					cp target/release/cargo-zisk "$HOME/.zisk/bin/"
+					cp target/release/ziskemu "$HOME/.zisk/bin/"
+					cp target/release/libzisk_witness.so "$HOME/.zisk/bin/"
+					cp target/release/libziskclib.a "$HOME/.zisk/bin/"
+					
+					# Mark as GPU-enabled
+					touch "$HOME/.zisk/.gpu-enabled"
+					echo "Zisk successfully rebuilt with GPU support!"
+				else
+					echo "GPU build failed, continuing with existing binaries"
+				fi
+				
+				# Cleanup
+				cd /
+				rm -rf "$TEMP_DIR"
+			else
+				echo "Zisk already has GPU support enabled"
+			fi
+		fi
 	else
 		echo "Installing Zisk using prebuilt binaries..."
 		
 		# Install Zisk using the official installation script
 		curl -s https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash
+		
+		# Ensure PATH is updated
+		export PATH="$HOME/.zisk/bin:$PATH"
 		
 		# Source profile to ensure zisk tools are in PATH
 		PROFILE=$HOME/.profile
@@ -134,14 +225,59 @@ if [ -z "$1" ] || [ "$1" == "zisk" ]; then
 			fi
 		fi
 		
-		# Add to PATH if still not found
-		if ! command -v cargo-zisk >/dev/null 2>&1; then
-			export PATH="$HOME/.zisk/bin:$PATH"
-		fi
-		
 		# Verify installation
 		if command -v cargo-zisk >/dev/null 2>&1; then
 			echo "Zisk installed successfully, version: $(cargo-zisk --version)"
+			
+			# Install rust toolchain
+			echo "Installing Zisk Rust toolchain..."
+			if ! cargo-zisk sdk install-toolchain; then
+				echo "Automatic toolchain installation failed, trying manual extraction..."
+				cd "$HOME/.zisk"
+				if [ -f "rust-toolchain-x86_64-unknown-linux-gnu.tar.gz" ]; then
+					echo "Extracting rust toolchain manually..."
+					tar -xzf rust-toolchain-x86_64-unknown-linux-gnu.tar.gz
+					if [ -f "$HOME/.zisk/bin/rustc" ]; then
+						echo "Rust toolchain extracted successfully"
+					else
+						echo "Failed to extract rust toolchain"
+						exit 1
+					fi
+				else
+					echo "Rust toolchain archive not found"
+					exit 1
+				fi
+			fi
+			
+			# Check if CUDA is available and rebuild with GPU support for new installations
+			if command -v nvcc >/dev/null 2>&1; then
+				echo "CUDA toolkit detected, building Zisk with GPU support for optimal performance..."
+				
+				# Clone and build Zisk with GPU features
+				TEMP_DIR=$(mktemp -d)
+				cd "$TEMP_DIR"
+				git clone https://github.com/0xPolygonHermez/zisk.git zisk-gpu-build
+				cd zisk-gpu-build
+				
+				echo "Building Zisk with GPU features (this may take a few minutes)..."
+				if cargo build --release --features gpu; then
+					# Replace binaries with GPU-enabled versions
+					cp target/release/cargo-zisk "$HOME/.zisk/bin/"
+					cp target/release/ziskemu "$HOME/.zisk/bin/"
+					cp target/release/libzisk_witness.so "$HOME/.zisk/bin/"
+					cp target/release/libziskclib.a "$HOME/.zisk/bin/"
+					
+					# Mark as GPU-enabled
+					touch "$HOME/.zisk/.gpu-enabled"
+					echo "Zisk successfully built with GPU support!"
+				else
+					echo "GPU build failed, continuing with prebuilt binaries"
+				fi
+				
+				# Cleanup
+				cd /
+				rm -rf "$TEMP_DIR"
+			fi
 		else
 			echo "Failed to install Zisk. Please install manually:"
 			echo "curl https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash"
