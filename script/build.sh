@@ -256,6 +256,14 @@ if [ "$1" == "zisk" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Zisk prover with features: ${ZISK_FEATURES}"
             cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features ${ZISK_FEATURES}
+            # Set default Zisk image IDs for consistency with other zkVMs
+            # Check multiple indicators that we're in a container/CI environment
+            # if [ -f "/.dockerenv" ] || [ -n "${DOCKER_BUILDKIT}" ] || [ -n "${CI}" ] || [ ! -f ".env" ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+            #     echo "Container/CI build detected, skipping .env update (will be handled by publish-image.sh)"
+            # else
+            #     echo "Setting default Zisk image IDs..."
+            #     ./script/update_imageid.sh zisk
+            # fi
         else
             echo "Building test programs for Zisk prover with features: ${ZISK_FEATURES}"
             cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features ${ZISK_FEATURES},test,bench
