@@ -759,6 +759,8 @@ impl ImageIdReader for ProofType {
             (ProofType::Sp1, _) => "SP1_BATCH_VK_HASH",
             (ProofType::Sgx, _) => "SGX_MRENCLAVE",
             (ProofType::SgxGeth, _) => "SGXGETH_MRENCLAVE",
+            (ProofType::Zisk, Some("aggregation")) => "ZISK_AGGREGATION_ID",
+            (ProofType::Zisk, _) => "ZISK_BATCH_ID",
             _ => panic!("Unsupported proof type for image ID: {:?}", self),
         }
     }
@@ -776,6 +778,10 @@ impl ImageIdReader for ProofType {
             (ProofType::Sgx, _) => 
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
             (ProofType::SgxGeth, _) => 
+                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            (ProofType::Zisk, Some("aggregation")) => 
+                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            (ProofType::Zisk, _) => 
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
             _ => panic!("Unsupported proof type for default value: {:?}", self),
         }
@@ -799,6 +805,10 @@ pub struct ImageId {
     pub sgx_enclave: Option<String>,
     /// SGX Geth enclave MRENCLAVE
     pub sgxgeth_enclave: Option<String>,
+    /// Zisk aggregation ID
+    pub zisk_agg_id: Option<String>,
+    /// Zisk batch ID
+    pub zisk_batch_id: Option<String>,
 }
 
 impl ImageId {
@@ -810,6 +820,8 @@ impl ImageId {
             sp1_batch_vk_hash: None,
             sgx_enclave: None,
             sgxgeth_enclave: None,
+            zisk_agg_id: None,
+            zisk_batch_id: None,
         }
     }
 
@@ -846,6 +858,16 @@ impl ImageId {
             ProofType::SgxGeth => {
                 if let Ok(mrenclave) = proof_type.read_image_id(None) {
                     image_id.sgxgeth_enclave = Some(mrenclave);
+                }
+            }
+            ProofType::Zisk => {
+                let request_type = if is_aggregation { Some("aggregation") } else { None };
+                if let Ok(id) = proof_type.read_image_id(request_type) {
+                    if is_aggregation {
+                        image_id.zisk_agg_id = Some(id);
+                    } else {
+                        image_id.zisk_batch_id = Some(id);
+                    }
                 }
             }
             _ => {
