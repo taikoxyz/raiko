@@ -121,11 +121,8 @@ async fn batch_handler(
     } in batch_request.batches.iter()
     {
         // Create input request key without image ID
-        let input_request_key = RequestKey::batch_guest_input(
-            chain_id,
-            *batch_id,
-            *l1_inclusion_block_number,
-        );
+        let input_request_key =
+            RequestKey::batch_guest_input(chain_id, *batch_id, *l1_inclusion_block_number);
 
         // Create proof request key with image ID
         let request_key = RequestKey::batch_proof_with_image_id(
