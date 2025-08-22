@@ -51,9 +51,6 @@ pub struct ZiskParam {
     pub concurrent_processes: Option<u32>,
     #[serde(default)]
     pub threads_per_process: Option<u32>,
-    #[serde(default)]
-    /// Enable individual proof verification on host before aggregation
-    pub host_verification: Option<bool>,
 }
 
 const DEFAULT_TRUE: fn() -> bool = || true;
@@ -173,54 +170,6 @@ impl Prover for ZiskProver {
             input.proofs.len(), request_id
         );
 
-
-        // Default: Skip for performance
-        // Optional: Enable for extra security validation
-        if param.host_verification.unwrap_or(false) {
-            info!("🐌 HOST VERIFICATION ENABLED");
-            
-            for (i, proof) in input.proofs.iter().enumerate() {
-                if let Some(proof_data) = &proof.quote {
-                    info!("Verifying proof {} using ZisK's native verification", i);
-                    
-                    // Write proof data to temporary file for verification
-                    let temp_proof_path = format!("{}/temp_proof_{}.bin", build_dir, i);
-                    std::fs::write(&temp_proof_path, proof_data.as_bytes())
-                        .map_err(|e| ProverError::GuestError(format!("Failed to write temp proof: {e}")))?;
-                    
-                    // Verify proof using ZisK's native verification
-                    let verify_output = Command::new("cargo-zisk")
-                        .args(["verify", "-p", &temp_proof_path])
-                        .output()
-                        .map_err(|e| ProverError::GuestError(format!("ZisK proof verification failed: {e}")))?;
-                    
-                    if !verify_output.status.success() {
-                        let error_msg = String::from_utf8_lossy(&verify_output.stderr);
-                        return Err(ProverError::GuestError(format!(
-                            "Proof {} verification failed: {}", i, error_msg
-                        )));
-                    }
-                    
-                    // Log individual proof verification output
-                    let individual_verify_stdout = String::from_utf8_lossy(&verify_output.stdout);
-                    let individual_verify_stderr = String::from_utf8_lossy(&verify_output.stderr);
-                    if !individual_verify_stdout.is_empty() {
-                        info!("Zisk proof {} verification output: {}", i, individual_verify_stdout);
-                    }
-                    if !individual_verify_stderr.is_empty() {
-                        info!("Zisk proof {} verification stderr: {}", i, individual_verify_stderr);
-                    }
-                    
-                    info!("Proof {} verified successfully using ZisK", i);
-                    
-                    // Clean up temporary proof file
-                    let _ = std::fs::remove_file(&temp_proof_path);
-                }
-            }
-        } else {
-            info!("To enable host verification, set 'host_verification: true' in zisk config");
-        }
-
         // Create input file for Zisk - use unique build directory
         let input_data = bincode::serialize(&zisk_input)
             .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
@@ -232,8 +181,6 @@ impl Prover for ZiskProver {
         let input_file_path = format!("{}/input.bin", build_dir);
         std::fs::write(&input_file_path, input_data)
             .map_err(|e| ProverError::GuestError(format!("Failed to write input file: {e}")))?;
-
-
 
         // Use the permanent ELF file instead of temporary copy
         let temp_elf_path = "provers/zisk/guest/elf/zisk-aggregation";
@@ -572,7 +519,7 @@ fn generate_proof_with_mpi(
                 "-e", elf_path,
                 "-i", input_path,
                 "-o", output_dir,
-                "-a", "-y"
+                "-a"
             ])
             .output()
             .map_err(|e| ProverError::GuestError(format!("Zisk MPI prove failed: {e}")))?
@@ -583,7 +530,7 @@ fn generate_proof_with_mpi(
                 "-e", elf_path,
                 "-i", input_path,
                 "-o", output_dir,
-                "-a", "-y"
+                "-a"
             ])
             .output()
             .map_err(|e| ProverError::GuestError(format!("Zisk prove failed: {e}")))?
@@ -611,7 +558,7 @@ fn generate_proof_with_mpi(
 
 /// Verify Zisk constraints using the official cargo-zisk verify-constraints command
 fn verify_zisk_constraints(elf_path: &str, input_path: &str) -> Result<(), ProverError> {
-    info!("🔍 Verifying Zisk constraints for GuestBatchInput using cargo-zisk");
+    info!("Verifying Zisk constraints for GuestBatchInput using cargo-zisk");
     
     // Get Zisk binary paths
     let witness_lib_path = std::env::var("HOME")
@@ -678,6 +625,8 @@ mod test {
         let param = ZiskParam {
             prover: Some(ProverMode::Local),
             verify: true,
+            concurrent_processes: None,
+            threads_per_process: None,
         };
         let serialized = serde_json::to_value(param).unwrap();
         assert_eq!(json, serialized);

@@ -56,7 +56,7 @@ class AggregationPriorityTester:
         log_file: str = "aggregation_priority_test.log",
         prove_type: str = "native",
         request_delay: float = 0.0,
-        polling_interval: int = 3,
+        polling_interval: int = 15,
         request_timeout: int = 90,
     ):
         self.raiko_rpc = raiko_rpc
@@ -245,7 +245,7 @@ class AggregationPriorityTester:
             }
         elif self.prove_type == "zisk":
             base_request["zisk"] = {
-                "verify": False,
+                "verify": True,
                 "execution_mode": "prove",
             }
         
@@ -491,6 +491,7 @@ class AggregationPriorityTester:
                                     successful_aggregations.append({
                                         "request_id": agg_request_id,
                                         "batch_ids": [b for b, _ in current_batch_group],
+                                        "original_batch_data": current_batch_group.copy(),  # Store original (batch_id, l1_inclusion_block) pairs
                                         "submission": agg_submission,
                                         "aggregation_number": aggregation_count
                                     })
@@ -524,8 +525,8 @@ class AggregationPriorityTester:
                     if request_id in completed_aggregations:
                         continue
                     
-                    batch_ids = agg_req["batch_ids"]
-                    payload = self.create_aggregation_request([(bid, 4110000) for bid in batch_ids])
+                    original_batch_data = agg_req["original_batch_data"]
+                    payload = self.create_aggregation_request(original_batch_data)
                     
                     try:
                         response = await self.raiko_status_query(payload, "aggregation", request_id)
@@ -573,7 +574,7 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 1, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 4110000, 
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -665,7 +666,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=1,
+        default=2,
         help="Total number of batches to process"
     )
     
