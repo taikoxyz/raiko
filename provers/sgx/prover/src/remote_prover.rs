@@ -1,5 +1,6 @@
 #![cfg(feature = "enable")]
 
+use crate::{SgxParam, SgxResponse};
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
@@ -11,7 +12,6 @@ use raiko_lib::{
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::time::Duration;
-use crate::{SgxParam, SgxResponse};
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct RemoteSgxResponse {
