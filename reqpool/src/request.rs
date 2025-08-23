@@ -752,36 +752,19 @@ impl ImageIdReader for ProofType {
         }
     }
 
-    fn env_var_name(&self, request_type: Option<&str>) -> &'static str {
-        match (self, request_type) {
-            (ProofType::Risc0, Some("aggregation")) => "RISC0_AGGREGATION_ID",
-            (ProofType::Risc0, _) => "RISC0_BATCH_ID",
-            (ProofType::Sp1, Some("aggregation")) => "SP1_AGGREGATION_VK_HASH",
-            (ProofType::Sp1, _) => "SP1_BATCH_VK_HASH",
-            (ProofType::Sgx, _) => "SGX_MRENCLAVE",
-            (ProofType::SgxGeth, _) => "SGXGETH_MRENCLAVE",
+    fn env_var_name(&self, _request_type: Option<&str>) -> &'static str {
+        match self {
+            ProofType::Risc0 => "RISC0_BATCH_ID",
+            ProofType::Sp1 => "SP1_BATCH_VK_HASH",
+            ProofType::Sgx => "SGX_MRENCLAVE",
+            ProofType::SgxGeth => "SGXGETH_MRENCLAVE",
             _ => panic!("Unsupported proof type for image ID: {:?}", self),
         }
     }
 
-    fn default_value(&self, request_type: Option<&str>) -> &'static str {
-        match (self, request_type) {
-            (ProofType::Risc0, Some("aggregation")) => {
-                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-            }
-            (ProofType::Risc0, _) => {
-                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-            }
-            (ProofType::Sp1, Some("aggregation")) => {
-                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-            }
-            (ProofType::Sp1, _) => {
-                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-            }
-            (ProofType::Sgx, _) => {
-                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-            }
-            (ProofType::SgxGeth, _) => {
+    fn default_value(&self, _request_type: Option<&str>) -> &'static str {
+        match self {
+            ProofType::Risc0 | ProofType::Sp1 | ProofType::Sgx | ProofType::SgxGeth => {
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
             }
             _ => panic!("Unsupported proof type for default value: {:?}", self),
@@ -794,12 +777,8 @@ impl ImageIdReader for ProofType {
     PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord, Hash, RedisValue,
 )]
 pub struct ImageId {
-    /// RISC0 aggregation ID
-    pub risc0_agg_id: Option<String>,
     /// RISC0 batch ID
     pub risc0_batch_id: Option<String>,
-    /// SP1 aggregation VK hash
-    pub sp1_agg_vk_hash: Option<String>,
     /// SP1 batch VK hash
     pub sp1_batch_vk_hash: Option<String>,
     /// SGX enclave MRENCLAVE
@@ -811,46 +790,26 @@ pub struct ImageId {
 impl ImageId {
     pub fn new() -> Self {
         Self {
-            risc0_agg_id: None,
             risc0_batch_id: None,
-            sp1_agg_vk_hash: None,
             sp1_batch_vk_hash: None,
             sgx_enclave: None,
             sgxgeth_enclave: None,
         }
     }
 
-    /// Create an ImageId based on the proof type and request type (aggregation or batch)
-    pub fn from_proof_type_and_request_type(proof_type: &ProofType, is_aggregation: bool) -> Self {
+    /// Create an ImageId based on the proof type (always uses batch IDs for data lookup)
+    pub fn from_proof_type_and_request_type(proof_type: &ProofType, _is_aggregation: bool) -> Self {
         let mut image_id = Self::new();
 
         match proof_type {
             ProofType::Risc0 => {
-                let request_type = if is_aggregation {
-                    Some("aggregation")
-                } else {
-                    None
-                };
-                if let Ok(id) = proof_type.read_image_id(request_type) {
-                    if is_aggregation {
-                        image_id.risc0_agg_id = Some(id);
-                    } else {
-                        image_id.risc0_batch_id = Some(id);
-                    }
+                if let Ok(id) = proof_type.read_image_id(None) {
+                    image_id.risc0_batch_id = Some(id);
                 }
             }
             ProofType::Sp1 => {
-                let request_type = if is_aggregation {
-                    Some("aggregation")
-                } else {
-                    None
-                };
-                if let Ok(id) = proof_type.read_image_id(request_type) {
-                    if is_aggregation {
-                        image_id.sp1_agg_vk_hash = Some(id);
-                    } else {
-                        image_id.sp1_batch_vk_hash = Some(id);
-                    }
+                if let Ok(id) = proof_type.read_image_id(None) {
+                    image_id.sp1_batch_vk_hash = Some(id);
                 }
             }
             ProofType::Sgx => {
