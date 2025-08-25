@@ -120,6 +120,15 @@ pub async fn run_prover(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskProver
+                .run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
     }
 }
 
@@ -161,6 +170,15 @@ pub async fn run_batch_prover(
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskProver
+                .batch_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "zisk"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
     }
@@ -206,6 +224,15 @@ pub async fn aggregate_proofs(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskProver
+                .aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
     }?;
 
     Ok(proof)
@@ -246,6 +273,15 @@ pub async fn cancel_proof(
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskProver
+                .cancel(proof_key, read)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "zisk"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
     }?;
@@ -416,6 +452,8 @@ pub struct ProverSpecificOpts {
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
     pub risc0: Option<Value>,
+    /// Zisk prover specific options.
+    pub zisk: Option<Value>,
 }
 
 impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificOpts>
@@ -428,6 +466,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
             ("sgxgeth", value.sgxgeth.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
+            ("zisk", value.zisk.clone()),
         ]
         .into_iter()
         .filter_map(|(name, value)| value.map(|v| (name.to_string(), v)))

@@ -63,3 +63,5 @@ perf.data.old
 .vscode/
 
 log.build.*
+
+venv/

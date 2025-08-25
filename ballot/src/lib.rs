@@ -141,12 +141,13 @@ mod tests {
     #[test]
     fn test_draw_deserialize() {
         {
-            let serialized = "{\"Sp1\":[0.1, 100],\"Risc0\":[0.2, 100]}";
+            let serialized = "{\"Sp1\":[0.1, 100],\"Risc0\":[0.2, 100],\"Zisk\":[0.15, 100]}";
             let probs: BTreeMap<ProofType, (f64, u64)> = serde_json::from_str(serialized).unwrap();
             let ballot = Ballot::new(probs).unwrap();
-            assert_eq!(ballot.probabilities.len(), 2);
+            assert_eq!(ballot.probabilities.len(), 3);
             assert_eq!(ballot.probabilities.get(&ProofType::Sp1), Some(&0.1));
             assert_eq!(ballot.probabilities.get(&ProofType::Risc0), Some(&0.2));
+            assert_eq!(ballot.probabilities.get(&ProofType::Zisk), Some(&0.15));
         }
         {
             let serialized = "{}";
