@@ -129,6 +129,8 @@ RUN echo "Updating .env file with extracted MRENCLAVE..." && \
         echo "SGXGETH_MRENCLAVE=$SGXGETH_MRENCLAVE" >> .env; \
     fi && \
     echo "Final .env file:" && \
-    cat .env
+    cat .env && \
+    cp .env bin/.env
 
+WORKDIR /opt/raiko/bin
 ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]
