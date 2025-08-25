@@ -151,10 +151,8 @@ impl Actor {
                 }
                 Err(error_msg) => {
                     // If queue is at capacity, update the status to Failed
-                    let failed_status = StatusWithContext::new(
-                        Status::Failed { error: error_msg },
-                        start_time,
-                    );
+                    let failed_status =
+                        StatusWithContext::new(Status::Failed { error: error_msg }, start_time);
                     self.pool_update_status(request_key.clone(), failed_status.clone())
                         .await?;
                     return Ok(failed_status);
@@ -277,10 +275,7 @@ mod tests {
         assert!(matches!(result.status(), Status::Registered));
 
         // Verify request was added to pool
-        let pool_status = actor
-            .pool_get_status(&request_key)
-            .await
-            .unwrap();
+        let pool_status = actor.pool_get_status(&request_key).await.unwrap();
         assert!(pool_status.is_some());
         assert!(matches!(pool_status.unwrap().status(), Status::Registered));
     }
@@ -422,11 +417,7 @@ mod tests {
         assert!(queue.contains(&request_key));
 
         // The pool status should be updated to Registered
-        let pool_status = actor
-            .pool_get_status(&request_key)
-            .await
-            .unwrap()
-            .unwrap();
+        let pool_status = actor.pool_get_status(&request_key).await.unwrap().unwrap();
         assert!(matches!(pool_status.status(), Status::Registered));
     }
 }

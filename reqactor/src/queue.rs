@@ -44,7 +44,11 @@ impl Queue {
         self.queued_keys.len()
     }
 
-    pub fn add_pending(&mut self, request_key: RequestKey, request_entity: RequestEntity) -> Result<(), String> {
+    pub fn add_pending(
+        &mut self,
+        request_key: RequestKey,
+        request_entity: RequestEntity,
+    ) -> Result<(), String> {
         // Check if queue is at capacity
         if self.is_at_capacity() {
             return Err("Reached the maximum queue size, please try again later".to_string());
@@ -222,7 +226,10 @@ mod tests {
         let overflow_request_entity = create_single_proof_request_entity(3);
         let result = queue.add_pending(overflow_request_key, overflow_request_entity);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Reached the maximum queue size, please try again later");
+        assert_eq!(
+            result.unwrap_err(),
+            "Reached the maximum queue size, please try again later"
+        );
 
         // Verify queue size didn't change
         assert_eq!(queue.size(), 2);

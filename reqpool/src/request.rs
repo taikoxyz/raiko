@@ -365,7 +365,6 @@ impl From<BatchProofRequestKey> for RequestKey {
 
 // Helper functions to create request keys with image IDs
 impl RequestKey {
-
     /// Create a SingleProof request key with image ID
     pub fn single_proof_with_image_id(
         chain_id: ChainId,
@@ -399,11 +398,7 @@ impl RequestKey {
     }
 
     /// Create a BatchGuestInput request key without image ID
-    pub fn batch_guest_input(
-        chain_id: ChainId,
-        batch_id: u64,
-        l1_inclusion_height: u64,
-    ) -> Self {
+    pub fn batch_guest_input(chain_id: ChainId, batch_id: u64, l1_inclusion_height: u64) -> Self {
         RequestKey::BatchGuestInput(BatchGuestInputRequestKey::new(
             chain_id,
             batch_id,
@@ -733,24 +728,31 @@ impl std::fmt::Display for StatusWithContext {
 /// Trait for reading image IDs for different proof types
 pub trait ImageIdReader {
     /// Read the image ID from environment variables with fallback to default
-    fn read_image_id(&self, request_type: Option<&str>) -> Result<String, Box<dyn std::error::Error>>;
-    
+    fn read_image_id(
+        &self,
+        request_type: Option<&str>,
+    ) -> Result<String, Box<dyn std::error::Error>>;
+
     /// Get the environment variable name for this proof type and request type
     fn env_var_name(&self, request_type: Option<&str>) -> &'static str;
-    
+
     /// Get the default value if environment variable is not set
     fn default_value(&self, request_type: Option<&str>) -> &'static str;
 }
 
 impl ImageIdReader for ProofType {
-    fn read_image_id(&self, request_type: Option<&str>) -> Result<String, Box<dyn std::error::Error>> {
+    fn read_image_id(
+        &self,
+        request_type: Option<&str>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let env_var = self.env_var_name(request_type);
         match env::var(env_var) {
             Ok(value) => Ok(value),
             Err(_) => Ok(self.default_value(request_type).to_string()),
         }
     }
-    
+
+
     fn env_var_name(&self, _request_type: Option<&str>) -> &'static str {
         match self {
             ProofType::Risc0 => "RISC0_BATCH_ID",
@@ -801,7 +803,8 @@ impl ImageId {
         }
     }
 
-    /// Create an ImageId based on the proof type and request type (aggregation or batch)
+    /// Create an ImageId based on the proof type (always uses batch IDs for data lookup)
+
     pub fn from_proof_type_and_request_type(proof_type: &ProofType, _is_aggregation: bool) -> Self {
         let mut image_id = Self::new();
 
