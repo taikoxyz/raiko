@@ -24,5 +24,6 @@
   "native": {
     "json_guest_input": null
   },
-  "ballot": "{}"
+  "ballot_zk": "{\"Sp1\":1}",
+  "ballot_sgx": "{\"Sgx\":1}"
 }

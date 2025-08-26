@@ -4,7 +4,10 @@ use crate::{
         api::v3::{ProofResponse, Status},
         handler::prove_many,
         prove_aggregation,
-        utils::{draw_for_zk_any_batch_request, is_zk_any_request, to_v3_status},
+        utils::{
+            draw_for_sgx_any_batch_request, draw_for_zk_any_batch_request, is_sgx_any_request,
+            is_zk_any_request, to_v3_status,
+        },
     },
 };
 use axum::{extract::State, routing::post, Json, Router};
@@ -68,6 +71,22 @@ async fn batch_handler(
         // For zk_any request, draw zk proof type based on the block hash.
         if is_zk_any_request(&opts) {
             match draw_for_zk_any_batch_request(&actor, &opts).await? {
+                Some(proof_type) => opts["proof_type"] = serde_json::to_value(proof_type).unwrap(),
+                None => {
+                    return Ok(Status::Ok {
+                        proof_type: ProofType::Native,
+                        batch_id: Some(first_batch_id),
+                        data: ProofResponse::Status {
+                            status: TaskStatus::ZKAnyNotDrawn,
+                        },
+                    });
+                }
+            }
+        }
+
+        // For sgx_any request, draw sgx proof type based on the block hash.
+        if is_sgx_any_request(&opts) {
+            match draw_for_sgx_any_batch_request(&actor, &opts).await? {
                 Some(proof_type) => opts["proof_type"] = serde_json::to_value(proof_type).unwrap(),
                 None => {
                     return Ok(Status::Ok {

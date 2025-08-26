@@ -12,7 +12,9 @@ use serde_json::Value;
 use tracing::info;
 use utoipa::OpenApi;
 
-use crate::server::utils::{draw_for_zk_any_request, is_zk_any_request};
+use crate::server::utils::{
+    draw_for_sgx_any_request, draw_for_zk_any_request, is_sgx_any_request, is_zk_any_request,
+};
 use crate::{
     interfaces::HostResult,
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
@@ -53,6 +55,22 @@ async fn proof_handler(State(actor): State<Actor>, Json(req): Json<Value>) -> Ho
     // For zk_any request, draw zk proof type based on the block hash.
     if is_zk_any_request(&req) {
         match draw_for_zk_any_request(&actor, &serde_json::to_value(&config)?).await? {
+            Some(proof_type) => config.proof_type = Some(proof_type.to_string()),
+            None => {
+                return Ok(Status::Ok {
+                    proof_type: ProofType::Native,
+                    batch_id: None,
+                    data: ProofResponse::Status {
+                        status: TaskStatus::ZKAnyNotDrawn,
+                    },
+                });
+            }
+        }
+    }
+
+    // For sgx_any request, draw sgx proof type based on the block hash.
+    if is_sgx_any_request(&req) {
+        match draw_for_sgx_any_request(&actor, &serde_json::to_value(&config)?).await? {
             Some(proof_type) => config.proof_type = Some(proof_type.to_string()),
             None => {
                 return Ok(Status::Ok {

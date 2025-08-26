@@ -30,13 +30,15 @@ pub struct Actor {
     // TODO: Remove Mutex. currently, in order to pass `&mut Pool`, we need to use Arc<Mutex<Pool>>.
     pool: Arc<Mutex<Pool>>,
     // In order to support dynamic config via HTTP, we need to use Arc<Mutex<Ballot>>.
-    ballot: Arc<Mutex<Ballot>>,
+    ballot_zk: Arc<Mutex<Ballot>>,
+    ballot_sgx: Arc<Mutex<Ballot>>,
 }
 
 impl Actor {
     pub fn new(
         pool: Pool,
-        ballot: Ballot,
+        ballot_zk: Ballot,
+        ballot_sgx: Ballot,
         default_request_config: ProofRequestOpt,
         chain_specs: SupportedChainSpecs,
         action_tx: Sender<(Action, oneshot::Sender<Result<StatusWithContext, String>>)>,
@@ -48,7 +50,8 @@ impl Actor {
             action_tx,
             pause_tx,
             is_paused: Arc::new(AtomicBool::new(false)),
-            ballot: Arc::new(Mutex::new(ballot)),
+            ballot_zk: Arc::new(Mutex::new(ballot_zk)),
+            ballot_sgx: Arc::new(Mutex::new(ballot_sgx)),
             pool: Arc::new(Mutex::new(pool)),
         }
     }
@@ -119,18 +122,32 @@ impl Actor {
         Ok(())
     }
 
-    pub fn get_ballot(&self) -> Ballot {
-        self.ballot.lock().unwrap().clone()
+    pub fn get_ballot_zk(&self) -> Ballot {
+        self.ballot_zk.lock().unwrap().clone()
     }
 
-    pub fn set_ballot(&self, new_ballot: Ballot) {
-        let mut ballot = self.ballot.lock().unwrap();
-        *ballot = new_ballot;
+    pub fn get_ballot_sgx(&self) -> Ballot {
+        self.ballot_sgx.lock().unwrap().clone()
+    }
+
+    pub fn set_ballot_zk(&self, new_ballot: Ballot) {
+        let mut ballot_zk = self.ballot_zk.lock().unwrap();
+        *ballot_zk = new_ballot;
+    }
+
+    pub fn set_ballot_sgx(&self, new_ballot: Ballot) {
+        let mut ballot_sgx = self.ballot_sgx.lock().unwrap();
+        *ballot_sgx = new_ballot;
     }
 
     /// Draw proof types based on the block hash.
-    pub fn draw(&self, block_hash: &BlockHash) -> Option<ProofType> {
-        self.ballot.lock().unwrap().draw(block_hash)
+    pub fn draw_zk(&self, block_hash: &BlockHash) -> Option<ProofType> {
+        self.ballot_zk.lock().unwrap().draw(block_hash)
+    }
+
+    /// Draw proof types based on the block hash.
+    pub fn draw_sgx(&self, block_hash: &BlockHash) -> Option<ProofType> {
+        self.ballot_sgx.lock().unwrap().draw(block_hash)
     }
 }
 
@@ -160,6 +177,7 @@ mod tests {
         let actor = Actor::new(
             pool,
             Ballot::default(),
+            Ballot::default(),
             ProofRequestOpt::default(),
             SupportedChainSpecs::default(),
             action_tx,
@@ -183,6 +201,7 @@ mod tests {
         let pool = memory_pool("test_act_sends_action_and_returns_response");
         let actor = Actor::new(
             pool,
+            Ballot::default(),
             Ballot::default(),
             ProofRequestOpt::default(),
             SupportedChainSpecs::default(),

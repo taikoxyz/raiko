@@ -11,7 +11,10 @@ use crate::{
     metrics::{inc_current_req, inc_guest_req_count, inc_host_req_count},
     server::{
         api::v1::Status,
-        utils::{draw_for_zk_any_request, is_zk_any_request, to_v1_status},
+        utils::{
+            draw_for_sgx_any_request, draw_for_zk_any_request, is_sgx_any_request,
+            is_zk_any_request, to_v1_status,
+        },
     },
 };
 
@@ -49,6 +52,18 @@ async fn proof_handler(
             None => {
                 return Err(
                     anyhow::anyhow!("Failed to draw zk_any proof type for block hash").into(),
+                );
+            }
+        }
+    }
+
+    // For sgx_any request, draw sgx proof type based on the block hash.
+    if is_sgx_any_request(&req) {
+        match draw_for_sgx_any_request(&actor, &serde_json::to_value(&config)?).await? {
+            Some(proof_type) => config.proof_type = Some(proof_type.to_string()),
+            None => {
+                return Err(
+                    anyhow::anyhow!("Failed to draw sgx_any proof type for block hash").into(),
                 );
             }
         }

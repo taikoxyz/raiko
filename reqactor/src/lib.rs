@@ -20,7 +20,8 @@ pub use raiko_reqpool::{
 /// Run the actor backend in background, and return the actor.
 pub async fn start_actor(
     pool: Pool,
-    ballot: Ballot,
+    ballot_zk: Ballot,
+    ballot_sgx: Ballot,
     chain_specs: SupportedChainSpecs,
     default_request_config: ProofRequestOpt,
     max_proving_concurrency: usize,
@@ -41,7 +42,8 @@ pub async fn start_actor(
 
     Actor::new(
         pool,
-        ballot,
+        ballot_zk,
+        ballot_sgx,
         default_request_config,
         chain_specs.clone(),
         action_tx,
