@@ -382,44 +382,52 @@ update_env_file() {
         return 1
     fi
     
-    # Read current file content
-    local env_content=$(cat "$env_file")
-    
     # Update RISC0 image IDs if provided
     if [ -n "$RISC0_AGGREGATION_ID" ]; then
-        env_content=$(echo "$env_content" | sed "s/^RISC0_AGGREGATION_ID=.*/RISC0_AGGREGATION_ID=$RISC0_AGGREGATION_ID/")
+        if grep -q "^RISC0_AGGREGATION_ID=" "$env_file"; then
+            # Update existing entry
+            sed -i "s/^RISC0_AGGREGATION_ID=.*/RISC0_AGGREGATION_ID=$RISC0_AGGREGATION_ID/" "$env_file"
+        else
+            # Add new entry
+            echo "RISC0_AGGREGATION_ID=$RISC0_AGGREGATION_ID" >> "$env_file"
+        fi
         print_status "Updated RISC0_AGGREGATION_ID in $env_file: $RISC0_AGGREGATION_ID"
     fi
     
     if [ -n "$RISC0_BATCH_ID" ]; then
-        env_content=$(echo "$env_content" | sed "s/^RISC0_BATCH_ID=.*/RISC0_BATCH_ID=$RISC0_BATCH_ID/")
+        if grep -q "^RISC0_BATCH_ID=" "$env_file"; then
+            # Update existing entry
+            sed -i "s/^RISC0_BATCH_ID=.*/RISC0_BATCH_ID=$RISC0_BATCH_ID/" "$env_file"
+        else
+            # Add new entry
+            echo "RISC0_BATCH_ID=$RISC0_BATCH_ID" >> "$env_file"
+        fi
         print_status "Updated RISC0_BATCH_ID in $env_file: $RISC0_BATCH_ID"
     fi
     
     # Update SP1 VK hashes if provided
     if [ -n "$SP1_AGGREGATION_VK_HASH" ]; then
-        env_content=$(echo "$env_content" | sed "s/^SP1_AGGREGATION_VK_HASH=.*/SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH/")
+        if grep -q "^SP1_AGGREGATION_VK_HASH=" "$env_file"; then
+            # Update existing entry
+            sed -i "s/^SP1_AGGREGATION_VK_HASH=.*/SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH/" "$env_file"
+        else
+            # Add new entry
+            echo "SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH" >> "$env_file"
+        fi
         print_status "Updated SP1_AGGREGATION_VK_HASH in $env_file: $SP1_AGGREGATION_VK_HASH"
     fi
     
     if [ -n "$SP1_BATCH_VK_HASH" ]; then
-        env_content=$(echo "$env_content" | sed "s/^SP1_BATCH_VK_HASH=.*/SP1_BATCH_VK_HASH=$SP1_BATCH_VK_HASH/")
+        if grep -q "^SP1_BATCH_VK_HASH=" "$env_file"; then
+            # Update existing entry
+            sed -i "s/^SP1_BATCH_VK_HASH=.*/SP1_BATCH_VK_HASH=$SP1_BATCH_VK_HASH/" "$env_file"
+        else
+            # Add new entry
+            echo "SP1_BATCH_VK_HASH=$SP1_BATCH_VK_HASH" >> "$env_file"
+        fi
         print_status "Updated SP1_BATCH_VK_HASH in $env_file: $SP1_BATCH_VK_HASH"
     fi
-    
-    # Update Zisk image IDs if provided
-    if [ -n "$ZISK_AGGREGATION_ID" ]; then
-        env_content=$(echo "$env_content" | sed "s/^ZISK_AGGREGATION_ID=.*/ZISK_AGGREGATION_ID=$ZISK_AGGREGATION_ID/")
-        print_status "Updated ZISK_AGGREGATION_ID in $env_file: $ZISK_AGGREGATION_ID"
-    fi
-    
-    if [ -n "$ZISK_BATCH_ID" ]; then
-        env_content=$(echo "$env_content" | sed "s/^ZISK_BATCH_ID=.*/ZISK_BATCH_ID=$ZISK_BATCH_ID/")
-        print_status "Updated ZISK_BATCH_ID in $env_file: $ZISK_BATCH_ID"
-    fi
-    
-    # Write updated content to file
-    echo "$env_content" > "$env_file"
+
     print_status "Successfully updated $env_file"
 }
 
