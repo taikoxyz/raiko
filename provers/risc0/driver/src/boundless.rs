@@ -177,6 +177,13 @@ impl Prover for Risc0BoundlessProver {
             ProverError::GuestError(format!("Failed to serialize input with bincode: {e}"))
         })?;
 
+        // Log input information, especially the batch_id
+        info!(
+            "Risc0 Boundless batch prover starting for batch_id: {}, input size: {}",
+            input.taiko.batch_id,
+            input_bytes.len()
+        );
+
         // Construct the request payload for the agent
         let payload = serde_json::json!({
             "input": input_bytes,
