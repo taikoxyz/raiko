@@ -11152,16 +11152,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "zisk-builder"
-version = "0.1.0"
-dependencies = [
- "raiko-lib",
- "raiko-pipeline",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "zisk-driver"
 version = "0.1.0"
 dependencies = [
