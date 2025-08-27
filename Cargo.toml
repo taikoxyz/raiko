@@ -1,7 +1,13 @@
 [workspace]
 resolver = "2"
 exclude = [
+    "provers/sp1/guest",
+    "provers/sp1/builder",
+    "provers/risc0/guest",
+    "provers/risc0/builder", 
     "provers/zisk/guest",
+    "provers/zisk/builder",
+    "provers/sgx/guest",
 ]
 members = [
     "lib",
@@ -15,28 +21,6 @@ members = [
     "reqpool",
     "reqactor",
     "ballot",
-    "provers/zisk/driver",
-    "provers/zisk/builder",
-]
-
-# Conditional members based on target/features
-[workspace.metadata.conditional-members]
-sp1 = [
-    "provers/sp1/driver",
-    "provers/sp1/builder",
-]
-risc0 = [
-    "provers/risc0/driver", 
-    "provers/risc0/builder",
-]
-zisk = [
-    "provers/zisk/driver",
-    "provers/zisk/builder", 
-]
-sgx = [
-    "provers/sgx/prover",
-    "provers/sgx/guest",
-    "provers/sgx/setup",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

@@ -119,6 +119,7 @@ if [ "$1" == "sgx" ]; then
     fi
 fi
 
+
 # RISC0
 if [ "$1" == "risc0" ]; then
     check_toolchain $TOOLCHAIN_RISC0
@@ -131,12 +132,12 @@ if [ "$1" == "risc0" ]; then
         MOCK=1
         RISC0_DEV_MODE=1
         CI=1
-        cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder
-        cargo ${TOOLCHAIN_RISC0} clippy -F risc0
+        cargo ${TOOLCHAIN_RISC0} run --manifest-path provers/risc0/builder/Cargo.toml --bin risc0-builder
+        cargo ${TOOLCHAIN_RISC0} clippy -p raiko-host -F risc0
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder 2>&1 | tee /tmp/risc0_build_output.txt
+            cargo ${TOOLCHAIN_RISC0} run --manifest-path provers/risc0/builder/Cargo.toml --bin risc0-builder 2>&1 | tee /tmp/risc0_build_output.txt
             # Skip updating .env during Docker builds (no .env file exists in container)  
             # The publish-image.sh script will update the local .env file after the build
             # Check multiple indicators that we're in a container/CI environment
@@ -148,14 +149,18 @@ if [ "$1" == "risc0" ]; then
             fi
         else
             echo "Building test elfs for Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --no-default-features --features risc0,test,bench
+            cargo ${TOOLCHAIN_RISC0} run --manifest-path provers/risc0/builder/Cargo.toml --bin risc0-builder --no-default-features --features risc0,test,bench
         fi
         if [ -z "${GUEST}" ]; then
-            cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --no-default-features --features risc0 --package raiko-host --package risc0-driver --package raiko-pipeline --package raiko-core
+            # Clear RISC-V CC environment variables for host build
+            unset CC TARGET_CC
+            cargo ${TOOLCHAIN_RISC0} build ${FLAGS} --no-default-features --features risc0 --package raiko-host --package raiko-pipeline --package raiko-core
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running Risc0 prover"
+            # Clear RISC-V CC environment variables for host run
+            unset CC TARGET_CC
             cargo ${TOOLCHAIN_RISC0} run ${FLAGS} --no-default-features --features risc0
         else
             echo "Running Risc0 tests"
@@ -173,11 +178,13 @@ if [ "$1" == "sp1" ]; then
         echo "SP1_PROVER is set to $SP1_PROVER"
     fi
     if [ -n "${CLIPPY}" ]; then
-        cargo ${TOOLCHAIN_SP1} clippy -p raiko-host -p sp1-builder -p sp1-driver -F "sp1,enable"
+        cargo ${TOOLCHAIN_SP1} clippy -p raiko-host -F "sp1,enable"
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder 2>&1 | tee /tmp/sp1_build_output.txt
+            # Clear RISC-V CC environment variables for SP1 builder
+            unset CC TARGET_CC
+            cargo ${TOOLCHAIN_SP1} run --manifest-path provers/sp1/builder/Cargo.toml --bin sp1-builder 2>&1 | tee /tmp/sp1_build_output.txt
             # Skip updating .env during Docker builds (no .env file exists in container)
             # The publish-image.sh script will update the local .env file after the build
             # Check multiple indicators that we're in a container/CI environment
@@ -189,15 +196,19 @@ if [ "$1" == "sp1" ]; then
             fi
         else
             echo "Building test elfs for Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --no-default-features --features sp1,test,bench
+            cargo ${TOOLCHAIN_SP1} run --manifest-path provers/sp1/builder/Cargo.toml --bin sp1-builder --no-default-features --features sp1,test,bench
         fi
         if [ -z "${GUEST}" ]; then
-            echo "Building 'cargo ${TOOLCHAIN_SP1} build ${FLAGS} --no-default-features --features sp1'" 
-            cargo ${TOOLCHAIN_SP1} build ${FLAGS} --no-default-features --features sp1 --package raiko-host --package sp1-driver --package raiko-pipeline --package raiko-core
+            echo "Building 'cargo ${TOOLCHAIN_SP1} build ${FLAGS} --no-default-features --features sp1'"
+            # Clear RISC-V CC environment variables for host build
+            unset CC TARGET_CC
+            cargo ${TOOLCHAIN_SP1} build ${FLAGS} --no-default-features --features sp1 --package raiko-host --package raiko-pipeline --package raiko-core
         fi
     else
         if [ -z "${TEST}" ]; then
             echo "Running Sp1 prover"
+            # Clear RISC-V CC environment variables for host run
+            unset CC TARGET_CC
             cargo ${TOOLCHAIN_SP1} run ${FLAGS} --no-default-features --features sp1
         else
             echo "Running Sp1 unit tests"
@@ -251,11 +262,11 @@ if [ "$1" == "zisk" ]; then
     fi
     
     if [ -n "${CLIPPY}" ]; then
-        cargo ${TOOLCHAIN_ZISK} clippy -p raiko-host -p zisk-driver -F "${ZISK_FEATURES},enable"
+        cargo ${TOOLCHAIN_ZISK} clippy -p raiko-host -F "${ZISK_FEATURES},enable"
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Zisk prover with features: ${ZISK_FEATURES}"
-            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features ${ZISK_FEATURES}
+            cargo ${TOOLCHAIN_ZISK} run --manifest-path provers/zisk/builder/Cargo.toml --bin zisk-builder --no-default-features --features ${ZISK_FEATURES}
             # Set default Zisk image IDs for consistency with other zkVMs
             # Check multiple indicators that we're in a container/CI environment
             # if [ -f "/.dockerenv" ] || [ -n "${DOCKER_BUILDKIT}" ] || [ -n "${CI}" ] || [ ! -f ".env" ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
@@ -266,14 +277,18 @@ if [ "$1" == "zisk" ]; then
             # fi
         else
             echo "Building test programs for Zisk prover with features: ${ZISK_FEATURES}"
-            cargo ${TOOLCHAIN_ZISK} run --bin zisk-builder --no-default-features --features ${ZISK_FEATURES},test,bench
+            cargo ${TOOLCHAIN_ZISK} run --manifest-path provers/zisk/builder/Cargo.toml --bin zisk-builder --no-default-features --features ${ZISK_FEATURES},test,bench
         fi
         if [ -z "${GUEST}" ]; then
             echo "Building 'cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features ${ZISK_FEATURES}'"
-            cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features ${ZISK_FEATURES} --package raiko-host --package zisk-driver --package raiko-pipeline --package raiko-core
+            # Clear RISC-V CC environment variables for host build
+            unset CC TARGET_CC
+            cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features ${ZISK_FEATURES} --package raiko-host --package raiko-pipeline --package raiko-core
         fi
     else
         if [ -z "${TEST}" ]; then
+            # Clear RISC-V CC environment variables for host run
+            unset CC TARGET_CC
             cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --no-default-features --features ${ZISK_FEATURES}
         else
             cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p zisk-driver --no-default-features --features "${ZISK_FEATURES},enable"
