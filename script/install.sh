@@ -18,7 +18,7 @@ if [ -n "$CI" ]; then
 	source ./script/ci-env-check.sh
 fi
 
-# toolchain necessary to compile c-kzg in SP1/risc0
+# toolchain necessary to compile c-kzg in SP1/risc0 (32-bit)
 if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 	# Check if the RISC-V GCC prebuilt binary archive already exists
 	if [ -f /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz ]; then
@@ -41,6 +41,49 @@ if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 		if [ $? -ne 0 ]; then
 			echo "Failed to extract riscv-gcc-prebuilt"
 			exit 1
+		fi
+	fi
+fi
+
+# RISC-V64 bare-metal toolchain necessary for Zisk
+if [ -z "$1" ] || [ "$1" == "zisk" ]; then
+	# Check if we can use the existing riscv toolchain with 64-bit support
+	if [ -f /opt/riscv/bin/riscv-none-elf-gcc ]; then
+		echo "Checking if existing RISC-V toolchain supports 64-bit..."
+		# Test if the existing toolchain can compile for rv64ima
+		if /opt/riscv/bin/riscv-none-elf-gcc -march=rv64ima -mabi=lp64 -S -o /dev/null -xc /dev/null 2>/dev/null; then
+			echo "Existing RISC-V toolchain supports 64-bit, will use /opt/riscv/bin/riscv-none-elf-gcc"
+		else
+			echo "Warning: Existing RISC-V toolchain doesn't support 64-bit."
+			echo "You may need to install a 64-bit capable RISC-V toolchain manually."
+		fi
+	else
+		echo "Installing bare-metal RISC-V64 cross-compiler toolchain..."
+		if command -v apt-get >/dev/null 2>&1; then
+			# Ubuntu/Debian - try bare-metal toolchain first
+			sudo apt-get update
+			if sudo apt-get install -y gcc-riscv64-unknown-elf 2>/dev/null; then
+				echo "Installed gcc-riscv64-unknown-elf"
+			else
+				echo "gcc-riscv64-unknown-elf not available, trying alternative..."
+				# Download prebuilt bare-metal RISC-V64 toolchain
+				RISCV64_ARCHIVE="/tmp/riscv64-unknown-elf-gcc.tar.gz"
+				echo "Downloading prebuilt RISC-V64 bare-metal toolchain..."
+				wget -O "$RISCV64_ARCHIVE" "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2024.02.02/riscv64-elf-ubuntu-22.04-gcc-nightly-2024.02.02-nightly.tar.gz" || {
+					echo "Warning: Could not download RISC-V64 toolchain."
+					echo "Please install a bare-metal RISC-V64 toolchain manually."
+					echo "The existing /opt/riscv toolchain may work if it supports rv64ima."
+				}
+				if [ -f "$RISCV64_ARCHIVE" ]; then
+					echo "Extracting RISC-V64 toolchain to /opt/riscv64..."
+					sudo mkdir -p /opt/riscv64
+					sudo tar -xzf "$RISCV64_ARCHIVE" -C /opt/riscv64 --strip-components=1
+					echo "RISC-V64 bare-metal toolchain installed to /opt/riscv64"
+				fi
+			fi
+		else
+			echo "Warning: Could not install RISC-V64 toolchain automatically."
+			echo "Please install a bare-metal RISC-V64 toolchain manually."
 		fi
 	fi
 fi

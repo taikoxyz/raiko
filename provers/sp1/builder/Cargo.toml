@@ -17,20 +17,3 @@ sp1-core-executor = "=5.0.0"
 [features]
 test = []
 bench = []
-
-# Add the same patches as root workspace to fix alloy version conflicts  
-[patch.crates-io]
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
-blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
-kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
-kzg_traits = { package = "kzg", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
-alloy-serde = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-alloy-rpc-types-eth = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-alloy-network = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-alloy-signer-local = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-alloy-signer = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-alloy-rpc-types-beacon = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-alloy-eips = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }

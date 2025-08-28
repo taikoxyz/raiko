@@ -4,10 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-raiko-lib = { path = "../../../lib" }
 raiko-pipeline = { path = "../../../pipeline", features = ["zisk"] }
-serde = "1.0"
-serde_json = "1.0"
 
 [features]
 default = ["zisk"]

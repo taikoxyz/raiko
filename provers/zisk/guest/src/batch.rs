@@ -9,7 +9,6 @@ use raiko_lib::{
 };
 
 mod zisk_crypto;
-use zisk_crypto::*;
 
 pub fn main() {
     // Read the batch input data from ziskos
@@ -37,15 +36,7 @@ pub fn main() {
     }
     
     // This executes all transactions and validates state transitions
-    let final_blocks = match std::panic::catch_unwind(|| {
-        calculate_batch_blocks_final_header(&batch_input)
-    }) {
-        Ok(blocks) => blocks,
-        Err(_) => {
-            ziskos::set_output(0, 0xFFFFFFFCu32);
-            return;
-        }
-    };
+    let final_blocks = calculate_batch_blocks_final_header(&batch_input);
     
     // Create protocol instance from executed blocks
     let protocol_instance = match ProtocolInstance::new_batch(&batch_input, final_blocks, ProofType::Zisk) {
