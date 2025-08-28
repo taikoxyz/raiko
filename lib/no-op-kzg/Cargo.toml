@@ -1,0 +1,16 @@
+[package]
+name = "c-kzg"
+version = "1.0.3"
+edition = "2021"
+description = "No-op replacement for c-kzg to avoid C compilation in ZISK"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = ["std"]
+std = []
+serde = ["dep:serde"]
+portable = []
+preload-kzg-settings = []
+no-threads = []

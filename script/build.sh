@@ -172,6 +172,16 @@ fi
 
 # SP1
 if [ "$1" == "sp1" ]; then
+    # Check for C compiler (required for secp256k1-sys in SP1 guest)
+    if ! command -v clang &> /dev/null && ! command -v gcc &> /dev/null; then
+        echo "Error: No C compiler found. SP1 requires clang or gcc for building secp256k1-sys."
+        echo "Please install one of the following:"
+        echo "  - Ubuntu/Debian: sudo apt install clang"
+        echo "  - Or install GCC: sudo apt install build-essential"
+        echo "  - Or set CC environment variable: export CC=gcc (if gcc is installed elsewhere)"
+        exit 1
+    fi
+    
     check_toolchain $TOOLCHAIN_SP1
     if [ "$MOCK" = "1" ]; then
         export SP1_PROVER=mock
@@ -238,11 +248,13 @@ if [ "$1" == "zisk" ]; then
         exit 1
     fi
     
-    # Setup GPU feature flag - automatically detect CUDA availability
+    # Setup feature flags based on GPU availability
+    ZISK_COMPUTE_TYPE="CPU"
     ZISK_FEATURES="zisk"
     
     # Check for CUDA toolkit availability
     if command -v nvcc &> /dev/null; then
+        ZISK_COMPUTE_TYPE="GPU"
         echo "CUDA toolkit detected: $(nvcc --version | grep 'release' | head -1)"
         echo "   GPU support available for Zisk proof generation"
         echo "   Use cargo-zisk prove with GPU features for accelerated proving"
@@ -250,10 +262,12 @@ if [ "$1" == "zisk" ]; then
         echo "Warning: GPU=1 specified but CUDA toolkit not found."
         echo "GPU support requires NVIDIA GPU with CUDA toolkit installed."
         echo "Please install CUDA toolkit from: https://developer.nvidia.com/cuda-toolkit"
-        echo "Building without GPU support..."
+        echo "Building with CPU support..."
+        ZISK_COMPUTE_TYPE="CPU"
     else
-        echo "CUDA toolkit not found. Building without GPU support."
+        echo "CUDA toolkit not found. Building with CPU support."
         echo "To enable GPU support, install CUDA toolkit: https://developer.nvidia.com/cuda-toolkit"
+        ZISK_COMPUTE_TYPE="CPU"
     fi
     
     if [ "$MOCK" = "1" ]; then
@@ -261,11 +275,37 @@ if [ "$1" == "zisk" ]; then
         echo "ZISK_PROVER is set to $ZISK_PROVER"
     fi
     
+    # Set up RISC-V64 bare-metal cross-compiler for Zisk guest programs
+    # Try different compiler locations in order of preference
+    if command -v riscv64-unknown-elf-gcc >/dev/null 2>&1; then
+        # System-installed bare-metal compiler
+        RISCV64_CC="riscv64-unknown-elf-gcc"
+        RISCV64_AR="riscv64-unknown-elf-ar"
+    elif [ -f /opt/riscv64/bin/riscv64-unknown-elf-gcc ]; then
+        # Downloaded bare-metal compiler
+        RISCV64_CC="/opt/riscv64/bin/riscv64-unknown-elf-gcc"
+        RISCV64_AR="/opt/riscv64/bin/riscv64-unknown-elf-ar"
+    elif [ -f /opt/riscv/bin/riscv-none-elf-gcc ] && /opt/riscv/bin/riscv-none-elf-gcc -march=rv64ima -mabi=lp64 -S -o /dev/null -xc /dev/null 2>/dev/null; then
+        # Existing compiler that supports 64-bit
+        RISCV64_CC="/opt/riscv/bin/riscv-none-elf-gcc"
+        RISCV64_AR="/opt/riscv/bin/riscv-none-elf-ar"
+    else
+        echo "Warning: No suitable RISC-V64 bare-metal compiler found."
+        echo "Please run 'TARGET=zisk make install' first."
+        RISCV64_CC="riscv64-unknown-elf-gcc"  # Fallback
+        RISCV64_AR="riscv64-unknown-elf-ar"
+    fi
+    
+    export CC_riscv64ima_zisk_zkvm_elf="$RISCV64_CC"
+    export AR_riscv64ima_zisk_zkvm_elf="$RISCV64_AR"
+    export CFLAGS_riscv64ima_zisk_zkvm_elf="-march=rv64ima -mabi=lp64 -ffreestanding -fno-builtin"
+    
     if [ -n "${CLIPPY}" ]; then
         cargo ${TOOLCHAIN_ZISK} clippy -p raiko-host -F "${ZISK_FEATURES},enable"
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
-            echo "Building Zisk prover with features: ${ZISK_FEATURES}"
+            echo "Building Zisk prover with ${ZISK_COMPUTE_TYPE} support"
+            echo "Using RISC-V64 bare-metal cross-compiler: $RISCV64_CC"
             cargo ${TOOLCHAIN_ZISK} run --manifest-path provers/zisk/builder/Cargo.toml --bin zisk-builder --no-default-features --features ${ZISK_FEATURES}
             # Set default Zisk image IDs for consistency with other zkVMs
             # Check multiple indicators that we're in a container/CI environment
@@ -276,11 +316,11 @@ if [ "$1" == "zisk" ]; then
             #     ./script/update_imageid.sh zisk
             # fi
         else
-            echo "Building test programs for Zisk prover with features: ${ZISK_FEATURES}"
+            echo "Building test programs for Zisk prover with ${ZISK_COMPUTE_TYPE} support (features: ${ZISK_FEATURES})"
             cargo ${TOOLCHAIN_ZISK} run --manifest-path provers/zisk/builder/Cargo.toml --bin zisk-builder --no-default-features --features ${ZISK_FEATURES},test,bench
         fi
         if [ -z "${GUEST}" ]; then
-            echo "Building 'cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features ${ZISK_FEATURES}'"
+            echo "Building Zisk host with ${ZISK_COMPUTE_TYPE} support (features: ${ZISK_FEATURES})"
             # Clear RISC-V CC environment variables for host build
             unset CC TARGET_CC
             cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features ${ZISK_FEATURES} --package raiko-host --package raiko-pipeline --package raiko-core

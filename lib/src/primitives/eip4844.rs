@@ -129,16 +129,20 @@ pub fn kzg_proof_to_bytes(proof: &ZG1) -> KzgGroup {
     proof.to_bytes()
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "zisk")))]
 mod test {
     use super::*;
     use kzg_traits::{
         eip_4844::{verify_kzg_proof_rust, BYTES_PER_FIELD_ELEMENT},
         G1,
     };
+    
+    #[cfg(not(feature = "zisk"))]
     use reth_primitives::revm_primitives::kzg::{G1Points, G2Points, G1_POINTS, G2_POINTS};
+    #[cfg(not(feature = "zisk"))]
     use reth_primitives::revm_primitives::Bytes;
 
+    #[cfg(not(feature = "zisk"))]
     pub fn verify_kzg_proof_evm(
         commitment: &KzgCommitment,
         z: &ZFr,
@@ -162,6 +166,22 @@ mod test {
             &reth_primitives::revm_primitives::env::Env::default(),
         )
         .is_ok())
+    }
+
+    #[cfg(feature = "zisk")]
+    pub fn verify_kzg_proof_evm(
+        commitment: &KzgCommitment,
+        z: &ZFr,
+        y: &ZFr,
+        proof: &ZG1,
+    ) -> Result<bool, Eip4844Error> {
+        // For ZISK, use pure Rust implementation to avoid C dependencies
+        verify_kzg_proof_impl(
+            *commitment,
+            z.to_bytes(),
+            y.to_bytes(),
+            kzg_proof_to_bytes(proof),
+        )
     }
 
     #[test]

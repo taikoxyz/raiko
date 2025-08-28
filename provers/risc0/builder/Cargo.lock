@@ -993,3 +993,78 @@ checksum = "21a0236b59786fed61e2a80582dd500fe61f18b5dca67a4a067d0bc9039339cf"
 dependencies = [
  "memchr",
 ]
+
+[[patch.unused]]
+name = "alloy-eips"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+
+[[patch.unused]]
+name = "alloy-network"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+
+[[patch.unused]]
+name = "alloy-rpc-types-beacon"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+
+[[patch.unused]]
+name = "alloy-rpc-types-eth"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+
+[[patch.unused]]
+name = "alloy-serde"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+
+[[patch.unused]]
+name = "alloy-signer"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+
+[[patch.unused]]
+name = "alloy-signer-local"
+version = "0.1.4"
+source = "git+https://github.com/taikoxyz/alloy.git?branch=v0.1.4-patch#5604cef8082f7e36077782d410d4ecc93b19bcd0"
+
+[[patch.unused]]
+name = "blst"
+version = "0.3.12"
+source = "git+https://github.com/CeciliaZ030/blst.git?branch=v0.3.12-serialize#063b5206470c6ea4204d3f520a9d7c5490947fa8"
+
+[[patch.unused]]
+name = "rust-kzg-zkcrypto"
+version = "0.1.0"
+source = "git+https://github.com/ceciliaz030/rust-kzg.git?branch=brecht%2Fsp1-patch#f8b4d5aa6db6d49597a0cb912b2b32a6f415476c"
+
+[[patch.unused]]
+name = "kzg"
+version = "0.1.0"
+source = "git+https://github.com/ceciliaz030/rust-kzg.git?branch=brecht%2Fsp1-patch#f8b4d5aa6db6d49597a0cb912b2b32a6f415476c"
+
+[[patch.unused]]
+name = "p256"
+version = "0.13.2"
+source = "git+https://github.com/risc0/RustCrypto-elliptic-curves?tag=p256%2Fv0.13.2-risczero.1#bb0f51ad3ba81585f36ea8a1ea81093d8664b195"
+
+[[patch.unused]]
+name = "revm"
+version = "9.0.0"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v36-taiko#876966668d0e5bf497dc427cf7b76d4bd1b7cd92"
+
+[[patch.unused]]
+name = "revm-precompile"
+version = "7.0.0"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v36-taiko#876966668d0e5bf497dc427cf7b76d4bd1b7cd92"
+
+[[patch.unused]]
+name = "revm-primitives"
+version = "4.0.0"
+source = "git+https://github.com/taikoxyz/revm.git?branch=v36-taiko#876966668d0e5bf497dc427cf7b76d4bd1b7cd92"
+
+[[patch.unused]]
+name = "secp256k1"
+version = "0.29.0"
+source = "git+https://github.com/CeciliaZ030/rust-secp256k1?branch=sp1-patch#26d5313e6fb992a0f393ffcbf9be3c03b23295f1"
