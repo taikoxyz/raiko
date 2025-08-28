@@ -23,6 +23,11 @@
     "prover": "network",
     "verify": false
   },
+  "zisk": {
+    "prover": "local",
+    "verify": true,
+    "execution_mode": "prove"
+  },
   "native": {
     "json_guest_input": null
   }
