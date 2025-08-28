@@ -47,7 +47,7 @@ revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
-c-kzg = { path = "/home/zhouy/taiko/raiko/lib/no-op-kzg" }
+c-kzg = { path = "../../../lib/no-op-kzg" }
 
 [patch."https://github.com/brechtpd/c-kzg-4844"]
-c-kzg = { path = "/home/zhouy/taiko/raiko/lib/no-op-kzg" }
+c-kzg = { path = "../../../lib/no-op-kzg" }
