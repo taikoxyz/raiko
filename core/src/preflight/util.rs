@@ -16,6 +16,7 @@ use raiko_lib::{
     input::{
         ontake::{BlockProposedV2, CalldataTxList},
         pacaya::BatchProposed,
+        shasta::BatchProposed as ShastaBatchProposed,
         proposeBlockCall, BlobProofType, BlockProposed, BlockProposedFork, TaikoGuestBatchInput,
         TaikoGuestInput, TaikoProverData,
     },
@@ -565,6 +566,7 @@ pub async fn filter_block_proposed_event(
     // Get the event signature (value can differ between chains)
     let event_signature = match fork {
         SpecId::PACAYA => BatchProposed::SIGNATURE_HASH,
+        SpecId::SHASTA => ShastaBatchProposed::SIGNATURE_HASH,
         SpecId::ONTAKE => BlockProposedV2::SIGNATURE_HASH,
         _ => BlockProposed::SIGNATURE_HASH,
     };
@@ -604,6 +606,14 @@ pub async fn filter_block_proposed_event(
                 (
                     raiko_lib::primitives::U256::from(event.meta.batchId),
                     BlockProposedFork::Pacaya(event.data),
+                )
+            }
+            SpecId::SHASTA => {
+                let event = ShastaBatchProposed::decode_log(&log_struct, false)
+                    .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
+                (
+                    raiko_lib::primitives::U256::from(event.meta.batchId),
+                    BlockProposedFork::Shasta(event.data),
                 )
             }
             SpecId::ONTAKE => {
