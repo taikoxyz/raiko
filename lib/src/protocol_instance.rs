@@ -14,6 +14,7 @@ use crate::{
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
+        shasta::{BatchInfo as ShastaBatchInfo, BatchMetadata as ShastaBatchMetadata, BlockParams as ShastaBlockParams, Transition as ShastaTransition},
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
         GuestInput, Transition,
     },
@@ -37,6 +38,7 @@ pub enum BlockMetaDataFork {
     Hekla(BlockMetadata),
     Ontake(BlockMetadataV2),
     Pacaya(BatchMetadata),
+    Shasta(ShastaBatchMetadata),
 }
 
 impl From<(&GuestInput, &Header, B256, &BlockProposed)> for BlockMetadata {
@@ -124,6 +126,9 @@ impl BlockMetaDataFork {
             }
             BlockProposedFork::Pacaya(_batch_proposed) => {
                 unimplemented!("single block signature is not supported for pacaya fork")
+            }
+            BlockProposedFork::Shasta(_batch_proposed) => {
+                unimplemented!("single block signature is not supported for shasta fork")
             }
         }
     }
@@ -233,6 +238,96 @@ impl BlockMetaDataFork {
                     proposedAt: batch_proposed.meta.proposedAt,
                 })
             }
+            BlockProposedFork::Shasta(batch_proposed) => {
+                // Shasta uses the same logic as Pacaya for batch processing
+                let txs_hash = Self::calculate_pacaya_txs_hash(
+                    keccak(batch_input.taiko.tx_data_from_calldata.as_slice()).into(),
+                    &batch_proposed.info.blobHashes,
+                );
+                assert_eq!(
+                    txs_hash, batch_proposed.info.txsHash,
+                    "txs hash mismatch, expected: {:?}, got: {:?}",
+                    txs_hash, batch_proposed.info.txsHash,
+                );
+                let ts_base = final_blocks.first().unwrap().timestamp;
+                let (_, blocks) = final_blocks
+                    .iter()
+                    .zip(batch_proposed.info.blocks.iter())
+                    .enumerate()
+                    .fold(
+                        (ts_base, Vec::new()),
+                        |parent_ts_with_block_params, (index, (block, proposal_info))| {
+                            let (parent_ts, mut block_params) = parent_ts_with_block_params;
+                            let anchor_tx =
+                                batch_input.inputs[index].taiko.anchor_tx.clone().unwrap();
+                            let anchor_data = decode_anchor_pacaya(anchor_tx.input()).unwrap();
+                            let signal_slots = anchor_data._signalSlots.clone();
+                            assert!(
+                                block.timestamp >= parent_ts
+                                    && (block.timestamp - parent_ts) <= u8::MAX as u64
+                            );
+                            block_params.push(ShastaBlockParams {
+                                numTransactions: proposal_info.numTransactions, // exclude anchor tx
+                                timeShift: (block.timestamp - parent_ts) as u8,
+                                signalSlots: signal_slots,
+                            });
+                            (block.timestamp, block_params)
+                        },
+                    );
+                let blob_hashes = batch_proposed.info.blobHashes.clone();
+                let extra_data = batch_proposed.info.extraData;
+                let coinbase = batch_proposed.info.coinbase;
+                let proposed_in = batch_proposed.info.proposedIn;
+                let blob_created_in = batch_proposed.info.blobCreatedIn;
+                let blob_byte_offset = batch_proposed.info.blobByteOffset;
+                let blob_byte_size = batch_proposed.info.blobByteSize;
+                let gas_limit = batch_proposed.info.gasLimit;
+                let last_block_id = final_blocks.last().unwrap().header.number;
+                assert!(
+                    last_block_id == batch_proposed.info.lastBlockId,
+                    "last block id mismatch, expected: {:?}, got: {:?}",
+                    last_block_id,
+                    batch_proposed.info.lastBlockId,
+                );
+                let last_block_timestamp = final_blocks.last().unwrap().header.timestamp;
+                assert!(
+                    last_block_timestamp == batch_proposed.info.lastBlockTimestamp,
+                    "last block timestamp mismatch, expected: {:?}, got: {:?}",
+                    last_block_timestamp,
+                    batch_proposed.info.lastBlockTimestamp,
+                );
+                // checked in anchor_check()
+                let anchor_block_id = batch_input.taiko.l1_header.number;
+                let anchor_block_hash = batch_input.taiko.l1_header.hash_slow();
+                let base_fee_config = batch_proposed.info.baseFeeConfig.clone();
+                BlockMetaDataFork::Shasta(ShastaBatchMetadata {
+                    // todo: keccak data based on input
+                    infoHash: keccak(
+                        ShastaBatchInfo {
+                            txsHash: txs_hash,
+                            blocks,
+                            blobHashes: blob_hashes,
+                            extraData: extra_data,
+                            coinbase,
+                            proposedIn: proposed_in,
+                            blobCreatedIn: blob_created_in,
+                            blobByteOffset: blob_byte_offset,
+                            blobByteSize: blob_byte_size,
+                            gasLimit: gas_limit,
+                            lastBlockId: last_block_id,
+                            lastBlockTimestamp: last_block_timestamp,
+                            anchorBlockId: anchor_block_id,
+                            anchorBlockHash: anchor_block_hash,
+                            baseFeeConfig: base_fee_config,
+                        }
+                        .abi_encode(),
+                    )
+                    .into(),
+                    proposer: batch_proposed.meta.proposer,
+                    batchId: batch_input.taiko.batch_id,
+                    proposedAt: batch_proposed.meta.proposedAt,
+                })
+            }
             _ => {
                 unimplemented!("batch blocks signature is not supported before pacaya fork")
             }
@@ -256,6 +351,10 @@ impl BlockMetaDataFork {
                 a.abi_encode() == b.meta.abi_encode(),
                 Some(Box::new(Comparison::new(a, &b.meta))),
             ),
+            (Self::Shasta(a), BlockProposedFork::Shasta(b)) => (
+                a.abi_encode() == b.meta.abi_encode(),
+                Some(Box::new(Comparison::new(a, &b.meta))),
+            ),
             (Self::None, BlockProposedFork::Nothing) => (true, None),
             _ => (false, None),
         }
@@ -267,6 +366,7 @@ pub enum TransitionFork {
     Hekla(Transition),
     OnTake(Transition),
     Pacaya(PacayaTransition),
+    Shasta(ShastaTransition),
 }
 
 #[derive(Debug, Clone)]
@@ -588,6 +688,7 @@ impl ProtocolInstance {
             BlockMetaDataFork::Hekla(ref meta) => keccak(meta.abi_encode()).into(),
             BlockMetaDataFork::Ontake(ref meta) => keccak(meta.abi_encode()).into(),
             BlockMetaDataFork::Pacaya(ref meta) => keccak(meta.abi_encode()).into(),
+            BlockMetaDataFork::Shasta(ref meta) => keccak(meta.abi_encode()).into(),
         }
     }
 
@@ -628,6 +729,19 @@ impl ProtocolInstance {
                 self.chain_id,
                 self.verifier_address,
                 pacaya_trans.clone(),
+                self.sgx_instance,
+                self.meta_hash(),
+            )
+                .abi_encode()
+                .iter()
+                .skip(32)
+                .copied()
+                .collect::<Vec<u8>>(),
+            TransitionFork::Shasta(shasta_trans) => (
+                "VERIFY_PROOF",
+                self.chain_id,
+                self.verifier_address,
+                shasta_trans.clone(),
                 self.sgx_instance,
                 self.meta_hash(),
             )
