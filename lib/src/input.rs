@@ -11,7 +11,7 @@ use reth_primitives::{
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use shasta::{
-    BatchInfo as ShastaBatchInfo, BatchProposed as ShastaBatchProposed,
+    Proposal as ShastaProposal, Proposed as ShastaProposed,
 };
 
 #[cfg(not(feature = "std"))]
@@ -115,7 +115,7 @@ pub enum BlockProposedFork {
     Hekla(BlockProposed),
     Ontake(BlockProposedV2),
     Pacaya(BatchProposed),
-    Shasta(ShastaBatchProposed),
+    Shasta(ShastaProposed),
 }
 
 impl BlockProposedFork {
@@ -124,7 +124,7 @@ impl BlockProposedFork {
             BlockProposedFork::Hekla(block) => block.meta.blobUsed,
             BlockProposedFork::Ontake(block) => block.meta.blobUsed,
             BlockProposedFork::Pacaya(batch) => batch.info.blobHashes.len() > 0,
-            BlockProposedFork::Shasta(batch) => batch.info.blobHashes.len() > 0,
+            BlockProposedFork::Shasta(_batch) => todo!("Shasta blob_used implementation"),
             _ => false,
         }
     }
@@ -136,9 +136,7 @@ impl BlockProposedFork {
             BlockProposedFork::Pacaya(_batch) => {
                 _batch.info.lastBlockId - (_batch.info.blocks.len() as u64) + 1
             }
-            BlockProposedFork::Shasta(_batch) => {
-                _batch.info.lastBlockId - (_batch.info.blocks.len() as u64) + 1
-            }
+            BlockProposedFork::Shasta(_batch) => todo!("Shasta block_number implementation"),
             _ => 0,
         }
     }
@@ -169,13 +167,7 @@ impl BlockProposedFork {
                 min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
                 max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
             },
-            BlockProposedFork::Shasta(batch) => ProtocolBaseFeeConfig {
-                adjustment_quotient: batch.info.baseFeeConfig.adjustmentQuotient,
-                sharing_pctg: batch.info.baseFeeConfig.sharingPctg,
-                gas_issuance_per_second: batch.info.baseFeeConfig.gasIssuancePerSecond,
-                min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
-                max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
-            },
+            BlockProposedFork::Shasta(_batch) => todo!("Shasta base_fee_config implementation"),
             _ => ProtocolBaseFeeConfig::default(),
         }
     }
@@ -190,10 +182,7 @@ impl BlockProposedFork {
                 batch.info.blobByteOffset as usize,
                 batch.info.blobByteSize as usize,
             )),
-            BlockProposedFork::Shasta(batch) => Some((
-                batch.info.blobByteOffset as usize,
-                batch.info.blobByteSize as usize,
-            )),
+            BlockProposedFork::Shasta(_batch) => todo!("Shasta blob_tx_slice_param implementation"),
             _ => None,
         }
     }
@@ -210,7 +199,7 @@ impl BlockProposedFork {
     pub fn blob_hashes(&self) -> &[B256] {
         match self {
             BlockProposedFork::Pacaya(batch) => &batch.info.blobHashes,
-            BlockProposedFork::Shasta(batch) => &batch.info.blobHashes,
+            BlockProposedFork::Shasta(_batch) => todo!("Shasta blob_hashes implementation"),
             _ => &[],
         }
     }
@@ -222,9 +211,9 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn shasta_batch_info(&self) -> Option<&ShastaBatchInfo> {
+    pub fn shasta_proposal(&self) -> Option<&ShastaProposal> {
         match self {
-            BlockProposedFork::Shasta(batch) => Some(&batch.info),
+            BlockProposedFork::Shasta(_batch) => todo!("Shasta proposal implementation"),
             _ => None,
         }
     }
