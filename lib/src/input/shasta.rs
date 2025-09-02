@@ -1,4 +1,4 @@
-use alloy_sol_types::sol;
+use alloy_sol_types::{sol, SolValue};
 use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
@@ -137,6 +137,26 @@ sol! {
 
     #[derive(Debug, Default, Deserialize, Serialize)]
     event BondInstructed(BondInstruction[] instructions);
+}
+
+/// Decoded Shasta event data containing the proposal and related information
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ShastaEventData {
+    pub proposal: Proposal,
+    pub derivation: Derivation,
+    pub core_state: CoreState,
+}
+
+impl ShastaEventData {
+    /// Decode the bytes data from Shasta Proposed event into ShastaEventData
+    pub fn from_event_data(data: &[u8]) -> Result<Self, alloy_sol_types::Error> {
+        let payload = ProposedEventPayload::abi_decode(data, true)?;
+        Ok(Self {
+            proposal: payload.proposal,
+            derivation: payload.derivation,
+            core_state: payload.coreState,
+        })
+    }
 }
 
 #[cfg(test)]

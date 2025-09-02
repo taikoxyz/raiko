@@ -175,12 +175,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
 
         if reth_chain_spec.is_taiko() {
             let block_num = self.input.taiko.block_proposed.block_number();
-            let block_timestamp = 0u64; // self.input.taiko.block_proposed.block_timestamp();
-            let taiko_fork = self
-                .input
-                .chain_spec
-                .spec_id(block_num, block_timestamp)
-                .unwrap();
+            let taiko_fork = self.input.chain_spec.spec_id(block_num, 0u64).unwrap();
             match taiko_fork {
                 SpecId::HEKLA => {
                     assert!(
@@ -202,6 +197,14 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                     assert!(
                         reth_chain_spec
                             .fork(Hardfork::Pacaya)
+                            .active_at_block(block_num),
+                        "evm fork PACAYA is not active, please update the chain spec"
+                    );
+                }
+                SpecId::SHASTA => {
+                    assert!(
+                        reth_chain_spec
+                            .fork(Hardfork::Shasta)
                             .active_at_block(block_num),
                         "evm fork PACAYA is not active, please update the chain spec"
                     );
