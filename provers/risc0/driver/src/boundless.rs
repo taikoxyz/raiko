@@ -32,11 +32,11 @@ pub struct Risc0AgentResponse {
     pub receipt: Option<String>,
 }
 
-pub struct Risc0BoundlessProver {
+pub struct BoundlessProver {
     remote_prover_url: String,
 }
 
-impl Risc0BoundlessProver {
+impl BoundlessProver {
     pub fn new() -> Self {
         let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
             .unwrap_or_else(|_| "http://localhost:9999/proof".to_string());
@@ -44,7 +44,7 @@ impl Risc0BoundlessProver {
     }
 }
 
-impl Prover for Risc0BoundlessProver {
+impl Prover for BoundlessProver {
     async fn run(
         &self,
         _input: GuestInput,
@@ -178,7 +178,7 @@ impl Prover for Risc0BoundlessProver {
         })?;
 
         // Log input information, especially the batch_id
-        info!(
+        tracing::info!(
             "Risc0 Boundless batch prover starting for batch_id: {}, input size: {}",
             input.taiko.batch_id,
             input_bytes.len()
@@ -277,7 +277,7 @@ mod tests {
         let input: GuestBatchInput = serde_json::from_slice(&input_file).unwrap();
         let output: GuestBatchOutput = serde_json::from_slice(&output_file).unwrap();
         let config = ProverConfig::default();
-        let proof = Risc0BoundlessProver::new()
+        let proof = BoundlessProver::new()
             .batch_run(input, &output, &config, None)
             .await
             .unwrap();
@@ -397,7 +397,7 @@ mod tests {
         };
         let output: AggregationGuestOutput = AggregationGuestOutput { hash: B256::ZERO };
         let config = ProverConfig::default();
-        let proof = Risc0BoundlessProver::new()
+        let proof = BoundlessProver::new()
             .aggregate(input, &output, &config, None)
             .await
             .unwrap();

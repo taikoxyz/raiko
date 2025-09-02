@@ -155,7 +155,7 @@ elif [ "$proof" == "risc0-bonsai" ]; then
   '
 elif [ "$proof" == "risc0-boundless" ]; then
 	proofParam='
-    "proof_type": "risc0boundless",
+    "proof_type": "boundless",
     "blob_proof_type": "proof_of_equivalence",
     "risc0": {
     }

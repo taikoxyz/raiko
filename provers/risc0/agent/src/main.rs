@@ -1,7 +1,10 @@
 pub mod boundless;
+pub mod storage;
 pub use boundless::{
-    AgentError, AgentResult, DeploymentType, ElfType, ProverConfig, Risc0BoundlessProver,
+    AgentError, AgentResult, AsyncProofRequest, DeploymentType, ElfType, 
+    ProofRequestStatus, ProverConfig, BoundlessProver, ProofType as BoundlessProofType,
 };
+pub use storage::{BoundlessStorage, DatabaseStats};
 
 pub mod methods;
 
@@ -9,11 +12,12 @@ use axum::{
     Json,
     extract::{DefaultBodyLimit, State},
 };
-use axum::{Router, http::StatusCode, routing::post};
+use axum::{Router, http::StatusCode, routing::{post, get}};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
+use alloy_primitives_v1p2p0::U256;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum ProofType {
@@ -22,25 +26,10 @@ enum ProofType {
     Update(ElfType),
 }
 
-#[derive(Debug, Deserialize)]
-struct ProofRequest {
-    input: Vec<u8>,
-    proof_type: ProofType,
-    elf: Option<Vec<u8>>,
-    config: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Serialize)]
-struct ProofResponse {
-    proof_data: Vec<u8>,
-    proof_type: ProofType,
-    success: bool,
-    error: Option<String>,
-}
 
 #[derive(Debug, Clone)]
 struct AppState {
-    prover: Arc<Mutex<Option<Risc0BoundlessProver>>>,
+    prover: Arc<Mutex<Option<BoundlessProver>>>,
     prover_init_time: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
@@ -52,8 +41,8 @@ impl AppState {
         }
     }
 
-    async fn init_prover(&self, config: ProverConfig) -> AgentResult<Risc0BoundlessProver> {
-        let prover = Risc0BoundlessProver::new(config).await.map_err(|e| {
+    async fn init_prover(&self, config: ProverConfig) -> AgentResult<BoundlessProver> {
+        let prover = BoundlessProver::new(config).await.map_err(|e| {
             AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
         })?;
         self.prover.lock().await.replace(prover.clone());
@@ -65,7 +54,7 @@ impl AppState {
     }
 
     /// Get the prover, re-initializing if TTL (3600s) has expired.
-    async fn get_or_refresh_prover(&self) -> AgentResult<Risc0BoundlessProver> {
+    async fn get_or_refresh_prover(&self) -> AgentResult<BoundlessProver> {
         let mut prover_guard = self.prover.lock().await;
         let config_guard = prover_guard.as_ref().unwrap().prover_config();
         let mut time_guard = self.prover_init_time.lock().await;
@@ -79,7 +68,7 @@ impl AppState {
 
         if should_refresh || prover_guard.is_none() {
             tracing::info!("Prover TTL exceeded or not initialized, re-initializing prover...");
-            let prover = Risc0BoundlessProver::new(config_guard).await.map_err(|e| {
+            let prover = BoundlessProver::new(config_guard).await.map_err(|e| {
                 AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
             })?;
             *prover_guard = Some(prover.clone());
@@ -91,101 +80,6 @@ impl AppState {
     }
 }
 
-async fn proof_handler(
-    State(state): State<AppState>,
-    Json(request): Json<ProofRequest>,
-) -> (StatusCode, Json<ProofResponse>) {
-    tracing::info!(
-        "Received proof generation request size: {:?}",
-        request.input.len()
-    );
-
-    // Get the initialized prover
-    let prover = match state.get_or_refresh_prover().await {
-        Ok(prover) => prover,
-        Err(e) => {
-            tracing::error!("Failed to get or refresh prover: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ProofResponse {
-                    proof_data: vec![],
-                    proof_type: request.proof_type,
-                    success: false,
-                    error: Some(format!("Failed to get or refresh prover: {}", e)),
-                }),
-            );
-        }
-    };
-
-    // Use empty output if not provided
-    let output_data = vec![];
-    let config = request
-        .config
-        .unwrap_or_else(|| serde_json::Value::default());
-
-    tracing::info!("Running proof generation...");
-
-    // Generate proof with timeout
-    let proof_result = tokio::time::timeout(
-        std::time::Duration::from_secs(9600), // 3 hour timeout
-        async {
-            match request.proof_type.clone() {
-                ProofType::Batch => prover
-                    .batch_run(request.input, &output_data, &config)
-                    .await
-                    .map_err(|e| format!("Failed to run batch proof: {}", e)),
-                ProofType::Aggregate => prover
-                    .aggregate(request.input, &output_data, &config)
-                    .await
-                    .map_err(|e| format!("Failed to run aggregation proof: {}", e)),
-                ProofType::Update(elf_type) => prover
-                    .update(request.elf.unwrap(), elf_type)
-                    .await
-                    .map_err(|e| format!("Failed to run update proof: {}", e)),
-            }
-        },
-    )
-    .await;
-
-    match proof_result {
-        Ok(Ok(proof_data)) => {
-            tracing::info!("Proof generated successfully");
-            (
-                StatusCode::OK,
-                Json(ProofResponse {
-                    proof_data,
-                    proof_type: request.proof_type,
-                    success: true,
-                    error: None,
-                }),
-            )
-        }
-        Ok(Err(e)) => {
-            tracing::error!("Proof generation failed: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ProofResponse {
-                    proof_data: vec![],
-                    proof_type: request.proof_type,
-                    success: false,
-                    error: Some(e),
-                }),
-            )
-        }
-        Err(_) => {
-            tracing::error!("Proof generation timed out");
-            (
-                StatusCode::REQUEST_TIMEOUT,
-                Json(ProofResponse {
-                    proof_data: vec![],
-                    proof_type: request.proof_type,
-                    success: false,
-                    error: Some("Proof generation timed out after 2 hour".to_string()),
-                }),
-            )
-        }
-    }
-}
 
 async fn health_check() -> (StatusCode, Json<serde_json::Value>) {
     (
@@ -195,6 +89,244 @@ async fn health_check() -> (StatusCode, Json<serde_json::Value>) {
             "service": "boundless-agent"
         })),
     )
+}
+
+#[derive(Debug, Deserialize)]
+struct AsyncProofRequestData {
+    request_id: String,
+    input: Vec<u8>,
+    proof_type: ProofType,
+    elf: Option<Vec<u8>>,
+    config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize)]
+struct AsyncProofResponse {
+    request_id: String,
+    market_request_id: U256,
+    status: String,
+    message: String,
+}
+
+#[derive(Debug, Serialize)]
+struct DetailedStatusResponse {
+    request_id: String,
+    market_request_id: U256,
+    status: String,
+    status_message: String,
+    proof_data: Option<Vec<u8>>, // Raw proof bytes when completed
+    error: Option<String>,
+}
+
+
+/// Convert internal ProofRequestStatus to user-friendly API response
+fn map_status_to_api_response(request: &AsyncProofRequest) -> DetailedStatusResponse {
+    let (status, status_message, proof_data, error) = match &request.status {
+        ProofRequestStatus::Submitted { .. } => (
+            "submitted".to_string(),
+            "Your proof request has been submitted to the boundless market and is waiting for an available prover to pick it up.".to_string(),
+            None,
+            None,
+        ),
+        ProofRequestStatus::Locked { prover, .. } => (
+            "in_progress".to_string(),
+            format!("A prover {} has accepted your request and is generating the proof.", 
+                prover.as_ref().map(|p| format!("({})", p)).unwrap_or_else(|| "".to_string())),
+            None,
+            None,
+        ),
+        ProofRequestStatus::Fulfilled { proof, .. } => (
+            "completed".to_string(),
+            "Your proof has been successfully generated and is ready for download.".to_string(),
+            Some(proof.clone()),
+            None,
+        ),
+        ProofRequestStatus::Failed { error } => (
+            "failed".to_string(),
+            format!("Proof generation failed: {}", error),
+            None,
+            Some(error.clone()),
+        ),
+    };
+
+    DetailedStatusResponse {
+        request_id: request.request_id.clone(),
+        market_request_id: request.market_request_id,
+        status,
+        status_message,
+        proof_data,
+        error,
+    }
+}
+
+async fn proof_handler(
+    State(state): State<AppState>,
+    Json(request): Json<AsyncProofRequestData>,
+) -> (StatusCode, Json<AsyncProofResponse>) {
+    tracing::info!(
+        "Received async proof submission: {} (size: {} bytes)",
+        request.request_id,
+        request.input.len()
+    );
+
+    let prover = match state.get_or_refresh_prover().await {
+        Ok(prover) => prover,
+        Err(e) => {
+            tracing::error!("Failed to get prover: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AsyncProofResponse {
+                    request_id: request.request_id,
+                    market_request_id: U256::ZERO,
+                    status: "error".to_string(),
+                    message: format!("Failed to initialize prover: {}", e),
+                }),
+            );
+        }
+    };
+
+    let config = request.config.unwrap_or_else(|| serde_json::Value::default());
+    
+    // Convert ProofType to BoundlessProofType and call appropriate async method
+    let result = match request.proof_type {
+        ProofType::Batch => {
+            prover.batch_run(request.request_id.clone(), request.input, &config).await
+        }
+        ProofType::Aggregate => {
+            prover.aggregate(request.request_id.clone(), request.input, &config).await
+        }
+        ProofType::Update(elf_type) => {
+            match request.elf {
+                Some(elf_data) => {
+                    prover.update(request.request_id.clone(), elf_data, elf_type).await
+                }
+                None => {
+                    Err(AgentError::RequestBuildError("ELF data required for Update proof type".to_string()))
+                }
+            }
+        }
+    };
+    
+    match result {
+        Ok(async_request_id) => {
+            tracing::info!("Async proof already submitted with ID: {}", async_request_id);
+            (
+                StatusCode::ACCEPTED,
+                Json(AsyncProofResponse {
+                    request_id: async_request_id,
+                    market_request_id: U256::ZERO,
+                    status: "submitted".to_string(),
+                    message: "Proof request submitted for async processing".to_string(),
+                }),
+            )
+        }
+        Err(e) => {
+            tracing::error!("Failed to submit async proof: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AsyncProofResponse {
+                    request_id: request.request_id,
+                    market_request_id: U256::ZERO,
+                    status: "error".to_string(),
+                    message: format!("Failed to submit proof: {}", e),
+                }),
+            )
+        }
+    }
+}
+
+async fn get_async_proof_status(
+    State(state): State<AppState>,
+    axum::extract::Path(request_id): axum::extract::Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let prover = match state.get_or_refresh_prover().await {
+        Ok(prover) => prover,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to get prover: {}", e)
+                })),
+            );
+        }
+    };
+
+    match prover.get_request_status(&request_id).await {
+        Some(request) => {
+            let detailed_response = map_status_to_api_response(&request);
+            (StatusCode::OK, Json(serde_json::to_value(detailed_response).unwrap()))
+        },
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "Request not found",
+                "message": "No async proof request found with the specified market_request_id"
+            })),
+        ),
+    }
+}
+
+async fn list_async_requests(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let prover = match state.get_or_refresh_prover().await {
+        Ok(prover) => prover,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to get prover: {}", e)
+                })),
+            );
+        }
+    };
+
+    let requests = prover.list_active_requests().await;
+    let detailed_requests: Vec<DetailedStatusResponse> = requests
+        .iter()
+        .map(|req| map_status_to_api_response(req))
+        .collect();
+    
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "active_requests": requests.len(),
+            "requests": detailed_requests
+        })),
+    )
+}
+
+
+/// Get database statistics for monitoring
+async fn get_database_stats(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let prover = match state.get_or_refresh_prover().await {
+        Ok(prover) => prover,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to get prover: {}", e)
+                })),
+            );
+        }
+    };
+
+    match prover.get_database_stats().await {
+        Ok(stats) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "database_stats": stats
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": format!("Failed to get database stats: {}", e)
+            })),
+        ),
+    }
 }
 
 use clap::Parser;
@@ -290,6 +422,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/health", post(health_check))
         .route("/proof", post(proof_handler))
+        .route("/status/:request_id", get(get_async_proof_status))
+        .route("/requests", get(list_async_requests))
+        .route("/stats", get(get_database_stats))
         .layer(DefaultBodyLimit::max(10000 * 1024 * 1024)) // max 10G
         .layer(cors)
         .with_state(state);

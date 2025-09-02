@@ -33,11 +33,11 @@ pub enum ProofType {
     #[serde(alias = "SGXGETH")]
     SgxGeth = 4u8,
 
-    /// # Risc0-Boundless
+    /// # Boundless
     ///
-    /// Uses the RISC0 prover to build the block.
+    /// Uses the Boundless network to build the block.
     #[serde(alias = "RISC0BOUNDLESS")]
-    Risc0Boundless = 5u8,
+    Boundless = 5u8,
 }
 
 impl std::fmt::Display for ProofType {
@@ -48,7 +48,7 @@ impl std::fmt::Display for ProofType {
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
             ProofType::SgxGeth => "sgxgeth",
-            ProofType::Risc0Boundless => "risc0boundless",
+            ProofType::Boundless => "boundless",
         })
     }
 }
@@ -63,7 +63,7 @@ impl std::str::FromStr for ProofType {
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
             "sgxgeth" => Ok(ProofType::SgxGeth),
-            "risc0boundless" => Ok(ProofType::Risc0Boundless),
+            "boundless" | "risc0boundless" => Ok(ProofType::Boundless),
             _ => Err(format!("Unknown proof type {}", s)),
         }
     }
@@ -79,7 +79,7 @@ impl TryFrom<u8> for ProofType {
             2 => Ok(Self::Sgx),
             3 => Ok(Self::Risc0),
             4 => Ok(Self::SgxGeth),
-            5 => Ok(Self::Risc0Boundless),
+            5 => Ok(Self::Boundless),
             _ => Err(format!("Unknown proof type {}", value)),
         }
     }
