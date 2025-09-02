@@ -17,13 +17,15 @@ use raiko_lib::{
         ontake::{BlockProposedV2, CalldataTxList},
         pacaya::BatchProposed,
         proposeBlockCall,
-        shasta::Proposed as ShastaProposed,
+        shasta::{Proposed as ShastaProposed, ShastaEventData},
         BlobProofType, BlockProposed, BlockProposedFork, TaikoGuestBatchInput, TaikoGuestInput,
         TaikoProverData,
     },
     primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
 };
-use reth_evm_ethereum::taiko::{decode_anchor, decode_anchor_ontake, decode_anchor_pacaya};
+use reth_evm_ethereum::taiko::{
+    decode_anchor, decode_anchor_ontake, decode_anchor_pacaya, decode_anchor_shasta,
+};
 use reth_primitives::{Block as RethBlock, TransactionSigned};
 use reth_revm::primitives::SpecId;
 use serde::{Deserialize, Serialize};
@@ -224,6 +226,10 @@ fn get_anchor_tx_info_by_fork(
     anchor_tx: &TransactionSigned,
 ) -> RaikoResult<(u64, B256)> {
     match fork {
+        SpecId::SHASTA => {
+            let anchor_call = decode_anchor_shasta(anchor_tx.input())?;
+            Ok((anchor_call._anchorBlockNumber, anchor_call._anchorStateRoot))
+        }
         SpecId::PACAYA => {
             let anchor_call = decode_anchor_pacaya(anchor_tx.input())?;
             Ok((anchor_call._anchorBlockId, anchor_call._anchorStateRoot))
@@ -296,8 +302,14 @@ pub async fn prepare_taiko_chain_batch_input(
             .first()
             .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
         let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
-        ensure!(fork == SpecId::PACAYA, "Only pacaya fork supports batch");
         let anchor_info = get_anchor_tx_info_by_fork(fork, anchor_tx)?;
+        ensure!(
+            fork == SpecId::PACAYA || fork == SpecId::SHASTA,
+            "Only pacaya and shasta fork supports batch"
+        );
+        if fork == SpecId::SHASTA {
+            todo!("check shasta anchor tx");
+        }
         acc.push(anchor_info);
         Ok(acc)
     })?;
@@ -612,9 +624,14 @@ pub async fn filter_block_proposed_event(
             SpecId::SHASTA => {
                 let event = ShastaProposed::decode_log(&log_struct, false)
                     .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
+
+                let event_data =
+                    ShastaEventData::from_event_data(&event.data.data).map_err(|_| {
+                        RaikoError::Anyhow(anyhow!("Could not decode Shasta event data"))
+                    })?;
                 (
                     raiko_lib::primitives::U256::from(0), // TODO: Extract batch ID from Shasta event
-                    BlockProposedFork::Shasta(event.data),
+                    BlockProposedFork::Shasta(event_data),
                 )
             }
             SpecId::ONTAKE => {

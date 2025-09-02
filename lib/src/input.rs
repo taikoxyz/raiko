@@ -10,9 +10,7 @@ use reth_primitives::{
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use shasta::{
-    Proposal as ShastaProposal, Proposed as ShastaProposed,
-};
+use shasta::{Proposal as ShastaProposal, Proposed as ShastaProposed, ShastaEventData};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -115,7 +113,7 @@ pub enum BlockProposedFork {
     Hekla(BlockProposed),
     Ontake(BlockProposedV2),
     Pacaya(BatchProposed),
-    Shasta(ShastaProposed),
+    Shasta(ShastaEventData),
 }
 
 impl BlockProposedFork {
@@ -124,7 +122,9 @@ impl BlockProposedFork {
             BlockProposedFork::Hekla(block) => block.meta.blobUsed,
             BlockProposedFork::Ontake(block) => block.meta.blobUsed,
             BlockProposedFork::Pacaya(batch) => batch.info.blobHashes.len() > 0,
-            BlockProposedFork::Shasta(_batch) => todo!("Shasta blob_used implementation"),
+            BlockProposedFork::Shasta(event_data) => {
+                !event_data.derivation.blobSlice.blobHashes.is_empty()
+            }
             _ => false,
         }
     }
@@ -136,17 +136,16 @@ impl BlockProposedFork {
             BlockProposedFork::Pacaya(_batch) => {
                 _batch.info.lastBlockId - (_batch.info.blocks.len() as u64) + 1
             }
-            BlockProposedFork::Shasta(_batch) => todo!("Shasta block_number implementation"),
+            BlockProposedFork::Shasta(event_data) => {
+                self.get_block_num_from_shasta_proposal(event_data.proposal.id)
+            }
             _ => 0,
         }
     }
 
-    pub fn block_timestamp(&self) -> u64 {
+    pub fn batch_timestamp(&self) -> u64 {
         match self {
-            BlockProposedFork::Hekla(block) => block.meta.timestamp,
-            BlockProposedFork::Ontake(block) => block.meta.timestamp,
-            BlockProposedFork::Pacaya(_batch) => 0,
-            BlockProposedFork::Shasta(_batch) => 0,
+            BlockProposedFork::Shasta(event_data) => event_data.proposal.timestamp,
             _ => 0,
         }
     }
@@ -167,7 +166,13 @@ impl BlockProposedFork {
                 min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
                 max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
             },
-            BlockProposedFork::Shasta(_batch) => todo!("Shasta base_fee_config implementation"),
+            BlockProposedFork::Shasta(event_data) => ProtocolBaseFeeConfig {
+                adjustment_quotient: 100,
+                sharing_pctg: event_data.derivation.basefeeSharingPctg,
+                gas_issuance_per_second: 0,
+                min_gas_excess: 0,
+                max_gas_issuance_per_block: 0,
+            },
             _ => ProtocolBaseFeeConfig::default(),
         }
     }
@@ -182,7 +187,10 @@ impl BlockProposedFork {
                 batch.info.blobByteOffset as usize,
                 batch.info.blobByteSize as usize,
             )),
-            BlockProposedFork::Shasta(_batch) => todo!("Shasta blob_tx_slice_param implementation"),
+            BlockProposedFork::Shasta(event_data) => Some((
+                event_data.derivation.blobSlice.offset as usize,
+                event_data.derivation.blobSlice.blobHashes.len() as usize,
+            )),
             _ => None,
         }
     }
@@ -199,7 +207,7 @@ impl BlockProposedFork {
     pub fn blob_hashes(&self) -> &[B256] {
         match self {
             BlockProposedFork::Pacaya(batch) => &batch.info.blobHashes,
-            BlockProposedFork::Shasta(_batch) => todo!("Shasta blob_hashes implementation"),
+            BlockProposedFork::Shasta(event_data) => &event_data.derivation.blobSlice.blobHashes,
             _ => &[],
         }
     }
@@ -207,13 +215,7 @@ impl BlockProposedFork {
     pub fn batch_info(&self) -> Option<&BatchInfo> {
         match self {
             BlockProposedFork::Pacaya(batch) => Some(&batch.info),
-            _ => None,
-        }
-    }
-
-    pub fn shasta_proposal(&self) -> Option<&ShastaProposal> {
-        match self {
-            BlockProposedFork::Shasta(_batch) => todo!("Shasta proposal implementation"),
+            BlockProposedFork::Shasta(event_data) => todo!("Shasta batch_info implementation"),
             _ => None,
         }
     }
@@ -224,6 +226,20 @@ impl BlockProposedFork {
             BlockProposedFork::Ontake(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
             BlockProposedFork::Pacaya(batch) => batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT,
             _ => 0,
+        }
+    }
+}
+
+// a few helper function
+impl BlockProposedFork {
+    fn get_block_num_from_shasta_proposal(&self, _proposal_id: u64) -> u64 {
+        match self {
+            BlockProposedFork::Shasta(_event_data) => {
+                // TODO: Implement Shasta block number extraction from proposal
+                // so far using 9999999 as this is used for fork height check only
+                9999999
+            }
+            _ => unimplemented!("only for shasta fork"),
         }
     }
 }
