@@ -100,6 +100,7 @@ For detailed configuration examples, see [DEPLOYMENT_CONFIG_EXAMPLES.md](DEPLOYM
 ## Environment Variables
 
 - `BOUNDLESS_SIGNER_KEY`: Private key for signing transactions (required)
+- `SQLITE_DB_PATH`: Path to SQLite database for persistent request storage (default: `/data/boundless_requests.db`)
 
 ## Command Line Arguments
 
@@ -173,6 +174,13 @@ The application provides detailed error messages for:
 
 # Use offchain mode
 ./target/release/boundless-agent --deployment-type base --offchain --order-stream-url https://offchain-order-stream.com
+```
+
+### Using Custom SQLite Database Path
+
+```bash
+# Use custom SQLite database path
+SQLITE_DB_PATH="./boundless_requests.db"
 ```
 
 ## Development

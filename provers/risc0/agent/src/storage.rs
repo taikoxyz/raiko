@@ -412,6 +412,27 @@ impl BoundlessStorage {
             .map_err(|e| AgentError::ClientBuildError(format!("Failed to delete expired requests: {}", e)))
     }
 
+    /// Delete all requests from the database
+    /// Returns the number of deleted requests
+    pub async fn delete_all_requests(&self) -> AgentResult<usize> {
+        let db_path = self.db_path.clone();
+        
+        tokio_rusqlite::Connection::open(db_path)
+            .await
+            .map_err(|e| AgentError::ClientBuildError(format!("Failed to open database: {}", e)))?
+            .call(move |conn| {
+                let deleted_count = conn.execute(
+                    "DELETE FROM boundless_requests",
+                    [],
+                ).map_err(|e| e)?;
+                
+                tracing::info!("Deleted {} requests from database", deleted_count);
+                Ok(deleted_count)
+            })
+            .await
+            .map_err(|e| AgentError::ClientBuildError(format!("Failed to delete all requests: {}", e)))
+    }
+
     /// Get database file path (useful for backups)
     pub fn db_path(&self) -> &str {
         &self.db_path

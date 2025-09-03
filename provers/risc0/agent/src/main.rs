@@ -12,7 +12,7 @@ use axum::{
     Json,
     extract::{DefaultBodyLimit, State},
 };
-use axum::{Router, http::StatusCode, routing::{post, get}};
+use axum::{Router, http::StatusCode, routing::{post, get, delete}};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -329,6 +329,39 @@ async fn get_database_stats(
     }
 }
 
+/// Delete all requests from the database
+async fn delete_all_requests(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let prover = match state.get_or_refresh_prover().await {
+        Ok(prover) => prover,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to get prover: {}", e)
+                })),
+            );
+        }
+    };
+
+    match prover.delete_all_requests().await {
+        Ok(deleted_count) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "message": format!("Successfully deleted {} requests", deleted_count),
+                "deleted_count": deleted_count
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": format!("Failed to delete requests: {}", e)
+            })),
+        ),
+    }
+}
+
 use clap::Parser;
 
 /// Command line arguments for the RISC0 Boundless Agent
@@ -424,6 +457,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/proof", post(proof_handler))
         .route("/status/:request_id", get(get_async_proof_status))
         .route("/requests", get(list_async_requests))
+        .route("/prune", delete(delete_all_requests))
         .route("/stats", get(get_database_stats))
         .layer(DefaultBodyLimit::max(10000 * 1024 * 1024)) // max 10G
         .layer(cors)

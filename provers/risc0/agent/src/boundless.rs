@@ -1230,6 +1230,18 @@ impl BoundlessProver {
         self.storage.get_stats().await
     }
 
+    /// Delete all requests from the database
+    /// Returns the number of deleted requests
+    pub async fn delete_all_requests(&self) -> AgentResult<usize> {
+        let deleted_count = self.storage.delete_all_requests().await?;
+        
+        // Clear in-memory active requests as well
+        self.active_requests.write().await.clear();
+        
+        tracing::info!("Deleted {} requests from database and cleared memory cache", deleted_count);
+        Ok(deleted_count)
+    }
+
 
     async fn update_impl(&self, elf: Vec<u8>, elf_type: ElfType) -> AgentResult<Vec<u8>> {
         tracing::info!("Updating ELF for type: {:?}", elf_type);
