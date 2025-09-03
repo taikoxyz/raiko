@@ -62,10 +62,10 @@ reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = 
 reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false }
 
 # risc zero
-risc0-zkvm = { version = "2.3.1", features = ["prove", "getrandom"] }
-bonsai-sdk = { version = "=1.4.0" }
-risc0-binfmt = { version = "=2.0.2" }
-risc0-zkos-v1compat = { version = "=2.0.1" }
+risc0-zkvm = { version = "3.0.3", features = ["prove", "getrandom"] }
+bonsai-sdk = { version = "=1.4.1" }
+risc0-binfmt = { version = "=2.0.3" }
+risc0-zkos-v1compat = { version = "=2.2.0" }
 
 # SP1
 sp1-sdk = { version = "5.0.2" }
@@ -156,8 +156,8 @@ dashmap = "5.5.3"
 futures = "0.3.31"
 
 # crypto
-kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
-kzg_traits = { package = "kzg", git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
+kzg = { package = "rust-kzg-zkcrypto", git = "https://github.com/smtmfft/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
+kzg_traits = { package = "kzg", git = "https://github.com/smtmfft/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 sha2 = "0.10.8"
 secp256k1 = { version = "0.29", default-features = false, features = [
@@ -207,8 +207,8 @@ serial_test = "2"
 revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
 revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch" }
-blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
+secp256k1 = { git = "https://github.com/smtmfft/rust-secp256k1", branch = "sp1-patch" }
+blst = { git = "https://github.com/smtmfft/blst.git", branch = "v0.3.15-serialize" }
 alloy-serde = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-rpc-types-eth = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-network = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }

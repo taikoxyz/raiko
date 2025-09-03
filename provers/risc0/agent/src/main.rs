@@ -164,7 +164,7 @@ async fn proof_handler(
     Json(request): Json<AsyncProofRequestData>,
 ) -> (StatusCode, Json<AsyncProofResponse>) {
     tracing::info!(
-        "Received async proof submission: {} (size: {} bytes)",
+        "Received proof submission: {} (size: {} bytes)",
         request.request_id,
         request.input.len()
     );
@@ -209,19 +209,19 @@ async fn proof_handler(
     
     match result {
         Ok(async_request_id) => {
-            tracing::info!("Async proof already submitted with ID: {}", async_request_id);
+            tracing::info!("Proof submitted with ID: {}", async_request_id);
             (
                 StatusCode::ACCEPTED,
                 Json(AsyncProofResponse {
                     request_id: async_request_id,
                     market_request_id: U256::ZERO,
                     status: "submitted".to_string(),
-                    message: "Proof request submitted for async processing".to_string(),
+                    message: "Proof request submitted for processing".to_string(),
                 }),
             )
         }
         Err(e) => {
-            tracing::error!("Failed to submit async proof: {}", e);
+            tracing::error!("Failed to submit proof: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(AsyncProofResponse {
@@ -260,7 +260,7 @@ async fn get_async_proof_status(
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({
                 "error": "Request not found",
-                "message": "No async proof request found with the specified market_request_id"
+                "message": "No proof request found with the specified market_request_id"
             })),
         ),
     }

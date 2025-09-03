@@ -679,7 +679,7 @@ impl BoundlessProver {
         input: Vec<u8>,
         config: &serde_json::Value,
     ) -> AgentResult<String> {
-        tracing::info!("Preparing async {} proof request: {}", 
+        tracing::info!("Preparing {} proof request: {}", 
             match proof_type { 
                 ProofType::Batch => "batch",
                 ProofType::Aggregate => "aggregation",
@@ -777,11 +777,11 @@ impl BoundlessProver {
                         // If fulfilled or failed, stop polling
                         match new_status {
                             ProofRequestStatus::Fulfilled { .. } => {
-                                tracing::info!("Async proof {} completed via market", market_id_str);
+                                tracing::info!("Proof {} completed via market", market_id_str);
                                 return;
                             }
                             ProofRequestStatus::Failed { .. } => {
-                                tracing::error!("Async proof {} failed via market", market_id_str);
+                                tracing::error!("Proof {} failed via market", market_id_str);
                                 return;
                             }
                             _ => {
@@ -1107,7 +1107,7 @@ impl BoundlessProver {
             }
         }
 
-        tracing::info!("Submitting async update proof request: {}", request_id);
+        tracing::info!("Submitting update proof request: {}", request_id);
 
         // Create async request tracking
         // For update operations, we store the ELF data as "input" for deduplication
@@ -1161,7 +1161,7 @@ impl BoundlessProver {
                         tracing::warn!("Failed to update status in storage: {}", e);
                     }
                     
-                    tracing::info!("Async update proof completed successfully");
+                    tracing::info!("Update proof completed successfully");
                 }
                 Err(e) => {
                     // Update status to failed
@@ -1181,7 +1181,7 @@ impl BoundlessProver {
                         tracing::warn!("Failed to update failed status in storage: {}", e);
                     }
                     
-                    tracing::error!("Async update proof failed: {}", e);
+                    tracing::error!("Update proof failed: {}", e);
                 }
             }
         });
