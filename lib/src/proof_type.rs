@@ -36,7 +36,7 @@ pub enum ProofType {
     /// # Boundless
     ///
     /// Uses the Boundless network to build the block.
-    #[serde(alias = "RISC0BOUNDLESS")]
+    #[serde(alias = "BOUNDLESS")]
     Boundless = 5u8,
 }
 
