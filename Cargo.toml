@@ -5,8 +5,7 @@ exclude = [
     "provers/sp1/builder",
     "provers/risc0/guest",
     "provers/risc0/builder", 
-    "provers/zisk/guest",
-    "provers/zisk/builder",
+    "provers/zisk/agent",  # Entire ZISK agent is now self-contained
     "provers/sgx/guest",
 ]
 members = [

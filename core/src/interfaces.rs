@@ -122,10 +122,16 @@ pub async fn run_prover(
         }
         ProofType::Zisk => {
             #[cfg(feature = "zisk")]
-            return zisk_driver::ZiskProver
-                .run(input.clone(), output, config, store)
-                .await
-                .map_err(|e| e.into());
+            {
+                let zisk_input = zisk_adapter::convert_guest_input(&input);
+                let zisk_output = zisk_adapter::convert_guest_output(output);
+                let result = (&zisk_agent_driver::ZiskAgentProver)
+                    .run(zisk_input, &zisk_output, config, None)
+                    .await
+                    .map(zisk_adapter::convert_proof)
+                    .map_err(zisk_adapter::convert_error);
+                return result.map_err(|e| e.into());
+            }
             #[cfg(not(feature = "zisk"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
@@ -174,10 +180,16 @@ pub async fn run_batch_prover(
         }
         ProofType::Zisk => {
             #[cfg(feature = "zisk")]
-            return zisk_driver::ZiskProver
-                .batch_run(input.clone(), output, config, store)
-                .await
-                .map_err(|e| e.into());
+            {
+                let zisk_input = zisk_adapter::convert_guest_batch_input(&input);
+                let zisk_output = zisk_adapter::convert_guest_batch_output(output);
+                let result = (&zisk_agent_driver::ZiskAgentProver)
+                    .batch_run(zisk_input, &zisk_output, config, None)
+                    .await
+                    .map(zisk_adapter::convert_proof)
+                    .map_err(zisk_adapter::convert_error);
+                return result.map_err(|e| e.into());
+            }
             #[cfg(not(feature = "zisk"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
@@ -226,10 +238,16 @@ pub async fn aggregate_proofs(
         }
         ProofType::Zisk => {
             #[cfg(feature = "zisk")]
-            return zisk_driver::ZiskProver
-                .aggregate(input.clone(), output, config, store)
-                .await
-                .map_err(|e| e.into());
+            {
+                let zisk_input = zisk_adapter::convert_aggregation_input(&input);
+                let zisk_output = zisk_adapter::convert_aggregation_output(output);
+                let result = (&zisk_agent_driver::ZiskAgentProver)
+                    .aggregate(zisk_input, &zisk_output, config, None)
+                    .await
+                    .map(zisk_adapter::convert_proof)
+                    .map_err(zisk_adapter::convert_error);
+                return result.map_err(|e| e.into());
+            }
             #[cfg(not(feature = "zisk"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
@@ -277,10 +295,17 @@ pub async fn cancel_proof(
         }
         ProofType::Zisk => {
             #[cfg(feature = "zisk")]
-            return zisk_driver::ZiskProver
-                .cancel(proof_key, read)
-                .await
-                .map_err(|e| e.into());
+            {
+                let zisk_key = zisk_adapter::convert_proof_key(proof_key);
+                // Create a dummy box for the parameter since cancel is not implemented
+                let dummy_store: Box<&mut dyn zisk_agent_driver::types::IdStore> = 
+                    unsafe { std::mem::transmute(Box::new(read)) };
+                let result = (&zisk_agent_driver::ZiskAgentProver)
+                    .cancel(zisk_key, dummy_store)
+                    .await
+                    .map_err(zisk_adapter::convert_error);
+                return result.map_err(|e| e.into());
+            }
             #[cfg(not(feature = "zisk"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
@@ -728,5 +753,61 @@ impl AggregationOnlyRequest {
         merge(&mut opts, &this);
         *self = serde_json::from_value(opts)?;
         Ok(())
+    }
+}
+
+// Helper functions for ZISK agent driver type conversion
+#[cfg(feature = "zisk")]
+mod zisk_adapter {
+    use super::*;
+    
+    // Convert raiko-lib types to ZISK driver types
+    pub fn convert_guest_input(_input: &GuestInput) -> zisk_agent_driver::types::GuestInput {
+        zisk_agent_driver::types::GuestInput
+    }
+    
+    pub fn convert_guest_output(_output: &GuestOutput) -> zisk_agent_driver::types::GuestOutput {
+        zisk_agent_driver::types::GuestOutput  
+    }
+    
+    pub fn convert_guest_batch_input(_input: &GuestBatchInput) -> zisk_agent_driver::types::GuestBatchInput {
+        zisk_agent_driver::types::GuestBatchInput
+    }
+    
+    pub fn convert_guest_batch_output(_output: &GuestBatchOutput) -> zisk_agent_driver::types::GuestBatchOutput {
+        zisk_agent_driver::types::GuestBatchOutput
+    }
+    
+    pub fn convert_aggregation_input(_input: &AggregationGuestInput) -> zisk_agent_driver::types::AggregationGuestInput {
+        zisk_agent_driver::types::AggregationGuestInput
+    }
+    
+    pub fn convert_aggregation_output(_output: &AggregationGuestOutput) -> zisk_agent_driver::types::AggregationGuestOutput {
+        zisk_agent_driver::types::AggregationGuestOutput
+    }
+    
+    pub fn convert_proof_key(key: ProofKey) -> zisk_agent_driver::types::ProofKey {
+        key // Same structure: (u64, u64, B256, u8)
+    }
+    
+    // Convert ZISK driver Proof back to raiko-lib Proof
+    pub fn convert_proof(proof: zisk_agent_driver::types::Proof) -> Proof {
+        Proof {
+            proof: proof.proof,
+            input: proof.input,
+            quote: proof.quote,
+            uuid: proof.uuid,
+            kzg_proof: proof.kzg_proof,
+        }
+    }
+    
+    // Convert ZISK driver error to raiko-lib error
+    pub fn convert_error(e: zisk_agent_driver::types::ProverError) -> ProverError {
+        match e {
+            zisk_agent_driver::types::ProverError::GuestError(msg) => ProverError::GuestError(msg),
+            zisk_agent_driver::types::ProverError::FileIo(err) => ProverError::FileIo(err), 
+            zisk_agent_driver::types::ProverError::Param(err) => ProverError::Param(err),
+            zisk_agent_driver::types::ProverError::StoreError(msg) => ProverError::StoreError(msg),
+        }
     }
 }

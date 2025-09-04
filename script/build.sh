@@ -3,11 +3,13 @@
 # Any error will result in failure
 set -e
 
-# GPU support for Zisk proofs is automatically enabled when CUDA toolkit is detected.
-# Manual override: GPU=1 ./script/build.sh zisk (will show warning if CUDA not found)
+# ZISK Agent Mode: ZISK runs as an isolated microservice agent
+# - Completely isolated from SP1/RISC0 dependencies 
+# - Agent runs on port 9998 by default
+# - GPU support automatically enabled when CUDA toolkit is detected
 # 
 # Prerequisites for GPU support:
-# - NVIDIA GPU
+# - NVIDIA GPU  
 # - CUDA Toolkit installed (https://developer.nvidia.com/cuda-toolkit)
 # - Build on the target GPU server for optimal performance
 
@@ -232,106 +234,88 @@ if [ "$1" == "sp1" ]; then
     fi
 fi
 
-# ZISK
+# ZISK Agent Mode
 if [ "$1" == "zisk" ]; then
-    check_toolchain $TOOLCHAIN_ZISK
+    echo "=== ZISK Agent Mode Build ==="
+    echo "Building ZISK as isolated microservice agent"
     
     # Clear any RISC-V related environment variables that might interfere
     unset CC TARGET_CC
     
-    # Check if cargo-zisk is installed
-    if ! command -v cargo-zisk &> /dev/null; then
-        echo "cargo-zisk not found. Please install Zisk toolchain first:"
-        echo "  TARGET=zisk make install"
-        echo "or manually:"
-        echo "  curl https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash"
+    # Navigate to ZISK agent directory
+    ZISK_AGENT_DIR="provers/zisk/agent"
+    if [ ! -d "$ZISK_AGENT_DIR" ]; then
+        echo "Error: ZISK agent directory not found at $ZISK_AGENT_DIR"
         exit 1
     fi
     
-    # Setup feature flags based on GPU availability
-    ZISK_COMPUTE_TYPE="CPU"
-    ZISK_FEATURES="zisk"
-    
-    # Check for CUDA toolkit availability
-    if command -v nvcc &> /dev/null; then
-        ZISK_COMPUTE_TYPE="GPU"
-        echo "CUDA toolkit detected: $(nvcc --version | grep 'release' | head -1)"
-        echo "   GPU support available for Zisk proof generation"
-        echo "   Use cargo-zisk prove with GPU features for accelerated proving"
-    elif [ "$GPU" = "1" ]; then
-        echo "Warning: GPU=1 specified but CUDA toolkit not found."
-        echo "GPU support requires NVIDIA GPU with CUDA toolkit installed."
-        echo "Please install CUDA toolkit from: https://developer.nvidia.com/cuda-toolkit"
-        echo "Building with CPU support..."
-        ZISK_COMPUTE_TYPE="CPU"
-    else
-        echo "CUDA toolkit not found. Building with CPU support."
-        echo "To enable GPU support, install CUDA toolkit: https://developer.nvidia.com/cuda-toolkit"
-        ZISK_COMPUTE_TYPE="CPU"
-    fi
-    
-    if [ "$MOCK" = "1" ]; then
-        export ZISK_PROVER=mock
-        echo "ZISK_PROVER is set to $ZISK_PROVER"
-    fi
-    
-    # Set up RISC-V64 bare-metal cross-compiler for Zisk guest programs
-    # Try different compiler locations in order of preference
-    if command -v riscv64-unknown-elf-gcc >/dev/null 2>&1; then
-        # System-installed bare-metal compiler
-        RISCV64_CC="riscv64-unknown-elf-gcc"
-        RISCV64_AR="riscv64-unknown-elf-ar"
-    elif [ -f /opt/riscv64/bin/riscv64-unknown-elf-gcc ]; then
-        # Downloaded bare-metal compiler
-        RISCV64_CC="/opt/riscv64/bin/riscv64-unknown-elf-gcc"
-        RISCV64_AR="/opt/riscv64/bin/riscv64-unknown-elf-ar"
-    elif [ -f /opt/riscv/bin/riscv-none-elf-gcc ] && /opt/riscv/bin/riscv-none-elf-gcc -march=rv64ima -mabi=lp64 -S -o /dev/null -xc /dev/null 2>/dev/null; then
-        # Existing compiler that supports 64-bit
-        RISCV64_CC="/opt/riscv/bin/riscv-none-elf-gcc"
-        RISCV64_AR="/opt/riscv/bin/riscv-none-elf-ar"
-    else
-        echo "Warning: No suitable RISC-V64 bare-metal compiler found."
-        echo "Please run 'TARGET=zisk make install' first."
-        RISCV64_CC="riscv64-unknown-elf-gcc"  # Fallback
-        RISCV64_AR="riscv64-unknown-elf-ar"
-    fi
-    
-    export CC_riscv64ima_zisk_zkvm_elf="$RISCV64_CC"
-    export AR_riscv64ima_zisk_zkvm_elf="$RISCV64_AR"
-    export CFLAGS_riscv64ima_zisk_zkvm_elf="-march=rv64ima -mabi=lp64 -ffreestanding -fno-builtin"
+    echo "Using consolidated ZISK agent at: $ZISK_AGENT_DIR"
     
     if [ -n "${CLIPPY}" ]; then
-        cargo ${TOOLCHAIN_ZISK} clippy -p raiko-host -F "${ZISK_FEATURES},enable"
+        echo "Running clippy on ZISK agent workspace..."
+        (cd "$ZISK_AGENT_DIR" && cargo clippy --workspace --all-targets --all-features)
+        
+        # Also run clippy on core integration
+        cargo ${TOOLCHAIN_ZISK} clippy -p raiko-core -F "zisk,enable"
+        
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
-            echo "Building Zisk prover with ${ZISK_COMPUTE_TYPE} support"
-            echo "Using RISC-V64 bare-metal cross-compiler: $RISCV64_CC"
-            cargo ${TOOLCHAIN_ZISK} run --manifest-path provers/zisk/builder/Cargo.toml --bin zisk-builder --no-default-features --features ${ZISK_FEATURES}
-            # Set default Zisk image IDs for consistency with other zkVMs
-            # Check multiple indicators that we're in a container/CI environment
-            # if [ -f "/.dockerenv" ] || [ -n "${DOCKER_BUILDKIT}" ] || [ -n "${CI}" ] || [ ! -f ".env" ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
-            #     echo "Container/CI build detected, skipping .env update (will be handled by publish-image.sh)"
-            # else
-            #     echo "Setting default Zisk image IDs..."
-            #     ./script/update_imageid.sh zisk
-            # fi
+            echo "Building ZISK agent components..."
+            
+            # Use the agent's build script for proper dependency management
+            if [ -n "${GUEST}" ]; then
+                echo "Building ZISK guest programs only..."
+                (cd "$ZISK_AGENT_DIR" && ./build.sh guest)
+            else
+                # Build everything: guest programs + agent service + driver
+                echo "Building full ZISK agent system..."
+                (cd "$ZISK_AGENT_DIR" && ./build.sh all)
+                
+                # Build main raiko components with ZISK support
+                echo "Building main Raiko with ZISK agent integration..."
+                cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --features zisk --package raiko-host --package raiko-pipeline --package raiko-core
+            fi
+            
         else
-            echo "Building test programs for Zisk prover with ${ZISK_COMPUTE_TYPE} support (features: ${ZISK_FEATURES})"
-            cargo ${TOOLCHAIN_ZISK} run --manifest-path provers/zisk/builder/Cargo.toml --bin zisk-builder --no-default-features --features ${ZISK_FEATURES},test,bench
+            echo "Building ZISK test components..."
+            (cd "$ZISK_AGENT_DIR" && ./build.sh guest)
+            # Test the agent workspace
+            (cd "$ZISK_AGENT_DIR" && cargo test --workspace)
         fi
-        if [ -z "${GUEST}" ]; then
-            echo "Building Zisk host with ${ZISK_COMPUTE_TYPE} support (features: ${ZISK_FEATURES})"
-            # Clear RISC-V CC environment variables for host build
-            unset CC TARGET_CC
-            cargo ${TOOLCHAIN_ZISK} build ${FLAGS} --no-default-features --features ${ZISK_FEATURES} --package raiko-host --package raiko-pipeline --package raiko-core
-        fi
+        
     else
+        # RUN mode - can run agent or main raiko
         if [ -z "${TEST}" ]; then
-            # Clear RISC-V CC environment variables for host run
-            unset CC TARGET_CC
-            cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --no-default-features --features ${ZISK_FEATURES}
+            if [ -n "${ZISK_AGENT}" ]; then
+                echo "Starting ZISK agent service..."
+                echo "Agent will be available at http://localhost:9998"
+                echo "Health check: curl http://localhost:9998/health"
+                echo "Press Ctrl+C to stop"
+                (cd "$ZISK_AGENT_DIR" && ./target/release/zisk-agent ${ZISK_AGENT_ARGS})
+            else
+                echo "Running main Raiko with ZISK agent integration..."
+                echo "Make sure ZISK agent is running at: \$ZISK_AGENT_URL (default: http://localhost:9998/proof)"
+                cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --features zisk
+            fi
         else
-            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p zisk-driver --no-default-features --features "${ZISK_FEATURES},enable"
+            echo "Running ZISK integration tests..."
+            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p raiko-core --features "zisk,enable"
+            (cd "$ZISK_AGENT_DIR" && cargo test --workspace)
         fi
     fi
+    
+    # Display helpful information
+    echo ""
+    echo "=== ZISK Agent Information ==="
+    echo "Agent directory: $ZISK_AGENT_DIR"
+    echo "Build script:    $ZISK_AGENT_DIR/build.sh"
+    echo "Agent binary:    $ZISK_AGENT_DIR/target/release/zisk-agent"
+    echo "Default port:    9998"
+    echo ""
+    echo "Usage examples:"
+    echo "  # Start agent:        ZISK_AGENT=1 RUN=1 ./script/build.sh zisk"
+    echo "  # Run with agent:     RUN=1 ./script/build.sh zisk" 
+    echo "  # Build guest only:   GUEST=1 ./script/build.sh zisk"
+    echo "  # Agent build script: cd $ZISK_AGENT_DIR && ./build.sh help"
+    echo ""
 fi

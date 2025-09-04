@@ -1,0 +1,37 @@
+[package]
+name = "zisk-agent-service"
+version = "0.1.0"
+edition = "2021"
+description = "ZISK proof generation agent HTTP service"
+
+[[bin]]
+name = "zisk-agent"
+path = "src/main.rs"
+
+[dependencies]
+# HTTP server framework
+axum = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+
+# Utilities
+hex = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Command execution
+tempfile = { workspace = true }
+
+# Crypto primitives
+sha2 = { workspace = true }
+keccak = { workspace = true }
+
+# CLI parsing
+clap = { workspace = true }

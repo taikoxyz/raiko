@@ -35,4 +35,26 @@ update: ## Run cargo update
 	@cargo update
 	cd ./provers/sp1/guest && cargo update
 	cd ./provers/risc0/guest && cargo update
-	cd ./provers/zisk/guest && cargo update
+	cd ./provers/zisk/agent/guest && cargo update
+
+# ZISK Agent specific targets
+agent: ## Build and run ZISK agent service (use with TARGET=zisk)
+ifeq ($(TARGET),zisk)
+	@echo "Starting ZISK agent service on port 9998..."
+	@echo "Press Ctrl+C to stop"
+	ZISK_AGENT=1 RUN=1 ./script/build.sh $(TARGET)
+else
+	@echo "Error: agent target requires TARGET=zisk"
+	@echo "Usage: TARGET=zisk make agent"
+	@exit 1
+endif
+
+workspace: ## Build ZISK agent workspace components only (use with TARGET=zisk)
+ifeq ($(TARGET),zisk)
+	@echo "Building ZISK agent workspace (service + driver)..."
+	@cd provers/zisk/agent && ./build.sh workspace
+else
+	@echo "Error: workspace target requires TARGET=zisk"
+	@echo "Usage: TARGET=zisk make workspace"
+	@exit 1
+endif

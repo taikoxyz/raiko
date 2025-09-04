@@ -6136,7 +6136,7 @@ dependencies = [
  "tokio",
  "tracing",
  "utoipa",
- "zisk-driver",
+ "zisk-agent-driver",
 ]
 
 [[package]]
@@ -11154,18 +11154,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "zisk-driver"
+name = "zisk-agent-driver"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives 0.7.7",
+ "anyhow",
  "async-trait",
  "bincode",
  "hex",
- "raiko-lib",
- "reth-primitives",
+ "reqwest 0.11.27",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
+ "thiserror 1.0.63",
  "tokio",
  "tracing",
 ]

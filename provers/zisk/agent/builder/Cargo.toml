@@ -1,0 +1,12 @@
+[package]
+name = "zisk-builder"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-pipeline = { path = "../../../pipeline", features = ["zisk"] }
+
+[features]
+default = ["zisk"]
+zisk = []
+test = []

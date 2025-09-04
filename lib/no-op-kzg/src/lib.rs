@@ -23,6 +23,7 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {}
 
 impl Error {
+    #[allow(non_snake_case)]
     pub fn MismatchLength(msg: String) -> Self {
         let _ = msg; // Ignore the message for now
         Self { message: "Length mismatch" }
