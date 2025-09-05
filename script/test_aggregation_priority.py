@@ -87,7 +87,7 @@ class AggregationPriorityTester:
         self.logger.info(f"Using prover type: {self.prove_type}")
         
         # Validate prover type
-        supported_provers = ["native", "sgx", "risc0", "sp1"]
+        supported_provers = ["native", "sgx", "risc0", "sp1", "boundless"]
         if self.prove_type not in supported_provers:
             self.logger.error(f"Unsupported prover type: {self.prove_type}")
             self.logger.error(f"Supported provers: {supported_provers}")
@@ -196,6 +196,13 @@ class AggregationPriorityTester:
                 "prover": "network",
                 "verify": True
             }
+        elif self.prove_type == "boundless":
+            base_request["boundless"] = {
+                "bonsai": False,
+                "snark": True,
+                "profile": False,
+                "execution_po2": 20,
+            }
         
         return base_request
 
@@ -237,6 +244,13 @@ class AggregationPriorityTester:
                 "recursion": "plonk",
                 "prover": "network",
                 "verify": True
+            }
+        elif self.prove_type == "boundless":
+            base_request["boundless"] = {
+                "bonsai": False,
+                "snark": True,
+                "profile": False,
+                "execution_po2": 20,
             }
         
         return base_request
@@ -663,7 +677,7 @@ async def main():
         "--prove-type",
         type=str,
         default="native",
-        choices=["native", "sgx", "risc0", "sp1"],
+        choices=["native", "sgx", "risc0", "sp1", "boundless"],
         help="Proof type to use for requests"
     )
     

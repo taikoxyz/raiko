@@ -1,6 +1,3 @@
-pub const BOUNDLESS_AGGREGATION_ELF: &[u8] = include_bytes!(
-    "../../../guest/target/riscv32im-risc0-zkvm-elf/release/boundless-aggregation.bin"
-);
-pub const BOUNDLESS_AGGREGATION_ID: [u32; 8] = [
-    49611911, 1208363695, 3786728715, 3352986083, 1126822284, 2469403455, 119158426, 123595413,
-];
+
+pub const BOUNDLESS_AGGREGATION_ELF: &[u8] = include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/boundless-aggregation.bin");
+pub const BOUNDLESS_AGGREGATION_ID: [u32; 8] = [2191997121, 3470982841, 2627005161, 1228984591, 1234877745, 485452471, 1800383616, 216710522];
