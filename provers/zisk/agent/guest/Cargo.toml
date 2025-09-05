@@ -4,6 +4,13 @@ name = "zisk-guest"
 version = "0.1.0"
 edition = "2021"
 
+# Ensure we only use base RISC-V instruction set without extensions
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+codegen-units = 1
+
 [[bin]]
 name = "zisk-batch"
 path = "src/batch.rs"

@@ -8,9 +8,9 @@ use tempfile::TempDir;
 use tokio::sync::{Mutex, Notify};
 use tracing::{info, warn};
 
-// ELF binaries are loaded from relative paths (relative to target/release/ where binary runs)
-const BATCH_ELF_PATH: &str = "../../guest/elf/zisk-batch";
-const AGGREGATION_ELF_PATH: &str = "../../guest/elf/zisk-aggregation";
+// ELF binaries are loaded from relative paths (relative to agent root directory)
+const BATCH_ELF_PATH: &str = "guest/elf/zisk-batch";
+const AGGREGATION_ELF_PATH: &str = "guest/elf/zisk-aggregation";
 
 // Proof cache structures
 #[derive(Debug, Clone)]

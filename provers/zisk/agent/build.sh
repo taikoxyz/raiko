@@ -57,8 +57,8 @@ build_guest_programs() {
         exit 1
     fi
     
-    # Set CC to clang for ZISK compilation and clear RISC-V related environment variables
-    export CC=clang
+    # Set CC to riscv64-unknown-elf-gcc for ZISK compilation and clear RISC-V related environment variables
+    export CC=riscv64-unknown-elf-gcc
     unset TARGET_CC
     
     # Build guest programs using cargo-zisk (not regular cargo)
