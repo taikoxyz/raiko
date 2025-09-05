@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::Hasher;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, LazyLock};
 use tempfile::TempDir;
@@ -11,6 +12,17 @@ use tracing::{info, warn};
 // ELF binaries are loaded from relative paths (relative to agent root directory)
 const BATCH_ELF_PATH: &str = "guest/elf/zisk-batch";
 const AGGREGATION_ELF_PATH: &str = "guest/elf/zisk-aggregation";
+
+// Helper function to get absolute ELF paths
+fn get_elf_path(relative: &str) -> String {
+    // CARGO_MANIFEST_DIR points to the service directory at compile time
+    // We need to go up one level to reach the agent directory
+    let base_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    base_path.join(relative).to_string_lossy().into_owned()
+}
 
 // Proof cache structures
 #[derive(Debug, Clone)]
@@ -166,12 +178,13 @@ impl ZiskProver {
         std::fs::write(&input_file, &input_data)?;
 
         // Ensure ROM setup
-        ensure_rom_setup(BATCH_ELF_PATH).await?;
+        let batch_elf_path = get_elf_path(BATCH_ELF_PATH);
+        ensure_rom_setup(&batch_elf_path).await?;
 
         // Generate proof
         let proof_dir = work_dir.join("proof");
         generate_proof_with_mpi(
-            BATCH_ELF_PATH,
+            &batch_elf_path,
             input_file.to_str().unwrap(),
             proof_dir.to_str().unwrap(),
             self.config.concurrent_processes,
@@ -275,12 +288,13 @@ impl ZiskProver {
         std::fs::write(&input_file, &input_data)?;
 
         // Ensure ROM setup
-        ensure_rom_setup(AGGREGATION_ELF_PATH).await?;
+        let aggregation_elf_path = get_elf_path(AGGREGATION_ELF_PATH);
+        ensure_rom_setup(&aggregation_elf_path).await?;
 
         // Generate proof
         let proof_dir = work_dir.join("proof");
         generate_proof_with_mpi(
-            AGGREGATION_ELF_PATH,
+            &aggregation_elf_path,
             input_file.to_str().unwrap(),
             proof_dir.to_str().unwrap(),
             self.config.concurrent_processes,
