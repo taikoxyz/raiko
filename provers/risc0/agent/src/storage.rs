@@ -58,18 +58,6 @@ impl BoundlessStorage {
                     [],
                 ).map_err(|e| e)?;
 
-                // Create elf_urls table for storing image URLs
-                conn.execute(
-                    r#"
-                    CREATE TABLE IF NOT EXISTS elf_urls (
-                        elf_type TEXT PRIMARY KEY,
-                        url TEXT NOT NULL,
-                        updated_at INTEGER NOT NULL
-                    )
-                    "#,
-                    [],
-                ).map_err(|e| e)?;
-
                 Ok(())
             })
             .await
@@ -486,76 +474,18 @@ impl BoundlessStorage {
     }
 
     /// Store ELF URL for a given ELF type
-    pub async fn store_elf_url(&self, elf_type: &str, url: &str) -> AgentResult<()> {
-        let db_path = self.db_path.clone();
-        let elf_type = elf_type.to_string();
-        let url = url.to_string();
-        
-        // Clone for logging after the closure
-        let elf_type_log = elf_type.clone();
-        let url_log = url.clone();
-
-        tokio_rusqlite::Connection::open(db_path)
-            .await
-            .map_err(|e| AgentError::ClientBuildError(format!("Failed to open SQLite database: {}", e)))?
-            .call(move |conn| {
-                conn.execute(
-                    "INSERT OR REPLACE INTO elf_urls (elf_type, url, updated_at) VALUES (?1, ?2, ?3)",
-                    params![elf_type, url, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64],
-                )?;
-                Ok(())
-            })
-            .await
-            .map_err(|e| AgentError::ClientBuildError(format!("Failed to store ELF URL: {}", e)))?;
-
-        tracing::info!("Stored ELF URL for type {}: {}", elf_type_log, url_log);
-        Ok(())
+    pub async fn store_elf_url(&self, _elf_type: &str, _url: &str) -> AgentResult<()> {
+        todo!()
     }
 
     /// Retrieve ELF URL for a given ELF type
-    pub async fn get_elf_url(&self, elf_type: &str) -> AgentResult<Option<String>> {
-        let db_path = self.db_path.clone();
-        let elf_type = elf_type.to_string();
-
-        tokio_rusqlite::Connection::open(db_path)
-            .await
-            .map_err(|e| AgentError::ClientBuildError(format!("Failed to open SQLite database: {}", e)))?
-            .call(move |conn| {
-                let mut stmt = conn.prepare("SELECT url FROM elf_urls WHERE elf_type = ?1")?;
-                let mut rows = stmt.query_map(params![elf_type], |row| {
-                    Ok(row.get::<_, String>(0)?)
-                })?;
-
-                match rows.next() {
-                    Some(Ok(url)) => Ok(Some(url)),
-                    Some(Err(e)) => Err(tokio_rusqlite::Error::Rusqlite(e)),
-                    None => Ok(None),
-                }
-            })
-            .await
-            .map_err(|e| AgentError::ClientBuildError(format!("Failed to retrieve ELF URL: {}", e)))
+    pub async fn get_elf_url(&self, _elf_type: &str) -> AgentResult<Option<String>> {
+        todo!()
     }
 
     /// Get all stored ELF URLs
     pub async fn get_all_elf_urls(&self) -> AgentResult<Vec<(String, String)>> {
-        let db_path = self.db_path.clone();
-
-        tokio_rusqlite::Connection::open(db_path)
-            .await
-            .map_err(|e| AgentError::ClientBuildError(format!("Failed to open SQLite database: {}", e)))?
-            .call(move |conn| {
-                let mut stmt = conn.prepare("SELECT elf_type, url FROM elf_urls ORDER BY updated_at DESC")?;
-                let urls = stmt.query_map([], |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?
-                    ))
-                })?
-                .collect::<Result<Vec<_>, _>>()?;
-                Ok(urls)
-            })
-            .await
-            .map_err(|e| AgentError::ClientBuildError(format!("Failed to retrieve all ELF URLs: {}", e)))
+        todo!()
     }
 }
 

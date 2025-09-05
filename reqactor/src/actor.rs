@@ -132,17 +132,8 @@ impl Actor {
             return Ok(pool_status_opt.unwrap());
         }
 
-        // Mark the request as registered in the pool, or update to work in progress if already registered
-        let status = if let Some(ref pool_status) = pool_status_opt {
-            match pool_status.status() {
-                Status::Registered => StatusWithContext::new(Status::WorkInProgress, start_time),
-                Status::WorkInProgress => pool_status.clone(), // Keep existing status
-                _ => StatusWithContext::new(Status::Registered, start_time),
-            }
-        } else {
-            StatusWithContext::new(Status::Registered, start_time)
-        };
-        
+        // Mark the request as registered in the pool
+        let status = StatusWithContext::new(Status::Registered, start_time);
         if pool_status_opt.is_none() {
             self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
                 .await?;

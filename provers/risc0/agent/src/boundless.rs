@@ -1,4 +1,5 @@
 use std::time::Duration;
+use tokio::time::timeout;
 use std::str::FromStr;
 
 use crate::methods::{
@@ -584,64 +585,19 @@ impl BoundlessProver {
             return Err(AgentError::StorageProviderRequired);
         }
 
-        // Try to load URLs from database first, upload if not found
-        let batch_image_url = match storage.get_elf_url("batch").await? {
-            Some(url_str) => {
-                match Url::parse(&url_str) {
-                    Ok(url) => {
-                        tracing::info!("Loaded batch image URL from database: {}", url);
-                        url
-                    },
-                    Err(e) => {
-                        tracing::warn!("Invalid batch URL in database ({}), uploading new one", e);
-                        let url = boundless_client
-                            .upload_program(BOUNDLESS_BATCH_ELF)
-                            .await
-                            .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_BATCH_ELF: {e}")))?;
-                        storage.store_elf_url("batch", url.as_str()).await?;
-                        url
-                    }
-                }
-            },
-            None => {
-                tracing::info!("No batch image URL in database, uploading...");
-                let url = boundless_client
-                    .upload_program(BOUNDLESS_BATCH_ELF)
-                    .await
-                    .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_BATCH_ELF: {e}")))?;
-                storage.store_elf_url("batch", url.as_str()).await?;
-                url
-            }
-        };
+        // Always upload batch ELF (no caching)
+        tracing::info!("Uploading batch ELF...");
+        let batch_image_url = boundless_client
+            .upload_program(BOUNDLESS_BATCH_ELF)
+            .await
+            .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_BATCH_ELF: {e}")))?;
 
-        let aggregation_image_url = match storage.get_elf_url("aggregation").await? {
-            Some(url_str) => {
-                match Url::parse(&url_str) {
-                    Ok(url) => {
-                        tracing::info!("Loaded aggregation image URL from database: {}", url);
-                        url
-                    },
-                    Err(e) => {
-                        tracing::warn!("Invalid aggregation URL in database ({}), uploading new one", e);
-                        let url = boundless_client
-                            .upload_program(BOUNDLESS_AGGREGATION_ELF)
-                            .await
-                            .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_AGGREGATION_ELF: {e}")))?;
-                        storage.store_elf_url("aggregation", url.as_str()).await?;
-                        url
-                    }
-                }
-            },
-            None => {
-                tracing::info!("No aggregation image URL in database, uploading...");
-                let url = boundless_client
-                    .upload_program(BOUNDLESS_AGGREGATION_ELF)
-                    .await
-                    .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_AGGREGATION_ELF: {e}")))?;
-                storage.store_elf_url("aggregation", url.as_str()).await?;
-                url
-            }
-        };
+        // Always upload aggregation ELF (no caching)
+        tracing::info!("Uploading aggregation ELF...");
+        let aggregation_image_url = boundless_client
+            .upload_program(BOUNDLESS_AGGREGATION_ELF)
+            .await
+            .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_AGGREGATION_ELF: {e}")))?;
 
         let final_prover = BoundlessProver {
             batch_image_url: Arc::new(RwLock::new(Some(batch_image_url))),
@@ -718,21 +674,99 @@ impl BoundlessProver {
 
     /// Helper method to update failed status in both memory and storage
     async fn update_failed_status(&self, request_id: &str, error: String) {
-        let mut requests_guard = self.active_requests.write().await;
-        if let Some(request) = requests_guard.get_mut(request_id) {
-            request.status = ProofRequestStatus::Failed {
-                error: error.clone(),
-            };
+        let failed_status = ProofRequestStatus::Failed { error };
+        let _ = self.update_request_status(request_id, failed_status, &self.active_requests).await;
+    }
+
+    /// Helper method to update request status in both memory and storage
+    async fn update_request_status(
+        &self,
+        request_id: &str,
+        status: ProofRequestStatus,
+        active_requests: &Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
+    ) -> AgentResult<()> {
+        // Update status in memory
+        {
+            let mut requests_guard = active_requests.write().await;
+            if let Some(async_req) = requests_guard.get_mut(request_id) {
+                async_req.status = status.clone();
+            }
         }
-        drop(requests_guard);
         
-        let failed_status = ProofRequestStatus::Failed {
-            error,
+        // Update in SQLite storage
+        if let Err(e) = self.storage.update_status(request_id, &status).await {
+            tracing::warn!("Failed to update status in storage: {}", e);
+            return Err(AgentError::ClientBuildError(format!("Storage update failed: {}", e)));
+        }
+
+        Ok(())
+    }
+
+    /// Helper method to perform a single market status poll
+    async fn poll_market_status(
+        &self,
+        request_id: &str,
+        market_request_id: U256,
+        active_requests: &Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
+    ) -> bool {
+        let market_id_str = format!("0x{:x}", market_request_id);
+        
+        // Use retry logic for status polling to handle transient failures
+        let status_result = retry_with_backoff(
+            "check_market_status_polling",
+            || self.check_market_status(market_request_id),
+            3, // Fewer retries since we poll periodically
+        ).await;
+        
+        match status_result {
+            Ok(new_status) => {
+                // Update the status using the helper
+                if let Err(e) = self.update_request_status(request_id, new_status.clone(), active_requests).await {
+                    tracing::warn!("Failed to update status for {}: {}", request_id, e);
+                }
+                
+                // Check if we should stop polling (fulfilled or failed)
+                match new_status {
+                    ProofRequestStatus::Fulfilled { .. } => {
+                        tracing::info!("Proof {} completed via market", market_id_str);
+                        false // Stop polling
+                    }
+                    ProofRequestStatus::Failed { .. } => {
+                        tracing::error!("Proof {} failed via market", market_id_str);
+                        false // Stop polling
+                    }
+                    _ => {
+                        true // Continue polling
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to check market status for {}: {}", market_id_str, e);
+                true // Continue polling despite error
+            }
+        }
+    }
+
+    /// Helper method to handle polling timeout
+    async fn handle_polling_timeout(
+        &self,
+        request_id: &str,
+        active_requests: Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
+    ) {
+        tracing::warn!("Request {} timed out after 1 hour, marking as failed", request_id);
+        
+        let timeout_status = ProofRequestStatus::Failed {
+            error: "Request timed out after 1 hour".to_string(),
         };
         
-        if let Err(e) = self.storage.update_status(request_id, &failed_status).await {
-            tracing::warn!("Failed to update failed status in storage: {}", e);
-        }
+        // Update status using helper
+        let _ = self.update_request_status(request_id, timeout_status, &active_requests).await;
+        
+        // Remove from memory
+        let mut requests_guard = active_requests.write().await;
+        requests_guard.remove(request_id);
+        
+        tracing::info!("Removed timed out request {} from memory", request_id);
     }
 
     /// Helper method to start status polling for market requests
@@ -747,90 +781,25 @@ impl BoundlessProver {
         
         tokio::spawn(async move {
             let poll_interval = Duration::from_secs(10);
-            let max_polls = 360; // 1 hour with 10s intervals
-            let market_id_str = format!("0x{:x}", market_request_id);
-            let mut timed_out = false;
             
-            for poll_count in 0..max_polls {
-                // Use retry logic for status polling to handle transient failures
-                let status_result = retry_with_backoff(
-                    "check_market_status_polling",
-                    || prover_clone.check_market_status(market_request_id),
-                    3, // Fewer retries since we poll periodically
-                ).await;
-                
-                match status_result {
-                    Ok(new_status) => {
-                        // Update the status in memory
-                        {
-                            let mut requests_guard = active_requests.write().await;
-                            if let Some(async_req) = requests_guard.get_mut(&request_id) {
-                                async_req.status = new_status.clone();
-                            }
-                        }
-                        
-                        // Update in SQLite storage
-                        if let Err(e) = prover_clone.storage.update_status(&request_id, &new_status).await {
-                            tracing::warn!("Failed to update status in storage: {}", e);
-                        }
-                        
-                        // If fulfilled or failed, stop polling
-                        match new_status {
-                            ProofRequestStatus::Fulfilled { .. } => {
-                                tracing::info!("Proof {} completed via market", market_id_str);
-                                return;
-                            }
-                            ProofRequestStatus::Failed { .. } => {
-                                tracing::error!("Proof {} failed via market", market_id_str);
-                                return;
-                            }
-                            _ => {
-                                // Continue polling
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to check market status for {}: {}", market_id_str, e);
-                    }
+            // Create the polling future
+            let pollings = async {
+                while prover_clone
+                    .poll_market_status(&request_id, market_request_id, &active_requests)
+                    .await 
+                {
+                    tokio::time::sleep(poll_interval).await;
                 }
-                
-                // Check if this is the last poll
-                if poll_count == max_polls - 1 {
-                    timed_out = true;
-                    break;
-                }
-                
-                tokio::time::sleep(poll_interval).await;
-            }
+            };
             
-            // Handle timeout case
-            if timed_out {
-                tracing::warn!("Request {} timed out after 1 hour, marking as failed", request_id);
-                
-                let timeout_status = ProofRequestStatus::Failed {
-                    error: "Request timed out after 1 hour".to_string(),
-                };
-                
-                // Update status in memory
-                {
-                    let mut requests_guard = active_requests.write().await;
-                    if let Some(async_req) = requests_guard.get_mut(&request_id) {
-                        async_req.status = timeout_status.clone();
-                    }
+            // Use timeout wrapper as suggested
+            match timeout(Duration::from_secs(3600), pollings).await {
+                Ok(_) => {
+                    tracing::info!("Polling finished before timeout for request {}", request_id);
                 }
-                
-                // Update in SQLite storage
-                if let Err(e) = prover_clone.storage.update_status(&request_id, &timeout_status).await {
-                    tracing::warn!("Failed to update timeout status in storage: {}", e);
+                Err(_) => {
+                    prover_clone.handle_polling_timeout(&request_id, active_requests).await;
                 }
-                
-                // Remove from memory (it will be cleaned from DB later)
-                {
-                    let mut requests_guard = active_requests.write().await;
-                    requests_guard.remove(&request_id);
-                }
-                
-                tracing::info!("Removed timed out request {} from memory", request_id);
             }
         });
     }
@@ -845,6 +814,7 @@ impl BoundlessProver {
         offer_params: BoundlessOfferParams,
         active_requests: Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
     ) -> AgentResult<()> {
+        
         let boundless_client = retry_with_backoff(
             "create_boundless_client",
             || self.create_boundless_client(),
@@ -1062,131 +1032,14 @@ impl BoundlessProver {
         Ok(request_id)
     }
 
-    /// Submit an update proof request asynchronously
+    /// update elf
     pub async fn update(
         &self,
-        request_id: String,
-        elf: Vec<u8>,
-        elf_type: ElfType,
+        _request_id: String,
+        _elf: Vec<u8>,
+        _elf_type: ElfType,
     ) -> AgentResult<String> {
-        let proof_type = ProofType::Update(elf_type.clone());
-        
-        // Check for existing request with same ELF
-        // For update operations, we use the ELF data as input for hashing
-        if let Some(existing_request) = self.storage.get_request_by_input_hash(&elf, &proof_type).await? {
-            match &existing_request.status {
-                ProofRequestStatus::Fulfilled { .. } => {
-                    tracing::info!("Returning existing completed update proof for request: {}", existing_request.request_id);
-                    return Ok(existing_request.request_id);
-                },
-                ProofRequestStatus::Submitted { .. } => {
-                    tracing::info!("Returning existing submitted update proof (waiting for processing) for request: {}", existing_request.request_id);
-                    // Add to memory cache if not already there
-                    {
-                        let mut requests_guard = self.active_requests.write().await;
-                        if !requests_guard.contains_key(&existing_request.request_id) {
-                            requests_guard.insert(existing_request.request_id.clone(), existing_request.clone());
-                        }
-                    }
-                    return Ok(existing_request.request_id);
-                },
-                ProofRequestStatus::Locked { .. } => {
-                    tracing::info!("Returning existing locked update proof (being processed) for request: {}", existing_request.request_id);
-                    // Add to memory cache if not already there
-                    {
-                        let mut requests_guard = self.active_requests.write().await;
-                        if !requests_guard.contains_key(&existing_request.request_id) {
-                            requests_guard.insert(existing_request.request_id.clone(), existing_request.clone());
-                        }
-                    }
-                    return Ok(existing_request.request_id);
-                },
-                ProofRequestStatus::Failed { error } => {
-                    tracing::info!("Found failed request for same ELF ({}), creating new update request", error);
-                }
-            }
-        }
-
-        tracing::info!("Submitting update proof request: {}", request_id);
-
-        // Create async request tracking
-        // For update operations, we store the ELF data as "input" for deduplication
-        let async_request = AsyncProofRequest {
-            request_id: request_id.clone(),
-            market_request_id: U256::ZERO, // Not applicable for update operations
-            status: ProofRequestStatus::Submitted { 
-                market_request_id: U256::ZERO 
-            },
-            proof_type,
-            input: elf.clone(), // Store ELF as input for deduplication
-            config: serde_json::Value::default(),
-        };
-
-        // Store the request for tracking
-        {
-            let mut requests_guard = self.active_requests.write().await;
-            requests_guard.insert(request_id.clone(), async_request.clone());
-        }
-        
-        // Persist to SQLite storage
-        if let Err(e) = self.storage.store_request(&async_request).await {
-            tracing::warn!("Failed to store update request in SQLite: {}", e);
-        }
-
-        // Perform update operation in background
-        let prover_clone = self.clone();
-        let elf_clone = elf.clone();
-        let elf_type_clone = elf_type.clone();
-        let active_requests = self.active_requests.clone();
-        let request_id_clone = request_id.clone();
-
-        tokio::spawn(async move {
-            match prover_clone.update_impl(elf_clone, elf_type_clone).await {
-                Ok(proof_data) => {
-                    // Update status to fulfilled
-                    let fulfilled_status = ProofRequestStatus::Fulfilled {
-                        market_request_id: U256::ZERO,
-                        proof: proof_data,
-                    };
-                    
-                    {
-                        let mut requests_guard = active_requests.write().await;
-                        if let Some(request) = requests_guard.get_mut(&request_id_clone) {
-                            request.status = fulfilled_status.clone();
-                        }
-                    }
-                    
-                    // Update in SQLite storage
-                    if let Err(e) = prover_clone.storage.update_status(&request_id_clone, &fulfilled_status).await {
-                        tracing::warn!("Failed to update status in storage: {}", e);
-                    }
-                    
-                    tracing::info!("Update proof completed successfully");
-                }
-                Err(e) => {
-                    // Update status to failed
-                    let failed_status = ProofRequestStatus::Failed {
-                        error: format!("Update failed: {}", e),
-                    };
-                    
-                    {
-                        let mut requests_guard = active_requests.write().await;
-                        if let Some(request) = requests_guard.get_mut(&request_id_clone) {
-                            request.status = failed_status.clone();
-                        }
-                    }
-                    
-                    // Update in SQLite storage
-                    if let Err(e) = prover_clone.storage.update_status(&request_id_clone, &failed_status).await {
-                        tracing::warn!("Failed to update failed status in storage: {}", e);
-                    }
-                    
-                    tracing::error!("Update proof failed: {}", e);
-                }
-            }
-        });
-
-        Ok(request_id)
+        todo!()
     }
 
     /// Get the current status of an async request
@@ -1240,82 +1093,6 @@ impl BoundlessProver {
         
         tracing::info!("Deleted {} requests from database and cleared memory cache", deleted_count);
         Ok(deleted_count)
-    }
-
-
-    async fn update_impl(&self, elf: Vec<u8>, elf_type: ElfType) -> AgentResult<Vec<u8>> {
-        tracing::info!("Updating ELF for type: {:?}", elf_type);
-        
-        // Basic ELF validation
-        self.validate_elf(&elf)?;
-        
-        let boundless_client = self.create_boundless_client().await?;
-        
-        // Upload the new ELF to storage provider
-        let new_image_url = boundless_client
-            .upload_program(&elf)
-            .await
-            .map_err(|e| AgentError::ProgramUploadError(format!("Failed to upload new ELF: {e}")))?;
-        
-        tracing::info!("Successfully uploaded new ELF to: {}", new_image_url);
-        
-        // Update the appropriate image URL based on ELF type
-        self.update_image_url(elf_type.clone(), new_image_url.clone()).await?;
-        
-        let response = Risc0Response {
-            seal: vec![], // No seal for update operation
-            journal: new_image_url.as_str().as_bytes().to_vec(), // Return the new URL in journal
-            receipt: None,
-        };
-        
-        let proof_bytes = bincode::serialize(&response).map_err(|e| {
-            AgentError::ResponseEncodeError(format!("Failed to encode update response: {e}"))
-        })?;
-        
-        Ok(proof_bytes)
-    }
-
-    /// Basic ELF validation
-    fn validate_elf(&self, elf: &[u8]) -> AgentResult<()> {
-        // Check minimum size (ELF header is at least 64 bytes on 64-bit systems)
-        if elf.len() < 64 {
-            return Err(AgentError::RequestBuildError("ELF file too small".to_string()));
-        }
-        
-        // Check ELF magic bytes (0x7F, 'E', 'L', 'F')
-        if elf.len() < 4 || elf[0] != 0x7F || elf[1] != b'E' || elf[2] != b'L' || elf[3] != b'F' {
-            return Err(AgentError::RequestBuildError("Invalid ELF magic bytes".to_string()));
-        }
-        
-        // Check for reasonable maximum size (100MB limit)
-        if elf.len() > 100 * 1024 * 1024 {
-            return Err(AgentError::RequestBuildError("ELF file too large (max 100MB)".to_string()));
-        }
-        
-        tracing::info!("ELF validation passed: {} bytes", elf.len());
-        Ok(())
-    }
-
-    /// Update the stored image URL for the specified ELF type
-    async fn update_image_url(&self, elf_type: ElfType, new_url: Url) -> AgentResult<()> {
-        let elf_type_str = match elf_type {
-            ElfType::Batch => {
-                *self.batch_image_url.write().await = Some(new_url.clone());
-                tracing::info!("Updated batch image URL to: {}", new_url);
-                "batch"
-            },
-            ElfType::Aggregation => {
-                *self.aggregation_image_url.write().await = Some(new_url.clone());
-                tracing::info!("Updated aggregation image URL to: {}", new_url);
-                "aggregation"
-            },
-        };
-        
-        // Persist the change to database
-        self.storage.store_elf_url(elf_type_str, new_url.as_str()).await?;
-        
-        tracing::info!("Image URL updated successfully in memory and persisted to database");
-        Ok(())
     }
 
     async fn evaluate_cost(&self, guest_env: &GuestEnv, elf: &[u8]) -> AgentResult<(u64, Vec<u8>)> {
