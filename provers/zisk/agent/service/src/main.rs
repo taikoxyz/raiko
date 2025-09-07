@@ -13,6 +13,7 @@ use tracing::info;
 
 mod prover;
 mod handlers;
+mod types;
 
 use prover::{ZiskProver, ZiskProverConfig};
 

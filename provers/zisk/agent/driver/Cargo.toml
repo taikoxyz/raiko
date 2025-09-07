@@ -23,3 +23,6 @@ alloy-primitives = { workspace = true }
 # Minimal external dependencies to avoid conflicts
 async-trait = "0.1"
 thiserror = { workspace = true }
+
+# Raiko lib dependency (path relative to driver directory)
+raiko-lib = { path = "../../../../lib", features = ["std"] }

@@ -63,6 +63,10 @@ impl ZiskAgentProver {
         
         info!("Sending request to ZISK agent at {}: {:?} (input size: {})", 
               agent_url, request.proof_type, request.input.len());
+        
+        if request.input.is_empty() {
+            return Err(ProverError::GuestError("Input data is empty".to_string()));
+        }
 
         let response = client
             .post(&agent_url)
@@ -119,9 +123,9 @@ impl ZiskAgentProver {
     ) -> ProverResult<Proof> {
         info!("ZISK Agent batch proof starting");
 
-        // Serialize the input to send to agent
+        // Serialize the GuestBatchInput for the agent service
         let serialized_input = bincode::serialize(&input)
-            .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {}", e)))?;
+            .map_err(|e| ProverError::GuestError(format!("Failed to serialize GuestBatchInput: {e}")))?;
 
         let request = AgentProofRequest {
             input: serialized_input,
@@ -144,9 +148,9 @@ impl ZiskAgentProver {
     ) -> ProverResult<Proof> {
         info!("ZISK Agent aggregation proof starting");
 
-        // Serialize the input to send to agent
+        // Serialize the AggregationGuestInput for the agent service
         let serialized_input = bincode::serialize(&input)
-            .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {}", e)))?;
+            .map_err(|e| ProverError::GuestError(format!("Failed to serialize AggregationGuestInput: {e}")))?;
 
         let request = AgentProofRequest {
             input: serialized_input,

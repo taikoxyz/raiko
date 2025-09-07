@@ -31,7 +31,11 @@ tempfile = { workspace = true }
 
 # Crypto primitives
 sha2 = { workspace = true }
+sha3 = "0.10"
 keccak = { workspace = true }
+digest = "0.10"
 
 # CLI parsing
 clap = { workspace = true }
+
+# Types for deserialization - will define minimal types locally

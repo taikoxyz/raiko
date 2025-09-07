@@ -1,40 +1,12 @@
-// Stub types that exactly match raiko-lib interface  
+// Re-export types from raiko_lib to ensure consistency
+pub use raiko_lib::{
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
+        GuestInput, GuestOutput, ZkAggregationGuestInput,
+    },
+    prover::Proof,
+};
 use alloy_primitives::B256;
-use serde::{Deserialize, Serialize};
-
-// This must match raiko-lib's Proof exactly
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Proof {
-    /// The proof either TEE or ZK.
-    pub proof: Option<String>,
-    /// The public input
-    pub input: Option<B256>,
-    /// The TEE quote.
-    pub quote: Option<String>,
-    /// The assumption UUID.
-    pub uuid: Option<String>,
-    /// The kzg proof.
-    pub kzg_proof: Option<String>,
-}
-
-// Stub types for inputs/outputs - these can be simple since we serialize them
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GuestInput;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GuestOutput;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]  
-pub struct GuestBatchInput;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GuestBatchOutput;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AggregationGuestInput;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AggregationGuestOutput;
 
 // This must match raiko-lib's ProofKey exactly
 pub type ProofKey = (u64, u64, B256, u8);

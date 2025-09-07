@@ -1,13 +1,15 @@
 use anyhow::{anyhow, Result};
+use digest::Digest;
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::Hasher;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, LazyLock};
-use tempfile::TempDir;
 use tokio::sync::{Mutex, Notify};
-use tracing::{info, warn};
+use tracing::{info, warn, error};
+
+use crate::types::{AggregationGuestInput, ZkAggregationGuestInput};
 
 // ELF binaries are loaded from relative paths (relative to agent root directory)
 const BATCH_ELF_PATH: &str = "guest/elf/zisk-batch";
@@ -21,7 +23,14 @@ fn get_elf_path(relative: &str) -> String {
         .parent()
         .unwrap()
         .to_path_buf();
-    base_path.join(relative).to_string_lossy().into_owned()
+    let elf_path = base_path.join(relative);
+    
+    // Convert to absolute path and log for debugging
+    let absolute_path = std::fs::canonicalize(&elf_path)
+        .unwrap_or_else(|_| elf_path.clone());
+    
+    info!("Resolved ELF path: {} -> {:?}", relative, absolute_path);
+    absolute_path.to_string_lossy().into_owned()
 }
 
 // Proof cache structures
@@ -35,6 +44,7 @@ enum ProofStatus {
 #[derive(Debug, Clone)]
 struct CachedProof {
     status: ProofStatus,
+    #[allow(dead_code)]
     proof_type: String, // "batch" or "aggregation"
 }
 
@@ -102,6 +112,10 @@ impl ZiskProver {
     }
 
     pub async fn batch_proof(&self, input_data: Vec<u8>) -> Result<ZiskResponse> {
+        // For batch proof, we pass the serialized GuestBatchInput directly to the guest
+        // since the guest program expects the proper GuestBatchInput format
+        info!("Received batch proof request with {} bytes of data", input_data.len());
+        
         // Calculate hash for caching
         let input_hash = calculate_input_hash(&input_data);
         let request_id = format!("batch_{}", input_hash);
@@ -141,7 +155,7 @@ impl ZiskProver {
 
         info!("Starting ZISK batch proof generation with request_id: {}", request_id);
 
-        // Execute proof generation with error handling
+        // Execute proof generation with error handling  
         let result = self.execute_batch_proof(&input_data, &request_id).await;
         
         // Update cache based on result
@@ -168,21 +182,41 @@ impl ZiskProver {
     }
 
     async fn execute_batch_proof(&self, input_data: &[u8], request_id: &str) -> Result<ZiskResponse> {
-        // Create temporary directory for this proof
-        let temp_dir = TempDir::new()?;
-        let work_dir = temp_dir.path().join(&request_id);
+        // Create persistent build directory for this proof
+        let build_base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("build");
+        std::fs::create_dir_all(&build_base)?;
+        
+        let work_dir = build_base.join(&request_id);
         std::fs::create_dir_all(&work_dir)?;
+        
+        info!("Using build directory: {:?}", work_dir);
 
-        // Write input data
+        // Write the input data directly (it's already serialized GuestBatchInput from the driver)
         let input_file = work_dir.join("input.bin");
-        std::fs::write(&input_file, &input_data)?;
+        std::fs::write(&input_file, input_data)?;
+        info!("Wrote GuestBatchInput data to: {:?} (size: {} bytes)", input_file, input_data.len());
 
         // Ensure ROM setup
         let batch_elf_path = get_elf_path(BATCH_ELF_PATH);
+        
+        // Verify ELF file exists before proceeding
+        if !std::path::Path::new(&batch_elf_path).exists() {
+            return Err(anyhow!("Batch ELF file not found at: {}", batch_elf_path));
+        }
+        
+        // Verify Zisk constraints before proof generation
+        verify_zisk_constraints(&batch_elf_path, input_file.to_str().unwrap())?;
+        
         ensure_rom_setup(&batch_elf_path).await?;
 
         // Generate proof
         let proof_dir = work_dir.join("proof");
+        std::fs::create_dir_all(&proof_dir)?;
+        info!("Generating proof in directory: {:?}", proof_dir);
+        
         generate_proof_with_mpi(
             &batch_elf_path,
             input_file.to_str().unwrap(),
@@ -193,7 +227,24 @@ impl ZiskProver {
 
         // Read proof file
         let proof_file = proof_dir.join("vadcop_final_proof.bin");
+        
+        // Check if proof file exists
+        if !proof_file.exists() {
+            error!("Proof file not found at: {:?}", proof_file);
+            error!("Contents of proof directory:");
+            if let Ok(entries) = std::fs::read_dir(&proof_dir) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        error!("  - {:?}", entry.path());
+                    }
+                }
+            }
+            return Err(anyhow!("Proof file not generated at expected location: {:?}", proof_file));
+        }
+        
+        info!("Reading proof file from: {:?}", proof_file);
         let proof_data = std::fs::read(&proof_file)?;
+        info!("Read proof data: {} bytes", proof_data.len());
         let proof_hex = hex::encode(&proof_data);
 
         // Verify if requested
@@ -202,15 +253,30 @@ impl ZiskProver {
         }
 
         // Create response
-        Ok(ZiskResponse {
+        let response = ZiskResponse {
             proof: Some(format!("0x{}", proof_hex)),
             receipt: Some("zisk_batch_receipt".to_string()),
             input: Some([0u8; 32]), // Simplified hash for now
             uuid: Some(request_id.to_string()),
-        })
+        };
+        
+        // Clean up build directory only after successful proof generation
+        if let Err(e) = std::fs::remove_dir_all(&work_dir) {
+            warn!("Failed to clean up build directory {}: {}", work_dir.display(), e);
+        } else {
+            info!("Cleaned up build directory: {:?}", work_dir);
+        }
+        
+        Ok(response)
     }
 
     pub async fn aggregation_proof(&self, input_data: Vec<u8>) -> Result<ZiskResponse> {
+        // Deserialize the input data to extract proof inputs for conversion to ZkAggregationGuestInput
+        let aggregation_input: AggregationGuestInput = bincode::deserialize(&input_data)
+            .map_err(|e| anyhow!("Failed to deserialize AggregationGuestInput: {e}"))?;
+        
+        info!("Received aggregation proof request with {} proofs", aggregation_input.proofs.len());
+        
         // Calculate hash for caching
         let input_hash = calculate_input_hash(&input_data);
         let request_id = format!("aggregation_{}", input_hash);
@@ -251,7 +317,7 @@ impl ZiskProver {
         info!("Starting ZISK aggregation proof generation with request_id: {}", request_id);
 
         // Execute proof generation with error handling
-        let result = self.execute_aggregation_proof(&input_data, &request_id).await;
+        let result = self.execute_aggregation_proof(&aggregation_input, &request_id).await;
         
         // Update cache based on result
         match &result {
@@ -276,23 +342,80 @@ impl ZiskProver {
         result
     }
 
-    async fn execute_aggregation_proof(&self, input_data: &[u8], request_id: &str) -> Result<ZiskResponse> {
-
-        // Create temporary directory
-        let temp_dir = TempDir::new()?;
-        let work_dir = temp_dir.path().join(&request_id);
+    async fn execute_aggregation_proof(&self, aggregation_input: &AggregationGuestInput, request_id: &str) -> Result<ZiskResponse> {
+        // Create persistent build directory for this proof
+        let build_base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("build");
+        std::fs::create_dir_all(&build_base)?;
+        
+        let work_dir = build_base.join(&request_id);
         std::fs::create_dir_all(&work_dir)?;
+        
+        info!("Using build directory: {:?}", work_dir);
 
-        // Write input data
-        let input_file = work_dir.join("input.bin");
-        std::fs::write(&input_file, &input_data)?;
+        // Convert AggregationGuestInput to ZkAggregationGuestInput for ZISK
+        let block_inputs: Vec<crate::types::B256> = aggregation_input
+            .proofs
+            .iter()
+            .enumerate()
+            .map(|(i, proof)| {
+                proof.input.ok_or_else(|| {
+                    anyhow!(
+                        "Proof {} input is None. Proof details: quote={:?}, uuid={:?}, proof_len={}", 
+                        i,
+                        proof.quote.as_ref().map(|q| format!("present, size:{}", q.len())),
+                        proof.uuid,
+                        proof.proof.as_ref().map(|p| p.len()).unwrap_or(0)
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
-        // Ensure ROM setup
+        // Generate image ID from Zisk aggregation ELF hash  
         let aggregation_elf_path = get_elf_path(AGGREGATION_ELF_PATH);
+        let elf_data = std::fs::read(&aggregation_elf_path)
+            .map_err(|e| anyhow!("Failed to read aggregation ELF for image ID: {e}"))?;
+        
+        // Use keccak from our dependency instead of raiko_lib
+        let mut hasher = sha3::Keccak256::new();
+        hasher.update(&elf_data);
+        let elf_hash = hasher.finalize();
+        
+        let mut image_id = [0u32; 8];
+        for (i, chunk) in elf_hash.chunks(4).enumerate().take(8) {
+            image_id[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        }
+
+        let zisk_input = ZkAggregationGuestInput {
+            image_id,
+            block_inputs: block_inputs.clone(),
+        };
+
+        // Write the ZkAggregationGuestInput data for the guest program
+        let input_file = work_dir.join("input.bin");
+        let serialized_input = bincode::serialize(&zisk_input)
+            .map_err(|e| anyhow!("Failed to serialize ZkAggregationGuestInput for guest: {e}"))?;
+        std::fs::write(&input_file, &serialized_input)?;
+        info!("Wrote ZkAggregationGuestInput data to: {:?} (size: {} bytes, {} block inputs)", 
+              input_file, serialized_input.len(), block_inputs.len());
+        
+        // Verify ELF file exists before proceeding
+        if !std::path::Path::new(&aggregation_elf_path).exists() {
+            return Err(anyhow!("Aggregation ELF file not found at: {}", aggregation_elf_path));
+        }
+        
+        // Verify Zisk constraints before proof generation
+        // verify_zisk_constraints(&aggregation_elf_path, input_file.to_str().unwrap())?;
+        
         ensure_rom_setup(&aggregation_elf_path).await?;
 
         // Generate proof
         let proof_dir = work_dir.join("proof");
+        std::fs::create_dir_all(&proof_dir)?;
+        info!("Generating proof in directory: {:?}", proof_dir);
+        
         generate_proof_with_mpi(
             &aggregation_elf_path,
             input_file.to_str().unwrap(),
@@ -303,7 +426,24 @@ impl ZiskProver {
 
         // Read proof file
         let proof_file = proof_dir.join("vadcop_final_proof.bin");
+        
+        // Check if proof file exists
+        if !proof_file.exists() {
+            error!("Proof file not found at: {:?}", proof_file);
+            error!("Contents of proof directory:");
+            if let Ok(entries) = std::fs::read_dir(&proof_dir) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        error!("  - {:?}", entry.path());
+                    }
+                }
+            }
+            return Err(anyhow!("Proof file not generated at expected location: {:?}", proof_file));
+        }
+        
+        info!("Reading proof file from: {:?}", proof_file);
         let proof_data = std::fs::read(&proof_file)?;
+        info!("Read proof data: {} bytes", proof_data.len());
         let proof_hex = hex::encode(&proof_data);
 
         // Verify if requested
@@ -312,12 +452,21 @@ impl ZiskProver {
         }
 
         // Create response
-        Ok(ZiskResponse {
+        let response = ZiskResponse {
             proof: Some(format!("0x{}", proof_hex)),
             receipt: Some("zisk_aggregation_receipt".to_string()),
             input: Some([0u8; 32]), // Simplified hash for now
             uuid: Some(request_id.to_string()),
-        })
+        };
+        
+        // Clean up build directory only after successful proof generation
+        if let Err(e) = std::fs::remove_dir_all(&work_dir) {
+            warn!("Failed to clean up build directory {}: {}", work_dir.display(), e);
+        } else {
+            info!("Cleaned up build directory: {:?}", work_dir);
+        }
+        
+        Ok(response)
     }
 }
 
@@ -495,5 +644,53 @@ fn verify_proof(proof_file: &std::path::Path) -> Result<()> {
     }
     
     Ok(())
+}
+
+fn verify_zisk_constraints(elf_path: &str, input_path: &str) -> Result<()> {
+    info!("Verifying Zisk constraints for GuestBatchInput using cargo-zisk");
+
+    // Get Zisk binary paths
+    let witness_lib_path = std::env::var("HOME")
+        .map(|home| format!("{}/.zisk/bin/libzisk_witness.so", home))
+        .unwrap_or_else(|_| "$HOME/.zisk/bin/libzisk_witness.so".to_string());
+
+    let proving_key_path = std::env::var("HOME")
+        .map(|home| format!("{}/.zisk/provingKey", home))
+        .unwrap_or_else(|_| "$HOME/.zisk/provingKey".to_string());
+
+    // Run cargo-zisk verify-constraints command
+    let output = Command::new("cargo-zisk")
+        .args([
+            "verify-constraints",
+            "-e", elf_path,
+            "-i", input_path,
+            "-w", &witness_lib_path,
+            "-k", &proving_key_path,
+        ])
+        .output()
+        .map_err(|e| anyhow!("Failed to run cargo-zisk verify-constraints: {e}"))?;
+
+    // Check if verification succeeded
+    if output.status.success() {
+        info!("Zisk constraints verification PASSED");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.is_empty() {
+            info!("Verification output:\n{}", stdout);
+        }
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        info!("Zisk constraints verification FAILED");
+        if !stdout.is_empty() {
+            info!("Verification stdout:\n{}", stdout);
+        }
+        if !stderr.is_empty() {
+            error!("Verification stderr:\n{}", stderr);
+        }
+
+        Err(anyhow!("Zisk constraints verification failed: {}", stderr))
+    }
 }
 

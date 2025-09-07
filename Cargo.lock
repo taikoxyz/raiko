@@ -11162,6 +11162,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "hex",
+ "raiko-lib",
  "reqwest 0.11.27",
  "serde",
  "serde_json",

@@ -761,29 +761,29 @@ impl AggregationOnlyRequest {
 mod zisk_adapter {
     use super::*;
     
-    // Convert raiko-lib types to ZISK driver types
-    pub fn convert_guest_input(_input: &GuestInput) -> zisk_agent_driver::types::GuestInput {
-        zisk_agent_driver::types::GuestInput
+    // Convert raiko-lib types to ZISK driver types (now they're the same types, so just pass through)
+    pub fn convert_guest_input(input: &GuestInput) -> zisk_agent_driver::types::GuestInput {
+        input.clone()
     }
     
-    pub fn convert_guest_output(_output: &GuestOutput) -> zisk_agent_driver::types::GuestOutput {
-        zisk_agent_driver::types::GuestOutput  
+    pub fn convert_guest_output(output: &GuestOutput) -> zisk_agent_driver::types::GuestOutput {
+        output.clone()
     }
     
-    pub fn convert_guest_batch_input(_input: &GuestBatchInput) -> zisk_agent_driver::types::GuestBatchInput {
-        zisk_agent_driver::types::GuestBatchInput
+    pub fn convert_guest_batch_input(input: &GuestBatchInput) -> zisk_agent_driver::types::GuestBatchInput {
+        input.clone()
     }
     
-    pub fn convert_guest_batch_output(_output: &GuestBatchOutput) -> zisk_agent_driver::types::GuestBatchOutput {
-        zisk_agent_driver::types::GuestBatchOutput
+    pub fn convert_guest_batch_output(output: &GuestBatchOutput) -> zisk_agent_driver::types::GuestBatchOutput {
+        output.clone()
     }
     
-    pub fn convert_aggregation_input(_input: &AggregationGuestInput) -> zisk_agent_driver::types::AggregationGuestInput {
-        zisk_agent_driver::types::AggregationGuestInput
+    pub fn convert_aggregation_input(input: &AggregationGuestInput) -> zisk_agent_driver::types::AggregationGuestInput {
+        input.clone()
     }
     
-    pub fn convert_aggregation_output(_output: &AggregationGuestOutput) -> zisk_agent_driver::types::AggregationGuestOutput {
-        zisk_agent_driver::types::AggregationGuestOutput
+    pub fn convert_aggregation_output(output: &AggregationGuestOutput) -> zisk_agent_driver::types::AggregationGuestOutput {
+        output.clone()
     }
     
     pub fn convert_proof_key(key: ProofKey) -> zisk_agent_driver::types::ProofKey {
