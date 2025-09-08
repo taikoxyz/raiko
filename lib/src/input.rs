@@ -3,7 +3,9 @@ use core::{fmt::Debug, str::FromStr};
 use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
 use pacaya::{BatchInfo, BatchProposed};
-use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
+use reth_evm_ethereum::taiko::{
+    ProtocolBaseFeeConfig, ShastaData, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT,
+};
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
     Block, Header, TransactionSigned,
@@ -167,7 +169,7 @@ impl BlockProposedFork {
                 max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
             },
             BlockProposedFork::Shasta(event_data) => ProtocolBaseFeeConfig {
-                adjustment_quotient: 100,
+                adjustment_quotient: 0,
                 sharing_pctg: event_data.derivation.basefeeSharingPctg,
                 gas_issuance_per_second: 0,
                 min_gas_excess: 0,
@@ -187,10 +189,9 @@ impl BlockProposedFork {
                 batch.info.blobByteOffset as usize,
                 batch.info.blobByteSize as usize,
             )),
-            BlockProposedFork::Shasta(event_data) => Some((
-                event_data.derivation.blobSlice.offset as usize,
-                event_data.derivation.blobSlice.blobHashes.len() as usize,
-            )),
+            BlockProposedFork::Shasta(event_data) => {
+                Some((event_data.derivation.blobSlice.offset as usize, 0usize))
+            }
             _ => None,
         }
     }
@@ -256,6 +257,7 @@ pub struct TaikoGuestInput {
     pub blob_commitment: Option<Vec<u8>>,
     pub blob_proof: Option<Vec<u8>>,
     pub blob_proof_type: BlobProofType,
+    pub extra_data: Option<(bool, Address)>,
 }
 
 pub struct ZlibCompressError(pub String);

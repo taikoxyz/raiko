@@ -22,7 +22,9 @@ use util::{
     prepare_taiko_chain_batch_input, prepare_taiko_chain_input,
 };
 
-pub use util::parse_l1_batch_proposal_tx_for_pacaya_fork;
+pub use util::{
+    parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
+};
 
 #[cfg(feature = "statedb_lru")]
 use lru::{load_state_db, save_state_db};
@@ -307,6 +309,17 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     blob_commitment: None,
                     blob_proof: None,
                     blob_proof_type: taiko_guest_batch_input.blob_proof_type.clone(),
+                    extra_data: Some((
+                        util::decode_extra_data(
+                            taiko_guest_batch_input
+                                .l1_header
+                                .extra_data
+                                .to_vec()
+                                .as_slice(),
+                        )
+                        .1,
+                        taiko_guest_batch_input.l1_header.beneficiary, //todo! use designated prover
+                    )),
                 };
 
                 // Create the guest input

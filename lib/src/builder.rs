@@ -19,7 +19,7 @@ use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, Pr
 use reth_evm_ethereum::execute::{
     validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
 };
-use reth_evm_ethereum::taiko::TaikoData;
+use reth_evm_ethereum::taiko::{ShastaData, TaikoData};
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{
     Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap, SpecId,
@@ -222,6 +222,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
+        let (is_low_bond_proposal, designated_prover) = self.input.taiko.extra_data.unwrap();
         // Execute transactions
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
@@ -231,7 +232,10 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
                 base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
                 gas_limit: self.input.taiko.block_proposed.gas_limit_with_anchor(),
-                shasta_data: None,
+                shasta_data: Some(ShastaData {
+                    is_low_bond_proposal,
+                    designated_prover,
+                }),
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {
@@ -256,6 +260,13 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         // Header validation
         let block = block.seal_slow();
         if !optimistic {
+            if is_low_bond_proposal {
+                assert!(
+                    block.body.is_empty(),
+                    "empty block should be empty if it is a low bond proposal"
+                );
+            }
+
             let consensus = EthBeaconConsensus::new(reth_chain_spec.clone());
             // Validates extra data
             consensus.validate_header_with_total_difficulty(&block.header, total_difficulty)?;

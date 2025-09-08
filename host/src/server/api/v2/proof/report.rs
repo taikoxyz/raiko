@@ -63,6 +63,9 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
                 l1_height: *key.l1_inclusion_height(),
             })
         }
+        RequestKey::ProposalGuestInput(_key) => {
+            todo!("implement ProposalGuestInputTaskDescriptor");
+        }
     };
 
     let task_report: Vec<TaskReport> = statuses
