@@ -259,6 +259,7 @@ pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
     /// The block number for the block to generate a proof for.
+    /// in shasta, this is the proposal id
     pub batch_id: u64,
     /// The l1 block number of the l2 block be proposed.
     pub l1_inclusion_block_number: u64,

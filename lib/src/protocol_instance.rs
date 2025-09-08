@@ -14,7 +14,10 @@ use crate::{
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
-        shasta::{Checkpoint, Proposal as ShastaProposal, Transition as ShastaTransition},
+        shasta::{
+            BlobSlice as ShastaBlobSlice, Checkpoint, Derivation, Proposal as ShastaProposal,
+            Transition as ShastaTransition,
+        },
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
         GuestInput, Transition,
     },
@@ -643,9 +646,19 @@ impl ProtocolInstance {
 
         let last_block = blocks.last().unwrap();
         let prover = batch_input.taiko.prover_data.prover;
-        let transition = match batch_input.taiko.batch_proposed {
-            BlockProposedFork::Shasta(_) => TransitionFork::Shasta(ShastaTransition {
-                proposalHash: Default::default(),         // todo!
+        let transition = match &batch_input.taiko.batch_proposed {
+            BlockProposedFork::Shasta(event_data) => TransitionFork::Shasta(ShastaTransition {
+                proposalHash: keccak(
+                    ShastaProposal {
+                        id: event_data.proposal.id,
+                        proposer: event_data.proposal.proposer,
+                        timestamp: event_data.proposal.timestamp,
+                        coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
+                        derivationHash: keccak(event_data.derivation.abi_encode()).into(),
+                    }
+                    .abi_encode(),
+                )
+                .into(),
                 parentTransitionHash: Default::default(), // passed in
                 checkpoint: Checkpoint {
                     blockNumber: last_block.header.number,
@@ -655,7 +668,6 @@ impl ProtocolInstance {
                 designatedProver: prover, // passed in
                 actualProver: prover,     // passed in
             }),
-
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
         };
 
@@ -742,19 +754,7 @@ impl ProtocolInstance {
                 .skip(32)
                 .copied()
                 .collect::<Vec<u8>>(),
-            TransitionFork::Shasta(shasta_trans) => (
-                "VERIFY_PROOF",
-                self.chain_id,
-                self.verifier_address,
-                shasta_trans.clone(),
-                self.sgx_instance,
-                self.meta_hash(),
-            )
-                .abi_encode()
-                .iter()
-                .skip(32)
-                .copied()
-                .collect::<Vec<u8>>(),
+            TransitionFork::Shasta(shasta_trans) => shasta_trans.abi_encode(),
         };
         keccak(data).into()
     }

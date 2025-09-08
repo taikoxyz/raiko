@@ -217,6 +217,7 @@ pub async fn prepare_taiko_chain_input(
         prover_data,
         blob_proof,
         blob_proof_type: blob_proof_type.clone(),
+        ..Default::default()
     })
 }
 
@@ -280,6 +281,56 @@ pub async fn parse_l1_batch_proposal_tx_for_pacaya_fork(
         Err(RaikoError::Preflight(
             "BatchProposedFork is not Pacaya".to_owned(),
         ))
+    }
+}
+
+/// we actually separate the different fork by using different entry.
+/// batch -> pacaya
+/// proposal -> shasta
+pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
+    l1_chain_spec: &ChainSpec,
+    taiko_chain_spec: &ChainSpec,
+    l1_inclusion_block_number: u64,
+    proposal_id: u64,
+) -> RaikoResult<Vec<u64>> {
+    let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
+    let (l1_inclusion_height, _tx, proposal_fork) = get_block_proposed_event_by_height(
+        provider_l1.provider(),
+        taiko_chain_spec.clone(),
+        l1_inclusion_block_number,
+        proposal_id,
+        SpecId::SHASTA,
+    )
+    .await?;
+
+    assert!(
+        l1_inclusion_block_number == l1_inclusion_height,
+        "proposal tx inclusive block != proof_request block"
+    );
+
+    // _proposal_fork is shasta proposal tx, so we can get the lastFinalizedProposalId from it
+    match proposal_fork {
+        BlockProposedFork::Shasta(event_data) => {
+            let last_finalized_proposal_id = event_data.core_state.lastFinalizedProposalId;
+            let proposal_id = event_data.proposal.id;
+            let next_proposal_id = event_data.core_state.nextProposalId;
+            assert_eq!(
+                last_finalized_proposal_id + 1,
+                proposal_id,
+                "lastFinalizedProposalId + 1 != proposal_id"
+            );
+            assert_eq!(
+                proposal_id + 1,
+                next_proposal_id,
+                "nextProposalId != proposal_id + 1"
+            );
+            // todo: no way to get block numbers from shasta proposal tx
+            // need a new approach.
+            Ok(vec![])
+        }
+        _ => Err(RaikoError::Preflight(
+            "BlockProposedFork is not Shasta".to_owned(),
+        )),
     }
 }
 
@@ -578,8 +629,8 @@ pub async fn filter_block_proposed_event(
 
     // Get the event signature (value can differ between chains)
     let event_signature = match fork {
-        SpecId::PACAYA => BatchProposed::SIGNATURE_HASH,
         SpecId::SHASTA => ShastaProposed::SIGNATURE_HASH,
+        SpecId::PACAYA => BatchProposed::SIGNATURE_HASH,
         SpecId::ONTAKE => BlockProposedV2::SIGNATURE_HASH,
         _ => BlockProposed::SIGNATURE_HASH,
     };
@@ -997,4 +1048,25 @@ async fn get_and_filter_blob_data_by_blobscan(
 
     let blob = response.json::<BlobScanData>().await?;
     Ok(blob_to_bytes(&blob.data))
+}
+
+/// Decodes extra data for Taiko chain containing base fee sharing percentage and bond proposal flag
+///
+/// # Arguments
+/// * `extra_data` - The encoded extra data bytes
+///
+/// # Returns
+/// A tuple containing (basefee_sharing_pctg, is_low_bond_proposal)
+pub(crate) fn decode_extra_data(extra_data: &[u8]) -> (u8, bool) {
+    if extra_data.len() < 2 {
+        return (0, false);
+    }
+
+    // First byte: basefee sharing percentage
+    let basefee_sharing_pctg = extra_data[0];
+
+    // Second byte: is_low_bond_proposal in the lowest bit
+    let is_low_bond_proposal = (extra_data[1] & 0x01) != 0;
+
+    (basefee_sharing_pctg, is_low_bond_proposal)
 }
