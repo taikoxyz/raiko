@@ -75,4 +75,5 @@ std = [
 sgx = []
 sp1 = []
 risc0 = []
+zisk = []
 sp1-cycle-tracker = []

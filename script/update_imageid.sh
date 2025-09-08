@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
-# Script to automatically update RISC0 image IDs, SP1 VK hashes, SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file
+# Script to automatically update RISC0 image IDs, SP1 VK hashes, Zisk image IDs, SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file
 # by reading from build output or extracting MRENCLAVE directly
 #
 # Usage:
 #   ./script/update_imageid.sh risc0 [output_file]    # Update RISC0 image IDs from file or temp
 #   ./script/update_imageid.sh sp1 [output_file]      # Update SP1 VK hashes from file or temp
+#   ./script/update_imageid.sh zisk                   # Set default Zisk image IDs
 #   ./script/update_imageid.sh sgx                    # Extract and update SGX MRENCLAVE
 #   ./script/update_imageid.sh sgxgeth                # Extract and update SGXGETH MRENCLAVE
 #
@@ -94,6 +95,19 @@ extract_sp1_vk_hash() {
     fi
     
     echo "$vk_hash"
+}
+
+# Function to set default Zisk image IDs
+set_zisk_default_ids() {
+    print_status "Setting default Zisk image IDs for consistency with other zkVMs"
+    
+    # Set default values - these can be updated in the future when Zisk implements native image IDs
+    ZISK_AGGREGATION_ID="0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    ZISK_BATCH_ID="0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    
+    print_status "Using default Zisk image IDs:"
+    print_status "  Aggregation: $ZISK_AGGREGATION_ID"
+    print_status "  Batch: $ZISK_BATCH_ID"
 }
 
 # Function to check if Gramine tools are available
@@ -413,7 +427,7 @@ update_env_file() {
         fi
         print_status "Updated SP1_BATCH_VK_HASH in $env_file: $SP1_BATCH_VK_HASH"
     fi
-    
+
     print_status "Successfully updated $env_file"
 }
 
@@ -498,6 +512,8 @@ main() {
     RISC0_BATCH_ID=""
     SP1_AGGREGATION_VK_HASH=""
     SP1_BATCH_VK_HASH=""
+    ZISK_AGGREGATION_ID=""
+    ZISK_BATCH_ID=""
     
     # Check if we're in the right directory
     if [ ! -f "Cargo.toml" ]; then
@@ -515,6 +531,9 @@ main() {
             "sp1")
                 mode="sp1"
                 ;;
+            "zisk")
+                mode="zisk"
+                ;;
             "sgx")
                 mode="sgx"
                 ;;
@@ -522,12 +541,12 @@ main() {
                 mode="sgxgeth"
                 ;;
             *)
-                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'sgx', or 'sgxgeth'"
+                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'zisk', 'sgx', or 'sgxgeth'"
                 exit 1
                 ;;
         esac
     else
-        print_error "Mode must be specified. Use 'risc0', 'sp1', 'sgx', or 'sgxgeth'"
+        print_error "Mode must be specified. Use 'risc0', 'sp1', 'zisk', 'sgx', or 'sgxgeth'"
         exit 1
     fi
     
@@ -549,6 +568,12 @@ main() {
             print_error "Failed to extract SP1 VK hashes"
             exit 1
         fi
+    fi
+    
+    # Set default Zisk image IDs
+    if [ "$mode" = "zisk" ]; then
+        set_zisk_default_ids
+        print_status "Zisk image IDs set successfully"
     fi
     
     # Extract SGX MRENCLAVE
@@ -582,7 +607,7 @@ main() {
         fi
     fi
     
-    # Update .env file (only for risc0 and sp1 modes, sgx and sgxgeth handle their own .env updates)
+    # Update .env file (only for risc0, sp1, and zisk modes, sgx and sgxgeth handle their own .env updates)
     if [ "$mode" != "sgx" ] && [ "$mode" != "sgxgeth" ]; then
         if update_env_file; then
             print_status "Environment file updated successfully"

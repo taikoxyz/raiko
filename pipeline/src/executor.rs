@@ -155,6 +155,49 @@ impl Executor {
 
         Ok(())
     }
+
+    #[cfg(feature = "zisk")]
+    pub fn zisk_placement(&self, dest: &str) -> anyhow::Result<()> {
+        use std::fs;
+
+        let root = crate::ROOT_DIR.get().expect("No reference to ROOT_DIR");
+        let dest = PathBuf::from(dest);
+
+        if !dest.exists() {
+            fs::create_dir_all(&dest).expect("Couldn't create destination directories");
+        }
+
+        for src in &self.artifacts {
+            let mut name = file_name(src);
+            if self.test {
+                name = format!(
+                    "test-{}",
+                    name.split('-').next().expect("Couldn't get test name")
+                );
+            }
+
+            let src_path = root.join(src.to_str().expect("File name is not valid UTF-8"));
+            let dest_path = dest.join(&name);
+
+            fs::copy(&src_path, &dest_path)?;
+
+            println!("Write Zisk elf from\n {src_path:?}\nto\n {dest_path:?}");
+
+            // TODO: Add Zisk verification key generation if supported
+            // For now, just display the file size and hash for verification
+            let elf_data = fs::read(&dest_path)?;
+            println!("Zisk ELF size: {} bytes", elf_data.len());
+            
+            // Simple hash for verification (could use a proper hash function)
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            elf_data.hash(&mut hasher);
+            println!("Zisk ELF hash: {:016x}", hasher.finish());
+        }
+
+        Ok(())
+    }
 }
 
 fn file_name(path: &Path) -> String {

@@ -56,7 +56,7 @@ class AggregationPriorityTester:
         log_file: str = "aggregation_priority_test.log",
         prove_type: str = "native",
         request_delay: float = 0.0,
-        polling_interval: int = 3,
+        polling_interval: int = 15,
         request_timeout: int = 90,
     ):
         self.raiko_rpc = raiko_rpc
@@ -87,7 +87,7 @@ class AggregationPriorityTester:
         self.logger.info(f"Using prover type: {self.prove_type}")
         
         # Validate prover type
-        supported_provers = ["native", "sgx", "risc0", "sp1"]
+        supported_provers = ["native", "sgx", "risc0", "sp1", "zisk"]
         if self.prove_type not in supported_provers:
             self.logger.error(f"Unsupported prover type: {self.prove_type}")
             self.logger.error(f"Supported provers: {supported_provers}")
@@ -196,6 +196,11 @@ class AggregationPriorityTester:
                 "prover": "network",
                 "verify": True
             }
+        elif self.prove_type == "zisk":
+            base_request["zisk"] = {
+                "verify": False,
+                "execution_mode": "prove",
+            }
         
         return base_request
 
@@ -237,6 +242,11 @@ class AggregationPriorityTester:
                 "recursion": "plonk",
                 "prover": "network",
                 "verify": True
+            }
+        elif self.prove_type == "zisk":
+            base_request["zisk"] = {
+                "verify": True,
+                "execution_mode": "prove",
             }
         
         return base_request
@@ -664,7 +674,7 @@ async def main():
         "--prove-type",
         type=str,
         default="native",
-        choices=["native", "sgx", "risc0", "sp1"],
+        choices=["native", "sgx", "risc0", "sp1", "zisk"],
         help="Proof type to use for requests"
     )
     
@@ -685,14 +695,14 @@ async def main():
     parser.add_argument(
         "--monitor-duration",
         type=int,
-        default=600,
+        default=3600,
         help="How long to monitor request processing (seconds)"
     )
     
     parser.add_argument(
         "--polling-interval",
         type=int,
-        default=5,
+        default=15,
         help="Polling interval for status queries (seconds)"
     )
     

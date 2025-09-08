@@ -752,19 +752,22 @@ impl ImageIdReader for ProofType {
         }
     }
 
+
     fn env_var_name(&self, _request_type: Option<&str>) -> &'static str {
         match self {
             ProofType::Risc0 => "RISC0_BATCH_ID",
             ProofType::Sp1 => "SP1_BATCH_VK_HASH",
             ProofType::Sgx => "SGX_MRENCLAVE",
             ProofType::SgxGeth => "SGXGETH_MRENCLAVE",
+            ProofType::Zisk => "ZISK_BATCH_ID",
             _ => panic!("Unsupported proof type for image ID: {:?}", self),
         }
     }
-
+    
     fn default_value(&self, _request_type: Option<&str>) -> &'static str {
         match self {
-            ProofType::Risc0 | ProofType::Sp1 | ProofType::Sgx | ProofType::SgxGeth => {
+            ProofType::Risc0 | ProofType::Sp1 | ProofType::Sgx | 
+            ProofType::SgxGeth | ProofType::Zisk => {
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
             }
             _ => panic!("Unsupported proof type for default value: {:?}", self),
@@ -785,6 +788,8 @@ pub struct ImageId {
     pub sgx_enclave: Option<String>,
     /// SGX Geth enclave MRENCLAVE
     pub sgxgeth_enclave: Option<String>,
+    /// Zisk batch ID
+    pub zisk_batch_id: Option<String>,
 }
 
 impl ImageId {
@@ -794,10 +799,12 @@ impl ImageId {
             sp1_batch_vk_hash: None,
             sgx_enclave: None,
             sgxgeth_enclave: None,
+            zisk_batch_id: None,
         }
     }
 
     /// Create an ImageId based on the proof type (always uses batch IDs for data lookup)
+
     pub fn from_proof_type_and_request_type(proof_type: &ProofType, _is_aggregation: bool) -> Self {
         let mut image_id = Self::new();
 
@@ -820,6 +827,11 @@ impl ImageId {
             ProofType::SgxGeth => {
                 if let Ok(mrenclave) = proof_type.read_image_id(None) {
                     image_id.sgxgeth_enclave = Some(mrenclave);
+                }
+            }
+            ProofType::Zisk => {
+                if let Ok(id) = proof_type.read_image_id(None) {
+                    image_id.zisk_batch_id = Some(id);
                 }
             }
             _ => {
