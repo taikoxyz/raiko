@@ -240,7 +240,3 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 pub fn create_router() -> Router<Actor> {
     Router::new().route("/", post(batch_handler))
 }
-
-pub fn create_shasta_router() -> Router<Actor> {
-    Router::new().route("/", post(batch_handler))
-}

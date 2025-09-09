@@ -1,4 +1,4 @@
-use raiko_core::interfaces::{BatchMetadata, ShastaProofRequest, ShastaProposal};
+use raiko_core::interfaces::{ShastaProofRequest, ShastaProposal};
 use raiko_reqpool::{
     ImageId, RequestKey, ShastaInputRequestEntity, ShastaInputRequestKey, ShastaProofRequestEntity,
     ShastaProofRequestKey,
