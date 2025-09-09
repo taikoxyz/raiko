@@ -222,7 +222,14 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
-        let (is_low_bond_proposal, designated_prover) = self.input.taiko.extra_data.unwrap();
+        let shasta_data_opt =
+            self.input
+                .taiko
+                .extra_data
+                .map(|(is_low_bond_proposal, designated_prover)| ShastaData {
+                    is_low_bond_proposal,
+                    designated_prover,
+                });
         // Execute transactions
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
@@ -232,10 +239,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
                 base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
                 gas_limit: self.input.taiko.block_proposed.gas_limit_with_anchor(),
-                shasta_data: Some(ShastaData {
-                    is_low_bond_proposal,
-                    designated_prover,
-                }),
+                shasta_data: shasta_data_opt.clone(),
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {
@@ -260,7 +264,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         // Header validation
         let block = block.seal_slow();
         if !optimistic {
-            if is_low_bond_proposal {
+            if shasta_data_opt.is_some() && shasta_data_opt.unwrap().is_low_bond_proposal {
                 assert!(
                     block.body.is_empty(),
                     "empty block should be empty if it is a low bond proposal"

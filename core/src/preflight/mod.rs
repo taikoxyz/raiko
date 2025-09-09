@@ -9,7 +9,10 @@ use futures::future::join_all;
 use raiko_lib::{
     builder::RethBlockBuilder,
     consts::ChainSpec,
-    input::{BlobProofType, GuestBatchInput, GuestInput, TaikoGuestInput, TaikoProverData},
+    input::{
+        BlobProofType, BlockProposedFork, GuestBatchInput, GuestInput, TaikoGuestInput,
+        TaikoProverData,
+    },
     primitives::mpt::proofs_to_tries,
     utils::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
@@ -309,17 +312,22 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     blob_commitment: None,
                     blob_proof: None,
                     blob_proof_type: taiko_guest_batch_input.blob_proof_type.clone(),
-                    extra_data: Some((
-                        util::decode_extra_data(
-                            taiko_guest_batch_input
-                                .l1_header
-                                .extra_data
-                                .to_vec()
-                                .as_slice(),
-                        )
-                        .1,
-                        taiko_guest_batch_input.l1_header.beneficiary, //todo! use designated prover
-                    )),
+                    extra_data: match taiko_guest_batch_input.batch_proposed {
+                        BlockProposedFork::Shasta(_) => {
+                            Some((
+                                util::decode_extra_data(
+                                    taiko_guest_batch_input
+                                        .l1_header
+                                        .extra_data
+                                        .to_vec()
+                                        .as_slice(),
+                                )
+                                .1,
+                                taiko_guest_batch_input.l1_header.beneficiary, //todo! use designated prover
+                            ))
+                        }
+                        _ => None,
+                    },
                 };
 
                 // Create the guest input
