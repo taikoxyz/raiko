@@ -4,7 +4,8 @@ use raiko_reqactor::Actor;
 use raiko_reqpool::{RequestKey, Status, StatusWithContext};
 use raiko_tasks::{
     AggregationTaskDescriptor, BatchGuestInputTaskDescriptor, BatchProofTaskDescriptor,
-    GuestInputTaskDescriptor, ProofTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus,
+    GuestInputTaskDescriptor, ProofTaskDescriptor, ShastaGuestInputTaskDescriptor,
+    ShastaProofTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus,
 };
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -63,9 +64,20 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
                 l1_height: *key.l1_inclusion_height(),
             })
         }
-        RequestKey::ProposalGuestInput(_key) => {
-            todo!("implement ProposalGuestInputTaskDescriptor");
+        RequestKey::ShastaGuestInput(key) => {
+            TaskDescriptor::ShastaGuestInput(ShastaGuestInputTaskDescriptor {
+                proposal_id: *key.proposal_id(),
+                l1_network: key.l1_network().clone(),
+                l2_network: key.l2_network().clone(),
+            })
         }
+        RequestKey::ShastaProof(key) => TaskDescriptor::ShastaProof(ShastaProofTaskDescriptor {
+            proposal_id: *key.guest_input_key().proposal_id(),
+            l1_network: key.guest_input_key().l1_network().clone(),
+            l2_network: key.guest_input_key().l2_network().clone(),
+            proof_system: *key.proof_type(),
+            prover: key.prover_address().clone(),
+        }),
     };
 
     let task_report: Vec<TaskReport> = statuses

@@ -19,7 +19,7 @@ use raiko_lib::{
 };
 use raiko_reqpool::{
     AggregationRequestEntity, BatchGuestInputRequestEntity, BatchProofRequestEntity,
-    GuestInputRequestEntity, ProposalGuestInputRequestEntity, RequestEntity, RequestKey,
+    GuestInputRequestEntity, RequestEntity, RequestKey, ShastaInputRequestEntity,
     ShastaProofRequestEntity, SingleProofRequestEntity, Status, StatusWithContext,
 };
 use reth_primitives::B256;
@@ -125,7 +125,7 @@ impl Backend {
                         )
                         .await
                     }
-                    RequestEntity::ShastaProposalGuestInput(entity) => {
+                    RequestEntity::ShastaGuestInput(entity) => {
                         do_generate_shasta_proposal_guest_input(
                             &mut pool_,
                             &chain_specs,
@@ -135,8 +135,13 @@ impl Backend {
                         .await
                     }
                     RequestEntity::ShastaProof(entity) => {
-                        //do_prove_shasta_proposal(&mut pool_, request_key_.clone(), entity).await
-                        todo!("implement do_prove_shasta_proposal")
+                        do_prove_shasta_proposal(
+                            &mut pool_,
+                            &chain_specs,
+                            request_key_.clone(),
+                            entity,
+                        )
+                        .await
                     }
                 };
                 let status = match result {
@@ -534,7 +539,7 @@ pub async fn do_generate_shasta_proposal_guest_input(
     _pool: &mut Pool,
     chain_specs: &SupportedChainSpecs,
     request_key: RequestKey,
-    request_entity: ProposalGuestInputRequestEntity,
+    request_entity: ShastaInputRequestEntity,
 ) -> Result<Proof, String> {
     trace!("batch guest input for: {request_key:?}");
     let shasta_proposal_request_entity: ShastaProofRequestEntity =
@@ -606,4 +611,30 @@ mod tests {
 
         assert!(true);
     }
+}
+
+pub async fn do_prove_shasta_proposal(
+    _pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: ShastaProofRequestEntity,
+) -> Result<Proof, String> {
+    trace!("shasta proposal proof for: {request_key:?}");
+
+    let raiko = new_raiko_for_shasta_proposal_request(chain_specs, request_entity)
+        .await
+        .map_err(|err| format!("failed to create raiko: {err:?}"))?;
+
+    let input = generate_input_for_batch(&raiko)
+        .await
+        .map_err(|err| format!("failed to generate input: {err:?}"))?;
+    let input_proof = bincode::serialize(&input)
+        .map_err(|err| format!("failed to serialize input to bincode: {err:?}"))?;
+    let compressed_bytes = zlib_compress_data(&input_proof).unwrap();
+    let compressed_b64: String = general_purpose::STANDARD.encode(&compressed_bytes);
+
+    Ok(Proof {
+        proof: Some(compressed_b64),
+        ..Default::default()
+    })
 }
