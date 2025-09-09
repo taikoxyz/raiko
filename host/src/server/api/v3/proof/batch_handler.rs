@@ -1,3 +1,4 @@
+use super::batch::process_pacaya_batch;
 use crate::{
     interfaces::HostResult,
     server::{
@@ -11,14 +12,14 @@ use crate::{
 };
 use axum::{extract::State, routing::post, Extension, Json, Router};
 use raiko_core::{
-    interfaces::{BatchMetadata, BatchProofRequest, BatchProofRequestOpt, RaikoError},
+    interfaces::{BatchProofRequest, BatchProofRequestOpt, RaikoError},
     merge,
 };
 use raiko_lib::{proof_type::ProofType, prover::Proof};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
-    AggregationRequestEntity, AggregationRequestKey, BatchGuestInputRequestEntity,
-    BatchProofRequestEntity, ImageId, RequestKey,
+    AggregationRequestEntity, AggregationRequestKey, BatchProofRequestEntity, ImageId,
+    ShastaProofRequestEntity,
 };
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
@@ -101,60 +102,21 @@ async fn batch_handler(
         authenticated_key.name,
         serde_json::to_string(&batch_request)?,
     );
-
+    // Check if this is a Shasta request by checking the network name
     let chain_id = actor.get_chain_spec(&batch_request.network)?.chain_id;
-
     // Create image ID based on proof type for provers
     let image_id = ImageId::from_proof_type_and_request_type(
         &batch_request.proof_type,
         batch_request.aggregate,
     );
 
-    let mut sub_input_request_keys = Vec::with_capacity(batch_request.batches.len());
-    let mut sub_input_request_entities = Vec::with_capacity(batch_request.batches.len());
-    let mut sub_request_keys = Vec::with_capacity(batch_request.batches.len());
-    let mut sub_request_entities = Vec::with_capacity(batch_request.batches.len());
-    let mut sub_batch_ids = Vec::with_capacity(batch_request.batches.len());
-    for BatchMetadata {
-        batch_id,
-        l1_inclusion_block_number,
-    } in batch_request.batches.iter()
-    {
-        // Create input request key without image ID
-        let input_request_key =
-            RequestKey::batch_guest_input(chain_id, *batch_id, *l1_inclusion_block_number);
-
-        // Create proof request key with image ID
-        let request_key = RequestKey::batch_proof_with_image_id(
-            chain_id,
-            *batch_id,
-            *l1_inclusion_block_number,
-            batch_request.proof_type,
-            batch_request.prover.to_string(),
-            image_id.clone(),
-        );
-
-        let input_request_entity = BatchGuestInputRequestEntity::new(
-            *batch_id,
-            *l1_inclusion_block_number,
-            batch_request.network.clone(),
-            batch_request.l1_network.clone(),
-            batch_request.graffiti.clone(),
-            batch_request.blob_proof_type.clone(),
-        );
-        let request_entity = BatchProofRequestEntity::new_with_guest_input_entity(
-            input_request_entity.clone(),
-            batch_request.prover.clone(),
-            batch_request.proof_type,
-            batch_request.prover_args.clone().into(),
-        );
-
-        sub_input_request_keys.push(input_request_key.into());
-        sub_request_keys.push(request_key.into());
-        sub_input_request_entities.push(input_request_entity.into());
-        sub_request_entities.push(request_entity.into());
-        sub_batch_ids.push(*batch_id);
-    }
+    let (
+        sub_input_request_keys,
+        sub_request_keys,
+        sub_input_request_entities,
+        sub_request_entities,
+        sub_batch_ids,
+    ) = process_pacaya_batch(&batch_request, chain_id, &image_id);
 
     let result = if batch_request.aggregate {
         prove_aggregation(
@@ -204,6 +166,20 @@ async fn batch_handler(
                             serde_json::to_value(guest_input).expect(""),
                         );
                         BatchProofRequestEntity::new_with_guest_input_entity(
+                            request_entity.guest_input_entity().clone(),
+                            request_entity.prover().clone(),
+                            *request_entity.proof_type(),
+                            prover_args,
+                        )
+                        .into()
+                    }
+                    raiko_reqpool::RequestEntity::ShastaProof(request_entity) => {
+                        let mut prover_args = request_entity.prover_args().clone();
+                        prover_args.insert(
+                            "shasta_guest_input".to_string(),
+                            serde_json::to_value(guest_input).expect(""),
+                        );
+                        ShastaProofRequestEntity::new_with_guest_input_entity(
                             request_entity.guest_input_entity().clone(),
                             request_entity.prover().clone(),
                             *request_entity.proof_type(),
@@ -262,5 +238,9 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
 }
 
 pub fn create_router() -> Router<Actor> {
+    Router::new().route("/", post(batch_handler))
+}
+
+pub fn create_shasta_router() -> Router<Actor> {
     Router::new().route("/", post(batch_handler))
 }

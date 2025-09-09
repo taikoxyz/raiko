@@ -83,6 +83,14 @@ pub(crate) async fn prove_many(
                 let status = prove(actor, key.into(), entity.into()).await?;
                 statuses.push(status);
             }
+            (RequestKey::ShastaGuestInput(key), RequestEntity::ShastaGuestInput(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            (RequestKey::ShastaProof(key), RequestEntity::ShastaProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
             _ => return Err("Invalid request key and entity".to_string()),
         }
     }
