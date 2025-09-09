@@ -3,6 +3,7 @@ pub mod storage;
 pub use boundless::{
     AgentError, AgentResult, AsyncProofRequest, DeploymentType, ElfType, 
     ProofRequestStatus, ProverConfig, BoundlessProver, ProofType as BoundlessProofType,
+    generate_request_id,
 };
 pub use storage::{BoundlessStorage, DatabaseStats};
 
@@ -93,7 +94,6 @@ async fn health_check() -> (StatusCode, Json<serde_json::Value>) {
 
 #[derive(Debug, Deserialize)]
 struct AsyncProofRequestData {
-    request_id: String,
     input: Vec<u8>,
     proof_type: ProofType,
     elf: Option<Vec<u8>>,
@@ -122,22 +122,28 @@ struct DetailedStatusResponse {
 /// Convert internal ProofRequestStatus to user-friendly API response
 fn map_status_to_api_response(request: &AsyncProofRequest) -> DetailedStatusResponse {
     let (status, status_message, proof_data, error) = match &request.status {
+        ProofRequestStatus::Preparing => (
+            "preparing".to_string(),
+            "Request received. Executing guest program and preparing for market submission...".to_string(),
+            None,
+            None,
+        ),
         ProofRequestStatus::Submitted { .. } => (
             "submitted".to_string(),
-            "Your proof request has been submitted to the boundless market and is waiting for an available prover to pick it up.".to_string(),
+            "The proof request has been submitted to the boundless market and is waiting for an available prover to pick it up.".to_string(),
             None,
             None,
         ),
         ProofRequestStatus::Locked { prover, .. } => (
             "in_progress".to_string(),
-            format!("A prover {} has accepted your request and is generating the proof.", 
+            format!("A prover {} has accepted the request and is generating the proof.", 
                 prover.as_ref().map(|p| format!("({})", p)).unwrap_or_else(|| "".to_string())),
             None,
             None,
         ),
         ProofRequestStatus::Fulfilled { proof, .. } => (
             "completed".to_string(),
-            "Your proof has been successfully generated and is ready for download.".to_string(),
+            "The proof has been successfully generated and is ready for download.".to_string(),
             Some(proof.clone()),
             None,
         ),
@@ -149,9 +155,17 @@ fn map_status_to_api_response(request: &AsyncProofRequest) -> DetailedStatusResp
         ),
     };
 
+    // Extract market_request_id from the status enum when available
+    let market_request_id = match &request.status {
+        ProofRequestStatus::Submitted { market_request_id } => *market_request_id,
+        ProofRequestStatus::Locked { market_request_id, .. } => *market_request_id,
+        ProofRequestStatus::Fulfilled { market_request_id, .. } => *market_request_id,
+        _ => request.market_request_id,
+    };
+
     DetailedStatusResponse {
         request_id: request.request_id.clone(),
-        market_request_id: request.market_request_id,
+        market_request_id,
         status,
         status_message,
         proof_data,
@@ -163,9 +177,19 @@ async fn proof_handler(
     State(state): State<AppState>,
     Json(request): Json<AsyncProofRequestData>,
 ) -> (StatusCode, Json<AsyncProofResponse>) {
+    // Convert ProofType to BoundlessProofType for request ID generation
+    let boundless_proof_type = match &request.proof_type {
+        ProofType::Batch => BoundlessProofType::Batch,
+        ProofType::Aggregate => BoundlessProofType::Aggregate,
+        ProofType::Update(elf_type) => BoundlessProofType::Update(elf_type.clone()),
+    };
+    
+    // Generate deterministic request_id
+    let request_id = generate_request_id(&request.input, &boundless_proof_type);
+
     tracing::info!(
         "Received proof submission: {} (size: {} bytes)",
-        request.request_id,
+        request_id,
         request.input.len()
     );
 
@@ -176,7 +200,7 @@ async fn proof_handler(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(AsyncProofResponse {
-                    request_id: request.request_id,
+                    request_id: request_id,
                     market_request_id: U256::ZERO,
                     status: "error".to_string(),
                     message: format!("Failed to initialize prover: {}", e),
@@ -187,18 +211,19 @@ async fn proof_handler(
 
     let config = request.config.unwrap_or_else(|| serde_json::Value::default());
     
+    
     // Convert ProofType to BoundlessProofType and call appropriate async method
     let result = match request.proof_type {
         ProofType::Batch => {
-            prover.batch_run(request.request_id.clone(), request.input, &config).await
+            prover.batch_run(request_id.clone(), request.input, &config).await
         }
         ProofType::Aggregate => {
-            prover.aggregate(request.request_id.clone(), request.input, &config).await
+            prover.aggregate(request_id.clone(), request.input, &config).await
         }
         ProofType::Update(elf_type) => {
             match request.elf {
                 Some(elf_data) => {
-                    prover.update(request.request_id.clone(), elf_data, elf_type).await
+                    prover.update(request_id.clone(), elf_data, elf_type).await
                 }
                 None => {
                     Err(AgentError::RequestBuildError("ELF data required for Update proof type".to_string()))
@@ -209,14 +234,14 @@ async fn proof_handler(
     
     match result {
         Ok(async_request_id) => {
-            tracing::info!("Proof submitted with ID: {}", async_request_id);
+            tracing::info!("Proof request received and preparing: {}", async_request_id);
             (
                 StatusCode::ACCEPTED,
                 Json(AsyncProofResponse {
                     request_id: async_request_id,
                     market_request_id: U256::ZERO,
-                    status: "submitted".to_string(),
-                    message: "Proof request submitted for processing".to_string(),
+                    status: "preparing".to_string(),
+                    message: "Proof request received and preparing for market submission".to_string(),
                 }),
             )
         }
@@ -225,7 +250,7 @@ async fn proof_handler(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(AsyncProofResponse {
-                    request_id: request.request_id,
+                    request_id: request_id,
                     market_request_id: U256::ZERO,
                     status: "error".to_string(),
                     message: format!("Failed to submit proof: {}", e),

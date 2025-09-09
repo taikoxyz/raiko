@@ -22,7 +22,6 @@ def test_boundless_endpoints(input_file):
     response = requests.post(
         "http://localhost:9999/proof",
         json={
-            "request_id": "test_batch_async",
             "input": input_bytes,
             "proof_type": "Batch",
             "config": {}

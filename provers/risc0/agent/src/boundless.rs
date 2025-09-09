@@ -7,7 +7,7 @@ use crate::methods::{
     boundless_batch::BOUNDLESS_BATCH_ELF,
 };
 use alloy_primitives_v1p2p0::{
-    U256,
+    U256, keccak256, hex,
     utils::{parse_ether, parse_units},
 };
 use alloy_signer_local_v1p0p12::PrivateKeySigner;
@@ -28,6 +28,7 @@ use crate::storage::BoundlessStorage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProofRequestStatus {
+    Preparing,
     Submitted { market_request_id: U256 },
     Locked { market_request_id: U256, prover: Option<String> },
     Fulfilled { market_request_id: U256, proof: Vec<u8> },
@@ -56,6 +57,17 @@ pub enum ProofType {
     Batch,
     Aggregate,
     Update(ElfType),
+}
+
+/// Generate deterministic request ID from input and proof type
+pub fn generate_request_id(input: &[u8], proof_type: &ProofType) -> String {
+    let input_hash = keccak256(input);
+    let proof_type_str = match proof_type {
+        ProofType::Batch => "batch",
+        ProofType::Aggregate => "aggregate", 
+        ProofType::Update(_) => "update",
+    };
+    format!("{}_{}", hex::encode(input_hash), proof_type_str)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -624,8 +636,10 @@ impl BoundlessProver {
     pub fn prover_config(&self) -> ProverConfig {
         self.config.clone()
     }
-
-
+    
+    pub fn storage(&self) -> &BoundlessStorage {
+        &self.storage
+    }
 
     /// Helper method to prepare and store async request
     async fn prepare_async_request(
@@ -645,9 +659,7 @@ impl BoundlessProver {
         let async_request = AsyncProofRequest {
             request_id: request_id.clone(),
             market_request_id: U256::ZERO, // Will be set when submitted
-            status: ProofRequestStatus::Submitted { 
-                market_request_id: U256::ZERO 
-            },
+            status: ProofRequestStatus::Preparing,
             proof_type,
             input,
             config: config.clone(),
@@ -690,6 +702,19 @@ impl BoundlessProver {
             let mut requests_guard = active_requests.write().await;
             if let Some(async_req) = requests_guard.get_mut(request_id) {
                 async_req.status = status.clone();
+                // Also update market_request_id field when available in status
+                match &status {
+                    ProofRequestStatus::Submitted { market_request_id } => {
+                        async_req.market_request_id = *market_request_id;
+                    }
+                    ProofRequestStatus::Locked { market_request_id, .. } => {
+                        async_req.market_request_id = *market_request_id;
+                    }
+                    ProofRequestStatus::Fulfilled { market_request_id, .. } => {
+                        async_req.market_request_id = *market_request_id;
+                    }
+                    _ => {}
+                }
             }
         }
         
@@ -829,19 +854,9 @@ impl BoundlessProver {
         let (mcycles_count, _) = self.evaluate_cost(&guest_env, elf).await
             .map_err(|e| AgentError::GuestExecutionError(format!("Failed to evaluate cost: {}", e)))?;
 
-        // Upload input if large enough
-        const INPUT_SIZE_THRESHOLD: usize = 1024 * 1024; // 1MB
-        let input_url = if guest_env_bytes.len() > INPUT_SIZE_THRESHOLD {
-            tracing::info!("Input size {} bytes exceeds threshold, uploading to storage provider", guest_env_bytes.len());
-            Some(retry_with_backoff(
-                "upload_input",
-                || boundless_client.upload_input(&guest_env_bytes),
-                MAX_RETRY_ATTEMPTS,
-            ).await.map_err(|e| AgentError::UploadError(format!("Failed to upload input: {}", e)))?)
-        } else {
-            tracing::info!("Input size {} bytes is small, using inline", guest_env_bytes.len());
-            None
-        };
+        // Use inline requests instead of uploading.
+        tracing::info!("Using inline request for input ({} bytes)", guest_env_bytes.len());
+        let input_url = None;
 
         // Build the request
         let request = self.build_boundless_request(
@@ -889,9 +904,20 @@ impl BoundlessProver {
         input: Vec<u8>,
         config: &serde_json::Value,
     ) -> AgentResult<String> {
-        // Check for existing request with same input
+        // Check for existing request with same input content for proper deduplication
         if let Some(existing_request) = self.storage.get_request_by_input_hash(&input, &ProofType::Batch).await? {
             match &existing_request.status {
+                ProofRequestStatus::Preparing => {
+                    tracing::info!("Returning existing request in preparation phase for request: {}", existing_request.request_id);
+                    // Add to memory cache if not already there
+                    {
+                        let mut requests_guard = self.active_requests.write().await;
+                        if !requests_guard.contains_key(&existing_request.request_id) {
+                            requests_guard.insert(existing_request.request_id.clone(), existing_request.clone());
+                        }
+                    }
+                    return Ok(existing_request.request_id);
+                },
                 ProofRequestStatus::Fulfilled { .. } => {
                     tracing::info!("Returning existing completed batch proof for request: {}", existing_request.request_id);
                     return Ok(existing_request.request_id);
@@ -925,9 +951,9 @@ impl BoundlessProver {
             }
         }
 
-        // Prepare and store the async request
-        let request_id = self.prepare_async_request(
-            request_id,
+        // Prepare and store the async request using the provided request ID
+        let final_request_id = self.prepare_async_request(
+            request_id.clone(),
             ProofType::Batch,
             input.clone(),
             config,
@@ -954,7 +980,7 @@ impl BoundlessProver {
             }
         });
 
-        Ok(request_id)
+        Ok(final_request_id)
     }
 
     /// Submit an aggregation proof request asynchronously
@@ -964,9 +990,20 @@ impl BoundlessProver {
         input: Vec<u8>,
         config: &serde_json::Value,
     ) -> AgentResult<String> {
-        // Check for existing request with same input
+        // Check for existing request with same input content for proper deduplication
         if let Some(existing_request) = self.storage.get_request_by_input_hash(&input, &ProofType::Aggregate).await? {
             match &existing_request.status {
+                ProofRequestStatus::Preparing => {
+                    tracing::info!("Returning existing request in preparation phase for request: {}", existing_request.request_id);
+                    // Add to memory cache if not already there
+                    {
+                        let mut requests_guard = self.active_requests.write().await;
+                        if !requests_guard.contains_key(&existing_request.request_id) {
+                            requests_guard.insert(existing_request.request_id.clone(), existing_request.clone());
+                        }
+                    }
+                    return Ok(existing_request.request_id);
+                },
                 ProofRequestStatus::Fulfilled { .. } => {
                     tracing::info!("Returning existing completed aggregation proof for request: {}", existing_request.request_id);
                     return Ok(existing_request.request_id);
@@ -1000,9 +1037,9 @@ impl BoundlessProver {
             }
         }
 
-        // Prepare and store the async request
-        let request_id = self.prepare_async_request(
-            request_id,
+        // Prepare and store the async request using the provided request ID
+        let final_request_id = self.prepare_async_request(
+            request_id.clone(),
             ProofType::Aggregate,
             input.clone(),
             config,
@@ -1029,7 +1066,7 @@ impl BoundlessProver {
             }
         });
 
-        Ok(request_id)
+        Ok(final_request_id)
     }
 
     /// update elf

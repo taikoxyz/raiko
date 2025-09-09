@@ -16,6 +16,8 @@ use raiko_lib::{
 };
 use risc0_zkvm::{compute_image_id, sha::Digestible, Digest, Receipt as ZkvmReceipt};
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
+use tokio::time::sleep as tokio_async_sleep;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Risc0AgengAggGuestInput {
@@ -41,6 +43,132 @@ impl BoundlessProver {
         let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
             .unwrap_or_else(|_| "http://localhost:9999/proof".to_string());
         Self { remote_prover_url }
+    }
+}
+
+/// Poll the boundless agent status endpoint until proof is completed or failed
+async fn wait_boundless_proof(
+    agent_base_url: &str,
+    request_id: String,
+) -> ProverResult<Vec<u8>> {
+    tracing::info!("Waiting for boundless proof completion, polling agent status for request: {}", request_id);
+    
+    let max_retries = 8;
+    let poll_interval = Duration::from_secs(15);
+    let max_timeout = Duration::from_secs(3600); // 1 hour timeout
+    
+    let start_time = std::time::Instant::now();
+    
+    // Extract base URL without /proof endpoint
+    let base_url = agent_base_url.trim_end_matches("/proof");
+    let status_url = format!("{}/status/{}", base_url, request_id);
+    
+    loop {
+        // Check timeout
+        if start_time.elapsed() > max_timeout {
+            return Err(ProverError::GuestError(format!(
+                "Boundless proof request {} timed out after 1 hour - no response from market", request_id
+            )));
+        }
+        
+        let mut res = None;
+        for attempt in 1..=max_retries {
+            let client = reqwest::Client::new();
+            
+            match client.get(&status_url).send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        match response.json::<serde_json::Value>().await {
+                            Ok(json_res) => {
+                                res = Some(json_res);
+                                break;
+                            }
+                            Err(err) => {
+                                if attempt == max_retries {
+                                    return Err(ProverError::GuestError(format!(
+                                        "Failed to parse status response: {}", err
+                                    )));
+                                }
+                                tracing::warn!("Attempt {}/{} failed to parse response: {}", attempt, max_retries, err);
+                                tokio_async_sleep(Duration::from_secs(5)).await;
+                                continue;
+                            }
+                        }
+                    } else {
+                        if attempt == max_retries {
+                            return Err(ProverError::GuestError(format!(
+                                "Boundless agent status endpoint error after {} attempts: {}", max_retries, response.status()
+                            )));
+                        }
+                        tracing::warn!("Attempt {}/{} - boundless agent status endpoint error: {}", attempt, max_retries, response.status());
+                        tokio_async_sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
+                }
+                Err(err) => {
+                    if attempt == max_retries {
+                        return Err(ProverError::GuestError(format!(
+                            "Failed to query boundless agent status endpoint after {} attempts: {}", max_retries, err
+                        )));
+                    }
+                    tracing::warn!("Attempt {}/{} - failed to query boundless agent status: {:?}", attempt, max_retries, err);
+                    tokio_async_sleep(Duration::from_secs(5)).await;
+                    continue;
+                }
+            }
+        }
+        
+        let res = res.ok_or_else(|| ProverError::GuestError("status result not found!".to_string()))?;
+        
+        let status = res.get("status").and_then(|s| s.as_str()).unwrap_or("unknown");
+        let status_message = res.get("status_message").and_then(|s| s.as_str()).unwrap_or("No status message");
+        
+        // Use market order ID for logs when proof is in the market, otherwise use internal request_id
+        let display_id = if status == "submitted" || status == "in_progress" || status == "completed" {
+            res.get("market_request_id")
+                .and_then(|v| v.as_str())
+                .map(|id| format!("market order {}", id))
+                .unwrap_or_else(|| format!("request {}", request_id))
+        } else {
+            format!("request {}", request_id)
+        };
+        
+        match status {
+            "preparing" | "submitted" | "in_progress" => {
+                tracing::info!("Boundless {}: {}", display_id, status_message);
+                tokio_async_sleep(poll_interval).await;
+            }
+            "completed" => {
+                tracing::info!("Boundless {}: {}", display_id, status_message);
+                // Extract proof_data
+                let proof_data = res
+                    .get("proof_data")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_u64().map(|b| b as u8))
+                            .collect::<Vec<u8>>()
+                    })
+                    .ok_or_else(|| {
+                        ProverError::GuestError("Missing proof_data in completed response".to_string())
+                    })?;
+                return Ok(proof_data);
+            }
+            "failed" => {
+                // Use both status_message and error field for comprehensive error reporting
+                let error_detail = res.get("error")
+                    .and_then(|e| e.as_str())
+                    .unwrap_or("No error details");
+                return Err(ProverError::GuestError(format!(
+                    "Boundless {} failed - {}: {}", display_id, status_message, error_detail
+                )));
+            }
+            _ => {
+                return Err(ProverError::GuestError(format!(
+                    "Unknown status from boundless agent for {}: {} - {}", display_id, status, status_message
+                )));
+            }
+        }
     }
 }
 
@@ -116,20 +244,13 @@ impl Prover for BoundlessProver {
             .await
             .map_err(|e| ProverError::GuestError(format!("Failed to parse agent response: {e}")))?;
 
-        // Extract the proof data from the response
-        let agent_proof_bytes = resp_json
-            .get("proof_data")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_u64().map(|b| b as u8))
-                    .collect::<Vec<u8>>()
-            })
-            .ok_or_else(|| {
-                ProverError::GuestError(
-                    "Missing or invalid proof_data in agent response".to_string(),
-                )
-            })?;
+        // Extract request_id from initial response for polling
+        let request_id = resp_json.get("request_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProverError::GuestError("Missing request_id in agent response".to_string()))?;
+
+        // Poll until completion
+        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string()).await?;
 
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
@@ -214,19 +335,13 @@ impl Prover for BoundlessProver {
             .await
             .map_err(|e| ProverError::GuestError(format!("Failed to parse agent response: {e}")))?;
 
-        let agent_proof_bytes = resp_json
-            .get("proof_data")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_u64().map(|b| b as u8))
-                    .collect::<Vec<u8>>()
-            })
-            .ok_or_else(|| {
-                ProverError::GuestError(
-                    "Missing or invalid 'proof_data' in agent response".to_string(),
-                )
-            })?;
+        // Extract request_id from initial response for polling
+        let request_id = resp_json.get("request_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProverError::GuestError("Missing request_id in agent response".to_string()))?;
+
+        // Poll until completion
+        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string()).await?;
 
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
