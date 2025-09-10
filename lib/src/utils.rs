@@ -83,7 +83,7 @@ pub fn generate_transactions(
     anchor_tx: &Option<TransactionSigned>,
 ) -> Vec<TransactionSigned> {
     let is_blob_data = block_proposal.blob_used();
-    let blob_slice_param = block_proposal.blob_tx_slice_param();
+    let blob_slice_param = block_proposal.blob_tx_slice_param(tx_list_data_buf);
     // Decode the tx list from the raw data posted onchain
     let unzip_tx_list_buf =
         unzip_tx_list_from_data_buf(chain_spec, is_blob_data, blob_slice_param, tx_list_data_buf);
@@ -162,22 +162,31 @@ pub fn generate_transactions_for_batch_blocks(
             .map(|blob_data_buf| decode_blob_data(blob_data_buf))
             .collect::<Vec<Vec<u8>>>()
             .concat();
-        let (blob_offset, blob_size) = batch_proposal.blob_tx_slice_param().unwrap_or_else(|| {
-            warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
-            (0, compressed_tx_list_buf.len())
-        });
+        let (blob_offset, blob_size) = batch_proposal
+            .blob_tx_slice_param(&compressed_tx_list_buf)
+            .unwrap_or_else(|| {
+                warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
+                (0, compressed_tx_list_buf.len())
+            });
         compressed_tx_list_buf[blob_offset..blob_offset + blob_size].to_vec()
     } else {
         taiko_guest_batch_input.tx_data_from_calldata.clone()
     };
 
-    let tx_list_buf = zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
-    let txs = decode_transactions(&tx_list_buf);
-    // todo: deal with invalid proposal, to name a few:
-    // - txs.len() != tx_num_sizes.sum()
-    // - random blob tx bytes
-
-    distribute_txs(&txs, batch_proposal)
+    match batch_proposal {
+        BlockProposedFork::Shasta(_) => {
+            //todo
+            todo!("Shasta batch decode blob data");
+        }
+        _ => {
+            let tx_list_buf = zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
+            let txs = decode_transactions(&tx_list_buf);
+            // todo: deal with invalid proposal, to name a few:
+            // - txs.len() != tx_num_sizes.sum()
+            // - random blob tx bytes
+            distribute_txs(&txs, batch_proposal)
+        }
+    }
 }
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
