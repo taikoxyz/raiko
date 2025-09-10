@@ -8,6 +8,7 @@ use tracing::{debug, error, warn};
 
 use crate::consts::{ChainSpec, Network};
 use crate::input::{BlockProposedFork, TaikoGuestBatchInput};
+use crate::manifest::ProtocolProposalManifest;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
@@ -175,8 +176,19 @@ pub fn generate_transactions_for_batch_blocks(
 
     match batch_proposal {
         BlockProposedFork::Shasta(_) => {
-            //todo
-            todo!("Shasta batch decode blob data");
+            // TODO: Implement Shasta batch decode using manifest
+            // - Decode manifest from blob data
+            // - Extract transactions from manifest blocks
+            // - Distribute transactions to blocks
+            assert!(use_blob);
+            let decoded =
+                ProtocolProposalManifest::decode(&mut compressed_tx_list_buf.as_ref()).unwrap();
+            let txs = decoded
+                .blocks
+                .iter()
+                .flat_map(|block| block.transactions.clone())
+                .collect::<Vec<_>>();
+            distribute_txs(&txs, batch_proposal)
         }
         _ => {
             let tx_list_buf = zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
