@@ -179,7 +179,7 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn blob_tx_slice_param(&self) -> Option<(usize, usize)> {
+    pub fn blob_tx_slice_param(&self, compressed_tx_list_buf: &[u8]) -> Option<(usize, usize)> {
         match self {
             BlockProposedFork::Ontake(block) => Some((
                 block.meta.blobTxListOffset as usize,
@@ -190,7 +190,16 @@ impl BlockProposedFork {
                 batch.info.blobByteSize as usize,
             )),
             BlockProposedFork::Shasta(event_data) => {
-                Some((event_data.derivation.blobSlice.offset as usize, 0usize))
+                let offset = event_data.derivation.blobSlice.offset as usize;
+                let size = u32::from_be_bytes(
+                    compressed_tx_list_buf[offset..offset + 4]
+                        .try_into()
+                        .unwrap(),
+                ) as usize;
+                Some((
+                    event_data.derivation.blobSlice.offset as usize,
+                    size,
+                ))
             }
             _ => None,
         }
