@@ -651,8 +651,11 @@ impl ProtocolInstance {
                 proposalHash: keccak(
                     ShastaProposal {
                         id: event_data.proposal.id,
-                        proposer: event_data.proposal.proposer,
                         timestamp: event_data.proposal.timestamp,
+                        endOfSubmissionWindowTimestamp: event_data
+                            .proposal
+                            .endOfSubmissionWindowTimestamp,
+                        proposer: event_data.proposal.proposer,
                         coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
                         derivationHash: keccak(event_data.derivation.abi_encode()).into(),
                     }

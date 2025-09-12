@@ -323,7 +323,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                                         .as_slice(),
                                 )
                                 .1,
-                                taiko_guest_batch_input.l1_header.beneficiary, //todo! use designated prover
+                                taiko_guest_batch_input.prover_data.prover, //todo! use designated prover
                             ))
                         }
                         _ => None,
