@@ -338,7 +338,7 @@ pub fn merge(a: &mut Value, b: &Value) {
 #[cfg(test)]
 mod tests {
     use crate::interfaces::aggregate_proofs;
-    use crate::preflight::parse_l1_batch_proposal_tx_for_pacaya_fork;
+    use crate::preflight::parse_l1_batch_proposal_tx_for_shasta_fork;
     use crate::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, ChainSpec, Raiko};
     use alloy_primitives::Address;
     use alloy_provider::Provider;
@@ -435,7 +435,7 @@ mod tests {
         taiko_chain_spec: ChainSpec,
         proof_request: ProofRequest,
     ) -> Proof {
-        let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
+        let _ = parse_l1_batch_proposal_tx_for_shasta_fork(
             &l1_chain_spec,
             &taiko_chain_spec,
             proof_request.l1_inclusion_block_number,
@@ -443,6 +443,7 @@ mod tests {
         )
         .await
         .expect("Could not parse L1 batch proposal tx");
+        let all_prove_blocks = proof_request.clone().l2_block_numbers;
         // provider target blocks are all blocks in the batch and the parent block of block[0]
         let provider_target_blocks =
             (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
@@ -494,9 +495,9 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 21289,
-            l1_inclusion_block_number: 145988,
-            l2_block_numbers: vec![],
+            batch_id: 273,
+            l1_inclusion_block_number: 1032,
+            l2_block_numbers: vec![273],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,

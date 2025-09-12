@@ -49,6 +49,9 @@
             "PACAYA": {
                 "Block": 0
             },
+            "SHASTA": {
+                "Block": 0
+            },
             "CANCUN": "TBD"
         },
         "eip_1559_constants": {
@@ -57,7 +60,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0x6d2D299fEe48F3490Ed74d581bbDF4AD7b5Aa275",
+        "l1_contract": "0x3b37a799290950fef954dfF547608baC52A12571",
         "l2_contract": "0x1670010000000000000000000000000000010001",
         "rpc": "https://rpc.internal.taiko.xyz",
         "beacon_rpc": null,
