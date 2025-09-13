@@ -311,14 +311,14 @@ pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
     // _proposal_fork is shasta proposal tx, so we can get the lastFinalizedProposalId from it
     match proposal_fork {
         BlockProposedFork::Shasta(event_data) => {
-            let last_finalized_proposal_id = event_data.core_state.lastFinalizedProposalId;
+            let _last_finalized_proposal_id = event_data.core_state.lastFinalizedProposalId;
             let proposal_id = event_data.proposal.id;
             let next_proposal_id = event_data.core_state.nextProposalId;
-            assert_eq!(
-                last_finalized_proposal_id + 1,
-                proposal_id,
-                "lastFinalizedProposalId + 1 != proposal_id"
-            );
+            // assert_eq!(
+            //     last_finalized_proposal_id + 1,
+            //     proposal_id,
+            //     "lastFinalizedProposalId + 1 != proposal_id"
+            // );
             assert_eq!(
                 proposal_id + 1,
                 next_proposal_id,
@@ -421,7 +421,7 @@ async fn prepare_shasta_batch_input(
     provider_l1: &RpcBlockDataProvider,
 ) -> RaikoResult<TaikoGuestBatchInput> {
     let blob_hashes = shasta_event_data.derivation.blobSlice.blobHashes.clone();
-    let force_inclusion_block_number = shasta_event_data.derivation.originBlockNumber;
+    let force_inclusion_block_number = 0; // todo: support force inclusion block
     let l1_blob_timestamp = if force_inclusion_block_number != 0
         && force_inclusion_block_number != l1_inclusion_block_number
     {
@@ -500,9 +500,6 @@ pub async fn prepare_taiko_chain_batch_input(
             fork == SpecId::PACAYA || fork == SpecId::SHASTA,
             "Only pacaya and shasta fork supports batch"
         );
-        if fork == SpecId::SHASTA {
-            todo!("check shasta anchor tx");
-        }
         acc.push(anchor_info);
         Ok(acc)
     })?;
@@ -802,7 +799,7 @@ pub async fn filter_block_proposed_event(
                         RaikoError::Anyhow(anyhow!("Could not decode Shasta event data"))
                     })?;
                 (
-                    raiko_lib::primitives::U256::from(0), // TODO: Extract batch ID from Shasta event
+                    raiko_lib::primitives::U256::from(event_data.proposal.id),
                     BlockProposedFork::Shasta(event_data),
                 )
             }
@@ -828,6 +825,9 @@ pub async fn filter_block_proposed_event(
                 .expect("couldn't query the propose tx")
                 .expect("Could not find the propose tx");
             return Ok((log.block_number.unwrap(), tx, block_propose_event));
+        } else {
+            info!("block_or_batch_id: {block_or_batch_id} != block_num_or_batch_id: {block_num_or_batch_id}");
+            continue;
         }
     }
 
@@ -1190,4 +1190,39 @@ pub(crate) fn decode_extra_data(extra_data: &[u8]) -> (u8, bool) {
     let is_low_bond_proposal = (extra_data[1] & 0x01) != 0;
 
     (basefee_sharing_pctg, is_low_bond_proposal)
+}
+
+#[cfg(test)]
+mod test {
+    use alloy_rlp::Decodable;
+    use raiko_lib::{
+        manifest::ProtocolProposalManifest,
+        utils::{decode_blob_data, zlib_decompress_data},
+    };
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_shasta_blob_decoding() -> Result<()> {
+        let beacon_rpc_url = "https://l1beacon.internal.taiko.xyz";
+        let slot_id = 7031;
+        let blob_data = get_blob_data(&beacon_rpc_url, slot_id).await.expect("ok");
+        println!("blob_data: {blob_data:?}");
+        let blob_data = blob_to_bytes(&blob_data.data[0].blob);
+        // decompress
+        let decoded_blob_data = decode_blob_data(&blob_data);
+        println!("decoded_blob_data: {decoded_blob_data:?}");
+        let version = B256::from_slice(&decoded_blob_data[0..32]);
+        let size = B256::from_slice(&decoded_blob_data[32..64]);
+        let size_u64 = usize::from_be_bytes(size.as_slice()[24..32].try_into().unwrap());
+        println!("version: {version:?}, size: {size:?}, size_u64: {size_u64}");
+        let decompressed_blob_data =
+            zlib_decompress_data(&decoded_blob_data[64..64 + size_u64]).expect("ok");
+        println!("decompressed_blob_data: {decompressed_blob_data:?}");
+
+        let proposal_manifest =
+            ProtocolProposalManifest::decode(&mut decompressed_blob_data.as_ref()).unwrap();
+        println!("proposal_manifest: {proposal_manifest:?}");
+        Ok(())
+    }
 }

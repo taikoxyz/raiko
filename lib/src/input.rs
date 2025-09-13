@@ -190,16 +190,15 @@ impl BlockProposedFork {
                 batch.info.blobByteSize as usize,
             )),
             BlockProposedFork::Shasta(event_data) => {
+                const SHASTA_BLOB_DATA_PREFIX_SIZE: usize = 64;
                 let offset = event_data.derivation.blobSlice.offset as usize;
-                let size = u32::from_be_bytes(
-                    compressed_tx_list_buf[offset..offset + 4]
-                        .try_into()
-                        .unwrap(),
-                ) as usize;
-                Some((
-                    event_data.derivation.blobSlice.offset as usize,
-                    size,
-                ))
+                let _version = B256::from_slice(&compressed_tx_list_buf[offset..offset + 32]);
+                // assert_eq!(_version, 1);
+                let size_b256_slice =
+                    B256::from_slice(&compressed_tx_list_buf[offset + 32..offset + 64]);
+                let blob_data_size =
+                    usize::from_be_bytes(size_b256_slice.as_slice()[24..32].try_into().unwrap());
+                Some((offset + SHASTA_BLOB_DATA_PREFIX_SIZE, blob_data_size))
             }
             _ => None,
         }
@@ -225,7 +224,7 @@ impl BlockProposedFork {
     pub fn batch_info(&self) -> Option<&BatchInfo> {
         match self {
             BlockProposedFork::Pacaya(batch) => Some(&batch.info),
-            BlockProposedFork::Shasta(event_data) => todo!("Shasta batch_info implementation"),
+            BlockProposedFork::Shasta(_) => unimplemented!("Shasta batch_info implementation"),
             _ => None,
         }
     }

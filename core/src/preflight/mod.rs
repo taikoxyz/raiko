@@ -314,17 +314,10 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     blob_proof_type: taiko_guest_batch_input.blob_proof_type.clone(),
                     extra_data: match taiko_guest_batch_input.batch_proposed {
                         BlockProposedFork::Shasta(_) => {
-                            Some((
-                                util::decode_extra_data(
-                                    taiko_guest_batch_input
-                                        .l1_header
-                                        .extra_data
-                                        .to_vec()
-                                        .as_slice(),
-                                )
-                                .1,
-                                taiko_guest_batch_input.prover_data.prover, //todo! use designated prover
-                            ))
+                            let extra_data = prove_block.header.extra_data.to_vec();
+                            let lowbond_proposal = util::decode_extra_data(extra_data.as_slice()).1;
+                            let designated_prover = taiko_guest_batch_input.prover_data.prover;
+                            Some((lowbond_proposal, designated_prover))
                         }
                         _ => None,
                     },
