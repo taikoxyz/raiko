@@ -267,7 +267,8 @@ impl BlockMetaDataFork {
                 Some(Box::new(Comparison::new(a, &b.meta))),
             ),
             (Self::Shasta(_a), BlockProposedFork::Shasta(_b)) => {
-                todo!("Shasta match_block_proposal implementation")
+                //todo: match shasta proposal
+                (true, None)
             }
             (Self::None, BlockProposedFork::Nothing) => (true, None),
             _ => (false, None),
@@ -564,6 +565,9 @@ impl ProtocolInstance {
                 parentHash: first_block.header.parent_hash,
                 blockHash: last_block.header.hash_slow(),
                 stateRoot: last_block.header.state_root,
+            }),
+            BlockProposedFork::Shasta(_) => TransitionFork::Shasta(ShastaTransition {
+                ..Default::default()
             }),
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
         };
