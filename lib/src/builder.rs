@@ -174,9 +174,9 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             _ => unimplemented!(),
         };
 
+        let block_num = self.input.taiko.block_proposed.block_number();
+        let taiko_fork = self.input.chain_spec.spec_id(block_num, 0u64).unwrap();
         if reth_chain_spec.is_taiko() {
-            let block_num = self.input.taiko.block_proposed.block_number();
-            let taiko_fork = self.input.chain_spec.spec_id(block_num, 0u64).unwrap();
             match taiko_fork {
                 SpecId::HEKLA => {
                     assert!(
@@ -238,7 +238,11 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
                 base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
-                gas_limit: self.input.taiko.block_proposed.gas_limit_with_anchor(),
+                gas_limit: if taiko_fork == SpecId::SHASTA {
+                    block.gas_limit
+                } else {
+                    self.input.taiko.block_proposed.gas_limit_with_anchor()
+                },
                 shasta_data: shasta_data_opt.clone(),
             })
             .optimistic(optimistic);
@@ -316,6 +320,10 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 (address, account)
             })
             .collect();
+
+        if !optimistic {
+            println!("changes: {changes:?}");
+        }
         self.db.as_mut().unwrap().commit(changes);
 
         Ok(())
@@ -333,6 +341,7 @@ impl RethBlockBuilder<MemDb> {
     /// Finalizes the block building and returns the header
     pub fn finalize_block(&mut self) -> Result<Block> {
         let state_root = self.calculate_state_root()?;
+        assert_eq!(self.input.block.state_root, state_root);
         ensure!(self.input.block.state_root == state_root);
         Ok(self.input.block.clone())
     }

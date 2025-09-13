@@ -144,9 +144,9 @@ pub fn generate_transactions_for_batch_blocks(
     assert!(
         matches!(
             taiko_guest_batch_input.batch_proposed,
-            BlockProposedFork::Pacaya(_)
+            BlockProposedFork::Pacaya(_) | BlockProposedFork::Shasta(_)
         ),
-        "only pacaya batch supported"
+        "only pacaya and shasta batch supported"
     );
     assert!(
         taiko_guest_batch_input.tx_data_from_calldata.is_empty()
@@ -169,6 +169,7 @@ pub fn generate_transactions_for_batch_blocks(
                 warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
                 (0, compressed_tx_list_buf.len())
             });
+        tracing::info!("blob_offset: {blob_offset}, blob_size: {blob_size}");
         compressed_tx_list_buf[blob_offset..blob_offset + blob_size].to_vec()
     } else {
         taiko_guest_batch_input.tx_data_from_calldata.clone()
@@ -181,14 +182,15 @@ pub fn generate_transactions_for_batch_blocks(
             // - Extract transactions from manifest blocks
             // - Distribute transactions to blocks
             assert!(use_blob);
-            let decoded =
-                ProtocolProposalManifest::decode(&mut compressed_tx_list_buf.as_ref()).unwrap();
-            let txs = decoded
+            let protocol_manifest_bytes =
+                zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
+            let protocol_manifest =
+                ProtocolProposalManifest::decode(&mut protocol_manifest_bytes.as_ref()).unwrap();
+            protocol_manifest
                 .blocks
                 .iter()
-                .flat_map(|block| block.transactions.clone())
-                .collect::<Vec<_>>();
-            distribute_txs(&txs, batch_proposal)
+                .map(|block| block.transactions.clone())
+                .collect::<Vec<_>>()
         }
         _ => {
             let tx_list_buf = zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
@@ -211,7 +213,7 @@ const BLOB_ENCODING_VERSION: u8 = 0;
 const MAX_BLOB_DATA_SIZE: usize = (4 * 31 + 3) * 1024 - 4;
 
 // decoding https://github.com/ethereum-optimism/optimism/blob/develop/op-service/eth/blob.go
-fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
+pub fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     // check the version
     if blob_buf[BLOB_VERSION_OFFSET] != BLOB_ENCODING_VERSION {
         return Vec::new();

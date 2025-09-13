@@ -31,14 +31,14 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1744256500,
+        "genesis_time": 1757648400,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
     {
         "name": "taiko_dev",
         "chain_id": 167001,
-        "max_spec_id": "PACAYA",
+        "max_spec_id": "SHASTA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
