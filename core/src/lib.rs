@@ -496,9 +496,9 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 994,
-            l1_inclusion_block_number: 7031,
-            l2_block_numbers: vec![1987],
+            batch_id: 1331,
+            l1_inclusion_block_number: 9390,
+            l2_block_numbers: vec![2662],
             network,
             graffiti: B256::ZERO,
             prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
