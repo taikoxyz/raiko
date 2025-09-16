@@ -12,7 +12,7 @@
             "timeout_ms_per_mcycle": 6000,
             "max_price_per_mcycle": "0.0000001",
             "min_price_per_mcycle": "0.00000001",
-            "lock_stake": "0.5"
+            "lock_collateral": "0.5"
         },
         "aggregation": {
             "ramp_up_sec": 300,
@@ -20,7 +20,7 @@
             "timeout_ms_per_mcycle": 3500,
             "max_price_per_mcycle": "0.00000005",
             "min_price_per_mcycle": "0.000000005",
-            "lock_stake": "0.1"
+            "lock_collateral": "0.1"
         }
     }
 }

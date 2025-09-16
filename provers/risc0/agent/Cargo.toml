@@ -11,11 +11,11 @@ alloy-primitives = { version = "0.7.2", default-features = false }
 alloy-signer-local-v1p0p12 = { package = "alloy-signer-local", version = "1.0.12" }
 alloy-primitives-v1p2p0 = { package = "alloy-primitives", version = "1.2.0" }
 alloy-sol-types = { version = "0.7.2", default-features = false }
-boundless-market = { version = "0.13.0" }
+boundless-market = { version = "1.0.0" }
 clap = { version = "4.4", features = ["derive"] }
-risc0-ethereum-contracts-boundless = { package = "risc0-ethereum-contracts", version = "2.2.2" }
+risc0-ethereum-contracts-boundless = { package = "risc0-ethereum-contracts", version = "3.0.1" }
 reqwest = { version = "0.11.22", features = ["json"] }
-risc0-zkvm = { version = "2.3.1", features = ["prove", "getrandom"] }
+risc0-zkvm = { version = "3.0.3", features = ["prove", "getrandom"] }
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde_with = "3.0"

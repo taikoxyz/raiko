@@ -160,7 +160,7 @@ pub struct BoundlessOfferParams {
     pub timeout_ms_per_mcycle: u32,
     pub max_price_per_mcycle: String,
     pub min_price_per_mcycle: String,
-    pub lock_stake: String,
+    pub lock_collateral: String,
 }
 
 impl Default for BoundlessOfferParams {
@@ -171,7 +171,7 @@ impl Default for BoundlessOfferParams {
             timeout_ms_per_mcycle: 3000,
             max_price_per_mcycle: "0.00001".to_string(),
             min_price_per_mcycle: "0.000003".to_string(),
-            lock_stake: "0.0001".to_string(),
+            lock_collateral: "0.0001".to_string(),
         }
     }
 }
@@ -184,7 +184,7 @@ impl BoundlessOfferParams {
             timeout_ms_per_mcycle: 3000,
             max_price_per_mcycle: "0.00001".to_string(),
             min_price_per_mcycle: "0.000003".to_string(),
-            lock_stake: "0.0001".to_string(),
+            lock_collateral: "0.0001".to_string(),
         }
     }
 
@@ -195,7 +195,7 @@ impl BoundlessOfferParams {
             timeout_ms_per_mcycle: 3600 * 3,
             max_price_per_mcycle: "0.00003".to_string(),
             min_price_per_mcycle: "0.000005".to_string(),
-            lock_stake: "0.0001".to_string(),
+            lock_collateral: "0.0001".to_string(),
         }
     }
 }
@@ -512,11 +512,15 @@ impl BoundlessProver {
                         ).await;
                         
                         match fulfillment_result {
-                            Ok((journal, seal)) => {
+                            Ok(fulfillment) => {
+                                // Extract fulfillment data and seal from the Fulfillment struct
+                                let fulfillment_data = fulfillment.fulfillmentData;
+                                let seal = fulfillment.seal;
+
                                 // Decode boundless receipt only for batch proofs
                                 let receipt = match proof_type {
                                     ProofType::Batch => {
-                                        match decode_seal(seal.clone(), BOUNDLESS_BATCH_ID, journal.clone()) {
+                                        match decode_seal(seal.clone(), BOUNDLESS_BATCH_ID, fulfillment_data.clone()) {
                                             Ok(ContractReceipt::Base(boundless_receipt)) => {
                                                 serde_json::to_string(&boundless_receipt).ok()
                                             }
@@ -528,15 +532,15 @@ impl BoundlessProver {
 
                                 let response = Risc0Response {
                                     seal: seal.to_vec(),
-                                    journal: journal.to_vec(),
+                                    journal: fulfillment_data.to_vec(),
                                     receipt,
                                 };
-                                
+
                                 let proof_bytes = bincode::serialize(&response).map_err(|e| {
                                     AgentError::ResponseEncodeError(format!("Failed to encode response: {e}"))
                                 })?;
-                                
-                                Ok(ProofRequestStatus::Fulfilled { 
+
+                                Ok(ProofRequestStatus::Fulfilled {
                                     market_request_id,
                                     proof: proof_bytes,
                                 })
@@ -1243,7 +1247,7 @@ impl BoundlessProver {
         //     ))
         // })? * U256::from(mcycles_count);
 
-        let lock_stake = parse_staking_token(&offer_spec.lock_stake)?;
+        let lock_collateral = parse_staking_token(&offer_spec.lock_collateral)?;
         let lock_timeout = (offer_spec.lock_timeout_ms_per_mcycle * mcycles_count / 1000u32) as u32;
         let timeout = (offer_spec.timeout_ms_per_mcycle * mcycles_count / 1000u32) as u32;
         let ramp_up_period = std::cmp::min(offer_spec.ramp_up_sec, lock_timeout);
@@ -1265,24 +1269,23 @@ impl BoundlessProver {
                     .timeout(timeout)
                     .max_price(max_price)
                     // .min_price(min_price)
-                    .lock_stake(lock_stake),
+                    .lock_collateral(lock_collateral)
+                    .bidding_start(
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                            + 60,
+                    ),
             );
 
         // Build the request, including preflight, and assigned the remaining fields.
-        let mut request = boundless_client
+        let request = boundless_client
             .build_request(request_params)
             .await
             .map_err(|e| AgentError::ClientBuildError(format!("Failed to build request: {e:?}")))?;
         tracing::info!("Request: {:?}", request);
 
-        // give 60s to the market to accept the request
-        request.offer = request.offer.clone().with_bidding_start(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-                + 60,
-        );
         Ok(request)
     }
 }
@@ -1647,10 +1650,10 @@ mod tests {
         // 0.000005 * 1000 = 0.005 ETH
         assert_eq!(min_price, U256::from(5000000000000000u128));
 
-        let lock_stake_per_mcycle = parse_staking_token(&offer_params.lock_stake)
-            .expect("Failed to parse lock_stake_per_mcycle");
-        let lock_stake = lock_stake_per_mcycle * U256::from(1000u64);
+        let lock_collateral_per_mcycle = parse_staking_token(&offer_params.lock_collateral)
+            .expect("Failed to parse lock_collateral_per_mcycle");
+        let lock_collateral = lock_collateral_per_mcycle * U256::from(1000u64);
         // 0.0001 * 1000 = 0.1 USDC
-        assert_eq!(lock_stake, U256::from(100000u64));
+        assert_eq!(lock_collateral, U256::from(100000u64));
     }
 }
