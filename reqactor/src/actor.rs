@@ -116,7 +116,7 @@ impl Actor {
     }
 
     /// Send an action to the backend and wait for the response.
-pub async fn act(
+    pub async fn act(
         &self,
         request_key: RequestKey,
         request_entity: RequestEntity,
@@ -142,7 +142,7 @@ pub async fn act(
         } else {
             StatusWithContext::new(Status::Registered, start_time)
         };
-        
+
         if pool_status_opt.is_none() {
             self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
                 .await?;
