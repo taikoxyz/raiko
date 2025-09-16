@@ -321,9 +321,6 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             })
             .collect();
 
-        if !optimistic {
-            println!("changes: {changes:?}");
-        }
         self.db.as_mut().unwrap().commit(changes);
 
         Ok(())
