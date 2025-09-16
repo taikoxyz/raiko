@@ -4,6 +4,7 @@ use serde_json;
 use alloy_primitives_v1p2p0::keccak256;
 use tokio_rusqlite::params;
 use tracing;
+use utoipa::ToSchema;
 
 /// SQLite storage for persistent boundless request tracking
 #[derive(Debug, Clone)]
@@ -36,7 +37,8 @@ impl BoundlessStorage {
                         proof_data BLOB,
                         error_message TEXT,
                         input_hash TEXT,
-                        proof_type_str TEXT
+                        proof_type_str TEXT,
+                        ttl_expires_at INTEGER
                     )
                     "#,
                     [],
@@ -51,10 +53,17 @@ impl BoundlessStorage {
                 // Migrate existing database by adding new columns if they don't exist
                 let _ = conn.execute("ALTER TABLE boundless_requests ADD COLUMN input_hash TEXT", []);
                 let _ = conn.execute("ALTER TABLE boundless_requests ADD COLUMN proof_type_str TEXT", []);
+                let _ = conn.execute("ALTER TABLE boundless_requests ADD COLUMN ttl_expires_at INTEGER", []);
 
                 // Create unique index for input deduplication
                 conn.execute(
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_input_dedup ON boundless_requests(input_hash, proof_type_str) WHERE input_hash IS NOT NULL AND proof_type_str IS NOT NULL",
+                    [],
+                ).map_err(|e| e)?;
+
+                // Create index for TTL-based cleanup
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_ttl_expires_at ON boundless_requests(ttl_expires_at)",
                     [],
                 ).map_err(|e| e)?;
 
@@ -106,12 +115,15 @@ impl BoundlessStorage {
                 let input_hash = Self::compute_input_hash(&request.input);
                 let proof_type_str = Self::proof_type_to_string(&request.proof_type);
 
+                // Set TTL to 7 days from now (7 * 24 * 60 * 60 = 604800 seconds)
+                let ttl_expires_at = now + 604800;
+
                 conn.execute(
                     r#"
-                    INSERT OR REPLACE INTO boundless_requests 
-                    (request_id, market_request_id, status, proof_type, input_data, config_data, 
-                     updated_at, proof_data, error_message, input_hash, proof_type_str)
-                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                    INSERT OR REPLACE INTO boundless_requests
+                    (request_id, market_request_id, status, proof_type, input_data, config_data,
+                     updated_at, proof_data, error_message, input_hash, proof_type_str, ttl_expires_at)
+                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
                     "#,
                     params![
                         request.request_id,
@@ -124,7 +136,8 @@ impl BoundlessStorage {
                         Option::<Vec<u8>>::None, // proof_data initially None
                         Option::<String>::None,   // error_message initially None
                         input_hash,
-                        proof_type_str
+                        proof_type_str,
+                        ttl_expires_at
                     ],
                 ).map_err(|e| e)?;
 
@@ -400,6 +413,57 @@ impl BoundlessStorage {
             .map_err(|e| AgentError::ClientBuildError(format!("Failed to delete expired requests: {}", e)))
     }
 
+    /// Delete completed requests (fulfilled or failed) that have exceeded their TTL
+    /// Returns list of deleted request IDs for memory cleanup
+    pub async fn delete_expired_ttl_requests(&self) -> AgentResult<Vec<String>> {
+        let db_path = self.db_path.clone();
+
+        tokio_rusqlite::Connection::open(db_path)
+            .await
+            .map_err(|e| AgentError::ClientBuildError(format!("Failed to open database: {}", e)))?
+            .call(move |conn| {
+                // First, get the request IDs that will be deleted
+                let mut stmt = conn.prepare(
+                    r#"
+                    SELECT request_id FROM boundless_requests
+                    WHERE ttl_expires_at < strftime('%s', 'now')
+                    AND (status LIKE '%Fulfilled%' OR status LIKE '%Failed%')
+                    "#
+                ).map_err(|e| e)?;
+
+                let rows = stmt.query_map([], |row| {
+                    let request_id: String = row.get(0)?;
+                    Ok(request_id)
+                }).map_err(|e| e)?;
+
+                let mut deleted_ids = Vec::new();
+                for row in rows {
+                    match row {
+                        Ok(request_id) => deleted_ids.push(request_id),
+                        Err(e) => tracing::warn!("Failed to parse request_id during TTL cleanup: {}", e),
+                    }
+                }
+
+                // Now delete the TTL-expired requests
+                let deleted_count = conn.execute(
+                    r#"
+                    DELETE FROM boundless_requests
+                    WHERE ttl_expires_at < strftime('%s', 'now')
+                    AND (status LIKE '%Fulfilled%' OR status LIKE '%Failed%')
+                    "#,
+                    [],
+                ).map_err(|e| e)?;
+
+                if deleted_count > 0 {
+                    tracing::info!("Deleted {} TTL-expired completed requests from database", deleted_count);
+                }
+
+                Ok(deleted_ids)
+            })
+            .await
+            .map_err(|e| AgentError::ClientBuildError(format!("Failed to delete TTL-expired requests: {}", e)))
+    }
+
     /// Delete all requests from the database
     /// Returns the number of deleted requests
     pub async fn delete_all_requests(&self) -> AgentResult<usize> {
@@ -489,7 +553,7 @@ impl BoundlessStorage {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, ToSchema)]
 pub struct DatabaseStats {
     pub total_requests: u64,
     pub active_requests: u64,

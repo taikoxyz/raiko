@@ -8,6 +8,9 @@ import requests
 import sys
 import time
 
+# Configuration
+PORT = 9999  # Change this to test against different ports
+
 def test_boundless_endpoints(input_file):
     # Read binary input
     with open(input_file, 'rb') as f:
@@ -20,7 +23,7 @@ def test_boundless_endpoints(input_file):
     # 1. Submit proof (async by default)
     print("\n1. Submitting proof request...")
     response = requests.post(
-        "http://localhost:9999/proof",
+        f"http://localhost:{PORT}/proof",
         json={
             "input": input_bytes,
             "proof_type": "Batch",
@@ -44,7 +47,7 @@ def test_boundless_endpoints(input_file):
     max_attempts = 20  # Check for ~2 minutes
     
     for attempt in range(max_attempts):
-        response = requests.get(f"http://localhost:9999/status/{async_request_id}")
+        response = requests.get(f"http://localhost:{PORT}/status/{async_request_id}")
         
         if response.status_code == 200:
             status_data = response.json()
@@ -67,7 +70,7 @@ def test_boundless_endpoints(input_file):
     
     # 3. List all active requests
     print(f"\n3. Listing all active requests...")
-    response = requests.get("http://localhost:9999/requests")
+    response = requests.get(f"http://localhost:{PORT}/requests")
     
     if response.status_code == 200:
         data = response.json()

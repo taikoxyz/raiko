@@ -16,7 +16,9 @@ use raiko_lib::{
 };
 use risc0_zkvm::{compute_image_id, sha::Digestible, Digest, Receipt as ZkvmReceipt};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Semaphore;
 use tokio::time::sleep as tokio_async_sleep;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,13 +38,24 @@ pub struct Risc0AgentResponse {
 
 pub struct BoundlessProver {
     remote_prover_url: String,
+    request_semaphore: Arc<Semaphore>,
 }
 
 impl BoundlessProver {
     pub fn new() -> Self {
         let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
             .unwrap_or_else(|_| "http://localhost:9999/proof".to_string());
-        Self { remote_prover_url }
+        
+        // Configure HTTP request concurrency limit (default: 4)
+        let concurrency_limit = std::env::var("BOUNDLESS_REQUEST_CONCURRENCY_LIMIT")
+            .unwrap_or_else(|_| "4".to_string())
+            .parse::<usize>()
+            .unwrap_or(4);
+        
+        Self { 
+            remote_prover_url,
+            request_semaphore: Arc::new(Semaphore::new(concurrency_limit)),
+        }
     }
 }
 
@@ -220,6 +233,9 @@ impl Prover for BoundlessProver {
             "proof_type": "Aggregate"
         });
 
+        // Acquire semaphore permit to limit concurrent HTTP requests
+        let _permit = self.request_semaphore.acquire().await.unwrap();
+        
         // Send the request to the agent and await the response
         let client = HttpClient::new();
         let resp = client
@@ -311,6 +327,9 @@ impl Prover for BoundlessProver {
             "proof_type": "Batch"
         });
 
+        // Acquire semaphore permit to limit concurrent HTTP requests
+        let _permit = self.request_semaphore.acquire().await.unwrap();
+        
         // Send the request to the local agent and handle the response
         let client = reqwest::Client::new();
         let resp = client

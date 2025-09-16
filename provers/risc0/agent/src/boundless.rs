@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use crate::methods::{
     boundless_aggregation::BOUNDLESS_AGGREGATION_ELF,
-    boundless_batch::BOUNDLESS_BATCH_ELF,
+    boundless_batch::{BOUNDLESS_BATCH_ELF, BOUNDLESS_BATCH_ID},
 };
 use alloy_primitives_v1p2p0::{
     U256, keccak256, hex,
@@ -20,7 +20,9 @@ use boundless_market::{
 };
 use reqwest::Url;
 use risc0_zkvm::{Digest, Receipt as ZkvmReceipt, default_executor};
+use risc0_ethereum_contracts_boundless::receipt::{decode_seal, Receipt as ContractReceipt};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 use std::sync::Arc;
@@ -46,7 +48,7 @@ pub struct AsyncProofRequest {
     pub config: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum ElfType {
     Batch,
     Aggregation,
@@ -342,7 +344,8 @@ impl Default for ProverConfig {
         ProverConfig {
             offchain: false,
             pull_interval: 10,
-            rpc_url: "https://ethereum-sepolia-rpc.publicnode.com".to_string(),
+            // rpc_url: "https://ethereum-sepolia-rpc.publicnode.com".to_string(),
+            rpc_url: "https://base-rpc.publicnode.com".to_string(),
             boundless_config: BoundlessConfig::default(),
             url_ttl: 1800,
         }
@@ -470,6 +473,7 @@ impl BoundlessProver {
     async fn check_market_status(
         &self,
         market_request_id: U256,
+        proof_type: &ProofType,
     ) -> AgentResult<ProofRequestStatus> {
         let boundless_client = self.create_boundless_client().await?;
         let request_id_str = format!("0x{:x}", market_request_id);
@@ -509,10 +513,23 @@ impl BoundlessProver {
                         
                         match fulfillment_result {
                             Ok((journal, seal)) => {
+                                // Decode boundless receipt only for batch proofs
+                                let receipt = match proof_type {
+                                    ProofType::Batch => {
+                                        match decode_seal(seal.clone(), BOUNDLESS_BATCH_ID, journal.clone()) {
+                                            Ok(ContractReceipt::Base(boundless_receipt)) => {
+                                                serde_json::to_string(&boundless_receipt).ok()
+                                            }
+                                            _ => None,
+                                        }
+                                    }
+                                    _ => None, // Aggregation and other types get None
+                                };
+
                                 let response = Risc0Response {
                                     seal: seal.to_vec(),
                                     journal: journal.to_vec(),
-                                    receipt: None,
+                                    receipt,
                                 };
                                 
                                 let proof_bytes = bincode::serialize(&response).map_err(|e| {
@@ -566,7 +583,7 @@ impl BoundlessProver {
         // Create a temporary instance to use the create_boundless_client method
         // Initialize SQLite storage
         let db_path = std::env::var("SQLITE_DB_PATH")
-            .unwrap_or_else(|_| "/data/boundless_requests.db".to_string());
+            .unwrap_or_else(|_| "./boundless_requests.db".to_string());
         let storage = BoundlessStorage::new(db_path);
         storage.initialize().await?;
 
@@ -621,6 +638,8 @@ impl BoundlessProver {
             storage: storage.clone(),
         };
 
+        // Start background TTL cleanup task
+        Self::start_ttl_cleanup_task(final_prover.storage.clone(), final_prover.active_requests.clone());
 
         Ok(final_prover)
     }
@@ -732,6 +751,7 @@ impl BoundlessProver {
         &self,
         request_id: &str,
         market_request_id: U256,
+        proof_type: &ProofType,
         active_requests: &Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
     ) -> bool {
         let market_id_str = format!("0x{:x}", market_request_id);
@@ -739,7 +759,7 @@ impl BoundlessProver {
         // Use retry logic for status polling to handle transient failures
         let status_result = retry_with_backoff(
             "check_market_status_polling",
-            || self.check_market_status(market_request_id),
+            || self.check_market_status(market_request_id, proof_type),
             3, // Fewer retries since we poll periodically
         ).await;
         
@@ -799,6 +819,7 @@ impl BoundlessProver {
         &self,
         request_id: &str,
         market_request_id: U256,
+        proof_type: ProofType,
         active_requests: Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
     ) {
         let prover_clone = self.clone();
@@ -810,7 +831,7 @@ impl BoundlessProver {
             // Create the polling future
             let pollings = async {
                 while prover_clone
-                    .poll_market_status(&request_id, market_request_id, &active_requests)
+                    .poll_market_status(&request_id, market_request_id, &proof_type, &active_requests)
                     .await 
                 {
                     tokio::time::sleep(poll_interval).await;
@@ -837,6 +858,7 @@ impl BoundlessProver {
         elf: &[u8],
         image_url: Url,
         offer_params: BoundlessOfferParams,
+        proof_type: ProofType,
         active_requests: Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
     ) -> AgentResult<()> {
         
@@ -892,7 +914,7 @@ impl BoundlessProver {
         }
 
         // Start polling market status in background
-        self.start_status_polling(request_id, market_request_id, active_requests).await;
+        self.start_status_polling(request_id, market_request_id, proof_type, active_requests).await;
 
         Ok(())
     }
@@ -974,6 +996,7 @@ impl BoundlessProver {
                 BOUNDLESS_BATCH_ELF,
                 image_url,
                 offer_params,
+                ProofType::Batch,
                 active_requests,
             ).await {
                 prover_clone.update_failed_status(&request_id_clone, e.to_string()).await;
@@ -1060,6 +1083,7 @@ impl BoundlessProver {
                 BOUNDLESS_AGGREGATION_ELF,
                 image_url,
                 offer_params,
+                ProofType::Aggregate,
                 active_requests,
             ).await {
                 prover_clone.update_failed_status(&request_id_clone, e.to_string()).await;
@@ -1130,6 +1154,42 @@ impl BoundlessProver {
         
         tracing::info!("Deleted {} requests from database and cleared memory cache", deleted_count);
         Ok(deleted_count)
+    }
+
+    /// Start background TTL cleanup task that runs every 24 hours
+    fn start_ttl_cleanup_task(
+        storage: BoundlessStorage,
+        active_requests: Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
+    ) {
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(24 * 3600)); // 24 hours
+            interval.tick().await; // Skip first immediate tick
+
+            loop {
+                interval.tick().await;
+
+                tracing::info!("Running TTL cleanup for completed requests older than 7 days");
+
+                match storage.delete_expired_ttl_requests().await {
+                    Ok(deleted_ids) => {
+                        if !deleted_ids.is_empty() {
+                            tracing::info!("TTL cleanup removed {} completed requests", deleted_ids.len());
+
+                            // Remove from memory cache as well
+                            {
+                                let mut requests_guard = active_requests.write().await;
+                                for request_id in &deleted_ids {
+                                    requests_guard.remove(request_id);
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("TTL cleanup failed: {}", e);
+                    }
+                }
+            }
+        });
     }
 
     async fn evaluate_cost(&self, guest_env: &GuestEnv, elf: &[u8]) -> AgentResult<(u64, Vec<u8>)> {
@@ -1302,32 +1362,38 @@ mod tests {
         assert!(DeploymentType::from_str("").is_err());
     }
 
+    #[ignore = "requires storage provider (IPFS/Pinata)"]
     #[tokio::test]
     async fn test_run_prover() {
         // init log
-        env_logger::init();
+        env_logger::try_init().ok();
 
         // loading from tests/fixtures/input-1306738.bin
         let input_bytes = std::fs::read("tests/fixtures/input-1306738.bin").unwrap();
-        let output_bytes = std::fs::read("tests/fixtures/output-1306738.bin").unwrap();
+        let _output_bytes = std::fs::read("tests/fixtures/output-1306738.bin").unwrap();
 
         let config = serde_json::Value::default();
         let prover = BoundlessProver::new(ProverConfig::default())
             .await
             .unwrap();
-        let proof = prover
-            .batch_run(input_bytes, &output_bytes, &config)
+        
+        // Test async request submission - should return a request ID
+        let request_id = prover
+            .batch_run("test_request_id".to_string(), input_bytes, &config)
             .await
             .unwrap();
-        println!("proof: {:?}", proof);
+        println!("Submitted batch request with ID: {:?}", request_id);
+        
+        // Verify request ID is returned (should be a non-empty string)
+        assert!(!request_id.is_empty(), "Request ID should not be empty");
 
-        let response: Risc0Response = bincode::deserialize(&proof).unwrap();
-        println!("response: {:?}", response);
-
-        // Save the proof to a binary file for inspection
-        let bin_path = "tests/fixtures/proof-1306738.bin";
-        std::fs::write(bin_path, &proof).expect("Failed to write proof to bin file");
-        println!("Proof saved to {}", bin_path);
+        // Test deserialization of existing proof fixture
+        let proof_bytes = std::fs::read("tests/fixtures/proof-1306738.bin").unwrap();
+        let response: Risc0Response = bincode::deserialize(&proof_bytes).unwrap();
+        println!("Successfully deserialized proof response: {:?}", response);
+        
+        // Verify the proof has required fields
+        assert!(response.receipt.is_some(), "Proof should have a receipt");
     }
 
     #[ignore = "not needed in CI"]
@@ -1343,28 +1409,35 @@ mod tests {
         println!("Deserialized zkvm receipt: {:#?}", zkvm_receipt);
     }
 
+    #[ignore = "requires storage provider (IPFS/Pinata)"]
     #[tokio::test]
     async fn test_run_prover_aggregation() {
-        env_logger::init();
+        env_logger::try_init().ok();
 
+        // Load and deserialize existing proof fixture
         let file_name = format!("tests/fixtures/proof-1306738.bin");
-        let proof: Vec<u8> = std::fs::read(file_name).unwrap();
-        let proof: Risc0Response = bincode::deserialize(&proof).unwrap();
+        let proof_bytes: Vec<u8> = std::fs::read(file_name).unwrap();
+        let proof: Risc0Response = bincode::deserialize(&proof_bytes).unwrap();
         println!("Deserialized proof: {:#?}", proof);
 
+        // Prepare aggregation input
         let zkvm_receipt: ZkvmReceipt = serde_json::from_str(&proof.receipt.unwrap()).unwrap();
         let input_data = BoundlessAggregationGuestInput {
             image_id: BOUNDLESS_BATCH_ID.into(),
             receipts: vec![zkvm_receipt],
         };
         let input = bincode::serialize(&input_data).unwrap();
-        let output = Vec::<u8>::new();
         let config = serde_json::Value::default();
+        
+        // Test async aggregation request submission
         let prover = BoundlessProver::new(ProverConfig::default())
             .await
             .unwrap();
-        let proof = prover.aggregate(input, &output, &config).await.unwrap();
-        println!("proof: {:?}", proof);
+        let request_id = prover.aggregate("test_aggregate_request_id".to_string(), input, &config).await.unwrap();
+        println!("Submitted aggregation request with ID: {:?}", request_id);
+        
+        // Verify request ID is returned (should be a non-empty string)
+        assert!(!request_id.is_empty(), "Aggregation request ID should not be empty");
     }
 
     pub async fn verify_boundless_groth16_snark_impl(
