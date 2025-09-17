@@ -112,6 +112,7 @@ pub enum BlockProposedFork {
     Hekla(BlockProposed),
     Ontake(BlockProposedV2),
     Pacaya(BatchProposed),
+    Shasta(BatchProposed),
 }
 
 impl BlockProposedFork {
@@ -119,7 +120,9 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.blobUsed,
             BlockProposedFork::Ontake(block) => block.meta.blobUsed,
-            BlockProposedFork::Pacaya(batch) => batch.info.blobHashes.len() > 0,
+            BlockProposedFork::Pacaya(batch) | BlockProposedFork::Shasta(batch) => {
+                batch.info.blobHashes.len() > 0
+            }
             _ => false,
         }
     }
@@ -128,8 +131,8 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.id,
             BlockProposedFork::Ontake(block) => block.meta.id,
-            BlockProposedFork::Pacaya(_batch) => {
-                _batch.info.lastBlockId - (_batch.info.blocks.len() as u64) + 1
+            BlockProposedFork::Pacaya(batch) | BlockProposedFork::Shasta(batch) => {
+                batch.info.lastBlockId - (batch.info.blocks.len() as u64) + 1
             }
             _ => 0,
         }
@@ -139,7 +142,7 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.timestamp,
             BlockProposedFork::Ontake(block) => block.meta.timestamp,
-            BlockProposedFork::Pacaya(_batch) => 0,
+            BlockProposedFork::Pacaya(_batch) | BlockProposedFork::Shasta(_batch) => 0,
             _ => 0,
         }
     }
@@ -153,13 +156,15 @@ impl BlockProposedFork {
                 min_gas_excess: block.meta.baseFeeConfig.minGasExcess,
                 max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
             },
-            BlockProposedFork::Pacaya(batch) => ProtocolBaseFeeConfig {
-                adjustment_quotient: batch.info.baseFeeConfig.adjustmentQuotient,
-                sharing_pctg: batch.info.baseFeeConfig.sharingPctg,
-                gas_issuance_per_second: batch.info.baseFeeConfig.gasIssuancePerSecond,
-                min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
-                max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
-            },
+            BlockProposedFork::Pacaya(batch) | BlockProposedFork::Shasta(batch) => {
+                ProtocolBaseFeeConfig {
+                    adjustment_quotient: batch.info.baseFeeConfig.adjustmentQuotient,
+                    sharing_pctg: batch.info.baseFeeConfig.sharingPctg,
+                    gas_issuance_per_second: batch.info.baseFeeConfig.gasIssuancePerSecond,
+                    min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
+                    max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
+                }
+            }
             _ => ProtocolBaseFeeConfig::default(),
         }
     }
@@ -170,7 +175,7 @@ impl BlockProposedFork {
                 block.meta.blobTxListOffset as usize,
                 block.meta.blobTxListLength as usize,
             )),
-            BlockProposedFork::Pacaya(batch) => Some((
+            BlockProposedFork::Pacaya(batch) | BlockProposedFork::Shasta(batch) => Some((
                 batch.info.blobByteOffset as usize,
                 batch.info.blobByteSize as usize,
             )),
@@ -189,14 +194,18 @@ impl BlockProposedFork {
 
     pub fn blob_hashes(&self) -> &[B256] {
         match self {
-            BlockProposedFork::Pacaya(batch) => &batch.info.blobHashes,
+            BlockProposedFork::Pacaya(batch) | BlockProposedFork::Shasta(batch) => {
+                &batch.info.blobHashes
+            }
             _ => &[],
         }
     }
 
     pub fn batch_info(&self) -> Option<&BatchInfo> {
         match self {
-            BlockProposedFork::Pacaya(batch) => Some(&batch.info),
+            BlockProposedFork::Pacaya(batch) | BlockProposedFork::Shasta(batch) => {
+                Some(&batch.info)
+            }
             _ => None,
         }
     }
@@ -205,7 +214,9 @@ impl BlockProposedFork {
         match self {
             BlockProposedFork::Hekla(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
             BlockProposedFork::Ontake(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
-            BlockProposedFork::Pacaya(batch) => batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT,
+            BlockProposedFork::Pacaya(batch) | BlockProposedFork::Shasta(batch) => {
+                batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT
+            }
             _ => 0,
         }
     }

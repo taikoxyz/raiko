@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
 Test script to verify that aggregation requests get the highest priority.
+Configured for Tolba testnet with SHASTA fork support.
 
 Usage Examples:
   # Basic continuous streaming test with default settings (native prover)
   python3 test_aggregation_priority.py
-  
+
   # Test with different prover types
   python3 test_aggregation_priority.py --prove-type sgx
   python3 test_aggregation_priority.py --prove-type risc0
   python3 test_aggregation_priority.py --prove-type sp1
-  
+
 """
 
 import asyncio
@@ -50,9 +51,9 @@ class AggregationPriorityTester:
     def __init__(
         self,
         raiko_rpc: str = "http://localhost:8080",
-        l1_rpc: str = "http://35.240.156.196:8545",
+        l1_rpc: str = "https://l1rpc.internal.taiko.xyz",
         abi_file: str = "./script/ITaikoInbox.json",
-        evt_address: str = "0x79C9109b764609df928d16fC4a91e9081F7e87DB",
+        evt_address: str = "0x3b37a799290950fef954dfF547608baC52A12571",
         log_file: str = "aggregation_priority_test.log",
         prove_type: str = "native",
         request_delay: float = 0.0,
@@ -104,7 +105,7 @@ class AggregationPriorityTester:
             l1_w3 = Web3(Web3.HTTPProvider(self.l1_rpc, {"timeout": 10}))
             l1_w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
             if l1_w3.is_connected():
-                self.logger.info(f"Connected to L1 node {self.l1_rpc}")
+                self.logger.info(f"Connected to Tolba internal L1 node {self.l1_rpc}")
             else:
                 self.logger.error(f"Failed to connect to L1 node {self.l1_rpc}")
                 self.evt_contract = None
@@ -131,7 +132,7 @@ class AggregationPriorityTester:
             return []
 
     def get_available_batch_ids(self, start_block: int, end_block: int, max_batches: int = 5000) -> List[Tuple[int, int]]:
-        """Get available batch IDs and L1 inclusion blocks from L1 chain within a block range"""
+        """Get available batch IDs and L1 inclusion blocks from Tolba internal L1 chain within a block range"""
         if not hasattr(self, 'evt_contract') or self.evt_contract is None:
             self.logger.error("Contract not initialized, cannot get batch events")
             return []
@@ -159,7 +160,7 @@ class AggregationPriorityTester:
         return batch_data
 
     def create_single_proof_request(self, batch_id: int, l1_inclusion_block: int, aggregate: bool = False) -> Dict[str, Any]:
-        """Create a single proof request payload"""
+        """Create a single proof request payload for Tolba testnet (SHASTA fork)"""
         base_request = {
             "batches": [
                 {
@@ -172,6 +173,8 @@ class AggregationPriorityTester:
             "proof_type": self.prove_type,
             "blob_proof_type": "proof_of_equivalence",
             "aggregate": aggregate,
+            "network": "tolba",
+            "l1_network": "holesky",
         }
         
         if self.prove_type == "native":
@@ -200,7 +203,7 @@ class AggregationPriorityTester:
         return base_request
 
     def create_aggregation_request(self, batch_data: List[Tuple[int, int]]) -> Dict[str, Any]:
-        """Create an aggregation request payload"""
+        """Create an aggregation request payload for Tolba testnet (SHASTA fork)"""
         base_request = {
             "batches": [
                 {
@@ -214,6 +217,8 @@ class AggregationPriorityTester:
             "proof_type": self.prove_type,
             "blob_proof_type": "proof_of_equivalence",
             "aggregate": True,
+            "network": "tolba",
+            "l1_network": "holesky",
         }
 
         if self.prove_type == "native":
@@ -564,7 +569,7 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 1,
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -576,8 +581,8 @@ class AggregationPriorityTester:
             self.logger.error("L1 contract not initialized - cannot proceed with test")
             return False
         
-        self.logger.info(f"Getting {total_batches} batch IDs from L1 chain starting from block {base_block}")
-        batch_data = self.get_available_batch_ids(base_block, base_block + 5000, total_batches)
+        self.logger.info(f"Getting {total_batches} batch IDs from Tolba internal L1 chain starting from block {base_block}")
+        batch_data = self.get_available_batch_ids(base_block, 6500, total_batches)
         
         if len(batch_data) == 0:
             self.logger.error("No batch proposals found - cannot proceed with test")
@@ -678,8 +683,8 @@ async def main():
     parser.add_argument(
         "--base-block",
         type=int,
-        default=4110000,
-        help="Base block number to start testing from"
+        default=5000,
+        help="Base block number to start testing from (internal Taiko L1 chain starts around block 5000+)"
     )
     
     parser.add_argument(

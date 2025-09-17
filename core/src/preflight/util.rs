@@ -248,12 +248,16 @@ pub async fn parse_l1_batch_proposal_tx_for_pacaya_fork(
     batch_id: u64,
 ) -> RaikoResult<Vec<u64>> {
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
+
+    // Use the fork from chain spec max_spec_id
+    let fork = taiko_chain_spec.max_spec_id;
+
     let (l1_inclusion_height, _tx, batch_proposed_fork) = get_block_proposed_event_by_height(
         provider_l1.provider(),
         taiko_chain_spec.clone(),
         l1_inclusion_block_number,
         batch_id,
-        SpecId::PACAYA,
+        fork,
     )
     .await?;
 
@@ -261,17 +265,19 @@ pub async fn parse_l1_batch_proposal_tx_for_pacaya_fork(
         l1_inclusion_block_number == l1_inclusion_height,
         "proposal tx inclusive block != proof_request block"
     );
-    if let BlockProposedFork::Pacaya(batch_proposed) = batch_proposed_fork {
-        let batch_info = &batch_proposed.info;
-        Ok(
-            ((batch_info.lastBlockId - (batch_info.blocks.len() as u64 - 1))
-                ..=batch_info.lastBlockId)
-                .collect(),
-        )
-    } else {
-        Err(RaikoError::Preflight(
-            "BatchProposedFork is not Pacaya".to_owned(),
-        ))
+
+    match batch_proposed_fork {
+        BlockProposedFork::Pacaya(batch_proposed) | BlockProposedFork::Shasta(batch_proposed) => {
+            let batch_info = &batch_proposed.info;
+            Ok(
+                ((batch_info.lastBlockId - (batch_info.blocks.len() as u64 - 1))
+                    ..=batch_info.lastBlockId)
+                    .collect(),
+            )
+        }
+        _ => Err(RaikoError::Preflight(
+            "BatchProposedFork is not a batch-based fork (Pacaya/Shasta)".to_owned(),
+        )),
     }
 }
 
@@ -294,7 +300,10 @@ pub async fn prepare_taiko_chain_batch_input(
             .first()
             .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
         let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
-        ensure!(fork == SpecId::PACAYA, "Only pacaya fork supports batch");
+        ensure!(
+            fork == SpecId::PACAYA || fork == SpecId::SHASTA,
+            "Only pacaya/shasta fork supports batch"
+        );
         let anchor_info = get_anchor_tx_info_by_fork(fork, anchor_tx)?;
         acc.push(anchor_info);
         Ok(acc)
@@ -325,7 +334,9 @@ pub async fn prepare_taiko_chain_batch_input(
     .await?;
     assert_eq!(anchor_state_root, l1_state_header.state_root);
 
-    if let BlockProposedFork::Pacaya(batch_proposed) = batch_proposed_fork {
+    if let BlockProposedFork::Pacaya(batch_proposed) | BlockProposedFork::Shasta(batch_proposed) =
+        batch_proposed_fork
+    {
         let batch_info = &batch_proposed.info;
         let blob_hashes = batch_info.blobHashes.clone();
         let force_inclusion_block_number = batch_info.blobCreatedIn;
@@ -565,6 +576,7 @@ pub async fn filter_block_proposed_event(
     // Get the event signature (value can differ between chains)
     let event_signature = match fork {
         SpecId::PACAYA => BatchProposed::SIGNATURE_HASH,
+        SpecId::SHASTA => BatchProposed::SIGNATURE_HASH,
         SpecId::ONTAKE => BlockProposedV2::SIGNATURE_HASH,
         _ => BlockProposed::SIGNATURE_HASH,
     };
@@ -604,6 +616,14 @@ pub async fn filter_block_proposed_event(
                 (
                     raiko_lib::primitives::U256::from(event.meta.batchId),
                     BlockProposedFork::Pacaya(event.data),
+                )
+            }
+            SpecId::SHASTA => {
+                let event = BatchProposed::decode_log(&log_struct, false)
+                    .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
+                (
+                    raiko_lib::primitives::U256::from(event.meta.batchId),
+                    BlockProposedFork::Shasta(event.data),
                 )
             }
             SpecId::ONTAKE => {

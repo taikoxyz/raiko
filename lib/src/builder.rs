@@ -13,7 +13,7 @@ use crate::{
 };
 use anyhow::{bail, ensure, Result};
 use reth_chainspec::{
-    ChainSpecBuilder, Hardfork, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET,
+    ChainSpecBuilder, Hardfork, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET, TAIKO_TOLBA,
 };
 use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
 use reth_evm_ethereum::execute::{
@@ -170,6 +170,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             }
             "holesky" => HOLESKY.clone(),
             "taiko_dev" => TAIKO_DEV.clone(),
+            "tolba" => TAIKO_TOLBA.clone(),
             _ => unimplemented!(),
         };
 
@@ -206,6 +207,14 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                         "evm fork PACAYA is not active, please update the chain spec"
                     );
                 }
+                SpecId::SHASTA => {
+                    assert!(
+                        reth_chain_spec
+                            .fork(Hardfork::Shasta)
+                            .active_at_block(block_num),
+                        "evm fork SHASTA is not active, please update the chain spec"
+                    );
+                }
                 _ => unimplemented!(),
             }
         }
@@ -227,6 +236,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
                 base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
                 gas_limit: self.input.taiko.block_proposed.gas_limit_with_anchor(),
+                shasta_data: None,
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {
