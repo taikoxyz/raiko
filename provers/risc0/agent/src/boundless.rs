@@ -104,7 +104,7 @@ pub struct BoundlessAggregationGuestInput {
 // Constants
 const MAX_RETRY_ATTEMPTS: u32 = 5;
 const MILLION_CYCLES: u64 = 1_000_000;
-const STAKE_TOKEN_DECIMALS: u8 = 6;
+const STAKE_TOKEN_DECIMALS: u8 = 18;
 
 /// Generic retry function with exponential backoff
 async fn retry_with_backoff<F, Fut, T, E>(
@@ -138,7 +138,7 @@ where
     }
 }
 
-// now staking token is USDC, so we need to parse it as USDC whose decimals is 6
+// now staking token is ZSC, so we need to parse it as ZSC whose decimals is 18
 pub fn parse_staking_token(token: &str) -> AgentResult<U256> {
     let parsed = parse_units(token, STAKE_TOKEN_DECIMALS).map_err(|e| {
         AgentError::ClientBuildError(format!("Failed to parse stacking: {} ({})", token, e))

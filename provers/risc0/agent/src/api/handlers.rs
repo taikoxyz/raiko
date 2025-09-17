@@ -31,10 +31,9 @@ fn map_status_to_api_response(request: &AsyncProofRequest) -> DetailedStatusResp
             None,
             None,
         ),
-        ProofRequestStatus::Locked { prover, .. } => (
+        ProofRequestStatus::Locked { .. } => (
             "in_progress".to_string(),
-            format!("A prover {} has accepted the request and is generating the proof.", 
-                prover.as_ref().map(|p| format!("({})", p)).unwrap_or_else(|| "".to_string())),
+            "A prover has accepted the request and is generating the proof".to_string(),
             None,
             None,
         ),
