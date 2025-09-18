@@ -143,9 +143,9 @@ pub fn generate_transactions_for_batch_blocks(
     assert!(
         matches!(
             taiko_guest_batch_input.batch_proposed,
-            BlockProposedFork::Pacaya(_) | BlockProposedFork::Shasta(_)
+            BlockProposedFork::Pacaya(_)
         ),
-        "only pacaya/shasta batch supported"
+        "only pacaya batch supported"
     );
     assert!(
         taiko_guest_batch_input.tx_data_from_calldata.is_empty()

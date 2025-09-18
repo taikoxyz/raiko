@@ -122,9 +122,8 @@ impl BlockMetaDataFork {
             BlockProposedFork::Ontake(block_proposed_v2) => {
                 Self::Ontake((input, header, tx_list_hash, block_proposed_v2).into())
             }
-            BlockProposedFork::Pacaya(_batch_proposed)
-            | BlockProposedFork::Shasta(_batch_proposed) => {
-                unimplemented!("single block signature is not supported for pacaya/shasta fork")
+            BlockProposedFork::Pacaya(_batch_proposed) => {
+                unimplemented!("single block signature is not supported for pacaya fork")
             }
         }
     }
@@ -144,8 +143,7 @@ impl BlockMetaDataFork {
 
     fn from_batch_inputs(batch_input: &GuestBatchInput, final_blocks: Vec<Block>) -> Self {
         match &batch_input.taiko.batch_proposed {
-            BlockProposedFork::Pacaya(batch_proposed)
-            | BlockProposedFork::Shasta(batch_proposed) => {
+            BlockProposedFork::Pacaya(batch_proposed) => {
                 // todo: review the calculation 1 by 1 to make sure all of them are rooted from a trustable source
                 let txs_hash = Self::calculate_pacaya_txs_hash(
                     keccak(batch_input.taiko.tx_data_from_calldata.as_slice()).into(),
@@ -236,7 +234,7 @@ impl BlockMetaDataFork {
                 })
             }
             _ => {
-                unimplemented!("batch blocks signature is not supported before pacaya/shasta fork")
+                unimplemented!("batch blocks signature is not supported before pacaya fork")
             }
         }
     }
@@ -255,10 +253,6 @@ impl BlockMetaDataFork {
                 Some(Box::new(Comparison::new(a, &b.meta))),
             ),
             (Self::Pacaya(a), BlockProposedFork::Pacaya(b)) => (
-                a.abi_encode() == b.meta.abi_encode(),
-                Some(Box::new(Comparison::new(a, &b.meta))),
-            ),
-            (Self::Pacaya(a), BlockProposedFork::Shasta(b)) => (
                 a.abi_encode() == b.meta.abi_encode(),
                 Some(Box::new(Comparison::new(a, &b.meta))),
             ),
@@ -552,13 +546,11 @@ impl ProtocolInstance {
         let first_block = blocks.first().unwrap();
         let last_block = blocks.last().unwrap();
         let transition = match batch_input.taiko.batch_proposed {
-            BlockProposedFork::Pacaya(_) | BlockProposedFork::Shasta(_) => {
-                TransitionFork::Pacaya(PacayaTransition {
-                    parentHash: first_block.header.parent_hash,
-                    blockHash: last_block.header.hash_slow(),
-                    stateRoot: last_block.header.state_root,
-                })
-            }
+            BlockProposedFork::Pacaya(_) => TransitionFork::Pacaya(PacayaTransition {
+                parentHash: first_block.header.parent_hash,
+                blockHash: last_block.header.hash_slow(),
+                stateRoot: last_block.header.state_root,
+            }),
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
         };
 
