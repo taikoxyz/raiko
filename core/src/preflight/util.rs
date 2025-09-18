@@ -1202,10 +1202,11 @@ mod test {
 
     use super::*;
 
+    #[ignore = "not run in CI as devnet changes frequently"]
     #[tokio::test]
     async fn test_shasta_blob_decoding() -> Result<()> {
         let beacon_rpc_url = "https://l1beacon.internal.taiko.xyz";
-        let slot_id = 7031;
+        let slot_id = 98;
         let blob_data = get_blob_data(&beacon_rpc_url, slot_id).await.expect("ok");
         println!("blob_data: {blob_data:?}");
         let blob_data = blob_to_bytes(&blob_data.data[0].blob);

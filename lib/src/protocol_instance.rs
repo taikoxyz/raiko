@@ -15,7 +15,7 @@ use crate::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
         shasta::{
-            BlobSlice as ShastaBlobSlice, Checkpoint, Derivation, Proposal as ShastaProposal,
+            BlobSlice, Checkpoint, CoreState, Derivation, Proposal as ShastaProposal,
             Transition as ShastaTransition,
         },
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
@@ -240,7 +240,17 @@ impl BlockMetaDataFork {
                 })
             }
             BlockProposedFork::Shasta(event_data) => {
-                // For Shasta, we use the proposal directly as the block metadata
+                // Use the reconstructed proposal (which has been validated to match the event proposal)
+                assert_eq!(
+                    event_data.proposal.coreStateHash,
+                    keccak(event_data.core_state.abi_encode()),
+                    "core state hash mismatch"
+                );
+                assert_eq!(
+                    event_data.proposal.derivationHash,
+                    keccak(event_data.derivation.abi_encode()),
+                    "derivation hash mismatch"
+                );
                 BlockMetaDataFork::Shasta(event_data.proposal.clone())
             }
             _ => {
@@ -560,121 +570,39 @@ impl ProtocolInstance {
 
         let first_block = blocks.first().unwrap();
         let last_block = blocks.last().unwrap();
-        let transition = match batch_input.taiko.batch_proposed {
+        let prover = batch_input.taiko.prover_data.prover;
+        let transition = match &batch_input.taiko.batch_proposed {
             BlockProposedFork::Pacaya(_) => TransitionFork::Pacaya(PacayaTransition {
                 parentHash: first_block.header.parent_hash,
                 blockHash: last_block.header.hash_slow(),
                 stateRoot: last_block.header.state_root,
             }),
-            BlockProposedFork::Shasta(_) => TransitionFork::Shasta(ShastaTransition {
-                ..Default::default()
-            }),
-            _ => return Err(anyhow::Error::msg("unknown transition fork")),
-        };
-
-        let pi = ProtocolInstance {
-            transition,
-            block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
-            sgx_instance: Address::default(),
-            prover: input.taiko.prover_data.prover,
-            chain_id: input.chain_spec.chain_id,
-            verifier_address,
-        };
-
-        // Sanity check
-        if input.chain_spec.is_taiko() {
-            let (same, pretty_display) = pi
-                .block_metadata
-                .match_block_proposal(&batch_input.taiko.batch_proposed);
-            ensure!(
-                same,
-                format!("batch block hash mismatch: {}", pretty_display.unwrap(),)
-            );
-        }
-
-        Ok(pi)
-    }
-
-    pub fn new_batch_shasta(
-        batch_input: &GuestBatchInput,
-        blocks: Vec<Block>,
-        proof_type: ProofType,
-    ) -> Result<Self> {
-        // verify blob usage, either by commitment or proof equality.
-        verify_batch_mode_blob_usage(batch_input, proof_type)?;
-
-        for input in &batch_input.inputs {
-            // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
-            // one we expect, because the prover could otherwise just fill in any values.
-            // The chain id is used because that is the value that is put onchain,
-            // and so all other chain data needs to be derived from it.
-            // For unknown chain ids we just skip this check so that tests using test data can still pass.
-            // TODO: we should probably split things up in critical and non-critical parts
-            // in the chain spec itself so we don't have to manually all the ones we have to care about.
-            if let Some(verified_chain_spec) = SupportedChainSpecs::default()
-                .get_chain_spec_with_chain_id(input.chain_spec.chain_id)
-            {
-                ensure!(
-                    input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
-                    "unexpected max_spec_id"
-                );
-                ensure!(
-                    input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
-                    "unexpected hard_forks"
-                );
-                ensure!(
-                    input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
-                    "unexpected eip_1559_constants"
-                );
-                ensure!(
-                    input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
-                    "unexpected l1_contract"
-                );
-                ensure!(
-                    input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
-                    "unexpected l2_contract"
-                );
-                ensure!(
-                    input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
-                    "unexpected eip_1559_constants"
-                );
+            BlockProposedFork::Shasta(event_data) => {
+                TransitionFork::Shasta(ShastaTransition {
+                    proposalHash: keccak(
+                        ShastaProposal {
+                            id: event_data.proposal.id,
+                            timestamp: event_data.proposal.timestamp,
+                            endOfSubmissionWindowTimestamp: event_data
+                                .proposal
+                                .endOfSubmissionWindowTimestamp,
+                            proposer: event_data.proposal.proposer,
+                            coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
+                            derivationHash: keccak(event_data.derivation.abi_encode()).into(),
+                        }
+                        .abi_encode(),
+                    )
+                    .into(),
+                    parentTransitionHash: Default::default(), // passed in
+                    checkpoint: Checkpoint {
+                        blockNumber: last_block.header.number,
+                        blockHash: last_block.header.hash_slow(),
+                        stateRoot: last_block.header.state_root,
+                    },
+                    designatedProver: prover,
+                    actualProver: prover,
+                })
             }
-        }
-
-        // todo: move chain_spec into the batch input
-        let input = &batch_input.inputs[0];
-        let verifier_address = input
-            .chain_spec
-            .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
-            .unwrap_or_default();
-
-        let last_block = blocks.last().unwrap();
-        let prover = batch_input.taiko.prover_data.prover;
-        let transition = match &batch_input.taiko.batch_proposed {
-            BlockProposedFork::Shasta(event_data) => TransitionFork::Shasta(ShastaTransition {
-                proposalHash: keccak(
-                    ShastaProposal {
-                        id: event_data.proposal.id,
-                        timestamp: event_data.proposal.timestamp,
-                        endOfSubmissionWindowTimestamp: event_data
-                            .proposal
-                            .endOfSubmissionWindowTimestamp,
-                        proposer: event_data.proposal.proposer,
-                        coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
-                        derivationHash: keccak(event_data.derivation.abi_encode()).into(),
-                    }
-                    .abi_encode(),
-                )
-                .into(),
-                parentTransitionHash: Default::default(), // passed in
-                checkpoint: Checkpoint {
-                    blockNumber: last_block.header.number,
-                    blockHash: last_block.header.hash_slow(),
-                    stateRoot: last_block.header.state_root,
-                },
-                designatedProver: prover, // passed in
-                actualProver: prover,     // passed in
-            }),
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
         };
 

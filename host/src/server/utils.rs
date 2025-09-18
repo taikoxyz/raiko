@@ -3,7 +3,7 @@ use crate::{
     server::api::{v2, v3},
 };
 use raiko_core::{interfaces::RaikoError, provider::get_task_data};
-use raiko_lib::proof_type::ProofType;
+use raiko_lib::{primitives::keccak::keccak, proof_type::ProofType};
 use raiko_reqactor::Actor;
 use raiko_reqpool::Status;
 use raiko_tasks::TaskStatus;
@@ -132,4 +132,19 @@ pub async fn draw_for_zk_any_batch_request(
     let (_, blockhash) =
         get_task_data(&l1_network, l1_inclusion_block_number, actor.chain_specs()).await?;
     Ok(actor.draw(&blockhash).await)
+}
+
+pub async fn draw_shasta_zk_request(
+    actor: &Actor,
+    proposal_id: u64,
+    l1_inclusion_block_number: u64,
+) -> HostResult<Option<ProofType>> {
+    if actor.is_ballot_disabled().await {
+        return Ok(None);
+    }
+
+    let seed_hash =
+        keccak(format!("proposal:{}/{}", proposal_id, l1_inclusion_block_number,).as_bytes())
+            .into();
+    Ok(actor.draw(&seed_hash).await)
 }
