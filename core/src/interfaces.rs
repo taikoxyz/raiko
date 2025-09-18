@@ -473,11 +473,7 @@ impl TryFrom<ShastaProofRequestOpt> for ShastaProofRequest {
             ))?,
             graffiti: value
                 .graffiti
-                .ok_or(RaikoError::InvalidRequestConfig(
-                    "Missing graffiti".to_string(),
-                ))?
-                .parse()
-                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid graffiti".to_string()))?,
+                .map_or_else(|| B256::ZERO, |s| s.parse().unwrap_or(B256::ZERO)),
             prover: value
                 .prover
                 .ok_or(RaikoError::InvalidRequestConfig(

@@ -1,18 +1,23 @@
 use crate::{
     interfaces::HostResult,
     server::{
-        api::v3::Status,
+        api::v3::{ProofResponse, Status},
         auth::AuthenticatedApiKey,
         handler::prove_many,
         metrics::{record_shasta_request_in, record_shasta_request_out},
         prove_aggregation,
-        utils::to_v3_status,
+        utils::{draw_shasta_zk_request, is_zk_any_request, to_v3_status},
     },
 };
 use axum::{extract::State, routing::post, Extension, Json, Router};
-use raiko_core::interfaces::ShastaProofRequest;
+use raiko_core::{
+    interfaces::{RaikoError, ShastaProofRequest, ShastaProofRequestOpt},
+    merge,
+};
+use raiko_lib::proof_type::ProofType;
 use raiko_reqactor::Actor;
 use raiko_reqpool::{AggregationRequestEntity, AggregationRequestKey, ImageId};
+use raiko_tasks::TaskStatus;
 use serde_json::Value;
 use utoipa::OpenApi;
 
@@ -36,15 +41,50 @@ use super::batch::process_shasta_batch;
 async fn shasta_batch_handler(
     State(actor): State<Actor>,
     Extension(authenticated_key): Extension<AuthenticatedApiKey>,
-    Json(shasta_request_opt): Json<Value>,
+    Json(mut shasta_request_opt): Json<Value>,
 ) -> HostResult<Status> {
-    tracing::debug!(
+    tracing::info!(
         "Incoming Shasta batch request: {} from {}",
         serde_json::to_string(&shasta_request_opt)?,
         authenticated_key.name
     );
 
-    let shasta_request: ShastaProofRequest = serde_json::from_value(shasta_request_opt)?;
+    // For zk_any request, draw zk proof type based on the block hash.
+    if is_zk_any_request(&shasta_request_opt) {
+        let (first_batch_id, l1_inclusioin_block) = {
+            let proposals = shasta_request_opt["proposals"].as_array().ok_or(
+                RaikoError::InvalidRequestConfig("Missing proposals".to_string()),
+            )?;
+            let first_batch = proposals.first().ok_or(RaikoError::InvalidRequestConfig(
+                "batches is empty".to_string(),
+            ))?;
+            let first_batch_id = first_batch["proposal_id"]
+                .as_u64()
+                .expect("first_batch_id ok");
+            let l1_inclusioin_block = first_batch["l1_inclusion_block_number"]
+                .as_u64()
+                .expect("check l1_inclusion_block_number");
+            (first_batch_id, l1_inclusioin_block)
+        };
+
+        match draw_shasta_zk_request(&actor, first_batch_id, l1_inclusioin_block).await? {
+            Some(proof_type) => {
+                shasta_request_opt["proof_type"] = serde_json::to_value(proof_type).unwrap()
+            }
+            None => {
+                return Ok(Status::Ok {
+                    proof_type: ProofType::Native,
+                    batch_id: Some(first_batch_id),
+                    data: ProofResponse::Status {
+                        status: TaskStatus::ZKAnyNotDrawn,
+                    },
+                });
+            }
+        }
+    }
+
+    let shasta_request: ShastaProofRequest = finalize_shasta_request(&actor, shasta_request_opt)?;
+
     record_shasta_request_in(&authenticated_key.name, &shasta_request);
     tracing::info!(
         "Accepted {}'s Shasta batch request: {}",
@@ -101,6 +141,26 @@ async fn shasta_batch_handler(
     record_shasta_request_out(&authenticated_key.name, &shasta_request, false);
 
     Ok(status)
+}
+
+fn finalize_shasta_request(
+    actor: &Actor,
+    shasta_request_opt: Value,
+) -> Result<ShastaProofRequest, RaikoError> {
+    let mut opts = serde_json::to_value(actor.default_request_config())?;
+    // Override the existing proof request config from the config file and command line
+    // options with the request from the client, and convert to a BatchProofRequest.
+    merge(&mut opts, &shasta_request_opt);
+
+    let shasta_request_opt: ShastaProofRequestOpt = serde_json::from_value(opts)?;
+    let shasta_request: ShastaProofRequest = shasta_request_opt.try_into()?;
+
+    // Validate the batch request
+    if shasta_request.proposals.is_empty() {
+        return Err(anyhow::anyhow!("proposals is empty").into());
+    }
+
+    Ok(shasta_request)
 }
 
 #[derive(OpenApi)]
