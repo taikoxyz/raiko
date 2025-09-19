@@ -173,7 +173,7 @@ class AggregationPriorityTester:
             "proof_type": self.prove_type,
             "blob_proof_type": "proof_of_equivalence",
             "aggregate": aggregate,
-            "network": "tolba",
+            "network": "taiko_hoodi",
             "l1_network": "hoodi",
         }
         
@@ -217,7 +217,7 @@ class AggregationPriorityTester:
             "proof_type": self.prove_type,
             "blob_proof_type": "proof_of_equivalence",
             "aggregate": True,
-            "network": "tolba",
+            "network": "taiko_hoodi",
             "l1_network": "hoodi",
         }
 

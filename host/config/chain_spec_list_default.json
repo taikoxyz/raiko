@@ -187,7 +187,7 @@
         "is_taiko": true
     },
     {
-        "name": "tolba",
+        "name": "taiko_hoodi",
         "chain_id": 167012,
         "max_spec_id": "PACAYA",
         "hard_forks": {

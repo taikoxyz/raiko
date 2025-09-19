@@ -170,7 +170,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             }
             "holesky" => HOLESKY.clone(),
             "taiko_dev" => TAIKO_DEV.clone(),
-            "tolba" => TAIKO_TOLBA.clone(),
+            "taiko_hoodi" => TAIKO_TOLBA.clone(),
             _ => unimplemented!(),
         };
 
