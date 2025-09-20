@@ -78,8 +78,8 @@ services:
       - SGX=true
       - SGXGETH=${SGXGETH}
       - SGX_MODE=${SGX_MODE:-local}
-      - RAIKO_REMOTE_URL=${RAIKO_REMOTE_URL:-http://raiko-sgx-server:9090}
-      - GAIKO_REMOTE_URL=${GAIKO_REMOTE_URL:-http://raiko-sgx-server:8090}
+      - RAIKO_REMOTE_URL=${RAIKO_REMOTE_URL:-http://tolba-raiko-sgx-server:9090}
+      - GAIKO_REMOTE_URL=${GAIKO_REMOTE_URL:-http://tolba-raiko-sgx-server:8090}
       - PREFETCH_CHUNK_SIZE=${PREFETCH_CHUNK_SIZE}
       - BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
       - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
@@ -152,7 +152,7 @@ services:
       - redis
     profiles:
       - prod-redis
-  raiko-sgx-server:
+  tolba-raiko-sgx-server:
     build:
       context: ..
       dockerfile: Dockerfile
