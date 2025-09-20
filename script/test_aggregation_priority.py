@@ -50,15 +50,15 @@ class TestRequest:
 class AggregationPriorityTester:
     def __init__(
         self,
-        raiko_rpc: str = "http://localhost:8080",
-        l1_rpc: str = "https://ethereum-hoodi-rpc.publicnode.com",
-        abi_file: str = "./script/ITaikoInbox.json",
-        evt_address: str = "0x50A576435E2D9c179124D657d804eb56A10b6999",
-        log_file: str = "aggregation_priority_test.log",
-        prove_type: str = "native",
-        request_delay: float = 0.0,
-        polling_interval: int = 3,
-        request_timeout: int = 90,
+        raiko_rpc: str,
+        l1_rpc: str,
+        abi_file: str,
+        evt_address: str,
+        log_file: str,
+        prove_type: str,
+        request_delay: float,
+        polling_interval: int,
+        request_timeout: int,
     ):
         self.raiko_rpc = raiko_rpc
         self.l1_rpc = l1_rpc
@@ -105,7 +105,7 @@ class AggregationPriorityTester:
             l1_w3 = Web3(Web3.HTTPProvider(self.l1_rpc, {"timeout": 10}))
             l1_w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
             if l1_w3.is_connected():
-                self.logger.info(f"Connected to Hoodi testnet L1 node {self.l1_rpc}")
+                self.logger.info(f"Connected to L1 node {self.l1_rpc}")
             else:
                 self.logger.error(f"Failed to connect to L1 node {self.l1_rpc}")
                 self.evt_contract = None
