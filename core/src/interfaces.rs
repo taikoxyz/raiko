@@ -4,7 +4,7 @@ use clap::Args;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestBatchInput,
-        GuestBatchOutput, GuestInput, GuestOutput,
+        GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
@@ -166,6 +166,49 @@ pub async fn run_batch_prover(
     }
 }
 
+/// Run the prover driver for Shasta proposals depending on the proof type.
+pub async fn run_shasta_proposal_prover(
+    proof_type: ProofType,
+    input: GuestBatchInput,
+    output: &GuestBatchOutput,
+    config: &Value,
+    store: Option<&mut dyn IdWrite>,
+) -> RaikoResult<Proof> {
+    match proof_type {
+        ProofType::Native => NativeProver
+            .proposal_run(input.clone(), output, config, store)
+            .await
+            .map_err(<ProverError as Into<RaikoError>>::into),
+        ProofType::Sp1 => {
+            #[cfg(feature = "sp1")]
+            return sp1_driver::Sp1Prover
+                .proposal_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sp1"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover
+                .proposal_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Sgx | ProofType::SgxGeth => {
+            #[cfg(feature = "sgx")]
+            return sgx_prover::SgxProver::new(proof_type)
+                .proposal_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+    }
+}
+
 /// Run the prover driver depending on the proof type.
 pub async fn aggregate_proofs(
     proof_type: ProofType,
@@ -201,6 +244,50 @@ pub async fn aggregate_proofs(
             #[cfg(feature = "sgx")]
             return sgx_prover::SgxProver::new(proof_type)
                 .aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+    }?;
+
+    Ok(proof)
+}
+
+pub async fn aggregate_shasta_proposals(
+    proof_type: ProofType,
+    input: ShastaAggregationGuestInput,
+    output: &AggregationGuestOutput,
+    config: &Value,
+    store: Option<&mut dyn IdWrite>,
+) -> RaikoResult<Proof> {
+    let proof = match proof_type {
+        ProofType::Native => NativeProver
+            .shasta_aggregate(input.clone(), output, config, store)
+            .await
+            .map_err(<ProverError as Into<RaikoError>>::into),
+        ProofType::Sp1 => {
+            #[cfg(feature = "sp1")]
+            return sp1_driver::Sp1Prover
+                .shasta_aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sp1"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover
+                .shasta_aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Sgx | ProofType::SgxGeth => {
+            #[cfg(feature = "sgx")]
+            return sgx_prover::SgxProver::new(proof_type)
+                .shasta_aggregate(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]

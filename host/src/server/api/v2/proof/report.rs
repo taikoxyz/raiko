@@ -78,6 +78,12 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
             proof_system: *key.proof_type(),
             prover: key.prover_address().clone(),
         }),
+        RequestKey::ShastaAggregation(key) => {
+            TaskDescriptor::Aggregation(AggregationTaskDescriptor {
+                aggregation_ids: key.block_numbers().clone(),
+                proof_type: Some(key.proof_type().to_string()),
+            })
+        }
     };
 
     let task_report: Vec<TaskReport> = statuses

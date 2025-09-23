@@ -14,7 +14,8 @@ use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, RawAggregationGuestInput, RawProof,
+        GuestInput, GuestOutput, RawAggregationGuestInput, RawProof, ShastaAggregationGuestInput,
+        ShastaRawAggregationGuestInput,
     },
     primitives::B256,
     proof_type::ProofType,
@@ -339,6 +340,104 @@ impl Prover for LocalSgxProver {
 
         sgx_proof.map(|r| r.into())
     }
+
+    async fn shasta_aggregate(
+        &self,
+        input: ShastaAggregationGuestInput,
+        _output: &AggregationGuestOutput,
+        config: &ProverConfig,
+        _id_store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        let sgx_param =
+            SgxParam::deserialize(config.get(self.proof_type.to_string()).unwrap()).unwrap();
+
+        // Support both SGX and the direct backend for testing
+        let direct_mode = match env::var("SGX_DIRECT") {
+            Ok(value) => value == "1",
+            Err(_) => false,
+        };
+
+        if self.proof_type == ProofType::Sgx {
+            println!(
+                "WARNING: running SGX in {} mode!",
+                if direct_mode {
+                    "direct (a.k.a. simulation)"
+                } else {
+                    "hardware"
+                }
+            );
+        }
+
+        // The working directory
+        let mut cur_dir = env::current_exe()
+            .expect("Fail to get current directory")
+            .parent()
+            .unwrap()
+            .to_path_buf();
+
+        // When running in tests we might be in a child folder
+        if cur_dir.ends_with("deps") {
+            cur_dir = cur_dir.parent().unwrap().to_path_buf();
+        }
+
+        println!("Current directory: {cur_dir:?}\n");
+        // Working paths
+        PRIVATE_KEY
+            .get_or_init(|| async { cur_dir.join("secrets").join(PRIV_KEY_FILENAME) })
+            .await;
+        GRAMINE_MANIFEST_TEMPLATE
+            .get_or_init(|| async {
+                cur_dir
+                    .join(CONFIG)
+                    .join("sgx-guest.local.manifest.template")
+            })
+            .await;
+
+        // The gramine command (gramine or gramine-direct for testing in non-SGX environment)
+        let gramine_cmd = || -> StdCommand {
+            if self.proof_type == ProofType::SgxGeth {
+                let mut cmd = StdCommand::new("sudo");
+                cmd.arg(cur_dir.join(GAIKO_ELF_NAME));
+                return cmd;
+            }
+            let mut cmd = if direct_mode {
+                StdCommand::new("gramine-direct")
+            } else {
+                let mut cmd = StdCommand::new("sudo");
+                cmd.arg("gramine-sgx");
+                cmd
+            };
+            cmd.current_dir(&cur_dir).arg(ELF_NAME);
+            cmd
+        };
+
+        // Setup: run this once while setting up your SGX instance
+        if sgx_param.setup {
+            setup(&cur_dir, direct_mode).await?;
+        }
+
+        let mut sgx_proof = if sgx_param.bootstrap {
+            bootstrap(
+                cur_dir.clone().join("secrets"),
+                gramine_cmd(),
+                self.proof_type,
+            )
+            .await
+        } else {
+            // Dummy proof: it's ok when only setup/bootstrap was requested
+            Ok(SgxResponse::default())
+        };
+
+        if sgx_param.prove {
+            sgx_proof = shasta_aggregate(gramine_cmd(), input.clone(), self.proof_type).await
+        }
+
+        sgx_proof.map(|r| r.into())
+    }
+
+    fn proof_type(&self) -> ProofType {
+        self.proof_type
+    }
 }
 
 async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
@@ -602,6 +701,70 @@ async fn aggregate(
     tokio::task::spawn_blocking(move || {
         let mut child = gramine_cmd
             .arg("aggregate")
+            .arg("--sgx-instance-id")
+            .arg(instance_id.to_string())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Could not spawn gramine cmd: {e}"))?;
+        let stdin = child.stdin.take().expect("Failed to open stdin");
+        tokio::task::spawn_blocking(move || {
+            let _ = if proof_type == ProofType::SgxGeth {
+                serde_json::to_writer(stdin, &raw_input)
+                    .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+            } else {
+                bincode::serialize_into(stdin, &raw_input)
+                    .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))
+            }
+            .inspect_err(|e| {
+                error!("Failed to serialize input: {e}");
+            });
+        });
+        let output_success = child.wait_with_output();
+
+        match output_success {
+            Ok(output) => {
+                handle_output(&output, "SGX prove")?;
+                Ok(parse_sgx_result(output.stdout)?)
+            }
+            Err(output_err) => Err(ProverError::GuestError(
+                handle_gramine_error("Could not run SGX guest prover", output_err).to_string(),
+            )),
+        }
+    })
+    .await
+    .map_err(|e| ProverError::GuestError(e.to_string()))?
+}
+
+async fn shasta_aggregate(
+    mut gramine_cmd: StdCommand,
+    input: ShastaAggregationGuestInput,
+    proof_type: ProofType,
+) -> ProverResult<SgxResponse, ProverError> {
+    // Extract the useful parts of the proof here so the guest doesn't have to do it
+    let raw_input = ShastaRawAggregationGuestInput {
+        proofs: input
+            .proofs
+            .iter()
+            .map(|proof| RawProof {
+                input: proof.clone().input.unwrap(),
+                proof: hex::decode(&proof.clone().proof.unwrap()[2..]).unwrap(),
+            })
+            .collect(),
+        chain_id: input.chain_id,
+        verifier_address: input.verifier_address,
+    };
+    // Extract the instance id from the first proof
+    let instance_id = {
+        let mut instance_id_bytes = [0u8; 4];
+        instance_id_bytes[0..4].copy_from_slice(&raw_input.proofs[0].proof.clone()[0..4]);
+        u32::from_be_bytes(instance_id_bytes)
+    };
+
+    tokio::task::spawn_blocking(move || {
+        let mut child = gramine_cmd
+            .arg("shasta_aggregate")
             .arg("--sgx-instance-id")
             .arg(instance_id.to_string())
             .stdin(Stdio::piped())

@@ -107,6 +107,22 @@ pub struct ZkAggregationGuestInput {
     pub block_inputs: Vec<B256>,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ShastaAggregationGuestInput {
+    /// All block proofs to prove
+    pub proofs: Vec<Proof>,
+    pub chain_id: u64,
+    pub verifier_address: Address,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ShastaRawAggregationGuestInput {
+    /// All block proofs to prove
+    pub proofs: Vec<RawProof>,
+    pub chain_id: u64,
+    pub verifier_address: Address,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 
 pub enum BlockProposedFork {

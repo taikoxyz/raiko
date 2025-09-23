@@ -111,8 +111,8 @@ async fn proof_handler(
 
     let result = prove_aggregation(
         &actor,
-        agg_request_key,
-        agg_request_entity_without_proofs,
+        agg_request_key.into(),
+        agg_request_entity_without_proofs.into(),
         sub_request_keys,
         sub_request_entities,
     )

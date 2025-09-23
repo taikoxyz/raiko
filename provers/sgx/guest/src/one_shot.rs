@@ -9,10 +9,15 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{calculate_batch_blocks_final_header, calculate_block_header},
-    input::{GuestBatchInput, GuestInput, RawAggregationGuestInput},
-    primitives::{keccak, Address, B256},
+    input::{
+        GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
+    },
+    primitives::{
+        keccak::{self},
+        Address, B256,
+    },
     proof_type::ProofType,
-    protocol_instance::{aggregation_output_combine, ProtocolInstance},
+    protocol_instance::{aggregation_output_combine, shasta_aggregation_output, ProtocolInstance},
 };
 use secp256k1::{Keypair, PublicKey, SecretKey};
 use serde::Serialize;
@@ -312,6 +317,79 @@ pub async fn aggregate(
         "quote": hex::encode(quote),
         "public_key": format!("0x{new_pubkey}"),
         "instance_address": new_instance.to_string(),
+        "input": B256::from(aggregation_hash).to_string(),
+    });
+    println!("{data}");
+
+    // Print out general SGX information
+    let _ = print_sgx_info();
+    Ok(data)
+}
+
+pub async fn shasta_aggregate(
+    global_opts: GlobalOpts,
+    args: OneShotArgs,
+    input: ShastaRawAggregationGuestInput,
+) -> Result<Value> {
+    // Make sure this SGX instance was bootstrapped
+    let prev_privkey = load_bootstrap(&global_opts.secrets_dir)
+        .or_else(|_| bail!("Application was not bootstrapped or has a deprecated bootstrap."))
+        .unwrap();
+
+    println!("Global options: {global_opts:?}, OneShot options: {args:?}");
+
+    let new_pubkey = public_key(&prev_privkey);
+    let sgx_instance = public_key_to_address(&new_pubkey);
+
+    // Make sure the chain of old/new public keys is preserved
+    let old_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
+    let mut cur_instance = old_instance;
+
+    let mut transactions = Vec::new();
+    // Verify the proofs
+    for proof in input.proofs.iter() {
+        // TODO: verify protocol instance data so we can trust the old/new instance data
+        assert_eq!(
+            recover_signer_unchecked(&proof.proof.clone()[24..].try_into().unwrap(), &proof.input,)
+                .unwrap(),
+            cur_instance,
+        );
+        cur_instance = Address::from_slice(&proof.proof.clone()[4..24]);
+        transactions.push(proof.input);
+    }
+
+    // Current public key needs to match latest proof new public key
+    assert_eq!(cur_instance, sgx_instance);
+
+    let aggregation_hash = shasta_aggregation_output(
+        transactions,
+        input.chain_id,
+        input.verifier_address,
+        sgx_instance,
+    );
+    // Sign the public aggregation hash
+    let sig = sign_message(&prev_privkey, aggregation_hash.into())?;
+
+    // Create the proof for the onchain SGX verifier
+    const SGX_PROOF_LEN: usize = 109;
+    // 4(id) + 20(old) + 20(new) + 65(sig) = 109
+    let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+    proof.extend(args.sgx_instance_id.to_be_bytes());
+    proof.extend(old_instance);
+    proof.extend(sgx_instance);
+    proof.extend(sig);
+    let proof = hex::encode(proof);
+
+    // Store the public key address in the attestation data
+    save_attestation_user_report_data(sgx_instance)?;
+
+    // Print out the proof and updated public info
+    let quote = get_sgx_quote()?;
+    let data = serde_json::json!({
+        "proof": format!("0x{proof}"),
+        "quote": hex::encode(quote),
+        "public_key": format!("0x{new_pubkey}"),
+        "instance_address": sgx_instance.to_string(),
         "input": B256::from(aggregation_hash).to_string(),
     });
     println!("{data}");

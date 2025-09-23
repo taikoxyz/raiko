@@ -125,7 +125,8 @@ async fn batch_handler(
                 batch_request.proof_type,
                 sub_batch_ids.clone(),
                 image_id.clone(),
-            ),
+            )
+            .into(),
             AggregationRequestEntity::new(
                 sub_batch_ids,
                 vec![],
