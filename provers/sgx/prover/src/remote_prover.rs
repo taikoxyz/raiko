@@ -4,7 +4,8 @@ use crate::{SgxParam, SgxResponse};
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, RawAggregationGuestInput, RawProof,
+        GuestInput, GuestOutput, RawAggregationGuestInput, RawProof, ShastaAggregationGuestInput,
+        ShastaRawAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -143,6 +144,34 @@ impl Prover for RemoteSgxProver {
         }
 
         sgx_proof.map(|r| r.into())
+    }
+
+    async fn shasta_aggregate(
+        &self,
+        input: ShastaAggregationGuestInput,
+        output: &AggregationGuestOutput,
+        config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        let sgx_param =
+            SgxParam::deserialize(config.get(self.proof_type.to_string()).unwrap()).unwrap();
+
+        // Setup: run this once while setting up your SGX instance
+        if sgx_param.setup {
+            unimplemented!("SGX setup not implemented for remote prover");
+        }
+
+        if sgx_param.bootstrap {
+            unimplemented!("SGX bootstrap not implemented for aggregation request");
+        };
+
+        let sgx_proof =
+            shasta_aggregate(&self.remote_prover_url, input.clone(), self.proof_type).await?;
+        Ok(sgx_proof.into())
+    }
+
+    fn proof_type(&self) -> ProofType {
+        self.proof_type
     }
 }
 
@@ -293,6 +322,71 @@ async fn aggregate(
     // post to remote sgx provider/bootstrap
     let client = Client::new();
     let post_url = format!("{}/prove/aggregate", remote_sgx_url);
+    let json_input = serde_json::to_string(&raw_input)
+        .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
+    let response = client
+        .post(post_url)
+        .header("Content-Type", "application/json")
+        .body(json_input)
+        .timeout(Duration::from_secs(200))
+        .send()
+        .await
+        .map_err(|e| ProverError::GuestError(format!("Failed to send request: {e}")))?;
+
+    if response.status().is_success() {
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| ProverError::GuestError(format!("Failed to read response: {e}")))?;
+        tracing::info!("Response: {}", response_text);
+        let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
+            .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))?;
+        if sgx_proof.status == "success" {
+            Ok(sgx_proof.sgx_response)
+        } else {
+            tracing::error!("Request failed with status: {}", sgx_proof.status);
+            Err(ProverError::GuestError(format!(
+                "Failed to read error response: {}",
+                sgx_proof.message
+            )))
+        }
+    } else {
+        tracing::error!("Request failed with status: {}", response.status());
+        Err(ProverError::GuestError(format!(
+            "Failed to read error response: {}",
+            response.status()
+        )))
+    }
+}
+
+async fn shasta_aggregate(
+    remote_sgx_url: &str,
+    input: ShastaAggregationGuestInput,
+    _proof_type: ProofType,
+) -> ProverResult<SgxResponse, ProverError> {
+    // Extract the useful parts of the proof here so the guest doesn't have to do it
+    let raw_input = ShastaRawAggregationGuestInput {
+        proofs: input
+            .proofs
+            .iter()
+            .map(|proof| RawProof {
+                input: proof.clone().input.unwrap(),
+                proof: hex::decode(&proof.clone().proof.unwrap()[2..]).unwrap(),
+            })
+            .collect(),
+        chain_id: input.chain_id,
+        verifier_address: input.verifier_address,
+    };
+    // Extract the instance id from the first proof
+    let _instance_id = {
+        let mut instance_id_bytes = [0u8; 4];
+        instance_id_bytes[0..4].copy_from_slice(&raw_input.proofs[0].proof.clone()[0..4]);
+        u32::from_be_bytes(instance_id_bytes)
+    };
+
+    // post to remote sgx provider/bootstrap
+    let client = Client::new();
+    let post_url = format!("{}/prove/shasta-aggregate", remote_sgx_url);
     let json_input = serde_json::to_string(&raw_input)
         .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
     let response = client

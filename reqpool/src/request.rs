@@ -104,6 +104,7 @@ pub enum RequestKey {
     BatchProof(BatchProofRequestKey),
     ShastaGuestInput(ShastaInputRequestKey),
     ShastaProof(ShastaProofRequestKey),
+    ShastaAggregation(AggregationRequestKey),
 }
 
 impl RequestKey {
@@ -116,6 +117,7 @@ impl RequestKey {
             RequestKey::Aggregation(key) => &key.proof_type,
             RequestKey::BatchProof(key) => &key.proof_type,
             RequestKey::ShastaProof(key) => &key.proof_type,
+            RequestKey::ShastaAggregation(key) => &key.proof_type,
         }
     }
 }
@@ -516,6 +518,7 @@ impl RequestKey {
             RequestKey::BatchGuestInput(_) => None, // BatchGuestInput doesn't have image_id
             RequestKey::ShastaGuestInput(_) => None, // ShastaGuestInput doesn't have image_id
             RequestKey::ShastaProof(key) => key.image_id.as_ref(),
+            RequestKey::ShastaAggregation(key) => key.image_id.as_ref(),
         }
     }
 }
@@ -848,6 +851,7 @@ pub enum RequestEntity {
     BatchProof(BatchProofRequestEntity),
     ShastaGuestInput(ShastaInputRequestEntity),
     ShastaProof(ShastaProofRequestEntity),
+    ShastaAggregation(AggregationRequestEntity),
 }
 
 impl From<GuestInputRequestEntity> for RequestEntity {
@@ -904,6 +908,7 @@ impl_display_using_json_pretty!(AggregationRequestEntity);
 impl_display_using_json_pretty!(BatchProofRequestEntity);
 impl_display_using_json_pretty!(BatchGuestInputRequestEntity);
 impl_display_using_json_pretty!(ShastaInputRequestEntity);
+impl_display_using_json_pretty!(ShastaProofRequestEntity);
 
 // === impl Display for Status ===
 

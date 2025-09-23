@@ -4,7 +4,7 @@ use base64::{engine::general_purpose, Engine as _};
 use bincode;
 
 use raiko_core::{
-    interfaces::{aggregate_proofs, ProofRequest},
+    interfaces::{aggregate_proofs, aggregate_shasta_proposals, ProofRequest},
     preflight::{
         parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
     },
@@ -13,7 +13,10 @@ use raiko_core::{
 };
 use raiko_lib::{
     consts::SupportedChainSpecs,
-    input::{AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput},
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput,
+        ShastaAggregationGuestInput,
+    },
     prover::{IdWrite, Proof},
     utils::{zlib_compress_data, zlib_decompress_data},
 };
@@ -142,6 +145,9 @@ impl Backend {
                             entity,
                         )
                         .await
+                    }
+                    RequestEntity::ShastaAggregation(entity) => {
+                        do_shasta_aggregation(&mut pool_, request_key_.clone(), entity).await
                     }
                 };
                 let status = match result {
@@ -342,6 +348,31 @@ async fn do_prove_aggregation(
         .map_err(|err| format!("failed to serialize prover args: {err:?}"))?;
 
     let proof = aggregate_proofs(proof_type, input, &output, &config, Some(pool))
+        .await
+        .map_err(|err| format!("failed to generate aggregation proof: {err:?}"))?;
+
+    Ok(proof)
+}
+
+async fn do_shasta_aggregation(
+    pool: &mut dyn IdWrite,
+    request_key: RequestKey,
+    request_entity: AggregationRequestEntity,
+) -> Result<Proof, String> {
+    let proof_type = request_key.proof_type().clone();
+    let proofs = request_entity.proofs().clone();
+    let (chain_id, verifier_address) = proofs.first().unwrap().extra_data.unwrap();
+
+    let input = ShastaAggregationGuestInput {
+        proofs,
+        chain_id,
+        verifier_address,
+    };
+    let output = AggregationGuestOutput { hash: B256::ZERO };
+    let config = serde_json::to_value(request_entity.prover_args())
+        .map_err(|err| format!("failed to serialize prover args: {err:?}"))?;
+
+    let proof = aggregate_shasta_proposals(proof_type, input, &output, &config, Some(pool))
         .await
         .map_err(|err| format!("failed to generate aggregation proof: {err:?}"))?;
 
@@ -579,22 +610,26 @@ pub async fn do_prove_shasta_proposal(
 ) -> Result<Proof, String> {
     trace!("shasta proposal proof for: {request_key:?}");
 
-    let raiko = new_raiko_for_shasta_proposal_request(chain_specs, request_entity)
+    let raiko = new_raiko_for_shasta_proposal_request(chain_specs, request_entity.clone())
         .await
         .map_err(|err| format!("failed to create raiko: {err:?}"))?;
 
     let input = generate_input_for_batch(&raiko)
         .await
         .map_err(|err| format!("failed to generate input: {err:?}"))?;
-    let input_proof = bincode::serialize(&input)
-        .map_err(|err| format!("failed to serialize input to bincode: {err:?}"))?;
-    let compressed_bytes = zlib_compress_data(&input_proof).unwrap();
-    let compressed_b64: String = general_purpose::STANDARD.encode(&compressed_bytes);
 
-    Ok(Proof {
-        proof: Some(compressed_b64),
-        ..Default::default()
-    })
+    // Generate the output for the batch
+    let output = raiko
+        .get_batch_output(&input)
+        .map_err(|err| format!("failed to generate output: {err:?}"))?;
+
+    // Run the Shasta proposal prover
+    let proof = raiko
+        .shasta_proposal_prove(input, &output, None)
+        .await
+        .map_err(|err| format!("failed to run shasta proposal prover: {err:?}"))?;
+
+    Ok(proof)
 }
 
 #[cfg(test)]

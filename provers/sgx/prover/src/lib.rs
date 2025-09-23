@@ -9,7 +9,7 @@ use raiko_lib::{
     consts::SpecId,
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput,
+        GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
     primitives::B256,
     proof_type::ProofType,
@@ -52,6 +52,7 @@ impl From<SgxResponse> for Proof {
             quote: Some(value.quote),
             uuid: None,
             kzg_proof: None,
+            extra_data: None,
         }
     }
 }
@@ -128,6 +129,7 @@ impl Prover for SgxProver {
             SgxProver::Remote(prover) => prover.batch_run(input, output, config, store).await,
         }
     }
+
     async fn aggregate(
         &self,
         input: AggregationGuestInput,
@@ -141,10 +143,30 @@ impl Prover for SgxProver {
         }
     }
 
+    async fn shasta_aggregate(
+        &self,
+        input: ShastaAggregationGuestInput,
+        output: &AggregationGuestOutput,
+        config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        match self {
+            SgxProver::Local(prover) => prover.shasta_aggregate(input, output, config, store).await,
+            SgxProver::Remote(prover) => prover.shasta_aggregate(input, output, config, store).await,
+        }
+    }
+
     async fn cancel(&self, proof_key: ProofKey, read: Box<&mut dyn IdStore>) -> ProverResult<()> {
         match self {
             SgxProver::Local(prover) => prover.cancel(proof_key, read).await,
             SgxProver::Remote(prover) => prover.cancel(proof_key, read).await,
+        }
+    }
+
+    fn proof_type(&self) -> ProofType {
+        match self {
+            SgxProver::Local(prover) => prover.proof_type(),
+            SgxProver::Remote(prover) => prover.proof_type(),
         }
     }
 }

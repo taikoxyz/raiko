@@ -16,7 +16,7 @@ use serde_json::Value;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    interfaces::{ProofRequest, RaikoError, RaikoResult},
+    interfaces::{run_shasta_proposal_prover, ProofRequest, RaikoError, RaikoResult},
     preflight::{batch_preflight, preflight, BatchPreflightData, PreflightData},
     provider::BlockDataProvider,
 };
@@ -235,6 +235,16 @@ impl Raiko {
     ) -> RaikoResult<Proof> {
         let config = serde_json::to_value(&self.request)?;
         run_batch_prover(self.request.proof_type, input, output, &config, store).await
+    }
+
+    pub async fn shasta_proposal_prove(
+        &self,
+        input: GuestBatchInput,
+        output: &GuestBatchOutput,
+        store: Option<&mut dyn IdWrite>,
+    ) -> RaikoResult<Proof> {
+        let config = serde_json::to_value(&self.request)?;
+        run_shasta_proposal_prover(self.request.proof_type, input, output, &config, store).await
     }
 
     pub async fn cancel(

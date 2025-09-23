@@ -31,8 +31,8 @@ pub async fn cancel(_actor: &Actor, _request_key: RequestKey) -> Result<Status, 
 /// Prove the aggregation request and its sub-requests.
 pub async fn prove_aggregation(
     actor: &Actor,
-    request_key: AggregationRequestKey,
-    request_entity_without_proofs: AggregationRequestEntity,
+    request_key: RequestKey,
+    request_entity_without_proofs: RequestEntity,
     sub_request_keys: Vec<RequestKey>,
     sub_request_entities: Vec<RequestEntity>,
 ) -> Result<Status, String> {
@@ -53,12 +53,25 @@ pub async fn prove_aggregation(
             _ => unreachable!("checked above"),
         })
         .collect();
-    let request_entity = AggregationRequestEntity::new(
-        request_entity_without_proofs.aggregation_ids().clone(),
-        proofs,
-        request_entity_without_proofs.proof_type().clone(),
-        request_entity_without_proofs.prover_args().clone(),
-    );
+    let request_entity = match (&request_key, &request_entity_without_proofs) {
+        (RequestKey::Aggregation(_), RequestEntity::Aggregation(entity)) => {
+            AggregationRequestEntity::new(
+                entity.aggregation_ids().clone(),
+                proofs,
+                entity.proof_type().clone(),
+                entity.prover_args().clone(),
+            )
+        }
+        (RequestKey::ShastaAggregation(_), RequestEntity::ShastaAggregation(entity)) => {
+            AggregationRequestEntity::new(
+                entity.aggregation_ids().clone(),
+                proofs,
+                entity.proof_type().clone(),
+                entity.prover_args().clone(),
+            )
+        }
+        _ => unreachable!("Invalid request key"),
+    };
     prove(actor, request_key.into(), request_entity.into()).await
 }
 
@@ -88,6 +101,10 @@ pub(crate) async fn prove_many(
                 statuses.push(status);
             }
             (RequestKey::ShastaProof(key), RequestEntity::ShastaProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            (RequestKey::ShastaAggregation(key), RequestEntity::ShastaAggregation(entity)) => {
                 let status = prove(actor, key.into(), entity.into()).await?;
                 statuses.push(status);
             }

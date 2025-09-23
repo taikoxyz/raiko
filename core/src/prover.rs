@@ -64,6 +64,7 @@ impl Prover for NativeProver {
             quote: None,
             uuid: None,
             kzg_proof: None,
+            extra_data: None,
         })
     }
 
@@ -111,6 +112,7 @@ impl Prover for NativeProver {
             quote: None,
             uuid: None,
             kzg_proof: None,
+            extra_data: None,
         })
     }
 
@@ -128,6 +130,25 @@ impl Prover for NativeProver {
         Ok(Proof {
             ..Default::default()
         })
+    }
+
+    async fn shasta_aggregate(
+        &self,
+        input: raiko_lib::input::ShastaAggregationGuestInput,
+        output: &raiko_lib::input::AggregationGuestOutput,
+        _config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        tracing::info!("aggregating shasta proposals with\n");
+        tracing::info!("input: {input:?}");
+        tracing::info!("output: {output:?}");
+        Ok(Proof {
+            ..Default::default()
+        })
+    }
+
+    fn proof_type(&self) -> ProofType {
+        ProofType::Native
     }
 }
 

@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ZkAggregationGuestInput,
+        GuestInput, GuestOutput, ShastaAggregationGuestInput, ZkAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -85,6 +85,7 @@ impl From<Sp1Response> for Proof {
                 .map(|p| B256::from_slice(p.public_values.as_slice())),
             uuid: value.vkey.map(|v| serde_json::to_string(&v).unwrap()),
             kzg_proof: None,
+            extra_data: None,
         }
     }
 }
@@ -123,27 +124,6 @@ impl Prover for Sp1Prover {
     }
 
     async fn cancel(&self, key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        // let proof_id = match id_store.read_id(key).await {
-        //     Ok(proof_id) => proof_id,
-        //     Err(e) => {
-        //         if e.to_string().contains("No data for query") {
-        //             return Ok(());
-        //         } else {
-        //             return Err(ProverError::GuestError(e.to_string()));
-        //         }
-        //     }
-        // };
-        // let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
-        //     ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
-        // })?;
-        // let rpc_url = env::var("SP1_RPC_URL").map_err(|_| {
-        //     ProverError::GuestError("SP1_RPC_URL must be set for remote proving".to_owned())
-        // })?;
-        // let network_client = NetworkClient::new(&private_key, &rpc_url);
-        // network_client
-        //     .unclaim_proof(proof_id, UnclaimReason::Abandoned, "".to_owned())
-        //     .await
-        //     .map_err(|_| ProverError::GuestError("Sp1: couldn't unclaim proof".to_owned()))?;
         id_store.remove_id(key).await?;
         Ok(())
     }
@@ -465,6 +445,20 @@ impl Prover for Sp1Prover {
             }
             .into(),
         )
+    }
+
+    async fn shasta_aggregate(
+        &self,
+        _input: ShastaAggregationGuestInput,
+        _output: &AggregationGuestOutput,
+        _config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        todo!()
+    }
+
+    fn proof_type(&self) -> ProofType {
+        ProofType::Sp1
     }
 }
 

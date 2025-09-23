@@ -16,7 +16,9 @@ use raiko_core::{
 };
 use raiko_lib::proof_type::ProofType;
 use raiko_reqactor::Actor;
-use raiko_reqpool::{AggregationRequestEntity, AggregationRequestKey, ImageId};
+use raiko_reqpool::{
+    AggregationRequestEntity, AggregationRequestKey, ImageId, RequestEntity, RequestKey,
+};
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -109,17 +111,17 @@ async fn shasta_batch_handler(
     let result = if shasta_request.aggregate {
         prove_aggregation(
             &actor,
-            AggregationRequestKey::new_with_image_id(
+            RequestKey::ShastaAggregation(AggregationRequestKey::new_with_image_id(
                 shasta_request.proof_type,
                 sub_batch_ids.clone(),
                 image_id.clone(),
-            ),
-            AggregationRequestEntity::new(
+            )),
+            RequestEntity::ShastaAggregation(AggregationRequestEntity::new(
                 sub_batch_ids,
                 vec![],
                 shasta_request.proof_type,
                 shasta_request.prover_args.clone(),
-            ),
+            )),
             sub_request_keys,
             sub_request_entities,
         )

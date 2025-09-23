@@ -1,6 +1,6 @@
 use crate::{
     app_args::{GlobalOpts, OneShotArgs, ServerArgs},
-    one_shot::{aggregate, bootstrap, one_shot, one_shot_batch},
+    one_shot::{aggregate, bootstrap, one_shot, one_shot_batch, shasta_aggregate},
 };
 use anyhow::Context;
 use axum::{
@@ -9,7 +9,9 @@ use axum::{
 };
 use axum::{routing::post, Router};
 use raiko_lib::{
-    input::{GuestBatchInput, GuestInput, RawAggregationGuestInput},
+    input::{
+        GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
+    },
     primitives::B256,
 };
 use serde::{Deserialize, Serialize};
@@ -26,6 +28,7 @@ pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
         .route("/prove/block", post(prove_block))
         .route("/prove/batch", post(prove_batch))
         .route("/prove/aggregate", post(prove_aggregation))
+        .route("/prove/shasta-aggregate", post(prove_shasta_aggregation))
         .route("/check", post(check_server))
         .route("/bootstrap", post(bootstrap_server))
         .layer(DefaultBodyLimit::max(10000 * 1024 * 1024)) // max 10G
@@ -123,6 +126,31 @@ async fn prove_aggregation(
         sgx_instance_id: state.server_args.sgx_instance_id,
     };
     match aggregate(state.global_opts, args, input).await {
+        Ok(sgx_proof) => {
+            let sgx_response: SgxResponse =
+                serde_json::from_value(sgx_proof).expect("deserialize proof to response");
+            Json(ServerResponse {
+                status: "success".to_owned(),
+                message: "".to_owned(),
+                proof: sgx_response,
+            })
+        }
+        Err(e) => Json(ServerResponse {
+            status: "error".to_owned(),
+            message: e.to_string(),
+            ..Default::default()
+        }),
+    }
+}
+
+async fn prove_shasta_aggregation(
+    State(state): State<ServerStateConfig>,
+    Json(input): Json<ShastaRawAggregationGuestInput>,
+) -> Json<ServerResponse> {
+    let args = OneShotArgs {
+        sgx_instance_id: state.server_args.sgx_instance_id,
+    };
+    match shasta_aggregate(state.global_opts, args, input).await {
         Ok(sgx_proof) => {
             let sgx_response: SgxResponse =
                 serde_json::from_value(sgx_proof).expect("deserialize proof to response");

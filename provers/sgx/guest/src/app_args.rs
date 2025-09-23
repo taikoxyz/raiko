@@ -29,6 +29,8 @@ pub enum Command {
     Check,
     /// Sgx server to process incoming
     Serve(ServerArgs),
+    /// Shasta aggregate proofs
+    ShastaAggregate(OneShotArgs),
 }
 
 #[derive(Debug, Args)]

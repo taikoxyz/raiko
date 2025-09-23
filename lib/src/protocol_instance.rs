@@ -21,6 +21,7 @@ use crate::{
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
         GuestInput, Transition,
     },
+    libhash::hash_transition,
     primitives::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
@@ -689,7 +690,7 @@ impl ProtocolInstance {
                 .skip(32)
                 .copied()
                 .collect::<Vec<u8>>(),
-            TransitionFork::Shasta(shasta_trans) => shasta_trans.abi_encode(),
+            TransitionFork::Shasta(shasta_trans) => return hash_transition(shasta_trans),
         };
         keccak(data).into()
     }
@@ -744,6 +745,36 @@ pub fn aggregation_output_combine(public_inputs: Vec<B256>) -> Vec<u8> {
 
 pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
     aggregation_output_combine([vec![program], public_inputs].concat())
+}
+
+pub fn shasta_aggregation_output(
+    transactions: Vec<B256>,
+    chain_id: u64,
+    verifier_address: Address,
+    sgx_instance: Address,
+) -> B256 {
+    let transactions_hash = keccak(transactions.abi_encode());
+
+    // Calculate the aggregation hash
+    let aggregation_hash = keccak(
+        (
+            "VERIFY_PROOF",
+            chain_id,
+            verifier_address,
+            transactions_hash,
+            sgx_instance,
+        )
+            .abi_encode()
+            .iter()
+            .skip(32)
+            .copied()
+            .collect::<Vec<u8>>(),
+    );
+    println!(
+        "shasta transactions_hash: {transactions_hash:?}, aggregation_hash: {aggregation_hash:?}"
+    );
+
+    keccak(aggregation_hash).into()
 }
 
 #[cfg(test)]
