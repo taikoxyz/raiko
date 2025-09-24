@@ -1,46 +1,34 @@
+pub mod api;
 pub mod boundless;
-pub use boundless::{
-    AgentError, AgentResult, DeploymentType, ElfType, ProverConfig, Risc0BoundlessProver,
-};
-
+pub mod storage;
 pub mod methods;
 
-use axum::{
-    Json,
-    extract::{DefaultBodyLimit, State},
+pub use boundless::{
+    AgentError, AgentResult, AsyncProofRequest, DeploymentType, ElfType, 
+    ProofRequestStatus, ProverConfig, BoundlessProver, ProofType as BoundlessProofType,
+    generate_request_id,
 };
-use axum::{Router, http::StatusCode, routing::post};
-use serde::{Deserialize, Serialize};
+pub use storage::{BoundlessStorage, DatabaseStats};
+
+use axum::{
+    extract::DefaultBodyLimit,
+    Router,
+    routing::{post, get, delete},
+};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
+use utoipa_swagger_ui::SwaggerUi;
+use utoipa_scalar::{Scalar, Servable};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum ProofType {
-    Batch,
-    Aggregate,
-    Update(ElfType),
-}
-
-#[derive(Debug, Deserialize)]
-struct ProofRequest {
-    input: Vec<u8>,
-    proof_type: ProofType,
-    elf: Option<Vec<u8>>,
-    config: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Serialize)]
-struct ProofResponse {
-    proof_data: Vec<u8>,
-    proof_type: ProofType,
-    success: bool,
-    error: Option<String>,
-}
+use api::{
+    handlers::*,
+    create_docs,
+};
 
 #[derive(Debug, Clone)]
-struct AppState {
-    prover: Arc<Mutex<Option<Risc0BoundlessProver>>>,
+pub struct AppState {
+    prover: Arc<Mutex<Option<BoundlessProver>>>,
     prover_init_time: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
@@ -52,8 +40,8 @@ impl AppState {
         }
     }
 
-    async fn init_prover(&self, config: ProverConfig) -> AgentResult<Risc0BoundlessProver> {
-        let prover = Risc0BoundlessProver::new(config).await.map_err(|e| {
+    async fn init_prover(&self, config: ProverConfig) -> AgentResult<BoundlessProver> {
+        let prover = BoundlessProver::new(config).await.map_err(|e| {
             AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
         })?;
         self.prover.lock().await.replace(prover.clone());
@@ -65,7 +53,7 @@ impl AppState {
     }
 
     /// Get the prover, re-initializing if TTL (3600s) has expired.
-    async fn get_or_refresh_prover(&self) -> AgentResult<Risc0BoundlessProver> {
+    async fn get_or_refresh_prover(&self) -> AgentResult<BoundlessProver> {
         let mut prover_guard = self.prover.lock().await;
         let config_guard = prover_guard.as_ref().unwrap().prover_config();
         let mut time_guard = self.prover_init_time.lock().await;
@@ -79,7 +67,7 @@ impl AppState {
 
         if should_refresh || prover_guard.is_none() {
             tracing::info!("Prover TTL exceeded or not initialized, re-initializing prover...");
-            let prover = Risc0BoundlessProver::new(config_guard).await.map_err(|e| {
+            let prover = BoundlessProver::new(config_guard).await.map_err(|e| {
                 AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
             })?;
             *prover_guard = Some(prover.clone());
@@ -89,112 +77,6 @@ impl AppState {
             Ok(prover_guard.as_ref().unwrap().clone())
         }
     }
-}
-
-async fn proof_handler(
-    State(state): State<AppState>,
-    Json(request): Json<ProofRequest>,
-) -> (StatusCode, Json<ProofResponse>) {
-    tracing::info!(
-        "Received proof generation request size: {:?}",
-        request.input.len()
-    );
-
-    // Get the initialized prover
-    let prover = match state.get_or_refresh_prover().await {
-        Ok(prover) => prover,
-        Err(e) => {
-            tracing::error!("Failed to get or refresh prover: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ProofResponse {
-                    proof_data: vec![],
-                    proof_type: request.proof_type,
-                    success: false,
-                    error: Some(format!("Failed to get or refresh prover: {}", e)),
-                }),
-            );
-        }
-    };
-
-    // Use empty output if not provided
-    let output_data = vec![];
-    let config = request
-        .config
-        .unwrap_or_else(|| serde_json::Value::default());
-
-    tracing::info!("Running proof generation...");
-
-    // Generate proof with timeout
-    let proof_result = tokio::time::timeout(
-        std::time::Duration::from_secs(9600), // 3 hour timeout
-        async {
-            match request.proof_type.clone() {
-                ProofType::Batch => prover
-                    .batch_run(request.input, &output_data, &config)
-                    .await
-                    .map_err(|e| format!("Failed to run batch proof: {}", e)),
-                ProofType::Aggregate => prover
-                    .aggregate(request.input, &output_data, &config)
-                    .await
-                    .map_err(|e| format!("Failed to run aggregation proof: {}", e)),
-                ProofType::Update(elf_type) => prover
-                    .update(request.elf.unwrap(), elf_type)
-                    .await
-                    .map_err(|e| format!("Failed to run update proof: {}", e)),
-            }
-        },
-    )
-    .await;
-
-    match proof_result {
-        Ok(Ok(proof_data)) => {
-            tracing::info!("Proof generated successfully");
-            (
-                StatusCode::OK,
-                Json(ProofResponse {
-                    proof_data,
-                    proof_type: request.proof_type,
-                    success: true,
-                    error: None,
-                }),
-            )
-        }
-        Ok(Err(e)) => {
-            tracing::error!("Proof generation failed: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ProofResponse {
-                    proof_data: vec![],
-                    proof_type: request.proof_type,
-                    success: false,
-                    error: Some(e),
-                }),
-            )
-        }
-        Err(_) => {
-            tracing::error!("Proof generation timed out");
-            (
-                StatusCode::REQUEST_TIMEOUT,
-                Json(ProofResponse {
-                    proof_data: vec![],
-                    proof_type: request.proof_type,
-                    success: false,
-                    error: Some("Proof generation timed out after 2 hour".to_string()),
-                }),
-            )
-        }
-    }
-}
-
-async fn health_check() -> (StatusCode, Json<serde_json::Value>) {
-    (
-        StatusCode::OK,
-        Json(serde_json::json!({
-            "status": "healthy",
-            "service": "boundless-agent"
-        })),
-    )
 }
 
 use clap::Parser;
@@ -217,7 +99,8 @@ struct CmdArgs {
     offchain: bool,
 
     /// RPC URL
-    #[arg(long, default_value = "https://ethereum-sepolia-rpc.publicnode.com")]
+    // #[arg(long, default_value = "https://ethereum-sepolia-rpc.publicnode.com")]
+    #[arg(long, default_value = "https://base-rpc.publicnode.com")]
     rpc_url: String,
 
     /// Pull interval
@@ -286,11 +169,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Build router with max body size set to 10GB
+    // Generate OpenAPI documentation
+    let docs = create_docs();
+
     let app = Router::new()
-        .route("/health", post(health_check))
+        .route("/health", get(health_check))
         .route("/proof", post(proof_handler))
-        .layer(DefaultBodyLimit::max(10000 * 1024 * 1024)) // max 10G
+        .route("/status/:request_id", get(get_async_proof_status))
+        .route("/requests", get(list_async_requests))
+        .route("/prune", delete(delete_all_requests)) 
+        .route("/stats", get(get_database_stats))
+        // OpenAPI documentation endpoints
+        .merge(SwaggerUi::new("/docs")
+            .url("/api-docs/openapi.json", docs.clone()))
+        .merge(Scalar::with_url("/scalar", docs.clone()))
+        .route("/openapi.json", get(move || async move {
+            axum::Json(docs)
+        }))
+        .layer(DefaultBodyLimit::max(10000 * 1024 * 1024))
         .layer(cors)
         .with_state(state);
 

@@ -384,6 +384,7 @@ mod tests {
                     (ProofType::Sgx, Some(Address::default())),
                     (ProofType::Sp1, None),
                     (ProofType::Risc0, Some(Address::default())),
+                    (ProofType::Boundless, Some(Address::default())),
                 ]),
             )]),
             genesis_time: 0u64,

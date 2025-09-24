@@ -28,7 +28,7 @@ pub mod bonsai;
 pub mod boundless;
 pub mod methods;
 pub mod snarks;
-pub use boundless::Risc0BoundlessProver;
+pub use boundless::BoundlessProver;
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
