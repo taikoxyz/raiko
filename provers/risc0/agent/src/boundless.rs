@@ -386,6 +386,10 @@ pub enum AgentError {
     GuestExecutionError(String),
     #[error("Did not receive requested unaggregated receipt")]
     InvalidReceiptError,
+    #[error("Missing journal in fulfillment data")]
+    MissingJournalError,
+    #[error("Failed to decode fulfillment data: {0}")]
+    FulfillmentDecodeError(String),
     #[error("Storage provider is required")]
     StorageProviderRequired,
 }
@@ -513,14 +517,33 @@ impl BoundlessProver {
                         
                         match fulfillment_result {
                             Ok(fulfillment) => {
-                                // Extract fulfillment data and seal from the Fulfillment struct
-                                let fulfillment_data = fulfillment.fulfillmentData;
+                                // Decode fulfillment data using the data() method first
+                                let journal = match fulfillment.data() {
+                                    Ok(fulfillment_data) => {
+                                        match fulfillment_data.journal() {
+                                            Some(j) => j.to_vec(),
+                                            None => {
+                                                tracing::error!("No journal found in fulfillment data for {}", request_id_str);
+                                                return Ok(ProofRequestStatus::Failed {
+                                                    error: AgentError::MissingJournalError.to_string(),
+                                                });
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Failed to decode fulfillment data for {}: {}", request_id_str, e);
+                                        return Ok(ProofRequestStatus::Failed {
+                                            error: AgentError::FulfillmentDecodeError(e.to_string()).to_string(),
+                                        });
+                                    }
+                                };
+
                                 let seal = fulfillment.seal;
 
                                 // Decode boundless receipt only for batch proofs
                                 let receipt = match proof_type {
                                     ProofType::Batch => {
-                                        match decode_seal(seal.clone(), BOUNDLESS_BATCH_ID, fulfillment_data.clone()) {
+                                        match decode_seal(seal.clone(), BOUNDLESS_BATCH_ID, journal.clone()) {
                                             Ok(ContractReceipt::Base(boundless_receipt)) => {
                                                 serde_json::to_string(&boundless_receipt).ok()
                                             }
@@ -532,7 +555,7 @@ impl BoundlessProver {
 
                                 let response = Risc0Response {
                                     seal: seal.to_vec(),
-                                    journal: fulfillment_data.to_vec(),
+                                    journal: journal.clone(),
                                     receipt,
                                 };
 

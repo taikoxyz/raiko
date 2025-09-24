@@ -495,6 +495,7 @@ class AggregationPriorityTester:
                                     successful_aggregations.append({
                                         "request_id": agg_request_id,
                                         "batch_ids": [b for b, _ in current_batch_group],
+                                        "original_batch_data": current_batch_group.copy(),
                                         "submission": agg_submission,
                                         "aggregation_number": aggregation_count
                                     })
@@ -528,8 +529,8 @@ class AggregationPriorityTester:
                     if request_id in completed_aggregations:
                         continue
                     
-                    batch_ids = agg_req["batch_ids"]
-                    payload = self.create_aggregation_request([(bid, 4110000) for bid in batch_ids])
+                    original_batch_data = agg_req["original_batch_data"]
+                    payload = self.create_aggregation_request(original_batch_data)
                     
                     try:
                         response = await self.raiko_status_query(payload, "aggregation", request_id)
