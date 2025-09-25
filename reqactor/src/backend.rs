@@ -21,7 +21,7 @@ use raiko_reqpool::{
     StatusWithContext,
 };
 use reth_primitives::B256;
-use tokio::sync::{mpsc, Mutex, Notify, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{mpsc, Mutex, Notify, Semaphore};
 use tracing::{debug, trace};
 
 use crate::queue::Queue;
