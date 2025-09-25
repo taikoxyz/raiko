@@ -65,7 +65,7 @@ impl Backend {
             }
 
             // First, acquire a semaphore permit before choosing the next job
-            let permit: OwnedSemaphorePermit = match self.semaphore.clone().acquire_owned().await {
+            let permit = match self.semaphore.clone().acquire_owned().await {
                 Ok(permit) => permit,
                 Err(_) => {
                     tracing::warn!("Semaphore closed; stopping backend loop");
