@@ -21,7 +21,7 @@ use raiko_reqpool::{
     StatusWithContext,
 };
 use reth_primitives::B256;
-use tokio::sync::{mpsc, oneshot, Mutex, Notify, Semaphore};
+use tokio::sync::{mpsc, Mutex, Notify, OwnedSemaphorePermit, Semaphore};
 use tracing::{debug, trace};
 
 use crate::queue::Queue;
@@ -64,24 +64,35 @@ impl Backend {
                 queue.complete(request_key);
             }
 
+            // First, acquire a semaphore permit before choosing the next job
+            let permit: OwnedSemaphorePermit = match self.semaphore.clone().acquire_owned().await {
+                Ok(permit) => permit,
+                Err(_) => {
+                    tracing::warn!("Semaphore closed; stopping backend loop");
+                    break;
+                }
+            };
+
+            // Then, try to get a request from queue
             let (request_key, request_entity) = {
                 let mut queue = self.queue.lock().await;
                 if let Some((request_key, request_entity)) = queue.try_next() {
                     (request_key, request_entity)
                 } else {
                     drop(queue);
+                    // No requests available, release the permit and wait for work
+                    drop(permit);
+                    // No requests in queue, wait for new requests
                     self.notifier.notified().await;
                     continue;
                 }
             };
+
             let request_key_ = request_key.clone();
             let mut pool_ = self.pool.clone();
             let chain_specs = self.chain_specs.clone();
-            let semaphore_ = self.semaphore.clone();
-            let (semaphore_acquired_tx, semaphore_acquired_rx) = oneshot::channel();
             let handle = tokio::spawn(async move {
-                let _permit = semaphore_.acquire().await.unwrap();
-                let _ = semaphore_acquired_tx.send(());
+                let _permit = permit;
 
                 let result = match request_entity {
                     RequestEntity::SingleProof(entity) => {
@@ -136,9 +147,6 @@ impl Backend {
             let notifier_ = self.notifier.clone();
 
             tokio::spawn(async move {
-                // Wait for the semaphore to be acquired
-                let _ = semaphore_acquired_rx.await;
-
                 if let Err(e) = handle.await {
                     tracing::error!("Actor thread errored while proving {request_key}: {e:?}");
                     let status = Status::Failed {
