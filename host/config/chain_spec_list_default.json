@@ -213,7 +213,7 @@
         },
         "l1_contract": "0x50A576435E2D9c179124D657d804eb56A10b6999",
         "l2_contract": "0x1670120000000000000000000000000000010001",
-        "rpc": "https://rpc.tolba.taiko.xyz",
+        "rpc": "https://rpc.hoodi.taiko.xyz",
         "beacon_rpc": null,
         "verifier_address_forks": {
             "PACAYA": {

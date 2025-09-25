@@ -78,27 +78,19 @@ if [ "$proof_type" = "1" ] || [ "$proof_type" = "zk" ]; then
 	echo "Local .env file updated with Docker-generated image IDs"
 fi
 
-# Update local .env file with Docker-generated MRENCLAVE for tee builds  
+# Update local .env file with MRENCLAVE values by calling tools directly on container
 if [ "$proof_type" = "0" ] || [ "$proof_type" = "tee" ]; then
-	echo "Updating local .env file with Docker-generated MRENCLAVE values..."
-	
-	# Extract SGX MRENCLAVE from the Docker build log
-	if grep -q "mr_enclave:" log.build.$image_name.$tag; then
-		echo "Updating SGX MRENCLAVE from Docker build log..."
-		./script/update_imageid.sh sgx log.build.$image_name.$tag
-	else
-		echo "No SGX MRENCLAVE found in Docker build log"
-	fi
-	
-	# Extract SGXGETH MRENCLAVE from the Docker build log
-	if grep -q "RUN ego uniqueid" log.build.$image_name.$tag; then
-		echo "Updating SGXGETH MRENCLAVE from Docker build log..."
-		./script/update_imageid.sh sgxgeth log.build.$image_name.$tag
-	else
-		echo "No SGXGETH MRENCLAVE (ego uniqueid) found in Docker build log"
-	fi
-	
-	echo "Local .env file updated with Docker-generated MRENCLAVE values"
+	echo "Extracting MRENCLAVE values by calling tools directly on container..."
+
+	# Extract SGX MRENCLAVE by calling gramine tools directly
+	echo "Extracting SGX MRENCLAVE..."
+	./script/update_imageid.sh sgx_direct "$image_name:latest"
+
+	# Extract SGXGETH MRENCLAVE by calling ego tools directly
+	echo "Extracting SGXGETH MRENCLAVE..."
+	./script/update_imageid.sh sgxgeth_direct "$image_name:latest"
+
+	echo "Local .env file updated with extracted MRENCLAVE values"
 fi
 
 # update latest tag at same time for local docker compose running
