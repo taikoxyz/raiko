@@ -21,7 +21,7 @@ use crate::{
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
         GuestInput, Transition,
     },
-    libhash::hash_transition,
+    libhash::{hash_core_state, hash_derivation, hash_transition},
     primitives::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
@@ -244,12 +244,12 @@ impl BlockMetaDataFork {
                 // Use the reconstructed proposal (which has been validated to match the event proposal)
                 assert_eq!(
                     event_data.proposal.coreStateHash,
-                    keccak(event_data.core_state.abi_encode()),
+                    hash_core_state(&event_data.core_state),
                     "core state hash mismatch"
                 );
                 assert_eq!(
                     event_data.proposal.derivationHash,
-                    keccak(event_data.derivation.abi_encode()),
+                    hash_derivation(&event_data.derivation),
                     "derivation hash mismatch"
                 );
                 BlockMetaDataFork::Shasta(event_data.proposal.clone())
@@ -600,8 +600,6 @@ impl ProtocolInstance {
                         blockHash: last_block.header.hash_slow(),
                         stateRoot: last_block.header.state_root,
                     },
-                    designatedProver: prover,
-                    actualProver: prover,
                 })
             }
             _ => return Err(anyhow::Error::msg("unknown transition fork")),

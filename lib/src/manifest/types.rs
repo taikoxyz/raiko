@@ -1,3 +1,5 @@
+// code logic comes from: packages/protocol/contracts/layer1/shasta/libs/LibManifest.sol
+
 use alloy_primitives::{Address, Bytes, U256};
 use reth_primitives::TransactionSigned;
 use serde::{Deserialize, Serialize};
@@ -27,6 +29,23 @@ pub struct BondInstruction {
     pub receiver: Address,
 }
 
+
+/*
+ /// @notice Represents a block manifest
+    struct BlockManifest {
+        /// @notice The timestamp of the block.
+        uint48 timestamp;
+        /// @notice The coinbase of the block.
+        address coinbase;
+        /// @notice The anchor block number. This field can be zero, if so, this block will use the
+        /// most recent anchor in a previous block.
+        uint48 anchorBlockNumber;
+        /// @notice The block's gas limit.
+        uint48 gasLimit;
+        /// @notice The transactions for this block.
+        SignedTransaction[] transactions;
+    }
+*/
 /// Block manifest with extra information - corresponds to Go's BlockManifest
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BlockManifest {

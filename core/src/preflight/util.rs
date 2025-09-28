@@ -420,7 +420,11 @@ async fn prepare_shasta_batch_input(
     blob_proof_type: &BlobProofType,
     provider_l1: &RpcBlockDataProvider,
 ) -> RaikoResult<TaikoGuestBatchInput> {
-    let blob_hashes = shasta_event_data.derivation.blobSlice.blobHashes.clone();
+    // todo: use source[0] for now, need to support multiple sources in the future
+    let blob_hashes = shasta_event_data.derivation.sources[0]
+        .blobSlice
+        .blobHashes
+        .clone();
     let force_inclusion_block_number = 0; // todo: support force inclusion block
     let l1_blob_timestamp = if force_inclusion_block_number != 0
         && force_inclusion_block_number != l1_inclusion_block_number
@@ -1206,7 +1210,7 @@ mod test {
     #[tokio::test]
     async fn test_shasta_blob_decoding() -> Result<()> {
         let beacon_rpc_url = "https://l1beacon.internal.taiko.xyz";
-        let slot_id = 98;
+        let slot_id = 156;
         let blob_data = get_blob_data(&beacon_rpc_url, slot_id).await.expect("ok");
         println!("blob_data: {blob_data:?}");
         let blob_data = blob_to_bytes(&blob_data.data[0].blob);
