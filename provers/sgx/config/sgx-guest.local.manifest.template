@@ -11,6 +11,7 @@ loader.env.HOME = "/root"
 loader.env.LD_LIBRARY_PATH = "/lib:{{ arch_libdir }}"
 loader.env.DEV_PACAYA_HEIGHT = "0"
 loader.env.DEV_ONTAKE_HEIGHT = "0"
+loader.env.DEV_SHASTA_HEIGHT = "0"
 loader.env.RUST_LOG = "debug"
 loader.insecure__use_cmdline_argv = true
 loader.log_level = "{{ log_level }}"

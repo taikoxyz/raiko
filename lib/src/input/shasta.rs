@@ -33,45 +33,40 @@ sol! {
 
     #[derive(Debug, Default, Deserialize, Serialize)]
     struct Checkpoint {
-        uint64 blockNumber;
+        uint48 blockNumber;
         bytes32 blockHash;
         bytes32 stateRoot;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct Config {
-        address bondToken;
-        uint48 provingWindow;
-        uint48 extendedProvingWindow;
-        uint256 maxFinalizationCount;
-        uint256 ringBufferSize;
-        uint8 basefeeSharingPctg;
-        address checkpointManager;
-        address proofVerifier;
-        address proposerChecker;
-        uint256 minForcedInclusionCount;
-        uint64 forcedInclusionDelay;
-        uint64 forcedInclusionFeeInGwei;
     }
 
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
     #[derive(Debug, Default, Deserialize, Serialize)]
 
+    /// @notice Represents a source of derivation data within a Derivation
+    struct DerivationSource {
+        /// @notice Whether this source is from a forced inclusion.
+        bool isForcedInclusion;
+        /// @notice Blobs that contain the source's manifest data.
+        BlobSlice blobSlice;
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize)]
+    /// @notice Contains derivation data for a proposal that is not needed during proving.
+    /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
         /// @notice The hash of the origin block.
         bytes32 originBlockHash;
-        /// @notice Whether the proposal is from a forced inclusion.
-        bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Blobs that contains the proposal's manifest data.
-        BlobSlice blobSlice;
+        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
+        DerivationSource[] sources;
     }
 
+
     #[derive(Debug, Default, Deserialize, Serialize)]
+    /// @notice Represents a proposal for L2 blocks.
     struct Proposal {
         /// @notice Unique identifier for the proposal.
         uint48 id;
@@ -92,16 +87,6 @@ sol! {
         bytes32 proposalHash;
         bytes32 parentTransitionHash;
         Checkpoint checkpoint;
-        address designatedProver;
-        address actualProver;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct TransitionRecord {
-        uint8 span;
-        BondInstruction[] bondInstructions;
-        bytes32 transitionHash;
-        bytes32 checkpointHash;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -109,6 +94,8 @@ sol! {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
+        /// @notice The next proposal block ID to be assigned.
+        uint48 nextProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
         /// @notice The hash of the last finalized transition.
@@ -118,34 +105,10 @@ sol! {
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
-    struct ProposeInput {
-        uint48 deadline;
-        CoreState coreState;
-        Proposal[] parentProposals;
-        BlobReference blobReference;
-        TransitionRecord[] transitionRecords;
-        Checkpoint checkpoint;
-        uint8 numForcedInclusions;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct ProveInput {
-        Proposal[] proposals;
-        Transition[] transitions;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
     struct ProposedEventPayload {
         Proposal proposal;
         Derivation derivation;
         CoreState coreState;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct ProvedEventPayload {
-        uint48 proposalId;
-        Transition transition;
-        TransitionRecord transitionRecord;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -254,42 +217,168 @@ impl ShastaEventData {
     /// Manual decoding of Shasta event data following the Solidity implementation
     /// taiko-mono://packages/protocol/contracts/layer1/shasta/libs/LibProposedEventEncoder.sol
     /// This provides an alternative to ABI decoding for cases where we need more control
-    fn decode_event_data(data: &[u8]) -> Result<Self, alloy_sol_types::Error> {
-        // Decode Proposal
-        let (proposal_id, ptr) = Self::unpack_uint48(data, 0)?;
-        let (proposer, ptr) = Self::unpack_address(data, ptr)?;
-        let (timestamp, ptr) = Self::unpack_uint48(data, ptr)?;
-        let (end_of_submission_window_timestamp, ptr) = Self::unpack_uint48(data, ptr)?;
+    // fn decode_event_data(data: &[u8]) -> Result<Self, alloy_sol_types::Error> {
+    //     // Decode Proposal
+    //     let (proposal_id, ptr) = Self::unpack_uint48(data, 0)?;
+    //     let (proposer, ptr) = Self::unpack_address(data, ptr)?;
+    //     let (timestamp, ptr) = Self::unpack_uint48(data, ptr)?;
+    //     let (end_of_submission_window_timestamp, ptr) = Self::unpack_uint48(data, ptr)?;
 
-        // decode derivation
-        let (origin_block_number, ptr) = Self::unpack_uint48(data, ptr)?;
-        let (origin_block_hash, ptr) = Self::unpack_hash(data, ptr)?;
+    //     // decode derivation
+    //     let (origin_block_number, ptr) = Self::unpack_uint48(data, ptr)?;
+    //     let (origin_block_hash, ptr) = Self::unpack_hash(data, ptr)?;
 
-        let is_forced_inclusion = data[ptr] != 0;
-        let ptr = ptr + 1;
-        let basefee_sharing_pctg = data[ptr];
-        let ptr = ptr + 1;
+    //     let is_forced_inclusion = data[ptr] != 0;
+    //     let ptr = ptr + 1;
+    //     let basefee_sharing_pctg = data[ptr];
+    //     let ptr = ptr + 1;
 
-        let (blob_hashes_length, ptr) = Self::unpack_uint24(data, ptr)?;
+    //     let (blob_hashes_length, ptr) = Self::unpack_uint24(data, ptr)?;
 
-        let mut blob_hashes = Vec::new();
-        let mut ptr = ptr;
-        for _ in 0..blob_hashes_length {
-            let (blob_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
-            blob_hashes.push(blob_hash);
-            ptr = new_ptr;
+    //     let mut blob_hashes = Vec::new();
+    //     let mut ptr = ptr;
+    //     for _ in 0..blob_hashes_length {
+    //         let (blob_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
+    //         blob_hashes.push(blob_hash);
+    //         ptr = new_ptr;
+    //     }
+
+    //     let (offset, ptr) = Self::unpack_uint24(data, ptr)?;
+    //     let (blob_timestamp, ptr) = Self::unpack_uint48(data, ptr)?;
+    //     let (core_state_hash, ptr) = Self::unpack_hash(data, ptr)?;
+    //     let (derivation_hash, ptr) = Self::unpack_hash(data, ptr)?;
+
+    //     // core state
+    //     let (next_proposal_id, ptr) = Self::unpack_uint48(data, ptr)?;
+    //     let (last_finalized_proposal_id, ptr) = Self::unpack_uint48(data, ptr)?;
+    //     let (last_finalized_transition_hash, ptr) = Self::unpack_hash(data, ptr)?;
+    //     let (bond_instructions_hash, _ptr) = Self::unpack_hash(data, ptr)?;
+
+    //     Ok(Self {
+    //         proposal: Proposal {
+    //             id: proposal_id,
+    //             timestamp,
+    //             endOfSubmissionWindowTimestamp: end_of_submission_window_timestamp,
+    //             proposer,
+    //             coreStateHash: core_state_hash,
+    //             derivationHash: derivation_hash,
+    //         },
+    //         derivation: Derivation {
+    //             originBlockNumber: origin_block_number,
+    //             originBlockHash: origin_block_hash,
+    //             basefeeSharingPctg: basefee_sharing_pctg,
+    //             sources: todo!(),
+    //         },
+    //         core_state: CoreState {
+    //             nextProposalId: next_proposal_id,
+    //             lastFinalizedProposalId: last_finalized_proposal_id,
+    //             lastFinalizedTransitionHash: last_finalized_transition_hash,
+    //             bondInstructionsHash: bond_instructions_hash,
+    //         },
+    //     })
+    // }
+
+    /// Add helper function to unpack uint16
+    fn unpack_uint16(data: &[u8], pos: usize) -> Result<(u16, usize), alloy_sol_types::Error> {
+        if pos + 2 > data.len() {
+            return Err(alloy_sol_types::Error::custom(
+                "Not enough data to read 2-byte uint16".to_string(),
+            ));
         }
 
-        let (offset, ptr) = Self::unpack_uint24(data, ptr)?;
-        let (blob_timestamp, ptr) = Self::unpack_uint48(data, ptr)?;
-        let (core_state_hash, ptr) = Self::unpack_hash(data, ptr)?;
-        let (derivation_hash, ptr) = Self::unpack_hash(data, ptr)?;
+        let value = u16::from_be_bytes([data[pos], data[pos + 1]]);
+        let new_pos = pos + 2;
+        Ok((value, new_pos))
+    }
 
-        // core state
-        let (next_proposal_id, ptr) = Self::unpack_uint48(data, ptr)?;
-        let (last_finalized_proposal_id, ptr) = Self::unpack_uint48(data, ptr)?;
-        let (last_finalized_transition_hash, ptr) = Self::unpack_hash(data, ptr)?;
-        let (bond_instructions_hash, _ptr) = Self::unpack_hash(data, ptr)?;
+    /// Add helper function to unpack uint8
+    fn unpack_uint8(data: &[u8], pos: usize) -> Result<(u8, usize), alloy_sol_types::Error> {
+        if pos + 1 > data.len() {
+            return Err(alloy_sol_types::Error::custom(
+                "Not enough data to read 1-byte uint8".to_string(),
+            ));
+        }
+
+        let value = data[pos];
+        let new_pos = pos + 1;
+        Ok((value, new_pos))
+    }
+
+    /// Manual decoding of Shasta event data following the Solidity implementation
+    /// Reference: taiko-mono/packages/protocol/contracts/layer1/shasta/libs/LibProposedEventEncoder.sol
+    fn decode_event_data(data: &[u8]) -> Result<Self, alloy_sol_types::Error> {
+        let mut ptr = 0;
+
+        // Decode Proposal
+        let (proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        ptr = new_ptr;
+        let (proposer, new_ptr) = Self::unpack_address(data, ptr)?;
+        ptr = new_ptr;
+        let (timestamp, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        ptr = new_ptr;
+        let (end_of_submission_window_timestamp, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        ptr = new_ptr;
+
+        // Decode derivation fields
+        let (origin_block_number, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        ptr = new_ptr;
+        let (origin_block_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
+        ptr = new_ptr;
+        let (basefee_sharing_pctg, new_ptr) = Self::unpack_uint8(data, ptr)?;
+        ptr = new_ptr;
+
+        // Decode sources array length
+        let (sources_length, new_ptr) = Self::unpack_uint16(data, ptr)?;
+        ptr = new_ptr;
+
+        let mut sources = Vec::new();
+        for _ in 0..sources_length {
+            // Decode is_forced_inclusion flag
+            let (is_forced_inclusion_u8, new_ptr) = Self::unpack_uint8(data, ptr)?;
+            ptr = new_ptr;
+            let is_forced_inclusion = is_forced_inclusion_u8 != 0;
+
+            // Decode blob slice for this source
+            let (blob_hashes_length, new_ptr) = Self::unpack_uint16(data, ptr)?;
+            ptr = new_ptr;
+
+            let mut blob_hashes = Vec::new();
+            for _ in 0..blob_hashes_length {
+                let (blob_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
+                ptr = new_ptr;
+                blob_hashes.push(blob_hash);
+            }
+
+            let (offset, new_ptr) = Self::unpack_uint24(data, ptr)?;
+            ptr = new_ptr;
+            let (blob_timestamp, new_ptr) = Self::unpack_uint48(data, ptr)?;
+            ptr = new_ptr;
+
+            sources.push(DerivationSource {
+                isForcedInclusion: is_forced_inclusion,
+                blobSlice: BlobSlice {
+                    blobHashes: blob_hashes,
+                    offset,
+                    timestamp: blob_timestamp,
+                },
+            });
+        }
+
+        let (core_state_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
+        ptr = new_ptr;
+        let (derivation_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
+        ptr = new_ptr;
+
+        // Decode core state
+        let (next_proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        ptr = new_ptr;
+        let (next_proposal_block_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        ptr = new_ptr;
+        let (last_finalized_proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        ptr = new_ptr;
+        let (last_finalized_transition_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
+        ptr = new_ptr;
+        let (bond_instructions_hash, _new_ptr) = Self::unpack_hash(data, ptr)?;
 
         Ok(Self {
             proposal: Proposal {
@@ -303,16 +392,12 @@ impl ShastaEventData {
             derivation: Derivation {
                 originBlockNumber: origin_block_number,
                 originBlockHash: origin_block_hash,
-                isForcedInclusion: is_forced_inclusion,
                 basefeeSharingPctg: basefee_sharing_pctg,
-                blobSlice: BlobSlice {
-                    blobHashes: blob_hashes,
-                    offset,
-                    timestamp: blob_timestamp,
-                },
+                sources,
             },
             core_state: CoreState {
                 nextProposalId: next_proposal_id,
+                nextProposalBlockId: next_proposal_block_id,
                 lastFinalizedProposalId: last_finalized_proposal_id,
                 lastFinalizedTransitionHash: last_finalized_transition_hash,
                 bondInstructionsHash: bond_instructions_hash,
@@ -338,7 +423,7 @@ mod tests {
     fn test_manual_decode_shasta_event_data() {
         // Test the manual decoding function to ensure it works correctly
         // Using the same data as the ABI decoding test
-        let data = hex::decode("0000000000893c44cdddb6a900fa2b585dd299e03d12fa4293bc000068c3c67000000000000000000000040721cc61cab68d0d851739c9e224c2ae25f92be44179b456f2eaf89a47f749b640004b00000101bdb66a0c55182e0d9cece2ee7c7adbd88e7f6dbfb69797310b3f12f971e6c5000000000068c3c6706171761baaf8082dfc92628ab484a890271acccf75bae15f375829ca281939db8e68ea9bc41998e2770c72a172b0fc2bec880cba7471723d773872ec061ed5b600000000008a000000000000af85b1090dba108cef8fdffbb2931222ddf7e5c19520be0480a49f3728d01da80000000000000000000000000000000000000000000000000000000000000000").unwrap();
+        let data = hex::decode("0000000000063c44cdddb6a900fa2b585dd299e03d12fa4293bc000068d76cdc00000000000000000000009b10746c6d70f2b59483dc2e0a1315758799fb3655f87e430568e71591589f76f94b00010000010189ea2792db70c7d2165c397be7bc37b7d45b1ed082bec866e9cb62e90cb4a0000000000068d76cdc9b982687bf7b599cdc80a8f54c0d911ddfc142e9b8c52124af86328249f8095b5be6309ddd9a5a330a4842809451aa6f7a2fa279ca0b04288931718c7da5694500000000000700000000009d00000000000092b52a07f5c6d2df0359597c2c14e4bcb63b59b48bf37b29803f2336502051f00000000000000000000000000000000000000000000000000000000000000000").unwrap();
 
         // Decode using manual decoding function
         let result = ShastaEventData::decode_event_data(&data);
@@ -352,46 +437,46 @@ mod tests {
         let event_data = result.unwrap();
 
         // Assert proposal fields
-        assert_eq!(event_data.proposal.id, 137);
+        assert_eq!(event_data.proposal.id, 6);
         assert_eq!(
             event_data.proposal.proposer,
             address!("3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
         );
-        assert_eq!(event_data.proposal.timestamp, 1757660784);
+        assert_eq!(event_data.proposal.timestamp, 1758948572);
         assert_eq!(event_data.proposal.endOfSubmissionWindowTimestamp, 0);
         assert_eq!(
             event_data.proposal.coreStateHash,
-            b256!("6171761baaf8082dfc92628ab484a890271acccf75bae15f375829ca281939db")
+            b256!("9b982687bf7b599cdc80a8f54c0d911ddfc142e9b8c52124af86328249f8095b")
         );
         assert_eq!(
             event_data.proposal.derivationHash,
-            b256!("8e68ea9bc41998e2770c72a172b0fc2bec880cba7471723d773872ec061ed5b6")
+            b256!("5be6309ddd9a5a330a4842809451aa6f7a2fa279ca0b04288931718c7da56945")
         );
 
         // Assert derivation fields
-        assert_eq!(event_data.derivation.originBlockNumber, 1031);
+        assert_eq!(event_data.derivation.originBlockNumber, 155);
         assert_eq!(
             event_data.derivation.originBlockHash,
-            b256!("21cc61cab68d0d851739c9e224c2ae25f92be44179b456f2eaf89a47f749b640")
+            b256!("10746c6d70f2b59483dc2e0a1315758799fb3655f87e430568e71591589f76f9")
         );
-        assert_eq!(event_data.derivation.isForcedInclusion, false);
         assert_eq!(event_data.derivation.basefeeSharingPctg, 75);
 
         // Assert blob slice fields
-        assert_eq!(event_data.derivation.blobSlice.blobHashes.len(), 1);
+        assert_eq!(event_data.derivation.sources.len(), 1);
         assert_eq!(
-            event_data.derivation.blobSlice.blobHashes[0],
-            b256!("01bdb66a0c55182e0d9cece2ee7c7adbd88e7f6dbfb69797310b3f12f971e6c5")
+            event_data.derivation.sources[0].blobSlice.blobHashes[0],
+            b256!("0189ea2792db70c7d2165c397be7bc37b7d45b1ed082bec866e9cb62e90cb4a0")
         );
-        assert_eq!(event_data.derivation.blobSlice.offset, 0);
-        assert_eq!(event_data.derivation.blobSlice.timestamp, 1757660784);
+        assert_eq!(event_data.derivation.sources[0].blobSlice.offset, 0);
+        assert_eq!(event_data.derivation.sources[0].blobSlice.timestamp, 1758948572);
 
         // Assert core state fields
-        assert_eq!(event_data.core_state.nextProposalId, 138);
+        assert_eq!(event_data.core_state.nextProposalId, 7);
+        assert_eq!(event_data.core_state.nextProposalBlockId, 157);
         assert_eq!(event_data.core_state.lastFinalizedProposalId, 0);
         assert_eq!(
             event_data.core_state.lastFinalizedTransitionHash,
-            b256!("af85b1090dba108cef8fdffbb2931222ddf7e5c19520be0480a49f3728d01da8")
+            b256!("92b52a07f5c6d2df0359597c2c14e4bcb63b59b48bf37b29803f2336502051f0")
         );
         assert_eq!(
             event_data.core_state.bondInstructionsHash,

@@ -1,6 +1,6 @@
 // rust impl of taiko-mono/packages/protocol/contracts/layer1/shasta/libs/LibHashing.sol
 
-use crate::input::shasta::Transition as ShastaTransition;
+use crate::input::shasta::{CoreState, Derivation, Transition as ShastaTransition};
 
 use crate::input::shasta::Checkpoint;
 use crate::primitives::keccak::keccak;
@@ -9,12 +9,10 @@ use reth_primitives::b256;
 
 /// Hash a transition using the same logic as the Solidity implementation
 pub fn hash_transition(transition: &ShastaTransition) -> B256 {
-    hash_five_values(
+    hash_three_values(
         transition.proposalHash,
         transition.parentTransitionHash,
         hash_checkpoint(&transition.checkpoint),
-        address_to_b256(transition.designatedProver),
-        address_to_b256(transition.actualProver),
     )
 }
 
@@ -115,11 +113,124 @@ pub fn hash_transitions_array(transitions: &[ShastaTransition]) -> B256 {
     keccak(&buffer).into()
 }
 
+pub fn hash_core_state(core_state: &CoreState) -> B256 {
+    hash_five_values(
+        U256::from(core_state.nextProposalId).into(),
+        U256::from(core_state.nextProposalBlockId).into(),
+        U256::from(core_state.lastFinalizedProposalId).into(),
+        core_state.lastFinalizedTransitionHash,
+        core_state.bondInstructionsHash,
+    )
+}
+
+/// Hash a derivation source (isForcedInclusion flag + blobSlice)
+pub fn hash_derivation_source(source: &crate::input::shasta::DerivationSource) -> B256 {
+    hash_two_values(
+        if source.isForcedInclusion {
+            B256::from([1u8; 32])
+        } else {
+            B256::from([0u8; 32])
+        },
+        hash_blob_slice(&source.blobSlice),
+    )
+}
+
+/// Hash a blob slice using the same logic as the Solidity implementation
+fn hash_blob_slice(blob_slice: &crate::input::shasta::BlobSlice) -> B256 {
+    // Hash the blob hashes array first
+    let blob_hashes_hash = if blob_slice.blobHashes.is_empty() {
+        EMPTY_BYTES_HASH
+    } else if blob_slice.blobHashes.len() == 1 {
+        hash_two_values(
+            U256::from(blob_slice.blobHashes.len()).into(),
+            blob_slice.blobHashes[0],
+        )
+    } else if blob_slice.blobHashes.len() == 2 {
+        hash_three_values(
+            U256::from(blob_slice.blobHashes.len()).into(),
+            blob_slice.blobHashes[0],
+            blob_slice.blobHashes[1],
+        )
+    } else {
+        // For larger arrays, use memory-optimized approach
+        let array_length = blob_slice.blobHashes.len();
+        let buffer_size = 32 + (array_length * 32);
+        let mut buffer = Vec::with_capacity(buffer_size);
+
+        // Write array length at start of buffer
+        buffer.extend_from_slice(&U256::from(array_length).to_be_bytes::<32>());
+
+        // Write each blob hash directly to buffer
+        for blob_hash in &blob_slice.blobHashes {
+            buffer.extend_from_slice(blob_hash.as_slice());
+        }
+
+        keccak(&buffer).into()
+    };
+
+    // Hash the three values: blob_hashes_hash, offset, timestamp
+    hash_three_values(
+        blob_hashes_hash,
+        U256::from(blob_slice.offset).into(),
+        U256::from(blob_slice.timestamp).into(),
+    )
+}
+
+fn pack_derivation_fields(derivation: &Derivation) -> B256 {
+    let mut packed = [0u8; 32];
+    let origin_block_number_bytes = derivation.originBlockNumber.to_be_bytes();
+    packed[0..6].copy_from_slice(&origin_block_number_bytes[2..8]); // Take last 6 bytes
+
+    // Pack basefeeSharingPctg at offset 24 (192 bits / 8 = 24 bytes from the right)
+    packed[7] = derivation.basefeeSharingPctg; // Take last byte
+
+    B256::from(packed)
+}
+
+pub fn hash_derivation(derivation: &Derivation) -> B256 {
+    // Pack the fields: originBlockNumber (48 bits) << 208 | basefeeSharingPctg (8 bits) << 192
+    let packed_fields = pack_derivation_fields(derivation);
+
+    // Hash the sources array
+    let sources_hash = if derivation.sources.is_empty() {
+        EMPTY_BYTES_HASH
+    } else if derivation.sources.len() == 1 {
+        hash_two_values(
+            U256::from(derivation.sources.len()).into(),
+            hash_derivation_source(&derivation.sources[0]),
+        )
+    } else if derivation.sources.len() == 2 {
+        hash_three_values(
+            U256::from(derivation.sources.len()).into(),
+            hash_derivation_source(&derivation.sources[0]),
+            hash_derivation_source(&derivation.sources[1]),
+        )
+    } else {
+        // For larger arrays, use memory-optimized approach
+        let array_length = derivation.sources.len();
+        let buffer_size = 32 + (array_length * 32);
+        let mut buffer = Vec::with_capacity(buffer_size);
+
+        // Write array length at start of buffer
+        buffer.extend_from_slice(&U256::from(array_length).to_be_bytes::<32>());
+
+        // Write each source hash directly to buffer
+        for source in &derivation.sources {
+            let source_hash = hash_derivation_source(source);
+            buffer.extend_from_slice(source_hash.as_slice());
+        }
+
+        keccak(&buffer).into()
+    };
+
+    // Hash the three values: packed_fields, originBlockHash, sourcesHash
+    hash_three_values(packed_fields, derivation.originBlockHash, sources_hash)
+}
+
 #[cfg(test)]
 mod test {
-    use reth_primitives::{address, b256};
-
-    use crate::protocol_instance::shasta_aggregation_output;
+    use crate::input::shasta::{BlobSlice, Derivation, DerivationSource};
+    use reth_primitives::b256;
 
     use super::*;
 
@@ -140,8 +251,6 @@ mod test {
                     "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
                 ),
             },
-            designatedProver: address!("7777777777777777777777777777777777777777"),
-            actualProver: address!("8888888888888888888888888888888888888888"),
         };
 
         let transition_hash = hash_transition(&transition);
@@ -172,8 +281,6 @@ mod test {
                         "4444444444444444444444444444444444444444444444444444444444444444"
                     ),
                 },
-                designatedProver: address!("1111111111111111111111111111111111111111"),
-                actualProver: address!("2222222222222222222222222222222222222222"),
             },
             // Transition 2
             ShastaTransition {
@@ -192,8 +299,6 @@ mod test {
                         "8888888888888888888888888888888888888888888888888888888888888888"
                     ),
                 },
-                designatedProver: address!("3333333333333333333333333333333333333333"),
-                actualProver: address!("4444444444444444444444444444444444444444"),
             },
             // Transition 3
             ShastaTransition {
@@ -212,8 +317,6 @@ mod test {
                         "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
                     ),
                 },
-                designatedProver: address!("5555555555555555555555555555555555555555"),
-                actualProver: address!("6666666666666666666666666666666666666666"),
             },
         ];
 
@@ -242,5 +345,75 @@ mod test {
             individual_hashes[2],
             "9a14e589f1966e9677942d75e6e3f0f68e6bb8635c37866f0a154b29a7a8fd0c"
         );
+    }
+
+    #[test]
+    fn test_pack_derivation_fields() {
+        let derivation = Derivation {
+            originBlockNumber: 155,
+            originBlockHash: b256!(
+                "10746c6d70f2b59483dc2e0a1315758799fb3655f87e430568e71591589f76f9"
+            ),
+            basefeeSharingPctg: 75,
+            sources: Vec::new(),
+        };
+
+        let packed_fields = pack_derivation_fields(&derivation);
+        assert_eq!(
+            packed_fields,
+            b256!("00000000009b004b000000000000000000000000000000000000000000000000")
+        );
+    }
+
+    #[test]
+    fn test_hash_derivation_empty_source() {
+        // Create a test derivation with one source
+        let derivation = Derivation {
+            originBlockNumber: 155,
+            originBlockHash: b256!(
+                "10746c6d70f2b59483dc2e0a1315758799fb3655f87e430568e71591589f76f9"
+            ),
+            basefeeSharingPctg: 75,
+            sources: Vec::new(),
+        };
+
+        let derivation_hash = hash_derivation(&derivation);
+
+        // The hash should be deterministic and match the expected value
+        // This test verifies the implementation works without errors
+        assert_ne!(derivation_hash, B256::ZERO);
+        assert_eq!(
+            hex::encode(derivation_hash),
+            "f7591d96a9236272ae9c839b84b64fdc2d97873d80992417969e4f639ac57656"
+        );
+    }
+
+    #[test]
+    fn test_hash_derivation() {
+        // Create a test derivation with one source
+        let derivation = Derivation {
+            originBlockNumber: 155,
+            originBlockHash: b256!(
+                "10746c6d70f2b59483dc2e0a1315758799fb3655f87e430568e71591589f76f9"
+            ),
+            basefeeSharingPctg: 75,
+            sources: vec![DerivationSource {
+                isForcedInclusion: false,
+                blobSlice: BlobSlice {
+                    blobHashes: vec![b256!(
+                        "0189ea2792db70c7d2165c397be7bc37b7d45b1ed082bec866e9cb62e90cb4a0"
+                    )],
+                    offset: 0,
+                    timestamp: 1758948572,
+                },
+            }],
+        };
+
+        let derivation_hash = hash_derivation(&derivation);
+
+        // The hash should be deterministic and match the expected value
+        // This test verifies the implementation works without errors
+        assert_ne!(derivation_hash, B256::ZERO);
+        println!("Derivation hash: 0x{}", hex::encode(derivation_hash));
     }
 }

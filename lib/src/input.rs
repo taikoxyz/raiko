@@ -140,9 +140,11 @@ impl BlockProposedFork {
             BlockProposedFork::Hekla(block) => block.meta.blobUsed,
             BlockProposedFork::Ontake(block) => block.meta.blobUsed,
             BlockProposedFork::Pacaya(batch) => batch.info.blobHashes.len() > 0,
-            BlockProposedFork::Shasta(event_data) => {
-                !event_data.derivation.blobSlice.blobHashes.is_empty()
-            }
+            BlockProposedFork::Shasta(event_data) => event_data
+                .derivation
+                .sources
+                .iter()
+                .any(|source| source.blobSlice.blobHashes.len() > 0),
             _ => false,
         }
     }
@@ -207,7 +209,7 @@ impl BlockProposedFork {
             )),
             BlockProposedFork::Shasta(event_data) => {
                 const SHASTA_BLOB_DATA_PREFIX_SIZE: usize = 64;
-                let offset = event_data.derivation.blobSlice.offset as usize;
+                let offset = event_data.derivation.sources[0].blobSlice.offset as usize;
                 let _version = B256::from_slice(&compressed_tx_list_buf[offset..offset + 32]);
                 // assert_eq!(_version, 1);
                 let size_b256_slice =
@@ -232,7 +234,9 @@ impl BlockProposedFork {
     pub fn blob_hashes(&self) -> &[B256] {
         match self {
             BlockProposedFork::Pacaya(batch) => &batch.info.blobHashes,
-            BlockProposedFork::Shasta(event_data) => &event_data.derivation.blobSlice.blobHashes,
+            BlockProposedFork::Shasta(event_data) => {
+                &event_data.derivation.sources[0].blobSlice.blobHashes
+            }
             _ => &[],
         }
     }
