@@ -174,21 +174,7 @@ async fn batch_handler(
                         )
                         .into()
                     }
-                    raiko_reqpool::RequestEntity::ShastaProof(request_entity) => {
-                        let mut prover_args = request_entity.prover_args().clone();
-                        prover_args.insert(
-                            "shasta_guest_input".to_string(),
-                            serde_json::to_value(guest_input).expect(""),
-                        );
-                        ShastaProofRequestEntity::new_with_guest_input_entity(
-                            request_entity.guest_input_entity().clone(),
-                            request_entity.prover().clone(),
-                            *request_entity.proof_type(),
-                            prover_args,
-                        )
-                        .into()
-                    }
-                    _ => entity.clone(),
+                    _ => unreachable!("Invalid request entity"),
                 })
                 .collect::<Vec<_>>();
 

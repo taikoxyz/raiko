@@ -487,7 +487,7 @@ mod tests {
         // let writer = std::fs::File::create(&filename).expect("Unable to create file");
         // serde_json::to_writer(writer, &output).expect("Unable to write data");
         raiko
-            .batch_prove(input, &output, None)
+            .shasta_proposal_prove(input, &output, None)
             .await
             .expect("proof generation failed")
     }

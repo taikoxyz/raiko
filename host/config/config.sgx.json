@@ -6,7 +6,8 @@
         "instance_ids": {
             "HEKLA": 0,
             "ONTAKE": 0,
-            "PACAYA": 0
+            "PACAYA": 0,
+            "SHASTA": 0
         },
         "setup": false,
         "bootstrap": false,
@@ -15,7 +16,8 @@
     },
     "sgxgeth": {
         "instance_ids": {
-            "PACAYA": 0
+            "PACAYA": 0,
+            "SHASTA": 0
         },
         "setup": false,
         "bootstrap": false,

@@ -48,7 +48,7 @@ pub fn create_shasta_requests(
             *l1_inclusion_block_number,
             batch_request.network.clone(),
             batch_request.l1_network.clone(),
-            batch_request.graffiti.clone(),
+            batch_request.prover.clone(),
             batch_request.blob_proof_type.clone(),
             l2_block_numbers.clone(),
         );

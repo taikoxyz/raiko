@@ -18,6 +18,7 @@ use raiko_lib::proof_type::ProofType;
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, ImageId, RequestEntity, RequestKey,
+    ShastaProofRequestEntity,
 };
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
@@ -101,9 +102,9 @@ async fn shasta_batch_handler(
     );
 
     let (
-        _sub_input_request_keys,
+        sub_input_request_keys,
         sub_request_keys,
-        _sub_input_request_entities,
+        sub_input_request_entities,
         sub_request_entities,
         sub_batch_ids,
     ) = process_shasta_batch(&shasta_request, &image_id);
@@ -127,16 +128,55 @@ async fn shasta_batch_handler(
         )
         .await
     } else {
-        prove_many(&actor, sub_request_keys, sub_request_entities)
-            .await
-            .map(|statuses| {
-                statuses
-                    .into_iter()
-                    .next()
-                    .unwrap_or_else(|| raiko_reqpool::Status::Failed {
-                        error: "No status returned".to_string(),
-                    })
-            })
+        let statuses =
+            prove_many(&actor, sub_input_request_keys, sub_input_request_entities).await?;
+        let is_all_sub_success = statuses
+            .iter()
+            .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
+        if !is_all_sub_success {
+            Ok(raiko_reqpool::Status::Registered)
+        } else {
+            let guest_inputs_of_entities = statuses
+                .iter()
+                .map(|status| match status {
+                    // get saved guest input and pass down to real prover
+                    raiko_reqpool::Status::Success { proof, .. } => proof.proof.clone().unwrap(),
+                    _ => unreachable!("is_all_sub_success checked"),
+                })
+                .collect::<Vec<_>>();
+            let sub_request_entities = sub_request_entities
+                .iter()
+                .zip(guest_inputs_of_entities)
+                .to_owned()
+                .map(|(entity, guest_input)| match entity {
+                    raiko_reqpool::RequestEntity::ShastaProof(request_entity) => {
+                        let mut prover_args = request_entity.prover_args().clone();
+                        prover_args.insert(
+                            "shasta_guest_input".to_string(),
+                            serde_json::to_value(guest_input).expect(""),
+                        );
+                        ShastaProofRequestEntity::new_with_guest_input_entity(
+                            request_entity.guest_input_entity().clone(),
+                            request_entity.prover().clone(),
+                            *request_entity.proof_type(),
+                            prover_args,
+                        )
+                        .into()
+                    }
+                    _ => unreachable!("Invalid request entity"),
+                })
+                .collect::<Vec<_>>();
+            prove_many(&actor, sub_request_keys, sub_request_entities)
+                .await
+                .map(|statuses| {
+                    statuses
+                        .into_iter()
+                        .next()
+                        .unwrap_or_else(|| raiko_reqpool::Status::Failed {
+                            error: "No status returned".to_string(),
+                        })
+                })
+        }
     };
 
     let status = to_v3_status(shasta_request.proof_type, None, result);

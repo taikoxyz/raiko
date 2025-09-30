@@ -1,39 +1,42 @@
 {
-  "network": "taiko_dev",
-  "l1_network": "taiko_dev_l1",
-  "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
-  "sgx": {
-    "instance_ids": {
-      "HEKLA": 0,
-      "ONTAKE": 0,
-      "PACAYA": 0
+    "network": "taiko_dev",
+    "l1_network": "taiko_dev_l1",
+    "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
+    "sgx": {
+        "instance_ids": {
+            "HEKLA": 0,
+            "ONTAKE": 0,
+            "PACAYA": 0,
+            "SHASTA": 0
+        },
+        "setup": false,
+        "bootstrap": false,
+        "prove": true,
+        "input_path": null
     },
-    "setup": false,
-    "bootstrap": false,
-    "prove": true,
-    "input_path": null
-  },
-  "sgxgeth": {
-    "instance_ids": {
-      "PACAYA": 0
+    "sgxgeth": {
+        "instance_ids": {
+            "PACAYA": 0,
+            "SHASTA": 0
+        },
+        "setup": false,
+        "bootstrap": false,
+        "prove": true,
+        "input_path": null
     },
-    "setup": false,
-    "bootstrap": false,
-    "prove": true,
-    "input_path": null
-  },
-  "risc0": {
-    "bonsai": true,
-    "snark": true,
-    "profile": false,
-    "execution_po2": 20
-  },
-  "sp1": {
-    "prover": "network",
-    "verify": false
-  },
-  "native": {
-    "json_guest_input": null
-  }
+    "risc0": {
+        "bonsai": true,
+        "snark": true,
+        "profile": false,
+        "execution_po2": 20,
+        "verify": true
+    },
+    "sp1": {
+        "prover": "network",
+        "verify": true
+    },
+    "native": {
+        "json_guest_input": null
+    }
 }

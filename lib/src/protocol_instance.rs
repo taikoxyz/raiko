@@ -571,7 +571,6 @@ impl ProtocolInstance {
 
         let first_block = blocks.first().unwrap();
         let last_block = blocks.last().unwrap();
-        let prover = batch_input.taiko.prover_data.prover;
         let transition = match &batch_input.taiko.batch_proposed {
             BlockProposedFork::Pacaya(_) => TransitionFork::Pacaya(PacayaTransition {
                 parentHash: first_block.header.parent_hash,

@@ -529,7 +529,7 @@ pub async fn do_generate_shasta_proposal_guest_input(
     let shasta_proposal_request_entity: ShastaProofRequestEntity =
         ShastaProofRequestEntity::new_with_guest_input_entity(
             request_entity.clone(),
-            Default::default(),
+            request_entity.designated_prover().clone(),
             Default::default(),
             Default::default(),
         );
@@ -588,8 +588,11 @@ async fn new_raiko_for_shasta_proposal_request(
             .l1_inclusion_block_number(),
         network: request_entity.guest_input_entity().network().clone(),
         l1_network: request_entity.guest_input_entity().l1_network().clone(),
-        graffiti: request_entity.guest_input_entity().graffiti().clone(),
-        prover: request_entity.prover().clone(),
+        graffiti: Default::default(),
+        prover: request_entity
+            .guest_input_entity()
+            .designated_prover()
+            .clone(),
         proof_type: request_entity.proof_type().clone(),
         blob_proof_type: request_entity
             .guest_input_entity()
@@ -614,9 +617,28 @@ pub async fn do_prove_shasta_proposal(
         .await
         .map_err(|err| format!("failed to create raiko: {err:?}"))?;
 
-    let input = generate_input_for_batch(&raiko)
-        .await
-        .map_err(|err| format!("failed to generate input: {err:?}"))?;
+    let input = if let Some(shasta_guest_input) =
+        raiko.request.prover_args.get("shasta_guest_input")
+    {
+        // Use existing shasta guest input if available
+        let b64_encoded_string: String = serde_json::from_value(shasta_guest_input.clone())
+            .map_err(|err| {
+                format!("failed to deserialize shasta_guest_input from value: {err:?}")
+            })?;
+        let compressed_bytes = general_purpose::STANDARD
+            .decode(&b64_encoded_string)
+            .unwrap();
+        let decompressed_bytes = zlib_decompress_data(&compressed_bytes)
+            .map_err(|err| format!("failed to decompress shasta_guest_input: {err:?}"))?;
+        let guest_input: GuestBatchInput = bincode::deserialize(&decompressed_bytes)
+            .map_err(|err| format!("failed to deserialize bincode shasta_guest_input: {err:?}"))?;
+        guest_input
+    } else {
+        tracing::warn!("rebuild shasta guest input for request: {request_key:?}");
+        generate_input_for_batch(&raiko)
+            .await
+            .map_err(|err| format!("failed to generate shasta guest input: {err:?}"))?
+    };
 
     // Generate the output for the batch
     let output = raiko
