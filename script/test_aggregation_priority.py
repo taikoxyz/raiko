@@ -88,7 +88,7 @@ class AggregationPriorityTester:
         self.logger.info(f"Using prover type: {self.prove_type}")
         
         # Validate prover type
-        supported_provers = ["native", "sgx", "risc0", "sp1"]
+        supported_provers = ["native", "sgx", "risc0", "sp1", "boundless"]
         if self.prove_type not in supported_provers:
             self.logger.error(f"Unsupported prover type: {self.prove_type}")
             self.logger.error(f"Supported provers: {supported_provers}")
@@ -199,6 +199,13 @@ class AggregationPriorityTester:
                 "prover": "network",
                 "verify": True
             }
+        elif self.prove_type == "boundless":
+            base_request["boundless"] = {
+                "bonsai": False,
+                "snark": True,
+                "profile": False,
+                "execution_po2": 20,
+            }
         
         return base_request
 
@@ -242,6 +249,13 @@ class AggregationPriorityTester:
                 "recursion": "plonk",
                 "prover": "network",
                 "verify": True
+            }
+        elif self.prove_type == "boundless":
+            base_request["boundless"] = {
+                "bonsai": False,
+                "snark": True,
+                "profile": False,
+                "execution_po2": 20,
             }
         
         return base_request
@@ -578,8 +592,8 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 4, base_block: int = 1,
-                                                      max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 4110000, 
+                                                      max_wait_time: int = 3600, monitor_duration: int = 6000) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
         self.logger.info("="*60)
@@ -670,7 +684,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=4,
+        default=2,
         help="Total number of batches to process"
     )
     
@@ -678,14 +692,14 @@ async def main():
         "--prove-type",
         type=str,
         default="native",
-        choices=["native", "sgx", "risc0", "sp1"],
+        choices=["native", "sgx", "risc0", "sp1", "boundless"],
         help="Proof type to use for requests"
     )
     
     parser.add_argument(
         "--request-delay",
         type=float,
-        default=2.0,
+        default=4.0,
         help="Delay between submissions"
     )
     
@@ -699,14 +713,14 @@ async def main():
     parser.add_argument(
         "--monitor-duration",
         type=int,
-        default=600,
+        default=6000,
         help="How long to monitor request processing (seconds)"
     )
     
     parser.add_argument(
         "--polling-interval",
         type=int,
-        default=5,
+        default=15,
         help="Polling interval for status queries (seconds)"
     )
     

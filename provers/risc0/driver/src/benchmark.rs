@@ -15,8 +15,8 @@ fn prove(elf: &[u8], id: [u32; 8]) {
     env::set_var("RISC0_PROVER", "local");
     let env = ExecutorEnv::builder().build().unwrap();
     let prover = default_prover();
-    let receipt = prover.prove(env, elf).unwrap();
-    receipt.verify(id).unwrap();
+    let prove_info = prover.prove(env, elf).unwrap();
+    prove_info.receipt.verify(id).unwrap();
 }
 
 #[bench]

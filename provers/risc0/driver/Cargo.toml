@@ -40,6 +40,10 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 thiserror = { workspace = true }
 
+[dev-dependencies]
+env_logger = { workspace = true }
+bincode = { workspace = true }
+
 [features]
 enable = [
     "raiko-lib",

@@ -25,8 +25,10 @@ use serde_with::serde_as;
 use std::fmt::Debug;
 
 pub mod bonsai;
+pub mod boundless;
 pub mod methods;
 pub mod snarks;
+pub use boundless::BoundlessProver;
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]

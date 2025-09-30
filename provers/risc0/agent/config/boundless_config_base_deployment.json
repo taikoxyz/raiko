@@ -1,0 +1,26 @@
+{
+    "deployment": {
+        "deployment_type": "Base",
+        "overrides": {
+            "order_stream_url": "https://base-mainnet.beboundless.xyz"
+        }
+    },
+    "offer_params": {
+        "batch": {
+            "ramp_up_sec": 2400,
+            "lock_timeout_ms_per_mcycle": 3000,
+            "timeout_ms_per_mcycle": 6000,
+            "max_price_per_mcycle": "0.00000025",
+            "min_price_per_mcycle": "0.00000001",
+            "lock_collateral": "5"
+        },
+        "aggregation": {
+            "ramp_up_sec": 1800,
+            "lock_timeout_ms_per_mcycle": 3000,
+            "timeout_ms_per_mcycle": 5000,
+            "max_price_per_mcycle": "0.0000001",
+            "min_price_per_mcycle": "0.00000001",
+            "lock_collateral": "3"
+        }
+    }
+}

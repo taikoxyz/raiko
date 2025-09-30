@@ -1,0 +1,26 @@
+{
+    "deployment": {
+        "deployment_type": "Sepolia",
+        "overrides": {
+            "order_stream_url": "https://custom-order-stream.example.com"
+        }
+    },
+    "offer_params": {
+        "batch": {
+            "ramp_up_sec": 1200,
+            "lock_timeout_sec": 6000,
+            "timeout_sec": 10800,
+            "max_price_per_mcycle": "0.00003",
+            "min_price_per_mcycle": "0.000003",
+            "lock_collateral_per_mcycle": "0.0001"
+        },
+        "aggregation": {
+            "ramp_up_sec": 300,
+            "lock_timeout_sec": 2400,
+            "timeout_sec": 4500,
+            "max_price_per_mcycle": "0.00001",
+            "min_price_per_mcycle": "0.000001",
+            "lock_collateral_per_mcycle": "0.0001"
+        }
+    }
+}

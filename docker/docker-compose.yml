@@ -184,6 +184,26 @@ services:
       # use the host's network to connect to the PCCS
       #extra_hosts:
       #  - "host.docker.internal:host-gateway"
+  raiko-boundless-agent:
+    build:
+      context: ..
+      dockerfile: Dockerfile.zk
+    image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
+    container_name: raiko-boundless-agent
+    entrypoint:
+    command:
+    environment:
+      - BOUNDLESS_AGENT_SERVER=true
+      - IPFS_GATEWAY_URL=${IPFS_GATEWAY_URL}
+      - BOUNDLESS_SIGNER_KEY=${BOUNDLESS_SIGNER_KEY}
+      - PINATA_JWT=${PINATA_JWT}
+      - RUST_LOG=${RUST_LOG:-info}
+      - BOUNDLESS_ORDER_STREAM_URL=${BOUNDLESS_ORDER_STREAM_URL}
+      - BOUNDLESS_OFFCHAIN=${BOUNDLESS_OFFCHAIN}
+    env_file:
+      - .env.boundless-agent 
+    ports:
+      - "9999:9999"
   pccs:
     build:
       context: ..

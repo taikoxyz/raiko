@@ -64,6 +64,9 @@ ENV TARGET=sp1
 RUN make guest 2>&1 | tee /tmp/sp1_build.log
 RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0" --features "docker_build"
 
+WORKDIR /opt/raiko/provers/risc0/agent
+RUN cargo build --release ${BUILD_FLAGS} --features "risc0"
+
 # Generate or update .env file with extracted image IDs from build logs
 RUN echo "Updating .env file with extracted image IDs..." && \
     if [ ! -f ".env" ]; then touch .env; fi && \
@@ -94,6 +97,7 @@ COPY --from=builder /opt/raiko/host/config/config.taiko_mainnet.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list_default.json
 COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raiko/chain_spec_list_devnet.json
 COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
+COPY --from=builder /opt/raiko/provers/risc0/agent/target/release/boundless-agent /opt/raiko/bin/
 # Copy the .env file with RISC0 and SP1 image IDs from builder stage
 COPY --from=builder /opt/raiko/.env /opt/raiko/.env
 
