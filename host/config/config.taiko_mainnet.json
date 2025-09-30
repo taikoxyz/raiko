@@ -7,7 +7,8 @@
     "instance_ids": {
       "HEKLA": 123456,
       "ONTAKE": 123456,
-      "PACAYA": 123456
+      "PACAYA": 123456,
+      "SHASTA": 123456
     }
   },
   "risc0": {
@@ -22,7 +23,8 @@
   },
   "sgxgeth": {
     "instance_ids": {
-      "PACAYA": 0
+      "PACAYA": 0,
+      "SHASTA": 0
     },
     "setup": false,
     "bootstrap": false,

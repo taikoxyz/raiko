@@ -693,8 +693,8 @@ pub struct ShastaInputRequestEntity {
     network: String,
     /// The L1 network to generate the proof for.
     l1_network: String,
-    /// Graffiti.
-    graffiti: B256,
+    /// Prover.
+    designated_prover: Address,
     /// Blob proof type.
     blob_proof_type: BlobProofType,
     /// l2 blocks
@@ -707,7 +707,7 @@ impl ShastaInputRequestEntity {
         l1_inclusion_block_number: u64,
         network: String,
         l1_network: String,
-        graffiti: B256,
+        designated_prover: Address,
         blob_proof_type: BlobProofType,
         l2_blocks: Vec<u64>,
     ) -> Self {
@@ -716,7 +716,7 @@ impl ShastaInputRequestEntity {
             l1_inclusion_block_number,
             network,
             l1_network,
-            graffiti,
+            designated_prover,
             blob_proof_type,
             l2_blocks,
         }
@@ -787,7 +787,7 @@ pub struct ShastaProofRequestEntity {
     #[serde(flatten)]
     /// The proposal input request entity
     guest_input_entity: ShastaInputRequestEntity,
-    /// The protocol instance data.
+    /// The real signing prover
     #[serde_as(as = "DisplayFromStr")]
     prover: Address,
     /// The proof type.
@@ -803,8 +803,7 @@ impl ShastaProofRequestEntity {
         l1_inclusion_block_number: u64,
         network: String,
         l1_network: String,
-        graffiti: B256,
-        prover: Address,
+        designated_prover: Address,
         proof_type: ProofType,
         blob_proof_type: BlobProofType,
         l2_blocks: Vec<u64>,
@@ -816,11 +815,11 @@ impl ShastaProofRequestEntity {
                 l1_inclusion_block_number,
                 network,
                 l1_network,
-                graffiti,
+                designated_prover,
                 blob_proof_type,
                 l2_blocks,
             ),
-            prover,
+            prover: designated_prover,
             proof_type,
             prover_args,
         }
@@ -828,13 +827,13 @@ impl ShastaProofRequestEntity {
 
     pub fn new_with_guest_input_entity(
         guest_input_entity: ShastaInputRequestEntity,
-        prover: Address,
+        designated_prover: Address,
         proof_type: ProofType,
         prover_args: HashMap<String, serde_json::Value>,
     ) -> Self {
         Self {
             guest_input_entity,
-            prover,
+            prover: designated_prover,
             proof_type,
             prover_args,
         }

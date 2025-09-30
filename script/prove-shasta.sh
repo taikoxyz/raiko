@@ -159,7 +159,7 @@ else
     exit 1
 fi
 
-prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+prover="0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
 
 AGG=${AGG:-false}
 
