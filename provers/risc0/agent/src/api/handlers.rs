@@ -1,19 +1,20 @@
 use axum::{
     Json,
-    extract::{State, Path},
+    extract::{State, Path, ConnectInfo},
     http::StatusCode,
 };
 use utoipa;
 use alloy_primitives_v1p2p0::U256;
+use std::net::SocketAddr;
 
 use crate::{
     AppState, AgentError, AsyncProofRequest, ProofRequestStatus,
     BoundlessProofType as BoundlessProofType, generate_request_id,
 };
 use super::types::{
-    AsyncProofRequestData, AsyncProofResponse, DetailedStatusResponse, 
+    AsyncProofRequestData, AsyncProofResponse, DetailedStatusResponse,
     RequestListResponse, HealthResponse, DatabaseStatsResponse, DeleteAllResponse,
-    ErrorResponse, ProofType
+    ErrorResponse, ProofType, UploadImageResponse, ImageInfoResponse
 };
 
 /// Convert internal ProofRequestStatus to user-friendly API response
@@ -112,8 +113,21 @@ pub async fn health_check() -> (StatusCode, Json<HealthResponse>) {
 /// Submit an asynchronous proof generation request
 pub async fn proof_handler(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(request): Json<AsyncProofRequestData>,
 ) -> Result<(StatusCode, Json<AsyncProofResponse>), (StatusCode, Json<ErrorResponse>)> {
+    // Check rate limit first
+    if !state.rate_limiter.check(addr.ip()).await {
+        tracing::warn!("Rate limit exceeded for IP: {}", addr.ip());
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse {
+                error: "RateLimitExceeded".to_string(),
+                message: "Too many requests. Please try again later.".to_string(),
+            }),
+        ));
+    }
+
     if request.input.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -252,8 +266,21 @@ pub async fn proof_handler(
 /// Get the current status of a proof request
 pub async fn get_async_proof_status(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Path(request_id): Path<String>,
 ) -> Result<Json<DetailedStatusResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Check rate limit for status queries
+    if !state.rate_limiter.check(addr.ip()).await {
+        tracing::warn!("Rate limit exceeded for IP: {} on status query", addr.ip());
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse {
+                error: "RateLimitExceeded".to_string(),
+                message: "Too many status queries. Please try again later.".to_string(),
+            }),
+        ));
+    }
+
     let prover = match state.get_or_refresh_prover().await {
         Ok(prover) => prover,
         Err(_e) => {
@@ -424,4 +451,196 @@ pub async fn delete_all_requests(
             }),
         )),
     }
+}
+
+#[utoipa::path(
+    post,
+    path = "/upload-image/{image_type}",
+    tag = "Image Management",
+    params(
+        ("image_type" = String, Path, description = "Type of image: 'batch' or 'aggregation'")
+    ),
+    request_body(
+        content = Vec<u8>,
+        description = "Raw ELF binary data",
+        content_type = "application/octet-stream"
+    ),
+    responses(
+        (status = 200, description = "Image uploaded successfully", body = UploadImageResponse,
+         example = json!({
+             "image_id": [3537337764u32, 1055695413u32, 664197713u32, 1225410428u32, 3705161813u32, 2151977348u32, 4164639052u32, 2614443474u32],
+             "status": "uploaded",
+             "market_url": "https://storage.boundless.network/programs/abc123",
+             "message": "Image uploaded successfully"
+         })),
+        (status = 400, description = "Invalid image type or ELF data", body = ErrorResponse),
+        (status = 429, description = "Rate limit exceeded", body = ErrorResponse),
+        (status = 500, description = "Upload failed", body = ErrorResponse)
+    )
+)]
+/// Upload an ELF image to the agent for use in proving
+pub async fn upload_image_handler(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Path(image_type): Path<String>,
+    body: axum::body::Bytes,
+) -> Result<Json<UploadImageResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Check rate limit
+    if !state.rate_limiter.check(addr.ip()).await {
+        tracing::warn!("Rate limit exceeded for IP: {} on image upload", addr.ip());
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse {
+                error: "RateLimitExceeded".to_string(),
+                message: "Too many image upload requests. Please try again later.".to_string(),
+            }),
+        ));
+    }
+
+    // Validate image type
+    if image_type != "batch" && image_type != "aggregation" {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "InvalidImageType".to_string(),
+                message: format!("Invalid image type '{}'. Must be 'batch' or 'aggregation'", image_type),
+            }),
+        ));
+    }
+
+    // Validate ELF data size
+    let elf_bytes = body.to_vec();
+    if elf_bytes.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "EmptyELF".to_string(),
+                message: "ELF data cannot be empty".to_string(),
+            }),
+        ));
+    }
+
+    if elf_bytes.len() > 50 * 1024 * 1024 {
+        // 50 MB max
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "ELFTooLarge".to_string(),
+                message: format!(
+                    "ELF data too large: {:.2} MB. Maximum allowed: 50 MB",
+                    elf_bytes.len() as f64 / 1_000_000.0
+                ),
+            }),
+        ));
+    }
+
+    tracing::info!(
+        "Received {} image upload from {}: {:.2} MB",
+        image_type,
+        addr.ip(),
+        elf_bytes.len() as f64 / 1_000_000.0
+    );
+
+    // Get prover to access Boundless client
+    let prover = match state.get_or_refresh_prover().await {
+        Ok(prover) => prover,
+        Err(e) => {
+            tracing::error!("Failed to initialize prover: {:?}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "ProverInitializationError".to_string(),
+                    message: "Failed to initialize prover".to_string(),
+                }),
+            ));
+        }
+    };
+
+    // Create Boundless client for uploading to market
+    let client = match prover.create_boundless_client().await {
+        Ok(client) => client,
+        Err(e) => {
+            tracing::error!("Failed to create Boundless client: {:?}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "ClientCreationError".to_string(),
+                    message: "Failed to create Boundless client".to_string(),
+                }),
+            ));
+        }
+    };
+
+    // Upload image using image manager
+    let image_info = match state
+        .image_manager
+        .store_and_upload_image(&image_type, elf_bytes, &client)
+        .await
+    {
+        Ok(info) => info,
+        Err(e) => {
+            tracing::error!("Failed to upload image: {:?}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "ImageUploadError".to_string(),
+                    message: format!("Failed to upload image: {}", e),
+                }),
+            ));
+        }
+    };
+
+    // Determine status
+    let status = if state.image_manager.get_batch_image().await.is_some()
+        && state.image_manager.get_aggregation_image().await.is_some()
+    {
+        "already_exists"
+    } else {
+        "uploaded"
+    };
+
+    Ok(Json(UploadImageResponse {
+        image_id: crate::image_manager::ImageManager::digest_to_vec(&image_info.image_id),
+        status: status.to_string(),
+        market_url: image_info.market_url.to_string(),
+        message: format!("{} image processed successfully", image_type),
+    }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/images",
+    tag = "Image Management",
+    responses(
+        (status = 200, description = "Image information retrieved successfully", body = ImageInfoResponse,
+         example = json!({
+             "batch": {
+                 "uploaded": true,
+                 "image_id": [3537337764u32, 1055695413u32, 664197713u32, 1225410428u32, 3705161813u32, 2151977348u32, 4164639052u32, 2614443474u32],
+                 "image_id_hex": "0xd2b5a444...",
+                 "market_url": "https://storage.boundless.network/programs/batch123",
+                 "elf_size_bytes": 8700000
+             },
+             "aggregation": {
+                 "uploaded": true,
+                 "image_id": [2700732721u32, 2547473741u32, 423687947u32, 895656626u32, 623487531u32, 3508625552u32, 2848442538u32, 2984275190u32],
+                 "image_id_hex": "0xa0f2b431...",
+                 "market_url": "https://storage.boundless.network/programs/agg456",
+                 "elf_size_bytes": 2400000
+             }
+         })),
+        (status = 500, description = "Failed to retrieve image info", body = ErrorResponse)
+    )
+)]
+/// Get information about uploaded batch and aggregation images
+pub async fn image_info_handler(
+    State(state): State<AppState>,
+) -> Result<Json<ImageInfoResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let batch_info = state.image_manager.get_batch_info().await;
+    let aggregation_info = state.image_manager.get_aggregation_info().await;
+
+    Ok(Json(ImageInfoResponse {
+        batch: batch_info,
+        aggregation: aggregation_info,
+    }))
 }

@@ -125,3 +125,44 @@ pub struct ErrorResponse {
     #[schema(example = "Invalid request format")]
     pub message: String,
 }
+
+#[derive(Debug, Serialize, ToSchema)]
+/// Response when uploading an ELF image
+pub struct UploadImageResponse {
+    /// Image ID computed from the ELF (8 u32 values)
+    #[schema(example = json!([3537337764u32, 1055695413u32, 664197713u32, 1225410428u32, 3705161813u32, 2151977348u32, 4164639052u32, 2614443474u32]))]
+    pub image_id: Vec<u32>,
+    /// Status of the upload
+    #[schema(example = "uploaded")]
+    pub status: String, // "uploaded" or "already_exists"
+    /// URL where the image is stored in Boundless Market
+    #[schema(example = "https://storage.boundless.network/programs/abc123")]
+    pub market_url: String,
+    /// Detailed message
+    #[schema(example = "Image uploaded successfully")]
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+/// Information about an image's existence
+pub struct ImageCheckResponse {
+    /// Whether the image exists in the agent
+    pub exists: bool,
+    /// Image ID if it exists
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_id: Option<Vec<u32>>,
+    /// Market URL if it exists
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub market_url: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+/// Response containing information about uploaded images
+pub struct ImageInfoResponse {
+    /// Batch image details if uploaded
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch: Option<crate::image_manager::ImageDetails>,
+    /// Aggregation image details if uploaded
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aggregation: Option<crate::image_manager::ImageDetails>,
+}

@@ -3,8 +3,7 @@ use tokio::time::timeout;
 use std::str::FromStr;
 
 use crate::methods::{
-    boundless_aggregation::BOUNDLESS_AGGREGATION_ELF,
-    boundless_batch::{BOUNDLESS_BATCH_ELF, BOUNDLESS_BATCH_ID},
+    boundless_batch::BOUNDLESS_BATCH_ID,
 };
 use alloy_primitives_v1p2p0::{
     U256, keccak256, hex,
@@ -27,6 +26,7 @@ use std::collections::HashMap;
 use tokio::sync::RwLock;
 use std::sync::Arc;
 use crate::storage::BoundlessStorage;
+use crate::image_manager::ImageManager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProofRequestStatus {
@@ -204,6 +204,7 @@ impl BoundlessOfferParams {
 pub struct BoundlessConfig {
     pub deployment: Option<DeploymentConfig>,
     pub offer_params: Option<OfferParamsConfig>,
+    pub rpc_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -229,6 +230,7 @@ impl Default for BoundlessConfig {
                 batch: Some(BoundlessOfferParams::batch()),
                 aggregation: Some(BoundlessOfferParams::aggregation()),
             }),
+            rpc_url: None,
         }
     }
 }
@@ -276,6 +278,11 @@ impl BoundlessConfig {
             } else {
                 self.offer_params = Some(other_offer_params.clone());
             }
+        }
+
+        // Merge rpc_url if provided
+        if let Some(rpc_url) = &other.rpc_url {
+            self.rpc_url = Some(rpc_url.clone());
         }
     }
 
@@ -354,13 +361,12 @@ impl Default for ProverConfig {
 
 #[derive(Clone, Debug)]
 pub struct BoundlessProver {
-    batch_image_url: Arc<RwLock<Option<Url>>>,
-    aggregation_image_url: Arc<RwLock<Option<Url>>>,
     config: ProverConfig,
     deployment: Deployment,
     boundless_config: BoundlessConfig,
     active_requests: Arc<RwLock<HashMap<String, AsyncProofRequest>>>,
     storage: BoundlessStorage,
+    image_manager: ImageManager,
 }
 
 // More specific error types
@@ -403,7 +409,7 @@ impl BoundlessProver {
     }
 
     /// Create a boundless client with the current configuration
-    async fn create_boundless_client(&self) -> AgentResult<Client> {
+    pub async fn create_boundless_client(&self) -> AgentResult<Client> {
         let deployment = Some(self.deployment.clone());
         let storage_provider = boundless_market::storage::storage_provider_from_env().ok();
 
@@ -603,11 +609,10 @@ impl BoundlessProver {
         Ok((guest_env, guest_env_bytes))
     }
 
-    pub async fn new(config: ProverConfig) -> AgentResult<Self> {
+    pub async fn new(config: ProverConfig, image_manager: ImageManager) -> AgentResult<Self> {
         let deployment = BoundlessProver::create_deployment(&config)?;
         tracing::info!("boundless deployment: {:?}", deployment);
 
-        // Create a temporary instance to use the create_boundless_client method
         // Initialize SQLite storage
         let db_path = std::env::var("SQLITE_DB_PATH")
             .unwrap_or_else(|_| "./boundless_requests.db".to_string());
@@ -624,59 +629,63 @@ impl BoundlessProver {
             Err(e) => tracing::warn!("Failed to clean up expired requests: {}", e),
         }
 
-        let temp_prover = BoundlessProver {
-            batch_image_url: Arc::new(RwLock::new(None)),
-            aggregation_image_url: Arc::new(RwLock::new(None)),
-            config: config.clone(),
-            deployment: deployment.clone(),
-            boundless_config: config.boundless_config.clone(),
-            active_requests: Arc::new(RwLock::new(HashMap::new())),
-            storage: storage.clone(),
-        };
+        let boundless_config = config.boundless_config.clone();
 
-        let boundless_client = temp_prover.create_boundless_client().await?;
-
-        // Upload the ELF to the storage provider so that it can be fetched by the market.
-        if boundless_client.storage_provider.is_none() {
-            return Err(AgentError::StorageProviderRequired);
-        }
-
-        // Always upload batch ELF (no caching)
-        tracing::info!("Uploading batch ELF...");
-        let batch_image_url = boundless_client
-            .upload_program(BOUNDLESS_BATCH_ELF)
-            .await
-            .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_BATCH_ELF: {e}")))?;
-
-        // Always upload aggregation ELF (no caching)
-        tracing::info!("Uploading aggregation ELF...");
-        let aggregation_image_url = boundless_client
-            .upload_program(BOUNDLESS_AGGREGATION_ELF)
-            .await
-            .map_err(|e| AgentError::ProgramUploadError(format!("BOUNDLESS_AGGREGATION_ELF: {e}")))?;
-
-        let final_prover = BoundlessProver {
-            batch_image_url: Arc::new(RwLock::new(Some(batch_image_url))),
-            aggregation_image_url: Arc::new(RwLock::new(Some(aggregation_image_url))),
+        let prover = BoundlessProver {
             config,
             deployment,
-            boundless_config: temp_prover.boundless_config.clone(),
+            boundless_config,
             active_requests: Arc::new(RwLock::new(HashMap::new())),
             storage: storage.clone(),
+            image_manager: image_manager.clone(),
         };
 
-        // Start background TTL cleanup task
-        Self::start_ttl_cleanup_task(final_prover.storage.clone(), final_prover.active_requests.clone());
+        // Refresh market URLs if images exist in ImageManager
+        // This ensures fresh presigned URLs after prover refresh/TTL expiration
+        // The storage provider deduplicates content, so only new URLs are generated
+        if image_manager.get_batch_image().await.is_some() ||
+           image_manager.get_aggregation_image().await.is_some() {
+            tracing::info!("Refreshing market URLs for uploaded images (TTL refresh)...");
 
-        Ok(final_prover)
+            let client = prover.create_boundless_client().await?;
+
+            // Refresh batch image URL if exists
+            if let Some(batch_info) = image_manager.get_batch_image().await {
+                tracing::info!("Refreshing batch image market URL (content already cached in storage)");
+                image_manager.store_and_upload_image(
+                    "batch",
+                    batch_info.elf_bytes.clone(),
+                    &client
+                ).await?;
+            }
+
+            // Refresh aggregation image URL if exists
+            if let Some(agg_info) = image_manager.get_aggregation_image().await {
+                tracing::info!("Refreshing aggregation image market URL (content already cached in storage)");
+                image_manager.store_and_upload_image(
+                    "aggregation",
+                    agg_info.elf_bytes.clone(),
+                    &client
+                ).await?;
+            }
+
+            tracing::info!("Market URLs refreshed successfully");
+        } else {
+            tracing::info!("BoundlessProver initialized. Images should be uploaded via /upload-image endpoint.");
+        }
+
+        // Start background TTL cleanup task
+        Self::start_ttl_cleanup_task(prover.storage.clone(), prover.active_requests.clone());
+
+        Ok(prover)
     }
 
     pub async fn get_batch_image_url(&self) -> Option<Url> {
-        self.batch_image_url.read().await.clone()
+        self.image_manager.get_batch_image_url().await
     }
 
     pub async fn get_aggregation_image_url(&self) -> Option<Url> {
-        self.aggregation_image_url.read().await.clone()
+        self.image_manager.get_aggregation_image_url().await
     }
 
     pub fn prover_config(&self) -> ProverConfig {
@@ -1015,13 +1024,23 @@ impl BoundlessProver {
 
         tokio::spawn(async move {
             let offer_params = prover_clone.boundless_config.get_batch_offer_params();
-            let image_url = prover_clone.batch_image_url.read().await.clone().unwrap();
+
+            // Get image info from ImageManager
+            let image_info = match prover_clone.image_manager.get_batch_image().await {
+                Some(info) => info,
+                None => {
+                    let err_msg = "Batch image not uploaded. Please upload via /upload-image endpoint first.";
+                    tracing::error!("{}", err_msg);
+                    prover_clone.update_failed_status(&request_id_clone, err_msg.to_string()).await;
+                    return;
+                }
+            };
 
             if let Err(e) = prover_clone.process_and_submit_request(
                 &request_id_clone,
                 input,
-                BOUNDLESS_BATCH_ELF,
-                image_url,
+                &image_info.elf_bytes,
+                image_info.market_url,
                 offer_params,
                 ProofType::Batch,
                 active_requests,
@@ -1102,13 +1121,23 @@ impl BoundlessProver {
 
         tokio::spawn(async move {
             let offer_params = prover_clone.boundless_config.get_aggregation_offer_params();
-            let image_url = prover_clone.aggregation_image_url.read().await.clone().unwrap();
+
+            // Get image info from ImageManager
+            let image_info = match prover_clone.image_manager.get_aggregation_image().await {
+                Some(info) => info,
+                None => {
+                    let err_msg = "Aggregation image not uploaded. Please upload via /upload-image endpoint first.";
+                    tracing::error!("{}", err_msg);
+                    prover_clone.update_failed_status(&request_id_clone, err_msg.to_string()).await;
+                    return;
+                }
+            };
 
             if let Err(e) = prover_clone.process_and_submit_request(
                 &request_id_clone,
                 input,
-                BOUNDLESS_AGGREGATION_ELF,
-                image_url,
+                &image_info.elf_bytes,
+                image_info.market_url,
                 offer_params,
                 ProofType::Aggregate,
                 active_requests,
@@ -1336,7 +1365,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_run() {
-        BoundlessProver::new(ProverConfig::default())
+        use crate::image_manager::ImageManager;
+        let image_manager = ImageManager::new();
+        BoundlessProver::new(ProverConfig::default(), image_manager)
             .await
             .unwrap();
     }
@@ -1399,7 +1430,8 @@ mod tests {
         let _output_bytes = std::fs::read("tests/fixtures/output-1306738.bin").unwrap();
 
         let config = serde_json::Value::default();
-        let prover = BoundlessProver::new(ProverConfig::default())
+        let image_manager = ImageManager::new();
+        let prover = BoundlessProver::new(ProverConfig::default(), image_manager)
             .await
             .unwrap();
         
@@ -1456,7 +1488,8 @@ mod tests {
         let config = serde_json::Value::default();
         
         // Test async aggregation request submission
-        let prover = BoundlessProver::new(ProverConfig::default())
+        let image_manager = ImageManager::new();
+        let prover = BoundlessProver::new(ProverConfig::default(), image_manager)
             .await
             .unwrap();
         let request_id = prover.aggregate("test_aggregate_request_id".to_string(), input, &config).await.unwrap();
@@ -1511,6 +1544,7 @@ mod tests {
 
     #[test]
     fn test_image_id() {
+        use crate::methods::boundless_batch::BOUNDLESS_BATCH_ELF;
         let image_id = risc0_zkvm::compute_image_id(BOUNDLESS_BATCH_ELF).unwrap();
         println!("image_id: {:?}", image_id);
         let image_id_bytes = BOUNDLESS_BATCH_ID
@@ -1561,6 +1595,7 @@ mod tests {
                 batch: Some(BoundlessOfferParams::batch()),
                 aggregation: Some(BoundlessOfferParams::aggregation()),
             }),
+            rpc_url: None,
         };
 
         // Test serialization and deserialization
@@ -1587,6 +1622,7 @@ mod tests {
                 batch: Some(BoundlessOfferParams::batch()),
                 aggregation: Some(BoundlessOfferParams::aggregation()),
             }),
+            rpc_url: None,
         };
 
         let prover_config = ProverConfig {
@@ -1612,6 +1648,7 @@ mod tests {
                 overrides: None,
             }),
             offer_params: None,
+            rpc_url: None,
         };
 
         // Start with default config
@@ -1645,6 +1682,7 @@ mod tests {
                 overrides: Some(overrides),
             }),
             offer_params: None,
+            rpc_url: None,
         };
 
         let deployment = config.get_effective_deployment();

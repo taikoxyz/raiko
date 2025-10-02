@@ -2,13 +2,17 @@ pub mod api;
 pub mod boundless;
 pub mod storage;
 pub mod methods;
+pub mod rate_limit;
+pub mod image_manager;
 
 pub use boundless::{
-    AgentError, AgentResult, AsyncProofRequest, DeploymentType, ElfType, 
+    AgentError, AgentResult, AsyncProofRequest, DeploymentType, ElfType,
     ProofRequestStatus, ProverConfig, BoundlessProver, ProofType as BoundlessProofType,
     generate_request_id,
 };
 pub use storage::{BoundlessStorage, DatabaseStats};
+pub use rate_limit::RateLimiter;
+pub use image_manager::ImageManager;
 
 use axum::{
     extract::DefaultBodyLimit,
@@ -22,7 +26,10 @@ use utoipa_swagger_ui::SwaggerUi;
 use utoipa_scalar::{Scalar, Servable};
 
 use api::{
-    handlers::*,
+    handlers::{
+        health_check, proof_handler, get_async_proof_status, list_async_requests,
+        delete_all_requests, get_database_stats, upload_image_handler, image_info_handler
+    },
     create_docs,
 };
 
@@ -30,6 +37,8 @@ use api::{
 pub struct AppState {
     prover: Arc<Mutex<Option<BoundlessProver>>>,
     prover_init_time: Arc<Mutex<Option<std::time::Instant>>>,
+    rate_limiter: RateLimiter,
+    image_manager: ImageManager,
 }
 
 impl AppState {
@@ -37,11 +46,13 @@ impl AppState {
         Self {
             prover: Arc::new(Mutex::new(None)),
             prover_init_time: Arc::new(Mutex::new(None)),
+            rate_limiter: RateLimiter::from_env(),
+            image_manager: ImageManager::new(),
         }
     }
 
     async fn init_prover(&self, config: ProverConfig) -> AgentResult<BoundlessProver> {
-        let prover = BoundlessProver::new(config).await.map_err(|e| {
+        let prover = BoundlessProver::new(config, self.image_manager.clone()).await.map_err(|e| {
             AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
         })?;
         self.prover.lock().await.replace(prover.clone());
@@ -67,7 +78,7 @@ impl AppState {
 
         if should_refresh || prover_guard.is_none() {
             tracing::info!("Prover TTL exceeded or not initialized, re-initializing prover...");
-            let prover = BoundlessProver::new(config_guard).await.map_err(|e| {
+            let prover = BoundlessProver::new(config_guard, self.image_manager.clone()).await.map_err(|e| {
                 AgentError::ClientBuildError(format!("Failed to initialize prover: {}", e))
             })?;
             *prover_guard = Some(prover.clone());
@@ -98,9 +109,8 @@ struct CmdArgs {
     #[arg(long, default_value_t = false)]
     offchain: bool,
 
-    /// RPC URL
-    // #[arg(long, default_value = "https://ethereum-sepolia-rpc.publicnode.com")]
-    #[arg(long, default_value = "https://base-rpc.publicnode.com")]
+    /// RPC URL (can also be set via BOUNDLESS_RPC_URL env var)
+    #[arg(long, env = "BOUNDLESS_RPC_URL", default_value = "https://base-rpc.publicnode.com")]
     rpc_url: String,
 
     /// Pull interval
@@ -150,10 +160,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         boundless_config.merge(&file_config);
     }
 
+    // Use rpc_url from config file if available, otherwise from args
+    let rpc_url = boundless_config.rpc_url.clone().unwrap_or(args.rpc_url);
+
     let prover_config = ProverConfig {
         offchain: args.offchain,
         pull_interval: args.pull_interval,
-        rpc_url: args.rpc_url,
+        rpc_url,
         boundless_config,
         url_ttl: args.url_ttl,
     };
@@ -169,6 +182,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Start background task to clean up rate limiter state
+    let limiter = state.rate_limiter.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // Cleanup every 5 minutes
+        loop {
+            interval.tick().await;
+            limiter.cleanup().await;
+        }
+    });
+
     // Generate OpenAPI documentation
     let docs = create_docs();
 
@@ -177,8 +200,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/proof", post(proof_handler))
         .route("/status/:request_id", get(get_async_proof_status))
         .route("/requests", get(list_async_requests))
-        .route("/prune", delete(delete_all_requests)) 
+        .route("/prune", delete(delete_all_requests))
         .route("/stats", get(get_database_stats))
+        .route("/upload-image/:image_type", post(upload_image_handler))
+        .route("/images", get(image_info_handler))
         // OpenAPI documentation endpoints
         .merge(SwaggerUi::new("/docs")
             .url("/api-docs/openapi.json", docs.clone()))
@@ -195,7 +220,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind(&address).await?;
     tracing::info!("Server listening on http://{}", &address);
 
-    axum::serve(listener, app).await?;
+    // Use into_make_service_with_connect_info to enable ConnectInfo extraction in handlers
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

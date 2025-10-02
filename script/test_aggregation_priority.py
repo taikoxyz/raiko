@@ -592,7 +592,7 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 1234110, 
                                                       max_wait_time: int = 3600, monitor_duration: int = 6000) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -706,7 +706,7 @@ async def main():
     parser.add_argument(
         "--base-block",
         type=int,
-        default=1234000,
+        default=1234110,
         help="Base block number to start testing from (Hoodi testnet recent blocks around 1236000+)"
     )
     

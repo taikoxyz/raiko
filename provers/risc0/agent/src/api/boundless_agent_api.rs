@@ -1,14 +1,16 @@
 use utoipa::OpenApi;
 use crate::{ElfType, DatabaseStats};
 use super::types::{
-    AsyncProofRequestData, AsyncProofResponse, DetailedStatusResponse, 
+    AsyncProofRequestData, AsyncProofResponse, DetailedStatusResponse,
     RequestListResponse, HealthResponse, DatabaseStatsResponse, DeleteAllResponse,
-    ErrorResponse, ProofType
+    ErrorResponse, ProofType, UploadImageResponse, ImageInfoResponse
 };
 use crate::api::handlers::{
     __path_health_check, __path_proof_handler, __path_get_async_proof_status,
-    __path_list_async_requests, __path_get_database_stats, __path_delete_all_requests
+    __path_list_async_requests, __path_get_database_stats, __path_delete_all_requests,
+    __path_upload_image_handler, __path_image_info_handler
 };
+use crate::image_manager::ImageDetails;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -58,6 +60,8 @@ Raiko Server → Boundless Agent → Boundless Market
         list_async_requests,
         get_database_stats,
         delete_all_requests,
+        upload_image_handler,
+        image_info_handler,
     ),
     components(schemas(
         AsyncProofRequestData,
@@ -71,12 +75,16 @@ Raiko Server → Boundless Agent → Boundless Market
         DatabaseStats,
         DeleteAllResponse,
         ErrorResponse,
+        UploadImageResponse,
+        ImageInfoResponse,
+        ImageDetails,
     )),
     tags(
         (name = "Health", description = "Service health and status endpoints"),
         (name = "Proof", description = "Proof generation and submission endpoints"),
         (name = "Status", description = "Request status monitoring and tracking endpoints"),
-        (name = "Maintenance", description = "Database and system maintenance endpoints")
+        (name = "Maintenance", description = "Database and system maintenance endpoints"),
+        (name = "Image Management", description = "ELF image upload and management endpoints")
     ),
     external_docs(
         url = "https://github.com/taikoxyz/raiko/docs/boundless_agent_api.md",

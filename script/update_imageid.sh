@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-# Script to automatically update RISC0 image IDs, SP1 VK hashes, SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file
-# by reading from build output or extracting MRENCLAVE directly
+# Script to automatically update RISC0 image IDs, Boundless image IDs, SP1 VK hashes,
+# SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file by reading from build output or
+# extracting MRENCLAVE directly
 #
 # Usage:
-#   ./script/update_imageid.sh risc0 [output_file]    # Update RISC0 image IDs from file or temp
+#   ./script/update_imageid.sh risc0 [output_file]    # Update RISC0 and Boundless image IDs from file or temp
 #   ./script/update_imageid.sh sp1 [output_file]      # Update SP1 VK hashes from file or temp
 #   ./script/update_imageid.sh sgx_direct <image>     # Extract SGX MRENCLAVE by calling gramine tools directly on container
 #   ./script/update_imageid.sh sgxgeth_direct <image> # Extract SGXGETH MRENCLAVE from container (reads from pre-generated file)
@@ -13,6 +14,10 @@
 #
 # This script is automatically called by build.sh after building RISC0 or SP1 provers,
 # or can be used to extract MRENCLAVE values directly from Docker containers.
+#
+# The RISC0 command now extracts both:
+#   - RISC0_BATCH_ID and RISC0_AGGREGATION_ID (for Bonsai prover)
+#   - BOUNDLESS_BATCH_ID and BOUNDLESS_AGGREGATION_ID (for Boundless Market prover)
 #
 # If no output_file is provided for RISC0/SP1 modes, it will look for temp files:
 #   /tmp/risc0_build_output.txt for RISC0
@@ -44,19 +49,25 @@ print_error() {
 extract_risc0_image_id() {
     local build_output="$1"
     local binary_name="$2"
-    
+
     # Look for the pattern "risc0 elf image id: <hex_string>" before the binary path
     local image_id=""
-    
+
     # Find the image ID that appears before the specific binary path
     if [ "$binary_name" = "risc0-aggregation" ]; then
         # Get the image ID that appears before risc0-aggregation path
         image_id=$(echo "$build_output" | grep -B1 "risc0-aggregation" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | head -1)
     elif [ "$binary_name" = "risc0-batch" ]; then
-        # Get the image ID that appears before risc0-batch path  
+        # Get the image ID that appears before risc0-batch path
         image_id=$(echo "$build_output" | grep -B1 "risc0-batch" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | head -1)
+    elif [ "$binary_name" = "boundless-aggregation" ]; then
+        # Get the image ID that appears before boundless-aggregation path
+        image_id=$(echo "$build_output" | grep -B1 "boundless-aggregation" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | head -1)
+    elif [ "$binary_name" = "boundless-batch" ]; then
+        # Get the image ID that appears before boundless-batch path
+        image_id=$(echo "$build_output" | grep -B1 "boundless-batch" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | head -1)
     fi
-    
+
     # Fallback: if context search fails, try sequential search based on order
     if [ -z "$image_id" ]; then
         if [ "$binary_name" = "risc0-aggregation" ]; then
@@ -65,14 +76,20 @@ extract_risc0_image_id() {
         elif [ "$binary_name" = "risc0-batch" ]; then
             # Get second image ID for batch
             image_id=$(echo "$build_output" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | tail -1)
+        elif [ "$binary_name" = "boundless-aggregation" ]; then
+            # Get third image ID for boundless aggregation
+            image_id=$(echo "$build_output" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | sed -n '3p')
+        elif [ "$binary_name" = "boundless-batch" ]; then
+            # Get fourth image ID for boundless batch
+            image_id=$(echo "$build_output" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | sed -n '4p')
         fi
     fi
-    
+
     if [ -z "$image_id" ]; then
         print_error "Failed to extract RISC0 image ID for $binary_name"
         return 1
     fi
-    
+
     echo "$image_id"
 }
 
@@ -256,6 +273,29 @@ update_env_file() {
         fi
         print_status "Updated RISC0_BATCH_ID in $env_file: $RISC0_BATCH_ID"
     fi
+
+    # Update Boundless image IDs if provided
+    if [ -n "$BOUNDLESS_AGGREGATION_ID" ]; then
+        if grep -q "^BOUNDLESS_AGGREGATION_ID=" "$env_file"; then
+            # Update existing entry
+            sed -i "s/^BOUNDLESS_AGGREGATION_ID=.*/BOUNDLESS_AGGREGATION_ID=$BOUNDLESS_AGGREGATION_ID/" "$env_file"
+        else
+            # Add new entry
+            echo "BOUNDLESS_AGGREGATION_ID=$BOUNDLESS_AGGREGATION_ID" >> "$env_file"
+        fi
+        print_status "Updated BOUNDLESS_AGGREGATION_ID in $env_file: $BOUNDLESS_AGGREGATION_ID"
+    fi
+
+    if [ -n "$BOUNDLESS_BATCH_ID" ]; then
+        if grep -q "^BOUNDLESS_BATCH_ID=" "$env_file"; then
+            # Update existing entry
+            sed -i "s/^BOUNDLESS_BATCH_ID=.*/BOUNDLESS_BATCH_ID=$BOUNDLESS_BATCH_ID/" "$env_file"
+        else
+            # Add new entry
+            echo "BOUNDLESS_BATCH_ID=$BOUNDLESS_BATCH_ID" >> "$env_file"
+        fi
+        print_status "Updated BOUNDLESS_BATCH_ID in $env_file: $BOUNDLESS_BATCH_ID"
+    fi
     
     # Update SP1 VK hashes if provided
     if [ -n "$SP1_AGGREGATION_VK_HASH" ]; then
@@ -303,18 +343,33 @@ extract_risc0_ids_from_output() {
         fi
     fi
     
-    # Extract image IDs
+    # Extract RISC0 image IDs
     local aggregation_id=$(extract_risc0_image_id "$build_output" "risc0-aggregation")
     local batch_id=$(extract_risc0_image_id "$build_output" "risc0-batch")
-    
+
+    # Extract Boundless image IDs
+    local boundless_aggregation_id=$(extract_risc0_image_id "$build_output" "boundless-aggregation")
+    local boundless_batch_id=$(extract_risc0_image_id "$build_output" "boundless-batch")
+
     if [ -n "$aggregation_id" ] && [ -n "$batch_id" ]; then
         RISC0_AGGREGATION_ID="$aggregation_id"
         RISC0_BATCH_ID="$batch_id"
-        print_status "Extracted RISC0 image IDs:"
+        print_status "Extracted RISC0 image IDs (Bonsai):"
         print_status "  Aggregation: $aggregation_id"
         print_status "  Batch: $batch_id"
     else
         print_error "Failed to extract RISC0 image IDs from build output"
+        return 1
+    fi
+
+    if [ -n "$boundless_aggregation_id" ] && [ -n "$boundless_batch_id" ]; then
+        BOUNDLESS_AGGREGATION_ID="$boundless_aggregation_id"
+        BOUNDLESS_BATCH_ID="$boundless_batch_id"
+        print_status "Extracted Boundless image IDs:"
+        print_status "  Aggregation: $boundless_aggregation_id"
+        print_status "  Batch: $boundless_batch_id"
+    else
+        print_error "Failed to extract Boundless image IDs from build output"
         return 1
     fi
 }
@@ -362,6 +417,8 @@ main() {
     # Initialize variables
     RISC0_AGGREGATION_ID=""
     RISC0_BATCH_ID=""
+    BOUNDLESS_AGGREGATION_ID=""
+    BOUNDLESS_BATCH_ID=""
     SP1_AGGREGATION_VK_HASH=""
     SP1_BATCH_VK_HASH=""
     

@@ -36,26 +36,266 @@ pub struct Risc0AgentResponse {
     pub receipt: Option<String>,
 }
 
+pub struct BoundlessProverConfig {
+    /// Maximum number of concurrent HTTP requests to the agent
+    pub request_concurrency_limit: usize,
+    /// Polling interval in seconds for checking proof status
+    pub status_poll_interval_secs: u64,
+    /// Maximum timeout in seconds for waiting for proof completion
+    pub max_proof_timeout_secs: u64,
+    /// Maximum retry attempts for status endpoint calls
+    pub max_status_retries: u32,
+    /// Retry delay in seconds between status endpoint attempts
+    pub status_retry_delay_secs: u64,
+    /// HTTP connection timeout in seconds
+    pub http_connect_timeout_secs: u64,
+    /// HTTP request timeout in seconds (applies to both POST and GET)
+    pub http_timeout_secs: u64,
+}
+
+impl Default for BoundlessProverConfig {
+    fn default() -> Self {
+        Self {
+            request_concurrency_limit: 4,
+            status_poll_interval_secs: 15,
+            max_proof_timeout_secs: 3600, // 1 hour
+            max_status_retries: 8,
+            status_retry_delay_secs: 5,
+            http_connect_timeout_secs: 10,
+            http_timeout_secs: 60,
+        }
+    }
+}
+
+impl BoundlessProverConfig {
+    /// Load configuration from environment variables, falling back to defaults
+    pub fn from_env() -> Self {
+        let defaults = Self::default();
+
+        Self {
+            request_concurrency_limit: std::env::var("BOUNDLESS_REQUEST_CONCURRENCY_LIMIT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(defaults.request_concurrency_limit),
+            status_poll_interval_secs: std::env::var("BOUNDLESS_STATUS_POLL_INTERVAL_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(defaults.status_poll_interval_secs),
+            max_proof_timeout_secs: std::env::var("BOUNDLESS_MAX_PROOF_TIMEOUT_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(defaults.max_proof_timeout_secs),
+            max_status_retries: std::env::var("BOUNDLESS_MAX_STATUS_RETRIES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(defaults.max_status_retries),
+            status_retry_delay_secs: std::env::var("BOUNDLESS_STATUS_RETRY_DELAY_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(defaults.status_retry_delay_secs),
+            http_connect_timeout_secs: std::env::var("BOUNDLESS_HTTP_CONNECT_TIMEOUT_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(defaults.http_connect_timeout_secs),
+            http_timeout_secs: std::env::var("BOUNDLESS_HTTP_TIMEOUT_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(defaults.http_timeout_secs),
+        }
+    }
+}
+
 pub struct BoundlessProver {
     remote_prover_url: String,
     request_semaphore: Arc<Semaphore>,
+    config: BoundlessProverConfig,
+    images_uploaded: Arc<tokio::sync::RwLock<bool>>,
 }
 
 impl BoundlessProver {
     pub fn new() -> Self {
         let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
             .unwrap_or_else(|_| "http://localhost:9999/proof".to_string());
-        
-        // Configure HTTP request concurrency limit (default: 4)
-        let concurrency_limit = std::env::var("BOUNDLESS_REQUEST_CONCURRENCY_LIMIT")
-            .unwrap_or_else(|_| "4".to_string())
-            .parse::<usize>()
-            .unwrap_or(4);
-        
-        Self { 
+
+        let config = BoundlessProverConfig::from_env();
+
+        Self {
             remote_prover_url,
-            request_semaphore: Arc::new(Semaphore::new(concurrency_limit)),
+            request_semaphore: Arc::new(Semaphore::new(config.request_concurrency_limit)),
+            config,
+            images_uploaded: Arc::new(tokio::sync::RwLock::new(false)),
         }
+    }
+
+    /// Verify images are present in agent via health check
+    async fn verify_images_in_agent(&self) -> ProverResult<bool> {
+        let base_url = self.remote_prover_url.trim_end_matches("/proof");
+        let info_url = format!("{}/images", base_url);
+
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(self.config.http_connect_timeout_secs))
+            .timeout(Duration::from_secs(self.config.http_timeout_secs))
+            .build()
+            .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
+
+        let resp = client.get(&info_url).send().await.map_err(|e| {
+            ProverError::GuestError(format!("Failed to query agent image info: {e}"))
+        })?;
+
+        if !resp.status().is_success() {
+            return Ok(false);
+        }
+
+        let resp_json: serde_json::Value = resp.json().await.map_err(|e| {
+            ProverError::GuestError(format!("Failed to parse images response: {e}"))
+        })?;
+
+        // Check if both batch and aggregation images exist
+        let batch_exists = resp_json
+            .get("batch")
+            .and_then(|b| b.get("uploaded"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let agg_exists = resp_json
+            .get("aggregation")
+            .and_then(|a| a.get("uploaded"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        Ok(batch_exists && agg_exists)
+    }
+
+    /// Ensure ELF images are uploaded to agent before first proof request
+    async fn ensure_images_uploaded(&self) -> ProverResult<()> {
+        let mut uploaded = self.images_uploaded.write().await;
+
+        if *uploaded {
+            // Health check: verify agent still has the images
+            drop(uploaded); // Release lock before async call
+            match self.verify_images_in_agent().await {
+                Ok(true) => {
+                    tracing::debug!("Images verified present in agent");
+                    return Ok(());
+                }
+                Ok(false) => {
+                    tracing::warn!("Agent missing images (possibly restarted), re-uploading...");
+                    // Re-acquire lock and reset flag
+                    let mut uploaded = self.images_uploaded.write().await;
+                    *uploaded = false;
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to verify images in agent: {}. Assuming re-upload needed.", e);
+                    let mut uploaded = self.images_uploaded.write().await;
+                    *uploaded = false;
+                }
+            }
+            // Re-acquire lock for upload
+            uploaded = self.images_uploaded.write().await;
+        }
+
+        tracing::info!("Uploading ELF images to boundless agent...");
+
+        // Upload batch ELF
+        self.upload_image_to_agent(
+            "batch",
+            crate::methods::boundless_batch::BOUNDLESS_BATCH_ELF,
+            crate::methods::boundless_batch::BOUNDLESS_BATCH_ID,
+        )
+        .await?;
+
+        // Upload aggregation ELF
+        self.upload_image_to_agent(
+            "aggregation",
+            crate::methods::boundless_aggregation::BOUNDLESS_AGGREGATION_ELF,
+            crate::methods::boundless_aggregation::BOUNDLESS_AGGREGATION_ID,
+        )
+        .await?;
+
+        *uploaded = true;
+        tracing::info!("All ELF images uploaded to agent");
+
+        Ok(())
+    }
+
+    /// Upload a single image to the agent
+    async fn upload_image_to_agent(
+        &self,
+        image_type: &str,
+        elf_bytes: &[u8],
+        expected_image_id: [u32; 8],
+    ) -> ProverResult<()> {
+        let base_url = self.remote_prover_url.trim_end_matches("/proof");
+        let upload_url = format!("{}/upload-image/{}", base_url, image_type);
+
+        tracing::info!(
+            "Uploading {} image: {:.2} MB",
+            image_type,
+            elf_bytes.len() as f64 / 1_000_000.0
+        );
+
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(self.config.http_connect_timeout_secs))
+            .timeout(Duration::from_secs(120)) // Longer timeout for large uploads
+            .build()
+            .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
+
+        let resp = client
+            .post(&upload_url)
+            .header("Content-Type", "application/octet-stream")
+            .body(elf_bytes.to_vec())
+            .send()
+            .await
+            .map_err(|e| {
+                ProverError::GuestError(format!("Failed to upload {} image: {e}", image_type))
+            })?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let error_text = resp.text().await.unwrap_or_default();
+            return Err(ProverError::GuestError(format!(
+                "Agent returned error status {}: {}",
+                status,
+                error_text
+            )));
+        }
+
+        let resp_json: serde_json::Value = resp.json().await.map_err(|e| {
+            ProverError::GuestError(format!("Failed to parse upload response: {e}"))
+        })?;
+
+        // Verify image_id matches what we computed
+        let agent_image_id: Vec<u32> = resp_json
+            .get("image_id")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .ok_or_else(|| {
+                ProverError::GuestError("Missing image_id in agent response".to_string())
+            })?;
+
+        let expected_vec: Vec<u32> = expected_image_id.to_vec();
+
+        if agent_image_id != expected_vec {
+            return Err(ProverError::GuestError(format!(
+                "Image ID mismatch for {}! Driver: {:?}, Agent: {:?}.",
+                image_type, expected_vec, agent_image_id
+            )));
+        }
+
+        let status = resp_json
+            .get("status")
+            .and_then(|s| s.as_str())
+            .unwrap_or("unknown");
+
+        tracing::info!(
+            "{} image {}: {}",
+            image_type,
+            status,
+            resp_json
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("")
+        );
+
+        Ok(())
     }
 }
 
@@ -63,12 +303,13 @@ impl BoundlessProver {
 async fn wait_boundless_proof(
     agent_base_url: &str,
     request_id: String,
+    config: &BoundlessProverConfig,
 ) -> ProverResult<Vec<u8>> {
     tracing::info!("Waiting for boundless proof completion, polling agent status for request: {}", request_id);
-    
-    let max_retries = 8;
-    let poll_interval = Duration::from_secs(15);
-    let max_timeout = Duration::from_secs(3600); // 1 hour timeout
+
+    let max_retries = config.max_status_retries;
+    let poll_interval = Duration::from_secs(config.status_poll_interval_secs);
+    let max_timeout = Duration::from_secs(config.max_proof_timeout_secs);
     
     let start_time = std::time::Instant::now();
     
@@ -80,14 +321,20 @@ async fn wait_boundless_proof(
         // Check timeout
         if start_time.elapsed() > max_timeout {
             return Err(ProverError::GuestError(format!(
-                "Boundless proof request {} timed out after 1 hour - no response from market", request_id
+                "Boundless proof request {} timed out after {} seconds - no response from market",
+                request_id,
+                config.max_proof_timeout_secs
             )));
         }
         
         let mut res = None;
         for attempt in 1..=max_retries {
-            let client = reqwest::Client::new();
-            
+            let client = reqwest::Client::builder()
+                .connect_timeout(Duration::from_secs(config.http_connect_timeout_secs))
+                .timeout(Duration::from_secs(config.http_timeout_secs))
+                .build()
+                .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
+
             match client.get(&status_url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -103,7 +350,7 @@ async fn wait_boundless_proof(
                                     )));
                                 }
                                 tracing::warn!("Attempt {}/{} failed to parse response: {}", attempt, max_retries, err);
-                                tokio_async_sleep(Duration::from_secs(5)).await;
+                                tokio_async_sleep(Duration::from_secs(config.status_retry_delay_secs)).await;
                                 continue;
                             }
                         }
@@ -114,7 +361,7 @@ async fn wait_boundless_proof(
                             )));
                         }
                         tracing::warn!("Attempt {}/{} - boundless agent status endpoint error: {}", attempt, max_retries, response.status());
-                        tokio_async_sleep(Duration::from_secs(5)).await;
+                        tokio_async_sleep(Duration::from_secs(config.status_retry_delay_secs)).await;
                         continue;
                     }
                 }
@@ -125,7 +372,7 @@ async fn wait_boundless_proof(
                         )));
                     }
                     tracing::warn!("Attempt {}/{} - failed to query boundless agent status: {:?}", attempt, max_retries, err);
-                    tokio_async_sleep(Duration::from_secs(5)).await;
+                    tokio_async_sleep(Duration::from_secs(config.status_retry_delay_secs)).await;
                     continue;
                 }
             }
@@ -203,18 +450,27 @@ impl Prover for BoundlessProver {
         _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).unwrap();
+        // Ensure images are uploaded before first use
+        self.ensure_images_uploaded().await?;
+
+        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
+            ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_BATCH_ELF: {e}"))
+        })?;
         let agent_input = Risc0AgengAggGuestInput {
             image_id: image_id,
             receipts: input
                 .proofs
                 .iter()
                 .map(|p| {
-                    let receipt_json = p.quote.clone().unwrap();
-                    let receipt: ZkvmReceipt = serde_json::from_str(&receipt_json).unwrap();
-                    receipt
+                    let receipt_json = p.quote.clone().ok_or_else(|| {
+                        ProverError::GuestError("Missing quote in proof for aggregation".to_string())
+                    })?;
+                    let receipt: ZkvmReceipt = serde_json::from_str(&receipt_json).map_err(|e| {
+                        ProverError::GuestError(format!("Failed to deserialize receipt from quote: {e}"))
+                    })?;
+                    Ok(receipt)
                 })
-                .collect(),
+                .collect::<ProverResult<Vec<_>>>()?,
         };
 
         // Make a remote call to the boundless agent at localhost:9999/proof and await the response
@@ -234,10 +490,16 @@ impl Prover for BoundlessProver {
         });
 
         // Acquire semaphore permit to limit concurrent HTTP requests
-        let _permit = self.request_semaphore.acquire().await.unwrap();
-        
+        let _permit = self.request_semaphore.acquire().await.map_err(|e| {
+            ProverError::GuestError(format!("Failed to acquire request semaphore: {e}"))
+        })?;
+
         // Send the request to the agent and await the response
-        let client = HttpClient::new();
+        let client = HttpClient::builder()
+            .connect_timeout(Duration::from_secs(self.config.http_connect_timeout_secs))
+            .timeout(Duration::from_secs(self.config.http_timeout_secs))
+            .build()
+            .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
         let resp = client
             .post(&self.remote_prover_url)
             .json(&payload)
@@ -266,14 +528,16 @@ impl Prover for BoundlessProver {
             .ok_or_else(|| ProverError::GuestError("Missing request_id in agent response".to_string()))?;
 
         // Poll until completion
-        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string()).await?;
+        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string(), &self.config).await?;
 
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
                 ProverError::GuestError(format!("Failed to deserialize output file: {e}"))
             })?;
 
-        let image_id = compute_image_id(BOUNDLESS_AGGREGATION_ELF).unwrap();
+        let image_id = compute_image_id(BOUNDLESS_AGGREGATION_ELF).map_err(|e| {
+            ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_AGGREGATION_ELF: {e}"))
+        })?;
         let journal_digest = agent_proof.journal.digest();
         let encoded_proof = verify_boundless_groth16_snark_impl(
             image_id,
@@ -309,6 +573,9 @@ impl Prover for BoundlessProver {
         _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
+        // Ensure images are uploaded before first use
+        self.ensure_images_uploaded().await?;
+
         // Serialize the input using bincode
         let input_bytes = bincode::serialize(&input).map_err(|e| {
             ProverError::GuestError(format!("Failed to serialize input with bincode: {e}"))
@@ -328,10 +595,16 @@ impl Prover for BoundlessProver {
         });
 
         // Acquire semaphore permit to limit concurrent HTTP requests
-        let _permit = self.request_semaphore.acquire().await.unwrap();
-        
+        let _permit = self.request_semaphore.acquire().await.map_err(|e| {
+            ProverError::GuestError(format!("Failed to acquire request semaphore: {e}"))
+        })?;
+
         // Send the request to the local agent and handle the response
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(self.config.http_connect_timeout_secs))
+            .timeout(Duration::from_secs(self.config.http_timeout_secs))
+            .build()
+            .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
         let resp = client
             .post(&self.remote_prover_url)
             .json(&payload)
@@ -360,14 +633,16 @@ impl Prover for BoundlessProver {
             .ok_or_else(|| ProverError::GuestError("Missing request_id in agent response".to_string()))?;
 
         // Poll until completion
-        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string()).await?;
+        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string(), &self.config).await?;
 
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
                 ProverError::GuestError(format!("Failed to deserialize output file: {e}"))
             })?;
 
-        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).unwrap();
+        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
+            ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_BATCH_ELF: {e}"))
+        })?;
         let journal_digest = agent_proof.journal.digest();
         let encoded_proof = verify_boundless_groth16_snark_impl(
             image_id,

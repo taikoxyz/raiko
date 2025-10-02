@@ -7,20 +7,21 @@
     },
     "offer_params": {
         "batch": {
-            "ramp_up_sec": 60,
-            "lock_timeout_ms_per_mcycle": 6000,
-            "timeout_ms_per_mcycle": 10800,
-            "max_price_per_mcycle": "0.00003",
-            "min_price_per_mcycle": "0.000003",
-            "lock_collateral": "0.0005"
+            "ramp_up_sec": 2400,
+            "lock_timeout_ms_per_mcycle": 3000,
+            "timeout_ms_per_mcycle": 6000,
+            "max_price_per_mcycle": "0.00000005",
+            "min_price_per_mcycle": "0.000000001",
+            "lock_collateral": "5"
         },
         "aggregation": {
-            "ramp_up_sec": 300,
-            "lock_timeout_ms_per_mcycle": 2400,
-            "timeout_ms_per_mcycle": 4500,
-            "max_price_per_mcycle": "0.00001",
-            "min_price_per_mcycle": "0.000001",
-            "lock_collateral": "0.0001"
+            "ramp_up_sec": 1800,
+            "lock_timeout_ms_per_mcycle": 3000,
+            "timeout_ms_per_mcycle": 5000,
+            "max_price_per_mcycle": "0.00000001",
+            "min_price_per_mcycle": "0.000000001",
+            "lock_collateral": "3"
         }
-    }
+    },
+    "rpc_url": "https://ethereum-sepolia-rpc.publicnode.com"
 }

@@ -10,5 +10,6 @@ pub mod risc0_batch;
 pub mod ecdsa;
 #[cfg(feature = "bench")]
 pub mod sha256;
-#[cfg(test)]
-pub mod test_risc0_batch;
+// Commented out - test binary doesn't exist
+// #[cfg(test)]
+// pub mod test_risc0_batch;
