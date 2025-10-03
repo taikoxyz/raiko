@@ -909,8 +909,9 @@ impl BoundlessProver {
             .map_err(|e| AgentError::GuestEnvEncodeError(format!("Failed to process input: {}", e)))?;
 
         // Evaluate cost
-        let (mcycles_count, _) = self.evaluate_cost(&guest_env, elf).await
-            .map_err(|e| AgentError::GuestExecutionError(format!("Failed to evaluate cost: {}", e)))?;
+        // let (mcycles_count, _) = self.evaluate_cost(&guest_env, elf).await
+        //     .map_err(|e| AgentError::GuestExecutionError(format!("Failed to evaluate cost: {}", e)))?;
+        let mcycles_count = 2000;
 
         // Use inline requests instead of uploading.
         tracing::info!("Using inline request for input ({} bytes)", guest_env_bytes.len());

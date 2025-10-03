@@ -755,6 +755,7 @@ impl ImageIdReader for ProofType {
     fn env_var_name(&self, _request_type: Option<&str>) -> &'static str {
         match self {
             ProofType::Risc0 => "RISC0_BATCH_ID",
+            ProofType::Boundless => "BOUNDLESS_BATCH_ID",
             ProofType::Sp1 => "SP1_BATCH_VK_HASH",
             ProofType::Sgx => "SGX_MRENCLAVE",
             ProofType::SgxGeth => "SGXGETH_MRENCLAVE",
@@ -764,7 +765,7 @@ impl ImageIdReader for ProofType {
 
     fn default_value(&self, _request_type: Option<&str>) -> &'static str {
         match self {
-            ProofType::Risc0 | ProofType::Sp1 | ProofType::Sgx | ProofType::SgxGeth => {
+            ProofType::Risc0 | ProofType::Boundless | ProofType::Sp1 | ProofType::Sgx | ProofType::SgxGeth => {
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
             }
             _ => panic!("Unsupported proof type for default value: {:?}", self),
@@ -777,8 +778,10 @@ impl ImageIdReader for ProofType {
     PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord, Hash, RedisValue,
 )]
 pub struct ImageId {
-    /// RISC0 batch ID
+    /// RISC0 batch ID (for Bonsai prover)
     pub risc0_batch_id: Option<String>,
+    /// Boundless batch ID (for Boundless Market prover)
+    pub boundless_batch_id: Option<String>,
     /// SP1 batch VK hash
     pub sp1_batch_vk_hash: Option<String>,
     /// SGX enclave MRENCLAVE
@@ -791,6 +794,7 @@ impl ImageId {
     pub fn new() -> Self {
         Self {
             risc0_batch_id: None,
+            boundless_batch_id: None,
             sp1_batch_vk_hash: None,
             sgx_enclave: None,
             sgxgeth_enclave: None,
@@ -805,6 +809,11 @@ impl ImageId {
             ProofType::Risc0 => {
                 if let Ok(id) = proof_type.read_image_id(None) {
                     image_id.risc0_batch_id = Some(id);
+                }
+            }
+            ProofType::Boundless => {
+                if let Ok(id) = proof_type.read_image_id(None) {
+                    image_id.boundless_batch_id = Some(id);
                 }
             }
             ProofType::Sp1 => {

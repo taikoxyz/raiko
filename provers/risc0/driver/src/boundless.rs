@@ -12,10 +12,13 @@ use raiko_lib::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput,
     },
+    primitives::keccak::keccak,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
 use risc0_zkvm::{compute_image_id, sha::Digestible, Digest, Receipt as ZkvmReceipt};
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
@@ -34,6 +37,33 @@ pub struct Risc0AgentResponse {
     pub seal: Vec<u8>,
     pub journal: Vec<u8>,
     pub receipt: Option<String>,
+}
+
+/// Generate cache label: {image_id}-{keccak(input)}
+fn cache_label(image_id: &Digest, input: &[u8]) -> String {
+    format!("{}-{}", hex::encode(image_id), hex::encode(keccak(input)))
+}
+
+/// Save proof to /tmp/risc0-cache/{label}.boundless
+fn save_proof(label: &str, proof: &Risc0AgentResponse) {
+    let path = Path::new("/tmp/risc0-cache");
+    let _ = fs::create_dir_all(path);
+    let file = path.join(format!("{}.boundless", label));
+    if let Ok(data) = bincode::serialize(proof) {
+        let _ = fs::write(&file, data);
+        tracing::info!("Saved boundless proof to cache: {:?}", file);
+    }
+}
+
+/// Load proof from /tmp/risc0-cache/{label}.boundless
+fn load_proof(label: &str) -> Option<Risc0AgentResponse> {
+    let file = Path::new("/tmp/risc0-cache").join(format!("{}.boundless", label));
+    fs::read(&file).ok()
+        .and_then(|data| bincode::deserialize(&data).ok())
+        .map(|proof| {
+            tracing::info!("Loaded boundless proof from cache: {:?}", file);
+            proof
+        })
 }
 
 pub struct BoundlessProverConfig {
@@ -453,11 +483,11 @@ impl Prover for BoundlessProver {
         // Ensure images are uploaded before first use
         self.ensure_images_uploaded().await?;
 
-        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
+        let batch_image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
             ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_BATCH_ELF: {e}"))
         })?;
         let agent_input = Risc0AgengAggGuestInput {
-            image_id: image_id,
+            image_id: batch_image_id,
             receipts: input
                 .proofs
                 .iter()
@@ -473,15 +503,49 @@ impl Prover for BoundlessProver {
                 .collect::<ProverResult<Vec<_>>>()?,
         };
 
-        // Make a remote call to the boundless agent at localhost:9999/proof and await the response
-
-        use reqwest::Client as HttpClient;
-        use serde_json::json;
-
         // Prepare the input for the agent
         let agent_input_bytes = bincode::serialize(&agent_input).map_err(|e| {
             ProverError::GuestError(format!("Failed to serialize agent input: {e}"))
         })?;
+
+        // Compute aggregation image_id for cache key
+        let agg_image_id = compute_image_id(BOUNDLESS_AGGREGATION_ELF).map_err(|e| {
+            ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_AGGREGATION_ELF: {e}"))
+        })?;
+
+        // Check cache first
+        let label = cache_label(&agg_image_id, &agent_input_bytes);
+        if let Some(cached_proof) = load_proof(&label) {
+            tracing::info!("Using cached boundless aggregation proof");
+
+            // Verify and return cached proof
+            let journal_digest = cached_proof.journal.digest();
+            let encoded_proof = verify_boundless_groth16_snark_impl(
+                agg_image_id,
+                cached_proof.seal.to_vec(),
+                journal_digest,
+            ).await.map_err(|e| ProverError::GuestError(format!("Failed to verify cached aggregation proof: {e}")))?;
+
+            let proof: Vec<u8> = (encoded_proof, B256::from_slice(agg_image_id.as_bytes()))
+                .abi_encode()
+                .iter()
+                .skip(32)
+                .copied()
+                .collect();
+
+            return Ok(Proof {
+                proof: Some(alloy_primitives::hex::encode_prefixed(proof)),
+                input: Some(B256::from_slice(journal_digest.as_bytes())),
+                quote: None,
+                uuid: None,
+                kzg_proof: None,
+            });
+        }
+
+        // Make a remote call to the boundless agent at localhost:9999/proof and await the response
+
+        use reqwest::Client as HttpClient;
+        use serde_json::json;
 
         // Compose the request payload
         let payload = json!({
@@ -535,18 +599,18 @@ impl Prover for BoundlessProver {
                 ProverError::GuestError(format!("Failed to deserialize output file: {e}"))
             })?;
 
-        let image_id = compute_image_id(BOUNDLESS_AGGREGATION_ELF).map_err(|e| {
-            ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_AGGREGATION_ELF: {e}"))
-        })?;
+        // Save to cache after receiving from agent
+        save_proof(&label, &agent_proof);
+
         let journal_digest = agent_proof.journal.digest();
         let encoded_proof = verify_boundless_groth16_snark_impl(
-            image_id,
+            agg_image_id,
             agent_proof.seal.to_vec(),
             journal_digest,
         )
         .await
         .map_err(|e| ProverError::GuestError(format!("Failed to verify groth16 snark: {e}")))?;
-        let proof: Vec<u8> = (encoded_proof, B256::from_slice(image_id.as_bytes()))
+        let proof: Vec<u8> = (encoded_proof, B256::from_slice(agg_image_id.as_bytes()))
             .abi_encode()
             .iter()
             .skip(32)
@@ -580,6 +644,39 @@ impl Prover for BoundlessProver {
         let input_bytes = bincode::serialize(&input).map_err(|e| {
             ProverError::GuestError(format!("Failed to serialize input with bincode: {e}"))
         })?;
+
+        // Compute image_id for cache key
+        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
+            ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_BATCH_ELF: {e}"))
+        })?;
+
+        // Check cache first
+        let label = cache_label(&image_id, &input_bytes);
+        if let Some(cached_proof) = load_proof(&label) {
+            tracing::info!("Using cached boundless batch proof for batch_id: {}", input.taiko.batch_id);
+
+            // Verify and return cached proof
+            let journal_digest = cached_proof.journal.digest();
+            let encoded_proof = verify_boundless_groth16_snark_impl(
+                image_id,
+                cached_proof.seal.to_vec(),
+                journal_digest,
+            ).await.map_err(|e| ProverError::GuestError(format!("Failed to verify cached proof: {e}")))?;
+
+            let proof_bytes: Vec<u8> = (encoded_proof, B256::from_slice(image_id.as_bytes()))
+                .abi_encode()
+                .iter()
+                .skip(32)
+                .copied()
+                .collect();
+
+            return Ok(Risc0Response {
+                proof: alloy_primitives::hex::encode_prefixed(proof_bytes),
+                receipt: cached_proof.receipt.unwrap_or_default(),
+                uuid: "cached".to_string(),
+                input: output.hash,
+            }.into());
+        }
 
         // Log input information, especially the batch_id
         tracing::info!(
@@ -640,9 +737,9 @@ impl Prover for BoundlessProver {
                 ProverError::GuestError(format!("Failed to deserialize output file: {e}"))
             })?;
 
-        let image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
-            ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_BATCH_ELF: {e}"))
-        })?;
+        // Save to cache after receiving from agent
+        save_proof(&label, &agent_proof);
+
         let journal_digest = agent_proof.journal.digest();
         let encoded_proof = verify_boundless_groth16_snark_impl(
             image_id,

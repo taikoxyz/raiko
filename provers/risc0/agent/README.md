@@ -100,7 +100,7 @@ For detailed configuration examples, see [DEPLOYMENT_CONFIG_EXAMPLES.md](DEPLOYM
 ## Environment Variables
 
 - `BOUNDLESS_SIGNER_KEY`: Private key for signing transactions (required)
-- `SQLITE_DB_PATH`: Path to SQLite database for persistent request storage (default: `/data/boundless_requests.db`)
+- `SQLITE_DB_PATH`: (Optional) Path to SQLite database for persistent request storage (default: `./boundless_requests.db`)
 
 ## Command Line Arguments
 
@@ -176,11 +176,16 @@ The application provides detailed error messages for:
 ./target/release/boundless-agent --deployment-type base --offchain --order-stream-url https://offchain-order-stream.com
 ```
 
-### Using Custom SQLite Database Path
+### Using Custom SQLite Database Path (Optional)
+
+By default, the database is stored at `./boundless_requests.db` in the current working directory. To use a different location:
 
 ```bash
-# Use custom SQLite database path
-SQLITE_DB_PATH="./boundless_requests.db"
+# Example: Store database in a different directory
+SQLITE_DB_PATH="/var/lib/boundless/requests.db" ./target/release/boundless-agent
+
+# Example: Store in user's home directory
+SQLITE_DB_PATH="$HOME/.boundless/requests.db" ./target/release/boundless-agent
 ```
 
 ## Development
