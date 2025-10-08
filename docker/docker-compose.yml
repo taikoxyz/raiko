@@ -7,7 +7,7 @@ services:
     container_name: raiko-init
     command: --init
     env_file:
-      - .env
+      - ../.env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -33,7 +33,7 @@ services:
     container_name: raiko-init-self-register
     command: --init-self-register
     env_file:
-      - .env
+      - ../.env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -64,7 +64,7 @@ services:
     container_name: raiko
     command:
     env_file:
-      - .env
+      - ../.env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -115,7 +115,7 @@ services:
     container_name: raiko-zk
     command:
     env_file:
-      - .env
+      - ../.env
     volumes:
       - /var/log/raiko:/var/log/raiko
     ports:
@@ -150,6 +150,10 @@ services:
       # sp1 verifier
       - SP1_VERIFIER_RPC_URL=${SP1_VERIFIER_RPC_URL}
       - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
+      # boundless agent
+      - BOUNDLESS_AGENT_URL=http://raiko-boundless-agent:9999/proof
+      - BOUNDLESS_BATCH_ID=${BOUNDLESS_BATCH_ID}
+      - BOUNDLESS_AGGREGATION_ID=${BOUNDLESS_AGGREGATION_ID}
     depends_on:
       - redis
     profiles:
@@ -162,7 +166,7 @@ services:
     container_name: sgx-server
     command:
     env_file:
-      - .env
+      - ../.env
     devices:
       - "/dev/sgx_enclave:/dev/sgx_enclave"
       - "/dev/sgx_provision:/dev/sgx_provision"
@@ -192,18 +196,23 @@ services:
     container_name: raiko-boundless-agent
     entrypoint:
     command:
+    env_file:
+      - .env.boundless-agent
     environment:
       - BOUNDLESS_AGENT_SERVER=true
-      - IPFS_GATEWAY_URL=${IPFS_GATEWAY_URL}
-      - BOUNDLESS_SIGNER_KEY=${BOUNDLESS_SIGNER_KEY}
-      - PINATA_JWT=${PINATA_JWT}
+      - BOUNDLESS_CONFIG_FILE=/etc/boundless/config.json
+      - SQLITE_DB_PATH=/data/boundless/boundless_requests.db
       - RUST_LOG=${RUST_LOG:-info}
-      - BOUNDLESS_ORDER_STREAM_URL=${BOUNDLESS_ORDER_STREAM_URL}
-      - BOUNDLESS_OFFCHAIN=${BOUNDLESS_OFFCHAIN}
-    env_file:
-      - .env.boundless-agent 
+      # Allow overriding secrets via environment variables
+      - BOUNDLESS_SIGNER_KEY=${BOUNDLESS_SIGNER_KEY}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
     ports:
       - "9999:9999"
+    volumes:
+      - boundless-data:/data/boundless
+      - boundless-config:/etc/boundless
+      - /tmp/risc0-cache:/tmp/risc0-cache
   pccs:
     build:
       context: ..
@@ -211,7 +220,7 @@ services:
     image: us-docker.pkg.dev/evmchain/images/pccs:latest
     container_name: pccs
     env_file:
-      - .env
+      - ../.env
     ports:
       - "8081:8081"
     volumes:
@@ -222,8 +231,12 @@ services:
     image: redis
     container_name: redis
     env_file:
-      - .env
+      - ../.env
     ports:
       - "6379:6379"
     profiles:
       - prod-redis
+
+volumes:
+  boundless-data:
+  boundless-config:

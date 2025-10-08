@@ -289,7 +289,7 @@ if [[ -n $BOUNDLESS_AGENT_SERVER ]]; then
     echo "running boundless agent"
 
     if [[ -z $BOUNDLESS_CONFIG_FILE ]]; then
-        echo "BOUNDLESS_ORDER_STREAM_URL must be presented, please check."
+        echo "BOUNDLESS_CONFIG_FILE must be set, please check."
         exit 1
     fi
 
@@ -298,11 +298,11 @@ if [[ -n $BOUNDLESS_AGENT_SERVER ]]; then
         exit 1
     fi
 
-    # Allow --offchain to be controlled by the BOUNDLESS_OFFCHAIN environment variable (default to true for backward compatibility)
-    if [[ -z $BOUNDLESS_OFFCHAIN ]]; then
-        BOUNDLESS_OFFCHAIN_FLAG=""
-    else
+    # Allow --offchain to be controlled by the BOUNDLESS_OFFCHAIN environment variable
+    if [[ "$BOUNDLESS_OFFCHAIN" == "true" ]]; then
         BOUNDLESS_OFFCHAIN_FLAG="--offchain"
+    else
+        BOUNDLESS_OFFCHAIN_FLAG=""
     fi
 
     /opt/raiko/bin/boundless-agent --config-file $BOUNDLESS_CONFIG_FILE $BOUNDLESS_OFFCHAIN_FLAG

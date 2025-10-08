@@ -68,6 +68,7 @@ WORKDIR /opt/raiko/provers/risc0/agent
 RUN cargo build --release ${BUILD_FLAGS} --features "risc0"
 
 # Generate or update .env file with extracted image IDs from build logs
+WORKDIR /opt/raiko
 RUN echo "Updating .env file with extracted image IDs..." && \
     if [ ! -f ".env" ]; then touch .env; fi && \
     ./script/update_imageid.sh risc0 /tmp/risc0_build.log && \
@@ -79,8 +80,10 @@ FROM ubuntu:22.04 AS raiko-zk
 RUN mkdir -p \
     ./bin \
     /etc/raiko \
+    /etc/boundless \
     /var/log/raiko \
-    /tmp/risc0-cache
+    /tmp/risc0-cache \
+    /data/boundless
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
@@ -98,6 +101,8 @@ COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/rai
 COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raiko/chain_spec_list_devnet.json
 COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
 COPY --from=builder /opt/raiko/provers/risc0/agent/target/release/boundless-agent /opt/raiko/bin/
+# Copy boundless agent config
+COPY --from=builder /opt/raiko/provers/risc0/agent/config/boundless_config_docker.json /etc/boundless/config.json
 # Copy the .env file with RISC0 and SP1 image IDs from builder stage
 COPY --from=builder /opt/raiko/.env /opt/raiko/.env
 
