@@ -152,8 +152,6 @@ services:
       - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
       # boundless agent
       - BOUNDLESS_AGENT_URL=http://raiko-boundless-agent:9999/proof
-      - BOUNDLESS_BATCH_ID=${BOUNDLESS_BATCH_ID}
-      - BOUNDLESS_AGGREGATION_ID=${BOUNDLESS_AGGREGATION_ID}
     depends_on:
       - redis
     profiles:
