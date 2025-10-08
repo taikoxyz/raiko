@@ -473,40 +473,328 @@ mod tests {
     use super::*;
     use raiko_lib::consts::SupportedChainSpecs;
     use raiko_reqpool::memory_pool;
+    use std::time::SystemTime;
     use tokio::sync::Mutex;
 
-    fn create_test_pool() -> Pool {
-        memory_pool("test_backend")
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+    use alloy_primitives::Address;
+    use raiko_core::interfaces::ProverSpecificOpts;
+    use raiko_lib::{input::BlobProofType, primitives::B256, proof_type::ProofType, prover::Proof};
+    use raiko_reqpool::{
+        AggregationRequestEntity, AggregationRequestKey, BatchGuestInputRequestEntity,
+        BatchGuestInputRequestKey, BatchProofRequestEntity, BatchProofRequestKey,
+        RequestEntity, RequestKey,
+    };
+
+    // Test constants
+    const TEST_CHAIN_ID: u64 = 1;
+    const BASE_L1_BLOCK: u64 = 1_000_000;
+
+    fn create_batch_guest_input_request_key(batch_id: u64) -> RequestKey {
+        let key = BatchGuestInputRequestKey::new(
+            TEST_CHAIN_ID,
+            batch_id,
+            BASE_L1_BLOCK + batch_id, // l1_inclusion_block_number
+        );
+        RequestKey::BatchGuestInput(key)
     }
 
-    fn create_test_chain_specs() -> SupportedChainSpecs {
-        SupportedChainSpecs::default()
+    fn create_batch_guest_input_request_entity(batch_id: u64) -> RequestEntity {
+        let entity = BatchGuestInputRequestEntity::new(
+            batch_id,
+            BASE_L1_BLOCK + batch_id,
+            "ethereum".to_string(),
+            "ethereum".to_string(),
+            B256::from([0u8; 32]),
+            BlobProofType::ProofOfEquivalence,
+        );
+        RequestEntity::BatchGuestInput(entity)
     }
 
-    // Mock test for the serve_in_background to test the structure.
+
+    fn create_aggregation_request_key(agg_id: u64) -> RequestKey {
+        let key = AggregationRequestKey::new(ProofType::Native, vec![agg_id]);
+        RequestKey::Aggregation(key)
+    }
+
+    fn create_aggregation_request_entity(agg_id: u64) -> RequestEntity {
+        let entity = AggregationRequestEntity::new(
+            vec![agg_id],
+            vec![Proof::default()],
+            ProofType::Native,
+            ProverSpecificOpts::default(),
+        );
+        RequestEntity::Aggregation(entity)
+    }
+
+    /// REAL PRODUCTION SCENARIO:
+    /// - Client submits LOW priority requests (BatchGuestInput) continuously
+    /// - When LOW completes → client submits MEDIUM priority (BatchProof)
+    /// - Every 5 MEDIUM complete → client submits 1 HIGH priority (Aggregation)
+    /// - Client only marks work complete when aggregation succeeds
     #[tokio::test]
-    async fn test_serve_in_background() {
-        let pool = create_test_pool();
-        let chain_specs = create_test_chain_specs();
-        let queue = Arc::new(Mutex::new(Queue::new(1000)));
+    async fn test_priority_starvation_detection() {
+        println!("TESTING: Realistic Client Workflow Dependency Chain");
+        let max_queue_size = 1000;
+        let max_concurrency = 10;
+        let queue = Arc::new(Mutex::new(Queue::new(max_queue_size)));
         let notifier = Arc::new(Notify::new());
 
-        let backend = Backend::new(pool, chain_specs, 1, queue.clone(), notifier.clone());
+        let completed_low = Arc::new(Mutex::new(Vec::new()));
+        let completed_medium = Arc::new(Mutex::new(Vec::new()));
+        let completed_aggregations = Arc::new(AtomicUsize::new(0));
 
-        let handle = tokio::spawn(async move {
-            tokio::select! {
-                _ = backend.serve_in_background() => {},
-                _ = tokio::time::sleep(tokio::time::Duration::from_millis(10)) => {
+        let (completion_tx, mut completion_rx) = tokio::sync::mpsc::channel::<(String, u64)>(1000);
+        let backend_handle = tokio::spawn({
+            let queue = queue.clone();
+            let notifier = notifier.clone();
+            let completion_tx = completion_tx.clone();
+
+            async move {
+                let (done_tx, mut done_rx) = tokio::sync::mpsc::channel(1000);
+                let semaphore = Arc::new(Semaphore::new(max_concurrency));
+
+                loop {
+                    while let Ok(request_key) = done_rx.try_recv() {
+                        let mut queue = queue.lock().await;
+                        queue.complete(request_key);
+                    }
+
+                    let permit = match semaphore.clone().acquire_owned().await {
+                        Ok(permit) => permit,
+                        Err(_) => break,
+                    };
+
+                    let (request_key, request_entity) = {
+                        let mut queue = queue.lock().await;
+                        if let Some((request_key, request_entity)) = queue.try_next() {
+                            (request_key, request_entity)
+                        } else {
+                            drop(queue);
+                            drop(permit);
+                            notifier.notified().await;
+                            continue;
+                        }
+                    };
+
+                    let request_key_ = request_key.clone();
+                    let completion_tx_ = completion_tx.clone();
+                    let done_tx_ = done_tx.clone();
+
+                    tokio::spawn(async move {
+                        let _permit = permit;
+
+                        let (delay_ms, priority_label, id) = match &request_entity {
+                            RequestEntity::Aggregation(e) => {
+                                let agg_id = e.aggregation_ids()[0];
+                                (1000, "HIGH", agg_id)
+                            },
+                            RequestEntity::BatchProof(e) => {
+                                let batch_id = *e.guest_input_entity().batch_id();
+                                (4000, "MEDIUM", batch_id)
+                            },
+                            RequestEntity::BatchGuestInput(e) => {
+                                let batch_id = *e.batch_id();
+                                (2000, "LOW", batch_id)
+                            },
+                            _ => (2000, "LOW", 0),
+                        };
+
+                        tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+
+                        let _ = completion_tx_.send((priority_label.to_string(), id)).await;
+                        let _ = done_tx_.send(request_key_).await;
+                    });
                 }
             }
         });
 
-        // Notify to wake up the background service
-        notifier.notify_one();
+        let client_simulator = tokio::spawn({
+            let queue = queue.clone();
+            let notifier = notifier.clone();
+            let completed_low = completed_low.clone();
+            let completed_medium = completed_medium.clone();
+            let completed_aggregations = completed_aggregations.clone();
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
-        handle.abort();
+            async move {
+                let mut submitted_mediums = std::collections::HashSet::new();
+                let mut submitted_aggregations = std::collections::HashSet::new();
 
-        assert!(true);
+                println!("CLIENT: Starting continuous LOW-priority request flood (500 requests)");
+                {
+                    let mut queue_guard = queue.lock().await;
+                    for i in 0..500 {
+                        let request_key = create_batch_guest_input_request_key(i);
+                        let request_entity = create_batch_guest_input_request_entity(i);
+                        let _ = queue_guard.add_pending(request_key, request_entity);
+                    }
+                    drop(queue_guard);
+                    notifier.notify_one();
+                }
+
+                tokio::time::sleep(Duration::from_millis(500)).await;
+
+                let workflow_start = SystemTime::now();
+                let target_aggregations = 10;
+
+                loop {
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+
+                    let completed_low_list = completed_low.lock().await.clone();
+                    for &low_id in &completed_low_list {
+                        if !submitted_mediums.contains(&low_id) {
+                            let mut queue_guard = queue.lock().await;
+                            let batch_proof_key = BatchProofRequestKey::new(
+                                TEST_CHAIN_ID,
+                                low_id,
+                                BASE_L1_BLOCK + low_id,
+                                ProofType::Native,
+                                "test_prover".to_string(),
+                            );
+                            let guest_input_entity = BatchGuestInputRequestEntity::new(
+                                low_id,
+                                BASE_L1_BLOCK + low_id,
+                                "ethereum".to_string(),
+                                "ethereum".to_string(),
+                                B256::from([0u8; 32]),
+                                BlobProofType::ProofOfEquivalence,
+                            );
+                            let batch_proof_entity = BatchProofRequestEntity::new_with_guest_input_entity(
+                                guest_input_entity,
+                                Address::ZERO,
+                                ProofType::Native,
+                                std::collections::HashMap::new(),
+                            );
+                            let _ = queue_guard.add_pending(
+                                RequestKey::BatchProof(batch_proof_key),
+                                RequestEntity::BatchProof(batch_proof_entity),
+                            );
+                            submitted_mediums.insert(low_id);
+                            drop(queue_guard);
+                            notifier.notify_one();
+                            println!("CLIENT: Submitted MEDIUM request for completed LOW (id={})", low_id);
+                        }
+                    }
+
+                    let completed_medium_list = completed_medium.lock().await.clone();
+                    let num_aggregations_to_submit = (completed_medium_list.len() / 5).min(target_aggregations);
+
+                    for agg_id in 1..=num_aggregations_to_submit {
+                        if !submitted_aggregations.contains(&(agg_id as u64)) {
+                            let mut queue_guard = queue.lock().await;
+                            let request_key = create_aggregation_request_key(agg_id as u64);
+                            let request_entity = create_aggregation_request_entity(agg_id as u64);
+                            let _ = queue_guard.add_pending(request_key, request_entity);
+                            submitted_aggregations.insert(agg_id as u64);
+                            drop(queue_guard);
+                            notifier.notify_one();
+                            println!("CLIENT: Submitted HIGH-priority aggregation #{} (after {} MEDIUM completions)", agg_id, completed_medium_list.len());
+                        }
+                    }
+
+                    let agg_count = completed_aggregations.load(Ordering::SeqCst);
+                    if agg_count >= target_aggregations {
+                        println!("CLIENT: Workflow complete! {} aggregations finished", agg_count);
+                        break;
+                    }
+
+                    let elapsed = workflow_start.elapsed().unwrap().as_secs();
+                    if elapsed > 60 {
+                        panic!("DEADLOCK: Client workflow stuck - priority queue bug detected!");
+                    }
+                }
+            }
+        });
+
+        println!("MONITORING: Tracking completion order and client workflow progression...");
+
+        let mut completion_order = Vec::new();
+        let mut aggregation_times = Vec::new();
+        let start_time = SystemTime::now();
+        let mut first_aggregation_time = None;
+
+        while completion_order.len() < 200 && start_time.elapsed().unwrap().as_secs() < 120 {
+            match tokio::time::timeout(Duration::from_millis(200), completion_rx.recv()).await {
+                Ok(Some((priority, id))) => {
+                    let elapsed = start_time.elapsed().unwrap().as_millis();
+                    completion_order.push((priority.clone(), id, elapsed));
+
+                    match priority.as_str() {
+                        "LOW" => {
+                            let mut low_list = completed_low.lock().await;
+                            low_list.push(id);
+                        }
+                        "MEDIUM" => {
+                            let mut medium_list = completed_medium.lock().await;
+                            medium_list.push(id);
+                        }
+                        "HIGH" => {
+                            let agg_count = completed_aggregations.fetch_add(1, Ordering::SeqCst) + 1;
+                            aggregation_times.push(elapsed);
+                            if first_aggregation_time.is_none() {
+                                first_aggregation_time = Some(elapsed);
+                            }
+                            println!("AGGREGATION completed (id={}): {} aggregations done at {}ms", id, agg_count, elapsed);
+                        }
+                        _ => {}
+                    }
+
+                    if completed_aggregations.load(Ordering::SeqCst) >= 10 {
+                        println!("ALL 10 AGGREGATIONS COMPLETED - Client workflow successful!");
+                        break;
+                    }
+                }
+                Ok(None) => break,
+                Err(_) => continue,
+            }
+        }
+
+        backend_handle.abort();
+        client_simulator.abort();
+
+        let aggregation_count = completed_aggregations.load(Ordering::SeqCst);
+        let low_count = completed_low.lock().await.len();
+        let medium_count = completed_medium.lock().await.len();
+
+        println!("REAL PRODUCTION WORKFLOW ANALYSIS:");
+        println!("   Aggregations completed: {}", aggregation_count);
+        println!("   Medium requests completed: {}", medium_count);
+        println!("   Low requests completed: {}", low_count);
+        println!("   Total completions tracked: {}", completion_order.len());
+
+        println!("CRITICAL PRODUCTION METRIC - DEPENDENCY CHAIN VALIDATION:");
+
+        if let Some(first_agg_ms) = first_aggregation_time {
+            println!("First aggregation completed at: {}ms", first_agg_ms);
+
+            if aggregation_count >= 10 {
+                let last_agg_ms = aggregation_times.last().unwrap();
+                println!("Target aggregations ({}) completed at: {}ms", aggregation_count, last_agg_ms);
+                println!("Time from start to completion: {}ms", last_agg_ms);
+
+                if *last_agg_ms < 45000 {
+                    println!("Dependency Chain Working!");
+                } else {
+                    panic!("CRITICAL FAILURE - DEPENDENCY CHAIN BROKEN!");
+                }
+
+            } else if aggregation_count >= 1 {
+                println!("PARTIAL SUCCESS - Only {} / 10 aggregations completed", aggregation_count);
+                panic!("PARTIAL STARVATION: Only {} / 10 aggregations - dependency chain incomplete!", aggregation_count);
+
+            } else {
+                println!("CRITICAL FAILURE - NO aggregations completed!");
+                panic!("COMPLETE AGGREGATION STARVATION - production bug detected!");
+            }
+
+        } else {
+            panic!("AGGREGATION STARVATION: No aggregations completed!");
+        }
+
+        println!("COMPLETION TIMELINE (first 30):");
+        for (i, (priority, id, ms)) in completion_order.iter().take(30).enumerate() {
+            println!("   {:2}. {:6} (id={:3}) at {:6}ms", i+1, priority, id, ms);
+        }
     }
 }
