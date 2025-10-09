@@ -1,6 +1,6 @@
 {
-    "network": "taiko_a7",
-    "l1_network": "holesky",
+    "network": "taiko_hoodi",
+    "l1_network": "hoodi",
     "graffiti": "0000000000000000000000000000000000000000000000000000000000000000",
     "sgx": {
         "instance_ids": {

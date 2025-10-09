@@ -95,42 +95,6 @@ RUN gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64
     gramine-sgx-sign --manifest sgx-guest.manifest --output sgx-guest.manifest.sgx && \
     gramine-sgx-sigstruct-view "sgx-guest.sig" 2>&1 | tee /tmp/sgx_sigstruct.log
 
-# Generate or update .env file with extracted MRENCLAVE from SGX signing process
-WORKDIR /opt/raiko
-RUN echo "Updating .env file with extracted MRENCLAVE..." && \
-    MRENCLAVE=$(grep "mr_enclave:" /tmp/sgx_sigstruct.log | grep -o '[a-fA-F0-9]\{64\}' | head -1) && \
-    if [ -n "$MRENCLAVE" ] && [ ${#MRENCLAVE} -eq 64 ]; then \
-        if [ ! -f ".env" ]; then \
-            echo "SGX_MRENCLAVE=$MRENCLAVE" > .env; \
-        else \
-            if grep -q "^SGX_MRENCLAVE=" .env; then \
-                sed -i "s/^SGX_MRENCLAVE=.*/SGX_MRENCLAVE=$MRENCLAVE/" .env; \
-            else \
-                echo "SGX_MRENCLAVE=$MRENCLAVE" >> .env; \
-            fi; \
-        fi && \
-        echo "Updated .env file with MRENCLAVE: $MRENCLAVE"; \
-    else \
-        echo "Failed to extract MRENCLAVE, .env file unchanged" && \
-        if [ ! -f ".env" ]; then touch .env; fi; \
-    fi && \
-    echo "Extracting SGXGETH uniqueid..." && \
-    UNIQUEID=$(grep -o '[a-fA-F0-9]\{64\}' /tmp/gaiko_uniqueid.log | head -1) && \
-    if [ -n "$UNIQUEID" ] && [ ${#UNIQUEID} -eq 64 ]; then \
-        SGXGETH_MRENCLAVE="$UNIQUEID" && \
-        echo "Found actual SGXGETH uniqueid: $SGXGETH_MRENCLAVE"; \
-    else \
-        SGXGETH_MRENCLAVE="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" && \
-        echo "No SGXGETH uniqueid found (likely cached), using default: $SGXGETH_MRENCLAVE"; \
-    fi && \
-    if grep -q "^SGXGETH_MRENCLAVE=" .env; then \
-        sed -i "s/^SGXGETH_MRENCLAVE=.*/SGXGETH_MRENCLAVE=$SGXGETH_MRENCLAVE/" .env; \
-    else \
-        echo "SGXGETH_MRENCLAVE=$SGXGETH_MRENCLAVE" >> .env; \
-    fi && \
-    echo "Final .env file:" && \
-    cat .env && \
-    cp .env bin/.env
 
 WORKDIR /opt/raiko/bin
 ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]

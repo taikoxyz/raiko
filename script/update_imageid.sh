@@ -6,17 +6,18 @@
 # Usage:
 #   ./script/update_imageid.sh risc0 [output_file]    # Update RISC0 image IDs from file or temp
 #   ./script/update_imageid.sh sp1 [output_file]      # Update SP1 VK hashes from file or temp
-#   ./script/update_imageid.sh sgx                    # Extract and update SGX MRENCLAVE
-#   ./script/update_imageid.sh sgxgeth                # Extract and update SGXGETH MRENCLAVE
+#   ./script/update_imageid.sh sgx_direct <image>     # Extract SGX MRENCLAVE by calling gramine tools directly on container
+#   ./script/update_imageid.sh sgxgeth_direct <image> # Extract SGXGETH MRENCLAVE from container (reads from pre-generated file)
+#   ./script/update_imageid.sh update_sgx_mrenclave <value>     # Update SGX MRENCLAVE with provided value
+#   ./script/update_imageid.sh update_sgxgeth_mrenclave <value> # Update SGXGETH MRENCLAVE with provided value
 #
-# This script is automatically called by build.sh after building RISC0, SP1, SGX, or SGXGETH provers.
-# It extracts the new image IDs/VK hashes/MRENCLAVE from the provided build output and updates the .env file.
+# This script is automatically called by build.sh after building RISC0 or SP1 provers,
+# or can be used to extract MRENCLAVE values directly from Docker containers.
 #
-# If no output_file is provided, it will look for temp files:
+# If no output_file is provided for RISC0/SP1 modes, it will look for temp files:
 #   /tmp/risc0_build_output.txt for RISC0
 #   /tmp/sp1_build_output.txt for SP1
-# For SGX, it directly builds and extracts the MRENCLAVE using Gramine tools.
-# For SGXGETH, it directly builds and extracts the MRENCLAVE using EGO tools.
+# For MRENCLAVE extraction, it calls tools directly on Docker containers.
 
 set -e
 
@@ -118,131 +119,7 @@ check_ego_tools() {
     return 0
 }
 
-# Function to extract MRENCLAVE from SGX runtime quote
-extract_sgx_mrenclave() {
-    print_status "Building SGX guest and extracting MRENCLAVE from runtime quote..."
-    
-    # Check if Gramine tools are available
-    if ! check_gramine_tools; then
-        print_warning "Gramine tools not found on host system!"
-        print_warning "Skipping local MRENCLAVE extraction - Docker build will handle SGX signing"
-        return 0
-    fi
-    
-    # Navigate to SGX guest directory
-    cd provers/sgx/guest
-    
-    # Check if SGX guest binary exists
-    if [ ! -f "../../../target/release/sgx-guest" ]; then
-        print_warning "SGX guest binary not found at ../../../target/release/sgx-guest"
-        print_status "This might be because:"
-        echo "  - SGX features are not built yet (run: cargo build --release --features sgx)"
-        echo "  - Building in Docker context where paths are different"
-        print_status "Skipping local MRENCLAVE extraction"
-        return 0
-    fi
-    
-    # Copy the binary to current directory for Gramine processing
-    if ! cp ../../../target/release/sgx-guest .; then
-        print_error "Failed to copy SGX guest binary"
-        return 1
-    fi
-    
-    # Generate Gramine manifest
-    if ! gramine-manifest \
-        -Dlog_level=error \
-        -Ddirect_mode=0 \
-        -Darch_libdir=/lib/x86_64-linux-gnu/ \
-        ../config/sgx-guest.local.manifest.template \
-        sgx-guest.manifest; then
-        print_error "Failed to generate Gramine manifest"
-        return 1
-    fi
-    
-    # Sign the manifest to generate SGX signature using project's enclave key
-    if ! gramine-sgx-sign \
-        --manifest sgx-guest.manifest \
-        --output sgx-guest.manifest.sgx \
-        --key ../../../docker/enclave-key.pem; then
-        print_error "Failed to sign SGX manifest"
-        return 1
-    fi
-    
-    # Extract MRENCLAVE from signature structure  
-    print_status "Extracting MRENCLAVE from signed manifest..."
-    local SIGSTRUCT_OUTPUT
-    SIGSTRUCT_OUTPUT=$(gramine-sgx-sigstruct-view sgx-guest.sig 2>&1)
-    
-    print_status "Sigstruct output preview:"
-    echo "$SIGSTRUCT_OUTPUT" | head -10
-    
-    # Extract the MRENCLAVE value from "mr_enclave:" line
-    local MRENCLAVE_OUTPUT
-    MRENCLAVE_OUTPUT=$(echo "$SIGSTRUCT_OUTPUT" | grep "mr_enclave:" | grep -o '[a-fA-F0-9]\{64\}' | head -1)
-    
-    print_status "Raw MRENCLAVE output: '$MRENCLAVE_OUTPUT' (length: ${#MRENCLAVE_OUTPUT})"
-    
-    if [ -n "$MRENCLAVE_OUTPUT" ] && [ ${#MRENCLAVE_OUTPUT} -eq 64 ]; then
-        print_status "Extracted runtime MRENCLAVE: $MRENCLAVE_OUTPUT"
-        
-        # Clean up temporary files
-        print_status "Cleaning up temporary files..."
-        rm -f sgx-guest sgx-guest.manifest sgx-guest.manifest.sgx sgx-guest.sig
-        
-        # Navigate back to root directory
-        cd ../../..
-        
-        # Update .env file with extracted MRENCLAVE
-        update_env_mrenclave "$MRENCLAVE_OUTPUT"
-    else
-        print_error "Failed to extract MRENCLAVE from SGX runtime quote"
-        print_error "Expected 64-character hex string, got: '$MRENCLAVE_OUTPUT'"
-        
-        # Clean up temporary files even on failure
-        print_status "Cleaning up temporary files..."
-        rm -f sgx-guest sgx-guest.manifest sgx-guest.manifest.sgx sgx-guest.sig
-        
-        cd ../../..
-        return 1
-    fi
-}
 
-# Function to extract SGX MRENCLAVE from build log files
-extract_sgx_mrenclave_from_output() {
-    print_status "Extracting SGX MRENCLAVE from build output..."
-    
-    local build_output=""
-    local log_file=""
-    
-    # Read from file if provided
-    if [ -n "$1" ] && [ -f "$1" ]; then
-        log_file="$1"
-        build_output=$(cat "$1")
-        print_status "Reading SGX build output from file: $1"
-    else
-        print_error "No SGX build log file provided"
-        return 1
-    fi
-    
-    # Extract MRENCLAVE from build log
-    # Look for the pattern "mr_enclave:" which appears in the Gramine sigstruct output
-    local MRENCLAVE_OUTPUT
-    MRENCLAVE_OUTPUT=$(echo "$build_output" | grep "mr_enclave:" | grep -o '[a-fA-F0-9]\{64\}' | head -1)
-    
-    if [ -n "$MRENCLAVE_OUTPUT" ] && [ ${#MRENCLAVE_OUTPUT} -eq 64 ]; then
-        print_status "Extracted SGX_MRENCLAVE from build log: $MRENCLAVE_OUTPUT"
-        
-        # Update .env file with extracted MRENCLAVE
-        update_env_mrenclave "$MRENCLAVE_OUTPUT"
-    else
-        print_error "Failed to extract SGX MRENCLAVE from build log"
-        if [ -n "$log_file" ]; then
-            print_error "Searched in log file: $log_file"
-        fi
-        print_error "Expected 64-character hex string, got: '$MRENCLAVE_OUTPUT'"
-        return 1
-    fi
-}
 
 # Function to update .env file with MRENCLAVE value
 update_env_mrenclave() {
@@ -267,69 +144,58 @@ update_env_mrenclave() {
     fi
 }
 
-# Function to extract SGXGETH MRENCLAVE from build log files
-extract_sgxgeth_mrenclave_from_output() {
-    print_status "Extracting SGXGETH MRENCLAVE from build output..."
-    
-    local build_output=""
-    local log_file=""
-    
-    # Read from file if provided
-    if [ -n "$1" ] && [ -f "$1" ]; then
-        log_file="$1"
-        build_output=$(cat "$1")
-        print_status "Reading SGXGETH build output from file: $1"
+
+# Function to extract SGX MRENCLAVE by calling gramine tools directly on container
+extract_sgx_mrenclave_direct() {
+    local image_name="$1"
+    print_status "Extracting SGX MRENCLAVE by running gramine tools directly on container..."
+
+    # Check if Docker is available
+    if ! command -v docker &> /dev/null; then
+        print_error "Docker command not found"
+        return 1
+    fi
+
+    # Run gramine-sgx-sigstruct-view directly on the container
+    local mrenclave_output
+    mrenclave_output=$(docker run --rm --entrypoint gramine-sgx-sigstruct-view "$image_name" /opt/raiko/bin/sgx-guest.sig 2>/dev/null | grep "mr_enclave:" | grep -o '[a-fA-F0-9]\{64\}' | head -1)
+
+    if [ -n "$mrenclave_output" ] && [ ${#mrenclave_output} -eq 64 ]; then
+        print_status "Extracted SGX_MRENCLAVE: $mrenclave_output"
+        update_env_mrenclave "$mrenclave_output"
     else
-        # Try to find the latest log.build.raiko.* file
-        log_file=$(ls -t log.build.raiko.* 2>/dev/null | head -1)
-        if [ -n "$log_file" ] && [ -f "$log_file" ]; then
-            build_output=$(cat "$log_file")
-            print_status "Reading SGXGETH build output from latest log file: $log_file"
-        else
-            print_error "No SGXGETH build log available. Please run 'script/publish-image.sh' with tee option first."
-            print_error "Expected log files matching pattern: log.build.raiko.*"
-            return 1
-        fi
+        print_error "Failed to extract SGX MRENCLAVE from container"
+        return 1
     fi
-    
-    # Check if ego uniqueid step was cached (no actual uniqueid generated)
-    if echo "$build_output" | grep -A 1 "RUN ego uniqueid" | grep -q "CACHED"; then
-        print_warning "ego uniqueid step was cached - no new uniqueid generated"
-        print_status "Using default SGXGETH_MRENCLAVE value for cached build"
-        local DEFAULT_MRENCLAVE="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-        
-        # Update .env file with default MRENCLAVE
-        update_env_sgxgeth_mrenclave "$DEFAULT_MRENCLAVE"
-        return 0
+}
+
+# Function to extract SGXGETH MRENCLAVE from container
+extract_sgxgeth_mrenclave_direct() {
+    local image_name="$1"
+    print_status "Extracting SGXGETH MRENCLAVE from container..."
+
+    # Check if Docker is available
+    if ! command -v docker &> /dev/null; then
+        print_error "Docker command not found"
+        return 1
     fi
-    
-    # Extract MRENCLAVE from build log
-    # Look for the uniqueid after "RUN ego uniqueid" command in EGO build output
-    # The uniqueid appears on a line by itself after the EGo version info
-    local MRENCLAVE_OUTPUT
-    MRENCLAVE_OUTPUT=$(echo "$build_output" | awk '/RUN ego uniqueid/{getline; getline; if(/^#[0-9]+ [0-9]+\.[0-9]+ [a-fA-F0-9]{64}$/) {gsub(/^#[0-9]+ [0-9]+\.[0-9]+ /, ""); print}}' | head -1)
-    
-    # If the structured search fails, try to find any 64-char hex string after "ego uniqueid"
-    if [ -z "$MRENCLAVE_OUTPUT" ]; then
-        MRENCLAVE_OUTPUT=$(echo "$build_output" | sed -n '/RUN ego uniqueid/,+5p' | grep -o '[a-fA-F0-9]\{64\}' | head -1)
+
+    # Extract SGXGETH MRENCLAVE from the container
+    local mrenclave_output
+    # First try to run ego command (in case it's available in the container)
+    mrenclave_output=$(docker run --rm --entrypoint ego "$image_name" uniqueid /opt/raiko/bin/gaiko 2>/dev/null | grep -o '[a-fA-F0-9]\{64\}' | head -1)
+
+    # If ego command is not available (typical in runtime container), read from the saved uniqueid log file
+    # This file was generated during the build stage and copied to the runtime container
+    if [ -z "$mrenclave_output" ]; then
+        mrenclave_output=$(docker run --rm --entrypoint cat "$image_name" /tmp/gaiko_uniqueid.log 2>/dev/null | grep -o '[a-fA-F0-9]\{64\}' | head -1)
     fi
-    
-    # If both pattern searches fail, try general hex pattern search
-    if [ -z "$MRENCLAVE_OUTPUT" ]; then
-        MRENCLAVE_OUTPUT=$(echo "$build_output" | grep -o '[a-fA-F0-9]\{64\}' | head -1)
-    fi
-    
-    if [ -n "$MRENCLAVE_OUTPUT" ] && [ ${#MRENCLAVE_OUTPUT} -eq 64 ]; then
-        print_status "Extracted SGXGETH_MRENCLAVE from build log: $MRENCLAVE_OUTPUT"
-        
-        # Update .env file with extracted MRENCLAVE
-        update_env_sgxgeth_mrenclave "$MRENCLAVE_OUTPUT"
+
+    if [ -n "$mrenclave_output" ] && [ ${#mrenclave_output} -eq 64 ]; then
+        print_status "Extracted SGXGETH_MRENCLAVE: $mrenclave_output"
+        update_env_sgxgeth_mrenclave "$mrenclave_output"
     else
-        print_error "Failed to extract SGXGETH MRENCLAVE from build log"
-        if [ -n "$log_file" ]; then
-            print_error "Searched in log file: $log_file"
-        fi
-        print_error "Expected 64-character hex string, got: '$MRENCLAVE_OUTPUT'"
+        print_error "Failed to extract SGXGETH MRENCLAVE from container"
         return 1
     fi
 }
@@ -515,19 +381,25 @@ main() {
             "sp1")
                 mode="sp1"
                 ;;
-            "sgx")
-                mode="sgx"
+            "sgx_direct")
+                mode="sgx_direct"
                 ;;
-            "sgxgeth")
-                mode="sgxgeth"
+            "sgxgeth_direct")
+                mode="sgxgeth_direct"
+                ;;
+            "update_sgx_mrenclave")
+                mode="update_sgx_mrenclave"
+                ;;
+            "update_sgxgeth_mrenclave")
+                mode="update_sgxgeth_mrenclave"
                 ;;
             *)
-                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'sgx', or 'sgxgeth'"
+                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
                 exit 1
                 ;;
         esac
     else
-        print_error "Mode must be specified. Use 'risc0', 'sp1', 'sgx', or 'sgxgeth'"
+        print_error "Mode must be specified. Use 'risc0', 'sp1', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
         exit 1
     fi
     
@@ -551,39 +423,51 @@ main() {
         fi
     fi
     
-    # Extract SGX MRENCLAVE
-    if [ "$mode" = "sgx" ]; then
-        # If a build log file is provided, extract from it (Docker build scenario)
-        if [ -n "$2" ] && [ -f "$2" ]; then
-            if extract_sgx_mrenclave_from_output "$2"; then
-                print_status "SGX MRENCLAVE extracted successfully"
-            else
-                print_error "Failed to extract SGX MRENCLAVE from build log"
-                exit 1
-            fi
+
+    # Extract SGX MRENCLAVE by calling tools directly on container
+    if [ "$mode" = "sgx_direct" ]; then
+        if extract_sgx_mrenclave_direct "$2"; then
+            print_status "SGX MRENCLAVE extracted directly from container"
         else
-            # Local build scenario - try to build and extract locally
-            if extract_sgx_mrenclave; then
-                print_status "SGX MRENCLAVE extracted successfully"
-            else
-                print_error "Failed to extract SGX MRENCLAVE"
-                exit 1
-            fi
+            print_error "Failed to extract SGX MRENCLAVE directly"
+            exit 1
         fi
     fi
-    
-    # Extract SGXGETH MRENCLAVE from Docker build output
-    if [ "$mode" = "sgxgeth" ]; then
-        if extract_sgxgeth_mrenclave_from_output "$2"; then
-            print_status "SGXGETH MRENCLAVE extracted successfully"
+
+    # Extract SGXGETH MRENCLAVE by calling tools directly on container
+    if [ "$mode" = "sgxgeth_direct" ]; then
+        if extract_sgxgeth_mrenclave_direct "$2"; then
+            print_status "SGXGETH MRENCLAVE extracted directly from container"
         else
-            print_error "Failed to extract SGXGETH MRENCLAVE"
+            print_error "Failed to extract SGXGETH MRENCLAVE directly"
+            exit 1
+        fi
+    fi
+
+    # Update SGX MRENCLAVE directly
+    if [ "$mode" = "update_sgx_mrenclave" ]; then
+        if [ -n "$2" ]; then
+            update_env_mrenclave "$2"
+            print_status "SGX MRENCLAVE updated to: $2"
+        else
+            print_error "MRENCLAVE value required for update_sgx_mrenclave mode"
+            exit 1
+        fi
+    fi
+
+    # Update SGXGETH MRENCLAVE directly
+    if [ "$mode" = "update_sgxgeth_mrenclave" ]; then
+        if [ -n "$2" ]; then
+            update_env_sgxgeth_mrenclave "$2"
+            print_status "SGXGETH MRENCLAVE updated to: $2"
+        else
+            print_error "MRENCLAVE value required for update_sgxgeth_mrenclave mode"
             exit 1
         fi
     fi
     
-    # Update .env file (only for risc0 and sp1 modes, sgx and sgxgeth handle their own .env updates)
-    if [ "$mode" != "sgx" ] && [ "$mode" != "sgxgeth" ]; then
+    # Update .env file (only for risc0 and sp1 modes, other modes handle their own .env updates)
+    if [ "$mode" = "risc0" ] || [ "$mode" = "sp1" ]; then
         if update_env_file; then
             print_status "Environment file updated successfully"
         else

@@ -100,6 +100,18 @@ function update_docker_chain_specs() {
     if [ -n "${TAIKO_MAINNET_RPC}" ]; then
         update_chain_spec_json $CONFIG_FILE "taiko_mainnet" "rpc" $TAIKO_MAINNET_RPC
     fi
+
+    if [ -n "${HOODI_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "hoodi" "rpc" $HOODI_RPC
+    fi
+
+    if [ -n "${HOODI_BEACON_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "hoodi" "beacon_rpc" $HOODI_BEACON_RPC
+    fi
+
+    if [ -n "${TOLBA_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "taiko_hoodi" "rpc" $TOLBA_RPC
+    fi
 }
 
 function update_config_json() {

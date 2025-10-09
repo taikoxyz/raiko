@@ -3,9 +3,9 @@
 set -e
 
 echo "choose env"
-select net in hekla mainnet devnet others; do
+select net in hekla tolba mainnet devnet others; do
   case $net in
-    hekla|mainnet|devnet)
+    tolba|hekla|mainnet|devnet)
       network=$net
       break
       ;;

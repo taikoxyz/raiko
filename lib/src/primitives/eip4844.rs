@@ -14,7 +14,7 @@ pub use kzg::{eip_4844::deserialize_blob_rust, kzg_proofs::KZGSettings};
 pub static KZG_SETTINGS_BIN: &[u8] = include_bytes!("../../kzg_settings/zkcrypto_kzg_settings.bin");
 
 // The KZG settings under the concrete type of kzg backend
-// We directly include the serialzed struct to avoid conversion cost in guest
+// We directly include the serialized struct to avoid conversion cost in guest
 // To generate the bytes, run:
 //
 //     cargo run --bin gen_kzg_settings

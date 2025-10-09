@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
 Test script to verify that aggregation requests get the highest priority.
+Configured for Tolba testnet with SHASTA fork support.
 
 Usage Examples:
   # Basic continuous streaming test with default settings (native prover)
   python3 test_aggregation_priority.py
-  
+
   # Test with different prover types
   python3 test_aggregation_priority.py --prove-type sgx
   python3 test_aggregation_priority.py --prove-type risc0
   python3 test_aggregation_priority.py --prove-type sp1
-  
+
 """
 
 import asyncio
@@ -49,15 +50,15 @@ class TestRequest:
 class AggregationPriorityTester:
     def __init__(
         self,
-        raiko_rpc: str = "http://localhost:8080",
-        l1_rpc: str = "http://35.240.156.196:8545",
-        abi_file: str = "./script/ITaikoInbox.json",
-        evt_address: str = "0x79C9109b764609df928d16fC4a91e9081F7e87DB",
-        log_file: str = "aggregation_priority_test.log",
-        prove_type: str = "native",
-        request_delay: float = 0.0,
-        polling_interval: int = 3,
-        request_timeout: int = 90,
+        raiko_rpc: str,
+        l1_rpc: str,
+        abi_file: str,
+        evt_address: str,
+        log_file: str,
+        prove_type: str,
+        request_delay: float,
+        polling_interval: int,
+        request_timeout: int,
     ):
         self.raiko_rpc = raiko_rpc
         self.l1_rpc = l1_rpc
@@ -131,7 +132,7 @@ class AggregationPriorityTester:
             return []
 
     def get_available_batch_ids(self, start_block: int, end_block: int, max_batches: int = 5000) -> List[Tuple[int, int]]:
-        """Get available batch IDs and L1 inclusion blocks from L1 chain within a block range"""
+        """Get available batch IDs and L1 inclusion blocks from Hoodi testnet (tolba L1) within a block range"""
         if not hasattr(self, 'evt_contract') or self.evt_contract is None:
             self.logger.error("Contract not initialized, cannot get batch events")
             return []
@@ -159,7 +160,7 @@ class AggregationPriorityTester:
         return batch_data
 
     def create_single_proof_request(self, batch_id: int, l1_inclusion_block: int, aggregate: bool = False) -> Dict[str, Any]:
-        """Create a single proof request payload"""
+        """Create a single proof request payload for Tolba testnet (SHASTA fork)"""
         base_request = {
             "batches": [
                 {
@@ -172,6 +173,8 @@ class AggregationPriorityTester:
             "proof_type": self.prove_type,
             "blob_proof_type": "proof_of_equivalence",
             "aggregate": aggregate,
+            "network": "taiko_hoodi",
+            "l1_network": "hoodi",
         }
         
         if self.prove_type == "native":
@@ -200,7 +203,7 @@ class AggregationPriorityTester:
         return base_request
 
     def create_aggregation_request(self, batch_data: List[Tuple[int, int]]) -> Dict[str, Any]:
-        """Create an aggregation request payload"""
+        """Create an aggregation request payload for Tolba testnet (SHASTA fork)"""
         base_request = {
             "batches": [
                 {
@@ -214,6 +217,8 @@ class AggregationPriorityTester:
             "proof_type": self.prove_type,
             "blob_proof_type": "proof_of_equivalence",
             "aggregate": True,
+            "network": "taiko_hoodi",
+            "l1_network": "hoodi",
         }
 
         if self.prove_type == "native":
@@ -399,7 +404,7 @@ class AggregationPriorityTester:
             # Submit the request
             submission_result = await self.submit_request(payload, request_type, request_id, i+1)
             if submission_result:
-                self.logger.info(f"Submitted single proof request for batch {batch_id} (sequence {i+1})")
+                self.logger.info(f"Submitted single proof request for batch {batch_id}, L1 block {l1_inclusion_block} (sequence {i+1})")
                 submitted_requests[request_id] = {
                     "batch_id": batch_id,
                     "l1_inclusion_block": l1_inclusion_block,
@@ -450,9 +455,9 @@ class AggregationPriorityTester:
                         data = response.data
                         status = data.get("status", "unknown")
                         if data.get("proof"):
-                            self.logger.info(f"Proof completed for batch {batch_id}!")
+                            self.logger.info(f"[REQUIREMENT_SATISFIED] Batch ID: {batch_id}, L1 Inclusion Block: {request_info['l1_inclusion_block']} - Proof completed successfully")
                             completed_proofs.add(batch_id)
-                            
+
                             # Add to successful single proofs
                             successful_single_proofs.append({
                                 "batch_id": batch_id,
@@ -460,22 +465,24 @@ class AggregationPriorityTester:
                                 "request_id": request_id,
                                 "sequence": request_info["sequence"]
                             })
-                            
+
                             # Add to current batch group
                             current_batch_group.append((batch_id, request_info["l1_inclusion_block"]))
                             
                             if len(current_batch_group) == 2:
                                 aggregation_count += 1
-                                self.logger.info(f"2 successful proofs achieved! Submitting aggregation request #{aggregation_count} for batches: {[b for b, _ in current_batch_group]}")
-                                
+                                self.logger.info(f"[AGGREGATION_READY] Requirements met for aggregation #{aggregation_count}:")
+                                for bid, blk in current_batch_group:
+                                    self.logger.info(f"  - Batch ID: {bid}, L1 Inclusion Block: {blk}")
+
                                 # Create aggregation payload
                                 agg_payload = self.create_aggregation_request(current_batch_group)
                                 agg_request_id = f"aggregation_{aggregation_count}_{self.test_id}"
                                 agg_request_type = "aggregation"
-                                
+
                                 # Submit aggregation request
                                 agg_submission = await self.submit_request(agg_payload, agg_request_type, agg_request_id, aggregation_count)
-                                
+
                                 if agg_submission:
                                     self.logger.info(f"Aggregation request #{aggregation_count} submitted successfully for batches: {[b for b, _ in current_batch_group]}")
                                     successful_aggregations.append({
@@ -485,12 +492,12 @@ class AggregationPriorityTester:
                                         "submission": agg_submission,
                                         "aggregation_number": aggregation_count
                                     })
-                                    
+
                                     # Record aggregation submission time for priority analysis
                                     processing_order.append(("aggregation", agg_request_id, current_time, "submitted"))
                                 else:
                                     self.logger.error(f"Failed to submit aggregation request #{aggregation_count} for batches: {[b for b, _ in current_batch_group]}")
-                                
+
                                 # Reset batch group for next aggregation
                                 current_batch_group = []
                             else:
@@ -559,12 +566,19 @@ class AggregationPriorityTester:
         # Handle remaining successful proofs (if not exactly divisible by 2)
         if len(current_batch_group) > 0:
             self.logger.info(f"Remaining {len(current_batch_group)} successful proofs that don't form a complete group of 2")
-        
+
+        # Log final summary of all successful batches
+        self.logger.info("="*60)
+        self.logger.info("[FINAL_SUMMARY] All batches that satisfied requirements:")
+        for proof in successful_single_proofs:
+            self.logger.info(f"  - Batch ID: {proof['batch_id']}, L1 Block: {proof['l1_inclusion_block']}, Sequence: {proof['sequence']}")
+        self.logger.info("="*60)
+
         self.logger.info(f"Monitoring complete. Processed {len(completed_proofs)} proofs, submitted {len(successful_aggregations)} aggregation requests, completed {len(completed_aggregations)} aggregations")
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 4110000, 
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 4, base_block: int = 1,
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -576,8 +590,8 @@ class AggregationPriorityTester:
             self.logger.error("L1 contract not initialized - cannot proceed with test")
             return False
         
-        self.logger.info(f"Getting {total_batches} batch IDs from L1 chain starting from block {base_block}")
-        batch_data = self.get_available_batch_ids(base_block, base_block + 5000, total_batches)
+        self.logger.info(f"Getting {total_batches} batch IDs from Hoodi testnet (tolba L1) starting from block {base_block}")
+        batch_data = self.get_available_batch_ids(base_block, base_block + 2000, total_batches)
         
         if len(batch_data) == 0:
             self.logger.error("No batch proposals found - cannot proceed with test")
@@ -628,7 +642,7 @@ async def main():
     parser.add_argument(
         "--l1-rpc",
         type=str,
-        default="http://35.240.156.196:8545",
+        default="https://ethereum-hoodi-rpc.publicnode.com",
         help="L1 RPC endpoint"
     )
     
@@ -642,7 +656,7 @@ async def main():
     parser.add_argument(
         "--event-contract",
         type=str,
-        default="0x79C9109b764609df928d16fC4a91e9081F7e87DB",
+        default="0x50A576435E2D9c179124D657d804eb56A10b6999",
         help="Event contract address"
     )
     
@@ -656,7 +670,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=2,
+        default=4,
         help="Total number of batches to process"
     )
     
@@ -678,8 +692,8 @@ async def main():
     parser.add_argument(
         "--base-block",
         type=int,
-        default=4110000,
-        help="Base block number to start testing from"
+        default=1234000,
+        help="Base block number to start testing from (Hoodi testnet recent blocks around 1236000+)"
     )
     
     parser.add_argument(
