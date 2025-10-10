@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.12.0](https://github.com/taikoxyz/raiko/compare/v1.10.0...v1.12.0) (2025-10-09)
+
+
+### Features
+
+* add image ID to request key ([#608](https://github.com/taikoxyz/raiko/issues/608)) ([7a9a900](https://github.com/taikoxyz/raiko/commit/7a9a900f25bf8fdcad96e5df14ad107fad4f2244))
+* add tolba support ([#629](https://github.com/taikoxyz/raiko/issues/629)) ([abd1246](https://github.com/taikoxyz/raiko/commit/abd1246d6cdd4683bf3e5837a2a3dfeeb3ec5540))
+* enable "embedded" feature for sp1 ([#619](https://github.com/taikoxyz/raiko/issues/619)) ([1f69c40](https://github.com/taikoxyz/raiko/commit/1f69c405cf2973be81c3057d960df9025d131292))
+* release v1.10.4 ([#623](https://github.com/taikoxyz/raiko/issues/623)) ([eebee8c](https://github.com/taikoxyz/raiko/commit/eebee8c953d5acb8fe2d97098e6cf2079b31a6b6))
+
+
+### Bug Fixes
+
+* extracting sp1 vk hash error ([#617](https://github.com/taikoxyz/raiko/issues/617)) ([e2fafd8](https://github.com/taikoxyz/raiko/commit/e2fafd8387d4882df79a7fb1b17a17680bedc5f7))
+* **raiko:** give gramine enclave more memory ([#615](https://github.com/taikoxyz/raiko/issues/615)) ([eb0563a](https://github.com/taikoxyz/raiko/commit/eb0563af89aa75779a85647a7ad1fca1ec7d7040))
+
 ## [1.10.0](https://github.com/taikoxyz/raiko/compare/v1.9.0...v1.10.0) (2025-08-06)
 
 
