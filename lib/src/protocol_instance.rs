@@ -2,7 +2,7 @@ use core::fmt::Display;
 
 use alloy_primitives::{b256, Address, TxHash, B256};
 use alloy_sol_types::SolValue;
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Ok, Result};
 use pretty_assertions::Comparison;
 use reth_evm_ethereum::taiko::decode_anchor_pacaya;
 use reth_primitives::{Block, Header};
@@ -153,7 +153,12 @@ impl BlockMetaDataFork {
             BlockProposedFork::Pacaya(batch_proposed) => {
                 // todo: review the calculation 1 by 1 to make sure all of them are rooted from a trustable source
                 let txs_hash = Self::calculate_pacaya_txs_hash(
-                    keccak(batch_input.taiko.tx_data_from_calldata.as_slice()).into(),
+                    keccak(
+                        batch_input.taiko.data_sources[0]
+                            .tx_data_from_calldata
+                            .as_slice(),
+                    )
+                    .into(),
                     &batch_proposed.info.blobHashes,
                 );
                 assert_eq!(
@@ -344,66 +349,50 @@ fn verify_batch_mode_blob_usage(
     batch_input: &GuestBatchInput,
     proof_type: ProofType,
 ) -> Result<()> {
-    let blob_proof_type =
-        get_blob_proof_type(proof_type, batch_input.taiko.blob_proof_type.clone());
+    for data_source in &batch_input.taiko.data_sources {
+        let blob_proof_type = get_blob_proof_type(proof_type, data_source.blob_proof_type.clone());
+        match blob_proof_type {
+            crate::input::BlobProofType::KzgVersionedHash => assert_eq!(
+                data_source.tx_data_from_blob.len(),
+                data_source.blob_commitments.as_ref().map_or(0, |c| c.len()),
+                "Each blob should have its own hash commit"
+            ),
+            crate::input::BlobProofType::ProofOfEquivalence => assert_eq!(
+                data_source.tx_data_from_blob.len(),
+                data_source.blob_proofs.as_ref().map_or(0, |p| p.len()),
+                "Each blob should have its own proof"
+            ),
+        }
 
-    match blob_proof_type {
-        crate::input::BlobProofType::KzgVersionedHash => assert_eq!(
-            batch_input.taiko.tx_data_from_blob.len(),
-            batch_input
-                .taiko
-                .blob_commitments
-                .as_ref()
-                .map_or(0, |c| c.len()),
-            "Each blob should have its own hash commit"
-        ),
-        crate::input::BlobProofType::ProofOfEquivalence => assert_eq!(
-            batch_input.taiko.tx_data_from_blob.len(),
-            batch_input
-                .taiko
-                .blob_proofs
-                .as_ref()
-                .map_or(0, |p| p.len()),
-            "Each blob should have its own proof"
-        ),
-    }
-
-    for blob_verify_param in batch_input
-        .taiko
-        .tx_data_from_blob
-        .iter()
-        .zip(
-            batch_input
-                .taiko
-                .blob_commitments
-                .clone()
-                .unwrap_or_default()
-                .iter(),
-        )
-        .zip(
-            batch_input
-                .taiko
-                .blob_proofs
-                .clone()
-                .unwrap_or_default()
-                .iter(),
-        )
-    {
-        let blob_data = blob_verify_param.0 .0;
-        let commitment = blob_verify_param.0 .1;
-        let versioned_hash = commitment_to_version_hash(&commitment.clone().try_into().unwrap());
-        debug!(
-            "verify_batch_mode_blob_usage commitment: {:?}, hash: {:?}",
-            hex::encode(commitment),
-            versioned_hash
-        );
-        verify_blob(
-            blob_proof_type.clone(),
-            blob_data,
-            versioned_hash,
-            &commitment.clone().try_into().unwrap(),
-            Some(blob_verify_param.1.clone()),
-        )?;
+        for blob_verify_param in data_source
+            .tx_data_from_blob
+            .iter()
+            .zip(
+                data_source
+                    .blob_commitments
+                    .clone()
+                    .unwrap_or_default()
+                    .iter(),
+            )
+            .zip(data_source.blob_proofs.clone().unwrap_or_default().iter())
+        {
+            let blob_data = blob_verify_param.0 .0;
+            let commitment = blob_verify_param.0 .1;
+            let versioned_hash =
+                commitment_to_version_hash(&commitment.clone().try_into().unwrap());
+            debug!(
+                "verify_batch_mode_blob_usage commitment: {:?}, hash: {:?}",
+                hex::encode(commitment),
+                versioned_hash
+            );
+            verify_blob(
+                blob_proof_type.clone(),
+                blob_data,
+                versioned_hash,
+                &commitment.clone().try_into().unwrap(),
+                Some(blob_verify_param.1.clone()),
+            )?;
+        }
     }
     Ok(())
 }
@@ -566,7 +555,7 @@ impl ProtocolInstance {
         let input = &batch_input.inputs[0];
         let verifier_address = input
             .chain_spec
-            .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
+            .get_fork_verifier_address(input.block.number, proof_type)
             .unwrap_or_default();
 
         let first_block = blocks.first().unwrap();

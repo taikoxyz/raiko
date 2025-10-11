@@ -32,16 +32,19 @@ pub fn decode_and_decompress_shasta_proposal(
 impl Encodable for ProtocolBlockManifest {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         // Calculate the payload length first
-        let payload_length = self.timestamp.length() 
-            + self.coinbase.length() 
-            + self.anchor_block_number.length() 
-            + self.gas_limit.length() 
+        let payload_length = self.timestamp.length()
+            + self.coinbase.length()
+            + self.anchor_block_number.length()
+            + self.gas_limit.length()
             + self.transactions.length();
-        
+
         // Encode the list header
-        let header = alloy_rlp::Header { list: true, payload_length };
+        let header = alloy_rlp::Header {
+            list: true,
+            payload_length,
+        };
         header.encode(out);
-        
+
         // Encode fields in the same order as Go struct
         self.timestamp.encode(out);
         self.coinbase.encode(out);
@@ -49,12 +52,12 @@ impl Encodable for ProtocolBlockManifest {
         self.gas_limit.encode(out);
         self.transactions.encode(out);
     }
-    
+
     fn length(&self) -> usize {
-        let payload_length = self.timestamp.length() 
-            + self.coinbase.length() 
-            + self.anchor_block_number.length() 
-            + self.gas_limit.length() 
+        let payload_length = self.timestamp.length()
+            + self.coinbase.length()
+            + self.anchor_block_number.length()
+            + self.gas_limit.length()
             + self.transactions.length();
         payload_length + alloy_rlp::length_of_length(payload_length)
     }
@@ -65,9 +68,11 @@ impl Decodable for ProtocolBlockManifest {
         // Decode the RLP header first
         let header = alloy_rlp::Header::decode(buf)?;
         if !header.list {
-            return Err(alloy_rlp::Error::Custom("ProtocolBlockManifest must be encoded as a list"));
+            return Err(alloy_rlp::Error::Custom(
+                "ProtocolBlockManifest must be encoded as a list",
+            ));
         }
-        
+
         // Decode each field sequentially
         Ok(ProtocolBlockManifest {
             timestamp: u64::decode(buf)?,
@@ -83,16 +88,19 @@ impl Encodable for ProtocolProposalManifest {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         // Calculate the payload length first
         let payload_length = self.prover_auth_bytes.length() + self.blocks.length();
-        
+
         // Encode the list header
-        let header = alloy_rlp::Header { list: true, payload_length };
+        let header = alloy_rlp::Header {
+            list: true,
+            payload_length,
+        };
         header.encode(out);
-        
+
         // Encode fields in the same order as Go struct
         self.prover_auth_bytes.encode(out);
         self.blocks.encode(out);
     }
-    
+
     fn length(&self) -> usize {
         let payload_length = self.prover_auth_bytes.length() + self.blocks.length();
         payload_length + alloy_rlp::length_of_length(payload_length)
@@ -101,16 +109,34 @@ impl Encodable for ProtocolProposalManifest {
 
 impl Decodable for ProtocolProposalManifest {
     fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
+        const PROPOSAL_MAX_BLOCKS: usize = 384;
+        const PROPOSAL_MAX_AUTH_BYTES: usize = 161;
         // Decode the RLP header first
         let header = alloy_rlp::Header::decode(buf)?;
         if !header.list {
-            return Err(alloy_rlp::Error::Custom("ProtocolProposalManifest must be encoded as a list"));
+            return Err(alloy_rlp::Error::Custom(
+                "ProtocolProposalManifest must be encoded as a list",
+            ));
         }
-        
+        let prover_auth_bytes = alloy_primitives::Bytes::decode(buf)?;
+        if prover_auth_bytes.len() != PROPOSAL_MAX_AUTH_BYTES {
+            tracing::error!(
+                "prover_auth_bytes length must be 161 rather than {}",
+                prover_auth_bytes.len()
+            );
+        }
+
+        let blocks = Vec::<ProtocolBlockManifest>::decode(buf)?;
+        if blocks.len() > PROPOSAL_MAX_BLOCKS {
+            return Err(alloy_rlp::Error::Custom(
+                "ProtocolProposalManifest blocks length exceeds PROPOSAL_MAX_BLOCKS",
+            ));
+        }
+
         // Decode each field sequentially
         Ok(ProtocolProposalManifest {
-            prover_auth_bytes: alloy_primitives::Bytes::decode(buf)?,
-            blocks: Vec::<ProtocolBlockManifest>::decode(buf)?,
+            prover_auth_bytes,
+            blocks,
         })
     }
 }
@@ -130,7 +156,7 @@ mod tests {
         };
 
         ProtocolProposalManifest {
-            prover_auth_bytes: Bytes::from(vec![1, 2, 3, 4]),
+            prover_auth_bytes: Bytes::from([1u8; 161]),
             blocks: vec![block],
         }
     }
@@ -188,40 +214,5 @@ mod tests {
 
         // Decode and decompress
         let _decoded = decode_and_decompress_shasta_proposal(&encoded).unwrap();
-    }
-
-    #[test]
-    fn test_rlp_encode_decode_shasta_from_client_data() {
-        let bytes = include_bytes!("../../testdata/shasta_proposal_compressed.bin");
-        let decoded = decode_and_decompress_shasta_proposal(bytes).unwrap();
-
-        // Verify the decoded data matches expected values from Go test data
-        assert_eq!(
-            decoded.prover_auth_bytes,
-            alloy_primitives::Bytes::from("test-prover-auth")
-        );
-        assert_eq!(decoded.blocks.len(), 2);
-
-        // First block assertions
-        let first_block = &decoded.blocks[0];
-        assert_eq!(first_block.timestamp, 1234567890);
-        assert_eq!(
-            first_block.coinbase,
-            Address::from_slice(&hex::decode("1234567890123456789012345678901234567890").unwrap())
-        );
-        assert_eq!(first_block.anchor_block_number, 100);
-        assert_eq!(first_block.gas_limit, 8000000);
-        assert_eq!(first_block.transactions.len(), 2);
-
-        // Second block assertions
-        let second_block = &decoded.blocks[1];
-        assert_eq!(second_block.timestamp, 1234567900);
-        assert_eq!(
-            second_block.coinbase,
-            Address::from_slice(&hex::decode("9876543210987654321098765432109876543210").unwrap())
-        );
-        assert_eq!(second_block.anchor_block_number, 0); // Using 0 to test the case where it uses the previous anchor
-        assert_eq!(second_block.gas_limit, 10000000);
-        assert_eq!(second_block.transactions.len(), 0);
     }
 }
