@@ -174,7 +174,9 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             _ => unimplemented!(),
         };
 
-        let block_num = self.input.taiko.block_proposed.block_number();
+        // todo: shasta has decouple the connection between proposal & block id.
+        // need constraint for it.
+        let block_num = self.input.block.number;
         let taiko_fork = self.input.chain_spec.spec_id(block_num, 0u64).unwrap();
         if reth_chain_spec.is_taiko() {
             match taiko_fork {

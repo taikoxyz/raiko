@@ -142,22 +142,41 @@ pub fn generate_transactions_for_batch_blocks(
     taiko_guest_batch_input: &TaikoGuestBatchInput,
 ) -> Vec<Vec<TransactionSigned>> {
     assert!(
-        matches!(
-            taiko_guest_batch_input.batch_proposed,
-            BlockProposedFork::Pacaya(_) | BlockProposedFork::Shasta(_)
-        ),
-        "only pacaya and shasta batch supported"
-    );
-    assert!(
-        taiko_guest_batch_input.tx_data_from_calldata.is_empty()
-            || taiko_guest_batch_input.tx_data_from_blob.is_empty(),
-        "Txlist comes from either calldata or blob, but not both"
+        taiko_guest_batch_input.data_sources.len() > 0,
+        "data_source is empty"
     );
 
     let batch_proposal = &taiko_guest_batch_input.batch_proposed;
+    match batch_proposal {
+        BlockProposedFork::Pacaya(_) => {
+            generate_transactions_for_pacaya_blocks(taiko_guest_batch_input)
+        }
+        BlockProposedFork::Shasta(_) => {
+            generate_transactions_for_shasta_blocks(taiko_guest_batch_input)
+        }
+        _ => {
+            unreachable!(
+                "only pacaya and shasta batch supported, but got {:?}",
+                batch_proposal
+            );
+        }
+    }
+}
+
+/// concat blob & decode a whole txlist, then
+/// each block will get a portion of the txlist by its tx_nums
+pub fn generate_transactions_for_pacaya_blocks(
+    taiko_guest_batch_input: &TaikoGuestBatchInput,
+) -> Vec<Vec<TransactionSigned>> {
+    let batch_proposal = &taiko_guest_batch_input.batch_proposed;
+    let data_source = &taiko_guest_batch_input.data_sources[0];
+    assert!(
+        data_source.tx_data_from_calldata.is_empty() || data_source.tx_data_from_blob.is_empty(),
+        "Txlist comes from either calldata or blob, but not both"
+    );
     let use_blob = batch_proposal.blob_used();
     let compressed_tx_list_buf = if use_blob {
-        let blob_data_bufs = taiko_guest_batch_input.tx_data_from_blob.clone();
+        let blob_data_bufs = data_source.tx_data_from_blob.clone();
         let compressed_tx_list_buf = blob_data_bufs
             .iter()
             .map(|blob_data_buf| decode_blob_data(blob_data_buf))
@@ -172,35 +191,65 @@ pub fn generate_transactions_for_batch_blocks(
         tracing::info!("blob_offset: {blob_offset}, blob_size: {blob_size}");
         compressed_tx_list_buf[blob_offset..blob_offset + blob_size].to_vec()
     } else {
-        taiko_guest_batch_input.tx_data_from_calldata.clone()
+        data_source.tx_data_from_calldata.clone()
     };
 
-    match batch_proposal {
-        BlockProposedFork::Shasta(_) => {
-            // TODO: Implement Shasta batch decode using manifest
-            // - Decode manifest from blob data
-            // - Extract transactions from manifest blocks
-            // - Distribute transactions to blocks
-            assert!(use_blob);
-            let protocol_manifest_bytes =
-                zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
-            let protocol_manifest =
-                ProtocolProposalManifest::decode(&mut protocol_manifest_bytes.as_ref()).unwrap();
+    let tx_list_buf = zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
+    let txs = decode_transactions(&tx_list_buf);
+    // todo: deal with invalid proposal, to name a few:
+    // - txs.len() != tx_num_sizes.sum()
+    // - random blob tx bytes
+    distribute_txs(&txs, batch_proposal)
+}
+
+/// concat blob & decode a whole txlist, then
+/// each block will get a portion of the txlist by its tx_nums
+pub fn generate_transactions_for_shasta_blocks(
+    taiko_guest_batch_input: &TaikoGuestBatchInput,
+) -> Vec<Vec<TransactionSigned>> {
+    let batch_proposal = &taiko_guest_batch_input.batch_proposed;
+    let data_sources = &taiko_guest_batch_input.data_sources;
+    let mut tx_list_bufs = Vec::new();
+
+    for data_source in data_sources {
+        let use_blob = batch_proposal.blob_used();
+        let compressed_tx_list_buf = if use_blob {
+            let blob_data_bufs = data_source.tx_data_from_blob.clone();
+            let compressed_tx_list_buf = blob_data_bufs
+                .iter()
+                .map(|blob_data_buf| decode_blob_data(blob_data_buf))
+                .collect::<Vec<Vec<u8>>>()
+                .concat();
+            let (blob_offset, blob_size) = batch_proposal
+                .blob_tx_slice_param(&compressed_tx_list_buf)
+                .unwrap_or_else(|| {
+                    warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
+                    (0, compressed_tx_list_buf.len())
+                });
+            tracing::info!("blob_offset: {blob_offset}, blob_size: {blob_size}");
+            compressed_tx_list_buf[blob_offset..blob_offset + blob_size].to_vec()
+        } else {
+            unreachable!("shasta does not use calldata");
+        };
+
+        // - Decode manifest from blob data
+        // - Extract transactions from manifest blocks
+        // - Distribute transactions to blocks
+        // TODO: support un-happy path in derivation doc
+        assert!(use_blob);
+        let protocol_manifest_bytes =
+            zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
+        let protocol_manifest =
+            ProtocolProposalManifest::decode(&mut protocol_manifest_bytes.as_ref()).unwrap();
+        tx_list_bufs.push(
             protocol_manifest
                 .blocks
                 .iter()
                 .map(|block| block.transactions.clone())
-                .collect::<Vec<_>>()
-        }
-        _ => {
-            let tx_list_buf = zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
-            let txs = decode_transactions(&tx_list_buf);
-            // todo: deal with invalid proposal, to name a few:
-            // - txs.len() != tx_num_sizes.sum()
-            // - random blob tx bytes
-            distribute_txs(&txs, batch_proposal)
-        }
+                .collect::<Vec<_>>(),
+        );
     }
+    tx_list_bufs.concat()
 }
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;

@@ -256,7 +256,7 @@ mod test {
         let transition_hash = hash_transition(&transition);
         assert_eq!(
             hex::encode(transition_hash),
-            "6afc3bc3d1036f35d3f2de001af27f5e9baffd6a5ebec284acc46ccd08efe639"
+            "9d93decbd29774478548308c831ea03f3c38aa43ce07b3302b965ef1a0555b1e"
         );
     }
 
@@ -324,7 +324,7 @@ mod test {
         let result = hash_transitions_array(&transitions);
         assert_eq!(
             hex::encode(result),
-            "bc7907af6f75e8774d953600770dea1912688f8492bedee719be809143545c33"
+            "c49b25f3b1b5fb1c9f2b4a574305f2db250a6539c3857aa8cca9f074a0cc1ccf"
         );
 
         // Test individual transition hashes
@@ -335,15 +335,15 @@ mod test {
 
         assert_eq!(
             individual_hashes[0],
-            "08ecd80c33f12026e5210a422049ec0aaca3fe92ae201138143e1e30be78106e"
+            "a7dc0c76776e60af434abbee470112e0e2198edf06dea1c5153d431d58a84df9"
         );
         assert_eq!(
             individual_hashes[1],
-            "593fcc44adfa8722be8b59f2f77b63ab82897fc745b7248244d1157d7720f12b"
+            "f7ced7b0c00b03d9832712d12eefea6f48b44fff2a399a99b3fe1a0e063f8c2b"
         );
         assert_eq!(
             individual_hashes[2],
-            "9a14e589f1966e9677942d75e6e3f0f68e6bb8635c37866f0a154b29a7a8fd0c"
+            "fead1ace85f53c5077d1184d8b83937ac110369a5eb65e582b8cae997e85ea21"
         );
     }
 

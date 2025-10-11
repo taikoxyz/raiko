@@ -311,7 +311,9 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     prover_data: taiko_guest_batch_input.prover_data.clone(),
                     blob_commitment: None,
                     blob_proof: None,
-                    blob_proof_type: taiko_guest_batch_input.blob_proof_type.clone(),
+                    blob_proof_type: taiko_guest_batch_input.data_sources[0]
+                        .blob_proof_type
+                        .clone(),
                     extra_data: match taiko_guest_batch_input.batch_proposed {
                         BlockProposedFork::Shasta(_) => {
                             let extra_data = prove_block.header.extra_data.to_vec();

@@ -18,8 +18,8 @@ use raiko_lib::{
         pacaya::BatchProposed,
         proposeBlockCall,
         shasta::{Proposed as ShastaProposed, ShastaEventData},
-        BlobProofType, BlockProposed, BlockProposedFork, TaikoGuestBatchInput, TaikoGuestInput,
-        TaikoProverData,
+        BlobProofType, BlockProposed, BlockProposedFork, InputDataSource, TaikoGuestBatchInput,
+        TaikoGuestInput, TaikoProverData,
     },
     primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
 };
@@ -389,20 +389,22 @@ async fn prepare_pacaya_batch_input(
         l1_header: l1_state_header.try_into().unwrap(),
         chain_spec: taiko_chain_spec.clone(),
         prover_data: prover_data,
-        tx_data_from_calldata,
-        tx_data_from_blob: blob_tx_buffers_with_proofs
-            .iter()
-            .map(|(blob_tx_data, _, _)| blob_tx_data.clone())
-            .collect(),
-        blob_commitments: blob_tx_buffers_with_proofs
-            .iter()
-            .map(|(_, commit, _)| commit.clone())
-            .collect(),
-        blob_proofs: blob_tx_buffers_with_proofs
-            .iter()
-            .map(|(_, _, proof)| proof.clone())
-            .collect(),
-        blob_proof_type: blob_proof_type.clone(),
+        data_sources: vec![InputDataSource {
+            tx_data_from_calldata,
+            tx_data_from_blob: blob_tx_buffers_with_proofs
+                .iter()
+                .map(|(blob_tx_data, _, _)| blob_tx_data.clone())
+                .collect(),
+            blob_commitments: blob_tx_buffers_with_proofs
+                .iter()
+                .map(|(_, commit, _)| commit.clone())
+                .collect(),
+            blob_proofs: blob_tx_buffers_with_proofs
+                .iter()
+                .map(|(_, _, proof)| proof.clone())
+                .collect(),
+            blob_proof_type: blob_proof_type.clone(),
+        }],
     })
 }
 
@@ -410,52 +412,58 @@ async fn prepare_pacaya_batch_input(
 async fn prepare_shasta_batch_input(
     shasta_event_data: raiko_lib::input::shasta::ShastaEventData,
     batch_id: u64,
-    l1_inclusion_block_number: u64,
-    anchor_block_height: u64,
+    _l1_inclusion_block_number: u64,
+    _anchor_block_height: u64,
     l1_inclusion_header: Header,
     l1_state_header: Header,
     l1_chain_spec: &ChainSpec,
     taiko_chain_spec: &ChainSpec,
     prover_data: TaikoProverData,
     blob_proof_type: &BlobProofType,
-    provider_l1: &RpcBlockDataProvider,
+    _provider_l1: &RpcBlockDataProvider,
 ) -> RaikoResult<TaikoGuestBatchInput> {
-    // todo: use source[0] for now, need to support multiple sources in the future
-    let blob_hashes = shasta_event_data.derivation.sources[0]
-        .blobSlice
-        .blobHashes
-        .clone();
-    let force_inclusion_block_number = 0; // todo: support force inclusion block
-    let l1_blob_timestamp = if force_inclusion_block_number != 0
-        && force_inclusion_block_number != l1_inclusion_block_number
-    {
-        // force inclusion block
-        info!(
-            "process force inclusion block: {l1_inclusion_block_number:?} -> {force_inclusion_block_number:?}"
-        );
-        let (force_inclusion_header, _) = get_headers(
-            provider_l1,
-            (force_inclusion_block_number, anchor_block_height),
-        )
-        .await?;
-        force_inclusion_header.timestamp
-    } else {
-        l1_inclusion_header.timestamp
-    };
+    let mut data_sources = Vec::new();
+    for derivation_source in shasta_event_data.derivation.sources.clone() {
+        let blob_hashes = derivation_source.blobSlice.blobHashes;
+        let is_forced_inclusion = derivation_source.isForcedInclusion;
+        let l1_blob_timestamp = if is_forced_inclusion {
+            // force inclusion block
+            info!("process force inclusion from data_source blob hashes: {blob_hashes:?}");
+            derivation_source.blobSlice.timestamp
+        } else {
+            l1_inclusion_header.timestamp
+        };
 
-    // according to protocol, calldata is mutex with blob
-    let (tx_data_from_calldata, blob_tx_buffers_with_proofs) = if blob_hashes.is_empty() {
-        unimplemented!("calldata txlist is not implemented.");
-    } else {
-        let blob_tx_buffers = get_batch_tx_data_with_proofs(
-            blob_hashes,
-            l1_blob_timestamp,
-            l1_chain_spec,
-            blob_proof_type,
-        )
-        .await?;
-        (Vec::new(), blob_tx_buffers)
-    };
+        // according to protocol, calldata is mutex with blob
+        let (tx_data_from_calldata, blob_tx_buffers_with_proofs) = if blob_hashes.is_empty() {
+            unimplemented!("calldata txlist is not supported in shasta.");
+        } else {
+            let blob_tx_buffers = get_batch_tx_data_with_proofs(
+                blob_hashes,
+                l1_blob_timestamp,
+                l1_chain_spec,
+                blob_proof_type,
+            )
+            .await?;
+            (Vec::new(), blob_tx_buffers)
+        };
+        data_sources.push(InputDataSource {
+            tx_data_from_calldata,
+            tx_data_from_blob: blob_tx_buffers_with_proofs
+                .iter()
+                .map(|(blob_tx_data, _, _)| blob_tx_data.clone())
+                .collect(),
+            blob_commitments: blob_tx_buffers_with_proofs
+                .iter()
+                .map(|(_, commit, _)| commit.clone())
+                .collect(),
+            blob_proofs: blob_tx_buffers_with_proofs
+                .iter()
+                .map(|(_, _, proof)| proof.clone())
+                .collect(),
+            blob_proof_type: blob_proof_type.clone(),
+        });
+    }
 
     Ok(TaikoGuestBatchInput {
         batch_id: batch_id,
@@ -463,20 +471,7 @@ async fn prepare_shasta_batch_input(
         l1_header: l1_state_header.try_into().unwrap(),
         chain_spec: taiko_chain_spec.clone(),
         prover_data: prover_data,
-        tx_data_from_calldata,
-        tx_data_from_blob: blob_tx_buffers_with_proofs
-            .iter()
-            .map(|(blob_tx_data, _, _)| blob_tx_data.clone())
-            .collect(),
-        blob_commitments: blob_tx_buffers_with_proofs
-            .iter()
-            .map(|(_, commit, _)| commit.clone())
-            .collect(),
-        blob_proofs: blob_tx_buffers_with_proofs
-            .iter()
-            .map(|(_, _, proof)| proof.clone())
-            .collect(),
-        blob_proof_type: blob_proof_type.clone(),
+        data_sources,
     })
 }
 
