@@ -120,7 +120,7 @@ impl Decodable for ProtocolProposalManifest {
         }
         let prover_auth_bytes = alloy_primitives::Bytes::decode(buf)?;
         if prover_auth_bytes.len() != PROPOSAL_MAX_AUTH_BYTES {
-            tracing::error!(
+            tracing::warn!(
                 "prover_auth_bytes length must be 161 rather than {}",
                 prover_auth_bytes.len()
             );
