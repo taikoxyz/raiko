@@ -15,7 +15,7 @@ use crate::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
         shasta::{
-            BlobSlice, Checkpoint, CoreState, Derivation, Proposal as ShastaProposal,
+            Checkpoint, Proposal as ShastaProposal,
             Transition as ShastaTransition,
         },
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
