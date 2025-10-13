@@ -5,9 +5,9 @@ use crate::{
 use anyhow::Context;
 use axum::{
     extract::{DefaultBodyLimit, State},
-    Json,
+    routing::{get, post},
+    Json, Router,
 };
-use axum::{routing::post, Router};
 use raiko_lib::{
     input::{
         GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
@@ -31,6 +31,7 @@ pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
         .route("/prove/shasta-aggregate", post(prove_shasta_aggregation))
         .route("/check", post(check_server))
         .route("/bootstrap", post(bootstrap_server))
+        .route("/health", get(health_check))
         .layer(DefaultBodyLimit::max(10000 * 1024 * 1024)) // max 10G
         .with_state(state.clone());
 
@@ -178,4 +179,8 @@ async fn check_server(
     Json(_proofs): Json<GuestBatchInput>,
 ) -> String {
     todo!();
+}
+
+async fn health_check() -> &'static str {
+    "OK"
 }
