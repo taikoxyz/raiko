@@ -19,7 +19,6 @@ use raiko_lib::{proof_type::ProofType, prover::Proof};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, BatchProofRequestEntity, ImageId,
-    ShastaProofRequestEntity,
 };
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
