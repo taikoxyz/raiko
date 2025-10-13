@@ -6907,6 +6907,7 @@ dependencies = [
  "base64 0.22.1",
  "bincode",
  "chrono",
+ "env_logger",
  "raiko-ballot",
  "raiko-core",
  "raiko-lib",
