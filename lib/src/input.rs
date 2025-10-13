@@ -4,7 +4,7 @@ use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
 use pacaya::{BatchInfo, BatchProposed};
 use reth_evm_ethereum::taiko::{
-    ProtocolBaseFeeConfig, ShastaData, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT,
+    ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT,
 };
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
@@ -12,7 +12,7 @@ use reth_primitives::{
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use shasta::{Proposal as ShastaProposal, Proposed as ShastaProposed, ShastaEventData};
+use shasta::ShastaEventData;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;

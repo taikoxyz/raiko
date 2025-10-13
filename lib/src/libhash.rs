@@ -63,7 +63,7 @@ pub fn hash_three_values(value0: B256, value1: B256, value2: B256) -> B256 {
 }
 
 /// Convert an Address to B256 by zero-padding (equivalent to bytes32(uint256(uint160(address))))
-fn address_to_b256(address: Address) -> B256 {
+fn _address_to_b256(address: Address) -> B256 {
     let mut result = [0u8; 32];
     result[12..32].copy_from_slice(address.as_slice());
     B256::from(result)
