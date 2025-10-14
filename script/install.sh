@@ -9,7 +9,7 @@ if [ -n "$CI" ]; then
 fi
 
 # toolchain necessary to compile c-kzg in SP1/risc0
-if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
+if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ] || [ "$1" == "openvm" ]; then
 	# Check if the RISC-V GCC prebuilt binary archive already exists
 	if [ -f /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz ]; then
 		echo "riscv-gcc-prebuilt existed, please check the file manually"
@@ -107,4 +107,45 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	# 	echo "/home/runner/.sp1/bin" >> $GITHUB_PATH
 	# 	/home/runner/.sp1/bin/sp1up
 	# fi
+fi
+
+# OPENVM
+if [ -z "$1" ] || [ "$1" == "openvm" ]; then
+	echo "Installing OpenVM..."
+
+	# Install nightly toolchain for OpenVM
+	OPENVM_TOOLCHAIN=nightly-2025-02-14
+	rustup install $OPENVM_TOOLCHAIN
+	rustup component add rust-src --toolchain $OPENVM_TOOLCHAIN
+
+	# Add RISC-V target for OpenVM guest compilation
+	rustup target add riscv32im-unknown-none-elf --toolchain $OPENVM_TOOLCHAIN
+
+	# Install additional dependencies for OpenVM
+	# svm-rs for Solidity compiler management
+	if ! command -v svm >/dev/null 2>&1; then
+		echo "Installing svm-rs..."
+		cargo install --version 0.5.7 svm-rs
+	else
+		echo "svm already installed"
+	fi
+
+	# Install solc version needed by OpenVM
+	if ! svm list | grep -q "0.8.19"; then
+		echo "Installing solc 0.8.19..."
+		svm install 0.8.19
+	else
+		echo "solc 0.8.19 already installed"
+	fi
+
+	# Install cargo-openvm CLI tool
+	if ! command -v cargo-openvm >/dev/null 2>&1; then
+		echo "Installing cargo-openvm CLI..."
+		cargo +1.86 install --locked --git https://github.com/openvm-org/openvm.git --tag v1.4.0 cargo-openvm
+	else
+		echo "cargo-openvm already installed"
+		cargo openvm --version
+	fi
+
+	echo "OpenVM installation complete!"
 fi

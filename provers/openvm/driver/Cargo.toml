@@ -1,0 +1,25 @@
+[package]
+name = "openvm-driver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-lib = { path = "../../../lib", features = ["std"] }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+log = { workspace = true }
+tracing = { workspace = true }
+hex = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+alloy-primitives = { workspace = true }
+sha2 = { workspace = true }
+bincode = { workspace = true }
+
+# OpenVM SDK from GitHub (not yet on crates.io)
+openvm-sdk = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.4.0", default-features = false }
+
+[features]
+enable = []

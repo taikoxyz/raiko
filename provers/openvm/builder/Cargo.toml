@@ -1,0 +1,14 @@
+[package]
+name = "openvm-builder"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "openvm-builder"
+path = "src/main.rs"
+
+[dependencies]
+raiko-pipeline = { path = "../../../pipeline" }
+
+[build-dependencies]
+raiko-pipeline = { path = "../../../pipeline" }

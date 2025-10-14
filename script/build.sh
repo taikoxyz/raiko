@@ -6,6 +6,7 @@ set -e
 TOOLCHAIN_RISC0=+nightly-2024-12-20
 TOOLCHAIN_SP1=+nightly-2024-12-20
 TOOLCHAIN_SGX=+nightly-2024-12-20
+TOOLCHAIN_OPENVM=+nightly-2025-02-14
 
 
 check_toolchain() {
@@ -193,6 +194,47 @@ if [ "$1" == "sp1" ]; then
             # Don't want to span Succinct Network and wait 2 hours in CI
             # echo "Running Sp1 verification"
             # cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier --features enable,sp1-verifier
+        fi
+    fi
+fi
+
+# OPENVM
+if [ "$1" == "openvm" ]; then
+    check_toolchain $TOOLCHAIN_OPENVM
+    if [ "$MOCK" = "1" ]; then
+        export OPENVM_MOCK=1
+        echo "OPENVM_MOCK is set to $OPENVM_MOCK"
+    fi
+    if [ -n "${CLIPPY}" ]; then
+        cargo ${TOOLCHAIN_OPENVM} clippy -p raiko-host -p openvm-builder -p openvm-driver -F "openvm,enable"
+    elif [ -z "${RUN}" ]; then
+        if [ -z "${TEST}" ]; then
+            echo "Building OpenVM prover"
+            cargo ${TOOLCHAIN_OPENVM} run --bin openvm-builder 2>&1 | tee /tmp/openvm_build_output.txt
+            # Skip updating .env during Docker builds (no .env file exists in container)
+            # The publish-image.sh script will update the local .env file after the build
+            # Check multiple indicators that we're in a container/CI environment
+            if [ -f "/.dockerenv" ] || [ -n "${DOCKER_BUILDKIT}" ] || [ -n "${CI}" ] || [ ! -f ".env" ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+                echo "Container/CI build detected, skipping .env update (will be handled by publish-image.sh)"
+            else
+                echo "Updating environment with new OpenVM hashes..."
+                ./script/update_imageid.sh openvm
+            fi
+        else
+            echo "Building test elfs for OpenVM prover"
+            cargo ${TOOLCHAIN_OPENVM} run --bin openvm-builder --features test,bench
+        fi
+        if [ -z "${GUEST}" ]; then
+            echo "Building 'cargo ${TOOLCHAIN_OPENVM} build ${FLAGS} --features openvm'"
+            cargo ${TOOLCHAIN_OPENVM} build ${FLAGS} --features openvm
+        fi
+    else
+        if [ -z "${TEST}" ]; then
+            echo "Running OpenVM prover"
+            cargo ${TOOLCHAIN_OPENVM} run ${FLAGS} --features openvm
+        else
+            echo "Running OpenVM unit tests"
+            cargo ${TOOLCHAIN_OPENVM} test ${FLAGS} -p raiko-host -p openvm-driver --features "openvm enable"
         fi
     fi
 fi

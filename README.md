@@ -1,6 +1,6 @@
 # raiko
 
-Taiko's multi-prover for Taiko & Ethereum blocks. Currently supports Risc0, SP1, and SGX.
+Taiko's multi-prover for Taiko & Ethereum blocks. Currently supports Risc0, SP1, SGX, and OpenVM.
 
 ## Usage
 
@@ -146,6 +146,53 @@ If your CPU doesn't support SGX, you can still run the SGX code through gramine 
 ```shell
 MOCK=1 TARGET=sgx make run
 ```
+
+### OpenVM
+
+OpenVM requires specific dependencies and toolchain. To install:
+
+```shell
+TARGET=openvm make install
+```
+
+This will install:
+- Rust nightly toolchain (nightly-2025-02-14)
+- svm-rs (Solidity compiler manager)
+- solc 0.8.19
+- cargo-openvm CLI tool
+
+To build and run:
+
+```shell
+TARGET=openvm make build
+TARGET=openvm make run
+```
+
+Or install, build, and run in one step:
+
+```shell
+export TARGET=openvm
+make install && make build && make run
+```
+
+To build and run tests on the OpenVM zkVM:
+
+```shell
+TARGET=openvm make test
+```
+
+#### Axiom Proving API
+
+If you want to use the Axiom proving network service, you need to:
+
+1. Apply for an API key at https://axiom.xyz/
+2. Set the API key in your `.env` file:
+   ```
+   OPENVM_AXIOM_API_KEY=your_api_key_here
+   ```
+3. Run the prover with Axiom API enabled
+
+Note: The Axiom API integration is currently a work in progress.
 
 ## Misc docs
 

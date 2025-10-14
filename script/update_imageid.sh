@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 
-# Script to automatically update RISC0 image IDs, SP1 VK hashes, SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file
+# Script to automatically update RISC0 image IDs, SP1 VK hashes, SGX MRENCLAVE, SGXGETH MRENCLAVE, and OpenVM app commits in .env file
 # by reading from build output or extracting MRENCLAVE directly
 #
 # Usage:
 #   ./script/update_imageid.sh risc0 [output_file]    # Update RISC0 image IDs from file or temp
 #   ./script/update_imageid.sh sp1 [output_file]      # Update SP1 VK hashes from file or temp
+#   ./script/update_imageid.sh openvm [output_file]   # Update OpenVM app commits from file or temp
 #   ./script/update_imageid.sh sgx_direct <image>     # Extract SGX MRENCLAVE by calling gramine tools directly on container
 #   ./script/update_imageid.sh sgxgeth_direct <image> # Extract SGXGETH MRENCLAVE from container (reads from pre-generated file)
 #   ./script/update_imageid.sh update_sgx_mrenclave <value>     # Update SGX MRENCLAVE with provided value
 #   ./script/update_imageid.sh update_sgxgeth_mrenclave <value> # Update SGXGETH MRENCLAVE with provided value
 #
-# This script is automatically called by build.sh after building RISC0 or SP1 provers,
+# This script is automatically called by build.sh after building RISC0, SP1, or OpenVM provers,
 # or can be used to extract MRENCLAVE values directly from Docker containers.
 #
-# If no output_file is provided for RISC0/SP1 modes, it will look for temp files:
+# If no output_file is provided for RISC0/SP1/OpenVM modes, it will look for temp files:
 #   /tmp/risc0_build_output.txt for RISC0
 #   /tmp/sp1_build_output.txt for SP1
+#   /tmp/openvm_build_output.txt for OpenVM
 # For MRENCLAVE extraction, it calls tools directly on Docker containers.
 
 set -e
@@ -95,6 +97,27 @@ extract_sp1_vk_hash() {
     fi
     
     echo "$vk_hash"
+}
+
+# Function to extract OpenVM app commit from build output
+extract_openvm_app_commit() {
+    local build_output="$1"
+    local binary_name="$2"
+
+    # Extract app commit hash based on binary order
+    local app_commit=""
+    if [ "$binary_name" = "openvm-aggregation" ]; then
+        app_commit=$(echo "$build_output" | grep "openvm elf app commit:" | sed 's/.*openvm elf app commit: //' | head -1)
+    elif [ "$binary_name" = "openvm-batch" ]; then
+        app_commit=$(echo "$build_output" | grep "openvm elf app commit:" | sed 's/.*openvm elf app commit: //' | tail -1)
+    fi
+
+    if [ -z "$app_commit" ]; then
+        print_warning "Failed to extract OpenVM app commit for $binary_name (this is normal if not logging commits)"
+        return 0  # Don't fail, just return empty
+    fi
+
+    echo "$app_commit"
 }
 
 # Function to check if Gramine tools are available
@@ -280,6 +303,29 @@ update_env_file() {
         print_status "Updated SP1_BATCH_VK_HASH in $env_file: $SP1_BATCH_VK_HASH"
     fi
     
+    # Update OpenVM app commits if provided
+    if [ -n "$OPENVM_AGGREGATION_COMMIT" ]; then
+        if grep -q "^OPENVM_AGGREGATION_COMMIT=" "$env_file"; then
+            # Update existing entry
+            sed -i "s/^OPENVM_AGGREGATION_COMMIT=.*/OPENVM_AGGREGATION_COMMIT=$OPENVM_AGGREGATION_COMMIT/" "$env_file"
+        else
+            # Add new entry
+            echo "OPENVM_AGGREGATION_COMMIT=$OPENVM_AGGREGATION_COMMIT" >> "$env_file"
+        fi
+        print_status "Updated OPENVM_AGGREGATION_COMMIT in $env_file: $OPENVM_AGGREGATION_COMMIT"
+    fi
+
+    if [ -n "$OPENVM_BATCH_COMMIT" ]; then
+        if grep -q "^OPENVM_BATCH_COMMIT=" "$env_file"; then
+            # Update existing entry
+            sed -i "s/^OPENVM_BATCH_COMMIT=.*/OPENVM_BATCH_COMMIT=$OPENVM_BATCH_COMMIT/" "$env_file"
+        else
+            # Add new entry
+            echo "OPENVM_BATCH_COMMIT=$OPENVM_BATCH_COMMIT" >> "$env_file"
+        fi
+        print_status "Updated OPENVM_BATCH_COMMIT in $env_file: $OPENVM_BATCH_COMMIT"
+    fi
+
     print_status "Successfully updated $env_file"
 }
 
@@ -355,6 +401,41 @@ extract_sp1_hashes_from_output() {
     fi
 }
 
+# Function to extract OpenVM app commits from build output file or stdin
+extract_openvm_commits_from_output() {
+    local build_output=""
+
+    # Read from file if provided, otherwise from stdin
+    if [ -n "$1" ] && [ -f "$1" ]; then
+        build_output=$(cat "$1")
+        print_status "Reading OpenVM build output from file: $1"
+    else
+        # Try to read the latest build output from a temp file if it exists
+        local temp_file="/tmp/openvm_build_output.txt"
+        if [ -f "$temp_file" ]; then
+            build_output=$(cat "$temp_file")
+            print_status "Reading OpenVM build output from temp file: $temp_file"
+        else
+            print_warning "No OpenVM build output available. Skipping commit hash extraction."
+            return 0  # Not an error, just skip
+        fi
+    fi
+
+    # Extract app commits (these are optional)
+    local aggregation_commit=$(extract_openvm_app_commit "$build_output" "openvm-aggregation")
+    local batch_commit=$(extract_openvm_app_commit "$build_output" "openvm-batch")
+
+    if [ -n "$aggregation_commit" ] || [ -n "$batch_commit" ]; then
+        OPENVM_AGGREGATION_COMMIT="$aggregation_commit"
+        OPENVM_BATCH_COMMIT="$batch_commit"
+        print_status "Extracted OpenVM app commits:"
+        [ -n "$aggregation_commit" ] && print_status "  Aggregation: $aggregation_commit"
+        [ -n "$batch_commit" ] && print_status "  Batch: $batch_commit"
+    else
+        print_warning "No OpenVM app commits found in build output (this is normal)"
+    fi
+}
+
 # Main function
 main() {
     print_status "Starting automatic environment update..."
@@ -364,6 +445,8 @@ main() {
     RISC0_BATCH_ID=""
     SP1_AGGREGATION_VK_HASH=""
     SP1_BATCH_VK_HASH=""
+    OPENVM_AGGREGATION_COMMIT=""
+    OPENVM_BATCH_COMMIT=""
     
     # Check if we're in the right directory
     if [ ! -f "Cargo.toml" ]; then
@@ -381,6 +464,9 @@ main() {
             "sp1")
                 mode="sp1"
                 ;;
+            "openvm")
+                mode="openvm"
+                ;;
             "sgx_direct")
                 mode="sgx_direct"
                 ;;
@@ -394,12 +480,12 @@ main() {
                 mode="update_sgxgeth_mrenclave"
                 ;;
             *)
-                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
+                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'openvm', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
                 exit 1
                 ;;
         esac
     else
-        print_error "Mode must be specified. Use 'risc0', 'sp1', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
+        print_error "Mode must be specified. Use 'risc0', 'sp1', 'openvm', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
         exit 1
     fi
     
@@ -422,7 +508,15 @@ main() {
             exit 1
         fi
     fi
-    
+
+    # Extract OpenVM app commits from output
+    if [ "$mode" = "openvm" ]; then
+        if extract_openvm_commits_from_output "$2"; then
+            print_status "OpenVM app commits extracted successfully"
+        else
+            print_warning "Failed to extract OpenVM app commits (this is normal)"
+        fi
+    fi
 
     # Extract SGX MRENCLAVE by calling tools directly on container
     if [ "$mode" = "sgx_direct" ]; then
@@ -466,8 +560,8 @@ main() {
         fi
     fi
     
-    # Update .env file (only for risc0 and sp1 modes, other modes handle their own .env updates)
-    if [ "$mode" = "risc0" ] || [ "$mode" = "sp1" ]; then
+    # Update .env file (only for risc0, sp1, and openvm modes, other modes handle their own .env updates)
+    if [ "$mode" = "risc0" ] || [ "$mode" = "sp1" ] || [ "$mode" = "openvm" ]; then
         if update_env_file; then
             print_status "Environment file updated successfully"
         else

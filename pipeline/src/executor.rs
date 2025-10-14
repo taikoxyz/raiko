@@ -155,6 +155,38 @@ impl Executor {
 
         Ok(())
     }
+
+    pub fn openvm_placement(&self, dest: &str) -> anyhow::Result<()> {
+        use std::fs;
+
+        let root = crate::ROOT_DIR.get().expect("No reference to ROOT_DIR");
+        let dest_dir = PathBuf::from(dest);
+
+        if !dest_dir.exists() {
+            fs::create_dir_all(&dest_dir).expect("Couldn't create destination directories");
+        }
+
+        for src in &self.artifacts {
+            let mut name = file_name(src);
+            if self.test {
+                name = format!(
+                    "test-{}",
+                    name.split('-').next().expect("Couldn't get test name")
+                );
+            }
+
+            // Copy ELF binary to destination
+            let dest_path = dest_dir.join(&name.replace('_', "-"));
+            fs::copy(
+                root.join(src.to_str().expect("File name is not valid UTF-8")),
+                &dest_path,
+            )?;
+
+            println!("Write OpenVM ELF from\n {src:?}\nto\n {dest_path:?}");
+        }
+
+        Ok(())
+    }
 }
 
 fn file_name(path: &Path) -> String {

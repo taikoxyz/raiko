@@ -1,0 +1,45 @@
+[package]
+name = "openvm-guest"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "zk_op"
+path = "src/zk_op.rs"
+
+[[bin]]
+name = "openvm-aggregation"
+path = "src/aggregation.rs"
+
+[[bin]]
+name = "openvm-batch"
+path = "src/batch.rs"
+
+[dependencies]
+raiko-lib = { path = "../../../lib", features = ["std"] }
+openvm = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.4.0", features = ["std"] }
+harness-core = { path = "../../../harness/core" }
+harness = { path = "../../../harness/macro" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta", default-features = false, features = ["taiko"] }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta", default-features = false, features = [
+    "taiko",
+    "std",
+] }
+
+# Serialization
+bincode = { version = "1.3", default-features = false }
+serde = { version = "1.0", default-features = false }
+
+# OpenVM acceleration extensions
+k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+sha2 = { version = "0.10", default-features = false }
+num-bigint = { version = "0.4", default-features = false }
+
+[patch.crates-io]
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
+# Force all blst dependencies to use the same git version to avoid linking conflicts
+blst = { git = "https://github.com/smtmfft/blst.git", branch = "v0.3.15-serialize" }
+# Disable c-kzg since it requires libc which is not available in bare-metal RISC-V
+c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7", default-features = false, features = [] }

@@ -32,6 +32,11 @@ pub enum ProofType {
     /// Uses the SGX on geth prover to build the block.
     #[serde(alias = "SGXGETH")]
     SgxGeth = 4u8,
+    /// # OpenVM
+    ///
+    /// Uses the OpenVM prover with Axiom network support.
+    #[serde(alias = "OPENVM")]
+    OpenVM = 5u8,
 }
 
 impl std::fmt::Display for ProofType {
@@ -42,6 +47,7 @@ impl std::fmt::Display for ProofType {
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
             ProofType::SgxGeth => "sgxgeth",
+            ProofType::OpenVM => "openvm",
         })
     }
 }
@@ -56,6 +62,7 @@ impl std::str::FromStr for ProofType {
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
             "sgxgeth" => Ok(ProofType::SgxGeth),
+            "openvm" => Ok(ProofType::OpenVM),
             _ => Err(format!("Unknown proof type {}", s)),
         }
     }
@@ -71,6 +78,7 @@ impl TryFrom<u8> for ProofType {
             2 => Ok(Self::Sgx),
             3 => Ok(Self::Risc0),
             4 => Ok(Self::SgxGeth),
+            5 => Ok(Self::OpenVM),
             _ => Err(format!("Unknown proof type {}", value)),
         }
     }

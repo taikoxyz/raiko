@@ -12,6 +12,10 @@ members = [
     "provers/sgx/prover",
     "provers/sgx/guest",
     "provers/sgx/setup",
+    "provers/openvm/driver",
+    "provers/openvm/builder",
+    # NOTE: openvm/guest is NOT a workspace member
+    # It must be built separately using cargo-openvm for the RISC-V target
     "pipeline",
     "core",
     "taskdb",
@@ -19,6 +23,12 @@ members = [
     "reqpool",
     "reqactor",
     "ballot",
+]
+
+# Exclude openvm guest from workspace to prevent it from being built for the host target.
+# The guest must be built separately using cargo-openvm for the RISC-V target.
+exclude = [
+    "provers/openvm/guest",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
