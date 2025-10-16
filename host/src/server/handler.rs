@@ -55,24 +55,24 @@ pub async fn prove_aggregation(
         .collect();
     let request_entity = match (&request_key, &request_entity_without_proofs) {
         (RequestKey::Aggregation(_), RequestEntity::Aggregation(entity)) => {
-            AggregationRequestEntity::new(
+            RequestEntity::Aggregation(AggregationRequestEntity::new(
                 entity.aggregation_ids().clone(),
                 proofs,
                 entity.proof_type().clone(),
                 entity.prover_args().clone(),
-            )
+            ))
         }
         (RequestKey::ShastaAggregation(_), RequestEntity::ShastaAggregation(entity)) => {
-            AggregationRequestEntity::new(
+            RequestEntity::ShastaAggregation(AggregationRequestEntity::new(
                 entity.aggregation_ids().clone(),
                 proofs,
                 entity.proof_type().clone(),
                 entity.prover_args().clone(),
-            )
+            ))
         }
         _ => unreachable!("Invalid request key"),
     };
-    prove(actor, request_key.into(), request_entity.into()).await
+    prove(actor, request_key, request_entity).await
 }
 
 /// Prove many requests.
