@@ -866,8 +866,9 @@ impl From<SingleProofRequestEntity> for RequestEntity {
 }
 
 impl From<AggregationRequestEntity> for RequestEntity {
-    fn from(entity: AggregationRequestEntity) -> Self {
-        RequestEntity::Aggregation(entity)
+    fn from(_entity: AggregationRequestEntity) -> Self {
+        // AggregationRequestEntity is shared in fork, so it cannot be converted to RequestEntity
+        unimplemented!("AggregationRequestEntity to RequestEntity is not supported");
     }
 }
 
