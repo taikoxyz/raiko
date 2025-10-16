@@ -229,22 +229,20 @@ async fn prove(
             .text()
             .await
             .map_err(|e| ProverError::GuestError(format!("Failed to read response: {e}")))?;
-        println!("Response: {}", response_text);
         let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
             .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))?;
         if sgx_proof.status == "success" {
             Ok(sgx_proof.sgx_response)
         } else {
-            tracing::error!("Request failed with status: {}", sgx_proof.status);
+            tracing::error!("Response has error status: {}", sgx_proof.status);
             Err(ProverError::GuestError(format!(
-                "Failed to read error response: {}",
+                "Response has error status: {}",
                 sgx_proof.message
             )))
         }
     } else {
-        println!("Request failed with status: {}", response.status());
         Err(ProverError::GuestError(format!(
-            "Failed to read error response: {}",
+            "Request failed with status: {}",
             response.status()
         )))
     }
@@ -279,26 +277,11 @@ async fn batch_prove(
         let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
             .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))?;
         if sgx_proof.status == "success" {
-            // Verify instance ID from proof
-            let decoded_id = hex::decode(&sgx_proof.sgx_response.proof[2..10])
-                .map_err(|e| ProverError::GuestError(format!("Failed to decode proof instance ID: {e}")))?;
-            
-            let proof_instance_id = u64::from_be_bytes(
-                decoded_id.try_into()
-                    .map_err(|_| ProverError::GuestError("Invalid proof format: instance ID slice length mismatch".to_string()))?
-            );
-            
-            if proof_instance_id != _instance_id {
-                return Err(ProverError::GuestError(
-                    format!("Instance ID mismatch: expected {}, got {}", _instance_id, proof_instance_id)
-                ));
-            }
-            
             Ok(sgx_proof.sgx_response)
         } else {
-            tracing::error!("Request failed with status: {}", sgx_proof.status);
+            tracing::error!("Response has error status: {}", sgx_proof.status);
             Err(ProverError::GuestError(format!(
-                "Failed to read error response: {}",
+                "Response has error status: {}",
                 sgx_proof.message
             )))
         }
@@ -359,16 +342,16 @@ async fn aggregate(
         if sgx_proof.status == "success" {
             Ok(sgx_proof.sgx_response)
         } else {
-            tracing::error!("Request failed with status: {}", sgx_proof.status);
+            tracing::error!("Response has error status: {}", sgx_proof.status);
             Err(ProverError::GuestError(format!(
-                "Failed to read error response: {}",
+                "Response has error status: {}",
                 sgx_proof.message
             )))
         }
     } else {
         tracing::error!("Request failed with status: {}", response.status());
         Err(ProverError::GuestError(format!(
-            "Failed to read error response: {}",
+            "Request failed with status: {}",
             response.status()
         )))
     }
@@ -424,16 +407,16 @@ async fn shasta_aggregate(
         if sgx_proof.status == "success" {
             Ok(sgx_proof.sgx_response)
         } else {
-            tracing::error!("Request failed with status: {}", sgx_proof.status);
+            tracing::error!("Response has error status: {}", sgx_proof.status);
             Err(ProverError::GuestError(format!(
-                "Failed to read error response: {}",
+                "Response has error status: {}",
                 sgx_proof.message
             )))
         }
     } else {
         tracing::error!("Request failed with status: {}", response.status());
         Err(ProverError::GuestError(format!(
-            "Failed to read error response: {}",
+            "Request failed with status: {}",
             response.status()
         )))
     }

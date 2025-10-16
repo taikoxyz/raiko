@@ -182,7 +182,7 @@ async fn prove_aggregation(
             })
         }
     };
-    
+
     let args = OneShotArgs { sgx_instance_id };
     match aggregate(state.global_opts, args, input).await {
         Ok(sgx_proof) => {
@@ -221,7 +221,7 @@ async fn prove_shasta_aggregation(
             })
         }
     };
-    
+
     let args = OneShotArgs { sgx_instance_id };
     match shasta_aggregate(state.global_opts, args, input).await {
         Ok(sgx_proof) => {

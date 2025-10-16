@@ -291,9 +291,16 @@ if [[ -n $SGX_SERVER ]]; then
             exit 1
         fi
 
-        echo "Expanded instance IDs: {\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}"
-        echo "start sgx-guest --sgx-instance-ids='{\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}' --address 0.0.0.0 --port 9090"
-        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-ids="{\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}" --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
+        if [[ -z $SGX_SHASTA_INSTANCE_ID || -z $SGXGETH_SHASTA_INSTANCE_ID ]]; then
+            echo "SGX_SHASTA_INSTANCE_ID and SGXGETH_SHASTA_INSTANCE_ID must be presented, please check."
+            exit 1
+        fi
+
+        echo "Expanded instance IDs: {\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}"
+        echo "start sgx-guest --sgx-instance-ids='{\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}' --address 0.0.0.0 --port 9090"
+        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-ids="{\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}" --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
+
+        echo "Expanded geth instance IDs: {\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}"
         echo "start gaiko serve --sgx-instance-ids='{\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}' --port 8090"
         /opt/raiko/bin/gaiko --verbosity $GAIKO_GUEST_APP_VERBOSE_LEVEL serve --sgx-instance-ids="{\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}" --port 8090 | sed 's/^/[gaiko] /' &
         wait
