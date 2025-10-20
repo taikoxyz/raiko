@@ -188,7 +188,7 @@
     },
     {
         "name": "taiko_hoodi",
-        "chain_id": 167012,
+        "chain_id": 167013,
         "max_spec_id": "PACAYA",
         "hard_forks": {
             "HEKLA": {
@@ -211,16 +211,16 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0x50A576435E2D9c179124D657d804eb56A10b6999",
-        "l2_contract": "0x1670120000000000000000000000000000010001",
+        "l1_contract": "0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9",
+        "l2_contract": "0x1670130000000000000000000000000000010001",
         "rpc": "https://rpc.hoodi.taiko.xyz",
         "beacon_rpc": null,
         "verifier_address_forks": {
             "PACAYA": {
-                "SGX": "0x237506C97895771Ae3177dF31FC40D27c99fD382",
-                "SP1": "0x81d64E57E24AFae7E941976AB5A2976b390eAcD8",
-                "RISC0": "0xD1359ba7297e207b9B2519B0E1e15b0E0c8b790e",
-                "SGXGETH": "0xA75c8FCB2609eB66E0DAdd4ECA438870F4f22FE8"
+                "SGX": "0xd46c13B67396cD1e74Bb40e298fbABeA7DC01f11",
+                "SP1": "0x3B3bb4A1Cb8B1A0D65F96a5A93415375C039Eda3",
+                "RISC0": "0xbf285Dd2FD56BF4893D207Fba4c738D1029edFfd",
+                "SGXGETH": "0xCdBB6C1751413e78a40735b6D9Aaa7D55e8c038e"
             }
         },
         "genesis_time": 0,
