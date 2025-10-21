@@ -670,7 +670,7 @@ async def main():
     parser.add_argument(
         "--event-contract",
         type=str,
-        default="0x50A576435E2D9c179124D657d804eb56A10b6999",
+        default="0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9",
         help="Event contract address"
     )
     
