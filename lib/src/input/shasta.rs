@@ -94,10 +94,13 @@ sol! {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice The next proposal block ID to be assigned.
-        uint48 nextProposalBlockId;
+        /// @notice The last block ID where a proposal was made.
+        uint48 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice The timestamp when the last checkpoint was saved.
+        /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
+        uint48 lastCheckpointTimestamp;
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
@@ -372,9 +375,11 @@ impl ShastaEventData {
         // Decode core state
         let (next_proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
         ptr = new_ptr;
-        let (next_proposal_block_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        let (last_proposal_block_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
         ptr = new_ptr;
         let (last_finalized_proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
+        ptr = new_ptr;
+        let (last_checkpoint_timestamp, new_ptr) = Self::unpack_uint48(data, ptr)?;
         ptr = new_ptr;
         let (last_finalized_transition_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
         ptr = new_ptr;
@@ -397,8 +402,9 @@ impl ShastaEventData {
             },
             core_state: CoreState {
                 nextProposalId: next_proposal_id,
-                nextProposalBlockId: next_proposal_block_id,
+                lastProposalBlockId: last_proposal_block_id,
                 lastFinalizedProposalId: last_finalized_proposal_id,
+                lastCheckpointTimestamp: last_checkpoint_timestamp,
                 lastFinalizedTransitionHash: last_finalized_transition_hash,
                 bondInstructionsHash: bond_instructions_hash,
             },
@@ -423,7 +429,7 @@ mod tests {
     fn test_manual_decode_shasta_event_data() {
         // Test the manual decoding function to ensure it works correctly
         // Using the same data as the ABI decoding test
-        let data = hex::decode("0000000000063c44cdddb6a900fa2b585dd299e03d12fa4293bc000068d76cdc00000000000000000000009b10746c6d70f2b59483dc2e0a1315758799fb3655f87e430568e71591589f76f94b00010000010189ea2792db70c7d2165c397be7bc37b7d45b1ed082bec866e9cb62e90cb4a0000000000068d76cdc9b982687bf7b599cdc80a8f54c0d911ddfc142e9b8c52124af86328249f8095b5be6309ddd9a5a330a4842809451aa6f7a2fa279ca0b04288931718c7da5694500000000000700000000009d00000000000092b52a07f5c6d2df0359597c2c14e4bcb63b59b48bf37b29803f2336502051f00000000000000000000000000000000000000000000000000000000000000000").unwrap();
+        let data = hex::decode("00000000026f3c44cdddb6a900fa2b585dd299e03d12fa4293bc000068fef1e40000000000000000000012b1c8d4d43b58fb5af9d21af9f575349274cae13fb42a39577d9a097b3685b9f0d24b00010000010162610b05a7d5a71bc7b6621cdd9bafbfbdf24dfc825210f1f1c68496e8e569000000000068fef1e4b58ff663a85896e6d5389e25fa5cbc8db864266a4e0511829a671111a50c9bd4936490fe7bdf8fd6185cddd3e8d36b9c2c15e06cf9a1f0c99a3a9966a1e8ed8d0000000002700000000012b2000000000263000068fef1e491dab1dbe9ea94a0b4b325f30c34742edde00b8dea6d04a2f2e6a748eb35ac330000000000000000000000000000000000000000000000000000000000000000").unwrap();
 
         // Decode using manual decoding function
         let result = ShastaEventData::decode_event_data(&data);
@@ -437,27 +443,27 @@ mod tests {
         let event_data = result.unwrap();
 
         // Assert proposal fields
-        assert_eq!(event_data.proposal.id, 6);
+        assert_eq!(event_data.proposal.id, 623);
         assert_eq!(
             event_data.proposal.proposer,
             address!("3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
         );
-        assert_eq!(event_data.proposal.timestamp, 1758948572);
+        assert_eq!(event_data.proposal.timestamp, 1761538532);
         assert_eq!(event_data.proposal.endOfSubmissionWindowTimestamp, 0);
         assert_eq!(
             event_data.proposal.coreStateHash,
-            b256!("9b982687bf7b599cdc80a8f54c0d911ddfc142e9b8c52124af86328249f8095b")
+            b256!("b58ff663a85896e6d5389e25fa5cbc8db864266a4e0511829a671111a50c9bd4")
         );
         assert_eq!(
             event_data.proposal.derivationHash,
-            b256!("5be6309ddd9a5a330a4842809451aa6f7a2fa279ca0b04288931718c7da56945")
+            b256!("936490fe7bdf8fd6185cddd3e8d36b9c2c15e06cf9a1f0c99a3a9966a1e8ed8d")
         );
 
         // Assert derivation fields
-        assert_eq!(event_data.derivation.originBlockNumber, 155);
+        assert_eq!(event_data.derivation.originBlockNumber, 4785);
         assert_eq!(
             event_data.derivation.originBlockHash,
-            b256!("10746c6d70f2b59483dc2e0a1315758799fb3655f87e430568e71591589f76f9")
+            b256!("c8d4d43b58fb5af9d21af9f575349274cae13fb42a39577d9a097b3685b9f0d2")
         );
         assert_eq!(event_data.derivation.basefeeSharingPctg, 75);
 
@@ -465,18 +471,21 @@ mod tests {
         assert_eq!(event_data.derivation.sources.len(), 1);
         assert_eq!(
             event_data.derivation.sources[0].blobSlice.blobHashes[0],
-            b256!("0189ea2792db70c7d2165c397be7bc37b7d45b1ed082bec866e9cb62e90cb4a0")
+            b256!("0162610b05a7d5a71bc7b6621cdd9bafbfbdf24dfc825210f1f1c68496e8e569")
         );
         assert_eq!(event_data.derivation.sources[0].blobSlice.offset, 0);
-        assert_eq!(event_data.derivation.sources[0].blobSlice.timestamp, 1758948572);
+        assert_eq!(
+            event_data.derivation.sources[0].blobSlice.timestamp,
+            1761538532
+        );
 
         // Assert core state fields
-        assert_eq!(event_data.core_state.nextProposalId, 7);
-        assert_eq!(event_data.core_state.nextProposalBlockId, 157);
-        assert_eq!(event_data.core_state.lastFinalizedProposalId, 0);
+        assert_eq!(event_data.core_state.nextProposalId, 624);
+        assert_eq!(event_data.core_state.lastProposalBlockId, 4786);
+        assert_eq!(event_data.core_state.lastFinalizedProposalId, 611);
         assert_eq!(
             event_data.core_state.lastFinalizedTransitionHash,
-            b256!("92b52a07f5c6d2df0359597c2c14e4bcb63b59b48bf37b29803f2336502051f0")
+            b256!("91dab1dbe9ea94a0b4b325f30c34742edde00b8dea6d04a2f2e6a748eb35ac33")
         );
         assert_eq!(
             event_data.core_state.bondInstructionsHash,

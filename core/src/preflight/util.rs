@@ -229,7 +229,10 @@ fn get_anchor_tx_info_by_fork(
     match fork {
         SpecId::SHASTA => {
             let anchor_call = decode_anchor_shasta(anchor_tx.input())?;
-            Ok((anchor_call._anchorBlockNumber, anchor_call._anchorStateRoot))
+            Ok((
+                anchor_call._blockParams.anchorBlockNumber,
+                anchor_call._blockParams.anchorStateRoot,
+            ))
         }
         SpecId::PACAYA => {
             let anchor_call = decode_anchor_pacaya(anchor_tx.input())?;
@@ -685,10 +688,8 @@ pub async fn get_calldata_txlist_event(
     block_hash: B256,
     l2_block_number: u64,
 ) -> Result<(AlloyRpcTransaction, CalldataTxList)> {
-    // // Get the address that emitted the event
-    let Some(l1_address) = chain_spec.l1_contract else {
-        bail!("No L1 contract address in the chain spec");
-    };
+    // Get the address that emitted the event
+    let l1_address = chain_spec.get_fork_l1_contract_address(l2_block_number)?;
 
     let logs = filter_blockchain_event(provider, || {
         Filter::new()
@@ -740,9 +741,7 @@ pub async fn filter_block_proposed_event(
     fork: SpecId,
 ) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
     // Get the address that emitted the event
-    let Some(l1_address) = chain_spec.l1_contract else {
-        bail!("No L1 contract address in the chain spec");
-    };
+    let l1_address = chain_spec.get_fork_l1_contract_address(block_num_or_batch_id)?;
 
     // Get the event signature (value can differ between chains)
     let event_signature = match fork {

@@ -29,33 +29,11 @@ pub struct BondInstruction {
     pub receiver: Address,
 }
 
-
-/*
- /// @notice Represents a block manifest
-    struct BlockManifest {
-        /// @notice The timestamp of the block.
-        uint48 timestamp;
-        /// @notice The coinbase of the block.
-        address coinbase;
-        /// @notice The anchor block number. This field can be zero, if so, this block will use the
-        /// most recent anchor in a previous block.
-        uint48 anchorBlockNumber;
-        /// @notice The block's gas limit.
-        uint48 gasLimit;
-        /// @notice The transactions for this block.
-        SignedTransaction[] transactions;
-    }
-*/
-/// Block manifest with extra information - corresponds to Go's BlockManifest
+/// Protocol proposal manifest - corresponds to Go's ProtocolProposalManifest
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct BlockManifest {
-    /// Protocol block manifest
-    #[serde(flatten)]
-    pub protocol: ProtocolBlockManifest,
-    /// Bond instructions hash
-    pub bond_instructions_hash: alloy_primitives::B256,
-    /// Bond instructions
-    pub bond_instructions: Vec<BondInstruction>,
+pub struct DerivationSourceManifest {
+    /// blocks in this source
+    pub blocks: Vec<ProtocolBlockManifest>,
 }
 
 /// Protocol proposal manifest - corresponds to Go's ProtocolProposalManifest
@@ -63,21 +41,6 @@ pub struct BlockManifest {
 pub struct ProtocolProposalManifest {
     /// Prover authentication bytes
     pub prover_auth_bytes: Bytes,
-    /// Blocks in this proposal
-    pub blocks: Vec<ProtocolBlockManifest>,
-}
-
-/// Proposal manifest with extra information - corresponds to Go's ProposalManifest
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ProposalManifest {
-    /// Prover authentication bytes
-    pub prover_auth_bytes: Bytes,
-    /// Blocks in this proposal
-    pub blocks: Vec<BlockManifest>,
-    /// Whether this is a default proposal
-    pub default: bool,
-    /// Parent block (optional)
-    pub parent_block: Option<reth_primitives::Block>,
-    /// Whether this is a low bond proposal
-    pub is_low_bond_proposal: bool,
+    /// Sources in this proposal
+    pub sources: Vec<DerivationSourceManifest>,
 }

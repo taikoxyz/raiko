@@ -2,7 +2,10 @@ use alloy_rlp::{Decodable, Encodable};
 use anyhow::Result;
 
 use super::types::{ProtocolBlockManifest, ProtocolProposalManifest};
-use crate::utils::{zlib_compress_data, zlib_decompress_data};
+use crate::{
+    manifest::DerivationSourceManifest,
+    utils::{zlib_compress_data, zlib_decompress_data},
+};
 
 /// Encode and compress a Shasta proposal manifest (equivalent to Go's EncodeAndCompressShastaProposal)
 pub fn encode_and_compress_shasta_proposal(proposal: &ProtocolProposalManifest) -> Result<Vec<u8>> {
@@ -84,10 +87,44 @@ impl Decodable for ProtocolBlockManifest {
     }
 }
 
+impl Encodable for DerivationSourceManifest {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        // Calculate the payload length first
+        let payload_length = self.blocks.length();
+
+        // Encode the list header
+        let header = alloy_rlp::Header {
+            list: true,
+            payload_length,
+        };
+        header.encode(out);
+        self.blocks.encode(out);
+    }
+
+    fn length(&self) -> usize {
+        let payload_length = self.blocks.length();
+        payload_length + alloy_rlp::length_of_length(payload_length)
+    }
+}
+
+impl Decodable for DerivationSourceManifest {
+    fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
+        // Decode the RLP header first
+        let header = alloy_rlp::Header::decode(buf)?;
+        if !header.list {
+            return Err(alloy_rlp::Error::Custom(
+                "DerivationSourceManifest must be encoded as a list",
+            ));
+        }
+        let blocks = Vec::<ProtocolBlockManifest>::decode(buf)?;
+        Ok(DerivationSourceManifest { blocks })
+    }
+}
+
 impl Encodable for ProtocolProposalManifest {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         // Calculate the payload length first
-        let payload_length = self.prover_auth_bytes.length() + self.blocks.length();
+        let payload_length = self.prover_auth_bytes.length() + self.sources.length();
 
         // Encode the list header
         let header = alloy_rlp::Header {
@@ -98,11 +135,11 @@ impl Encodable for ProtocolProposalManifest {
 
         // Encode fields in the same order as Go struct
         self.prover_auth_bytes.encode(out);
-        self.blocks.encode(out);
+        self.sources.encode(out);
     }
 
     fn length(&self) -> usize {
-        let payload_length = self.prover_auth_bytes.length() + self.blocks.length();
+        let payload_length = self.prover_auth_bytes.length() + self.sources.length();
         payload_length + alloy_rlp::length_of_length(payload_length)
     }
 }
@@ -126,8 +163,8 @@ impl Decodable for ProtocolProposalManifest {
             );
         }
 
-        let blocks = Vec::<ProtocolBlockManifest>::decode(buf)?;
-        if blocks.len() > PROPOSAL_MAX_BLOCKS {
+        let sources = Vec::<DerivationSourceManifest>::decode(buf)?;
+        if sources.len() > PROPOSAL_MAX_BLOCKS {
             return Err(alloy_rlp::Error::Custom(
                 "ProtocolProposalManifest blocks length exceeds PROPOSAL_MAX_BLOCKS",
             ));
@@ -136,7 +173,7 @@ impl Decodable for ProtocolProposalManifest {
         // Decode each field sequentially
         Ok(ProtocolProposalManifest {
             prover_auth_bytes,
-            blocks,
+            sources,
         })
     }
 }
@@ -155,9 +192,13 @@ mod tests {
             transactions: vec![],
         };
 
+        let source = DerivationSourceManifest {
+            blocks: vec![block],
+        };
+
         ProtocolProposalManifest {
             prover_auth_bytes: Bytes::from([1u8; 161]),
-            blocks: vec![block],
+            sources: vec![source],
         }
     }
 
@@ -173,11 +214,11 @@ mod tests {
 
         // Verify roundtrip
         assert_eq!(original.prover_auth_bytes, decoded.prover_auth_bytes);
-        assert_eq!(original.blocks.len(), decoded.blocks.len());
+        assert_eq!(original.sources.len(), decoded.sources.len());
 
-        if !original.blocks.is_empty() && !decoded.blocks.is_empty() {
-            let orig_block = &original.blocks[0];
-            let decoded_block = &decoded.blocks[0];
+        if !original.sources.is_empty() && !decoded.sources.is_empty() {
+            let orig_block = &original.sources[0].blocks[0];
+            let decoded_block = &decoded.sources[0].blocks[0];
 
             assert_eq!(orig_block.timestamp, decoded_block.timestamp);
             assert_eq!(orig_block.coinbase, decoded_block.coinbase);
@@ -202,7 +243,7 @@ mod tests {
 
         // Verify roundtrip
         assert_eq!(original.prover_auth_bytes, decoded.prover_auth_bytes);
-        assert_eq!(original.blocks.len(), decoded.blocks.len());
+        assert_eq!(original.sources.len(), decoded.sources.len());
     }
 
     #[test]
