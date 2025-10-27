@@ -17,12 +17,26 @@ pub fn hash_transition(transition: &ShastaTransition) -> B256 {
 }
 
 /// Returns `keccak256(abi.encode(value0, .., value4))` - equivalent to Solidity's EfficientHashLib.hash
-pub fn hash_five_values(
+///
+/*
+       assembly {
+           let m := mload(0x40)
+           mstore(m, v0)
+           mstore(add(m, 0x20), v1)
+           mstore(add(m, 0x40), v2)
+           mstore(add(m, 0x60), v3)
+           mstore(add(m, 0x80), v4)
+           mstore(add(m, 0xa0), v5)
+           result := keccak256(m, 0xc0)
+       }
+*/
+pub fn hash_six_values(
     value0: B256,
     value1: B256,
     value2: B256,
     value3: B256,
     value4: B256,
+    value5: B256,
 ) -> B256 {
     let mut data = Vec::with_capacity(160); // 5 * 32 bytes
     data.extend_from_slice(value0.as_slice());
@@ -30,6 +44,7 @@ pub fn hash_five_values(
     data.extend_from_slice(value2.as_slice());
     data.extend_from_slice(value3.as_slice());
     data.extend_from_slice(value4.as_slice());
+    data.extend_from_slice(value5.as_slice());
 
     keccak(&data).into()
 }
@@ -114,10 +129,11 @@ pub fn hash_transitions_array(transitions: &[ShastaTransition]) -> B256 {
 }
 
 pub fn hash_core_state(core_state: &CoreState) -> B256 {
-    hash_five_values(
+    hash_six_values(
         U256::from(core_state.nextProposalId).into(),
-        U256::from(core_state.nextProposalBlockId).into(),
+        U256::from(core_state.lastProposalBlockId).into(),
         U256::from(core_state.lastFinalizedProposalId).into(),
+        U256::from(core_state.lastCheckpointTimestamp).into(),
         core_state.lastFinalizedTransitionHash,
         core_state.bondInstructionsHash,
     )

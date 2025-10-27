@@ -136,7 +136,7 @@ pub struct ChainSpec {
     pub max_spec_id: SpecId,
     pub hard_forks: BTreeMap<SpecId, ForkCondition>,
     pub eip_1559_constants: Eip1559Constants,
-    pub l1_contract: Option<Address>,
+    pub l1_contract: BTreeMap<SpecId, Address>,
     pub l2_contract: Option<Address>,
     pub rpc: String,
     pub beacon_rpc: Option<String>,
@@ -161,7 +161,7 @@ impl ChainSpec {
             max_spec_id: spec_id,
             hard_forks: BTreeMap::from([(spec_id, ForkCondition::Block(0))]),
             eip_1559_constants,
-            l1_contract: None,
+            l1_contract: BTreeMap::new(),
             l2_contract: None,
             rpc: "".to_string(),
             beacon_rpc: None,
@@ -225,6 +225,22 @@ impl ChainSpec {
         }
 
         Err(anyhow!("fork verifier is not active"))
+    }
+
+    pub fn get_fork_l1_contract_address(
+        &self,
+        block_num: u64,
+    ) -> Result<Address> {
+        // fall down to the first fork that is active as default
+        for (spec_id, fork) in self.hard_forks.iter().rev() {
+            if fork.active(block_num, 0u64) {
+                if let Some(l1_address) = self.l1_contract.get(spec_id) {
+                    return Ok(*l1_address);
+                }
+            }
+        }
+
+        Err(anyhow!("fork l1 contract is not active"))
     }
 
     pub fn is_taiko(&self) -> bool {
@@ -374,7 +390,7 @@ mod tests {
                 base_fee_max_decrease_denominator: uint!(8_U256),
                 elasticity_multiplier: uint!(2_U256),
             },
-            l1_contract: None,
+            l1_contract: BTreeMap::new(),
             l2_contract: None,
             rpc: "".to_string(),
             beacon_rpc: None,

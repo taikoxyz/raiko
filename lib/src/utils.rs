@@ -8,7 +8,7 @@ use tracing::{debug, error, warn};
 
 use crate::consts::{ChainSpec, Network};
 use crate::input::{BlockProposedFork, TaikoGuestBatchInput};
-use crate::manifest::ProtocolProposalManifest;
+use crate::manifest::{DerivationSourceManifest, ProtocolProposalManifest};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
@@ -211,7 +211,7 @@ pub fn generate_transactions_for_shasta_blocks(
     let data_sources = &taiko_guest_batch_input.data_sources;
     let mut tx_list_bufs = Vec::new();
 
-    for data_source in data_sources {
+    for (idx, data_source) in data_sources.iter().enumerate() {
         let use_blob = batch_proposal.blob_used();
         let compressed_tx_list_buf = if use_blob {
             let blob_data_bufs = data_source.tx_data_from_blob.clone();
@@ -237,19 +237,28 @@ pub fn generate_transactions_for_shasta_blocks(
         // - Distribute transactions to blocks
         // TODO: support un-happy path in derivation doc
         assert!(use_blob);
-        let protocol_manifest_bytes =
-            zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
-        let protocol_manifest =
-            ProtocolProposalManifest::decode(&mut protocol_manifest_bytes.as_ref()).unwrap();
-        tx_list_bufs.push(
+        if idx == data_sources.len() - 1 {
+            let protocol_manifest_bytes =
+                zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
+            let protocol_manifest =
+                ProtocolProposalManifest::decode(&mut protocol_manifest_bytes.as_ref()).unwrap();
             protocol_manifest
+                .sources
+                .iter()
+                .flat_map(|source| source.blocks.iter())
+                .for_each(|block| tx_list_bufs.push(block.transactions.clone()));
+        } else {
+            let force_inc_source_bytes =
+                zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
+            let force_inc_source =
+                DerivationSourceManifest::decode(&mut force_inc_source_bytes.as_ref()).unwrap();
+            force_inc_source
                 .blocks
                 .iter()
-                .map(|block| block.transactions.clone())
-                .collect::<Vec<_>>(),
-        );
+                .for_each(|block| tx_list_bufs.push(block.transactions.clone()));
+        }
     }
-    tx_list_bufs.concat()
+    tx_list_bufs
 }
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
