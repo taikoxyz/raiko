@@ -371,11 +371,10 @@ pub async fn shasta_aggregate(
     let sig = sign_message(&prev_privkey, aggregation_hash.into())?;
 
     // Create the proof for the onchain SGX verifier
-    const SGX_PROOF_LEN: usize = 109;
-    // 4(id) + 20(old) + 20(new) + 65(sig) = 109
-    let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
+    const SHASTA_SGX_PROOF_LEN: usize = 89;
+    // 4(id) + 20(current) + 65(sig) = 89
+    let mut proof = Vec::with_capacity(SHASTA_SGX_PROOF_LEN);
     proof.extend(args.sgx_instance_id.to_be_bytes());
-    proof.extend(old_instance);
     proof.extend(sgx_instance);
     proof.extend(sig);
     let proof = hex::encode(proof);
