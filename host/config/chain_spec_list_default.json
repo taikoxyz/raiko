@@ -23,7 +23,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": null,
+        "l1_contract": {},
         "l2_contract": null,
         "rpc": "https://ethereum-rpc.publicnode.com",
         "beacon_rpc": "https://ethereum-beacon-api.publicnode.com",
@@ -59,7 +59,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": null,
+        "l1_contract": {},
         "l2_contract": null,
         "rpc": "https://ethereum-holesky-rpc.publicnode.com",
         "beacon_rpc": "https://fabled-weathered-cherry.ethereum-holesky.quiknode.pro/8f1c66935fa5f9afbda0db43318fe3c9e7b061e1/",
@@ -95,7 +95,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": null,
+        "l1_contract": {},
         "l2_contract": null,
         "rpc": "https://ethereum-hoodi-rpc.publicnode.com",
         "beacon_rpc": "https://ethereum-hoodi-beacon-api.publicnode.com",
@@ -135,7 +135,9 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0x79c9109b764609df928d16fc4a91e9081f7e87db",
+        "l1_contract": {
+            "PACAYA": "0x79c9109b764609df928d16fc4a91e9081f7e87db"
+        },
         "l2_contract": "0x1670090000000000000000000000000000010001",
         "rpc": "https://rpc.hekla.taiko.xyz",
         "beacon_rpc": null,
@@ -176,7 +178,9 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+        "l1_contract": {
+            "PACAYA": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a"
+        },
         "l2_contract": "0x1670000000000000000000000000000000010001",
         "rpc": "https://rpc.mainnet.taiko.xyz",
         "beacon_rpc": null,
@@ -217,7 +221,9 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0x50A576435E2D9c179124D657d804eb56A10b6999",
+        "l1_contract": {
+            "PACAYA": "0x50A576435E2D9c179124D657d804eb56A10b6999"
+        },
         "l2_contract": "0x1670120000000000000000000000000000010001",
         "rpc": "https://rpc.hoodi.taiko.xyz",
         "beacon_rpc": null,
