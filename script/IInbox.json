@@ -11,12 +11,17 @@
                     "internalType": "struct IInbox.Config",
                     "components": [
                         {
+                            "name": "codec",
+                            "type": "address",
+                            "internalType": "address"
+                        },
+                        {
                             "name": "bondToken",
                             "type": "address",
                             "internalType": "address"
                         },
                         {
-                            "name": "checkpointManager",
+                            "name": "signalService",
                             "type": "address",
                             "internalType": "address"
                         },
@@ -67,13 +72,28 @@
                         },
                         {
                             "name": "forcedInclusionDelay",
-                            "type": "uint64",
-                            "internalType": "uint64"
+                            "type": "uint16",
+                            "internalType": "uint16"
                         },
                         {
                             "name": "forcedInclusionFeeInGwei",
                             "type": "uint64",
                             "internalType": "uint64"
+                        },
+                        {
+                            "name": "minCheckpointDelay",
+                            "type": "uint16",
+                            "internalType": "uint16"
+                        },
+                        {
+                            "name": "permissionlessInclusionMultiplier",
+                            "type": "uint8",
+                            "internalType": "uint8"
+                        },
+                        {
+                            "name": "compositeKeyVersion",
+                            "type": "uint16",
+                            "internalType": "uint16"
                         }
                     ]
                 }
@@ -166,41 +186,6 @@
         },
         {
             "type": "event",
-            "name": "BondInstructed",
-            "inputs": [
-                {
-                    "name": "instructions",
-                    "type": "tuple[]",
-                    "indexed": false,
-                    "internalType": "struct LibBonds.BondInstruction[]",
-                    "components": [
-                        {
-                            "name": "proposalId",
-                            "type": "uint48",
-                            "internalType": "uint48"
-                        },
-                        {
-                            "name": "bondType",
-                            "type": "uint8",
-                            "internalType": "enum LibBonds.BondType"
-                        },
-                        {
-                            "name": "payer",
-                            "type": "address",
-                            "internalType": "address"
-                        },
-                        {
-                            "name": "receiver",
-                            "type": "address",
-                            "internalType": "address"
-                        }
-                    ]
-                }
-            ],
-            "anonymous": false
-        },
-        {
-            "type": "event",
             "name": "Proposed",
             "inputs": [
                 {
@@ -224,389 +209,18 @@
                 }
             ],
             "anonymous": false
+        },
+        {
+            "type": "event",
+            "name": "TransitionConflictDetected",
+            "inputs": [],
+            "anonymous": false
+        },
+        {
+            "type": "event",
+            "name": "TransitionDuplicateDetected",
+            "inputs": [],
+            "anonymous": false
         }
-    ],
-    "bytecode": {
-        "object": "0x",
-        "sourceMap": "",
-        "linkReferences": {}
-    },
-    "deployedBytecode": {
-        "object": "0x",
-        "sourceMap": "",
-        "linkReferences": {}
-    },
-    "methodIdentifiers": {
-        "getConfig()": "c3f909d4",
-        "getProposalHash(uint48)": "0bb54ffd",
-        "getTransitionRecordHash(uint48,bytes32)": "ba2850bf",
-        "propose(bytes,bytes)": "9791e644",
-        "prove(bytes,bytes)": "ea191743"
-    },
-    "rawMetadata": "{\"compiler\":{\"version\":\"0.8.30+commit.73712a01\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"components\":[{\"internalType\":\"uint48\",\"name\":\"proposalId\",\"type\":\"uint48\"},{\"internalType\":\"enum LibBonds.BondType\",\"name\":\"bondType\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"payer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"}],\"indexed\":false,\"internalType\":\"struct LibBonds.BondInstruction[]\",\"name\":\"instructions\",\"type\":\"tuple[]\"}],\"name\":\"BondInstructed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"Proposed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"Proved\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"bondToken\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"checkpointManager\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"proofVerifier\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"proposerChecker\",\"type\":\"address\"},{\"internalType\":\"uint48\",\"name\":\"provingWindow\",\"type\":\"uint48\"},{\"internalType\":\"uint48\",\"name\":\"extendedProvingWindow\",\"type\":\"uint48\"},{\"internalType\":\"uint256\",\"name\":\"maxFinalizationCount\",\"type\":\"uint256\"},{\"internalType\":\"uint48\",\"name\":\"finalizationGracePeriod\",\"type\":\"uint48\"},{\"internalType\":\"uint256\",\"name\":\"ringBufferSize\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"minForcedInclusionCount\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"forcedInclusionDelay\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"forcedInclusionFeeInGwei\",\"type\":\"uint64\"}],\"internalType\":\"struct IInbox.Config\",\"name\":\"config_\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint48\",\"name\":\"_proposalId\",\"type\":\"uint48\"}],\"name\":\"getProposalHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"proposalHash_\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint48\",\"name\":\"_proposalId\",\"type\":\"uint48\"},{\"internalType\":\"bytes32\",\"name\":\"_parentTransitionHash\",\"type\":\"bytes32\"}],\"name\":\"getTransitionRecordHash\",\"outputs\":[{\"internalType\":\"uint48\",\"name\":\"finalizationDeadline_\",\"type\":\"uint48\"},{\"internalType\":\"bytes26\",\"name\":\"recordHash_\",\"type\":\"bytes26\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_lookahead\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"propose\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"_proof\",\"type\":\"bytes\"}],\"name\":\"prove\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"custom:security-contact\":\"security@taiko.xyz\",\"events\":{\"BondInstructed((uint48,uint8,address,address)[])\":{\"params\":{\"instructions\":\"The bond instructions that need to be performed.\"}},\"Proposed(bytes)\":{\"params\":{\"data\":\"The encoded ProposedEventPayload\"}},\"Proved(bytes)\":{\"params\":{\"data\":\"The encoded ProvedEventPayload\"}}},\"kind\":\"dev\",\"methods\":{\"getConfig()\":{\"returns\":{\"config_\":\"The configuration struct containing all immutable parameters\"}},\"getProposalHash(uint48)\":{\"params\":{\"_proposalId\":\"The proposal ID to look up.\"},\"returns\":{\"proposalHash_\":\"The hash stored at the proposal's ring buffer slot.\"}},\"getTransitionRecordHash(uint48,bytes32)\":{\"params\":{\"_parentTransitionHash\":\"The parent transition hash.\",\"_proposalId\":\"The proposal ID.\"},\"returns\":{\"finalizationDeadline_\":\"The timestamp when finalization is enforced.\",\"recordHash_\":\"The hash of the transition record.\"}},\"propose(bytes,bytes)\":{\"params\":{\"_data\":\"The encoded ProposeInput struct.\",\"_lookahead\":\"The data to post a new lookahead (currently unused).\"}},\"prove(bytes,bytes)\":{\"params\":{\"_data\":\"The encoded ProveInput struct.\",\"_proof\":\"Validity proof for the transitions.\"}}},\"title\":\"IInbox\",\"version\":1},\"userdoc\":{\"events\":{\"BondInstructed((uint48,uint8,address,address)[])\":{\"notice\":\"Emitted when bond instructions are issued\"},\"Proposed(bytes)\":{\"notice\":\"Emitted when a new proposal is proposed.\"},\"Proved(bytes)\":{\"notice\":\"Emitted when a proof is submitted\"}},\"kind\":\"user\",\"methods\":{\"getConfig()\":{\"notice\":\"Returns the configuration parameters of the Inbox contract\"},\"getProposalHash(uint48)\":{\"notice\":\"Returns the proposal hash for a given proposal ID.\"},\"getTransitionRecordHash(uint48,bytes32)\":{\"notice\":\"Returns the transition record hash for a given proposal ID and parent transition hash.\"},\"propose(bytes,bytes)\":{\"notice\":\"Proposes new proposals of L2 blocks.\"},\"prove(bytes,bytes)\":{\"notice\":\"Proves a transition about some properties of a proposal, including its state transition.\"}},\"notice\":\"Interface for the Shasta inbox contracts\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/layer1/shasta/iface/IInbox.sol\":\"IInbox\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[\":@eth-fabric/urc/=node_modules/urc/src/\",\":@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@optimism/=node_modules/optimism/\",\":@p256-verifier/contracts/=node_modules/p256-verifier/src/\",\":@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/\",\":@solady/=node_modules/solady/\",\":@sp1-contracts/=node_modules/sp1-contracts/contracts/\",\":ds-test/=node_modules/ds-test/\",\":forge-std/=node_modules/forge-std/\",\":openzeppelin/=node_modules/@openzeppelin/\",\":optimism/=node_modules/optimism/\",\":p256-verifier/=node_modules/p256-verifier/\",\":risc0-ethereum/=node_modules/risc0-ethereum/\",\":solady/=node_modules/solady/\",\":sp1-contracts/=node_modules/sp1-contracts/\",\":src/=contracts/\",\":urc/=node_modules/urc/\"]},\"sources\":{\"contracts/layer1/shasta/iface/IInbox.sol\":{\"keccak256\":\"0x92b1be11ae7439b48e660be6dca6d48b5e2bfa726eabbdfcfa88b1d7168606e6\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://25a1f41870f2bba6bae80c6984c63c397271eb65d9fce3e858c8d22d98da8ada\",\"dweb:/ipfs/QmcebThzjwv6fX1mR2SmcfTV9VKH4JtDBGfCQ4iRRp2owj\"]},\"contracts/layer1/shasta/libs/LibBlobs.sol\":{\"keccak256\":\"0xb14b7bb35ffbafd9ed7d400b01224e9ff81a24881cc9cd2ad44a6a8bf4dc863b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://74524b52737845b1a8c3dfc2ed2880b2df72e1935f47bb47fd0706853dfeba26\",\"dweb:/ipfs/QmQujrwgEnjkkMt32732tVPRHmjbCwNn1Bo6vvxyFHpwn3\"]},\"contracts/shared/based/iface/ICheckpointManager.sol\":{\"keccak256\":\"0xc7fbbff21ed501aae74b3d22d073bc8b746d1c76f4e9744af6035db355a84126\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://fab7e3e59ab5d8f84f9b9131a2e35fcdcd02b434f585f274a57487aa441d1ba4\",\"dweb:/ipfs/QmbbeEA7Xhv5KFzrmCxFBU5DyfHg6eWKzXybrN5uX9dEYv\"]},\"contracts/shared/based/libs/LibBonds.sol\":{\"keccak256\":\"0xc11d8e43cb5e40a14ee2966c365cb655e27fb6cc0083875e4e3f831e0c8d7b1b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2c8713c369c3ecab4383532fb1ea8a8db866999e12c273de0e53c123f1864065\",\"dweb:/ipfs/QmNXomZEZgZJGhLQVLLwHbViZzzzDJBu2ftm66paXueShZ\"]}},\"version\":1}",
-    "metadata": {
-        "compiler": {
-            "version": "0.8.30+commit.73712a01"
-        },
-        "language": "Solidity",
-        "output": {
-            "abi": [
-                {
-                    "inputs": [
-                        {
-                            "internalType": "struct LibBonds.BondInstruction[]",
-                            "name": "instructions",
-                            "type": "tuple[]",
-                            "components": [
-                                {
-                                    "internalType": "uint48",
-                                    "name": "proposalId",
-                                    "type": "uint48"
-                                },
-                                {
-                                    "internalType": "enum LibBonds.BondType",
-                                    "name": "bondType",
-                                    "type": "uint8"
-                                },
-                                {
-                                    "internalType": "address",
-                                    "name": "payer",
-                                    "type": "address"
-                                },
-                                {
-                                    "internalType": "address",
-                                    "name": "receiver",
-                                    "type": "address"
-                                }
-                            ],
-                            "indexed": false
-                        }
-                    ],
-                    "type": "event",
-                    "name": "BondInstructed",
-                    "anonymous": false
-                },
-                {
-                    "inputs": [
-                        {
-                            "internalType": "bytes",
-                            "name": "data",
-                            "type": "bytes",
-                            "indexed": false
-                        }
-                    ],
-                    "type": "event",
-                    "name": "Proposed",
-                    "anonymous": false
-                },
-                {
-                    "inputs": [
-                        {
-                            "internalType": "bytes",
-                            "name": "data",
-                            "type": "bytes",
-                            "indexed": false
-                        }
-                    ],
-                    "type": "event",
-                    "name": "Proved",
-                    "anonymous": false
-                },
-                {
-                    "inputs": [],
-                    "stateMutability": "view",
-                    "type": "function",
-                    "name": "getConfig",
-                    "outputs": [
-                        {
-                            "internalType": "struct IInbox.Config",
-                            "name": "config_",
-                            "type": "tuple",
-                            "components": [
-                                {
-                                    "internalType": "address",
-                                    "name": "bondToken",
-                                    "type": "address"
-                                },
-                                {
-                                    "internalType": "address",
-                                    "name": "checkpointManager",
-                                    "type": "address"
-                                },
-                                {
-                                    "internalType": "address",
-                                    "name": "proofVerifier",
-                                    "type": "address"
-                                },
-                                {
-                                    "internalType": "address",
-                                    "name": "proposerChecker",
-                                    "type": "address"
-                                },
-                                {
-                                    "internalType": "uint48",
-                                    "name": "provingWindow",
-                                    "type": "uint48"
-                                },
-                                {
-                                    "internalType": "uint48",
-                                    "name": "extendedProvingWindow",
-                                    "type": "uint48"
-                                },
-                                {
-                                    "internalType": "uint256",
-                                    "name": "maxFinalizationCount",
-                                    "type": "uint256"
-                                },
-                                {
-                                    "internalType": "uint48",
-                                    "name": "finalizationGracePeriod",
-                                    "type": "uint48"
-                                },
-                                {
-                                    "internalType": "uint256",
-                                    "name": "ringBufferSize",
-                                    "type": "uint256"
-                                },
-                                {
-                                    "internalType": "uint8",
-                                    "name": "basefeeSharingPctg",
-                                    "type": "uint8"
-                                },
-                                {
-                                    "internalType": "uint256",
-                                    "name": "minForcedInclusionCount",
-                                    "type": "uint256"
-                                },
-                                {
-                                    "internalType": "uint64",
-                                    "name": "forcedInclusionDelay",
-                                    "type": "uint64"
-                                },
-                                {
-                                    "internalType": "uint64",
-                                    "name": "forcedInclusionFeeInGwei",
-                                    "type": "uint64"
-                                }
-                            ]
-                        }
-                    ]
-                },
-                {
-                    "inputs": [
-                        {
-                            "internalType": "uint48",
-                            "name": "_proposalId",
-                            "type": "uint48"
-                        }
-                    ],
-                    "stateMutability": "view",
-                    "type": "function",
-                    "name": "getProposalHash",
-                    "outputs": [
-                        {
-                            "internalType": "bytes32",
-                            "name": "proposalHash_",
-                            "type": "bytes32"
-                        }
-                    ]
-                },
-                {
-                    "inputs": [
-                        {
-                            "internalType": "uint48",
-                            "name": "_proposalId",
-                            "type": "uint48"
-                        },
-                        {
-                            "internalType": "bytes32",
-                            "name": "_parentTransitionHash",
-                            "type": "bytes32"
-                        }
-                    ],
-                    "stateMutability": "view",
-                    "type": "function",
-                    "name": "getTransitionRecordHash",
-                    "outputs": [
-                        {
-                            "internalType": "uint48",
-                            "name": "finalizationDeadline_",
-                            "type": "uint48"
-                        },
-                        {
-                            "internalType": "bytes26",
-                            "name": "recordHash_",
-                            "type": "bytes26"
-                        }
-                    ]
-                },
-                {
-                    "inputs": [
-                        {
-                            "internalType": "bytes",
-                            "name": "_lookahead",
-                            "type": "bytes"
-                        },
-                        {
-                            "internalType": "bytes",
-                            "name": "_data",
-                            "type": "bytes"
-                        }
-                    ],
-                    "stateMutability": "nonpayable",
-                    "type": "function",
-                    "name": "propose"
-                },
-                {
-                    "inputs": [
-                        {
-                            "internalType": "bytes",
-                            "name": "_data",
-                            "type": "bytes"
-                        },
-                        {
-                            "internalType": "bytes",
-                            "name": "_proof",
-                            "type": "bytes"
-                        }
-                    ],
-                    "stateMutability": "nonpayable",
-                    "type": "function",
-                    "name": "prove"
-                }
-            ],
-            "devdoc": {
-                "kind": "dev",
-                "methods": {
-                    "getConfig()": {
-                        "returns": {
-                            "config_": "The configuration struct containing all immutable parameters"
-                        }
-                    },
-                    "getProposalHash(uint48)": {
-                        "params": {
-                            "_proposalId": "The proposal ID to look up."
-                        },
-                        "returns": {
-                            "proposalHash_": "The hash stored at the proposal's ring buffer slot."
-                        }
-                    },
-                    "getTransitionRecordHash(uint48,bytes32)": {
-                        "params": {
-                            "_parentTransitionHash": "The parent transition hash.",
-                            "_proposalId": "The proposal ID."
-                        },
-                        "returns": {
-                            "finalizationDeadline_": "The timestamp when finalization is enforced.",
-                            "recordHash_": "The hash of the transition record."
-                        }
-                    },
-                    "propose(bytes,bytes)": {
-                        "params": {
-                            "_data": "The encoded ProposeInput struct.",
-                            "_lookahead": "The data to post a new lookahead (currently unused)."
-                        }
-                    },
-                    "prove(bytes,bytes)": {
-                        "params": {
-                            "_data": "The encoded ProveInput struct.",
-                            "_proof": "Validity proof for the transitions."
-                        }
-                    }
-                },
-                "version": 1
-            },
-            "userdoc": {
-                "kind": "user",
-                "methods": {
-                    "getConfig()": {
-                        "notice": "Returns the configuration parameters of the Inbox contract"
-                    },
-                    "getProposalHash(uint48)": {
-                        "notice": "Returns the proposal hash for a given proposal ID."
-                    },
-                    "getTransitionRecordHash(uint48,bytes32)": {
-                        "notice": "Returns the transition record hash for a given proposal ID and parent transition hash."
-                    },
-                    "propose(bytes,bytes)": {
-                        "notice": "Proposes new proposals of L2 blocks."
-                    },
-                    "prove(bytes,bytes)": {
-                        "notice": "Proves a transition about some properties of a proposal, including its state transition."
-                    }
-                },
-                "version": 1
-            }
-        },
-        "settings": {
-            "remappings": [
-                "@eth-fabric/urc/=node_modules/urc/src/",
-                "@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/",
-                "@openzeppelin/=node_modules/@openzeppelin/",
-                "@optimism/=node_modules/optimism/",
-                "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
-                "@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/",
-                "@solady/=node_modules/solady/",
-                "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
-                "ds-test/=node_modules/ds-test/",
-                "forge-std/=node_modules/forge-std/",
-                "openzeppelin/=node_modules/@openzeppelin/",
-                "optimism/=node_modules/optimism/",
-                "p256-verifier/=node_modules/p256-verifier/",
-                "risc0-ethereum/=node_modules/risc0-ethereum/",
-                "solady/=node_modules/solady/",
-                "sp1-contracts/=node_modules/sp1-contracts/",
-                "src/=contracts/",
-                "urc/=node_modules/urc/"
-            ],
-            "optimizer": {
-                "enabled": true,
-                "runs": 200
-            },
-            "metadata": {
-                "bytecodeHash": "ipfs"
-            },
-            "compilationTarget": {
-                "contracts/layer1/shasta/iface/IInbox.sol": "IInbox"
-            },
-            "evmVersion": "cancun",
-            "libraries": {}
-        },
-        "sources": {
-            "contracts/layer1/shasta/iface/IInbox.sol": {
-                "keccak256": "0x92b1be11ae7439b48e660be6dca6d48b5e2bfa726eabbdfcfa88b1d7168606e6",
-                "urls": [
-                    "bzz-raw://25a1f41870f2bba6bae80c6984c63c397271eb65d9fce3e858c8d22d98da8ada",
-                    "dweb:/ipfs/QmcebThzjwv6fX1mR2SmcfTV9VKH4JtDBGfCQ4iRRp2owj"
-                ],
-                "license": "MIT"
-            },
-            "contracts/layer1/shasta/libs/LibBlobs.sol": {
-                "keccak256": "0xb14b7bb35ffbafd9ed7d400b01224e9ff81a24881cc9cd2ad44a6a8bf4dc863b",
-                "urls": [
-                    "bzz-raw://74524b52737845b1a8c3dfc2ed2880b2df72e1935f47bb47fd0706853dfeba26",
-                    "dweb:/ipfs/QmQujrwgEnjkkMt32732tVPRHmjbCwNn1Bo6vvxyFHpwn3"
-                ],
-                "license": "MIT"
-            },
-            "contracts/shared/based/iface/ICheckpointManager.sol": {
-                "keccak256": "0xc7fbbff21ed501aae74b3d22d073bc8b746d1c76f4e9744af6035db355a84126",
-                "urls": [
-                    "bzz-raw://fab7e3e59ab5d8f84f9b9131a2e35fcdcd02b434f585f274a57487aa441d1ba4",
-                    "dweb:/ipfs/QmbbeEA7Xhv5KFzrmCxFBU5DyfHg6eWKzXybrN5uX9dEYv"
-                ],
-                "license": "MIT"
-            },
-            "contracts/shared/based/libs/LibBonds.sol": {
-                "keccak256": "0xc11d8e43cb5e40a14ee2966c365cb655e27fb6cc0083875e4e3f831e0c8d7b1b",
-                "urls": [
-                    "bzz-raw://2c8713c369c3ecab4383532fb1ea8a8db866999e12c273de0e53c123f1864065",
-                    "dweb:/ipfs/QmNXomZEZgZJGhLQVLLwHbViZzzzDJBu2ftm66paXueShZ"
-                ],
-                "license": "MIT"
-            }
-        },
-        "version": 1
-    },
-    "id": 62
+    ]
 }
