@@ -14,10 +14,7 @@ use crate::{
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
-        shasta::{
-            Checkpoint, Proposal as ShastaProposal,
-            Transition as ShastaTransition,
-        },
+        shasta::{Checkpoint, Proposal as ShastaProposal, Transition as ShastaTransition},
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
         GuestInput, Transition,
     },
@@ -305,6 +302,7 @@ pub struct ProtocolInstance {
     pub transition: TransitionFork,
     pub block_metadata: BlockMetaDataFork,
     pub prover: Address,
+    pub designated_prover: Option<Address>,
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
@@ -487,6 +485,7 @@ impl ProtocolInstance {
             block_metadata: BlockMetaDataFork::from(input, header, tx_list_hash),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
+            designated_prover: None,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
         };
@@ -598,6 +597,7 @@ impl ProtocolInstance {
             block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.prover,
+            designated_prover: input.taiko.extra_data.map(|d| d.1),
             chain_id: input.chain_spec.chain_id,
             verifier_address,
         };
@@ -676,7 +676,9 @@ impl ProtocolInstance {
                 .skip(32)
                 .copied()
                 .collect::<Vec<u8>>(),
-            TransitionFork::Shasta(shasta_trans) => return hash_transition(shasta_trans),
+            TransitionFork::Shasta(shasta_trans) => {
+                return hash_transition(shasta_trans, self.prover, self.designated_prover.unwrap())
+            }
         };
         keccak(data).into()
     }
