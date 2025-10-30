@@ -89,6 +89,13 @@ sol! {
         Checkpoint checkpoint;
     }
 
+    struct TransitionMetadata {
+        /// @notice The designated prover for this transition.
+        address designatedProver;
+        /// @notice The actual prover who submitted the proof.
+        address actualProver;
+    }
+
     #[derive(Debug, Default, Deserialize, Serialize)]
     /// @notice Represents the core state of the inbox.
     struct CoreState {

@@ -1,6 +1,6 @@
 use core::fmt::Display;
 
-use alloy_primitives::{b256, Address, TxHash, B256};
+use alloy_primitives::{b256, Address, TxHash, B256, U256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Ok, Result};
 use pretty_assertions::Comparison;
@@ -14,11 +14,18 @@ use crate::{
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
-        shasta::{Checkpoint, Proposal as ShastaProposal, Transition as ShastaTransition},
+        shasta::{
+            Checkpoint, Proposal as ShastaProposal, Transition as ShastaTransition,
+            TransitionMetadata,
+        },
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
         GuestInput, Transition,
     },
-    libhash::{hash_core_state, hash_derivation, hash_transition},
+    libhash::{
+        address_to_b256, hash_core_state, hash_derivation, hash_five_values,
+        hash_transition_with_metadata, hash_transitions_array_with_metadata,
+        hash_transitions_hash_array_with_metadata, hash_two_values, VERIFY_PROOF_B256,
+    },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
@@ -677,7 +684,13 @@ impl ProtocolInstance {
                 .copied()
                 .collect::<Vec<u8>>(),
             TransitionFork::Shasta(shasta_trans) => {
-                return hash_transition(shasta_trans, self.prover, self.designated_prover.unwrap())
+                return hash_transition_with_metadata(
+                    shasta_trans,
+                    &TransitionMetadata {
+                        designatedProver: self.designated_prover.unwrap(),
+                        actualProver: self.prover,
+                    },
+                )
             }
         };
         keccak(data).into()
@@ -741,25 +754,19 @@ pub fn shasta_aggregation_output(
     verifier_address: Address,
     sgx_instance: Address,
 ) -> B256 {
-    let transactions_hash = keccak(transactions.abi_encode());
+    let aggregated_proving_hash = hash_transitions_hash_array_with_metadata(&transactions);
+    let public_input_hash = hash_five_values(
+        VERIFY_PROOF_B256,
+        U256::from(chain_id).into(),
+        address_to_b256(verifier_address),
+        aggregated_proving_hash,
+        address_to_b256(Address::ZERO),
+    );
 
     // Calculate the aggregation hash
-    let aggregation_hash = keccak(
-        (
-            "VERIFY_PROOF",
-            chain_id,
-            verifier_address,
-            transactions_hash,
-            sgx_instance,
-        )
-            .abi_encode()
-            .iter()
-            .skip(32)
-            .copied()
-            .collect::<Vec<u8>>(),
-    );
+    let aggregation_hash = hash_two_values(address_to_b256(sgx_instance), public_input_hash);
     println!(
-        "shasta transactions_hash: {transactions_hash:?}, aggregation_hash: {aggregation_hash:?}"
+        "shasta transactions_hash: {aggregated_proving_hash:?}, public_input_hash: {public_input_hash:?}, aggregation_hash: {aggregation_hash:?}"
     );
 
     keccak(aggregation_hash).into()

@@ -1,8 +1,8 @@
 // rust impl of taiko-mono/packages/protocol/contracts/layer1/shasta/libs/LibHashing.sol
 
-use std::io::Read;
-
-use crate::input::shasta::{CoreState, Derivation, Transition as ShastaTransition};
+use crate::input::shasta::{
+    CoreState, Derivation, Transition as ShastaTransition, TransitionMetadata,
+};
 
 use crate::input::shasta::Checkpoint;
 use crate::primitives::keccak::keccak;
@@ -10,14 +10,13 @@ use alloy_primitives::{Address, B256, U256};
 use reth_primitives::b256;
 
 /// Hash a transition using the same logic as the Solidity implementation
-pub fn hash_transition(
+pub fn hash_transition_with_metadata(
     transition: &ShastaTransition,
-    prover: Address,
-    designated_prover: Address,
+    metadata: &TransitionMetadata,
 ) -> B256 {
     // converts designatedProver (Address) to B256 as in Solidity: bytes32(uint256(uint160(_metadata.designatedProver)))
-    let designated_prover_b256 = B256::left_padding_from(designated_prover.as_slice());
-    let prover_b256 = B256::left_padding_from(prover.as_slice());
+    let designated_prover_b256 = address_to_b256(metadata.designatedProver);
+    let prover_b256 = address_to_b256(metadata.actualProver);
     hash_five_values(
         transition.proposalHash,
         transition.parentTransitionHash,
@@ -25,39 +24,6 @@ pub fn hash_transition(
         designated_prover_b256,
         prover_b256,
     )
-}
-
-/// Returns `keccak256(abi.encode(value0, .., value4))` - equivalent to Solidity's EfficientHashLib.hash
-///
-/*
-       assembly {
-           let m := mload(0x40)
-           mstore(m, v0)
-           mstore(add(m, 0x20), v1)
-           mstore(add(m, 0x40), v2)
-           mstore(add(m, 0x60), v3)
-           mstore(add(m, 0x80), v4)
-           mstore(add(m, 0xa0), v5)
-           result := keccak256(m, 0xc0)
-       }
-*/
-pub fn hash_six_values(
-    value0: B256,
-    value1: B256,
-    value2: B256,
-    value3: B256,
-    value4: B256,
-    value5: B256,
-) -> B256 {
-    let mut data = Vec::with_capacity(160); // 5 * 32 bytes
-    data.extend_from_slice(value0.as_slice());
-    data.extend_from_slice(value1.as_slice());
-    data.extend_from_slice(value2.as_slice());
-    data.extend_from_slice(value3.as_slice());
-    data.extend_from_slice(value4.as_slice());
-    data.extend_from_slice(value5.as_slice());
-
-    keccak(&data).into()
 }
 
 /// Hash a checkpoint using the same logic as the Solidity implementation
@@ -69,23 +35,27 @@ pub fn hash_checkpoint(checkpoint: &Checkpoint) -> B256 {
     )
 }
 
+/// Returns `keccak256(abi.encode(value0, .., valueN))` - equivalent to Solidity's EfficientHashLib.hash
+///
+/*
+       assembly {
+           let m := mload(0x40)
+           mstore(m, v0)
+           mstore(add(m, 0x20), v1)
+           ...
+           mstore(add(m, 0xa0), vN)
+           result := keccak256(m, 0x20 * N)
+       }
+*/
+
 /// Returns `keccak256(abi.encode(value0, value1))` - equivalent to Solidity's EfficientHashLib.hash
 pub fn hash_two_values(value0: B256, value1: B256) -> B256 {
-    let mut data = Vec::with_capacity(64); // 2 * 32 bytes
-    data.extend_from_slice(value0.as_slice());
-    data.extend_from_slice(value1.as_slice());
-
-    keccak(&data).into()
+    hash_values_impl(&[value0, value1])
 }
 
 /// Returns `keccak256(abi.encode(value0, value1, value2))`
 pub fn hash_three_values(value0: B256, value1: B256, value2: B256) -> B256 {
-    let mut data = Vec::with_capacity(96); // 3 * 32 bytes
-    data.extend_from_slice(value0.as_slice());
-    data.extend_from_slice(value1.as_slice());
-    data.extend_from_slice(value2.as_slice());
-
-    keccak(&data).into()
+    hash_values_impl(&[value0, value1, value2])
 }
 
 pub fn hash_five_values(
@@ -95,31 +65,43 @@ pub fn hash_five_values(
     value3: B256,
     value4: B256,
 ) -> B256 {
-    let mut data = Vec::with_capacity(96); // 3 * 32 bytes
-    data.extend_from_slice(value0.as_slice());
-    data.extend_from_slice(value1.as_slice());
-    data.extend_from_slice(value2.as_slice());
-    data.extend_from_slice(value3.as_slice());
-    data.extend_from_slice(value4.as_slice());
+    hash_values_impl(&[value0, value1, value2, value3, value4])
+}
 
+pub fn hash_six_values(
+    value0: B256,
+    value1: B256,
+    value2: B256,
+    value3: B256,
+    value4: B256,
+    value5: B256,
+) -> B256 {
+    hash_values_impl(&[value0, value1, value2, value3, value4, value5])
+}
+
+fn hash_values_impl(values: &[B256]) -> B256 {
+    let mut data = Vec::with_capacity(values.len() * 32);
+    for v in values {
+        data.extend_from_slice(v.as_slice());
+    }
     keccak(&data).into()
 }
 
 /// Convert an Address to B256 by zero-padding (equivalent to bytes32(uint256(uint160(address))))
-fn _address_to_b256(address: Address) -> B256 {
-    let mut result = [0u8; 32];
-    result[12..32].copy_from_slice(address.as_slice());
-    B256::from(result)
+pub fn address_to_b256(address: Address) -> B256 {
+    B256::left_padding_from(address.as_slice())
 }
 
 const EMPTY_BYTES_HASH: B256 =
     b256!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 
+pub const VERIFY_PROOF_B256: B256 =
+    b256!("5645524946595f50524f4f460000000000000000000000000000000000000000");
+
 /// Hash an array of transitions using the same logic as the Solidity implementation
-pub fn hash_transitions_array(
+pub fn hash_transitions_array_with_metadata(
     transitions: &[ShastaTransition],
-    prover: Address,
-    designated_prover: Address,
+    metadata: &TransitionMetadata,
 ) -> B256 {
     if transitions.is_empty() {
         return EMPTY_BYTES_HASH;
@@ -129,15 +111,15 @@ pub fn hash_transitions_array(
     if transitions.len() == 1 {
         return hash_two_values(
             U256::from(transitions.len()).into(),
-            hash_transition(&transitions[0], prover, designated_prover),
+            hash_transition_with_metadata(&transitions[0], metadata),
         );
     }
 
     if transitions.len() == 2 {
         return hash_three_values(
             U256::from(transitions.len()).into(),
-            hash_transition(&transitions[0], prover, designated_prover),
-            hash_transition(&transitions[1], prover, designated_prover),
+            hash_transition_with_metadata(&transitions[0], metadata),
+            hash_transition_with_metadata(&transitions[1], metadata),
         );
     }
 
@@ -152,8 +134,45 @@ pub fn hash_transitions_array(
 
     // Write each transition hash directly to buffer
     for transition in transitions {
-        let transition_hash = hash_transition(transition, prover, designated_prover);
+        let transition_hash = hash_transition_with_metadata(transition, metadata);
         buffer.extend_from_slice(transition_hash.as_slice());
+    }
+
+    // Return keccak256 hash of the buffer
+    keccak(&buffer).into()
+}
+
+// in aggregation, we only need to hash the transitions hash array
+pub fn hash_transitions_hash_array_with_metadata(transitions: &[B256]) -> B256 {
+    if transitions.is_empty() {
+        return EMPTY_BYTES_HASH;
+    }
+
+    // For small arrays (most common case), use direct hashing with length
+    if transitions.len() == 1 {
+        return hash_two_values(U256::from(transitions.len()).into(), transitions[0]);
+    }
+
+    if transitions.len() == 2 {
+        return hash_three_values(
+            U256::from(transitions.len()).into(),
+            transitions[0],
+            transitions[1],
+        );
+    }
+
+    // For larger arrays, use memory-optimized approach
+    // Pre-allocate exact buffer size: 32 bytes for length + 32 bytes per hash
+    let array_length = transitions.len();
+    let buffer_size = 32 + (array_length * 32);
+    let mut buffer = Vec::with_capacity(buffer_size);
+
+    // Write array length at start of buffer
+    buffer.extend_from_slice(&U256::from(array_length).to_be_bytes::<32>());
+
+    // Write each transition hash directly to buffer
+    for transition in transitions {
+        buffer.extend_from_slice(transition.as_slice());
     }
 
     // Return keccak256 hash of the buffer
@@ -301,12 +320,14 @@ mod test {
             },
         };
 
-        let prover = address!("70997970c51812dc3a010c7d01b50e0d17dc79c8");
-        let designated_prover = address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc");
-        let transition_hash = hash_transition(&transition, prover, designated_prover);
+        let metadata = TransitionMetadata {
+            designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+            actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
+        };
+        let transition_hash = hash_transitions_array_with_metadata(&[transition], &metadata);
         assert_eq!(
             hex::encode(transition_hash),
-            "f2867e3a8b0ccb5e551d5c53dbef03a557ea32166894903cf569a4f748f4b3f2"
+            "144da2706887e5347e464f29fe082af3de3ced818984498261d77b1969dc3546"
         );
     }
 
@@ -370,11 +391,12 @@ mod test {
             },
         ];
 
-        let prover = address!("70997970c51812dc3a010c7d01b50e0d17dc79c8");
-        let designated_prover = address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc");
-
+        let metadata = TransitionMetadata {
+            designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+            actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
+        };
         // Calculate hash using hashTransitionsArray equivalent
-        let result = hash_transitions_array(&transitions, prover, designated_prover);
+        let result = hash_transitions_array_with_metadata(&transitions, &metadata);
         assert_eq!(
             hex::encode(result),
             "f9e1faec6512a0048465cfee3bb43eadbbfe8fe781ac5eaa4defe841b4e06453"
@@ -383,7 +405,7 @@ mod test {
         // Test individual transition hashes
         let individual_hashes: Vec<String> = transitions
             .iter()
-            .map(|t| hex::encode(hash_transition(t, prover, designated_prover)))
+            .map(|t| hex::encode(hash_transition_with_metadata(t, &metadata)))
             .collect();
 
         assert_eq!(
