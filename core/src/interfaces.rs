@@ -496,13 +496,18 @@ impl TryFrom<BatchProofRequestOpt> for BatchProofRequest {
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct ShastaProposal {
     pub proposal_id: u64,
+    pub designated_prover: Address,
     pub l1_inclusion_block_number: u64,
     pub l2_block_numbers: Vec<u64>,
 }
 
 impl std::fmt::Display for ShastaProposal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.proposal_id, self.l1_inclusion_block_number)
+        write!(
+            f,
+            "{}:{}:{}",
+            self.proposal_id, self.l1_inclusion_block_number, self.designated_prover
+        )
     }
 }
 #[serde_as]

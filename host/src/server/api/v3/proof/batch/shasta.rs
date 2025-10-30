@@ -18,6 +18,7 @@ pub fn create_shasta_requests(
 
     for ShastaProposal {
         proposal_id,
+        designated_prover,
         l1_inclusion_block_number,
         l2_block_numbers,
     } in batch_request.proposals.iter()
@@ -38,7 +39,7 @@ pub fn create_shasta_requests(
                     batch_request.network.clone(),
                 ),
                 batch_request.proof_type,
-                batch_request.prover.to_string(),
+                designated_prover.to_string(),
                 image_id.clone(),
             ));
 
@@ -48,7 +49,7 @@ pub fn create_shasta_requests(
             *l1_inclusion_block_number,
             batch_request.network.clone(),
             batch_request.l1_network.clone(),
-            batch_request.prover.clone(),
+            designated_prover.clone(),
             batch_request.blob_proof_type.clone(),
             l2_block_numbers.clone(),
         );
@@ -56,7 +57,7 @@ pub fn create_shasta_requests(
         // Create Shasta proof request entity
         let request_entity = ShastaProofRequestEntity::new_with_guest_input_entity(
             input_request_entity.clone(),
-            batch_request.prover.clone(),
+            designated_prover.clone(),
             batch_request.proof_type,
             batch_request.prover_args.clone().into(),
         );

@@ -30,6 +30,8 @@ l2_block_numbers="$4"
 batch_id=""
 height=""
 
+designated_prover="0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
+
 parse_batch_pair() {
     local input="$1"
 
@@ -51,7 +53,7 @@ parse_batch_pair() {
         if [[ $first -eq 0 ]]; then
             json_array+=", "
         fi
-        json_array+="{\"proposal_id\": $batch_id, \"l1_inclusion_block_number\": $height, \"l2_block_numbers\": [$l2_block_numbers]}"
+        json_array+="{\"proposal_id\": $batch_id, \"designated_prover\": \"$designated_prover\", \"l1_inclusion_block_number\": $height, \"l2_block_numbers\": [$l2_block_numbers]}"
         first=0
     done <<<"$pair"
 
@@ -159,7 +161,7 @@ else
     exit 1
 fi
 
-prover="0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
+prover="0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
 
 AGG=${AGG:-false}
 
@@ -175,4 +177,5 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch/shasta' \
         $proofParam
     }"
 echo ""
-sleep 1.0
+
+# sleep 1.0
