@@ -306,8 +306,8 @@ pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
     )
     .await?;
 
-    assert!(
-        l1_inclusion_block_number == l1_inclusion_height,
+    assert_eq!(
+        l1_inclusion_block_number, l1_inclusion_height,
         "proposal tx inclusive block != proof_request block"
     );
 
@@ -491,25 +491,48 @@ pub async fn prepare_taiko_chain_batch_input(
     // Get the L1 block in which the L2 block was included so we can fetch the DA data.
     // Also get the L1 state block header so that we can prove the L1 state root.
     // Decode the anchor tx to find out which L1 blocks we need to fetch
-    let batch_anchor_tx_info = batch_blocks.iter().try_fold(Vec::new(), |mut acc, block| {
-        let anchor_tx = block
-            .body
-            .first()
-            .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
-        let fork = taiko_chain_spec.active_fork(block.number, block.timestamp)?;
-        let anchor_info = get_anchor_tx_info_by_fork(fork, anchor_tx)?;
-        ensure!(
-            fork == SpecId::PACAYA || fork == SpecId::SHASTA,
-            "Only pacaya and shasta fork supports batch"
-        );
-        acc.push(anchor_info);
-        Ok(acc)
-    })?;
+    let fork = taiko_chain_spec.active_fork(batch_blocks[0].number, batch_blocks[0].timestamp)?;
+    let batch_anchor_tx_info = batch_blocks.iter().try_fold(
+        Vec::new(),
+        |mut acc, block| -> RaikoResult<Vec<(u64, B256)>> {
+            let anchor_tx = block
+                .body
+                .first()
+                .ok_or_else(|| RaikoError::Preflight("No anchor tx in the block".to_owned()))?;
+            let anchor_info = get_anchor_tx_info_by_fork(fork, anchor_tx)?;
+            acc.push(anchor_info);
+            Ok(acc)
+        },
+    )?;
 
-    assert!(
-        batch_anchor_tx_info.windows(2).all(|w| w[0] == w[1]),
-        "batch anchor tx info mismatch"
-    );
+    match fork {
+        SpecId::PACAYA => {
+            assert!(
+                batch_anchor_tx_info.windows(2).all(|w| w[0] == w[1]),
+                "batch anchor tx info mismatch"
+            );
+        }
+        SpecId::SHASTA => {
+            info!("batch anchor tx info: {batch_anchor_tx_info:?}");
+            assert!(
+                batch_anchor_tx_info
+                    .windows(2)
+                    .all(|w| if w[0].0 == w[1].0 {
+                        // if anchor stays, block hash is zero
+                        w[1].1 == B256::ZERO
+                    } else {
+                        // if anchor changes, block hash is not zero
+                        w[0].0 < w[1].0 && w[1].1 != B256::ZERO
+                    }),
+                "batch anchor tx info mismatch"
+            );
+        }
+        _ => {
+            return Err(RaikoError::Preflight(
+                "Unsupported BatchProposedFork type".to_owned(),
+            ))
+        }
+    };
 
     let (anchor_block_height, anchor_state_root) = batch_anchor_tx_info[0];
     let fork = taiko_chain_spec.active_fork(batch_blocks[0].number, batch_blocks[0].timestamp)?;

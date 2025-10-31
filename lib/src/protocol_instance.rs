@@ -22,9 +22,9 @@ use crate::{
         GuestInput, Transition,
     },
     libhash::{
-        address_to_b256, hash_core_state, hash_derivation, hash_five_values,
-        hash_transition_with_metadata, hash_transitions_array_with_metadata,
-        hash_transitions_hash_array_with_metadata, hash_two_values, VERIFY_PROOF_B256,
+        address_to_b256, hash_core_state, hash_derivation, hash_five_values, hash_proposal,
+        hash_transition_with_metadata, hash_transitions_hash_array_with_metadata, hash_two_values,
+        VERIFY_PROOF_B256,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
@@ -574,20 +574,16 @@ impl ProtocolInstance {
             }),
             BlockProposedFork::Shasta(event_data) => {
                 TransitionFork::Shasta(ShastaTransition {
-                    proposalHash: keccak(
-                        ShastaProposal {
-                            id: event_data.proposal.id,
-                            timestamp: event_data.proposal.timestamp,
-                            endOfSubmissionWindowTimestamp: event_data
-                                .proposal
-                                .endOfSubmissionWindowTimestamp,
-                            proposer: event_data.proposal.proposer,
-                            coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
-                            derivationHash: keccak(event_data.derivation.abi_encode()).into(),
-                        }
-                        .abi_encode(),
-                    )
-                    .into(),
+                    proposalHash: hash_proposal(&ShastaProposal {
+                        id: event_data.proposal.id,
+                        timestamp: event_data.proposal.timestamp,
+                        endOfSubmissionWindowTimestamp: event_data
+                            .proposal
+                            .endOfSubmissionWindowTimestamp,
+                        proposer: event_data.proposal.proposer,
+                        coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
+                        derivationHash: keccak(event_data.derivation.abi_encode()).into(),
+                    }),
                     parentTransitionHash: Default::default(), // passed in
                     checkpoint: Checkpoint {
                         blockNumber: last_block.header.number,
@@ -642,7 +638,7 @@ impl ProtocolInstance {
     pub fn instance_hash(&self) -> B256 {
         // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
         // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
-        debug!(
+        info!(
             "calculate instance_hash from:
             chain_id: {:?}, verifier: {:?}, transition: {:?}, sgx_instance: {:?},
             prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
@@ -684,13 +680,21 @@ impl ProtocolInstance {
                 .copied()
                 .collect::<Vec<u8>>(),
             TransitionFork::Shasta(shasta_trans) => {
+                info!("transition to be signed into public is: {:?}", shasta_trans);
+                info!(
+                    "metadata is: {:?}",
+                    &TransitionMetadata {
+                        designatedProver: self.designated_prover.unwrap(),
+                        actualProver: self.prover,
+                    }
+                );
                 return hash_transition_with_metadata(
                     shasta_trans,
                     &TransitionMetadata {
                         designatedProver: self.designated_prover.unwrap(),
                         actualProver: self.prover,
                     },
-                )
+                );
             }
         };
         keccak(data).into()

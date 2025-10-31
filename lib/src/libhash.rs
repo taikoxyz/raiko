@@ -1,7 +1,7 @@
 // rust impl of taiko-mono/packages/protocol/contracts/layer1/shasta/libs/LibHashing.sol
 
 use crate::input::shasta::{
-    CoreState, Derivation, Transition as ShastaTransition, TransitionMetadata,
+    CoreState, Derivation, Proposal, Transition as ShastaTransition, TransitionMetadata,
 };
 
 use crate::input::shasta::Checkpoint;
@@ -56,6 +56,10 @@ pub fn hash_two_values(value0: B256, value1: B256) -> B256 {
 /// Returns `keccak256(abi.encode(value0, value1, value2))`
 pub fn hash_three_values(value0: B256, value1: B256, value2: B256) -> B256 {
     hash_values_impl(&[value0, value1, value2])
+}
+
+pub fn hash_four_values(value0: B256, value1: B256, value2: B256, value3: B256) -> B256 {
+    hash_values_impl(&[value0, value1, value2, value3])
 }
 
 pub fn hash_five_values(
@@ -179,6 +183,39 @@ pub fn hash_transitions_hash_array_with_metadata(transitions: &[B256]) -> B256 {
     keccak(&buffer).into()
 }
 
+/*
+// Hash a proposal using the same logic as the Solidity implementation
+unchecked {
+        bytes32 packedFields = bytes32(
+            (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
+                | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
+        );
+
+        return EfficientHashLib.hash(
+            packedFields,
+            bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
+            _proposal.coreStateHash,
+            _proposal.derivationHash
+        );
+    }
+*/
+pub fn hash_proposal(proposal: &Proposal) -> B256 {
+    // Pack the fields as in Solidity, using proper bit shifts and concatenation.
+    let packed: U256 = (U256::from(proposal.id) << 208)
+        | (U256::from(proposal.timestamp) << 160)
+        | (U256::from(proposal.endOfSubmissionWindowTimestamp) << 112);
+
+    // Encode proposer address to B256 by zero-padding its 20 bytes to 32 bytes (uint256(uint160))
+    let proposer_b256 = address_to_b256(proposal.proposer);
+
+    hash_four_values(
+        packed.into(),
+        proposer_b256,
+        proposal.coreStateHash,
+        proposal.derivationHash,
+    )
+}
+
 pub fn hash_core_state(core_state: &CoreState) -> B256 {
     hash_six_values(
         U256::from(core_state.nextProposalId).into(),
@@ -300,6 +337,27 @@ mod test {
     use reth_primitives::{address, b256};
 
     use super::*;
+
+    #[test]
+    fn test_hash_proposal() {
+        let proposal = Proposal {
+            id: 3549,
+            timestamp: 1761830468,
+            endOfSubmissionWindowTimestamp: 0,
+            proposer: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+            coreStateHash: b256!(
+                "6c3667ff590cbfedc61442117832ab6c43e4ae803e434df81573d4850d9f9522"
+            ),
+            derivationHash: b256!(
+                "85422bfec85e2cb6d5ca9f52858a74b680865c0134c0e29af710d8e01d58898a"
+            ),
+        };
+        let proposal_hash = hash_proposal(&proposal);
+        assert_eq!(
+            hex::encode(proposal_hash),
+            "84d250afffb408d35c42978f6563a32c494ec3a4dc01c5e87e7f3a77c413eaeb"
+        );
+    }
 
     #[test]
     fn test_shasta_transition_hash() {
