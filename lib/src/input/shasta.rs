@@ -89,6 +89,7 @@ sol! {
         Checkpoint checkpoint;
     }
 
+    #[derive(Debug, Default, Deserialize, Serialize)]
     struct TransitionMetadata {
         /// @notice The designated prover for this transition.
         address designatedProver;
