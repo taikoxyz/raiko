@@ -54,6 +54,8 @@ pub fn create_shasta_requests(
             designated_prover.clone(),
             batch_request.blob_proof_type.clone(),
             l2_block_numbers.clone(),
+            parent_transition_hash.clone(),
+            checkpoint.clone().into(),
         );
 
         // Create Shasta proof request entity
@@ -62,8 +64,6 @@ pub fn create_shasta_requests(
             designated_prover.clone(),
             batch_request.proof_type,
             batch_request.prover_args.clone().into(),
-            parent_transition_hash.clone(),
-            checkpoint.clone(),
         );
 
         requests.push((

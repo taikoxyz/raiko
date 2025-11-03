@@ -373,7 +373,7 @@ pub struct ProofRequest {
     pub parent_transition_hash: Option<B256>,
     /// checkpoint, if not provided, it will be set to the default value
     /// in shasta, this is the checkpoint of the l2 block
-    pub checkpoint: Option<Checkpoint>,
+    pub checkpoint: Option<ShastaProposalCheckpoint>,
 }
 
 #[serde_as]
@@ -498,13 +498,30 @@ impl TryFrom<BatchProofRequestOpt> for BatchProofRequest {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct ShastaProposalCheckpoint {
+    pub block_number: u64,
+    pub block_hash: B256,
+    pub state_root: B256,
+}
+
+impl From<ShastaProposalCheckpoint> for Checkpoint {
+    fn from(value: ShastaProposalCheckpoint) -> Self {
+        Checkpoint {
+            blockNumber: value.block_number.into(),
+            blockHash: value.block_hash,
+            stateRoot: value.state_root,
+        }
+    }
+}
+
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct ShastaProposal {
     pub proposal_id: u64,
     pub designated_prover: Address,
     pub parent_transition_hash: B256,
-    pub checkpoint: Checkpoint,
+    pub checkpoint: ShastaProposalCheckpoint,
     pub l1_inclusion_block_number: u64,
     pub l2_block_numbers: Vec<u64>,
 }
