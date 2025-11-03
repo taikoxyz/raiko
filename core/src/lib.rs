@@ -16,7 +16,9 @@ use serde_json::Value;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    interfaces::{run_shasta_proposal_prover, ProofRequest, RaikoError, RaikoResult},
+    interfaces::{
+        run_shasta_proposal_prover, ProofRequest, RaikoError, RaikoResult, ShastaProposalCheckpoint,
+    },
     preflight::{batch_preflight, preflight, BatchPreflightData, PreflightData},
     provider::BlockDataProvider,
 };
@@ -74,7 +76,11 @@ impl Raiko {
                 graffiti: self.request.graffiti,
                 prover: self.request.prover,
                 parent_transition_hash: self.request.parent_transition_hash,
-                checkpoint: self.request.checkpoint.clone(),
+                checkpoint: self
+                    .request
+                    .checkpoint
+                    .clone()
+                    .map(ShastaProposalCheckpoint::into),
             },
             blob_proof_type: self.request.blob_proof_type.clone(),
         }

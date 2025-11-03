@@ -32,7 +32,7 @@ height=""
 
 designated_prover="0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
 parent_transition_hash="0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-checkpoint="{\"blockNumber\": 0, \"blockHash\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\", \"stateRoot\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\"}"
+checkpoint="{\"block_number\": 0, \"block_hash\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\", \"state_root\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\"}"
 
 parse_batch_pair() {
     local input="$1"

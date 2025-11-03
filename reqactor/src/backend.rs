@@ -540,8 +540,6 @@ pub async fn do_generate_shasta_proposal_guest_input(
             request_entity.designated_prover().clone(),
             Default::default(),
             Default::default(),
-            Default::default(),
-            Default::default(),
         );
     let raiko = new_raiko_for_shasta_proposal_request(chain_specs, shasta_proposal_request_entity)
         .await
@@ -610,8 +608,13 @@ async fn new_raiko_for_shasta_proposal_request(
             .clone(),
         prover_args: request_entity.prover_args().clone(),
         l2_block_numbers: request_entity.guest_input_entity().l2_blocks().clone(),
-        parent_transition_hash: Some(request_entity.parent_transition_hash().clone()),
-        checkpoint: Some(serde_json::from_str(&request_entity.checkpoint()).unwrap()),
+        parent_transition_hash: Some(
+            request_entity
+                .guest_input_entity()
+                .parent_transition_hash()
+                .clone(),
+        ),
+        checkpoint: Some(request_entity.guest_input_entity().checkpoint().clone()),
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))

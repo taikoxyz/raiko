@@ -196,8 +196,7 @@ mod tests {
     use super::*;
     use alloy_primitives::Address;
     use raiko_ballot::Ballot;
-    use raiko_core::interfaces::ProofRequestOpt;
-    use raiko_lib::input::shasta::Checkpoint;
+    use raiko_core::interfaces::{ProofRequestOpt, ShastaProposalCheckpoint};
     use raiko_lib::input::BlobProofType;
     use raiko_lib::{consts::SupportedChainSpecs, proof_type::ProofType};
     use raiko_reqpool::{
@@ -286,10 +285,10 @@ mod tests {
             vec![1234u64],
             HashMap::new(),
             B256::from([0u8; 32]),
-            Checkpoint {
-                blockNumber: 1234u64,
-                blockHash: B256::from([0u8; 32]),
-                stateRoot: B256::from([0u8; 32]),
+            ShastaProposalCheckpoint {
+                block_number: 1234u64,
+                block_hash: B256::from([0u8; 32]),
+                state_root: B256::from([0u8; 32]),
             },
         );
         RequestEntity::ShastaProof(shasta_proof_entity)
