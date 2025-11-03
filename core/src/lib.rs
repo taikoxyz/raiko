@@ -56,6 +56,8 @@ impl Raiko {
             TaikoProverData {
                 graffiti: self.request.graffiti,
                 prover: self.request.prover,
+                parent_transition_hash: None,
+                checkpoint: None,
             },
             self.request.blob_proof_type.clone(),
         )
@@ -71,6 +73,8 @@ impl Raiko {
             prover_data: TaikoProverData {
                 graffiti: self.request.graffiti,
                 prover: self.request.prover,
+                parent_transition_hash: self.request.parent_transition_hash,
+                checkpoint: self.request.checkpoint.clone(),
             },
             blob_proof_type: self.request.blob_proof_type.clone(),
         }
@@ -455,7 +459,7 @@ mod tests {
             proof_request.batch_id,
         )
         .await
-        .expect("Could not parse L1 batch proposal tx");
+        .expect("Could not parse L1 shasta proposal tx");
         let all_prove_blocks = proof_request.clone().l2_block_numbers;
         // provider target blocks are all blocks in the batch and the parent block of block[0]
         let provider_target_blocks =
@@ -504,7 +508,7 @@ mod tests {
             proof_request.batch_id,
         )
         .await
-        .expect("Could not parse L1 batch proposal tx");
+        .expect("Could not parse pacaya L1 batch proposal tx");
         // provider target blocks are all blocks in the batch and the parent block of block[0]
         let provider_target_blocks =
             (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
@@ -581,6 +585,8 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            parent_transition_hash: None,
+            checkpoint: None,
         };
 
         batch_prove_shasta_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -609,6 +615,8 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            parent_transition_hash: None,
+            checkpoint: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -649,6 +657,8 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            parent_transition_hash: None,
+            checkpoint: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -682,6 +692,8 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
+            parent_transition_hash: None,
+            checkpoint: None,
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -723,6 +735,8 @@ mod tests {
                 proof_type,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
+                parent_transition_hash: None,
+                checkpoint: None,
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -754,6 +768,8 @@ mod tests {
                 proof_type,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
+                parent_transition_hash: None,
+                checkpoint: None,
             };
             batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -787,6 +803,8 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(true),
+            parent_transition_hash: None,
+            checkpoint: None,
         };
         let proof = prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
 

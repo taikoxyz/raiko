@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use derive_getters::Getters;
 use raiko_core::interfaces::ProverSpecificOpts;
 use raiko_lib::{
-    input::BlobProofType,
+    input::{shasta::Checkpoint, BlobProofType},
     primitives::{ChainId, B256},
     proof_type::ProofType,
     prover::Proof,
@@ -795,6 +795,10 @@ pub struct ShastaProofRequestEntity {
     #[serde(flatten)]
     /// Additional prover params.
     prover_args: HashMap<String, serde_json::Value>,
+    /// parent transition hash
+    parent_transition_hash: B256,
+    /// checkpoint
+    checkpoint: String,
 }
 
 impl ShastaProofRequestEntity {
@@ -808,6 +812,8 @@ impl ShastaProofRequestEntity {
         blob_proof_type: BlobProofType,
         l2_blocks: Vec<u64>,
         prover_args: HashMap<String, serde_json::Value>,
+        parent_transition_hash: B256,
+        checkpoint: Checkpoint,
     ) -> Self {
         Self {
             guest_input_entity: ShastaInputRequestEntity::new(
@@ -822,6 +828,8 @@ impl ShastaProofRequestEntity {
             prover: designated_prover,
             proof_type,
             prover_args,
+            parent_transition_hash,
+            checkpoint: serde_json::to_string(&checkpoint).unwrap(),
         }
     }
 
@@ -830,12 +838,16 @@ impl ShastaProofRequestEntity {
         designated_prover: Address,
         proof_type: ProofType,
         prover_args: HashMap<String, serde_json::Value>,
+        parent_transition_hash: B256,
+        checkpoint: Checkpoint,
     ) -> Self {
         Self {
             guest_input_entity,
             prover: designated_prover,
             proof_type,
             prover_args,
+            parent_transition_hash,
+            checkpoint: serde_json::to_string(&checkpoint).unwrap(),
         }
     }
 }

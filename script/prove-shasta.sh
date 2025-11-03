@@ -31,6 +31,8 @@ batch_id=""
 height=""
 
 designated_prover="0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
+parent_transition_hash="0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+checkpoint="{\"blockNumber\": 0, \"blockHash\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\", \"stateRoot\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\"}"
 
 parse_batch_pair() {
     local input="$1"
@@ -53,7 +55,14 @@ parse_batch_pair() {
         if [[ $first -eq 0 ]]; then
             json_array+=", "
         fi
-        json_array+="{\"proposal_id\": $batch_id, \"designated_prover\": \"$designated_prover\", \"l1_inclusion_block_number\": $height, \"l2_block_numbers\": [$l2_block_numbers]}"
+        json_array+="{ \
+            \"proposal_id\": $batch_id, \
+            \"designated_prover\": \"$designated_prover\", \
+            \"parent_transition_hash\": \"$parent_transition_hash\", \
+            \"checkpoint\": $checkpoint, \
+            \"l1_inclusion_block_number\": $height, \
+            \"l2_block_numbers\": [$l2_block_numbers] \
+        }"
         first=0
     done <<<"$pair"
 

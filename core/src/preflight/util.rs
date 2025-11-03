@@ -764,7 +764,11 @@ pub async fn filter_block_proposed_event(
     fork: SpecId,
 ) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
     // Get the address that emitted the event
-    let l1_address = chain_spec.get_fork_l1_contract_address(block_num_or_batch_id)?;
+    let l1_address = chain_spec
+        .l1_contract
+        .get(&fork)
+        .ok_or_else(|| anyhow!("L1 contract address not found for fork {fork:?}"))?
+        .clone();
 
     // Get the event signature (value can differ between chains)
     let event_signature = match fork {
@@ -853,7 +857,7 @@ pub async fn filter_block_proposed_event(
     }
 
     Err(anyhow!(
-        "No BlockProposed event found for block {block_num_or_batch_id}"
+        "No BlockProposed event found for proposal/batch id {block_num_or_batch_id}."
     ))
 }
 
@@ -1217,7 +1221,7 @@ pub(crate) fn decode_extra_data(extra_data: &[u8]) -> (u8, bool) {
 mod test {
     use alloy_rlp::Decodable;
     use raiko_lib::{
-        manifest::ProtocolProposalManifest,
+        manifest::DerivationSourceManifest,
         utils::{decode_blob_data, zlib_decompress_data},
     };
 
@@ -1243,7 +1247,7 @@ mod test {
         println!("decompressed_blob_data: {decompressed_blob_data:?}");
 
         let proposal_manifest =
-            ProtocolProposalManifest::decode(&mut decompressed_blob_data.as_ref()).unwrap();
+            DerivationSourceManifest::decode(&mut decompressed_blob_data.as_ref()).unwrap();
         println!("proposal_manifest: {proposal_manifest:?}");
         Ok(())
     }

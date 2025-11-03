@@ -19,6 +19,8 @@ pub fn create_shasta_requests(
     for ShastaProposal {
         proposal_id,
         designated_prover,
+        parent_transition_hash,
+        checkpoint,
         l1_inclusion_block_number,
         l2_block_numbers,
     } in batch_request.proposals.iter()
@@ -60,6 +62,8 @@ pub fn create_shasta_requests(
             designated_prover.clone(),
             batch_request.proof_type,
             batch_request.prover_args.clone().into(),
+            parent_transition_hash.clone(),
+            checkpoint.clone(),
         );
 
         requests.push((

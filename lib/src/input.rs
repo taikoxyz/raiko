@@ -3,9 +3,7 @@ use core::{fmt::Debug, str::FromStr};
 use anyhow::{anyhow, Error, Result};
 use ontake::BlockProposedV2;
 use pacaya::{BatchInfo, BatchProposed};
-use reth_evm_ethereum::taiko::{
-    ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT,
-};
+use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, B256, U256},
     Block, Header, TransactionSigned,
@@ -17,7 +15,8 @@ use shasta::ShastaEventData;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::ChainSpec, primitives::mpt::MptNode, prover::Proof, utils::zlib_compress_data,
+    consts::ChainSpec, input::shasta::Checkpoint, primitives::mpt::MptNode, prover::Proof,
+    utils::zlib_compress_data,
 };
 
 /// Represents the state of an account's storage.
@@ -352,6 +351,8 @@ impl FromStr for BlobProofType {
 pub struct TaikoProverData {
     pub prover: Address,
     pub graffiti: B256,
+    pub parent_transition_hash: Option<B256>,
+    pub checkpoint: Option<Checkpoint>,
 }
 
 #[serde_as]
