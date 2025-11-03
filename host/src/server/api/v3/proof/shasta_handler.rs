@@ -160,6 +160,8 @@ async fn shasta_batch_handler(
                             request_entity.prover().clone(),
                             *request_entity.proof_type(),
                             prover_args,
+                            request_entity.parent_transition_hash().clone(),
+                            serde_json::from_str(&request_entity.checkpoint()).unwrap(),
                         )
                         .into()
                     }

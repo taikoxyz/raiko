@@ -224,6 +224,8 @@ pub async fn do_generate_guest_input(
         prover_args: request_entity.prover_args().clone(),
         batch_id: 0,
         l2_block_numbers: Vec::new(),
+        parent_transition_hash: Default::default(),
+        checkpoint: Default::default(),
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -285,6 +287,8 @@ pub async fn do_prove_single(
         prover_args: request_entity.prover_args().clone(),
         batch_id: 0,
         l2_block_numbers: Vec::new(),
+        parent_transition_hash: Default::default(),
+        checkpoint: Default::default(),
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -309,6 +313,8 @@ pub async fn do_prove_single(
                 input.taiko.prover_data = raiko_lib::input::TaikoProverData {
                     graffiti: request_entity.graffiti().clone(),
                     prover: request_entity.prover().clone(),
+                    parent_transition_hash: Default::default(),
+                    checkpoint: Default::default(),
                 }
             }
             input
@@ -401,7 +407,7 @@ async fn new_raiko_for_batch_request(
         *batch_id,
     )
     .await
-    .map_err(|err| format!("Could not parse L1 batch proposal tx: {err:?}"))?;
+    .map_err(|err| format!("Could not parse pacaya L1 batch proposal tx: {err:?}"))?;
 
     let proof_request = ProofRequest {
         block_number: 0,
@@ -420,6 +426,8 @@ async fn new_raiko_for_batch_request(
             .clone(),
         prover_args: request_entity.prover_args().clone(),
         l2_block_numbers: all_prove_blocks.clone(),
+        parent_transition_hash: Default::default(),
+        checkpoint: Default::default(),
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
@@ -532,6 +540,8 @@ pub async fn do_generate_shasta_proposal_guest_input(
             request_entity.designated_prover().clone(),
             Default::default(),
             Default::default(),
+            Default::default(),
+            Default::default(),
         );
     let raiko = new_raiko_for_shasta_proposal_request(chain_specs, shasta_proposal_request_entity)
         .await
@@ -578,7 +588,7 @@ async fn new_raiko_for_shasta_proposal_request(
         *proposal_id,
     )
     .await
-    .map_err(|err| format!("Could not parse L1 batch proposal tx: {err:?}"))?;
+    .map_err(|err| format!("Could not parse L1 shasta proposal tx: {err:?}"))?;
 
     let proof_request = ProofRequest {
         block_number: 0,
@@ -600,6 +610,8 @@ async fn new_raiko_for_shasta_proposal_request(
             .clone(),
         prover_args: request_entity.prover_args().clone(),
         l2_block_numbers: request_entity.guest_input_entity().l2_blocks().clone(),
+        parent_transition_hash: Some(request_entity.parent_transition_hash().clone()),
+        checkpoint: Some(serde_json::from_str(&request_entity.checkpoint()).unwrap()),
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))

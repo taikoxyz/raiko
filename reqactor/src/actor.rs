@@ -197,6 +197,7 @@ mod tests {
     use alloy_primitives::Address;
     use raiko_ballot::Ballot;
     use raiko_core::interfaces::ProofRequestOpt;
+    use raiko_lib::input::shasta::Checkpoint;
     use raiko_lib::input::BlobProofType;
     use raiko_lib::{consts::SupportedChainSpecs, proof_type::ProofType};
     use raiko_reqpool::{
@@ -284,6 +285,12 @@ mod tests {
             BlobProofType::ProofOfEquivalence,
             vec![1234u64],
             HashMap::new(),
+            B256::from([0u8; 32]),
+            Checkpoint {
+                blockNumber: 1234u64,
+                blockHash: B256::from([0u8; 32]),
+                stateRoot: B256::from([0u8; 32]),
+            },
         );
         RequestEntity::ShastaProof(shasta_proof_entity)
     }

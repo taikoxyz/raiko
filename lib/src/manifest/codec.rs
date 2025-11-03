@@ -1,14 +1,11 @@
 use alloy_rlp::{Decodable, Encodable};
 use anyhow::Result;
 
-use super::types::{ProtocolBlockManifest, ProtocolProposalManifest};
-use crate::{
-    manifest::DerivationSourceManifest,
-    utils::{zlib_compress_data, zlib_decompress_data},
-};
+use super::types::{DerivationSourceManifest, ProtocolBlockManifest};
+use crate::utils::{zlib_compress_data, zlib_decompress_data};
 
 /// Encode and compress a Shasta proposal manifest (equivalent to Go's EncodeAndCompressShastaProposal)
-pub fn encode_and_compress_shasta_proposal(proposal: &ProtocolProposalManifest) -> Result<Vec<u8>> {
+pub fn encode_and_compress_shasta_proposal(proposal: &DerivationSourceManifest) -> Result<Vec<u8>> {
     // First, RLP encode the proposal
     let rlp_encoded = alloy_rlp::encode(proposal);
 
@@ -21,13 +18,13 @@ pub fn encode_and_compress_shasta_proposal(proposal: &ProtocolProposalManifest) 
 /// Decode and decompress a Shasta proposal manifest
 pub fn decode_and_decompress_shasta_proposal(
     compressed_data: &[u8],
-) -> Result<ProtocolProposalManifest> {
+) -> Result<DerivationSourceManifest> {
     // First, decompress the data
     let rlp_encoded = zlib_decompress_data(compressed_data)?;
 
     // Then RLP decode
     let mut data = rlp_encoded.as_slice();
-    let proposal = ProtocolProposalManifest::decode(&mut data)?;
+    let proposal = DerivationSourceManifest::decode(&mut data)?;
 
     Ok(proposal)
 }
@@ -90,41 +87,7 @@ impl Decodable for ProtocolBlockManifest {
 impl Encodable for DerivationSourceManifest {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         // Calculate the payload length first
-        let payload_length = self.blocks.length();
-
-        // Encode the list header
-        let header = alloy_rlp::Header {
-            list: true,
-            payload_length,
-        };
-        header.encode(out);
-        self.blocks.encode(out);
-    }
-
-    fn length(&self) -> usize {
-        let payload_length = self.blocks.length();
-        payload_length + alloy_rlp::length_of_length(payload_length)
-    }
-}
-
-impl Decodable for DerivationSourceManifest {
-    fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
-        // Decode the RLP header first
-        let header = alloy_rlp::Header::decode(buf)?;
-        if !header.list {
-            return Err(alloy_rlp::Error::Custom(
-                "DerivationSourceManifest must be encoded as a list",
-            ));
-        }
-        let blocks = Vec::<ProtocolBlockManifest>::decode(buf)?;
-        Ok(DerivationSourceManifest { blocks })
-    }
-}
-
-impl Encodable for ProtocolProposalManifest {
-    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        // Calculate the payload length first
-        let payload_length = self.prover_auth_bytes.length() + self.sources.length();
+        let payload_length = self.prover_auth_bytes.length() + self.blocks.length();
 
         // Encode the list header
         let header = alloy_rlp::Header {
@@ -135,16 +98,16 @@ impl Encodable for ProtocolProposalManifest {
 
         // Encode fields in the same order as Go struct
         self.prover_auth_bytes.encode(out);
-        self.sources.encode(out);
+        self.blocks.encode(out);
     }
 
     fn length(&self) -> usize {
-        let payload_length = self.prover_auth_bytes.length() + self.sources.length();
+        let payload_length = self.prover_auth_bytes.length() + self.blocks.length();
         payload_length + alloy_rlp::length_of_length(payload_length)
     }
 }
 
-impl Decodable for ProtocolProposalManifest {
+impl Decodable for DerivationSourceManifest {
     fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
         const PROPOSAL_MAX_BLOCKS: usize = 384;
         const PROPOSAL_MAX_AUTH_BYTES: usize = 161;
@@ -163,17 +126,17 @@ impl Decodable for ProtocolProposalManifest {
             );
         }
 
-        let sources = Vec::<DerivationSourceManifest>::decode(buf)?;
-        if sources.len() > PROPOSAL_MAX_BLOCKS {
+        let blocks = Vec::<ProtocolBlockManifest>::decode(buf)?;
+        if blocks.len() > PROPOSAL_MAX_BLOCKS {
             return Err(alloy_rlp::Error::Custom(
                 "ProtocolProposalManifest blocks length exceeds PROPOSAL_MAX_BLOCKS",
             ));
         }
 
         // Decode each field sequentially
-        Ok(ProtocolProposalManifest {
+        Ok(DerivationSourceManifest {
             prover_auth_bytes,
-            sources,
+            blocks,
         })
     }
 }
@@ -183,7 +146,7 @@ mod tests {
     use super::*;
     use alloy_primitives::{Address, Bytes};
 
-    fn create_test_proposal() -> ProtocolProposalManifest {
+    fn create_test_proposal() -> DerivationSourceManifest {
         let block = ProtocolBlockManifest {
             timestamp: 1234567890,
             coinbase: Address::from([1u8; 20]),
@@ -192,13 +155,9 @@ mod tests {
             transactions: vec![],
         };
 
-        let source = DerivationSourceManifest {
-            blocks: vec![block],
-        };
-
-        ProtocolProposalManifest {
+        DerivationSourceManifest {
             prover_auth_bytes: Bytes::from([1u8; 161]),
-            sources: vec![source],
+            blocks: vec![block],
         }
     }
 
@@ -214,11 +173,11 @@ mod tests {
 
         // Verify roundtrip
         assert_eq!(original.prover_auth_bytes, decoded.prover_auth_bytes);
-        assert_eq!(original.sources.len(), decoded.sources.len());
+        assert_eq!(original.blocks.len(), decoded.blocks.len());
 
-        if !original.sources.is_empty() && !decoded.sources.is_empty() {
-            let orig_block = &original.sources[0].blocks[0];
-            let decoded_block = &decoded.sources[0].blocks[0];
+        if !original.blocks.is_empty() && !decoded.blocks.is_empty() {
+            let orig_block = &original.blocks[0];
+            let decoded_block = &decoded.blocks[0];
 
             assert_eq!(orig_block.timestamp, decoded_block.timestamp);
             assert_eq!(orig_block.coinbase, decoded_block.coinbase);
@@ -239,11 +198,11 @@ mod tests {
 
         // RLP decode
         let mut data = rlp_encoded.as_slice();
-        let decoded = ProtocolProposalManifest::decode(&mut data).unwrap();
+        let decoded = DerivationSourceManifest::decode(&mut data).unwrap();
 
         // Verify roundtrip
         assert_eq!(original.prover_auth_bytes, decoded.prover_auth_bytes);
-        assert_eq!(original.sources.len(), decoded.sources.len());
+        assert_eq!(original.blocks.len(), decoded.blocks.len());
     }
 
     #[test]

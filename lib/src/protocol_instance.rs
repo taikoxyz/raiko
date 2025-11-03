@@ -572,26 +572,25 @@ impl ProtocolInstance {
                 blockHash: last_block.header.hash_slow(),
                 stateRoot: last_block.header.state_root,
             }),
-            BlockProposedFork::Shasta(event_data) => {
-                TransitionFork::Shasta(ShastaTransition {
-                    proposalHash: hash_proposal(&ShastaProposal {
-                        id: event_data.proposal.id,
-                        timestamp: event_data.proposal.timestamp,
-                        endOfSubmissionWindowTimestamp: event_data
-                            .proposal
-                            .endOfSubmissionWindowTimestamp,
-                        proposer: event_data.proposal.proposer,
-                        coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
-                        derivationHash: keccak(event_data.derivation.abi_encode()).into(),
-                    }),
-                    parentTransitionHash: Default::default(), // passed in
-                    checkpoint: Checkpoint {
-                        blockNumber: last_block.header.number,
-                        blockHash: last_block.header.hash_slow(),
-                        stateRoot: last_block.header.state_root,
-                    },
-                })
-            }
+            BlockProposedFork::Shasta(event_data) => TransitionFork::Shasta(ShastaTransition {
+                proposalHash: hash_proposal(&ShastaProposal {
+                    id: event_data.proposal.id,
+                    timestamp: event_data.proposal.timestamp,
+                    endOfSubmissionWindowTimestamp: event_data
+                        .proposal
+                        .endOfSubmissionWindowTimestamp,
+                    proposer: event_data.proposal.proposer,
+                    coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
+                    derivationHash: keccak(event_data.derivation.abi_encode()).into(),
+                }),
+                parentTransitionHash: batch_input
+                    .taiko
+                    .prover_data
+                    .parent_transition_hash
+                    .clone()
+                    .unwrap(),
+                checkpoint: batch_input.taiko.prover_data.checkpoint.clone().unwrap(),
+            }),
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
         };
 

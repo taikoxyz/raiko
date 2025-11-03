@@ -32,15 +32,8 @@ pub struct BondInstruction {
 /// Protocol proposal manifest - corresponds to Go's ProtocolProposalManifest
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DerivationSourceManifest {
-    /// blocks in this source
-    pub blocks: Vec<ProtocolBlockManifest>,
-}
-
-/// Protocol proposal manifest - corresponds to Go's ProtocolProposalManifest
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ProtocolProposalManifest {
     /// Prover authentication bytes
     pub prover_auth_bytes: Bytes,
     /// Sources in this proposal
-    pub sources: Vec<DerivationSourceManifest>,
+    pub blocks: Vec<ProtocolBlockManifest>,
 }

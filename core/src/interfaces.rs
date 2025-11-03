@@ -3,8 +3,8 @@ use alloy_primitives::{Address, B256};
 use clap::Args;
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestBatchInput,
-        GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, BlobProofType,
+        GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
@@ -368,6 +368,12 @@ pub struct ProofRequest {
     #[serde(flatten)]
     /// Additional prover params.
     pub prover_args: HashMap<String, Value>,
+    /// For shasta
+    /// parent transition hash, if not provided, it will be set to the default value
+    pub parent_transition_hash: Option<B256>,
+    /// checkpoint, if not provided, it will be set to the default value
+    /// in shasta, this is the checkpoint of the l2 block
+    pub checkpoint: Option<Checkpoint>,
 }
 
 #[serde_as]
@@ -497,6 +503,8 @@ impl TryFrom<BatchProofRequestOpt> for BatchProofRequest {
 pub struct ShastaProposal {
     pub proposal_id: u64,
     pub designated_prover: Address,
+    pub parent_transition_hash: B256,
+    pub checkpoint: Checkpoint,
     pub l1_inclusion_block_number: u64,
     pub l2_block_numbers: Vec<u64>,
 }
@@ -505,8 +513,12 @@ impl std::fmt::Display for ShastaProposal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}:{}:{}",
-            self.proposal_id, self.l1_inclusion_block_number, self.designated_prover
+            "{}:{}:{:?}:{}:{}",
+            self.proposal_id,
+            self.parent_transition_hash,
+            self.checkpoint,
+            self.l1_inclusion_block_number,
+            self.designated_prover
         )
     }
 }
@@ -686,6 +698,8 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                     RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
                 })?,
             prover_args: value.prover_args.into(),
+            parent_transition_hash: None,
+            checkpoint: None,
         })
     }
 }

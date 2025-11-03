@@ -8,7 +8,7 @@ use tracing::{debug, error, warn};
 
 use crate::consts::{ChainSpec, Network};
 use crate::input::{BlockProposedFork, TaikoGuestBatchInput};
-use crate::manifest::{DerivationSourceManifest, ProtocolProposalManifest};
+use crate::manifest::DerivationSourceManifest;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
@@ -241,16 +241,15 @@ pub fn generate_transactions_for_shasta_blocks(
             let protocol_manifest_bytes =
                 zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
             let protocol_manifest =
-                ProtocolProposalManifest::decode(&mut protocol_manifest_bytes.as_ref()).unwrap();
+                DerivationSourceManifest::decode(&mut protocol_manifest_bytes.as_ref()).unwrap();
             protocol_manifest
-                .sources
+                .blocks
                 .iter()
-                .flat_map(|source| source.blocks.iter())
                 .for_each(|block| tx_list_bufs.push(block.transactions.clone()));
         } else {
             let force_inc_source_bytes =
                 zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
-            let force_inc_source =
+            let force_inc_source: DerivationSourceManifest =
                 DerivationSourceManifest::decode(&mut force_inc_source_bytes.as_ref()).unwrap();
             force_inc_source
                 .blocks
