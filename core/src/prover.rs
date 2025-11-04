@@ -2,6 +2,7 @@ use std::path::Path;
 
 use raiko_lib::{
     input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput},
+    libhash::hash_transitions_hash_array_with_metadata,
     proof_type::ProofType,
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -139,9 +140,16 @@ impl Prover for NativeProver {
         _config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        tracing::info!("aggregating shasta proposals with\n");
-        tracing::info!("input: {input:?}");
-        tracing::info!("output: {output:?}");
+        tracing::info!("aggregating shasta proposals: input: {input:?} and output: {output:?}");
+        let aggregated_proving_hash = hash_transitions_hash_array_with_metadata(
+            &input
+                .proofs
+                .iter()
+                .map(|p| p.input.unwrap())
+                .collect::<Vec<_>>(),
+        );
+        tracing::info!("aggregated proving hash: {aggregated_proving_hash:?}");
+
         Ok(Proof {
             ..Default::default()
         })

@@ -51,17 +51,17 @@ pub fn create_shasta_requests(
             *l1_inclusion_block_number,
             batch_request.network.clone(),
             batch_request.l1_network.clone(),
-            designated_prover.clone(),
+            batch_request.prover,
             batch_request.blob_proof_type.clone(),
             l2_block_numbers.clone(),
             parent_transition_hash.clone(),
             checkpoint.clone().into(),
+            designated_prover.clone(),
         );
 
         // Create Shasta proof request entity
-        let request_entity = ShastaProofRequestEntity::new_with_guest_input_entity(
+        let proof_request_entity = ShastaProofRequestEntity::new_with_guest_input_entity(
             input_request_entity.clone(),
-            designated_prover.clone(),
             batch_request.proof_type,
             batch_request.prover_args.clone().into(),
         );
@@ -70,7 +70,7 @@ pub fn create_shasta_requests(
             input_request_key,
             request_key,
             input_request_entity,
-            request_entity,
+            proof_request_entity,
         ));
     }
 

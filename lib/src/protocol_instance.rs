@@ -250,17 +250,6 @@ impl BlockMetaDataFork {
                 })
             }
             BlockProposedFork::Shasta(event_data) => {
-                // Use the reconstructed proposal (which has been validated to match the event proposal)
-                assert_eq!(
-                    event_data.proposal.coreStateHash,
-                    hash_core_state(&event_data.core_state),
-                    "core state hash mismatch"
-                );
-                assert_eq!(
-                    event_data.proposal.derivationHash,
-                    hash_derivation(&event_data.derivation),
-                    "derivation hash mismatch"
-                );
                 BlockMetaDataFork::Shasta(event_data.proposal.clone())
             }
             _ => {
@@ -491,7 +480,7 @@ impl ProtocolInstance {
             transition,
             block_metadata: BlockMetaDataFork::from(input, header, tx_list_hash),
             sgx_instance: Address::default(),
-            prover: input.taiko.prover_data.prover,
+            prover: input.taiko.prover_data.actual_prover,
             designated_prover: None,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
@@ -572,25 +561,65 @@ impl ProtocolInstance {
                 blockHash: last_block.header.hash_slow(),
                 stateRoot: last_block.header.state_root,
             }),
-            BlockProposedFork::Shasta(event_data) => TransitionFork::Shasta(ShastaTransition {
-                proposalHash: hash_proposal(&ShastaProposal {
-                    id: event_data.proposal.id,
-                    timestamp: event_data.proposal.timestamp,
-                    endOfSubmissionWindowTimestamp: event_data
-                        .proposal
-                        .endOfSubmissionWindowTimestamp,
-                    proposer: event_data.proposal.proposer,
-                    coreStateHash: keccak(event_data.core_state.abi_encode()).into(),
-                    derivationHash: keccak(event_data.derivation.abi_encode()).into(),
-                }),
-                parentTransitionHash: batch_input
-                    .taiko
-                    .prover_data
-                    .parent_transition_hash
-                    .clone()
-                    .unwrap(),
-                checkpoint: batch_input.taiko.prover_data.checkpoint.clone().unwrap(),
-            }),
+            BlockProposedFork::Shasta(event_data) => {
+                let core_state_hash = hash_core_state(&event_data.core_state);
+                assert_eq!(
+                    event_data.proposal.coreStateHash, core_state_hash,
+                    "core state hash mismatch"
+                );
+                let derivation_hash = hash_derivation(&event_data.derivation);
+                assert_eq!(
+                    event_data.proposal.derivationHash, derivation_hash,
+                    "derivation hash mismatch"
+                );
+                // check local re-constructed proposal matches the event proposal
+                let last_block_number = last_block.number;
+                let last_block_hash = last_block.header.hash_slow();
+                let last_block_state_root = last_block.header.state_root;
+                // let ref_checkpoint = batch_input.taiko.prover_data.checkpoint.as_ref().unwrap();
+                if let Some(ref_checkpoint) = &batch_input.taiko.prover_data.checkpoint {
+                    assert_eq!(
+                        last_block_number, ref_checkpoint.blockNumber,
+                        "checkpoint last block number mismatch, expected: {:?}, got: {:?}",
+                        last_block_number, ref_checkpoint.blockNumber,
+                    );
+                    assert_eq!(
+                        last_block_hash, ref_checkpoint.blockHash,
+                        "last block hash mismatch, expected: {:?}, got: {:?}",
+                        last_block_hash, ref_checkpoint.blockHash,
+                    );
+                    assert_eq!(
+                        last_block_state_root, ref_checkpoint.stateRoot,
+                        "last block state root mismatch, expected: {:?}, got: {:?}",
+                        last_block_state_root, ref_checkpoint.stateRoot,
+                    );
+                }
+
+                TransitionFork::Shasta(ShastaTransition {
+                    // Use the reconstructed proposal (which has been validated to match the event proposal)
+                    proposalHash: hash_proposal(&ShastaProposal {
+                        id: event_data.proposal.id,
+                        timestamp: event_data.proposal.timestamp,
+                        endOfSubmissionWindowTimestamp: event_data
+                            .proposal
+                            .endOfSubmissionWindowTimestamp,
+                        proposer: event_data.proposal.proposer,
+                        coreStateHash: core_state_hash,
+                        derivationHash: derivation_hash,
+                    }),
+                    parentTransitionHash: batch_input
+                        .taiko
+                        .prover_data
+                        .parent_transition_hash
+                        .clone()
+                        .unwrap(),
+                    checkpoint: Checkpoint {
+                        blockNumber: last_block_number,
+                        blockHash: last_block_hash,
+                        stateRoot: last_block_state_root,
+                    },
+                })
+            }
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
         };
 
@@ -598,8 +627,8 @@ impl ProtocolInstance {
             transition,
             block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
             sgx_instance: Address::default(),
-            prover: input.taiko.prover_data.prover,
-            designated_prover: input.taiko.extra_data.map(|d| d.1),
+            prover: input.taiko.prover_data.actual_prover,
+            designated_prover: input.taiko.prover_data.designated_prover,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
         };
@@ -640,48 +669,55 @@ impl ProtocolInstance {
         info!(
             "calculate instance_hash from:
             chain_id: {:?}, verifier: {:?}, transition: {:?}, sgx_instance: {:?},
-            prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
+            prover: {:?}, designated_prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
             self.chain_id,
             self.verifier_address,
             &self.transition,
-            self.sgx_instance,
-            self.prover,
+            &self.sgx_instance,
+            &self.prover,
+            &self.designated_prover,
             &self.block_metadata,
             self.meta_hash(),
         );
 
-        let data = match &self.transition {
-            TransitionFork::Hekla(transition) | TransitionFork::OnTake(transition) => (
-                "VERIFY_PROOF",
-                self.chain_id,
-                self.verifier_address,
-                transition.clone(),
-                self.sgx_instance,
-                self.prover,
-                self.meta_hash(),
-            )
-                .abi_encode()
-                .iter()
-                .skip(32)
-                .copied()
-                .collect::<Vec<u8>>(),
-            TransitionFork::Pacaya(pacaya_trans) => (
-                "VERIFY_PROOF",
-                self.chain_id,
-                self.verifier_address,
-                pacaya_trans.clone(),
-                self.sgx_instance,
-                self.meta_hash(),
-            )
-                .abi_encode()
-                .iter()
-                .skip(32)
-                .copied()
-                .collect::<Vec<u8>>(),
+        match &self.transition {
+            TransitionFork::Hekla(transition) | TransitionFork::OnTake(transition) => {
+                let data = (
+                    "VERIFY_PROOF",
+                    self.chain_id,
+                    self.verifier_address,
+                    transition.clone(),
+                    self.sgx_instance,
+                    self.prover,
+                    self.meta_hash(),
+                )
+                    .abi_encode()
+                    .iter()
+                    .skip(32)
+                    .copied()
+                    .collect::<Vec<u8>>();
+                keccak(data).into()
+            }
+            TransitionFork::Pacaya(pacaya_trans) => {
+                let data = (
+                    "VERIFY_PROOF",
+                    self.chain_id,
+                    self.verifier_address,
+                    pacaya_trans.clone(),
+                    self.sgx_instance,
+                    self.meta_hash(),
+                )
+                    .abi_encode()
+                    .iter()
+                    .skip(32)
+                    .copied()
+                    .collect::<Vec<u8>>();
+                keccak(data).into()
+            }
             TransitionFork::Shasta(shasta_trans) => {
-                info!("transition to be signed into public is: {:?}", shasta_trans);
+                info!("transition to be signed into public: {:?}", shasta_trans);
                 info!(
-                    "metadata is: {:?}",
+                    "transition metadata: {:?}",
                     &TransitionMetadata {
                         designatedProver: self.designated_prover.unwrap(),
                         actualProver: self.prover,
@@ -695,8 +731,7 @@ impl ProtocolInstance {
                     },
                 );
             }
-        };
-        keccak(data).into()
+        }
     }
 }
 
@@ -752,12 +787,12 @@ pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
 }
 
 pub fn shasta_aggregation_output(
-    transactions: Vec<B256>,
+    transaction_hashes: Vec<B256>,
     chain_id: u64,
     verifier_address: Address,
     sgx_instance: Address,
 ) -> B256 {
-    let aggregated_proving_hash = hash_transitions_hash_array_with_metadata(&transactions);
+    let aggregated_proving_hash = hash_transitions_hash_array_with_metadata(&transaction_hashes);
     let public_input_hash = hash_five_values(
         VERIFY_PROOF_B256,
         U256::from(chain_id).into(),

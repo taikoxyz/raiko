@@ -290,6 +290,7 @@ mod tests {
                 block_hash: B256::from([0u8; 32]),
                 state_root: B256::from([0u8; 32]),
             },
+            Address::ZERO,
         );
         RequestEntity::ShastaProof(shasta_proof_entity)
     }

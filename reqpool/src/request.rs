@@ -693,8 +693,8 @@ pub struct ShastaInputRequestEntity {
     network: String,
     /// The L1 network to generate the proof for.
     l1_network: String,
-    /// Prover.
-    designated_prover: Address,
+    /// actual prover
+    actual_prover: Address,
     /// Blob proof type.
     blob_proof_type: BlobProofType,
     /// l2 blocks
@@ -703,6 +703,8 @@ pub struct ShastaInputRequestEntity {
     parent_transition_hash: B256,
     /// checkpoint
     checkpoint: ShastaProposalCheckpoint,
+    /// Designated prover.
+    designated_prover: Address,
 }
 
 impl ShastaInputRequestEntity {
@@ -711,22 +713,24 @@ impl ShastaInputRequestEntity {
         l1_inclusion_block_number: u64,
         network: String,
         l1_network: String,
-        designated_prover: Address,
+        actual_prover: Address,
         blob_proof_type: BlobProofType,
         l2_blocks: Vec<u64>,
         parent_transition_hash: B256,
         checkpoint: ShastaProposalCheckpoint,
+        designated_prover: Address,
     ) -> Self {
         Self {
             proposal_id,
             l1_inclusion_block_number,
             network,
             l1_network,
-            designated_prover,
+            actual_prover,
             blob_proof_type,
             l2_blocks,
             parent_transition_hash,
             checkpoint,
+            designated_prover,
         }
     }
 }
@@ -795,9 +799,6 @@ pub struct ShastaProofRequestEntity {
     #[serde(flatten)]
     /// The proposal input request entity
     guest_input_entity: ShastaInputRequestEntity,
-    /// The real signing prover
-    #[serde_as(as = "DisplayFromStr")]
-    prover: Address,
     /// The proof type.
     proof_type: ProofType,
     #[serde(flatten)]
@@ -811,13 +812,14 @@ impl ShastaProofRequestEntity {
         l1_inclusion_block_number: u64,
         network: String,
         l1_network: String,
-        designated_prover: Address,
+        actual_prover: Address,
         proof_type: ProofType,
         blob_proof_type: BlobProofType,
         l2_blocks: Vec<u64>,
         prover_args: HashMap<String, serde_json::Value>,
         parent_transition_hash: B256,
         checkpoint: ShastaProposalCheckpoint,
+        designated_prover: Address,
     ) -> Self {
         Self {
             guest_input_entity: ShastaInputRequestEntity::new(
@@ -825,13 +827,13 @@ impl ShastaProofRequestEntity {
                 l1_inclusion_block_number,
                 network,
                 l1_network,
-                designated_prover,
+                actual_prover,
                 blob_proof_type,
                 l2_blocks,
                 parent_transition_hash,
                 checkpoint,
+                designated_prover,
             ),
-            prover: designated_prover,
             proof_type,
             prover_args,
         }
@@ -839,13 +841,11 @@ impl ShastaProofRequestEntity {
 
     pub fn new_with_guest_input_entity(
         guest_input_entity: ShastaInputRequestEntity,
-        designated_prover: Address,
         proof_type: ProofType,
         prover_args: HashMap<String, serde_json::Value>,
     ) -> Self {
         Self {
             guest_input_entity,
-            prover: designated_prover,
             proof_type,
             prover_args,
         }
