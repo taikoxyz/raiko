@@ -349,7 +349,8 @@ impl FromStr for BlobProofType {
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct TaikoProverData {
-    pub prover: Address,
+    pub actual_prover: Address,
+    pub designated_prover: Option<Address>,
     pub graffiti: B256,
     pub parent_transition_hash: Option<B256>,
     pub checkpoint: Option<Checkpoint>,

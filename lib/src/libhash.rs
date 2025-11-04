@@ -363,17 +363,17 @@ mod test {
     fn test_shasta_transition_hash() {
         // Create a transition with fixed test values
         let transition = ShastaTransition {
-            proposalHash: b256!("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+            proposalHash: b256!("d469fc0c500db1c87cd4fcf0650628cf4be84b03feb29dbca9ce1daee2750274"),
             parentTransitionHash: b256!(
-                "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+                "66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
             ),
             checkpoint: Checkpoint {
-                blockNumber: 999999,
+                blockNumber: 1512,
                 blockHash: b256!(
-                    "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+                    "83cf1bb221b330d372ce0fbca82cb060fa028d3f6bfd62a74197789e25ac2b5f"
                 ),
                 stateRoot: b256!(
-                    "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+                    "63651766d70b5aaf0320fc63421f4d1fdf6fe828514e21e05615e9c2f93c9c7d"
                 ),
             },
         };
@@ -382,10 +382,16 @@ mod test {
             designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
             actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
         };
+        let single_trans_hash = hash_transition_with_metadata(&transition, &metadata);
+        assert_eq!(
+            hex::encode(single_trans_hash),
+            "8e1bb4b3832a1da199f0d0a7b93e95b8bd96c58045ff3b54d4969dc38a9260da"
+        );
+
         let transition_hash = hash_transitions_array_with_metadata(&[transition], &metadata);
         assert_eq!(
             hex::encode(transition_hash),
-            "144da2706887e5347e464f29fe082af3de3ced818984498261d77b1969dc3546"
+            "f84854d6f8b03f973543dc20cf541d78a2a9e25299d6f53b13c8b48e03246a43"
         );
     }
 

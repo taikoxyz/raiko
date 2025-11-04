@@ -90,7 +90,7 @@ async fn shasta_batch_handler(
 
     record_shasta_request_in(&authenticated_key.name, &shasta_request);
     tracing::info!(
-        "Accepted {}'s Shasta batch request: {}",
+        "Accepted {}'s Shasta proposal request: {}",
         authenticated_key.name,
         serde_json::to_string(&shasta_request)?,
     );
@@ -157,7 +157,6 @@ async fn shasta_batch_handler(
                         );
                         ShastaProofRequestEntity::new_with_guest_input_entity(
                             request_entity.guest_input_entity().clone(),
-                            request_entity.prover().clone(),
                             *request_entity.proof_type(),
                             prover_args,
                         )

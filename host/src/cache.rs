@@ -112,6 +112,7 @@ mod test {
             l2_block_numbers: Default::default(),
             parent_transition_hash: None,
             checkpoint: None,
+            designated_prover: None,
         };
         let raiko = Raiko::new(
             l1_chain_spec.clone(),

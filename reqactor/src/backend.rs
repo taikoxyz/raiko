@@ -226,6 +226,7 @@ pub async fn do_generate_guest_input(
         l2_block_numbers: Vec::new(),
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
+        designated_prover: Default::default(),
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -289,6 +290,7 @@ pub async fn do_prove_single(
         l2_block_numbers: Vec::new(),
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
+        designated_prover: Default::default(),
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -308,13 +310,14 @@ pub async fn do_prove_single(
             // update missing fields
             let prover_data = &input.taiko.prover_data;
             if !(prover_data.graffiti.eq(request_entity.graffiti())
-                && prover_data.prover.eq(request_entity.prover()))
+                && prover_data.actual_prover.eq(request_entity.prover()))
             {
                 input.taiko.prover_data = raiko_lib::input::TaikoProverData {
                     graffiti: request_entity.graffiti().clone(),
-                    prover: request_entity.prover().clone(),
+                    actual_prover: request_entity.prover().clone(),
                     parent_transition_hash: Default::default(),
                     checkpoint: Default::default(),
+                    designated_prover: Default::default(),
                 }
             }
             input
@@ -428,6 +431,7 @@ async fn new_raiko_for_batch_request(
         l2_block_numbers: all_prove_blocks.clone(),
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
+        designated_prover: Default::default(),
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
@@ -533,11 +537,10 @@ pub async fn do_generate_shasta_proposal_guest_input(
     request_key: RequestKey,
     request_entity: ShastaInputRequestEntity,
 ) -> Result<Proof, String> {
-    trace!("batch guest input for: {request_key:?}");
+    trace!("generate shasta guest input for: {request_key:?}");
     let shasta_proposal_request_entity: ShastaProofRequestEntity =
         ShastaProofRequestEntity::new_with_guest_input_entity(
             request_entity.clone(),
-            request_entity.designated_prover().clone(),
             Default::default(),
             Default::default(),
         );
@@ -597,10 +600,7 @@ async fn new_raiko_for_shasta_proposal_request(
         network: request_entity.guest_input_entity().network().clone(),
         l1_network: request_entity.guest_input_entity().l1_network().clone(),
         graffiti: Default::default(),
-        prover: request_entity
-            .guest_input_entity()
-            .designated_prover()
-            .clone(),
+        prover: request_entity.guest_input_entity().actual_prover().clone(),
         proof_type: request_entity.proof_type().clone(),
         blob_proof_type: request_entity
             .guest_input_entity()
@@ -615,6 +615,12 @@ async fn new_raiko_for_shasta_proposal_request(
                 .clone(),
         ),
         checkpoint: Some(request_entity.guest_input_entity().checkpoint().clone()),
+        designated_prover: Some(
+            request_entity
+                .guest_input_entity()
+                .designated_prover()
+                .clone(),
+        ),
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
@@ -626,7 +632,7 @@ pub async fn do_prove_shasta_proposal(
     request_key: RequestKey,
     request_entity: ShastaProofRequestEntity,
 ) -> Result<Proof, String> {
-    trace!("shasta proposal proof for: {request_key:?}");
+    tracing::info!("generate shasta proposal proof for: {request_key:?}");
 
     let raiko = new_raiko_for_shasta_proposal_request(chain_specs, request_entity.clone())
         .await

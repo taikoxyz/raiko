@@ -374,6 +374,8 @@ pub struct ProofRequest {
     /// checkpoint, if not provided, it will be set to the default value
     /// in shasta, this is the checkpoint of the l2 block
     pub checkpoint: Option<ShastaProposalCheckpoint>,
+    /// designated_prover
+    pub designated_prover: Option<Address>,
 }
 
 #[serde_as]
@@ -717,6 +719,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             prover_args: value.prover_args.into(),
             parent_transition_hash: None,
             checkpoint: None,
+            designated_prover: None,
         })
     }
 }

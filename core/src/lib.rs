@@ -42,6 +42,7 @@ impl Raiko {
         taiko_chain_spec: ChainSpec,
         request: ProofRequest,
     ) -> Self {
+        info!("new raiko with request: {:?}", request);
         Self {
             l1_chain_spec,
             taiko_chain_spec,
@@ -57,7 +58,8 @@ impl Raiko {
             self.taiko_chain_spec.to_owned(),
             TaikoProverData {
                 graffiti: self.request.graffiti,
-                prover: self.request.prover,
+                actual_prover: self.request.prover,
+                designated_prover: None,
                 parent_transition_hash: None,
                 checkpoint: None,
             },
@@ -74,7 +76,8 @@ impl Raiko {
             taiko_chain_spec: self.taiko_chain_spec.to_owned(),
             prover_data: TaikoProverData {
                 graffiti: self.request.graffiti,
-                prover: self.request.prover,
+                actual_prover: self.request.prover,
+                designated_prover: self.request.designated_prover,
                 parent_transition_hash: self.request.parent_transition_hash,
                 checkpoint: self
                     .request
@@ -593,6 +596,7 @@ mod tests {
             prover_args: test_proof_params(false),
             parent_transition_hash: None,
             checkpoint: None,
+            designated_prover: None,
         };
 
         batch_prove_shasta_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -623,6 +627,7 @@ mod tests {
             prover_args: test_proof_params(false),
             parent_transition_hash: None,
             checkpoint: None,
+            designated_prover: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -664,6 +669,7 @@ mod tests {
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
             parent_transition_hash: None,
+            designated_prover: None,
             checkpoint: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -700,6 +706,7 @@ mod tests {
             prover_args: test_proof_params(false),
             parent_transition_hash: None,
             checkpoint: None,
+            designated_prover: None,
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -743,6 +750,7 @@ mod tests {
                 prover_args: test_proof_params(false),
                 parent_transition_hash: None,
                 checkpoint: None,
+                designated_prover: None,
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -776,6 +784,7 @@ mod tests {
                 prover_args: test_proof_params(false),
                 parent_transition_hash: None,
                 checkpoint: None,
+                designated_prover: None,
             };
             batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -811,6 +820,7 @@ mod tests {
             prover_args: test_proof_params(true),
             parent_transition_hash: None,
             checkpoint: None,
+            designated_prover: None,
         };
         let proof = prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
 
