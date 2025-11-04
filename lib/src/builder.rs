@@ -206,11 +206,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                     );
                 }
                 SpecId::SHASTA => {
+                    // shasta is activated by timestamp, not block number
                     assert!(
                         reth_chain_spec
                             .fork(Hardfork::Shasta)
-                            .active_at_block(block_num),
-                        "evm fork PACAYA is not active, please update the chain spec"
+                            .active_at_timestamp(block_ts),
+                        "evm fork SHASTA is not active, please update the chain spec"
                     );
                 }
                 _ => unimplemented!(),
