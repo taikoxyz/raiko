@@ -313,9 +313,7 @@ mod tests {
         .unwrap();
 
         let ser_entity = serde_json::to_string(&request_entity).unwrap();
-        tracing::info!("ser_entity: {:?}", ser_entity);
         let de_entity = serde_json::from_str(&ser_entity).unwrap();
-        tracing::info!("de_entity: {:?}", de_entity);
         assert_eq!(request_entity, de_entity);
     }
 

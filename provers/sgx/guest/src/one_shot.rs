@@ -362,7 +362,7 @@ pub async fn shasta_aggregate(
     assert_eq!(cur_instance, sgx_instance);
 
     let aggregation_hash = shasta_aggregation_output(
-        transactions,
+        &transactions,
         input.chain_id,
         input.verifier_address,
         sgx_instance,

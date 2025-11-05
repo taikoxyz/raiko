@@ -42,7 +42,6 @@ impl Raiko {
         taiko_chain_spec: ChainSpec,
         request: ProofRequest,
     ) -> Self {
-        info!("new raiko with request: {:?}", request);
         Self {
             l1_chain_spec,
             taiko_chain_spec,

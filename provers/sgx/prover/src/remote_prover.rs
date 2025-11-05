@@ -273,7 +273,6 @@ async fn batch_prove(
             .text()
             .await
             .map_err(|e| ProverError::GuestError(format!("Failed to read response: {e}")))?;
-        tracing::info!("Response: {}", response_text);
         let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
             .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))?;
         if sgx_proof.status == "success" {
@@ -336,7 +335,6 @@ async fn aggregate(
             .text()
             .await
             .map_err(|e| ProverError::GuestError(format!("Failed to read response: {e}")))?;
-        tracing::info!("Response: {}", response_text);
         let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
             .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))?;
         if sgx_proof.status == "success" {
@@ -401,8 +399,7 @@ async fn shasta_aggregate(
             .text()
             .await
             .map_err(|e| ProverError::GuestError(format!("Failed to read response: {e}")))?;
-        tracing::info!("Response: {}", response_text);
-        let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
+            let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
             .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))?;
         if sgx_proof.status == "success" {
             Ok(sgx_proof.sgx_response)
@@ -428,7 +425,6 @@ pub fn get_instance_id_from_params(input: &GuestInput, sgx_param: &SgxParam) -> 
         .active_fork(input.block.number, input.block.timestamp)
         .map_err(|e| ProverError::GuestError(e.to_string()))?;
 
-    tracing::info!("get_instance_id_from_params spec_id: {:?}", spec_id);
     let instance_id = sgx_param
         .instance_ids
         .get(&spec_id)
@@ -436,7 +432,7 @@ pub fn get_instance_id_from_params(input: &GuestInput, sgx_param: &SgxParam) -> 
         .ok_or_else(|| {
             ProverError::GuestError(format!("No instance id found for spec id: {:?}", spec_id))
         });
-    tracing::info!("get_instance_id_from_params instance_id: {:?}", instance_id);
+
     instance_id
 }
 
