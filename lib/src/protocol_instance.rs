@@ -787,7 +787,7 @@ pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
 }
 
 pub fn shasta_aggregation_output(
-    transaction_hashes: Vec<B256>,
+    transaction_hashes: &Vec<B256>,
     chain_id: u64,
     verifier_address: Address,
     sgx_instance: Address,
