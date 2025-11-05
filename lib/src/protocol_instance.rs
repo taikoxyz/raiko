@@ -1,6 +1,6 @@
 use core::fmt::Display;
 
-use alloy_primitives::{b256, Address, TxHash, B256, U256};
+use alloy_primitives::{b256, Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Ok, Result};
 use pretty_assertions::Comparison;
@@ -456,7 +456,11 @@ impl ProtocolInstance {
 
         let verifier_address = input
             .chain_spec
-            .get_fork_verifier_address(input.taiko.block_proposed.block_number(), proof_type)
+            .get_fork_verifier_address(
+                input.taiko.block_proposed.block_number(),
+                header.timestamp,
+                proof_type,
+            )
             .unwrap_or_default();
 
         let transition = match input.taiko.block_proposed {
@@ -547,12 +551,12 @@ impl ProtocolInstance {
 
         // todo: move chain_spec into the batch input
         let input = &batch_input.inputs[0];
+        let first_block: &Block = blocks.first().unwrap();
         let verifier_address = input
             .chain_spec
-            .get_fork_verifier_address(input.block.number, proof_type)
+            .get_fork_verifier_address(input.block.number, first_block.header.timestamp, proof_type)
             .unwrap_or_default();
 
-        let first_block = blocks.first().unwrap();
         let last_block = blocks.last().unwrap();
         let transition = match &batch_input.taiko.batch_proposed {
             BlockProposedFork::Pacaya(_) => TransitionFork::Pacaya(PacayaTransition {

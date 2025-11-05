@@ -131,10 +131,13 @@ pub trait Prover {
         let mut proof = self.batch_run(input.clone(), output, config, store).await?;
         let proof_type = self.proof_type();
         let chain_id = input.taiko.chain_spec.chain_id;
+        let first_block = &input.inputs.first().unwrap().block;
+        let proposal_block_number = first_block.number;
+        let proposal_timestamp = first_block.header.timestamp;
         let verifier_address = input
             .taiko
             .chain_spec
-            .get_fork_verifier_address(input.inputs.first().unwrap().block.number, proof_type)
+            .get_fork_verifier_address(proposal_block_number, proposal_timestamp, proof_type)
             .unwrap_or_default();
         proof.extra_data = Some((chain_id, verifier_address));
         Ok(proof)
