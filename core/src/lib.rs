@@ -359,7 +359,7 @@ pub fn merge(a: &mut Value, b: &Value) {
 
 #[cfg(test)]
 mod tests {
-    use crate::interfaces::aggregate_proofs;
+    use crate::interfaces::{aggregate_proofs, ShastaProposalCheckpoint};
     use crate::preflight::{
         parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
     };
@@ -374,7 +374,7 @@ mod tests {
         proof_type::ProofType,
         prover::Proof,
     };
-    use reth_primitives::address;
+    use reth_primitives::{address, b256};
     use serde_json::{json, Value};
     use std::{collections::HashMap, env, str::FromStr};
     use tracing::{debug, trace};
@@ -487,7 +487,7 @@ mod tests {
             .generate_batch_input(provider)
             .await
             .expect("input generation failed");
-        // let filename = format!("batch-input-{}.json", proof_request.batch_id);
+        // let filename = format!("shasta-input-{}.json", proof_request.batch_id);
         // let writer = std::fs::File::create(&filename).expect("Unable to create file");
         // serde_json::to_writer(writer, &input).expect("Unable to write data");
         trace!("batch guest input: {input:?}");
@@ -495,7 +495,7 @@ mod tests {
             .get_batch_output(&input)
             .expect("output generation failed");
         debug!("batch guest output: {output:?}");
-        // let filename = format!("batch-output-{}.json", proof_request.batch_id);
+        // let filename = format!("shasta-output-{}.json", proof_request.batch_id);
         // let writer = std::fs::File::create(&filename).expect("Unable to create file");
         // serde_json::to_writer(writer, &output).expect("Unable to write data");
         raiko
@@ -565,27 +565,11 @@ mod tests {
         .unwrap();
         let taiko_chain_spec = chain_specs.get_chain_spec(&network).unwrap();
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
-
-        // let proof_request = ProofRequest {
-        //     block_number: 0,
-        //     batch_id: 1331,
-        //     l1_inclusion_block_number: 9390,
-        //     l2_block_numbers: vec![2662],
-        //     network,
-        //     graffiti: B256::ZERO,
-        //     prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
-        //     l1_network,
-        //     proof_type,
-        //     blob_proof_type: BlobProofType::ProofOfEquivalence,
-        //     prover_args: test_proof_params(false),
-        // };
-        // L2: https://blockscout.internal.taiko.xyz/block/8 , L1: https://l1explorer.internal.taiko.xyz/block/116
-
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 2499,
-            l1_inclusion_block_number: 8281,
-            l2_block_numbers: vec![2499],
+            batch_id: 1508,
+            l1_inclusion_block_number: 14191,
+            l2_block_numbers: vec![1512],
             network,
             graffiti: B256::ZERO,
             prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
@@ -593,9 +577,19 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
-            parent_transition_hash: None,
-            checkpoint: None,
-            designated_prover: None,
+            parent_transition_hash: Some(b256!(
+                "66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
+            )),
+            checkpoint: Some(ShastaProposalCheckpoint {
+                block_number: 1512,
+                block_hash: b256!(
+                    "83cf1bb221b330d372ce0fbca82cb060fa028d3f6bfd62a74197789e25ac2b5f"
+                ),
+                state_root: b256!(
+                    "63651766d70b5aaf0320fc63421f4d1fdf6fe828514e21e05615e9c2f93c9c7d"
+                ),
+            }),
+            designated_prover: Some(address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc")),
         };
 
         batch_prove_shasta_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
