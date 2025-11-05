@@ -719,13 +719,6 @@ impl ProtocolInstance {
             }
             TransitionFork::Shasta(shasta_trans) => {
                 info!("transition to be signed into public: {:?}", shasta_trans);
-                info!(
-                    "transition metadata: {:?}",
-                    &TransitionMetadata {
-                        designatedProver: self.designated_prover.unwrap(),
-                        actualProver: self.prover,
-                    }
-                );
                 return hash_transition_with_metadata(
                     shasta_trans,
                     &TransitionMetadata {
@@ -803,12 +796,10 @@ pub fn shasta_aggregation_output(
         sgx_instance,
     );
 
-    // Calculate the aggregation hash
-    let aggregation_hash = hash_two_values(address_to_b256(sgx_instance), public_input_hash);
     println!(
-        "shasta transactions_hash: {aggregated_proving_hash:?}, public_input_hash: {public_input_hash:?}, aggregation_hash: {aggregation_hash:?}"
+        "shasta transactions_hash: {aggregated_proving_hash:?}, public_input_hash: {public_input_hash:?}."
     );
-    aggregation_hash
+    public_input_hash
 }
 
 #[cfg(test)]
