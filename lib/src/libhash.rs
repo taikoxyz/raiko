@@ -331,6 +331,21 @@ pub fn hash_derivation(derivation: &Derivation) -> B256 {
     hash_three_values(packed_fields, derivation.originBlockHash, sources_hash)
 }
 
+pub fn hash_public_input(
+    aggregated_proving_hash: B256,
+    chain_id: u64,
+    verifier_address: Address,
+    _sgx_instance: Address,
+) -> B256 {
+    hash_five_values(
+        VERIFY_PROOF_B256,
+        U256::from(chain_id).into(),
+        address_to_b256(verifier_address),
+        aggregated_proving_hash,
+        address_to_b256(Address::ZERO),
+    )
+}
+
 #[cfg(test)]
 mod test {
     use crate::input::shasta::{BlobSlice, Derivation, DerivationSource};
@@ -554,5 +569,17 @@ mod test {
         // This test verifies the implementation works without errors
         assert_ne!(derivation_hash, B256::ZERO);
         println!("Derivation hash: 0x{}", hex::encode(derivation_hash));
+    }
+
+    #[test]
+    fn test_hash_public_input() {
+        let aggregated_proving_hash = b256!("b836ee1f972e8bcd4766bede4a9fa5267d8b6ec7cd6088562aca0b07b15f57bc");
+        let chain_id = 167001u64;
+        let verifier_address = address!("00f9f60C79e38c08b785eE4F1a849900693C6630");
+        let public_input_hash = hash_public_input(aggregated_proving_hash, chain_id, verifier_address, Address::ZERO);
+        assert_eq!(
+            hex::encode(public_input_hash),
+            "6d0ea3eb338aa3e2d85b21394d3ea426574ab7764726376a5364dee132fcd3d7"
+        );
     }
 }

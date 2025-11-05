@@ -22,9 +22,8 @@ use crate::{
         GuestInput, Transition,
     },
     libhash::{
-        address_to_b256, hash_core_state, hash_derivation, hash_five_values, hash_proposal,
+        address_to_b256, hash_core_state, hash_derivation, hash_proposal, hash_public_input,
         hash_transition_with_metadata, hash_transitions_hash_array_with_metadata, hash_two_values,
-        VERIFY_PROOF_B256,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
@@ -793,12 +792,11 @@ pub fn shasta_aggregation_output(
     sgx_instance: Address,
 ) -> B256 {
     let aggregated_proving_hash = hash_transitions_hash_array_with_metadata(&transaction_hashes);
-    let public_input_hash = hash_five_values(
-        VERIFY_PROOF_B256,
-        U256::from(chain_id).into(),
-        address_to_b256(verifier_address),
+    let public_input_hash = hash_public_input(
         aggregated_proving_hash,
-        address_to_b256(Address::ZERO),
+        chain_id,
+        verifier_address,
+        sgx_instance,
     );
 
     // Calculate the aggregation hash
@@ -806,8 +804,7 @@ pub fn shasta_aggregation_output(
     println!(
         "shasta transactions_hash: {aggregated_proving_hash:?}, public_input_hash: {public_input_hash:?}, aggregation_hash: {aggregation_hash:?}"
     );
-
-    keccak(aggregation_hash).into()
+    aggregation_hash
 }
 
 #[cfg(test)]
@@ -920,5 +917,29 @@ mod tests {
             hex::encode(pi_hash),
             "8b0e2833f7bae47f6886e5f172d90b12e330485bfe366d8ed4d53b2114d47e68"
         );
+    }
+
+    #[test]
+    fn test_shasta_aggregation_output() {
+        // Test data: sample transaction hashes for Shasta aggregation
+        let transaction_hashes = vec![b256!(
+            "2c4576815d02b522c4f5a3c143e1a3cdf10486bb283c8247fc555ea33bb93798"
+        )];
+
+        let chain_id = 167001u64;
+        let verifier_address = address!("00f9f60C79e38c08b785eE4F1a849900693C6630");
+        let sgx_instance = address!("dc95623058E847fA38e56a0Fa466Bf52C48eFA32");
+
+        let result = shasta_aggregation_output(
+            &transaction_hashes,
+            chain_id,
+            verifier_address,
+            sgx_instance,
+        );
+
+        assert_eq!(
+            result,
+            b256!("6c02f6f8d9ab1399d9c0df266eebd87a80663260fb88c939f7f4f51ac24684df")
+        )
     }
 }
