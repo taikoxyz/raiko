@@ -22,8 +22,8 @@ use crate::{
         GuestInput, Transition,
     },
     libhash::{
-        address_to_b256, hash_core_state, hash_derivation, hash_proposal, hash_public_input,
-        hash_transition_with_metadata, hash_transitions_hash_array_with_metadata, hash_two_values,
+        hash_core_state, hash_derivation, hash_proposal, hash_public_input,
+        hash_transition_with_metadata, hash_transitions_hash_array_with_metadata,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash},

@@ -258,7 +258,7 @@ pub async fn parse_l1_batch_proposal_tx_for_pacaya_fork(
     taiko_chain_spec: &ChainSpec,
     l1_inclusion_block_number: u64,
     batch_id: u64,
-) -> RaikoResult<Vec<u64>> {
+) -> RaikoResult<(Vec<u64>, BlockProposedFork)> {
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
     let (l1_inclusion_height, _tx, batch_proposed_fork) = get_block_proposed_event_by_height(
         provider_l1.provider(),
@@ -275,11 +275,12 @@ pub async fn parse_l1_batch_proposal_tx_for_pacaya_fork(
     );
     if let BlockProposedFork::Pacaya(batch_proposed) = batch_proposed_fork {
         let batch_info = &batch_proposed.info;
-        Ok(
+        Ok((
             ((batch_info.lastBlockId - (batch_info.blocks.len() as u64 - 1))
                 ..=batch_info.lastBlockId)
                 .collect(),
-        )
+            BlockProposedFork::Pacaya(batch_proposed.clone()),
+        ))
     } else {
         Err(RaikoError::Preflight(
             "BatchProposedFork is not Pacaya".to_owned(),
@@ -288,14 +289,15 @@ pub async fn parse_l1_batch_proposal_tx_for_pacaya_fork(
 }
 
 /// we actually separate the different fork by using different entry.
-/// batch -> pacaya
-/// proposal -> shasta
+/// batch request -> pacaya
+/// proposal request -> shasta
+/// Returns (block_numbers, event_data) for caching and reuse
 pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
     l1_chain_spec: &ChainSpec,
     taiko_chain_spec: &ChainSpec,
     l1_inclusion_block_number: u64,
     proposal_id: u64,
-) -> RaikoResult<Vec<u64>> {
+) -> RaikoResult<(Vec<u64>, BlockProposedFork)> {
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
     let (l1_inclusion_height, _tx, proposal_fork) = get_block_proposed_event_by_height(
         provider_l1.provider(),
@@ -312,16 +314,11 @@ pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
     );
 
     // _proposal_fork is shasta proposal tx, so we can get the lastFinalizedProposalId from it
-    match proposal_fork {
+    match &proposal_fork {
         BlockProposedFork::Shasta(event_data) => {
             let _last_finalized_proposal_id = event_data.core_state.lastFinalizedProposalId;
             let proposal_id = event_data.proposal.id;
             let next_proposal_id = event_data.core_state.nextProposalId;
-            // assert_eq!(
-            //     last_finalized_proposal_id + 1,
-            //     proposal_id,
-            //     "lastFinalizedProposalId + 1 != proposal_id"
-            // );
             assert_eq!(
                 proposal_id + 1,
                 next_proposal_id,
@@ -329,7 +326,7 @@ pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
             );
             // todo: no way to get block numbers from shasta proposal tx
             // need a new approach.
-            Ok(vec![])
+            Ok((vec![], proposal_fork))
         }
         _ => Err(RaikoError::Preflight(
             "BlockProposedFork is not Shasta".to_owned(),
@@ -487,6 +484,7 @@ pub async fn prepare_taiko_chain_batch_input(
     batch_blocks: &[RethBlock],
     prover_data: TaikoProverData,
     blob_proof_type: &BlobProofType,
+    cached_event_data: Option<BlockProposedFork>,
 ) -> RaikoResult<TaikoGuestBatchInput> {
     // Get the L1 block in which the L2 block was included so we can fetch the DA data.
     // Also get the L1 state block header so that we can prove the L1 state root.
@@ -513,18 +511,17 @@ pub async fn prepare_taiko_chain_batch_input(
             );
         }
         SpecId::SHASTA => {
-            info!("batch anchor tx info: {batch_anchor_tx_info:?}");
             assert!(
                 batch_anchor_tx_info
                     .windows(2)
                     .all(|w| if w[0].0 == w[1].0 {
                         // if anchor stays, block hash is zero
-                        w[1].1 == B256::ZERO
+                        w[0].1 != B256::ZERO && w[1].1 == B256::ZERO
                     } else {
                         // if anchor changes, block hash is not zero
-                        w[0].0 < w[1].0 && w[1].1 != B256::ZERO
+                        w[0].0 < w[1].0 && w[0].1 != B256::ZERO && w[1].1 != B256::ZERO
                     }),
-                "batch anchor tx info mismatch"
+                "batch anchor tx info mismatch, {batch_anchor_tx_info:?}"
             );
         }
         _ => {
@@ -537,16 +534,24 @@ pub async fn prepare_taiko_chain_batch_input(
     let (anchor_block_height, anchor_state_root) = batch_anchor_tx_info[0];
     let fork = taiko_chain_spec.active_fork(batch_blocks[0].number, batch_blocks[0].timestamp)?;
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
-    // todo: duplicate code with parse_l1_batch_proposal_tx_for_pacaya_fork(), better to make these values fn parameters
-    let (l1_inclusion_height, _, batch_proposed_fork) = get_block_proposed_event_by_height(
-        provider_l1.provider(),
-        taiko_chain_spec.clone(),
-        l1_inclusion_block_number,
-        batch_id,
-        fork,
-    )
-    .await?;
-    assert_eq!(l1_inclusion_block_number, l1_inclusion_height);
+
+    // Use cached event data if available, otherwise fetch from RPC
+    let batch_proposed_fork = if let Some(cached_data) = cached_event_data {
+        debug!("Using cached block proposed event data, skipping RPC call");
+        cached_data
+    } else {
+        debug!("No cached event data, fetching from RPC");
+        let (l1_inclusion_height, _, event_data) = get_block_proposed_event_by_height(
+            provider_l1.provider(),
+            taiko_chain_spec.clone(),
+            l1_inclusion_block_number,
+            batch_id,
+            fork,
+        )
+        .await?;
+        assert_eq!(l1_inclusion_block_number, l1_inclusion_height);
+        event_data
+    };
     let (l1_inclusion_header, l1_state_header) = get_headers(
         &provider_l1,
         (l1_inclusion_block_number, anchor_block_height),
@@ -571,13 +576,9 @@ pub async fn prepare_taiko_chain_batch_input(
             )
             .await
         }
-        BlockProposedFork::Shasta(_shasta_event_data) => {
-            // TODO: Implement Shasta batch input preparation
-            // - Extract proposal data from Shasta event
-            // - Handle blob data for Shasta proposals
-            // - Create TaikoGuestBatchInput for Shasta fork
+        BlockProposedFork::Shasta(shasta_event_data) => {
             prepare_shasta_batch_input(
-                _shasta_event_data,
+                shasta_event_data,
                 batch_id,
                 l1_inclusion_block_number,
                 anchor_block_height,

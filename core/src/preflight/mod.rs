@@ -53,6 +53,8 @@ pub struct BatchPreflightData {
     pub taiko_chain_spec: ChainSpec,
     pub prover_data: TaikoProverData,
     pub blob_proof_type: BlobProofType,
+    /// Cached event data to avoid duplicate RPC calls
+    pub cached_event_data: Option<raiko_lib::input::BlockProposedFork>,
 }
 
 impl PreflightData {
@@ -222,6 +224,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         prover_data,
         blob_proof_type,
         l1_inclusion_block_number,
+        cached_event_data,
     }: BatchPreflightData,
 ) -> RaikoResult<GuestBatchInput> {
     let measurement = Measurement::start("Fetching block data...", false);
@@ -251,6 +254,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
             &all_prove_blocks,
             prover_data,
             &blob_proof_type,
+            cached_event_data,
         )
         .await?
     } else {

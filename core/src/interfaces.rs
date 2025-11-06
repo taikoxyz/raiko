@@ -376,6 +376,9 @@ pub struct ProofRequest {
     pub checkpoint: Option<ShastaProposalCheckpoint>,
     /// designated_prover
     pub designated_prover: Option<Address>,
+    /// Cached block proposed event data to avoid duplicate RPC calls
+    #[serde(skip)]
+    pub cached_event_data: Option<raiko_lib::input::BlockProposedFork>,
 }
 
 #[serde_as]
@@ -720,6 +723,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             parent_transition_hash: None,
             checkpoint: None,
             designated_prover: None,
+            cached_event_data: None,
         })
     }
 }
