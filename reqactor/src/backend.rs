@@ -227,6 +227,7 @@ pub async fn do_generate_guest_input(
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
         designated_prover: Default::default(),
+        cached_event_data: None,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -291,6 +292,7 @@ pub async fn do_prove_single(
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
         designated_prover: Default::default(),
+        cached_event_data: None,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -403,7 +405,7 @@ async fn new_raiko_for_batch_request(
         .guest_input_entity()
         .l1_inclusion_block_number();
     // parse the batch proposal tx to get all prove blocks
-    let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
+    let (all_prove_blocks, cached_event_data) = parse_l1_batch_proposal_tx_for_pacaya_fork(
         &l1_chain_spec,
         &taiko_chain_spec,
         *l1_include_block_number,
@@ -432,6 +434,7 @@ async fn new_raiko_for_batch_request(
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
         designated_prover: Default::default(),
+        cached_event_data: Some(cached_event_data),
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
@@ -581,8 +584,8 @@ async fn new_raiko_for_shasta_proposal_request(
         .guest_input_entity()
         .l1_inclusion_block_number();
 
-    // parse & verify proposal event
-    parse_l1_batch_proposal_tx_for_shasta_fork(
+    // parse & verify proposal event and cache it to avoid duplicate RPC calls
+    let (_block_numbers, cached_event_data) = parse_l1_batch_proposal_tx_for_shasta_fork(
         &l1_chain_spec,
         &taiko_chain_spec,
         *l1_include_block_number,
@@ -621,6 +624,7 @@ async fn new_raiko_for_shasta_proposal_request(
                 .designated_prover()
                 .clone(),
         ),
+        cached_event_data: Some(cached_event_data),
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))

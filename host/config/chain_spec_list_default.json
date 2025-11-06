@@ -125,7 +125,7 @@
                 "Block": 1299888
             },
             "SHASTA": {
-                "Block": 9999999
+                "Timestamp": 9762068932
             },
             "CANCUN": "TBD"
         },
@@ -168,7 +168,7 @@
                 "Block": 1166000
             },
             "SHASTA": {
-                "Block": 9999999
+                "Timestamp": 9762068932
             },
             "CANCUN": "TBD"
         },
@@ -211,7 +211,7 @@
                 "Block": 0
             },
             "SHASTA": {
-                "Block": 99999999
+                "Timestamp": 9762068932
             },
             "CANCUN": "TBD"
         },
