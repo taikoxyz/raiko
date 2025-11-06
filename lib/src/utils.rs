@@ -1,3 +1,4 @@
+use core::cmp::{max, min};
 use std::io::{Read, Write};
 
 use alloy_rlp::Decodable;
@@ -7,7 +8,7 @@ use reth_primitives::TransactionSigned;
 use tracing::{debug, error, warn};
 
 use crate::consts::{ChainSpec, Network};
-use crate::input::{BlockProposedFork, TaikoGuestBatchInput};
+use crate::input::{BlockProposedFork, GuestInput, TaikoGuestBatchInput};
 use crate::manifest::DerivationSourceManifest;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -258,6 +259,34 @@ pub fn generate_transactions_for_shasta_blocks(
         }
     }
     tx_list_bufs
+}
+
+const MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD: u64 = 10;
+const MAX_BLOCK_GAS_LIMIT: u64 = 100_000_000;
+const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
+
+/// validate gas limit for each block
+pub fn validate_shasta_block_gas_limit(block_guest_inputs: &[GuestInput]) -> bool {
+    for block_guest_input in block_guest_inputs.iter() {
+        let parent_gas_limit = block_guest_input.parent_header.gas_limit;
+        let block_gas_limit: u64 = block_guest_input.block.header.gas_limit;
+        let upper_limit = min(
+            MAX_BLOCK_GAS_LIMIT,
+            parent_gas_limit * (10000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000,
+        );
+        let lower_limit = max(
+            MIN_BLOCK_GAS_LIMIT,
+            parent_gas_limit * (10000 - MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000,
+        );
+        assert!(
+            block_gas_limit >= lower_limit && block_gas_limit <= upper_limit,
+            "block gas limit is out of bounds"
+        );
+        if block_gas_limit < lower_limit || block_gas_limit > upper_limit {
+            return false;
+        }
+    }
+    true
 }
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;

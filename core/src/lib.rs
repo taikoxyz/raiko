@@ -9,7 +9,10 @@ use raiko_lib::{
     input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, TaikoProverData},
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey},
-    utils::{generate_transactions, generate_transactions_for_batch_blocks},
+    utils::{
+        generate_transactions, generate_transactions_for_batch_blocks,
+        validate_shasta_block_gas_limit,
+    },
 };
 use reth_primitives::{Block, Header};
 use serde_json::Value;
@@ -168,6 +171,13 @@ impl Raiko {
                 Ok(acc)
             },
         )?;
+
+        if batch_input.taiko.batch_proposed.is_shasta() {
+            assert!(
+                validate_shasta_block_gas_limit(&batch_input.inputs),
+                "shasta block gas limit check failed."
+            );
+        }
 
         blocks.windows(2).try_for_each(|window| {
             let parent = &window[0];
