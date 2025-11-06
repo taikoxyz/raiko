@@ -5,7 +5,7 @@ use ontake::BlockProposedV2;
 use pacaya::{BatchInfo, BatchProposed};
 use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
 use reth_primitives::{
-    revm_primitives::{Address, Bytes, HashMap, B256, U256},
+    revm_primitives::{Address, Bytes, HashMap, SpecId, B256, U256},
     Block, Header, TransactionSigned,
 };
 use serde::{Deserialize, Serialize};
@@ -282,6 +282,23 @@ impl BlockProposedFork {
             BlockProposedFork::Ontake(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
             BlockProposedFork::Pacaya(batch) => batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT,
             _ => 0,
+        }
+    }
+
+    pub fn fork_spec(&self) -> SpecId {
+        match self {
+            BlockProposedFork::Shasta(_) => SpecId::SHASTA,
+            BlockProposedFork::Pacaya(_) => SpecId::PACAYA,
+            BlockProposedFork::Hekla(_) => SpecId::HEKLA,
+            BlockProposedFork::Ontake(_) => SpecId::ONTAKE,
+            _ => unimplemented!("unsupported fork spec"),
+        }
+    }
+
+    pub fn is_shasta(&self) -> bool {
+        match self {
+            BlockProposedFork::Shasta(_) => true,
+            _ => false,
         }
     }
 }

@@ -113,6 +113,7 @@ mod test {
             parent_transition_hash: None,
             checkpoint: None,
             designated_prover: None,
+            cached_event_data: None,
         };
         let raiko = Raiko::new(
             l1_chain_spec.clone(),
