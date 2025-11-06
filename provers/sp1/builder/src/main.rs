@@ -5,7 +5,10 @@ use std::path::PathBuf;
 
 fn main() {
     let pipeline = Sp1Pipeline::new("provers/sp1/guest", "release");
-    pipeline.bins(&["sp1-aggregation", "sp1-batch"], "provers/sp1/guest/elf");
+    pipeline.bins(
+        &["sp1-aggregation", "sp1-batch", "sp1-shasta-aggregation"],
+        "provers/sp1/guest/elf",
+    );
     #[cfg(feature = "test")]
     pipeline.tests(&["sp1-batch"], "provers/sp1/guest/elf");
     #[cfg(feature = "bench")]

@@ -129,6 +129,29 @@ pub struct ShastaRawAggregationGuestInput {
     pub verifier_address: Address,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ShastaRisc0AggregationGuestInput {
+    /// Underlying RISC0 image id for the proofs being re-verified
+    pub image_id: [u32; 8],
+    pub block_inputs: Vec<B256>,
+    pub chain_id: u64,
+    pub verifier_address: Address,
+    pub prover_address: Address,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ShastaSp1AggregationGuestInput {
+    /// Verifier image id for the SP1 proofs being aggregated
+    pub image_id: [u32; 8],
+    /// Public inputs associated with each underlying proof
+    pub block_inputs: Vec<B256>,
+    /// Taiko chain metadata required by the on-chain verifier
+    pub chain_id: u64,
+    pub verifier_address: Address,
+    /// Address representing the prover/aggregator (zero for zk provers today)
+    pub prover_address: Address,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 
 pub enum BlockProposedFork {
