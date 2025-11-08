@@ -17,7 +17,7 @@ pub fn main() {
     }
 
     let aggregation_hash = shasta_aggregation_output(
-        input.block_inputs.clone(),
+        &input.block_inputs,
         input.chain_id,
         input.verifier_address,
         input.prover_address,

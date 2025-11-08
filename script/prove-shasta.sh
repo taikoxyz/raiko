@@ -148,10 +148,10 @@ elif [ "$proof" == "risc0" ]; then
     "proof_type": "risc0",
     "blob_proof_type": "proof_of_equivalence",
     "risc0": {
-        "bonsai": false,
-        "snark": false,
-        "profile": true,
-        "execution_po2": 18
+        "bonsai": true,
+        "snark": true,
+        "profile": false,
+        "execution_po2": 20
     }
   '
 elif [ "$proof" == "risc0-bonsai" ]; then

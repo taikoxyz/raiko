@@ -20,7 +20,7 @@ use risc0_zkvm::{
     compute_image_id, default_prover,
     serde::to_vec,
     sha::{Digest, Digestible},
-    ExecutorEnv, ProverOpts, Receipt,
+    ExecutorEnv, ExecutorEnvBuilder, ProverOpts, Receipt,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -61,6 +61,19 @@ impl From<Risc0Response> for Proof {
 }
 
 pub struct Risc0Prover;
+
+fn propagate_chain_spec_env(builder: &mut ExecutorEnvBuilder) {
+    const KEYS: [&str; 3] = [
+        "DEV_SHASTA_TIMESTAMP",
+        "DEV_PACAYA_HEIGHT",
+        "DEV_ONTAKE_HEIGHT",
+    ];
+    for key in KEYS {
+        if let Ok(value) = std::env::var(key) {
+            builder.env_var(key, &value);
+        }
+    }
+}
 
 impl Prover for Risc0Prover {
     async fn run(
@@ -114,6 +127,7 @@ impl Prover for Risc0Prover {
         // add_assumption makes the receipt to be verified available to the prover.
         let env = {
             let mut env = ExecutorEnv::builder();
+            propagate_chain_spec_env(&mut env);
             for assumption in assumptions {
                 env.add_assumption(assumption);
             }
@@ -268,6 +282,7 @@ impl Prover for Risc0Prover {
 
         let env = {
             let mut env = ExecutorEnv::builder();
+            propagate_chain_spec_env(&mut env);
             for assumption in assumptions {
                 env.add_assumption(assumption);
             }

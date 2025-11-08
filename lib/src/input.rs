@@ -277,6 +277,10 @@ impl BlockProposedFork {
 
                 let size_b256_slice =
                     B256::from_slice(&compressed_tx_list_buf[offset + 32..offset + 64]);
+                let size_bytes: [u8; 8] = size_b256_slice.as_slice()[24..32]
+                    .try_into()
+                    .expect("shasta blob size header");
+                let blob_data_size_u64 = u64::from_be_bytes(size_bytes);
                 let blob_data_size =
                     usize::from_be_bytes(size_b256_slice.as_slice()[24..32].try_into().unwrap());
                 if offset + blob_data_size

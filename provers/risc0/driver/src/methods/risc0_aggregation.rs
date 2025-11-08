@@ -1,5 +1,3 @@
-pub const RISC0_AGGREGATION_ELF: &[u8] =
-    include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/risc0-aggregation.bin");
-pub const RISC0_AGGREGATION_ID: [u32; 8] = [
-    2785169230, 3526957433, 4248245717, 3504618977, 261933996, 482059420, 2072571457, 3078943683,
-];
+
+pub const RISC0_AGGREGATION_ELF: &[u8] = include_bytes!("../../../guest/target/riscv32im-risc0-zkvm-elf/release/risc0-aggregation.bin");
+pub const RISC0_AGGREGATION_ID: [u32; 8] = [3058271088, 1633238403, 836104993, 4240636966, 2117567229, 1146618365, 1080415801, 2950719648];

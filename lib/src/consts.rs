@@ -144,6 +144,19 @@ pub struct ChainSpec {
     pub genesis_time: u64,
     pub seconds_per_slot: u64,
     pub is_taiko: bool,
+    #[serde(default, skip_serializing_if = "ChainSpecForkOverrides::is_empty")]
+    pub fork_overrides: ChainSpecForkOverrides,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ChainSpecForkOverrides {
+    pub shasta_activation_timestamp: Option<u64>,
+}
+
+impl ChainSpecForkOverrides {
+    pub fn is_empty(&self) -> bool {
+        self.shasta_activation_timestamp.is_none()
+    }
 }
 
 impl ChainSpec {
@@ -169,6 +182,7 @@ impl ChainSpec {
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
             is_taiko,
+            fork_overrides: ChainSpecForkOverrides::default(),
         }
     }
 
@@ -198,7 +212,14 @@ impl ChainSpec {
 
     pub fn spec_id(&self, block_no: BlockNumber, timestamp: u64) -> Option<SpecId> {
         for (spec_id, fork) in self.hard_forks.iter().rev() {
-            if fork.active(block_no, timestamp) {
+            let mut is_active = fork.active(block_no, timestamp);
+            if *spec_id == SpecId::SHASTA {
+                if let Some(ts) = self.fork_overrides.shasta_activation_timestamp {
+                    is_active = ts <= timestamp;
+                }
+            }
+
+            if is_active {
                 return Some(*spec_id);
             }
         }
@@ -226,6 +247,14 @@ impl ChainSpec {
         }
 
         Err(anyhow!("fork verifier is not active"))
+    }
+
+    pub fn shasta_activation_override(&self) -> Option<u64> {
+        self.fork_overrides.shasta_activation_timestamp
+    }
+
+    pub fn set_shasta_activation_override(&mut self, value: Option<u64>) {
+        self.fork_overrides.shasta_activation_timestamp = value;
     }
 
     pub fn get_fork_l1_contract_address(&self, block_num: u64) -> Result<Address> {
@@ -445,6 +474,7 @@ mod tests {
             genesis_time: 0u64,
             seconds_per_slot: 1u64,
             is_taiko: false,
+            fork_overrides: ChainSpecForkOverrides::default(),
         };
 
         let json = serde_json::to_string(&spec).unwrap();
