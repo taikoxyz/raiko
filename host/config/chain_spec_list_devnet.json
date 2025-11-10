@@ -75,10 +75,10 @@
                 "SGXGETH": "0x698ceB7EF2E001347B1672389d6ca6aCE04b13C8"
             },
             "SHASTA": {
-                "SGX": "0x3B36ba4B3B3A0303001161B53BAe0c3AcD6ef212",
+                "SGX": "0x795330bA9B6184E13eBb3A4253E00Adb665830F5",
                 "SP1": "0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D",
                 "RISC0": "0x9C53004a840bbF58bF5C7084addD50498E12E9A9",
-                "SGXGETH": "0x13a982e01f0E08b8c7f5a013F325f1d45ae56CA2"
+                "SGXGETH": "0x9D351F6E72e3095F24dD854c9B8CA69F99A2C538"
             }
         },
         "genesis_time": 0,
