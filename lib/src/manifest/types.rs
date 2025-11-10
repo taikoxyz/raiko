@@ -37,3 +37,24 @@ pub struct DerivationSourceManifest {
     /// Sources in this proposal
     pub blocks: Vec<ProtocolBlockManifest>,
 }
+
+impl DerivationSourceManifest {
+    pub fn default_block_manifest(
+        timestamp: u64,
+        coinbase: Address,
+        anchor_block_number: u64,
+        gas_limit: u64,
+        transactions: Vec<TransactionSigned>,
+    ) -> Self {
+        Self {
+            prover_auth_bytes: Bytes::default(),
+            blocks: vec![ProtocolBlockManifest {
+                timestamp,
+                coinbase,
+                anchor_block_number,
+                gas_limit,
+                transactions,
+            }],
+        }
+    }
+}

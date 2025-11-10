@@ -526,7 +526,7 @@ pub struct ShastaProposal {
     pub proposal_id: u64,
     pub designated_prover: Address,
     pub parent_transition_hash: B256,
-    pub checkpoint: ShastaProposalCheckpoint,
+    pub checkpoint: Option<ShastaProposalCheckpoint>,
     pub l1_inclusion_block_number: u64,
     pub l2_block_numbers: Vec<u64>,
 }

@@ -8,7 +8,7 @@ use reth_primitives::TransactionSigned;
 use tracing::{debug, error, warn};
 
 use crate::consts::{ChainSpec, Network};
-use crate::input::{BlockProposedFork, GuestInput, TaikoGuestBatchInput};
+use crate::input::{BlockProposedFork, GuestBatchInput, GuestInput};
 use crate::manifest::DerivationSourceManifest;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -140,8 +140,9 @@ fn distribute_txs<T: Clone>(data: &[T], batch_proposal: &BlockProposedFork) -> V
 /// concat blob & decode a whole txlist, then
 /// each block will get a portion of the txlist by its tx_nums
 pub fn generate_transactions_for_batch_blocks(
-    taiko_guest_batch_input: &TaikoGuestBatchInput,
+    guest_batch_input: &GuestBatchInput,
 ) -> Vec<Vec<TransactionSigned>> {
+    let taiko_guest_batch_input = &guest_batch_input.taiko;
     assert!(
         taiko_guest_batch_input.data_sources.len() > 0,
         "data_source is empty"
@@ -149,12 +150,8 @@ pub fn generate_transactions_for_batch_blocks(
 
     let batch_proposal = &taiko_guest_batch_input.batch_proposed;
     match batch_proposal {
-        BlockProposedFork::Pacaya(_) => {
-            generate_transactions_for_pacaya_blocks(taiko_guest_batch_input)
-        }
-        BlockProposedFork::Shasta(_) => {
-            generate_transactions_for_shasta_blocks(taiko_guest_batch_input)
-        }
+        BlockProposedFork::Pacaya(_) => generate_transactions_for_pacaya_blocks(guest_batch_input),
+        BlockProposedFork::Shasta(_) => generate_transactions_for_shasta_blocks(guest_batch_input),
         _ => {
             unreachable!(
                 "only pacaya and shasta batch supported, but got {:?}",
@@ -167,8 +164,9 @@ pub fn generate_transactions_for_batch_blocks(
 /// concat blob & decode a whole txlist, then
 /// each block will get a portion of the txlist by its tx_nums
 pub fn generate_transactions_for_pacaya_blocks(
-    taiko_guest_batch_input: &TaikoGuestBatchInput,
+    taiko_guest_batch_input: &GuestBatchInput,
 ) -> Vec<Vec<TransactionSigned>> {
+    let taiko_guest_batch_input = &taiko_guest_batch_input.taiko;
     let batch_proposal = &taiko_guest_batch_input.batch_proposed;
     let data_source = &taiko_guest_batch_input.data_sources[0];
     assert!(
@@ -206,12 +204,17 @@ pub fn generate_transactions_for_pacaya_blocks(
 /// concat blob & decode a whole txlist, then
 /// each block will get a portion of the txlist by its tx_nums
 pub fn generate_transactions_for_shasta_blocks(
-    taiko_guest_batch_input: &TaikoGuestBatchInput,
+    guest_batch_input: &GuestBatchInput,
 ) -> Vec<Vec<TransactionSigned>> {
+    let taiko_guest_batch_input = &guest_batch_input.taiko;
     let batch_proposal = &taiko_guest_batch_input.batch_proposed;
     let data_sources = &taiko_guest_batch_input.data_sources;
     let mut tx_list_bufs = Vec::new();
 
+    // for invalid path, we need to get the last parent block and anchor block number
+    let mut next_block_idx = 0;
+    let mut last_parent_block_header = &guest_batch_input.inputs[next_block_idx].parent_header;
+    // let mut last_anchor_block_number = 0u64; // TODO!!!
     for (idx, data_source) in data_sources.iter().enumerate() {
         let use_blob = batch_proposal.blob_used();
         let compressed_tx_list_buf = if use_blob {
@@ -242,7 +245,30 @@ pub fn generate_transactions_for_shasta_blocks(
             let protocol_manifest_bytes =
                 zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
             let protocol_manifest =
-                DerivationSourceManifest::decode(&mut protocol_manifest_bytes.as_ref()).unwrap();
+                match DerivationSourceManifest::decode(&mut protocol_manifest_bytes.as_ref()) {
+                    Ok(manifest) => {
+                        // last_anchor_block_number = 0u64; // TODO!!!
+                        let manifest_block_number = manifest.blocks.len();
+                        next_block_idx += manifest_block_number;
+                        last_parent_block_header =
+                            &guest_batch_input.inputs[next_block_idx - 1].block.header;
+                        manifest
+                    }
+                    Err(_) => {
+                        let timestamp = taiko_guest_batch_input.l1_header.timestamp;
+                        let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
+                        let anchor_block_number = 0; // todo! get parent block's anchor block number
+                        let gas_limit = last_parent_block_header.gas_limit; // todo! get parent block's gas limit
+                        let transactions = Vec::new();
+                        DerivationSourceManifest::default_block_manifest(
+                            timestamp,
+                            coinbase,
+                            anchor_block_number,
+                            gas_limit,
+                            transactions,
+                        )
+                    }
+                };
             protocol_manifest
                 .blocks
                 .iter()
@@ -250,12 +276,13 @@ pub fn generate_transactions_for_shasta_blocks(
         } else {
             let force_inc_source_bytes =
                 zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
-            let force_inc_source: DerivationSourceManifest =
+            let force_inc_source =
                 DerivationSourceManifest::decode(&mut force_inc_source_bytes.as_ref()).unwrap();
             force_inc_source
                 .blocks
                 .iter()
                 .for_each(|block| tx_list_bufs.push(block.transactions.clone()));
+            // TODO: force inc's invalid manifest handling
         }
     }
     tx_list_bufs

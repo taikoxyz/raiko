@@ -850,6 +850,14 @@ pub async fn filter_block_proposed_event(
                 .await
                 .expect("couldn't query the propose tx")
                 .expect("Could not find the propose tx");
+
+            let block_propose_event = match block_propose_event {
+                BlockProposedFork::Shasta(event_data) => {
+                    BlockProposedFork::Shasta(event_data.with_proposer(tx.from))
+                }
+                _ => block_propose_event,
+            };
+
             return Ok((log.block_number.unwrap(), tx, block_propose_event));
         } else {
             info!("block_or_batch_id: {block_or_batch_id} != block_num_or_batch_id: {block_num_or_batch_id}");

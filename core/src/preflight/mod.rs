@@ -266,9 +266,22 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
     debug!("proven (block, parent) pairs: {:?}", block_parent_pairs);
 
+    let mock_guest_batch_input = GuestBatchInput {
+        inputs: block_parent_pairs
+            .iter()
+            .map(|(block, parent_block)| GuestInput {
+                block: block.clone(),
+                parent_header: parent_block.header.clone().try_into().unwrap(),
+                chain_spec: taiko_chain_spec.clone(),
+                ..Default::default()
+            })
+            .collect(),
+        taiko: taiko_guest_batch_input.clone(),
+    };
+
     // distribute txs to each block
     let pool_txs_list: Vec<Vec<TransactionSigned>> =
-        generate_transactions_for_batch_blocks(&taiko_guest_batch_input);
+        generate_transactions_for_batch_blocks(&mock_guest_batch_input);
 
     assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
 

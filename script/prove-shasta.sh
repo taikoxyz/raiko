@@ -31,8 +31,8 @@ batch_id=""
 height=""
 
 designated_prover="0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
-parent_transition_hash="0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-checkpoint="{\"block_number\": 0, \"block_hash\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\", \"state_root\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\"}"
+parent_transition_hash="0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
+checkpoint=null
 
 parse_batch_pair() {
     local input="$1"
@@ -170,7 +170,7 @@ else
     exit 1
 fi
 
-prover="0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+prover="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 
 AGG=${AGG:-false}
 
@@ -186,5 +186,3 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch/shasta' \
         $proofParam
     }"
 echo ""
-
-# sleep 1.0

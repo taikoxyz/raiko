@@ -617,7 +617,7 @@ async fn new_raiko_for_shasta_proposal_request(
                 .parent_transition_hash()
                 .clone(),
         ),
-        checkpoint: Some(request_entity.guest_input_entity().checkpoint().clone()),
+        checkpoint: request_entity.guest_input_entity().checkpoint().clone(),
         designated_prover: Some(
             request_entity
                 .guest_input_entity()

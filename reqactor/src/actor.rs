@@ -285,11 +285,11 @@ mod tests {
             vec![1234u64],
             HashMap::new(),
             B256::from([0u8; 32]),
-            ShastaProposalCheckpoint {
+            Some(ShastaProposalCheckpoint {
                 block_number: 1234u64,
                 block_hash: B256::from([0u8; 32]),
                 state_root: B256::from([0u8; 32]),
-            },
+            }),
             Address::ZERO,
         );
         RequestEntity::ShastaProof(shasta_proof_entity)

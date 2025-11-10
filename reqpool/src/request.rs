@@ -702,7 +702,7 @@ pub struct ShastaInputRequestEntity {
     /// parent transition hash
     parent_transition_hash: B256,
     /// checkpoint
-    checkpoint: ShastaProposalCheckpoint,
+    checkpoint: Option<ShastaProposalCheckpoint>,
     /// Designated prover.
     designated_prover: Address,
 }
@@ -717,7 +717,7 @@ impl ShastaInputRequestEntity {
         blob_proof_type: BlobProofType,
         l2_blocks: Vec<u64>,
         parent_transition_hash: B256,
-        checkpoint: ShastaProposalCheckpoint,
+        checkpoint: Option<ShastaProposalCheckpoint>,
         designated_prover: Address,
     ) -> Self {
         Self {
@@ -818,7 +818,7 @@ impl ShastaProofRequestEntity {
         l2_blocks: Vec<u64>,
         prover_args: HashMap<String, serde_json::Value>,
         parent_transition_hash: B256,
-        checkpoint: ShastaProposalCheckpoint,
+        checkpoint: Option<ShastaProposalCheckpoint>,
         designated_prover: Address,
     ) -> Self {
         Self {

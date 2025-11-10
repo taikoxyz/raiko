@@ -161,8 +161,7 @@ impl Raiko {
             "Generating {} output for batch id: {}",
             self.request.proof_type, batch_input.taiko.batch_id
         );
-        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input.taiko);
-        let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
+        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input); let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
             Vec::new(),
             |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
                 let (input, pool_txs) = input_and_txs;
@@ -538,15 +537,18 @@ mod tests {
         let mut updated_proof_request = proof_request.clone();
         updated_proof_request.l2_block_numbers = all_prove_blocks.clone();
         let raiko = Raiko::new(
-            l1_chain_spec,
-            taiko_chain_spec,
+            l1_chain_spec.clone(),
+            taiko_chain_spec.clone(),
             updated_proof_request.clone(),
         );
         let input = raiko
             .generate_batch_input(provider)
             .await
             .expect("input generation failed");
-        // let filename = format!("batch-input-{}.json", proof_request.batch_id);
+        // let filename = format!(
+        //     "batch-input-{}-{}.json",
+        //     taiko_chain_spec.name, proof_request.batch_id
+        // );
         // let writer = std::fs::File::create(&filename).expect("Unable to create file");
         // serde_json::to_writer(writer, &input).expect("Unable to write data");
         trace!("batch guest input: {input:?}");
@@ -554,7 +556,10 @@ mod tests {
             .get_batch_output(&input)
             .expect("output generation failed");
         debug!("batch guest output: {output:?}");
-        // let filename = format!("batch-output-{}.json", proof_request.batch_id);
+        // let filename = format!(
+        //     "batch-output-{}-{}.json",
+        //     taiko_chain_spec.name, proof_request.batch_id
+        // );
         // let writer = std::fs::File::create(&filename).expect("Unable to create file");
         // serde_json::to_writer(writer, &output).expect("Unable to write data");
         raiko
@@ -565,7 +570,7 @@ mod tests {
 
     #[ignore]
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_batch_block_taiko_dev() {
+    async fn test_prove_shasta_proposal_block_taiko_dev() {
         env_logger::init();
         let proof_type = get_proof_type_from_env();
         let l1_network = "taiko_dev_l1".to_owned();
@@ -578,9 +583,9 @@ mod tests {
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 1508,
-            l1_inclusion_block_number: 14191,
-            l2_block_numbers: vec![1512],
+            batch_id: 863,
+            l1_inclusion_block_number: 7001,
+            l2_block_numbers: vec![864],
             network,
             graffiti: B256::ZERO,
             prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
@@ -591,15 +596,7 @@ mod tests {
             parent_transition_hash: Some(b256!(
                 "66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
             )),
-            checkpoint: Some(ShastaProposalCheckpoint {
-                block_number: 1512,
-                block_hash: b256!(
-                    "83cf1bb221b330d372ce0fbca82cb060fa028d3f6bfd62a74197789e25ac2b5f"
-                ),
-                state_root: b256!(
-                    "63651766d70b5aaf0320fc63421f4d1fdf6fe828514e21e05615e9c2f93c9c7d"
-                ),
-            }),
+            checkpoint: None,
             designated_prover: Some(address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc")),
             cached_event_data: None,
         };
@@ -609,20 +606,20 @@ mod tests {
 
     #[ignore]
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_batch_block_taiko_a7() {
+    async fn test_prove_batch_block_taiko_hoodi() {
         env_logger::init();
         let proof_type = get_proof_type_from_env();
-        let l1_network = "holesky".to_owned();
-        let network = "taiko_a7".to_owned();
+        let l1_network = "hoodi".to_string();
+        let network = "taiko_hoodi".to_string();
         let chain_specs = SupportedChainSpecs::default();
         let taiko_chain_spec = chain_specs.get_chain_spec(&network).unwrap();
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
 
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 1306738,
-            l1_inclusion_block_number: 3606914,
-            l2_block_numbers: vec![1306738],
+            batch_id:5361,
+            l1_inclusion_block_number: 1584196,
+            l2_block_numbers: vec![],
             network,
             graffiti: B256::ZERO,
             prover: Address::ZERO,

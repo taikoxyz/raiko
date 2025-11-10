@@ -285,6 +285,13 @@ impl BlockProposedFork {
         }
     }
 
+    pub fn proposer(&self) -> Address {
+        match self {
+            BlockProposedFork::Shasta(event_data) => event_data.proposer,
+            _ => unimplemented!("proposer is not supported for non-shasta fork"),
+        }
+    }
+
     pub fn fork_spec(&self) -> SpecId {
         match self {
             BlockProposedFork::Shasta(_) => SpecId::SHASTA,
