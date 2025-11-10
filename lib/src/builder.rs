@@ -58,7 +58,7 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
 }
 
 pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block> {
-    let pool_txs_list = generate_transactions_for_batch_blocks(&input.taiko);
+    let pool_txs_list = generate_transactions_for_batch_blocks(&input);
     let mut final_blocks = Vec::new();
     for (i, pool_txs) in pool_txs_list.iter().enumerate() {
         let mut builder = RethBlockBuilder::new(
