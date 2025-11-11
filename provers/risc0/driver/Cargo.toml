@@ -8,11 +8,6 @@ name = "benchmark"
 path = "src/benchmark.rs"
 harness = true
 
-[[bin]]
-name = "shasta_fixture"
-path = "src/bin/shasta_fixture.rs"
-required-features = ["enable"]
-
 [dependencies]
 raiko-lib = { workspace = true, optional = true }
 
