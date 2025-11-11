@@ -852,9 +852,7 @@ pub async fn filter_block_proposed_event(
                 .expect("Could not find the propose tx");
 
             let block_propose_event = match block_propose_event {
-                BlockProposedFork::Shasta(event_data) => {
-                    BlockProposedFork::Shasta(event_data.with_proposer(tx.from))
-                }
+                BlockProposedFork::Shasta(event_data) => BlockProposedFork::Shasta(event_data),
                 _ => block_propose_event,
             };
 
