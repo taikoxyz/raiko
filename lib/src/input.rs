@@ -287,7 +287,7 @@ impl BlockProposedFork {
 
     pub fn proposer(&self) -> Address {
         match self {
-            BlockProposedFork::Shasta(event_data) => event_data.proposer,
+            BlockProposedFork::Shasta(event_data) => event_data.proposal.proposer,
             _ => unimplemented!("proposer is not supported for non-shasta fork"),
         }
     }

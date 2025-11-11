@@ -145,7 +145,6 @@ pub struct ShastaEventData {
     pub proposal: Proposal,
     pub derivation: Derivation,
     pub core_state: CoreState,
-    pub proposer: Address,
 }
 
 impl ShastaEventData {
@@ -160,7 +159,6 @@ impl ShastaEventData {
             proposal: payload.proposal,
             derivation: payload.derivation,
             core_state: payload.coreState,
-            proposer: Address::default(),
         })
     }
 
@@ -354,12 +352,7 @@ impl ShastaEventData {
                 lastFinalizedTransitionHash: last_finalized_transition_hash,
                 bondInstructionsHash: bond_instructions_hash,
             },
-            proposer: Address::default(),
         })
-    }
-
-    pub fn with_proposer(self, proposer: Address) -> Self {
-        Self { proposer, ..self }
     }
 }
 
