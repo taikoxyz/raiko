@@ -6852,7 +6852,6 @@ dependencies = [
  "once_cell",
  "pretty_assertions",
  "reth-chainspec",
- "reth-ethereum-forks",
  "reth-evm",
  "reth-evm-ethereum",
  "reth-primitives",
@@ -8417,7 +8416,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber 0.3.20",
  "typetag",
 ]
 

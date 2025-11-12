@@ -9,7 +9,6 @@ reth-primitives = { workspace = true }
 reth-evm-ethereum = { workspace = true }
 reth-evm = { workspace = true }
 reth-chainspec = { workspace = true }
-reth-ethereum-forks = { workspace = true }
 
 # alloy
 alloy-rlp = { workspace = true }

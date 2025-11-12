@@ -22,7 +22,6 @@ ethers-core = { workspace = true, optional = true }
 ethers-providers = { workspace = true, optional = true }
 
 tracing = { workspace = true, optional = true }
-tracing-subscriber = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
@@ -52,7 +51,6 @@ enable = [
     "ethers-core",
     "ethers-providers",
     "tracing",
-    "tracing-subscriber",
     "serde",
     "once_cell",
     "anyhow",

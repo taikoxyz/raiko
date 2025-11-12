@@ -59,7 +59,6 @@ reth-revm = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0
 reth-chainspec = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-shasta", default-features = false, features = [
     "taiko",
 ] }
-reth-ethereum-forks = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-shasta", default-features = false }
 reth-provider = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-shasta", default-features = false }
 
 # risc zero

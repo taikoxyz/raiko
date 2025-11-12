@@ -2677,7 +2677,6 @@ dependencies = [
  "once_cell",
  "pretty_assertions",
  "reth-chainspec",
- "reth-ethereum-forks",
  "reth-evm",
  "reth-evm-ethereum",
  "reth-primitives",

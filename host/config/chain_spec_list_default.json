@@ -271,7 +271,7 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1762429400,
+        "genesis_time": 1762846800,
         "seconds_per_slot": 12,
         "is_taiko": false
     },

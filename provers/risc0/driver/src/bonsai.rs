@@ -1,6 +1,5 @@
 use crate::Risc0Param;
 use crate::{
-    propagate_chain_spec_env,
     snarks::{stark2snark, verify_groth16_from_snark_receipt},
     Risc0Response,
 };
@@ -344,7 +343,6 @@ pub fn prove_locally(
     info!("Running the prover...");
     let session = {
         let mut env_builder = ExecutorEnv::builder();
-        propagate_chain_spec_env(&mut env_builder);
         env_builder
             .session_limit(None)
             .segment_limit_po2(segment_limit_po2)
