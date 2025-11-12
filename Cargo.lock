@@ -6721,7 +6721,6 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "bincode",
- "bytemuck",
  "clap 4.5.48",
  "env_logger",
  "ethers-core",
@@ -6738,7 +6737,6 @@ dependencies = [
  "reth-provider",
  "reth-revm",
  "risc0-driver",
- "risc0-zkvm",
  "rstest",
  "rust-kzg-zkcrypto",
  "serde",
@@ -6750,7 +6748,6 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
- "tracing-subscriber 0.3.20",
  "utoipa",
 ]
 

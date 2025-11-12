@@ -34,10 +34,7 @@ alloy-rpc-client = { workspace = true }
 
 # tracing and logging
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 bincode = { workspace = true }
-risc0-zkvm = { workspace = true }
-bytemuck = { workspace = true }
 
 # errors
 anyhow = { workspace = true }
