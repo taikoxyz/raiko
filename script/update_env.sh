@@ -29,10 +29,10 @@ if [ ! -d "$base_dir" ]; then
 fi
 
 TARGET_BASE_DIR="$network/$version"
-NEW_SGX=$(jq -r '.sgx.instance_ids.PACAYA' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
-NEW_SGXGETH=$(jq -r '.sgxgeth.instance_ids.PACAYA' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
-NEW_SGXSHASTA=$(jq -r '.sgx.instance_ids.SHASTA' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
-NEW_SGXGETHSHASTA=$(jq -r '.sgxgeth.instance_ids.SHASTA' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
+NEW_SGX=$(jq -r '.sgx.instance_ids.PACAYA // 3131899904' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
+NEW_SGXGETH=$(jq -r '.sgxgeth.instance_ids.PACAYA // 3131899904' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
+NEW_SGXSHASTA=$(jq -r '.sgx.instance_ids.SHASTA // 3131899904' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
+NEW_SGXGETHSHASTA=$(jq -r '.sgxgeth.instance_ids.SHASTA // 3131899904' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
 
 echo "update env for sgx ids:"
 # .env 

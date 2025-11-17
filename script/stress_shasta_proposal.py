@@ -24,10 +24,27 @@ class RaikoResponse:
     message: Optional[str] = None
 
 
+@dataclass
+class AnchorTxInfo:
+    """Information extracted from anchor transaction"""
+    proposal_id: int
+    anchor_number: int
+    l2_block_number: int
+
+
+@dataclass
+class ProposalGroup:
+    """Group of L2 blocks with the same proposal_id"""
+    proposal_id: int
+    anchor_number: int
+    l2_block_numbers: list[int]
+
+
 class BatchMonitor:
     def __init__(
         self,
         l1_rpc: str,
+        l2_rpc: str,
         abi_file: str,
         evt_address: str,
         raiko_rpc: str,
@@ -35,29 +52,32 @@ class BatchMonitor:
         polling_interval: int = 3,
         max_retries: int = 3,
         block_running_ratio: float = 0.1,
-        block_range: Optional[Tuple[int, int]] = None,
+        l2_block_range: Optional[Tuple[int, int]] = None,
         timeout: int = 3600,  # 1 hour
         prove_type: str = "native",
         watch_mode: bool = False,
         time_speed: float = 1.0,
+        anchor_abi_file: Optional[str] = None,
     ):
         self.l1_rpc = l1_rpc
+        self.l2_rpc = l2_rpc
         self.raiko_rpc = raiko_rpc
         self.log_file = log_file
         self.block_polling_interval = polling_interval
         self.task_polling_interval = polling_interval
         self.max_retries = max_retries
         self.timeout = timeout
-        self.last_block = None
+        self.last_processed_l2_block = None
         self.batchs_in_last_block = deque()
         self.block_running_ratio = block_running_ratio
-        self.block_range = block_range
+        self.l2_block_range = l2_block_range
         self.ts_offset: Optional[int] = None
         self.last_block_ts_in_real_world: int = 0
         self.running_count = 0
         self.prove_type = prove_type
         self.watch_mode = watch_mode
         self.time_speed = time_speed
+        self.anchor_abi_file = anchor_abi_file
         # Initialize Shasta event decoder
         self.shasta_decoder = ShastaEventDecoder()
         # logger
@@ -78,6 +98,305 @@ class BatchMonitor:
         if l1_w3.is_connected():
             self.logger.info(f"Connected to l1 node {l1_rpc}")
         self.evt_contract = l1_w3.eth.contract(address=evt_address, abi=abi["abi"])
+        # Initialize L2 Web3 connection
+        self.l2_w3 = Web3(Web3.HTTPProvider(self.l2_rpc, {"timeout": 10}))
+        if self.l2_w3.is_connected():
+            self.logger.info(f"Connected to l2 node {self.l2_rpc}")
+        
+        # Load anchor ABI if provided, otherwise try to use the event ABI
+        if self.anchor_abi_file:
+            self.logger.info(f"Loading anchor ABI from {self.anchor_abi_file}")
+            try:
+                with open(self.anchor_abi_file) as f:
+                    anchor_abi_data = json.load(f)
+                    self.l2_abi = anchor_abi_data.get("abi", anchor_abi_data if isinstance(anchor_abi_data, list) else [])
+            except Exception as e:
+                self.logger.warning(f"Could not load anchor ABI file {self.anchor_abi_file}: {e}")
+                self.l2_abi = abi.get("abi", [])
+        else:
+            # Fallback to event ABI (might not have anchorV4 function)
+            self.logger.info("No anchor ABI file provided, using event ABI (may not have anchorV4)")
+            self.l2_abi = abi.get("abi", [])
+        
+        # Try to create L2 contract instance for decoding (address doesn't matter for decoding)
+        try:
+            self.l2_contract = self.l2_w3.eth.contract(
+                address=Web3.to_checksum_address("0x0000000000000000000000000000000000000000"), 
+                abi=self.l2_abi
+            )
+            # Check if anchorV4 function exists
+            if hasattr(self.l2_contract.functions, 'anchorV4'):
+                self.logger.info("anchorV4 function found in ABI, will use web3.py decoding")
+            else:
+                self.logger.warning("anchorV4 function not found in ABI, will use manual decoding")
+        except Exception as e:
+            self.logger.warning(f"Could not initialize L2 contract for decoding: {e}")
+            self.l2_contract = None
+
+    async def get_l2_block(self, block_number: int) -> Optional[Dict[str, Any]]:
+        """Get L2 block by number"""
+        try:
+            response = requests.post(
+                self.l2_rpc,
+                json={
+                    "jsonrpc": "2.0",
+                    "method": "eth_getBlockByNumber",
+                    "params": [hex(block_number), True],  # True to include full transaction data
+                    "id": 1,
+                },
+                timeout=10,
+            )
+            result = response.json()
+            return result.get("result")
+        except Exception as e:
+            self.logger.error(f"Failed to get L2 block {block_number}: {e}")
+            return None
+
+    def decode_anchor_tx_input(self, tx_input: str) -> Optional[Tuple[int, int]]:
+        """
+        Decode anchorV4 transaction input to extract proposal_id and anchor_number.
+        
+        First tries to use web3.py's contract decoding if ABI is available.
+        Falls back to manual decoding if that fails.
+        
+        Returns (proposal_id, anchor_number) or None if decoding fails.
+        """
+        try:
+            # Try web3.py contract decoding first if available
+            if self.l2_contract is not None:
+                try:
+                    # Decode the function call
+                    func_obj, func_params = self.l2_contract.decode_function_input(tx_input)
+                    self.logger.debug(f"Decoded function: {func_obj.fn_name}")
+                    
+                    # Check if it's anchorV4
+                    if func_obj.fn_name == "anchorV4":
+                        # Extract from decoded parameters
+                        proposal_params = func_params.get("_proposalParams", {})
+                        block_params = func_params.get("_blockParams", {})
+                        
+                        proposal_id = proposal_params.get("proposalId")
+                        anchor_number = block_params.get("anchorBlockNumber")
+                        
+                        if proposal_id is not None and anchor_number is not None:
+                            self.logger.debug(
+                                f"Decoded via ABI: proposal_id={proposal_id}, anchor_number={anchor_number}"
+                            )
+                            return (proposal_id, anchor_number)
+                        else:
+                            self.logger.warning(
+                                f"anchorV4 decoded but missing fields: proposal_id={proposal_id}, anchor_number={anchor_number}"
+                            )
+                    else:
+                        self.logger.warning(f"Function is {func_obj.fn_name}, not anchorV4")
+                except Exception as e:
+                    self.logger.debug(f"Web3.py decoding failed, trying manual: {e}")
+            
+            # Fallback to manual decoding
+            # Remove 0x prefix if present
+            if tx_input.startswith("0x"):
+                tx_input = tx_input[2:]
+            
+            input_bytes = bytes.fromhex(tx_input)
+            
+            # Minimum size: 4 (selector) + 32 (offset1) + 32 (offset2) + at least some data
+            if len(input_bytes) < 68:
+                self.logger.error(f"Anchor tx input too short: {len(input_bytes)} bytes")
+                return None
+            
+            # Get function selector
+            func_selector = input_bytes[0:4].hex()
+            self.logger.debug(f"Function selector: 0x{func_selector}")
+            
+            # Function selector is first 4 bytes
+            # Skip function selector (4 bytes)
+            ptr = 4
+            
+            # Read offset to ProposalParams (32 bytes, big-endian uint256)
+            # Offset is relative to the start of parameter encoding (after selector)
+            proposal_params_offset_rel = int.from_bytes(input_bytes[ptr:ptr+32], byteorder='big')
+            ptr += 32
+            
+            # Read offset to BlockParams (32 bytes, big-endian uint256)
+            # Offset is relative to the start of parameter encoding (after selector)
+            block_params_offset_rel = int.from_bytes(input_bytes[ptr:ptr+32], byteorder='big')
+            ptr += 32
+            
+            self.logger.debug(
+                f"Raw offsets: proposal={proposal_params_offset_rel}, block={block_params_offset_rel}, input_len={len(input_bytes)}"
+            )
+            
+            # Convert relative offsets to absolute positions
+            # Offsets are relative to the start of parameters (after selector)
+            # So absolute position = 4 (selector) + offset
+            proposal_params_abs = 4 + proposal_params_offset_rel
+            block_params_abs = 4 + block_params_offset_rel
+            
+            # Decode ProposalParams
+            # First field: proposalId (uint48, encoded as uint256 in 32 bytes)
+            if proposal_params_abs + 32 > len(input_bytes):
+                self.logger.error(
+                    f"ProposalParams offset out of bounds: rel={proposal_params_offset_rel}, abs={proposal_params_abs}, "
+                    f"needs {proposal_params_abs + 32} bytes, have {len(input_bytes)}"
+                )
+                # Try to log the first few bytes to help debug
+                self.logger.debug(f"First 100 bytes: {input_bytes[:100].hex()}")
+                return None
+            
+            proposal_id_bytes = input_bytes[proposal_params_abs:proposal_params_abs + 32]
+            # uint48 is stored in the lower 6 bytes (48 bits = 6 bytes)
+            # Extract last 6 bytes and convert to int
+            proposal_id = int.from_bytes(proposal_id_bytes[26:32], byteorder='big')
+            
+            # Decode BlockParams
+            # First field: anchorBlockNumber (uint48, encoded as uint256 in 32 bytes)
+            if block_params_abs + 32 > len(input_bytes):
+                self.logger.error(
+                    f"BlockParams offset out of bounds: rel={block_params_offset_rel}, abs={block_params_abs}, "
+                    f"needs {block_params_abs + 32} bytes, have {len(input_bytes)}"
+                )
+                return None
+            
+            anchor_number_bytes = input_bytes[block_params_abs:block_params_abs + 32]
+            # uint48 is stored in the lower 6 bytes
+            anchor_number = int.from_bytes(anchor_number_bytes[26:32], byteorder='big')
+            
+            self.logger.debug(
+                f"Decoded anchor tx: proposal_id={proposal_id}, anchor_number={anchor_number}"
+            )
+            
+            return (proposal_id, anchor_number)
+        except Exception as e:
+            self.logger.error(f"Error decoding anchor tx input: {e}")
+            import traceback
+            self.logger.debug(traceback.format_exc())
+            return None
+
+    async def parse_l2_block_anchor_tx(self, l2_block_number: int) -> Optional[AnchorTxInfo]:
+        """
+        Parse L2 block to extract anchor transaction information.
+        Returns AnchorTxInfo with proposal_id, anchor_number, and l2_block_number.
+        """
+        try:
+            block = await self.get_l2_block(l2_block_number)
+            if block is None:
+                return None
+            
+            transactions = block.get("transactions", [])
+            if len(transactions) == 0:
+                self.logger.warning(f"No transactions in L2 block {l2_block_number}")
+                return None
+            
+            # First transaction is the anchor transaction
+            anchor_tx = transactions[0]
+            tx_input = anchor_tx.get("input", "0x")
+            
+            if tx_input == "0x" or len(tx_input) <= 2:
+                self.logger.warning(f"Empty or invalid anchor tx input in block {l2_block_number}")
+                return None
+            
+            # Decode anchor tx input
+            decoded = self.decode_anchor_tx_input(tx_input)
+            if decoded is None:
+                self.logger.warning(f"Failed to decode anchor tx input for block {l2_block_number}")
+                return None
+            
+            proposal_id, anchor_number = decoded
+            
+            return AnchorTxInfo(
+                proposal_id=proposal_id,
+                anchor_number=anchor_number,
+                l2_block_number=l2_block_number
+            )
+        except Exception as e:
+            self.logger.error(f"Error parsing L2 block {l2_block_number}: {e}")
+            return None
+
+    def group_blocks_by_proposal_id(
+        self, anchor_infos: list[AnchorTxInfo]
+    ) -> list[ProposalGroup]:
+        """
+        Group consecutive L2 blocks by proposal_id.
+        The start point is the first block with a new proposal_id,
+        and the end point is the last block with the same proposal_id.
+        """
+        if not anchor_infos:
+            return []
+        
+        groups = []
+        current_proposal_id = None
+        current_group = None
+        
+        for info in anchor_infos:
+            if current_proposal_id is None or info.proposal_id != current_proposal_id:
+                # Start a new group
+                if current_group is not None:
+                    groups.append(current_group)
+                
+                current_proposal_id = info.proposal_id
+                current_group = ProposalGroup(
+                    proposal_id=info.proposal_id,
+                    anchor_number=info.anchor_number,
+                    l2_block_numbers=[info.l2_block_number]
+                )
+            else:
+                # Continue current group
+                current_group.l2_block_numbers.append(info.l2_block_number)
+                # Update anchor_number to use the first one in the group
+                # (all blocks in a group should have the same anchor_number)
+        
+        # Add the last group
+        if current_group is not None:
+            groups.append(current_group)
+        
+        return groups
+
+    async def find_l1_inclusion_block(
+        self, proposal_id: int, anchor_number: int
+    ) -> Optional[int]:
+        """
+        Traverse L1 blocks in range [anchor_number + 1, anchor_number + 96]
+        to find the block containing the Proposed event with matching proposal_id.
+        Returns the L1 block number where the proposal was included, or None if not found.
+        """
+        search_start = anchor_number + 1
+        search_end = anchor_number + 96
+        
+        self.logger.info(
+            f"Searching L1 blocks {search_start} to {search_end} for proposal_id {proposal_id}"
+        )
+        
+        try:
+            # Get events in the range
+            logs = self.evt_contract.events.Proposed.get_logs(
+                from_block=search_start, to_block=search_end
+            )
+            
+            for log in logs:
+                try:
+                    # Extract the raw data from the event
+                    event_data = log.args.data
+                    
+                    # Decode the Shasta event data to get the proposal ID
+                    decoded_proposal_id = self.shasta_decoder.extract_batch_id(event_data)
+                    
+                    if decoded_proposal_id == proposal_id:
+                        l1_block_number = log.blockNumber
+                        self.logger.info(
+                            f"Found proposal_id {proposal_id} in L1 block {l1_block_number}"
+                        )
+                        return l1_block_number
+                except Exception as e:
+                    self.logger.error(f"Error decoding event log: {e}")
+                    continue
+            
+            self.logger.warning(
+                f"Proposal_id {proposal_id} not found in L1 blocks {search_start} to {search_end}"
+            )
+            return None
+        except Exception as e:
+            self.logger.error(f"Error searching L1 events: {e}")
+            return None
 
     def parse_batch_proposed_meta(self, log):
         try:
@@ -252,15 +571,18 @@ class BatchMonitor:
         return logs[0].blockNumber, batch_ids
 
     def generate_post_data(
-        self, batch_id: int, batch_proposal_height: int
+        self, proposal_id: int, l1_inclusion_block_number: int, l2_block_numbers: list[int]
     ) -> Dict[str, Any]:
         """generate post data"""
         return {
             "proposals": [
                 {
-                    "proposal_id": batch_id,
-                    "l1_inclusion_block_number": batch_proposal_height,
-                    "l2_block_numbers": [batch_id],
+                    "proposal_id": proposal_id,
+                    "l1_inclusion_block_number": l1_inclusion_block_number,
+                    "l2_block_numbers": l2_block_numbers,
+                    "designated_prover": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+                    "parent_transition_hash": "0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388",
+                    "checkpoint": None,
                 }
             ],
             "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
@@ -284,13 +606,13 @@ class BatchMonitor:
         }
 
     async def submit_to_raiko(
-        self, batch_id: int, batch_inclusion_block: int
+        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int]
     ) -> Optional[str]:
         """submit batch to Raiko"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
 
-            payload = self.generate_post_data(batch_id, batch_inclusion_block)
+            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers)
             print(f"payload = {payload}")
 
             response = requests.post(
@@ -304,12 +626,12 @@ class BatchMonitor:
                 result["data"] = {}  # avoid big print
             if result.get("status") == "ok":
                 self.logger.info(
-                    f"Batch {batch_id} in block {batch_inclusion_block} submitted to Raiko with response: {result}"
+                    f"Proposal {proposal_id} (L2 blocks {l2_block_numbers}) in L1 block {l1_inclusion_block} submitted to Raiko with response: {result}"
                 )
                 return None
             else:
                 self.logger.error(
-                    f"Failed to submit block: {result.get('message', 'Unknown error')}"
+                    f"Failed to submit proposal: {result.get('message', 'Unknown error')}"
                 )
                 return None
         except Exception as e:
@@ -317,12 +639,12 @@ class BatchMonitor:
             return None
 
     async def query_raiko_status(
-        self, batch_id: int, batch_inclusion_block: int
+        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int]
     ) -> RaikoResponse:
         """query Raiko status"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
-            payload = self.generate_post_data(batch_id, batch_inclusion_block)
+            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers)
             response = requests.post(
                 f"{self.raiko_rpc}/v3/proof/batch/shasta",
                 headers=headers,
@@ -342,8 +664,8 @@ class BatchMonitor:
             self.logger.error(f"Failed to query Raiko status: {e}")
             return RaikoResponse(status="error", message=str(e))
 
-    async def process_batch(self, batch_id: int, l1_inclusion_block: int):
-        """handle new batch"""
+    async def process_proposal_group(self, group: ProposalGroup, l1_inclusion_block: int):
+        """handle new proposal group"""
         try:
             if self.watch_mode:
                 self.logger.info(f"Watch mode, skip processing")
@@ -351,16 +673,16 @@ class BatchMonitor:
 
             start_time = datetime.now()
             self.logger.info(
-                f"Starting to process batch {batch_id} @ {l1_inclusion_block} at {start_time}"
+                f"Starting to process proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block} at {start_time}"
             )
 
             with open(self.log_file, "a") as f:
                 f.write(
-                    f"\nbatch {batch_id} in block {l1_inclusion_block} processing started at {start_time}\n"
+                    f"\nproposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) in L1 block {l1_inclusion_block} processing started at {start_time}\n"
                 )
 
             # request Raiko
-            await self.submit_to_raiko(batch_id, l1_inclusion_block)
+            await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers)
 
             # polling
             retry_count = 0
@@ -369,20 +691,20 @@ class BatchMonitor:
             while True:
                 if time.time() - start_polling_time > self.timeout:
                     self.logger.error(
-                        f"Timeout waiting for batch {batch_id} / {l1_inclusion_block}"
+                        f"Timeout waiting for proposal {group.proposal_id} / L1 block {l1_inclusion_block}"
                     )
                     break
 
-                response = await self.query_raiko_status(batch_id, l1_inclusion_block)
+                response = await self.query_raiko_status(group.proposal_id, l1_inclusion_block, group.l2_block_numbers)
 
                 if response.status == "error":
                     self.logger.error(
-                        f"Error processing batch {batch_id} in block {l1_inclusion_block}: {response.message}"
+                        f"Error processing proposal {group.proposal_id} in L1 block {l1_inclusion_block}: {response.message}"
                     )
                     retry_count += 1
                     if retry_count >= self.max_retries:
                         self.logger.error(
-                            f"Max retries reached for batch {batch_id} in block {l1_inclusion_block}"
+                            f"Max retries reached for proposal {group.proposal_id} in L1 block {l1_inclusion_block}"
                         )
                         break
 
@@ -390,20 +712,20 @@ class BatchMonitor:
                     retry_count = 0  # reset retry count
                     if response.data.get("status") == "registered":
                         self.logger.info(
-                            f"Batch {batch_id} in Block {l1_inclusion_block} registered"
+                            f"Proposal {group.proposal_id} in L1 Block {l1_inclusion_block} registered"
                         )
                     elif response.data.get("status") == "work_in_progress":
                         self.logger.info(
-                            f"Batch {batch_id} in Block {l1_inclusion_block} in progress"
+                            f"Proposal {group.proposal_id} in L1 Block {l1_inclusion_block} in progress"
                         )
                     elif response.data.get("proof"):
                         self.logger.info(
-                            f"Batch {batch_id} in Block {l1_inclusion_block} completed with proof {response.data['proof']['proof']}"
+                            f"Proposal {group.proposal_id} in L1 Block {l1_inclusion_block} completed with proof {response.data['proof']['proof']}"
                         )
                         break
                     else:
                         self.logger.warning(
-                            f"Batch {batch_id} in Block {l1_inclusion_block} unhandled status: {response}"
+                            f"Proposal {group.proposal_id} in L1 Block {l1_inclusion_block} unhandled status: {response}"
                         )
 
                 await asyncio.sleep(self.task_polling_interval)
@@ -414,7 +736,7 @@ class BatchMonitor:
             # log ending status
             with open(self.log_file, "a") as f:
                 f.write(
-                    f"Block {l1_inclusion_block} processed {response.status} at {end_time}, duration: {duration} seconds\n"
+                    f"Proposal {group.proposal_id} in L1 {l1_inclusion_block} processed {response.status} at {end_time}, duration: {duration} seconds\n"
                 )
                 if response.message:
                     f.write(f"Message: {response.message}\n")
@@ -423,43 +745,267 @@ class BatchMonitor:
         finally:
             self.running_count -= 1
             self.logger.info(
-                f"Block {l1_inclusion_block} processed, remaining running: {self.running_count}"
+                f"Proposal {group.proposal_id} in L1 {l1_inclusion_block} processed, remaining running: {self.running_count}"
             )
+
+    async def find_proposal_start_block(self, start_block: int, proposal_id: int) -> int:
+        """
+        Find the true start block of a proposal by checking backwards.
+        Returns the first block number that belongs to this proposal_id.
+        """
+        current_block = start_block - 1
+        last_valid_block = start_block
+        
+        while current_block >= 0:
+            self.logger.debug(f"Checking backwards: block {current_block} for proposal {proposal_id}")
+            anchor_info = await self.parse_l2_block_anchor_tx(current_block)
+            
+            if anchor_info is None:
+                # Can't parse, stop going backwards
+                self.logger.debug(f"Could not parse block {current_block}, stopping backwards search")
+                break
+            
+            if anchor_info.proposal_id == proposal_id:
+                # Same proposal, continue backwards
+                last_valid_block = current_block
+                current_block -= 1
+            else:
+                # Different proposal, we found the start
+                self.logger.debug(f"Found different proposal {anchor_info.proposal_id} at block {current_block}, start is {last_valid_block}")
+                break
+        
+        return last_valid_block
+
+    async def find_proposal_end_block(self, end_block: int, proposal_id: int, max_forward: int = 100) -> int:
+        """
+        Find the true end block of a proposal by checking forwards.
+        Returns the last block number that belongs to this proposal_id.
+        max_forward limits how far forward we'll search to avoid infinite loops.
+        """
+        current_block = end_block + 1
+        last_valid_block = end_block
+        checked = 0
+        
+        while checked < max_forward:
+            self.logger.debug(f"Checking forwards: block {current_block} for proposal {proposal_id}")
+            anchor_info = await self.parse_l2_block_anchor_tx(current_block)
+            
+            if anchor_info is None:
+                # Can't parse, stop going forwards
+                self.logger.debug(f"Could not parse block {current_block}, stopping forwards search")
+                break
+            
+            if anchor_info.proposal_id == proposal_id:
+                # Same proposal, continue forwards
+                last_valid_block = current_block
+                current_block += 1
+                checked += 1
+            else:
+                # Different proposal, we found the end
+                self.logger.debug(f"Found different proposal {anchor_info.proposal_id} at block {current_block}, end is {last_valid_block}")
+                break
+        
+        return last_valid_block
+
+    async def process_l2_block_range(self):
+        """
+        Process L2 block range:
+        1. Parse each L2 block to get anchor tx info (proposal_id, anchor_number)
+        2. Find true start point if start block is in middle of a proposal
+        3. Group consecutive blocks by proposal_id
+        4. For each group, find L1 inclusion block
+        5. Submit to Raiko
+        """
+        if self.l2_block_range is None:
+            self.logger.error("L2 block range is required")
+            return
+        
+        start_l2_block, end_l2_block = self.l2_block_range
+        self.logger.info(f"Processing L2 blocks from {start_l2_block} to {end_l2_block}")
+        
+        # Step 1: Parse the first block to check if we're in the middle of a proposal
+        first_block_info = await self.parse_l2_block_anchor_tx(start_l2_block)
+        if first_block_info is None:
+            self.logger.error(f"Failed to parse first block {start_l2_block}, cannot proceed")
+            return
+        
+        # Step 2: Check if we need to go backwards to find the true start
+        true_start_block = start_l2_block
+        if start_l2_block > 0:
+            # Check parent block to see if it has the same proposal_id
+            parent_info = await self.parse_l2_block_anchor_tx(start_l2_block - 1)
+            if parent_info is not None and parent_info.proposal_id == first_block_info.proposal_id:
+                # We're in the middle of a proposal, find the true start
+                self.logger.info(
+                    f"Start block {start_l2_block} is in the middle of proposal {first_block_info.proposal_id}, "
+                    f"finding true start..."
+                )
+                true_start_block = await self.find_proposal_start_block(start_l2_block, first_block_info.proposal_id)
+                self.logger.info(f"True start block for proposal {first_block_info.proposal_id} is {true_start_block}")
+        
+        # Step 3: Parse the last block to check if we're in the middle of a proposal
+        last_block_info = await self.parse_l2_block_anchor_tx(end_l2_block)
+        true_end_block = end_l2_block
+        if last_block_info is not None:
+            # Check next block to see if it has the same proposal_id
+            next_block_info = await self.parse_l2_block_anchor_tx(end_l2_block + 1)
+            if next_block_info is not None and next_block_info.proposal_id == last_block_info.proposal_id:
+                # We're in the middle of a proposal, find the true end
+                self.logger.info(
+                    f"End block {end_l2_block} is in the middle of proposal {last_block_info.proposal_id}, "
+                    f"finding true end..."
+                )
+                true_end_block = await self.find_proposal_end_block(end_l2_block, last_block_info.proposal_id)
+                self.logger.info(f"True end block for proposal {last_block_info.proposal_id} is {true_end_block}")
+        
+        # Step 4: Parse all L2 blocks from true start to true end
+        anchor_infos = []
+        parse_start = true_start_block
+        parse_end = true_end_block
+        
+        self.logger.info(f"Parsing L2 blocks from {parse_start} to {parse_end}")
+        for l2_block_num in range(parse_start, parse_end + 1):
+            self.logger.info(f"Parsing L2 block {l2_block_num}")
+            anchor_info = await self.parse_l2_block_anchor_tx(l2_block_num)
+            if anchor_info is None:
+                self.logger.warning(f"Failed to parse anchor tx from L2 block {l2_block_num}, skipping")
+                continue
+            anchor_infos.append(anchor_info)
+            self.logger.info(
+                f"L2 block {l2_block_num}: proposal_id={anchor_info.proposal_id}, anchor_number={anchor_info.anchor_number}"
+            )
+        
+        if not anchor_infos:
+            self.logger.error("No valid anchor transactions found in L2 block range")
+            return
+        
+        # Step 2: Group consecutive blocks by proposal_id
+        groups = self.group_blocks_by_proposal_id(anchor_infos)
+        self.logger.info(f"Found {len(groups)} proposal groups")
+        for group in groups:
+            self.logger.info(
+                f"Proposal {group.proposal_id}: anchor_number={group.anchor_number}, L2 blocks={group.l2_block_numbers}"
+            )
+        
+        # Step 3: For each group, find L1 inclusion block and submit
+        acc_odds = 1
+        tasks = []
+        first_l1_block = None
+        first_l1_timestamp = None
+        
+        for group in groups:
+            self.logger.info(
+                f"Processing proposal group {group.proposal_id} with L2 blocks {group.l2_block_numbers}"
+            )
+            
+            # Find L1 inclusion block
+            l1_inclusion_block = await self.find_l1_inclusion_block(
+                group.proposal_id, group.anchor_number
+            )
+            
+            if l1_inclusion_block is None:
+                self.logger.warning(
+                    f"Could not find L1 inclusion block for proposal {group.proposal_id}, skipping"
+                )
+                continue
+            
+            self.logger.info(
+                f"Found L1 inclusion block {l1_inclusion_block} for proposal {group.proposal_id}"
+            )
+            
+            # Get L1 block timestamp for time-based throttling
+            l1_block = await self.get_block(l1_inclusion_block)
+            if l1_block is None:
+                self.logger.warning(f"Could not get L1 block {l1_inclusion_block}, skipping time check")
+                l1_timestamp = None
+            else:
+                l1_timestamp = int(l1_block["timestamp"], 16)
+            
+            # Initialize time offset with first L1 block
+            if first_l1_block is None and l1_timestamp is not None:
+                first_l1_block = l1_inclusion_block
+                first_l1_timestamp = l1_timestamp
+                current_timestamp = int(time.time())
+                self.ts_offset = current_timestamp - l1_timestamp
+                self.last_block_ts_in_real_world = current_timestamp
+                self.logger.info(
+                    f"Initialized time offset: L1 block {first_l1_block} timestamp={l1_timestamp}, "
+                    f"offset={self.ts_offset}, time_speed={self.time_speed}"
+                )
+            
+            # Apply time-based throttling if time_speed is set and we have timestamps
+            if self.time_speed > 0 and l1_timestamp is not None and self.ts_offset is not None:
+                current_block_ts_in_real_world = l1_timestamp + self.ts_offset
+                real_world_ts = int(time.time())
+                real_world_elapsed_time = real_world_ts - self.last_block_ts_in_real_world
+                accel_elapsed_time = real_world_elapsed_time * self.time_speed
+                current_accel_ts = self.last_block_ts_in_real_world + accel_elapsed_time
+                
+                if current_accel_ts < current_block_ts_in_real_world:
+                    # Need to wait before submitting this proposal
+                    wait_time = (current_block_ts_in_real_world - current_accel_ts) / self.time_speed
+                    self.logger.info(
+                        f"L1 block {l1_inclusion_block} timestamp {current_block_ts_in_real_world} not reached yet, "
+                        f"current accel time: {current_accel_ts}, waiting {wait_time:.2f} seconds..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    # Update after waiting
+                    real_world_ts = int(time.time())
+                    real_world_elapsed_time = real_world_ts - self.last_block_ts_in_real_world
+                    accel_elapsed_time = real_world_elapsed_time * self.time_speed
+                    current_accel_ts = self.last_block_ts_in_real_world + accel_elapsed_time
+                
+                # Update timestamp tracking
+                self.last_block_ts_in_real_world = real_world_ts
+                self.ts_offset = real_world_ts - l1_timestamp
+            
+            # Apply block_running_ratio
+            acc_odds += self.block_running_ratio
+            if acc_odds >= 1.0:
+                self.logger.info(
+                    f"Submitting proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block}, current running tasks: {self.running_count}"
+                )
+                self.running_count += 1
+                acc_odds -= 1.0
+                # Create task and add to list
+                task = asyncio.create_task(
+                    self.process_proposal_group(group, l1_inclusion_block)
+                )
+                tasks.append(task)
+                # Yield control to event loop so task can start executing
+                await asyncio.sleep(0)
+            else:
+                self.logger.info(
+                    f"Proposal {group.proposal_id} skipped due to block_running_ratio:{self.block_running_ratio}"
+                )
+        
+        # Wait for all tasks to complete
+        self.logger.info(f"Waiting for {len(tasks)} processing tasks to complete...")
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        
+        self.logger.info("All L2 blocks processed")
 
     async def run(self):
         """main loop"""
         self.logger.info("Starting block monitor")
         # print start config
-        self.logger.info(f"Config:\n{json.dumps(self.__dict__, indent=2, default=str)}")
-        acc_odds = 1
-        while True:
-            try:
-                result = await self.get_next_batches()
-                if result is not None:
-                    current_block, batch_ids = result
-                    for batch_id in batch_ids:
-                        self.logger.info(
-                            f"New batch detected: {batch_id}@{current_block}"
-                        )
-                        acc_odds += self.block_running_ratio
-                        if acc_odds >= 1.0:
-                            self.logger.info(
-                                f"To run batch/block: {batch_id}/{current_block}, current running tasks: {self.running_count}"
-                            )
-                            self.running_count += 1
-                            acc_odds -= 1.0
-                            asyncio.create_task(
-                                self.process_batch(batch_id, current_block)
-                            )
-                        else:
-                            self.logger.info(
-                                f"Block {current_block} skipped due to block_running_ratio:{self.block_running_ratio}"
-                            )
-                        self.last_block = current_block
-                await asyncio.sleep(self.block_polling_interval)
-            except Exception as e:
-                self.logger.error(f"Error in main loop: {e}")
-                await asyncio.sleep(self.block_polling_interval)
+        config_dict = {
+            "l1_rpc": self.l1_rpc,
+            "l2_rpc": self.l2_rpc,
+            "raiko_rpc": self.raiko_rpc,
+            "l2_block_range": self.l2_block_range,
+            "prove_type": self.prove_type,
+            "block_running_ratio": self.block_running_ratio,
+        }
+        self.logger.info(f"Config:\n{json.dumps(config_dict, indent=2, default=str)}")
+        
+        if self.l2_block_range is not None:
+            # Process L2 block range
+            await self.process_l2_block_range()
+        else:
+            self.logger.error("L2 block range is required for the new workflow")
+            return
 
 
 def parse_none_value(value, convert_func=str):
@@ -489,7 +1035,15 @@ async def main():
         "--l1-rpc",
         type=lambda x: parse_none_value(x, str),
         default="https://l1rpc.internal.taiko.xyz",
-        help='Ethereum RPC endpoint (use "none" for None value)',
+        help='L1 Ethereum RPC endpoint (use "none" for None value)',
+    )
+
+    parser.add_argument(
+        "-l",
+        "--l2-rpc",
+        type=lambda x: parse_none_value(x, str),
+        default="https://l2rpc.internal.taiko.xyz",
+        help='L2 RPC endpoint (use "none" for None value)',
     )
 
     parser.add_argument(
@@ -526,10 +1080,10 @@ async def main():
 
     parser.add_argument(
         "-g",
-        "--block-range",
+        "--l2-block-range",
         type=parse_block_range,
         default="None",
-        help='Block range in format "start,end" or "none" for None value',
+        help='L2 block range in format "start,end" or "none" for None value',
     )
 
     parser.add_argument(
@@ -545,7 +1099,15 @@ async def main():
         "--abi-file",
         type=lambda x: parse_none_value(x, str),
         default="./IInbox.json",
-        help='ABI file path (use "none" for None value)',
+        help='L1 event ABI file path (use "none" for None value)',
+    )
+
+    parser.add_argument(
+        "-b",
+        "--anchor-abi-file",
+        type=lambda x: parse_none_value(x, str),
+        default=None,
+        help='L2 anchor contract ABI file path for decoding anchorV4 function (optional, use "none" for None value)',
     )
 
     parser.add_argument(
@@ -576,21 +1138,28 @@ async def main():
 
     monitor = BatchMonitor(
         l1_rpc=args.l1_rpc,
+        l2_rpc=args.l2_rpc,
         abi_file=args.abi_file,
         evt_address=web3.Web3.to_checksum_address(args.event_contract),
         raiko_rpc=args.raiko_rpc,
         log_file=args.log_file,
         polling_interval=args.polling_interval,
         block_running_ratio=args.block_running_ratio,
-        block_range=args.block_range,
+        l2_block_range=args.l2_block_range,
         prove_type=args.prove_type,
         watch_mode=args.watch_event,
         time_speed=args.time_speed,
+        anchor_abi_file=args.anchor_abi_file,
     )
 
     await monitor.run()
 
 
-# python stress_shasta_proposal.py -t native -g 580,682 -p 10 -o stress_dev.log -c 0xe9BDA5fd0C7F8E97b12860a57Cbcc89f33AAfFE8 -e https://l1rpc.internal.taiko.xyz  -i IInbox.json -x 100 -w
+# Example usage:
+# python stress_shasta_proposal.py -t native -g 1000,2000 -p 10 -o stress_dev.log -a http://localhost:8080 -c 0xe9BDA5fd0C7F8E97b12860a57Cbcc89f33AAfFE8 -e https://l1rpc.internal.taiko.xyz -l https://l2rpc.internal.taiko.xyz -i IInbox.json -b AnchorContract.json -x 100 -w
+# Note: 
+#   -a (--raiko-rpc): Raiko RPC endpoint (default: http://localhost:8080)
+#   -g now specifies L2 block range instead of L1 block range
+#   -b (--anchor-abi-file) is optional but recommended for proper anchorV4 decoding
 if __name__ == "__main__":
     asyncio.run(main())

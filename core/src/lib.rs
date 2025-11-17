@@ -161,7 +161,8 @@ impl Raiko {
             "Generating {} output for batch id: {}",
             self.request.proof_type, batch_input.taiko.batch_id
         );
-        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input); let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
+        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input);
+        let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
             Vec::new(),
             |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
                 let (input, pool_txs) = input_and_txs;
@@ -497,7 +498,7 @@ mod tests {
             .generate_batch_input(provider)
             .await
             .expect("input generation failed");
-        // let filename = format!("shasta-input-{}.json", proof_request.batch_id);
+        // let filename = format!("input-{}.json", proof_request.batch_id);
         // let writer = std::fs::File::create(&filename).expect("Unable to create file");
         // serde_json::to_writer(writer, &input).expect("Unable to write data");
         trace!("batch guest input: {input:?}");
@@ -505,7 +506,7 @@ mod tests {
             .get_batch_output(&input)
             .expect("output generation failed");
         debug!("batch guest output: {output:?}");
-        // let filename = format!("shasta-output-{}.json", proof_request.batch_id);
+        // let filename = format!("output-{}.json", proof_request.batch_id);
         // let writer = std::fs::File::create(&filename).expect("Unable to create file");
         // serde_json::to_writer(writer, &output).expect("Unable to write data");
         raiko
@@ -583,9 +584,9 @@ mod tests {
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 863,
-            l1_inclusion_block_number: 7001,
-            l2_block_numbers: vec![864],
+            batch_id: 796,
+            l1_inclusion_block_number: 5003,
+            l2_block_numbers: vec![796],
             network,
             graffiti: B256::ZERO,
             prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
@@ -617,7 +618,7 @@ mod tests {
 
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id:5361,
+            batch_id: 5361,
             l1_inclusion_block_number: 1584196,
             l2_block_numbers: vec![],
             network,

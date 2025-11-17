@@ -515,8 +515,7 @@ pub async fn prepare_taiko_chain_batch_input(
                 batch_anchor_tx_info
                     .windows(2)
                     .all(|w| if w[0].0 == w[1].0 {
-                        // if anchor stays, block hash is zero
-                        w[0].1 != B256::ZERO && w[1].1 == B256::ZERO
+                        w[0].1 == w[1].1
                     } else {
                         // if anchor changes, block hash is not zero
                         w[0].0 < w[1].0 && w[0].1 != B256::ZERO && w[1].1 != B256::ZERO
