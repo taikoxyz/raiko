@@ -64,6 +64,7 @@ impl Raiko {
                 designated_prover: None,
                 parent_transition_hash: None,
                 checkpoint: None,
+                last_anchor_block_number: None,
             },
             self.request.blob_proof_type.clone(),
         )
@@ -86,6 +87,7 @@ impl Raiko {
                     .checkpoint
                     .clone()
                     .map(ShastaProposalCheckpoint::into),
+                last_anchor_block_number: self.request.last_anchor_block_number,
             },
             blob_proof_type: self.request.blob_proof_type.clone(),
             cached_event_data: self.request.cached_event_data.clone(),
@@ -165,7 +167,8 @@ impl Raiko {
         let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
             Vec::new(),
             |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
-                let (input, pool_txs) = input_and_txs;
+                let (input, txs_with_flag) = input_and_txs;
+                let (pool_txs, _) = txs_with_flag;
                 let output = self.single_output_for_batch(pool_txs, input)?;
                 acc.push(output);
                 Ok(acc)
@@ -600,6 +603,7 @@ mod tests {
             checkpoint: None,
             designated_prover: Some(address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc")),
             cached_event_data: None,
+            last_anchor_block_number: None,
         };
 
         batch_prove_shasta_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -631,6 +635,7 @@ mod tests {
             parent_transition_hash: None,
             checkpoint: None,
             designated_prover: None,
+            last_anchor_block_number: None,
             cached_event_data: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -675,6 +680,7 @@ mod tests {
             parent_transition_hash: None,
             designated_prover: None,
             checkpoint: None,
+            last_anchor_block_number: None,
             cached_event_data: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -712,6 +718,7 @@ mod tests {
             parent_transition_hash: None,
             checkpoint: None,
             designated_prover: None,
+            last_anchor_block_number: None,
             cached_event_data: None,
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -757,6 +764,7 @@ mod tests {
                 parent_transition_hash: None,
                 checkpoint: None,
                 designated_prover: None,
+                last_anchor_block_number: None,
                 cached_event_data: None,
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -792,6 +800,7 @@ mod tests {
                 parent_transition_hash: None,
                 checkpoint: None,
                 designated_prover: None,
+                last_anchor_block_number: None,
                 cached_event_data: None,
             };
             batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -829,6 +838,7 @@ mod tests {
             parent_transition_hash: None,
             checkpoint: None,
             designated_prover: None,
+            last_anchor_block_number: None,
             cached_event_data: None,
         };
         let proof = prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;

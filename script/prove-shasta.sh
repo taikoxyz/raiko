@@ -29,7 +29,7 @@ l2_block_numbers="$4"
 
 batch_id=""
 height=""
-
+last_anchor_block_number=5
 designated_prover="0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
 parent_transition_hash="0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
 checkpoint=null
@@ -62,6 +62,7 @@ parse_batch_pair() {
             \"checkpoint\": $checkpoint, \
             \"l1_inclusion_block_number\": $height, \
             \"l2_block_numbers\": [$l2_block_numbers] \
+            \"last_anchor_block_number\": $last_anchor_block_number \
         }"
         first=0
     done <<<"$pair"

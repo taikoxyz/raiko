@@ -11,6 +11,7 @@ use reth_primitives::{
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use shasta::ShastaEventData;
+use tracing::error;
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -53,6 +54,7 @@ pub struct InputDataSource {
     pub blob_commitments: Option<Vec<Vec<u8>>>,
     pub blob_proofs: Option<Vec<Vec<u8>>>,
     pub blob_proof_type: BlobProofType,
+    pub is_forced_inclusion: bool,
 }
 
 /// External block input.
@@ -167,10 +169,10 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn batch_timestamp(&self) -> u64 {
+    pub fn proposal_timestamp(&self) -> u64 {
         match self {
             BlockProposedFork::Shasta(event_data) => event_data.proposal.timestamp,
-            _ => 0,
+            _ => unimplemented!("can not get proposal timestamp from non-shasta proposal"),
         }
     }
 
@@ -214,35 +216,52 @@ impl BlockProposedFork {
             BlockProposedFork::Shasta(event_data) => {
                 const SHASTA_BLOB_DATA_PREFIX_SIZE: usize = 64;
                 const BLOB_BYTES: usize = 4096 * 32;
-                assert!(
-                    event_data.derivation.sources.len() > 0,
-                    "derivation.sources.length > 0"
-                );
-                assert!(
-                    event_data.derivation.sources[0].blobSlice.blobHashes.len() > 0,
-                    "blobSlice.blobHashes.length > 0"
-                );
+                if event_data.derivation.sources.len() == 0 {
+                    error!("derivation.sources.length == 0");
+                    return None;
+                }
+                if event_data.derivation.sources[0].blobSlice.blobHashes.len() == 0 {
+                    error!("blobSlice.blobHashes.length == 0");
+                    return None;
+                }
 
                 let offset = event_data.derivation.sources[0].blobSlice.offset as usize;
                 let _version = B256::from_slice(&compressed_tx_list_buf[offset..offset + 32]);
-                assert_eq!(_version, B256::with_last_byte(1));
-                assert!(
-                    event_data.derivation.sources[0].blobSlice.offset as usize
-                        <= BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
-                            - SHASTA_BLOB_DATA_PREFIX_SIZE,
-                    "blobSlice.offset <= BLOB_BYTES * blobSlice.blobHashes.length - 64"
-                );
+                if _version != B256::with_last_byte(1) {
+                    error!("_version {:?} != B256::with_last_byte(1)", _version);
+                    return None;
+                }
+                if event_data.derivation.sources[0].blobSlice.offset as usize
+                    > BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
+                        - SHASTA_BLOB_DATA_PREFIX_SIZE
+                {
+                    error!(
+                        "blobSlice.offset {} > BLOB_BYTES * blobSlice.blobHashes.length - 64 ({} > {})",
+                        event_data.derivation.sources[0].blobSlice.offset as usize,
+                        event_data.derivation.sources[0].blobSlice.offset as usize,
+                        BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
+                            - SHASTA_BLOB_DATA_PREFIX_SIZE
+                    );
+                    return None;
+                }
 
                 let size_b256_slice =
                     B256::from_slice(&compressed_tx_list_buf[offset + 32..offset + 64]);
                 let blob_data_size =
                     usize::from_be_bytes(size_b256_slice.as_slice()[24..32].try_into().unwrap());
-                assert!(
-                    offset + blob_data_size
-                        <= BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
-                            - SHASTA_BLOB_DATA_PREFIX_SIZE,
-                    "blobSlice.size <= BLOB_BYTES * blobSlice.blobHashes.length - 64"
-                );
+                if offset + blob_data_size
+                    > BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
+                        - SHASTA_BLOB_DATA_PREFIX_SIZE
+                {
+                    error!(
+                        "blobSlice.size {} > BLOB_BYTES * blobSlice.blobHashes.length - 64 ({} > {})",
+                        blob_data_size,
+                        offset + blob_data_size,
+                        BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
+                            - SHASTA_BLOB_DATA_PREFIX_SIZE
+                    );
+                    return None;
+                }
                 Some((offset + SHASTA_BLOB_DATA_PREFIX_SIZE, blob_data_size))
             }
             _ => None,
@@ -322,7 +341,8 @@ pub struct TaikoGuestInput {
     pub blob_commitment: Option<Vec<u8>>,
     pub blob_proof: Option<Vec<u8>>,
     pub blob_proof_type: BlobProofType,
-    pub extra_data: Option<(bool, Address)>,
+    // extra data: is low bond proposal, designated prover, is force inclusion
+    pub extra_data: Option<(bool, Address, bool)>,
 }
 
 pub struct ZlibCompressError(pub String);
@@ -378,6 +398,7 @@ pub struct TaikoProverData {
     pub graffiti: B256,
     pub parent_transition_hash: Option<B256>,
     pub checkpoint: Option<Checkpoint>,
+    pub last_anchor_block_number: Option<u64>,
 }
 
 #[serde_as]

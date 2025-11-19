@@ -5,6 +5,7 @@ use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
 use crate::utils::{
     generate_transactions, generate_transactions_for_batch_blocks, validate_shasta_block_gas_limit,
+    validate_shasta_block_timesatmp,
 };
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
@@ -67,7 +68,7 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
         );
 
         let mut execute_tx = vec![input.inputs[i].taiko.anchor_tx.clone().unwrap()];
-        execute_tx.extend_from_slice(&pool_txs);
+        execute_tx.extend_from_slice(&pool_txs.0);
         builder
             .execute_transactions(execute_tx.clone(), false)
             .expect("execute");
@@ -82,6 +83,12 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
         assert!(
             validate_shasta_block_gas_limit(&input.inputs),
             "shasta block gas limit check failed."
+        );
+
+        validate_shasta_block_timesatmp(&input.inputs);
+        assert!(
+            validate_shasta_block_timesatmp(&input.inputs),
+            "shasta block timestamp check failed."
         );
     }
     final_blocks
@@ -234,14 +241,23 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
-        let shasta_data_opt =
-            self.input
-                .taiko
-                .extra_data
-                .map(|(is_low_bond_proposal, designated_prover)| ShastaData {
-                    is_low_bond_proposal,
-                    designated_prover,
-                });
+        let shasta_data_opt = if let Some(extra_data) = &self.input.taiko.extra_data {
+            let last_anchor_block_number_opt =
+                self.input.taiko.prover_data.last_anchor_block_number;
+            assert!(
+                last_anchor_block_number_opt.is_some(),
+                "last_anchor_block_number is not set in shasta request"
+            );
+            Some(ShastaData {
+                is_low_bond_proposal: extra_data.0,
+                designated_prover: extra_data.1,
+                last_anchor_block_number: last_anchor_block_number_opt.unwrap(),
+                is_force_inclusion: extra_data.2,
+            })
+        } else {
+            None
+        };
+
         // Execute transactions
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())

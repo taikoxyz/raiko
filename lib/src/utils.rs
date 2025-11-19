@@ -1,15 +1,15 @@
-use core::cmp::{max, min};
-use std::io::{Read, Write};
-
 use alloy_rlp::Decodable;
 use anyhow::Result;
+use core::cmp::{max, min};
 use libflate::zlib::{Decoder as zlibDecoder, Encoder as zlibEncoder};
-use reth_primitives::TransactionSigned;
+use reth_primitives::{Address, Block, TransactionSigned};
+use std::cmp::max as std_max;
+use std::io::{Read, Write};
 use tracing::{debug, error, warn};
 
 use crate::consts::{ChainSpec, Network};
 use crate::input::{BlockProposedFork, GuestBatchInput, GuestInput};
-use crate::manifest::DerivationSourceManifest;
+use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
@@ -141,7 +141,7 @@ fn distribute_txs<T: Clone>(data: &[T], batch_proposal: &BlockProposedFork) -> V
 /// each block will get a portion of the txlist by its tx_nums
 pub fn generate_transactions_for_batch_blocks(
     guest_batch_input: &GuestBatchInput,
-) -> Vec<Vec<TransactionSigned>> {
+) -> Vec<(Vec<TransactionSigned>, bool)> {
     let taiko_guest_batch_input = &guest_batch_input.taiko;
     assert!(
         taiko_guest_batch_input.data_sources.len() > 0,
@@ -165,7 +165,7 @@ pub fn generate_transactions_for_batch_blocks(
 /// each block will get a portion of the txlist by its tx_nums
 pub fn generate_transactions_for_pacaya_blocks(
     taiko_guest_batch_input: &GuestBatchInput,
-) -> Vec<Vec<TransactionSigned>> {
+) -> Vec<(Vec<TransactionSigned>, bool)> {
     let taiko_guest_batch_input = &taiko_guest_batch_input.taiko;
     let batch_proposal = &taiko_guest_batch_input.batch_proposed;
     let data_source = &taiko_guest_batch_input.data_sources[0];
@@ -199,22 +199,29 @@ pub fn generate_transactions_for_pacaya_blocks(
     // - txs.len() != tx_num_sizes.sum()
     // - random blob tx bytes
     distribute_txs(&txs, batch_proposal)
+        .into_iter()
+        .map(|txs| (txs, false))
+        .collect()
 }
 
+const PROPOSAL_MAX_BLOCKS: usize = 384usize;
 /// concat blob & decode a whole txlist, then
 /// each block will get a portion of the txlist by its tx_nums
 pub fn generate_transactions_for_shasta_blocks(
     guest_batch_input: &GuestBatchInput,
-) -> Vec<Vec<TransactionSigned>> {
+) -> Vec<(Vec<TransactionSigned>, bool)> {
     let taiko_guest_batch_input = &guest_batch_input.taiko;
     let batch_proposal = &taiko_guest_batch_input.batch_proposed;
     let data_sources = &taiko_guest_batch_input.data_sources;
     let mut tx_list_bufs = Vec::new();
 
-    // for invalid path, we need to get the last parent block and anchor block number
-    let mut next_block_idx = 0;
-    let mut last_parent_block_header = &guest_batch_input.inputs[next_block_idx].parent_header;
-    // let mut last_anchor_block_number = 0u64; // TODO!!!
+    // TODO: for invalid path, align the default calculation with node
+    let last_parent_block_header = &guest_batch_input.inputs[0].parent_header;
+    let last_anchor_block_number = guest_batch_input
+        .taiko
+        .prover_data
+        .last_anchor_block_number
+        .unwrap();
     for (idx, data_source) in data_sources.iter().enumerate() {
         let use_blob = batch_proposal.blob_used();
         let compressed_tx_list_buf = if use_blob {
@@ -226,10 +233,7 @@ pub fn generate_transactions_for_shasta_blocks(
                 .concat();
             let (blob_offset, blob_size) = batch_proposal
                 .blob_tx_slice_param(&compressed_tx_list_buf)
-                .unwrap_or_else(|| {
-                    warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
-                    (0, compressed_tx_list_buf.len())
-                });
+                .unwrap_or_else(|| (0, 0));
             tracing::info!("blob_offset: {blob_offset}, blob_size: {blob_size}");
             compressed_tx_list_buf[blob_offset..blob_offset + blob_size].to_vec()
         } else {
@@ -239,26 +243,28 @@ pub fn generate_transactions_for_shasta_blocks(
         // - Decode manifest from blob data
         // - Extract transactions from manifest blocks
         // - Distribute transactions to blocks
-        // TODO: support un-happy path in derivation doc
-        assert!(use_blob);
         if idx == data_sources.len() - 1 {
+            assert!(
+                !data_source.is_forced_inclusion,
+                "last source should be normal source"
+            );
             let protocol_manifest_bytes =
                 zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
             let protocol_manifest =
                 match DerivationSourceManifest::decode(&mut protocol_manifest_bytes.as_ref()) {
-                    Ok(manifest) => {
-                        // last_anchor_block_number = 0u64; // TODO!!!
-                        let manifest_block_number = manifest.blocks.len();
-                        next_block_idx += manifest_block_number;
-                        last_parent_block_header =
-                            &guest_batch_input.inputs[next_block_idx - 1].block.header;
+                    Ok(manifest)
+                        if validate_normal_proposal_manifest(
+                            &manifest,
+                            last_anchor_block_number,
+                        ) =>
+                    {
                         manifest
                     }
-                    Err(_) => {
+                    _ => {
                         let timestamp = taiko_guest_batch_input.l1_header.timestamp;
                         let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
-                        let anchor_block_number = 0; // todo! get parent block's anchor block number
-                        let gas_limit = last_parent_block_header.gas_limit; // todo! get parent block's gas limit
+                        let anchor_block_number = last_anchor_block_number;
+                        let gas_limit = last_parent_block_header.gas_limit;
                         let transactions = Vec::new();
                         DerivationSourceManifest::default_block_manifest(
                             timestamp,
@@ -269,23 +275,132 @@ pub fn generate_transactions_for_shasta_blocks(
                         )
                     }
                 };
+
             protocol_manifest
                 .blocks
                 .iter()
-                .for_each(|block| tx_list_bufs.push(block.transactions.clone()));
+                .enumerate()
+                .for_each(|(offset, block)| {
+                    assert!(
+                        validate_input_block_param(
+                            block,
+                            &guest_batch_input.inputs[idx + offset].block
+                        ),
+                        "input block manifest is invalid"
+                    );
+                    tx_list_bufs.push((block.transactions.clone(), false))
+                });
         } else {
+            assert!(
+                data_source.is_forced_inclusion,
+                "begin sources are force inclusion source"
+            );
+
+            let timestamp = taiko_guest_batch_input.l1_header.timestamp;
+            let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
+            let anchor_block_number = last_anchor_block_number;
+            let gas_limit = last_parent_block_header.gas_limit;
+            let transactions = Vec::new();
             let force_inc_source_bytes =
                 zlib_decompress_data(&compressed_tx_list_buf).unwrap_or_default();
             let force_inc_source =
-                DerivationSourceManifest::decode(&mut force_inc_source_bytes.as_ref()).unwrap();
-            force_inc_source
-                .blocks
-                .iter()
-                .for_each(|block| tx_list_bufs.push(block.transactions.clone()));
-            // TODO: force inc's invalid manifest handling
+                match DerivationSourceManifest::decode(&mut force_inc_source_bytes.as_ref()) {
+                    Ok(manifest) if validate_force_inc_proposal_manifest(&manifest) => manifest,
+                    _ => DerivationSourceManifest::default_block_manifest(
+                        timestamp,
+                        coinbase,
+                        anchor_block_number,
+                        gas_limit,
+                        transactions,
+                    ),
+                };
+            // force inc has only 1 block
+            let force_inc_block_manifest = &force_inc_source.blocks[0];
+            assert!(
+                validate_input_block_param(
+                    force_inc_block_manifest,
+                    &guest_batch_input.inputs[idx].block
+                ),
+                "force inclusion source is invalid"
+            );
+            tx_list_bufs.push((force_inc_block_manifest.transactions.clone(), true));
         }
     }
     tx_list_bufs
+}
+
+fn valid_anchor_in_normal_proposal(
+    blocks: &[ProtocolBlockManifest],
+    last_anchor_block_number: u64,
+) -> bool {
+    // at least 1 anchor number in one proposal should > last_anchor_block_number
+    blocks
+        .iter()
+        .any(|block| block.anchor_block_number > last_anchor_block_number)
+}
+
+fn validate_normal_proposal_manifest(
+    manifest: &DerivationSourceManifest,
+    last_anchor_block_number: u64,
+) -> bool {
+    let manifest_block_number = manifest.blocks.len();
+    if manifest_block_number <= PROPOSAL_MAX_BLOCKS {
+        error!(
+            "manifest_block_number {} <= PROPOSAL_MAX_BLOCKS {}",
+            manifest_block_number, PROPOSAL_MAX_BLOCKS
+        );
+        return false;
+    }
+
+    if !valid_anchor_in_normal_proposal(&manifest.blocks, last_anchor_block_number) {
+        error!(
+            "valid_anchor_in_proposal failed, last_anchor_block_number: {}",
+            last_anchor_block_number
+        );
+        return false;
+    }
+    true
+}
+
+fn validate_force_inc_proposal_manifest(manifest: &DerivationSourceManifest) -> bool {
+    if manifest.blocks.len() != 1
+        || manifest.blocks[0].timestamp != 0
+        || manifest.blocks[0].coinbase != Address::default()
+        || manifest.blocks[0].anchor_block_number != 0
+        || manifest.blocks[0].gas_limit != 0
+    {
+        error!(
+            "validate_force_inc_proposal_manifest failed, manifest: {:?}",
+            manifest
+        );
+        return false;
+    }
+    true
+}
+
+fn validate_input_block_param(manifest_block: &ProtocolBlockManifest, input_block: &Block) -> bool {
+    if manifest_block.timestamp != input_block.header.timestamp {
+        error!(
+            "manifest_block.timestamp != input_block.header.timestamp, manifest_block.timestamp: {}, input_block.header.timestamp: {}",
+            manifest_block.timestamp, input_block.header.timestamp
+        );
+        return false;
+    }
+    if manifest_block.coinbase != input_block.header.beneficiary {
+        error!(
+            "manifest_block.coinbase != input_block.header.coinbase, manifest_block.coinbase: {}, input_block.header.coinbase: {}",
+            manifest_block.coinbase, input_block.header.beneficiary
+        );
+        return false;
+    }
+    if manifest_block.gas_limit != input_block.header.gas_limit {
+        error!(
+            "manifest_block.gas_limit != input_block.header.gas_limit, manifest_block.gas_limit: {}, input_block.header.gas_limit: {}",
+            manifest_block.gas_limit, input_block.header.gas_limit
+        );
+        return false;
+    }
+    true
 }
 
 const MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD: u64 = 10;
@@ -312,6 +427,46 @@ pub fn validate_shasta_block_gas_limit(block_guest_inputs: &[GuestInput]) -> boo
         if block_gas_limit < lower_limit || block_gas_limit > upper_limit {
             return false;
         }
+    }
+    true
+}
+
+// Offset constant for lower bound, placeholder, adjust as needed for protocol.
+const TIMESTAMP_MAX_OFFSET: u64 = 12 * 32;
+
+/// validate timestamp for each block
+// #### `timestamp` Validation
+// Validates that block timestamps conform to the protocol rules. The 3rd party should set correct values
+// according to these rules before calling this function:
+// 1. **Upper bound validation**: `block.timestamp <= proposal.timestamp` must hold
+// 2. **Lower bound calculation**: `lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
+// 3. **Lower bound validation**: `block.timestamp >= lowerBound` must hold
+pub fn validate_shasta_block_timesatmp(block_guest_inputs: &[GuestInput]) -> bool {
+    for block_guest_input in block_guest_inputs.iter() {
+        let block_timestamp = block_guest_input.block.header.timestamp;
+        let proposal_timestamp = block_guest_input.taiko.block_proposed.proposal_timestamp();
+        // Upper bound validation: block.timestamp <= proposal.timestamp
+        assert!(
+            block_timestamp <= proposal_timestamp,
+            "Block timestamp {} exceeds proposal timestamp {}",
+            block_timestamp,
+            proposal_timestamp
+        );
+
+        // Lower bound validation:
+        // Calculate lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)
+        // Then validate: block.timestamp >= lowerBound
+        let parent_timestamp = block_guest_input.parent_header.timestamp;
+        let lower_bound = std_max(
+            parent_timestamp + 1,
+            proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET),
+        );
+        assert!(
+            block_timestamp >= lower_bound,
+            "Block timestamp {} is less than calculated lower bound {}",
+            block_timestamp,
+            lower_bound
+        );
     }
     true
 }

@@ -280,7 +280,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
     };
 
     // distribute txs to each block
-    let pool_txs_list: Vec<Vec<TransactionSigned>> =
+    let pool_txs_list: Vec<(Vec<TransactionSigned>, bool)> =
         generate_transactions_for_batch_blocks(&mock_guest_batch_input);
 
     assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
@@ -292,7 +292,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         .unwrap_or(10);
     let tasks: Vec<(
         (reth_primitives::Block, alloy_rpc_types::Block),
-        Vec<TransactionSigned>,
+        (Vec<TransactionSigned>, bool),
     )> = block_parent_pairs
         .iter()
         .cloned()
@@ -304,7 +304,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         let taiko_chain_spec = taiko_chain_spec.clone();
         let handle = tokio::spawn(async move {
             let mut chunk_guest_input = Vec::new();
-            for ((prove_block, parent_block), pure_pool_txs) in task_batch_vec {
+            for ((prove_block, parent_block), txs_with_force_inc_flag) in task_batch_vec {
                 let taiko_chain_spec = taiko_chain_spec.clone();
                 let taiko_guest_batch_input = taiko_guest_batch_input.clone();
 
@@ -319,6 +319,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                 #[cfg(not(feature = "statedb_lru"))]
                 let initial_db = None;
 
+                let (pure_pool_txs, is_force_inclusion) = txs_with_force_inc_flag;
                 let anchor_tx = prove_block.body.first().unwrap().clone();
                 let taiko_input = TaikoGuestInput {
                     l1_header: taiko_guest_batch_input.l1_header.clone(),
@@ -339,7 +340,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                                 .prover_data
                                 .designated_prover
                                 .unwrap_or_default();
-                            Some((lowbond_proposal, designated_prover))
+                            Some((lowbond_proposal, designated_prover, is_force_inclusion))
                         }
                         _ => None,
                     },
