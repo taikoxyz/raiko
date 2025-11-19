@@ -703,6 +703,8 @@ pub struct ShastaInputRequestEntity {
     parent_transition_hash: B256,
     /// checkpoint
     checkpoint: Option<ShastaProposalCheckpoint>,
+    /// last anchor block number
+    last_anchor_block_number: u64,
     /// Designated prover.
     designated_prover: Address,
 }
@@ -719,6 +721,7 @@ impl ShastaInputRequestEntity {
         parent_transition_hash: B256,
         checkpoint: Option<ShastaProposalCheckpoint>,
         designated_prover: Address,
+        last_anchor_block_number: u64,
     ) -> Self {
         Self {
             proposal_id,
@@ -731,6 +734,7 @@ impl ShastaInputRequestEntity {
             parent_transition_hash,
             checkpoint,
             designated_prover,
+            last_anchor_block_number,
         }
     }
 }
@@ -820,6 +824,7 @@ impl ShastaProofRequestEntity {
         parent_transition_hash: B256,
         checkpoint: Option<ShastaProposalCheckpoint>,
         designated_prover: Address,
+        last_anchor_block_number: u64,
     ) -> Self {
         Self {
             guest_input_entity: ShastaInputRequestEntity::new(
@@ -833,6 +838,7 @@ impl ShastaProofRequestEntity {
                 parent_transition_hash,
                 checkpoint,
                 designated_prover,
+                last_anchor_block_number,
             ),
             proof_type,
             prover_args,

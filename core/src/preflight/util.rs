@@ -351,9 +351,9 @@ async fn prepare_pacaya_batch_input(
     let batch_info = &batch_proposed.info;
     let blob_hashes = batch_info.blobHashes.clone();
     let force_inclusion_block_number = batch_info.blobCreatedIn;
-    let l1_blob_timestamp = if force_inclusion_block_number != 0
-        && force_inclusion_block_number != l1_inclusion_block_number
-    {
+    let is_forced_inclusion = force_inclusion_block_number != 0
+        && force_inclusion_block_number != l1_inclusion_block_number;
+    let l1_blob_timestamp = if is_forced_inclusion {
         // force inclusion block
         info!(
             "process force inclusion block: {l1_inclusion_block_number:?} -> {force_inclusion_block_number:?}"
@@ -404,6 +404,7 @@ async fn prepare_pacaya_batch_input(
                 .map(|(_, _, proof)| proof.clone())
                 .collect(),
             blob_proof_type: blob_proof_type.clone(),
+            is_forced_inclusion: is_forced_inclusion,
         }],
     })
 }
@@ -462,6 +463,7 @@ async fn prepare_shasta_batch_input(
                 .map(|(_, _, proof)| proof.clone())
                 .collect(),
             blob_proof_type: blob_proof_type.clone(),
+            is_forced_inclusion,
         });
     }
 

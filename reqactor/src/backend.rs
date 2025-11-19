@@ -228,6 +228,7 @@ pub async fn do_generate_guest_input(
         checkpoint: Default::default(),
         designated_prover: Default::default(),
         cached_event_data: None,
+        last_anchor_block_number: None,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -293,6 +294,7 @@ pub async fn do_prove_single(
         checkpoint: Default::default(),
         designated_prover: Default::default(),
         cached_event_data: None,
+        last_anchor_block_number: None,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -317,9 +319,7 @@ pub async fn do_prove_single(
                 input.taiko.prover_data = raiko_lib::input::TaikoProverData {
                     graffiti: request_entity.graffiti().clone(),
                     actual_prover: request_entity.prover().clone(),
-                    parent_transition_hash: Default::default(),
-                    checkpoint: Default::default(),
-                    designated_prover: Default::default(),
+                    ..Default::default()
                 }
             }
             input
@@ -435,6 +435,7 @@ async fn new_raiko_for_batch_request(
         checkpoint: Default::default(),
         designated_prover: Default::default(),
         cached_event_data: Some(cached_event_data),
+        last_anchor_block_number: None,
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
@@ -622,6 +623,12 @@ async fn new_raiko_for_shasta_proposal_request(
             request_entity
                 .guest_input_entity()
                 .designated_prover()
+                .clone(),
+        ),
+        last_anchor_block_number: Some(
+            request_entity
+                .guest_input_entity()
+                .last_anchor_block_number()
                 .clone(),
         ),
         cached_event_data: Some(cached_event_data),

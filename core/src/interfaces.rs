@@ -376,6 +376,8 @@ pub struct ProofRequest {
     pub checkpoint: Option<ShastaProposalCheckpoint>,
     /// designated_prover
     pub designated_prover: Option<Address>,
+    /// last anchor number
+    pub last_anchor_block_number: Option<u64>,
     /// Cached block proposed event data to avoid duplicate RPC calls
     #[serde(skip)]
     pub cached_event_data: Option<raiko_lib::input::BlockProposedFork>,
@@ -529,6 +531,7 @@ pub struct ShastaProposal {
     pub checkpoint: Option<ShastaProposalCheckpoint>,
     pub l1_inclusion_block_number: u64,
     pub l2_block_numbers: Vec<u64>,
+    pub last_anchor_block_number: u64,
 }
 
 impl std::fmt::Display for ShastaProposal {
@@ -724,6 +727,7 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             checkpoint: None,
             designated_prover: None,
             cached_event_data: None,
+            last_anchor_block_number: None,
         })
     }
 }

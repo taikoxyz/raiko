@@ -23,6 +23,7 @@ pub fn create_shasta_requests(
         checkpoint,
         l1_inclusion_block_number,
         l2_block_numbers,
+        last_anchor_block_number    
     } in batch_request.proposals.iter()
     {
         // Create Shasta input request key
@@ -57,6 +58,7 @@ pub fn create_shasta_requests(
             parent_transition_hash.clone(),
             checkpoint.clone().into(),
             designated_prover.clone(),
+            last_anchor_block_number.clone(),
         );
 
         // Create Shasta proof request entity
