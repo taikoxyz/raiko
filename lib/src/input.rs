@@ -17,7 +17,7 @@ use tracing::error;
 use crate::no_std::*;
 use crate::{
     consts::ChainSpec, input::shasta::Checkpoint, primitives::mpt::MptNode, prover::Proof,
-    utils::zlib_compress_data,
+    utils::blobs::zlib_compress_data,
 };
 
 /// Represents the state of an account's storage.

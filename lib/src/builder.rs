@@ -4,8 +4,8 @@ use std::sync::Arc;
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
 use crate::utils::{
-    generate_transactions, generate_transactions_for_batch_blocks, validate_shasta_block_gas_limit,
-    validate_shasta_block_timesatmp,
+    shasta_rules::{validate_shasta_block_gas_limit, validate_shasta_block_timesatmp},
+    txs::{generate_transactions, generate_transactions_for_batch_blocks},
 };
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},

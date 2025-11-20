@@ -18,7 +18,7 @@ use raiko_lib::{
         ShastaAggregationGuestInput,
     },
     prover::{IdWrite, Proof},
-    utils::{zlib_compress_data, zlib_decompress_data},
+    utils::blobs::{zlib_compress_data, zlib_decompress_data},
 };
 use raiko_reqpool::{
     AggregationRequestEntity, BatchGuestInputRequestEntity, BatchProofRequestEntity,

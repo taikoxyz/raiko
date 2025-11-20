@@ -571,7 +571,7 @@ class BatchMonitor:
         return logs[0].blockNumber, batch_ids
 
     def generate_post_data(
-        self, proposal_id: int, l1_inclusion_block_number: int, l2_block_numbers: list[int]
+        self, proposal_id: int, l1_inclusion_block_number: int, l2_block_numbers: list[int], last_anchor_block_number: int
     ) -> Dict[str, Any]:
         """generate post data"""
         return {
@@ -583,6 +583,7 @@ class BatchMonitor:
                     "designated_prover": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
                     "parent_transition_hash": "0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388",
                     "checkpoint": None,
+                    "last_anchor_block_number": last_anchor_block_number,
                 }
             ],
             "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
@@ -606,13 +607,13 @@ class BatchMonitor:
         }
 
     async def submit_to_raiko(
-        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int]
+        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int
     ) -> Optional[str]:
         """submit batch to Raiko"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
 
-            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers)
+            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number)
             print(f"payload = {payload}")
 
             response = requests.post(
@@ -639,12 +640,12 @@ class BatchMonitor:
             return None
 
     async def query_raiko_status(
-        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int]
+        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int
     ) -> RaikoResponse:
         """query Raiko status"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
-            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers)
+            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number)
             response = requests.post(
                 f"{self.raiko_rpc}/v3/proof/batch/shasta",
                 headers=headers,
@@ -681,8 +682,29 @@ class BatchMonitor:
                     f"\nproposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) in L1 block {l1_inclusion_block} processing started at {start_time}\n"
                 )
 
+            # Get last_anchor_block_number from parent of the first block in the proposal
+            first_block = group.l2_block_numbers[0]
+            last_anchor_block_number = 0  # Default to 0 if no parent block
+            
+            if first_block > 0:
+                parent_block = first_block - 1
+                parent_anchor_info = await self.parse_l2_block_anchor_tx(parent_block)
+                if parent_anchor_info is not None:
+                    last_anchor_block_number = parent_anchor_info.anchor_number
+                    self.logger.info(
+                        f"Found last_anchor_block_number={last_anchor_block_number} from parent block {parent_block}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"Could not parse parent block {parent_block}, using default last_anchor_block_number=0"
+                    )
+            else:
+                self.logger.info(
+                    f"First block is 0, no parent block available, using default last_anchor_block_number=0"
+                )
+
             # request Raiko
-            await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers)
+            await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number)
 
             # polling
             retry_count = 0
@@ -695,7 +717,7 @@ class BatchMonitor:
                     )
                     break
 
-                response = await self.query_raiko_status(group.proposal_id, l1_inclusion_block, group.l2_block_numbers)
+                response = await self.query_raiko_status(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number)
 
                 if response.status == "error":
                     self.logger.error(
