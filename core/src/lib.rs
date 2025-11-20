@@ -10,8 +10,8 @@ use raiko_lib::{
     protocol_instance::ProtocolInstance,
     prover::{IdStore, IdWrite, Proof, ProofKey},
     utils::{
-        generate_transactions, generate_transactions_for_batch_blocks,
-        validate_shasta_block_gas_limit,
+        shasta_rules::validate_shasta_block_gas_limit,
+        txs::{generate_transactions, generate_transactions_for_batch_blocks},
     },
 };
 use reth_primitives::{Block, Header};
@@ -373,7 +373,7 @@ pub fn merge(a: &mut Value, b: &Value) {
 
 #[cfg(test)]
 mod tests {
-    use crate::interfaces::{aggregate_proofs, ShastaProposalCheckpoint};
+    use crate::interfaces::aggregate_proofs;
     use crate::preflight::{
         parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
     };

@@ -2,7 +2,7 @@ use alloy_rlp::{Decodable, Encodable};
 use anyhow::Result;
 
 use super::types::{DerivationSourceManifest, ProtocolBlockManifest};
-use crate::utils::{zlib_compress_data, zlib_decompress_data};
+use crate::utils::blobs::{zlib_compress_data, zlib_decompress_data};
 
 /// Encode and compress a Shasta proposal manifest (equivalent to Go's EncodeAndCompressShastaProposal)
 pub fn encode_and_compress_shasta_proposal(proposal: &DerivationSourceManifest) -> Result<Vec<u8>> {
@@ -107,10 +107,11 @@ impl Encodable for DerivationSourceManifest {
     }
 }
 
+pub(crate) const PROPOSAL_MAX_BLOCKS: usize = 384;
+pub(crate) const PROPOSAL_MAX_AUTH_BYTES: usize = 161;
+
 impl Decodable for DerivationSourceManifest {
     fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
-        const PROPOSAL_MAX_BLOCKS: usize = 384;
-        const PROPOSAL_MAX_AUTH_BYTES: usize = 161;
         // Decode the RLP header first
         let header = alloy_rlp::Header::decode(buf)?;
         if !header.list {

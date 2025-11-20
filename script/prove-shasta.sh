@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-if [ "$#" -ne 4 ]; then
-    echo "Usage: prove-shasta.sh <chain> <proof> <batch_info>"
+if [ "$#" -ne 5 ]; then
+    echo "Usage: prove-shasta.sh <chain> <proof> <batch_info> <l2 block> <last l2 anchor>"
     echo "  chain: taiko_mainnet, taiko_a7, taiko_dev"
     echo "  proof: native, risc0[-bonsai], sp1, sgx, sgxgeth"
     echo "  batch_info: \"[(batch_id, batch_proposal_height)]\""
@@ -19,7 +19,6 @@ proof="$2"
 # batch_id="$3"
 # # Use the fourth parameter(s) as the batch number as a range
 # batch_proposal_height="$4"
-# aggregate="${5:-"false"}"
 
 # $(dirname "$0")/prove.sh batch "$chain" "$proof" "$batch_id":"$batch_proposal_height" "$aggregate"
 
@@ -29,7 +28,7 @@ l2_block_numbers="$4"
 
 batch_id=""
 height=""
-last_anchor_block_number=5
+last_anchor_block_number="$5"
 designated_prover="0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
 parent_transition_hash="0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
 checkpoint=null

@@ -1230,7 +1230,7 @@ mod test {
     use alloy_rlp::Decodable;
     use raiko_lib::{
         manifest::DerivationSourceManifest,
-        utils::{decode_blob_data, zlib_decompress_data},
+        utils::blobs::{decode_blob_data, zlib_decompress_data},
     };
 
     use super::*;

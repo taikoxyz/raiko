@@ -14,7 +14,7 @@ use raiko_lib::{
         TaikoProverData,
     },
     primitives::mpt::proofs_to_tries,
-    utils::{generate_transactions, generate_transactions_for_batch_blocks},
+    utils::txs::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
 };
 use reth_primitives::TransactionSigned;
@@ -475,7 +475,7 @@ mod test {
     use ethers_core::types::Transaction;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
-        utils::decode_transactions,
+        utils::txs::decode_transactions,
     };
 
     use crate::preflight::util::{blob_to_bytes, block_time_to_block_slot};
