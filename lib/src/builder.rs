@@ -3,10 +3,7 @@ use std::sync::Arc;
 
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
-use crate::utils::{
-    shasta_rules::{validate_shasta_block_gas_limit, validate_shasta_block_timesatmp},
-    txs::{generate_transactions, generate_transactions_for_batch_blocks},
-};
+use crate::utils::txs::{generate_transactions, generate_transactions_for_batch_blocks};
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
     guest_mem_forget,
@@ -79,18 +76,7 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
         );
     }
     validate_final_batch_blocks(input, &final_blocks);
-    if input.taiko.batch_proposed.is_shasta() {
-        assert!(
-            validate_shasta_block_gas_limit(&input.inputs),
-            "shasta block gas limit check failed."
-        );
 
-        validate_shasta_block_timesatmp(&input.inputs);
-        assert!(
-            validate_shasta_block_timesatmp(&input.inputs),
-            "shasta block timestamp check failed."
-        );
-    }
     final_blocks
 }
 

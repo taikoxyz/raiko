@@ -59,6 +59,7 @@ pub fn generate_transactions_for_shasta_blocks(
                 match DerivationSourceManifest::decode(&mut protocol_manifest_bytes.as_ref()) {
                     Ok(manifest)
                         if validate_normal_proposal_manifest(
+                            &guest_batch_input,
                             &manifest,
                             last_anchor_block_number,
                         ) =>
@@ -74,9 +75,14 @@ pub fn generate_transactions_for_shasta_blocks(
                             .unwrap()
                             == SpecId::PACAYA;
 
-                        if !validate_shasta_block_base_fee(&guest_batch_input.inputs, is_first_shasta_proposal) {
+                        //TODO: move to validate_normal_proposal_manifest
+                        if !validate_shasta_block_base_fee(
+                            &guest_batch_input.inputs,
+                            is_first_shasta_proposal,
+                        ) {
                             warn!("shasta block base fee is invalid, need double check");
                         }
+
                         manifest
                     }
                     _ => {

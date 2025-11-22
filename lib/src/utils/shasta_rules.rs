@@ -4,7 +4,7 @@ use reth_primitives::{Address, Block};
 use std::cmp::max as std_max;
 use tracing::error;
 
-use crate::input::GuestInput;
+use crate::input::{GuestBatchInput, GuestInput};
 use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest, PROPOSAL_MAX_BLOCKS};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -20,6 +20,7 @@ pub(crate) fn valid_anchor_in_normal_proposal(
 }
 
 pub(crate) fn validate_normal_proposal_manifest(
+    input: &GuestBatchInput,
     manifest: &DerivationSourceManifest,
     last_anchor_block_number: u64,
 ) -> bool {
@@ -37,6 +38,14 @@ pub(crate) fn validate_normal_proposal_manifest(
             "valid_anchor_in_proposal failed, last_anchor_block_number: {}",
             last_anchor_block_number
         );
+        return false;
+    }
+
+    if validate_shasta_block_gas_limit(&input.inputs) {
+        return false;
+    }
+
+    if validate_shasta_block_timesatmp(&input.inputs) {
         return false;
     }
     true
@@ -132,12 +141,13 @@ pub fn validate_shasta_block_timesatmp(block_guest_inputs: &[GuestInput]) -> boo
         let block_timestamp = block_guest_input.block.header.timestamp;
         let proposal_timestamp = block_guest_input.taiko.block_proposed.proposal_timestamp();
         // Upper bound validation: block.timestamp <= proposal.timestamp
-        assert!(
-            block_timestamp <= proposal_timestamp,
-            "Block timestamp {} exceeds proposal timestamp {}",
-            block_timestamp,
-            proposal_timestamp
-        );
+        if block_timestamp > proposal_timestamp {
+            error!(
+                "Block timestamp {} exceeds proposal timestamp {}",
+                block_timestamp, proposal_timestamp
+            );
+            return false;
+        }
 
         // Lower bound validation:
         // Calculate lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)
@@ -147,68 +157,16 @@ pub fn validate_shasta_block_timesatmp(block_guest_inputs: &[GuestInput]) -> boo
             parent_timestamp + 1,
             proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET),
         );
-        assert!(
-            block_timestamp >= lower_bound,
-            "Block timestamp {} is less than calculated lower bound {}",
-            block_timestamp,
-            lower_bound
-        );
+        if block_timestamp < lower_bound {
+            error!(
+                "Block timestamp {} is less than calculated lower bound {}",
+                block_timestamp, lower_bound
+            );
+            return false;
+        }
     }
     true
 }
-
-/*
-
-// CalcEIP4396BaseFee calculates the EIP-4396 basefee of the header.
-func CalcEIP4396BaseFee(config *params.ChainConfig, parent *types.Header, parentBlockTime uint64) *big.Int {
-    // If the parent is genesis, use the initial base fee for the first post-genesis block.
-    if parent.Number.Cmp(common.Big0) == 0 {
-        return new(big.Int).SetUint64(params.ShastaInitialBaseFee)
-    }
-
-    parentGasTarget := parent.GasLimit / config.ElasticityMultiplier()
-    parentAdjustedGasTarget := min(
-        parentGasTarget*parentBlockTime/blockTimeTarget,
-        parent.GasLimit*maxGasTargetTargetPercentage/100,
-    )
-
-    // If the parent gasUsed is the same as the adjusted target, the baseFee remains unchanged.
-    if parent.GasUsed == parentAdjustedGasTarget {
-        return parent.BaseFee
-    }
-
-    var (
-        num   = new(big.Int)
-        denom = new(big.Int)
-    )
-
-    if parent.GasUsed > parentAdjustedGasTarget {
-        // If the parent block used more gas than its target, the baseFee should increase.
-        // max(1, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
-        num.SetUint64(parent.GasUsed - parentAdjustedGasTarget)
-        num.Mul(num, parent.BaseFee)
-        num.Div(num, denom.SetUint64(parentGasTarget))
-        num.Div(num, denom.SetUint64(config.BaseFeeChangeDenominator()))
-        if num.Cmp(common.Big1) < 0 {
-            return clampEIP4396BaseFeeShasta(num.Add(parent.BaseFee, common.Big1))
-        }
-        return clampEIP4396BaseFeeShasta(num.Add(parent.BaseFee, num))
-    } else {
-        // Otherwise if the parent block used less gas than its target, the baseFee should decrease.
-        // max(0, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
-        num.SetUint64(parentAdjustedGasTarget - parent.GasUsed)
-        num.Mul(num, parent.BaseFee)
-        num.Div(num, denom.SetUint64(parentGasTarget))
-        num.Div(num, denom.SetUint64(config.BaseFeeChangeDenominator()))
-
-        baseFee := num.Sub(parent.BaseFee, num)
-        if baseFee.Cmp(common.Big0) < 0 {
-            baseFee = common.Big0
-        }
-        return clampEIP4396BaseFeeShasta(baseFee)
-    }
-}
-*/
 
 /// Block time target for EIP-4396 base fee calculation (2 seconds)
 const BLOCK_TIME_TARGET: u64 = 2;
@@ -217,17 +175,6 @@ const MAX_GAS_TARGET_TARGET_PERCENTAGE: u64 = 95;
 
 /// Calculates the next base fee for Shasta blocks according to EIP-4396 logic.
 /// Returns the next base fee given the parent block gas/fee parameters and protocol config.
-///
-/// # Arguments
-/// - `parent_gas_limit`: Gas limit of the parent block.
-/// - `parent_gas_used`: Gas used in the parent block.
-/// - `parent_base_fee`: Base fee of the parent block.
-/// - `parent_block_time`: Time difference between parent and current block (in seconds).
-/// - `elasticity_multiplier`: Elasticity multiplier from protocol config.
-/// - `base_fee_change_denominator`: Base fee change denominator from protocol config.
-///
-/// # Returns
-/// The next EIP-4396 base fee (clamped within min/max limits).
 fn calc_next_shasta_base_fee(
     parent_gas_limit: u64,
     parent_gas_used: u64,
