@@ -1,5 +1,6 @@
 use alloy_rlp::Decodable;
 use log::warn;
+use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
 use reth_primitives::revm_primitives::SpecId;
 use reth_primitives::TransactionSigned;
 
@@ -86,6 +87,7 @@ pub fn generate_transactions_for_shasta_blocks(
                         manifest
                     }
                     _ => {
+                        warn!("shasta block manifest is invalid, use default manifest");
                         let timestamp = taiko_guest_batch_input.l1_header.timestamp;
                         let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
                         let anchor_block_number = last_anchor_block_number;
@@ -95,7 +97,7 @@ pub fn generate_transactions_for_shasta_blocks(
                             timestamp,
                             coinbase,
                             anchor_block_number,
-                            gas_limit,
+                            gas_limit - ANCHOR_V4_GAS_LIMIT,
                             transactions,
                         )
                     }
@@ -135,7 +137,7 @@ pub fn generate_transactions_for_shasta_blocks(
                         timestamp,
                         coinbase,
                         anchor_block_number,
-                        gas_limit,
+                        gas_limit - ANCHOR_V4_GAS_LIMIT,
                         transactions,
                     ),
                 };

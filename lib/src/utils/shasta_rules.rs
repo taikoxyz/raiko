@@ -41,11 +41,13 @@ pub(crate) fn validate_normal_proposal_manifest(
         return false;
     }
 
-    if validate_shasta_block_gas_limit(&input.inputs) {
+    if !validate_shasta_block_gas_limit(&input.inputs) {
+        error!("validate_shasta_block_gas_limit failed");
         return false;
     }
 
-    if validate_shasta_block_timesatmp(&input.inputs) {
+    if !validate_shasta_block_timesatmp(&input) {
+        error!("validate_shasta_block_timesatmp failed");
         return false;
     }
     true
@@ -136,10 +138,11 @@ const TIMESTAMP_MAX_OFFSET: u64 = 12 * 32;
 // 1. **Upper bound validation**: `block.timestamp <= proposal.timestamp` must hold
 // 2. **Lower bound calculation**: `lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
 // 3. **Lower bound validation**: `block.timestamp >= lowerBound` must hold
-pub fn validate_shasta_block_timesatmp(block_guest_inputs: &[GuestInput]) -> bool {
+pub fn validate_shasta_block_timesatmp(batch_guest_inputs: &GuestBatchInput) -> bool {
+    let block_guest_inputs = &batch_guest_inputs.inputs;
+    let proposal_timestamp = batch_guest_inputs.taiko.batch_proposed.proposal_timestamp();
     for block_guest_input in block_guest_inputs.iter() {
         let block_timestamp = block_guest_input.block.header.timestamp;
-        let proposal_timestamp = block_guest_input.taiko.block_proposed.proposal_timestamp();
         // Upper bound validation: block.timestamp <= proposal.timestamp
         if block_timestamp > proposal_timestamp {
             error!(
