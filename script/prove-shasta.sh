@@ -60,7 +60,7 @@ parse_batch_pair() {
             \"parent_transition_hash\": \"$parent_transition_hash\", \
             \"checkpoint\": $checkpoint, \
             \"l1_inclusion_block_number\": $height, \
-            \"l2_block_numbers\": [$l2_block_numbers] \
+            \"l2_block_numbers\": [$l2_block_numbers], \
             \"last_anchor_block_number\": $last_anchor_block_number \
         }"
         first=0

@@ -176,6 +176,13 @@ impl BlockProposedFork {
         }
     }
 
+    pub fn proposal_block_number(&self) -> u64 {
+        match self {
+            BlockProposedFork::Shasta(event_data) => event_data.core_state.lastProposalBlockId,
+            _ => unimplemented!("can not get proposal block number from non-shasta proposal"),
+        }
+    }
+
     pub fn base_fee_config(&self) -> ProtocolBaseFeeConfig {
         match self {
             BlockProposedFork::Ontake(block) => ProtocolBaseFeeConfig {

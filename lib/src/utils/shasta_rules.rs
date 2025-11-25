@@ -2,21 +2,67 @@ use core::cmp::{max, min};
 use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
 use reth_primitives::{Address, Block};
 use std::cmp::max as std_max;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::input::{GuestBatchInput, GuestInput};
 use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest, PROPOSAL_MAX_BLOCKS};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
+const ANCHOR_MIN_OFFSET: usize = 2;
+const ANCHOR_MAX_OFFSET: usize = 128;
+
 pub(crate) fn valid_anchor_in_normal_proposal(
     blocks: &[ProtocolBlockManifest],
     last_anchor_block_number: u64,
+    l1_header_number: u64,
 ) -> bool {
-    // at least 1 anchor number in one proposal should > last_anchor_block_number
-    blocks
-        .iter()
-        .any(|block| block.anchor_block_number > last_anchor_block_number)
+    // Check if anchor is within valid range [l1_header_number - ANCHOR_MAX_OFFSET, l1_header_number - ANCHOR_MIN_OFFSET)
+    // Use saturating_sub to avoid underflow when l1_header_number is small
+    let min_anchor = l1_header_number.saturating_sub(ANCHOR_MAX_OFFSET as u64);
+    let max_anchor = l1_header_number.saturating_sub(ANCHOR_MIN_OFFSET as u64);
+
+    // Perform all checks in a single loop:
+    // 1. Check if at least one anchor > last_anchor_block_number
+    // 2. Check if anchors are in order (non-decreasing)
+    // 3. Check if all anchors are within valid range
+    let mut has_anchor_grow = false;
+    let mut prev_anchor = None;
+
+    for block in blocks.iter() {
+        let anchor = block.anchor_block_number;
+
+        // Check 1: at least one anchor should > last_anchor_block_number
+        if anchor > last_anchor_block_number {
+            has_anchor_grow = true;
+        }
+
+        // Check 2: anchors should be in order (non-decreasing)
+        if let Some(prev) = prev_anchor {
+            if anchor < prev {
+                warn!("anchor is not in order, blocks: {:?}", blocks);
+                return false;
+            }
+        }
+        prev_anchor = Some(anchor);
+
+        // Check 3: anchor should be within valid range
+        if anchor < min_anchor || anchor >= max_anchor {
+            warn!(
+                "anchor {} is not in range, [{}, {})",
+                anchor, min_anchor, max_anchor
+            );
+            return false;
+        }
+    }
+
+    if !has_anchor_grow {
+        warn!(
+            "anchor is not growing, last_anchor_block_number: {}",
+            last_anchor_block_number,
+        );
+    }
+    has_anchor_grow
 }
 
 pub(crate) fn validate_normal_proposal_manifest(
@@ -26,28 +72,32 @@ pub(crate) fn validate_normal_proposal_manifest(
 ) -> bool {
     let manifest_block_number = manifest.blocks.len();
     if manifest_block_number > PROPOSAL_MAX_BLOCKS {
-        error!(
+        warn!(
             "manifest_block_number {} > PROPOSAL_MAX_BLOCKS {}",
             manifest_block_number, PROPOSAL_MAX_BLOCKS
         );
         return false;
     }
 
-    if !valid_anchor_in_normal_proposal(&manifest.blocks, last_anchor_block_number) {
-        error!(
+    if !valid_anchor_in_normal_proposal(
+        &manifest.blocks,
+        last_anchor_block_number,
+        input.taiko.batch_proposed.proposal_block_number(),
+    ) {
+        warn!(
             "valid_anchor_in_proposal failed, last_anchor_block_number: {}",
             last_anchor_block_number
         );
         return false;
     }
 
-    if !validate_shasta_block_gas_limit(&input.inputs) {
-        error!("validate_shasta_block_gas_limit failed");
+    if !validate_shasta_block_gas_limit(&manifest.blocks, &input.inputs) {
+        warn!("validate_shasta_block_gas_limit failed");
         return false;
     }
 
-    if !validate_shasta_block_timesatmp(&input) {
-        error!("validate_shasta_block_timesatmp failed");
+    if !validate_shasta_manifest_block_timesatmp(&manifest.blocks, &input) {
+        warn!("validate_shasta_block_timesatmp failed");
         return false;
     }
     true
@@ -60,7 +110,7 @@ pub(crate) fn validate_force_inc_proposal_manifest(manifest: &DerivationSourceMa
         || manifest.blocks[0].anchor_block_number != 0
         || manifest.blocks[0].gas_limit != 0
     {
-        error!(
+        warn!(
             "validate_force_inc_proposal_manifest failed, manifest: {:?}",
             manifest
         );
@@ -74,21 +124,21 @@ pub(crate) fn validate_input_block_param(
     input_block: &Block,
 ) -> bool {
     if manifest_block.timestamp != input_block.header.timestamp {
-        error!(
+        warn!(
             "manifest_block.timestamp != input_block.header.timestamp, manifest_block.timestamp: {}, input_block.header.timestamp: {}",
             manifest_block.timestamp, input_block.header.timestamp
         );
         return false;
     }
     if manifest_block.coinbase != input_block.header.beneficiary {
-        error!(
+        warn!(
             "manifest_block.coinbase != input_block.header.coinbase, manifest_block.coinbase: {}, input_block.header.coinbase: {}",
             manifest_block.coinbase, input_block.header.beneficiary
         );
         return false;
     }
     if manifest_block.gas_limit + ANCHOR_V4_GAS_LIMIT != input_block.header.gas_limit {
-        error!(
+        warn!(
             "manifest_block.gas_limit != input_block.header.gas_limit, manifest_block.gas_limit: {}, input_block.header.gas_limit: {}",
             manifest_block.gas_limit, input_block.header.gas_limit
         );
@@ -98,14 +148,17 @@ pub(crate) fn validate_input_block_param(
 }
 
 const MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD: u64 = 10;
-const MAX_BLOCK_GAS_LIMIT: u64 = 100_000_000;
+const MAX_BLOCK_GAS_LIMIT: u64 = 45_000_000;
 const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
 
 /// validate gas limit for each block
-pub fn validate_shasta_block_gas_limit(block_guest_inputs: &[GuestInput]) -> bool {
-    for block_guest_input in block_guest_inputs.iter() {
-        let parent_gas_limit = block_guest_input.parent_header.gas_limit;
-        let block_gas_limit: u64 = block_guest_input.block.header.gas_limit;
+pub fn validate_shasta_block_gas_limit(
+    manifest_blocks: &[ProtocolBlockManifest],
+    block_guest_inputs: &[GuestInput],
+) -> bool {
+    let mut parent_gas_limit = block_guest_inputs[0].parent_header.gas_limit;
+    for manifest_block in manifest_blocks.iter() {
+        let block_gas_limit: u64 = manifest_block.gas_limit;
         let upper_limit = min(
             MAX_BLOCK_GAS_LIMIT,
             parent_gas_limit * (10000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000,
@@ -117,13 +170,11 @@ pub fn validate_shasta_block_gas_limit(block_guest_inputs: &[GuestInput]) -> boo
             ),
             upper_limit,
         );
-        assert!(
-            block_gas_limit >= lower_limit && block_gas_limit <= upper_limit,
-            "block gas limit is out of bounds"
-        );
         if block_gas_limit < lower_limit || block_gas_limit > upper_limit {
+            warn!("block gas limit is out of bounds, block_gas_limit: {}, lower_limit: {}, upper_limit: {}", block_gas_limit, lower_limit, upper_limit);
             return false;
         }
+        parent_gas_limit = block_gas_limit;
     }
     true
 }
@@ -138,14 +189,18 @@ const TIMESTAMP_MAX_OFFSET: u64 = 12 * 32;
 // 1. **Upper bound validation**: `block.timestamp <= proposal.timestamp` must hold
 // 2. **Lower bound calculation**: `lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
 // 3. **Lower bound validation**: `block.timestamp >= lowerBound` must hold
-pub fn validate_shasta_block_timesatmp(batch_guest_inputs: &GuestBatchInput) -> bool {
+pub fn validate_shasta_manifest_block_timesatmp(
+    blocks: &[ProtocolBlockManifest],
+    batch_guest_inputs: &GuestBatchInput,
+) -> bool {
     let block_guest_inputs = &batch_guest_inputs.inputs;
     let proposal_timestamp = batch_guest_inputs.taiko.batch_proposed.proposal_timestamp();
-    for block_guest_input in block_guest_inputs.iter() {
-        let block_timestamp = block_guest_input.block.header.timestamp;
+    let mut parent_timestamp = block_guest_inputs[0].parent_header.timestamp;
+    for manifest_block in blocks.iter() {
+        let block_timestamp = manifest_block.timestamp;
         // Upper bound validation: block.timestamp <= proposal.timestamp
         if block_timestamp > proposal_timestamp {
-            error!(
+            warn!(
                 "Block timestamp {} exceeds proposal timestamp {}",
                 block_timestamp, proposal_timestamp
             );
@@ -155,20 +210,27 @@ pub fn validate_shasta_block_timesatmp(batch_guest_inputs: &GuestBatchInput) -> 
         // Lower bound validation:
         // Calculate lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)
         // Then validate: block.timestamp >= lowerBound
-        let parent_timestamp = block_guest_input.parent_header.timestamp;
         let lower_bound = std_max(
             parent_timestamp + 1,
             proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET),
         );
         if block_timestamp < lower_bound {
-            error!(
+            warn!(
                 "Block timestamp {} is less than calculated lower bound {}",
                 block_timestamp, lower_bound
             );
             return false;
         }
+        parent_timestamp = block_timestamp;
     }
     true
+}
+
+pub(crate) fn clamp_timestamp_lower_bound(parent_block_ts: u64, proposal_ts: u64) -> u64 {
+    std_max(
+        parent_block_ts + 1,
+        proposal_ts.saturating_sub(TIMESTAMP_MAX_OFFSET),
+    )
 }
 
 /// Block time target for EIP-4396 base fee calculation (2 seconds)
@@ -328,7 +390,7 @@ pub fn validate_shasta_block_base_fee(
             );
 
             if expected_base_fee != actual_base_fee {
-                error!(
+                warn!(
                     "Block basefee mismatch at idx {}: expected {}, found {}",
                     i + 1,
                     expected_base_fee,
