@@ -281,8 +281,8 @@ impl BlockProposedFork {
                     .try_into()
                     .expect("shasta blob size header");
                 let blob_data_size_u64 = u64::from_be_bytes(size_bytes);
-                let blob_data_size =
-                    usize::from_be_bytes(size_b256_slice.as_slice()[24..32].try_into().unwrap());
+                let blob_data_size: usize = usize::try_from(blob_data_size_u64)
+                    .expect("blob size does not fit in usize");
                 if offset + blob_data_size
                     > BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
                         - SHASTA_BLOB_DATA_PREFIX_SIZE
