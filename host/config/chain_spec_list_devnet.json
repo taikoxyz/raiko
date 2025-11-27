@@ -70,14 +70,14 @@
         "verifier_address_forks": {
             "PACAYA": {
                 "SGX": "0x0Cf58F3E8514d993cAC87Ca8FC142b83575cC4D3",
-                "SP1": "0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D",
-                "RISC0": "0x9C53004a840bbF58bF5C7084addD50498E12E9A9",
+                "SP1": "0x4F5551d15735687c3bd16AAA9DA7f46568eD18C6",
+                "RISC0": "0x13a982e01f0E08b8c7f5a013F325f1d45ae56CA2",
                 "SGXGETH": "0x698ceB7EF2E001347B1672389d6ca6aCE04b13C8"
             },
             "SHASTA": {
                 "SGX": "0x9C57419c4297f9fdFB22dcbf06037A3fd92fB232",
-                "SP1": "0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D",
-                "RISC0": "0x9C53004a840bbF58bF5C7084addD50498E12E9A9",
+                "SP1": "0x4F5551d15735687c3bd16AAA9DA7f46568eD18C6",
+                "RISC0": "0x13a982e01f0E08b8c7f5a013F325f1d45ae56CA2",
                 "SGXGETH": "0xa81e01B33C20b6B24D05FC830E4ca348Fe8973Fb"
             }
         },
