@@ -16,16 +16,17 @@ pub fn create_shasta_requests(
 )> {
     let mut requests = Vec::with_capacity(batch_request.proposals.len());
 
-    for ShastaProposal {
-        proposal_id,
-        designated_prover,
-        parent_transition_hash,
-        checkpoint,
-        l1_inclusion_block_number,
-        l2_block_numbers,
-        last_anchor_block_number    
-    } in batch_request.proposals.iter()
-    {
+    for proposal in batch_request.proposals.iter() {
+        let ShastaProposal {
+            proposal_id,
+            designated_prover,
+            parent_transition_hash,
+            checkpoint,
+            l1_inclusion_block_number,
+            l1_bond_proposal_block_number,
+            l2_block_numbers,
+            last_anchor_block_number,
+        } = proposal;
         // Create Shasta input request key
         let input_request_key = RequestKey::ShastaGuestInput(ShastaInputRequestKey::new(
             *proposal_id, // proposal_id
@@ -59,6 +60,7 @@ pub fn create_shasta_requests(
             checkpoint.clone().into(),
             designated_prover.clone(),
             last_anchor_block_number.clone(),
+            *l1_bond_proposal_block_number, // l1_bond_proposal_block_number - will be used to parse bond_proposal_hash in reqactor
         );
 
         // Create Shasta proof request entity

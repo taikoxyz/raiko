@@ -301,6 +301,8 @@ pub struct ProtocolInstance {
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
+    /// Bond proposal hash for shasta fork
+    pub bond_proposal_hash: Option<B256>,
 }
 
 fn verify_blob(
@@ -487,6 +489,7 @@ impl ProtocolInstance {
             designated_prover: None,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
+            bond_proposal_hash: input.taiko.prover_data.bond_proposal_hash,
         };
 
         // Sanity check
@@ -630,14 +633,15 @@ impl ProtocolInstance {
             transition,
             block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
             sgx_instance: Address::default(),
-            prover: input.taiko.prover_data.actual_prover,
-            designated_prover: input.taiko.prover_data.designated_prover,
-            chain_id: input.chain_spec.chain_id,
+            prover: batch_input.taiko.prover_data.actual_prover,
+            designated_prover: batch_input.taiko.prover_data.designated_prover,
+            chain_id: batch_input.taiko.chain_spec.chain_id,
             verifier_address,
+            bond_proposal_hash: batch_input.taiko.prover_data.bond_proposal_hash,
         };
 
         // Sanity check
-        if input.chain_spec.is_taiko() {
+        if batch_input.taiko.chain_spec.is_taiko() {
             let (same, pretty_display) = pi
                 .block_metadata
                 .match_block_proposal(&batch_input.taiko.batch_proposed);
@@ -724,6 +728,7 @@ impl ProtocolInstance {
                     &TransitionMetadata {
                         designatedProver: self.designated_prover.unwrap(),
                         actualProver: self.prover,
+                        bondProposalHash: self.bond_proposal_hash.unwrap_or_default(),
                     },
                 );
             }

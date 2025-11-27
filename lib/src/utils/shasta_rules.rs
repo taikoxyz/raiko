@@ -2,12 +2,14 @@ use core::cmp::{max, min};
 use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
 use reth_primitives::{Address, Block};
 use std::cmp::max as std_max;
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::input::{GuestBatchInput, GuestInput};
 use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest, PROPOSAL_MAX_BLOCKS};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
+
+pub const BOND_PROCESSING_DELAY: usize = 6;
 
 const ANCHOR_MIN_OFFSET: usize = 2;
 const ANCHOR_MAX_OFFSET: usize = 128;
