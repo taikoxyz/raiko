@@ -80,6 +80,9 @@ class BatchMonitor:
         self.anchor_abi_file = anchor_abi_file
         # Initialize Shasta event decoder
         self.shasta_decoder = ShastaEventDecoder()
+        # Cache for proposal block numbers: proposal_id -> l1_block_number
+        # Used for both normal proposals and bond proposals
+        self.proposal_block_cache: Dict[int, Optional[int]] = {}
         # logger
         logging.basicConfig(
             level=logging.INFO,
@@ -355,15 +358,24 @@ class BatchMonitor:
         self, proposal_id: int, anchor_number: int
     ) -> Optional[int]:
         """
-        Traverse L1 blocks in range [anchor_number + 1, anchor_number + 96]
-        to find the block containing the Proposed event with matching proposal_id.
-        Returns the L1 block number where the proposal was included, or None if not found.
+        Find L1 inclusion block for a proposal_id.
+        First checks cache, then searches if not cached.
         """
+        # Check cache first
+        if proposal_id in self.proposal_block_cache:
+            cached_result = self.proposal_block_cache[proposal_id]
+            if cached_result is not None:
+                self.logger.debug(
+                    f"Using cached L1 inclusion block {cached_result} for proposal_id {proposal_id}"
+                )
+            return cached_result
+        
+        # Not in cache, do individual search (fallback, should rarely happen if batch query worked)
         search_start = anchor_number + 1
         search_end = anchor_number + 96
         
         self.logger.info(
-            f"Searching L1 blocks {search_start} to {search_end} for proposal_id {proposal_id}"
+            f"Searching L1 blocks {search_start} to {search_end} for proposal_id {proposal_id} (not in cache)"
         )
         
         try:
@@ -382,6 +394,7 @@ class BatchMonitor:
                     
                     if decoded_proposal_id == proposal_id:
                         l1_block_number = log.blockNumber
+                        self.proposal_block_cache[proposal_id] = l1_block_number
                         self.logger.info(
                             f"Found proposal_id {proposal_id} in L1 block {l1_block_number}"
                         )
@@ -393,10 +406,92 @@ class BatchMonitor:
             self.logger.warning(
                 f"Proposal_id {proposal_id} not found in L1 blocks {search_start} to {search_end}"
             )
+            self.proposal_block_cache[proposal_id] = None
             return None
         except Exception as e:
             self.logger.error(f"Error searching L1 events: {e}")
+            self.proposal_block_cache[proposal_id] = None
             return None
+    
+    async def batch_find_proposal_blocks(
+        self, proposal_queries: list[Tuple[int, int]], search_start: int, search_end: int
+    ) -> Dict[int, Optional[int]]:
+        """
+        Batch query multiple proposal IDs to find their L1 inclusion blocks.
+        
+        Args:
+            proposal_queries: List of (proposal_id, anchor_number) tuples
+            search_start: Starting L1 block number to search
+            search_end: Ending L1 block number to search
+        
+        Returns:
+            Dictionary mapping proposal_id -> l1_block_number (or None if not found)
+        """
+        proposal_ids_to_find = {proposal_id for proposal_id, _ in proposal_queries}
+        # Filter out already cached proposals
+        uncached_queries = [
+            (proposal_id, anchor_number)
+            for proposal_id, anchor_number in proposal_queries
+            if proposal_id not in self.proposal_block_cache
+        ]
+        
+        if not uncached_queries:
+            self.logger.info("All proposals already in cache, skipping batch query")
+            return {
+                proposal_id: self.proposal_block_cache.get(proposal_id)
+                for proposal_id in proposal_ids_to_find
+            }
+        
+        uncached_proposal_ids = {proposal_id for proposal_id, _ in uncached_queries}
+        self.logger.info(
+            f"Batch querying {len(uncached_proposal_ids)} proposals in L1 blocks {search_start} to {search_end}: {list(uncached_proposal_ids)}"
+        )
+        
+        try:
+            logs = self.evt_contract.events.Proposed.get_logs(
+                from_block=search_start, to_block=search_end
+            )
+            
+            # Build a map of proposal_id -> block_number from all logs
+            proposal_to_block = {}
+            for log in logs:
+                try:
+                    event_data = log.args.data
+                    decoded_proposal_id = self.shasta_decoder.extract_batch_id(event_data)
+                    if decoded_proposal_id in uncached_proposal_ids:
+                        # Only keep the first occurrence (earliest block)
+                        if decoded_proposal_id not in proposal_to_block:
+                            proposal_to_block[decoded_proposal_id] = log.blockNumber
+                            self.logger.debug(
+                                f"Found proposal_id {decoded_proposal_id} in L1 block {log.blockNumber}"
+                            )
+                except Exception as e:
+                    self.logger.debug(f"Error decoding event log in batch search: {e}")
+                    continue
+            
+            # Cache all found proposals (including None for not found)
+            for proposal_id in uncached_proposal_ids:
+                if proposal_id in proposal_to_block:
+                    self.proposal_block_cache[proposal_id] = proposal_to_block[proposal_id]
+                    self.logger.info(
+                        f"Cached proposal_id {proposal_id} -> L1 block {proposal_to_block[proposal_id]}"
+                    )
+                else:
+                    self.proposal_block_cache[proposal_id] = None
+                    self.logger.warning(
+                        f"Proposal_id {proposal_id} not found in batch search, cached as None"
+                    )
+        except Exception as e:
+            self.logger.warning(f"Error in batch proposal search: {e}")
+            # Mark all uncached as None if batch search fails
+            for proposal_id in uncached_proposal_ids:
+                self.proposal_block_cache[proposal_id] = None
+        
+        # Return results for all requested proposal IDs (including cached ones)
+        return {
+            proposal_id: self.proposal_block_cache.get(proposal_id)
+            for proposal_id in proposal_ids_to_find
+        }
 
     def parse_batch_proposed_meta(self, log):
         try:
@@ -571,21 +666,25 @@ class BatchMonitor:
         return logs[0].blockNumber, batch_ids
 
     def generate_post_data(
-        self, proposal_id: int, l1_inclusion_block_number: int, l2_block_numbers: list[int], last_anchor_block_number: int
+        self, proposal_id: int, l1_inclusion_block_number: int, l2_block_numbers: list[int], last_anchor_block_number: int, l1_bond_proposal_block_number: Optional[int] = None
     ) -> Dict[str, Any]:
         """generate post data"""
+        proposal_data = {
+            "proposal_id": proposal_id,
+            "l1_inclusion_block_number": l1_inclusion_block_number,
+            "l2_block_numbers": l2_block_numbers,
+            "designated_prover": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+            "parent_transition_hash": "0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388",
+            "checkpoint": None,
+            "last_anchor_block_number": last_anchor_block_number,
+        }
+        
+        # Add l1_bond_proposal_block_number if provided
+        if l1_bond_proposal_block_number is not None:
+            proposal_data["l1_bond_proposal_block_number"] = l1_bond_proposal_block_number
+        
         return {
-            "proposals": [
-                {
-                    "proposal_id": proposal_id,
-                    "l1_inclusion_block_number": l1_inclusion_block_number,
-                    "l2_block_numbers": l2_block_numbers,
-                    "designated_prover": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
-                    "parent_transition_hash": "0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388",
-                    "checkpoint": None,
-                    "last_anchor_block_number": last_anchor_block_number,
-                }
-            ],
+            "proposals": [proposal_data],
             "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
             "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
             "proof_type": self.prove_type,
@@ -607,13 +706,13 @@ class BatchMonitor:
         }
 
     async def submit_to_raiko(
-        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int
+        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int, l1_bond_proposal_block_number: Optional[int] = None
     ) -> Optional[str]:
         """submit batch to Raiko"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
 
-            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number)
+            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number, l1_bond_proposal_block_number)
             print(f"payload = {payload}")
 
             response = requests.post(
@@ -640,12 +739,12 @@ class BatchMonitor:
             return None
 
     async def query_raiko_status(
-        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int
+        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int, l1_bond_proposal_block_number: Optional[int] = None
     ) -> RaikoResponse:
         """query Raiko status"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
-            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number)
+            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number, l1_bond_proposal_block_number)
             response = requests.post(
                 f"{self.raiko_rpc}/v3/proof/batch/shasta",
                 headers=headers,
@@ -703,8 +802,26 @@ class BatchMonitor:
                     f"First block is 0, no parent block available, using default last_anchor_block_number=0"
                 )
 
+            # Get l1_bond_proposal_block_number from cache (pre-fetched in batch)
+            l1_bond_proposal_block_number = None
+            bond_proposal_id = group.proposal_id - 6
+            if bond_proposal_id > 0:
+                l1_bond_proposal_block_number = self.proposal_block_cache.get(bond_proposal_id)
+                if l1_bond_proposal_block_number is not None:
+                    self.logger.info(
+                        f"Using cached bond proposal_id {bond_proposal_id} -> L1 block {l1_bond_proposal_block_number}"
+                    )
+                else:
+                    self.logger.info(
+                        f"Bond proposal_id {bond_proposal_id} not found (cached as None)"
+                    )
+            else:
+                self.logger.info(
+                    f"Proposal_id {group.proposal_id} is too small (bond_proposal_id would be {bond_proposal_id}), skipping bond proposal lookup"
+                )
+
             # request Raiko
-            await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number)
+            await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number, l1_bond_proposal_block_number)
 
             # polling
             retry_count = 0
@@ -717,7 +834,7 @@ class BatchMonitor:
                     )
                     break
 
-                response = await self.query_raiko_status(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number)
+                response = await self.query_raiko_status(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number, l1_bond_proposal_block_number)
 
                 if response.status == "error":
                     self.logger.error(
@@ -908,6 +1025,49 @@ class BatchMonitor:
             self.logger.info(
                 f"Proposal {group.proposal_id}: anchor_number={group.anchor_number}, L2 blocks={group.l2_block_numbers}"
             )
+        
+        # Step 2.5: Batch query all proposal IDs (both normal and bond proposals)
+        # Collect all proposal queries: (proposal_id, anchor_number)
+        proposal_queries = []
+        bond_proposal_queries = []
+        
+        for group in groups:
+            # Normal proposal
+            proposal_queries.append((group.proposal_id, group.anchor_number))
+            
+            # Bond proposal (proposal_id - 6)
+            bond_proposal_id = group.proposal_id - 6
+            if bond_proposal_id > 0:
+                # For bond proposals, we don't have anchor_number, so use a wider search range
+                # We'll estimate based on the normal proposal's anchor_number
+                bond_proposal_queries.append((bond_proposal_id, group.anchor_number))
+        
+        # Determine search range based on anchor numbers
+        if proposal_queries:
+            min_anchor = min(anchor_number for _, anchor_number in proposal_queries)
+            max_anchor = max(anchor_number for _, anchor_number in proposal_queries)
+            
+            # Normal proposals: search from min_anchor+1 to max_anchor+96
+            # Bond proposals: search from min_anchor-200 to max_anchor+96 (wider range)
+            normal_search_start = min_anchor + 1
+            normal_search_end = max_anchor + 96
+            
+            bond_search_start = max(1, min_anchor - 200)
+            bond_search_end = max_anchor + 96
+            
+            # Batch query normal proposals
+            if proposal_queries:
+                self.logger.info(
+                    f"Batch querying {len(proposal_queries)} normal proposals in L1 blocks {normal_search_start} to {normal_search_end}"
+                )
+                await self.batch_find_proposal_blocks(proposal_queries, normal_search_start, normal_search_end)
+            
+            # Batch query bond proposals
+            if bond_proposal_queries:
+                self.logger.info(
+                    f"Batch querying {len(bond_proposal_queries)} bond proposals in L1 blocks {bond_search_start} to {bond_search_end}"
+                )
+                await self.batch_find_proposal_blocks(bond_proposal_queries, bond_search_start, bond_search_end)
         
         # Step 3: For each group, find L1 inclusion block and submit
         acc_odds = 1

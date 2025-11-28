@@ -170,14 +170,14 @@ function update_raiko_sgx_instance_id() {
     if [[ -n $SGX_SHASTA_INSTANCE_ID ]]; then
         jq \
             --arg update_value "$SGX_SHASTA_INSTANCE_ID" \
-            '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+            '.sgx.instance_ids.SHASTA = ($update_value | tonumber)' $CONFIG_FILE \
             >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update shasta sgx instance id to $SGX_SHASTA_INSTANCE_ID"
     fi
     if [[ -n $SGXGETH_SHASTA_INSTANCE_ID ]]; then
         jq \
             --arg update_value "$SGXGETH_SHASTA_INSTANCE_ID" \
-            '.sgxgeth.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
+            '.sgxgeth.instance_ids.SHASTA = ($update_value | tonumber)' $CONFIG_FILE \
             >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update shasta sgxgeth instance id to $SGXGETH_SHASTA_INSTANCE_ID"
     fi

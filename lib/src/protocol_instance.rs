@@ -722,15 +722,16 @@ impl ProtocolInstance {
                 keccak(data).into()
             }
             TransitionFork::Shasta(shasta_trans) => {
-                info!("transition to be signed into public: {:?}", shasta_trans);
-                return hash_transition_with_metadata(
-                    shasta_trans,
-                    &TransitionMetadata {
-                        designatedProver: self.designated_prover.unwrap(),
-                        actualProver: self.prover,
-                        bondProposalHash: self.bond_proposal_hash.unwrap_or_default(),
-                    },
+                let trans_metadata = TransitionMetadata {
+                    designatedProver: self.designated_prover.unwrap(),
+                    actualProver: self.prover,
+                    bondProposalHash: self.bond_proposal_hash.unwrap_or_default(),
+                };
+                info!(
+                    "transition to be signed into public: {:?} TransitionMetadata: {:?}",
+                    shasta_trans, trans_metadata
                 );
+                return hash_transition_with_metadata(shasta_trans, &trans_metadata);
             }
         }
     }
