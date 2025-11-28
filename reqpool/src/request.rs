@@ -707,6 +707,8 @@ pub struct ShastaInputRequestEntity {
     last_anchor_block_number: u64,
     /// Designated prover.
     designated_prover: Address,
+    /// L1 block number when the bond proposal was made (used to parse bond_proposal_hash)
+    l1_bond_proposal_block_number: Option<u64>,
 }
 
 impl ShastaInputRequestEntity {
@@ -722,6 +724,7 @@ impl ShastaInputRequestEntity {
         checkpoint: Option<ShastaProposalCheckpoint>,
         designated_prover: Address,
         last_anchor_block_number: u64,
+        l1_bond_proposal_block_number: Option<u64>,
     ) -> Self {
         Self {
             proposal_id,
@@ -735,6 +738,7 @@ impl ShastaInputRequestEntity {
             checkpoint,
             designated_prover,
             last_anchor_block_number,
+            l1_bond_proposal_block_number,
         }
     }
 }
@@ -839,6 +843,7 @@ impl ShastaProofRequestEntity {
                 checkpoint,
                 designated_prover,
                 last_anchor_block_number,
+                None, // l1_bond_proposal_block_number - will be set when creating from ShastaProposal
             ),
             proof_type,
             prover_args,

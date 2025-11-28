@@ -95,6 +95,8 @@ sol! {
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
         address actualProver;
+        /// @notice The bond proposal hash for this transition.
+        bytes32 bondProposalHash;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -120,6 +122,7 @@ sol! {
         Proposal proposal;
         Derivation derivation;
         CoreState coreState;
+        BondInstruction[] bondInstructions;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]

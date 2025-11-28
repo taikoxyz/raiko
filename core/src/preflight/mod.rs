@@ -27,6 +27,7 @@ use util::{
 
 pub use util::{
     parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
+    parse_l1_bond_proposal_tx_for_shasta_fork,
 };
 
 #[cfg(feature = "statedb_lru")]

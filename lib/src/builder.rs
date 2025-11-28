@@ -239,6 +239,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 designated_prover: extra_data.1,
                 last_anchor_block_number: last_anchor_block_number_opt.unwrap(),
                 is_force_inclusion: extra_data.2,
+                bond_proposal_hash: self.input.taiko.prover_data.bond_proposal_hash,
             })
         } else {
             None

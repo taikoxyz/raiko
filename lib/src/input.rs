@@ -433,6 +433,8 @@ pub struct TaikoProverData {
     pub parent_transition_hash: Option<B256>,
     pub checkpoint: Option<Checkpoint>,
     pub last_anchor_block_number: Option<u64>,
+    /// Bond proposal hash for shasta fork
+    pub bond_proposal_hash: Option<B256>,
 }
 
 #[serde_as]
