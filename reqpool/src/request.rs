@@ -889,9 +889,10 @@ impl From<SingleProofRequestEntity> for RequestEntity {
 }
 
 impl From<AggregationRequestEntity> for RequestEntity {
-    fn from(_entity: AggregationRequestEntity) -> Self {
-        // AggregationRequestEntity is shared in fork, so it cannot be converted to RequestEntity
-        unimplemented!("AggregationRequestEntity to RequestEntity is not supported");
+    fn from(entity: AggregationRequestEntity) -> Self {
+        // Pacaya and earlier forks still wrap AggregationRequestEntity in RequestEntity::Aggregation.
+        // Shasta builds RequestEntity::ShastaAggregation explicitly, so this conversion is not used there.
+        RequestEntity::Aggregation(entity)
     }
 }
 

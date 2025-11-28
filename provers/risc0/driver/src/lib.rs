@@ -2,14 +2,16 @@
 
 use crate::{
     methods::risc0_aggregation::RISC0_AGGREGATION_ELF, methods::risc0_batch::RISC0_BATCH_ELF,
+    methods::risc0_shasta_aggregation::RISC0_SHASTA_AGGREGATION_ELF,
 };
-use alloy_primitives::{hex::ToHexExt, B256};
+use alloy_primitives::{hex::ToHexExt, Address, B256};
 use bonsai::{cancel_proof, maybe_prove};
 use log::{info, warn};
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ZkAggregationGuestInput,
+        GuestInput, GuestOutput, ShastaAggregationGuestInput, ShastaRisc0AggregationGuestInput,
+        ZkAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
@@ -225,12 +227,90 @@ impl Prover for Risc0Prover {
 
     async fn shasta_aggregate(
         &self,
-        input: AggregationGuestInput,
-        output: &AggregationGuestOutput,
+        input: ShastaAggregationGuestInput,
+        _output: &AggregationGuestOutput,
         config: &ProverConfig,
-        store: Option<&mut dyn IdWrite>,
+        _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        todo!()
+        let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+        assert!(
+            config.snark && config.bonsai,
+            "Shasta aggregation must be in bonsai snark mode"
+        );
+
+        let assumptions: Vec<Receipt> = input
+            .proofs
+            .iter()
+            .map(|proof| {
+                let receipt: Receipt = serde_json::from_str(&proof.quote.clone().unwrap())
+                    .expect("Failed to deserialize");
+                receipt
+            })
+            .collect::<Vec<_>>();
+        let block_inputs: Vec<B256> = input
+            .proofs
+            .iter()
+            .map(|proof| proof.input.unwrap())
+            .collect::<Vec<_>>();
+
+        let input_proof_hex_str = input.proofs[0].proof.as_ref().unwrap();
+        let input_proof_bytes = hex::decode(&input_proof_hex_str[2..]).unwrap();
+        let input_image_id_bytes: [u8; 32] = input_proof_bytes[32..64].try_into().unwrap();
+        let input_proof_image_id = Digest::from(input_image_id_bytes);
+
+        let shasta_input = ShastaRisc0AggregationGuestInput {
+            image_id: input_proof_image_id.as_words().try_into().unwrap(),
+            block_inputs: block_inputs.clone(),
+            chain_id: input.chain_id,
+            verifier_address: input.verifier_address,
+            prover_address: Address::ZERO,
+        };
+
+        let env = {
+            let mut env = ExecutorEnv::builder();
+            for assumption in assumptions {
+                env.add_assumption(assumption);
+            }
+            env.write(&shasta_input).unwrap().build().unwrap()
+        };
+
+        let opts = ProverOpts::groth16();
+        let receipt =
+            match default_prover().prove_with_opts(env, RISC0_SHASTA_AGGREGATION_ELF, &opts) {
+                Ok(receipt) => receipt.receipt,
+                Err(e) => {
+                    tracing::error!("Failed to generate RISC0 shasta aggregation proof: {:?}", e);
+                    return Err(ProverError::GuestError(format!(
+                        "RISC0 shasta aggregation proof generation failed: {}",
+                        e
+                    )));
+                }
+            };
+
+        info!(
+            "Generate shasta aggregation receipt journal: {:?}",
+            alloy_primitives::hex::encode_prefixed(receipt.journal.bytes.clone())
+        );
+        let aggregation_image_id = compute_image_id(RISC0_SHASTA_AGGREGATION_ELF).unwrap();
+        let proof_data = snarks::verify_aggregation_groth16_proof(
+            input_proof_image_id,
+            aggregation_image_id,
+            receipt.clone(),
+        )
+        .await
+        .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
+        let snark_proof = alloy_primitives::hex::encode_prefixed(proof_data);
+
+        info!("Shasta aggregation proof: {snark_proof:?}");
+        Ok::<_, ProverError>(
+            Risc0Response {
+                proof: snark_proof,
+                receipt: serde_json::to_string(&receipt).unwrap(),
+                uuid: "".to_owned(),
+                input: B256::from_slice(receipt.journal.digest().as_bytes()),
+            }
+            .into(),
+        )
     }
 
     fn proof_type(&self) -> ProofType {

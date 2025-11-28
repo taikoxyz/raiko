@@ -129,6 +129,29 @@ pub struct ShastaRawAggregationGuestInput {
     pub verifier_address: Address,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ShastaRisc0AggregationGuestInput {
+    /// Underlying RISC0 image id for the proofs being re-verified
+    pub image_id: [u32; 8],
+    pub block_inputs: Vec<B256>,
+    pub chain_id: u64,
+    pub verifier_address: Address,
+    pub prover_address: Address,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ShastaSp1AggregationGuestInput {
+    /// Verifier image id for the SP1 proofs being aggregated
+    pub image_id: [u32; 8],
+    /// Public inputs associated with each underlying proof
+    pub block_inputs: Vec<B256>,
+    /// Taiko chain metadata required by the on-chain verifier
+    pub chain_id: u64,
+    pub verifier_address: Address,
+    /// Address representing the prover/aggregator (zero for zk provers today)
+    pub prover_address: Address,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 
 pub enum BlockProposedFork {
@@ -254,8 +277,12 @@ impl BlockProposedFork {
 
                 let size_b256_slice =
                     B256::from_slice(&compressed_tx_list_buf[offset + 32..offset + 64]);
-                let blob_data_size =
-                    usize::from_be_bytes(size_b256_slice.as_slice()[24..32].try_into().unwrap());
+                let size_bytes: [u8; 8] = size_b256_slice.as_slice()[24..32]
+                    .try_into()
+                    .expect("shasta blob size header");
+                let blob_data_size_u64 = u64::from_be_bytes(size_bytes);
+                let blob_data_size: usize = usize::try_from(blob_data_size_u64)
+                    .expect("blob size does not fit in usize");
                 if offset + blob_data_size
                     > BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
                         - SHASTA_BLOB_DATA_PREFIX_SIZE

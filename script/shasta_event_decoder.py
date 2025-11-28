@@ -44,10 +44,17 @@ class ShastaProposal:
     derivation_hash: str  # bytes32 as hex string
 
 @dataclass
+class BlobSlice:
+    """LibBlobs.BlobSlice - subset of fields we care about"""
+    blob_hashes: List[str]
+    offset: int
+    timestamp: int
+
+@dataclass
 class DerivationSource:
     """Derivation Source structure - matches IInbox.sol DerivationSource struct"""
     is_forced_inclusion: bool
-    blob_slice: dict  # LibBlobs.BlobSlice - contains offset, length, timestamp, hash
+    blob_slice: BlobSlice  # Contains blob hashes plus offset/timestamp metadata
 
 @dataclass
 class ShastaDerivation:
@@ -262,14 +269,16 @@ class ShastaEventDecoder:
                 offset, ptr = self.unpack_uint24(data, ptr)
                 blob_timestamp, ptr = self.unpack_uint48(data, ptr)
                 
-                sources.append(DerivationSource(
-                    is_forced_inclusion=is_forced_inclusion,
-                    blob_slice={
-                        'blob_hashes': blob_hashes,
-                        'offset': offset,
-                        'timestamp': blob_timestamp
-                    }
-                ))
+                sources.append(
+                    DerivationSource(
+                        is_forced_inclusion=is_forced_inclusion,
+                        blob_slice=BlobSlice(
+                            blob_hashes=blob_hashes,
+                            offset=offset,
+                            timestamp=blob_timestamp,
+                        ),
+                    )
+                )
             
             # Decode Proposal remaining fields
             core_state_hash, ptr = self.unpack_hash(data, ptr)
