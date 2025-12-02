@@ -150,8 +150,8 @@ services:
       # sp1 verifier
       - SP1_VERIFIER_RPC_URL=${SP1_VERIFIER_RPC_URL}
       - SP1_VERIFIER_ADDRESS=${SP1_VERIFIER_ADDRESS}
-      # boundless agent
-      - BOUNDLESS_AGENT_URL=http://raiko-boundless-agent:9999/proof
+      # boundless agent (external)
+      - BOUNDLESS_AGENT_URL=${BOUNDLESS_AGENT_URL}
     depends_on:
       - redis
     profiles:
@@ -186,31 +186,6 @@ services:
       # use the host's network to connect to the PCCS
       #extra_hosts:
       #  - "host.docker.internal:host-gateway"
-  raiko-boundless-agent:
-    build:
-      context: ..
-      dockerfile: Dockerfile.zk
-    image: us-docker.pkg.dev/evmchain/images/raiko-zk:latest
-    container_name: raiko-boundless-agent
-    entrypoint:
-    command:
-    env_file:
-      - .env.boundless-agent
-    environment:
-      - BOUNDLESS_AGENT_SERVER=true
-      - BOUNDLESS_CONFIG_FILE=/etc/boundless/config.json
-      - SQLITE_DB_PATH=/data/boundless/boundless_requests.db
-      - RUST_LOG=${RUST_LOG:-info}
-      # Allow overriding secrets via environment variables
-      - BOUNDLESS_SIGNER_KEY=${BOUNDLESS_SIGNER_KEY}
-      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
-      - S3_SECRET_KEY=${S3_SECRET_KEY}
-    ports:
-      - "9999:9999"
-    volumes:
-      - boundless-data:/data/boundless
-      - boundless-config:/etc/boundless
-      - /tmp/risc0-cache:/tmp/risc0-cache
   pccs:
     build:
       context: ..
@@ -236,5 +211,3 @@ services:
       - prod-redis
 
 volumes:
-  boundless-data:
-  boundless-config:

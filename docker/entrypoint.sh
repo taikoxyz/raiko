@@ -284,27 +284,3 @@ if [[ -n $SGX_SERVER ]]; then
         wait
     fi
 fi
-
-if [[ -n $BOUNDLESS_AGENT_SERVER ]]; then
-    echo "running boundless agent"
-
-    if [[ -z $BOUNDLESS_CONFIG_FILE ]]; then
-        echo "BOUNDLESS_CONFIG_FILE must be set, please check."
-        exit 1
-    fi
-
-    if [[ -z $BOUNDLESS_SIGNER_KEY ]]; then
-        echo "BOUNDLESS_SIGNER_KEY must be presented, please check."
-        exit 1
-    fi
-
-    # Allow --offchain to be controlled by the BOUNDLESS_OFFCHAIN environment variable
-    if [[ "$BOUNDLESS_OFFCHAIN" == "true" ]]; then
-        BOUNDLESS_OFFCHAIN_FLAG="--offchain"
-    else
-        BOUNDLESS_OFFCHAIN_FLAG=""
-    fi
-
-    /opt/raiko/bin/boundless-agent --config-file $BOUNDLESS_CONFIG_FILE $BOUNDLESS_OFFCHAIN_FLAG
-    wait
-fi

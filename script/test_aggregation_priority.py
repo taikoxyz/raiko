@@ -592,8 +592,8 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 2, base_block: int = 1234020, 
-                                                      max_wait_time: int = 3600, monitor_duration: int = 6000) -> bool:
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 10, base_block: int = 1453367, 
+                                                      block_range: int = 2000, max_wait_time: int = 3600, monitor_duration: int = 60000) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
         self.logger.info("="*60)
@@ -604,8 +604,8 @@ class AggregationPriorityTester:
             self.logger.error("L1 contract not initialized - cannot proceed with test")
             return False
         
-        self.logger.info(f"Getting {total_batches} batch IDs from Hoodi testnet (tolba L1) starting from block {base_block}")
-        batch_data = self.get_available_batch_ids(base_block, base_block + 2000, total_batches)
+        self.logger.info(f"Getting {total_batches} batch IDs from Hoodi testnet (tolba L1) starting from block {base_block} (range {block_range})")
+        batch_data = self.get_available_batch_ids(base_block, base_block + block_range, total_batches)
         
         if len(batch_data) == 0:
             self.logger.error("No batch proposals found - cannot proceed with test")
@@ -684,7 +684,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=2,
+        default=10,
         help="Total number of batches to process"
     )
     
@@ -706,14 +706,21 @@ async def main():
     parser.add_argument(
         "--base-block",
         type=int,
-        default=1234020,
+        default=1453367,
         help="Base block number to start testing from (Hoodi testnet recent blocks around 1236000+)"
+    )
+
+    parser.add_argument(
+        "--block-range",
+        type=int,
+        default=2000,
+        help="How many blocks to scan from base-block when collecting batch IDs"
     )
     
     parser.add_argument(
         "--monitor-duration",
         type=int,
-        default=6000,
+        default=60000,
         help="How long to monitor request processing (seconds)"
     )
     
@@ -780,6 +787,7 @@ async def main():
         priority_working = await tester.run_continuous_streaming_aggregation_test(
             total_batches=args.total_batches,
             base_block=args.base_block,
+            block_range=args.block_range,
             max_wait_time=args.max_wait_time,
             monitor_duration=args.monitor_duration
         )

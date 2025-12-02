@@ -913,9 +913,14 @@ impl BoundlessProver {
         //     .map_err(|e| AgentError::GuestExecutionError(format!("Failed to evaluate cost: {}", e)))?;
         let mcycles_count = 2000;
 
-        // Use inline requests instead of uploading.
-        tracing::info!("Using inline request for input ({} bytes)", guest_env_bytes.len());
-        let input_url = None;
+        // Upload input to storage so provers fetch from a URL (preferred over inline)
+        tracing::info!("Uploading input ({} bytes) to storage provider", guest_env_bytes.len());
+        let input_url = boundless_client
+            .upload_input(&guest_env_bytes)
+            .await
+            .map_err(|e| AgentError::UploadError(format!("Failed to upload input: {}", e)))?;
+        tracing::info!("Input uploaded: {}", input_url);
+        let input_url = Some(input_url);
 
         // Build the request
         let request = self.build_boundless_request(
@@ -1280,7 +1285,7 @@ impl BoundlessProver {
         &self,
         boundless_client: &Client,
         program_url: Url,
-        _input_url: Option<Url>,
+        input_url: Option<Url>,
         guest_env: GuestEnv,
         offer_spec: &BoundlessOfferParams,
         mcycles_count: u32,
@@ -1305,16 +1310,13 @@ impl BoundlessProver {
         let timeout = (offer_spec.timeout_ms_per_mcycle * mcycles_count / 1000u32) as u32;
         let ramp_up_period = std::cmp::min(offer_spec.ramp_up_sec, lock_timeout);
 
-        let request_params = boundless_client
+        let mut request_params = boundless_client
             .new_request()
             .with_program_url(program_url)
             .unwrap()
             .with_groth16_proof()
             .with_env(guest_env)
             .with_cycles(mcycles_count as u64 * MILLION_CYCLES)
-            // .with_input_url(input_url)
-            // .with_env(GuestEnv::builder().write_frame(&guest_env_bytes))
-            // .unwrap()
             .with_offer(
                 OfferParams::builder()
                     .ramp_up_period(ramp_up_period)
@@ -1331,6 +1333,13 @@ impl BoundlessProver {
                             + 60,
                     ),
             );
+
+        if let Some(url) = input_url {
+            // with_input_url returns Result; unwrap here is safe because Infallible cannot occur
+            request_params = request_params
+                .with_input_url(url)
+                .expect("with_input_url is infallible for valid URLs");
+        }
 
         // Build the request, including preflight, and assigned the remaining fields.
         let request = boundless_client
