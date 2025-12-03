@@ -28,7 +28,7 @@ sol! {
         uint48 proposalId;
         BondType bondType;
         address payer;
-        address receiver;
+        address payee;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -95,8 +95,6 @@ sol! {
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
         address actualProver;
-        /// @notice The bond proposal hash for this transition.
-        bytes32 bondProposalHash;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -148,6 +146,7 @@ pub struct ShastaEventData {
     pub proposal: Proposal,
     pub derivation: Derivation,
     pub core_state: CoreState,
+    pub bond_instructions: Vec<BondInstruction>,
 }
 
 impl ShastaEventData {
@@ -162,6 +161,7 @@ impl ShastaEventData {
             proposal: payload.proposal,
             derivation: payload.derivation,
             core_state: payload.coreState,
+            bond_instructions: payload.bondInstructions,
         })
     }
 
@@ -330,7 +330,36 @@ impl ShastaEventData {
         ptr = new_ptr;
         let (last_finalized_transition_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
         ptr = new_ptr;
-        let (bond_instructions_hash, _new_ptr) = Self::unpack_hash(data, ptr)?;
+        let (bond_instructions_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
+        ptr = new_ptr;
+
+        // Decode bond instructions
+        let (bond_instructions_length, new_ptr) = Self::unpack_uint16(data, ptr)?;
+        ptr = new_ptr;
+
+        let mut bond_instructions = Vec::new();
+        if bond_instructions_length > 0 {
+            for _ in 0..bond_instructions_length {
+                let (proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
+                ptr = new_ptr;
+
+                let (bond_type_u8, new_ptr) = Self::unpack_uint8(data, ptr)?;
+                let bond_type = BondType::try_from(bond_type_u8)?;
+                ptr = new_ptr;
+
+                let (payer, new_ptr) = Self::unpack_address(data, ptr)?;
+                ptr = new_ptr;
+                let (payee, new_ptr) = Self::unpack_address(data, ptr)?;
+                ptr = new_ptr;
+
+                bond_instructions.push(BondInstruction {
+                    proposalId: proposal_id,
+                    bondType: bond_type,
+                    payer,
+                    payee,
+                });
+            }
+        }
 
         Ok(Self {
             proposal: Proposal {
@@ -355,6 +384,7 @@ impl ShastaEventData {
                 lastFinalizedTransitionHash: last_finalized_transition_hash,
                 bondInstructionsHash: bond_instructions_hash,
             },
+            bond_instructions: bond_instructions,
         })
     }
 }

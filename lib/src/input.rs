@@ -16,7 +16,10 @@ use tracing::error;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::ChainSpec, input::shasta::Checkpoint, primitives::mpt::MptNode, prover::Proof,
+    consts::ChainSpec,
+    input::shasta::{Checkpoint, Proposal},
+    primitives::mpt::MptNode,
+    prover::Proof,
     utils::blobs::zlib_compress_data,
 };
 
@@ -281,8 +284,8 @@ impl BlockProposedFork {
                     .try_into()
                     .expect("shasta blob size header");
                 let blob_data_size_u64 = u64::from_be_bytes(size_bytes);
-                let blob_data_size: usize = usize::try_from(blob_data_size_u64)
-                    .expect("blob size does not fit in usize");
+                let blob_data_size: usize =
+                    usize::try_from(blob_data_size_u64).expect("blob size does not fit in usize");
                 if offset + blob_data_size
                     > BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
                         - SHASTA_BLOB_DATA_PREFIX_SIZE
@@ -361,6 +364,23 @@ impl BlockProposedFork {
             _ => false,
         }
     }
+
+    pub fn proposal_id(&self) -> u64 {
+        match self {
+            BlockProposedFork::Shasta(event_data) => event_data.proposal.id,
+            BlockProposedFork::Pacaya(batch) => batch.meta.batchId,
+            _ => 0,
+        }
+    }
+
+    pub fn bond_proposal_hash(&self) -> Option<B256> {
+        match self {
+            BlockProposedFork::Shasta(event_data) => {
+                Some(event_data.core_state.bondInstructionsHash)
+            }
+            _ => None,
+        }
+    }
 }
 
 #[serde_as]
@@ -425,6 +445,15 @@ impl FromStr for BlobProofType {
     }
 }
 
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProposalBondInfo {
+    /// Bond proposal hash
+    pub bond_proposal_hash: B256,
+    /// All proposals
+    pub all_proposals: Vec<Proposal>,
+}
+
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct TaikoProverData {
     pub actual_prover: Address,
@@ -433,8 +462,6 @@ pub struct TaikoProverData {
     pub parent_transition_hash: Option<B256>,
     pub checkpoint: Option<Checkpoint>,
     pub last_anchor_block_number: Option<u64>,
-    /// Bond proposal hash for shasta fork
-    pub bond_proposal_hash: Option<B256>,
 }
 
 #[serde_as]

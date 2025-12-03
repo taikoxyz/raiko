@@ -62,7 +62,6 @@ impl Raiko {
                 parent_transition_hash: None,
                 checkpoint: None,
                 last_anchor_block_number: None,
-                bond_proposal_hash: None,
             },
             self.request.blob_proof_type.clone(),
         )
@@ -86,7 +85,6 @@ impl Raiko {
                     .clone()
                     .map(ShastaProposalCheckpoint::into),
                 last_anchor_block_number: self.request.last_anchor_block_number,
-                bond_proposal_hash: self.request.bond_proposal_hash,
             },
             blob_proof_type: self.request.blob_proof_type.clone(),
             cached_event_data: self.request.cached_event_data.clone(),

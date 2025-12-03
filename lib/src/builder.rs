@@ -235,11 +235,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 "last_anchor_block_number is not set in shasta request"
             );
             Some(ShastaData {
+                proposal_id: self.input.taiko.block_proposed.proposal_id(),
                 is_low_bond_proposal: extra_data.0,
                 designated_prover: extra_data.1,
                 last_anchor_block_number: last_anchor_block_number_opt.unwrap(),
                 is_force_inclusion: extra_data.2,
-                bond_proposal_hash: self.input.taiko.prover_data.bond_proposal_hash,
+                bond_proposal_hash: self.input.taiko.block_proposed.bond_proposal_hash(),
             })
         } else {
             None

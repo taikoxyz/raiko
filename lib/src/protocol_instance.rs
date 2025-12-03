@@ -301,8 +301,6 @@ pub struct ProtocolInstance {
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
-    /// Bond proposal hash for shasta fork
-    pub bond_proposal_hash: Option<B256>,
 }
 
 fn verify_blob(
@@ -489,7 +487,6 @@ impl ProtocolInstance {
             designated_prover: None,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
-            bond_proposal_hash: input.taiko.prover_data.bond_proposal_hash,
         };
 
         // Sanity check
@@ -637,7 +634,6 @@ impl ProtocolInstance {
             designated_prover: batch_input.taiko.prover_data.designated_prover,
             chain_id: batch_input.taiko.chain_spec.chain_id,
             verifier_address,
-            bond_proposal_hash: batch_input.taiko.prover_data.bond_proposal_hash,
         };
 
         // Sanity check
@@ -725,7 +721,6 @@ impl ProtocolInstance {
                 let trans_metadata = TransitionMetadata {
                     designatedProver: self.designated_prover.unwrap(),
                     actualProver: self.prover,
-                    bondProposalHash: self.bond_proposal_hash.unwrap_or_default(),
                 };
                 info!(
                     "transition to be signed into public: {:?} TransitionMetadata: {:?}",

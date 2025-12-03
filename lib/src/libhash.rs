@@ -17,13 +17,12 @@ pub fn hash_transition_with_metadata(
     // converts designatedProver (Address) to B256 as in Solidity: bytes32(uint256(uint160(_metadata.designatedProver)))
     let designated_prover_b256 = address_to_b256(metadata.designatedProver);
     let prover_b256 = address_to_b256(metadata.actualProver);
-    hash_six_values(
+    hash_five_values(
         transition.proposalHash,
         transition.parentTransitionHash,
         hash_checkpoint(&transition.checkpoint),
         designated_prover_b256,
         prover_b256,
-        metadata.bondProposalHash,
     )
 }
 
@@ -397,7 +396,6 @@ mod test {
         let metadata = TransitionMetadata {
             designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
             actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
-            bondProposalHash: B256::ZERO,
         };
         let single_trans_hash = hash_transition_with_metadata(&transition, &metadata);
         assert_eq!(
@@ -475,7 +473,6 @@ mod test {
         let metadata = TransitionMetadata {
             designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
             actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
-            bondProposalHash: B256::ZERO,
         };
         // Calculate hash using hashTransitionsArray equivalent
         let result = hash_transitions_array_with_metadata(&transitions, &metadata);
