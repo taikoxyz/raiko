@@ -28,5 +28,5 @@ pub fn main() {
         aggregation_hash,
     );
 
-    env::commit_slice(aggregation_hash.as_slice());
+    env::commit_slice(agg_public_input_hash.as_slice());
 }
