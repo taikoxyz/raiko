@@ -1,0 +1,26 @@
+[package]
+name = "raiko2-engine"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+raiko2-driver.workspace = true
+raiko2-provider.workspace = true
+raiko2-primitives.workspace = true
+# raiko2-stateless.workspace = true # TODO: add validation back
+# raiko2-prover.workspace = true # TODO: add prover integration back
+
+reth-ethereum-primitives.workspace = true
+
+alloy-primitives.workspace = true
+alloy-consensus.workspace = true
+
+anyhow.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+reth.workspace = true
+alloy-trie.workspace = true
+reth-stateless.workspace = true

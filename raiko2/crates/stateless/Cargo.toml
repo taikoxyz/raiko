@@ -1,0 +1,27 @@
+[package]
+name = "raiko2-stateless"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+risc0-ethereum-trie = { git = "https://github.com/risc0/risc0-ethereum.git", tag = "v3.0.0" }
+
+# Alloy
+alloy-rlp.workspace = true
+alloy-primitives.workspace = true
+alloy-trie.workspace = true
+alloy-consensus.workspace = true
+
+# Reth
+reth-stateless.workspace = true
+reth-ethereum-primitives.workspace = true
+reth-primitives-traits.workspace = true
+reth-trie-common.workspace = true
+reth-trie-sparse.workspace = true
+reth-errors.workspace = true
+reth-consensus.workspace = true
+reth-ethereum-consensus.workspace = true
+reth-revm.workspace = true
+reth-evm-ethereum.workspace = true
+reth-evm.workspace = true
+reth-chainspec.workspace = true

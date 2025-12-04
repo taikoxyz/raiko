@@ -1,0 +1,106 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/driver",
+    "crates/primitives",
+    "crates/stateless",
+    "crates/provider",
+    "crates/engine",
+    # "crates/prover", # TODO: add back after resolving risc0/sp1 version conflicts
+    "crates/protocol",
+    "bin/raiko2",
+    # "bin/rpc-proxy",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87"
+
+# Always optimize for performance
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+debug = 1
+lto = true
+
+[workspace.dependencies]
+# Raiko2 crates
+raiko2-primitives = { path = "./crates/primitives" }
+raiko2-prover = { path = "./crates/prover" }
+raiko2-driver = { path = "./crates/driver" }
+raiko2-provider = { path = "./crates/provider" }
+raiko2-engine = { path = "./crates/engine" }
+raiko2-stateless = { path = "./crates/stateless" }
+raiko2-protocol = { path = "./crates/protocol" }
+
+# Alethia reth (from alethia-reth)
+alethia-reth-node = { git = "https://github.com/taikoxyz/alethia-reth" }
+alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth" }
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth" }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth" }
+
+# Reth (v1.9.3 - same as alethia-reth uses)
+reth = { git = "https://github.com/paradigmxyz/reth", package = "reth", tag = "v1.9.3" }
+reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-stateless = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-trie-common = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-errors = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-consensus = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-ethereum-consensus = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-revm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-evm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+
+# Alloy
+alloy-rlp = { version = "0.3.4", default-features = false }
+alloy-primitives = { version = "1.0", default-features = false }
+alloy-sol-types = { version = "1.0", default-features = false }
+alloy-trie = { version = "0.9", default-features = false }
+alloy-consensus = { version = "1.0", default-features = false, features = [
+    "serde",
+] }
+alloy-network = { version = "1.0", default-features = false, features = [
+    "k256",
+] }
+alloy-rpc-types = { version = "1.0", default-features = false }
+alloy-rpc-client = { version = "1.0", default-features = false }
+alloy-provider = { version = "1.0", default-features = false, features = [
+    "reqwest",
+] }
+alloy-transport-http = { version = "1.0", default-features = false, features = [
+    "reqwest",
+] }
+
+# Async, server, http
+axum = { version = "0.7.4", features = ["macros"] }
+tower-http = { version = "0.5.2", features = ["full"] }
+tower = { version = "0.5.2", features = ["full"] }
+utoipa = { version = "4.2.0", features = ["axum_extras"] }
+tokio = { version = "^1.23", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", default-features = false, features = [
+    "derive",
+    "alloc",
+] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde_with = { version = "3.0" }
+bincode = "1.3.3"
+hex = { version = "0.4.3" }
+base64 = "0.22.1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"

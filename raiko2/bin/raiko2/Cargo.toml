@@ -1,0 +1,55 @@
+[package]
+name = "raiko2"
+version.workspace = true
+edition.workspace = true
+description = "Raiko V2 - Taiko zkVM Prover Server"
+authors = ["Taiko Labs"]
+license = "MIT"
+workspace = "../.."
+
+[[bin]]
+name = "raiko2"
+path = "src/main.rs"
+
+[dependencies]
+# Raiko2 crates
+raiko2-primitives.workspace = true
+raiko2-engine.workspace = true
+raiko2-driver.workspace = true
+raiko2-provider.workspace = true
+# raiko2-prover.workspace = true # TODO: add back after resolving risc0/sp1 version conflicts
+raiko2-protocol.workspace = true
+
+# Alethia reth
+alethia-reth-node.workspace = true
+alethia-reth-chainspec.workspace = true
+
+# Reth
+reth.workspace = true
+
+# Web framework
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+toml = "0.8"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Logging
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Utilities
+dotenvy = "0.15"

@@ -1,0 +1,24 @@
+[package]
+name = "raiko2-provider"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+raiko2-primitives.workspace = true
+reth-ethereum-primitives.workspace = true
+reth-stateless.workspace = true
+alloy-trie.workspace = true
+alloy-network.workspace = true
+alloy-primitives.workspace = true
+alloy-provider.workspace = true
+alloy-rpc-client.workspace = true
+alloy-rpc-types.workspace = true
+alloy-transport-http.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tracing.workspace = true

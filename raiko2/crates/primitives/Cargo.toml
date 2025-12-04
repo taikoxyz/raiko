@@ -1,0 +1,30 @@
+[package]
+name = "raiko2-primitives"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alethia-reth-node.workspace = true
+alethia-reth-evm.workspace = true
+
+reth.workspace = true
+reth-primitives-traits.workspace = true
+reth-ethereum-primitives.workspace = true
+reth-stateless.workspace = true
+
+alloy-trie.workspace = true
+alloy-consensus.workspace = true
+alloy-primitives.workspace = true
+alloy-sol-types.workspace = true
+alloy-rlp.workspace = true
+
+serde.workspace = true
+serde_with.workspace = true
+serde_json.workspace = true
+
+anyhow.workspace = true
+tracing.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+utoipa.workspace = true

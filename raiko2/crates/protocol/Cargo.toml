@@ -1,0 +1,28 @@
+[package]
+name = "raiko2-protocol"
+version.workspace = true
+edition.workspace = true
+description = "Taiko Shasta protocol types and codecs for Raiko V2"
+
+[dependencies]
+# Alloy types
+alloy-primitives.workspace = true
+alloy-consensus.workspace = true
+alloy-rlp = { workspace = true, features = ["derive"] }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+# Compression
+flate2 = "1.0"
+
+# Logging
+tracing.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+[features]
+default = []

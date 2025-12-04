@@ -1,0 +1,16 @@
+[package]
+name = "raiko2-driver"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+raiko2-primitives.workspace = true
+raiko2-protocol.workspace = true
+
+reth-ethereum-primitives.workspace = true
+
+alloy-primitives.workspace = true
+alloy-consensus.workspace = true
+
+anyhow.workspace = true
+tracing.workspace = true

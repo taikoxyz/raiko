@@ -21,6 +21,11 @@ members = [
     "ballot",
 ]
 
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87"
+
 # Always optimize; building and running the guest takes much longer without optimization.
 [profile.dev]
 opt-level = 3
@@ -37,7 +42,7 @@ opt-level = 3
 
 [workspace.dependencies]
 
-# raiko
+# raiko (legacy)
 raiko-lib = { path = "./lib", features = ["std"] }
 raiko-core = { path = "./core" }
 raiko-tasks = { path = "./taskdb" }
@@ -46,7 +51,7 @@ raiko-reqpool = { path = "./reqpool" }
 raiko-reqactor = { path = "./reqactor" }
 raiko-ballot = { path = "./ballot" }
 
-# reth
+# reth (legacy - from taiko-reth v1.0.0-rc.2)
 reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-shasta", default-features = false, features = [
     "alloy-compat",
     "taiko",
@@ -82,6 +87,7 @@ alloy-dyn-abi = { version = "0.7.2", default-features = false }
 alloy-json-abi = { version = "0.7.2", default-features = false }
 alloy-primitives = { version = "0.7.2", default-features = false }
 alloy-sol-types = { version = "0.7.2", default-features = false }
+alloy-trie = { version = "0.7.2", default-features = false }
 reqwest_alloy = { package = "reqwest", version = "0.12.4", features = ["json"] }
 alloy-rpc-types = { version = "0.1", default-features = false }
 alloy-rpc-client = { version = "0.1", default-features = false }

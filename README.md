@@ -1,6 +1,6 @@
-# raiko
+# Raizen
 
-Taiko's multi-prover for Taiko & Ethereum blocks. Currently supports Risc0, SP1, and SGX.
+The new proving system for all eth compatible blocks. 
 
 ## Usage
 
@@ -49,7 +49,7 @@ The `run` command will start the host service that listens to proof requests, th
 ```
 
 ### Task Management
-The script `prove-block.sh` always sends a POST request to Raiko server and enqueue a proving task. If you repeately send the same request, it will pull the latest status of the task and return the proof if ready. To check the progress of all tasks:
+The script `prove-block.sh` always sends a POST request to raizen server and enqueue a proving task. If you repeately send the same request, it will pull the latest status of the task and return the proof if ready. To check the progress of all tasks:
 ```shell
  curl --location --request POST 'http://localhost:8080/proof/report'
 ```
@@ -166,5 +166,3 @@ A `traces` folder will be created inside the root directory. This folder will co
 
 When running any of the features/provers, OpenAPI UIs are available in both Swagger and Scalar flavors on `/swagger-ui` and `/scalar` respectively.
 
-## Smart Contract Verification
-Raiko support Sp1 Smart Contract Verification, see how to verify a proof in solidity test [here](/provers/sp1/contracts/README.md)
