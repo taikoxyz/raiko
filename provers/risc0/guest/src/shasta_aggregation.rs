@@ -6,7 +6,7 @@ use risc0_zkvm::{guest::env, serde};
 
 use raiko_lib::{
     input::ShastaRisc0AggregationGuestInput,
-    protocol_instance::shasta_aggregation_output,
+    protocol_instance::{shasta_aggregation_output, shasta_zk_aggregation_output},
 };
 
 pub fn main() {
@@ -23,5 +23,10 @@ pub fn main() {
         input.prover_address,
     );
 
-    env::commit_slice(aggregation_hash.as_slice());
+    let agg_public_input_hash = shasta_zk_aggregation_output(
+        B256::from(words_to_bytes_be(&input.image_id)),
+        aggregation_hash,
+    );
+
+    env::commit_slice(agg_public_input_hash.as_slice());
 }
