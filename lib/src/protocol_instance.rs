@@ -23,7 +23,7 @@ use crate::{
     },
     libhash::{
         hash_core_state, hash_derivation, hash_proposal, hash_public_input,
-        hash_transition_with_metadata, hash_transitions_hash_array_with_metadata,
+        hash_transition_with_metadata, hash_transitions_hash_array_with_metadata, hash_two_values,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
@@ -801,6 +801,10 @@ pub fn shasta_aggregation_output(
         "shasta transactions_hash: {aggregated_proving_hash:?}, public_input_hash: {public_input_hash:?}."
     );
     public_input_hash
+}
+
+pub fn shasta_zk_aggregation_output(sub_image_id: B256, sub_input_hash: B256) -> B256 {
+    hash_two_values(sub_image_id, sub_input_hash)
 }
 
 #[cfg(test)]
