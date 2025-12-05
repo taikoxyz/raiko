@@ -35,13 +35,13 @@ class InboxConfig:
 
 @dataclass
 class ShastaProposal:
-    """Shasta Proposal structure - matches IInbox.sol Proposal struct"""
+    """Shasta Proposal structure - matches IInbox.sol Proposal struct (simplified version without coreStateHash)"""
     id: int  # uint48
     timestamp: int  # uint48
     end_of_submission_window_timestamp: int  # uint48
     proposer: str  # address as hex string
-    core_state_hash: str  # bytes32 as hex string
     derivation_hash: str  # bytes32 as hex string
+    # Note: coreStateHash has been removed from the on-chain version
 
 @dataclass
 class BlobSlice:
@@ -76,10 +76,10 @@ class ShastaCoreState:
 
 @dataclass
 class ShastaEventData:
-    """Complete Shasta Event Data structure"""
+    """Complete Shasta Event Data structure - matches IInbox.ProposedEventPayload (without CoreState)"""
     proposal: ShastaProposal
     derivation: ShastaDerivation
-    core_state: ShastaCoreState
+    # Note: CoreState is not included in the on-chain encoding
 
 @dataclass
 class Checkpoint:
@@ -127,7 +127,6 @@ class ProposedEventPayload:
     """Proposed Event Payload structure - matches IInbox.sol ProposedEventPayload"""
     proposal: ShastaProposal
     derivation: ShastaDerivation
-    core_state: ShastaCoreState
 
 @dataclass
 class ProvedEventPayload:
@@ -232,13 +231,20 @@ class ShastaEventDecoder:
     
     def decode_event_data(self, data: bytes) -> ShastaEventData:
         """
-        Decode Shasta event data following the custom encoding format
-        Based on the encode function in LibProposedEventEncoder.sol
+        Decode Shasta event data following the custom encoding format.
+        Based on the decode function in LibProposedEventEncoder.sol
+        
+        Encoding order matches IInbox.ProposedEventPayload:
+        1. Proposal: (id, proposer, timestamp, endOfSubmissionWindowTimestamp)
+        2. Derivation: (originBlockNumber, originBlockHash, basefeeSharingPctg, sources[])
+        3. Proposal.derivationHash (after derivation data)
+        4. CoreState: (nextProposalId, lastProposalBlockId, lastFinalizedProposalId, 
+                       lastCheckpointTimestamp, lastFinalizedTransitionHash, bondInstructionsHash)
         """
         try:
             ptr = 0
             
-            # Decode Proposal fields (按照编码函数的顺序)
+            # Decode Proposal fields (first 4 fields)
             proposal_id, ptr = self.unpack_uint48(data, ptr)
             proposer, ptr = self.unpack_address(data, ptr)
             timestamp, ptr = self.unpack_uint48(data, ptr)
@@ -280,17 +286,11 @@ class ShastaEventDecoder:
                     )
                 )
             
-            # Decode Proposal remaining fields
-            core_state_hash, ptr = self.unpack_hash(data, ptr)
+            # Decode Proposal.derivationHash (after derivation sources)
             derivation_hash, ptr = self.unpack_hash(data, ptr)
             
-            # Decode Core State
-            next_proposal_id, ptr = self.unpack_uint48(data, ptr)
-            last_proposal_block_id, ptr = self.unpack_uint48(data, ptr)
-            last_finalized_proposal_id, ptr = self.unpack_uint48(data, ptr)
-            last_checkpoint_timestamp, ptr = self.unpack_uint48(data, ptr)
-            last_finalized_transition_hash, ptr = self.unpack_hash(data, ptr)
-            bond_instructions_hash, ptr = self.unpack_hash(data, ptr)
+            # Note: CoreState has been removed from the on-chain ProposedEventPayload encoding
+            # The decode function only decodes: Proposal + Derivation (without CoreState)
             
             # Create the structures
             proposal = ShastaProposal(
@@ -298,7 +298,6 @@ class ShastaEventDecoder:
                 timestamp=timestamp,
                 end_of_submission_window_timestamp=end_of_submission_window_timestamp,
                 proposer=proposer,
-                core_state_hash=core_state_hash,
                 derivation_hash=derivation_hash
             )
             
@@ -309,19 +308,9 @@ class ShastaEventDecoder:
                 sources=sources
             )
             
-            core_state = ShastaCoreState(
-                next_proposal_id=next_proposal_id,
-                last_proposal_block_id=last_proposal_block_id,
-                last_finalized_proposal_id=last_finalized_proposal_id,
-                last_checkpoint_timestamp=last_checkpoint_timestamp,
-                last_finalized_transition_hash=last_finalized_transition_hash,
-                bond_instructions_hash=bond_instructions_hash
-            )
-            
             return ShastaEventData(
                 proposal=proposal,
-                derivation=derivation,
-                core_state=core_state
+                derivation=derivation
             )
             
         except Exception as e:
@@ -395,11 +384,12 @@ def test_decoder():
         print(f"Proposal ID (Batch ID): {event_data.proposal.id}")
         print(f"Proposer: {event_data.proposal.proposer}")
         print(f"Timestamp: {event_data.proposal.timestamp}")
+        print(f"End of Submission Window: {event_data.proposal.end_of_submission_window_timestamp}")
+        print(f"Derivation Hash: {event_data.proposal.derivation_hash}")
         print(f"Origin Block Number: {event_data.derivation.origin_block_number}")
+        print(f"Origin Block Hash: {event_data.derivation.origin_block_hash}")
+        print(f"Basefee Sharing Pctg: {event_data.derivation.basefee_sharing_pctg}")
         print(f"Derivation Sources Count: {len(event_data.derivation.sources)}")
-        print(f"Core State - Next Proposal ID: {event_data.core_state.next_proposal_id}")
-        print(f"Core State - Last Proposal Block ID: {event_data.core_state.last_proposal_block_id}")
-        print(f"Core State - Last Checkpoint Timestamp: {event_data.core_state.last_checkpoint_timestamp}")
         
     except Exception as e:
         print(f"❌ Test failed: {e}")

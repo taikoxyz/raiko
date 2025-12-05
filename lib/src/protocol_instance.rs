@@ -14,16 +14,13 @@ use crate::{
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
-        shasta::{
-            Checkpoint, Proposal as ShastaProposal, Transition as ShastaTransition,
-            TransitionMetadata,
-        },
+        shasta::{Checkpoint, Proposal as ShastaProposal, Transition as ShastaTransition},
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
         GuestInput, Transition,
     },
     libhash::{
-        hash_core_state, hash_derivation, hash_proposal, hash_public_input,
-        hash_transition_with_metadata, hash_transitions_hash_array_with_metadata, hash_two_values,
+        hash_derivation, hash_proposal, hash_public_input, hash_shasta_transition,
+        hash_transitions_hash_array_with_metadata, hash_two_values,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
@@ -565,11 +562,6 @@ impl ProtocolInstance {
                 stateRoot: last_block.header.state_root,
             }),
             BlockProposedFork::Shasta(event_data) => {
-                let core_state_hash = hash_core_state(&event_data.core_state);
-                assert_eq!(
-                    event_data.proposal.coreStateHash, core_state_hash,
-                    "core state hash mismatch"
-                );
                 let derivation_hash = hash_derivation(&event_data.derivation);
                 assert_eq!(
                     event_data.proposal.derivationHash, derivation_hash,
@@ -607,7 +599,6 @@ impl ProtocolInstance {
                             .proposal
                             .endOfSubmissionWindowTimestamp,
                         proposer: event_data.proposal.proposer,
-                        coreStateHash: core_state_hash,
                         derivationHash: derivation_hash,
                     }),
                     parentTransitionHash: batch_input
@@ -621,6 +612,8 @@ impl ProtocolInstance {
                         blockHash: last_block_hash,
                         stateRoot: last_block_state_root,
                     },
+                    actualProver: batch_input.taiko.prover_data.actual_prover,
+                    designatedProver: batch_input.taiko.prover_data.designated_prover.unwrap(),
                 })
             }
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
@@ -718,15 +711,8 @@ impl ProtocolInstance {
                 keccak(data).into()
             }
             TransitionFork::Shasta(shasta_trans) => {
-                let trans_metadata = TransitionMetadata {
-                    designatedProver: self.designated_prover.unwrap(),
-                    actualProver: self.prover,
-                };
-                info!(
-                    "transition to be signed into public: {:?} TransitionMetadata: {:?}",
-                    shasta_trans, trans_metadata
-                );
-                return hash_transition_with_metadata(shasta_trans, &trans_metadata);
+                info!("transition to be signed into public: {:?}.", shasta_trans);
+                return hash_shasta_transition(shasta_trans);
             }
         }
     }

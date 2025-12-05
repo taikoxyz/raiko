@@ -16,21 +16,6 @@ sol! {
         uint48 timestamp;
     }
 
-    #[derive(Debug, Deserialize, Serialize)]
-    enum BondType {
-        NONE,
-        PROVABILITY,
-        LIVENESS
-    }
-
-    #[derive(Debug, Deserialize, Serialize)]
-    struct BondInstruction {
-        uint48 proposalId;
-        BondType bondType;
-        address payer;
-        address payee;
-    }
-
     #[derive(Debug, Default, Deserialize, Serialize)]
     struct Checkpoint {
         uint48 blockNumber;
@@ -76,21 +61,20 @@ sol! {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
-        /// @notice The current hash of coreState
-        bytes32 coreStateHash;
         /// @notice Hash of the Derivation struct containing additional proposal data.
         bytes32 derivationHash;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
     struct Transition {
+        /// @notice The proposal's hash.
         bytes32 proposalHash;
+        /// @notice The parent transition's hash, this is used to link the transition to its parent
+        /// transition to
+        /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
+        /// @notice The end block header containing number, hash, and state root.
         Checkpoint checkpoint;
-    }
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    struct TransitionMetadata {
         /// @notice The designated prover for this transition.
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
@@ -111,16 +95,14 @@ sol! {
         uint48 lastCheckpointTimestamp;
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
-        /// @notice The hash of all bond instructions.
-        bytes32 bondInstructionsHash;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
     struct ProposedEventPayload {
+        /// @notice The proposal that was created.
         Proposal proposal;
+        /// @notice The derivation data for the proposal.
         Derivation derivation;
-        CoreState coreState;
-        BondInstruction[] bondInstructions;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -135,9 +117,6 @@ sol! {
 
     #[derive(Debug, Default, Deserialize, Serialize)]
     event Proved(bytes data);
-
-    #[derive(Debug, Default, Deserialize, Serialize)]
-    event BondInstructed(BondInstruction[] instructions);
 }
 
 /// Decoded Shasta event data containing the proposal and related information
@@ -145,8 +124,6 @@ sol! {
 pub struct ShastaEventData {
     pub proposal: Proposal,
     pub derivation: Derivation,
-    pub core_state: CoreState,
-    pub bond_instructions: Vec<BondInstruction>,
 }
 
 impl ShastaEventData {
@@ -160,8 +137,6 @@ impl ShastaEventData {
         Ok(Self {
             proposal: payload.proposal,
             derivation: payload.derivation,
-            core_state: payload.coreState,
-            bond_instructions: payload.bondInstructions,
         })
     }
 
@@ -314,52 +289,7 @@ impl ShastaEventData {
             });
         }
 
-        let (core_state_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
-        ptr = new_ptr;
-        let (derivation_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
-        ptr = new_ptr;
-
-        // Decode core state
-        let (next_proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
-        ptr = new_ptr;
-        let (last_proposal_block_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
-        ptr = new_ptr;
-        let (last_finalized_proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
-        ptr = new_ptr;
-        let (last_checkpoint_timestamp, new_ptr) = Self::unpack_uint48(data, ptr)?;
-        ptr = new_ptr;
-        let (last_finalized_transition_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
-        ptr = new_ptr;
-        let (bond_instructions_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
-        ptr = new_ptr;
-
-        // Decode bond instructions
-        let (bond_instructions_length, new_ptr) = Self::unpack_uint16(data, ptr)?;
-        ptr = new_ptr;
-
-        let mut bond_instructions = Vec::new();
-        if bond_instructions_length > 0 {
-            for _ in 0..bond_instructions_length {
-                let (proposal_id, new_ptr) = Self::unpack_uint48(data, ptr)?;
-                ptr = new_ptr;
-
-                let (bond_type_u8, new_ptr) = Self::unpack_uint8(data, ptr)?;
-                let bond_type = BondType::try_from(bond_type_u8)?;
-                ptr = new_ptr;
-
-                let (payer, new_ptr) = Self::unpack_address(data, ptr)?;
-                ptr = new_ptr;
-                let (payee, new_ptr) = Self::unpack_address(data, ptr)?;
-                ptr = new_ptr;
-
-                bond_instructions.push(BondInstruction {
-                    proposalId: proposal_id,
-                    bondType: bond_type,
-                    payer,
-                    payee,
-                });
-            }
-        }
+        let (derivation_hash, _new_ptr) = Self::unpack_hash(data, ptr)?;
 
         Ok(Self {
             proposal: Proposal {
@@ -367,7 +297,6 @@ impl ShastaEventData {
                 timestamp,
                 endOfSubmissionWindowTimestamp: end_of_submission_window_timestamp,
                 proposer,
-                coreStateHash: core_state_hash,
                 derivationHash: derivation_hash,
             },
             derivation: Derivation {
@@ -375,16 +304,7 @@ impl ShastaEventData {
                 originBlockHash: origin_block_hash,
                 basefeeSharingPctg: basefee_sharing_pctg,
                 sources,
-            },
-            core_state: CoreState {
-                nextProposalId: next_proposal_id,
-                lastProposalBlockId: last_proposal_block_id,
-                lastFinalizedProposalId: last_finalized_proposal_id,
-                lastCheckpointTimestamp: last_checkpoint_timestamp,
-                lastFinalizedTransitionHash: last_finalized_transition_hash,
-                bondInstructionsHash: bond_instructions_hash,
-            },
-            bond_instructions: bond_instructions,
+            }
         })
     }
 }
@@ -428,10 +348,6 @@ mod tests {
         assert_eq!(event_data.proposal.timestamp, 1761538532);
         assert_eq!(event_data.proposal.endOfSubmissionWindowTimestamp, 0);
         assert_eq!(
-            event_data.proposal.coreStateHash,
-            b256!("b58ff663a85896e6d5389e25fa5cbc8db864266a4e0511829a671111a50c9bd4")
-        );
-        assert_eq!(
             event_data.proposal.derivationHash,
             b256!("936490fe7bdf8fd6185cddd3e8d36b9c2c15e06cf9a1f0c99a3a9966a1e8ed8d")
         );
@@ -454,19 +370,6 @@ mod tests {
         assert_eq!(
             event_data.derivation.sources[0].blobSlice.timestamp,
             1761538532
-        );
-
-        // Assert core state fields
-        assert_eq!(event_data.core_state.nextProposalId, 624);
-        assert_eq!(event_data.core_state.lastProposalBlockId, 4786);
-        assert_eq!(event_data.core_state.lastFinalizedProposalId, 611);
-        assert_eq!(
-            event_data.core_state.lastFinalizedTransitionHash,
-            b256!("91dab1dbe9ea94a0b4b325f30c34742edde00b8dea6d04a2f2e6a748eb35ac33")
-        );
-        assert_eq!(
-            event_data.core_state.bondInstructionsHash,
-            b256!("0000000000000000000000000000000000000000000000000000000000000000")
         );
     }
 }

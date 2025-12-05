@@ -1,8 +1,6 @@
 // rust impl of taiko-mono/packages/protocol/contracts/layer1/shasta/libs/LibHashing.sol
 
-use crate::input::shasta::{
-    CoreState, Derivation, Proposal, Transition as ShastaTransition, TransitionMetadata,
-};
+use crate::input::shasta::{CoreState, Derivation, Proposal, Transition as ShastaTransition};
 
 use crate::input::shasta::Checkpoint;
 use crate::primitives::keccak::keccak;
@@ -10,13 +8,10 @@ use alloy_primitives::{Address, B256, U256};
 use reth_primitives::b256;
 
 /// Hash a transition using the same logic as the Solidity implementation
-pub fn hash_transition_with_metadata(
-    transition: &ShastaTransition,
-    metadata: &TransitionMetadata,
-) -> B256 {
+pub fn hash_shasta_transition(transition: &ShastaTransition) -> B256 {
     // converts designatedProver (Address) to B256 as in Solidity: bytes32(uint256(uint160(_metadata.designatedProver)))
-    let designated_prover_b256 = address_to_b256(metadata.designatedProver);
-    let prover_b256 = address_to_b256(metadata.actualProver);
+    let designated_prover_b256 = address_to_b256(transition.designatedProver);
+    let prover_b256 = address_to_b256(transition.actualProver);
     hash_five_values(
         transition.proposalHash,
         transition.parentTransitionHash,
@@ -103,10 +98,7 @@ pub const VERIFY_PROOF_B256: B256 =
     b256!("5645524946595f50524f4f460000000000000000000000000000000000000000");
 
 /// Hash an array of transitions using the same logic as the Solidity implementation
-pub fn hash_transitions_array_with_metadata(
-    transitions: &[ShastaTransition],
-    metadata: &TransitionMetadata,
-) -> B256 {
+pub fn hash_shasta_transitions_array(transitions: &[ShastaTransition]) -> B256 {
     if transitions.is_empty() {
         return EMPTY_BYTES_HASH;
     }
@@ -115,15 +107,15 @@ pub fn hash_transitions_array_with_metadata(
     if transitions.len() == 1 {
         return hash_two_values(
             U256::from(transitions.len()).into(),
-            hash_transition_with_metadata(&transitions[0], metadata),
+            hash_shasta_transition(&transitions[0]),
         );
     }
 
     if transitions.len() == 2 {
         return hash_three_values(
             U256::from(transitions.len()).into(),
-            hash_transition_with_metadata(&transitions[0], metadata),
-            hash_transition_with_metadata(&transitions[1], metadata),
+            hash_shasta_transition(&transitions[0]),
+            hash_shasta_transition(&transitions[1]),
         );
     }
 
@@ -138,7 +130,7 @@ pub fn hash_transitions_array_with_metadata(
 
     // Write each transition hash directly to buffer
     for transition in transitions {
-        let transition_hash = hash_transition_with_metadata(transition, metadata);
+        let transition_hash = hash_shasta_transition(transition);
         buffer.extend_from_slice(transition_hash.as_slice());
     }
 
@@ -207,23 +199,16 @@ pub fn hash_proposal(proposal: &Proposal) -> B256 {
 
     // Encode proposer address to B256 by zero-padding its 20 bytes to 32 bytes (uint256(uint160))
     let proposer_b256 = address_to_b256(proposal.proposer);
-
-    hash_four_values(
-        packed.into(),
-        proposer_b256,
-        proposal.coreStateHash,
-        proposal.derivationHash,
-    )
+    hash_three_values(packed.into(), proposer_b256, proposal.derivationHash)
 }
 
 pub fn hash_core_state(core_state: &CoreState) -> B256 {
-    hash_six_values(
+    hash_five_values(
         U256::from(core_state.nextProposalId).into(),
         U256::from(core_state.lastProposalBlockId).into(),
         U256::from(core_state.lastFinalizedProposalId).into(),
         U256::from(core_state.lastCheckpointTimestamp).into(),
         core_state.lastFinalizedTransitionHash,
-        core_state.bondInstructionsHash,
     )
 }
 
@@ -280,55 +265,152 @@ fn hash_blob_slice(blob_slice: &crate::input::shasta::BlobSlice) -> B256 {
     )
 }
 
-fn pack_derivation_fields(derivation: &Derivation) -> B256 {
-    let mut packed = [0u8; 32];
-    let origin_block_number_bytes = derivation.originBlockNumber.to_be_bytes();
-    packed[0..6].copy_from_slice(&origin_block_number_bytes[2..8]); // Take last 6 bytes
+/*
+IInbox.DerivationSource[] memory sources = _derivation.sources;
+            uint256 sourcesLength = sources.length;
 
-    // Pack basefeeSharingPctg at offset 24 (192 bits / 8 = 24 bytes from the right)
-    packed[7] = derivation.basefeeSharingPctg; // Take last byte
+            // Base words:
+            // [0] offset to tuple head (0x20)
+            // [1] originBlockNumber
+            // [2] originBlockHash
+            // [3] basefeeSharingPctg
+            // [4] offset to sources (0x80)
+            // [5] sources length
+            uint256 totalWords = 6 + sourcesLength;
 
-    B256::from(packed)
-}
+            // Each source contributes: element head (2) + blobSlice head (3) + blobHashes length (1)
+            // + blobHashes entries
+            for (uint256 i; i < sourcesLength; ++i) {
+                totalWords += 6 + sources[i].blobSlice.blobHashes.length;
+            }
 
+            bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
+
+            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
+            EfficientHashLib.set(buffer, 1, bytes32(uint256(_derivation.originBlockNumber)));
+            EfficientHashLib.set(buffer, 2, _derivation.originBlockHash);
+            EfficientHashLib.set(buffer, 3, bytes32(uint256(_derivation.basefeeSharingPctg)));
+            EfficientHashLib.set(buffer, 4, bytes32(uint256(0x80)));
+            EfficientHashLib.set(buffer, 5, bytes32(sourcesLength));
+
+            uint256 offsetsBase = 6;
+            uint256 dataCursor = offsetsBase + sourcesLength;
+
+            for (uint256 i; i < sourcesLength; ++i) {
+                IInbox.DerivationSource memory source = sources[i];
+                EfficientHashLib.set(
+                    buffer, offsetsBase + i, bytes32((dataCursor - offsetsBase) << 5)
+                );
+
+                // DerivationSource head
+                EfficientHashLib.set(
+                    buffer, dataCursor, bytes32(uint256(source.isForcedInclusion ? 1 : 0))
+                );
+                EfficientHashLib.set(buffer, dataCursor + 1, bytes32(uint256(0x40)));
+
+                // BlobSlice head
+                uint256 blobSliceBase = dataCursor + 2;
+                EfficientHashLib.set(buffer, blobSliceBase, bytes32(uint256(0x60)));
+                EfficientHashLib.set(
+                    buffer, blobSliceBase + 1, bytes32(uint256(source.blobSlice.offset))
+                );
+                EfficientHashLib.set(
+                    buffer, blobSliceBase + 2, bytes32(uint256(source.blobSlice.timestamp))
+                );
+
+                // Blob hashes array
+                bytes32[] memory blobHashes = source.blobSlice.blobHashes;
+                uint256 blobHashesLength = blobHashes.length;
+                uint256 blobHashesBase = blobSliceBase + 3;
+                EfficientHashLib.set(buffer, blobHashesBase, bytes32(blobHashesLength));
+
+                for (uint256 j; j < blobHashesLength; ++j) {
+                    EfficientHashLib.set(buffer, blobHashesBase + 1 + j, blobHashes[j]);
+                }
+
+                dataCursor = blobHashesBase + 1 + blobHashesLength;
+            }
+
+            bytes32 result = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+ */
 pub fn hash_derivation(derivation: &Derivation) -> B256 {
-    // Pack the fields: originBlockNumber (48 bits) << 208 | basefeeSharingPctg (8 bits) << 192
-    let packed_fields = pack_derivation_fields(derivation);
+    let sources_length = derivation.sources.len();
 
-    // Hash the sources array
-    let sources_hash = if derivation.sources.is_empty() {
-        EMPTY_BYTES_HASH
-    } else if derivation.sources.len() == 1 {
-        hash_two_values(
-            U256::from(derivation.sources.len()).into(),
-            hash_derivation_source(&derivation.sources[0]),
-        )
-    } else if derivation.sources.len() == 2 {
-        hash_three_values(
-            U256::from(derivation.sources.len()).into(),
-            hash_derivation_source(&derivation.sources[0]),
-            hash_derivation_source(&derivation.sources[1]),
-        )
-    } else {
-        // For larger arrays, use memory-optimized approach
-        let array_length = derivation.sources.len();
-        let buffer_size = 32 + (array_length * 32);
-        let mut buffer = Vec::with_capacity(buffer_size);
+    // Calculate total words needed for the buffer
+    // Base words: 6 (offset to tuple head, originBlockNumber, originBlockHash, basefeeSharingPctg, offset to sources, sources length)
+    let mut total_words = 6 + sources_length;
 
-        // Write array length at start of buffer
-        buffer.extend_from_slice(&U256::from(array_length).to_be_bytes::<32>());
+    // Each source contributes: element head (2) + blobSlice head (3) + blobHashes length (1) + blobHashes entries
+    for source in &derivation.sources {
+        total_words += 6 + source.blobSlice.blobHashes.len();
+    }
 
-        // Write each source hash directly to buffer
-        for source in &derivation.sources {
-            let source_hash = hash_derivation_source(source);
-            buffer.extend_from_slice(source_hash.as_slice());
-        }
+    // Allocate buffer: each word is 32 bytes (B256), initialize with zeros
+    let mut buffer = vec![0u8; total_words * 32];
 
-        keccak(&buffer).into()
+    // Helper function to write a word at a specific index
+    let write_word = |buf: &mut [u8], index: usize, value: B256| {
+        let pos = index * 32;
+        buf[pos..pos + 32].copy_from_slice(value.as_slice());
     };
 
-    // Hash the three values: packed_fields, originBlockHash, sourcesHash
-    hash_three_values(packed_fields, derivation.originBlockHash, sources_hash)
+    // Set base words
+    // [0] offset to tuple head (0x20)
+    write_word(&mut buffer, 0, U256::from(0x20u64).into());
+    // [1] originBlockNumber
+    write_word(&mut buffer, 1, U256::from(derivation.originBlockNumber).into());
+    // [2] originBlockHash
+    write_word(&mut buffer, 2, derivation.originBlockHash);
+    // [3] basefeeSharingPctg
+    write_word(&mut buffer, 3, U256::from(derivation.basefeeSharingPctg).into());
+    // [4] offset to sources (0x80)
+    write_word(&mut buffer, 4, U256::from(0x80u64).into());
+    // [5] sources length
+    write_word(&mut buffer, 5, U256::from(sources_length).into());
+
+    let offsets_base = 6;
+    let mut data_cursor = offsets_base + sources_length;
+
+    // Process each source
+    for (i, source) in derivation.sources.iter().enumerate() {
+        // Set offset for this source: (dataCursor - offsetsBase) << 5
+        let offset = ((data_cursor - offsets_base) << 5) as u64;
+        let offset_index = offsets_base + i;
+        write_word(&mut buffer, offset_index, U256::from(offset).into());
+
+        // DerivationSource head
+        // [dataCursor] isForcedInclusion (1 or 0)
+        let is_forced_inclusion_value = if source.isForcedInclusion { 1u64 } else { 0u64 };
+        write_word(&mut buffer, data_cursor, U256::from(is_forced_inclusion_value).into());
+        // [dataCursor + 1] offset to blobSlice (0x40)
+        write_word(&mut buffer, data_cursor + 1, U256::from(0x40u64).into());
+
+        // BlobSlice head
+        let blob_slice_base = data_cursor + 2;
+        // [blobSliceBase] offset to blobHashes (0x60)
+        write_word(&mut buffer, blob_slice_base, U256::from(0x60u64).into());
+        // [blobSliceBase + 1] offset
+        write_word(&mut buffer, blob_slice_base + 1, U256::from(source.blobSlice.offset).into());
+        // [blobSliceBase + 2] timestamp
+        write_word(&mut buffer, blob_slice_base + 2, U256::from(source.blobSlice.timestamp).into());
+
+        // Blob hashes array
+        let blob_hashes_base = blob_slice_base + 3;
+        let blob_hashes_length = source.blobSlice.blobHashes.len();
+        // [blobHashesBase] blobHashes length
+        write_word(&mut buffer, blob_hashes_base, U256::from(blob_hashes_length).into());
+
+        // [blobHashesBase + 1 + j] each blobHash
+        for (j, blob_hash) in source.blobSlice.blobHashes.iter().enumerate() {
+            write_word(&mut buffer, blob_hashes_base + 1 + j, *blob_hash);
+        }
+
+        data_cursor = blob_hashes_base + 1 + blob_hashes_length;
+    }
+
+    // Hash the entire buffer
+    keccak(&buffer).into()
 }
 
 pub fn hash_public_input(
@@ -360,9 +442,6 @@ mod test {
             timestamp: 1761830468,
             endOfSubmissionWindowTimestamp: 0,
             proposer: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
-            coreStateHash: b256!(
-                "6c3667ff590cbfedc61442117832ab6c43e4ae803e434df81573d4850d9f9522"
-            ),
             derivationHash: b256!(
                 "85422bfec85e2cb6d5ca9f52858a74b680865c0134c0e29af710d8e01d58898a"
             ),
@@ -391,19 +470,17 @@ mod test {
                     "63651766d70b5aaf0320fc63421f4d1fdf6fe828514e21e05615e9c2f93c9c7d"
                 ),
             },
-        };
-
-        let metadata = TransitionMetadata {
             designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
             actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
         };
-        let single_trans_hash = hash_transition_with_metadata(&transition, &metadata);
+
+        let single_trans_hash = hash_shasta_transition(&transition);
         assert_eq!(
             hex::encode(single_trans_hash),
             "8e1bb4b3832a1da199f0d0a7b93e95b8bd96c58045ff3b54d4969dc38a9260da"
         );
 
-        let transition_hash = hash_transitions_array_with_metadata(&[transition], &metadata);
+        let transition_hash = hash_shasta_transitions_array(&[transition]);
         assert_eq!(
             hex::encode(transition_hash),
             "f84854d6f8b03f973543dc20cf541d78a2a9e25299d6f53b13c8b48e03246a43"
@@ -431,6 +508,8 @@ mod test {
                         "4444444444444444444444444444444444444444444444444444444444444444"
                     ),
                 },
+                designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+                actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
             },
             // Transition 2
             ShastaTransition {
@@ -449,6 +528,8 @@ mod test {
                         "8888888888888888888888888888888888888888888888888888888888888888"
                     ),
                 },
+                designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+                actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
             },
             // Transition 3
             ShastaTransition {
@@ -467,15 +548,13 @@ mod test {
                         "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
                     ),
                 },
+                designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+                actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
             },
         ];
 
-        let metadata = TransitionMetadata {
-            designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
-            actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
-        };
         // Calculate hash using hashTransitionsArray equivalent
-        let result = hash_transitions_array_with_metadata(&transitions, &metadata);
+        let result = hash_shasta_transitions_array(&transitions);
         assert_eq!(
             hex::encode(result),
             "f9e1faec6512a0048465cfee3bb43eadbbfe8fe781ac5eaa4defe841b4e06453"
@@ -484,7 +563,7 @@ mod test {
         // Test individual transition hashes
         let individual_hashes: Vec<String> = transitions
             .iter()
-            .map(|t| hex::encode(hash_transition_with_metadata(t, &metadata)))
+            .map(|t| hex::encode(hash_shasta_transition(t)))
             .collect();
 
         assert_eq!(
@@ -498,24 +577,6 @@ mod test {
         assert_eq!(
             individual_hashes[2],
             "262fe70091d0da183a0eee8e271672f387d968c03de653fc01b1e88d930e9d23"
-        );
-    }
-
-    #[test]
-    fn test_pack_derivation_fields() {
-        let derivation = Derivation {
-            originBlockNumber: 155,
-            originBlockHash: b256!(
-                "10746c6d70f2b59483dc2e0a1315758799fb3655f87e430568e71591589f76f9"
-            ),
-            basefeeSharingPctg: 75,
-            sources: Vec::new(),
-        };
-
-        let packed_fields = pack_derivation_fields(&derivation);
-        assert_eq!(
-            packed_fields,
-            b256!("00000000009b004b000000000000000000000000000000000000000000000000")
         );
     }
 

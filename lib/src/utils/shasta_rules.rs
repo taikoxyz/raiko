@@ -160,7 +160,7 @@ pub fn validate_shasta_block_gas_limit(
 ) -> bool {
     let mut parent_gas_limit = block_guest_inputs[0].parent_header.gas_limit;
     for manifest_block in manifest_blocks.iter() {
-        let block_gas_limit: u64 = manifest_block.gas_limit;
+        let block_gas_limit: u64 = manifest_block.gas_limit + ANCHOR_V4_GAS_LIMIT;
         let upper_limit = min(
             MAX_BLOCK_GAS_LIMIT,
             parent_gas_limit * (10000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000,

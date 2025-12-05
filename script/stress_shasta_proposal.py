@@ -168,9 +168,11 @@ class BatchMonitor:
             # Try web3.py contract decoding first if available
             if self.l2_contract is not None:
                 try:
+                    self.logger.info(f"Attempting Web3.py decoding for tx input (length: {len(tx_input)} chars)")
+                    
                     # Decode the function call
                     func_obj, func_params = self.l2_contract.decode_function_input(tx_input)
-                    self.logger.debug(f"Decoded function: {func_obj.fn_name}")
+                    self.logger.info(f"Successfully decoded function: {func_obj.fn_name}")
                     
                     # Check if it's anchorV4
                     if func_obj.fn_name == "anchorV4":
@@ -178,12 +180,41 @@ class BatchMonitor:
                         proposal_params = func_params.get("_proposalParams", {})
                         block_params = func_params.get("_blockParams", {})
                         
-                        proposal_id = proposal_params.get("proposalId")
-                        anchor_number = block_params.get("anchorBlockNumber")
+                        self.logger.debug(f"Decoded params - proposal_params type: {type(proposal_params)}, block_params type: {type(block_params)}")
+                        
+                        # Handle different return types from web3.py
+                        # ProposalParams: (proposalId, proposer, proverAuth, bondInstructionsHash, bondInstructions)
+                        # BlockParams: (anchorBlockNumber, anchorBlockHash, anchorStateRoot)
+                        
+                        proposal_id = None
+                        anchor_number = None
+                        
+                        # Try to extract from tuple/list (indexed access)
+                        if isinstance(proposal_params, (list, tuple)):
+                            proposal_id = proposal_params[0] if len(proposal_params) > 0 else None
+                            self.logger.debug(f"Extracted proposal_id from tuple index 0: {proposal_id}")
+                        # Try dict access (named parameters)
+                        elif isinstance(proposal_params, dict):
+                            proposal_id = proposal_params.get("proposalId")
+                            self.logger.debug(f"Extracted proposal_id from dict: {proposal_id}")
+                        # Try AttributeDict or namedtuple
+                        elif hasattr(proposal_params, 'proposalId'):
+                            proposal_id = proposal_params.proposalId
+                            self.logger.debug(f"Extracted proposal_id from attribute: {proposal_id}")
+                        
+                        if isinstance(block_params, (list, tuple)):
+                            anchor_number = block_params[0] if len(block_params) > 0 else None
+                            self.logger.debug(f"Extracted anchor_number from tuple index 0: {anchor_number}")
+                        elif isinstance(block_params, dict):
+                            anchor_number = block_params.get("anchorBlockNumber")
+                            self.logger.debug(f"Extracted anchor_number from dict: {anchor_number}")
+                        elif hasattr(block_params, 'anchorBlockNumber'):
+                            anchor_number = block_params.anchorBlockNumber
+                            self.logger.debug(f"Extracted anchor_number from attribute: {anchor_number}")
                         
                         if proposal_id is not None and anchor_number is not None:
-                            self.logger.debug(
-                                f"Decoded via ABI: proposal_id={proposal_id}, anchor_number={anchor_number}"
+                            self.logger.info(
+                                f"✓ Decoded via ABI: proposal_id={proposal_id}, anchor_number={anchor_number}"
                             )
                             return (proposal_id, anchor_number)
                         else:
@@ -193,7 +224,9 @@ class BatchMonitor:
                     else:
                         self.logger.warning(f"Function is {func_obj.fn_name}, not anchorV4")
                 except Exception as e:
-                    self.logger.debug(f"Web3.py decoding failed, trying manual: {e}")
+                    import traceback
+                    self.logger.warning(f"Web3.py decoding failed: {e}")
+                    self.logger.debug(f"Web3.py decoding traceback:\n{traceback.format_exc()}")
             
             # Fallback to manual decoding
             # Remove 0x prefix if present
@@ -372,7 +405,7 @@ class BatchMonitor:
         
         # Not in cache, do individual search (fallback, should rarely happen if batch query worked)
         search_start = anchor_number + 1
-        search_end = anchor_number + 96
+        search_end = anchor_number + 128
         
         self.logger.info(
             f"Searching L1 blocks {search_start} to {search_end} for proposal_id {proposal_id} (not in cache)"
@@ -1338,7 +1371,7 @@ async def main():
 
 
 # Example usage:
-# python stress_shasta_proposal.py -t native -g 1000,2000 -p 10 -o stress_dev.log -a http://localhost:8080 -c 0xe9BDA5fd0C7F8E97b12860a57Cbcc89f33AAfFE8 -e https://l1rpc.internal.taiko.xyz -l https://l2rpc.internal.taiko.xyz -i IInbox.json -b AnchorContract.json -x 100 -w
+# python stress_shasta_proposal.py -t native -g 1000,2000 -p 10 -o stress_dev.log -a http://localhost:8080 -c 0xe9BDA5fd0C7F8E97b12860a57Cbcc89f33AAfFE8 -e https://l1rpc.internal.taiko.xyz -l https://l2rpc.internal.taiko.xyz -i IInbox.json -b Anchor.json -x 100 -w
 # Note: 
 #   -a (--raiko-rpc): Raiko RPC endpoint (default: http://localhost:8080)
 #   -g now specifies L2 block range instead of L1 block range

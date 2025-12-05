@@ -204,7 +204,7 @@ impl BlockProposedFork {
 
     pub fn proposal_block_number(&self) -> u64 {
         match self {
-            BlockProposedFork::Shasta(event_data) => event_data.core_state.lastProposalBlockId,
+            BlockProposedFork::Shasta(event_data) => event_data.derivation.originBlockNumber + 1,
             _ => unimplemented!("can not get proposal block number from non-shasta proposal"),
         }
     }
@@ -370,15 +370,6 @@ impl BlockProposedFork {
             BlockProposedFork::Shasta(event_data) => event_data.proposal.id,
             BlockProposedFork::Pacaya(batch) => batch.meta.batchId,
             _ => 0,
-        }
-    }
-
-    pub fn bond_proposal_hash(&self) -> Option<B256> {
-        match self {
-            BlockProposedFork::Shasta(event_data) => {
-                Some(event_data.core_state.bondInstructionsHash)
-            }
-            _ => None,
         }
     }
 }

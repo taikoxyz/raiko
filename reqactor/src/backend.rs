@@ -7,7 +7,6 @@ use raiko_core::{
     interfaces::{aggregate_proofs, aggregate_shasta_proposals, ProofRequest},
     preflight::{
         parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
-        parse_l1_bond_proposal_tx_for_shasta_fork,
     },
     provider::rpc::RpcBlockDataProvider,
     Raiko,
@@ -19,10 +18,7 @@ use raiko_lib::{
         ShastaAggregationGuestInput,
     },
     prover::{IdWrite, Proof},
-    utils::{
-        blobs::{zlib_compress_data, zlib_decompress_data},
-        shasta_rules::BOND_PROCESSING_DELAY,
-    },
+    utils::blobs::{zlib_compress_data, zlib_decompress_data},
 };
 use raiko_reqpool::{
     AggregationRequestEntity, BatchGuestInputRequestEntity, BatchProofRequestEntity,
@@ -602,29 +598,6 @@ async fn new_raiko_for_shasta_proposal_request(
     .await
     .map_err(|err| format!("Could not parse L1 shasta proposal tx: {err:?}"))?;
 
-    // Parse bond_proposal_hash from l1_bond_proposal_block_number if provided
-    let bond_proposal_hash = if let Some(l1_bond_proposal_block_number) = request_entity
-        .guest_input_entity()
-        .l1_bond_proposal_block_number()
-    {
-        assert!(
-            *proposal_id > BOND_PROCESSING_DELAY as u64,
-            "proposal id is too small to be a bond proposal"
-        );
-        let bond_proposal_id = *proposal_id - BOND_PROCESSING_DELAY as u64;
-        let hash = parse_l1_bond_proposal_tx_for_shasta_fork(
-            &l1_chain_spec,
-            &taiko_chain_spec,
-            *l1_bond_proposal_block_number,
-            bond_proposal_id,
-        )
-        .await
-        .map_err(|err| format!("Could not parse L1 shasta bond proposal tx: {err:?}"))?;
-        Some(hash)
-    } else {
-        None
-    };
-
     let proof_request = ProofRequest {
         block_number: 0,
         batch_id: *request_entity.guest_input_entity().proposal_id(),
@@ -661,7 +634,7 @@ async fn new_raiko_for_shasta_proposal_request(
                 .last_anchor_block_number()
                 .clone(),
         ),
-        bond_proposal_hash,
+        bond_proposal_hash: None,
         cached_event_data: Some(cached_event_data),
     };
 

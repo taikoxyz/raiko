@@ -315,15 +315,7 @@ pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
 
     // _proposal_fork is shasta proposal tx, so we can get the lastFinalizedProposalId from it
     match &proposal_fork {
-        BlockProposedFork::Shasta(event_data) => {
-            let _last_finalized_proposal_id = event_data.core_state.lastFinalizedProposalId;
-            let proposal_id = event_data.proposal.id;
-            let next_proposal_id = event_data.core_state.nextProposalId;
-            assert_eq!(
-                proposal_id + 1,
-                next_proposal_id,
-                "nextProposalId != proposal_id + 1"
-            );
+        BlockProposedFork::Shasta(_) => {
             // todo: no way to get l2 block numbers from shasta proposal tx
             Ok((vec![], proposal_fork))
         }
@@ -333,34 +325,30 @@ pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
     }
 }
 
-pub async fn parse_l1_bond_proposal_tx_for_shasta_fork(
-    l1_chain_spec: &ChainSpec,
-    taiko_chain_spec: &ChainSpec,
-    l1_bond_proposal_block_number: u64,
-    bond_proposal_id: u64,
+pub async fn _parse_l1_bond_proposal_tx_for_shasta_fork(
+    _l1_chain_spec: &ChainSpec,
+    _taiko_chain_spec: &ChainSpec,
+    _l1_bond_proposal_block_number: u64,
+    _bond_proposal_id: u64,
 ) -> RaikoResult<B256> {
-    let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
-    let (l1_bond_proposal_height, _tx, bond_proposal_fork) = get_block_proposed_event_by_height(
-        provider_l1.provider(),
-        taiko_chain_spec.clone(),
-        l1_bond_proposal_block_number,
-        bond_proposal_id,
-        SpecId::SHASTA,
-    )
-    .await?;
+    unreachable!("bond proposal is not implemented, double check the logic");
 
-    assert_eq!(
-        l1_bond_proposal_block_number, l1_bond_proposal_height,
-        "proposal tx inclusive block != proof_request block"
-    );
+    // let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
+    // let (l1_bond_proposal_height, _tx, _) = get_block_proposed_event_by_height(
+    //     provider_l1.provider(),
+    //     taiko_chain_spec.clone(),
+    //     l1_bond_proposal_block_number,
+    //     bond_proposal_id,
+    //     SpecId::SHASTA,
+    // )
+    // .await?;
 
-    // _proposal_fork is shasta proposal tx, so we can get the lastFinalizedProposalId from it
-    match &bond_proposal_fork {
-        BlockProposedFork::Shasta(event_data) => Ok(event_data.core_state.bondInstructionsHash),
-        _ => Err(RaikoError::Preflight(
-            "BlockProposedFork is not Shasta".to_owned(),
-        )),
-    }
+    // assert_eq!(
+    //     l1_bond_proposal_block_number, l1_bond_proposal_height,
+    //     "proposal tx inclusive block != proof_request block"
+    // );
+
+    // Ok(B256::ZERO)
 }
 
 /// Prepare Pacaya batch input
