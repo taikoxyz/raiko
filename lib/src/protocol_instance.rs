@@ -1,10 +1,11 @@
 use core::fmt::Display;
+use std::collections::HashSet;
 
 use alloy_primitives::{b256, Address, TxHash, B256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Ok, Result};
 use pretty_assertions::Comparison;
-use reth_evm_ethereum::taiko::decode_anchor_pacaya;
+use reth_evm_ethereum::taiko::{decode_anchor_pacaya, decode_anchor_shasta};
 use reth_primitives::{Block, Header};
 
 #[cfg(not(feature = "std"))]
@@ -30,7 +31,7 @@ use crate::{
     CycleTracker,
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 // The empty root of [`Vec<EthDeposit>`]
 const EMPTY_ETH_DEPOSIT_ROOT: B256 =
@@ -387,6 +388,60 @@ fn verify_batch_mode_blob_usage(
     Ok(())
 }
 
+fn verify_shasha_anchor_linkage(
+    inputs: &[GuestInput],
+    l1_ancestor_headers: &[Header],
+    expected_parent_hash: &B256,
+) -> bool {
+    let mut anchor_param_set = HashSet::new();
+    for input in inputs {
+        let anchor_tx = input.taiko.anchor_tx.clone().unwrap();
+        let anchor_data = decode_anchor_shasta(anchor_tx.input()).unwrap();
+        anchor_param_set.insert((
+            anchor_data._blockParams.anchorBlockNumber,
+            anchor_data._blockParams.anchorBlockHash,
+            anchor_data._blockParams.anchorStateRoot,
+        ));
+    }
+
+    if l1_ancestor_headers.is_empty() {
+        error!("l1 ancestor headers is empty");
+        return false;
+    }
+
+    let mut last_parent_hash = l1_ancestor_headers[0].hash_slow();
+    let mut l1_ancestor_hash_set = HashSet::from([(
+        l1_ancestor_headers[0].number,
+        last_parent_hash,
+        l1_ancestor_headers[0].state_root,
+    )]);
+    for curr in l1_ancestor_headers.iter().skip(1) {
+        if curr.parent_hash != last_parent_hash {
+            error!(
+                "l1 ancestor header parent hash mismatch, expected: {:?}, got: {:?}",
+                last_parent_hash, curr.parent_hash
+            );
+            return false;
+        }
+        let curr_hash = curr.hash_slow();
+        l1_ancestor_hash_set.insert((curr.number, curr_hash, curr.state_root));
+        last_parent_hash = curr_hash;
+    }
+
+    // every elem in anchor_param_set should be in l1_ancestor_hash_set
+    for anchor_param in anchor_param_set {
+        if !l1_ancestor_hash_set.contains(&(anchor_param.0, anchor_param.1, anchor_param.2)) {
+            error!(
+                "anchor param not found in l1 ancestor hash set: {:?}",
+                anchor_param
+            );
+            return false;
+        }
+    }
+
+    last_parent_hash == *expected_parent_hash
+}
+
 impl ProtocolInstance {
     pub fn new(input: &GuestInput, header: &Header, proof_type: ProofType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.blob_used();
@@ -562,7 +617,24 @@ impl ProtocolInstance {
                 stateRoot: last_block.header.state_root,
             }),
             BlockProposedFork::Shasta(event_data) => {
+                assert!(
+                    verify_shasha_anchor_linkage(
+                        &batch_input.inputs,
+                        batch_input.taiko.l1_ancestor_headers.as_slice(),
+                        &event_data.derivation.originBlockHash
+                    ),
+                    "L1 anchor linkage verification failed"
+                );
                 let derivation_hash = hash_derivation(&event_data.derivation);
+                assert_eq!(
+                    &event_data.derivation.originBlockNumber, &batch_input.taiko.l1_header.number,
+                    "L1 origin block number mismatch"
+                );
+                assert_eq!(
+                    event_data.derivation.originBlockHash,
+                    batch_input.taiko.l1_header.hash_slow(),
+                    "L1 origin block hash mismatch"
+                );
                 assert_eq!(
                     event_data.proposal.derivationHash, derivation_hash,
                     "derivation hash mismatch"

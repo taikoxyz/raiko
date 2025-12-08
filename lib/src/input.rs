@@ -16,10 +16,7 @@ use tracing::error;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::ChainSpec,
-    input::shasta::{Checkpoint, Proposal},
-    primitives::mpt::MptNode,
-    prover::Proof,
+    consts::ChainSpec, input::shasta::Checkpoint, primitives::mpt::MptNode, prover::Proof,
     utils::blobs::zlib_compress_data,
 };
 
@@ -66,6 +63,8 @@ pub struct InputDataSource {
 pub struct TaikoGuestBatchInput {
     pub batch_id: u64,
     pub l1_header: Header,
+    /// List of at most MAX ANCHOR OFFSET previous block headers
+    pub l1_ancestor_headers: Vec<Header>,
     pub batch_proposed: BlockProposedFork,
     pub chain_spec: ChainSpec,
     pub prover_data: TaikoProverData,
@@ -435,16 +434,6 @@ impl FromStr for BlobProofType {
         }
     }
 }
-
-#[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProposalBondInfo {
-    /// Bond proposal hash
-    pub bond_proposal_hash: B256,
-    /// All proposals
-    pub all_proposals: Vec<Proposal>,
-}
-
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct TaikoProverData {
     pub actual_prover: Address,

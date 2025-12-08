@@ -22,6 +22,7 @@ use raiko_lib::{
         TaikoGuestInput, TaikoProverData,
     },
     primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
+    utils::shasta_rules::ANCHOR_MAX_OFFSET,
 };
 use reth_evm_ethereum::taiko::{
     decode_anchor, decode_anchor_ontake, decode_anchor_pacaya, decode_anchor_shasta,
@@ -404,6 +405,7 @@ async fn prepare_pacaya_batch_input(
         batch_id: batch_id,
         batch_proposed: BlockProposedFork::Pacaya(batch_proposed),
         l1_header: l1_state_header.try_into().unwrap(),
+        l1_ancestor_headers: Vec::new(),
         chain_spec: taiko_chain_spec.clone(),
         prover_data: prover_data,
         data_sources: vec![InputDataSource {
@@ -434,6 +436,7 @@ async fn prepare_shasta_batch_input(
     _anchor_block_height: u64,
     l1_inclusion_header: Header,
     l1_state_header: Header,
+    l1_ancestor_headers: Vec<Header>,
     l1_chain_spec: &ChainSpec,
     taiko_chain_spec: &ChainSpec,
     prover_data: TaikoProverData,
@@ -488,10 +491,103 @@ async fn prepare_shasta_batch_input(
         batch_id: batch_id,
         batch_proposed: BlockProposedFork::Shasta(shasta_event_data),
         l1_header: l1_state_header.try_into().unwrap(),
+        l1_ancestor_headers: l1_ancestor_headers
+            .iter()
+            .map(|header| header.clone().try_into().unwrap())
+            .collect(),
         chain_spec: taiko_chain_spec.clone(),
         prover_data: prover_data,
         data_sources,
     })
+}
+
+async fn prepare_taiko_chain_batch_input_pacaya(
+    l1_chain_spec: &ChainSpec,
+    taiko_chain_spec: &ChainSpec,
+    l1_inclusion_block_number: u64,
+    batch_id: u64,
+    prover_data: TaikoProverData,
+    blob_proof_type: &BlobProofType,
+    batch_anchor_tx_info: Vec<(u64, B256)>,
+    batch_proposed: raiko_lib::input::pacaya::BatchProposed,
+) -> RaikoResult<TaikoGuestBatchInput> {
+    let (anchor_block_height, anchor_state_root) = batch_anchor_tx_info[0];
+    let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
+
+    let (l1_inclusion_header, l1_state_header) = get_headers(
+        &provider_l1,
+        (l1_inclusion_block_number, anchor_block_height),
+    )
+    .await?;
+    assert_eq!(anchor_state_root, l1_state_header.state_root);
+
+    prepare_pacaya_batch_input(
+        batch_proposed,
+        batch_id,
+        l1_inclusion_block_number,
+        anchor_block_height,
+        l1_inclusion_header,
+        l1_state_header,
+        l1_chain_spec,
+        taiko_chain_spec,
+        prover_data,
+        blob_proof_type,
+        &provider_l1,
+    )
+    .await
+}
+
+async fn prepare_taiko_chain_batch_input_shasta(
+    l1_chain_spec: &ChainSpec,
+    taiko_chain_spec: &ChainSpec,
+    l1_inclusion_block_number: u64,
+    batch_id: u64,
+    prover_data: TaikoProverData,
+    blob_proof_type: &BlobProofType,
+    batch_anchor_tx_info: Vec<(u64, B256)>,
+    shasta_event_data: raiko_lib::input::shasta::ShastaEventData,
+) -> RaikoResult<TaikoGuestBatchInput> {
+    let (anchor_block_height, _) = batch_anchor_tx_info[0];
+    let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
+
+    assert!(
+        l1_inclusion_block_number > 0,
+        "l1_inclusion_block_number is 0"
+    );
+    // unlike pacaya that using anchor block as l1_state_header
+    // shasta use parent block instead of anchor block because it connect anchor way through parent block
+    let (l1_inclusion_header, l1_state_header) = get_headers(
+        &provider_l1,
+        (l1_inclusion_block_number, l1_inclusion_block_number - 1),
+    )
+    .await?;
+    assert_eq!(
+        l1_inclusion_header.parent_hash,
+        l1_state_header.hash.unwrap()
+    );
+
+    let l1_ancestor_headers = get_max_anchor_headers(
+        &provider_l1,
+        batch_anchor_tx_info,
+        l1_inclusion_block_number - 1,
+    )
+    .await?;
+
+    prepare_shasta_batch_input(
+        shasta_event_data,
+        batch_id,
+        l1_inclusion_block_number,
+        anchor_block_height,
+        l1_inclusion_header,
+        l1_state_header,
+        l1_ancestor_headers,
+        l1_chain_spec,
+        taiko_chain_spec,
+        prover_data,
+        blob_proof_type,
+        &provider_l1,
+    )
+    .await
 }
 
 /// Prepare the input for a Taiko chain
@@ -522,43 +618,13 @@ pub async fn prepare_taiko_chain_batch_input(
         },
     )?;
 
-    match fork {
-        SpecId::PACAYA => {
-            assert!(
-                batch_anchor_tx_info.windows(2).all(|w| { w[0] == w[1] }),
-                "batch anchor tx info mismatch"
-            );
-        }
-        SpecId::SHASTA => {
-            assert!(
-                batch_anchor_tx_info
-                    .windows(2)
-                    .all(|w| if w[0].0 == w[1].0 {
-                        w[0].1 == w[1].1
-                    } else {
-                        // if anchor changes, block hash is not zero
-                        w[0].0 < w[1].0 && w[0].1 != B256::ZERO && w[1].1 != B256::ZERO
-                    }),
-                "batch anchor tx info mismatch, {batch_anchor_tx_info:?}"
-            );
-        }
-        _ => {
-            return Err(RaikoError::Preflight(
-                "Unsupported BatchProposedFork type".to_owned(),
-            ))
-        }
-    };
-
-    let (anchor_block_height, anchor_state_root) = batch_anchor_tx_info[0];
-    let fork = taiko_chain_spec.active_fork(batch_blocks[0].number, batch_blocks[0].timestamp)?;
-    let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
-
     // Use cached event data if available, otherwise fetch from RPC
     let batch_proposed_fork = if let Some(cached_data) = cached_event_data {
         debug!("Using cached block proposed event data, skipping RPC call");
         cached_data
     } else {
         debug!("No cached event data, fetching from RPC");
+        let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
         let (l1_inclusion_height, _, event_data) = get_block_proposed_event_by_height(
             provider_l1.provider(),
             taiko_chain_spec.clone(),
@@ -570,49 +636,54 @@ pub async fn prepare_taiko_chain_batch_input(
         assert_eq!(l1_inclusion_block_number, l1_inclusion_height);
         event_data
     };
-    let (l1_inclusion_header, l1_state_header) = get_headers(
-        &provider_l1,
-        (l1_inclusion_block_number, anchor_block_height),
-    )
-    .await?;
-    assert_eq!(anchor_state_root, l1_state_header.state_root);
 
-    match batch_proposed_fork {
-        BlockProposedFork::Pacaya(batch_proposed) => {
-            prepare_pacaya_batch_input(
+    match (fork, batch_proposed_fork) {
+        (SpecId::PACAYA, BlockProposedFork::Pacaya(batch_proposed)) => {
+            assert!(
+                batch_anchor_tx_info.windows(2).all(|w| { w[0] == w[1] }),
+                "batch anchor tx info mismatch {batch_anchor_tx_info:?}"
+            );
+            prepare_taiko_chain_batch_input_pacaya(
+                l1_chain_spec,
+                taiko_chain_spec,
+                l1_inclusion_block_number,
+                batch_id,
+                prover_data,
+                blob_proof_type,
+                batch_anchor_tx_info,
                 batch_proposed,
-                batch_id,
-                l1_inclusion_block_number,
-                anchor_block_height,
-                l1_inclusion_header,
-                l1_state_header,
-                l1_chain_spec,
-                taiko_chain_spec,
-                prover_data,
-                blob_proof_type,
-                &provider_l1,
             )
             .await
         }
-        BlockProposedFork::Shasta(shasta_event_data) => {
-            prepare_shasta_batch_input(
+        (SpecId::SHASTA, BlockProposedFork::Shasta(shasta_event_data)) => {
+            assert!(
+                batch_anchor_tx_info
+                    .windows(2)
+                    .all(|w| if w[0].0 == w[1].0 {
+                        w[0].1 == w[1].1
+                    } else {
+                        // if anchor changes, block hash is not zero
+                        w[0].0 < w[1].0 && w[0].1 != B256::ZERO && w[1].1 != B256::ZERO
+                    }),
+                "batch anchor tx info mismatch, {batch_anchor_tx_info:?}"
+            );
+            prepare_taiko_chain_batch_input_shasta(
+                l1_chain_spec,
+                taiko_chain_spec,
+                l1_inclusion_block_number,
+                batch_id,
+                prover_data,
+                blob_proof_type,
+                batch_anchor_tx_info,
                 shasta_event_data,
-                batch_id,
-                l1_inclusion_block_number,
-                anchor_block_height,
-                l1_inclusion_header,
-                l1_state_header,
-                l1_chain_spec,
-                taiko_chain_spec,
-                prover_data,
-                blob_proof_type,
-                &provider_l1,
             )
             .await
         }
-        _ => Err(RaikoError::Preflight(
-            "Unsupported BatchProposedFork type".to_owned(),
-        )),
+        _ => {
+            return Err(RaikoError::Preflight(
+                "Unsupported BatchProposedFork type".to_owned(),
+            ))
+        }
     }
 }
 
@@ -1045,6 +1116,49 @@ where
 
     // Convert the alloy block to a reth block
     Ok((a.header.clone(), b.header.clone()))
+}
+
+pub async fn get_max_anchor_headers<BDP>(
+    provider: &BDP,
+    anchor_tx_info_vec: Vec<(u64, B256)>,
+    original_block_numbers: u64,
+) -> RaikoResult<Vec<Header>>
+where
+    BDP: BlockDataProvider,
+{
+    assert!(!anchor_tx_info_vec.is_empty(), "anchor_tx_info is empty");
+    let min_anchor_height = anchor_tx_info_vec[0].0;
+    assert!(
+        original_block_numbers - min_anchor_height <= ANCHOR_MAX_OFFSET as u64,
+        "original_block_numbers - min_anchor_height > ANCHOR_MAX_OFFSET"
+    );
+    info!(
+        "get max anchor L1 block headers in range: ({min_anchor_height}, {original_block_numbers})"
+    );
+    let all_init_block_numbers = (min_anchor_height..=original_block_numbers)
+        .map(|block_number| (block_number, false))
+        .collect::<Vec<_>>();
+    // can filter out the block numbers that are already in the initial_db
+    // but need to handle the block header db as well
+    let initial_history_blocks = provider.get_blocks(&all_init_block_numbers).await?;
+
+    // assert all anchor in this chain
+    for anchor_tx_info in anchor_tx_info_vec {
+        let block = initial_history_blocks
+            .iter()
+            .find(|block| block.header.number.unwrap() == anchor_tx_info.0);
+        if block.is_none() {
+            return Err(RaikoError::Preflight(format!(
+                "Anchor block {} not found in the chain",
+                anchor_tx_info.0
+            )));
+        }
+    }
+
+    Ok(initial_history_blocks
+        .iter()
+        .map(|block| block.header.clone())
+        .collect())
 }
 
 // block_time_to_block_slot returns the slots of the given timestamp.
