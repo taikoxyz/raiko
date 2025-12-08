@@ -9,7 +9,10 @@ fn main() {
         &[
             "risc0-aggregation",
             "risc0-batch",
+            "boundless-aggregation",
+            "boundless-batch",
             "risc0-shasta-aggregation",
+            "boundless-shasta-aggregation",
         ],
         "provers/risc0/driver/src/methods",
     );

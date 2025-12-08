@@ -1,6 +1,7 @@
 #![cfg(feature = "enable")]
 
 use crate::{
+    boundless::BoundlessProver,
     methods::risc0_aggregation::RISC0_AGGREGATION_ELF, methods::risc0_batch::RISC0_BATCH_ELF,
     methods::risc0_shasta_aggregation::RISC0_SHASTA_AGGREGATION_ELF,
 };
@@ -27,12 +28,14 @@ use serde_with::serde_as;
 use std::fmt::Debug;
 
 pub mod bonsai;
+pub mod boundless;
 pub mod methods;
 pub mod snarks;
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Risc0Param {
+    pub boundless: bool,
     pub bonsai: bool,
     pub snark: bool,
     pub profile: bool,
@@ -80,7 +83,17 @@ impl Prover for Risc0Prover {
         config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
+        let boundless_cfg = config;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+
+        if config.boundless {
+            // Delegate to boundless driver (agent-managed) when enabled.
+            return BoundlessProver::new()
+                .aggregate(input, _output, boundless_cfg, None)
+                .await
+                .map_err(|e| ProverError::GuestError(e.to_string()));
+        }
+
         assert!(
             config.snark && config.bonsai,
             "Aggregation must be in bonsai snark mode"
@@ -183,7 +196,17 @@ impl Prover for Risc0Prover {
         id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let mut id_store = id_store;
+        let boundless_cfg = config;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+        
+        if config.boundless {
+            // Delegate to boundless driver (agent-managed) when enabled.
+            return BoundlessProver::new()
+                .batch_run(input, output, boundless_cfg, None)
+                .await
+                .map_err(|e| ProverError::GuestError(e.to_string()));
+        }
+
         let proof_key = (
             input.taiko.chain_spec.chain_id,
             input.taiko.batch_id,
@@ -232,7 +255,17 @@ impl Prover for Risc0Prover {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
+        let boundless_cfg = config;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
+ 
+        if config.boundless {
+            // Delegate to boundless driver (agent-managed) when enabled.
+            return BoundlessProver::new()
+                .shasta_aggregate(input, _output, boundless_cfg, None)
+                .await
+                .map_err(|e| ProverError::GuestError(e.to_string()));
+        }
+
         assert!(
             config.snark && config.bonsai,
             "Shasta aggregation must be in bonsai snark mode"

@@ -4,6 +4,7 @@
 # risc0
 BONSAI_API_KEY=$BONSAI_API_KEY
 BONSAI_API_URL=$BONSAI_API_URL
+BOUNDLESS_AGENT_URL=${BOUNDLESS_AGENT_URL:-http://localhost:9999/proof}
 # reference verifier was deployed in holesky
 # GROTH16_VERIFIER_RPC_URL=https://ethereum-holesky-rpc.publicnode.com
 GROTH16_VERIFIER_RPC_URL=https://ethereum-hoodi-rpc.publicnode.com
@@ -51,6 +52,7 @@ set_persistent_env() {
 # Set each variable persistently
 set_persistent_env "BONSAI_API_KEY" "$BONSAI_API_KEY"
 set_persistent_env "BONSAI_API_URL" "$BONSAI_API_URL"
+set_persistent_env "BOUNDLESS_AGENT_URL" "$BOUNDLESS_AGENT_URL"
 set_persistent_env "GROTH16_VERIFIER_ADDRESS" "$GROTH16_VERIFIER_ADDRESS"
 set_persistent_env "GROTH16_VERIFIER_RPC_URL" "$GROTH16_VERIFIER_RPC_URL"
 
