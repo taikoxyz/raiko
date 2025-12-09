@@ -543,8 +543,7 @@ async def main():
 
     await monitor.run()
 
-
-# python stress_batch.py -t native -g 8950,8960 -p 3 -o stress_dev.log -c 0x79C9109b764609df928d16fC4a91e9081F7e87DB #hekla
 # python stress_batch.py -t native -g 8950,8960 -p 3 -o stress_dev.log -c '0xbE71D121291517c85Ab4d3ac65d70F6b1FD57118' #devnet
+# python stress_batch.py -t native -g 1780200,1780240 -p 3 -o stress_dev.log -c 0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9 -e https://ethereum-hoodi-rpc.publicnode.com #hoodi
 if __name__ == "__main__":
     asyncio.run(main())
