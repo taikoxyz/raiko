@@ -229,7 +229,6 @@ pub async fn do_generate_guest_input(
         designated_prover: Default::default(),
         cached_event_data: None,
         last_anchor_block_number: None,
-        bond_proposal_hash: None,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -296,7 +295,6 @@ pub async fn do_prove_single(
         designated_prover: Default::default(),
         cached_event_data: None,
         last_anchor_block_number: None,
-        bond_proposal_hash: None,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -438,7 +436,6 @@ async fn new_raiko_for_batch_request(
         designated_prover: Default::default(),
         cached_event_data: Some(cached_event_data),
         last_anchor_block_number: None,
-        bond_proposal_hash: None,
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
@@ -634,7 +631,6 @@ async fn new_raiko_for_shasta_proposal_request(
                 .last_anchor_block_number()
                 .clone(),
         ),
-        bond_proposal_hash: None,
         cached_event_data: Some(cached_event_data),
     };
 

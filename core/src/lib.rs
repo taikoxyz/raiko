@@ -577,9 +577,9 @@ mod tests {
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 796,
-            l1_inclusion_block_number: 5003,
-            l2_block_numbers: vec![796],
+            batch_id: 777,
+            l1_inclusion_block_number: 4919,
+            l2_block_numbers: vec![777],
             network,
             graffiti: B256::ZERO,
             prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
@@ -593,8 +593,7 @@ mod tests {
             checkpoint: None,
             designated_prover: Some(address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc")),
             cached_event_data: None,
-            last_anchor_block_number: None,
-            bond_proposal_hash: None,
+            last_anchor_block_number: Some(4909),
         };
 
         batch_prove_shasta_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
@@ -628,7 +627,6 @@ mod tests {
             designated_prover: None,
             last_anchor_block_number: None,
             cached_event_data: None,
-            bond_proposal_hash: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -674,7 +672,6 @@ mod tests {
             checkpoint: None,
             last_anchor_block_number: None,
             cached_event_data: None,
-            bond_proposal_hash: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -713,7 +710,6 @@ mod tests {
             designated_prover: None,
             last_anchor_block_number: None,
             cached_event_data: None,
-            bond_proposal_hash: None,
         };
         prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
@@ -760,7 +756,6 @@ mod tests {
                 designated_prover: None,
                 last_anchor_block_number: None,
                 cached_event_data: None,
-                bond_proposal_hash: None,
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -797,7 +792,6 @@ mod tests {
                 designated_prover: None,
                 last_anchor_block_number: None,
                 cached_event_data: None,
-                bond_proposal_hash: None,
             };
             batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
@@ -836,7 +830,6 @@ mod tests {
             designated_prover: None,
             last_anchor_block_number: None,
             cached_event_data: None,
-            bond_proposal_hash: None,
         };
         let proof = prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
 

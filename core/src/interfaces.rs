@@ -378,8 +378,6 @@ pub struct ProofRequest {
     pub designated_prover: Option<Address>,
     /// last anchor number
     pub last_anchor_block_number: Option<u64>,
-    /// Bond proposal hash for shasta fork
-    pub bond_proposal_hash: Option<B256>,
     /// Cached block proposed event data to avoid duplicate RPC calls
     #[serde(skip)]
     pub cached_event_data: Option<raiko_lib::input::BlockProposedFork>,
@@ -731,7 +729,6 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
             designated_prover: None,
             cached_event_data: None,
             last_anchor_block_number: None,
-            bond_proposal_hash: None,
         })
     }
 }
