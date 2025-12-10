@@ -6836,6 +6836,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "bincode",
  "cfg-if",
  "chrono",

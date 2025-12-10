@@ -5,6 +5,7 @@
 BONSAI_API_KEY=$BONSAI_API_KEY
 BONSAI_API_URL=$BONSAI_API_URL
 BOUNDLESS_AGENT_URL=${BOUNDLESS_AGENT_URL:-http://localhost:9999/proof}
+# BOUNDLESS_AGENT_URL=${BOUNDLESS_AGENT_URL:-http://18.180.248.1:9997/proof}
 # reference verifier was deployed in holesky
 # GROTH16_VERIFIER_RPC_URL=https://ethereum-holesky-rpc.publicnode.com
 GROTH16_VERIFIER_RPC_URL=https://ethereum-hoodi-rpc.publicnode.com
