@@ -10,14 +10,19 @@ use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{calculate_batch_blocks_final_header, calculate_block_header},
     input::{
+        shasta::{Commitment, Transition as ShastaTransition},
         GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
     },
+    libhash::hash_shasta_subproof_input,
     primitives::{
         keccak::{self},
         Address, B256,
     },
     proof_type::ProofType,
-    protocol_instance::{aggregation_output_combine, shasta_aggregation_output, ProtocolInstance},
+    protocol_instance::{
+        aggregation_output_combine, shasta_aggregation_output,
+        validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
+    },
 };
 use secp256k1::{Keypair, PublicKey, SecretKey};
 use serde::Serialize;
@@ -341,30 +346,82 @@ pub async fn shasta_aggregate(
     let new_pubkey = public_key(&prev_privkey);
     let sgx_instance = public_key_to_address(&new_pubkey);
 
-    // Make sure the chain of old/new public keys is preserved
-    let old_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
-    let mut cur_instance = old_instance;
+    // No key-rotation: every sub-proof must be signed by the same instance address and the
+    // embedded instance bytes must match the recovered signer.
+    let expected_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
 
-    let mut transactions = Vec::new();
+    assert!(validate_shasta_aggregate_proof_carry_data(&input));
+
+    let mut transitions = Vec::new();
     // Verify the proofs
-    for proof in input.proofs.iter() {
+    for (i, proof) in input.proofs.iter().enumerate() {
         // TODO: verify protocol instance data so we can trust the old/new instance data
         assert_eq!(
-            recover_signer_unchecked(&proof.proof.clone()[24..].try_into().unwrap(), &proof.input,)
-                .unwrap(),
-            cur_instance,
+            proof.input,
+            hash_shasta_subproof_input(&input.proof_carry_data_vec[i])
         );
-        cur_instance = Address::from_slice(&proof.proof.clone()[4..24]);
-        transactions.push(proof.input);
+        let instance = Address::from_slice(&proof.proof.clone()[4..24]);
+        assert_eq!(instance, expected_instance);
+        assert_eq!(
+            recover_signer_unchecked(proof.proof[24..].try_into().unwrap(), &proof.input,)
+                .unwrap(),
+            expected_instance,
+        );
+        transitions.push(ShastaTransition {
+            proposer: input.proof_carry_data_vec[i]
+                .transition_input
+                .transition
+                .proposer,
+            designatedProver: input.proof_carry_data_vec[i]
+                .transition_input
+                .transition
+                .designatedProver,
+            timestamp: input.proof_carry_data_vec[i]
+                .transition_input
+                .transition
+                .timestamp,
+            checkpointHash: raiko_lib::libhash::hash_checkpoint(
+                &input.proof_carry_data_vec[i].transition_input.checkpoint,
+            ),
+        });
     }
 
-    // Current public key needs to match latest proof new public key
-    assert_eq!(cur_instance, sgx_instance);
+    let commitment = Commitment {
+        firstProposalId: input.proof_carry_data_vec[0].transition_input.proposal_id,
+        firstProposalParentBlockHash: input.proof_carry_data_vec[0]
+            .transition_input
+            .parent_checkpoint_hash,
+        lastProposalHash: input
+            .proof_carry_data_vec
+            .last()
+            .expect("proof_carry_data_vec must be non-empty")
+            .transition_input
+            .proposal_hash,
+        endBlockNumber: input
+            .proof_carry_data_vec
+            .last()
+            .unwrap()
+            .transition_input
+            .checkpoint
+            .blockNumber,
+        endStateRoot: input
+            .proof_carry_data_vec
+            .last()
+            .unwrap()
+            .transition_input
+            .checkpoint
+            .stateRoot,
+        actualProver: input.proof_carry_data_vec[0].transition_input.actual_prover,
+        transitions: transitions,
+    };
+
+    // The aggregator must be the same instance as the sub-proof signer.
+    assert_eq!(expected_instance, sgx_instance);
 
     let aggregation_hash = shasta_aggregation_output(
-        &transactions,
-        input.chain_id,
-        input.verifier_address,
+        &commitment,
+        input.proof_carry_data_vec[0].chain_id,
+        input.proof_carry_data_vec[0].verifier,
         sgx_instance,
     );
     // Sign the public aggregation hash

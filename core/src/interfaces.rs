@@ -875,7 +875,7 @@ impl From<ProofRequestOpt> for AggregationRequest {
     }
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq)]
 #[serde(default)]
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationOnlyRequest {

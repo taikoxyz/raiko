@@ -16,7 +16,7 @@ sol! {
         uint48 timestamp;
     }
 
-    #[derive(Debug, Default, Deserialize, Serialize)]
+    #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
     struct Checkpoint {
         uint48 blockNumber;
         bytes32 blockHash;
@@ -61,24 +61,43 @@ sol! {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
+        /// @notice Hash of the parent proposal (zero for genesis).
+        bytes32 parentProposalHash;
         /// @notice Hash of the Derivation struct containing additional proposal data.
         bytes32 derivationHash;
     }
 
-    #[derive(Debug, Default, Deserialize, Serialize)]
+    #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+    /// @notice Transition data for a proposal used in prove
     struct Transition {
-        /// @notice The proposal's hash.
-        bytes32 proposalHash;
-        /// @notice The parent transition's hash, this is used to link the transition to its parent
-        /// transition to
-        /// finalize the corresponding proposal.
-        bytes32 parentTransitionHash;
-        /// @notice The end block header containing number, hash, and state root.
-        Checkpoint checkpoint;
-        /// @notice The designated prover for this transition.
+        /// @notice Address of the proposer.
+        address proposer;
+        /// @notice Address of the designated prover.
         address designatedProver;
-        /// @notice The actual prover who submitted the proof.
+        /// @notice Timestamp of the proposal.
+        uint48 timestamp;
+        /// @notice checkpoint hash for the proposal.
+        bytes32 checkpointHash;
+    }
+
+    #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
+    /// @notice Commitment data that the prover commits to when submitting a proof.
+    struct Commitment {
+        /// @notice The ID of the first proposal being proven.
+        uint48 firstProposalId;
+        /// @notice The checkpoint hash of the parent of the first proposal, this is used
+        /// to verify checkpoint continuity in the proof.
+        bytes32 firstProposalParentBlockHash;
+        /// @notice The hash of the last proposal being proven.
+        bytes32 lastProposalHash;
+        /// @notice The actual prover who generated the proof.
         address actualProver;
+        /// @notice The block number for the end L2 block in this proposal.
+        uint48 endBlockNumber;
+        /// @notice The state root for the end L2 block in this proposal.
+        bytes32 endStateRoot;
+        /// @notice Array of transitions for each proposal in the proof range.
+        Transition[] transitions;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]
@@ -243,6 +262,8 @@ impl ShastaEventData {
         ptr = new_ptr;
         let (end_of_submission_window_timestamp, new_ptr) = Self::unpack_uint48(data, ptr)?;
         ptr = new_ptr;
+        let (parent_proposal_hash, new_ptr) = Self::unpack_hash(data, ptr)?;
+        ptr = new_ptr;
 
         // Decode derivation fields
         let (origin_block_number, new_ptr) = Self::unpack_uint48(data, ptr)?;
@@ -297,6 +318,7 @@ impl ShastaEventData {
                 timestamp,
                 endOfSubmissionWindowTimestamp: end_of_submission_window_timestamp,
                 proposer,
+                parentProposalHash: parent_proposal_hash,
                 derivationHash: derivation_hash,
             },
             derivation: Derivation {
@@ -304,7 +326,7 @@ impl ShastaEventData {
                 originBlockHash: origin_block_hash,
                 basefeeSharingPctg: basefee_sharing_pctg,
                 sources,
-            }
+            },
         })
     }
 }

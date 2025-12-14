@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use base64::{engine::general_purpose, Engine as _};
-use bincode;
 
 use raiko_core::{
     interfaces::{aggregate_proofs, aggregate_shasta_proposals, ProofRequest},
@@ -18,7 +16,10 @@ use raiko_lib::{
         ShastaAggregationGuestInput,
     },
     prover::{IdWrite, Proof},
-    utils::blobs::{zlib_compress_data, zlib_decompress_data},
+    utils::shasta_guest_input::{
+        decode_guest_input_from_prover_arg_value, encode_guest_input_to_compress_b64_str,
+        PROVER_ARG_SHASTA_GUEST_INPUT,
+    },
 };
 use raiko_reqpool::{
     AggregationRequestEntity, BatchGuestInputRequestEntity, BatchProofRequestEntity,
@@ -372,13 +373,8 @@ async fn do_shasta_aggregation(
 ) -> Result<Proof, String> {
     let proof_type = request_key.proof_type().clone();
     let proofs = request_entity.proofs().clone();
-    let (chain_id, verifier_address) = proofs.first().unwrap().extra_data.unwrap();
 
-    let input = ShastaAggregationGuestInput {
-        proofs,
-        chain_id,
-        verifier_address,
-    };
+    let input = ShastaAggregationGuestInput { proofs };
     let output = AggregationGuestOutput { hash: B256::ZERO };
     let config = serde_json::to_value(request_entity.prover_args())
         .map_err(|err| format!("failed to serialize prover args: {err:?}"))?;
@@ -475,13 +471,9 @@ pub async fn do_generate_batch_guest_input(
     let input = generate_input_for_batch(&raiko)
         .await
         .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?;
-    let input_proof = bincode::serialize(&input)
-        .map_err(|err| format!("failed to serialize input to bincode: {err:?}"))?;
-    let compressed_bytes = zlib_compress_data(&input_proof).unwrap();
-    let compressed_b64: String = general_purpose::STANDARD.encode(&compressed_bytes);
+    let compressed_b64 = encode_guest_input_to_compress_b64_str(&input)?;
     tracing::debug!(
-        "compress redis input: input_proof {} bytes to compressed_b64 {} bytes.",
-        input_proof.len(),
+        "redis guest input: compressed_b64 {} bytes.",
         compressed_b64.len()
     );
     Ok(Proof {
@@ -505,18 +497,7 @@ async fn do_prove_batch(
         // so it's a base64 string(in Proof).
         // after we get it from db somewhere before, we need to pass it down here, but there is no known
         // string carrier in key / entity, so we call deser twice, value -> string -> struct.
-        let b64_encoded_string: String = serde_json::from_value(batch_guest_input.clone())
-            .map_err(|err| {
-                format!("failed to deserialize batch_guest_input from value: {err:?}")
-            })?;
-        let compressed_bytes = general_purpose::STANDARD
-            .decode(&b64_encoded_string)
-            .unwrap();
-        let decompressed_bytes = zlib_decompress_data(&compressed_bytes)
-            .map_err(|err| format!("failed to decompress batch_guest_input: {err:?}"))?;
-        let guest_input: GuestBatchInput = bincode::deserialize(&decompressed_bytes)
-            .map_err(|err| format!("failed to deserialize bincode batch_guest_input: {err:?}"))?;
-        guest_input
+        decode_guest_input_from_prover_arg_value(batch_guest_input)?
     } else {
         tracing::warn!("rebuild batch guest input for request: {request_key:?}");
         generate_input_for_batch(&raiko)
@@ -554,13 +535,9 @@ pub async fn do_generate_shasta_proposal_guest_input(
     let input = generate_input_for_batch(&raiko)
         .await
         .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?;
-    let input_proof = bincode::serialize(&input)
-        .map_err(|err| format!("failed to serialize input to bincode: {err:?}"))?;
-    let compressed_bytes = zlib_compress_data(&input_proof).unwrap();
-    let compressed_b64: String = general_purpose::STANDARD.encode(&compressed_bytes);
+    let compressed_b64 = encode_guest_input_to_compress_b64_str(&input)?;
     tracing::debug!(
-        "compress redis input: input_proof {} bytes to compressed_b64 {} bytes.",
-        input_proof.len(),
+        "redis guest input: compressed_b64 {} bytes.",
         compressed_b64.len()
     );
     Ok(Proof {
@@ -650,21 +627,9 @@ pub async fn do_prove_shasta_proposal(
         .map_err(|err| format!("failed to create raiko: {err:?}"))?;
 
     let input = if let Some(shasta_guest_input) =
-        raiko.request.prover_args.get("shasta_guest_input")
+        raiko.request.prover_args.get(PROVER_ARG_SHASTA_GUEST_INPUT)
     {
-        // Use existing shasta guest input if available
-        let b64_encoded_string: String = serde_json::from_value(shasta_guest_input.clone())
-            .map_err(|err| {
-                format!("failed to deserialize shasta_guest_input from value: {err:?}")
-            })?;
-        let compressed_bytes = general_purpose::STANDARD
-            .decode(&b64_encoded_string)
-            .unwrap();
-        let decompressed_bytes = zlib_decompress_data(&compressed_bytes)
-            .map_err(|err| format!("failed to decompress shasta_guest_input: {err:?}"))?;
-        let guest_input: GuestBatchInput = bincode::deserialize(&decompressed_bytes)
-            .map_err(|err| format!("failed to deserialize bincode shasta_guest_input: {err:?}"))?;
-        guest_input
+        decode_guest_input_from_prover_arg_value(shasta_guest_input)?
     } else {
         tracing::warn!("rebuild shasta guest input for request: {request_key:?}");
         generate_input_for_batch(&raiko)

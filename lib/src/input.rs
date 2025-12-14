@@ -16,7 +16,11 @@ use tracing::error;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::ChainSpec, input::shasta::Checkpoint, primitives::mpt::MptNode, prover::Proof,
+    consts::ChainSpec,
+    input::shasta::Checkpoint,
+    libhash::hash_proposal,
+    primitives::mpt::MptNode,
+    prover::{Proof, ProofCarryData},
     utils::blobs::zlib_compress_data,
 };
 
@@ -119,16 +123,13 @@ pub struct ZkAggregationGuestInput {
 pub struct ShastaAggregationGuestInput {
     /// All block proofs to prove
     pub proofs: Vec<Proof>,
-    pub chain_id: u64,
-    pub verifier_address: Address,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ShastaRawAggregationGuestInput {
     /// All block proofs to prove
     pub proofs: Vec<RawProof>,
-    pub chain_id: u64,
-    pub verifier_address: Address,
+    pub proof_carry_data_vec: Vec<ProofCarryData>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -369,6 +370,20 @@ impl BlockProposedFork {
             BlockProposedFork::Shasta(event_data) => event_data.proposal.id,
             BlockProposedFork::Pacaya(batch) => batch.meta.batchId,
             _ => 0,
+        }
+    }
+
+    pub fn proposal_hash(&self) -> B256 {
+        match self {
+            BlockProposedFork::Shasta(event_data) => hash_proposal(&event_data.proposal),
+            _ => B256::ZERO,
+        }
+    }
+
+    pub fn parent_proposal_hash(&self) -> B256 {
+        match self {
+            BlockProposedFork::Shasta(event_data) => event_data.proposal.parentProposalHash,
+            _ => B256::ZERO,
         }
     }
 }

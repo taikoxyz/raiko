@@ -15,6 +15,9 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::proof_type::ProofType;
+use raiko_lib::utils::shasta_guest_input::{
+    encode_guest_input_str_to_prover_arg_value, PROVER_ARG_SHASTA_GUEST_INPUT,
+};
 use raiko_reqactor::Actor;
 use raiko_reqpool::{
     AggregationRequestEntity, AggregationRequestKey, ImageId, RequestEntity, RequestKey,
@@ -152,8 +155,9 @@ async fn shasta_batch_handler(
                     raiko_reqpool::RequestEntity::ShastaProof(request_entity) => {
                         let mut prover_args = request_entity.prover_args().clone();
                         prover_args.insert(
-                            "shasta_guest_input".to_string(),
-                            serde_json::to_value(guest_input).expect(""),
+                            PROVER_ARG_SHASTA_GUEST_INPUT.to_string(),
+                            encode_guest_input_str_to_prover_arg_value(&guest_input)
+                                .expect("failed to wrap shasta_guest_input string"),
                         );
                         ShastaProofRequestEntity::new_with_guest_input_entity(
                             request_entity.guest_input_entity().clone(),

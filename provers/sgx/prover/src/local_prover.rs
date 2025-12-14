@@ -19,7 +19,10 @@ use raiko_lib::{
     },
     primitives::B256,
     proof_type::ProofType,
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{
+        IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
+        ProverResult,
+    },
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -743,17 +746,29 @@ async fn shasta_aggregate(
     proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     // Extract the useful parts of the proof here so the guest doesn't have to do it
+    let (proofs, proof_carry_data_vec): (Vec<_>, Vec<_>) = input
+        .proofs
+        .iter()
+        .map(|proof| {
+            (
+                RawProof {
+                    input: proof.input.clone().unwrap(),
+                    proof: hex::decode(&proof.proof.clone().unwrap()[2..]).unwrap(),
+                },
+                {
+                    let extra_data = proof.extra_data.clone().unwrap();
+                    ProofCarryData {
+                        chain_id: extra_data.chain_id,
+                        verifier: extra_data.verifier,
+                        transition_input: extra_data.transition_input,
+                    }
+                },
+            )
+        })
+        .unzip();
     let raw_input = ShastaRawAggregationGuestInput {
-        proofs: input
-            .proofs
-            .iter()
-            .map(|proof| RawProof {
-                input: proof.clone().input.unwrap(),
-                proof: hex::decode(&proof.clone().proof.unwrap()[2..]).unwrap(),
-            })
-            .collect(),
-        chain_id: input.chain_id,
-        verifier_address: input.verifier_address,
+        proofs,
+        proof_carry_data_vec,
     };
     // Extract the instance id from the first proof
     let instance_id = {

@@ -8,7 +8,10 @@ use raiko_lib::{
         ShastaRawAggregationGuestInput,
     },
     proof_type::ProofType,
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{
+        IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
+        ProverResult,
+    },
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -361,18 +364,31 @@ async fn shasta_aggregate(
     _proof_type: ProofType,
 ) -> ProverResult<SgxResponse, ProverError> {
     // Extract the useful parts of the proof here so the guest doesn't have to do it
+    let (proofs, proof_carry_data_vec): (Vec<_>, Vec<_>) = input
+        .proofs
+        .iter()
+        .map(|proof| {
+            (
+                RawProof {
+                    input: proof.input.clone().unwrap(),
+                    proof: hex::decode(&proof.proof.clone().unwrap()[2..]).unwrap(),
+                },
+                {
+                    let extra_data = proof.extra_data.clone().unwrap();
+                    ProofCarryData {
+                        chain_id: extra_data.chain_id,
+                        verifier: extra_data.verifier,
+                        transition_input: extra_data.transition_input,
+                    }
+                },
+            )
+        })
+        .unzip();
     let raw_input = ShastaRawAggregationGuestInput {
-        proofs: input
-            .proofs
-            .iter()
-            .map(|proof| RawProof {
-                input: proof.clone().input.unwrap(),
-                proof: hex::decode(&proof.clone().proof.unwrap()[2..]).unwrap(),
-            })
-            .collect(),
-        chain_id: input.chain_id,
-        verifier_address: input.verifier_address,
+        proofs,
+        proof_carry_data_vec,
     };
+
     // Extract the instance id from the first proof
     let _instance_id = {
         let mut instance_id_bytes = [0u8; 4];
@@ -399,7 +415,7 @@ async fn shasta_aggregate(
             .text()
             .await
             .map_err(|e| ProverError::GuestError(format!("Failed to read response: {e}")))?;
-            let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
+        let sgx_proof: RemoteSgxResponse = serde_json::from_str(&response_text)
             .map_err(|e| ProverError::GuestError(format!("Failed to parse response: {e}")))?;
         if sgx_proof.status == "success" {
             Ok(sgx_proof.sgx_response)

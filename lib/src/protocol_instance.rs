@@ -15,19 +15,20 @@ use crate::{
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
-        shasta::{Checkpoint, Proposal as ShastaProposal, Transition as ShastaTransition},
+        shasta::{Checkpoint, Commitment, Proposal as ShastaProposal},
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
-        GuestInput, Transition,
+        GuestInput, ShastaRawAggregationGuestInput, Transition,
     },
     libhash::{
-        hash_derivation, hash_proposal, hash_public_input, hash_shasta_transition,
-        hash_transitions_hash_array_with_metadata, hash_two_values,
+        hash_checkpoint, hash_commitment, hash_derivation, hash_proposal, hash_public_input,
+        hash_shasta_subproof_input, hash_two_values,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
     },
     proof_type::ProofType,
+    prover::{ProofCarryData, ShastaTransitionInput, TransitionInputData},
     CycleTracker,
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
@@ -287,7 +288,7 @@ pub enum TransitionFork {
     Hekla(Transition),
     OnTake(Transition),
     Pacaya(PacayaTransition),
-    Shasta(ShastaTransition),
+    Shasta(TransitionInputData),
 }
 
 #[derive(Debug, Clone)]
@@ -643,49 +644,36 @@ impl ProtocolInstance {
                 let last_block_number = last_block.number;
                 let last_block_hash = last_block.header.hash_slow();
                 let last_block_state_root = last_block.header.state_root;
+                let current_transition_checkpoint = Checkpoint {
+                    blockNumber: last_block_number,
+                    blockHash: last_block_hash,
+                    stateRoot: last_block_state_root,
+                };
                 // let ref_checkpoint = batch_input.taiko.prover_data.checkpoint.as_ref().unwrap();
                 if let Some(ref_checkpoint) = &batch_input.taiko.prover_data.checkpoint {
                     assert_eq!(
-                        last_block_number, ref_checkpoint.blockNumber,
+                        current_transition_checkpoint, *ref_checkpoint,
                         "checkpoint last block number mismatch, expected: {:?}, got: {:?}",
-                        last_block_number, ref_checkpoint.blockNumber,
-                    );
-                    assert_eq!(
-                        last_block_hash, ref_checkpoint.blockHash,
-                        "last block hash mismatch, expected: {:?}, got: {:?}",
-                        last_block_hash, ref_checkpoint.blockHash,
-                    );
-                    assert_eq!(
-                        last_block_state_root, ref_checkpoint.stateRoot,
-                        "last block state root mismatch, expected: {:?}, got: {:?}",
-                        last_block_state_root, ref_checkpoint.stateRoot,
+                        current_transition_checkpoint, ref_checkpoint
                     );
                 }
-
-                TransitionFork::Shasta(ShastaTransition {
-                    // Use the reconstructed proposal (which has been validated to match the event proposal)
-                    proposalHash: hash_proposal(&ShastaProposal {
-                        id: event_data.proposal.id,
-                        timestamp: event_data.proposal.timestamp,
-                        endOfSubmissionWindowTimestamp: event_data
-                            .proposal
-                            .endOfSubmissionWindowTimestamp,
+                let parent_checkpoint_hash = hash_checkpoint(&Checkpoint {
+                    blockNumber: batch_input.inputs[0].parent_header.number,
+                    blockHash: batch_input.inputs[0].parent_header.hash_slow(),
+                    stateRoot: batch_input.inputs[0].parent_header.state_root,
+                });
+                TransitionFork::Shasta(TransitionInputData {
+                    proposal_id: event_data.proposal.id,
+                    proposal_hash: hash_proposal(&event_data.proposal),
+                    parent_proposal_hash: event_data.proposal.parentProposalHash,
+                    parent_checkpoint_hash: parent_checkpoint_hash,
+                    actual_prover: batch_input.taiko.prover_data.actual_prover,
+                    transition: ShastaTransitionInput {
                         proposer: event_data.proposal.proposer,
-                        derivationHash: derivation_hash,
-                    }),
-                    parentTransitionHash: batch_input
-                        .taiko
-                        .prover_data
-                        .parent_transition_hash
-                        .clone()
-                        .unwrap(),
-                    checkpoint: Checkpoint {
-                        blockNumber: last_block_number,
-                        blockHash: last_block_hash,
-                        stateRoot: last_block_state_root,
+                        designatedProver: batch_input.taiko.prover_data.designated_prover.unwrap(),
+                        timestamp: event_data.proposal.timestamp,
                     },
-                    actualProver: batch_input.taiko.prover_data.actual_prover,
-                    designatedProver: batch_input.taiko.prover_data.designated_prover.unwrap(),
+                    checkpoint: current_transition_checkpoint,
                 })
             }
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
@@ -782,9 +770,17 @@ impl ProtocolInstance {
                     .collect::<Vec<u8>>();
                 keccak(data).into()
             }
-            TransitionFork::Shasta(shasta_trans) => {
-                info!("transition to be signed into public: {:?}.", shasta_trans);
-                return hash_shasta_transition(shasta_trans);
+            TransitionFork::Shasta(shasta_trans_input) => {
+                info!(
+                    "transition to be signed into public: {:?}.",
+                    shasta_trans_input
+                );
+                // Domain separation: bind chain_id + verifier into the signed message.
+                hash_shasta_subproof_input(&ProofCarryData {
+                    chain_id: self.chain_id,
+                    verifier: self.verifier_address,
+                    transition_input: shasta_trans_input.clone(),
+                })
             }
         }
     }
@@ -841,24 +837,67 @@ pub fn aggregation_output(program: B256, public_inputs: Vec<B256>) -> Vec<u8> {
     aggregation_output_combine([vec![program], public_inputs].concat())
 }
 
+pub fn validate_shasta_aggregate_proof_carry_data(
+    aggregation_input: &ShastaRawAggregationGuestInput,
+) -> bool {
+    // The carry vector is meant to be a per-proof sidecar; treat mismatched sizes as invalid.
+    if aggregation_input.proofs.len() != aggregation_input.proof_carry_data_vec.len() {
+        return false;
+    }
+    if aggregation_input.proof_carry_data_vec.is_empty() {
+        return false;
+    }
+
+    let expected_actual_prover = aggregation_input.proof_carry_data_vec[0]
+        .transition_input
+        .actual_prover;
+
+    for item in aggregation_input.proof_carry_data_vec.iter() {
+        // Commitment uses a single `actualProver` field; make the range unambiguous.
+        if item.transition_input.actual_prover != expected_actual_prover {
+            return false;
+        }
+    }
+
+    for w in aggregation_input.proof_carry_data_vec.windows(2) {
+        let prev = &w[0];
+        let next = &w[1];
+        // Ensure proposal ids are sequential
+        if prev.transition_input.proposal_id + 1 != next.transition_input.proposal_id {
+            return false;
+        }
+
+        // Ensure proposal hashes chain correctly
+        if prev.transition_input.proposal_hash != next.transition_input.parent_proposal_hash {
+            return false;
+        }
+
+        if prev.chain_id != next.chain_id {
+            return false;
+        }
+
+        if prev.verifier != next.verifier {
+            return false;
+        }
+
+        // Continuity: prev checkpoint must match next parent checkpoint hash.
+        if hash_checkpoint(&prev.transition_input.checkpoint)
+            != next.transition_input.parent_checkpoint_hash
+        {
+            return false;
+        }
+    }
+    true
+}
+
 pub fn shasta_aggregation_output(
-    transaction_hashes: &Vec<B256>,
+    prove_input: &Commitment,
     chain_id: u64,
     verifier_address: Address,
     sgx_instance: Address,
 ) -> B256 {
-    let aggregated_proving_hash = hash_transitions_hash_array_with_metadata(&transaction_hashes);
-    let public_input_hash = hash_public_input(
-        aggregated_proving_hash,
-        chain_id,
-        verifier_address,
-        sgx_instance,
-    );
-
-    println!(
-        "shasta transactions_hash: {aggregated_proving_hash:?}, public_input_hash: {public_input_hash:?}."
-    );
-    public_input_hash
+    let prove_input_hash = hash_commitment(&prove_input);
+    hash_public_input(prove_input_hash, chain_id, verifier_address, sgx_instance)
 }
 
 pub fn shasta_zk_aggregation_output(sub_image_id: B256, sub_input_hash: B256) -> B256 {
@@ -872,7 +911,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        input::{proveBlockCall, TierProof},
+        input::{proveBlockCall, shasta::Checkpoint, TierProof},
         primitives::keccak,
     };
 
@@ -979,25 +1018,171 @@ mod tests {
 
     #[test]
     fn test_shasta_aggregation_output() {
-        // Test data: sample transaction hashes for Shasta aggregation
-        let transaction_hashes = vec![b256!(
-            "2c4576815d02b522c4f5a3c143e1a3cdf10486bb283c8247fc555ea33bb93798"
-        )];
-
         let chain_id = 167001u64;
         let verifier_address = address!("00f9f60C79e38c08b785eE4F1a849900693C6630");
         let sgx_instance = address!("dc95623058E847fA38e56a0Fa466Bf52C48eFA32");
-
-        let result = shasta_aggregation_output(
-            &transaction_hashes,
-            chain_id,
-            verifier_address,
-            sgx_instance,
-        );
+        let prove_input = Commitment {
+            firstProposalParentBlockHash: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            lastProposalHash: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            endBlockNumber: 1,
+            endStateRoot: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
+            firstProposalId: 12345,
+            actualProver: address!("1111111111111111111111111111111111111111"),
+            transitions: vec![],
+        };
+        let result =
+            shasta_aggregation_output(&prove_input, chain_id, verifier_address, sgx_instance);
 
         assert_eq!(
             result,
             b256!("6c02f6f8d9ab1399d9c0df266eebd87a80663260fb88c939f7f4f51ac24684df")
         )
+    }
+
+    #[test]
+    fn test_validate_shasta_aggregate_proof_carry_data_basic() {
+        use crate::{
+            input::{RawProof, ShastaRawAggregationGuestInput},
+            libhash::hash_checkpoint,
+            prover::{ProofCarryData, TransitionInputData},
+        };
+
+        let chain_id = 167001u64;
+        let verifier = address!("00f9f60C79e38c08b785eE4F1a849900693C6630");
+
+        let p0_hash = b256!("1111111111111111111111111111111111111111111111111111111111111111");
+        let p1_hash = b256!("2222222222222222222222222222222222222222222222222222222222222222");
+
+        let parent_cp = b256!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let checkpoint0 = Checkpoint {
+            blockNumber: 1,
+            blockHash: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            stateRoot: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000002"
+            ),
+        };
+        let checkpoint1 = Checkpoint {
+            blockNumber: 2,
+            blockHash: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000003"
+            ),
+            stateRoot: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000004"
+            ),
+        };
+        let cp0 = hash_checkpoint(&checkpoint0);
+
+        let mk = |proposal_id: u64,
+                  proposal_hash: B256,
+                  parent_proposal_hash: B256,
+                  parent_checkpoint_hash: B256,
+                  checkpoint: Checkpoint| {
+            ProofCarryData {
+                chain_id,
+                verifier,
+                transition_input: TransitionInputData {
+                    proposal_id,
+                    proposal_hash,
+                    parent_proposal_hash,
+                    parent_checkpoint_hash,
+                    // Not relevant for these checks
+                    actual_prover: address!("1111111111111111111111111111111111111111"),
+                    transition: ShastaTransitionInput {
+                        proposer: address!("2222222222222222222222222222222222222222"),
+                        designatedProver: address!("3333333333333333333333333333333333333333"),
+                        timestamp: 123,
+                    },
+                    checkpoint,
+                },
+            }
+        };
+
+        // Happy path: ids increment, proposal hash chains, checkpoint continuity holds.
+        let carry_ok = vec![
+            mk(
+                1,
+                p0_hash,
+                b256!("0000000000000000000000000000000000000000000000000000000000000000"),
+                parent_cp,
+                checkpoint0.clone(),
+            ),
+            mk(2, p1_hash, p0_hash, cp0, checkpoint1.clone()),
+        ];
+        let proofs_ok = vec![
+            RawProof {
+                proof: vec![0u8],
+                input: b256!(
+                    "0000000000000000000000000000000000000000000000000000000000000000"
+                ),
+            },
+            RawProof {
+                proof: vec![1u8],
+                input: b256!(
+                    "0000000000000000000000000000000000000000000000000000000000000000"
+                ),
+            },
+        ];
+        assert!(validate_shasta_aggregate_proof_carry_data(
+            &ShastaRawAggregationGuestInput {
+                proofs: proofs_ok.clone(),
+                proof_carry_data_vec: carry_ok,
+            }
+        ));
+
+        // Mismatched lengths => invalid
+        assert!(!validate_shasta_aggregate_proof_carry_data(
+            &ShastaRawAggregationGuestInput {
+                proofs: proofs_ok.clone(),
+                proof_carry_data_vec: vec![],
+            }
+        ));
+
+        // Non-sequential ids => invalid
+        let carry_bad_ids = vec![
+            mk(
+                1,
+                p0_hash,
+                b256!("0000000000000000000000000000000000000000000000000000000000000000"),
+                parent_cp,
+                checkpoint0.clone(),
+            ),
+            mk(3, p1_hash, p0_hash, cp0, checkpoint1.clone()),
+        ];
+        assert!(!validate_shasta_aggregate_proof_carry_data(
+            &ShastaRawAggregationGuestInput {
+                proofs: proofs_ok.clone(),
+                proof_carry_data_vec: carry_bad_ids,
+            }
+        ));
+
+        // Broken proposal-hash chaining => invalid
+        let carry_bad_hash_chain = vec![
+            mk(
+                1,
+                p0_hash,
+                b256!("0000000000000000000000000000000000000000000000000000000000000000"),
+                parent_cp,
+                checkpoint0,
+            ),
+            mk(
+                2,
+                p1_hash,
+                b256!("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+                cp0,
+                checkpoint1,
+            ),
+        ];
+        assert!(!validate_shasta_aggregate_proof_carry_data(
+            &ShastaRawAggregationGuestInput {
+                proofs: proofs_ok,
+                proof_carry_data_vec: carry_bad_hash_chain,
+            }
+        ));
     }
 }

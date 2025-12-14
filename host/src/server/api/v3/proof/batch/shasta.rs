@@ -35,6 +35,8 @@ pub fn create_shasta_requests(
         ));
 
         // Create Shasta proof request key
+        let actual_prover_address = batch_request.prover.to_string();
+        let designated_prover_address = designated_prover.to_string();
         let request_key =
             RequestKey::ShastaProof(ShastaProofRequestKey::new_with_input_key_and_image_id(
                 ShastaInputRequestKey::new(
@@ -43,7 +45,8 @@ pub fn create_shasta_requests(
                     batch_request.network.clone(),
                 ),
                 batch_request.proof_type,
-                designated_prover.to_string(),
+                actual_prover_address,
+                designated_prover_address,
                 image_id.clone(),
             ));
 
