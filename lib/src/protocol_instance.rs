@@ -133,7 +133,9 @@ impl BlockMetaDataFork {
             BlockProposedFork::Pacaya(_batch_proposed) => {
                 unimplemented!("single block signature is not supported for pacaya fork")
             }
-            BlockProposedFork::Shasta(event_data) => Self::Shasta(event_data.proposal.clone()),
+            BlockProposedFork::Shasta(_) => {
+                unimplemented!("single block signature is not supported for shasta fork")
+            }
         }
     }
 
@@ -248,6 +250,8 @@ impl BlockMetaDataFork {
                 })
             }
             BlockProposedFork::Shasta(event_data) => {
+                // TODO(shasta): add a full Shasta block metadata reconstruction & comparison,
+                // similar to Pacaya's infoHash / txsHash binding.
                 BlockMetaDataFork::Shasta(event_data.proposal.clone())
             }
             _ => {
@@ -305,15 +309,18 @@ pub struct ProtocolInstance {
 fn verify_blob(
     blob_proof_type: BlobProofType,
     blob_data: &[u8],
-    versioned_hash: B256,
+    expected_versioned_hash: &B256,
     commitment: &[u8; 48],
     blob_proof: Option<Vec<u8>>,
 ) -> Result<()> {
     info!("blob proof type: {:?}", &blob_proof_type);
     match blob_proof_type {
         crate::input::BlobProofType::ProofOfEquivalence => {
+            // Even in PoE mode, the blob must be anchored to the on-chain versioned hash.
+            ensure!(*expected_versioned_hash == commitment_to_version_hash(commitment));
+
             let ct = CycleTracker::start("proof_of_equivalence");
-            let (x, y) = eip4844::proof_of_equivalence(blob_data, &versioned_hash)?;
+            let (x, y) = eip4844::proof_of_equivalence(blob_data, &expected_versioned_hash)?;
             ct.end();
             let verified = eip4844::verify_kzg_proof_impl(
                 *commitment,
@@ -328,6 +335,10 @@ fn verify_blob(
         BlobProofType::KzgVersionedHash => {
             let ct = CycleTracker::start("proof_of_commitment");
             ensure!(commitment == &eip4844::calc_kzg_proof_commitment(blob_data)?);
+            ensure!(
+                *expected_versioned_hash
+                    == commitment_to_version_hash(&commitment.clone().try_into().unwrap())
+            );
             ct.end();
         }
     };
@@ -341,49 +352,101 @@ fn verify_batch_mode_blob_usage(
     batch_input: &GuestBatchInput,
     proof_type: ProofType,
 ) -> Result<()> {
-    for data_source in &batch_input.taiko.data_sources {
-        let blob_proof_type = get_blob_proof_type(proof_type, data_source.blob_proof_type.clone());
-        match blob_proof_type {
-            crate::input::BlobProofType::KzgVersionedHash => assert_eq!(
-                data_source.tx_data_from_blob.len(),
-                data_source.blob_commitments.as_ref().map_or(0, |c| c.len()),
-                "Each blob should have its own hash commit"
-            ),
-            crate::input::BlobProofType::ProofOfEquivalence => assert_eq!(
-                data_source.tx_data_from_blob.len(),
-                data_source.blob_proofs.as_ref().map_or(0, |p| p.len()),
-                "Each blob should have its own proof"
-            ),
-        }
+    // Expected on-chain blob hashes for each data source (Shasta: one per DerivationSource,
+    // Pacaya: a single list for the batch).
+    let expected_blob_hashes_per_source: Vec<Vec<B256>> =
+        batch_input.taiko.batch_proposed.all_source_blob_hashes();
+    ensure!(
+        expected_blob_hashes_per_source.len() == batch_input.taiko.data_sources.len(),
+        "data_sources length mismatch: expected {}, got {}",
+        expected_blob_hashes_per_source.len(),
+        batch_input.taiko.data_sources.len()
+    );
 
-        for blob_verify_param in data_source
-            .tx_data_from_blob
-            .iter()
-            .zip(
-                data_source
+    for (source_idx, data_source) in batch_input.taiko.data_sources.iter().enumerate() {
+        let blob_proof_type = get_blob_proof_type(proof_type, data_source.blob_proof_type.clone());
+        let source_blob_hashes =
+            expected_blob_hashes_per_source
+                .get(source_idx)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("missing expected blob hashes for source {source_idx}")
+                })?;
+        ensure!(
+            source_blob_hashes.len() == data_source.tx_data_from_blob.len(),
+            "source blob hashes length mismatch at source {}: expected {}, got {}",
+            source_idx,
+            source_blob_hashes.len(),
+            data_source.tx_data_from_blob.len()
+        );
+        assert_eq!(
+            data_source.tx_data_from_blob.len(),
+            data_source.blob_commitments.as_ref().map_or(0, |c| c.len()),
+            "Each blob should have its own hash commit"
+        );
+        match blob_proof_type {
+            crate::input::BlobProofType::KzgVersionedHash => {
+                let commitments = data_source
                     .blob_commitments
-                    .clone()
-                    .unwrap_or_default()
-                    .iter(),
-            )
-            .zip(data_source.blob_proofs.clone().unwrap_or_default().iter())
-        {
-            let blob_data = blob_verify_param.0 .0;
-            let commitment = blob_verify_param.0 .1;
-            let versioned_hash =
-                commitment_to_version_hash(&commitment.clone().try_into().unwrap());
-            debug!(
-                "verify_batch_mode_blob_usage commitment: {:?}, hash: {:?}",
-                hex::encode(commitment),
-                versioned_hash
-            );
-            verify_blob(
-                blob_proof_type.clone(),
-                blob_data,
-                versioned_hash,
-                &commitment.clone().try_into().unwrap(),
-                Some(blob_verify_param.1.clone()),
-            )?;
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("missing blob commitments"))?;
+                for blob_verify_param in data_source
+                    .tx_data_from_blob
+                    .iter()
+                    .zip(commitments.iter())
+                    .zip(source_blob_hashes.iter())
+                {
+                    let blob_data = blob_verify_param.0 .0;
+                    let commitment = blob_verify_param.0 .1;
+                    let expected_blob_hash = blob_verify_param.1;
+                    verify_blob(
+                        blob_proof_type.clone(),
+                        blob_data,
+                        expected_blob_hash,
+                        &commitment
+                            .as_slice()
+                            .try_into()
+                            .map_err(|_| anyhow::anyhow!("invalid blob commitment length"))?,
+                        None,
+                    )?;
+                }
+            }
+            crate::input::BlobProofType::ProofOfEquivalence => {
+                assert_eq!(
+                    data_source.tx_data_from_blob.len(),
+                    data_source.blob_proofs.as_ref().map_or(0, |p| p.len()),
+                    "Each blob should have its own proof in PoE mode"
+                );
+                let proofs = data_source
+                    .blob_proofs
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("missing blob proofs"))?;
+                let commitments = data_source
+                    .blob_commitments
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("missing blob commitments"))?;
+                for blob_verify_param in data_source
+                    .tx_data_from_blob
+                    .iter()
+                    .zip(commitments.iter())
+                    .zip(proofs.iter())
+                    .zip(source_blob_hashes.iter())
+                {
+                    let blob_data = blob_verify_param.0 .0 .0;
+                    let commitment = blob_verify_param.0 .0 .1;
+                    let proof = blob_verify_param.0 .1;
+                    let expected_blob_hash = blob_verify_param.1;
+                    verify_blob(
+                        blob_proof_type.clone(),
+                        blob_data,
+                        expected_blob_hash,
+                        &commitment
+                            .as_slice()
+                            .try_into()
+                            .map_err(|_| anyhow::anyhow!("invalid blob commitment length"))?,
+                        Some(proof.clone()),
+                    )?;
+                }
+            }
         }
     }
     Ok(())
@@ -462,7 +525,7 @@ impl ProtocolInstance {
             verify_blob(
                 get_blob_proof_type(proof_type, input.taiko.blob_proof_type.clone()),
                 &input.taiko.tx_data,
-                versioned_hash,
+                &versioned_hash,
                 &commitment.clone().try_into().unwrap(),
                 input.taiko.blob_proof.clone(),
             )?;
@@ -1060,21 +1123,13 @@ mod tests {
         let parent_cp = b256!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         let checkpoint0 = Checkpoint {
             blockNumber: 1,
-            blockHash: b256!(
-                "0000000000000000000000000000000000000000000000000000000000000001"
-            ),
-            stateRoot: b256!(
-                "0000000000000000000000000000000000000000000000000000000000000002"
-            ),
+            blockHash: b256!("0000000000000000000000000000000000000000000000000000000000000001"),
+            stateRoot: b256!("0000000000000000000000000000000000000000000000000000000000000002"),
         };
         let checkpoint1 = Checkpoint {
             blockNumber: 2,
-            blockHash: b256!(
-                "0000000000000000000000000000000000000000000000000000000000000003"
-            ),
-            stateRoot: b256!(
-                "0000000000000000000000000000000000000000000000000000000000000004"
-            ),
+            blockHash: b256!("0000000000000000000000000000000000000000000000000000000000000003"),
+            stateRoot: b256!("0000000000000000000000000000000000000000000000000000000000000004"),
         };
         let cp0 = hash_checkpoint(&checkpoint0);
 
@@ -1117,15 +1172,11 @@ mod tests {
         let proofs_ok = vec![
             RawProof {
                 proof: vec![0u8],
-                input: b256!(
-                    "0000000000000000000000000000000000000000000000000000000000000000"
-                ),
+                input: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
             },
             RawProof {
                 proof: vec![1u8],
-                input: b256!(
-                    "0000000000000000000000000000000000000000000000000000000000000000"
-                ),
+                input: b256!("0000000000000000000000000000000000000000000000000000000000000000"),
             },
         ];
         assert!(validate_shasta_aggregate_proof_carry_data(

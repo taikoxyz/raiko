@@ -86,7 +86,7 @@ pub fn generate_transactions(
     anchor_tx: &Option<TransactionSigned>,
 ) -> Vec<TransactionSigned> {
     let is_blob_data = block_proposal.blob_used();
-    let blob_slice_param = block_proposal.blob_tx_slice_param(tx_list_data_buf);
+    let blob_slice_param = block_proposal.blob_tx_slice_param();
     // Decode the tx list from the raw data posted onchain
     let unzip_tx_list_buf =
         unzip_tx_list_from_data_buf(chain_spec, is_blob_data, blob_slice_param, tx_list_data_buf);

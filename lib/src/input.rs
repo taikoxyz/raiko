@@ -236,7 +236,7 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn blob_tx_slice_param(&self, compressed_tx_list_buf: &[u8]) -> Option<(usize, usize)> {
+    pub fn blob_tx_slice_param(&self) -> Option<(usize, usize)> {
         match self {
             BlockProposedFork::Ontake(block) => Some((
                 block.meta.blobTxListOffset as usize,
@@ -246,60 +246,9 @@ impl BlockProposedFork {
                 batch.info.blobByteOffset as usize,
                 batch.info.blobByteSize as usize,
             )),
-            BlockProposedFork::Shasta(event_data) => {
-                const SHASTA_BLOB_DATA_PREFIX_SIZE: usize = 64;
-                const BLOB_BYTES: usize = 4096 * 32;
-                if event_data.derivation.sources.len() == 0 {
-                    error!("derivation.sources.length == 0");
-                    return None;
-                }
-                if event_data.derivation.sources[0].blobSlice.blobHashes.len() == 0 {
-                    error!("blobSlice.blobHashes.length == 0");
-                    return None;
-                }
-
-                let offset = event_data.derivation.sources[0].blobSlice.offset as usize;
-                let _version = B256::from_slice(&compressed_tx_list_buf[offset..offset + 32]);
-                if _version != B256::with_last_byte(1) {
-                    error!("_version {:?} != B256::with_last_byte(1)", _version);
-                    return None;
-                }
-                if event_data.derivation.sources[0].blobSlice.offset as usize
-                    > BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
-                        - SHASTA_BLOB_DATA_PREFIX_SIZE
-                {
-                    error!(
-                        "blobSlice.offset {} > BLOB_BYTES * blobSlice.blobHashes.length - 64 ({} > {})",
-                        event_data.derivation.sources[0].blobSlice.offset as usize,
-                        event_data.derivation.sources[0].blobSlice.offset as usize,
-                        BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
-                            - SHASTA_BLOB_DATA_PREFIX_SIZE
-                    );
-                    return None;
-                }
-
-                let size_b256_slice =
-                    B256::from_slice(&compressed_tx_list_buf[offset + 32..offset + 64]);
-                let size_bytes: [u8; 8] = size_b256_slice.as_slice()[24..32]
-                    .try_into()
-                    .expect("shasta blob size header");
-                let blob_data_size_u64 = u64::from_be_bytes(size_bytes);
-                let blob_data_size: usize =
-                    usize::try_from(blob_data_size_u64).expect("blob size does not fit in usize");
-                if offset + blob_data_size
-                    > BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
-                        - SHASTA_BLOB_DATA_PREFIX_SIZE
-                {
-                    error!(
-                        "blobSlice.size {} > BLOB_BYTES * blobSlice.blobHashes.length - 64 ({} > {})",
-                        blob_data_size,
-                        offset + blob_data_size,
-                        BLOB_BYTES * event_data.derivation.sources[0].blobSlice.blobHashes.len()
-                            - SHASTA_BLOB_DATA_PREFIX_SIZE
-                    );
-                    return None;
-                }
-                Some((offset + SHASTA_BLOB_DATA_PREFIX_SIZE, blob_data_size))
+            BlockProposedFork::Shasta(_) => {
+                error!("blob_tx_slice_param not supported for shasta proposal");
+                None
             }
             _ => None,
         }
@@ -311,16 +260,6 @@ impl BlockProposedFork {
             BlockProposedFork::Ontake(block) => block.meta.blobHash,
             // meaningless for pacaya and shasta
             _ => B256::default(),
-        }
-    }
-
-    pub fn blob_hashes(&self) -> &[B256] {
-        match self {
-            BlockProposedFork::Pacaya(batch) => &batch.info.blobHashes,
-            BlockProposedFork::Shasta(event_data) => {
-                &event_data.derivation.sources[0].blobSlice.blobHashes
-            }
-            _ => &[],
         }
     }
 
@@ -385,6 +324,68 @@ impl BlockProposedFork {
             BlockProposedFork::Shasta(event_data) => event_data.proposal.parentProposalHash,
             _ => B256::ZERO,
         }
+    }
+
+    pub fn all_source_blob_hashes(&self) -> Vec<Vec<B256>> {
+        match self {
+            BlockProposedFork::Shasta(event_data) => event_data
+                .derivation
+                .sources
+                .iter()
+                .map(|s| s.blobSlice.blobHashes.clone())
+                .collect(),
+            BlockProposedFork::Pacaya(batch_proposed) => {
+                vec![batch_proposed.info.blobHashes.clone()]
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// Returns the (offset, size) slice for the compressed manifest payload for a given Shasta
+    /// derivation source, using the decoded blob data concatenation for that source.
+    ///
+    /// Shasta blob layout (per `DerivationSource.blobSlice`):
+    /// - `[offset, offset+32)`: version (`bytes32`, must equal `...01`)
+    /// - `[offset+32, offset+64)`: size (`bytes32`, `uint64` stored in last 8 bytes)
+    /// - `[offset+64, offset+64+size)`: compressed payload
+    pub fn blob_tx_slice_param_for_source(
+        &self,
+        source_idx: usize,
+        decoded_blob_data_concat: &[u8],
+    ) -> Option<(usize, usize)> {
+        const SHASTA_BLOB_DATA_PREFIX_SIZE: usize = 64;
+
+        let BlockProposedFork::Shasta(event_data) = self else {
+            return None;
+        };
+
+        let source = event_data.derivation.sources.get(source_idx)?;
+        if source.blobSlice.blobHashes.is_empty() {
+            return None;
+        }
+
+        let offset = source.blobSlice.offset as usize;
+        if offset + SHASTA_BLOB_DATA_PREFIX_SIZE > decoded_blob_data_concat.len() {
+            return None;
+        }
+
+        let version = B256::from_slice(&decoded_blob_data_concat[offset..offset + 32]);
+        if version != B256::with_last_byte(1) {
+            return None;
+        }
+
+        let size_b256 = B256::from_slice(&decoded_blob_data_concat[offset + 32..offset + 64]);
+        let size_bytes: [u8; 8] = size_b256.as_slice()[24..32].try_into().ok()?;
+        let blob_data_size_u64 = u64::from_be_bytes(size_bytes);
+        let blob_data_size: usize = usize::try_from(blob_data_size_u64).ok()?;
+
+        let start = offset + SHASTA_BLOB_DATA_PREFIX_SIZE;
+        let end = start.checked_add(blob_data_size)?;
+        if end > decoded_blob_data_concat.len() {
+            return None;
+        }
+
+        Some((start, blob_data_size))
     }
 }
 
