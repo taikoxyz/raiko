@@ -31,7 +31,7 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1765717900,
+        "genesis_time": 1765783400,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
@@ -50,7 +50,7 @@
                 "Block": 0
             },
             "SHASTA": {
-                "Timestamp": 0
+                "Timestamp": 1765784540
             },
             "CANCUN": "TBD"
         },
