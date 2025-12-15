@@ -59,7 +59,7 @@ pub fn create_shasta_requests(
             batch_request.prover,
             batch_request.blob_proof_type.clone(),
             l2_block_numbers.clone(),
-            parent_transition_hash.clone(),
+            parent_transition_hash.unwrap_or_default(),
             checkpoint.clone().into(),
             designated_prover.clone(),
             last_anchor_block_number.clone(),
