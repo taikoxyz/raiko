@@ -101,6 +101,7 @@ pub const VERIFY_PROOF_B256: B256 =
 /// This binds `chain_id` and `verifier` to the signed message to avoid cross-chain / cross-verifier
 /// replay of otherwise identical transition inputs.
 pub fn hash_shasta_subproof_input(carry: &ProofCarryData) -> B256 {
+    tracing::info!("hash_shasta_subproof_input: {carry:?}");
     let transition_hash = hash_shasta_transition_input(&carry.transition_input);
     hash_four_values(
         VERIFY_PROOF_B256,
@@ -127,7 +128,9 @@ pub fn hash_shasta_transition_input(transition_input: &TransitionInputData) -> B
 
     // Transition fields (as in Solidity Transition struct)
     values.push(address_to_b256(transition_input.transition.proposer));
-    values.push(address_to_b256(transition_input.transition.designatedProver));
+    values.push(address_to_b256(
+        transition_input.transition.designatedProver,
+    ));
     values.push(u48_to_b256(transition_input.transition.timestamp));
     values.push(hash_checkpoint(&transition_input.checkpoint));
 
@@ -535,25 +538,20 @@ mod test {
         let h0 = hash_shasta_transition_input(&base);
 
         // Changing any continuity / commitment-relevant field must change the hash.
-        base.parent_checkpoint_hash = b256!(
-            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-        );
+        base.parent_checkpoint_hash =
+            b256!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
         assert_ne!(h0, hash_shasta_transition_input(&base));
 
-        base.parent_checkpoint_hash = b256!(
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        );
-        base.parent_proposal_hash = b256!(
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-        );
+        base.parent_checkpoint_hash =
+            b256!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        base.parent_proposal_hash =
+            b256!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         assert_ne!(h0, hash_shasta_transition_input(&base));
 
-        base.parent_proposal_hash = b256!(
-            "0000000000000000000000000000000000000000000000000000000000000000"
-        );
-        base.checkpoint.stateRoot = b256!(
-            "9999999999999999999999999999999999999999999999999999999999999999"
-        );
+        base.parent_proposal_hash =
+            b256!("0000000000000000000000000000000000000000000000000000000000000000");
+        base.checkpoint.stateRoot =
+            b256!("9999999999999999999999999999999999999999999999999999999999999999");
         assert_ne!(h0, hash_shasta_transition_input(&base));
     }
 

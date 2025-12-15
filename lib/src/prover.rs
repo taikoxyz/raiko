@@ -4,9 +4,8 @@ use utoipa::ToSchema;
 
 use crate::{
     input::{
-        shasta::Checkpoint,
-        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, GuestBatchInput,
+        GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
     libhash::hash_checkpoint,
     proof_type::ProofType,
@@ -160,11 +159,11 @@ pub trait Prover {
         let chain_id = input.taiko.chain_spec.chain_id;
         let first_block = &input.inputs.first().unwrap().block;
         let proposal_block_number = first_block.number;
-        let proposal_timestamp = first_block.header.timestamp;
+        let first_block_timestamp = first_block.header.timestamp;
         let verifier_address = input
             .taiko
             .chain_spec
-            .get_fork_verifier_address(proposal_block_number, proposal_timestamp, proof_type)
+            .get_fork_verifier_address(proposal_block_number, first_block_timestamp, proof_type)
             .unwrap_or_default();
         let last_checkpoint = Checkpoint {
             blockNumber: input.inputs.last().unwrap().block.number,
@@ -187,7 +186,7 @@ pub trait Prover {
                 transition: ShastaTransitionInput {
                     proposer: input.taiko.batch_proposed.proposer(),
                     designatedProver: input.taiko.prover_data.designated_prover.unwrap(),
-                    timestamp: proposal_timestamp,
+                    timestamp: input.taiko.batch_proposed.proposal_timestamp(),
                 },
                 checkpoint: last_checkpoint,
             },
