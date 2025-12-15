@@ -423,7 +423,7 @@ mod test {
         assert_ne!(derivation_hash, B256::ZERO);
         assert_eq!(
             hex::encode(derivation_hash),
-            "f7591d96a9236272ae9c839b84b64fdc2d97873d80992417969e4f639ac57656"
+            "1da64d2dd5bda3fb186ecf02433b32f1a24661030600a8ff150ed8c346dcc5ba"
         );
     }
 

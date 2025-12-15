@@ -481,7 +481,7 @@ mod tests {
             .active_fork(1, 0)
             .map_err(|e| ProverError::GuestError(e.to_string()))
             .expect("ok");
-        assert_eq!(spec_id, SpecId::PACAYA);
+        assert_eq!(spec_id, SpecId::SHASTA);
 
         let instance_id = sgx_param
             .instance_ids
@@ -491,7 +491,7 @@ mod tests {
                 ProverError::GuestError(format!("No instance id found for spec id: {:?}", spec_id))
             })
             .expect("ok");
-        assert_eq!(instance_id, 0);
+        assert_eq!(instance_id, 10);
 
         let spec_id = taiko_chain_spec
             .active_fork(15, 0)
