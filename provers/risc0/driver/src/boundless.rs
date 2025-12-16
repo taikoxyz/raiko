@@ -159,11 +159,22 @@ pub struct BoundlessProver {
     images_uploaded: Arc<tokio::sync::RwLock<ImagesUploaded>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AggType {
+    Base,
+    Shasta,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ImageType {
+    Batch,
+    Aggregation(AggType),
+}
+
 #[derive(Default, Debug, Clone, Copy)]
 struct ImagesUploaded {
     batch: bool,
-    agg: bool,
-    shasta_agg: bool,
+    aggregation: Option<AggType>,
 }
 
 impl BoundlessProver {
@@ -237,62 +248,57 @@ impl BoundlessProver {
 
     /// Ensure batch ELF is uploaded.
     async fn ensure_batch_uploaded(&self) -> ProverResult<()> {
-        let mut state = self.images_uploaded.write().await;
-        if state.batch {
-            drop(state);
-            if self
-                .verify_images_in_agent(Some(BOUNDLESS_BATCH_ID), None)
-                .await?
-            {
-                return Ok(());
-            }
-            state = self.images_uploaded.write().await;
-        }
-
-        tracing::info!("Uploading batch ELF image to boundless agent...");
-        self.upload_image_to_agent(
-            "batch",
-            crate::methods::boundless_batch::BOUNDLESS_BATCH_ELF,
-            crate::methods::boundless_batch::BOUNDLESS_BATCH_ID,
-        )
-        .await?;
-        state.batch = true;
-        Ok(())
+        self.ensure_uploaded(ImageType::Batch).await
     }
 
     /// Ensure base aggregation ELF is uploaded.
     async fn ensure_base_agg_uploaded(&self) -> ProverResult<()> {
-        let mut state = self.images_uploaded.write().await;
-        if state.agg {
-            drop(state);
-            if self
-                .verify_images_in_agent(None, Some(BOUNDLESS_AGGREGATION_ID))
-                .await?
-            {
-                return Ok(());
-            }
-            state = self.images_uploaded.write().await;
-        }
-
-        tracing::info!("Uploading aggregation ELF image to boundless agent...");
-        self.upload_image_to_agent(
-            "aggregation",
-            crate::methods::boundless_aggregation::BOUNDLESS_AGGREGATION_ELF,
-            crate::methods::boundless_aggregation::BOUNDLESS_AGGREGATION_ID,
-        )
-        .await?;
-        state.agg = true;
-        state.shasta_agg = false;
-        Ok(())
+        self.ensure_uploaded(ImageType::Aggregation(AggType::Base))
+            .await
     }
 
     /// Ensure shasta aggregation ELF is uploaded.
     async fn ensure_shasta_agg_uploaded(&self) -> ProverResult<()> {
+        self.ensure_uploaded(ImageType::Aggregation(AggType::Shasta))
+            .await
+    }
+
+    async fn ensure_uploaded(&self, image_type: ImageType) -> ProverResult<()> {
+        let (expected_batch, expected_agg, upload_endpoint, elf_bytes, expected_image_id) =
+            match image_type {
+                ImageType::Batch => (
+                    Some(BOUNDLESS_BATCH_ID),
+                    None,
+                    "batch",
+                    BOUNDLESS_BATCH_ELF,
+                    BOUNDLESS_BATCH_ID,
+                ),
+                ImageType::Aggregation(AggType::Base) => (
+                    None,
+                    Some(BOUNDLESS_AGGREGATION_ID),
+                    "aggregation",
+                    BOUNDLESS_AGGREGATION_ELF,
+                    BOUNDLESS_AGGREGATION_ID,
+                ),
+                ImageType::Aggregation(AggType::Shasta) => (
+                    None,
+                    Some(BOUNDLESS_SHASTA_AGGREGATION_ID),
+                    "aggregation",
+                    BOUNDLESS_SHASTA_AGGREGATION_ELF,
+                    BOUNDLESS_SHASTA_AGGREGATION_ID,
+                ),
+            };
+
         let mut state = self.images_uploaded.write().await;
-        if state.shasta_agg {
+        let already_uploaded = match image_type {
+            ImageType::Batch => state.batch,
+            ImageType::Aggregation(agg_type) => state.aggregation == Some(agg_type),
+        };
+
+        if already_uploaded {
             drop(state);
             if self
-                .verify_images_in_agent(None, Some(BOUNDLESS_SHASTA_AGGREGATION_ID))
+                .verify_images_in_agent(expected_batch, expected_agg)
                 .await?
             {
                 return Ok(());
@@ -300,15 +306,24 @@ impl BoundlessProver {
             state = self.images_uploaded.write().await;
         }
 
-        tracing::info!("Uploading shasta aggregation ELF image to boundless agent...");
-        self.upload_image_to_agent(
-            "aggregation",
-            BOUNDLESS_SHASTA_AGGREGATION_ELF,
-            BOUNDLESS_SHASTA_AGGREGATION_ID,
-        )
-        .await?;
-        state.shasta_agg = true;
-        state.agg = false;
+        match image_type {
+            ImageType::Batch => tracing::info!("Uploading batch ELF image to boundless agent..."),
+            ImageType::Aggregation(AggType::Base) => {
+                tracing::info!("Uploading aggregation ELF image to boundless agent...")
+            }
+            ImageType::Aggregation(AggType::Shasta) => {
+                tracing::info!("Uploading shasta aggregation ELF image to boundless agent...")
+            }
+        }
+
+        self.upload_image_to_agent(upload_endpoint, elf_bytes, expected_image_id)
+            .await?;
+
+        match image_type {
+            ImageType::Batch => state.batch = true,
+            ImageType::Aggregation(agg_type) => state.aggregation = Some(agg_type),
+        }
+
         Ok(())
     }
 
@@ -546,7 +561,7 @@ impl Prover for BoundlessProver {
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         // Ensure batch ELF is uploaded before first use
-        self.ensure_batch_uploaded().await?;
+        // self.ensure_batch_uploaded().await?;
         self.ensure_base_agg_uploaded().await?;
 
         let batch_image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
@@ -725,7 +740,7 @@ impl Prover for BoundlessProver {
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         // Ensure batch + shasta aggregation ELF are uploaded before first use
-        self.ensure_batch_uploaded().await?;
+        // self.ensure_batch_uploaded().await?;
         self.ensure_shasta_agg_uploaded().await?;
 
         // Deserialize receipts and collect block inputs

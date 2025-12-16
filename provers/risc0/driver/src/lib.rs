@@ -39,6 +39,7 @@ pub mod snarks;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Risc0Param {
     pub boundless: bool,
+    #[serde(skip)]
     pub bonsai: bool,
     pub snark: bool,
     pub profile: bool,
