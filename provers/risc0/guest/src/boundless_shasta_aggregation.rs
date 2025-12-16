@@ -7,8 +7,13 @@ use revm_primitives::Address;
 use risc0_zkvm::{guest::env, sha::Digest, Receipt};
 
 use raiko_lib::{
+    libhash::hash_shasta_subproof_input,
     primitives::B256,
-    protocol_instance::{shasta_aggregation_output, shasta_zk_aggregation_output, words_to_bytes_le},
+    protocol_instance::{
+        build_shasta_commitment_from_proof_carry_data_vec, shasta_aggregation_output,
+        shasta_zk_aggregation_output, words_to_bytes_le,
+    },
+    prover::ProofCarryData,
 };
 use serde::{Deserialize, Serialize};
 
@@ -16,8 +21,7 @@ use serde::{Deserialize, Serialize};
 pub struct BoundlessShastaAggregationGuestInput {
     pub image_id: Digest,
     pub receipts: Vec<Receipt>,
-    pub chain_id: u64,
-    pub verifier_address: Address,
+    pub proof_carry_data_vec: Vec<ProofCarryData>,
     pub prover_address: Address,
 }
 
@@ -27,22 +31,43 @@ pub fn main() {
     let input: BoundlessShastaAggregationGuestInput =
         bincode::deserialize(&input_buf).expect("failed to deserialize shasta aggregation input");
 
-    // Verify receipts and derive block inputs from their journals (matching foundational aggregation).
-    let mut block_inputs: Vec<B256> = Vec::with_capacity(input.receipts.len());
-    for receipt in input.receipts.iter() {
+    assert_eq!(
+        input.receipts.len(),
+        input.proof_carry_data_vec.len(),
+        "receipts and proof_carry_data_vec must be the same length"
+    );
+
+    // Verify receipts and ensure each receipt journal matches the expected shasta subproof input.
+    for (i, receipt) in input.receipts.iter().enumerate() {
         receipt.verify(input.image_id).expect("receipt verification failed");
-        // Journals are framed: 4-byte length prefix followed by the B256 bytes.
+
+        // Journals are framed: 4-byte length prefix followed by the bytes (for a B256, 32 bytes).
         let journal_bytes = &receipt.journal.bytes;
+        assert!(
+            journal_bytes.len() >= 4,
+            "receipt journal too short for length prefix"
+        );
+        let len = u32::from_le_bytes(journal_bytes[0..4].try_into().unwrap()) as usize;
+        assert_eq!(len, 32, "expected journal length prefix to be 32");
+        assert_eq!(
+            journal_bytes.len(),
+            4 + len,
+            "receipt journal length mismatch"
+        );
+
         let block_input = B256::from_slice(&journal_bytes[4..]);
-        block_inputs.push(block_input);
+        let expected = hash_shasta_subproof_input(&input.proof_carry_data_vec[i]);
+        assert_eq!(
+            block_input, expected,
+            "receipt journal does not match hash_shasta_subproof_input"
+        );
     }
 
-    let aggregation_hash = shasta_aggregation_output(
-        &block_inputs,
-        input.chain_id,
-        input.verifier_address,
-        input.prover_address,
-    );
+    let commitment =
+        build_shasta_commitment_from_proof_carry_data_vec(&input.proof_carry_data_vec).unwrap();
+    let first = input.proof_carry_data_vec.first().unwrap();
+    let aggregation_hash =
+        shasta_aggregation_output(&commitment, first.chain_id, first.verifier, input.prover_address);
 
     let image_words: [u32; 8] = input
         .image_id

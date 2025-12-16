@@ -15,7 +15,10 @@ use raiko_lib::{
         ZkAggregationGuestInput,
     },
     proof_type::ProofType,
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{
+        IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
+        ProverResult,
+    },
 };
 use risc0_zkvm::{
     compute_image_id, default_prover,
@@ -285,6 +288,15 @@ impl Prover for Risc0Prover {
             .iter()
             .map(|proof| proof.input.unwrap())
             .collect::<Vec<_>>();
+        let proof_carry_data_vec: Vec<ProofCarryData> = input
+            .proofs
+            .iter()
+            .map(|proof| {
+                proof.extra_data
+                    .clone()
+                    .ok_or_else(|| ProverError::GuestError("missing shasta proof carry data".into()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let input_proof_hex_str = input.proofs[0].proof.as_ref().unwrap();
         let input_proof_bytes = hex::decode(&input_proof_hex_str[2..]).unwrap();
@@ -294,8 +306,7 @@ impl Prover for Risc0Prover {
         let shasta_input = ShastaRisc0AggregationGuestInput {
             image_id: input_proof_image_id.as_words().try_into().unwrap(),
             block_inputs: block_inputs.clone(),
-            chain_id: input.chain_id,
-            verifier_address: input.verifier_address,
+            proof_carry_data_vec,
             prover_address: Address::ZERO,
         };
 

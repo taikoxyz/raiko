@@ -9,7 +9,10 @@ use raiko_lib::{
         ZkAggregationGuestInput,
     },
     proof_type::ProofType,
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{
+        IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
+        ProverResult,
+    },
     Measurement,
 };
 use reth_primitives::{Address, B256};
@@ -484,11 +487,20 @@ impl Prover for Sp1Prover {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let proof_carry_data_vec: Vec<ProofCarryData> = input
+            .proofs
+            .iter()
+            .map(|proof| {
+                proof.extra_data
+                    .clone()
+                    .ok_or_else(|| ProverError::GuestError("missing shasta proof carry data".into()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         let shasta_input = ShastaSp1AggregationGuestInput {
             image_id,
             block_inputs,
-            chain_id: input.chain_id,
-            verifier_address: input.verifier_address,
+            proof_carry_data_vec,
             prover_address: Address::ZERO,
         };
 

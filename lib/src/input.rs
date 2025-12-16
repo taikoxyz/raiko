@@ -137,8 +137,7 @@ pub struct ShastaRisc0AggregationGuestInput {
     /// Underlying RISC0 image id for the proofs being re-verified
     pub image_id: [u32; 8],
     pub block_inputs: Vec<B256>,
-    pub chain_id: u64,
-    pub verifier_address: Address,
+    pub proof_carry_data_vec: Vec<ProofCarryData>,
     pub prover_address: Address,
 }
 
@@ -148,9 +147,7 @@ pub struct ShastaSp1AggregationGuestInput {
     pub image_id: [u32; 8],
     /// Public inputs associated with each underlying proof
     pub block_inputs: Vec<B256>,
-    /// Taiko chain metadata required by the on-chain verifier
-    pub chain_id: u64,
-    pub verifier_address: Address,
+    pub proof_carry_data_vec: Vec<ProofCarryData>,
     /// Address representing the prover/aggregator (zero for zk provers today)
     pub prover_address: Address,
 }

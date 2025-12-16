@@ -15,11 +15,14 @@ use hex;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput, ShastaRisc0AggregationGuestInput,
+        GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
     primitives::keccak::keccak,
     proof_type::ProofType,
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{
+        IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
+        ProverResult,
+    },
 };
 use risc0_zkvm::{compute_image_id, sha::Digestible, Digest, Receipt as ZkvmReceipt};
 use serde::{Deserialize, Serialize};
@@ -40,8 +43,7 @@ pub struct Risc0AgentAggGuestInput {
 pub struct BoundlessShastaAggregationGuestInput {
     pub image_id: Digest,
     pub receipts: Vec<ZkvmReceipt>,
-    pub chain_id: u64,
-    pub verifier_address: Address,
+    pub proof_carry_data_vec: Vec<ProofCarryData>,
     pub prover_address: Address,
 }
 
@@ -539,7 +541,7 @@ impl Prover for BoundlessProver {
     async fn aggregate(
         &self,
         input: AggregationGuestInput,
-        output: &AggregationGuestOutput,
+        _output: &AggregationGuestOutput,
         _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
@@ -613,15 +615,28 @@ impl Prover for BoundlessProver {
         use serde_json::json;
 
         // Compose the request payload
-        let agg_hash_bytes: &[u8] = output.hash.as_ref();
-        let mut agg_hash_vec = Vec::with_capacity(4 + agg_hash_bytes.len());
-        agg_hash_vec.extend_from_slice(&(agg_hash_bytes.len() as u32).to_le_bytes());
-        agg_hash_vec.extend_from_slice(agg_hash_bytes);
+        // NOTE: `boundless-aggregation` guest commits `aggregation_output(program, public_inputs)`
+        // via `env::commit_slice`, so the journal is the raw concatenation:
+        //   32 bytes program image_id (as B256) || 32 bytes per public input (as B256)
+        // (no length-prefix framing).
+        let public_inputs: Vec<B256> = agent_input
+            .receipts
+            .iter()
+            .map(|receipt| B256::from_slice(&receipt.journal.bytes[4..]))
+            .collect();
+        let batch_image_words: [u32; 8] = batch_image_id
+            .as_words()
+            .try_into()
+            .expect("image_id should have 8 words");
+        let program =
+            B256::from(raiko_lib::protocol_instance::words_to_bytes_le(&batch_image_words));
+        let expected_output =
+            raiko_lib::protocol_instance::aggregation_output(program, public_inputs);
 
         let payload = json!({
             "input": agent_input_bytes,
             "proof_type": "Aggregate",
-            "output": agg_hash_vec,
+            "output": expected_output,
         });
 
         // Acquire semaphore permit to limit concurrent HTTP requests
@@ -705,7 +720,7 @@ impl Prover for BoundlessProver {
     async fn shasta_aggregate(
         &self,
         input: ShastaAggregationGuestInput,
-        output: &AggregationGuestOutput,
+        _output: &AggregationGuestOutput,
         _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
@@ -736,11 +751,23 @@ impl Prover for BoundlessProver {
             ))
         })?;
 
+        let proof_carry_data_vec: Vec<ProofCarryData> = input
+            .proofs
+            .iter()
+            .map(|p| {
+                p.extra_data.clone().ok_or_else(|| {
+                    ProverError::GuestError(
+                        "Missing extra_data (proof carry data) in proof for shasta aggregation"
+                            .to_string(),
+                    )
+                })
+            })
+            .collect::<ProverResult<Vec<_>>>()?;
+
         let agent_input = BoundlessShastaAggregationGuestInput {
             image_id: input_proof_image_id,
             receipts: receipts.clone(),
-            chain_id: input.chain_id,
-            verifier_address: input.verifier_address,
+            proof_carry_data_vec: proof_carry_data_vec.clone(),
             prover_address: Address::ZERO,
         };
 
@@ -798,15 +825,31 @@ impl Prover for BoundlessProver {
         }
 
         // Prepare payload for agent
-        let shasta_hash_bytes: &[u8] = output.hash.as_ref();
-        let mut shasta_hash_vec = Vec::with_capacity(4 + shasta_hash_bytes.len());
-        shasta_hash_vec.extend_from_slice(&(shasta_hash_bytes.len() as u32).to_le_bytes());
-        shasta_hash_vec.extend_from_slice(shasta_hash_bytes);
+        let image_words: [u32; 8] = input_proof_image_id
+            .as_words()
+            .try_into()
+            .expect("image_id should have 8 words");
+        let sub_image_id = B256::from(raiko_lib::protocol_instance::words_to_bytes_le(&image_words));
+        let expected_output_hash =
+            raiko_lib::protocol_instance::shasta_zk_aggregation_public_input_from_proof_carry_data_vec(
+                sub_image_id,
+                &proof_carry_data_vec,
+                Address::ZERO,
+            )
+            .ok_or_else(|| {
+                ProverError::GuestError(
+                    "invalid/mismatched shasta proof carry data for aggregation".to_string(),
+                )
+            })?;
+        // NOTE: `boundless-shasta-aggregation` guest uses `env::commit_slice(bytes32)`, so the
+        // journal is exactly 32 bytes (no length prefix framing).
+        let expected_output_bytes: &[u8; 32] = expected_output_hash.as_ref();
+        let expected_output: Vec<u8> = expected_output_bytes.to_vec();
 
         let payload = serde_json::json!({
             "input": agent_input_bytes,
             "proof_type": "Aggregate",
-            "output": shasta_hash_vec,
+            "output": expected_output,
         });
 
         // Acquire semaphore permit to limit concurrent HTTP requests
