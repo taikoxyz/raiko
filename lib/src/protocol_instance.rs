@@ -907,22 +907,23 @@ pub fn validate_shasta_aggregate_proof_carry_data(
     if aggregation_input.proofs.len() != aggregation_input.proof_carry_data_vec.len() {
         return false;
     }
-    if aggregation_input.proof_carry_data_vec.is_empty() {
+    validate_shasta_proof_carry_data_vec(&aggregation_input.proof_carry_data_vec)
+}
+
+pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryData]) -> bool {
+    if proof_carry_data_vec.is_empty() {
         return false;
     }
 
-    let expected_actual_prover = aggregation_input.proof_carry_data_vec[0]
-        .transition_input
-        .actual_prover;
-
-    for item in aggregation_input.proof_carry_data_vec.iter() {
+    let expected_actual_prover = proof_carry_data_vec[0].transition_input.actual_prover;
+    for item in proof_carry_data_vec.iter() {
         // Commitment uses a single `actualProver` field; make the range unambiguous.
         if item.transition_input.actual_prover != expected_actual_prover {
             return false;
         }
     }
 
-    for w in aggregation_input.proof_carry_data_vec.windows(2) {
+    for w in proof_carry_data_vec.windows(2) {
         let prev = &w[0];
         let next = &w[1];
         // Ensure proposal ids are sequential
@@ -950,7 +951,50 @@ pub fn validate_shasta_aggregate_proof_carry_data(
             return false;
         }
     }
+
     true
+}
+
+pub fn build_shasta_commitment_from_proof_carry_data_vec(
+    proof_carry_data_vec: &[ProofCarryData],
+) -> Option<Commitment> {
+    if !validate_shasta_proof_carry_data_vec(proof_carry_data_vec) {
+        return None;
+    }
+    let last = proof_carry_data_vec.last()?;
+
+    let transitions: Vec<crate::input::shasta::Transition> = proof_carry_data_vec
+        .iter()
+        .map(|item| crate::input::shasta::Transition {
+            proposer: item.transition_input.transition.proposer,
+            designatedProver: item.transition_input.transition.designatedProver,
+            timestamp: item.transition_input.transition.timestamp,
+            checkpointHash: hash_checkpoint(&item.transition_input.checkpoint),
+        })
+        .collect();
+
+    Some(Commitment {
+        firstProposalId: proof_carry_data_vec[0].transition_input.proposal_id,
+        // This field is a checkpoint hash in the latest Shasta contract; we store it as bytes32.
+        firstProposalParentBlockHash: proof_carry_data_vec[0].transition_input.parent_checkpoint_hash,
+        lastProposalHash: last.transition_input.proposal_hash,
+        actualProver: proof_carry_data_vec[0].transition_input.actual_prover,
+        endBlockNumber: last.transition_input.checkpoint.blockNumber,
+        endStateRoot: last.transition_input.checkpoint.stateRoot,
+        transitions,
+    })
+}
+
+pub fn shasta_zk_aggregation_public_input_from_proof_carry_data_vec(
+    sub_image_id: B256,
+    proof_carry_data_vec: &[ProofCarryData],
+    prover_address: Address,
+) -> Option<B256> {
+    let commitment = build_shasta_commitment_from_proof_carry_data_vec(proof_carry_data_vec)?;
+    let first = proof_carry_data_vec.first()?;
+    let aggregation_hash =
+        shasta_aggregation_output(&commitment, first.chain_id, first.verifier, prover_address);
+    Some(shasta_zk_aggregation_output(sub_image_id, aggregation_hash))
 }
 
 pub fn shasta_aggregation_output(

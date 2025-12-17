@@ -10,7 +10,6 @@ use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{calculate_batch_blocks_final_header, calculate_block_header},
     input::{
-        shasta::{Commitment, Transition as ShastaTransition},
         GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
     },
     libhash::hash_shasta_subproof_input,
@@ -20,8 +19,8 @@ use raiko_lib::{
     },
     proof_type::ProofType,
     protocol_instance::{
-        aggregation_output_combine, shasta_aggregation_output,
-        validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
+        aggregation_output_combine, build_shasta_commitment_from_proof_carry_data_vec,
+        shasta_aggregation_output, validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
     },
 };
 use secp256k1::{Keypair, PublicKey, SecretKey};
@@ -352,7 +351,6 @@ pub async fn shasta_aggregate(
 
     assert!(validate_shasta_aggregate_proof_carry_data(&input));
 
-    let mut transitions = Vec::new();
     // Verify the proofs
     for (i, proof) in input.proofs.iter().enumerate() {
         // TODO: verify protocol instance data so we can trust the old/new instance data
@@ -367,53 +365,10 @@ pub async fn shasta_aggregate(
                 .unwrap(),
             expected_instance,
         );
-        transitions.push(ShastaTransition {
-            proposer: input.proof_carry_data_vec[i]
-                .transition_input
-                .transition
-                .proposer,
-            designatedProver: input.proof_carry_data_vec[i]
-                .transition_input
-                .transition
-                .designatedProver,
-            timestamp: input.proof_carry_data_vec[i]
-                .transition_input
-                .transition
-                .timestamp,
-            checkpointHash: raiko_lib::libhash::hash_checkpoint(
-                &input.proof_carry_data_vec[i].transition_input.checkpoint,
-            ),
-        });
     }
 
-    let commitment = Commitment {
-        firstProposalId: input.proof_carry_data_vec[0].transition_input.proposal_id,
-        firstProposalParentBlockHash: input.proof_carry_data_vec[0]
-            .transition_input
-            .parent_checkpoint_hash,
-        lastProposalHash: input
-            .proof_carry_data_vec
-            .last()
-            .expect("proof_carry_data_vec must be non-empty")
-            .transition_input
-            .proposal_hash,
-        endBlockNumber: input
-            .proof_carry_data_vec
-            .last()
-            .unwrap()
-            .transition_input
-            .checkpoint
-            .blockNumber,
-        endStateRoot: input
-            .proof_carry_data_vec
-            .last()
-            .unwrap()
-            .transition_input
-            .checkpoint
-            .stateRoot,
-        actualProver: input.proof_carry_data_vec[0].transition_input.actual_prover,
-        transitions: transitions,
-    };
+    let commitment = build_shasta_commitment_from_proof_carry_data_vec(&input.proof_carry_data_vec)
+        .expect("invalid shasta proof carry data for aggregation");
 
     // The aggregator must be the same instance as the sub-proof signer.
     assert_eq!(expected_instance, sgx_instance);

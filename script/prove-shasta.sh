@@ -106,9 +106,9 @@ elif [ "$proof" == "sp1" ]; then
     "proof_type": "sp1",
     "blob_proof_type": "proof_of_equivalence",
 	"sp1": {
-		"recursion": "plonk",
-		"prover": "network",
-		"verify": true
+	    "recursion": "compressed",
+        "prover": "mock",
+        "verify": false
 	}
   '
 elif [ "$proof" == "sp1-aggregation" ]; then
@@ -148,9 +148,9 @@ elif [ "$proof" == "risc0" ]; then
     "proof_type": "risc0",
     "blob_proof_type": "proof_of_equivalence",
     "risc0": {
-        "bonsai": true,
+        "bonsai": false,
         "snark": true,
-        "profile": false,
+        "profile": true,
         "execution_po2": 20
     }
   '
