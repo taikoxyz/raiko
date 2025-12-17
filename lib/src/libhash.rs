@@ -1,25 +1,12 @@
 // rust impl of taiko-mono/packages/protocol/contracts/layer1/shasta/libs/LibHashing.sol
 
-use crate::input::shasta::{CoreState, Derivation, Proposal, Transition as ShastaTransition};
+use crate::input::shasta::{Commitment, CoreState, Derivation, Proposal};
 
 use crate::input::shasta::Checkpoint;
 use crate::primitives::keccak::keccak;
+use crate::prover::{ProofCarryData, TransitionInputData};
 use alloy_primitives::{Address, B256, U256};
 use reth_primitives::b256;
-
-/// Hash a transition using the same logic as the Solidity implementation
-pub fn hash_shasta_transition(transition: &ShastaTransition) -> B256 {
-    // converts designatedProver (Address) to B256 as in Solidity: bytes32(uint256(uint160(_metadata.designatedProver)))
-    let designated_prover_b256 = address_to_b256(transition.designatedProver);
-    let prover_b256 = address_to_b256(transition.actualProver);
-    hash_five_values(
-        transition.proposalHash,
-        transition.parentTransitionHash,
-        hash_checkpoint(&transition.checkpoint),
-        designated_prover_b256,
-        prover_b256,
-    )
-}
 
 /// Hash a checkpoint using the same logic as the Solidity implementation
 pub fn hash_checkpoint(checkpoint: &Checkpoint) -> B256 {
@@ -91,88 +78,97 @@ pub fn address_to_b256(address: Address) -> B256 {
     B256::left_padding_from(address.as_slice())
 }
 
+// Helper to encode a u48 (Rust u64 is fine, always left-padded in Solidity as uint256)
+pub fn u48_to_b256(val: u64) -> B256 {
+    // Truncate to 48 bits
+    let val = val & 0xffff_ffff_ffff;
+    u64_to_b256(val)
+}
+
+// Helper to encode a u48 (Rust u64 is fine, always left-padded in Solidity as uint256)
+pub fn u64_to_b256(val: u64) -> B256 {
+    U256::from(val).into()
+}
+
 const EMPTY_BYTES_HASH: B256 =
     b256!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 
 pub const VERIFY_PROOF_B256: B256 =
     b256!("5645524946595f50524f4f460000000000000000000000000000000000000000");
 
-/// Hash an array of transitions using the same logic as the Solidity implementation
-pub fn hash_shasta_transitions_array(transitions: &[ShastaTransition]) -> B256 {
-    if transitions.is_empty() {
-        return EMPTY_BYTES_HASH;
-    }
-
-    // For small arrays (most common case), use direct hashing with length
-    if transitions.len() == 1 {
-        return hash_two_values(
-            U256::from(transitions.len()).into(),
-            hash_shasta_transition(&transitions[0]),
-        );
-    }
-
-    if transitions.len() == 2 {
-        return hash_three_values(
-            U256::from(transitions.len()).into(),
-            hash_shasta_transition(&transitions[0]),
-            hash_shasta_transition(&transitions[1]),
-        );
-    }
-
-    // For larger arrays, use memory-optimized approach
-    // Pre-allocate exact buffer size: 32 bytes for length + 32 bytes per hash
-    let array_length = transitions.len();
-    let buffer_size = 32 + (array_length * 32);
-    let mut buffer = Vec::with_capacity(buffer_size);
-
-    // Write array length at start of buffer
-    buffer.extend_from_slice(&U256::from(array_length).to_be_bytes::<32>());
-
-    // Write each transition hash directly to buffer
-    for transition in transitions {
-        let transition_hash = hash_shasta_transition(transition);
-        buffer.extend_from_slice(transition_hash.as_slice());
-    }
-
-    // Return keccak256 hash of the buffer
-    keccak(&buffer).into()
+/// Domain-separated hash for a Shasta sub-proof public input.
+///
+/// This binds `chain_id` and `verifier` to the signed message to avoid cross-chain / cross-verifier
+/// replay of otherwise identical transition inputs.
+pub fn hash_shasta_subproof_input(carry: &ProofCarryData) -> B256 {
+    tracing::info!("hash_shasta_subproof_input: {carry:?}");
+    let transition_hash = hash_shasta_transition_input(&carry.transition_input);
+    hash_four_values(
+        VERIFY_PROOF_B256,
+        U256::from(carry.chain_id).into(),
+        address_to_b256(carry.verifier),
+        transition_hash,
+    )
 }
 
-// in aggregation, we only need to hash the transitions hash array
-pub fn hash_transitions_hash_array_with_metadata(transitions: &[B256]) -> B256 {
-    if transitions.is_empty() {
-        return EMPTY_BYTES_HASH;
+pub fn hash_shasta_transition_input(transition_input: &TransitionInputData) -> B256 {
+    // IMPORTANT (soundness): Aggregation checks rely on fields beyond `Transition`.
+    // This hash must bind all continuity-critical fields; otherwise a caller can tamper with
+    // carry-data (e.g. parent hashes / end checkpoint) without invalidating the sub-proof input.
+    let mut values: Vec<B256> = Vec::with_capacity(13);
+
+    // Proposal linkage
+    values.push(u64_to_b256(transition_input.proposal_id));
+    values.push(transition_input.proposal_hash);
+    values.push(transition_input.parent_proposal_hash);
+    values.push(transition_input.parent_checkpoint_hash);
+
+    // Prover identity (L1-level)
+    values.push(address_to_b256(transition_input.actual_prover));
+
+    // Transition fields (as in Solidity Transition struct)
+    values.push(address_to_b256(transition_input.transition.proposer));
+    values.push(address_to_b256(
+        transition_input.transition.designatedProver,
+    ));
+    values.push(u48_to_b256(transition_input.transition.timestamp));
+    values.push(hash_checkpoint(&transition_input.checkpoint));
+
+    // End checkpoint fields used by `Commitment` (bind to prevent tampering)
+    values.push(u48_to_b256(transition_input.checkpoint.blockNumber));
+    values.push(transition_input.checkpoint.blockHash);
+    values.push(transition_input.checkpoint.stateRoot);
+
+    hash_values_impl(&values)
+}
+
+pub fn hash_commitment(prove_input: &Commitment) -> B256 {
+    // Flatten all the fields into a Vec<B256>, as in Solidity's buffer.
+    let transition_count = prove_input.transitions.len();
+    let mut buffer: Vec<B256> = Vec::with_capacity(9 + transition_count * 4);
+
+    // Top-level head
+    buffer.push(U256::from(0x20u64).into());
+
+    // Commitment static fields
+    buffer.push(U256::from(prove_input.firstProposalId).into());
+    buffer.push(prove_input.firstProposalParentBlockHash);
+    buffer.push(prove_input.lastProposalHash);
+    buffer.push(address_to_b256(prove_input.actualProver));
+    buffer.push(U256::from(prove_input.endBlockNumber).into());
+    buffer.push(prove_input.endStateRoot);
+    buffer.push(U256::from(0xe0u64).into());
+
+    buffer.push(U256::from(transition_count as u64).into());
+    // Flatten each Transition as in Solidity: [proposer, designatedProver, timestamp, checkpointHash]
+    for transition in &prove_input.transitions {
+        buffer.push(address_to_b256(transition.proposer));
+        buffer.push(address_to_b256(transition.designatedProver));
+        buffer.push(u48_to_b256(transition.timestamp));
+        buffer.push(transition.checkpointHash);
     }
 
-    // For small arrays (most common case), use direct hashing with length
-    if transitions.len() == 1 {
-        return hash_two_values(U256::from(transitions.len()).into(), transitions[0]);
-    }
-
-    if transitions.len() == 2 {
-        return hash_three_values(
-            U256::from(transitions.len()).into(),
-            transitions[0],
-            transitions[1],
-        );
-    }
-
-    // For larger arrays, use memory-optimized approach
-    // Pre-allocate exact buffer size: 32 bytes for length + 32 bytes per hash
-    let array_length = transitions.len();
-    let buffer_size = 32 + (array_length * 32);
-    let mut buffer = Vec::with_capacity(buffer_size);
-
-    // Write array length at start of buffer
-    buffer.extend_from_slice(&U256::from(array_length).to_be_bytes::<32>());
-
-    // Write each transition hash directly to buffer
-    for transition in transitions {
-        buffer.extend_from_slice(transition.as_slice());
-    }
-
-    // Return keccak256 hash of the buffer
-    keccak(&buffer).into()
+    hash_values_impl(&buffer)
 }
 
 /*
@@ -290,11 +286,19 @@ pub fn hash_derivation(derivation: &Derivation) -> B256 {
     // [0] offset to tuple head (0x20)
     write_word(&mut buffer, 0, U256::from(0x20u64).into());
     // [1] originBlockNumber
-    write_word(&mut buffer, 1, U256::from(derivation.originBlockNumber).into());
+    write_word(
+        &mut buffer,
+        1,
+        U256::from(derivation.originBlockNumber).into(),
+    );
     // [2] originBlockHash
     write_word(&mut buffer, 2, derivation.originBlockHash);
     // [3] basefeeSharingPctg
-    write_word(&mut buffer, 3, U256::from(derivation.basefeeSharingPctg).into());
+    write_word(
+        &mut buffer,
+        3,
+        U256::from(derivation.basefeeSharingPctg).into(),
+    );
     // [4] offset to sources (0x80)
     write_word(&mut buffer, 4, U256::from(0x80u64).into());
     // [5] sources length
@@ -313,7 +317,11 @@ pub fn hash_derivation(derivation: &Derivation) -> B256 {
         // DerivationSource head
         // [dataCursor] isForcedInclusion (1 or 0)
         let is_forced_inclusion_value = if source.isForcedInclusion { 1u64 } else { 0u64 };
-        write_word(&mut buffer, data_cursor, U256::from(is_forced_inclusion_value).into());
+        write_word(
+            &mut buffer,
+            data_cursor,
+            U256::from(is_forced_inclusion_value).into(),
+        );
         // [dataCursor + 1] offset to blobSlice (0x40)
         write_word(&mut buffer, data_cursor + 1, U256::from(0x40u64).into());
 
@@ -322,15 +330,27 @@ pub fn hash_derivation(derivation: &Derivation) -> B256 {
         // [blobSliceBase] offset to blobHashes (0x60)
         write_word(&mut buffer, blob_slice_base, U256::from(0x60u64).into());
         // [blobSliceBase + 1] offset
-        write_word(&mut buffer, blob_slice_base + 1, U256::from(source.blobSlice.offset).into());
+        write_word(
+            &mut buffer,
+            blob_slice_base + 1,
+            U256::from(source.blobSlice.offset).into(),
+        );
         // [blobSliceBase + 2] timestamp
-        write_word(&mut buffer, blob_slice_base + 2, U256::from(source.blobSlice.timestamp).into());
+        write_word(
+            &mut buffer,
+            blob_slice_base + 2,
+            U256::from(source.blobSlice.timestamp).into(),
+        );
 
         // Blob hashes array
         let blob_hashes_base = blob_slice_base + 3;
         let blob_hashes_length = source.blobSlice.blobHashes.len();
         // [blobHashesBase] blobHashes length
-        write_word(&mut buffer, blob_hashes_base, U256::from(blob_hashes_length).into());
+        write_word(
+            &mut buffer,
+            blob_hashes_base,
+            U256::from(blob_hashes_length).into(),
+        );
 
         // [blobHashesBase + 1 + j] each blobHash
         for (j, blob_hash) in source.blobSlice.blobHashes.iter().enumerate() {
@@ -345,7 +365,7 @@ pub fn hash_derivation(derivation: &Derivation) -> B256 {
 }
 
 pub fn hash_public_input(
-    aggregated_proving_hash: B256,
+    prove_input_hash: B256,
     chain_id: u64,
     verifier_address: Address,
     sgx_instance: Address,
@@ -354,7 +374,7 @@ pub fn hash_public_input(
         VERIFY_PROOF_B256,
         U256::from(chain_id).into(),
         address_to_b256(verifier_address),
-        aggregated_proving_hash,
+        prove_input_hash,
         address_to_b256(sgx_instance),
     )
 }
@@ -373,6 +393,9 @@ mod test {
             timestamp: 1761830468,
             endOfSubmissionWindowTimestamp: 0,
             proposer: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+            parentProposalHash: b256!(
+                "85422bfec85e2cb6d5ca9f52858a74b680865c0134c0e29af710d8e01d58898a"
+            ),
             derivationHash: b256!(
                 "85422bfec85e2cb6d5ca9f52858a74b680865c0134c0e29af710d8e01d58898a"
             ),
@@ -380,134 +403,7 @@ mod test {
         let proposal_hash = hash_proposal(&proposal);
         assert_eq!(
             hex::encode(proposal_hash),
-            "84d250afffb408d35c42978f6563a32c494ec3a4dc01c5e87e7f3a77c413eaeb"
-        );
-    }
-
-    #[test]
-    fn test_shasta_transition_hash() {
-        // Create a transition with fixed test values
-        let transition = ShastaTransition {
-            proposalHash: b256!("d469fc0c500db1c87cd4fcf0650628cf4be84b03feb29dbca9ce1daee2750274"),
-            parentTransitionHash: b256!(
-                "66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
-            ),
-            checkpoint: Checkpoint {
-                blockNumber: 1512,
-                blockHash: b256!(
-                    "83cf1bb221b330d372ce0fbca82cb060fa028d3f6bfd62a74197789e25ac2b5f"
-                ),
-                stateRoot: b256!(
-                    "63651766d70b5aaf0320fc63421f4d1fdf6fe828514e21e05615e9c2f93c9c7d"
-                ),
-            },
-            designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
-            actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
-        };
-
-        let single_trans_hash = hash_shasta_transition(&transition);
-        assert_eq!(
-            hex::encode(single_trans_hash),
-            "8e1bb4b3832a1da199f0d0a7b93e95b8bd96c58045ff3b54d4969dc38a9260da"
-        );
-
-        let transition_hash = hash_shasta_transitions_array(&[transition]);
-        assert_eq!(
-            hex::encode(transition_hash),
-            "f84854d6f8b03f973543dc20cf541d78a2a9e25299d6f53b13c8b48e03246a43"
-        );
-    }
-
-    #[test]
-    fn test_hash_transitions_array_fixed_values() {
-        // Create array with 3 transitions using fixed values
-        let transitions = vec![
-            // Transition 1
-            ShastaTransition {
-                proposalHash: b256!(
-                    "1111111111111111111111111111111111111111111111111111111111111111"
-                ),
-                parentTransitionHash: b256!(
-                    "2222222222222222222222222222222222222222222222222222222222222222"
-                ),
-                checkpoint: Checkpoint {
-                    blockNumber: 1000,
-                    blockHash: b256!(
-                        "3333333333333333333333333333333333333333333333333333333333333333"
-                    ),
-                    stateRoot: b256!(
-                        "4444444444444444444444444444444444444444444444444444444444444444"
-                    ),
-                },
-                designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
-                actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
-            },
-            // Transition 2
-            ShastaTransition {
-                proposalHash: b256!(
-                    "5555555555555555555555555555555555555555555555555555555555555555"
-                ),
-                parentTransitionHash: b256!(
-                    "6666666666666666666666666666666666666666666666666666666666666666"
-                ),
-                checkpoint: Checkpoint {
-                    blockNumber: 2000,
-                    blockHash: b256!(
-                        "7777777777777777777777777777777777777777777777777777777777777777"
-                    ),
-                    stateRoot: b256!(
-                        "8888888888888888888888888888888888888888888888888888888888888888"
-                    ),
-                },
-                designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
-                actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
-            },
-            // Transition 3
-            ShastaTransition {
-                proposalHash: b256!(
-                    "9999999999999999999999999999999999999999999999999999999999999999"
-                ),
-                parentTransitionHash: b256!(
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                ),
-                checkpoint: Checkpoint {
-                    blockNumber: 3000,
-                    blockHash: b256!(
-                        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                    ),
-                    stateRoot: b256!(
-                        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-                    ),
-                },
-                designatedProver: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
-                actualProver: address!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
-            },
-        ];
-
-        // Calculate hash using hashTransitionsArray equivalent
-        let result = hash_shasta_transitions_array(&transitions);
-        assert_eq!(
-            hex::encode(result),
-            "f9e1faec6512a0048465cfee3bb43eadbbfe8fe781ac5eaa4defe841b4e06453"
-        );
-
-        // Test individual transition hashes
-        let individual_hashes: Vec<String> = transitions
-            .iter()
-            .map(|t| hex::encode(hash_shasta_transition(t)))
-            .collect();
-
-        assert_eq!(
-            individual_hashes[0],
-            "1aebd9d633bb849c184d4d7ff14e04b2fcbe9bc93b8a23d22fa56fc944cb19b9"
-        );
-        assert_eq!(
-            individual_hashes[1],
-            "a43aeeab9b0b41ea668f7d9ec258a4ef763568801c6f9cff07d75f0d03d8700b"
-        );
-        assert_eq!(
-            individual_hashes[2],
-            "262fe70091d0da183a0eee8e271672f387d968c03de653fc01b1e88d930e9d23"
+            "0fd2106121ee59690d5c49dcbd1603e9eedff34da6dd6afe5de01d30188d770d"
         );
     }
 
@@ -530,7 +426,7 @@ mod test {
         assert_ne!(derivation_hash, B256::ZERO);
         assert_eq!(
             hex::encode(derivation_hash),
-            "f7591d96a9236272ae9c839b84b64fdc2d97873d80992417969e4f639ac57656"
+            "1da64d2dd5bda3fb186ecf02433b32f1a24661030600a8ff150ed8c346dcc5ba"
         );
     }
 
@@ -579,5 +475,140 @@ mod test {
             hex::encode(public_input_hash),
             "6d0ea3eb338aa3e2d85b21394d3ea426574ab7764726376a5364dee132fcd3d7"
         );
+    }
+
+    #[test]
+    fn test_hash_prove_input() {
+        // Setup a sample ProveInput with minimal structure to test only that hash_prove_input is called and behaves as expected.
+        // This matches the test structure and dummy field values from the Solidity reference.
+
+        let prove_input = Commitment {
+            firstProposalId: 42,
+            firstProposalParentBlockHash: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000999"
+            ),
+            lastProposalHash: b256!(
+                "0000000000000000000000000000000000000000000000000000000000123456"
+            ),
+            actualProver: address!("0000000000000000000000000000000000012345"),
+            endBlockNumber: 1000,
+            endStateRoot: b256!("0000000000000000000000000000000000000000000000000000000000abcdef"),
+            transitions: vec![],
+        };
+        let prove_input_hash = hash_commitment(&prove_input);
+        assert_eq!(
+            alloy_primitives::hex::encode_prefixed(prove_input_hash),
+            "0x0f1c0b0391c2617d236a059287ba55aeaa668cacfcd9abf6d537de314ae9fce8"
+        );
+    }
+
+    #[test]
+    fn test_hash_shasta_transition_input_binds_continuity_fields() {
+        use crate::input::shasta::Checkpoint;
+        use crate::prover::{ShastaTransitionInput, TransitionInputData};
+
+        let mut base = TransitionInputData {
+            proposal_id: 1,
+            proposal_hash: b256!(
+                "1111111111111111111111111111111111111111111111111111111111111111"
+            ),
+            parent_proposal_hash: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            parent_checkpoint_hash: b256!(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ),
+            actual_prover: address!("1111111111111111111111111111111111111111"),
+            transition: ShastaTransitionInput {
+                proposer: address!("2222222222222222222222222222222222222222"),
+                designatedProver: address!("3333333333333333333333333333333333333333"),
+                timestamp: 123,
+            },
+            checkpoint: Checkpoint {
+                blockNumber: 10,
+                blockHash: b256!(
+                    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                ),
+                stateRoot: b256!(
+                    "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                ),
+            },
+        };
+
+        let h0 = hash_shasta_transition_input(&base);
+
+        // Changing any continuity / commitment-relevant field must change the hash.
+        base.parent_checkpoint_hash =
+            b256!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+        assert_ne!(h0, hash_shasta_transition_input(&base));
+
+        base.parent_checkpoint_hash =
+            b256!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        base.parent_proposal_hash =
+            b256!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        assert_ne!(h0, hash_shasta_transition_input(&base));
+
+        base.parent_proposal_hash =
+            b256!("0000000000000000000000000000000000000000000000000000000000000000");
+        base.checkpoint.stateRoot =
+            b256!("9999999999999999999999999999999999999999999999999999999999999999");
+        assert_ne!(h0, hash_shasta_transition_input(&base));
+    }
+
+    #[test]
+    fn test_hash_shasta_subproof_input_domain_separates_chain_and_verifier() {
+        use crate::input::shasta::Checkpoint;
+        use crate::prover::{ProofCarryData, ShastaTransitionInput, TransitionInputData};
+
+        let transition_input = TransitionInputData {
+            proposal_id: 1,
+            proposal_hash: b256!(
+                "1111111111111111111111111111111111111111111111111111111111111111"
+            ),
+            parent_proposal_hash: b256!(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            parent_checkpoint_hash: b256!(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ),
+            actual_prover: address!("1111111111111111111111111111111111111111"),
+            transition: ShastaTransitionInput {
+                proposer: address!("2222222222222222222222222222222222222222"),
+                designatedProver: address!("3333333333333333333333333333333333333333"),
+                timestamp: 123,
+            },
+            checkpoint: Checkpoint {
+                blockNumber: 10,
+                blockHash: b256!(
+                    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                ),
+                stateRoot: b256!(
+                    "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                ),
+            },
+        };
+
+        let base = ProofCarryData {
+            chain_id: 167001,
+            verifier: address!("00f9f60C79e38c08b785eE4F1a849900693C6630"),
+            transition_input: transition_input.clone(),
+        };
+
+        let h0 = hash_shasta_subproof_input(&base);
+
+        let mut diff_chain = base.clone();
+        diff_chain.chain_id = 167002;
+        assert_ne!(h0, hash_shasta_subproof_input(&diff_chain));
+
+        let mut diff_verifier = base.clone();
+        diff_verifier.verifier = address!("1111111111111111111111111111111111111111");
+        assert_ne!(h0, hash_shasta_subproof_input(&diff_verifier));
+
+        let mut diff_transition = base.clone();
+        diff_transition.transition_input = TransitionInputData {
+            proposal_id: 2,
+            ..transition_input
+        };
+        assert_ne!(h0, hash_shasta_subproof_input(&diff_transition));
     }
 }

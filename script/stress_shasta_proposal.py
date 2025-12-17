@@ -730,9 +730,9 @@ class BatchMonitor:
                 "prove": True,
             },
             "risc0": {
-                "bonsai": True,
+                "bonsai": False,
                 "snark": True,
-                "profile": False,
+                "profile": True,
                 "execution_po2": 20,
             },
             "sp1": {"recursion": "plonk", "prover": "network", "verify": True},

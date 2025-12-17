@@ -34,16 +34,21 @@ pub fn generate_transactions_for_shasta_blocks(
         let use_blob = batch_proposal.blob_used();
         let compressed_tx_list_buf = if use_blob {
             let blob_data_bufs = data_source.tx_data_from_blob.clone();
-            let compressed_tx_list_buf = blob_data_bufs
+            let decoded_blob_data_concat = blob_data_bufs
                 .iter()
                 .map(|blob_data_buf| decode_blob_data(blob_data_buf))
                 .collect::<Vec<Vec<u8>>>()
                 .concat();
-            let (blob_offset, blob_size) = batch_proposal
-                .blob_tx_slice_param(&compressed_tx_list_buf)
-                .unwrap_or_else(|| (0, 0));
-            tracing::info!("blob_offset: {blob_offset}, blob_size: {blob_size}");
-            compressed_tx_list_buf[blob_offset..blob_offset + blob_size].to_vec()
+            let sliced = batch_proposal
+                .blob_tx_slice_param_for_source(idx, &decoded_blob_data_concat)
+                .and_then(|(blob_offset, blob_size)| {
+                    tracing::info!("blob_offset: {blob_offset}, blob_size: {blob_size}");
+                    decoded_blob_data_concat
+                        .get(blob_offset..blob_offset + blob_size)
+                        .map(|s| s.to_vec())
+                })
+                .unwrap_or_default();
+            sliced
         } else {
             unreachable!("shasta does not use calldata");
         };

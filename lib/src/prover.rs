@@ -4,9 +4,10 @@ use utoipa::ToSchema;
 
 use crate::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, GuestBatchInput,
+        GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
+    libhash::hash_checkpoint,
     proof_type::ProofType,
 };
 
@@ -31,11 +32,36 @@ impl From<String> for ProverError {
 pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
 pub type ProverConfig = serde_json::Value;
 pub type ProofKey = (ChainId, u64, B256, u8);
-pub type ProofExtraData = (ChainId, Address);
 
-#[derive(
-    Clone, Debug, Serialize, ToSchema, Deserialize, Default, PartialEq, Eq, PartialOrd, Ord, Hash,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[allow(non_snake_case)]
+// In Shasta, each sub proposal signs this structure to prove the proposal's transition.
+// We keep ABI-compatible field names.
+pub struct ShastaTransitionInput {
+    pub proposer: Address,
+    pub designatedProver: Address,
+    pub timestamp: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct TransitionInputData {
+    pub proposal_id: u64,
+    pub proposal_hash: B256,
+    pub parent_proposal_hash: B256,
+    pub parent_checkpoint_hash: B256,
+    pub actual_prover: Address,
+    pub transition: ShastaTransitionInput,
+    pub checkpoint: Checkpoint,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct ProofCarryData {
+    pub chain_id: ChainId,
+    pub verifier: Address,
+    pub transition_input: TransitionInputData,
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema, Deserialize, Default, PartialEq, Eq)]
 /// The response body of a proof request.
 pub struct Proof {
     /// The proof either TEE or ZK.
@@ -49,7 +75,7 @@ pub struct Proof {
     /// The kzg proof.
     pub kzg_proof: Option<String>,
     /// the extra data of Proof
-    pub extra_data: Option<ProofExtraData>,
+    pub extra_data: Option<ProofCarryData>,
 }
 
 // impl display for proof to easy read log
@@ -133,13 +159,38 @@ pub trait Prover {
         let chain_id = input.taiko.chain_spec.chain_id;
         let first_block = &input.inputs.first().unwrap().block;
         let proposal_block_number = first_block.number;
-        let proposal_timestamp = first_block.header.timestamp;
+        let first_block_timestamp = first_block.header.timestamp;
         let verifier_address = input
             .taiko
             .chain_spec
-            .get_fork_verifier_address(proposal_block_number, proposal_timestamp, proof_type)
+            .get_fork_verifier_address(proposal_block_number, first_block_timestamp, proof_type)
             .unwrap_or_default();
-        proof.extra_data = Some((chain_id, verifier_address));
+        let last_checkpoint = Checkpoint {
+            blockNumber: input.inputs.last().unwrap().block.number,
+            blockHash: input.inputs.last().unwrap().block.hash_slow(),
+            stateRoot: input.inputs.last().unwrap().block.state_root,
+        };
+        proof.extra_data = Some(ProofCarryData {
+            chain_id,
+            verifier: verifier_address,
+            transition_input: TransitionInputData {
+                proposal_id: input.taiko.batch_id,
+                proposal_hash: input.taiko.batch_proposed.proposal_hash(),
+                parent_proposal_hash: input.taiko.batch_proposed.parent_proposal_hash(),
+                parent_checkpoint_hash: hash_checkpoint(&Checkpoint {
+                    blockNumber: input.inputs.first().unwrap().parent_header.number,
+                    blockHash: input.inputs.first().unwrap().parent_header.hash_slow(),
+                    stateRoot: input.inputs.first().unwrap().parent_header.state_root,
+                }),
+                actual_prover: input.taiko.prover_data.actual_prover,
+                transition: ShastaTransitionInput {
+                    proposer: input.taiko.batch_proposed.proposer(),
+                    designatedProver: input.taiko.prover_data.designated_prover.unwrap(),
+                    timestamp: input.taiko.batch_proposed.proposal_timestamp(),
+                },
+                checkpoint: last_checkpoint,
+            },
+        });
         Ok(proof)
     }
 

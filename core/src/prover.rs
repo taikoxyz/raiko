@@ -1,12 +1,16 @@
 use std::path::Path;
 
 use raiko_lib::{
-    input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput},
-    libhash::hash_transitions_hash_array_with_metadata,
+    input::{
+        shasta::{Commitment, Transition as ShastaTransition},
+        GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+    },
+    libhash::hash_shasta_subproof_input,
     proof_type::ProofType,
-    protocol_instance::ProtocolInstance,
+    protocol_instance::{shasta_aggregation_output, ProtocolInstance},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
+use reth_primitives::Address;
 use serde::{de::Error, Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::trace;
@@ -141,13 +145,58 @@ impl Prover for NativeProver {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         tracing::info!("aggregating shasta proposals: input: {input:?} and output: {output:?}");
-        let aggregated_proving_hash = hash_transitions_hash_array_with_metadata(
-            &input
-                .proofs
-                .iter()
-                .map(|p| p.input.unwrap())
-                .collect::<Vec<_>>(),
-        );
+        let mut transitions = Vec::new();
+        for (_i, proof) in input.proofs.iter().enumerate() {
+            // TODO: verify protocol instance data so we can trust the old/new instance data
+            let proof_carry_data = proof.extra_data.clone().unwrap();
+            assert_eq!(
+                proof.input.unwrap(),
+                hash_shasta_subproof_input(&proof_carry_data)
+            );
+            transitions.push(ShastaTransition {
+                proposer: proof_carry_data.transition_input.transition.proposer,
+                designatedProver: proof_carry_data
+                    .transition_input
+                    .transition
+                    .designatedProver,
+                timestamp: proof_carry_data.transition_input.transition.timestamp,
+                checkpointHash: raiko_lib::libhash::hash_checkpoint(
+                    &proof_carry_data.transition_input.checkpoint,
+                ),
+            });
+        }
+
+        let first_proposal_data = input
+            .proofs
+            .first()
+            .expect("proof_carry_data_vec must be non-empty")
+            .extra_data
+            .clone()
+            .unwrap();
+        let last_proposal_data = input
+            .proofs
+            .last()
+            .expect("proof_carry_data_vec must be non-empty")
+            .extra_data
+            .clone()
+            .unwrap();
+
+        let commitment = Commitment {
+            firstProposalId: first_proposal_data.transition_input.proposal_id,
+            firstProposalParentBlockHash: first_proposal_data
+                .transition_input
+                .parent_checkpoint_hash,
+            lastProposalHash: last_proposal_data.transition_input.proposal_hash,
+            endBlockNumber: last_proposal_data.transition_input.checkpoint.blockNumber,
+            endStateRoot: last_proposal_data.transition_input.checkpoint.stateRoot,
+            actualProver: first_proposal_data.transition_input.actual_prover,
+            transitions: transitions,
+        };
+        let chain_id = first_proposal_data.chain_id;
+        let verifier_address = first_proposal_data.verifier;
+        let sgx_instance = Address::default();
+        let aggregated_proving_hash =
+            shasta_aggregation_output(&commitment, chain_id, verifier_address, sgx_instance);
         tracing::info!("aggregated proving hash: {aggregated_proving_hash:?}");
 
         Ok(Proof {

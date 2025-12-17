@@ -527,7 +527,7 @@ impl From<ShastaProposalCheckpoint> for Checkpoint {
 pub struct ShastaProposal {
     pub proposal_id: u64,
     pub designated_prover: Address,
-    pub parent_transition_hash: B256,
+    pub parent_transition_hash: Option<B256>,
     pub checkpoint: Option<ShastaProposalCheckpoint>,
     pub l1_inclusion_block_number: u64,
     pub l1_bond_proposal_block_number: Option<u64>,
@@ -539,7 +539,7 @@ impl std::fmt::Display for ShastaProposal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}:{}:{:?}:{}:{}",
+            "{}:{:?}:{:?}:{}:{}",
             self.proposal_id,
             self.parent_transition_hash,
             self.checkpoint,
@@ -875,7 +875,7 @@ impl From<ProofRequestOpt> for AggregationRequest {
     }
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq)]
 #[serde(default)]
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationOnlyRequest {

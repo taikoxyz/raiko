@@ -7,7 +7,6 @@ use crate::no_std::*;
 use crate::utils::blobs::{decode_blob_data, zlib_decompress_data};
 use crate::utils::txs::decode_transactions;
 
-
 /// concat blob & decode a whole txlist, then
 /// each block will get a portion of the txlist by its tx_nums
 pub fn generate_transactions_for_pacaya_blocks(
@@ -28,12 +27,10 @@ pub fn generate_transactions_for_pacaya_blocks(
             .map(|blob_data_buf| decode_blob_data(blob_data_buf))
             .collect::<Vec<Vec<u8>>>()
             .concat();
-        let (blob_offset, blob_size) = batch_proposal
-            .blob_tx_slice_param(&compressed_tx_list_buf)
-            .unwrap_or_else(|| {
-                warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
-                (0, compressed_tx_list_buf.len())
-            });
+        let (blob_offset, blob_size) = batch_proposal.blob_tx_slice_param().unwrap_or_else(|| {
+            warn!("blob_tx_slice_param not found, use full buffer to decode tx_list");
+            (0, compressed_tx_list_buf.len())
+        });
         tracing::info!("blob_offset: {blob_offset}, blob_size: {blob_size}");
         compressed_tx_list_buf[blob_offset..blob_offset + blob_size].to_vec()
     } else {
@@ -50,7 +47,6 @@ pub fn generate_transactions_for_pacaya_blocks(
         .map(|txs| (txs, false))
         .collect()
 }
-
 
 /// distribute txs to each block by its tx_nums
 /// e.g. txs = [tx1, tx2, tx3, tx4, tx5, tx6, tx7, tx8, tx9, tx10]

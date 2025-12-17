@@ -76,7 +76,7 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
             l1_network: key.guest_input_key().l1_network().clone(),
             l2_network: key.guest_input_key().l2_network().clone(),
             proof_system: *key.proof_type(),
-            prover: key.prover_address().clone(),
+            prover: key.actual_prover_address().clone(),
         }),
         RequestKey::ShastaAggregation(key) => {
             TaskDescriptor::Aggregation(AggregationTaskDescriptor {

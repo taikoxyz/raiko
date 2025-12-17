@@ -15,7 +15,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use std::collections::HashMap;
 use std::env;
 
-#[derive(RedisValue, PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord)]
+#[derive(RedisValue, PartialEq, Debug, Clone, Deserialize, Serialize, Eq)]
 #[serde(rename_all = "snake_case")]
 /// The status of a request
 pub enum Status {
@@ -58,7 +58,7 @@ impl Status {
 }
 
 #[derive(
-    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord, RedisValue, Getters,
+    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, RedisValue, Getters,
 )]
 /// The status of a request with context
 pub struct StatusWithContext {
@@ -369,8 +369,10 @@ pub struct ShastaProofRequestKey {
     guest_input_key: ShastaInputRequestKey,
     /// The proof type of the request
     proof_type: ProofType,
-    /// The prover of the request
-    prover_address: String,
+    /// The actual prover of the request (affects public input binding)
+    actual_prover_address: String,
+    /// The designated prover for this proposal (affects transition binding)
+    designated_prover_address: String,
     /// The image ID for zk provers (optional)
     image_id: Option<ImageId>,
 }
@@ -379,12 +381,14 @@ impl ShastaProofRequestKey {
     pub fn new_with_input_key(
         guest_input_key: ShastaInputRequestKey,
         proof_type: ProofType,
-        prover_address: String,
+        actual_prover_address: String,
+        designated_prover_address: String,
     ) -> Self {
         Self {
             guest_input_key,
             proof_type,
-            prover_address,
+            actual_prover_address,
+            designated_prover_address,
             image_id: None,
         }
     }
@@ -392,13 +396,15 @@ impl ShastaProofRequestKey {
     pub fn new_with_input_key_and_image_id(
         guest_input_key: ShastaInputRequestKey,
         proof_type: ProofType,
-        prover_address: String,
+        actual_prover_address: String,
+        designated_prover_address: String,
         image_id: ImageId,
     ) -> Self {
         Self {
             guest_input_key,
             proof_type,
-            prover_address,
+            actual_prover_address,
+            designated_prover_address,
             image_id: Some(image_id),
         }
     }

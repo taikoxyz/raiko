@@ -31,7 +31,7 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1765182700,
+        "genesis_time": 1765783400,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
@@ -50,7 +50,7 @@
                 "Block": 0
             },
             "SHASTA": {
-                "Timestamp": 0
+                "Timestamp": 1765784540
             },
             "CANCUN": "TBD"
         },
@@ -62,7 +62,7 @@
         },
         "l1_contract": {
             "PACAYA": "0x3b37a799290950fef954dfF547608baC52A12571",
-            "SHASTA": "0xd251b61ccFF0E6632757E619bC4F3EddBF621d5b"
+            "SHASTA": "0xdF79ab91da173cCbB366aA0e4ACf8401F1eF1e27"
         },
         "l2_contract": "0x1670010000000000000000000000000000010001",
         "rpc": "https://rpc.internal.taiko.xyz",
@@ -70,15 +70,15 @@
         "verifier_address_forks": {
             "PACAYA": {
                 "SGX": "0x0Cf58F3E8514d993cAC87Ca8FC142b83575cC4D3",
-                "SP1": "0x4F5551d15735687c3bd16AAA9DA7f46568eD18C6",
-                "RISC0": "0x13a982e01f0E08b8c7f5a013F325f1d45ae56CA2",
+                "SP1": "0xe9fA040c355b62Df65205E6F4e150bdB642a71C4",
+                "RISC0": "0x706e824e2C73B2a0E822130B21AEFe70fBDb5497",
                 "SGXGETH": "0x698ceB7EF2E001347B1672389d6ca6aCE04b13C8"
             },
             "SHASTA": {
-                "SGX": "0x8301D43bC299C46FbE75A508E17e449A1E2f26c0",
-                "SP1": "0x4F5551d15735687c3bd16AAA9DA7f46568eD18C6",
-                "RISC0": "0x13a982e01f0E08b8c7f5a013F325f1d45ae56CA2",
-                "SGXGETH": "0xf0ebc67dB56A5687649fF2216e3826a52F8DBd7c"
+                "SGX": "0x4e3971Be57848403B5E3986125cd32c68d431086",
+                "SP1": "0xe9fA040c355b62Df65205E6F4e150bdB642a71C4",
+                "RISC0": "0x706e824e2C73B2a0E822130B21AEFe70fBDb5497",
+                "SGXGETH": "0x663A67Fc93963c242E2eef09a2aFD161512baEC4"
             }
         },
         "genesis_time": 0,
