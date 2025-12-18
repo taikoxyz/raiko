@@ -6,6 +6,7 @@ use crate::input::shasta::Checkpoint;
 use crate::primitives::keccak::keccak;
 use crate::prover::{ProofCarryData, TransitionInputData};
 use alloy_primitives::{Address, B256, U256};
+use alloy_sol_types::SolValue;
 use reth_primitives::b256;
 
 /// Hash a checkpoint using the same logic as the Solidity implementation
@@ -188,14 +189,7 @@ unchecked {
     }
 */
 pub fn hash_proposal(proposal: &Proposal) -> B256 {
-    // Pack the fields as in Solidity, using proper bit shifts and concatenation.
-    let packed: U256 = (U256::from(proposal.id) << 208)
-        | (U256::from(proposal.timestamp) << 160)
-        | (U256::from(proposal.endOfSubmissionWindowTimestamp) << 112);
-
-    // Encode proposer address to B256 by zero-padding its 20 bytes to 32 bytes (uint256(uint160))
-    let proposer_b256 = address_to_b256(proposal.proposer);
-    hash_three_values(packed.into(), proposer_b256, proposal.derivationHash)
+    keccak(proposal.abi_encode().as_slice()).into()
 }
 
 pub fn hash_core_state(core_state: &CoreState) -> B256 {
@@ -396,9 +390,12 @@ mod test {
             parentProposalHash: b256!(
                 "85422bfec85e2cb6d5ca9f52858a74b680865c0134c0e29af710d8e01d58898a"
             ),
-            derivationHash: b256!(
-                "85422bfec85e2cb6d5ca9f52858a74b680865c0134c0e29af710d8e01d58898a"
+            originBlockNumber: 4352,
+            originBlockHash: b256!(
+                "134c0ec61d5889880865c0a85e2cb6d5ca29af710d8e05422bfe9f52858a784b"
             ),
+            basefeeSharingPctg: 75,
+            sources: Vec::new(),
         };
         let proposal_hash = hash_proposal(&proposal);
         assert_eq!(

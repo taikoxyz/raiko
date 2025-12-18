@@ -170,7 +170,7 @@ impl BlockProposedFork {
             BlockProposedFork::Ontake(block) => block.meta.blobUsed,
             BlockProposedFork::Pacaya(batch) => batch.info.blobHashes.len() > 0,
             BlockProposedFork::Shasta(event_data) => event_data
-                .derivation
+                .proposal
                 .sources
                 .iter()
                 .all(|source| source.blobSlice.blobHashes.len() > 0),
@@ -201,7 +201,7 @@ impl BlockProposedFork {
 
     pub fn proposal_block_number(&self) -> u64 {
         match self {
-            BlockProposedFork::Shasta(event_data) => event_data.derivation.originBlockNumber + 1,
+            BlockProposedFork::Shasta(event_data) => event_data.proposal.originBlockNumber + 1,
             _ => unimplemented!("can not get proposal block number from non-shasta proposal"),
         }
     }
@@ -224,7 +224,7 @@ impl BlockProposedFork {
             },
             BlockProposedFork::Shasta(event_data) => ProtocolBaseFeeConfig {
                 adjustment_quotient: 0,
-                sharing_pctg: event_data.derivation.basefeeSharingPctg,
+                sharing_pctg: event_data.proposal.basefeeSharingPctg,
                 gas_issuance_per_second: 0,
                 min_gas_excess: 0,
                 max_gas_issuance_per_block: 0,
@@ -326,7 +326,7 @@ impl BlockProposedFork {
     pub fn all_source_blob_hashes(&self) -> Vec<Vec<B256>> {
         match self {
             BlockProposedFork::Shasta(event_data) => event_data
-                .derivation
+                .proposal
                 .sources
                 .iter()
                 .map(|s| s.blobSlice.blobHashes.clone())
@@ -356,7 +356,7 @@ impl BlockProposedFork {
             return None;
         };
 
-        let source = event_data.derivation.sources.get(source_idx)?;
+        let source = event_data.proposal.sources.get(source_idx)?;
         if source.blobSlice.blobHashes.is_empty() {
             return None;
         }

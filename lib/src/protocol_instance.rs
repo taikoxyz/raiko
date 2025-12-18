@@ -462,9 +462,9 @@ fn verify_shasha_anchor_linkage(
         let anchor_tx = input.taiko.anchor_tx.clone().unwrap();
         let anchor_data = decode_anchor_shasta(anchor_tx.input()).unwrap();
         anchor_param_set.insert((
-            anchor_data._blockParams.anchorBlockNumber,
-            anchor_data._blockParams.anchorBlockHash,
-            anchor_data._blockParams.anchorStateRoot,
+            anchor_data._checkpoint.blockNumber,
+            anchor_data._checkpoint.blockHash,
+            anchor_data._checkpoint.stateRoot,
         ));
     }
 
@@ -685,23 +685,18 @@ impl ProtocolInstance {
                     verify_shasha_anchor_linkage(
                         &batch_input.inputs,
                         batch_input.taiko.l1_ancestor_headers.as_slice(),
-                        &event_data.derivation.originBlockHash
+                        &event_data.proposal.originBlockHash
                     ),
                     "L1 anchor linkage verification failed"
                 );
-                let derivation_hash = hash_derivation(&event_data.derivation);
                 assert_eq!(
-                    &event_data.derivation.originBlockNumber, &batch_input.taiko.l1_header.number,
+                    &event_data.proposal.originBlockNumber, &batch_input.taiko.l1_header.number,
                     "L1 origin block number mismatch"
                 );
                 assert_eq!(
-                    event_data.derivation.originBlockHash,
+                    event_data.proposal.originBlockHash,
                     batch_input.taiko.l1_header.hash_slow(),
                     "L1 origin block hash mismatch"
-                );
-                assert_eq!(
-                    event_data.proposal.derivationHash, derivation_hash,
-                    "derivation hash mismatch"
                 );
                 // check local re-constructed proposal matches the event proposal
                 let last_block_number = last_block.number;
@@ -976,7 +971,9 @@ pub fn build_shasta_commitment_from_proof_carry_data_vec(
     Some(Commitment {
         firstProposalId: proof_carry_data_vec[0].transition_input.proposal_id,
         // This field is a checkpoint hash in the latest Shasta contract; we store it as bytes32.
-        firstProposalParentBlockHash: proof_carry_data_vec[0].transition_input.parent_checkpoint_hash,
+        firstProposalParentBlockHash: proof_carry_data_vec[0]
+            .transition_input
+            .parent_checkpoint_hash,
         lastProposalHash: last.transition_input.proposal_hash,
         actualProver: proof_carry_data_vec[0].transition_input.actual_prover,
         endBlockNumber: last.transition_input.checkpoint.blockNumber,

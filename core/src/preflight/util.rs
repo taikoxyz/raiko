@@ -1,6 +1,8 @@
 use alloy_primitives::{hex, Log as LogStruct, B256};
 use alloy_provider::{Provider, ReqwestProvider};
-use alloy_rpc_types::{Filter, Header, Log, Transaction as AlloyRpcTransaction};
+use alloy_rpc_types::{
+    BlockId, BlockTransactionsKind, Filter, Header, Log, Transaction as AlloyRpcTransaction,
+};
 use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::{anyhow, bail, ensure, Result};
 use kzg::kzg_types::ZFr;
@@ -231,8 +233,8 @@ fn get_anchor_tx_info_by_fork(
         SpecId::SHASTA => {
             let anchor_call = decode_anchor_shasta(anchor_tx.input())?;
             Ok((
-                anchor_call._blockParams.anchorBlockNumber,
-                anchor_call._blockParams.anchorStateRoot,
+                anchor_call._checkpoint.blockNumber,
+                anchor_call._checkpoint.stateRoot,
             ))
         }
         SpecId::PACAYA => {
@@ -444,7 +446,7 @@ async fn prepare_shasta_batch_input(
     _provider_l1: &RpcBlockDataProvider,
 ) -> RaikoResult<TaikoGuestBatchInput> {
     let mut data_sources = Vec::new();
-    for derivation_source in shasta_event_data.derivation.sources.clone() {
+    for derivation_source in shasta_event_data.proposal.sources.clone() {
         let blob_hashes = derivation_source.blobSlice.blobHashes;
         let is_forced_inclusion = derivation_source.isForcedInclusion;
         let l1_blob_timestamp = if is_forced_inclusion {
@@ -876,7 +878,7 @@ pub async fn filter_block_proposed_event(
         EventFilterConditioin::Height(block_number) => Filter::new()
             .address(l1_address)
             .from_block(block_number)
-            .to_block(block_number + 1)
+            .to_block(block_number)
             .event_signature(event_signature),
         EventFilterConditioin::Range((from_block_number, to_block_number)) => Filter::new()
             .address(l1_address)
@@ -909,10 +911,39 @@ pub async fn filter_block_proposed_event(
                 let event = ShastaProposed::decode_log(&log_struct, false)
                     .map_err(|_| RaikoError::Anyhow(anyhow!("Could not decode log")))?;
 
-                let event_data =
-                    ShastaEventData::from_event_data(&event.data.data).map_err(|_| {
+                let mut event_data =
+                    ShastaEventData::from_proposal_event(&event.data).map_err(|_| {
                         RaikoError::Anyhow(anyhow!("Could not decode Shasta event data"))
                     })?;
+
+                // let timestamp = log.block_timestamp.unwrap();
+                let current_block_number = log.block_number.unwrap();
+                let current_block = provider
+                    .get_block(
+                        BlockId::number(current_block_number),
+                        BlockTransactionsKind::Hashes,
+                    )
+                    .await?;
+                let Some(current_block) = current_block else {
+                    bail!("No current block found for the proposal")
+                };
+                let timestamp = current_block.header.timestamp;
+
+                let origin_block_number = current_block_number - 1;
+                let origin_block = provider
+                    .get_block_by_number(
+                        alloy_rpc_types::BlockNumberOrTag::Number(origin_block_number),
+                        true,
+                    )
+                    .await?;
+                let Some(origin_block) = origin_block else {
+                    bail!("No origin block found for the proposal")
+                };
+                let origin_block_hash = origin_block.header.hash.unwrap();
+                event_data.proposal.originBlockNumber = origin_block_number;
+                event_data.proposal.originBlockHash = origin_block_hash;
+                event_data.proposal.timestamp = timestamp;
+                event_data.proposal.parentProposalHash = B256::ZERO;
                 (
                     raiko_lib::primitives::U256::from(event_data.proposal.id),
                     BlockProposedFork::Shasta(event_data),
@@ -957,22 +988,22 @@ pub async fn filter_block_proposed_event(
     ))
 }
 
-pub async fn _get_block_proposed_event_by_hash(
-    provider: &ReqwestProvider,
-    chain_spec: ChainSpec,
-    l1_inclusion_block_hash: B256,
-    l2_block_number: u64,
-    fork: SpecId,
-) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
-    filter_block_proposed_event(
-        provider,
-        chain_spec,
-        EventFilterConditioin::Hash(l1_inclusion_block_hash),
-        l2_block_number,
-        fork,
-    )
-    .await
-}
+// pub async fn _get_block_proposed_event_by_hash(
+//     provider: &ReqwestProvider,
+//     chain_spec: ChainSpec,
+//     l1_inclusion_block_hash: B256,
+//     l2_block_number: u64,
+//     fork: SpecId,
+// ) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
+//     filter_block_proposed_event(
+//         provider,
+//         chain_spec,
+//         EventFilterConditioin::Hash(l1_inclusion_block_hash),
+//         l2_block_number,
+//         fork,
+//     )
+//     .await
+// }
 
 pub async fn get_block_proposed_event_by_height(
     provider: &ReqwestProvider,

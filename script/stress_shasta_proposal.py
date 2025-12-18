@@ -92,6 +92,28 @@ class BatchMonitor:
         self.logger = logging.getLogger(__name__)
         self.__init_contract_event(l1_rpc, abi_file, evt_address)
 
+    def _extract_proposal_id_from_proposed_log(self, log) -> Optional[int]:
+        """
+        Extract proposal id from a Proposed event log.
+
+        New ABI (plain event): `Proposed(uint48 id, address proposer, uint48 endOfSubmissionWindowTimestamp, uint8 basefeeSharingPctg, DerivationSource[] sources)`
+        Old ABI (bytes payload): `Proposed(bytes data)` where proposal id is inside `data`.
+        """
+        try:
+            # New/plain event path
+            if hasattr(log, "args") and hasattr(log.args, "id") and log.args.id is not None:
+                return int(log.args.id)
+
+            # Backward-compatible path: old `data: bytes` payload
+            if hasattr(log, "args") and hasattr(log.args, "data") and log.args.data is not None:
+                event_data = log.args.data
+                decoded = self.shasta_decoder.extract_batch_id(event_data)
+                return int(decoded) if decoded is not None else None
+        except Exception as e:
+            self.logger.debug(f"Failed to extract proposal id from log: {e}")
+            return None
+        return None
+
     def __init_contract_event(self, l1_rpc, abi_file, evt_address):
         print(f"l1_rpc = {l1_rpc}, abi_file = {abi_file}, evt_address = {evt_address}")
         with open(abi_file) as f:
@@ -178,13 +200,16 @@ class BatchMonitor:
                     if func_obj.fn_name == "anchorV4":
                         # Extract from decoded parameters
                         proposal_params = func_params.get("_proposalParams", {})
-                        block_params = func_params.get("_blockParams", {})
+                        # AnchorV4 ABI changed: second param is now `_checkpoint` (ICheckpointStore.Checkpoint)
+                        checkpoint_params = func_params.get("_checkpoint", {})
                         
-                        self.logger.debug(f"Decoded params - proposal_params type: {type(proposal_params)}, block_params type: {type(block_params)}")
+                        self.logger.debug(
+                            f"Decoded params - proposal_params type: {type(proposal_params)}, checkpoint_params type: {type(checkpoint_params)}"
+                        )
                         
                         # Handle different return types from web3.py
-                        # ProposalParams: (proposalId, proposer, proverAuth, bondInstructionsHash, bondInstructions)
-                        # BlockParams: (anchorBlockNumber, anchorBlockHash, anchorStateRoot)
+                        # ProposalParams: (proposalId, proposer, proverAuth)
+                        # Checkpoint: (blockNumber, blockHash, stateRoot)
                         
                         proposal_id = None
                         anchor_number = None
@@ -202,15 +227,15 @@ class BatchMonitor:
                             proposal_id = proposal_params.proposalId
                             self.logger.debug(f"Extracted proposal_id from attribute: {proposal_id}")
                         
-                        if isinstance(block_params, (list, tuple)):
-                            anchor_number = block_params[0] if len(block_params) > 0 else None
-                            self.logger.debug(f"Extracted anchor_number from tuple index 0: {anchor_number}")
-                        elif isinstance(block_params, dict):
-                            anchor_number = block_params.get("anchorBlockNumber")
-                            self.logger.debug(f"Extracted anchor_number from dict: {anchor_number}")
-                        elif hasattr(block_params, 'anchorBlockNumber'):
-                            anchor_number = block_params.anchorBlockNumber
-                            self.logger.debug(f"Extracted anchor_number from attribute: {anchor_number}")
+                        if isinstance(checkpoint_params, (list, tuple)):
+                            anchor_number = checkpoint_params[0] if len(checkpoint_params) > 0 else None
+                            self.logger.debug(f"Extracted anchor_number from checkpoint tuple index 0: {anchor_number}")
+                        elif isinstance(checkpoint_params, dict):
+                            anchor_number = checkpoint_params.get("blockNumber")
+                            self.logger.debug(f"Extracted anchor_number from checkpoint dict: {anchor_number}")
+                        elif hasattr(checkpoint_params, 'blockNumber'):
+                            anchor_number = checkpoint_params.blockNumber
+                            self.logger.debug(f"Extracted anchor_number from checkpoint attribute: {anchor_number}")
                         
                         if proposal_id is not None and anchor_number is not None:
                             self.logger.info(
@@ -235,8 +260,18 @@ class BatchMonitor:
             
             input_bytes = bytes.fromhex(tx_input)
             
-            # Minimum size: 4 (selector) + 32 (offset1) + 32 (offset2) + at least some data
-            if len(input_bytes) < 68:
+            # anchorV4 ABI (current):
+            #   anchorV4((uint48 proposalId, address proposer, bytes proverAuth),
+            #            (uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot))
+            #
+            # ABI head layout after selector (6 * 32 bytes):
+            #   word0: proposalId (uint48 in low 6 bytes)
+            #   word1: proposer (address in low 20 bytes)
+            #   word2: proverAuth offset (uint256, relative to params start)
+            #   word3: checkpoint.blockNumber (uint48 in low 6 bytes)   <-- anchor_number
+            #   word4: checkpoint.blockHash (bytes32)
+            #   word5: checkpoint.stateRoot (bytes32)
+            if len(input_bytes) < 4 + 32 * 6:
                 self.logger.error(f"Anchor tx input too short: {len(input_bytes)} bytes")
                 return None
             
@@ -244,58 +279,17 @@ class BatchMonitor:
             func_selector = input_bytes[0:4].hex()
             self.logger.debug(f"Function selector: 0x{func_selector}")
             
-            # Function selector is first 4 bytes
-            # Skip function selector (4 bytes)
-            ptr = 4
-            
-            # Read offset to ProposalParams (32 bytes, big-endian uint256)
-            # Offset is relative to the start of parameter encoding (after selector)
-            proposal_params_offset_rel = int.from_bytes(input_bytes[ptr:ptr+32], byteorder='big')
-            ptr += 32
-            
-            # Read offset to BlockParams (32 bytes, big-endian uint256)
-            # Offset is relative to the start of parameter encoding (after selector)
-            block_params_offset_rel = int.from_bytes(input_bytes[ptr:ptr+32], byteorder='big')
-            ptr += 32
-            
-            self.logger.debug(
-                f"Raw offsets: proposal={proposal_params_offset_rel}, block={block_params_offset_rel}, input_len={len(input_bytes)}"
-            )
-            
-            # Convert relative offsets to absolute positions
-            # Offsets are relative to the start of parameters (after selector)
-            # So absolute position = 4 (selector) + offset
-            proposal_params_abs = 4 + proposal_params_offset_rel
-            block_params_abs = 4 + block_params_offset_rel
-            
-            # Decode ProposalParams
-            # First field: proposalId (uint48, encoded as uint256 in 32 bytes)
-            if proposal_params_abs + 32 > len(input_bytes):
-                self.logger.error(
-                    f"ProposalParams offset out of bounds: rel={proposal_params_offset_rel}, abs={proposal_params_abs}, "
-                    f"needs {proposal_params_abs + 32} bytes, have {len(input_bytes)}"
-                )
-                # Try to log the first few bytes to help debug
-                self.logger.debug(f"First 100 bytes: {input_bytes[:100].hex()}")
-                return None
-            
-            proposal_id_bytes = input_bytes[proposal_params_abs:proposal_params_abs + 32]
-            # uint48 is stored in the lower 6 bytes (48 bits = 6 bytes)
-            # Extract last 6 bytes and convert to int
-            proposal_id = int.from_bytes(proposal_id_bytes[26:32], byteorder='big')
-            
-            # Decode BlockParams
-            # First field: anchorBlockNumber (uint48, encoded as uint256 in 32 bytes)
-            if block_params_abs + 32 > len(input_bytes):
-                self.logger.error(
-                    f"BlockParams offset out of bounds: rel={block_params_offset_rel}, abs={block_params_abs}, "
-                    f"needs {block_params_abs + 32} bytes, have {len(input_bytes)}"
-                )
-                return None
-            
-            anchor_number_bytes = input_bytes[block_params_abs:block_params_abs + 32]
-            # uint48 is stored in the lower 6 bytes
-            anchor_number = int.from_bytes(anchor_number_bytes[26:32], byteorder='big')
+            params_start = 4
+            # word0: proposalId
+            proposal_id_word = input_bytes[params_start:params_start + 32]
+            proposal_id = int.from_bytes(proposal_id_word[26:32], byteorder="big")
+
+            # word3: checkpoint.blockNumber (anchor number)
+            checkpoint_block_number_word_start = params_start + 32 * 3
+            checkpoint_block_number_word = input_bytes[
+                checkpoint_block_number_word_start:checkpoint_block_number_word_start + 32
+            ]
+            anchor_number = int.from_bytes(checkpoint_block_number_word[26:32], byteorder="big")
             
             self.logger.debug(
                 f"Decoded anchor tx: proposal_id={proposal_id}, anchor_number={anchor_number}"
@@ -419,11 +413,7 @@ class BatchMonitor:
             
             for log in logs:
                 try:
-                    # Extract the raw data from the event
-                    event_data = log.args.data
-                    
-                    # Decode the Shasta event data to get the proposal ID
-                    decoded_proposal_id = self.shasta_decoder.extract_batch_id(event_data)
+                    decoded_proposal_id = self._extract_proposal_id_from_proposed_log(log)
                     
                     if decoded_proposal_id == proposal_id:
                         l1_block_number = log.blockNumber
@@ -489,8 +479,7 @@ class BatchMonitor:
             proposal_to_block = {}
             for log in logs:
                 try:
-                    event_data = log.args.data
-                    decoded_proposal_id = self.shasta_decoder.extract_batch_id(event_data)
+                    decoded_proposal_id = self._extract_proposal_id_from_proposed_log(log)
                     if decoded_proposal_id in uncached_proposal_ids:
                         # Only keep the first occurrence (earliest block)
                         if decoded_proposal_id not in proposal_to_block:
@@ -529,8 +518,13 @@ class BatchMonitor:
     def parse_batch_proposed_meta(self, log):
         try:
             parsed_log = self.evt_contract.events.Proposed.process_log(log)
-            meta = parsed_log.args.meta
-            return meta.batchId
+            # New/plain event: `id` is the proposal id
+            if hasattr(parsed_log.args, "id"):
+                return int(parsed_log.args.id)
+            # Old/bytes event: decode from `data`
+            if hasattr(parsed_log.args, "data"):
+                decoded = self.shasta_decoder.extract_batch_id(parsed_log.args.data)
+                return int(decoded) if decoded is not None else None
         except Exception as e:
             return None
 
@@ -543,12 +537,7 @@ class BatchMonitor:
             batch_ids = []
             for log in logs:
                 try:
-                    # Extract the raw data from the event
-                    event_data = log.args.data
-                    self.logger.info(f"Raw event data: {event_data.hex()}")
-
-                    # Decode the Shasta event data to get the batch ID (proposal ID)
-                    batch_id = self.shasta_decoder.extract_batch_id(event_data)
+                    batch_id = self._extract_proposal_id_from_proposed_log(log)
                     if batch_id is not None:
                         batch_ids.append(batch_id)
                         self.logger.info(f"Decoded batch ID: {batch_id}")
@@ -681,12 +670,7 @@ class BatchMonitor:
         batch_ids = []
         for log in logs:
             try:
-                # Extract the raw data from the event
-                event_data = log.args.data
-                self.logger.info(f"Raw event data: {event_data.hex()}")
-
-                # Decode the Shasta event data to get the batch ID (proposal ID)
-                batch_id = self.shasta_decoder.extract_batch_id(event_data)
+                batch_id = self._extract_proposal_id_from_proposed_log(log)
                 if batch_id is not None:
                     batch_ids.append(batch_id)
                     self.logger.info(f"Decoded batch ID: {batch_id}")
