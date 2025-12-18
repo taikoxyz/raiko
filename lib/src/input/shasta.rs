@@ -143,12 +143,8 @@ impl ShastaEventData {
         Ok(Self {
             proposal: Proposal {
                 id: proposal.id,
-                // timestamp: proposal.timestamp,
                 endOfSubmissionWindowTimestamp: proposal.endOfSubmissionWindowTimestamp,
                 proposer: proposal.proposer,
-                // parentProposalHash: proposal.parentProposalHash,
-                // originBlockNumber: proposal.originBlockNumber,
-                // originBlockHash: proposal.originBlockHash,
                 basefeeSharingPctg: proposal.basefeeSharingPctg,
                 sources: proposal.sources.clone(),
                 ..Default::default()

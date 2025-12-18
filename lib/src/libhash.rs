@@ -382,25 +382,54 @@ mod test {
 
     #[test]
     fn test_hash_proposal() {
+        // Construct a proposal with chosen values
+        use crate::input::shasta::Proposal;
+        use reth_primitives::{b256, Address};
+
         let proposal = Proposal {
-            id: 3549,
-            timestamp: 1761830468,
-            endOfSubmissionWindowTimestamp: 0,
-            proposer: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+            id: 12_345,
+            timestamp: 193_828_690,
+            endOfSubmissionWindowTimestamp: 193_829_690,
+            proposer: Address::from_slice(
+                &hex::decode("1234567890AbcdEF1234567890aBcdef12345678").unwrap(),
+            ),
             parentProposalHash: b256!(
-                "85422bfec85e2cb6d5ca9f52858a74b680865c0134c0e29af710d8e01d58898a"
+                "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
             ),
-            originBlockNumber: 4352,
+            originBlockNumber: 73_826,
             originBlockHash: b256!(
-                "134c0ec61d5889880865c0a85e2cb6d5ca29af710d8e05422bfe9f52858a784b"
+                "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
             ),
-            basefeeSharingPctg: 75,
-            sources: Vec::new(),
+            basefeeSharingPctg: 42,
+            sources: vec![
+                DerivationSource {
+                    isForcedInclusion: true,
+                    blobSlice: BlobSlice {
+                        blobHashes: vec![b256!(
+                            "67890abcdef1234567890abcdef123451234567890abcdef1234567890abcdef"
+                        )],
+                        offset: 0,
+                        timestamp: 100,
+                    },
+                },
+                DerivationSource {
+                    isForcedInclusion: false,
+                    blobSlice: BlobSlice {
+                        blobHashes: vec![b256!(
+                            "567890abcdef123451234567890abcdef123456767890abcdef1234890abcdef"
+                        )],
+                        offset: 100,
+                        timestamp: 200,
+                    },
+                },
+            ],
         };
+
         let proposal_hash = hash_proposal(&proposal);
+        // The value from the Solidity test for these values (expected hash):
         assert_eq!(
-            hex::encode(proposal_hash),
-            "0fd2106121ee59690d5c49dcbd1603e9eedff34da6dd6afe5de01d30188d770d"
+            proposal_hash,
+            b256!("13af2d05799894db3462512e3ecf5ae8877b80b1e2db3963654ac70f6dd49f88")
         );
     }
 
