@@ -125,6 +125,7 @@ sol! {
     event Proposed(
         uint48 indexed id,
         address indexed proposer,
+        bytes32 parentProposalHash,
         uint48 endOfSubmissionWindowTimestamp,
         uint8 basefeeSharingPctg,
         DerivationSource[] sources
@@ -145,6 +146,7 @@ impl ShastaEventData {
                 id: proposal.id,
                 endOfSubmissionWindowTimestamp: proposal.endOfSubmissionWindowTimestamp,
                 proposer: proposal.proposer,
+                parentProposalHash: proposal.parentProposalHash,
                 basefeeSharingPctg: proposal.basefeeSharingPctg,
                 sources: proposal.sources.clone(),
                 ..Default::default()
