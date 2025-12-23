@@ -25,11 +25,12 @@
         "input_path": null
     },
     "risc0": {
-        "bonsai": true,
-        "snark": true,
-        "profile": false,
-        "execution_po2": 20,
-        "verify": true
+            "boundless": true,
+            "bonsai": false,
+            "snark": true,
+            "profile": false,
+            "execution_po2": 20,
+            "verify": true
     },
     "sp1": {
         "prover": "network",
