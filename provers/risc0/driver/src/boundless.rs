@@ -83,6 +83,14 @@ fn load_proof(label: &str) -> Option<Risc0AgentResponse> {
         })
 }
 
+fn agent_auth_error(status: reqwest::StatusCode) -> Option<String> {
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        Some("Boundless agent rejected API key (missing or invalid). Set BOUNDLESS_AGENT_API_KEY.".to_string())
+    } else {
+        None
+    }
+}
+
 pub struct BoundlessProverConfig {
     /// Maximum number of concurrent HTTP requests to the agent
     pub request_concurrency_limit: usize,
@@ -107,7 +115,7 @@ impl Default for BoundlessProverConfig {
             status_poll_interval_secs: 15,
             max_proof_timeout_secs: 3600, // 1 hour
             max_status_retries: 8,
-            status_retry_delay_secs: 5,
+            status_retry_delay_secs: 15,
             http_connect_timeout_secs: 10,
             http_timeout_secs: 60,
         }
@@ -154,6 +162,7 @@ impl BoundlessProverConfig {
 
 pub struct BoundlessProver {
     remote_prover_url: String,
+    api_key: Option<String>,
     request_semaphore: Arc<Semaphore>,
     config: BoundlessProverConfig,
     images_uploaded: Arc<tokio::sync::RwLock<ImagesUploaded>>,
@@ -181,14 +190,24 @@ impl BoundlessProver {
     pub fn new() -> Self {
         let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
             .unwrap_or_else(|_| "http://18.180.248.1:9997/proof".to_string());
+        let api_key = std::env::var("BOUNDLESS_AGENT_API_KEY").ok();
+        let api_key = api_key.filter(|key| !key.is_empty());
 
         let config = BoundlessProverConfig::from_env();
 
         Self {
             remote_prover_url,
+            api_key,
             request_semaphore: Arc::new(Semaphore::new(config.request_concurrency_limit)),
             config,
             images_uploaded: Arc::new(tokio::sync::RwLock::new(ImagesUploaded::default())),
+        }
+    }
+
+    fn with_api_key(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match self.api_key.as_deref() {
+            Some(key) if !key.is_empty() => builder.header("x-api-key", key),
+            _ => builder,
         }
     }
 
@@ -207,11 +226,16 @@ impl BoundlessProver {
             .build()
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
 
-        let resp = client.get(&info_url).send().await.map_err(|e| {
-            ProverError::GuestError(format!("Failed to query agent image info: {e}"))
-        })?;
+        let resp = self
+            .with_api_key(client.get(&info_url))
+            .send()
+            .await
+            .map_err(|e| ProverError::GuestError(format!("Failed to query agent image info: {e}")))?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             return Ok(false);
         }
 
@@ -350,7 +374,9 @@ impl BoundlessProver {
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
 
         let resp = client
-            .post(&upload_url)
+            .post(&upload_url);
+        let resp = self
+            .with_api_key(resp)
             .header("Content-Type", "application/octet-stream")
             .body(elf_bytes.to_vec())
             .send()
@@ -360,6 +386,9 @@ impl BoundlessProver {
             })?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             let status = resp.status();
             let error_text = resp.text().await.unwrap_or_default();
             return Err(ProverError::GuestError(format!(
@@ -414,6 +443,7 @@ async fn wait_boundless_proof(
     agent_base_url: &str,
     request_id: String,
     config: &BoundlessProverConfig,
+    api_key: Option<&str>,
 ) -> ProverResult<Vec<u8>> {
     tracing::info!("Waiting for boundless proof completion, polling agent status for request: {}", request_id);
 
@@ -445,7 +475,13 @@ async fn wait_boundless_proof(
                 .build()
                 .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
 
-            match client.get(&status_url).send().await {
+            let req = client.get(&status_url);
+            let req = match api_key {
+                Some(key) if !key.is_empty() => req.header("x-api-key", key),
+                _ => req,
+            };
+
+            match req.send().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         match response.json::<serde_json::Value>().await {
@@ -465,6 +501,9 @@ async fn wait_boundless_proof(
                             }
                         }
                     } else {
+                        if let Some(message) = agent_auth_error(response.status()) {
+                            return Err(ProverError::GuestError(message));
+                        }
                         if attempt == max_retries {
                             return Err(ProverError::GuestError(format!(
                                 "Boundless agent status endpoint error after {} attempts: {}", max_retries, response.status()
@@ -691,7 +730,9 @@ impl Prover for BoundlessProver {
             .build()
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
         let resp = client
-            .post(&self.remote_prover_url)
+            .post(&self.remote_prover_url);
+        let resp = self
+            .with_api_key(resp)
             .json(&payload)
             .send()
             .await
@@ -700,6 +741,9 @@ impl Prover for BoundlessProver {
             })?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             return Err(ProverError::GuestError(format!(
                 "Agent returned error status: {}",
                 resp.status()
@@ -718,7 +762,13 @@ impl Prover for BoundlessProver {
             .ok_or_else(|| ProverError::GuestError("Missing request_id in agent response".to_string()))?;
 
         // Poll until completion
-        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string(), &self.config).await?;
+        let agent_proof_bytes = wait_boundless_proof(
+            &self.remote_prover_url,
+            request_id.to_string(),
+            &self.config,
+            self.api_key.as_deref(),
+        )
+        .await?;
 
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
@@ -923,7 +973,9 @@ impl Prover for BoundlessProver {
             .build()
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
         let resp = client
-            .post(&self.remote_prover_url)
+            .post(&self.remote_prover_url);
+        let resp = self
+            .with_api_key(resp)
             .json(&payload)
             .send()
             .await
@@ -932,6 +984,9 @@ impl Prover for BoundlessProver {
             })?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             return Err(ProverError::GuestError(format!(
                 "Agent returned error status: {}",
                 resp.status()
@@ -952,7 +1007,12 @@ impl Prover for BoundlessProver {
 
         // Poll until completion
         let agent_proof_bytes =
-            wait_boundless_proof(&self.remote_prover_url, request_id.to_string(), &self.config)
+            wait_boundless_proof(
+                &self.remote_prover_url,
+                request_id.to_string(),
+                &self.config,
+                self.api_key.as_deref(),
+            )
                 .await?;
 
         let agent_proof: Risc0AgentResponse =
@@ -1075,7 +1135,9 @@ impl Prover for BoundlessProver {
             .build()
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
         let resp = client
-            .post(&self.remote_prover_url)
+            .post(&self.remote_prover_url);
+        let resp = self
+            .with_api_key(resp)
             .json(&payload)
             .send()
             .await
@@ -1084,6 +1146,9 @@ impl Prover for BoundlessProver {
             })?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             return Err(ProverError::GuestError(format!(
                 "Agent {} returned error status: {}",
                 self.remote_prover_url,
@@ -1102,7 +1167,13 @@ impl Prover for BoundlessProver {
             .ok_or_else(|| ProverError::GuestError("Missing request_id in agent response".to_string()))?;
 
         // Poll until completion
-        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string(), &self.config).await?;
+        let agent_proof_bytes = wait_boundless_proof(
+            &self.remote_prover_url,
+            request_id.to_string(),
+            &self.config,
+            self.api_key.as_deref(),
+        )
+        .await?;
 
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
