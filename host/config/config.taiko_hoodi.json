@@ -23,6 +23,11 @@
     "prover": "network",
     "verify": true
   },
+  "zisk": {
+    "prover": "local",
+    "verify": true,
+    "execution_mode": "prove"
+  },
   "sgxgeth": {
     "instance_ids": {
       "PACAYA": 0,

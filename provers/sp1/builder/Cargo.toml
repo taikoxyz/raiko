@@ -8,6 +8,12 @@ edition = "2021"
 [dependencies]
 raiko-pipeline = { path = "../../../pipeline", features = ["sp1"]}
 
+# Pin SP1 SDK to exact version to avoid newer alloy dependencies
+sp1-sdk = "=5.0.2"
+
+# Pin SP1 core components to avoid compatibility issues
+sp1-core-executor = "=5.0.0"
+
 [features]
 test = []
 bench = []

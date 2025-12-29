@@ -1,17 +1,18 @@
 [workspace]
 resolver = "2"
+exclude = [
+    "provers/sp1/guest",
+    "provers/sp1/builder",
+    "provers/risc0/guest",
+    "provers/risc0/builder", 
+    "provers/zisk/agent",  # Entire ZISK agent is now self-contained
+    "provers/sgx/guest",
+]
 members = [
     "lib",
     "host",
     "harness/core",
     "harness/macro",
-    "provers/sp1/driver",
-    "provers/sp1/builder",
-    "provers/risc0/driver",
-    "provers/risc0/builder",
-    "provers/sgx/prover",
-    "provers/sgx/guest",
-    "provers/sgx/setup",
     "pipeline",
     "core",
     "taskdb",
@@ -216,3 +217,4 @@ alloy-signer-local = { git = "https://github.com/taikoxyz/alloy.git", branch = "
 alloy-signer = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-rpc-types-beacon = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-eips = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
+blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }

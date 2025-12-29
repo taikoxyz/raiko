@@ -1,0 +1,60 @@
+
+[package]
+name = "zisk-guest"
+version = "0.1.0"
+edition = "2021"
+
+# Ensure we only use base RISC-V instruction set without extensions
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+codegen-units = 1
+
+[[bin]]
+name = "zisk-batch"
+path = "src/batch.rs"
+
+[[bin]]
+name = "zisk-aggregation"
+path = "src/aggregation.rs"
+
+[dependencies]
+# Core Zisk dependencies
+ziskos = { git = "https://github.com/0xPolygonHermez/zisk.git" }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+bincode = { version = "1.3", default-features = false }
+
+# Raiko library for full blockchain execution - attempt minimal features  
+raiko-lib = { path = "../../../../lib", default-features = false, features = ["std", "zisk"] }
+
+# Minimal dependencies for basic types - no heavy crypto libraries
+# These should compile for RISC-V without issues
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+
+# Override reth-primitives to remove k256 feature which pulls in secp256k1
+reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko", default-features = false, features = [
+    "alloy-compat",
+    "taiko",
+] }
+
+# Override raiko-lib dependencies to minimize crypto libraries - disable C libraries
+kzg = { git = "https://github.com/ceciliaz030/rust-kzg.git", branch = "brecht/sp1-patch", default-features = false }
+
+# Override revm-precompile to disable c-kzg
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko", default-features = false, features = [
+    "std",
+    "secp256k1", 
+    "blst",
+    "taiko"
+] }
+
+[patch.crates-io]
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
+c-kzg = { path = "../../../../lib/no-op-kzg" }
+
+[patch."https://github.com/brechtpd/c-kzg-4844"]
+c-kzg = { path = "../../../../lib/no-op-kzg" }

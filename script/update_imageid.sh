@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
-# Script to automatically update RISC0 image IDs, SP1 VK hashes, SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file
+# Script to automatically update RISC0 image IDs, SP1 VK hashes, Zisk image IDs, SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file
 # by reading from build output or extracting MRENCLAVE directly
 #
 # Usage:
 #   ./script/update_imageid.sh risc0 [output_file]    # Update RISC0 image IDs from file or temp
 #   ./script/update_imageid.sh sp1 [output_file]      # Update SP1 VK hashes from file or temp
+#   ./script/update_imageid.sh zisk                   # Set default Zisk image IDs
 #   ./script/update_imageid.sh sgx_direct <image>     # Extract SGX MRENCLAVE by calling gramine tools directly on container
 #   ./script/update_imageid.sh sgxgeth_direct <image> # Extract SGXGETH MRENCLAVE from container (reads from pre-generated file)
 #   ./script/update_imageid.sh update_sgx_mrenclave <value>     # Update SGX MRENCLAVE with provided value
@@ -124,6 +125,19 @@ extract_sp1_vk_hash() {
     fi
     
     echo "$vk_hash"
+}
+
+# Function to set default Zisk image IDs
+set_zisk_default_ids() {
+    print_status "Setting default Zisk image IDs for consistency with other zkVMs"
+    
+    # Set default values - these can be updated in the future when Zisk implements native image IDs
+    ZISK_AGGREGATION_ID="0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    ZISK_BATCH_ID="0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    
+    print_status "Using default Zisk image IDs:"
+    print_status "  Aggregation: $ZISK_AGGREGATION_ID"
+    print_status "  Batch: $ZISK_BATCH_ID"
 }
 
 # Function to check if Gramine tools are available
@@ -388,6 +402,7 @@ update_env_file() {
         print_status "Updated SP1_BATCH_VK_HASH in $env_file: $SP1_BATCH_VK_HASH"
     fi
 
+
     if [ -n "$SP1_SHASTA_AGGREGATION_VK_HASH" ]; then
         if grep -q "^SP1_SHASTA_AGGREGATION_VK_HASH=" "$env_file"; then
             sed -i "s/^SP1_SHASTA_AGGREGATION_VK_HASH=.*/SP1_SHASTA_AGGREGATION_VK_HASH=$SP1_SHASTA_AGGREGATION_VK_HASH/" "$env_file"
@@ -516,6 +531,8 @@ main() {
     BOUNDLESS_SHASTA_AGGREGATION_ID=""
     SP1_AGGREGATION_VK_HASH=""
     SP1_BATCH_VK_HASH=""
+    ZISK_AGGREGATION_ID=""
+    ZISK_BATCH_ID=""
     SP1_SHASTA_AGGREGATION_VK_HASH=""
     
     # Check if we're in the right directory
@@ -534,6 +551,11 @@ main() {
             "sp1")
                 mode="sp1"
                 ;;
+            "zisk")
+                mode="zisk"
+                ;;
+            "sgx")
+                mode="sgx"
             "sgx_direct")
                 mode="sgx_direct"
                 ;;
@@ -547,11 +569,13 @@ main() {
                 mode="update_sgxgeth_mrenclave"
                 ;;
             *)
+                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'zisk', 'sgx', or 'sgxgeth'"
                 print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
                 exit 1
                 ;;
         esac
     else
+        print_error "Mode must be specified. Use 'risc0', 'sp1', 'zisk', 'sgx', or 'sgxgeth'"
         print_error "Mode must be specified. Use 'risc0', 'sp1', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
         exit 1
     fi
@@ -575,6 +599,38 @@ main() {
             exit 1
         fi
     fi
+    
+    # Set default Zisk image IDs
+    if [ "$mode" = "zisk" ]; then
+        set_zisk_default_ids
+        print_status "Zisk image IDs set successfully"
+    fi
+    
+    # Extract SGX MRENCLAVE
+    if [ "$mode" = "sgx" ]; then
+        # If a build log file is provided, extract from it (Docker build scenario)
+        if [ -n "$2" ] && [ -f "$2" ]; then
+            if extract_sgx_mrenclave_from_output "$2"; then
+                print_status "SGX MRENCLAVE extracted successfully"
+            else
+                print_error "Failed to extract SGX MRENCLAVE from build log"
+                exit 1
+            fi
+        else
+            # Local build scenario - try to build and extract locally
+            if extract_sgx_mrenclave; then
+                print_status "SGX MRENCLAVE extracted successfully"
+            else
+                print_error "Failed to extract SGX MRENCLAVE"
+                exit 1
+            fi
+        fi
+    fi
+    
+    # Extract SGXGETH MRENCLAVE from Docker build output
+    if [ "$mode" = "sgxgeth" ]; then
+        if extract_sgxgeth_mrenclave_from_output "$2"; then
+            print_status "SGXGETH MRENCLAVE extracted successfully"
 
 
     # Extract SGX MRENCLAVE by calling tools directly on container
@@ -619,6 +675,8 @@ main() {
         fi
     fi
     
+    # Update .env file (only for risc0, sp1, and zisk modes, sgx and sgxgeth handle their own .env updates)
+    if [ "$mode" != "sgx" ] && [ "$mode" != "sgxgeth" ]; then
     # Update .env file (only for risc0 and sp1 modes, other modes handle their own .env updates)
     if [ "$mode" = "risc0" ] || [ "$mode" = "sp1" ]; then
         if update_env_file; then
