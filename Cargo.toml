@@ -217,4 +217,3 @@ alloy-signer-local = { git = "https://github.com/taikoxyz/alloy.git", branch = "
 alloy-signer = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-rpc-types-beacon = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-eips = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }

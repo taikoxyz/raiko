@@ -2,11 +2,12 @@
 pub use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ZkAggregationGuestInput,
+        GuestInput, GuestOutput, ShastaAggregationGuestInput, ZkAggregationGuestInput,
     },
     prover::Proof,
 };
 use alloy_primitives::B256;
+use raiko_lib::prover::ProverError as RaikoProverError;
 
 // This must match raiko-lib's ProofKey exactly
 pub type ProofKey = (u64, u64, B256, u8);
@@ -34,6 +35,17 @@ pub enum ProverError {
     Param(#[from] serde_json::Error),
     #[error("Store error `{0}`")]
     StoreError(String),
+}
+
+impl From<ProverError> for RaikoProverError {
+    fn from(e: ProverError) -> Self {
+        match e {
+            ProverError::GuestError(msg) => RaikoProverError::GuestError(msg),
+            ProverError::FileIo(err) => RaikoProverError::FileIo(err),
+            ProverError::Param(err) => RaikoProverError::Param(err),
+            ProverError::StoreError(msg) => RaikoProverError::StoreError(msg),
+        }
+    }
 }
 
 impl From<String> for ProverError {

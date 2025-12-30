@@ -5,7 +5,10 @@ use std::path::PathBuf;
 
 fn main() {
     let pipeline = ZiskPipeline::new("provers/zisk/guest", "release");
-    pipeline.bins(&["zisk-aggregation", "zisk-batch"], "provers/zisk/guest/elf");
+    pipeline.bins(
+        &["zisk-aggregation", "zisk-batch", "zisk-shasta-aggregation"],
+        "provers/zisk/guest/elf",
+    );
     #[cfg(feature = "test")]
     pipeline.tests(&["zisk-batch"], "provers/zisk/guest/elf");
 }

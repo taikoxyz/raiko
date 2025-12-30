@@ -101,6 +101,7 @@ build_guest_programs() {
     
     copy_elf "zisk-batch"
     copy_elf "zisk-aggregation"
+    copy_elf "zisk-shasta-aggregation"
     
     log "Guest programs built successfully"
 }

@@ -236,6 +236,15 @@ pub async fn run_shasta_proposal_prover(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_agent_driver::ZiskAgentProver
+                .proposal_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
     }
 }
 
@@ -336,6 +345,19 @@ pub async fn aggregate_shasta_proposals(
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            {
+                let result = (&zisk_agent_driver::ZiskAgentProver)
+                    .shasta_aggregate(input.clone(), output, config, None)
+                    .await
+                    .map(zisk_adapter::convert_proof)
+                    .map_err(zisk_adapter::convert_error);
+                return result.map_err(|e| e.into());
+            }
+            #[cfg(not(feature = "zisk"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
     }?;
@@ -1027,6 +1049,7 @@ mod zisk_adapter {
             quote: proof.quote,
             uuid: proof.uuid,
             kzg_proof: proof.kzg_proof,
+            extra_data: proof.extra_data,
         }
     }
     

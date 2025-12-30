@@ -22,6 +22,8 @@ use prover::{ZiskProver, ZiskProverConfig};
 pub enum ProofType {
     Batch,
     Aggregate,
+    #[serde(rename = "shasta_aggregate")]
+    ShastaAggregate,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +31,7 @@ pub struct ProofRequest {
     pub input: Vec<u8>,
     pub proof_type: ProofType,
     pub config: Option<serde_json::Value>,
+    pub expected_input: Option<[u8; 32]>,
 }
 
 #[derive(Debug, Serialize)]

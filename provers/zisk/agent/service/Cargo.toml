@@ -38,4 +38,5 @@ digest = "0.10"
 # CLI parsing
 clap = { workspace = true }
 
-# Types for deserialization - will define minimal types locally
+# Raiko types for input/output parity with host
+raiko-lib = { path = "../../../../lib", features = ["std"] }

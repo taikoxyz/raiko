@@ -21,11 +21,17 @@ pub async fn proof_handler(
             match request.proof_type {
                 ProofType::Batch => {
                     info!("Starting batch proof generation");
-                    prover.batch_proof(request.input).await
+                    prover
+                        .batch_proof(request.input, request.expected_input)
+                        .await
                 }
                 ProofType::Aggregate => {
                     info!("Starting aggregation proof generation");
                     prover.aggregation_proof(request.input).await
+                }
+                ProofType::ShastaAggregate => {
+                    info!("Starting shasta aggregation proof generation");
+                    prover.shasta_aggregation_proof(request.input).await
                 }
             }
         },

@@ -58,10 +58,10 @@ codegen-units = 1
 
 # Patches to align with main raiko workspace dependencies
 [patch.crates-io]
-revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
-revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko" }
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
 alloy-serde = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-rpc-types-eth = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-eips = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
-blst = { git = "https://github.com/CeciliaZ030/blst.git", branch = "v0.3.12-serialize" }
+blst = { git = "https://github.com/smtmfft/blst.git", branch = "v0.3.15-serialize" }
