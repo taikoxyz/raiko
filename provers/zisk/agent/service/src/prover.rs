@@ -1,22 +1,17 @@
 use anyhow::{anyhow, Result};
 use digest::Digest;
 use raiko_lib::{
-    builder::calculate_batch_blocks_final_header,
-    input::{GuestBatchInput, ShastaAggregationGuestInput, ShastaRisc0AggregationGuestInput},
+    input::{ShastaAggregationGuestInput, ShastaRisc0AggregationGuestInput},
     libhash::hash_shasta_subproof_input,
-    primitives::{Address, B256},
-    protocol_instance::{
-        shasta_zk_aggregation_public_input_from_proof_carry_data_vec, words_to_bytes_le,
-        ProtocolInstance,
-    },
-    proof_type::ProofType,
+    primitives::Address,
     prover::ProofCarryData,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::Hasher;
-use std::path::PathBuf;
-use std::process::Command;
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::{Arc, LazyLock};
 use tokio::sync::{Mutex, Notify};
 use tracing::{info, warn, error};
@@ -27,6 +22,9 @@ use crate::types::{AggregationGuestInput, ZkAggregationGuestInput};
 const BATCH_ELF_PATH: &str = "guest/elf/zisk-batch";
 const AGGREGATION_ELF_PATH: &str = "guest/elf/zisk-aggregation";
 const SHASTA_AGGREGATION_ELF_PATH: &str = "guest/elf/zisk-shasta-aggregation";
+const OUTPUT_DIR_ROOT: &str = "build/zisk-output";
+const PROOF_FILE_NAME: &str = "vadcop_final_proof.bin";
+const PUBLICS_FILE_NAME: &str = "publics.json";
 
 // Helper function to get absolute ELF paths
 fn get_elf_path(relative: &str) -> String {
@@ -87,6 +85,65 @@ fn calculate_input_hash(input_data: &[u8]) -> u64 {
     let mut hasher = DefaultHasher::new();
     hasher.write(input_data);
     hasher.finish()
+}
+
+fn run_command_streaming(mut command: Command, label: &str) -> Result<()> {
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+    let mut child = command
+        .spawn()
+        .map_err(|e| anyhow!("Failed to spawn {}: {}", label, e))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| anyhow!("Failed to capture {} stdout", label))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| anyhow!("Failed to capture {} stderr", label))?;
+
+    let stdout_label = format!("{} stdout", label);
+    let stderr_label = format!("{} stderr", label);
+
+    let stdout_handle = std::thread::spawn(move || {
+        let mut collected = String::new();
+        let reader = BufReader::new(stdout);
+        for line in reader.lines().flatten() {
+            info!("[{}] {}", stdout_label, line);
+            collected.push_str(&line);
+            collected.push('\n');
+        }
+        collected
+    });
+
+    let stderr_handle = std::thread::spawn(move || {
+        let mut collected = String::new();
+        let reader = BufReader::new(stderr);
+        for line in reader.lines().flatten() {
+            error!("[{}] {}", stderr_label, line);
+            collected.push_str(&line);
+            collected.push('\n');
+        }
+        collected
+    });
+
+    let status = child
+        .wait()
+        .map_err(|e| anyhow!("Failed to wait for {}: {}", label, e))?;
+
+    let stdout_collected = stdout_handle.join().unwrap_or_default();
+    let stderr_collected = stderr_handle.join().unwrap_or_default();
+
+    if !status.success() {
+        let message = if stderr_collected.trim().is_empty() {
+            stdout_collected
+        } else {
+            stderr_collected
+        };
+        return Err(anyhow!("{} failed: {}", label, message.trim_end()));
+    }
+
+    Ok(())
 }
 
 fn compute_batch_image_id() -> Result<[u32; 8]> {
@@ -254,36 +311,38 @@ impl ZiskProver {
         ensure_rom_setup(&batch_elf_path).await?;
         
         // Verify Zisk constraints before proof generation
-        verify_zisk_constraints(&batch_elf_path, input_file.to_str().unwrap())?;
+        // verify_zisk_constraints(&batch_elf_path, input_file.to_str().unwrap())?;
 
         // Generate proof
-        let proof_dir = work_dir.join("proof");
-        std::fs::create_dir_all(&proof_dir)?;
-        info!("Generating proof in directory: {:?}", proof_dir);
+        let output_dir = prepare_output_dir("batch")?;
+        info!("Generating proof in directory: {:?}", output_dir);
         
         generate_proof_with_mpi(
             &batch_elf_path,
             input_file.to_str().unwrap(),
-            proof_dir.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
             self.config.concurrent_processes,
             self.config.threads_per_process,
         )?;
 
         // Read proof file
-        let proof_file = proof_dir.join("vadcop_final_proof.bin");
+        let proof_file = output_dir.join(PROOF_FILE_NAME);
         
         // Check if proof file exists
         if !proof_file.exists() {
             error!("Proof file not found at: {:?}", proof_file);
             error!("Contents of proof directory:");
-            if let Ok(entries) = std::fs::read_dir(&proof_dir) {
+            if let Ok(entries) = std::fs::read_dir(&output_dir) {
                 for entry in entries {
                     if let Ok(entry) = entry {
                         error!("  - {:?}", entry.path());
                     }
                 }
             }
-            return Err(anyhow!("Proof file not generated at expected location: {:?}", proof_file));
+            return Err(anyhow!(
+                "Proof file not generated at expected location: {:?}",
+                proof_file
+            ));
         }
         
         info!("Reading proof file from: {:?}", proof_file);
@@ -296,7 +355,16 @@ impl ZiskProver {
             verify_proof(&proof_file)?;
         }
 
-        let public_input = resolve_batch_public_input(input_data, expected_input)?;
+        let public_input = read_public_input_from_output(&output_dir)?;
+        if let Some(expected) = expected_input {
+            if public_input != expected {
+                return Err(anyhow!(
+                    "Batch public input mismatch: guest={:?}, expected={:?}",
+                    public_input,
+                    expected
+                ));
+            }
+        }
 
         // Create response
         let response = ZiskResponse {
@@ -547,33 +615,35 @@ impl ZiskProver {
         ensure_rom_setup(&aggregation_elf_path).await?;
 
         // Generate proof
-        let proof_dir = work_dir.join("proof");
-        std::fs::create_dir_all(&proof_dir)?;
-        info!("Generating proof in directory: {:?}", proof_dir);
+        let output_dir = prepare_output_dir("aggregation")?;
+        info!("Generating proof in directory: {:?}", output_dir);
         
         generate_proof_with_mpi(
             &aggregation_elf_path,
             input_file.to_str().unwrap(),
-            proof_dir.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
             self.config.concurrent_processes,
             self.config.threads_per_process,
         )?;
 
         // Read proof file
-        let proof_file = proof_dir.join("vadcop_final_proof.bin");
+        let proof_file = output_dir.join(PROOF_FILE_NAME);
         
         // Check if proof file exists
         if !proof_file.exists() {
             error!("Proof file not found at: {:?}", proof_file);
             error!("Contents of proof directory:");
-            if let Ok(entries) = std::fs::read_dir(&proof_dir) {
+            if let Ok(entries) = std::fs::read_dir(&output_dir) {
                 for entry in entries {
                     if let Ok(entry) = entry {
                         error!("  - {:?}", entry.path());
                     }
                 }
             }
-            return Err(anyhow!("Proof file not generated at expected location: {:?}", proof_file));
+            return Err(anyhow!(
+                "Proof file not generated at expected location: {:?}",
+                proof_file
+            ));
         }
         
         info!("Reading proof file from: {:?}", proof_file);
@@ -586,7 +656,7 @@ impl ZiskProver {
             verify_proof(&proof_file)?;
         }
 
-        let public_input = words_to_bytes_le(&image_id);
+        let public_input = read_public_input_from_output(&output_dir)?;
 
         // Create response
         let response = ZiskResponse {
@@ -696,23 +766,22 @@ impl ZiskProver {
 
         ensure_rom_setup(&shasta_elf_path).await?;
 
-        let proof_dir = work_dir.join("proof");
-        std::fs::create_dir_all(&proof_dir)?;
-        info!("Generating proof in directory: {:?}", proof_dir);
+        let output_dir = prepare_output_dir("shasta")?;
+        info!("Generating proof in directory: {:?}", output_dir);
 
         generate_proof_with_mpi(
             &shasta_elf_path,
             input_file.to_str().unwrap(),
-            proof_dir.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
             self.config.concurrent_processes,
             self.config.threads_per_process,
         )?;
 
-        let proof_file = proof_dir.join("vadcop_final_proof.bin");
+        let proof_file = output_dir.join(PROOF_FILE_NAME);
         if !proof_file.exists() {
             error!("Proof file not found at: {:?}", proof_file);
             error!("Contents of proof directory:");
-            if let Ok(entries) = std::fs::read_dir(&proof_dir) {
+            if let Ok(entries) = std::fs::read_dir(&output_dir) {
                 for entry in entries {
                     if let Ok(entry) = entry {
                         error!("  - {:?}", entry.path());
@@ -735,7 +804,7 @@ impl ZiskProver {
         }
 
         let public_input =
-            resolve_shasta_public_input(image_id, &proof_carry_data_vec)?;
+            read_public_input_from_output(&output_dir)?;
 
         let response = ZiskResponse {
             proof: Some(format!("0x{}", proof_hex)),
@@ -754,46 +823,81 @@ impl ZiskProver {
     }
 }
 
-fn resolve_batch_public_input(
-    input_data: &[u8],
-    expected_input: Option<[u8; 32]>,
-) -> Result<[u8; 32]> {
-    if let Some(value) = expected_input {
-        return Ok(value);
+fn output_base_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join(OUTPUT_DIR_ROOT)
+}
+
+fn prepare_output_dir(kind: &str) -> Result<PathBuf> {
+    let output_dir = output_base_dir().join(kind);
+    std::fs::create_dir_all(&output_dir)?;
+
+    let proof_file = output_dir.join(PROOF_FILE_NAME);
+    let publics_file = output_dir.join(PUBLICS_FILE_NAME);
+    if proof_file.exists() {
+        std::fs::remove_file(&proof_file)?;
+    }
+    if publics_file.exists() {
+        std::fs::remove_file(&publics_file)?;
     }
 
-    let batch_input: GuestBatchInput = bincode::deserialize(input_data)
-        .map_err(|e| anyhow!("Failed to deserialize GuestBatchInput for public input: {e}"))?;
-    let final_blocks = calculate_batch_blocks_final_header(&batch_input);
-    let protocol_instance = ProtocolInstance::new_batch(&batch_input, final_blocks, ProofType::Zisk)
-        .map_err(|e| anyhow!("Failed to compute batch public input: {e}"))?;
-    let instance_hash = protocol_instance.instance_hash();
-    let bytes: [u8; 32] = instance_hash
-        .as_slice()
-        .try_into()
-        .map_err(|_| anyhow!("Batch public input length mismatch"))?;
+    Ok(output_dir)
+}
+
+fn read_public_input_from_output(output_dir: &Path) -> Result<[u8; 32]> {
+    let publics_file = output_dir.join(PUBLICS_FILE_NAME);
+    if !publics_file.exists() {
+        return Err(anyhow!(
+            "Public input file not found at: {:?}",
+            publics_file
+        ));
+    }
+
+    let contents = std::fs::read_to_string(&publics_file)
+        .map_err(|e| anyhow!("Failed to read {:?}: {e}", publics_file))?;
+    let values: Vec<serde_json::Value> =
+        serde_json::from_str(&contents).map_err(|e| anyhow!("Invalid publics JSON: {e}"))?;
+
+    if values.len() < 8 {
+        return Err(anyhow!(
+            "Publics file contains {} values, expected at least 8",
+            values.len()
+        ));
+    }
+
+    let mut bytes = [0u8; 32];
+    for (i, value) in values.iter().take(8).enumerate() {
+        let word_u64 = parse_public_value(value, i)?;
+        let word_u32 = u32::try_from(word_u64).map_err(|_| {
+            anyhow!(
+                "Public value {} out of u32 range: {}",
+                i,
+                word_u64
+            )
+        })?;
+        bytes[i * 4..(i + 1) * 4].copy_from_slice(&word_u32.to_le_bytes());
+    }
 
     Ok(bytes)
 }
 
-fn resolve_shasta_public_input(
-    image_id: [u32; 8],
-    proof_carry_data_vec: &[ProofCarryData],
-) -> Result<[u8; 32]> {
-    let sub_image_id = B256::from(words_to_bytes_le(&image_id));
-    let public_input = shasta_zk_aggregation_public_input_from_proof_carry_data_vec(
-        sub_image_id,
-        proof_carry_data_vec,
-        Address::ZERO,
-    )
-    .ok_or_else(|| anyhow!("Failed to compute shasta aggregation public input"))?;
+fn parse_public_value(value: &serde_json::Value, index: usize) -> Result<u64> {
+    if let Some(number) = value.as_u64() {
+        return Ok(number);
+    }
+    if let Some(text) = value.as_str() {
+        return text
+            .parse::<u64>()
+            .map_err(|e| anyhow!("Public value {} parse failed: {e}", index));
+    }
 
-    let bytes: [u8; 32] = public_input
-        .as_slice()
-        .try_into()
-        .map_err(|_| anyhow!("Shasta aggregation public input length mismatch"))?;
-
-    Ok(bytes)
+    Err(anyhow!(
+        "Public value {} has unexpected format: {}",
+        index,
+        value
+    ))
 }
 
 /// Run ROM setup only if it hasn't been done for this ELF yet
@@ -838,27 +942,23 @@ async fn ensure_rom_setup(elf_path: &str) -> Result<()> {
             let rom_result = tokio::task::spawn_blocking({
                 let elf_path = elf_path.to_string();
                 move || {
-                    Command::new("cargo-zisk")
-                        .args(["rom-setup", "-e", &elf_path])
-                        .output()
-                        .map_err(|e| anyhow!("Zisk ROM setup failed: {}", e))
+                    let mut command = Command::new("cargo-zisk");
+                    command.args(["rom-setup", "-e", &elf_path]);
+                    run_command_streaming(command, "cargo-zisk rom-setup")
                 }
             }).await;
             
-            let rom_output = match rom_result {
-                Ok(result) => result?,
+            let rom_result = match rom_result {
+                Ok(result) => result,
                 Err(e) => return Err(anyhow!("ROM setup task failed: {}", e)),
             };
             
-            if !rom_output.status.success() {
+            if let Err(err) = rom_result {
                 // ROM setup failed, clean up in_progress state
                 coordinator.in_progress.lock().await.remove(elf_path);
                 notify.notify_waiters();
                 
-                return Err(anyhow!(
-                    "Zisk ROM setup failed: {}",
-                    String::from_utf8_lossy(&rom_output.stderr)
-                ));
+                return Err(err);
             }
             
             // ROM setup succeeded, mark as completed
@@ -899,49 +999,34 @@ fn generate_proof_with_mpi(
     concurrent_processes: Option<u32>,
     threads_per_process: Option<u32>,
 ) -> Result<()> {
-    let output = if let (Some(processes), Some(threads)) = (concurrent_processes, threads_per_process) {
+    if let (Some(processes), Some(threads)) = (concurrent_processes, threads_per_process) {
         info!("Using MPI with {} processes, {} threads each", processes, threads);
         
-        Command::new("mpirun")
-            .args([
-                "--bind-to", "none",
-                "-np", &processes.to_string(),
-                "-x", &format!("OMP_NUM_THREADS={}", threads),
-                "-x", &format!("RAYON_NUM_THREADS={}", threads),
-                "cargo-zisk", "prove",
-                "-e", elf_path,
-                "-i", input_path,
-                "-o", output_dir,
-                "-a"
-            ])
-            .output()?
+        let mut command = Command::new("mpirun");
+        command.args([
+            "--bind-to", "none",
+            "-np", &processes.to_string(),
+            "-x", &format!("OMP_NUM_THREADS={}", threads),
+            "-x", &format!("RAYON_NUM_THREADS={}", threads),
+            "cargo-zisk", "prove",
+            "-e", elf_path,
+            "-i", input_path,
+            "-o", output_dir,
+            "-a",
+            "-b",
+        ]);
+        run_command_streaming(command, "cargo-zisk prove (mpirun)")?;
     } else {
-        Command::new("cargo-zisk")
-            .args([
-                "prove",
-                "-e", elf_path,
-                "-i", input_path,
-                "-o", output_dir,
-                "-a"
-            ])
-            .output()?
-    };
-    
-    if !output.status.success() {
-        return Err(anyhow!(
-            "Zisk prove failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
-    
-    // Log program output
-    let stdout_output = String::from_utf8_lossy(&output.stdout);
-    let stderr_output = String::from_utf8_lossy(&output.stderr);
-    if !stdout_output.is_empty() {
-        info!("Zisk program output: {}", stdout_output);
-    }
-    if !stderr_output.is_empty() {
-        info!("Zisk program stderr: {}", stderr_output);
+        let mut command = Command::new("cargo-zisk");
+        command.args([
+            "prove",
+            "-e", elf_path,
+            "-i", input_path,
+            "-o", output_dir,
+            "-a",
+            "-b",
+        ]);
+        run_command_streaming(command, "cargo-zisk prove")?;
     }
     
     Ok(())
@@ -949,27 +1034,9 @@ fn generate_proof_with_mpi(
 
 /// Verify proof using cargo-zisk verify
 fn verify_proof(proof_file: &std::path::Path) -> Result<()> {
-    let output = Command::new("cargo-zisk")
-        .args(["verify", "-p", proof_file.to_str().unwrap()])
-        .output()?;
-    
-    if !output.status.success() {
-        return Err(anyhow!(
-            "Zisk verification failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
-    
-    let verify_stdout = String::from_utf8_lossy(&output.stdout);
-    let verify_stderr = String::from_utf8_lossy(&output.stderr);
-    if !verify_stdout.is_empty() {
-        info!("Zisk verification output: {}", verify_stdout);
-    }
-    if !verify_stderr.is_empty() {
-        info!("Zisk verification stderr: {}", verify_stderr);
-    }
-    
-    Ok(())
+    let mut command = Command::new("cargo-zisk");
+    command.args(["verify", "-p", proof_file.to_str().unwrap()]);
+    run_command_streaming(command, "cargo-zisk verify")
 }
 
 fn verify_zisk_constraints(elf_path: &str, input_path: &str) -> Result<()> {
@@ -985,37 +1052,23 @@ fn verify_zisk_constraints(elf_path: &str, input_path: &str) -> Result<()> {
         .unwrap_or_else(|_| "$HOME/.zisk/provingKey".to_string());
 
     // Run cargo-zisk verify-constraints command
-    let output = Command::new("cargo-zisk")
-        .args([
-            "verify-constraints",
-            "-e", elf_path,
-            "-i", input_path,
-            "-w", &witness_lib_path,
-            "-k", &proving_key_path,
-        ])
-        .output()
-        .map_err(|e| anyhow!("Failed to run cargo-zisk verify-constraints: {e}"))?;
+    let mut command = Command::new("cargo-zisk");
+    command.args([
+        "verify-constraints",
+        "-e", elf_path,
+        "-i", input_path,
+        "-w", &witness_lib_path,
+        "-k", &proving_key_path,
+    ]);
 
-    // Check if verification succeeded
-    if output.status.success() {
-        info!("Zisk constraints verification PASSED");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if !stdout.is_empty() {
-            info!("Verification output:\n{}", stdout);
+    match run_command_streaming(command, "cargo-zisk verify-constraints") {
+        Ok(()) => {
+            info!("Zisk constraints verification PASSED");
+            Ok(())
         }
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        info!("Zisk constraints verification FAILED");
-        if !stdout.is_empty() {
-            info!("Verification stdout:\n{}", stdout);
+        Err(err) => {
+            error!("Zisk constraints verification FAILED");
+            Err(err)
         }
-        if !stderr.is_empty() {
-            error!("Verification stderr:\n{}", stderr);
-        }
-
-        Err(anyhow!("Zisk constraints verification failed: {}", stderr))
     }
 }

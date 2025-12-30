@@ -37,7 +37,7 @@ raiko-lib = { path = "../../../../lib", default-features = false, features = ["s
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 
 # Override reth-primitives to remove k256 feature which pulls in secp256k1
-reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "v1.0.0-rc.2-taiko-shasta", default-features = false, features = [
+reth-primitives = { git = "https://github.com/taikoxyz/taiko-reth.git", branch = "taiko-shasta-zk", default-features = false, features = [
     "alloy-compat",
     "taiko",
 ] }
