@@ -7,6 +7,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RAIKO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
+# Default CUDA arch for L4 GPUs; allow override via environment.
+if [ -z "${CUDA_ARCH}" ]; then
+    export CUDA_ARCH=sm_89
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

@@ -125,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/proof", post(handlers::proof_handler))
-        .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB max payload
+        .layer(DefaultBodyLimit::max(500 * 1024 * 1024)) // 500MB max payload
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

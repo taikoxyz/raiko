@@ -18,6 +18,62 @@ if [ -n "$CI" ]; then
 	source ./script/ci-env-check.sh
 fi
 
+ensure_zisk_proving_key() {
+	if [ -d "$HOME/.zisk/provingKey" ]; then
+		echo "Zisk proving key already present"
+		return 0
+	fi
+
+	echo "Zisk proving key not found, installing..."
+	local zisk_version=""
+	if command -v cargo-zisk >/dev/null 2>&1; then
+		zisk_version=$(cargo-zisk --version | awk '{print $2}')
+	fi
+
+	if [ -x "$HOME/.zisk/bin/ziskup" ]; then
+		if [ -n "$zisk_version" ]; then
+			"$HOME/.zisk/bin/ziskup" --version "$zisk_version" --provingkey
+		else
+			"$HOME/.zisk/bin/ziskup" --provingkey
+		fi
+	else
+		if [ -n "$zisk_version" ]; then
+			curl -s https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash -s -- --version "$zisk_version" --provingkey
+		else
+			curl -s https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash -s -- --provingkey
+		fi
+	fi
+}
+
+run_zisk_check_setup() {
+	if [ ! -x "$HOME/.zisk/bin/cargo-zisk" ]; then
+		echo "cargo-zisk not found; skipping check-setup"
+		return 0
+	fi
+	if [ ! -d "$HOME/.zisk/provingKey" ]; then
+		echo "Zisk proving key missing; skipping check-setup"
+		return 0
+	fi
+
+	echo "Regenerating Zisk constant tree files..."
+	if ! "$HOME/.zisk/bin/cargo-zisk" check-setup -a --proving-key "$HOME/.zisk/provingKey"; then
+		echo "Warning: cargo-zisk check-setup -a failed; rerun manually if needed."
+	fi
+}
+
+copy_zisk_gpu_binaries() {
+	local src_dir="$1"
+	local bin=""
+
+	for bin in cargo-zisk ziskemu libzisk_witness.so libziskclib.a zisk-worker zisk-coordinator riscv2zisk; do
+		if [ -f "$src_dir/$bin" ]; then
+			cp "$src_dir/$bin" "$HOME/.zisk/bin/"
+		else
+			echo "Warning: $bin not found in GPU build output"
+		fi
+	done
+}
+
 # toolchain necessary to compile c-kzg in SP1/risc0 (32-bit)
 if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 	# Check if the RISC-V GCC prebuilt binary archive already exists
@@ -203,6 +259,8 @@ if [ -z "$1" ] || [ "$1" == "zisk" ]; then
 		else
 			echo "Zisk Rust toolchain already installed"
 		fi
+
+		ensure_zisk_proving_key
 		
 		# Check if GPU support should be enabled and rebuild if necessary
 		if command -v nvcc >/dev/null 2>&1; then
@@ -226,14 +284,12 @@ if [ -z "$1" ] || [ "$1" == "zisk" ]; then
 				echo "Building Zisk with GPU features (this may take a few minutes)..."
 				if cargo build --release --features gpu; then
 					# Replace binaries with GPU-enabled versions
-					cp target/release/cargo-zisk "$HOME/.zisk/bin/"
-					cp target/release/ziskemu "$HOME/.zisk/bin/"
-					cp target/release/libzisk_witness.so "$HOME/.zisk/bin/"
-					cp target/release/libziskclib.a "$HOME/.zisk/bin/"
+					copy_zisk_gpu_binaries "target/release"
 					
 					# Mark as GPU-enabled
 					touch "$HOME/.zisk/.gpu-enabled"
 					echo "Zisk successfully rebuilt with GPU support!"
+					run_zisk_check_setup
 				else
 					echo "GPU build failed, continuing with existing binaries"
 				fi
@@ -291,6 +347,8 @@ if [ -z "$1" ] || [ "$1" == "zisk" ]; then
 					exit 1
 				fi
 			fi
+
+			ensure_zisk_proving_key
 			
 			# Check if CUDA is available and rebuild with GPU support for new installations
 			if command -v nvcc >/dev/null 2>&1; then
@@ -305,14 +363,12 @@ if [ -z "$1" ] || [ "$1" == "zisk" ]; then
 				echo "Building Zisk with GPU features (this may take a few minutes)..."
 				if cargo build --release --features gpu; then
 					# Replace binaries with GPU-enabled versions
-					cp target/release/cargo-zisk "$HOME/.zisk/bin/"
-					cp target/release/ziskemu "$HOME/.zisk/bin/"
-					cp target/release/libzisk_witness.so "$HOME/.zisk/bin/"
-					cp target/release/libziskclib.a "$HOME/.zisk/bin/"
+					copy_zisk_gpu_binaries "target/release"
 					
 					# Mark as GPU-enabled
 					touch "$HOME/.zisk/.gpu-enabled"
 					echo "Zisk successfully built with GPU support!"
+					run_zisk_check_setup
 				else
 					echo "GPU build failed, continuing with prebuilt binaries"
 				fi

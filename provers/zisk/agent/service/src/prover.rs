@@ -23,18 +23,55 @@ const BATCH_ELF_PATH: &str = "guest/elf/zisk-batch";
 const AGGREGATION_ELF_PATH: &str = "guest/elf/zisk-aggregation";
 const SHASTA_AGGREGATION_ELF_PATH: &str = "guest/elf/zisk-shasta-aggregation";
 const OUTPUT_DIR_ROOT: &str = "build/zisk-output";
-const PROOF_FILE_NAME: &str = "vadcop_final_proof.bin";
+const PROOF_FILE_NAME: &str = "final_proof.bin";
 const PUBLICS_FILE_NAME: &str = "publics.json";
+
+fn agent_root_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("ZISK_AGENT_ROOT") {
+        if !dir.is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(agent_dir) = exe
+            .parent()
+            .and_then(|dir| dir.parent())
+            .and_then(|dir| dir.parent())
+        {
+            if agent_dir.join("guest").is_dir() {
+                return agent_dir.to_path_buf();
+            }
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        if cwd.join("guest").is_dir() {
+            return cwd;
+        }
+        let candidate = cwd.join("provers/zisk/agent");
+        if candidate.join("guest").is_dir() {
+            return candidate;
+        }
+        return cwd;
+    }
+
+    PathBuf::from(".")
+}
+
+fn build_base_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("ZISK_BUILD_DIR") {
+        if !dir.is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
+    agent_root_dir().join("build")
+}
 
 // Helper function to get absolute ELF paths
 fn get_elf_path(relative: &str) -> String {
-    // CARGO_MANIFEST_DIR points to the service directory at compile time
-    // We need to go up one level to reach the agent directory
-    let base_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_path_buf();
-    let elf_path = base_path.join(relative);
+    // Resolve from runtime-configured agent root.
+    let elf_path = agent_root_dir().join(relative);
     
     // Convert to absolute path and log for debugging
     let absolute_path = std::fs::canonicalize(&elf_path)
@@ -284,10 +321,7 @@ impl ZiskProver {
         expected_input: Option<[u8; 32]>,
     ) -> Result<ZiskResponse> {
         // Create persistent build directory for this proof
-        let build_base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("build");
+        let build_base = build_base_dir();
         std::fs::create_dir_all(&build_base)?;
         
         let work_dir = build_base.join(&request_id);
@@ -323,27 +357,25 @@ impl ZiskProver {
             output_dir.to_str().unwrap(),
             self.config.concurrent_processes,
             self.config.threads_per_process,
+            true,
         )?;
 
-        // Read proof file
-        let proof_file = output_dir.join(PROOF_FILE_NAME);
-        
-        // Check if proof file exists
-        if !proof_file.exists() {
-            error!("Proof file not found at: {:?}", proof_file);
-            error!("Contents of proof directory:");
-            if let Ok(entries) = std::fs::read_dir(&output_dir) {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        error!("  - {:?}", entry.path());
+        // Read proof file (final snark output)
+        let proof_file = match locate_proof_file(&output_dir) {
+            Ok(path) => path,
+            Err(err) => {
+                error!("Proof file not found in: {:?}", output_dir);
+                error!("Contents of proof directory:");
+                if let Ok(entries) = std::fs::read_dir(&output_dir) {
+                    for entry in entries {
+                        if let Ok(entry) = entry {
+                            error!("  - {:?}", entry.path());
+                        }
                     }
                 }
+                return Err(err);
             }
-            return Err(anyhow!(
-                "Proof file not generated at expected location: {:?}",
-                proof_file
-            ));
-        }
+        };
         
         info!("Reading proof file from: {:?}", proof_file);
         let proof_data = std::fs::read(&proof_file)?;
@@ -365,6 +397,8 @@ impl ZiskProver {
                 ));
             }
         }
+
+        cleanup_intermediate_proofs(&output_dir);
 
         // Create response
         let response = ZiskResponse {
@@ -559,10 +593,7 @@ impl ZiskProver {
 
     async fn execute_aggregation_proof(&self, aggregation_input: &AggregationGuestInput, request_id: &str) -> Result<ZiskResponse> {
         // Create persistent build directory for this proof
-        let build_base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("build");
+        let build_base = build_base_dir();
         std::fs::create_dir_all(&build_base)?;
         
         let work_dir = build_base.join(&request_id);
@@ -624,27 +655,25 @@ impl ZiskProver {
             output_dir.to_str().unwrap(),
             self.config.concurrent_processes,
             self.config.threads_per_process,
+            true,
         )?;
 
-        // Read proof file
-        let proof_file = output_dir.join(PROOF_FILE_NAME);
-        
-        // Check if proof file exists
-        if !proof_file.exists() {
-            error!("Proof file not found at: {:?}", proof_file);
-            error!("Contents of proof directory:");
-            if let Ok(entries) = std::fs::read_dir(&output_dir) {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        error!("  - {:?}", entry.path());
+        // Read proof file (final snark output)
+        let proof_file = match locate_proof_file(&output_dir) {
+            Ok(path) => path,
+            Err(err) => {
+                error!("Proof file not found in: {:?}", output_dir);
+                error!("Contents of proof directory:");
+                if let Ok(entries) = std::fs::read_dir(&output_dir) {
+                    for entry in entries {
+                        if let Ok(entry) = entry {
+                            error!("  - {:?}", entry.path());
+                        }
                     }
                 }
+                return Err(err);
             }
-            return Err(anyhow!(
-                "Proof file not generated at expected location: {:?}",
-                proof_file
-            ));
-        }
+        };
         
         info!("Reading proof file from: {:?}", proof_file);
         let proof_data = std::fs::read(&proof_file)?;
@@ -657,6 +686,8 @@ impl ZiskProver {
         }
 
         let public_input = read_public_input_from_output(&output_dir)?;
+
+        cleanup_intermediate_proofs(&output_dir);
 
         // Create response
         let response = ZiskResponse {
@@ -681,10 +712,7 @@ impl ZiskProver {
         aggregation_input: &ShastaAggregationGuestInput,
         request_id: &str,
     ) -> Result<ZiskResponse> {
-        let build_base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("build");
+        let build_base = build_base_dir();
         std::fs::create_dir_all(&build_base)?;
 
         let work_dir = build_base.join(&request_id);
@@ -775,24 +803,24 @@ impl ZiskProver {
             output_dir.to_str().unwrap(),
             self.config.concurrent_processes,
             self.config.threads_per_process,
+            true,
         )?;
 
-        let proof_file = output_dir.join(PROOF_FILE_NAME);
-        if !proof_file.exists() {
-            error!("Proof file not found at: {:?}", proof_file);
-            error!("Contents of proof directory:");
-            if let Ok(entries) = std::fs::read_dir(&output_dir) {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        error!("  - {:?}", entry.path());
+        let proof_file = match locate_proof_file(&output_dir) {
+            Ok(path) => path,
+            Err(err) => {
+                error!("Proof file not found in: {:?}", output_dir);
+                error!("Contents of proof directory:");
+                if let Ok(entries) = std::fs::read_dir(&output_dir) {
+                    for entry in entries {
+                        if let Ok(entry) = entry {
+                            error!("  - {:?}", entry.path());
+                        }
                     }
                 }
+                return Err(err);
             }
-            return Err(anyhow!(
-                "Proof file not generated at expected location: {:?}",
-                proof_file
-            ));
-        }
+        };
 
         info!("Reading proof file from: {:?}", proof_file);
         let proof_data = std::fs::read(&proof_file)?;
@@ -805,6 +833,8 @@ impl ZiskProver {
 
         let public_input =
             read_public_input_from_output(&output_dir)?;
+
+        cleanup_intermediate_proofs(&output_dir);
 
         let response = ZiskResponse {
             proof: Some(format!("0x{}", proof_hex)),
@@ -824,26 +854,99 @@ impl ZiskProver {
 }
 
 fn output_base_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join(OUTPUT_DIR_ROOT)
+    if let Ok(dir) = std::env::var("ZISK_OUTPUT_DIR") {
+        if !dir.is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
+    agent_root_dir().join(OUTPUT_DIR_ROOT)
+}
+
+fn cleanup_intermediate_proofs(output_dir: &Path) {
+    if std::env::var("ZISK_KEEP_PROOF_INTERMEDIATE").is_ok() {
+        return;
+    }
+
+    let proofs_dir = output_dir.join("proofs");
+    if proofs_dir.exists() {
+        if let Err(err) = std::fs::remove_dir_all(&proofs_dir) {
+            warn!(
+                "Failed to remove intermediate proofs at {:?}: {}",
+                proofs_dir,
+                err
+            );
+        }
+    }
 }
 
 fn prepare_output_dir(kind: &str) -> Result<PathBuf> {
     let output_dir = output_base_dir().join(kind);
     std::fs::create_dir_all(&output_dir)?;
+    std::fs::create_dir_all(output_dir.join("proofs"))?;
 
     let proof_file = output_dir.join(PROOF_FILE_NAME);
     let publics_file = output_dir.join(PUBLICS_FILE_NAME);
     if proof_file.exists() {
         std::fs::remove_file(&proof_file)?;
     }
+    if let Ok(entries) = std::fs::read_dir(&output_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    if ext == "bin" {
+                        let _ = std::fs::remove_file(&path);
+                    }
+                }
+            }
+        }
+    }
     if publics_file.exists() {
         std::fs::remove_file(&publics_file)?;
     }
 
     Ok(output_dir)
+}
+
+fn locate_proof_file(output_dir: &Path) -> Result<PathBuf> {
+    let default_path = output_dir.join(PROOF_FILE_NAME);
+    if default_path.exists() {
+        return Ok(default_path);
+    }
+
+    let mut best: Option<(PathBuf, u64)> = None;
+    let candidate_dirs = [output_dir.to_path_buf(), output_dir.join("proofs")];
+
+    for dir in candidate_dirs {
+        if !dir.is_dir() {
+            continue;
+        }
+        for entry in std::fs::read_dir(&dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    if ext == "bin" {
+                        let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                        match &best {
+                            Some((_, best_size)) if *best_size >= size => {}
+                            _ => best = Some((path, size)),
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some((path, _)) = best {
+        info!("Using discovered proof file at {:?}", path);
+        Ok(path)
+    } else {
+        Err(anyhow!(
+            "Proof file not generated in output dir: {:?}",
+            output_dir
+        ))
+    }
 }
 
 fn read_public_input_from_output(output_dir: &Path) -> Result<[u8; 32]> {
@@ -867,13 +970,44 @@ fn read_public_input_from_output(output_dir: &Path) -> Result<[u8; 32]> {
         ));
     }
 
+    let parsed_values: Vec<u64> = values
+        .iter()
+        .enumerate()
+        .map(|(i, value)| parse_public_value(value, i))
+        .collect::<Result<Vec<_>>>()?;
+
+    // Zisk includes the ROM root hash (4 u64s) and an output count before the guest outputs.
+    // Detect and skip that header when present.
+    let mut start_idx = 0usize;
+    if parsed_values.len() >= 5 {
+        let header_has_large_values = parsed_values[..4]
+            .iter()
+            .any(|value| *value > u32::MAX as u64);
+        let output_count = parsed_values[4] as usize;
+        if header_has_large_values
+            && output_count > 0
+            && output_count <= 32
+            && parsed_values.len() >= 5 + output_count
+        {
+            start_idx = 5;
+        }
+    }
+
+    let output_values = &parsed_values[start_idx..];
+    if output_values.len() < 8 {
+        return Err(anyhow!(
+            "Publics file contains {} output values, expected at least 8",
+            output_values.len()
+        ));
+    }
+
     let mut bytes = [0u8; 32];
-    for (i, value) in values.iter().take(8).enumerate() {
-        let word_u64 = parse_public_value(value, i)?;
-        let word_u32 = u32::try_from(word_u64).map_err(|_| {
+    for (i, word_u64) in output_values.iter().take(8).enumerate() {
+        let value_index = start_idx + i;
+        let word_u32 = u32::try_from(*word_u64).map_err(|_| {
             anyhow!(
                 "Public value {} out of u32 range: {}",
-                i,
+                value_index,
                 word_u64
             )
         })?;
@@ -998,6 +1132,7 @@ fn generate_proof_with_mpi(
     output_dir: &str,
     concurrent_processes: Option<u32>,
     threads_per_process: Option<u32>,
+    aggregation: bool,
 ) -> Result<()> {
     if let (Some(processes), Some(threads)) = (concurrent_processes, threads_per_process) {
         info!("Using MPI with {} processes, {} threads each", processes, threads);
@@ -1012,9 +1147,12 @@ fn generate_proof_with_mpi(
             "-e", elf_path,
             "-i", input_path,
             "-o", output_dir,
-            "-a",
+            "-f",
             "-b",
         ]);
+        if aggregation {
+            command.arg("-a");
+        }
         run_command_streaming(command, "cargo-zisk prove (mpirun)")?;
     } else {
         let mut command = Command::new("cargo-zisk");
@@ -1023,9 +1161,12 @@ fn generate_proof_with_mpi(
             "-e", elf_path,
             "-i", input_path,
             "-o", output_dir,
-            "-a",
+            "-f",
             "-b",
         ]);
+        if aggregation {
+            command.arg("-a");
+        }
         run_command_streaming(command, "cargo-zisk prove")?;
     }
     
