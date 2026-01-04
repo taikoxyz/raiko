@@ -20,7 +20,7 @@ use crate::{
         GuestInput, ShastaRawAggregationGuestInput, Transition,
     },
     libhash::{
-        hash_checkpoint, hash_commitment, hash_derivation, hash_proposal, hash_public_input,
+        hash_checkpoint, hash_commitment, hash_proposal, hash_public_input,
         hash_shasta_subproof_input, hash_two_values,
     },
     primitives::{
@@ -300,7 +300,6 @@ pub struct ProtocolInstance {
     pub transition: TransitionFork,
     pub block_metadata: BlockMetaDataFork,
     pub prover: Address,
-    pub designated_prover: Option<Address>,
     pub sgx_instance: Address, // only used for SGX
     pub chain_id: u64,
     pub verifier_address: Address,
@@ -600,7 +599,6 @@ impl ProtocolInstance {
             block_metadata: BlockMetaDataFork::from(input, header, tx_list_hash),
             sgx_instance: Address::default(),
             prover: input.taiko.prover_data.actual_prover,
-            designated_prover: None,
             chain_id: input.chain_spec.chain_id,
             verifier_address,
         };
@@ -707,7 +705,6 @@ impl ProtocolInstance {
                     blockHash: last_block_hash,
                     stateRoot: last_block_state_root,
                 };
-                // let ref_checkpoint = batch_input.taiko.prover_data.checkpoint.as_ref().unwrap();
                 if let Some(ref_checkpoint) = &batch_input.taiko.prover_data.checkpoint {
                     assert_eq!(
                         current_transition_checkpoint, *ref_checkpoint,
@@ -728,7 +725,7 @@ impl ProtocolInstance {
                     actual_prover: batch_input.taiko.prover_data.actual_prover,
                     transition: ShastaTransitionInput {
                         proposer: event_data.proposal.proposer,
-                        designatedProver: batch_input.taiko.prover_data.designated_prover.unwrap(),
+                        designatedProver: batch_input.taiko.prover_data.actual_prover,
                         timestamp: event_data.proposal.timestamp,
                     },
                     checkpoint: current_transition_checkpoint,
@@ -742,7 +739,6 @@ impl ProtocolInstance {
             block_metadata: BlockMetaDataFork::from_batch_inputs(batch_input, blocks),
             sgx_instance: Address::default(),
             prover: batch_input.taiko.prover_data.actual_prover,
-            designated_prover: batch_input.taiko.prover_data.designated_prover,
             chain_id: batch_input.taiko.chain_spec.chain_id,
             verifier_address,
         };
@@ -783,13 +779,12 @@ impl ProtocolInstance {
         info!(
             "calculate instance_hash from:
             chain_id: {:?}, verifier: {:?}, transition: {:?}, sgx_instance: {:?},
-            prover: {:?}, designated_prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
+            prover: {:?}, block_meta: {:?}, meta_hash: {:?}",
             self.chain_id,
             self.verifier_address,
             &self.transition,
             &self.sgx_instance,
             &self.prover,
-            &self.designated_prover,
             &self.block_metadata,
             self.meta_hash(),
         );

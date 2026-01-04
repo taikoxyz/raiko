@@ -227,7 +227,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
-        let shasta_data_opt = if let Some(extra_data) = &self.input.taiko.extra_data {
+        let shasta_data_opt = if let Some(is_force_inclusion) = &self.input.taiko.extra_data {
             let last_anchor_block_number_opt =
                 self.input.taiko.prover_data.last_anchor_block_number;
             assert!(
@@ -235,11 +235,8 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 "last_anchor_block_number is not set in shasta request"
             );
             Some(ShastaData {
-                proposal_id: self.input.taiko.block_proposed.proposal_id(),
-                is_low_bond_proposal: extra_data.0,
-                designated_prover: extra_data.1,
                 last_anchor_block_number: last_anchor_block_number_opt.unwrap(),
-                is_force_inclusion: extra_data.2,
+                is_force_inclusion: *is_force_inclusion,
             })
         } else {
             None
@@ -283,13 +280,6 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         // Header validation
         let block = block.seal_slow();
         if !optimistic {
-            if shasta_data_opt.is_some() && shasta_data_opt.unwrap().is_low_bond_proposal {
-                assert!(
-                    block.body.is_empty(),
-                    "empty block should be empty if it is a low bond proposal"
-                );
-            }
-
             let consensus = EthBeaconConsensus::new(reth_chain_spec.clone());
             // Validates extra data
             consensus.validate_header_with_total_difficulty(&block.header, total_difficulty)?;

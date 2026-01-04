@@ -32,8 +32,6 @@ pub struct BondInstruction {
 /// Protocol proposal manifest - corresponds to Go's ProtocolProposalManifest
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DerivationSourceManifest {
-    /// Prover authentication bytes
-    pub prover_auth_bytes: Bytes,
     /// Sources in this proposal
     pub blocks: Vec<ProtocolBlockManifest>,
 }
@@ -47,7 +45,6 @@ impl DerivationSourceManifest {
         transactions: Vec<TransactionSigned>,
     ) -> Self {
         Self {
-            prover_auth_bytes: Bytes::default(),
             blocks: vec![ProtocolBlockManifest {
                 timestamp,
                 coinbase,

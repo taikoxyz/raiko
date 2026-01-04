@@ -110,15 +110,17 @@ sol! {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice The last block ID where a proposal was made.
+        /// @notice The last L1 block ID where a proposal was made.
         uint48 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice The timestamp when the last proposal was finalized.
+        uint48 lastFinalizedTimestamp;
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
-        /// @notice The hash of the last finalized transition.
-        bytes32 lastFinalizedTransitionHash;
+        /// @notice The block hash of the last finalized proposal.
+        bytes32 lastFinalizedBlockHash;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize)]

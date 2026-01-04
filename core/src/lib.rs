@@ -58,7 +58,6 @@ impl Raiko {
             TaikoProverData {
                 graffiti: self.request.graffiti,
                 actual_prover: self.request.prover,
-                designated_prover: None,
                 parent_transition_hash: None,
                 checkpoint: None,
                 last_anchor_block_number: None,
@@ -71,13 +70,12 @@ impl Raiko {
         BatchPreflightData {
             batch_id: self.request.batch_id,
             block_numbers: self.request.l2_block_numbers.clone(),
-            l1_inclusion_block_number: self.request.l1_inclusion_block_number, // todo: user input
+            l1_inclusion_block_number: self.request.l1_inclusion_block_number,
             l1_chain_spec: self.l1_chain_spec.to_owned(),
             taiko_chain_spec: self.taiko_chain_spec.to_owned(),
             prover_data: TaikoProverData {
                 graffiti: self.request.graffiti,
                 actual_prover: self.request.prover,
-                designated_prover: self.request.designated_prover,
                 parent_transition_hash: self.request.parent_transition_hash,
                 checkpoint: self
                     .request

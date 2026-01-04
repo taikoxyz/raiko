@@ -1,6 +1,6 @@
 // rust impl of taiko-mono/packages/protocol/contracts/layer1/shasta/libs/LibHashing.sol
 
-use crate::input::shasta::{Commitment, CoreState, Derivation, Proposal};
+use crate::input::shasta::{Commitment, Derivation, Proposal};
 
 use crate::input::shasta::Checkpoint;
 use crate::primitives::keccak::keccak;
@@ -190,16 +190,6 @@ unchecked {
 */
 pub fn hash_proposal(proposal: &Proposal) -> B256 {
     keccak(proposal.abi_encode().as_slice()).into()
-}
-
-pub fn hash_core_state(core_state: &CoreState) -> B256 {
-    hash_five_values(
-        U256::from(core_state.nextProposalId).into(),
-        U256::from(core_state.lastProposalBlockId).into(),
-        U256::from(core_state.lastFinalizedProposalId).into(),
-        U256::from(core_state.lastCheckpointTimestamp).into(),
-        core_state.lastFinalizedTransitionHash,
-    )
 }
 
 /// Hash a derivation source (isForcedInclusion flag + blobSlice)

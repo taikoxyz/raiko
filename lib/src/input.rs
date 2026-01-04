@@ -398,8 +398,8 @@ pub struct TaikoGuestInput {
     pub blob_commitment: Option<Vec<u8>>,
     pub blob_proof: Option<Vec<u8>>,
     pub blob_proof_type: BlobProofType,
-    // extra data: is low bond proposal, designated prover, is force inclusion
-    pub extra_data: Option<(bool, Address, bool)>,
+    // extra data: is force inclusion flag
+    pub extra_data: Option<bool>,
 }
 
 pub struct ZlibCompressError(pub String);
@@ -450,7 +450,6 @@ impl FromStr for BlobProofType {
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct TaikoProverData {
     pub actual_prover: Address,
-    pub designated_prover: Option<Address>,
     pub graffiti: B256,
     pub parent_transition_hash: Option<B256>,
     pub checkpoint: Option<Checkpoint>,
