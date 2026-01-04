@@ -31,7 +31,7 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1766131200,
+        "genesis_time": 1767420000,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
@@ -50,7 +50,7 @@
                 "Block": 0
             },
             "SHASTA": {
-                "Timestamp": 1765784540
+                "Timestamp": 0
             },
             "CANCUN": "TBD"
         },
@@ -62,7 +62,7 @@
         },
         "l1_contract": {
             "PACAYA": "0x3b37a799290950fef954dfF547608baC52A12571",
-            "SHASTA": "0xed704FBE2B64436d6A65A3f7b8c128A647Ee97df"
+            "SHASTA": "0x12100faa7b157e9947340B44409fC7E27EC0ABef"
         },
         "l2_contract": "0x1670010000000000000000000000000000010001",
         "rpc": "https://rpc.internal.taiko.xyz",

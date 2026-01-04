@@ -185,7 +185,7 @@ pub trait Prover {
                 actual_prover: input.taiko.prover_data.actual_prover,
                 transition: ShastaTransitionInput {
                     proposer: input.taiko.batch_proposed.proposer(),
-                    designatedProver: input.taiko.prover_data.designated_prover.unwrap(),
+                    designatedProver: input.taiko.prover_data.actual_prover,
                     timestamp: input.taiko.batch_proposed.proposal_timestamp(),
                 },
                 checkpoint: last_checkpoint,

@@ -87,7 +87,7 @@ impl Decodable for ProtocolBlockManifest {
 impl Encodable for DerivationSourceManifest {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         // Calculate the payload length first
-        let payload_length = self.prover_auth_bytes.length() + self.blocks.length();
+        let payload_length = self.blocks.length();
 
         // Encode the list header
         let header = alloy_rlp::Header {
@@ -97,18 +97,17 @@ impl Encodable for DerivationSourceManifest {
         header.encode(out);
 
         // Encode fields in the same order as Go struct
-        self.prover_auth_bytes.encode(out);
+
         self.blocks.encode(out);
     }
 
     fn length(&self) -> usize {
-        let payload_length = self.prover_auth_bytes.length() + self.blocks.length();
+        let payload_length = self.blocks.length();
         payload_length + alloy_rlp::length_of_length(payload_length)
     }
 }
 
 pub(crate) const PROPOSAL_MAX_BLOCKS: usize = 384;
-pub(crate) const PROPOSAL_MAX_AUTH_BYTES: usize = 161;
 
 impl Decodable for DerivationSourceManifest {
     fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
@@ -119,13 +118,6 @@ impl Decodable for DerivationSourceManifest {
                 "ProtocolProposalManifest must be encoded as a list",
             ));
         }
-        let prover_auth_bytes = alloy_primitives::Bytes::decode(buf)?;
-        if prover_auth_bytes.len() != PROPOSAL_MAX_AUTH_BYTES {
-            tracing::warn!(
-                "prover_auth_bytes length must be 161 rather than {}",
-                prover_auth_bytes.len()
-            );
-        }
 
         let blocks = Vec::<ProtocolBlockManifest>::decode(buf)?;
         if blocks.len() > PROPOSAL_MAX_BLOCKS {
@@ -135,10 +127,7 @@ impl Decodable for DerivationSourceManifest {
         }
 
         // Decode each field sequentially
-        Ok(DerivationSourceManifest {
-            prover_auth_bytes,
-            blocks,
-        })
+        Ok(DerivationSourceManifest { blocks })
     }
 }
 
@@ -157,7 +146,6 @@ mod tests {
         };
 
         DerivationSourceManifest {
-            prover_auth_bytes: Bytes::from([1u8; 161]),
             blocks: vec![block],
         }
     }
@@ -173,7 +161,6 @@ mod tests {
         let decoded = decode_and_decompress_shasta_proposal(&encoded).unwrap();
 
         // Verify roundtrip
-        assert_eq!(original.prover_auth_bytes, decoded.prover_auth_bytes);
         assert_eq!(original.blocks.len(), decoded.blocks.len());
 
         if !original.blocks.is_empty() && !decoded.blocks.is_empty() {
@@ -202,7 +189,6 @@ mod tests {
         let decoded = DerivationSourceManifest::decode(&mut data).unwrap();
 
         // Verify roundtrip
-        assert_eq!(original.prover_auth_bytes, decoded.prover_auth_bytes);
         assert_eq!(original.blocks.len(), decoded.blocks.len());
     }
 

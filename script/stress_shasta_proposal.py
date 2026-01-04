@@ -177,14 +177,49 @@ class BatchMonitor:
             self.logger.error(f"Failed to get L2 block {block_number}: {e}")
             return None
 
-    def decode_anchor_tx_input(self, tx_input: str) -> Optional[Tuple[int, int]]:
+    def extract_proposal_id_from_extradata(self, extradata: str) -> Optional[int]:
         """
-        Decode anchorV4 transaction input to extract proposal_id and anchor_number.
+        Extract proposal_id from block extradata.
+        
+        Format: byte[0] is config, bytes[1:7] is proposal_id (6 bytes, big-endian uint48)
+        Example: 0x4b000000000005 -> proposal_id = 5
+        
+        Returns proposal_id or None if extraction fails.
+        """
+        try:
+            # Remove 0x prefix if present
+            if extradata.startswith("0x"):
+                extradata = extradata[2:]
+            
+            extradata_bytes = bytes.fromhex(extradata)
+            
+            # Need at least 7 bytes (1 config byte + 6 proposal_id bytes)
+            if len(extradata_bytes) < 7:
+                self.logger.warning(f"extradata too short: {len(extradata_bytes)} bytes (need at least 7)")
+                return None
+            
+            # Extract proposal_id from bytes[1:7] (6 bytes, big-endian)
+            proposal_id_bytes = extradata_bytes[1:7]
+            proposal_id = int.from_bytes(proposal_id_bytes, byteorder="big")
+            
+            self.logger.debug(f"Extracted proposal_id from extradata: {proposal_id}")
+            return proposal_id
+        except Exception as e:
+            self.logger.error(f"Error extracting proposal_id from extradata: {e}")
+            import traceback
+            self.logger.debug(traceback.format_exc())
+            return None
+
+    def decode_anchor_tx_input(self, tx_input: str) -> Optional[int]:
+        """
+        Decode anchorV4 transaction input to extract anchor_number.
+        
+        New ABI only has _checkpoint parameter, which contains blockNumber.
         
         First tries to use web3.py's contract decoding if ABI is available.
         Falls back to manual decoding if that fails.
         
-        Returns (proposal_id, anchor_number) or None if decoding fails.
+        Returns anchor_number or None if decoding fails.
         """
         try:
             # Try web3.py contract decoding first if available
@@ -198,35 +233,17 @@ class BatchMonitor:
                     
                     # Check if it's anchorV4
                     if func_obj.fn_name == "anchorV4":
-                        # Extract from decoded parameters
-                        proposal_params = func_params.get("_proposalParams", {})
-                        # AnchorV4 ABI changed: second param is now `_checkpoint` (ICheckpointStore.Checkpoint)
+                        # New anchorV4 ABI: only has `_checkpoint` parameter (ICheckpointStore.Checkpoint)
+                        # Checkpoint: (blockNumber: uint48, blockHash: bytes32, stateRoot: bytes32)
                         checkpoint_params = func_params.get("_checkpoint", {})
                         
                         self.logger.debug(
-                            f"Decoded params - proposal_params type: {type(proposal_params)}, checkpoint_params type: {type(checkpoint_params)}"
+                            f"Decoded params - checkpoint_params type: {type(checkpoint_params)}"
                         )
                         
-                        # Handle different return types from web3.py
-                        # ProposalParams: (proposalId, proposer, proverAuth)
-                        # Checkpoint: (blockNumber, blockHash, stateRoot)
-                        
-                        proposal_id = None
                         anchor_number = None
                         
-                        # Try to extract from tuple/list (indexed access)
-                        if isinstance(proposal_params, (list, tuple)):
-                            proposal_id = proposal_params[0] if len(proposal_params) > 0 else None
-                            self.logger.debug(f"Extracted proposal_id from tuple index 0: {proposal_id}")
-                        # Try dict access (named parameters)
-                        elif isinstance(proposal_params, dict):
-                            proposal_id = proposal_params.get("proposalId")
-                            self.logger.debug(f"Extracted proposal_id from dict: {proposal_id}")
-                        # Try AttributeDict or namedtuple
-                        elif hasattr(proposal_params, 'proposalId'):
-                            proposal_id = proposal_params.proposalId
-                            self.logger.debug(f"Extracted proposal_id from attribute: {proposal_id}")
-                        
+                        # Extract blockNumber from checkpoint
                         if isinstance(checkpoint_params, (list, tuple)):
                             anchor_number = checkpoint_params[0] if len(checkpoint_params) > 0 else None
                             self.logger.debug(f"Extracted anchor_number from checkpoint tuple index 0: {anchor_number}")
@@ -237,14 +254,14 @@ class BatchMonitor:
                             anchor_number = checkpoint_params.blockNumber
                             self.logger.debug(f"Extracted anchor_number from checkpoint attribute: {anchor_number}")
                         
-                        if proposal_id is not None and anchor_number is not None:
+                        if anchor_number is not None:
                             self.logger.info(
-                                f"✓ Decoded via ABI: proposal_id={proposal_id}, anchor_number={anchor_number}"
+                                f"✓ Decoded via ABI: anchor_number={anchor_number}"
                             )
-                            return (proposal_id, anchor_number)
+                            return anchor_number
                         else:
                             self.logger.warning(
-                                f"anchorV4 decoded but missing fields: proposal_id={proposal_id}, anchor_number={anchor_number}"
+                                f"anchorV4 decoded but missing anchor_number"
                             )
                     else:
                         self.logger.warning(f"Function is {func_obj.fn_name}, not anchorV4")
@@ -260,19 +277,18 @@ class BatchMonitor:
             
             input_bytes = bytes.fromhex(tx_input)
             
-            # anchorV4 ABI (current):
-            #   anchorV4((uint48 proposalId, address proposer, bytes proverAuth),
-            #            (uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot))
+            # New anchorV4 ABI (updated):
+            #   anchorV4(ICheckpointStore.Checkpoint)
+            #   Checkpoint: (blockNumber: uint48, blockHash: bytes32, stateRoot: bytes32)
             #
-            # ABI head layout after selector (6 * 32 bytes):
-            #   word0: proposalId (uint48 in low 6 bytes)
-            #   word1: proposer (address in low 20 bytes)
-            #   word2: proverAuth offset (uint256, relative to params start)
-            #   word3: checkpoint.blockNumber (uint48 in low 6 bytes)   <-- anchor_number
-            #   word4: checkpoint.blockHash (bytes32)
-            #   word5: checkpoint.stateRoot (bytes32)
-            if len(input_bytes) < 4 + 32 * 6:
-                self.logger.error(f"Anchor tx input too short: {len(input_bytes)} bytes")
+            # ABI layout after selector (3 * 32 bytes = 96 bytes):
+            #   word0: checkpoint.blockNumber (uint48 in low 6 bytes)   <-- anchor_number
+            #   word1: checkpoint.blockHash (bytes32)
+            #   word2: checkpoint.stateRoot (bytes32)
+            # Total: 4 (selector) + 96 = 100 bytes
+            
+            if len(input_bytes) < 4 + 32 * 3:
+                self.logger.error(f"Anchor tx input too short: {len(input_bytes)} bytes (expected at least {4 + 32 * 3})")
                 return None
             
             # Get function selector
@@ -280,22 +296,15 @@ class BatchMonitor:
             self.logger.debug(f"Function selector: 0x{func_selector}")
             
             params_start = 4
-            # word0: proposalId
-            proposal_id_word = input_bytes[params_start:params_start + 32]
-            proposal_id = int.from_bytes(proposal_id_word[26:32], byteorder="big")
-
-            # word3: checkpoint.blockNumber (anchor number)
-            checkpoint_block_number_word_start = params_start + 32 * 3
-            checkpoint_block_number_word = input_bytes[
-                checkpoint_block_number_word_start:checkpoint_block_number_word_start + 32
-            ]
+            # word0: checkpoint.blockNumber (anchor number)
+            checkpoint_block_number_word = input_bytes[params_start:params_start + 32]
             anchor_number = int.from_bytes(checkpoint_block_number_word[26:32], byteorder="big")
             
             self.logger.debug(
-                f"Decoded anchor tx: proposal_id={proposal_id}, anchor_number={anchor_number}"
+                f"Decoded anchor tx (manual): anchor_number={anchor_number}"
             )
             
-            return (proposal_id, anchor_number)
+            return anchor_number
         except Exception as e:
             self.logger.error(f"Error decoding anchor tx input: {e}")
             import traceback
@@ -306,10 +315,24 @@ class BatchMonitor:
         """
         Parse L2 block to extract anchor transaction information.
         Returns AnchorTxInfo with proposal_id, anchor_number, and l2_block_number.
+        
+        proposal_id is extracted from block extradata (bytes[1:7]).
+        anchor_number is extracted from anchor transaction checkpoint.
         """
         try:
             block = await self.get_l2_block(l2_block_number)
             if block is None:
+                return None
+            
+            # Extract proposal_id from block extradata
+            extradata = block.get("extraData", "0x")
+            if not extradata or extradata == "0x":
+                self.logger.warning(f"No extradata in L2 block {l2_block_number}")
+                return None
+            
+            proposal_id = self.extract_proposal_id_from_extradata(extradata)
+            if proposal_id is None:
+                self.logger.warning(f"Failed to extract proposal_id from extradata in block {l2_block_number}")
                 return None
             
             transactions = block.get("transactions", [])
@@ -325,13 +348,11 @@ class BatchMonitor:
                 self.logger.warning(f"Empty or invalid anchor tx input in block {l2_block_number}")
                 return None
             
-            # Decode anchor tx input
-            decoded = self.decode_anchor_tx_input(tx_input)
-            if decoded is None:
+            # Decode anchor tx input to get anchor_number
+            anchor_number = self.decode_anchor_tx_input(tx_input)
+            if anchor_number is None:
                 self.logger.warning(f"Failed to decode anchor tx input for block {l2_block_number}")
                 return None
-            
-            proposal_id, anchor_number = decoded
             
             return AnchorTxInfo(
                 proposal_id=proposal_id,
@@ -340,6 +361,8 @@ class BatchMonitor:
             )
         except Exception as e:
             self.logger.error(f"Error parsing L2 block {l2_block_number}: {e}")
+            import traceback
+            self.logger.debug(traceback.format_exc())
             return None
 
     def group_blocks_by_proposal_id(

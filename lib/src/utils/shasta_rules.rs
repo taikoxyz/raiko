@@ -11,7 +11,7 @@ use crate::no_std::*;
 
 pub const BOND_PROCESSING_DELAY: usize = 6;
 
-const ANCHOR_MIN_OFFSET: usize = 2;
+const ANCHOR_MIN_OFFSET: usize = 1;
 pub const ANCHOR_MAX_OFFSET: usize = 128;
 
 pub(crate) fn valid_anchor_in_normal_proposal(
@@ -49,7 +49,7 @@ pub(crate) fn valid_anchor_in_normal_proposal(
         prev_anchor = Some(anchor);
 
         // Check 3: anchor should be within valid range
-        if anchor < min_anchor || anchor >= max_anchor {
+        if anchor < min_anchor || anchor > max_anchor {
             warn!(
                 "anchor {} is not in range, [{}, {})",
                 anchor, min_anchor, max_anchor
