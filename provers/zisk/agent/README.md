@@ -14,7 +14,8 @@ provers/zisk/agent/
 ├── driver/           # Raiko integration driver  
 ├── guest/            # RISC-V guest programs
 ├── builder/          # Build pipeline (legacy)
-├── elf/              # Compiled guest binaries (auto-generated)
+├── guest/elf/         # Compiled guest binaries (auto-generated)
+├── build/            # Proof/publics output (auto-generated)
 ├── build.sh          # Unified build script
 ├── Cargo.toml        # Workspace configuration
 └── README.md         # This file
@@ -42,7 +43,8 @@ This structure makes ZISK completely independent - you can develop, build, test,
 ## Features
 
 - **Batch Proof Generation**: Generate proofs for individual blocks
-- **Aggregation Proof Generation**: Aggregate multiple batch proofs  
+- **Aggregation Proof Generation**: Aggregate multiple batch proofs
+- **Shasta Aggregation**: Aggregate Shasta proposal proofs
 - **Concurrent Execution**: Optional MPI support for parallel processing
 - **GPU Acceleration**: Automatic CUDA detection and support
 - **Health Monitoring**: Health check endpoint for service monitoring
@@ -56,7 +58,7 @@ This structure makes ZISK completely independent - you can develop, build, test,
    source ~/.bashrc
    ```
 
-2. **Rust Toolchain**: Requires nightly-2024-12-20
+2. **Rust Toolchain**: Build script expects nightly-2024-12-20
    ```bash
    rustup toolchain install nightly-2024-12-20
    ```
@@ -129,8 +131,6 @@ This structure makes ZISK completely independent - you can develop, build, test,
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `RUST_LOG` | Logging level | info |
-| `ZISK_CONCURRENT_PROCESSES` | Override concurrent processes | - |
-| `ZISK_THREADS_PER_PROCESS` | Override threads per process | - |
 
 ## API Endpoints
 
@@ -157,8 +157,9 @@ POST /proof
 ```json
 {
   "input": [/* input data as byte array */],
-  "proof_type": "batch" | "aggregate",
-  "config": {/* optional configuration */}
+  "proof_type": "batch" | "aggregate" | "shasta_aggregate",
+  "config": {/* optional configuration */},
+  "expected_input": [/* optional 32-byte array for batch */]
 }
 ```
 
@@ -166,11 +167,17 @@ POST /proof
 ```json
 {
   "proof_data": [/* proof data as byte array */],
-  "proof_type": "batch" | "aggregate", 
+  "proof_type": "batch" | "aggregate" | "shasta_aggregate", 
   "success": true,
   "error": null
 }
 ```
+
+`proof_data` is a bincode-encoded `ZiskResponse` containing:
+- `proof`: hex-encoded proof bytes (0x...)
+- `receipt`: optional string
+- `input`: 32-byte public input (from guest output)
+- `uuid`: request id
 
 ## Integration with Raiko
 
@@ -185,7 +192,7 @@ export ZISK_AGENT_URL="http://localhost:9998/proof"
 ### Raiko Configuration
 The existing ZISK configuration in Raiko continues to work. The driver will:
 1. Try to connect to the agent first
-2. Fall back to direct proof generation if agent is unavailable (if implemented)
+2. Return an error if agent is unavailable (no local fallback)
 
 ## Performance Tuning
 
@@ -202,7 +209,15 @@ The existing ZISK configuration in Raiko continues to work. The driver will:
 GPU support is automatically enabled when CUDA toolkit is detected during build.
 
 ### Memory Management
-The agent automatically cleans up temporary files after each proof generation to prevent disk space issues.
+The agent cleans request-scoped build folders after proof generation. Proofs/publics are written to fixed output paths (see below).
+
+### Proof/Public Output Paths
+`cargo-zisk` writes proof and publics files to fixed directories so the host can read them consistently:
+- `build/zisk-output/batch`
+- `build/zisk-output/aggregation`
+- `build/zisk-output/shasta`
+
+Each run overwrites `vadcop_final_proof.bin` and `publics.json` in the corresponding folder. This is not concurrency-safe per proof type.
 
 ## Monitoring and Logging
 
@@ -231,7 +246,7 @@ RUST_LOG=zisk_agent=debug,axum::routing=info ./target/release/zisk-agent
 
 2. **Proof generation fails**:
    - Check agent logs for detailed error messages
-   - Verify ELF files exist: `ls -la elf/`
+   - Verify ELF files exist: `ls -la guest/elf/`
    - Test cargo-zisk manually: `cargo-zisk --help`
 
 3. **Performance issues**:
@@ -250,19 +265,21 @@ RUST_LOG=trace ./target/release/zisk-agent --verbose
 ### Project Structure
 ```
 provers/zisk/agent/
-├── src/
+├── service/src/
 │   ├── main.rs       # HTTP server and CLI
 │   ├── prover.rs     # Core ZISK proof logic  
 │   └── handlers.rs   # API request handlers
-├── elf/              # Pre-built guest programs (auto-generated)
+├── driver/src/        # Raiko integration driver
+├── guest/src/         # Guest programs (batch/aggregation)
+├── guest/elf/         # Pre-built guest programs (auto-generated)
 ├── build.sh          # Build script
 ├── Cargo.toml        # Dependencies (isolated workspace)
 └── README.md         # This file
 ```
 
 ### Adding New Features
-1. Modify the prover logic in `src/prover.rs`
-2. Update API handlers in `src/handlers.rs` if needed
+1. Modify the prover logic in `service/src/prover.rs`
+2. Update API handlers in `service/src/handlers.rs` if needed
 3. Rebuild: `./build.sh agent`
 4. Test changes with health check and sample requests
 

@@ -314,10 +314,4 @@ if [ "$1" == "zisk" ]; then
     echo "Agent binary:    $ZISK_AGENT_DIR/target/release/zisk-agent"
     echo "Default port:    9998"
     echo ""
-    echo "Usage examples:"
-    echo "  # Start agent:        ZISK_AGENT=1 RUN=1 ./script/build.sh zisk"
-    echo "  # Run with agent:     RUN=1 ./script/build.sh zisk" 
-    echo "  # Build guest only:   GUEST=1 ./script/build.sh zisk"
-    echo "  # Agent build script: cd $ZISK_AGENT_DIR && ./build.sh help"
-    echo ""
 fi
