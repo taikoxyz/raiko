@@ -157,9 +157,7 @@ impl Prover for NativeProver {
                 proposer: proof_carry_data.transition_input.transition.proposer,
                 designatedProver: proof_carry_data.transition_input.transition.proposer,
                 timestamp: proof_carry_data.transition_input.transition.timestamp,
-                checkpointHash: raiko_lib::libhash::hash_checkpoint(
-                    &proof_carry_data.transition_input.checkpoint,
-                ),
+                blockHash: proof_carry_data.transition_input.checkpoint.blockHash,
             });
         }
 

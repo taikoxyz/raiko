@@ -1,6 +1,6 @@
 // code logic comes from: packages/protocol/contracts/layer1/shasta/libs/LibManifest.sol
 
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_primitives::{Address, U256};
 use reth_primitives::TransactionSigned;
 use serde::{Deserialize, Serialize};
 

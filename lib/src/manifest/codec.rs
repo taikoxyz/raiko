@@ -134,7 +134,7 @@ impl Decodable for DerivationSourceManifest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{Address, Bytes};
+    use alloy_primitives::Address;
 
     fn create_test_proposal() -> DerivationSourceManifest {
         let block = ProtocolBlockManifest {

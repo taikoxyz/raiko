@@ -140,30 +140,47 @@ pub fn hash_shasta_transition_input(transition_input: &TransitionInputData) -> B
     hash_values_impl(&values)
 }
 
-pub fn hash_commitment(prove_input: &Commitment) -> B256 {
-    // Flatten all the fields into a Vec<B256>, as in Solidity's buffer.
-    let transition_count = prove_input.transitions.len();
-    let mut buffer: Vec<B256> = Vec::with_capacity(9 + transition_count * 4);
+/// Optimized hashing for commitment data, matching Solidity's hashCommitment implementation.
+/// Flattens all fields following the same memory layout as the Solidity buffer,
+/// including static field ordering, offsets, and transition element packing.
+pub fn hash_commitment(commitment: &Commitment) -> B256 {
+    let transitions_len = commitment.transitions.len();
+    let total_words = 9 + transitions_len * 4;
 
-    // Top-level head
+    let mut buffer: Vec<B256> = Vec::with_capacity(total_words);
+
+    // [0] offset to commitment (0x20)
     buffer.push(U256::from(0x20u64).into());
 
-    // Commitment static fields
-    buffer.push(U256::from(prove_input.firstProposalId).into());
-    buffer.push(prove_input.firstProposalParentBlockHash);
-    buffer.push(prove_input.lastProposalHash);
-    buffer.push(address_to_b256(prove_input.actualProver));
-    buffer.push(U256::from(prove_input.endBlockNumber).into());
-    buffer.push(prove_input.endStateRoot);
+    // Commitment static section
+    // [1] firstProposalId
+    buffer.push(U256::from(commitment.firstProposalId).into());
+    // [2] firstProposalParentBlockHash
+    buffer.push(commitment.firstProposalParentBlockHash);
+    // [3] lastProposalHash
+    buffer.push(commitment.lastProposalHash);
+    // [4] actualProver as address (160 bits zero-extended to 256)
+    buffer.push(address_to_b256(commitment.actualProver));
+    // [5] endBlockNumber
+    buffer.push(U256::from(commitment.endBlockNumber).into());
+    // [6] endStateRoot
+    buffer.push(commitment.endStateRoot);
+    // [7] offset to transitions (0xe0)
     buffer.push(U256::from(0xe0u64).into());
 
-    buffer.push(U256::from(transition_count as u64).into());
-    // Flatten each Transition as in Solidity: [proposer, designatedProver, timestamp, checkpointHash]
-    for transition in &prove_input.transitions {
+    // [8] transitions array length
+    buffer.push(U256::from(transitions_len as u64).into());
+
+    // Each transition: [proposer, designatedProver, timestamp, blockHash]
+    for transition in &commitment.transitions {
+        // proposer: address (uint160, left padded to 32 bytes)
         buffer.push(address_to_b256(transition.proposer));
+        // designatedProver: address
         buffer.push(address_to_b256(transition.designatedProver));
-        buffer.push(u48_to_b256(transition.timestamp));
-        buffer.push(transition.checkpointHash);
+        // timestamp: as 256 bits (Solidity stores as uint256)
+        buffer.push(U256::from(transition.timestamp).into());
+        // blockHash (matches Solidity's .blockHash field naming and usage)
+        buffer.push(transition.blockHash);
     }
 
     hash_values_impl(&buffer)

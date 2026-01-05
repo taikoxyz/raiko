@@ -1,5 +1,4 @@
-use alloy_primitives::{Address, B256};
-use alloy_sol_types::{sol, SolValue};
+use alloy_sol_types::sol;
 use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
@@ -81,8 +80,8 @@ sol! {
         address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice checkpoint hash for the proposal.
-        bytes32 checkpointHash;
+        /// @notice end block hash for the proposal.
+        bytes32 blockHash;
     }
 
     #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
