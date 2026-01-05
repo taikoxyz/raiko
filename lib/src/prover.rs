@@ -39,7 +39,6 @@ pub type ProofKey = (ChainId, u64, B256, u8);
 // We keep ABI-compatible field names.
 pub struct ShastaTransitionInput {
     pub proposer: Address,
-    pub designatedProver: Address,
     pub timestamp: u64,
 }
 
@@ -185,7 +184,6 @@ pub trait Prover {
                 actual_prover: input.taiko.prover_data.actual_prover,
                 transition: ShastaTransitionInput {
                     proposer: input.taiko.batch_proposed.proposer(),
-                    designatedProver: input.taiko.prover_data.actual_prover,
                     timestamp: input.taiko.batch_proposed.proposal_timestamp(),
                 },
                 checkpoint: last_checkpoint,

@@ -129,9 +129,6 @@ pub fn hash_shasta_transition_input(transition_input: &TransitionInputData) -> B
 
     // Transition fields (as in Solidity Transition struct)
     values.push(address_to_b256(transition_input.transition.proposer));
-    values.push(address_to_b256(
-        transition_input.transition.designatedProver,
-    ));
     values.push(u48_to_b256(transition_input.transition.timestamp));
     values.push(hash_checkpoint(&transition_input.checkpoint));
 
@@ -537,7 +534,6 @@ mod test {
             actual_prover: address!("1111111111111111111111111111111111111111"),
             transition: ShastaTransitionInput {
                 proposer: address!("2222222222222222222222222222222222222222"),
-                designatedProver: address!("3333333333333333333333333333333333333333"),
                 timestamp: 123,
             },
             checkpoint: Checkpoint {
@@ -590,7 +586,6 @@ mod test {
             actual_prover: address!("1111111111111111111111111111111111111111"),
             transition: ShastaTransitionInput {
                 proposer: address!("2222222222222222222222222222222222222222"),
-                designatedProver: address!("3333333333333333333333333333333333333333"),
                 timestamp: 123,
             },
             checkpoint: Checkpoint {

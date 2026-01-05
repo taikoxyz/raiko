@@ -155,10 +155,7 @@ impl Prover for NativeProver {
             );
             transitions.push(ShastaTransition {
                 proposer: proof_carry_data.transition_input.transition.proposer,
-                designatedProver: proof_carry_data
-                    .transition_input
-                    .transition
-                    .designatedProver,
+                designatedProver: proof_carry_data.transition_input.transition.proposer,
                 timestamp: proof_carry_data.transition_input.transition.timestamp,
                 checkpointHash: raiko_lib::libhash::hash_checkpoint(
                     &proof_carry_data.transition_input.checkpoint,

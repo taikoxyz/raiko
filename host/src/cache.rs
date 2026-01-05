@@ -112,7 +112,6 @@ mod test {
             l2_block_numbers: Default::default(),
             parent_transition_hash: None,
             checkpoint: None,
-            designated_prover: None,
             cached_event_data: None,
             last_anchor_block_number: None,
         };

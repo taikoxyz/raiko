@@ -371,8 +371,6 @@ pub struct ShastaProofRequestKey {
     proof_type: ProofType,
     /// The actual prover of the request (affects public input binding)
     actual_prover_address: String,
-    /// The designated prover for this proposal (affects transition binding)
-    designated_prover_address: String,
     /// The image ID for zk provers (optional)
     image_id: Option<ImageId>,
 }
@@ -382,13 +380,11 @@ impl ShastaProofRequestKey {
         guest_input_key: ShastaInputRequestKey,
         proof_type: ProofType,
         actual_prover_address: String,
-        designated_prover_address: String,
     ) -> Self {
         Self {
             guest_input_key,
             proof_type,
             actual_prover_address,
-            designated_prover_address,
             image_id: None,
         }
     }
@@ -397,14 +393,12 @@ impl ShastaProofRequestKey {
         guest_input_key: ShastaInputRequestKey,
         proof_type: ProofType,
         actual_prover_address: String,
-        designated_prover_address: String,
         image_id: ImageId,
     ) -> Self {
         Self {
             guest_input_key,
             proof_type,
             actual_prover_address,
-            designated_prover_address,
             image_id: Some(image_id),
         }
     }
@@ -711,8 +705,6 @@ pub struct ShastaInputRequestEntity {
     checkpoint: Option<ShastaProposalCheckpoint>,
     /// last anchor block number
     last_anchor_block_number: u64,
-    /// Designated prover.
-    designated_prover: Address,
     /// L1 block number when the bond proposal was made (used to parse bond_proposal_hash)
     l1_bond_proposal_block_number: Option<u64>,
 }
@@ -728,7 +720,6 @@ impl ShastaInputRequestEntity {
         l2_blocks: Vec<u64>,
         parent_transition_hash: B256,
         checkpoint: Option<ShastaProposalCheckpoint>,
-        designated_prover: Address,
         last_anchor_block_number: u64,
         l1_bond_proposal_block_number: Option<u64>,
     ) -> Self {
@@ -742,7 +733,6 @@ impl ShastaInputRequestEntity {
             l2_blocks,
             parent_transition_hash,
             checkpoint,
-            designated_prover,
             last_anchor_block_number,
             l1_bond_proposal_block_number,
         }
@@ -833,7 +823,6 @@ impl ShastaProofRequestEntity {
         prover_args: HashMap<String, serde_json::Value>,
         parent_transition_hash: B256,
         checkpoint: Option<ShastaProposalCheckpoint>,
-        designated_prover: Address,
         last_anchor_block_number: u64,
     ) -> Self {
         Self {
@@ -847,7 +836,6 @@ impl ShastaProofRequestEntity {
                 l2_blocks,
                 parent_transition_hash,
                 checkpoint,
-                designated_prover,
                 last_anchor_block_number,
                 None, // l1_bond_proposal_block_number - will be set when creating from ShastaProposal
             ),

@@ -227,7 +227,6 @@ pub async fn do_generate_guest_input(
         l2_block_numbers: Vec::new(),
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
-        designated_prover: Default::default(),
         cached_event_data: None,
         last_anchor_block_number: None,
     };
@@ -293,7 +292,6 @@ pub async fn do_prove_single(
         l2_block_numbers: Vec::new(),
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
-        designated_prover: Default::default(),
         cached_event_data: None,
         last_anchor_block_number: None,
     };
@@ -429,7 +427,6 @@ async fn new_raiko_for_batch_request(
         l2_block_numbers: all_prove_blocks.clone(),
         parent_transition_hash: Default::default(),
         checkpoint: Default::default(),
-        designated_prover: Default::default(),
         cached_event_data: Some(cached_event_data),
         last_anchor_block_number: None,
     };
@@ -596,12 +593,6 @@ async fn new_raiko_for_shasta_proposal_request(
                 .clone(),
         ),
         checkpoint: request_entity.guest_input_entity().checkpoint().clone(),
-        designated_prover: Some(
-            request_entity
-                .guest_input_entity()
-                .designated_prover()
-                .clone(),
-        ),
         last_anchor_block_number: Some(
             request_entity
                 .guest_input_entity()

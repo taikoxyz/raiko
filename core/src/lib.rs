@@ -589,7 +589,6 @@ mod tests {
                 "66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
             )),
             checkpoint: None,
-            designated_prover: Some(address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc")),
             cached_event_data: None,
             last_anchor_block_number: Some(4909),
         };
@@ -622,7 +621,6 @@ mod tests {
             prover_args: test_proof_params(false),
             parent_transition_hash: None,
             checkpoint: None,
-            designated_prover: None,
             last_anchor_block_number: None,
             cached_event_data: None,
         };
@@ -666,7 +664,6 @@ mod tests {
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
             parent_transition_hash: None,
-            designated_prover: None,
             checkpoint: None,
             last_anchor_block_number: None,
             cached_event_data: None,
@@ -705,7 +702,6 @@ mod tests {
             prover_args: test_proof_params(false),
             parent_transition_hash: None,
             checkpoint: None,
-            designated_prover: None,
             last_anchor_block_number: None,
             cached_event_data: None,
         };
@@ -751,7 +747,6 @@ mod tests {
                 prover_args: test_proof_params(false),
                 parent_transition_hash: None,
                 checkpoint: None,
-                designated_prover: None,
                 last_anchor_block_number: None,
                 cached_event_data: None,
             };
@@ -787,7 +782,6 @@ mod tests {
                 prover_args: test_proof_params(false),
                 parent_transition_hash: None,
                 checkpoint: None,
-                designated_prover: None,
                 last_anchor_block_number: None,
                 cached_event_data: None,
             };
@@ -825,7 +819,6 @@ mod tests {
             prover_args: test_proof_params(true),
             parent_transition_hash: None,
             checkpoint: None,
-            designated_prover: None,
             last_anchor_block_number: None,
             cached_event_data: None,
         };
