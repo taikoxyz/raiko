@@ -58,7 +58,6 @@ impl Raiko {
             TaikoProverData {
                 graffiti: self.request.graffiti,
                 actual_prover: self.request.prover,
-                parent_transition_hash: None,
                 checkpoint: None,
                 last_anchor_block_number: None,
             },
@@ -76,7 +75,6 @@ impl Raiko {
             prover_data: TaikoProverData {
                 graffiti: self.request.graffiti,
                 actual_prover: self.request.prover,
-                parent_transition_hash: self.request.parent_transition_hash,
                 checkpoint: self
                     .request
                     .checkpoint
@@ -585,9 +583,6 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
-            parent_transition_hash: Some(b256!(
-                "66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388"
-            )),
             checkpoint: None,
             cached_event_data: None,
             last_anchor_block_number: Some(4909),
@@ -619,7 +614,6 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
-            parent_transition_hash: None,
             checkpoint: None,
             last_anchor_block_number: None,
             cached_event_data: None,
@@ -663,7 +657,6 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
-            parent_transition_hash: None,
             checkpoint: None,
             last_anchor_block_number: None,
             cached_event_data: None,
@@ -700,7 +693,6 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(false),
-            parent_transition_hash: None,
             checkpoint: None,
             last_anchor_block_number: None,
             cached_event_data: None,
@@ -745,7 +737,6 @@ mod tests {
                 proof_type,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
-                parent_transition_hash: None,
                 checkpoint: None,
                 last_anchor_block_number: None,
                 cached_event_data: None,
@@ -780,7 +771,6 @@ mod tests {
                 proof_type,
                 blob_proof_type: BlobProofType::ProofOfEquivalence,
                 prover_args: test_proof_params(false),
-                parent_transition_hash: None,
                 checkpoint: None,
                 last_anchor_block_number: None,
                 cached_event_data: None,
@@ -817,7 +807,6 @@ mod tests {
             proof_type,
             blob_proof_type: BlobProofType::ProofOfEquivalence,
             prover_args: test_proof_params(true),
-            parent_transition_hash: None,
             checkpoint: None,
             last_anchor_block_number: None,
             cached_event_data: None,

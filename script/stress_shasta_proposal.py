@@ -706,21 +706,16 @@ class BatchMonitor:
         return logs[0].blockNumber, batch_ids
 
     def generate_post_data(
-        self, proposal_id: int, l1_inclusion_block_number: int, l2_block_numbers: list[int], last_anchor_block_number: int, l1_bond_proposal_block_number: Optional[int] = None
+        self, proposal_id: int, l1_inclusion_block_number: int, l2_block_numbers: list[int], last_anchor_block_number: int
     ) -> Dict[str, Any]:
         """generate post data"""
         proposal_data = {
             "proposal_id": proposal_id,
             "l1_inclusion_block_number": l1_inclusion_block_number,
             "l2_block_numbers": l2_block_numbers,
-            "parent_transition_hash": "0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388",
             "checkpoint": None,
             "last_anchor_block_number": last_anchor_block_number,
         }
-        
-        # Add l1_bond_proposal_block_number if provided
-        if l1_bond_proposal_block_number is not None:
-            proposal_data["l1_bond_proposal_block_number"] = l1_bond_proposal_block_number
         
         return {
             "proposals": [proposal_data],
@@ -745,13 +740,13 @@ class BatchMonitor:
         }
 
     async def submit_to_raiko(
-        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int, l1_bond_proposal_block_number: Optional[int] = None
+        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int
     ) -> Optional[str]:
         """submit batch to Raiko"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
 
-            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number, l1_bond_proposal_block_number)
+            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number)
             print(f"payload = {payload}")
 
             response = requests.post(
@@ -778,12 +773,12 @@ class BatchMonitor:
             return None
 
     async def query_raiko_status(
-        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int, l1_bond_proposal_block_number: Optional[int] = None
+        self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int
     ) -> RaikoResponse:
         """query Raiko status"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
-            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number, l1_bond_proposal_block_number)
+            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number)
             response = requests.post(
                 f"{self.raiko_rpc}/v3/proof/batch/shasta",
                 headers=headers,
@@ -841,26 +836,8 @@ class BatchMonitor:
                     f"First block is 0, no parent block available, using default last_anchor_block_number=0"
                 )
 
-            # Get l1_bond_proposal_block_number from cache (pre-fetched in batch)
-            l1_bond_proposal_block_number = None
-            bond_proposal_id = group.proposal_id - 6
-            if bond_proposal_id > 0:
-                l1_bond_proposal_block_number = self.proposal_block_cache.get(bond_proposal_id)
-                if l1_bond_proposal_block_number is not None:
-                    self.logger.info(
-                        f"Using cached bond proposal_id {bond_proposal_id} -> L1 block {l1_bond_proposal_block_number}"
-                    )
-                else:
-                    self.logger.info(
-                        f"Bond proposal_id {bond_proposal_id} not found (cached as None)"
-                    )
-            else:
-                self.logger.info(
-                    f"Proposal_id {group.proposal_id} is too small (bond_proposal_id would be {bond_proposal_id}), skipping bond proposal lookup"
-                )
-
             # request Raiko
-            await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number, l1_bond_proposal_block_number)
+            await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number)
 
             # polling
             retry_count = 0
@@ -873,7 +850,7 @@ class BatchMonitor:
                     )
                     break
 
-                response = await self.query_raiko_status(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number, l1_bond_proposal_block_number)
+                response = await self.query_raiko_status(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number)
 
                 if response.status == "error":
                     self.logger.error(

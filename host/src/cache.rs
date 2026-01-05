@@ -110,7 +110,6 @@ mod test {
             prover_args: Default::default(),
             l1_inclusion_block_number: 0,
             l2_block_numbers: Default::default(),
-            parent_transition_hash: None,
             checkpoint: None,
             cached_event_data: None,
             last_anchor_block_number: None,

@@ -451,7 +451,6 @@ impl FromStr for BlobProofType {
 pub struct TaikoProverData {
     pub actual_prover: Address,
     pub graffiti: B256,
-    pub parent_transition_hash: Option<B256>,
     pub checkpoint: Option<Checkpoint>,
     pub last_anchor_block_number: Option<u64>,
 }

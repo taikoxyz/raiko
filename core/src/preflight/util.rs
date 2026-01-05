@@ -328,32 +328,6 @@ pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
     }
 }
 
-pub async fn _parse_l1_bond_proposal_tx_for_shasta_fork(
-    _l1_chain_spec: &ChainSpec,
-    _taiko_chain_spec: &ChainSpec,
-    _l1_bond_proposal_block_number: u64,
-    _bond_proposal_id: u64,
-) -> RaikoResult<B256> {
-    unreachable!("bond proposal is not implemented, double check the logic");
-
-    // let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
-    // let (l1_bond_proposal_height, _tx, _) = get_block_proposed_event_by_height(
-    //     provider_l1.provider(),
-    //     taiko_chain_spec.clone(),
-    //     l1_bond_proposal_block_number,
-    //     bond_proposal_id,
-    //     SpecId::SHASTA,
-    // )
-    // .await?;
-
-    // assert_eq!(
-    //     l1_bond_proposal_block_number, l1_bond_proposal_height,
-    //     "proposal tx inclusive block != proof_request block"
-    // );
-
-    // Ok(B256::ZERO)
-}
-
 /// Prepare Pacaya batch input
 async fn prepare_pacaya_batch_input(
     batch_proposed: raiko_lib::input::pacaya::BatchProposed,

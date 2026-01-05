@@ -19,10 +19,8 @@ pub fn create_shasta_requests(
     for proposal in batch_request.proposals.iter() {
         let ShastaProposal {
             proposal_id,
-            parent_transition_hash,
             checkpoint,
             l1_inclusion_block_number,
-            l1_bond_proposal_block_number,
             l2_block_numbers,
             last_anchor_block_number,
         } = proposal;
@@ -56,10 +54,8 @@ pub fn create_shasta_requests(
             batch_request.prover,
             batch_request.blob_proof_type.clone(),
             l2_block_numbers.clone(),
-            parent_transition_hash.unwrap_or_default(),
             checkpoint.clone().into(),
             last_anchor_block_number.clone(),
-            *l1_bond_proposal_block_number, // l1_bond_proposal_block_number - will be used to parse bond_proposal_hash in reqactor
         );
 
         // Create Shasta proof request entity
