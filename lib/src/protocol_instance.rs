@@ -725,7 +725,6 @@ impl ProtocolInstance {
                     actual_prover: batch_input.taiko.prover_data.actual_prover,
                     transition: ShastaTransitionInput {
                         proposer: event_data.proposal.proposer,
-                        designatedProver: batch_input.taiko.prover_data.actual_prover,
                         timestamp: event_data.proposal.timestamp,
                     },
                     checkpoint: current_transition_checkpoint,
@@ -957,7 +956,7 @@ pub fn build_shasta_commitment_from_proof_carry_data_vec(
         .iter()
         .map(|item| crate::input::shasta::Transition {
             proposer: item.transition_input.transition.proposer,
-            designatedProver: item.transition_input.transition.designatedProver,
+            designatedProver: item.transition_input.transition.proposer,
             timestamp: item.transition_input.transition.timestamp,
             checkpointHash: hash_checkpoint(&item.transition_input.checkpoint),
         })
@@ -1186,7 +1185,6 @@ mod tests {
                     actual_prover: address!("1111111111111111111111111111111111111111"),
                     transition: ShastaTransitionInput {
                         proposer: address!("2222222222222222222222222222222222222222"),
-                        designatedProver: address!("3333333333333333333333333333333333333333"),
                         timestamp: 123,
                     },
                     checkpoint,

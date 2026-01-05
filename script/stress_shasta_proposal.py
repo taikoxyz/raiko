@@ -713,7 +713,6 @@ class BatchMonitor:
             "proposal_id": proposal_id,
             "l1_inclusion_block_number": l1_inclusion_block_number,
             "l2_block_numbers": l2_block_numbers,
-            "designated_prover": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
             "parent_transition_hash": "0x66aa40046aa64a8e0a7ecdbbc70fb2c63ebdcb2351e7d0b626ed3cb4f55fb388",
             "checkpoint": None,
             "last_anchor_block_number": last_anchor_block_number,

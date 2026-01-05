@@ -19,7 +19,6 @@ pub fn create_shasta_requests(
     for proposal in batch_request.proposals.iter() {
         let ShastaProposal {
             proposal_id,
-            designated_prover,
             parent_transition_hash,
             checkpoint,
             l1_inclusion_block_number,
@@ -36,7 +35,6 @@ pub fn create_shasta_requests(
 
         // Create Shasta proof request key
         let actual_prover_address = batch_request.prover.to_string();
-        let designated_prover_address = designated_prover.to_string();
         let request_key =
             RequestKey::ShastaProof(ShastaProofRequestKey::new_with_input_key_and_image_id(
                 ShastaInputRequestKey::new(
@@ -46,7 +44,6 @@ pub fn create_shasta_requests(
                 ),
                 batch_request.proof_type,
                 actual_prover_address,
-                designated_prover_address,
                 image_id.clone(),
             ));
 
@@ -61,7 +58,6 @@ pub fn create_shasta_requests(
             l2_block_numbers.clone(),
             parent_transition_hash.unwrap_or_default(),
             checkpoint.clone().into(),
-            designated_prover.clone(),
             last_anchor_block_number.clone(),
             *l1_bond_proposal_block_number, // l1_bond_proposal_block_number - will be used to parse bond_proposal_hash in reqactor
         );
