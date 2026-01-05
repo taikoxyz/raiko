@@ -1365,28 +1365,6 @@ async fn get_and_filter_blob_data_by_blobscan(
     let blob = response.json::<BlobScanData>().await?;
     Ok(blob_to_bytes(&blob.data))
 }
-
-/// Decodes extra data for Taiko chain containing base fee sharing percentage and bond proposal flag
-///
-/// # Arguments
-/// * `extra_data` - The encoded extra data bytes
-///
-/// # Returns
-/// A tuple containing (basefee_sharing_pctg, is_low_bond_proposal)
-pub(crate) fn decode_extra_data(extra_data: &[u8]) -> (u8, bool) {
-    if extra_data.len() < 2 {
-        return (0, false);
-    }
-
-    // First byte: basefee sharing percentage
-    let basefee_sharing_pctg = extra_data[0];
-
-    // Second byte: is_low_bond_proposal in the lowest bit
-    let is_low_bond_proposal = (extra_data[1] & 0x01) != 0;
-
-    (basefee_sharing_pctg, is_low_bond_proposal)
-}
-
 #[cfg(test)]
 mod test {
     use alloy_rlp::Decodable;

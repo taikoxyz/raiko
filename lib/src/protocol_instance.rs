@@ -958,7 +958,7 @@ pub fn build_shasta_commitment_from_proof_carry_data_vec(
             proposer: item.transition_input.transition.proposer,
             designatedProver: item.transition_input.transition.proposer,
             timestamp: item.transition_input.transition.timestamp,
-            checkpointHash: hash_checkpoint(&item.transition_input.checkpoint),
+            blockHash: item.transition_input.checkpoint.blockHash,
         })
         .collect();
 
