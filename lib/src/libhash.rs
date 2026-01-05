@@ -122,7 +122,7 @@ pub fn hash_shasta_transition_input(transition_input: &TransitionInputData) -> B
     values.push(u64_to_b256(transition_input.proposal_id));
     values.push(transition_input.proposal_hash);
     values.push(transition_input.parent_proposal_hash);
-    values.push(transition_input.parent_checkpoint_hash);
+    values.push(transition_input.parent_block_hash);
 
     // Prover identity (L1-level)
     values.push(address_to_b256(transition_input.actual_prover));
@@ -545,7 +545,7 @@ mod test {
             parent_proposal_hash: b256!(
                 "0000000000000000000000000000000000000000000000000000000000000000"
             ),
-            parent_checkpoint_hash: b256!(
+            parent_block_hash: b256!(
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             ),
             actual_prover: address!("1111111111111111111111111111111111111111"),
@@ -567,11 +567,11 @@ mod test {
         let h0 = hash_shasta_transition_input(&base);
 
         // Changing any continuity / commitment-relevant field must change the hash.
-        base.parent_checkpoint_hash =
+        base.parent_block_hash =
             b256!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
         assert_ne!(h0, hash_shasta_transition_input(&base));
 
-        base.parent_checkpoint_hash =
+        base.parent_block_hash =
             b256!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         base.parent_proposal_hash =
             b256!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -597,7 +597,7 @@ mod test {
             parent_proposal_hash: b256!(
                 "0000000000000000000000000000000000000000000000000000000000000000"
             ),
-            parent_checkpoint_hash: b256!(
+            parent_block_hash: b256!(
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             ),
             actual_prover: address!("1111111111111111111111111111111111111111"),

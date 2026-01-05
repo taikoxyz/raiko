@@ -712,16 +712,11 @@ impl ProtocolInstance {
                         current_transition_checkpoint, ref_checkpoint
                     );
                 }
-                let parent_checkpoint_hash = hash_checkpoint(&Checkpoint {
-                    blockNumber: batch_input.inputs[0].parent_header.number,
-                    blockHash: batch_input.inputs[0].parent_header.hash_slow(),
-                    stateRoot: batch_input.inputs[0].parent_header.state_root,
-                });
                 TransitionFork::Shasta(TransitionInputData {
                     proposal_id: event_data.proposal.id,
                     proposal_hash: hash_proposal(&event_data.proposal),
                     parent_proposal_hash: event_data.proposal.parentProposalHash,
-                    parent_checkpoint_hash: parent_checkpoint_hash,
+                    parent_block_hash: batch_input.inputs[0].parent_header.hash_slow(),
                     actual_prover: batch_input.taiko.prover_data.actual_prover,
                     transition: ShastaTransitionInput {
                         proposer: event_data.proposal.proposer,
@@ -934,9 +929,7 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
         }
 
         // Continuity: prev checkpoint must match next parent checkpoint hash.
-        if hash_checkpoint(&prev.transition_input.checkpoint)
-            != next.transition_input.parent_checkpoint_hash
-        {
+        if prev.transition_input.checkpoint.blockHash != next.transition_input.parent_block_hash {
             return false;
         }
     }
@@ -965,9 +958,7 @@ pub fn build_shasta_commitment_from_proof_carry_data_vec(
     Some(Commitment {
         firstProposalId: proof_carry_data_vec[0].transition_input.proposal_id,
         // This field is a checkpoint hash in the latest Shasta contract; we store it as bytes32.
-        firstProposalParentBlockHash: proof_carry_data_vec[0]
-            .transition_input
-            .parent_checkpoint_hash,
+        firstProposalParentBlockHash: proof_carry_data_vec[0].transition_input.parent_block_hash,
         lastProposalHash: last.transition_input.proposal_hash,
         actualProver: proof_carry_data_vec[0].transition_input.actual_prover,
         endBlockNumber: last.transition_input.checkpoint.blockNumber,
@@ -1171,7 +1162,7 @@ mod tests {
         let mk = |proposal_id: u64,
                   proposal_hash: B256,
                   parent_proposal_hash: B256,
-                  parent_checkpoint_hash: B256,
+                  parent_block_hash: B256,
                   checkpoint: Checkpoint| {
             ProofCarryData {
                 chain_id,
@@ -1180,7 +1171,7 @@ mod tests {
                     proposal_id,
                     proposal_hash,
                     parent_proposal_hash,
-                    parent_checkpoint_hash,
+                    parent_block_hash,
                     // Not relevant for these checks
                     actual_prover: address!("1111111111111111111111111111111111111111"),
                     transition: ShastaTransitionInput {
