@@ -699,14 +699,10 @@ pub struct ShastaInputRequestEntity {
     blob_proof_type: BlobProofType,
     /// l2 blocks
     l2_blocks: Vec<u64>,
-    /// parent transition hash
-    parent_transition_hash: B256,
     /// checkpoint
     checkpoint: Option<ShastaProposalCheckpoint>,
     /// last anchor block number
     last_anchor_block_number: u64,
-    /// L1 block number when the bond proposal was made (used to parse bond_proposal_hash)
-    l1_bond_proposal_block_number: Option<u64>,
 }
 
 impl ShastaInputRequestEntity {
@@ -718,10 +714,8 @@ impl ShastaInputRequestEntity {
         actual_prover: Address,
         blob_proof_type: BlobProofType,
         l2_blocks: Vec<u64>,
-        parent_transition_hash: B256,
         checkpoint: Option<ShastaProposalCheckpoint>,
         last_anchor_block_number: u64,
-        l1_bond_proposal_block_number: Option<u64>,
     ) -> Self {
         Self {
             proposal_id,
@@ -731,10 +725,8 @@ impl ShastaInputRequestEntity {
             actual_prover,
             blob_proof_type,
             l2_blocks,
-            parent_transition_hash,
             checkpoint,
             last_anchor_block_number,
-            l1_bond_proposal_block_number,
         }
     }
 }
@@ -821,7 +813,6 @@ impl ShastaProofRequestEntity {
         blob_proof_type: BlobProofType,
         l2_blocks: Vec<u64>,
         prover_args: HashMap<String, serde_json::Value>,
-        parent_transition_hash: B256,
         checkpoint: Option<ShastaProposalCheckpoint>,
         last_anchor_block_number: u64,
     ) -> Self {
@@ -834,10 +825,8 @@ impl ShastaProofRequestEntity {
                 actual_prover,
                 blob_proof_type,
                 l2_blocks,
-                parent_transition_hash,
                 checkpoint,
                 last_anchor_block_number,
-                None, // l1_bond_proposal_block_number - will be set when creating from ShastaProposal
             ),
             proof_type,
             prover_args,
