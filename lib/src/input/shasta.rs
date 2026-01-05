@@ -89,8 +89,8 @@ sol! {
     struct Commitment {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
-        /// @notice The checkpoint hash of the parent of the first proposal, this is used
-        /// to verify checkpoint continuity in the proof.
+        /// @notice The block hash of the parent of the first proposal, this is used
+        /// to verify block continuity in the proof.
         bytes32 firstProposalParentBlockHash;
         /// @notice The hash of the last proposal being proven.
         bytes32 lastProposalHash;

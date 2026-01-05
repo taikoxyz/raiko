@@ -180,7 +180,7 @@ impl Prover for NativeProver {
             firstProposalId: first_proposal_data.transition_input.proposal_id,
             firstProposalParentBlockHash: first_proposal_data
                 .transition_input
-                .parent_checkpoint_hash,
+                .parent_block_hash,
             lastProposalHash: last_proposal_data.transition_input.proposal_hash,
             endBlockNumber: last_proposal_data.transition_input.checkpoint.blockNumber,
             endStateRoot: last_proposal_data.transition_input.checkpoint.stateRoot,

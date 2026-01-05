@@ -47,7 +47,7 @@ pub struct TransitionInputData {
     pub proposal_id: u64,
     pub proposal_hash: B256,
     pub parent_proposal_hash: B256,
-    pub parent_checkpoint_hash: B256,
+    pub parent_block_hash: B256,
     pub actual_prover: Address,
     pub transition: ShastaTransitionInput,
     pub checkpoint: Checkpoint,
@@ -176,11 +176,7 @@ pub trait Prover {
                 proposal_id: input.taiko.batch_id,
                 proposal_hash: input.taiko.batch_proposed.proposal_hash(),
                 parent_proposal_hash: input.taiko.batch_proposed.parent_proposal_hash(),
-                parent_checkpoint_hash: hash_checkpoint(&Checkpoint {
-                    blockNumber: input.inputs.first().unwrap().parent_header.number,
-                    blockHash: input.inputs.first().unwrap().parent_header.hash_slow(),
-                    stateRoot: input.inputs.first().unwrap().parent_header.state_root,
-                }),
+                parent_block_hash: input.inputs.first().unwrap().parent_header.hash_slow(),
                 actual_prover: input.taiko.prover_data.actual_prover,
                 transition: ShastaTransitionInput {
                     proposer: input.taiko.batch_proposed.proposer(),
