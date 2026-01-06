@@ -20,7 +20,7 @@ use crate::{
         GuestInput, ShastaRawAggregationGuestInput, Transition,
     },
     libhash::{
-        hash_checkpoint, hash_commitment, hash_proposal, hash_public_input,
+        hash_commitment, hash_proposal, hash_public_input,
         hash_shasta_subproof_input, hash_two_values,
     },
     primitives::{
@@ -949,7 +949,6 @@ pub fn build_shasta_commitment_from_proof_carry_data_vec(
         .iter()
         .map(|item| crate::input::shasta::Transition {
             proposer: item.transition_input.transition.proposer,
-            designatedProver: item.transition_input.transition.proposer,
             timestamp: item.transition_input.transition.timestamp,
             blockHash: item.transition_input.checkpoint.blockHash,
         })

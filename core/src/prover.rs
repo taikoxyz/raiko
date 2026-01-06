@@ -155,7 +155,6 @@ impl Prover for NativeProver {
             );
             transitions.push(ShastaTransition {
                 proposer: proof_carry_data.transition_input.transition.proposer,
-                designatedProver: proof_carry_data.transition_input.transition.proposer,
                 timestamp: proof_carry_data.transition_input.transition.timestamp,
                 blockHash: proof_carry_data.transition_input.checkpoint.blockHash,
             });

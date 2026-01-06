@@ -76,8 +76,6 @@ sol! {
     struct Transition {
         /// @notice Address of the proposer.
         address proposer;
-        /// @notice Address of the designated prover.
-        address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
         /// @notice end block hash for the proposal.
