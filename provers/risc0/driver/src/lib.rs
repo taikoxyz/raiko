@@ -14,11 +14,13 @@ use raiko_lib::{
         GuestInput, GuestOutput, ShastaAggregationGuestInput, ShastaRisc0AggregationGuestInput,
         ZkAggregationGuestInput,
     },
+    libhash::hash_shasta_subproof_input,
     proof_type::ProofType,
     prover::{
         IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
         ProverResult,
     },
+    protocol_instance::validate_shasta_proof_carry_data_vec,
 };
 use risc0_zkvm::{
     compute_image_id, default_prover,
@@ -284,11 +286,6 @@ impl Prover for Risc0Prover {
                 receipt
             })
             .collect::<Vec<_>>();
-        let block_inputs: Vec<B256> = input
-            .proofs
-            .iter()
-            .map(|proof| proof.input.unwrap())
-            .collect::<Vec<_>>();
         let proof_carry_data_vec: Vec<ProofCarryData> = input
             .proofs
             .iter()
@@ -298,6 +295,7 @@ impl Prover for Risc0Prover {
                     .ok_or_else(|| ProverError::GuestError("missing shasta proof carry data".into()))
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let block_inputs = build_shasta_block_inputs(&input.proofs, &proof_carry_data_vec)?;
 
         let input_proof_hex_str = input.proofs[0].proof.as_ref().unwrap();
         let input_proof_bytes = hex::decode(&input_proof_hex_str[2..]).unwrap();
@@ -361,6 +359,38 @@ impl Prover for Risc0Prover {
     fn proof_type(&self) -> ProofType {
         ProofType::Risc0
     }
+}
+
+fn build_shasta_block_inputs(
+    proofs: &[Proof],
+    proof_carry_data_vec: &[ProofCarryData],
+) -> ProverResult<Vec<B256>> {
+    if proofs.len() != proof_carry_data_vec.len() {
+        return Err(ProverError::GuestError(
+            "shasta proofs length mismatch with carry data".to_string(),
+        ));
+    }
+    if !validate_shasta_proof_carry_data_vec(proof_carry_data_vec) {
+        return Err(ProverError::GuestError(
+            "invalid shasta proof carry data".to_string(),
+        ));
+    }
+
+    let mut block_inputs = Vec::with_capacity(proofs.len());
+    for (idx, (proof, carry)) in proofs.iter().zip(proof_carry_data_vec).enumerate() {
+        let proof_input = proof
+            .input
+            .ok_or_else(|| ProverError::GuestError("missing shasta proof public input".into()))?;
+        let expected = hash_shasta_subproof_input(carry);
+        if proof_input != expected {
+            return Err(ProverError::GuestError(format!(
+                "shasta proof input mismatch at index {idx}"
+            )));
+        }
+        block_inputs.push(proof_input);
+    }
+
+    Ok(block_inputs)
 }
 
 #[cfg(test)]

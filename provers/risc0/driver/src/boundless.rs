@@ -17,18 +17,23 @@ use raiko_lib::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
+    libhash::hash_shasta_subproof_input,
     primitives::keccak::keccak,
     proof_type::ProofType,
     prover::{
         IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
         ProverResult,
     },
+    protocol_instance::validate_shasta_proof_carry_data_vec,
 };
 use risc0_zkvm::{compute_image_id, sha::Digestible, Digest, Receipt as ZkvmReceipt};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::Duration;
 use tokio::sync::Semaphore;
 use tokio::time::sleep as tokio_async_sleep;
@@ -83,9 +88,42 @@ fn load_proof(label: &str) -> Option<Risc0AgentResponse> {
         })
 }
 
+fn validate_shasta_inputs(
+    proofs: &[Proof],
+    proof_carry_data_vec: &[ProofCarryData],
+) -> ProverResult<()> {
+    if proofs.len() != proof_carry_data_vec.len() {
+        return Err(ProverError::GuestError(
+            "shasta proofs length mismatch with carry data".to_string(),
+        ));
+    }
+    if !validate_shasta_proof_carry_data_vec(proof_carry_data_vec) {
+        return Err(ProverError::GuestError(
+            "invalid shasta proof carry data".to_string(),
+        ));
+    }
+
+    for (idx, (proof, carry)) in proofs.iter().zip(proof_carry_data_vec).enumerate() {
+        let proof_input = proof
+            .input
+            .ok_or_else(|| ProverError::GuestError("missing shasta proof public input".into()))?;
+        let expected = hash_shasta_subproof_input(carry);
+        if proof_input != expected {
+            return Err(ProverError::GuestError(format!(
+                "shasta proof input mismatch at index {idx}"
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 fn agent_auth_error(status: reqwest::StatusCode) -> Option<String> {
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
-        Some("Boundless agent rejected API key (missing or invalid). Set BOUNDLESS_AGENT_API_KEY.".to_string())
+        Some(
+            "Boundless agent rejected API key (missing or invalid). Set RAIKO_AGENT_API_KEY."
+                .to_string(),
+        )
     } else {
         None
     }
@@ -166,6 +204,7 @@ pub struct BoundlessProver {
     request_semaphore: Arc<Semaphore>,
     config: BoundlessProverConfig,
     images_uploaded: Arc<tokio::sync::RwLock<ImagesUploaded>>,
+    auth_checked: AtomicBool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -188,9 +227,10 @@ struct ImagesUploaded {
 
 impl BoundlessProver {
     pub fn new() -> Self {
-        let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
-            .unwrap_or_else(|_| "http://18.180.248.1:9997/proof".to_string());
-        let api_key = std::env::var("BOUNDLESS_AGENT_API_KEY").ok();
+        let remote_prover_url = std::env::var("RAIKO_AGENT_URL")
+            .unwrap_or_else(|_| "http://localhost:9999/proof".to_string());
+        let api_key = std::env::var("RAIKO_AGENT_API_KEY")
+            .ok();
         let api_key = api_key.filter(|key| !key.is_empty());
 
         let config = BoundlessProverConfig::from_env();
@@ -201,6 +241,7 @@ impl BoundlessProver {
             request_semaphore: Arc::new(Semaphore::new(config.request_concurrency_limit)),
             config,
             images_uploaded: Arc::new(tokio::sync::RwLock::new(ImagesUploaded::default())),
+            auth_checked: AtomicBool::new(false),
         }
     }
 
@@ -209,6 +250,45 @@ impl BoundlessProver {
             Some(key) if !key.is_empty() => builder.header("x-api-key", key),
             _ => builder,
         }
+    }
+
+    /// Preflight auth to surface missing or invalid API keys before large uploads.
+    async fn preflight_agent_auth(&self) -> ProverResult<()> {
+        if self.auth_checked.load(Ordering::Acquire) {
+            return Ok(());
+        }
+
+        let base_url = self.remote_prover_url.trim_end_matches("/proof");
+        let info_url = format!("{}/images", base_url);
+
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(self.config.http_connect_timeout_secs))
+            .timeout(Duration::from_secs(self.config.http_timeout_secs))
+            .build()
+            .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
+
+        let resp = self
+            .with_api_key(client.get(&info_url))
+            .send()
+            .await
+            .map_err(|e| {
+                ProverError::GuestError(format!("Failed to query agent auth preflight: {e}"))
+            })?;
+
+        if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
+            let status = resp.status();
+            let error_text = resp.text().await.unwrap_or_default();
+            return Err(ProverError::GuestError(format!(
+                "Boundless agent auth preflight failed with status {}: {}",
+                status, error_text
+            )));
+        }
+
+        self.auth_checked.store(true, Ordering::Release);
+        Ok(())
     }
 
     /// Check if required images are present on the agent.
@@ -243,12 +323,39 @@ impl BoundlessProver {
             ProverError::GuestError(format!("Failed to parse images response: {e}"))
         })?;
 
+        let extract_image_id =
+            |root: &serde_json::Value, key: &str| -> Option<Vec<u32>> {
+                root.get(key)
+                    .and_then(|entry| entry.get("image_id"))
+                    .and_then(|id| serde_json::from_value::<Vec<u32>>(id.clone()).ok())
+            };
+
+        let (batch_id, agg_id) = if let Some(provers) =
+            resp_json.get("provers").and_then(|v| v.as_array())
+        {
+            let boundless = provers.iter().find(|entry| {
+                entry
+                    .get("prover_type")
+                    .and_then(|v| v.as_str())
+                    == Some("boundless")
+            });
+            if let Some(boundless) = boundless {
+                (
+                    extract_image_id(boundless, "batch"),
+                    extract_image_id(boundless, "aggregation"),
+                )
+            } else {
+                (None, None)
+            }
+        } else {
+            (
+                extract_image_id(&resp_json, "batch"),
+                extract_image_id(&resp_json, "aggregation"),
+            )
+        };
+
         let batch_ok = if let Some(expected) = expected_batch {
-            let image_id = resp_json
-                .get("batch")
-                .and_then(|b| b.get("image_id"))
-                .and_then(|id| serde_json::from_value::<Vec<u32>>(id.clone()).ok());
-            image_id
+            batch_id
                 .map(|id| id == expected.to_vec())
                 .unwrap_or(false)
         } else {
@@ -256,11 +363,7 @@ impl BoundlessProver {
         };
 
         let agg_ok = if let Some(expected) = expected_agg {
-            let image_id = resp_json
-                .get("aggregation")
-                .and_then(|a| a.get("image_id"))
-                .and_then(|id| serde_json::from_value::<Vec<u32>>(id.clone()).ok());
-            image_id
+            agg_id
                 .map(|id| id == expected.to_vec())
                 .unwrap_or(false)
         } else {
@@ -358,8 +461,10 @@ impl BoundlessProver {
         elf_bytes: &[u8],
         expected_image_id: [u32; 8],
     ) -> ProverResult<()> {
+        self.preflight_agent_auth().await?;
+
         let base_url = self.remote_prover_url.trim_end_matches("/proof");
-        let upload_url = format!("{}/upload-image/{}", base_url, image_type);
+        let upload_url = format!("{}/upload-image/boundless/{}", base_url, image_type);
 
         tracing::info!(
             "Uploading {} image: {:.2} MB",
@@ -536,6 +641,7 @@ async fn wait_boundless_proof(
         let display_id = if status == "submitted" || status == "in_progress" || status == "completed" {
             res.get("market_request_id")
                 .and_then(|v| v.as_str())
+                .or_else(|| res.get("provider_request_id").and_then(|v| v.as_str()))
                 .map(|id| format!("market order {}", id))
                 .unwrap_or_else(|| format!("request {}", request_id))
         } else {
@@ -713,6 +819,7 @@ impl Prover for BoundlessProver {
             raiko_lib::protocol_instance::aggregation_output(program, public_inputs);
 
         let payload = json!({
+            "prover_type": "boundless",
             "input": agent_input_bytes,
             "proof_type": "Aggregate",
             "output": expected_output,
@@ -870,6 +977,7 @@ impl Prover for BoundlessProver {
                 })
             })
             .collect::<ProverResult<Vec<_>>>()?;
+        validate_shasta_inputs(&input.proofs, &proof_carry_data_vec)?;
 
         let agent_input = BoundlessShastaAggregationGuestInput {
             image_id: input_proof_image_id,
@@ -957,6 +1065,7 @@ impl Prover for BoundlessProver {
         let expected_output: Vec<u8> = expected_output_bytes.to_vec();
 
         let payload = serde_json::json!({
+            "prover_type": "boundless",
             "input": agent_input_bytes,
             "proof_type": "Aggregate",
             "output": expected_output,
@@ -1118,6 +1227,7 @@ impl Prover for BoundlessProver {
         output_hash_vec.extend_from_slice(output_hash_bytes);
 
         let payload = serde_json::json!({
+            "prover_type": "boundless",
             "input": input_bytes,
             "proof_type": "Batch",
             "output": output_hash_vec,

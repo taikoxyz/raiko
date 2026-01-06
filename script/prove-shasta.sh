@@ -102,9 +102,9 @@ elif [ "$proof" == "sp1" ]; then
     "proof_type": "sp1",
     "blob_proof_type": "proof_of_equivalence",
 	"sp1": {
-	    "recursion": "compressed",
-        "prover": "mock",
-        "verify": false
+	    "recursion": "plonk",
+        "prover": "network",
+        "verify": true
 	}
   '
 elif [ "$proof" == "sp1-aggregation" ]; then
