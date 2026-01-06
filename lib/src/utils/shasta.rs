@@ -11,6 +11,28 @@ use crate::no_std::*;
 use crate::utils::blobs::{decode_blob_data, zlib_decompress_data};
 use crate::utils::shasta_rules::*;
 
+fn make_default_manifest(
+    guest_batch_input: &GuestBatchInput,
+    last_parent_block_timestamp: u64,
+    last_parent_block_gas_limit: u64,
+    last_anchor_block_number: u64,
+) -> DerivationSourceManifest {
+    let taiko_guest_batch_input = &guest_batch_input.taiko;
+    let proposal_timestamp = taiko_guest_batch_input.batch_proposed.proposal_timestamp();
+    let timestamp = clamp_timestamp_lower_bound(last_parent_block_timestamp, proposal_timestamp);
+    let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
+    let anchor_block_number = last_anchor_block_number;
+    let gas_limit = last_parent_block_gas_limit;
+    let transactions = Vec::new();
+    DerivationSourceManifest::default_block_manifest(
+        timestamp,
+        coinbase,
+        anchor_block_number,
+        gas_limit - ANCHOR_V4_GAS_LIMIT,
+        transactions,
+    )
+}
+
 /// concat blob & decode a whole txlist, then
 /// each block will get a portion of the txlist by its tx_nums
 pub fn generate_transactions_for_shasta_blocks(
@@ -89,26 +111,23 @@ pub fn generate_transactions_for_shasta_blocks(
                             is_first_shasta_proposal,
                         ) {
                             warn!("shasta block base fee is invalid, need double check");
+                            make_default_manifest(
+                                guest_batch_input,
+                                last_parent_block_timestamp,
+                                last_parent_block_gas_limit,
+                                last_anchor_block_number,
+                            )
+                        } else {
+                            manifest
                         }
-
-                        manifest
                     }
                     _ => {
                         warn!("shasta block manifest is invalid, use default manifest");
-                        let timestamp = clamp_timestamp_lower_bound(
+                        make_default_manifest(
+                            guest_batch_input,
                             last_parent_block_timestamp,
-                            taiko_guest_batch_input.batch_proposed.proposal_timestamp(),
-                        );
-                        let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
-                        let anchor_block_number = last_anchor_block_number;
-                        let gas_limit = last_parent_block_gas_limit;
-                        let transactions = Vec::new();
-                        DerivationSourceManifest::default_block_manifest(
-                            timestamp,
-                            coinbase,
-                            anchor_block_number,
-                            gas_limit - ANCHOR_V4_GAS_LIMIT,
-                            transactions,
+                            last_parent_block_gas_limit,
+                            last_anchor_block_number,
                         )
                     }
                 };
@@ -143,22 +162,15 @@ pub fn generate_transactions_for_shasta_blocks(
                         manifest
                     }
                     _ => {
-                        let timestamp = clamp_timestamp_lower_bound(
+                        let manifest = make_default_manifest(
+                            guest_batch_input,
                             last_parent_block_timestamp,
-                            taiko_guest_batch_input.batch_proposed.proposal_timestamp(),
+                            last_parent_block_gas_limit,
+                            last_anchor_block_number,
                         );
-                        last_parent_block_timestamp = timestamp;
-                        let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
-                        let anchor_block_number = last_anchor_block_number;
-                        let gas_limit = last_parent_block_gas_limit;
-                        let transactions = Vec::new();
-                        DerivationSourceManifest::default_block_manifest(
-                            timestamp,
-                            coinbase,
-                            anchor_block_number,
-                            gas_limit - ANCHOR_V4_GAS_LIMIT,
-                            transactions,
-                        )
+                        // update last parent block timestamp
+                        last_parent_block_timestamp = manifest.blocks[0].timestamp;
+                        manifest
                     }
                 };
             // force inc has only 1 block
