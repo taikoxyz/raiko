@@ -7,7 +7,6 @@ use crate::{
         shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, GuestBatchInput,
         GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
-    libhash::hash_checkpoint,
     proof_type::ProofType,
 };
 

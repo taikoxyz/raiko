@@ -171,12 +171,10 @@ pub fn hash_commitment(commitment: &Commitment) -> B256 {
     // [8] transitions array length
     buffer.push(U256::from(transitions_len as u64).into());
 
-    // Each transition: [proposer, designatedProver, timestamp, blockHash]
+    // Each transition: [proposer, timestamp, blockHash]
     for transition in &commitment.transitions {
         // proposer: address (uint160, left padded to 32 bytes)
         buffer.push(address_to_b256(transition.proposer));
-        // designatedProver: address
-        buffer.push(address_to_b256(transition.designatedProver));
         // timestamp: as 256 bits (Solidity stores as uint256)
         buffer.push(U256::from(transition.timestamp).into());
         // blockHash (matches Solidity's .blockHash field naming and usage)
