@@ -113,23 +113,9 @@ build_guest_programs() {
 
 # Build the agent service
 build_agent() {
-    log "Building ZISK agent service..."
-    
-    cd "$SCRIPT_DIR"
-    
-    # Set CC to clang for ZISK compilation and clear RISC-V related environment variables
-    export CC=clang
-    unset TARGET_CC
-    
-    # Build the agent binary (now in workspace)
-    cargo build --release -p zisk-agent-service
-    
-    if [ -f "target/release/zisk-agent" ]; then
-        log "Agent service built successfully: target/release/zisk-agent"
-    else
-        error "Failed to build agent service"
-        exit 1
-    fi
+    warn "zisk-agent-service is deprecated and replaced by raiko-agent."
+    warn "Use the raiko-agent repository for the HTTP service."
+    exit 1
 }
 
 # Build the driver
@@ -185,10 +171,10 @@ show_help() {
     echo ""
     echo "Commands:"
     echo "  guest     Build only guest programs (ELF files)"
-    echo "  agent     Build only agent service"
+    echo "  agent     Deprecated (use raiko-agent)"
     echo "  driver    Build only driver component"
-    echo "  workspace Build workspace components (agent + driver)"
-    echo "  all       Build everything (guest + workspace) (default)"
+    echo "  workspace Build workspace components (driver only)"
+    echo "  all       Build everything (guest + driver) (default)"
     echo "  clean     Clean build artifacts"
     echo "  check     Check toolchain and dependencies"
     echo "  help      Show this help message"
@@ -235,13 +221,12 @@ main() {
             build_driver
             ;;
         workspace)
-            build_agent
+            warn "Skipping deprecated zisk-agent-service build."
             build_driver
             ;;
         all)
             check_dependencies
             build_guest_programs
-            build_agent
             build_driver
             ;;
         clean)

@@ -4,13 +4,23 @@ pub use raiko_lib::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput, ShastaAggregationGuestInput, ZkAggregationGuestInput,
     },
-    prover::Proof,
+    prover::{Proof, ProofCarryData},
 };
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256};
+use serde::{Deserialize, Serialize};
 use raiko_lib::prover::ProverError as RaikoProverError;
 
 // This must match raiko-lib's ProofKey exactly
 pub type ProofKey = (u64, u64, B256, u8);
+
+/// Aggregation input for Zisk shasta mode (pre-processed on Raiko side).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ShastaZiskAggregationGuestInput {
+    pub image_id: [u32; 8],
+    pub block_inputs: Vec<B256>,
+    pub proof_carry_data_vec: Vec<ProofCarryData>,
+    pub prover_address: Address,
+}
 
 // Traits - simplified but compatible
 #[async_trait::async_trait]

@@ -3,9 +3,9 @@
 # Any error will result in failure
 set -e
 
-# ZISK Agent Mode: ZISK runs as an isolated microservice agent
-# - Completely isolated from SP1/RISC0 dependencies 
-# - Agent runs on port 9998 by default
+# ZISK Agent Mode: ZISK runs via raiko-agent (microservice)
+# - Completely isolated from SP1/RISC0 dependencies
+# - raiko-agent runs on port 9999 by default
 # - GPU support automatically enabled when CUDA toolkit is detected
 # 
 # Prerequisites for GPU support:
@@ -251,7 +251,7 @@ if [ "$1" == "zisk" ]; then
         exit 1
     fi
     
-    echo "Using consolidated ZISK agent at: $ZISK_AGENT_DIR"
+    echo "Using consolidated ZISK assets at: $ZISK_AGENT_DIR"
     
     if [ -n "${CLIPPY}" ]; then
         echo "Running clippy on ZISK agent workspace..."
@@ -262,15 +262,15 @@ if [ "$1" == "zisk" ]; then
         
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
-            echo "Building ZISK agent components..."
+            echo "Building ZISK assets (guest + driver)..."
             
             # Use the agent's build script for proper dependency management
             if [ -n "${GUEST}" ]; then
                 echo "Building ZISK guest programs only..."
                 (cd "$ZISK_AGENT_DIR" && ./build.sh guest)
             else
-                # Build everything: guest programs + agent service + driver
-                echo "Building full ZISK agent system..."
+                # Build everything: guest programs + driver (agent service is deprecated)
+                echo "Building full ZISK asset set (guest + driver)..."
                 (cd "$ZISK_AGENT_DIR" && ./build.sh all)
                 
                 # Build main raiko components with ZISK support
@@ -289,14 +289,12 @@ if [ "$1" == "zisk" ]; then
         # RUN mode - can run agent or main raiko
         if [ -z "${TEST}" ]; then
             if [ -n "${ZISK_AGENT}" ]; then
-                echo "Starting ZISK agent service..."
-                echo "Agent will be available at http://localhost:9998"
-                echo "Health check: curl http://localhost:9998/health"
-                echo "Press Ctrl+C to stop"
-                (cd "$ZISK_AGENT_DIR" && ./target/release/zisk-agent ${ZISK_AGENT_ARGS})
+                echo "ZISK agent service is deprecated. Use raiko-agent instead."
+                echo "Set RAIKO_AGENT_URL (or ZISK_AGENT_URL) to http://<raiko-agent>:9999/proof"
+                exit 1
             else
                 echo "Running main Raiko with ZISK agent integration..."
-                echo "Make sure ZISK agent is running at: \$ZISK_AGENT_URL (default: http://localhost:9998/proof)"
+                echo "Make sure raiko-agent is running at: \$ZISK_AGENT_URL or \$RAIKO_AGENT_URL (default: http://localhost:9999/proof)"
                 cargo ${TOOLCHAIN_ZISK} run ${FLAGS} --features zisk
             fi
         else
@@ -308,10 +306,9 @@ if [ "$1" == "zisk" ]; then
     
     # Display helpful information
     echo ""
-    echo "=== ZISK Agent Information ==="
+    echo "=== ZISK Asset Information ==="
     echo "Agent directory: $ZISK_AGENT_DIR"
     echo "Build script:    $ZISK_AGENT_DIR/build.sh"
-    echo "Agent binary:    $ZISK_AGENT_DIR/target/release/zisk-agent"
-    echo "Default port:    9998"
+    echo "Service:         use raiko-agent (default http://localhost:9999/proof)"
     echo ""
 fi
