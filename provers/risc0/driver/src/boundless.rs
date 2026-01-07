@@ -17,18 +17,23 @@ use raiko_lib::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
+    libhash::hash_shasta_subproof_input,
     primitives::keccak::keccak,
     proof_type::ProofType,
     prover::{
         IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
         ProverResult,
     },
+    protocol_instance::validate_shasta_proof_carry_data_vec,
 };
 use risc0_zkvm::{compute_image_id, sha::Digestible, Digest, Receipt as ZkvmReceipt};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::Duration;
 use tokio::sync::Semaphore;
 use tokio::time::sleep as tokio_async_sleep;
@@ -83,6 +88,47 @@ fn load_proof(label: &str) -> Option<Risc0AgentResponse> {
         })
 }
 
+fn validate_shasta_inputs(
+    proofs: &[Proof],
+    proof_carry_data_vec: &[ProofCarryData],
+) -> ProverResult<()> {
+    if proofs.len() != proof_carry_data_vec.len() {
+        return Err(ProverError::GuestError(
+            "shasta proofs length mismatch with carry data".to_string(),
+        ));
+    }
+    if !validate_shasta_proof_carry_data_vec(proof_carry_data_vec) {
+        return Err(ProverError::GuestError(
+            "invalid shasta proof carry data".to_string(),
+        ));
+    }
+
+    for (idx, (proof, carry)) in proofs.iter().zip(proof_carry_data_vec).enumerate() {
+        let proof_input = proof
+            .input
+            .ok_or_else(|| ProverError::GuestError("missing shasta proof public input".into()))?;
+        let expected = hash_shasta_subproof_input(carry);
+        if proof_input != expected {
+            return Err(ProverError::GuestError(format!(
+                "shasta proof input mismatch at index {idx}"
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+fn agent_auth_error(status: reqwest::StatusCode) -> Option<String> {
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        Some(
+            "Boundless agent rejected API key (missing or invalid). Set RAIKO_AGENT_API_KEY."
+                .to_string(),
+        )
+    } else {
+        None
+    }
+}
+
 pub struct BoundlessProverConfig {
     /// Maximum number of concurrent HTTP requests to the agent
     pub request_concurrency_limit: usize,
@@ -107,7 +153,7 @@ impl Default for BoundlessProverConfig {
             status_poll_interval_secs: 15,
             max_proof_timeout_secs: 3600, // 1 hour
             max_status_retries: 8,
-            status_retry_delay_secs: 5,
+            status_retry_delay_secs: 15,
             http_connect_timeout_secs: 10,
             http_timeout_secs: 60,
         }
@@ -154,9 +200,11 @@ impl BoundlessProverConfig {
 
 pub struct BoundlessProver {
     remote_prover_url: String,
+    api_key: Option<String>,
     request_semaphore: Arc<Semaphore>,
     config: BoundlessProverConfig,
     images_uploaded: Arc<tokio::sync::RwLock<ImagesUploaded>>,
+    auth_checked: AtomicBool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,17 +227,68 @@ struct ImagesUploaded {
 
 impl BoundlessProver {
     pub fn new() -> Self {
-        let remote_prover_url = std::env::var("BOUNDLESS_AGENT_URL")
-            .unwrap_or_else(|_| "http://18.180.248.1:9997/proof".to_string());
+        let remote_prover_url = std::env::var("RAIKO_AGENT_URL")
+            .unwrap_or_else(|_| "http://localhost:9999/proof".to_string());
+        let api_key = std::env::var("RAIKO_AGENT_API_KEY")
+            .ok();
+        let api_key = api_key.filter(|key| !key.is_empty());
 
         let config = BoundlessProverConfig::from_env();
 
         Self {
             remote_prover_url,
+            api_key,
             request_semaphore: Arc::new(Semaphore::new(config.request_concurrency_limit)),
             config,
             images_uploaded: Arc::new(tokio::sync::RwLock::new(ImagesUploaded::default())),
+            auth_checked: AtomicBool::new(false),
         }
+    }
+
+    fn with_api_key(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match self.api_key.as_deref() {
+            Some(key) if !key.is_empty() => builder.header("x-api-key", key),
+            _ => builder,
+        }
+    }
+
+    /// Preflight auth to surface missing or invalid API keys before large uploads.
+    async fn preflight_agent_auth(&self) -> ProverResult<()> {
+        if self.auth_checked.load(Ordering::Acquire) {
+            return Ok(());
+        }
+
+        let base_url = self.remote_prover_url.trim_end_matches("/proof");
+        let info_url = format!("{}/images", base_url);
+
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(self.config.http_connect_timeout_secs))
+            .timeout(Duration::from_secs(self.config.http_timeout_secs))
+            .build()
+            .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
+
+        let resp = self
+            .with_api_key(client.get(&info_url))
+            .send()
+            .await
+            .map_err(|e| {
+                ProverError::GuestError(format!("Failed to query agent auth preflight: {e}"))
+            })?;
+
+        if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
+            let status = resp.status();
+            let error_text = resp.text().await.unwrap_or_default();
+            return Err(ProverError::GuestError(format!(
+                "Boundless agent auth preflight failed with status {}: {}",
+                status, error_text
+            )));
+        }
+
+        self.auth_checked.store(true, Ordering::Release);
+        Ok(())
     }
 
     /// Check if required images are present on the agent.
@@ -207,11 +306,16 @@ impl BoundlessProver {
             .build()
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
 
-        let resp = client.get(&info_url).send().await.map_err(|e| {
-            ProverError::GuestError(format!("Failed to query agent image info: {e}"))
-        })?;
+        let resp = self
+            .with_api_key(client.get(&info_url))
+            .send()
+            .await
+            .map_err(|e| ProverError::GuestError(format!("Failed to query agent image info: {e}")))?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             return Ok(false);
         }
 
@@ -219,12 +323,39 @@ impl BoundlessProver {
             ProverError::GuestError(format!("Failed to parse images response: {e}"))
         })?;
 
+        let extract_image_id =
+            |root: &serde_json::Value, key: &str| -> Option<Vec<u32>> {
+                root.get(key)
+                    .and_then(|entry| entry.get("image_id"))
+                    .and_then(|id| serde_json::from_value::<Vec<u32>>(id.clone()).ok())
+            };
+
+        let (batch_id, agg_id) = if let Some(provers) =
+            resp_json.get("provers").and_then(|v| v.as_array())
+        {
+            let boundless = provers.iter().find(|entry| {
+                entry
+                    .get("prover_type")
+                    .and_then(|v| v.as_str())
+                    == Some("boundless")
+            });
+            if let Some(boundless) = boundless {
+                (
+                    extract_image_id(boundless, "batch"),
+                    extract_image_id(boundless, "aggregation"),
+                )
+            } else {
+                (None, None)
+            }
+        } else {
+            (
+                extract_image_id(&resp_json, "batch"),
+                extract_image_id(&resp_json, "aggregation"),
+            )
+        };
+
         let batch_ok = if let Some(expected) = expected_batch {
-            let image_id = resp_json
-                .get("batch")
-                .and_then(|b| b.get("image_id"))
-                .and_then(|id| serde_json::from_value::<Vec<u32>>(id.clone()).ok());
-            image_id
+            batch_id
                 .map(|id| id == expected.to_vec())
                 .unwrap_or(false)
         } else {
@@ -232,11 +363,7 @@ impl BoundlessProver {
         };
 
         let agg_ok = if let Some(expected) = expected_agg {
-            let image_id = resp_json
-                .get("aggregation")
-                .and_then(|a| a.get("image_id"))
-                .and_then(|id| serde_json::from_value::<Vec<u32>>(id.clone()).ok());
-            image_id
+            agg_id
                 .map(|id| id == expected.to_vec())
                 .unwrap_or(false)
         } else {
@@ -334,8 +461,10 @@ impl BoundlessProver {
         elf_bytes: &[u8],
         expected_image_id: [u32; 8],
     ) -> ProverResult<()> {
+        self.preflight_agent_auth().await?;
+
         let base_url = self.remote_prover_url.trim_end_matches("/proof");
-        let upload_url = format!("{}/upload-image/{}", base_url, image_type);
+        let upload_url = format!("{}/upload-image/boundless/{}", base_url, image_type);
 
         tracing::info!(
             "Uploading {} image: {:.2} MB",
@@ -350,7 +479,9 @@ impl BoundlessProver {
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
 
         let resp = client
-            .post(&upload_url)
+            .post(&upload_url);
+        let resp = self
+            .with_api_key(resp)
             .header("Content-Type", "application/octet-stream")
             .body(elf_bytes.to_vec())
             .send()
@@ -360,6 +491,9 @@ impl BoundlessProver {
             })?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             let status = resp.status();
             let error_text = resp.text().await.unwrap_or_default();
             return Err(ProverError::GuestError(format!(
@@ -414,6 +548,7 @@ async fn wait_boundless_proof(
     agent_base_url: &str,
     request_id: String,
     config: &BoundlessProverConfig,
+    api_key: Option<&str>,
 ) -> ProverResult<Vec<u8>> {
     tracing::info!("Waiting for boundless proof completion, polling agent status for request: {}", request_id);
 
@@ -445,7 +580,13 @@ async fn wait_boundless_proof(
                 .build()
                 .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
 
-            match client.get(&status_url).send().await {
+            let req = client.get(&status_url);
+            let req = match api_key {
+                Some(key) if !key.is_empty() => req.header("x-api-key", key),
+                _ => req,
+            };
+
+            match req.send().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         match response.json::<serde_json::Value>().await {
@@ -465,6 +606,9 @@ async fn wait_boundless_proof(
                             }
                         }
                     } else {
+                        if let Some(message) = agent_auth_error(response.status()) {
+                            return Err(ProverError::GuestError(message));
+                        }
                         if attempt == max_retries {
                             return Err(ProverError::GuestError(format!(
                                 "Boundless agent status endpoint error after {} attempts: {}", max_retries, response.status()
@@ -497,6 +641,7 @@ async fn wait_boundless_proof(
         let display_id = if status == "submitted" || status == "in_progress" || status == "completed" {
             res.get("market_request_id")
                 .and_then(|v| v.as_str())
+                .or_else(|| res.get("provider_request_id").and_then(|v| v.as_str()))
                 .map(|id| format!("market order {}", id))
                 .unwrap_or_else(|| format!("request {}", request_id))
         } else {
@@ -564,11 +709,27 @@ impl Prover for BoundlessProver {
         // self.ensure_batch_uploaded().await?;
         self.ensure_base_agg_uploaded().await?;
 
-        let batch_image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
-            ProverError::GuestError(format!("Failed to compute image ID for BOUNDLESS_BATCH_ELF: {e}"))
-        })?;
+        let input_proof_hex_str = input
+            .proofs
+            .first()
+            .and_then(|proof| proof.proof.as_ref())
+            .ok_or_else(|| {
+                ProverError::GuestError("Missing proof in aggregation input".to_string())
+            })?;
+        let input_proof_bytes = hex::decode(input_proof_hex_str.trim_start_matches("0x"))
+            .map_err(|e| ProverError::GuestError(format!("Failed to decode input proof: {e}")))?;
+        let input_image_id_bytes: [u8; 32] = input_proof_bytes
+            .get(32..64)
+            .ok_or_else(|| {
+                ProverError::GuestError("Input proof too short for image_id".to_string())
+            })?
+            .try_into()
+            .map_err(|_| {
+                ProverError::GuestError("Invalid image_id bytes in input proof".to_string())
+            })?;
+        let input_proof_image_id = Digest::from(input_image_id_bytes);
         let agent_input = Risc0AgentAggGuestInput {
-            image_id: batch_image_id,
+            image_id: input_proof_image_id,
             receipts: input
                 .proofs
                 .iter()
@@ -605,9 +766,18 @@ impl Prover for BoundlessProver {
                 agg_image_id,
                 cached_proof.seal.to_vec(),
                 journal_digest,
-            ).await.map_err(|e| ProverError::GuestError(format!("Failed to verify cached aggregation proof: {e}")))?;
-
-            let proof: Vec<u8> = (encoded_proof, B256::from_slice(agg_image_id.as_bytes()))
+            )
+            .await
+            .map_err(|e| {
+                ProverError::GuestError(format!(
+                    "Failed to verify cached aggregation proof: {e}"
+                ))
+            })?;
+            let proof: Vec<u8> = (
+                encoded_proof,
+                B256::from_slice(input_proof_image_id.as_bytes()),
+                B256::from_slice(agg_image_id.as_bytes()),
+            )
                 .abi_encode()
                 .iter()
                 .skip(32)
@@ -617,7 +787,7 @@ impl Prover for BoundlessProver {
             return Ok(Proof {
                 proof: Some(alloy_primitives::hex::encode_prefixed(proof)),
                 input: Some(B256::from_slice(journal_digest.as_bytes())),
-                quote: None,
+                quote: cached_proof.receipt,
                 uuid: None,
                 kzg_proof: None,
                 extra_data: None,
@@ -639,7 +809,7 @@ impl Prover for BoundlessProver {
             .iter()
             .map(|receipt| B256::from_slice(&receipt.journal.bytes[4..]))
             .collect();
-        let batch_image_words: [u32; 8] = batch_image_id
+        let batch_image_words: [u32; 8] = input_proof_image_id
             .as_words()
             .try_into()
             .expect("image_id should have 8 words");
@@ -649,6 +819,7 @@ impl Prover for BoundlessProver {
             raiko_lib::protocol_instance::aggregation_output(program, public_inputs);
 
         let payload = json!({
+            "prover_type": "boundless",
             "input": agent_input_bytes,
             "proof_type": "Aggregate",
             "output": expected_output,
@@ -666,7 +837,9 @@ impl Prover for BoundlessProver {
             .build()
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
         let resp = client
-            .post(&self.remote_prover_url)
+            .post(&self.remote_prover_url);
+        let resp = self
+            .with_api_key(resp)
             .json(&payload)
             .send()
             .await
@@ -675,6 +848,9 @@ impl Prover for BoundlessProver {
             })?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             return Err(ProverError::GuestError(format!(
                 "Agent returned error status: {}",
                 resp.status()
@@ -693,7 +869,13 @@ impl Prover for BoundlessProver {
             .ok_or_else(|| ProverError::GuestError("Missing request_id in agent response".to_string()))?;
 
         // Poll until completion
-        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string(), &self.config).await?;
+        let agent_proof_bytes = wait_boundless_proof(
+            &self.remote_prover_url,
+            request_id.to_string(),
+            &self.config,
+            self.api_key.as_deref(),
+        )
+        .await?;
 
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {
@@ -711,7 +893,11 @@ impl Prover for BoundlessProver {
         )
         .await
         .map_err(|e| ProverError::GuestError(format!("Failed to verify groth16 snark: {e}")))?;
-        let proof: Vec<u8> = (encoded_proof, B256::from_slice(agg_image_id.as_bytes()))
+        let proof: Vec<u8> = (
+            encoded_proof,
+            B256::from_slice(input_proof_image_id.as_bytes()),
+            B256::from_slice(agg_image_id.as_bytes()),
+        )
             .abi_encode()
             .iter()
             .skip(32)
@@ -721,7 +907,7 @@ impl Prover for BoundlessProver {
         Ok(Proof {
             proof: Some(alloy_primitives::hex::encode_prefixed(proof)),
             input: Some(B256::from_slice(journal_digest.as_bytes())),
-            quote: None,
+            quote: agent_proof.receipt,
             uuid: None,
             kzg_proof: None,
             extra_data: None,
@@ -759,12 +945,25 @@ impl Prover for BoundlessProver {
             })
             .collect::<ProverResult<Vec<_>>>()?;
 
-        // Block proofs were generated by the boundless batch ELF, so we know the image ID a priori.
-        let input_proof_image_id = compute_image_id(BOUNDLESS_BATCH_ELF).map_err(|e| {
-            ProverError::GuestError(format!(
-                "Failed to compute image ID for BOUNDLESS_BATCH_ELF: {e}"
-            ))
-        })?;
+        let input_proof_hex_str = input
+            .proofs
+            .first()
+            .and_then(|proof| proof.proof.as_ref())
+            .ok_or_else(|| {
+                ProverError::GuestError("Missing proof in shasta aggregation input".to_string())
+            })?;
+        let input_proof_bytes = hex::decode(input_proof_hex_str.trim_start_matches("0x"))
+            .map_err(|e| ProverError::GuestError(format!("Failed to decode input proof: {e}")))?;
+        let input_image_id_bytes: [u8; 32] = input_proof_bytes
+            .get(32..64)
+            .ok_or_else(|| {
+                ProverError::GuestError("Input proof too short for image_id".to_string())
+            })?
+            .try_into()
+            .map_err(|_| {
+                ProverError::GuestError("Invalid image_id bytes in input proof".to_string())
+            })?;
+        let input_proof_image_id = Digest::from(input_image_id_bytes);
 
         let proof_carry_data_vec: Vec<ProofCarryData> = input
             .proofs
@@ -778,6 +977,7 @@ impl Prover for BoundlessProver {
                 })
             })
             .collect::<ProverResult<Vec<_>>>()?;
+        validate_shasta_inputs(&input.proofs, &proof_carry_data_vec)?;
 
         let agent_input = BoundlessShastaAggregationGuestInput {
             image_id: input_proof_image_id,
@@ -821,8 +1021,11 @@ impl Prover for BoundlessProver {
                     "Failed to verify cached shasta aggregation proof: {e}"
                 ))
             })?;
-
-            let proof: Vec<u8> = (encoded_proof, B256::from_slice(agg_image_id.as_bytes()))
+            let proof: Vec<u8> = (
+                encoded_proof,
+                B256::from_slice(input_proof_image_id.as_bytes()),
+                B256::from_slice(agg_image_id.as_bytes()),
+            )
                 .abi_encode()
                 .iter()
                 .skip(32)
@@ -862,6 +1065,7 @@ impl Prover for BoundlessProver {
         let expected_output: Vec<u8> = expected_output_bytes.to_vec();
 
         let payload = serde_json::json!({
+            "prover_type": "boundless",
             "input": agent_input_bytes,
             "proof_type": "Aggregate",
             "output": expected_output,
@@ -878,7 +1082,9 @@ impl Prover for BoundlessProver {
             .build()
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
         let resp = client
-            .post(&self.remote_prover_url)
+            .post(&self.remote_prover_url);
+        let resp = self
+            .with_api_key(resp)
             .json(&payload)
             .send()
             .await
@@ -887,6 +1093,9 @@ impl Prover for BoundlessProver {
             })?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             return Err(ProverError::GuestError(format!(
                 "Agent returned error status: {}",
                 resp.status()
@@ -907,7 +1116,12 @@ impl Prover for BoundlessProver {
 
         // Poll until completion
         let agent_proof_bytes =
-            wait_boundless_proof(&self.remote_prover_url, request_id.to_string(), &self.config)
+            wait_boundless_proof(
+                &self.remote_prover_url,
+                request_id.to_string(),
+                &self.config,
+                self.api_key.as_deref(),
+            )
                 .await?;
 
         let agent_proof: Risc0AgentResponse =
@@ -928,7 +1142,11 @@ impl Prover for BoundlessProver {
         )
         .await
         .map_err(|e| ProverError::GuestError(format!("Failed to verify groth16 snark: {e}")))?;
-        let proof_bytes: Vec<u8> = (encoded_proof, B256::from_slice(agg_image_id.as_bytes()))
+        let proof_bytes: Vec<u8> = (
+            encoded_proof,
+            B256::from_slice(input_proof_image_id.as_bytes()),
+            B256::from_slice(agg_image_id.as_bytes()),
+        )
             .abi_encode()
             .iter()
             .skip(32)
@@ -1009,6 +1227,7 @@ impl Prover for BoundlessProver {
         output_hash_vec.extend_from_slice(output_hash_bytes);
 
         let payload = serde_json::json!({
+            "prover_type": "boundless",
             "input": input_bytes,
             "proof_type": "Batch",
             "output": output_hash_vec,
@@ -1026,7 +1245,9 @@ impl Prover for BoundlessProver {
             .build()
             .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
         let resp = client
-            .post(&self.remote_prover_url)
+            .post(&self.remote_prover_url);
+        let resp = self
+            .with_api_key(resp)
             .json(&payload)
             .send()
             .await
@@ -1035,6 +1256,9 @@ impl Prover for BoundlessProver {
             })?;
 
         if !resp.status().is_success() {
+            if let Some(message) = agent_auth_error(resp.status()) {
+                return Err(ProverError::GuestError(message));
+            }
             return Err(ProverError::GuestError(format!(
                 "Agent {} returned error status: {}",
                 self.remote_prover_url,
@@ -1053,7 +1277,13 @@ impl Prover for BoundlessProver {
             .ok_or_else(|| ProverError::GuestError("Missing request_id in agent response".to_string()))?;
 
         // Poll until completion
-        let agent_proof_bytes = wait_boundless_proof(&self.remote_prover_url, request_id.to_string(), &self.config).await?;
+        let agent_proof_bytes = wait_boundless_proof(
+            &self.remote_prover_url,
+            request_id.to_string(),
+            &self.config,
+            self.api_key.as_deref(),
+        )
+        .await?;
 
         let agent_proof: Risc0AgentResponse =
             bincode::deserialize(&agent_proof_bytes).map_err(|e| {

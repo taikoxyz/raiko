@@ -89,7 +89,7 @@ RUN apt-get update && apt-get install -y \
 # copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.
 COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/config.devnet.json /etc/raiko/
-COPY --from=builder /opt/raiko/host/config/config.taiko_hekla.json /etc/raiko/
+COPY --from=builder /opt/raiko/host/config/config.taiko_hoodi.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/config.taiko_mainnet.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list_default.json
 COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raiko/chain_spec_list_devnet.json
