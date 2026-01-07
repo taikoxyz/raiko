@@ -509,7 +509,6 @@ mod test {
     fn test_hash_prove_input() {
         // Setup a sample ProveInput with minimal structure to test only that hash_prove_input is called and behaves as expected.
         // This matches the test structure and dummy field values from the Solidity reference.
-
         let prove_input = Commitment {
             firstProposalId: 42,
             firstProposalParentBlockHash: b256!(
@@ -521,12 +520,19 @@ mod test {
             actualProver: address!("0000000000000000000000000000000000012345"),
             endBlockNumber: 1000,
             endStateRoot: b256!("0000000000000000000000000000000000000000000000000000000000abcdef"),
-            transitions: vec![],
+            transitions: vec![crate::input::shasta::Transition {
+                proposer: address!("0000000000000000000000000000000000001111"),
+                timestamp: 123_456_789,
+                blockHash: b256!(
+                    "0000000000000000000000000000000000000000000000000000000000003333"
+                ),
+            }],
         };
+
         let prove_input_hash = hash_commitment(&prove_input);
         assert_eq!(
             alloy_primitives::hex::encode_prefixed(prove_input_hash),
-            "0x0f1c0b0391c2617d236a059287ba55aeaa668cacfcd9abf6d537de314ae9fce8"
+            "0x079961e990a2be01ebe286ee2fdd382fde2349730971fe32a821da9dec67559e"
         );
     }
 
