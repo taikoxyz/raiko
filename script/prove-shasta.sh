@@ -144,6 +144,7 @@ elif [ "$proof" == "risc0" ]; then
     "proof_type": "risc0",
     "blob_proof_type": "proof_of_equivalence",
     "risc0": {
+        "boundless": true,
         "bonsai": false,
         "snark": true,
         "profile": true,

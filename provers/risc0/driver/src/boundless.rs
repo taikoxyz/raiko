@@ -17,14 +17,16 @@ use raiko_lib::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
-    libhash::hash_shasta_subproof_input,
+    libhash::{hash_commitment, hash_shasta_subproof_input},
     primitives::keccak::keccak,
     proof_type::ProofType,
     prover::{
         IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
         ProverResult,
     },
-    protocol_instance::validate_shasta_proof_carry_data_vec,
+    protocol_instance::{
+        build_shasta_commitment_from_proof_carry_data_vec, validate_shasta_proof_carry_data_vec,
+    },
 };
 use risc0_zkvm::{compute_image_id, sha::Digestible, Digest, Receipt as ZkvmReceipt};
 use serde::{Deserialize, Serialize};
@@ -977,6 +979,12 @@ impl Prover for BoundlessProver {
             })
             .collect::<ProverResult<Vec<_>>>()?;
         validate_shasta_inputs(&input.proofs, &proof_carry_data_vec)?;
+        let commitment = build_shasta_commitment_from_proof_carry_data_vec(&proof_carry_data_vec)
+            .ok_or_else(|| {
+                ProverError::GuestError("invalid shasta proof carry data".to_string())
+            })?;
+        let prove_input_hash = hash_commitment(&commitment);
+        tracing::info!("aggregated_proving_hash (commitment hash): {prove_input_hash:?}");
 
         let agent_input = BoundlessShastaAggregationGuestInput {
             image_id: input_proof_image_id,
