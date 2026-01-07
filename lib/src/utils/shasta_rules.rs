@@ -149,7 +149,8 @@ pub(crate) fn validate_input_block_param(
     true
 }
 
-const MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD: u64 = 10;
+const BLOCK_GAS_LIMIT_MAX_CHANGE: u64 = 200;
+const GAS_LIMIT_DENOMINATOR: u64 = 1_000_000;
 const MAX_BLOCK_GAS_LIMIT: u64 = 45_000_000 + ANCHOR_V4_GAS_LIMIT;
 const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000 + ANCHOR_V4_GAS_LIMIT;
 
@@ -163,12 +164,14 @@ pub fn validate_shasta_block_gas_limit(
         let block_gas_limit: u64 = manifest_block.gas_limit + ANCHOR_V4_GAS_LIMIT;
         let upper_limit: u64 = min(
             MAX_BLOCK_GAS_LIMIT,
-            parent_gas_limit * (10000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000,
+            parent_gas_limit * (GAS_LIMIT_DENOMINATOR + BLOCK_GAS_LIMIT_MAX_CHANGE)
+                / GAS_LIMIT_DENOMINATOR,
         );
         let lower_limit = min(
             max(
                 MIN_BLOCK_GAS_LIMIT,
-                parent_gas_limit * (10000 - MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000,
+                parent_gas_limit * (GAS_LIMIT_DENOMINATOR - BLOCK_GAS_LIMIT_MAX_CHANGE)
+                    / GAS_LIMIT_DENOMINATOR,
             ),
             upper_limit,
         );
