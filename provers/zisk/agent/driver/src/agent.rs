@@ -577,7 +577,7 @@ impl ZiskAgentProver {
         let serialized_input = bincode::serialize(&input)
             .map_err(|e| ProverError::GuestError(format!("Failed to serialize GuestBatchInput: {e}")))?;
 
-        let output_bytes: Vec<u8> = output.hash.as_ref().to_vec();
+        let output_bytes: Vec<u8> = output.hash.as_slice().to_vec();
 
         let request_id = client
             .submit_request(AsyncProofRequestData {
@@ -634,7 +634,7 @@ impl ZiskAgentProver {
         let serialized_input = bincode::serialize(&zisk_input)
             .map_err(|e| ProverError::GuestError(format!("Failed to serialize aggregation input: {e}")))?;
 
-        let output_bytes: Vec<u8> = output.hash.as_ref().to_vec();
+        let output_bytes: Vec<u8> = output.hash.as_slice().to_vec();
 
         let request_id = client
             .submit_request(AsyncProofRequestData {
@@ -720,7 +720,7 @@ impl ZiskAgentProver {
         let serialized_input = bincode::serialize(&shasta_input)
             .map_err(|e| ProverError::GuestError(format!("Failed to serialize shasta input: {e}")))?;
 
-        let output_bytes: Vec<u8> = output.hash.as_ref().to_vec();
+        let output_bytes: Vec<u8> = output.hash.as_slice().to_vec();
 
         let request_id = client
             .submit_request(AsyncProofRequestData {
