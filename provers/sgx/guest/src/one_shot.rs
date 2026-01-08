@@ -19,8 +19,8 @@ use raiko_lib::{
     },
     proof_type::ProofType,
     protocol_instance::{
-        aggregation_output_combine, build_shasta_commitment_from_proof_carry_data_vec,
-        shasta_aggregation_output, validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
+        aggregation_output_combine, shasta_pcd_aggregation_hash,
+        validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
     },
 };
 use secp256k1::{Keypair, PublicKey, SecretKey};
@@ -361,24 +361,15 @@ pub async fn shasta_aggregate(
         let instance = Address::from_slice(&proof.proof.clone()[4..24]);
         assert_eq!(instance, expected_instance);
         assert_eq!(
-            recover_signer_unchecked(proof.proof[24..].try_into().unwrap(), &proof.input,)
-                .unwrap(),
+            recover_signer_unchecked(proof.proof[24..].try_into().unwrap(), &proof.input,).unwrap(),
             expected_instance,
         );
     }
 
-    let commitment = build_shasta_commitment_from_proof_carry_data_vec(&input.proof_carry_data_vec)
-        .expect("invalid shasta proof carry data for aggregation");
+    let aggregation_hash =
+        shasta_pcd_aggregation_hash(&input.proof_carry_data_vec)
+            .ok_or_else(|| anyhow!("invalid shasta proof carry data for aggregation"))?;
 
-    // The aggregator must be the same instance as the sub-proof signer.
-    assert_eq!(expected_instance, sgx_instance);
-
-    let aggregation_hash = shasta_aggregation_output(
-        &commitment,
-        input.proof_carry_data_vec[0].chain_id,
-        input.proof_carry_data_vec[0].verifier,
-        sgx_instance,
-    );
     // Sign the public aggregation hash
     let sig = sign_message(&prev_privkey, aggregation_hash.into())?;
 

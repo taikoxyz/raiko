@@ -359,7 +359,7 @@ pub fn merge(a: &mut Value, b: &Value) {
 
 #[cfg(test)]
 mod tests {
-    use crate::interfaces::aggregate_proofs;
+    use crate::interfaces::{aggregate_proofs, aggregate_shasta_proposals};
     use crate::preflight::{
         parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
     };
@@ -367,6 +367,8 @@ mod tests {
     use alloy_primitives::Address;
     use alloy_provider::Provider;
     use env_logger;
+    use raiko_lib::input::{RawProof, ShastaAggregationGuestInput, ShastaRawAggregationGuestInput};
+    use raiko_lib::protocol_instance::shasta_pcd_aggregation_hash;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
         input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType},
@@ -374,7 +376,8 @@ mod tests {
         proof_type::ProofType,
         prover::Proof,
     };
-    use reth_primitives::{address, b256};
+    use reth_primitives::{address, hex};
+    use serde::Serialize;
     use serde_json::{json, Value};
     use std::{collections::HashMap, env, str::FromStr};
     use tracing::{debug, trace};
@@ -455,14 +458,21 @@ mod tests {
             .expect("proof generation failed")
     }
 
+    fn dump_file<T: Serialize>(filename: &str, data: &T) {
+        if env::var("DUMP_FILE").unwrap_or_else(|_| "0".to_string()) == "1" {
+            let writer = std::fs::File::create(filename).expect("Unable to create file");
+            serde_json::to_writer(writer, data).expect("Unable to write data");
+        }
+    }
+
     async fn batch_prove_shasta_block(
-        l1_chain_spec: ChainSpec,
-        taiko_chain_spec: ChainSpec,
-        proof_request: ProofRequest,
+        l1_chain_spec: &ChainSpec,
+        taiko_chain_spec: &ChainSpec,
+        proof_request: &ProofRequest,
     ) -> Proof {
         let (_block_numbers, _cached_data) = parse_l1_batch_proposal_tx_for_shasta_fork(
-            &l1_chain_spec,
-            &taiko_chain_spec,
+            l1_chain_spec,
+            taiko_chain_spec,
             proof_request.l1_inclusion_block_number,
             proof_request.batch_id,
         )
@@ -479,29 +489,67 @@ mod tests {
         let mut updated_proof_request = proof_request.clone();
         updated_proof_request.l2_block_numbers = all_prove_blocks.clone();
         let raiko = Raiko::new(
-            l1_chain_spec,
-            taiko_chain_spec,
+            l1_chain_spec.clone(),
+            taiko_chain_spec.clone(),
             updated_proof_request.clone(),
         );
         let input = raiko
             .generate_batch_input(provider)
             .await
             .expect("input generation failed");
-        // let filename = format!("input-{}.json", proof_request.batch_id);
-        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
-        // serde_json::to_writer(writer, &input).expect("Unable to write data");
-        trace!("batch guest input: {input:?}");
+
+        dump_file(&format!("input-{}.json", proof_request.batch_id), &input);
+
         let output = raiko
             .get_batch_output(&input)
             .expect("output generation failed");
-        debug!("batch guest output: {output:?}");
-        // let filename = format!("output-{}.json", proof_request.batch_id);
-        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
-        // serde_json::to_writer(writer, &output).expect("Unable to write data");
+
+        dump_file(&format!("output-{}.json", proof_request.batch_id), &output);
         raiko
             .shasta_proposal_prove(input, &output, None)
             .await
             .expect("proof generation failed")
+    }
+
+    async fn aggregate_single_shasta_proof(proof_request: &ProofRequest, proof: &Proof) -> Proof {
+        let proof_type = proof_request.proof_type;
+        let input = ShastaAggregationGuestInput {
+            proofs: vec![proof.clone()],
+        };
+        let guest_input = ShastaRawAggregationGuestInput {
+            proofs: vec![RawProof {
+                input: proof.input.clone().unwrap(),
+                proof: {
+                    if proof.proof.is_some() {
+                        hex::decode(&proof.proof.clone().unwrap()[2..]).unwrap()
+                    } else {
+                        Default::default()
+                    }
+                },
+            }],
+            proof_carry_data_vec: vec![proof.extra_data.clone().unwrap()],
+        };
+        dump_file(
+            &format!("agg-input-{}.json", proof_request.batch_id),
+            &guest_input,
+        );
+
+        let aggregate_hash = shasta_pcd_aggregation_hash(
+            &guest_input.proof_carry_data_vec,
+        )
+        .expect("failed to get aggregate hash");
+        let output = AggregationGuestOutput {
+            hash: aggregate_hash,
+        };
+
+        dump_file(
+            &format!("agg-output-{}.json", proof_request.batch_id),
+            &output,
+        );
+        let config = Value::default();
+        aggregate_shasta_proposals(proof_type, input, &output, &config, None)
+            .await
+            .expect("failed to generate aggregation proof")
     }
 
     async fn batch_prove_pacaya_block(
@@ -573,9 +621,9 @@ mod tests {
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 777,
-            l1_inclusion_block_number: 4919,
-            l2_block_numbers: vec![777],
+            batch_id: 52,
+            l1_inclusion_block_number: 428,
+            l2_block_numbers: vec![52],
             network,
             graffiti: B256::ZERO,
             prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
@@ -585,10 +633,13 @@ mod tests {
             prover_args: test_proof_params(false),
             checkpoint: None,
             cached_event_data: None,
-            last_anchor_block_number: Some(4909),
+            last_anchor_block_number: Some(421),
         };
 
-        batch_prove_shasta_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
+        let proof =
+            batch_prove_shasta_block(&l1_chain_spec, &taiko_chain_spec, &proof_request).await;
+        let aggregated_proof = aggregate_single_shasta_proof(&proof_request, &proof).await;
+        println!("aggregated shasta proof: {aggregated_proof:?}");
     }
 
     #[ignore]
@@ -662,42 +713,6 @@ mod tests {
             cached_event_data: None,
         };
         batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
-    }
-
-    #[ignore = "holesky down"]
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_block_taiko_a7() {
-        env_logger::init();
-        let proof_type = get_proof_type_from_env();
-        let l1_network = Network::Holesky.to_string();
-        let network = Network::TaikoA7.to_string();
-        // Give the CI an simpler block to test because it doesn't have enough memory.
-        // Unfortunately that also means that kzg is not getting fully verified by CI.
-        let block_number = if is_ci() { 105987 } else { 101368 };
-        let taiko_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&network)
-            .unwrap();
-        let l1_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&l1_network)
-            .unwrap();
-
-        let proof_request = ProofRequest {
-            block_number,
-            batch_id: 0,
-            l1_inclusion_block_number: 0,
-            l2_block_numbers: vec![],
-            network,
-            graffiti: B256::ZERO,
-            prover: Address::ZERO,
-            l1_network,
-            proof_type,
-            blob_proof_type: BlobProofType::ProofOfEquivalence,
-            prover_args: test_proof_params(false),
-            checkpoint: None,
-            last_anchor_block_number: None,
-            cached_event_data: None,
-        };
-        prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
     }
 
     async fn get_recent_block_num(chain_spec: &ChainSpec) -> u64 {

@@ -285,7 +285,6 @@ mod tests {
             BlobProofType::ProofOfEquivalence,
             vec![1234u64],
             HashMap::new(),
-            B256::from([0u8; 32]),
             Some(ShastaProposalCheckpoint {
                 block_number: 1234u64,
                 block_hash: B256::from([0u8; 32]),

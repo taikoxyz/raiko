@@ -152,9 +152,9 @@ impl Prover for RemoteSgxProver {
     async fn shasta_aggregate(
         &self,
         input: ShastaAggregationGuestInput,
-        output: &AggregationGuestOutput,
+        _output: &AggregationGuestOutput,
         config: &ProverConfig,
-        store: Option<&mut dyn IdWrite>,
+        _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         let sgx_param =
             SgxParam::deserialize(config.get(self.proof_type.to_string()).unwrap()).unwrap();

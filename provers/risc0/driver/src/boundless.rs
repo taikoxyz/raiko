@@ -1049,10 +1049,9 @@ impl Prover for BoundlessProver {
             .expect("image_id should have 8 words");
         let sub_image_id = B256::from(raiko_lib::protocol_instance::words_to_bytes_le(&image_words));
         let expected_output_hash =
-            raiko_lib::protocol_instance::shasta_zk_aggregation_public_input_from_proof_carry_data_vec(
+            raiko_lib::protocol_instance::shasta_aggregation_hash_for_zk(
                 sub_image_id,
                 &proof_carry_data_vec,
-                Address::ZERO,
             )
             .ok_or_else(|| {
                 ProverError::GuestError(
