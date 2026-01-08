@@ -1444,7 +1444,7 @@ async def main():
         watch_mode=args.watch_event,
         time_speed=args.time_speed,
         anchor_abi_file=args.anchor_abi_file,
-        aggregate=args.aggregate or 0,
+        aggregate=args.aggregate,
     )
 
     await monitor.run()
