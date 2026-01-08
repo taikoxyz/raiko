@@ -983,7 +983,7 @@ pub fn shasta_pcd_aggregation_hash(proof_carry_data_vec: &[ProofCarryData]) -> O
         &commitment,
         first.chain_id,
         first.verifier,
-        first.transition_input.actual_prover,
+        first.sgx_instance,
     );
     Some(aggregation_hash)
 }
