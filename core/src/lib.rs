@@ -521,7 +521,8 @@ mod tests {
                 input: proof.input.clone().unwrap(),
                 proof: {
                     if proof.proof.is_some() {
-                        hex::decode(&proof.proof.clone().unwrap()[2..]).unwrap()
+                        hex::decode(&proof.proof.clone().unwrap()[2..])
+                            .expect("invalid hex data in proof.proof")
                     } else {
                         Default::default()
                     }
