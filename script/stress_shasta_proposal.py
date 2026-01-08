@@ -862,6 +862,30 @@ class BatchMonitor:
         except Exception as e:
             self.logger.error(f"Failed to query Raiko status: {e}")
             return RaikoResponse(status="error", message=str(e))
+    
+    async def query_aggregate_status(self, proposals: list[Dict[str, Any]]) -> RaikoResponse:
+        """query aggregate request status"""
+        try:
+            headers = {"x-api-key": "1", "Content-Type": "application/json"}
+            payload = self.generate_post_data(proposals, aggregate=True)
+            response = requests.post(
+                f"{self.raiko_rpc}/v3/proof/batch/shasta",
+                headers=headers,
+                json=payload,
+                timeout=10,
+            )
+            result = response.json()
+            if result.get("status") == "error":
+                return RaikoResponse(
+                    status="error", message=result.get("message", "Unknown error")
+                )
+            elif result.get("status") == "ok":
+                return RaikoResponse(status="ok", data=result.get("data", {}))
+            else:
+                return RaikoResponse(status="error", message="Invalid response format")
+        except Exception as e:
+            self.logger.error(f"Failed to query aggregate status: {e}")
+            return RaikoResponse(status="error", message=str(e))
 
     async def process_proposal_group(self, group: ProposalGroup, l1_inclusion_block: int):
         """handle new proposal group"""
