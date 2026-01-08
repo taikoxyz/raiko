@@ -9,7 +9,7 @@ use crate::{
     snarks::verify_boundless_groth16_snark_impl,
     Risc0Response,
 };
-use alloy_primitives::{Address, B256};
+use alloy_primitives::B256;
 use alloy_sol_types::SolValue;
 use hex;
 use raiko_lib::{
@@ -49,7 +49,6 @@ pub struct BoundlessShastaAggregationGuestInput {
     pub image_id: Digest,
     pub receipts: Vec<ZkvmReceipt>,
     pub proof_carry_data_vec: Vec<ProofCarryData>,
-    pub prover_address: Address,
 }
 
 // share with agent, need a unified place for this
@@ -983,7 +982,6 @@ impl Prover for BoundlessProver {
             image_id: input_proof_image_id,
             receipts: receipts.clone(),
             proof_carry_data_vec: proof_carry_data_vec.clone(),
-            prover_address: Address::ZERO,
         };
 
         // Bincode-encode for the boundless guest which reads a framed buffer.

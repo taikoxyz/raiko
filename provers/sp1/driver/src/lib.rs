@@ -17,7 +17,7 @@ use raiko_lib::{
     protocol_instance::validate_shasta_proof_carry_data_vec,
     Measurement,
 };
-use reth_primitives::{Address, B256};
+use reth_primitives::B256;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sp1_prover::{components::CpuProverComponents, Groth16Bn254Proof};
@@ -492,7 +492,6 @@ impl Prover for Sp1Prover {
             image_id,
             block_inputs,
             proof_carry_data_vec,
-            prover_address: Address::ZERO,
         };
 
         let mut stdin = SP1Stdin::new();
